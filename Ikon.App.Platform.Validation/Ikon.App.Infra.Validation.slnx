@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/Config/">
+    <File Path="ikon-config.development.toml" />
+    <File Path="ikon-config.production.toml" />
+  </Folder>
+  <Folder Name="/App/">
+    <Project Path="app/Ikon.App.Infra.Validation/Ikon.App.Infra.Validation.csproj" />
+  </Folder>
+  <Folder Name="/Frontend/">
+    <Project Path="frontend-node/Ikon.App.Infra.Validation.Frontend.Node.csproj" />
+  </Folder>
+</Solution>
