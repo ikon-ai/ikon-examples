@@ -36,12 +36,11 @@ view.Button([Button.GhostMd, Button.Size.Icon], onClick: async () => { ... },
     content: v => v.Icon([Icon.Default], name: "settings"));
 view.TextField([Input.Default], placeholder: "Enter text", value: _text.Value,
     onValueChange: async v => _text.Value = v,
-    onSubmit: async () => { await HandleSubmit(); },   // Fires on Enter key
-    clearOnSubmit: true);                               // Clears input after submit
+    onSubmit: async () => { await HandleSubmit(); });  // Enter submits; input auto-clears after submit
 view.TextArea([Input.Default, "min-h-[100px]"], placeholder: "Type a message...", value: _text.Value,
     onValueChange: async v => _text.Value = v,
-    onSubmit: async () => { await HandleSubmit(); },   // Fires on Ctrl+Enter (or Cmd+Enter)
-    clearOnSubmit: true);                               // Clears input after submit
+    onSubmit: async () => { await HandleSubmit(); });  // Ctrl+Enter submits; input auto-clears after submit
+// Note: clearOnSubmit defaults to true when onSubmit is set. Pass clearOnSubmit: false to keep the value.
 view.Checkbox([Checkbox.Default], checked: _checked.Value,
     onCheckedChange: async v => _checked.Value = v ?? false);
 view.Switch([Switch.Default], checked: _enabled.Value,
@@ -342,6 +341,7 @@ namespace Ikon.Parallax
     string ContentFingerprint { get; }
     string Id { get; }
     int IdHash { get; }
+    static bool IncludeSourceMarkers { get;  set; }
     Dictionary<string, object> Props { get; }
     string SourceMarker { get; }
     string StableHint { get; }

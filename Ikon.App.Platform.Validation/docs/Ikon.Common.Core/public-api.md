@@ -399,6 +399,8 @@ namespace Ikon.Common.Core
     Task<List<IkonBackend.Plugin>> GetPluginsAsync(string spaceId, int maxResults = 1000)
     Task<IkonBackend.Profile> GetProfileAsync(string spaceId, string userId)
     Task<List<IkonBackend.Profile>> GetProfilesAsync(string spaceId, int maxResults = 1000)
+    Task<List<string>> GetReleaseNoteVersions(string target)
+    Task<List<IkonBackend.ReleaseNoteEntry>> GetReleaseNotes(string target, string minVersion = null, int maxResults = 100)
     Task<Dictionary<string, string>> GetSecretsAsync(string spaceId)
     Task<IkonBackend.SpaceApiKey> GetSpaceApiKeyAsync(string id)
     Task<List<IkonBackend.SpaceApiKey>> GetSpaceApiKeysAsync(string spaceId, int maxResults = 1000)
@@ -747,6 +749,14 @@ namespace Ikon.Common.Core
     IEnumerable<Context> GetUniqueAuthClientContexts()
     IEnumerable<Context> GetUniqueHumanAuthClientContexts()
     void UpdateFrom(GlobalState newState)
+  class IkonBackend.ReleaseNoteEntry
+    ctor()
+    string Content { get;  set; }
+    string Target { get;  set; }
+    string Version { get;  set; }
+  class IkonBackend.ReleaseNoteVersionsResponse
+    ctor()
+    List<string> Results { get;  set; }
   class IkonBackend.RequestChannelRequest
     ctor()
     string Hash { get;  set; }
@@ -1813,6 +1823,16 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     static ActionFunctionEnumerationItem ReadFromTeleport(ReadOnlySpan<byte> data)
     static ActionFunctionEnumerationItem ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionEnumerationItem destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class ActionFunctionEnumerationItemBatch : IProtocolMessagePayload
+    ctor()
+    ctor(List<ActionFunctionEnumerationItem> items)
+    List<ActionFunctionEnumerationItem> Items { get;  set; }
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    static ActionFunctionEnumerationItemBatch ReadFromTeleport(ReadOnlySpan<byte> data)
+    static ActionFunctionEnumerationItemBatch ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionEnumerationItemBatch destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFunctionError : IProtocolMessagePayload
@@ -3099,6 +3119,7 @@ namespace Ikon.Common.Core.Protocol
     ACTION_FILE_UPLOAD_ACK2
     ACTION_FILE_UPLOAD_END2
     ACTION_FILE_UPLOAD_COMPLETE2
+    ACTION_FUNCTION_ENUMERATION_ITEM_BATCH
     GROUP_UI
     UI_STREAM_BEGIN
     UI_STREAM_END

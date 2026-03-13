@@ -56,6 +56,7 @@ namespace Ikon.Parallax
     string ContentFingerprint { get; }
     string Id { get; }
     int IdHash { get; }
+    static bool IncludeSourceMarkers { get;  set; }
     Dictionary<string, object> Props { get; }
     string SourceMarker { get; }
     string StableHint { get; }

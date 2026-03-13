@@ -1,25 +1,4 @@
-# Frontend & Custom Components
-
-## Frontend Configuration
-
-The frontend React app connects to the C# backend via the `useIkonApp` hook from `@ikonai/sdk-react-ui`.
-
-### useIkonApp
-
-```typescript
-const app = useIkonApp({
-  modules: [registerStandardUiModule, registerLucideIconsModule],
-  audio: true,          // Enable audio playback (default: true)
-  video: true,          // Enable video playback (default: true)
-  webRtc: false,        // Enable WebRTC for audio/video transport (default: false)
-  backgroundAudio: false, // Allow audio playback when tab is in background (default: false)
-});
-```
-
-- `modules` - UI component modules to register. The standard module and Lucide icons module are included by default in scaffolded apps. Custom modules can be added here (see Custom UI Components)
-- `audio` / `video` - Enable or disable audio and video playback from the C# app. Enabled by default
-- `webRtc` - Use WebRTC transport for audio/video instead of the default SDK-managed pipeline.
-- `backgroundAudio` - Allow audio to continue playing when the browser tab is not focused, on both desktop and mobile
+# Custom UI Components
 
 ## Custom UI Components
 

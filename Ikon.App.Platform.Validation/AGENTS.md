@@ -73,7 +73,8 @@ public class MyApp(IApp<SessionIdentity, ClientParameters> host)
 | [Function Registry](docs/guides/function-registry.md) | function registry, registration, attribute, visibility, LLM tools, callable functions |
 | [Logging](docs/guides/logging.md) | log, logging, debug, warning, error, diagnostics |
 | [Pipelines](docs/guides/pipelines.md) | pipeline, background processing, transform, processor, scheduled, cron |
-| [Frontend & Custom Components](docs/guides/frontend-custom-components.md) | frontend, React, useIkonApp, custom UI component, module, resolver |
+| [Frontend Fundamentals](docs/guides/frontend-fundamentals.md) | frontend, SDK, auth, connection, i18n, styling, query params |
+| [Custom UI Components](docs/guides/frontend-custom-components.md) | custom UI component, module, resolver, React |
 | [Config & CLI](docs/guides/config-and-cli.md) | ikon-config.toml, CLI commands, build, deploy, run, auth, activation, targets |
 
 
