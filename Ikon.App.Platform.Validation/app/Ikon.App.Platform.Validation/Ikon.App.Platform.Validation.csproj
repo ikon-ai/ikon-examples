@@ -49,7 +49,7 @@
     <ProjectReference Include="$(IkonRoot)\Ikon.Sdk\Ikon.Sdk.csproj" />
   </ItemGroup>
   <Target Name="GenerateValidationAppPassword" BeforeTargets="CoreCompile">
-    <WriteLinesToFile File="$(IntermediateOutputPath)ValidationAppPassword.g.cs" Overwrite="true" Lines="internal static partial class BuildConstants { internal const string ValidationAppPassword = &quot;$(ValidationAppPassword)&quot;%3B }" />
+    <WriteLinesToFile File="$(IntermediateOutputPath)ValidationAppPassword.g.cs" Overwrite="true" Lines="public static partial class BuildConstants { public const string ValidationAppPassword = &quot;$(ValidationAppPassword)&quot;%3B }" />
     <ItemGroup>
       <Compile Include="$(IntermediateOutputPath)ValidationAppPassword.g.cs" />
     </ItemGroup>
