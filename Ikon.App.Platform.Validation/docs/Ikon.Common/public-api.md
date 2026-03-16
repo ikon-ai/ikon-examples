@@ -189,6 +189,10 @@ namespace Ikon.Common
     abstract void Delete(string hash)
     abstract List<string> DeleteOlderThan(TimeSpan timeSpan)
     abstract List<T> Get(string hash)
+  sealed class IkonLoggerProvider : IDisposable, ILoggerProvider
+    ctor()
+    ILogger CreateLogger(string categoryName)
+    void Dispose()
   class IkonProjectConfigLegacy
     ctor()
     string ChannelId { get;  set; }

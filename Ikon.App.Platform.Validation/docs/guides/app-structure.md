@@ -521,11 +521,20 @@ namespace Ikon.App
     static string LightTheme
   sealed class FileUploadCallbackSet
     ctor()
+    Func<FileUploadChunkArgs, Task> OnChunkReceived
     Func<FileUploadCompleteArgs, Task> OnUploadComplete
     Func<FileUploadErrorArgs, Task> OnUploadError
     Func<FileUploadPreStartArgs, Task<FileUploadPreStartResult>> OnUploadPreStart
     Func<FileUploadProgressArgs, Task> OnUploadProgress
     Func<FileUploadStartArgs, Task<FileUploadStartResult>> OnUploadStart
+  sealed class FileUploadChunkArgs : IEquatable<FileUploadChunkArgs>
+    ctor(string UploadId, string FileName, string MimeType, long Size, byte[] Data, long BytesWritten)
+    long BytesWritten { get;  init; }
+    byte[] Data { get;  init; }
+    string FileName { get;  init; }
+    string MimeType { get;  init; }
+    long Size { get;  init; }
+    string UploadId { get;  init; }
   sealed class FileUploadCompleteArgs : IEquatable<FileUploadCompleteArgs>
     ctor(string UploadId, string FileName, string MimeType, long Size, string LocalTempFilePath, string AssetUri)
     string AssetUri { get;  init; }
@@ -924,6 +933,10 @@ namespace Ikon.Common
     abstract void Delete(string hash)
     abstract List<string> DeleteOlderThan(TimeSpan timeSpan)
     abstract List<T> Get(string hash)
+  sealed class IkonLoggerProvider : IDisposable, ILoggerProvider
+    ctor()
+    ILogger CreateLogger(string categoryName)
+    void Dispose()
   class IkonProjectConfigLegacy
     ctor()
     string ChannelId { get;  set; }

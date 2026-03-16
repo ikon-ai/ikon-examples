@@ -2762,7 +2762,7 @@ namespace Ikon.Common.Core.Protocol
     static ActionFunctionRegister.FunctionRegisterParameter ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionRegister.FunctionRegisterParameter destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
-  sealed class GlobalState : IProtocolMessagePayload
+  sealed class GlobalState : ILogInfo, IProtocolMessagePayload
     ctor()
     ctor(Dictionary<int, Context> clients, Dictionary<int, List<ActionFunctionRegister>> functions, Dictionary<string, GlobalState.UIStreamState> uiStreams, Dictionary<string, GlobalState.AudioStreamState> audioStreams, Dictionary<string, GlobalState.VideoStreamState> videoStreams, Dictionary<string, GlobalState.TrackingStreamState> trackingStreams, string spaceId, string channelId, string sessionId, string channelUrl, string sessionChannelUrl, string firstUserId, string primaryUserId, string organisationName, string spaceName, string channelName, ServerRunType serverRunType, AppSourceType appSourceType, bool publicAccess, bool debugMode)
     AppSourceType AppSourceType { get;  set; }
@@ -2774,6 +2774,7 @@ namespace Ikon.Common.Core.Protocol
     bool DebugMode { get;  set; }
     string FirstUserId { get;  set; }
     Dictionary<int, List<ActionFunctionRegister>> Functions { get;  set; }
+    object LogInfo { get; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     string OrganisationName { get;  set; }
@@ -3224,6 +3225,7 @@ namespace Ikon.Common.Core.Protocol
     static ProtocolMessage ModifyPayload(IProtocolMessagePayload payload, ProtocolMessage message, PayloadType payloadType = Unknown)
     override string ToString()
     PayloadType DefaultPayloadType
+    static int MaxMessageSize
     static int MinimumHeaderLength
     static Dictionary<Opcode, Type> OpcodeToType
     static Dictionary<Type, Opcode> TypeToOpcode

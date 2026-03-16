@@ -192,7 +192,6 @@ namespace Ikon.AI
     Together
     Voyage
     XAI
-    ZhipuAI
 
 namespace Ikon.AI.Chat
   sealed class BasicChat : IAsyncDisposable
@@ -571,16 +570,6 @@ namespace Ikon.AI.Kernel
     ctor(int inputTokens, int outputTokens)
     int InputTokens { get; }
     int OutputTokens { get; }
-  class Document
-    ctor(string id, object content, bool isJson = false, Dictionary<string, object> metadata = null)
-    object Content { get; }
-    string Id { get; }
-    bool IsJson { get; }
-    Dictionary<string, object> Metadata { get; }
-  struct DocumentPart : IMessagePart
-    ctor(Document document)
-    Document Document { get; }
-    MessagePartType Type { get; }
   class FinalModelMessage
     ctor(string text)
     string Text { get; }
@@ -681,7 +670,6 @@ namespace Ikon.AI.Kernel
   enum MessageBlockRole
     User
     Model
-    Document
     FunctionResult
   enum MessagePartType
     Text
@@ -689,7 +677,10 @@ namespace Ikon.AI.Kernel
     ImageUrl
     Audio
     AudioId
-    Document
+    Video
+    VideoUrl
+    Pdf
+    PdfUrl
     FunctionResult
   class OutputAudioId
     ctor(string id)
@@ -697,6 +688,15 @@ namespace Ikon.AI.Kernel
   class OutputAudioTranscript
     ctor(string transcript)
     string Transcript { get; }
+  struct PdfPart : IMessagePart
+    ctor(byte[] content, string mimeType)
+    byte[] Content { get; }
+    string MimeType { get; }
+    MessagePartType Type { get; }
+  struct PdfUrlPart : IMessagePart
+    ctor(string url)
+    MessagePartType Type { get; }
+    string Url { get; }
   class Reasoning
     ctor(string text)
     string Text { get; }
@@ -723,6 +723,16 @@ namespace Ikon.AI.Kernel
   class ToolPlan
     ctor(string text)
     string Text { get; }
+  struct VideoPart : IMessagePart
+    ctor(byte[] content, string mimeType)
+    byte[] Content { get; }
+    string MimeType { get; }
+    MessagePartType Type { get; }
+  struct VideoUrlPart : IMessagePart
+    ctor(string url, string mimeType)
+    string MimeType { get; }
+    MessagePartType Type { get; }
+    string Url { get; }
 
 namespace Ikon.AI.LLM
   interface ILLM : IDisposable, ILLMInfo
@@ -730,10 +740,11 @@ namespace Ikon.AI.LLM
   interface ILLMInfo
     int ContextWindowSize { get; }
     string InlineReasoningTagName { get; }
-    bool SupportsDocuments { get; }
     bool SupportsGbnfGrammar { get; }
     bool SupportsInputAudio { get; }
     bool SupportsInputImages { get; }
+    bool SupportsInputPdf { get; }
+    bool SupportsInputVideo { get; }
     bool SupportsJsonSchema { get; }
     bool SupportsOutputAudio { get; }
     bool SupportsParallelToolCalling { get; }
@@ -745,10 +756,11 @@ namespace Ikon.AI.LLM
     ctor(LLMModel model, IReadOnlyList<ModelRegion> regions = null)
     int ContextWindowSize { get; }
     string InlineReasoningTagName { get; }
-    bool SupportsDocuments { get; }
     bool SupportsGbnfGrammar { get; }
     bool SupportsInputAudio { get; }
     bool SupportsInputImages { get; }
+    bool SupportsInputPdf { get; }
+    bool SupportsInputVideo { get; }
     bool SupportsJsonSchema { get; }
     bool SupportsOutputAudio { get; }
     bool SupportsParallelToolCalling { get; }
@@ -764,10 +776,11 @@ namespace Ikon.AI.LLM
     ctor()
     int ContextWindowSize { get;  init; }
     string InlineReasoningTagName { get;  init; }
-    bool SupportsDocuments { get;  init; }
     bool SupportsGbnfGrammar { get;  init; }
     bool SupportsInputAudio { get;  init; }
     bool SupportsInputImages { get;  init; }
+    bool SupportsInputPdf { get;  init; }
+    bool SupportsInputVideo { get;  init; }
     bool SupportsJsonSchema { get;  init; }
     bool SupportsOutputAudio { get;  init; }
     bool SupportsParallelToolCalling { get;  init; }
@@ -792,6 +805,8 @@ namespace Ikon.AI.LLM
     Gpt52Codex
     Gpt5Pro
     Gpt52Pro
+    Gpt54
+    Gpt54Pro
     O3
     O3Mini
     O3Pro
@@ -830,6 +845,8 @@ namespace Ikon.AI.LLM
     GptOss120B
     Glm47
     Glm5
+    MiniMaxM25
+    DeepSeekV32
     NovaPro
     NovaLite
     NovaMicro
