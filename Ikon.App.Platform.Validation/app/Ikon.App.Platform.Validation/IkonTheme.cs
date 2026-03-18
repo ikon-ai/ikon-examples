@@ -507,6 +507,7 @@ public static class Text
     public const string H1 = "block text-3xl font-semibold tracking-tight";
     public const string H2 = "block text-xl font-semibold tracking-tight";
     public const string H3 = "block text-lg font-medium";
+    public const string H4 = "block text-base font-medium";
     public const string Body = "block text-sm leading-relaxed";
     public const string BodyStrong = "block text-sm font-medium leading-relaxed";
     public const string Caption = "block text-xs text-quaternary";

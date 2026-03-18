@@ -242,6 +242,11 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> host)
     private readonly Reactive<bool> _infiniteScrollHasMore = new(true);
     private int _infiniteScrollPage;
 
+    // Auto-scroll test state
+    private readonly Reactive<List<string>> _autoScrollPoliteItems = new([]);
+    private readonly Reactive<List<string>> _autoScrollAssertiveItems = new([]);
+    private CancellationTokenSource? _autoScrollCts;
+
     // Sound playback state
     private readonly Reactive<string> _lastSoundPlaybackId = new("(no sound playing)");
     private readonly Reactive<bool> _soundToastOpen = new(false);

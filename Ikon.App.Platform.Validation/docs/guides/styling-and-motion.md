@@ -17,7 +17,7 @@ From `Ikon.Parallax.Themes.Default`:
 - **Container**: `Container.Xl2`, `Container.Xl4`
 - **Button**: `Button.PrimaryMd`, `Button.SecondaryMd`, `Button.OutlineMd`, `Button.GhostMd`, `Button.DangerMd`, `Button.Size.Icon`
 - **Input**: `Input.Default`
-- **Text**: `Text.Display`, `Text.H2`, `Text.H3`, `Text.Body`, `Text.BodyStrong`, `Text.Caption`, `Text.Muted`, `Text.Small`, `Text.Code`, `Text.Label`, `Text.Link`
+- **Text**: `Text.Display`, `Text.H1`, `Text.H2`, `Text.H3`, `Text.H4`, `Text.Body`, `Text.BodyStrong`, `Text.Caption`, `Text.Muted`, `Text.Small`, `Text.Code`, `Text.Label`, `Text.Link`
 - **Card**: `Card.Default`, `Card.Elevated`
 - **Layout**: `Layout.Row.Sm/Md/Lg`, `Layout.Row.SpaceBetween`, `Layout.Column.Xs/Sm/Md/Lg`, `Layout.Center`
 - **Icon**: `Icon.Default`, `Icon.Spinner`

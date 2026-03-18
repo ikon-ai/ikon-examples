@@ -324,6 +324,96 @@ public partial class Validation
                 });
             });
 
+            // Auto-scroll test (Polite vs Assertive)
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "Auto-Scroll Test");
+                view.Text([Text.Caption, "mb-4"], "Items added every 3 seconds. Compare Polite vs Assertive scroll behaviors.");
+
+                view.Row([Layout.Row.Md, "items-center mb-4"], content: view =>
+                {
+                    var isRunning = _autoScrollCts != null;
+                    view.Button([isRunning ? Button.SecondaryMd : Button.PrimaryMd],
+                        label: isRunning ? "Stop" : "Start",
+                        onClick: async () =>
+                        {
+                            if (_autoScrollCts != null)
+                            {
+                                _autoScrollCts.Cancel();
+                                _autoScrollCts = null;
+                            }
+                            else
+                            {
+                                _autoScrollCts = new CancellationTokenSource();
+                                _ = RunAutoScrollTestAsync(_autoScrollCts.Token);
+                            }
+                        });
+                    view.Button([Button.OutlineMd], label: "Clear", onClick: async () =>
+                    {
+                        _autoScrollPoliteItems.Value = [];
+                        _autoScrollAssertiveItems.Value = [];
+                    });
+                    view.Text([Text.Caption], $"Items: {_autoScrollPoliteItems.Value.Count}");
+                });
+
+                view.Row([Layout.Row.Lg, "flex-col lg:flex-row"], content: view =>
+                {
+                    view.Column([Layout.Column.Md, "flex-1 min-w-0"], content: view =>
+                    {
+                        view.Text([Text.BodyStrong, "mb-2"], "Polite (smart auto-scroll)");
+                        view.Text([Text.Caption, "mb-2"], "Scroll up → shows ↓ indicator. Click it to jump back.");
+                        view.ScrollArea(
+                            rootStyle: [ScrollArea.Bordered, "h-48 w-full"],
+                            autoScroll: true,
+                            autoScrollKey: _autoScrollPoliteItems.Value.Count.ToString(),
+                            content: view =>
+                            {
+                                view.Column(["p-4"], content: view =>
+                                {
+                                    foreach (var item in _autoScrollPoliteItems.Value)
+                                    {
+                                        view.Box([Card.Elevated, "p-2 mb-1"], key: item, content: v =>
+                                        {
+                                            v.Text([Text.Body], item);
+                                        });
+                                    }
+                                });
+                            });
+                    });
+
+                    view.Column([Layout.Column.Md, "flex-1 min-w-0"], content: view =>
+                    {
+                        view.Text([Text.BodyStrong, "mb-2"], "Assertive (forced scroll)");
+                        view.Text([Text.Caption, "mb-2"], "Always scrolls to bottom, even if you scrolled away.");
+                        view.ScrollArea(
+                            rootStyle: [ScrollArea.Bordered, "h-48 w-full"],
+                            content: view =>
+                            {
+                                view.Column(["p-4"], content: view =>
+                                {
+                                    foreach (var item in _autoScrollAssertiveItems.Value)
+                                    {
+                                        view.Box([Card.Elevated, "p-2 mb-1"], key: item, content: v =>
+                                        {
+                                            v.Text([Text.Body], item);
+                                        });
+                                    }
+
+                                    view.Box(["h-1"], content: anchor =>
+                                    {
+                                        anchor.FocusHint(new FocusHintProps
+                                            {
+                                                Priority = FocusPriority.Assertive,
+                                                Cooldown = TimeSpan.FromMilliseconds(50)
+                                            },
+                                            key: $"assertive-scroll-{_autoScrollAssertiveItems.Value.Count}");
+                                    });
+                                });
+                            });
+                    });
+                });
+            });
+
             // Image component
             view.Box([Card.Default, "p-6"], content: view =>
             {
@@ -559,5 +649,35 @@ public partial class Validation
                 });
             });
         });
+    }
+
+    private async Task RunAutoScrollTestAsync(CancellationToken ct)
+    {
+        var counter = _autoScrollPoliteItems.Value.Count;
+
+        AddAutoScrollItem(ref counter);
+
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(3000, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+
+            AddAutoScrollItem(ref counter);
+        }
+    }
+
+    private void AddAutoScrollItem(ref int counter)
+    {
+        counter++;
+        var timestamp = DateTime.Now.ToString("HH:mm:ss");
+        var text = $"Item {counter} — {timestamp}";
+        _autoScrollPoliteItems.Value = [.._autoScrollPoliteItems.Value, text];
+        _autoScrollAssertiveItems.Value = [.._autoScrollAssertiveItems.Value, text];
     }
 }
