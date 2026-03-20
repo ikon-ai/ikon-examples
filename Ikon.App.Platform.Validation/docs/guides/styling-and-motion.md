@@ -9,22 +9,33 @@ view.Button([Button.PrimaryMd, "mt-2 w-fit self-center"], label: "Submit");
 view.Box([Card.Default, "p-6 mb-4"], content: view => { ... });
 ```
 
-### Theme Constants
+### Theme Constants & UI Guidelines
 
-From `Ikon.Parallax.Themes.Default`:
+**Always use theme constants from `IkonTheme.cs` instead of raw Tailwind utilities.** Never use raw hex colors, Tailwind palette classes (`text-purple-500`, `bg-blue-100`), or hardcoded spacing/shadows/radius values when a theme constant exists.
 
-- **Page**: `Page.Default`
-- **Container**: `Container.Xl2`, `Container.Xl4`
-- **Button**: `Button.PrimaryMd`, `Button.SecondaryMd`, `Button.OutlineMd`, `Button.GhostMd`, `Button.DangerMd`, `Button.Size.Icon`
-- **Input**: `Input.Default`
-- **Text**: `Text.Display`, `Text.H1`, `Text.H2`, `Text.H3`, `Text.H4`, `Text.Body`, `Text.BodyStrong`, `Text.Caption`, `Text.Muted`, `Text.Small`, `Text.Code`, `Text.Label`, `Text.Link`
-- **Card**: `Card.Default`, `Card.Elevated`
-- **Layout**: `Layout.Row.Sm/Md/Lg`, `Layout.Row.SpaceBetween`, `Layout.Column.Xs/Sm/Md/Lg`, `Layout.Center`
-- **Icon**: `Icon.Default`, `Icon.Spinner`
-- **FormField**: `FormField.Root`, `FormField.Label`
+For the full list of every available constant, see the **Ikon Theme Constants** reference. Key categories:
+
+- **Text**: `Text.Display`, `Text.H1`–`Text.H4`, `Text.Body`, `Text.BodySm`, `Text.BodyStrong`, `Text.Label`, `Text.Caption`, `Text.Muted`, `Text.Small`, `Text.Code`, `Text.Link`, `Text.Overline`, `Text.Numeric`, `Text.Tabular`
+- **Button**: `Button.PrimarySm/Md/Lg`, `Button.SolidSm/Md/Lg`, `Button.OutlineSm/Md/Lg`, `Button.GhostSm/Md/Lg`, `Button.NeutralSm/Md/Lg`, `Button.ErrorSm/Md/Lg`, `Button.SuccessSm/Md/Lg`, `Button.WarningSm/Md/Lg`, `Button.InfoSm/Md/Lg`, `Button.LinkSm/Md/Lg`, `Button.Size.Icon`, `Button.IconLeft`, `Button.IconRight`
+- **Card**: `Card.Default`, `Card.Subtle`, `Card.Elevated`, `Card.Strong`, `Card.Outline`, `Card.Flat`, `Card.Interactive`, `Card.InteractiveFill`, `Card.Selected`, `Card.Ghost`, `Card.Glass`, `Card.GlassSubtle`, `Card.Header`, `Card.Content`, `Card.Footer`, `Card.HeaderRow`
+- **Layout**: `Layout.Row.Xs/Sm/Md/Lg/Xl`, `Layout.Row.SpaceBetween`, `Layout.Column.Xs/Sm/Md/Lg/Xl`, `Layout.Grid.Cols2/Cols3/Cols4`, `Layout.Split.*`, `Layout.Page`, `Layout.Section`, `Layout.SectionHeader`, `Layout.Center`, `Layout.Stretch`
+- **Page**: `Page.Default`, `Page.Plain`, `Page.Gradient`
+- **Container**: `Container.Xs` through `Container.Xl7`, `Container.Full`, `Container.Prose`, `Container.Screen`
+- **Input**: `Input.Default`, `Input.DefaultSm`, `Input.DefaultLg`, `Input.Ghost`, `Input.GhostSm`, `Input.GhostLg`, `Input.Invalid`, `Input.Success`, `Input.Warning`, `Input.Error`
+- **Badge**: `Badge.Grey/Brand/Success/Warning/Error/Info` (with Sm/Md/Lg sizes), `Badge.Outline*` variants
+- **Icon**: `Icon.Default`, `Icon.Size.Xs/Sm/Md/Lg`, `Icon.Spinner`, `Icon.SpinnerSm`, `Icon.SpinnerLg`
+- **Nav**: `NavPanel.*`, `NavSection.*`, `NavItem.*` (with size and state variants)
+- **Data**: `DataTable.*`, `StatCard.*`, `EmptyState.*`, `Progress.*`, `Skeleton.*`
+- **State**: `State.Focusable`, `State.Disabled`, `State.Pressable`, `State.Loading`, `State.Selected`, `State.Invalid`, `State.Readonly`
+- **Tokens**: `Tokens.Radius.*`, `Tokens.Shadow.*`, `Tokens.Duration.*`
+- **Transition**: `Transition.Fast/Normal/Slow/Slower`, `Transition.Property.*`
 - **Overlay styles**: `Dialog.*`, `AlertDialog.*`, `Popover.*`, `Tooltip.*`, `HoverCard.*`, `Toast.*`, `Sheet.*`, `Drawer.*`
-- **Navigation**: `Tabs.List`, `Tabs.Trigger`, `Tabs.Content`, `Slider.*`, `Select.*`, `RadioGroup.*`, `Checkbox.*`, `Switch.*`
-- **Tokens**: `Tokens.Radius.Lg`, `Tokens.Width.Toast`
+- **Form**: `FormField.Root`, `FormField.Label`, `FormField.LabelRequired`, `FormField.HelpText`, `FormField.ErrorText`
+- **Other**: `Tabs.*`, `Slider.*`, `Select.*`, `RadioGroup.*`, `Checkbox.*`, `Switch.*`, `Alert.*`, `Separator.*`, `Avatar.*`
+
+Use semantic color tokens (`text-primary`, `bg-card`, `border-secondary`) — never raw hex values. Follow the 60-30-10 rule: 60% `bg-background`, 30% `bg-card`/`bg-secondary`, 10% brand accents.
+
+For complete UI decision rules, see the **Ikon UI Guidelines** doc. For theme customization (brand colors, fonts, radius, design personalities), see the **Ikon Theme Customization** guide.
 
 ### Motion Syntax
 
