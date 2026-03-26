@@ -106,7 +106,7 @@ public partial class Validation
                                 Height = camRes.Height,
                                 Bitrate = ParseBitrateMbps(_cameraBitrate.Value),
                                 DeviceId = GetSelectedDeviceId(_selectedCameraId.Value),
-                                TargetIds = [host.ClientContext.SessionId]
+                                TargetIds = [app.ClientContext.SessionId]
                             },
                             onCaptureStart: async _ =>
                             {
@@ -198,7 +198,7 @@ public partial class Validation
                                 PreferredCodecs = [ParseCodec(_screenCodec.Value)],
                                 Framerate = ParseFramerate(_screenFramerate.Value),
                                 Bitrate = ParseBitrateMbps(_screenBitrate.Value),
-                                TargetIds = [host.ClientContext.SessionId]
+                                TargetIds = [app.ClientContext.SessionId]
                             },
                             onCaptureStart: async _ =>
                             {

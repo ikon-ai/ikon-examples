@@ -21,29 +21,6 @@ private readonly PersistentReactive<int> _totalVisits = new(0);
 
 `PersistentReactive<T>` values survive app restarts by persisting to cloud storage. Use for counters, settings, or any state that should not reset on redeployment.
 
-### Scope Requirements
-
-**Never access `ClientReactive` or `UserReactive` values outside `UI.Root()`.** `Main()` runs before any client/user scope exists. All reads and writes of scoped reactive values must happen inside `UI.Root()` or inside event callbacks (onClick, onSubmit, etc.) which run within a scope. For background tasks, use `ReactiveScope.Use()` to enter a scope explicitly.
-
-```csharp
-// WRONG — crashes at startup, no user scope active
-public async Task Main()
-{
-    if (_hasJoined.Value) { ... }  // UserReactive — throws InvalidOperationException
-    RenderTavern();
-}
-
-// CORRECT — branch inside UI.Root() where scopes are active
-public async Task Main()
-{
-    UI.Root([Page.Default], content: view =>
-    {
-        if (_hasJoined.Value) { RenderTavern(view); }  // OK — inside UI.Root()
-        else { RenderEntry(view); }
-    });
-}
-```
-
 ### Value Mutation
 
 ```csharp

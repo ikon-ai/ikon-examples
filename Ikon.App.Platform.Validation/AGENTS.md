@@ -39,86 +39,21 @@ public class MyApp(IApp<SessionIdentity, ClientParameters> host)
     private UI UI { get; } = new(host, new Theme());
     private Audio Audio { get; } = new(host);
 
-    // Shared state — same value for all clients
-    private readonly Reactive<List<string>> _messages = new([]);
-
-    // Per-client state — each client has its own value
-    private readonly ClientReactive<string> _input = new("");
+    private readonly Reactive<string> _name = new("");
 
     public async Task Main()
     {
         UI.Root([Page.Default], content: view =>
         {
-            // h-screen keeps the app within the viewport — never let the page grow beyond the screen
-            view.Column(["h-screen"], content: view =>
+            view.Column([Container.Xl2, "py-8 px-4"], content: view =>
             {
-                view.Text([Text.H2, "p-4 flex-shrink-0"], "Hello!");
-
-                // ScrollArea for unbounded content (chat, lists, feeds)
-                view.ScrollArea(rootStyle: ["flex-1 min-h-0 px-4"], content: view =>
-                {
-                    foreach (var msg in _messages.Value)
-                    {
-                        view.Text([Text.Body], msg);
-                    }
-                });
-
-                view.Row(["p-4 gap-2 flex-shrink-0"], content: view =>
-                {
-                    view.TextField([Input.Default, "flex-1"], placeholder: "Type a message...",
-                        value: _input.Value,
-                        onValueChange: async v => _input.Value = v,
-                        onSubmit: async () =>
-                        {
-                            if (!string.IsNullOrWhiteSpace(_input.Value))
-                            {
-                                _messages.Value.Add(_input.Value);
-                                _messages.NotifyUpdate();
-                                _input.Value = "";
-                            }
-                        },
-                        clearOnSubmit: true);
-                    view.Button([Button.PrimaryMd], label: "Send", onClick: async () =>
-                    {
-                        if (!string.IsNullOrWhiteSpace(_input.Value))
-                        {
-                            _messages.Value.Add(_input.Value);
-                            _messages.NotifyUpdate();
-                            _input.Value = "";
-                        }
-                    });
-                });
+                view.Text([Text.H2], string.IsNullOrWhiteSpace(_name.Value) ? "Hello!" : $"Hello, {_name.Value}!");
+                view.TextField([Input.Default], placeholder: "Enter your name", value: _name.Value,
+                    onValueChange: async value => { _name.Value = value; });
             });
         });
     }
 }
-```
-
-## Viewport Layout
-
-Apps must fit within the browser viewport — never let the page grow beyond the screen and rely on the browser scrollbar. The root layout should use `h-screen` (or `min-h-screen` with `overflow-hidden`) so the app fills exactly the viewport.
-
-Use `ScrollArea` for content that can grow unboundedly (chat messages, lists, logs, feeds). The surrounding container must have a bounded height (e.g. `flex-1 min-h-0`) so the scroll area knows when to scroll.
-
-```csharp
-// WRONG — page grows forever, browser scrollbar appears
-view.Column(["min-h-screen"], content: view =>
-{
-    RenderHeader(view);
-    foreach (var msg in _messages.Value) { RenderMessage(view, msg); }  // unbounded
-    RenderInput(view);
-});
-
-// CORRECT — fixed viewport, chat area scrolls internally
-view.Column(["h-screen"], content: view =>
-{
-    RenderHeader(view);                                           // flex-shrink-0
-    view.ScrollArea(rootStyle: ["flex-1 min-h-0"], content: view =>
-    {
-        foreach (var msg in _messages.Value) { RenderMessage(view, msg); }
-    });
-    RenderInput(view);                                            // flex-shrink-0
-});
 ```
 
 ## API Reference Guides

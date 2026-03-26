@@ -268,7 +268,7 @@ public partial class Validation
                         var assetUri = new AssetUri(
                             AssetClass.CloudFilePublic,
                             $"validation-uploads/{args.FileName}",
-                            spaceId: host.GlobalState.SpaceId);
+                            spaceId: app.GlobalState.SpaceId);
                         return new FileUploadPreStartResult { AssetUri = assetUri.ToString() };
                     }
 

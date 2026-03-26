@@ -327,7 +327,7 @@ public partial class Validation
                                 EchoCancellation = _audioEchoCancellation.Value,
                                 Bitrate = ParseBitrateKbps(_audioBitrate.Value),
                                 DeviceId = GetSelectedDeviceId(_selectedMicrophoneId.Value),
-                                TargetIds = [host.ClientContext.SessionId]
+                                TargetIds = [app.ClientContext.SessionId]
                             },
                             onCaptureStart: async e => _isAudioHoldRecording.Value = true,
                             onCaptureStop: async e => _isAudioHoldRecording.Value = false);
@@ -344,7 +344,7 @@ public partial class Validation
                                 EchoCancellation = _audioEchoCancellation.Value,
                                 Bitrate = ParseBitrateKbps(_audioBitrate.Value),
                                 DeviceId = GetSelectedDeviceId(_selectedMicrophoneId.Value),
-                                TargetIds = [host.ClientContext.SessionId]
+                                TargetIds = [app.ClientContext.SessionId]
                             },
                             onCaptureStart: async e => _isAudioHoldRecording.Value = true,
                             onCaptureStop: async e => _isAudioHoldRecording.Value = false,
@@ -362,7 +362,7 @@ public partial class Validation
                                 EchoCancellation = _audioEchoCancellation.Value,
                                 Bitrate = ParseBitrateKbps(_audioBitrate.Value),
                                 DeviceId = GetSelectedDeviceId(_selectedMicrophoneId.Value),
-                                TargetIds = [host.ClientContext.SessionId]
+                                TargetIds = [app.ClientContext.SessionId]
                             },
                             onCaptureStart: async e => _isAudioToggleRecording.Value = true,
                             onCaptureStop: async e => _isAudioToggleRecording.Value = false);
@@ -379,7 +379,7 @@ public partial class Validation
                                 EchoCancellation = _audioEchoCancellation.Value,
                                 Bitrate = ParseBitrateKbps(_audioBitrate.Value),
                                 DeviceId = GetSelectedDeviceId(_selectedMicrophoneId.Value),
-                                TargetIds = [host.ClientContext.SessionId]
+                                TargetIds = [app.ClientContext.SessionId]
                             },
                             onCaptureStart: async e => _isAudioToggleRecording.Value = true,
                             onCaptureStop: async e => _isAudioToggleRecording.Value = false,
@@ -457,7 +457,7 @@ public partial class Validation
                             label: "Play from byte[]",
                             onClick: async () =>
                             {
-                                var soundPath = Path.Combine(host.DataDirectory, "whoosh.mp3");
+                                var soundPath = Path.Combine(app.DataDirectory, "whoosh.mp3");
                                 var soundData = await File.ReadAllBytesAsync(soundPath);
                                 var playbackId = await ClientFunctions.PlaySoundAsync(clientSessionId, soundData, "audio/mpeg", volume: 1.0);
                                 _lastSoundPlaybackId.Value = playbackId ?? "(failed)";
@@ -469,7 +469,7 @@ public partial class Validation
                             label: "Play from data URL",
                             onClick: async () =>
                             {
-                                var soundPath = Path.Combine(host.DataDirectory, "whoosh.mp3");
+                                var soundPath = Path.Combine(app.DataDirectory, "whoosh.mp3");
                                 var soundData = await File.ReadAllBytesAsync(soundPath);
                                 var base64 = Convert.ToBase64String(soundData);
                                 var dataUrl = $"data:audio/mpeg;base64,{base64}";

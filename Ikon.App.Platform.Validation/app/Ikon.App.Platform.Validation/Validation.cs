@@ -4,11 +4,11 @@ public record SessionIdentity(string UserId, string Id);
 public record ClientParams(string Id, string Test);
 
 [App]
-public partial class Validation(IApp<SessionIdentity, ClientParams> host)
+public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 {
-    private UI UI { get; } = new(host, new Theme()) { EnableProfiling = false };
-    private Audio Audio { get; set; } = new(host);
-    private Video Video { get; } = new(host);
+    private UI UI { get; } = new(app, new Theme()) { EnableProfiling = true, EnableSubtreeCaching = true };
+    private Audio Audio { get; set; } = new(app);
+    private Video Video { get; } = new(app);
     private AudioGenerator AudioGenerator { get; } = new();
 
     // Tab state
@@ -297,7 +297,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> host)
         SetupVideoInputHandlers();
         SetupAudioInputHandlers();
 
-        host.Navigation.PathChangedAsync += async args =>
+        app.Navigation.PathChangedAsync += async args =>
         {
             var tab = args.Path.TrimStart('/');
 
@@ -307,11 +307,11 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> host)
             }
             else
             {
-                await host.Navigation.SetPathAsync(args.ClientSessionId, $"/{_activeTab.Value}", replace: true);
+                await app.Navigation.SetPathAsync(args.ClientSessionId, $"/{_activeTab.Value}", replace: true);
             }
         };
 
-        host.ClientJoinedAsync += async args =>
+        app.ClientJoinedAsync += async args =>
         {
             if (!string.IsNullOrEmpty(args.ClientContext.Theme))
             {
@@ -326,7 +326,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> host)
             }
             else
             {
-                await host.Navigation.SetPathAsync(args.ClientSessionId, $"/{_activeTab.Value}", replace: true);
+                await app.Navigation.SetPathAsync(args.ClientSessionId, $"/{_activeTab.Value}", replace: true);
             }
 
             _ = RefreshDevicesAsync(args.ClientSessionId);
@@ -355,7 +355,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> host)
                         {
                             var tab = value ?? "buttons";
                             _activeTab.Value = tab;
-                            await host.Navigation.SetPathAsync($"/{tab}");
+                            await app.Navigation.SetPathAsync($"/{tab}");
                         },
                         listContainerStyle: [Card.Default, "p-2 mb-4"],
                         listStyle: [Tabs.List, "flex-wrap bg-transparent"],
@@ -580,7 +580,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> host)
                     _ = Task.Run(async () =>
                     {
                         await Task.Delay(200);
-                        await host.SendMessageAsync(ProtocolMessage.Create(host.ClientContext.SessionId, new RequestIdrVideoFrame(),
+                        await app.SendMessageAsync(ProtocolMessage.Create(app.ClientContext.SessionId, new RequestIdrVideoFrame(),
                             trackId: echo.InputTrackId, targetIds: [args.ClientSessionId]));
                     });
                 }
@@ -616,7 +616,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> host)
             }
         };
 
-        host.MessageReceivedAsync += async args =>
+        app.MessageReceivedAsync += async args =>
         {
             if (args.Message.Opcode != Opcode.VIDEO_REQUEST_IDR_FRAME)
             {
@@ -625,7 +625,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> host)
 
             if (_echoToInputTrack.TryGetValue(args.Message.TrackId, out var inputTrackId))
             {
-                await host.SendMessageAsync(ProtocolMessage.Create(host.ClientContext.SessionId, new RequestIdrVideoFrame(),
+                await app.SendMessageAsync(ProtocolMessage.Create(app.ClientContext.SessionId, new RequestIdrVideoFrame(),
                     trackId: inputTrackId, targetIds: [args.Message.SenderId]));
             }
         };

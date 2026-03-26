@@ -65,7 +65,7 @@ public partial class Validation
                             _chatInputText.Value = value ?? "";
                             return Task.CompletedTask;
                         },
-                        onSubmit: async () =>
+                        onSubmit: async _ =>
                         {
                             var text = _chatInputText.Value.Trim();
 

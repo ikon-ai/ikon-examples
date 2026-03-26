@@ -180,8 +180,8 @@ public partial class Validation
     private async Task<string?> UploadForDownloadAsync(string filename, byte[] data, string mimeType)
     {
         var uri = new AssetUri(AssetClass.CloudFilePublic, $"validation/{filename}",
-            spaceId: host.GlobalState.SpaceId,
-            userId: host.SessionIdentity.UserId);
+            spaceId: app.GlobalState.SpaceId,
+            userId: app.SessionIdentity.UserId);
         await Asset.Instance.SetBytesAsync(uri, data, new AssetMetadata(mimeType: mimeType));
         var metadata = await Asset.Instance.GetMetadataAsync(uri);
         return metadata.Url;
@@ -189,7 +189,7 @@ public partial class Validation
 
     private void RenderIkonAISection(UIView view)
     {
-        if (!_ikonAIUnlocked.Value && host.GlobalState.ServerRunType != ServerRunType.Local
+        if (!_ikonAIUnlocked.Value && app.GlobalState.ServerRunType != ServerRunType.Local
             && !string.IsNullOrEmpty(BuildConstants.ValidationAppPassword))
         {
             view.Column([Layout.Column.Lg], content: view =>
@@ -211,7 +211,7 @@ public partial class Validation
                                 _ikonAIPassword.Value = v ?? "";
                                 _ikonAIPasswordError.Value = false;
                             },
-                            onSubmit: async () =>
+                            onSubmit: async _ =>
                             {
                                 if (_ikonAIPassword.Value == BuildConstants.ValidationAppPassword)
                                 {
@@ -1380,7 +1380,7 @@ public partial class Validation
                                 AutoGainControl = true,
                                 NoiseSuppression = true,
                                 EchoCancellation = true,
-                                TargetIds = [host.ClientContext.SessionId]
+                                TargetIds = [app.ClientContext.SessionId]
                             },
                             onCaptureStart: async e =>
                             {
@@ -1426,7 +1426,7 @@ public partial class Validation
                                 AutoGainControl = true,
                                 NoiseSuppression = true,
                                 EchoCancellation = true,
-                                TargetIds = [host.ClientContext.SessionId]
+                                TargetIds = [app.ClientContext.SessionId]
                             },
                             onCaptureStart: async e =>
                             {
@@ -1593,7 +1593,7 @@ public partial class Validation
 
         try
         {
-            var audioPath = Path.Combine(host.DataDirectory, "audio.raw");
+            var audioPath = Path.Combine(app.DataDirectory, "audio.raw");
             var rawBytes = await File.ReadAllBytesAsync(audioPath);
             var samples = AudioUtils.ConvertPcm16ToFloat(rawBytes);
 
@@ -1757,7 +1757,7 @@ public partial class Validation
             var model = Enum.Parse<OCRModel>(_ocrModel.Value);
             var ocr = new OCR(model);
 
-            var samplePath = Path.Combine(host.DataDirectory, "sample.pdf");
+            var samplePath = Path.Combine(app.DataDirectory, "sample.pdf");
             var data = await File.ReadAllBytesAsync(samplePath);
             var result = await ocr.AnalyzeDocumentAsync(new OCRConfig { Data = data });
 
@@ -1844,7 +1844,7 @@ public partial class Validation
                         disabled: _fileConverterProcessing.Value,
                         onClick: async () =>
                         {
-                            _fileConverterFilePath = Path.Combine(host.DataDirectory, "sample.pptx");
+                            _fileConverterFilePath = Path.Combine(app.DataDirectory, "sample.pptx");
                             _fileConverterFileName.Value = "sample.pptx";
                             await ConvertFileAsync();
                         });
@@ -2584,7 +2584,7 @@ public partial class Validation
             var model = Enum.Parse<VideoEnhancerModel>(_videoEnhancerModel.Value);
             using var enhancer = new VideoEnhancer(model);
 
-            var videoPath = Path.Combine(host.DataDirectory, "sample.mp4");
+            var videoPath = Path.Combine(app.DataDirectory, "sample.mp4");
             var videoBytes = await File.ReadAllBytesAsync(videoPath);
 
             var config = BuildVideoEnhancerConfig();

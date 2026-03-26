@@ -40,7 +40,7 @@ public partial class Validation
 
     private void RenderCloudFileCard(UIView view)
     {
-        var uri = new AssetUri(AssetClass.CloudFile, "validation/santa.jpg", spaceId: host.GlobalState.SpaceId);
+        var uri = new AssetUri(AssetClass.CloudFile, "validation/santa.jpg", spaceId: app.GlobalState.SpaceId);
 
         view.Box([Card.Default, "p-6"], content: view =>
         {
@@ -56,7 +56,7 @@ public partial class Validation
                         _assetCloudFileUploading.Value = true;
                         try
                         {
-                            var bytes = await File.ReadAllBytesAsync(Path.Combine(host.DataDirectory, "santa.jpg"));
+                            var bytes = await File.ReadAllBytesAsync(Path.Combine(app.DataDirectory, "santa.jpg"));
                             await Asset.Instance.SetBytesAsync(uri, bytes, new AssetMetadata(mimeType: MimeTypes.ImageJpeg));
                             var metadata = await Asset.Instance.GetMetadataAsync(uri);
                             _assetCloudFileStatus.Value = "Uploaded";
@@ -120,7 +120,7 @@ public partial class Validation
 
     private void RenderCloudFilePublicCard(UIView view)
     {
-        var uri = new AssetUri(AssetClass.CloudFilePublic, "validation/santa-public.jpg", spaceId: host.GlobalState.SpaceId);
+        var uri = new AssetUri(AssetClass.CloudFilePublic, "validation/santa-public.jpg", spaceId: app.GlobalState.SpaceId);
 
         view.Box([Card.Default, "p-6"], content: view =>
         {
@@ -136,7 +136,7 @@ public partial class Validation
                         _assetCloudFilePublicUploading.Value = true;
                         try
                         {
-                            var bytes = await File.ReadAllBytesAsync(Path.Combine(host.DataDirectory, "santa.jpg"));
+                            var bytes = await File.ReadAllBytesAsync(Path.Combine(app.DataDirectory, "santa.jpg"));
                             await Asset.Instance.SetBytesAsync(uri, bytes, new AssetMetadata(mimeType: MimeTypes.ImageJpeg));
                             var metadata = await Asset.Instance.GetMetadataAsync(uri);
                             _assetCloudFilePublicStatus.Value = "Uploaded";
@@ -200,7 +200,7 @@ public partial class Validation
 
     private void RenderCloudJsonCard(UIView view)
     {
-        var uri = new AssetUri(AssetClass.CloudJson, "validation/test-data.json", spaceId: host.GlobalState.SpaceId);
+        var uri = new AssetUri(AssetClass.CloudJson, "validation/test-data.json", spaceId: app.GlobalState.SpaceId);
 
         view.Box([Card.Default, "p-6"], content: view =>
         {

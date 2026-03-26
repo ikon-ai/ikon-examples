@@ -511,7 +511,7 @@ public partial class Validation
                 {
                     view.TextField([Input.Default, "mb-2"],
                         placeholder: "Type and press Enter...",
-                        onSubmit: async () =>
+                        onSubmit: async _ =>
                         {
                             _textFieldSubmitStatus.Value = $"Submitted at {DateTime.Now:HH:mm:ss}";
                         });
@@ -526,10 +526,10 @@ public partial class Validation
                 view.Text([Text.Body, "mb-4"], "Press Ctrl+Enter to submit");
                 view.Column([Layout.Column.Md], content: view =>
                 {
-                    view.TextArea([Input.Default, "mb-2"],
+                    view.TextArea([Textarea.Default, "mb-2"],
                         placeholder: "Type and press Ctrl+Enter...",
                         rows: 3,
-                        onSubmit: async () =>
+                        onSubmit: async _ =>
                         {
                             _textAreaSubmitStatus.Value = $"Submitted at {DateTime.Now:HH:mm:ss}";
                         });
