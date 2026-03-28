@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/Config/">
+    <File Path="ikon-config.development.toml" />
+  </Folder>
+  <Folder Name="/App/">
+    <Project Path="app/Ikon.App.Examples.Emergence/Ikon.App.Examples.Emergence.csproj" />
+  </Folder>
+  <Folder Name="/Frontend/">
+    <Project Path="frontend-node/Ikon.App.Examples.Emergence.Frontend.Node.csproj" />
+  </Folder>
+</Solution>
