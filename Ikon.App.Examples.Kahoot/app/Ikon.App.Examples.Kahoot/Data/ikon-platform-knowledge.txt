@@ -1,0 +1,137 @@
+IKON PLATFORM KNOWLEDGE BASE
+
+== CORE ARCHITECTURE ==
+Ikon is a platform for building AI-native applications. The architecture is fundamentally different from traditional web stacks.
+- The server owns everything: all interface rendering, all AI calls, all business logic, all state.
+- The client is a thin renderer with no business logic. It maintains a persistent connection, renders interface updates, and sends user inputs back.
+- Apps run as long-lived stateful processes in isolated cloud containers. They persist even when all clients disconnect.
+- Multiple clients connect to the same running app instance. Multiplayer/collaboration is automatic, not something you build.
+- UI is defined on the server in C#, diffed on the server, and only minimal compressed binary updates stream to each client.
+- A typical UI update is a few hundred bytes thanks to differential updates and compact binary serialization.
+- Hot reload during development preserves all Reactive<T> state across code changes.
+
+== TELEPORT PROTOCOL ==
+Ikon uses Teleport, a purpose-built binary protocol, instead of REST/JSON/WebSocket.
+- A single persistent connection carries everything: UI updates, audio streams, video frames, function calls, and events.
+- No REST endpoints, no GraphQL, no separate real-time servers needed.
+- Every message has a compact 27-byte header. Field names are compressed to tiny identifiers at build time.
+- The protocol is bidirectional: the server can push updates and invoke client functions without the client asking.
+- Smart reconnection: brief disconnections (under 5 minutes) reconnect without re-authentication.
+- The protocol is defined in .tp schema files and generates code for C#, TypeScript, and C++.
+- One connection replaces what would traditionally need separate HTTP, WebSocket, WebRTC, and media server connections.
+
+== THREE TIERS OF REACTIVITY ==
+The reactive system has three scoping levels that handle all state management automatically.
+- Reactive<T>: Shared across ALL connected clients. When one person updates it, everyone sees the change instantly. Used for shared state like chat messages, game scores, collaborative documents.
+- ClientReactive<T>: Separate value per connection. One person's text input or sidebar toggle doesn't affect anyone else's view.
+- UserReactive<T>: Follows the user across devices. Change theme on laptop, it updates on phone too.
+- PersistentReactive<T>: Survives app restarts using cloud storage.
+- The system automatically tracks dependencies. When a value changes, only the UI parts that actually read it re-render.
+- Writing to shared state IS the broadcast mechanism. There is no event bus, no pub/sub, no WebSocket broadcast code.
+
+== EMERGENCE: AI ORCHESTRATION ENGINE ==
+Emergence is not an API wrapper. It is a composable AI orchestration engine spanning 30+ providers, 165+ models, and 14 capability categories.
+- Switching between any model (Claude, GPT, Gemini, etc.) is a one-word change. The interface stays identical.
+- The library knows each model's capabilities and handles translation automatically.
+- Emergence produces strongly-typed C# objects from AI calls, not raw text.
+
+Key orchestration patterns (15+ composable patterns):
+- BestOf: Run N parallel attempts with controlled randomness, score each, return the best. Five attempts in one line of code.
+- SolverCriticVerifier: Draft-critique-verify loop. Each stage can use a different model. Context flows between stages automatically.
+- Debate (DebateThenJudge): Multiple agents generate competing proposals from different viewpoints. A judge synthesizes the best elements.
+- TaskGraph: Breaks complex goals into subtasks, determines dependencies, runs independent tasks in parallel, can revise the plan mid-execution.
+- MapReduce: Distribute work across parallel agents, combine into final output.
+- TreeOfThought: Branching exploration with pruning for complex reasoning.
+- PlanAndExecute: Generate a step-by-step plan, then carry it out with tools.
+- Router: Dynamically route queries to the best model or sub-agent.
+- EnsembleMerge: Diverse solvers produce independent answers, a merger synthesizes.
+- Refine: Iterative improvement based on structured feedback.
+- TestRefine: Agentic loop that writes, tests, and fixes until tests pass.
+
+All patterns are composable. A Router can delegate to a SolverCriticVerifier which uses BestOf internally. Budget controls propagate automatically. Everything streams progress in real time.
+
+== BEYOND TEXT: 14 CAPABILITY CATEGORIES ==
+- Image generation: DALL-E, Imagen, FLUX, Gemini (21 models)
+- Video generation: Sora, Veo, Runway, Kling, Luma (18 models)
+- Speech synthesis (TTS): OpenAI TTS, ElevenLabs, Google Chirp (13 models)
+- Speech recognition (STT): Whisper, Deepgram, AssemblyAI (9 models)
+- Embeddings: OpenAI, Cohere, Google, Jina, Voyage (11 models)
+- Reranking: Cohere, Jina, Voyage (5 models)
+- OCR: Azure Document Intelligence, Mistral OCR
+- Classification: Content moderation with score-level transparency
+- Web search and scraping: Google, Bing, Jina, Spider
+- Sound effects: Text-to-sound synthesis
+- File conversion: Document format transformation
+- Video enhancement: Upscaling and frame interpolation
+
+== CROSSWIND: STYLING WITH MOTION ==
+Crosswind is Ikon's styling system, compatible with Tailwind CSS but extended with a declarative motion/animation language.
+- Styles applied as string arrays directly in C# code.
+- The motion language supports keyframe animations, per-letter and per-word text animations, staggered delays, easing functions, 3D transforms, and filter animations — all as styling utilities.
+- motion-[0:property-value,50:property-value,100:property-value] defines keyframe animations.
+- motion-stagger staggers animation across child elements. motion-per-letter animates each letter individually.
+- CSS is compiled on the server. Only styles actually used are delivered to clients.
+- No separate CSS files, no JavaScript animation libraries needed.
+
+== SECURITY MODEL ==
+The security architecture eliminates entire categories of vulnerabilities by design.
+- The client NEVER has API keys, database passwords, or service tokens. All credentials live exclusively on the server.
+- All AI calls originate from the server. The client never communicates with any AI provider directly.
+- Each app instance runs in its own isolated container with separate memory, filesystem, and network stack.
+- Even if cross-site scripting existed in the client, there are no credentials to steal.
+- Adding a new AI provider is a code change, not a security architecture change.
+- Authentication supports OAuth (Google, Apple, Microsoft), magic links, passkeys, anonymous sessions, and API keys.
+- After initial auth, the persistent connection carries a secure session token. No token management needed.
+- Apps have passed enterprise security reviews in financial services and healthcare on day one.
+
+== PERSISTENCE & BACKGROUND WORK ==
+Ikon apps are long-lived stateful processes, not stateless request handlers.
+- State lives in the application's memory. When a user disconnects and reconnects, everything is exactly where they left it.
+- Background work is first-class. Tasks run within the app process with direct access to live state. If no users are connected, tasks keep running.
+- No job queues, no message brokers, no worker processes needed for background tasks.
+- Close your browser, come back tomorrow — the AI research assistant has been working through the night.
+- Pipelines provide scheduled/recurring background processing with transform steps, parallel processing, and cron scheduling.
+- Hot reload preserves all state during development. You can iterate on behavior while a complex workflow is running.
+
+== CROSS-PLATFORM: ONE CODEBASE, THREE PLATFORMS ==
+One server-side codebase serves web browsers, game engines, and native/embedded devices.
+- Three native SDKs: TypeScript (web/Node.js), C# (.NET/Unity), C++ (native/embedded, zero dependencies).
+- The protocol is the API. Any client that speaks Teleport can connect, regardless of platform.
+- The server does not know or care what kind of client is connected.
+- Deploy the server once and every connected client on every platform gets the change immediately. No app store reviews, no version fragmentation.
+- All three SDKs support bidirectional capabilities: the server can call client functions (camera, sensors, game state), audio streams both ways, video feeds from any platform.
+- Use cases: AI-powered NPCs in Unity games, companion web dashboards for native apps, AI on embedded/kiosk hardware.
+
+== THREADS: AI-POWERED DEVELOPMENT ==
+Threads is Ikon's built-in development environment — itself an Ikon app.
+- Multiple specialized AI agents collaborate to build apps: Planner, Coder, Designer, Critic, Magician.
+- The Planner queries platform documentation, designs screens, creates structured plans with scorable milestones.
+- The Coder writes code, compiles, runs, takes screenshots, and iterates. It can consult a documentation oracle.
+- The Designer focuses on visual refinement — layout, styling, motion, polish.
+- The Magician adds AI-powered intelligence: multi-model orchestration, speech, image generation, adaptive behavior.
+- The Critic evaluates by actually running the app, clicking buttons, filling forms, and scoring against the plan.
+- Key difference from vibe coding tools (Lovable, Base44): the AI can RUN what it builds, interact with it, and evaluate it in a closed feedback loop.
+- Agents communicate through threads, spawning child threads for subtasks, sharing artifacts, tracking convergence through scored milestones.
+- The generated apps run on the full Ikon runtime, not a limited web stack.
+
+== REAL-WORLD APP EXAMPLES ==
+These demonstrate the range of what's buildable on the platform:
+
+The 200-Line Haiku Generator: Type a topic, AI writes a haiku and generates a matching illustration. One file, no separate frontend. Two people open it — both see the haiku appear in real time. Collaborative without any code written for that purpose.
+
+Video Conferencing with AI (~4000 lines): Full video conferencing with per-participant speech recognition, live transcription, and AI-generated meeting summaries. One developer, zero real-time synchronization code. The speaker detection uses exponential moving average with asymmetric alpha (0.4 up, 0.03 down) for natural-feeling indicators. Summaries build incrementally — only new content is sent to AI along with previous summary.
+
+Animated Voice Chat (~1200 lines): Talk to a Live2D animated character with lip-synced speech. Five character models, three camera angles, dual speech recognition modes, eight chainable audio effects (Delay, Reverb, Chorus, Tremolo, BitCrusher, Saturation, RobotVoice, Telephone). Viseme data is embedded directly in the audio stream for drift-free lip sync. Smooth interruption: fade the character's voice, cancel speech generation, start listening — three lines of code.
+
+AI Game Generator (~5000 lines): Describe a game in plain English, get a playable browser game. The system generates code, launches a headless browser, play-tests the game with AI vision, scores it across four quality tiers (Functional, Visual, Gameplay, Polish), and iterates until convergence. All section scores must reach 75%+ to converge. The iteration loop targets the lowest-scoring tier for improvement.
+
+== KEY PLATFORM STATS ==
+- 30+ AI providers supported
+- 165+ AI models available
+- 14 capability categories (text, image, video, speech, embeddings, etc.)
+- 15+ composable Emergence orchestration patterns
+- 3 native SDKs (TypeScript, C#, C++)
+- 3 tiers of reactive state (shared, per-client, per-user)
+- 27-byte message header in Teleport protocol
+- Server-side UI rendering with binary differential updates
+- Single persistent connection per client replaces REST + WebSocket + WebRTC
