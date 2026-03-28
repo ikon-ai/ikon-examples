@@ -1,0 +1,15 @@
+*.log
+.vs
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.sw?
+
+build
+artifacts
+dist
+dist-ssr
+node_modules
+obj

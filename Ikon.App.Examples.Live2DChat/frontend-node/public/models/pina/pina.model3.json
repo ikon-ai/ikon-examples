@@ -1,0 +1,30 @@
+{
+	"Version": 3,
+	"FileReferences": {
+		"Moc": "pina.moc3",
+		"Textures": [
+			"pina_00.png"
+		],
+		"Pose": "pina.pose3.json",
+		"Physics": "pina.physics3.json",
+		"DisplayInfo": "pina.cdi3.json"
+	},
+	"Groups": [
+		{
+			"Target": "Parameter",
+			"Name": "EyeBlink",
+			"Ids": [
+				"ParamEyeLOpen",
+				"ParamEyeROpen"
+			]
+		},
+		{
+			"Target": "Parameter",
+			"Name": "LipSync",
+			"Ids": [
+				"ParamMouthOpenY"
+			]
+		}
+	],
+	"HitAreas": []
+}
