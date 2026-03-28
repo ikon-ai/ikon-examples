@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/Config/">
+    <File Path="ikon-config.development.toml" />
+  </Folder>
+  <Folder Name="/App/">
+    <Project Path="app/Ikon.App.Examples.VRMChat/Ikon.App.Examples.VRMChat.csproj" />
+    <Project Path="app/Ikon.App.Examples.VRMChat.VRM/Ikon.App.Examples.VRMChat.VRM.csproj" />
+  </Folder>
+  <Folder Name="/Frontend/">
+    <Project Path="frontend-node/Ikon.App.Examples.VRMChat.Frontend.Node.csproj" />
+  </Folder>
+</Solution>

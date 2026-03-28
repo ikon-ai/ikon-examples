@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <PropertyGroup>
+    <IkonRoot>$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), 'ikon-platform.slnx'))</IkonRoot>
+    <IsIkonInternal Condition="'$(IkonRoot)' != ''">true</IsIkonInternal>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(IsIkonInternal)' != 'true'">
+    <PackageReference Include="Ikon.Parallax" Version="3.1.70" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(IsIkonInternal)' == 'true'">
+    <ProjectReference Include="$(IkonRoot)\Ikon.Parallax\Ikon.Parallax.csproj" />
+  </ItemGroup>
+</Project>
