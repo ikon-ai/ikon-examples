@@ -12,7 +12,7 @@ public record ClientParameters(string Name = "Ikon");
 public class MyApp(IApp<SessionIdentity, ClientParameters> app)
 {
     private UI UI { get; } = new(app, new Theme());
-    private Audio Audio { get; } = new(host);
+    private Audio Audio { get; } = new(app);
 
     // Shared state — same value for all clients
     private readonly Reactive<List<string>> _messages = new([]);
@@ -114,8 +114,8 @@ Key elements:
 
 - `return await App.Run(args);` - Required entry point at the top of the file
 - `[App]` attribute - Mandatory, must appear exactly once. Marks the class whose `Main()` method will be executed. Do NOT explicitly implement `: IApp<>` — the `[App]` attribute handles interface implementation via source generation
-- `IApp<SessionIdentity, ClientParameters> host` - Must specify types for SessionIdentity and ClientParameters. Passed as a primary constructor parameter, not implemented as an interface
-- `private UI UI { get; } = new(app, new Theme());` - Initialize UI with host and theme
+- `IApp<SessionIdentity, ClientParameters> app` - Must specify types for SessionIdentity and ClientParameters. Passed as a primary constructor parameter, not implemented as an interface
+- `private UI UI { get; } = new(app, new Theme());` - Initialize UI with app and theme
 - `Reactive<T>` - Reactive state that triggers UI updates when changed
 - `public async Task Main()` - App entry point. Declares UI shape and returns quickly. All work code goes in callbacks
 
