@@ -212,6 +212,25 @@ namespace Ikon.Common.Core
     bool IsProvisioning { get; }
     bool IsRunning { get; }
     string State { get;  set; }
+  class IkonBackend.ConnectTokenRequest
+    ctor()
+    int? ClientType { get;  set; }
+    int ContextType { get;  set; }
+    string Description { get;  set; }
+    string DeviceId { get;  set; }
+    string Hash { get;  set; }
+    string InstallId { get;  set; }
+    int OpcodeGroupsFromServer { get;  set; }
+    int OpcodeGroupsToServer { get;  set; }
+    int PayloadType { get;  set; }
+    string ProductId { get;  set; }
+    int ProtocolVersion { get;  set; }
+    string Space { get;  set; }
+    int UserType { get;  set; }
+    string VersionId { get;  set; }
+  class IkonBackend.ConnectTokenResponse
+    ctor()
+    string ServerUrl { get;  set; }
   class IkonBackend.CursorResponse<T>
     ctor()
     int Count { get;  set; }
@@ -344,11 +363,12 @@ namespace Ikon.Common.Core
     Task<IkonBackend.AppBundle> ActivateAppBundleAsync(string id)
     Task<IkonBackend.ApplyAppBundleConfigResponse> ApplyAppBundleConfigAsync(object config)
     Task<string> AuthenticateSpaceTokenAsync(string spaceId, string externalUserId)
-    Task CompleteItemSignedUploadAsync(string uri, string path)
+    Task CompleteItemSignedUploadAsync(string uri, string path, string sha256 = null)
     Task<IkonBackend.ConnectChannelInstanceResponse> ConnectChannelInstanceAsync(IkonBackend.ConnectChannelInstanceRequest request)
     Task<IkonBackend.AppBundle> CreateAppBundleAsync(string spaceId, string version, string itemId, IkonBackend.AppBundleState? state = null)
     Task CreateAuditEventAsync(string eventName, string spaceId, string userId, string entityType = null, string entityId = null, string ip = null)
     Task<IkonBackend.Channel> CreateChannelAsync(string spaceId, string name, string type, bool isPrivate)
+    Task<IkonBackend.ConnectTokenResponse> CreateChannelConnectTokenAsync(IkonBackend.ConnectTokenRequest request)
     Task<IkonBackend.ChannelInstance> CreateChannelInstanceAsync(string channelId, string mode)
     Task<IkonBackend.ChannelInstanceLaunchToken> CreateChannelInstanceLaunchTokenAsync(string id, int? httpsPort = null, int? httpPort = null, int? tcpPort = null, int? tlsPort = null)
     Task CreateChatMessageAsync(string channelInstanceId, string userId, string text, string createdAt)
@@ -959,6 +979,8 @@ namespace Ikon.Common.Core.Assets
     Conflict
     Skipped
     Success
+  interface IHashableStream
+    abstract void SetSha256Hash(string hash)
   interface IStorage : IAsyncDisposable
     abstract Task DeleteAsync(AssetUri assetUri)
     abstract Task<bool> ExistsAsync(AssetUri assetUri)
@@ -1406,11 +1428,10 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class ActionCall : IProtocolMessagePayload
     ctor()
-    ctor(string actionId, string callId, string callArgumentsJson, List<ActionCall.ActionClientFunctionResult> clientFunctionResults)
+    ctor(string actionId, string callId, string callArgumentsJson)
     string ActionId { get;  set; }
     string CallArgumentsJson { get;  set; }
     string CallId { get;  set; }
-    List<ActionCall.ActionClientFunctionResult> ClientFunctionResults { get;  set; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionCall ReadFromTeleport(ReadOnlySpan<byte> data)
@@ -1494,17 +1515,6 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     static ActionClearState ReadFromTeleport(ReadOnlySpan<byte> data)
     static ActionClearState ReadFromTeleport(ReadOnlySpan<byte> data, ActionClearState destination)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
-  sealed class ActionCall.ActionClientFunctionResult
-    ctor()
-    ctor(string functionName, int callIndex, string resultJson, string error)
-    int CallIndex { get;  set; }
-    string Error { get;  set; }
-    string FunctionName { get;  set; }
-    string ResultJson { get;  set; }
-    static ActionCall.ActionClientFunctionResult ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionCall.ActionClientFunctionResult ReadFromTeleport(ReadOnlySpan<byte> data, ActionCall.ActionClientFunctionResult destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionCustomUserMessage : IProtocolMessagePayload
@@ -1923,27 +1933,6 @@ namespace Ikon.Common.Core.Protocol
     string Url { get;  set; }
     static ActionOpenExternalUrl ReadFromTeleport(ReadOnlySpan<byte> data)
     static ActionOpenExternalUrl ReadFromTeleport(ReadOnlySpan<byte> data, ActionOpenExternalUrl destination)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
-  sealed class ActionOptimisticClientCallBatch.ActionOptimisticClientCall
-    ctor()
-    ctor(string functionName, int callIndex, List<FunctionParameter> parameters)
-    int CallIndex { get;  set; }
-    string FunctionName { get;  set; }
-    List<FunctionParameter> Parameters { get;  set; }
-    static ActionOptimisticClientCallBatch.ActionOptimisticClientCall ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionOptimisticClientCallBatch.ActionOptimisticClientCall ReadFromTeleport(ReadOnlySpan<byte> data, ActionOptimisticClientCallBatch.ActionOptimisticClientCall destination)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
-  sealed class ActionOptimisticClientCallBatch : IProtocolMessagePayload
-    ctor()
-    ctor(string actionId, List<ActionOptimisticClientCallBatch.ActionOptimisticClientCall> calls)
-    string ActionId { get;  set; }
-    List<ActionOptimisticClientCallBatch.ActionOptimisticClientCall> Calls { get;  set; }
-    Opcode MessageOpcode { get; }
-    int MessageVersion { get; }
-    static ActionOptimisticClientCallBatch ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionOptimisticClientCallBatch ReadFromTeleport(ReadOnlySpan<byte> data, ActionOptimisticClientCallBatch destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionPan : IProtocolMessagePayload
@@ -2423,7 +2412,7 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class AudioFrame2 : IProtocolMessagePayload
     ctor()
-    ctor(byte[] samples, uint epoch, uint sequence, uint frameSizeInInterleavedSamples, ulong timeStampInInterleavedSamples, bool isFirst, bool isLast, float averageVolume, float audioEventEstimatedDuration, List<AudioFrame2.AudioShapeSetValues> shapeSetValues)
+    ctor(byte[] samples, uint epoch, uint sequence, uint frameSizeInInterleavedSamples, ulong timeStampInInterleavedSamples, bool isFirst, bool isLast, float averageVolume, float audioEventEstimatedDuration)
     float AudioEventEstimatedDuration { get;  set; }
     float AverageVolume { get;  set; }
     uint Epoch { get;  set; }
@@ -2434,7 +2423,6 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     byte[] Samples { get;  set; }
     uint Sequence { get;  set; }
-    List<AudioFrame2.AudioShapeSetValues> ShapeSetValues { get;  set; }
     ulong TimeStampInInterleavedSamples { get;  set; }
     static AudioFrame2 ReadFromTeleport(ReadOnlySpan<byte> data)
     static AudioFrame2 ReadFromTeleport(ReadOnlySpan<byte> data, AudioFrame2 destination)
@@ -2451,6 +2439,20 @@ namespace Ikon.Common.Core.Protocol
     static AudioFrameVolume ReadFromTeleport(ReadOnlySpan<byte> data, AudioFrameVolume destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
+  sealed class AudioShapeFrame : IProtocolMessagePayload
+    ctor()
+    ctor(uint epoch, uint sequence, uint frameSizeInInterleavedSamples, ulong timeStampInInterleavedSamples, List<AudioShapeFrame.AudioShapeSetValues> shapeSetValues)
+    uint Epoch { get;  set; }
+    uint FrameSizeInInterleavedSamples { get;  set; }
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    uint Sequence { get;  set; }
+    List<AudioShapeFrame.AudioShapeSetValues> ShapeSetValues { get;  set; }
+    ulong TimeStampInInterleavedSamples { get;  set; }
+    static AudioShapeFrame ReadFromTeleport(ReadOnlySpan<byte> data)
+    static AudioShapeFrame ReadFromTeleport(ReadOnlySpan<byte> data, AudioShapeFrame destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class AudioStreamBegin.AudioShapeSet
     ctor()
     ctor(uint setId, string name, List<string> shapeNames)
@@ -2461,13 +2463,13 @@ namespace Ikon.Common.Core.Protocol
     static AudioStreamBegin.AudioShapeSet ReadFromTeleport(ReadOnlySpan<byte> data, AudioStreamBegin.AudioShapeSet destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
-  sealed class AudioFrame2.AudioShapeSetValues
+  sealed class AudioShapeFrame.AudioShapeSetValues
     ctor()
     ctor(uint setId, List<float> values)
     uint SetId { get;  set; }
     List<float> Values { get;  set; }
-    static AudioFrame2.AudioShapeSetValues ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AudioFrame2.AudioShapeSetValues ReadFromTeleport(ReadOnlySpan<byte> data, AudioFrame2.AudioShapeSetValues destination)
+    static AudioShapeFrame.AudioShapeSetValues ReadFromTeleport(ReadOnlySpan<byte> data)
+    static AudioShapeFrame.AudioShapeSetValues ReadFromTeleport(ReadOnlySpan<byte> data, AudioShapeFrame.AudioShapeSetValues destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AudioStreamBegin : IProtocolMessagePayload
@@ -2762,7 +2764,7 @@ namespace Ikon.Common.Core.Protocol
     static ActionFunctionRegister.FunctionRegisterParameter ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionRegister.FunctionRegisterParameter destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
-  sealed class GlobalState : IProtocolMessagePayload
+  sealed class GlobalState : ILogInfo, IProtocolMessagePayload
     ctor()
     ctor(Dictionary<int, Context> clients, Dictionary<int, List<ActionFunctionRegister>> functions, Dictionary<string, GlobalState.UIStreamState> uiStreams, Dictionary<string, GlobalState.AudioStreamState> audioStreams, Dictionary<string, GlobalState.VideoStreamState> videoStreams, Dictionary<string, GlobalState.TrackingStreamState> trackingStreams, string spaceId, string channelId, string sessionId, string channelUrl, string sessionChannelUrl, string firstUserId, string primaryUserId, string organisationName, string spaceName, string channelName, ServerRunType serverRunType, AppSourceType appSourceType, bool publicAccess, bool debugMode)
     AppSourceType AppSourceType { get;  set; }
@@ -2774,6 +2776,7 @@ namespace Ikon.Common.Core.Protocol
     bool DebugMode { get;  set; }
     string FirstUserId { get;  set; }
     Dictionary<int, List<ActionFunctionRegister>> Functions { get;  set; }
+    object LogInfo { get; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     string OrganisationName { get;  set; }
@@ -3094,7 +3097,6 @@ namespace Ikon.Common.Core.Protocol
     ACTION_STOP_SOUND
     ACTION_START_RECORDING
     ACTION_STOP_RECORDING
-    ACTION_OPTIMISTIC_CLIENT_CALLS
     ACTION_FUNCTION_ENUMERATION_ITEM
     ACTION_FUNCTION_ENUMERATION_END
     ACTION_FUNCTION_CANCEL
@@ -3169,6 +3171,7 @@ namespace Ikon.Common.Core.Protocol
     AUDIO_FRAME
     AUDIO_FRAME_VOLUME
     AUDIO_FRAME2
+    AUDIO_SHAPE_FRAME
     GROUP_VIDEO
     VIDEO_STREAM_BEGIN
     VIDEO_STREAM_END
@@ -3224,6 +3227,7 @@ namespace Ikon.Common.Core.Protocol
     static ProtocolMessage ModifyPayload(IProtocolMessagePayload payload, ProtocolMessage message, PayloadType payloadType = Unknown)
     override string ToString()
     PayloadType DefaultPayloadType
+    static int MaxMessageSize
     static int MinimumHeaderLength
     static Dictionary<Opcode, Type> OpcodeToType
     static Dictionary<Type, Opcode> TypeToOpcode
@@ -4407,16 +4411,15 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
 
 namespace Ikon.Common.Core.Reactive
+  static class ClientReactive
+    static ClientReactive<T> Create<T>(Func<int, T> factory, string file = "", string member = "")
   class ClientReactive<T> : Reactive<T, ClientScope>
     ctor(T initialValue, string file = "", string member = "")
-    ctor(Func<int, T> initialValue, string file = "", string member = "")
   sealed class ReactiveManager.Handle
-    ctor(ReactiveManager reactiveManager, Func<ReactiveManager.Handle, Task> callback, Guid id, int number)
     string DebugDescription { get;  set; }
     int? GroupId { get;  set; }
     Guid Id { get; }
     bool IsUpdate { get; }
-    string OptimisticActionId { get; }
     DateTime? UpdatedAt { get; }
     void StopTracking(bool isUpdating)
     override string ToString()
@@ -4429,37 +4432,18 @@ namespace Ikon.Common.Core.Reactive
     void LoadStorageStates(Dictionary<string, StoredReactiveState> states)
     void Register(string stableId, IReactiveWithState reactive, bool persistent)
   interface IReactive
+    long Version { get; }
   interface IReactiveWithState
     string StableId { get; }
     abstract StoredReactiveState CaptureState()
     abstract void RestoreState(StoredReactiveState state)
-  sealed class OptimisticClientFunctionCallInfo
-    ctor(int clientSessionId, string functionName, List<FunctionParameter> parameters, string resultTypeName, int callIndex)
-    int CallIndex { get; }
-    int ClientSessionId { get; }
-    string FunctionName { get; }
-    List<FunctionParameter> Parameters { get; }
-    string ResultTypeName { get; }
-  struct OptimisticClientFunctionKey : IEquatable<OptimisticClientFunctionKey>
-    ctor(string functionName, int clientSessionId, int callIndex)
-    int CallIndex { get; }
-    int ClientSessionId { get; }
-    string FunctionName { get; }
-  sealed class OptimisticClientUpdateEventArgs : EventArgs
-    ctor(string optimisticActionId, IReadOnlyList<OptimisticClientFunctionCallInfo> currentCalls, IReadOnlyList<OptimisticClientFunctionCallInfo> previousCalls)
-    IReadOnlyList<OptimisticClientFunctionCallInfo> CurrentCalls { get; }
-    string OptimisticActionId { get; }
-    IReadOnlyList<OptimisticClientFunctionCallInfo> PreviousCalls { get; }
   static class Reactive
     static void Run<T>(Reactive<T> reactiveValue, Func<Task<T>> action, Action<Exception> onError = null, CancellationToken token = null)
     static void Run<T>(Reactive<T> reactiveValue, Func<CancellationToken, Task<T>> action, Action<Exception> onError = null, CancellationToken token = null)
   class ReactiveManager : IDisposable
     ctor(string category)
     string Category { get; }
-    static bool IsOptimisticUpdateInProgress { get; }
     int UpdatedHandleCount { get; }
-    static IDisposable ActivateHydratedOptimisticContext(IReadOnlyList<OptimisticClientFunctionCallInfo> recordedCalls, IReadOnlyDictionary<OptimisticClientFunctionKey, object> results)
-    void AddOptimisticUpdate(string optimisticActionId, Func<Task> optimisticUpdate)
     void DecrementUICreationOngoing()
     void Dispose()
     void IncrementUICreationOngoing()
@@ -4467,13 +4451,8 @@ namespace Ikon.Common.Core.Reactive
     void Reactive(Action<ReactiveManager.Handle> callback)
     Task ReactiveAsync(Func<ReactiveManager.Handle, Task> callback)
     void StopTrackingAll()
-    static bool TryConsumeHydratedClientFunctionResult(string functionName, int clientSessionId, out object result)
-    static bool TryRegisterOptimisticClientFunctionCall(string functionName, int clientSessionId, List<FunctionParameter> parameters, string resultTypeName)
-    bool TryTakeOptimisticClientCalls(string optimisticActionId, out List<OptimisticClientFunctionCallInfo> calls)
     Task UpdateAsync()
-    Task UpdateOptimisticAsync()
     event EventHandler<Guid> Deleted
-    event EventHandler<OptimisticClientUpdateEventArgs> OptimisticClientUpdateProduced
     event EventHandler ReactiveObjectUpdated
     event EventHandler<Guid> Updating
   static class ReactiveScope
@@ -4500,6 +4479,7 @@ namespace Ikon.Common.Core.Reactive
     T Peek { get; }
     string StableId { get; }
     T Value { get;  set; }
+    long Version { get; }
     StoredReactiveState CaptureState()
     void NotifyUpdate()
     void RestoreState(StoredReactiveState state)
@@ -4513,6 +4493,7 @@ namespace Ikon.Common.Core.Reactive
     ctor(T initial)
     T Peek { get; }
     T Value { get;  set; }
+    long Version { get; }
     void NotifyUpdate()
     event Action<T> ValueChanged
     event Func<T, Task> ValueChangedAsync

@@ -5,7 +5,7 @@
 ### Audio
 
 ```csharp
-private Audio Audio { get; } = new(host);
+private Audio Audio { get; } = new(app);
 
 // Send audio to clients immediately (sends all audio at once)
 await Audio.SendAsync(samples, sampleRate, channelCount, isFirst, isLast, streamId);
@@ -27,7 +27,7 @@ await Audio.CloseAllAsync();
 ### Video
 
 ```csharp
-private Video Video { get; } = new(host);
+private Video Video { get; } = new(app);
 
 // Receive video input from client camera/screen
 Video.VideoInputStreamBeginAsync += async args => { /* args.StreamId, args.Codec, args.Width, args.Height */ };
@@ -44,6 +44,36 @@ await Video.CloseAllAsync();
 ```
 
 Use `CaptureButton` in the UI to start audio/video capture from the client.
+
+### Audio Effects & Mixer
+
+Apply real-time audio effects via `IAudioEffect` from `Ikon.Resonance.Effects`:
+
+```csharp
+using Ikon.Resonance.Effects;
+
+// Available effects: BitCrusherAudioEffect, ChorusAudioEffect, DelayAudioEffect,
+// DistortionAudioEffect, FlangerAudioEffect, GainAudioEffect, PannerAudioEffect,
+// ReverbAudioEffect, RingModulatorAudioEffect, TremoloAudioEffect
+
+// Add effects to a SpeechMixer
+var mixer = new SpeechMixer();
+mixer.AddSamples(container, effects: [new ReverbAudioEffect(), new DelayAudioEffect()]);
+```
+
+### Synthesis
+
+Build synthesizers with `Ikon.Resonance.Synth`:
+
+```csharp
+using Ikon.Resonance.Synth;
+using Ikon.Resonance.Synth.Oscillators;
+using Ikon.Resonance.Synth.Filters;
+using Ikon.Resonance.Synth.Envelopes;
+
+// Oscillators, filters, envelopes, Moog synth, sequencer
+// See Ikon.Resonance Public API reference below for full class listings
+```
 
 ---
 

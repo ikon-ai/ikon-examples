@@ -69,9 +69,9 @@ using Ikon.Parallax;
 using Ikon.Parallax.Themes.Default;
 
 [App]
-public class MyApp(IApp<SessionIdentity, ClientParams> host)
+public class MyApp(IApp<SessionIdentity, ClientParams> app)
 {
-    private UI UI { get; } = new(host, new Theme());
+    private UI UI { get; } = new(app, new Theme());
 
     private readonly Reactive<int> _counter = new(0);
 
@@ -102,6 +102,8 @@ The `UIView` class provides extension methods for common UI components:
 **Layout:**
 - `view.Row()` - Horizontal flex container
 - `view.Column()` - Vertical flex container
+- `view.ScrollArea()` - Scrollable container with optional smart auto-scroll
+- `view.InfiniteScrollView()` - Scroll area with near-end callbacks for lazy loading
 
 **Display:**
 - `view.Text()` - Text content
@@ -118,6 +120,36 @@ The `UIView` class provides extension methods for common UI components:
 **Navigation:**
 - `view.Tabs()` - Tabbed interface
 - `view.AccordionSingle()` / `view.AccordionMultiple()` - Collapsible sections
+
+### ScrollArea and Auto-Scroll
+
+ScrollArea provides a scrollable container with smart auto-scroll support, ideal for chat interfaces and live feeds:
+
+```csharp
+view.ScrollArea(
+    rootStyle: ["h-[400px]"],
+    autoScroll: true,
+    autoScrollKey: _messages.Value.Count.ToString(),
+    content: view =>
+    {
+        foreach (var msg in _messages.Value)
+        {
+            view.Text([Text.Body], msg);
+        }
+    });
+```
+
+**Auto-scroll behavior (Polite priority):**
+- At bottom: new content auto-scrolls into view
+- Scrolled away: auto-scroll is suppressed, a floating indicator appears to notify the user
+- Clicking the indicator or scrolling back to bottom resumes auto-scroll
+
+For forced scrolling (always scroll regardless of position), use `FocusHint` with `FocusPriority.Assertive`:
+
+```csharp
+anchor.FocusHint(new FocusHintProps { Priority = FocusPriority.Assertive },
+    key: $"scroll-{version}");
+```
 
 ## Example: Interactive Form
 

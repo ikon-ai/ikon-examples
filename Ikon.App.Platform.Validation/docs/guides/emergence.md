@@ -1,3 +1,121 @@
+# Emergence
+
+## Emergence
+
+Use `Emerge.Run<T>()` for all LLM text generation — structured JSON output, chatbot conversations, agentic tool loops. Supports records and sealed classes as result types. Conversation history is maintained by reusing `KernelContext` across calls.
+
+> **No setup required.** The platform handles all AI connections automatically. Do NOT add provider setup code,
+> Azure/OpenAI configuration, or connection strings. Just call `Emerge.Run<T>()` with a model enum and it works.
+
+### Emerge.Run<T> - Basic Pattern
+
+```csharp
+// Both sealed class and record work as result types
+public sealed class AnalysisResult
+{
+    public string Summary { get; set; } = "";
+    public List<string> KeyPoints { get; set; } = [];
+}
+
+// Records also work:
+// public record AnalysisResult(string Summary, List<string> KeyPoints);
+
+// Streaming (observe each event)
+await foreach (var ev in Emerge.Run<AnalysisResult>(LLMModel.Claude46Sonnet, new KernelContext(), pass =>
+{
+    pass.SystemPrompt = "You are a helpful analyst.";
+    pass.Command = $"Analyze: {topic}\n\nReturn JSON:\n{pass.JsonSchema}";
+    pass.Temperature = 0.7;
+    pass.MaxOutputTokens = 32000;
+    pass.MaxIterations = 5;
+}))
+{
+    if (ev is Completed<AnalysisResult> completed)
+    {
+        var result = completed.Result;
+    }
+}
+
+// Direct result (no streaming)
+var (result, context) = await Emerge.Run<AnalysisResult>(LLMModel.Claude46Sonnet, new KernelContext(), pass =>
+{
+    pass.Command = $"Analyze: {topic}\n\nReturn JSON:\n{pass.JsonSchema}";
+    pass.Temperature = 0.3;
+}).FinalAsync();
+```
+
+### Conversation History (Chatbots)
+
+To build a chatbot that remembers context, reuse the `KernelContext` returned from previous `Emerge.Run` calls:
+
+```csharp
+var context = new KernelContext();
+
+// First user message
+var (result1, context) = await Emerge.Run<ChatResponse>(LLMModel.Claude46Sonnet, context, pass =>
+{
+    pass.SystemPrompt = "You are a friendly assistant.";
+    pass.Command = userMessage;
+}).FinalAsync();
+
+// Second message — context carries the full conversation history automatically
+var (result2, context) = await Emerge.Run<ChatResponse>(LLMModel.Claude46Sonnet, context, pass =>
+{
+    pass.Command = nextUserMessage;
+}).FinalAsync();
+```
+
+> **Always use `Emerge.Run<T>()` for chatbots** — do not use lower-level LLM classes directly. Emerge handles conversation context, retries, and structured output automatically.
+
+### Cancellation & Timeouts
+
+All Emerge methods accept a `CancellationToken` as the last parameter. Use `CancellationTokenSource` with a timeout:
+
+```csharp
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+var (result, context) = await Emerge.Run<AnalysisResult>(LLMModel.Claude46Sonnet, new KernelContext(), pass =>
+{
+    pass.Command = $"Analyze: {topic}\n\nReturn JSON:\n{pass.JsonSchema}";
+}, cts.Token).FinalAsync();
+```
+
+> **Do NOT use `Task.WhenAny` for timeouts.** Pass the `CancellationToken` directly — the Emerge system handles
+> cancellation internally and cleans up properly. Use `try/catch (OperationCanceledException)` to handle timeouts.
+>
+> If you get `FinishReason=max_tokens` errors, increase `pass.MaxOutputTokens` (default is 16000, max is 128000).
+
+### Tools
+
+```csharp
+pass.AddTool("search", "Search the web", (string query) => SearchWeb(query))
+    .AddTool("get_data", "Get statistics", (string topic) => GetData(topic));
+pass.MaxToolCalls = 10;
+```
+
+### Emerge.BestOf<T> - Generate Multiple Candidates
+
+```csharp
+await foreach (var ev in Emerge.BestOf<CreativeResponse>(LLMModel.Claude46Sonnet, new KernelContext(), bo =>
+{
+    bo.Command = $"Write a tagline for: {prompt}\n\nReturn JSON:\n{bo.JsonSchema}";
+    bo.Count = 3;
+    bo.Score = (response, trace) => ScoreResponse(response);
+    bo.Candidate(c => { c.Temperature = 0.5 + c.Index * 0.2; });
+}))
+{
+    if (ev is Completed<CreativeResponse> completed) { /* best candidate */ }
+}
+```
+
+Refer to the emergence-patterns guide for advanced patterns (MapReduce, TaskGraph, TreeSearch, etc.) and the ai-models guide for LLM model listings.
+
+### Available LLM Models
+
+`LLMModel.Claude46Sonnet`, `LLMModel.Claude45Sonnet`, `LLMModel.Claude45Haiku`, `LLMModel.Gemini25Flash`, `LLMModel.Gemini25Pro`, `LLMModel.Gpt5Mini`, `LLMModel.Gpt5`, `LLMModel.Grok4`, and many more. All models use the same `Emerge.Run<T>` API — just change the model enum.
+
+---
+
 # Ikon.AI.Emergence Public API
 
 namespace Ikon.AI.Emergence

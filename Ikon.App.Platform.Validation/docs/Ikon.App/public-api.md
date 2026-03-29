@@ -125,6 +125,7 @@ namespace Ikon.App
     IReadOnlyList<int> TargetIds { get;  init; }
   class ClientCollection<TClientParameters> : IClientCollection<TClientParameters>
     ctor()
+    int Count { get; }
     IClient<TClientParameters> Item { get; }
   sealed class ClientContact : IEquatable<ClientContact>
     ctor(IReadOnlyList<string> Names, IReadOnlyList<string> Emails, IReadOnlyList<string> Phones)
@@ -302,11 +303,20 @@ namespace Ikon.App
     static string LightTheme
   sealed class FileUploadCallbackSet
     ctor()
+    Func<FileUploadChunkArgs, Task> OnChunkReceived
     Func<FileUploadCompleteArgs, Task> OnUploadComplete
     Func<FileUploadErrorArgs, Task> OnUploadError
     Func<FileUploadPreStartArgs, Task<FileUploadPreStartResult>> OnUploadPreStart
     Func<FileUploadProgressArgs, Task> OnUploadProgress
     Func<FileUploadStartArgs, Task<FileUploadStartResult>> OnUploadStart
+  sealed class FileUploadChunkArgs : IEquatable<FileUploadChunkArgs>
+    ctor(string UploadId, string FileName, string MimeType, long Size, byte[] Data, long BytesWritten)
+    long BytesWritten { get;  init; }
+    byte[] Data { get;  init; }
+    string FileName { get;  init; }
+    string MimeType { get;  init; }
+    long Size { get;  init; }
+    string UploadId { get;  init; }
   sealed class FileUploadCompleteArgs : IEquatable<FileUploadCompleteArgs>
     ctor(string UploadId, string FileName, string MimeType, long Size, string LocalTempFilePath, string AssetUri)
     string AssetUri { get;  init; }
@@ -355,6 +365,7 @@ namespace Ikon.App
   sealed class FileUploadStartResult : IEquatable<FileUploadStartResult>
     ctor()
     bool Accepted { get;  set; }
+    string AssetUri { get;  set; }
   interface IAppBase : IProtocolMessageChannel
     BackgroundWork BackgroundWork { get; }
     string DataDirectory { get; }
@@ -372,9 +383,11 @@ namespace Ikon.App
   interface IApp<TConfig> : IAppBase, IProtocolMessageChannel
     TConfig Config { get; }
   interface IApp<TSessionIdentity, TClientParameters> : IAppBase, IProtocolMessageChannel
+    TClientParameters ClientParameters { get; }
     IClientCollection<TClientParameters> Clients { get; }
     TSessionIdentity SessionIdentity { get; }
   interface IClientCollection<TClientParameters>
+    int Count { get; }
     IClient<TClientParameters> Item { get; }
   interface IClient<TClientParameters>
     TClientParameters Parameters { get; }
@@ -446,7 +459,7 @@ namespace Ikon.App
   class ReactiveRoot
     ctor(IAppBase host, int updateIntervalMs = 1000)
     ReactiveManager ReactiveManager { get; }
-    void Run(Action render, Func<Context, bool> filter = null)
+    Task RunAsync(Func<Task> render, Func<Context, bool> filter = null)
   class StartingEventArgs : EventArgs
     ctor()
   class StoppingEventArgs : EventArgs

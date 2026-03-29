@@ -21,6 +21,29 @@ private readonly PersistentReactive<int> _totalVisits = new(0);
 
 `PersistentReactive<T>` values survive app restarts by persisting to cloud storage. Use for counters, settings, or any state that should not reset on redeployment.
 
+### Scope Requirements
+
+**Never access `ClientReactive` or `UserReactive` values outside `UI.Root()`.** `Main()` runs before any client/user scope exists. All reads and writes of scoped reactive values must happen inside `UI.Root()` or inside event callbacks (onClick, onSubmit, etc.) which run within a scope. For background tasks, use `ReactiveScope.Use()` to enter a scope explicitly.
+
+```csharp
+// WRONG — crashes at startup, no user scope active
+public async Task Main()
+{
+    if (_hasJoined.Value) { ... }  // UserReactive — throws InvalidOperationException
+    RenderTavern();
+}
+
+// CORRECT — branch inside UI.Root() where scopes are active
+public async Task Main()
+{
+    UI.Root([Page.Default], content: view =>
+    {
+        if (_hasJoined.Value) { RenderTavern(view); }  // OK — inside UI.Root()
+        else { RenderEntry(view); }
+    });
+}
+```
+
 ### Value Mutation
 
 ```csharp
@@ -35,9 +58,52 @@ _items.NotifyUpdate();
 _config.Value = _config.Value with { Theme = "dark" };
 ```
 
+### Complete Example: Shared Messages + Per-Client Input
+
+```csharp
+// Shared state — all clients see the same messages
+private readonly Reactive<List<string>> _messages = new([]);
+
+// Per-client state — each client has their own input
+private readonly ClientReactive<string> _input = new("");
+
+public async Task Main()
+{
+    UI.Root([Page.Default], content: view =>
+    {
+        view.Column(["h-screen"], content: view =>
+        {
+            // All clients see the same messages
+            view.ScrollArea(autoScroll: true, autoScrollKey: _messages.Value.Count.ToString(),
+                rootStyle: ["flex-1 min-h-0 px-4"], content: view =>
+            {
+                foreach (var msg in _messages.Value)
+                {
+                    view.Text([Text.Body, "py-1"], msg);
+                }
+            });
+
+            // Each client has their own input
+            view.Row(["p-4 gap-2 flex-shrink-0"], content: view =>
+            {
+                view.TextField([Input.Default, "flex-1"],
+                    value: _input.Value,
+                    onValueChange: async v => _input.Value = v,
+                    onSubmit: async _ =>
+                    {
+                        _messages.Value.Add(_input.Value);
+                        _messages.NotifyUpdate(); // Required for in-place list mutation
+                    },
+                    clearOnSubmit: true);
+            });
+        });
+    });
+}
+```
+
 ### ReactiveScope Context
 
-Inside UI callbacks, access the current client/user context:
+Inside UI callbacks, access the current client/user context. `app` does not have a `ClientId` property. Always use `ReactiveScope.ClientId` inside UI callbacks.
 
 ```csharp
 var clientId = ReactiveScope.ClientId;
@@ -51,16 +117,15 @@ _clientTheme.Value = "dark"; // Now targets the specified client
 
 # Ikon.Common.Core Public API
 namespace Ikon.Common.Core.Reactive
+  static class ClientReactive
+    static ClientReactive<T> Create<T>(Func<int, T> factory, string file = "", string member = "")
   class ClientReactive<T> : Reactive<T, ClientScope>
     ctor(T initialValue, string file = "", string member = "")
-    ctor(Func<int, T> initialValue, string file = "", string member = "")
   sealed class ReactiveManager.Handle
-    ctor(ReactiveManager reactiveManager, Func<ReactiveManager.Handle, Task> callback, Guid id, int number)
     string DebugDescription { get;  set; }
     int? GroupId { get;  set; }
     Guid Id { get; }
     bool IsUpdate { get; }
-    string OptimisticActionId { get; }
     DateTime? UpdatedAt { get; }
     void StopTracking(bool isUpdating)
     override string ToString()
@@ -73,37 +138,18 @@ namespace Ikon.Common.Core.Reactive
     void LoadStorageStates(Dictionary<string, StoredReactiveState> states)
     void Register(string stableId, IReactiveWithState reactive, bool persistent)
   interface IReactive
+    long Version { get; }
   interface IReactiveWithState
     string StableId { get; }
     abstract StoredReactiveState CaptureState()
     abstract void RestoreState(StoredReactiveState state)
-  sealed class OptimisticClientFunctionCallInfo
-    ctor(int clientSessionId, string functionName, List<FunctionParameter> parameters, string resultTypeName, int callIndex)
-    int CallIndex { get; }
-    int ClientSessionId { get; }
-    string FunctionName { get; }
-    List<FunctionParameter> Parameters { get; }
-    string ResultTypeName { get; }
-  struct OptimisticClientFunctionKey : IEquatable<OptimisticClientFunctionKey>
-    ctor(string functionName, int clientSessionId, int callIndex)
-    int CallIndex { get; }
-    int ClientSessionId { get; }
-    string FunctionName { get; }
-  sealed class OptimisticClientUpdateEventArgs : EventArgs
-    ctor(string optimisticActionId, IReadOnlyList<OptimisticClientFunctionCallInfo> currentCalls, IReadOnlyList<OptimisticClientFunctionCallInfo> previousCalls)
-    IReadOnlyList<OptimisticClientFunctionCallInfo> CurrentCalls { get; }
-    string OptimisticActionId { get; }
-    IReadOnlyList<OptimisticClientFunctionCallInfo> PreviousCalls { get; }
   static class Reactive
     static void Run<T>(Reactive<T> reactiveValue, Func<Task<T>> action, Action<Exception> onError = null, CancellationToken token = null)
     static void Run<T>(Reactive<T> reactiveValue, Func<CancellationToken, Task<T>> action, Action<Exception> onError = null, CancellationToken token = null)
   class ReactiveManager : IDisposable
     ctor(string category)
     string Category { get; }
-    static bool IsOptimisticUpdateInProgress { get; }
     int UpdatedHandleCount { get; }
-    static IDisposable ActivateHydratedOptimisticContext(IReadOnlyList<OptimisticClientFunctionCallInfo> recordedCalls, IReadOnlyDictionary<OptimisticClientFunctionKey, object> results)
-    void AddOptimisticUpdate(string optimisticActionId, Func<Task> optimisticUpdate)
     void DecrementUICreationOngoing()
     void Dispose()
     void IncrementUICreationOngoing()
@@ -111,13 +157,8 @@ namespace Ikon.Common.Core.Reactive
     void Reactive(Action<ReactiveManager.Handle> callback)
     Task ReactiveAsync(Func<ReactiveManager.Handle, Task> callback)
     void StopTrackingAll()
-    static bool TryConsumeHydratedClientFunctionResult(string functionName, int clientSessionId, out object result)
-    static bool TryRegisterOptimisticClientFunctionCall(string functionName, int clientSessionId, List<FunctionParameter> parameters, string resultTypeName)
-    bool TryTakeOptimisticClientCalls(string optimisticActionId, out List<OptimisticClientFunctionCallInfo> calls)
     Task UpdateAsync()
-    Task UpdateOptimisticAsync()
     event EventHandler<Guid> Deleted
-    event EventHandler<OptimisticClientUpdateEventArgs> OptimisticClientUpdateProduced
     event EventHandler ReactiveObjectUpdated
     event EventHandler<Guid> Updating
   static class ReactiveScope
@@ -144,6 +185,7 @@ namespace Ikon.Common.Core.Reactive
     T Peek { get; }
     string StableId { get; }
     T Value { get;  set; }
+    long Version { get; }
     StoredReactiveState CaptureState()
     void NotifyUpdate()
     void RestoreState(StoredReactiveState state)
@@ -157,6 +199,7 @@ namespace Ikon.Common.Core.Reactive
     ctor(T initial)
     T Peek { get; }
     T Value { get;  set; }
+    long Version { get; }
     void NotifyUpdate()
     event Action<T> ValueChanged
     event Func<T, Task> ValueChangedAsync

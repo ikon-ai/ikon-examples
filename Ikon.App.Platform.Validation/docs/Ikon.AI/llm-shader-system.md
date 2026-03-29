@@ -23,7 +23,7 @@ Comments (`//`) explain the purpose of each property.
     RequestTimeoutSeconds: 60,
     Temperature: 0.7,
     MaxOutputTokens: 4000,        // text tokens returned
-    ReasoningEffort: "None",      // None/Low/Medium/High
+    ReasoningEffort: "None",      // None/Minimal/Low/Medium/High
     ReasoningTokenBudget: 0,      // budget for internal “scratch-pad”
     UseStreaming: true,           // stream partial results
     UseJson: false,               // force JSON response

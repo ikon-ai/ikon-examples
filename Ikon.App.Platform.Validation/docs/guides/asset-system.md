@@ -19,9 +19,9 @@ Uniform abstraction for storing and retrieving files, JSON payloads, and binary 
 ```csharp
 // URIs use assets:// scheme with optional scope segments (space, user, channel)
 var localFile = new AssetUri(AssetClass.LocalFile, "image.jpg");
-var cloudFile = new AssetUri(AssetClass.CloudFile, "path/file.jpg", spaceId: host.GlobalState.SpaceId);
-var publicFile = new AssetUri(AssetClass.CloudFilePublic, "path/file.jpg", spaceId: host.GlobalState.SpaceId);
-var cloudJson = new AssetUri(AssetClass.CloudJson, "path/data.json", spaceId: host.GlobalState.SpaceId);
+var cloudFile = new AssetUri(AssetClass.CloudFile, "path/file.jpg", spaceId: app.GlobalState.SpaceId);
+var publicFile = new AssetUri(AssetClass.CloudFilePublic, "path/file.jpg", spaceId: app.GlobalState.SpaceId);
+var cloudJson = new AssetUri(AssetClass.CloudJson, "path/data.json", spaceId: app.GlobalState.SpaceId);
 ```
 
 ### Read/Write
@@ -201,6 +201,8 @@ namespace Ikon.Common.Core.Assets
     Conflict
     Skipped
     Success
+  interface IHashableStream
+    abstract void SetSha256Hash(string hash)
   interface IStorage : IAsyncDisposable
     abstract Task DeleteAsync(AssetUri assetUri)
     abstract Task<bool> ExistsAsync(AssetUri assetUri)

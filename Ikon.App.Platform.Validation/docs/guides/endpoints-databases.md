@@ -13,7 +13,7 @@ Endpoints = ["api:https", "webhooks:http"]
 ### Creating and Starting an Endpoint
 
 ```csharp
-var endpoint = new AppEndpointHost(host, "api");
+var endpoint = new AppEndpointHost(app, "api");
 
 endpoint.MapGet("/health", async ctx =>
 {
@@ -53,7 +53,7 @@ await endpoint.StartAsync();
 Dispose endpoints when the app stops:
 
 ```csharp
-host.StoppingAsync += async _ =>
+app.StoppingAsync += async _ =>
 {
     await endpoint.DisposeAsync();
 };
@@ -74,7 +74,7 @@ Databases = ["mydb:postgres"]
 `AppDatabaseConnection.Create` returns a standard ADO.NET `DbConnection`. The caller is responsible for opening and disposing it.
 
 ```csharp
-await using var connection = AppDatabaseConnection.Create(host, "mydb");
+await using var connection = AppDatabaseConnection.Create(app, "mydb");
 await connection.OpenAsync();
 
 await using var cmd = connection.CreateCommand();
