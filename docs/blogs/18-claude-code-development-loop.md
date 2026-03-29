@@ -34,9 +34,9 @@ The scaffolded app is minimal:
 return await App.Run(args);
 
 [App]
-public class MyProjectApp(IApp<SessionIdentity, ClientParameters> host)
+public class MyProjectApp(IApp<SessionIdentity, ClientParameters> app)
 {
-    private UI UI { get; } = new(host, new Theme());
+    private UI UI { get; } = new(app, new Theme());
 
     public async Task Main()
     {
@@ -78,7 +78,7 @@ Ikon has four tiers of reactive state, and all of them survive hot reload:
 
 When the server reloads, it serializes all reactive state to a temporary JSON file, restarts the process, and restores the state before the app's `Main()` runs again. From the user's perspective, the page flickers briefly and comes back with the same data.
 
-Non-reactive fields -- plain instance variables, background tasks, timers -- do not survive. This is by design. If you need state to persist across reloads, declare it as `Reactive<T>`. If you have background work, use `host.StoppingAsync` to clean up gracefully when a reload occurs.
+Non-reactive fields -- plain instance variables, background tasks, timers -- do not survive. This is by design. If you need state to persist across reloads, declare it as `Reactive<T>`. If you have background work, use `app.StoppingAsync` to clean up gracefully when a reload occurs.
 
 ## What the loop looks like in practice
 

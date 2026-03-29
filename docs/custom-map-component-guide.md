@@ -484,9 +484,9 @@ public static class MyMapExtensions
 
 ```csharp
 [App]
-public class MyApp(IApp<SessionIdentity, ClientParameters> host)
+public class MyApp(IApp<SessionIdentity, ClientParameters> app)
 {
-    private UI UI { get; } = new(host, new Theme());
+    private UI UI { get; } = new(app, new Theme());
 
     private readonly Reactive<List<MapPin>> _pins = new([]);
     private readonly Reactive<string?> _selectedPinId = new(null);

@@ -35,7 +35,7 @@ An Ikon application is a long-lived stateful process. It starts, it runs, and it
 Here is what a background AI task looks like — it gathers sources, analyzes each one, and updates the interface in real time as results come in:
 
 ```csharp
-host.BackgroundWork.Start("deep-analysis", async ct =>
+app.BackgroundWork.Start("deep-analysis", async ct =>
 {
     var sources = await GatherSources(query);
 
