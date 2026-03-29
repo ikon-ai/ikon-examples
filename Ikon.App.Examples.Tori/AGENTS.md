@@ -23,7 +23,7 @@ Ikon AI App is a cloud-native platform for building interactive, AI-powered mult
 
 **Styling:** Crosswind — Tailwind-like utility classes in C# string arrays, with a motion animation system for declarative keyframe animations (`motion-[...]`).
 
-**Audio:** `private Audio Audio { get; } = new(host);` — audio synthesis (Ikon.Resonance), effects, playback, and client microphone/camera capture.
+**Audio:** `private Audio Audio { get; } = new(app);` — audio synthesis (Ikon.Resonance), effects, playback, and client microphone/camera capture.
 
 **Namespaces:** All Ikon namespaces are auto-imported via `GlobalUsings.cs` — no manual `using` statements needed for Ikon types.
 
