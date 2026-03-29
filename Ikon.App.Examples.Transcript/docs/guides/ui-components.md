@@ -65,7 +65,7 @@ view.Text([Text.Display], "Large Title");
 view.Text([Text.H2], "Section Heading");
 view.Text([Text.Body], "Body text");
 view.Text([Text.Caption, "text-muted-foreground"], "Small caption");
-view.Heading([Text.H3], "Heading component");
+view.Heading([Text.H3], content: view => view.Text(text: "Heading component"));
 view.Markdown(content: "**Bold** and `code`");
 ```
 
