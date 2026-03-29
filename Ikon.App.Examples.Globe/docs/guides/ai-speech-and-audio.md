@@ -4,7 +4,7 @@
 
 Text-to-speech with `new SpeechGenerator(model)`, speech-to-text with `new SpeechRecognizer(model)`, and sound effects with `new SoundEffectGenerator(model)`. Audio playback via `Audio.SendSpeech()`.
 
-`Audio` is a host service initialized in your app class: `private Audio Audio { get; } = new(host);`
+`Audio` is an app service initialized in your app class: `private Audio Audio { get; } = new(app);`
 
 ### Speech Generation (TTS)
 
@@ -13,7 +13,7 @@ Text-to-speech with `new SpeechGenerator(model)`, speech-to-text with `new Speec
 using var speechGenerator = new SpeechGenerator(SpeechGeneratorModel.ElevenTurbo25);
 await foreach (var audio in speechGenerator.GenerateSpeechAsync(new SpeechGeneratorConfig { Text = "Hello world" }))
 {
-    Audio.SendSpeech(audio);  // Audio is a host service property
+    Audio.SendSpeech(audio);  // Audio is an app service property
 }
 ```
 
