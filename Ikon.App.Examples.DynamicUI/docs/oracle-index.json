@@ -24,7 +24,7 @@
         "invite link"
       ],
       "file": "docs/guides/app-structure.md",
-      "sizeBytes": 13057,
+      "sizeBytes": 13054,
       "alsoInclude": []
     },
     {
@@ -54,7 +54,7 @@
         "value mutation"
       ],
       "file": "docs/guides/reactive-state.md",
-      "sizeBytes": 3923,
+      "sizeBytes": 10095,
       "alsoInclude": [
         "app-structure",
         "ui-components"
@@ -82,7 +82,7 @@
         "message bubbles"
       ],
       "file": "docs/guides/ui-components.md",
-      "sizeBytes": 13795,
+      "sizeBytes": 13829,
       "alsoInclude": [
         "app-structure"
       ]
@@ -98,7 +98,7 @@
         "props"
       ],
       "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 95790,
+      "sizeBytes": 95788,
       "alsoInclude": []
     },
     {
@@ -282,7 +282,7 @@
         "SoundEffectGenerator"
       ],
       "file": "docs/guides/ai-speech-and-audio.md",
-      "sizeBytes": 14243,
+      "sizeBytes": 14242,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -361,7 +361,7 @@
         "filter"
       ],
       "file": "docs/guides/audio-video.md",
-      "sizeBytes": 21234,
+      "sizeBytes": 23144,
       "alsoInclude": []
     },
     {
@@ -378,7 +378,7 @@
         "optimistic concurrency"
       ],
       "file": "docs/guides/asset-system.md",
-      "sizeBytes": 3258,
+      "sizeBytes": 19900,
       "alsoInclude": []
     },
     {
@@ -393,7 +393,7 @@
         "PostgreSQL"
       ],
       "file": "docs/guides/endpoints-databases.md",
-      "sizeBytes": 2128,
+      "sizeBytes": 30979,
       "alsoInclude": []
     },
     {
@@ -408,7 +408,7 @@
         "callable functions"
       ],
       "file": "docs/guides/function-registry.md",
-      "sizeBytes": 1613,
+      "sizeBytes": 16818,
       "alsoInclude": []
     },
     {
