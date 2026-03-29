@@ -34,6 +34,7 @@ function ConnectedApp() {
 
   const app = useIkonApp({
     modules: [registerStandardUiModule, registerLucideIconsModule, registerLive2DModule],
+    webRtc: false
   });
 
   return (
