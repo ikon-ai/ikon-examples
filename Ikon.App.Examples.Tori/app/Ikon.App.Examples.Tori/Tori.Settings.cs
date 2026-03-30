@@ -37,7 +37,7 @@ public partial class Tori
         new("Gemini25Flash", "Gemini 2.5 Flash"),
         new("Gemini25Pro", "Gemini 2.5 Pro"),
         new("Gemini3Flash", "Gemini 3 Flash"),
-        new("Gemini3Pro", "Gemini 3 Pro"),
+        new("Gemini31Pro", "Gemini 3.1 Pro"),
         new("Claude45Sonnet", "Claude 4.5 Sonnet")
     ];
 
