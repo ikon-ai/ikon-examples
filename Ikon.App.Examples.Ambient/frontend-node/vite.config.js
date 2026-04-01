@@ -97,6 +97,10 @@ export default defineConfig(({ mode }) => {
       port: port,
       https: httpsConfig,
       strictPort: true,
+      headers: {
+        'Cross-Origin-Embedder-Policy': 'require-corp',
+        'Cross-Origin-Resource-Policy': 'cross-origin',
+      },
       fs: {
         allow: fsAllow,
       },
