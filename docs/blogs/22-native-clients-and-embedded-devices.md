@@ -1,133 +1,41 @@
 # A Raspberry Pi with Cloud Intelligence
 
-A Raspberry Pi with a camera and two motors. No GPU. No Python runtime. No API key. It connects to an Ikon server over a TCP socket and becomes an autonomous robot — because the intelligence runs in the cloud, and the device just executes.
+You build a small robot on a Saturday afternoon. A Raspberry Pi, a camera, a distance sensor, two motors. You set it on the living room floor and open your phone.
 
-The device registers functions: read the camera, check the distance sensor, move forward, turn left. The server calls those functions when it needs to. An AI vision model analyzes what the camera sees. A planning model decides where to go next. The server calls `moveForward` on the device. The robot moves.
+The robot starts moving. On your phone you see what it sees — a live camera feed with the AI's narration underneath. "Doorway ahead, entering kitchen. Table and chairs. Cat on counter." The robot pauses at the cat, takes a closer look, then continues past. You did not program this. The robot does not know what a cat is. It has a camera and wheels — nothing else.
 
-An operator opens a web browser, connects to the same server, and sees live telemetry — camera feed, sensor readings, the AI's reasoning, a map of where the robot has been. They draw a waypoint on the map. The server adds it to the mission plan. The robot navigates there autonomously.
+There is one application running on a server in the cloud. That application is doing three things at once: it talks to the robot over a network connection, telling it where to go and asking for camera frames. It runs AI models that see through the camera, recognize objects, and plan a route. And it serves a web page — the one on your phone — that shows the live feed and lets you tap where the robot should go next.
 
-One server. Two clients. One speaks C++ on a Raspberry Pi. The other speaks TypeScript in a browser. Both connect to the same application, see the same state, and interact with the same AI.
+One app. One server. The robot and your phone are both connected to it.
 
-## What this unlocks
+Your roommate hears the motors and opens the same URL on their laptop. They see the same feed. They tap on a room the robot has not visited yet. The robot heads there. Two people on two devices, one robot on the floor, all sharing the same live session.
 
-**AI on devices that cannot run AI.** The device does not need a GPU, a language model, or even a significant CPU. It needs a network connection and a C++ compiler. The server handles all reasoning — vision, planning, natural language, anomaly detection — and the device handles what it is good at: reading sensors and moving actuators.
+## How this works
 
-**A web UI for every device, for free.** Any device that connects to an Ikon server automatically gets a web interface. The operator connects a browser to the same session. They see what the server sees. No separate dashboard project. No API layer between the device and the UI. The browser and the device are peers on the same server.
+The architecture is simple. There are three participants, and they all connect to the same application.
 
-**Fleet management from one server.** Ten robots connect to the same application. The server tracks each one, coordinates their movements, prevents collisions, and optimizes routes. The operator's web dashboard shows all ten. Adding the eleventh robot is connecting another C++ client. No configuration change. No new API endpoint.
+The robot is a C++ program on a Raspberry Pi. It connects to the server over a network socket. It can do four things: take a photo, read the distance sensor, move forward, and turn. It tells the server about these capabilities when it connects, and then it waits for instructions.
 
-**Reconnection is automatic.** The robot drives through a tunnel and loses signal. The C++ SDK reconnects with exponential backoff — 500ms, 1s, 2s, 4s. The server knows the device is temporarily offline. When the connection resumes, the session continues. No state is lost. The mission continues.
+The application runs on the server. It has the AI — vision models, planning logic, language models. It calls the robot's functions when it needs to: "take a photo" to see, "read distance" to check for obstacles, "move forward" to navigate. It also keeps track of everything — the map, the AI's observations, the robot's position — as live shared state.
 
-## The C++ SDK
+Your phone browser connects to the same application over the web. It sees the shared state: the camera feed, the map, the AI narration. When you tap a location on the map, that becomes a waypoint in the shared state, and the AI picks it up on the next cycle.
 
-The SDK is a header-only library with zero external dependencies. It requires C++17 and three interface implementations — logging, HTTP (for initial provisioning), and TCP (for the persistent connection). That is the entire integration surface.
+The robot provides eyes and wheels. The server provides the brain. The browser provides the window. They are all part of one application.
 
-```cpp
-#include "ikon_sdk.h"
+## Why sixty euros feels like magic
 
-// Provide three interfaces — the SDK handles everything else
-auto log = std::make_shared<DeviceLogger>();
-auto http = std::make_shared<CurlHttpClient>();
-auto tcp = std::make_shared<PosixTcpClient>();
+The Raspberry Pi costs $35. The camera module, sensor, and motors add maybe $25. There is no AI chip, no GPU, no fancy hardware. The robot cannot run a vision model or a language model. It does not need to — all of that runs on the server.
 
-IkonClientConfig config;
-config.apiKey = ApiKeyConfig{
-    .apiKey = "ikon-xxxxx",
-    .spaceId = "fleet-space-id",
-    .externalUserId = "robot-07",
-    .userType = UserType::Machine,
-    .clientType = ClientType::DesktopApp
-};
-config.description = "Warehouse Robot 07";
+This is what makes it feel like something it is not. The hardware is a hobby project. The behavior — navigating rooms, recognizing objects, describing what it sees in plain English, building a map — is sophisticated. The gap between the hardware and the behavior is the server.
 
-IkonClient client(config, log, http, tcp);
-```
+The device only carries one credential: an Ikon session key. Not your OpenAI API key. Not your cloud secrets. If someone takes the robot apart, they find a key that can be revoked in seconds. The AI credentials live on the server, where the device cannot reach them.
 
-The SDK works on anything that compiles C++17 — Raspberry Pi, NVIDIA Jetson, industrial PLCs, medical devices, custom hardware. The three interfaces adapt it to whatever networking and logging the platform provides.
-
-## The device registers functions
-
-The robot does not push data. It exposes capabilities. The server decides when to call them.
-
-On the C# SDK side (for devices using .NET), function registration is explicit:
-
-```csharp
-[Function(Visibility = FunctionVisibility.Shared, Description = "Captures a camera frame")]
-public byte[] CaptureFrame()
-{
-    return _camera.CaptureJpeg();
-}
-
-[Function(Visibility = FunctionVisibility.Shared, Description = "Reads distance sensor in cm")]
-public float ReadDistance()
-{
-    return _distanceSensor.Read();
-}
-
-[Function(Visibility = FunctionVisibility.Shared, Description = "Moves forward by distance in cm")]
-public bool MoveForward(float distanceCm)
-{
-    return _motors.DriveForward(distanceCm);
-}
-
-[Function(Visibility = FunctionVisibility.Shared, Description = "Rotates by angle in degrees")]
-public bool Rotate(float angleDegrees)
-{
-    return _motors.Rotate(angleDegrees);
-}
-
-client.FunctionRegistry.RegisterFromInstance(this);
-```
-
-The server sees four functions. It does not know they are running on a Raspberry Pi. It calls them exactly as it would call a function on a Unity game client or a web browser — the protocol is the same.
-
-## The server runs the AI loop
-
-On the server, an AI reasoning loop orchestrates the robot's behavior. It calls device functions to perceive, uses AI models to plan, and calls device functions to act:
-
-```csharp
-while (!token.IsCancellationRequested)
-{
-    var frame = await FunctionRegistry.Instance.CallAsync<byte[]>(
-        "CaptureFrame", targetId: robotSessionId);
-
-    var distance = await FunctionRegistry.Instance.CallAsync<float>(
-        "ReadDistance", targetId: robotSessionId);
-
-    var (decision, _) = await Emerge.Run<NavigationDecision>(
-        LLMModel.Claude46Sonnet, context, pass =>
-    {
-        pass.Command = "Analyze the camera image and distance reading. "
-                     + $"Current distance to obstacle: {distance}cm. "
-                     + $"Mission waypoints remaining: {mission.RemainingWaypoints}. "
-                     + "Decide: move forward, rotate, or stop.";
-        pass.AddImage(frame);
-    }).FinalAsync();
-
-    if (decision.Action == "move")
-    {
-        await FunctionRegistry.Instance.CallAsync(
-            "MoveForward", targetId: robotSessionId,
-            args: [decision.DistanceCm]);
-    }
-
-    _robotStatus.Value = decision.Reasoning;
-    await Task.Delay(500, token);
-}
-```
-
-The AI sees through the robot's camera. It reads the distance sensor. It decides what to do. The robot moves. The operator's web dashboard updates with the AI's reasoning in real time — because `_robotStatus` is shared reactive state.
-
-The server code never touches an API key. The robot never runs an AI model. The operator never writes backend code. Each component does one thing.
-
-## Scenarios
-
-**Warehouse inspection.** A fleet of small robots patrols a warehouse overnight. Each robot has a camera and basic mobility. The server runs vision AI to detect anomalies — spills, misplaced inventory, damaged shelving. The morning shift manager opens a browser dashboard and sees flagged issues with photos, locations, and AI-generated descriptions. The robots did not process any images locally. They captured frames and the server did the thinking.
-
-**Agricultural monitoring.** Sensors scattered across a farm — soil moisture, temperature, camera traps — each run by a small C++ client on cheap hardware. The server aggregates readings, runs AI models to predict irrigation needs and detect crop disease from images. A farmer checks a web dashboard on their phone. The server has already generated recommendations. The sensors have no AI capability. They read values and the server makes decisions.
-
-**Remote operations.** An inspection drone in a hard-to-reach location — an offshore wind turbine, a mining tunnel, a power line corridor — connects to an Ikon server. An operator hundreds of kilometers away plans the inspection route in a web interface. The server coordinates the drone's movements, runs AI analysis on the video feed, and flags issues for human review. The drone carries a camera and a radio. The intelligence is in the cloud.
+If the robot rolls behind the couch and loses Wi-Fi, the connection restores itself automatically. The session continues where it left off.
 
 ## The pattern
 
-The device is a thin client with sensors and actuators. The server is the brain. The web browser is the eyes. All three connect to the same application, share the same state, and interact through the same protocol. The device does not need to be smart. It needs to be connected.
+Device, server, browser. The device provides sensors and actuators. The server provides intelligence. The browser provides a live view and controls. All three connect to one application, share one live state, and work together.
+
+The device does not need to be smart. It needs to be connected.
+
+Next: [Three Interfaces and a TCP Socket](24-three-interfaces-and-a-tcp-socket.md) — the C++ code that connects a device. Then: [The Teddy Bear Has No Brain](25-the-teddy-bear-has-no-brain.md) — a talking toy that shows why the server should be in charge.

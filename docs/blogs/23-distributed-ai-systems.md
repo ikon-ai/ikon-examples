@@ -1,103 +1,59 @@
 # When AI Apps Talk to Each Other
 
-An Ikon AI app is a server. It handles connections, runs AI models, manages state, and serves a UI. That is the normal case — a browser or a game client connects to an app and interacts with it.
+You built a talking teddy bear for your kid. A Pi Zero with a microphone and speaker inside a stuffed animal, connected to an Ikon server. The bear tells stories, answers questions, remembers yesterday's conversation. It is its own app, and it works well.
 
-But an Ikon app can also be a client. Using the same SDK that connects a browser or a Unity game to a server, one AI app can connect to another AI app — calling its functions, reading its state, reacting to its events. This turns individual applications into components of a larger distributed system.
+Separately, you set up a room sensor in the kid's bedroom. Temperature, light level, and noise. It is its own app too — you check the readings on your phone. You used it to figure out that the room gets too cold around 3 AM, and you adjusted the thermostat.
 
-## What this unlocks
+Two projects. Two apps. Each useful on its own.
 
-**Composable AI services.** Each app is a self-contained system — its own container, its own AI models, its own connected devices, its own UI. But it can expose functions that other apps call. A climate optimization app exposes `getZoneTemperature`. A security app exposes `getOccupancyMap`. A third app connects to both and correlates their data. Each app is independently deployable and independently useful. Together they are something larger.
+Then you connect them.
 
-**Specialization without silos.** Traditional enterprise systems integrate through message queues, REST APIs, and event buses. Each integration is a custom project. On Ikon, the integration mechanism is the same protocol and function registry that connects any client to any server. An app-to-app connection is identical to a browser-to-server connection. No new protocol. No new infrastructure.
+## The bear learns the room
 
-**AI that reasons across systems.** When one app can call functions on another, an AI model in the first app can query data from the second. A natural language question like "Why is Floor 3 so warm?" can trigger function calls to a climate system, a scheduling system, and an occupancy tracker — correlating data that lives in separate services, through a single AI reasoning pass.
+The room sensor app exposes its readings — temperature, light, noise level — as functions any connected client can call. You connect the bear's app to the sensor's app. Now the bear's AI can ask: what is the light level? What is the temperature? How quiet is the room?
 
-## How it works
+The behavior changes immediately.
 
-The C# SDK supports a Backend authentication mode designed for server-to-server connections. One app creates an `IkonClient`, connects to another app's server, and interacts with it exactly as any other client would:
+It is dark and quiet. The kid picks up the bear and whispers. The bear whispers back — because the AI knows the room is dark, so it is probably bedtime. It tells a calm, short story instead of an exciting one.
+
+Morning. The light sensor reads bright. The kid grabs the bear. "Good morning!" says the bear, cheerful and loud. "Did you sleep okay?" It is a different bear in the morning than at night — not because you programmed two modes, but because the AI sees the room and adjusts.
+
+The temperature drops. The bear says, "Brrr, it's getting chilly in here! Want me to tell Mom?" The kid says yes. The parent, watching the conversation log in a browser, sees the request and turns up the heat.
+
+None of this was possible when the bear and the sensor were separate apps. The bear did not know if it was bright or dark. The sensor did not know anyone was talking. Connected, the bear gains awareness it could not have alone.
+
+## How the connection works
+
+The code is short. The bear's app connects to the sensor's app the same way a browser would:
 
 ```csharp
-var climateClient = new IkonClient(new IkonClientConfig
+var sensorClient = new IkonClient(new IkonClientConfig
 {
     Backend = new BackendConfig
     {
-        SpaceId = "building-ops-space",
-        ChannelKey = "climate-system",
-        ExternalUserId = "dashboard-app",
-        UserType = UserType.Machine,
-        ClientType = ClientType.DesktopApp
-    },
-    Description = "Dashboard → Climate"
+        SpaceId = "kids-room",
+        ChannelKey = "room-sensor",
+        ExternalUserId = "teddy-bear-app",
+        UserType = UserType.Machine
+    }
 });
 
-await climateClient.ConnectAsync();
+await sensorClient.ConnectAsync();
+
+var temp = await sensorClient.FunctionRegistry.CallAsync<float>("GetTemperature");
+var light = await sensorClient.FunctionRegistry.CallAsync<float>("GetLightLevel");
 ```
 
-Once connected, the dashboard app can call any shared function the climate app has registered:
+The sensor app does not know the caller is a teddy bear. It just sees another client asking for readings. The connection uses the same protocol that browsers and devices use. Nothing special to build.
 
-```csharp
-var temperature = await climateClient.FunctionRegistry.CallAsync<float>(
-    "GetZoneTemperature", args: ["floor-3"]);
+## Each app stays independent
 
-var forecast = await climateClient.FunctionRegistry.CallAsync<EnergyForecast>(
-    "GetEnergyForecast", args: ["next-24h"]);
-```
+The bear still works without the sensor. If you unplug the sensor, the bear tells stories the same way it always did — it just does not know if it is dark or cold. The sensor still works without the bear. Each app is a complete system on its own. The connection adds something, but it does not create a dependency.
 
-The climate app does not know or care that the caller is another AI app rather than a browser. The function registry is the same. The protocol is the same. The authentication is the same.
+This is what makes it practical. You do not have to design a master system that controls everything. You build small, independent projects. If two of them would benefit from knowing about each other, you connect them. If it does not work out, you disconnect them. Nothing breaks.
 
-## A distributed building operations center
+## Beyond the bedroom
 
-Here is a concrete example of what this architecture enables. A building management system composed of four specialized AI apps, each a complete system on its own, connected into a coherent whole.
+The pattern scales. A maker space has an inventory tracker and a 3D printer queue — connected, someone can ask "Can I print the drone frame today?" and get an answer that checks both filament stock and printer availability. A small farm has soil sensors and a weather station — connected, the AI can say "Irrigate the north field tomorrow, rain is unlikely until Thursday." A group of friends each builds a different device — a robot, a drone, a camera trap — and connecting them creates a system none of them could build alone.
 
-**Climate App.** Monitors HVAC systems through C++ clients running on zone controllers throughout the building. Runs AI optimization for energy efficiency — balancing comfort against cost, predicting demand based on weather and occupancy patterns. Exposes functions: `GetZoneTemperature`, `SetTargetTemp`, `GetEnergyForecast`, `GetComfortScore`. Has its own web UI for HVAC engineers.
-
-**Security App.** Processes camera feeds for anomaly detection. Manages access control through badge readers connected as native clients. Tracks occupancy across floors and zones. Exposes functions: `GetActiveAlerts`, `GetOccupancyMap`, `GetAccessLog`, `GrantTemporaryAccess`. Has its own web UI for security staff.
-
-**Scheduling App.** Manages room bookings and space allocation. Uses AI to predict usage patterns and suggest optimal room assignments. Integrates with calendar systems. Exposes functions: `GetRoomAvailability`, `BookRoom`, `GetUsagePrediction`, `GetUpcomingEvents`. Has its own web UI for office managers.
-
-**Operations Dashboard.** Connects to all three apps as a client using Backend auth. Aggregates their data into a unified view for building managers. And this is where it gets interesting — the dashboard has its own AI assistant that can reason across all three systems:
-
-```csharp
-pass.Command = "The building manager asks: 'Why is Floor 3 so warm?'";
-pass.AddTool("climate", "Get temperature and HVAC data",
-    async (string zone) => await _climateClient.FunctionRegistry
-        .CallAsync<ZoneData>("GetZoneData", args: [zone]));
-
-pass.AddTool("occupancy", "Get current occupancy",
-    async (string floor) => await _securityClient.FunctionRegistry
-        .CallAsync<OccupancyData>("GetOccupancyMap", args: [floor]));
-
-pass.AddTool("schedule", "Get room bookings",
-    async (string floor) => await _schedulingClient.FunctionRegistry
-        .CallAsync<BookingData>("GetUpcomingEvents", args: [floor]));
-```
-
-The AI calls `GetZoneData("floor-3")` on the climate app — the HVAC is running normally, target temperature is met. It calls `GetOccupancyMap("floor-3")` on the security app — occupancy is at 180% of expected. It calls `GetUpcomingEvents("floor-3")` on the scheduling app — there is an all-hands meeting in the large conference room that was not accounted for in the climate model.
-
-The answer: "Floor 3 is warm because the large conference room has 90 people in it for an all-hands meeting, but the HVAC system was configured for normal occupancy. I can ask the climate system to boost cooling for that zone — should I proceed?"
-
-One AI reasoning pass. Three separate systems queried. A coherent answer that no single system could produce on its own.
-
-## Each app is independent
-
-This is not a monolith split across containers. Each app is a genuinely independent system.
-
-The climate app works on its own — HVAC engineers use it daily without the dashboard. The security app processes alerts independently. The scheduling app manages bookings without knowing the climate system exists. Each has its own AI models tuned for its domain. Each has its own connected hardware. Each can be deployed, updated, and scaled independently.
-
-The connections between them are optional. If the dashboard goes down, the other three systems continue operating. If the climate app is updated with a new energy optimization model, the dashboard picks up the new behavior through the same function calls — no API version negotiation, no schema migration.
-
-## Beyond buildings
-
-The pattern is general. Any domain where specialized AI systems need to share data and coordinate decisions can use the same architecture.
-
-**Hospital operations.** A patient monitoring app tracks vitals through bedside devices. A staffing app optimizes nurse assignments. A pharmacy app manages medication scheduling. A clinical dashboard connects to all three — an AI assistant can answer "Is Room 412 ready for the incoming transfer?" by checking vitals status, nurse availability, and medication preparation across systems.
-
-**Supply chain.** A warehouse app manages inventory through sensor-equipped shelves. A logistics app coordinates delivery vehicles. A demand forecasting app analyzes sales patterns. A planning dashboard connects to all three and reasons about the full picture.
-
-**Smart campus.** An energy app manages solar panels and battery storage. A transport app coordinates autonomous shuttles. A facilities app tracks maintenance schedules. A campus operations dashboard unifies them.
-
-## The insight
-
-The same protocol and function registry that connects a browser to a server also connects one server to another. An AI app that is a complete system on its own becomes a composable service when another app connects to it. No new infrastructure. No integration layer. No message queue. Just another client connection — except the client happens to be running AI models of its own.
-
-Individual AI applications are useful. Connected AI applications are transformative. The distance between the two is one SDK connection.
+One app is a project. Connected apps are a system.
