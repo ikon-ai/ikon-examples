@@ -6,7 +6,7 @@ public record ClientParams(string Id, string Test);
 [App]
 public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 {
-    private UI UI { get; } = new(app, new Theme()) { EnableProfiling = true, EnableSubtreeCaching = true };
+    private UI UI { get; } = new(app, new Theme()) { EnableProfiling = false, EnableSubtreeCaching = true };
     private Audio Audio { get; set; } = new(app);
     private Video Video { get; } = new(app);
     private AudioGenerator AudioGenerator { get; } = new();
@@ -394,6 +394,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     {
         return AudioGenerator.StartAsync(
             frame => Audio.SendAsync(frame.Samples, frame.SampleRate, frame.ChannelCount, frame.IsFirst, frame.IsLast, frame.StreamId),
+            onStreamEnd: streamId => Audio.CloseAsync(streamId),
             cancellationToken: CancellationToken.None);
     }
 
