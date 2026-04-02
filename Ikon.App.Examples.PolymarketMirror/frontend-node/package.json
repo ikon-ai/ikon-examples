@@ -10,12 +10,12 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@ikonai/sdk": "^1.0.41",
-    "@ikonai/sdk-libopus": "^1.0.41",
-    "@ikonai/sdk-react-ui": "^1.0.41",
-    "@ikonai/sdk-react-ui-standard": "^1.0.41",
-    "@ikonai/sdk-react-ui-rive": "^1.0.41",
-    "@ikonai/sdk-ui": "^1.0.41",
+    "@ikonai/sdk": "^1.0.42",
+    "@ikonai/sdk-libopus": "^1.0.42",
+    "@ikonai/sdk-react-ui": "^1.0.42",
+    "@ikonai/sdk-react-ui-standard": "^1.0.42",
+    "@ikonai/sdk-react-ui-rive": "^1.0.42",
+    "@ikonai/sdk-ui": "^1.0.42",
     "@simplewebauthn/browser": "^13.2.2",
     "react": "19.2.3",
     "react-dom": "19.2.3"
