@@ -55,7 +55,6 @@ namespace Ikon.AI.ImageGeneration
     bool UpsamplePrompt { get;  set; }
     int Width { get;  set; }
   enum ImageGeneratorModel
-    Dalle3
     GptImage1
     GptImage15
     Imagen3

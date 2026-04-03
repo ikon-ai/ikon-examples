@@ -1265,6 +1265,7 @@ namespace Ikon.Common.Git
     Task SetUpstreamAsync(string remoteBranch, CancellationToken ct = null)
     static string ShortCommitHash(string hash)
     Task StageAllAsync(CancellationToken ct = null)
+    Task StagePathAsync(string path, CancellationToken ct = null)
     Task<bool> StashAsync(string message = null, CancellationToken ct = null)
     Task<bool> StashPopAsync(CancellationToken ct = null)
     static string StripCredentialsFromUrl(string url)
