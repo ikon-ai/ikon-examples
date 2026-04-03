@@ -92,6 +92,7 @@ namespace Ikon.Common.Core
     bool TcpNoDelay
     int TcpReceiveBufferSize
     int TcpSendBufferSize
+    bool ThrowOnUdpConnectionFailure
     string UserId
   abstract class BasePlugin<TPlugin, TConfig> : ILogInfo, IPlugin, IProtocolMessageChannel where TConfig : new(), BasePluginConfig
     Context ClientContext { get; }
@@ -121,6 +122,22 @@ namespace Ikon.Common.Core
     Func<Task> JoinedAsync
     Func<ProtocolMessage, ValueTask> MessageReceivedAsync
     Func<Task> StoppingAsync
+  class IkonBackend.BillingStatusResult
+    ctor()
+    bool CancelAtPeriodEnd { get;  set; }
+    string PeriodEnd { get;  set; }
+    string PeriodStart { get;  set; }
+    double PurchasedRemaining { get;  set; }
+    double SubscriptionAllocation { get;  set; }
+    double SubscriptionRemaining { get;  set; }
+    string SubscriptionStatus { get;  set; }
+    double TotalRemaining { get;  set; }
+  class IkonBackend.CampaignRedeemResult
+    ctor()
+    string CampaignName { get;  set; }
+    int? CreditsGranted { get;  set; }
+    string SubscriptionExpiresAt { get;  set; }
+    string Type { get;  set; }
   class IkonBackend.Channel
     ctor()
     List<IkonBackend.ChannelConditionGroup> Conditions { get;  set; }
@@ -285,6 +302,8 @@ namespace Ikon.Common.Core
     string Password { get;  set; }
     int Port { get;  set; }
     string Username { get;  set; }
+  static class DiagnosticUtils
+    static string BuildMemoryInfo()
   class ReactiveGlobalState.DictionaryComparer<TKey, TValue> : IEqualityComparer<Dictionary<TKey, TValue>>
     ctor()
     bool Equals(Dictionary<TKey, TValue> x, Dictionary<TKey, TValue> y)
@@ -392,6 +411,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.AppBundle> GetAppBundleAsync(string id)
     Task<List<IkonBackend.AppBundle>> GetAppBundlesAsync(string spaceId, IkonBackend.AppBundleState? state = null, int maxResults = 1000)
     Task<string> GetAssetSignedUrlAsync(string assetId)
+    Task<IkonBackend.BillingStatusResult> GetBillingStatusAsync(string organisationId)
     Task<IkonBackend.Channel> GetChannelAsync(string id)
     Task<IkonBackend.ChannelInstance> GetChannelInstanceAsync(string id)
     Task<List<IkonBackend.ChannelInstance>> GetChannelInstancesAsync(string spaceId = null, string userId = null, string scope = "all", int maxResults = 1000)
@@ -435,6 +455,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.ItemListResponse> ListItemsAsync(IkonBackend.ItemListRequest request)
     bool Login(ValueTuple<string, string>? fromCommandLine = null, ValueTuple<string, string>? fromConfig = null, bool logSource = true, bool mustLogin = true)
     static IkonBackend.LoginInfo ReadLoginConfig()
+    Task<IkonBackend.CampaignRedeemResult> RedeemCampaignAsync(string code, string organisationId)
     Task<string> RequestAccessTokenAsync(string apiKey, string spaceId, string externalUserId)
     Task<IkonBackend.ChannelInstance> RequestChannelAsync(IkonBackend.RequestChannelRequest request)
     void ResetCounters()
@@ -769,6 +790,10 @@ namespace Ikon.Common.Core
     IEnumerable<Context> GetUniqueAuthClientContexts()
     IEnumerable<Context> GetUniqueHumanAuthClientContexts()
     void UpdateFrom(GlobalState newState)
+  class UdpFragmentation.ReassemblyBuffer
+    ctor()
+    void EvictStale(long maxAgeTicks = 10000000)
+    byte[] TryReassemble(ReadOnlySpan<byte> datagram)
   class IkonBackend.ReleaseNoteEntry
     ctor()
     string Content { get;  set; }
@@ -849,6 +874,14 @@ namespace Ikon.Common.Core
     ctor()
     string Text { get;  set; }
     Dictionary<string, string> Translations { get;  set; }
+  static class UdpFragmentation
+    static List<byte[]> Fragment(ReadOnlySpan<byte> messageData, int maxDatagramSize)
+    static bool IsLastFragment(byte flags)
+    static bool IsSingleFragment(byte flags)
+    static void SetMessageId(byte[] datagram, ushort messageId)
+    static int HeaderSize
+    static int MaxFragmentsPerMessage
+    static int MaxReassemblyBuffers
   class IkonBackend.User
     ctor()
     string Email { get;  set; }
@@ -2249,10 +2282,11 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class AnalyticsIkonProxyServerStats : IProtocolMessagePayload
     ctor()
-    ctor(string time, int channelCount, double sentMessagesPerSecond, double sentMessagesBandwidthKb, int sentMessagesCount, double receivedMessagesPerSecond, double receivedMessagesBandwidthKb, int receivedMessagesCount, double cpuUsagePercentage, double processMemoryUsedMb, double managedMemoryUsedMb)
+    ctor(string time, int channelCount, double sentMessagesPerSecond, double sentMessagesBandwidthKb, int sentMessagesCount, double receivedMessagesPerSecond, double receivedMessagesBandwidthKb, int receivedMessagesCount, double cpuUsagePercentage, double processMemoryUsedMb, double managedMemoryUsedMb, string memoryInfo)
     int ChannelCount { get;  set; }
     double CpuUsagePercentage { get;  set; }
     double ManagedMemoryUsedMb { get;  set; }
+    string MemoryInfo { get;  set; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     double ProcessMemoryUsedMb { get;  set; }
@@ -2265,6 +2299,24 @@ namespace Ikon.Common.Core.Protocol
     string Time { get;  set; }
     static AnalyticsIkonProxyServerStats ReadFromTeleport(ReadOnlySpan<byte> data)
     static AnalyticsIkonProxyServerStats ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsIkonProxyServerStats destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class AnalyticsIkonRelayServerStats : IProtocolMessagePayload
+    ctor()
+    ctor(string time, int agentCount, int tcpTunnelCount, int udpTunnelCount, int tcpConnectionCount, double cpuUsagePercentage, double processMemoryUsedMb, double managedMemoryUsedMb, string memoryInfo)
+    int AgentCount { get;  set; }
+    double CpuUsagePercentage { get;  set; }
+    double ManagedMemoryUsedMb { get;  set; }
+    string MemoryInfo { get;  set; }
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    double ProcessMemoryUsedMb { get;  set; }
+    int TcpConnectionCount { get;  set; }
+    int TcpTunnelCount { get;  set; }
+    string Time { get;  set; }
+    int UdpTunnelCount { get;  set; }
+    static AnalyticsIkonRelayServerStats ReadFromTeleport(ReadOnlySpan<byte> data)
+    static AnalyticsIkonRelayServerStats ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsIkonRelayServerStats destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AnalyticsLogs : IProtocolMessagePayload
@@ -2529,7 +2581,7 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class AuthTicket : IProtocolMessagePayload
     ctor()
-    ctor(string host, int httpsPort, int tcpPort, string secret, Opcode opcodeGroupsFromServer, Opcode opcodeGroupsToServer, Context clientContext, int tlsPort)
+    ctor(string host, int httpsPort, int tcpPort, string secret, Opcode opcodeGroupsFromServer, Opcode opcodeGroupsToServer, Context clientContext, int tlsPort, int udpPort, int udpDtlsPort)
     Context ClientContext { get;  set; }
     string Host { get;  set; }
     int HttpsPort { get;  set; }
@@ -2540,6 +2592,8 @@ namespace Ikon.Common.Core.Protocol
     string Secret { get;  set; }
     int TcpPort { get;  set; }
     int TlsPort { get;  set; }
+    int UdpDtlsPort { get;  set; }
+    int UdpPort { get;  set; }
     static AuthTicket ReadFromTeleport(ReadOnlySpan<byte> data)
     static AuthTicket ReadFromTeleport(ReadOnlySpan<byte> data, AuthTicket destination)
     override string ToString()
@@ -2705,6 +2759,8 @@ namespace Ikon.Common.Core.Protocol
     Https
     WebRTC
     TcpTls
+    Udp
+    UdpDtls
   sealed class EventsOnChannelComplete : IProtocolMessagePayload
     ctor()
     Opcode MessageOpcode { get; }
@@ -3031,6 +3087,13 @@ namespace Ikon.Common.Core.Protocol
     CORE_WEBRTC_READY
     CORE_WEBRTC_AUDIO_SEGMENT
     CORE_WEBRTC_TRACK_MAP
+    CORE_RELAY_AGENT_HELLO
+    CORE_RELAY_HELLO
+    CORE_RELAY_HEARTBEAT
+    CORE_RELAY_TCP_CONNECTION_OPENED
+    CORE_RELAY_TCP_CONNECTION_CLOSED
+    CORE_RELAY_TCP_DATA
+    CORE_RELAY_UDP_DATA
     GROUP_KEEPALIVE
     KEEPALIVE_REQUEST
     KEEPALIVE_RESPONSE
@@ -3047,6 +3110,7 @@ namespace Ikon.Common.Core.Protocol
     ANALYTICS_PROCESSING_UPDATE
     ANALYTICS_REACTIVE_PROCESSING_UPDATE
     ANALYTICS_IKON_PROXY_SERVER_STATS
+    ANALYTICS_IKON_RELAY_SERVER_STATS
     GROUP_ACTIONS
     ACTION_CALL
     ACTION_ACTIVE
@@ -3247,6 +3311,106 @@ namespace Ikon.Common.Core.Protocol
     string ProxyServerToken { get;  set; }
     static ProxyRpcAuthTicket ReadFromTeleport(ReadOnlySpan<byte> data)
     static ProxyRpcAuthTicket ReadFromTeleport(ReadOnlySpan<byte> data, ProxyRpcAuthTicket destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class RelayAgentHello : IProtocolMessagePayload
+    ctor()
+    ctor(string authToken, List<RelayAgentHello.RelayTunnelRequest> tunnels)
+    string AuthToken { get;  set; }
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    List<RelayAgentHello.RelayTunnelRequest> Tunnels { get;  set; }
+    static RelayAgentHello ReadFromTeleport(ReadOnlySpan<byte> data)
+    static RelayAgentHello ReadFromTeleport(ReadOnlySpan<byte> data, RelayAgentHello destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class RelayHeartbeat : IProtocolMessagePayload
+    ctor()
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    static RelayHeartbeat ReadFromTeleport(ReadOnlySpan<byte> data)
+    static RelayHeartbeat ReadFromTeleport(ReadOnlySpan<byte> data, RelayHeartbeat destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class RelayHello : IProtocolMessagePayload
+    ctor()
+    ctor(bool success, string publicHost, List<RelayHello.RelayTunnelAssignment> tunnels, double heartbeatIntervalSeconds)
+    double HeartbeatIntervalSeconds { get;  set; }
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    string PublicHost { get;  set; }
+    bool Success { get;  set; }
+    List<RelayHello.RelayTunnelAssignment> Tunnels { get;  set; }
+    static RelayHello ReadFromTeleport(ReadOnlySpan<byte> data)
+    static RelayHello ReadFromTeleport(ReadOnlySpan<byte> data, RelayHello destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class RelayTcpConnectionClosed : IProtocolMessagePayload
+    ctor()
+    ctor(uint tunnelId, uint connectionId)
+    uint ConnectionId { get;  set; }
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    uint TunnelId { get;  set; }
+    static RelayTcpConnectionClosed ReadFromTeleport(ReadOnlySpan<byte> data)
+    static RelayTcpConnectionClosed ReadFromTeleport(ReadOnlySpan<byte> data, RelayTcpConnectionClosed destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class RelayTcpConnectionOpened : IProtocolMessagePayload
+    ctor()
+    ctor(uint tunnelId, uint connectionId)
+    uint ConnectionId { get;  set; }
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    uint TunnelId { get;  set; }
+    static RelayTcpConnectionOpened ReadFromTeleport(ReadOnlySpan<byte> data)
+    static RelayTcpConnectionOpened ReadFromTeleport(ReadOnlySpan<byte> data, RelayTcpConnectionOpened destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class RelayTcpData : IProtocolMessagePayload
+    ctor()
+    ctor(uint tunnelId, uint connectionId, byte[] data)
+    uint ConnectionId { get;  set; }
+    byte[] Data { get;  set; }
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    uint TunnelId { get;  set; }
+    static RelayTcpData ReadFromTeleport(ReadOnlySpan<byte> data)
+    static RelayTcpData ReadFromTeleport(ReadOnlySpan<byte> data, RelayTcpData destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class RelayHello.RelayTunnelAssignment
+    ctor()
+    ctor(string name, uint tunnelId, int publicPort)
+    string Name { get;  set; }
+    int PublicPort { get;  set; }
+    uint TunnelId { get;  set; }
+    static RelayHello.RelayTunnelAssignment ReadFromTeleport(ReadOnlySpan<byte> data)
+    static RelayHello.RelayTunnelAssignment ReadFromTeleport(ReadOnlySpan<byte> data, RelayHello.RelayTunnelAssignment destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class RelayAgentHello.RelayTunnelRequest
+    ctor()
+    ctor(string name, string protocol, int localPort, bool terminateTls)
+    int LocalPort { get;  set; }
+    string Name { get;  set; }
+    string Protocol { get;  set; }
+    bool TerminateTls { get;  set; }
+    static RelayAgentHello.RelayTunnelRequest ReadFromTeleport(ReadOnlySpan<byte> data)
+    static RelayAgentHello.RelayTunnelRequest ReadFromTeleport(ReadOnlySpan<byte> data, RelayAgentHello.RelayTunnelRequest destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class RelayUdpData : IProtocolMessagePayload
+    ctor()
+    ctor(uint tunnelId, string sourceAddress, int sourcePort, byte[] data)
+    byte[] Data { get;  set; }
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    string SourceAddress { get;  set; }
+    int SourcePort { get;  set; }
+    uint TunnelId { get;  set; }
+    static RelayUdpData ReadFromTeleport(ReadOnlySpan<byte> data)
+    static RelayUdpData ReadFromTeleport(ReadOnlySpan<byte> data, RelayUdpData destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class RequestIdrVideoFrame : IProtocolMessagePayload

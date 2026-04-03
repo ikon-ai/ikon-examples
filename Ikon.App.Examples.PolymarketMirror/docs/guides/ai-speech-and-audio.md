@@ -33,7 +33,7 @@ var adapter = new SpeechRecognizerAdapter(recognizer, new SpeechRecognizerAdapte
 ### Sound Effect Generation
 
 ```csharp
-using var generator = new SoundEffectGenerator(SoundEffectGeneratorModel.ElevenSoundEffects);
+using var generator = new SoundEffectGenerator(SoundEffectGeneratorModel.ElevenLabsV2);
 var audio = await generator.GenerateSoundEffectAsync(new SoundEffectGeneratorConfig
 {
     Prompt = "Thunder rumbling in the distance",

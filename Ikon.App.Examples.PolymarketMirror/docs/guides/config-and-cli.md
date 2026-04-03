@@ -5,8 +5,8 @@
 ```toml
 # Database configurations for allocating databases for the app (run 'ikon app config' to apply changes)
 # Assigned database connection info is available via app.Databases in the app. Use 'ikon app db' commands to manage databases.
-# Format: "name:type" or "name:type:tier" - valid types: postgres - valid tiers: shared, dedicated-small
-# Examples: "mydb:postgres", "mydb:postgres:dedicated-small"
+# Format: "name:type" - valid types: postgres
+# Examples: "mydb:postgres"
 Databases = []
 
 # Endpoint configurations for exposing the app externally (assigned port numbers and public URLs are available via app.Endpoints in the app)
