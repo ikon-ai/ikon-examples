@@ -225,7 +225,7 @@ Controls how the LLM is invoked:
 - Regions: Preferred model regions in priority order (e.g. Eu, UsWest). Values from the ModelRegion enum: Global, Eu, EuNorth, EuWest, EuCentral, EuSouth, Us, UsEast, UsWest.
 - RequestTimeoutSeconds: Hard timeout for the request.
 - Temperature, MaxOutputTokens: Standard sampling limits.
-- ReasoningEffort: Hint for the model on how much internal reasoning to allocate (None/Low/Medium/High).
+- ReasoningEffort: Hint for the model on how much internal reasoning to allocate (None/Minimal/Low/Medium/High).
 - ReasoningTokenBudget: Upper limit for the model’s hidden scratch-pad (0 → let the model decide).
 - UseStreaming: Stream partial results (StreamingResult).
 - UseJson: Ask the model to reply in pure JSON.

@@ -12,7 +12,7 @@ This guide summarizes the principal namespaces in the Ikon.AI .NET library for d
 using Ikon.AI.Emergence;
 using Ikon.AI.Kernel;
 using Ikon.AI.LLM;
-using Ikon.Common;
+using Ikon.Common.Core;
 
 var context = new KernelContext();
 context = context.Add(new MessageBlock(MessageBlockRole.User, "Tell me about John Smith."));
@@ -53,7 +53,7 @@ Generate structured text using a shader definition stored in code, files, or emb
 ```csharp
 using Ikon.AI.Kernel;
 using Ikon.AI.Shader;
-using Ikon.Common;
+using Ikon.Common.Core;
 
 string shaderSource = @"
 {
@@ -98,14 +98,13 @@ Emit strongly typed results when the shader is configured for JSON output.
 
 ```csharp
 using Ikon.AI.Shader;
-using Ikon.Common;
 using Ikon.Common.Core;
 
 string shaderSource = @"
 {
   ShaderVersion: 2,
   Model: {
-    Name: 'OpenAI_GPT5Mini',
+    Name: 'Gpt5Mini',
     RequestTimeoutSeconds: 60,
     MaxOutputTokens: 4000,
     ReasoningEffort: 'Medium',
@@ -176,6 +175,7 @@ Pass preferred regions as an ordered list to keep inference within a geography. 
 using Ikon.AI;
 using Ikon.AI.Kernel;
 using Ikon.AI.LLM;
+using Ikon.Common.Core;
 
 var context = new KernelContext();
 context = context.Add(new Instruction(InstructionType.Context, "You are a helpful assistant that helps to summarize product release notes."));

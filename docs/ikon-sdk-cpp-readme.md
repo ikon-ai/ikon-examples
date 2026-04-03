@@ -111,7 +111,7 @@ The client tracks its connection state via `GetState()`:
 | `Connecting` | Authentication and connection in progress |
 | `Connected` | Fully connected and ready |
 | `Reconnecting` | Lost connection, attempting automatic reconnect |
-| `Offline` | Disconnected (user-initiated or max retries exceeded) |
+| `Offline` | Disconnected (connection failed or max retries exceeded) |
 
 ### Callbacks
 
