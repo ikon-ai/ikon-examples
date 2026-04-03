@@ -15,13 +15,13 @@ view.Box([Card.Default, "p-6 mb-4"], content: view => { ... });
 
 For the full list of every available constant, see the **Ikon Theme Constants** reference. Key categories:
 
-- **Text**: `Text.Display`, `Text.H1`–`Text.H4`, `Text.Body`, `Text.BodySm`, `Text.BodyStrong`, `Text.Label`, `Text.Caption`, `Text.Muted`, `Text.Small`, `Text.Code`, `Text.Link`, `Text.Overline`, `Text.Numeric`, `Text.Tabular`
-- **Button**: `Button.PrimarySm/Md/Lg`, `Button.SolidSm/Md/Lg`, `Button.OutlineSm/Md/Lg`, `Button.GhostSm/Md/Lg`, `Button.NeutralSm/Md/Lg`, `Button.ErrorSm/Md/Lg`, `Button.SuccessSm/Md/Lg`, `Button.WarningSm/Md/Lg`, `Button.InfoSm/Md/Lg`, `Button.LinkSm/Md/Lg`, `Button.Size.Icon`, `Button.IconLeft`, `Button.IconRight`
-- **Card**: `Card.Default`, `Card.Subtle`, `Card.Elevated`, `Card.Strong`, `Card.Outline`, `Card.Flat`, `Card.Interactive`, `Card.InteractiveFill`, `Card.Selected`, `Card.Ghost`, `Card.Glass`, `Card.GlassSubtle`, `Card.Header`, `Card.Content`, `Card.Footer`, `Card.HeaderRow`
-- **Layout**: `Layout.Row.Xs/Sm/Md/Lg/Xl`, `Layout.Row.SpaceBetween`, `Layout.Column.Xs/Sm/Md/Lg/Xl`, `Layout.Grid.Cols2/Cols3/Cols4`, `Layout.Split.*`, `Layout.Page`, `Layout.Section`, `Layout.SectionHeader`, `Layout.Center`, `Layout.Stretch`
+- **Text**: `Text.Display`, `Text.H1`–`Text.H4`, `Text.Body`, `Text.BodyStrong`, `Text.Label`, `Text.Caption`, `Text.Muted`, `Text.Small`, `Text.Code`, `Text.Link`
+- **Button**: `Button.PrimarySm/Md/Lg`, `Button.SecondarySm/Md/Lg`, `Button.OutlineSm/Md/Lg`, `Button.GhostSm/Md/Lg`, `Button.DangerSm/Md/Lg`, `Button.LinkSm/Md/Lg`, `Button.Size.Icon`
+- **Card**: `Card.Default`, `Card.Elevated`, `Card.Interactive`, `Card.Ghost`, `Card.Glass`, `Card.GlassSubtle`, `Card.Header`, `Card.Content`, `Card.Footer`, `Card.HeaderRow`
+- **Layout**: `Layout.Row.Xs/Sm/Md/Lg/Xl`, `Layout.Row.SpaceBetween`, `Layout.Column.Xs/Sm/Md/Lg/Xl`, `Layout.Grid.Cols2/Cols3/Cols4`, `Layout.Page`, `Layout.Section`, `Layout.SectionHeader`, `Layout.Center`, `Layout.Stretch`
 - **Page**: `Page.Default`, `Page.Plain`, `Page.Gradient`
 - **Container**: `Container.Xs` through `Container.Xl7`, `Container.Full`, `Container.Prose`, `Container.Screen`
-- **Input**: `Input.Default`, `Input.DefaultSm`, `Input.DefaultLg`, `Input.Ghost`, `Input.GhostSm`, `Input.GhostLg`, `Input.Invalid`, `Input.Success`, `Input.Warning`, `Input.Error`
+- **Input**: `Input.Default`, `Input.DefaultSm`, `Input.DefaultLg`, `Input.Ghost`, `Input.Invalid`
 - **Badge**: `Badge.Grey/Brand/Success/Warning/Error/Info` (with Sm/Md/Lg sizes), `Badge.Outline*` variants
 - **Icon**: `Icon.Default`, `Icon.Size.Xs/Sm/Md/Lg`, `Icon.Spinner`, `Icon.SpinnerSm`, `Icon.SpinnerLg`
 - **Nav**: `NavPanel.*`, `NavSection.*`, `NavItem.*` (with size and state variants)

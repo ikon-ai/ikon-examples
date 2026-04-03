@@ -26,7 +26,7 @@ namespace Ikon.Resonance
     void RemoveEffectAt(int index)
     bool RemoveSource(string streamId)
     void ReplaceEffect(int index, IAudioEffect newEffect)
-    Task StartAsync(Func<AudioGeneratorFrame, ValueTask> onFrame, CancellationToken cancellationToken = null)
+    Task StartAsync(Func<AudioGeneratorFrame, ValueTask> onFrame, Func<string, ValueTask> onStreamEnd = null, CancellationToken cancellationToken = null)
     Task StopAsync()
     void UpdateOptions(Action<AudioGeneratorOptions> configure)
   struct AudioGeneratorFrame
