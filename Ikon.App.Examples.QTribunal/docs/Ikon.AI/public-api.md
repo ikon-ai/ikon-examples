@@ -369,7 +369,6 @@ namespace Ikon.AI.ImageGeneration
     bool UpsamplePrompt { get;  set; }
     int Width { get;  set; }
   enum ImageGeneratorModel
-    Dalle3
     GptImage1
     GptImage15
     Imagen3
@@ -714,9 +713,8 @@ namespace Ikon.AI.LLM
     Gemini25Flash
     Gemini25Pro
     Gemini3Flash
-    Gemini3Pro
-    Grok3
-    Grok3Mini
+    Gemini31Pro
+    Gemini31FlashLite
     Grok4
     Grok4Fast
     GrokCodeFast1
