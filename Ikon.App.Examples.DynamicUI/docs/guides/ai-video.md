@@ -5,12 +5,12 @@
 ### Video Generation
 
 ```csharp
-using var generator = new VideoGenerator(VideoGeneratorModel.Veo2);
+using var generator = new VideoGenerator(VideoGeneratorModel.Veo31);
 var result = await generator.GenerateVideoAsync(new VideoGeneratorConfig
 {
     Prompt = "A timelapse of a flower blooming",
-    AspectRatio = VideoAspectRatio.Landscape16x9,
-    DurationSeconds = 5
+    AspectRatio = VideoGeneratorAspectRatio.Ratio16x9,
+    Length = 5
 });
 // result.Data (byte[]), result.MimeType
 ```
@@ -18,12 +18,11 @@ var result = await generator.GenerateVideoAsync(new VideoGeneratorConfig
 ### Video Enhancement
 
 ```csharp
-using var enhancer = new VideoEnhancer(VideoEnhancerModel.Veo2);
+using var enhancer = new VideoEnhancer(VideoEnhancerModel.TensorPixUpscale2xUltra41);
 var result = await enhancer.EnhanceVideoAsync(new VideoEnhancerConfig
 {
-    InputData = videoBytes,
-    InputMimeType = "video/mp4",
-    Prompt = "Enhance colors and stabilize"
+    VideoData = videoBytes,
+    MimeType = "video/mp4"
 });
 ```
 

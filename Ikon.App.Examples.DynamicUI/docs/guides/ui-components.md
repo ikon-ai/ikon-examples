@@ -204,8 +204,8 @@ view.Tabs(value: _tab.Value, onValueChange: async v =>
         new TabItem("settings", "Settings", RenderSettings),
     ]);
 
-// Accordion
-view.Accordion(value: _accordionValue.Value,
+// Accordion (single open item at a time)
+view.AccordionSingle(value: _accordionValue.Value,
     onValueChange: async v => _accordionValue.Value = v ?? "",
     content: view =>
     {

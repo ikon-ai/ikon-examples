@@ -384,9 +384,8 @@ namespace Ikon.AI.LLM
     Gemini25Flash
     Gemini25Pro
     Gemini3Flash
-    Gemini3Pro
-    Grok3
-    Grok3Mini
+    Gemini31Pro
+    Gemini31FlashLite
     Grok4
     Grok4Fast
     GrokCodeFast1
