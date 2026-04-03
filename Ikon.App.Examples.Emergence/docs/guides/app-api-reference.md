@@ -23,10 +23,10 @@ namespace Ikon.App
     int Version { get; }
     PluginAttribute ToPluginAttribute(Type owner)
   static class AppDatabaseConnection
-    static DbConnection Create(IAppBase host, string databaseName)
+    static DbConnection Create(IAppBase app, string databaseName)
     static DbConnection Create(DatabaseConnectionInfo dbInfo)
   sealed class AppEndpointHost : IAsyncDisposable
-    ctor(IAppBase host, string endpointName, TimeSpan? webSocketKeepAliveInterval = null)
+    ctor(IAppBase app, string endpointName, TimeSpan? webSocketKeepAliveInterval = null)
     int LocalPort { get; }
     string PublicUrl { get; }
     ValueTask DisposeAsync()
@@ -67,7 +67,7 @@ namespace Ikon.App
   delegate AsyncEventHandler<TEventArgs> where TEventArgs : EventArgs
     Task AsyncEventHandler`1<TEventArgs>(TEventArgs e)
   class Audio
-    ctor(IAppBase host)
+    ctor(IAppBase app)
     AudioEncoderOptions DefaultEncoderOptions { get;  set; }
     AudioMetrics Metrics { get; }
     SpeechMixer SpeechMixer { get; }
@@ -254,7 +254,7 @@ namespace Ikon.App
     bool HasRole(string role)
     bool HasRole<TRole>(TRole role)
   class ClientProfiles
-    ctor(IAppBase host)
+    ctor(IAppBase app)
     Task AddRoleAsync(Context clientContext, UserRole role)
     Task AddRoleAsync(Context clientContext, string role)
     void ClearCache()
@@ -341,7 +341,7 @@ namespace Ikon.App
     long Size { get;  init; }
     string UploadId { get;  init; }
   sealed class FileUploadHandler : IDisposable
-    ctor(IAppBase host)
+    ctor(IAppBase app)
     void Dispose()
     void RegisterCallbacks(string uploadActionId, FileUploadCallbackSet callbackSet)
   sealed class FileUploadPreStartArgs : IEquatable<FileUploadPreStartArgs>
@@ -465,7 +465,7 @@ namespace Ikon.App
     string PhoneNumber { get;  set; }
     string PreferredName { get;  set; }
   class ReactiveRoot
-    ctor(IAppBase host, int updateIntervalMs = 1000)
+    ctor(IAppBase app, int updateIntervalMs = 1000)
     ReactiveManager ReactiveManager { get; }
     Task RunAsync(Func<Task> render, Func<Context, bool> filter = null)
   class StartingEventArgs : EventArgs
@@ -478,7 +478,7 @@ namespace Ikon.App
     Moderator
     Admin
   class Video
-    ctor(IAppBase host)
+    ctor(IAppBase app)
     ValueTask CloseAllAsync()
     ValueTask CloseAsync(string streamKey = null)
     VideoOutputStreamInfo GetOutputStreamInfo(string streamId = null)
@@ -1802,6 +1802,7 @@ namespace Ikon.Common.Git
     Task SetUpstreamAsync(string remoteBranch, CancellationToken ct = null)
     static string ShortCommitHash(string hash)
     Task StageAllAsync(CancellationToken ct = null)
+    Task StagePathAsync(string path, CancellationToken ct = null)
     Task<bool> StashAsync(string message = null, CancellationToken ct = null)
     Task<bool> StashPopAsync(CancellationToken ct = null)
     static string StripCredentialsFromUrl(string url)
