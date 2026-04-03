@@ -39,7 +39,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 99947,
+      "sizeBytes": 100006,
       "alsoInclude": []
     },
     {
@@ -82,7 +82,7 @@
         "message bubbles"
       ],
       "file": "docs/guides/ui-components.md",
-      "sizeBytes": 13829,
+      "sizeBytes": 13864,
       "alsoInclude": [
         "app-structure"
       ]
@@ -98,7 +98,7 @@
         "props"
       ],
       "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 95788,
+      "sizeBytes": 95787,
       "alsoInclude": []
     },
     {
@@ -115,7 +115,7 @@
         "theme customization"
       ],
       "file": "docs/guides/styling-and-motion.md",
-      "sizeBytes": 7013,
+      "sizeBytes": 6613,
       "alsoInclude": [
         "ui-components",
         "app-structure",
@@ -245,7 +245,7 @@
         "AI connection"
       ],
       "file": "docs/guides/ai-models.md",
-      "sizeBytes": 15893,
+      "sizeBytes": 15891,
       "alsoInclude": []
     },
     {
@@ -260,7 +260,7 @@
         "ImageGeneratorConfig"
       ],
       "file": "docs/guides/ai-image.md",
-      "sizeBytes": 3415,
+      "sizeBytes": 3403,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -282,7 +282,7 @@
         "SoundEffectGenerator"
       ],
       "file": "docs/guides/ai-speech-and-audio.md",
-      "sizeBytes": 14242,
+      "sizeBytes": 14236,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -299,7 +299,7 @@
         "VideoEnhancer"
       ],
       "file": "docs/guides/ai-video.md",
-      "sizeBytes": 6036,
+      "sizeBytes": 6003,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -323,7 +323,7 @@
         "EmbeddingGenerator"
       ],
       "file": "docs/guides/ai-web-and-data.md",
-      "sizeBytes": 22581,
+      "sizeBytes": 22569,
       "alsoInclude": [
         "emergence"
       ]
@@ -361,7 +361,7 @@
         "filter"
       ],
       "file": "docs/guides/audio-video.md",
-      "sizeBytes": 23144,
+      "sizeBytes": 23151,
       "alsoInclude": []
     },
     {
@@ -471,7 +471,7 @@
         "React"
       ],
       "file": "docs/guides/frontend-fundamentals.md",
-      "sizeBytes": 13705,
+      "sizeBytes": 14702,
       "alsoInclude": [
         "ui-components"
       ]
@@ -490,7 +490,7 @@
         "targets"
       ],
       "file": "docs/guides/config-and-cli.md",
-      "sizeBytes": 4449,
+      "sizeBytes": 4357,
       "alsoInclude": []
     }
   ]
