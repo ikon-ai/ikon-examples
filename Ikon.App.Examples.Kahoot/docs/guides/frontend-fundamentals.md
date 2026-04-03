@@ -160,6 +160,32 @@ The frontend is fully user-customizable via CSS. `app.css` contains all connecti
 Server-driven styles: the C# app streams CSS via Crosswind to clients, and the SDK injects `<style>` elements dynamically. These styles use Crosswind's utility class system (see Crosswind documentation).
 
 The default template uses a dark theme with aurora gradient effects — all of this is defined in `app.css` and is fully replaceable. Auth screens, connection overlays, and toast notifications all use `.ikon-*` CSS classes that you can override.
+
+### Mobile viewport and overscroll
+
+For full-screen apps on iOS and Android, add these rules to `app.css` to prevent rubber-band bounce and white background flash:
+
+```css
+html, body {
+  overscroll-behavior: none;
+  overflow: hidden;
+  height: 100%;
+  background-color: #09090b; /* match your app background */
+}
+```
+
+Use `h-screen` (which maps to `100dvh` via Crosswind) instead of `100vh` for full-height layouts — this accounts for mobile browser address bars.
+
+For Android keyboard handling, add to `index.html` viewport meta:
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+```
+`interactive-widget=resizes-content` makes the viewport shrink when the on-screen keyboard opens, keeping input fields visible.
+
+For iOS safe area (home indicator), use `env(safe-area-inset-bottom)` on bottom-pinned elements:
+```css
+body { padding-bottom: env(safe-area-inset-bottom, 0px); }
+```
 ## Custom UI Components
 
 When the built-in Ikon.Parallax components are not sufficient, you can integrate any React library as a custom UI component. This requires changes in both the frontend (React) and the C# app (server-side registration).
