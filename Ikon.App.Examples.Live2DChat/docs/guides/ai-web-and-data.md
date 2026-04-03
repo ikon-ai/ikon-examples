@@ -6,14 +6,14 @@
 
 ```csharp
 using var searcher = new WebSearcher(WebSearcherModel.Google);
-var results = await searcher.SearchAsync(new WebSearcherConfig { Query = "latest AI news" });
+var results = await searcher.SearchAsync(new SearchConfig { Query = "latest AI news" });
 foreach (var result in results) { /* result.Title, result.Url, result.Snippet */ }
 ```
 
 ### Embeddings
 
 ```csharp
-using var embedder = new EmbeddingGenerator(EmbeddingModel.TextEmbedding3Small);
+using var embedder = new EmbeddingGenerator(EmbeddingModel.OpenAI3Small);
 var embeddings = await embedder.GenerateEmbeddingsAsync(["Hello world", "Goodbye"], EmbeddingType.Document);
 // embeddings[0] is float[] vector
 ```

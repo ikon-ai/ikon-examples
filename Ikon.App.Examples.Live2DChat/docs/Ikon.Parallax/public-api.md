@@ -42,7 +42,7 @@ namespace Ikon.Parallax
     static void ResetHistory()
     static void ResumeHistory()
   class UI
-    ctor(IAppBase host, ITheme theme)
+    ctor(IAppBase app, ITheme theme)
     bool EnableProfiling { get;  set; }
     bool EnableSubtreeCaching { get;  set; }
     void Root(string[] style = null, Action<UIView> content = null, string styleId = null)
