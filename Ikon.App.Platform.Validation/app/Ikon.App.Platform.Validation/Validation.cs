@@ -18,7 +18,8 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     [
         "buttons", "inputs", "cards", "overlays", "navigation", "layout", "forms",
         "typography", "files", "assets", "actions", "video", "audio", "drag-drop", "nav-menu",
-        "rive", "shadertoy", "crosswind", "charts", "profiling", "ikon-ai", "identity", "functions"
+        "rive", "shadertoy", "crosswind", "charts", "profiling", "ikon-ai", "identity", "functions",
+        "brand", "icons"
     ];
 
     // Input states
@@ -242,6 +243,13 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<bool> _infiniteScrollHasMore = new(true);
     private int _infiniteScrollPage;
 
+    // Split layout demos
+    private readonly Reactive<bool> _splitSidebarOpen = new(true);
+    private readonly Reactive<double> _resizableSplitSize = new(224);
+
+    // Card selected demo
+    private readonly Reactive<string> _selectedCardId = new("card-2");
+
     // Auto-scroll test state
     private readonly Reactive<List<string>> _autoScrollPoliteItems = new([]);
     private readonly Reactive<List<string>> _autoScrollAssertiveItems = new([]);
@@ -335,6 +343,8 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         UI.Root([Page.Default],
             content: view =>
             {
+                AddColorScaleCss();
+
                 view.Column([Container.Xl4, "py-8 px-4"], content: view =>
                 {
                     // Header with title and theme toggle
@@ -385,6 +395,8 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             new TabItem("ikon-ai", "Ikon.AI Library", RenderIkonAISection),
                             new TabItem("identity", "Identity", RenderIdentitySection),
                             new TabItem("functions", "Functions", RenderFunctionsSection),
+                            new TabItem("brand", "Brand", RenderBrandSection),
+                            new TabItem("icons", "Icons", RenderIconsSection),
                         ]);
                 });
             });

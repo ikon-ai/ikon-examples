@@ -248,7 +248,7 @@ public partial class Validation
                     view.Row([Layout.Row.Md, "items-center mb-4"], content: view =>
                     {
                         view.Text([Text.Body], $"Items loaded: {_infiniteScrollItems.Value.Count}");
-                        view.Button([Button.SecondaryMd], label: "Reset", onClick: async () =>
+                        view.Button([Button.NeutralMd], label: "Reset", onClick: async () =>
                         {
                             _infiniteScrollItems.Value = [];
                             _infiniteScrollPage = 0;
@@ -333,7 +333,7 @@ public partial class Validation
                 view.Row([Layout.Row.Md, "items-center mb-4"], content: view =>
                 {
                     var isRunning = _autoScrollCts != null;
-                    view.Button([isRunning ? Button.SecondaryMd : Button.PrimaryMd],
+                    view.Button([isRunning ? Button.NeutralMd : Button.PrimaryMd],
                         label: isRunning ? "Stop" : "Start",
                         onClick: async () =>
                         {
@@ -534,7 +534,7 @@ public partial class Validation
                             view.Row(["gap-2 mt-2"], content: view =>
                             {
                                 view.Button([Button.PrimaryMd], label: "First");
-                                view.Button([Button.SecondaryMd], label: "Second");
+                                view.Button([Button.NeutralMd], label: "Second");
                                 view.Button([Button.OutlineMd], label: "Third");
                             });
                         });
@@ -549,7 +549,7 @@ public partial class Validation
                             view.Row(["gap-2 mt-2"], content: view =>
                             {
                                 view.Button([Button.PrimaryMd], label: "First");
-                                view.Button([Button.SecondaryMd], label: "Second");
+                                view.Button([Button.NeutralMd], label: "Second");
                                 view.Button([Button.OutlineMd], label: "Third");
                             });
                         });
@@ -625,6 +625,188 @@ public partial class Validation
 
                     view.Text([Text.Caption], "Card skeleton");
                     view.Box([Skeleton.Card]);
+                });
+            });
+
+            // Split Layout
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-1"], "Split Layout");
+                view.Text([Text.BodySm, "text-tertiary mb-6"], "Structural patterns for sidebar, master-detail, and three-column layouts.");
+
+                view.Column([Layout.Column.Xl], content: view =>
+                {
+                    view.Column([Layout.Column.Sm], content: view =>
+                    {
+                        view.Text([Text.H3], "Sidebar + Main");
+                        view.Text([Text.Caption, "mb-3"], "Classic nav layout.");
+                        view.Box(["h-40 rounded-lg overflow-hidden border border-secondary flex flex-row min-h-0"], content: view =>
+                        {
+                            view.Box([Layout.Split.Sidebar, "bg-surface border-r border-secondary p-2"], content: view =>
+                            {
+                                view.Text([Text.Caption, "text-tertiary mb-3"], "Sidebar");
+                                view.Column(["gap-0.5"], content: view =>
+                                {
+                                    view.Box([NavItem.Sm, NavItem.Active], content: view => { view.Icon([NavItem.Icon], name: "layout-dashboard"); view.Text([NavItem.Label], "Dashboard"); });
+                                    view.Box([NavItem.Sm, NavItem.Default], content: view => { view.Icon([NavItem.Icon], name: "bar-chart-2"); view.Text([NavItem.Label], "Analytics"); });
+                                    view.Box([NavItem.Sm, NavItem.Default], content: view => { view.Icon([NavItem.Icon], name: "settings"); view.Text([NavItem.Label], "Settings"); });
+                                });
+                            });
+                            view.Box([Layout.Split.Main, "bg-card p-4"], content: view =>
+                            {
+                                view.Text([Text.Caption, "text-tertiary mb-1"], "Main content");
+                                view.Text([Text.Small, "text-quaternary"], "flex-1 min-w-0");
+                            });
+                        });
+                    });
+
+                    view.Column([Layout.Column.Sm], content: view =>
+                    {
+                        view.Text([Text.H3], "Main + Detail");
+                        view.Text([Text.Caption, "mb-3"], "Master-detail / inspector layout.");
+                        view.Box(["h-40 rounded-lg overflow-hidden border border-secondary flex flex-row min-h-0"], content: view =>
+                        {
+                            view.Box([Layout.Split.Main, "bg-card border-r border-secondary p-4"], content: view =>
+                            {
+                                view.Text([Text.Caption, "text-tertiary mb-1"], "Main content");
+                                view.Text([Text.Small, "text-quaternary"], "flex-1 min-w-0");
+                            });
+                            view.Box([Layout.Split.Detail, "bg-surface p-3"], content: view =>
+                            {
+                                view.Text([Text.Caption, "text-tertiary mb-1"], "Detail panel");
+                                view.Text([Text.Small, "text-quaternary"], "w-72 shrink-0");
+                            });
+                        });
+                    });
+
+                    view.Column([Layout.Column.Sm], content: view =>
+                    {
+                        view.Text([Text.H3], "Three-Column");
+                        view.Text([Text.Caption, "mb-3"], "Full IDE / dashboard layout.");
+                        view.Box(["h-40 rounded-lg overflow-hidden border border-secondary flex flex-row min-h-0"], content: view =>
+                        {
+                            view.Box([Layout.Split.SidebarSm, "bg-surface border-r border-secondary p-2"], content: view =>
+                            {
+                                view.Text([Text.Caption, "text-tertiary mb-1"], "Sidebar");
+                                view.Text([Text.Small, "text-quaternary"], "w-48");
+                            });
+                            view.Box([Layout.Split.Main, "bg-card border-r border-secondary p-4"], content: view =>
+                            {
+                                view.Text([Text.Caption, "text-tertiary mb-1"], "Main");
+                                view.Text([Text.Small, "text-quaternary"], "flex-1");
+                            });
+                            view.Box([Layout.Split.Detail, "bg-surface p-3"], content: view =>
+                            {
+                                view.Text([Text.Caption, "text-tertiary mb-1"], "Detail");
+                                view.Text([Text.Small, "text-quaternary"], "w-72");
+                            });
+                        });
+                    });
+
+                    view.Column([Layout.Column.Sm], content: view =>
+                    {
+                        view.Text([Text.H3], "Collapsible Sidebar");
+                        view.Text([Text.Caption, "mb-3"], "Toggle button sits at the boundary.");
+                        view.Box(["h-40 rounded-lg overflow-hidden border border-secondary flex flex-row min-h-0"], content: view =>
+                        {
+                            if (_splitSidebarOpen.Value)
+                            {
+                                view.Box([Layout.Split.Sidebar, "bg-surface border-r border-secondary p-2"], content: view =>
+                                {
+                                    view.Text([Text.Caption, "text-tertiary mb-3"], "Sidebar");
+                                    view.Column(["gap-0.5"], content: view =>
+                                    {
+                                        view.Box([NavItem.Sm, NavItem.Active], content: view => { view.Icon([NavItem.Icon], name: "layout-dashboard"); view.Text([NavItem.Label], "Dashboard"); });
+                                        view.Box([NavItem.Sm, NavItem.Default], content: view => { view.Icon([NavItem.Icon], name: "bar-chart-2"); view.Text([NavItem.Label], "Analytics"); });
+                                        view.Box([NavItem.Sm, NavItem.Default], content: view => { view.Icon([NavItem.Icon], name: "settings"); view.Text([NavItem.Label], "Settings"); });
+                                    });
+                                });
+                            }
+
+                            view.Box([Layout.Split.Main, "bg-card p-2"], content: view =>
+                            {
+                                view.Button([Button.GhostSm, Button.Size.Icon], onClick: async () =>
+                                {
+                                    _splitSidebarOpen.Value = !_splitSidebarOpen.Value;
+                                }, content: v => v.Icon([Icon.Size.Xs], name: _splitSidebarOpen.Value ? "panel-left-close" : "panel-left-open"));
+                            });
+                        });
+                    });
+                });
+            });
+
+            // Resizable Split
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-1"], "Resizable Split");
+                view.Text([Text.BodySm, "text-tertiary mb-6"], "Drag the handle to resize. The resize is handled entirely on the client.");
+
+                view.Column([Layout.Column.Xl], content: view =>
+                {
+                    view.Column([Layout.Column.Sm], content: view =>
+                    {
+                        view.Text([Text.H3], "Horizontal");
+                        view.Text([Text.Caption, "mb-3"], $"Sidebar width: {_resizableSplitSize.Value:0}px");
+                        view.Box(["h-48 rounded-lg overflow-hidden border border-secondary"], content: view =>
+                        {
+                            view.ResizableSplit(
+                                orientation: Orientation.Horizontal,
+                                initialSize: 224,
+                                minSize: 120,
+                                maxSize: 400,
+                                onResized: async size => _resizableSplitSize.Value = size,
+                                style: [ResizableSplit.Root, "h-full"],
+                                first: view =>
+                                {
+                                    view.Box(["bg-surface p-3 h-full"], content: view =>
+                                    {
+                                        view.Text([Text.Caption, "text-tertiary mb-2"], "Sidebar");
+                                        view.Column(["gap-0.5"], content: view =>
+                                        {
+                                            view.Box([NavItem.Sm, NavItem.Active], content: view => { view.Icon([NavItem.Icon], name: "layout-dashboard"); view.Text([NavItem.Label], "Dashboard"); });
+                                            view.Box([NavItem.Sm, NavItem.Default], content: view => { view.Icon([NavItem.Icon], name: "bar-chart-2"); view.Text([NavItem.Label], "Analytics"); });
+                                            view.Box([NavItem.Sm, NavItem.Default], content: view => { view.Icon([NavItem.Icon], name: "settings"); view.Text([NavItem.Label], "Settings"); });
+                                        });
+                                    });
+                                },
+                                second: view =>
+                                {
+                                    view.Box(["bg-card p-4 h-full"], content: view =>
+                                    {
+                                        view.Text([Text.Caption, "text-tertiary"], "Main content area");
+                                    });
+                                });
+                        });
+                    });
+
+                    view.Column([Layout.Column.Sm], content: view =>
+                    {
+                        view.Text([Text.H3], "Vertical");
+                        view.Text([Text.Caption, "mb-3"], "Top/bottom split with vertical handle.");
+                        view.Box(["h-64 rounded-lg overflow-hidden border border-secondary"], content: view =>
+                        {
+                            view.ResizableSplit(
+                                orientation: Orientation.Vertical,
+                                initialSize: 120,
+                                minSize: 60,
+                                maxSize: 200,
+                                style: [ResizableSplit.Root, "h-full"],
+                                first: view =>
+                                {
+                                    view.Box(["bg-surface p-3 h-full"], content: view =>
+                                    {
+                                        view.Text([Text.Caption, "text-tertiary"], "Top pane");
+                                    });
+                                },
+                                second: view =>
+                                {
+                                    view.Box(["bg-card p-3 h-full"], content: view =>
+                                    {
+                                        view.Text([Text.Caption, "text-tertiary"], "Bottom pane");
+                                    });
+                                });
+                        });
+                    });
                 });
             });
 

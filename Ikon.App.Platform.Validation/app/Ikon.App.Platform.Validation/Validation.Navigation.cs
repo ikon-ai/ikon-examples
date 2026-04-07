@@ -232,7 +232,7 @@ public partial class Validation
                             view.AccordionTrigger([Accordion.Trigger], content: view =>
                             {
                                 view.Text(text: "Disabled Section");
-                                view.Icon(["ml-auto"], name: "lock");
+                                view.Icon(["ml-auto", Icon.Size.Sm], name: "lock");
                             });
                         });
                         view.AccordionContent([Accordion.Content, "pb-4"], content: view =>
@@ -275,7 +275,7 @@ public partial class Validation
                             view.CollapsibleTrigger(content: view =>
                             {
                                 view.Button([Button.GhostMd, Button.Size.Icon],
-                                    content: v => v.Icon(name: _collapsibleOpen.Value ? "chevron-up" : "chevron-down"));
+                                    content: v => v.Icon([Icon.Default], name: _collapsibleOpen.Value ? "chevron-up" : "chevron-down"));
                             });
                         });
                         view.CollapsibleContent([Collapsible.Content, "mt-2"], content: view =>
@@ -543,14 +543,14 @@ public partial class Validation
                 {
                     view.Box([Pagination.List], content: view =>
                     {
-                        view.Box([Pagination.Previous], content: v => v.Icon(name: "chevron-left"));
+                        view.Box([Pagination.Previous], content: v => v.Icon([Icon.Size.Sm], name: "chevron-left"));
                         view.Box([Pagination.Item], content: v => v.Text(text: "1"));
                         view.Box([Pagination.Item], content: v => v.Text(text: "2"));
                         view.Box([Pagination.Active], content: v => v.Text(text: "3"));
                         view.Box([Pagination.Item], content: v => v.Text(text: "4"));
                         view.Box([Pagination.Ellipsis], content: v => v.Text(text: "..."));
                         view.Box([Pagination.Item], content: v => v.Text(text: "10"));
-                        view.Box([Pagination.Next], content: v => v.Icon(name: "chevron-right"));
+                        view.Box([Pagination.Next], content: v => v.Icon([Icon.Size.Sm], name: "chevron-right"));
                     });
                 });
             });
@@ -573,7 +573,7 @@ public partial class Validation
                         view.Button([currentPage <= 1 ? Pagination.Disabled : Pagination.Previous],
                             disabled: currentPage <= 1,
                             onClick: async () => _paginationPage.Value = Math.Max(1, currentPage - 1),
-                            content: v => v.Icon(name: "chevron-left"));
+                            content: v => v.Icon([Icon.Size.Sm], name: "chevron-left"));
 
                         for (var page = 1; page <= totalPages; page++)
                         {
@@ -598,7 +598,7 @@ public partial class Validation
                         view.Button([currentPage >= totalPages ? Pagination.Disabled : Pagination.Next],
                             disabled: currentPage >= totalPages,
                             onClick: async () => _paginationPage.Value = Math.Min(totalPages, currentPage + 1),
-                            content: v => v.Icon(name: "chevron-right"));
+                            content: v => v.Icon([Icon.Size.Sm], name: "chevron-right"));
                     });
                 });
             });

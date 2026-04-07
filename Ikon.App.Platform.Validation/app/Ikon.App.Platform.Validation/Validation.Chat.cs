@@ -93,7 +93,7 @@ public partial class Validation
 
                 view.Row([Layout.Row.Md, "mt-4"], content: row =>
                 {
-                    row.Button([Button.SecondaryMd],
+                    row.Button([Button.NeutralMd],
                         label: "Add Test Message",
                         onClick: AddTestMessage);
 

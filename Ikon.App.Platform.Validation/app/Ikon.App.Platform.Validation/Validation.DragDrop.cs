@@ -15,18 +15,21 @@ public partial class Validation
                     view.Text([Text.BodyStrong], "Vertical (default)");
                     view.SortableList(
                         items: _sortableSimpleVertical.Value,
+                        itemStyle: [DragDrop.Item.Base],
                         strategy: SortStrategy.VerticalList,
                         onReorder: async args => _sortableSimpleVertical.Value = args.NewOrder);
 
                     view.Text([Text.BodyStrong, "mt-4"], "Horizontal");
                     view.SortableList(
                         items: _sortableSimpleHorizontal.Value,
+                        itemStyle: [DragDrop.Item.Base],
                         strategy: SortStrategy.HorizontalList,
                         onReorder: async args => _sortableSimpleHorizontal.Value = args.NewOrder);
 
                     view.Text([Text.BodyStrong, "mt-4"], "With custom content");
                     view.SortableList(
                         items: _sortableSimpleVertical.Value,
+                        itemStyle: [DragDrop.Item.Base],
                         strategy: SortStrategy.VerticalList,
                         onReorder: async args => _sortableSimpleVertical.Value = args.NewOrder,
                         itemContent: (v, item) =>

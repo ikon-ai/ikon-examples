@@ -299,7 +299,7 @@ public partial class Validation
                                 onClick: async () => _riveSubmitTrigger.Fire());
 
                             view.Button(
-                                [Button.SecondaryMd],
+                                [Button.NeutralMd],
                                 label: "Reset Form",
                                 onClick: async () => _riveResetTrigger.Fire());
                         });

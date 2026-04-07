@@ -81,7 +81,7 @@ public partial class Validation
                     _assetCloudFileUrl.Value = metadata.Url;
                 });
 
-                view.Button([Button.DangerMd], label: "Delete", onClick: async () =>
+                view.Button([Button.ErrorMd], label: "Delete", onClick: async () =>
                 {
                     await Asset.Instance.DeleteAsync(uri);
                     _assetCloudFileStatus.Value = "Not uploaded";
@@ -161,7 +161,7 @@ public partial class Validation
                     _assetCloudFilePublicUrl.Value = metadata.Url;
                 });
 
-                view.Button([Button.DangerMd], label: "Delete", onClick: async () =>
+                view.Button([Button.ErrorMd], label: "Delete", onClick: async () =>
                 {
                     await Asset.Instance.DeleteAsync(uri);
                     _assetCloudFilePublicStatus.Value = "Not uploaded";
@@ -232,7 +232,7 @@ public partial class Validation
                     _assetCloudJsonDownloaded.Value = json;
                 });
 
-                view.Button([Button.DangerMd], label: "Delete", onClick: async () =>
+                view.Button([Button.ErrorMd], label: "Delete", onClick: async () =>
                 {
                     await Asset.Instance.DeleteAsync(uri);
                     _assetCloudJsonStatus.Value = "Not uploaded";

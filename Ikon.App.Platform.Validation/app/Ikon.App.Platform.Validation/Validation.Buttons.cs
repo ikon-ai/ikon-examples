@@ -4,71 +4,134 @@ public partial class Validation
     {
         view.Column([Layout.Column.Lg], content: view =>
         {
-            // Primary buttons
+            // Solid
             view.Box([Card.Default, "p-6"], content: view =>
             {
-                view.Text([Text.H2, "mb-4"], "Primary Buttons");
+                view.Text([Text.H2, "mb-1"], "Solid");
+                view.Text([Text.BodySm, "text-tertiary mb-4"], "Always brand-600 background and white text — identical in light and dark mode. Use when the button must look the same regardless of theme.");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.PrimarySm], label: "Primary Sm");
-                    view.Button([Button.PrimaryMd], label: "Primary Md");
-                    view.Button([Button.PrimaryLg], label: "Primary Lg");
-                    view.Button([Button.PrimaryMd], label: "Disabled", disabled: true);
+                    view.Button([Button.SolidSm],  label: "Solid Sm");
+                    view.Button([Button.SolidMd],  label: "Solid Md");
+                    view.Button([Button.SolidLg],  label: "Solid Lg");
+                    view.Button([Button.SolidMd],  label: "Disabled", disabled: true);
                 });
             });
 
-            // Secondary button
+            // Primary
             view.Box([Card.Default, "p-6"], content: view =>
             {
-                view.Text([Text.H2, "mb-4"], "Secondary Button");
+                view.Text([Text.H2, "mb-1"], "Primary");
+                view.Text([Text.BodySm, "text-tertiary mb-4"], "Adapts to theme — deep brand background with white text in light mode; light pastel brand background with dark text in dark mode.");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.SecondaryMd], label: "Secondary Md");
-                    view.Button([Button.SecondaryMd], label: "Disabled", disabled: true);
+                    view.Button([Button.PrimarySm],  label: "Primary Sm");
+                    view.Button([Button.PrimaryMd],  label: "Primary Md");
+                    view.Button([Button.PrimaryLg],  label: "Primary Lg");
+                    view.Button([Button.PrimaryMd],  label: "Disabled", disabled: true);
                 });
             });
 
-            // Outline buttons
+            // Neutral
             view.Box([Card.Default, "p-6"], content: view =>
             {
-                view.Text([Text.H2, "mb-4"], "Outline Buttons");
+                view.Text([Text.H2, "mb-4"], "Neutral");
+                view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
+                {
+                    view.Button([Button.NeutralSm], label: "Neutral Sm");
+                    view.Button([Button.NeutralMd], label: "Neutral Md");
+                    view.Button([Button.NeutralLg], label: "Neutral Lg");
+                    view.Button([Button.NeutralMd], label: "Disabled", disabled: true);
+                });
+            });
+
+            // Outline
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "Outline");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Button([Button.OutlineSm], label: "Outline Sm");
                     view.Button([Button.OutlineMd], label: "Outline Md");
+                    view.Button([Button.OutlineLg], label: "Outline Lg");
                     view.Button([Button.OutlineMd], label: "Disabled", disabled: true);
                 });
             });
 
-            // Ghost button
+            // Ghost
             view.Box([Card.Default, "p-6"], content: view =>
             {
-                view.Text([Text.H2, "mb-4"], "Ghost Button");
+                view.Text([Text.H2, "mb-4"], "Ghost");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
+                    view.Button([Button.GhostSm], label: "Ghost Sm");
                     view.Button([Button.GhostMd], label: "Ghost Md");
+                    view.Button([Button.GhostLg], label: "Ghost Lg");
                     view.Button([Button.GhostMd], label: "Disabled", disabled: true);
                 });
             });
 
-            // Danger button
+            // Error
             view.Box([Card.Default, "p-6"], content: view =>
             {
-                view.Text([Text.H2, "mb-4"], "Danger Button");
+                view.Text([Text.H2, "mb-4"], "Error");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.DangerMd], label: "Danger Md");
-                    view.Button([Button.DangerMd], label: "Disabled", disabled: true);
+                    view.Button([Button.ErrorSm], label: "Error Sm");
+                    view.Button([Button.ErrorMd], label: "Error Md");
+                    view.Button([Button.ErrorLg], label: "Error Lg");
+                    view.Button([Button.ErrorMd], label: "Disabled", disabled: true);
                 });
             });
 
-            // Link button
+            // Success
             view.Box([Card.Default, "p-6"], content: view =>
             {
-                view.Text([Text.H2, "mb-4"], "Link Button");
+                view.Text([Text.H2, "mb-4"], "Success");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
+                    view.Button([Button.SuccessSm], label: "Success Sm");
+                    view.Button([Button.SuccessMd], label: "Success Md");
+                    view.Button([Button.SuccessLg], label: "Success Lg");
+                    view.Button([Button.SuccessMd], label: "Disabled", disabled: true);
+                });
+            });
+
+            // Warning
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "Warning");
+                view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
+                {
+                    view.Button([Button.WarningSm], label: "Warning Sm");
+                    view.Button([Button.WarningMd], label: "Warning Md");
+                    view.Button([Button.WarningLg], label: "Warning Lg");
+                    view.Button([Button.WarningMd], label: "Disabled", disabled: true);
+                });
+            });
+
+            // Info
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "Info");
+                view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
+                {
+                    view.Button([Button.InfoSm], label: "Info Sm");
+                    view.Button([Button.InfoMd], label: "Info Md");
+                    view.Button([Button.InfoLg], label: "Info Lg");
+                    view.Button([Button.InfoMd], label: "Disabled", disabled: true);
+                });
+            });
+
+            // Link
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "Link");
+                view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
+                {
+                    view.Button([Button.LinkSm], label: "Link Sm");
                     view.Button([Button.LinkMd], label: "Link Md");
+                    view.Button([Button.LinkLg], label: "Link Lg");
                     view.Button([Button.LinkMd], label: "Disabled", disabled: true);
                 });
             });
@@ -87,7 +150,7 @@ public partial class Validation
                             view.Box([Icon.Spinner, "mr-2"]);
                             view.Text(text: "Loading...");
                         });
-                        view.Button([Button.SecondaryMd, State.Loading], content: view =>
+                        view.Button([Button.NeutralMd, State.Loading], content: view =>
                         {
                             view.Box([Icon.Spinner, "mr-2"]);
                             view.Text(text: "Processing");
@@ -114,7 +177,7 @@ public partial class Validation
                     view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                     {
                         view.Button([Button.PrimaryMd, Button.Size.Icon, State.Loading], label: "Loading", content: v => v.Box([Icon.Spinner]));
-                        view.Button([Button.SecondaryMd, Button.Size.Icon, State.Loading], label: "Loading", content: v => v.Box([Icon.Spinner]));
+                        view.Button([Button.NeutralMd, Button.Size.Icon, State.Loading], label: "Loading", content: v => v.Box([Icon.Spinner]));
                         view.Button([Button.OutlineMd, Button.Size.Icon, State.Loading], label: "Loading", content: v => v.Box([Icon.Spinner]));
                     });
                 });
@@ -127,10 +190,10 @@ public partial class Validation
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Button([Button.PrimaryMd, Button.Size.Icon], label: "Heart", content: v => v.Icon([Icon.Default], name: "heart"));
-                    view.Button([Button.SecondaryMd, Button.Size.Icon], label: "Star", content: v => v.Icon([Icon.Default], name: "star"));
+                    view.Button([Button.NeutralMd, Button.Size.Icon], label: "Star", content: v => v.Icon([Icon.Default], name: "star"));
                     view.Button([Button.OutlineMd, Button.Size.Icon], label: "Settings", content: v => v.Icon([Icon.Default], name: "settings"));
                     view.Button([Button.GhostMd, Button.Size.Icon], label: "Search", content: v => v.Icon([Icon.Default], name: "search"));
-                    view.Button([Button.DangerMd, Button.Size.Icon], label: "Delete", content: v => v.Icon([Icon.Default], name: "trash-2"));
+                    view.Button([Button.ErrorMd, Button.Size.Icon], label: "Delete", content: v => v.Icon([Icon.Default], name: "trash-2"));
                 });
                 view.Row([Layout.Row.Md, "flex-wrap", "mt-4"], content: view =>
                 {
@@ -152,10 +215,67 @@ public partial class Validation
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Button([Button.PrimaryMd, Button.Size.Icon], label: "Heart", content: v => v.Text(text: "❤️"));
-                    view.Button([Button.SecondaryMd, Button.Size.Icon], label: "Star", content: v => v.Text(text: "⭐"));
+                    view.Button([Button.NeutralMd, Button.Size.Icon], label: "Star", content: v => v.Text(text: "⭐"));
                     view.Button([Button.OutlineMd, Button.Size.Icon], label: "Settings", content: v => v.Text(text: "⚙️"));
                     view.Button([Button.GhostMd, Button.Size.Icon], label: "Search", content: v => v.Text(text: "🔍"));
-                    view.Button([Button.DangerMd, Button.Size.Icon], label: "Delete", content: v => v.Text(text: "🗑️"));
+                    view.Button([Button.ErrorMd, Button.Size.Icon], label: "Delete", content: v => v.Text(text: "🗑️"));
+                });
+            });
+
+            // Buttons with icons
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "Buttons with Icons");
+                view.Column([Layout.Column.Md], content: view =>
+                {
+                    view.Text([Text.Label], "Icon Left");
+                    view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
+                    {
+                        view.Button([Button.PrimaryMd, Button.IconLeft], content: v =>
+                        {
+                            v.Icon([Icon.Size.Xs], name: "plus");
+                            v.Text(text: "Create New");
+                        });
+                        view.Button([Button.NeutralMd, Button.IconLeft], content: v =>
+                        {
+                            v.Icon([Icon.Size.Xs], name: "settings");
+                            v.Text(text: "Settings");
+                        });
+                        view.Button([Button.OutlineMd, Button.IconLeft], content: v =>
+                        {
+                            v.Icon([Icon.Size.Xs], name: "search");
+                            v.Text(text: "Search");
+                        });
+                        view.Button([Button.GhostMd, Button.IconLeft], content: v =>
+                        {
+                            v.Icon([Icon.Size.Xs], name: "download");
+                            v.Text(text: "Download");
+                        });
+                        view.Button([Button.ErrorMd, Button.IconLeft], content: v =>
+                        {
+                            v.Icon([Icon.Size.Xs], name: "trash-2");
+                            v.Text(text: "Delete");
+                        });
+                    });
+                    view.Text([Text.Label], "Icon Right");
+                    view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
+                    {
+                        view.Button([Button.PrimaryMd, Button.IconRight], content: v =>
+                        {
+                            v.Icon([Icon.Size.Xs], name: "arrow-right");
+                            v.Text(text: "Continue");
+                        });
+                        view.Button([Button.NeutralMd, Button.IconRight], content: v =>
+                        {
+                            v.Icon([Icon.Size.Xs], name: "external-link");
+                            v.Text(text: "Open");
+                        });
+                        view.Button([Button.OutlineMd, Button.IconRight], content: v =>
+                        {
+                            v.Icon([Icon.Size.Xs], name: "chevron-down");
+                            v.Text(text: "More");
+                        });
+                    });
                 });
             });
 
@@ -165,6 +285,7 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "Toggle Buttons");
                 view.Column([Layout.Column.Md], content: view =>
                 {
+                    view.Text([Text.Label], "Text");
                     view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                     {
                         view.Toggle([Toggle.DefaultSm],
@@ -173,6 +294,16 @@ public partial class Validation
                             pressed: _togglePressed.Value, onPressedChange: async pressed => _togglePressed.Value = pressed, content: v => v.Text(text: "Md"));
                         view.Toggle([Toggle.DefaultLg],
                             pressed: _togglePressed.Value, onPressedChange: async pressed => _togglePressed.Value = pressed, content: v => v.Text(text: "Lg"));
+                    });
+                    view.Text([Text.Label], "Icon");
+                    view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
+                    {
+                        view.Toggle([Toggle.IconDefaultSm],
+                            pressed: _togglePressed.Value, onPressedChange: async pressed => _togglePressed.Value = pressed, content: v => v.Text(text: "✱"));
+                        view.Toggle([Toggle.IconDefaultMd],
+                            pressed: _togglePressed.Value, onPressedChange: async pressed => _togglePressed.Value = pressed, content: v => v.Text(text: "✱"));
+                        view.Toggle([Toggle.IconDefaultLg],
+                            pressed: _togglePressed.Value, onPressedChange: async pressed => _togglePressed.Value = pressed, content: v => v.Text(text: "✱"));
                     });
                 });
             });

@@ -244,7 +244,7 @@ public partial class Validation
 
                     if (_ikonAIPasswordError.Value)
                     {
-                        view.Box([Alert.Danger, "mt-4"], content: view =>
+                        view.Box([Alert.Error, "mt-4"], content: view =>
                         {
                             view.Text([Alert.Description], "Incorrect password");
                         });
@@ -322,7 +322,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_classifierError.Value))
                 {
-                    view.Box([Alert.Danger, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], content: view =>
                     {
                         view.Text([Alert.Description], _classifierError.Value);
                     });
@@ -429,7 +429,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_embeddingError.Value))
                 {
-                    view.Box([Alert.Danger, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], content: view =>
                     {
                         view.Text([Alert.Description], _embeddingError.Value);
                     });
@@ -537,7 +537,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_webSearcherError.Value))
                 {
-                    view.Box([Alert.Danger, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], content: view =>
                     {
                         view.Text([Alert.Description], _webSearcherError.Value);
                     });
@@ -643,7 +643,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_webScraperError.Value))
                 {
-                    view.Box([Alert.Danger, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], content: view =>
                     {
                         view.Text([Alert.Description], _webScraperError.Value);
                     });
@@ -743,7 +743,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_rerankerError.Value))
                 {
-                    view.Box([Alert.Danger, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], content: view =>
                     {
                         view.Text([Alert.Description], _rerankerError.Value);
                     });
@@ -1034,7 +1034,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_imageGeneratorError.Value))
                 {
-                    view.Box([Alert.Danger, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], content: view =>
                     {
                         view.Text([Alert.Description], _imageGeneratorError.Value);
                     });
@@ -1226,7 +1226,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_speechGeneratorError.Value))
                 {
-                    view.Box([Alert.Danger, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], content: view =>
                     {
                         view.Text([Alert.Description], _speechGeneratorError.Value);
                     });
@@ -1371,7 +1371,7 @@ public partial class Validation
                     view.Row([Layout.Row.Md, "items-center"], content: view =>
                     {
                         view.CaptureButton(
-                            [_speechRecognizerRecording.Value ? Button.DangerMd : Button.PrimaryMd],
+                            [_speechRecognizerRecording.Value ? Button.ErrorMd : Button.PrimaryMd],
                             kind: MediaCaptureKind.Audio,
                             label: _speechRecognizerRecording.Value ? "Stop Recording" : "Start Recording",
                             captureMode: MediaCaptureButtonMode.Toggle,
@@ -1417,7 +1417,7 @@ public partial class Validation
                     view.Row([Layout.Row.Md, "items-center"], content: view =>
                     {
                         view.CaptureButton(
-                            [_speechRecognizerRecording.Value ? Button.DangerMd : Button.PrimaryMd],
+                            [_speechRecognizerRecording.Value ? Button.ErrorMd : Button.PrimaryMd],
                             kind: MediaCaptureKind.Audio,
                             label: _speechRecognizerRecording.Value ? "Recording..." : "Hold to Record",
                             captureMode: MediaCaptureButtonMode.Hold,
@@ -1454,7 +1454,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_speechRecognizerError.Value))
                 {
-                    view.Box([Alert.Danger, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], content: view =>
                     {
                         view.Text([Alert.Description], _speechRecognizerError.Value);
                     });
@@ -1692,7 +1692,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_ocrError.Value))
                 {
-                    view.Box([Alert.Danger, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], content: view =>
                     {
                         view.Text([Alert.Description], _ocrError.Value);
                     });
@@ -1869,7 +1869,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_fileConverterError.Value))
                 {
-                    view.Box([Alert.Danger, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], content: view =>
                     {
                         view.Text([Alert.Description], _fileConverterError.Value);
                     });
@@ -2110,7 +2110,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_videoGeneratorError.Value))
                 {
-                    view.Box([Alert.Danger, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], content: view =>
                     {
                         view.Text([Alert.Description], _videoGeneratorError.Value);
                     });
@@ -2294,7 +2294,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_soundEffectError.Value))
                 {
-                    view.Box([Alert.Danger, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], content: view =>
                     {
                         view.Text([Alert.Description], _soundEffectError.Value);
                     });
@@ -2471,7 +2471,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_videoEnhancerError.Value))
                 {
-                    view.Box([Alert.Danger, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], content: view =>
                     {
                         view.Text([Alert.Description], _videoEnhancerError.Value);
                     });

@@ -290,6 +290,160 @@ public partial class Validation
                         ]);
                 });
             });
+
+            // Stat Cards
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-1"], "Stat Cards");
+                view.Text([Text.BodySm, "text-tertiary mb-6"], "Key metric display with trend indicator. Combine StatCard.Trend with a TrendVariant.");
+
+                view.Column([Layout.Column.Lg], content: view =>
+                {
+                    view.Text([Text.H3, "mb-2"], "Icon Box Variants");
+                    view.Box(["grid grid-cols-3 gap-4"], content: view =>
+                    {
+                        view.Box([StatCard.Root], content: view =>
+                        {
+                            view.Row([StatCard.Header], content: view =>
+                            {
+                                view.Box([StatCard.IconBoxBrand], content: view => view.Icon([StatCard.IconSize], name: "trending-up"));
+                                view.Button([Button.GhostSm, "h-8 w-8"], onClick: async () => { }, content: v => v.Icon([Icon.Size.Xs], name: "more-vertical"));
+                            });
+                            view.Text([StatCard.Label], "Total Revenue");
+                            view.Row([StatCard.ValueRow], content: view =>
+                            {
+                                view.Text([StatCard.Value], "$48,295");
+                                view.Row([StatCard.Trend, StatCard.TrendVariant.Positive], content: view =>
+                                {
+                                    view.Icon([StatCard.TrendIcon], name: "trending-up");
+                                    view.Text([StatCard.TrendValue], "+12.5%");
+                                    view.Text([StatCard.TrendLabel], "vs last month");
+                                });
+                            });
+                        });
+
+                        view.Box([StatCard.Root], content: view =>
+                        {
+                            view.Row([StatCard.Header], content: view =>
+                            {
+                                view.Box([StatCard.IconBoxSuccess], content: view => view.Icon([StatCard.IconSize], name: "users"));
+                                view.Button([Button.GhostSm, "h-8 w-8"], onClick: async () => { }, content: v => v.Icon([Icon.Size.Xs], name: "more-vertical"));
+                            });
+                            view.Text([StatCard.Label], "Active Users");
+                            view.Row([StatCard.ValueRow], content: view =>
+                            {
+                                view.Text([StatCard.Value], "12,430");
+                                view.Row([StatCard.Trend, StatCard.TrendVariant.Positive], content: view =>
+                                {
+                                    view.Icon([StatCard.TrendIcon], name: "trending-up");
+                                    view.Text([StatCard.TrendValue], "+5.2%");
+                                    view.Text([StatCard.TrendLabel], "vs last month");
+                                });
+                            });
+                        });
+
+                        view.Box([StatCard.Root], content: view =>
+                        {
+                            view.Row([StatCard.Header], content: view =>
+                            {
+                                view.Box([StatCard.IconBoxError], content: view => view.Icon([StatCard.IconSize], name: "trending-down"));
+                                view.Button([Button.GhostSm, "h-8 w-8"], onClick: async () => { }, content: v => v.Icon([Icon.Size.Xs], name: "more-vertical"));
+                            });
+                            view.Text([StatCard.Label], "Churn Rate");
+                            view.Row([StatCard.ValueRow], content: view =>
+                            {
+                                view.Text([StatCard.Value], "3.2%");
+                                view.Row([StatCard.Trend, StatCard.TrendVariant.Negative], content: view =>
+                                {
+                                    view.Icon([StatCard.TrendIcon], name: "trending-down");
+                                    view.Text([StatCard.TrendValue], "-0.8%");
+                                    view.Text([StatCard.TrendLabel], "vs last month");
+                                });
+                            });
+                        });
+
+                        view.Box([StatCard.Root], content: view =>
+                        {
+                            view.Row([StatCard.Header], content: view =>
+                            {
+                                view.Box([StatCard.IconBoxWarning], content: view => view.Icon([StatCard.IconSize], name: "triangle-alert"));
+                                view.Button([Button.GhostSm, "h-8 w-8"], onClick: async () => { }, content: v => v.Icon([Icon.Size.Xs], name: "more-vertical"));
+                            });
+                            view.Text([StatCard.Label], "Error Rate");
+                            view.Row([StatCard.ValueRow], content: view =>
+                            {
+                                view.Text([StatCard.Value], "0.4%");
+                                view.Row([StatCard.Trend, StatCard.TrendVariant.Neutral], content: view =>
+                                {
+                                    view.Icon([StatCard.TrendIcon], name: "minus");
+                                    view.Text([StatCard.TrendValue], "0.0%");
+                                    view.Text([StatCard.TrendLabel], "no change");
+                                });
+                            });
+                        });
+
+                        view.Box([StatCard.Root], content: view =>
+                        {
+                            view.Row([StatCard.Header], content: view =>
+                            {
+                                view.Box([StatCard.IconBoxInfo], content: view => view.Icon([StatCard.IconSize], name: "chart-bar"));
+                                view.Button([Button.GhostSm, "h-8 w-8"], onClick: async () => { }, content: v => v.Icon([Icon.Size.Xs], name: "more-vertical"));
+                            });
+                            view.Text([StatCard.Label], "Page Views");
+                            view.Row([StatCard.ValueRow], content: view =>
+                            {
+                                view.Text([StatCard.Value], "2,000");
+                                view.Row([StatCard.Trend, StatCard.TrendVariant.Positive], content: view =>
+                                {
+                                    view.Icon([StatCard.TrendIcon], name: "trending-up");
+                                    view.Text([StatCard.TrendValue], "+100%");
+                                    view.Text([StatCard.TrendLabel], "vs last month");
+                                });
+                            });
+                        });
+
+                        view.Box([StatCard.Root], content: view =>
+                        {
+                            view.Row([StatCard.Header], content: view =>
+                            {
+                                view.Box([StatCard.IconBox], content: view => view.Icon([StatCard.IconSize], name: "activity"));
+                                view.Button([Button.GhostSm, "h-8 w-8"], onClick: async () => { }, content: v => v.Icon([Icon.Size.Xs], name: "more-vertical"));
+                            });
+                            view.Text([StatCard.Label], "Uptime");
+                            view.Row([StatCard.ValueRow], content: view =>
+                            {
+                                view.Text([StatCard.Value], "99.9%");
+                                view.Row([StatCard.Trend, StatCard.TrendVariant.Neutral], content: view =>
+                                {
+                                    view.Icon([StatCard.TrendIcon], name: "minus");
+                                    view.Text([StatCard.TrendValue], "0.0%");
+                                    view.Text([StatCard.TrendLabel], "no change");
+                                });
+                            });
+                        });
+                    });
+
+                    view.Text([Text.H3, "mb-2"], "Minimal (no icon, no trend)");
+                    view.Box(["grid grid-cols-3 gap-4"], content: view =>
+                    {
+                        view.Box([StatCard.Root], content: view =>
+                        {
+                            view.Text([StatCard.Label], "Total Orders");
+                            view.Text([StatCard.Value, "mt-1"], "8,041");
+                        });
+                        view.Box([StatCard.Root], content: view =>
+                        {
+                            view.Text([StatCard.Label], "Avg. Order Value");
+                            view.Text([StatCard.Value, "mt-1"], "$124");
+                        });
+                        view.Box([StatCard.Root], content: view =>
+                        {
+                            view.Text([StatCard.Label], "Refund Rate");
+                            view.Text([StatCard.Value, "mt-1"], "1.4%");
+                        });
+                    });
+                });
+            });
         });
     }
 }

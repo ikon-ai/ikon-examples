@@ -26,6 +26,7 @@ global using Ikon.Common.Core.Protocol;
 global using Ikon.Common.Core.Reactive;
 global using Ikon.Common.Core.Scope;
 global using Ikon.Parallax;
+global using Ikon.Crosswind;
 global using Ikon.Parallax.Components.Charts;
 global using Ikon.Parallax.Components.Rive;
 global using Ikon.Parallax.Components.Standard;
@@ -39,5 +40,4 @@ global using Ikon.Resonance.Synth.Moog;
 global using Ikon.Resonance.Synth.Sequencer;
 global using Ikon.Server;
 
-// Modify this to change the active theme
-global using Themes.Ikon;
+global using Ikon.Parallax.Themes.Ikon;

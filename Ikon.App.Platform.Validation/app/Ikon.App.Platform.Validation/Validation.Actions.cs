@@ -79,7 +79,7 @@ public partial class Validation
                             v.Text(text: "Share Link");
                         });
 
-                    view.ActionButton([Button.SecondaryMd],
+                    view.ActionButton([Button.NeutralMd],
                         action: ActionKind.Share,
                         options: new ShareActionOptions
                         {
@@ -158,7 +158,7 @@ public partial class Validation
                             v.Text(text: "Show Notification");
                         });
 
-                    view.ActionButton([Button.SecondaryMd],
+                    view.ActionButton([Button.NeutralMd],
                         action: ActionKind.ShowNotification,
                         options: new ShowNotificationActionOptions
                         {
@@ -240,7 +240,7 @@ public partial class Validation
                             v.Text(text: "Pick One Contact");
                         });
 
-                    view.ActionButton([Button.SecondaryMd],
+                    view.ActionButton([Button.NeutralMd],
                         action: ActionKind.PickContacts,
                         options: new PickContactsActionOptions { Multiple = true },
                         content: v =>
@@ -271,7 +271,7 @@ public partial class Validation
                             v.Text(text: "Enter Fullscreen");
                         });
 
-                    view.ActionButton([Button.SecondaryMd],
+                    view.ActionButton([Button.NeutralMd],
                         action: ActionKind.ExitFullscreen,
                         onActionComplete: async e =>
                         {
@@ -311,7 +311,7 @@ public partial class Validation
                             _clientFunctionToastOpen.Value = true;
                         });
 
-                    view.Button([Button.SecondaryMd],
+                    view.Button([Button.NeutralMd],
                         label: "Set Theme (dark)",
                         onClick: async () =>
                         {
@@ -349,7 +349,7 @@ public partial class Validation
                             _clientFunctionToastOpen.Value = true;
                         });
 
-                    view.Button([Button.SecondaryMd],
+                    view.Button([Button.NeutralMd],
                         label: "Get Timezone",
                         onClick: async () =>
                         {
@@ -378,7 +378,7 @@ public partial class Validation
                             _clientFunctionToastOpen.Value = true;
                         });
 
-                    view.Button([Button.SecondaryMd],
+                    view.Button([Button.NeutralMd],
                         label: "Set URL (/test)",
                         onClick: async () =>
                         {
@@ -407,7 +407,7 @@ public partial class Validation
                             _clientFunctionToastOpen.Value = true;
                         });
 
-                    view.Button([Button.SecondaryMd],
+                    view.Button([Button.NeutralMd],
                         label: "Vibrate Pattern",
                         onClick: async () =>
                         {
@@ -436,7 +436,7 @@ public partial class Validation
                             _clientFunctionToastOpen.Value = true;
                         });
 
-                    view.Button([Button.SecondaryMd],
+                    view.Button([Button.NeutralMd],
                         label: "Keep Awake OFF",
                         onClick: async () =>
                         {
@@ -465,7 +465,7 @@ public partial class Validation
                             _clientFunctionToastOpen.Value = true;
                         });
 
-                    view.Button([Button.SecondaryMd],
+                    view.Button([Button.NeutralMd],
                         label: "Scroll To Top",
                         onClick: async () =>
                         {
@@ -503,7 +503,7 @@ public partial class Validation
                             _clientFunctionToastOpen.Value = true;
                         });
 
-                    view.Button([Button.SecondaryMd],
+                    view.Button([Button.NeutralMd],
                         label: "Get Network",
                         onClick: async () =>
                         {

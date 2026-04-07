@@ -52,7 +52,7 @@ public partial class Validation
                         }
                         else
                         {
-                            view.Button([Button.DangerMd], label: "Stop Profiling", onClick: StopProfilingAsync);
+                            view.Button([Button.ErrorMd], label: "Stop Profiling", onClick: StopProfilingAsync);
                         }
 
                         view.Button([Button.OutlineMd], label: "Reset Stats", onClick: ResetProfilingStatsAsync);

@@ -321,7 +321,7 @@ public partial class Validation
 
             if (_advUploadProgress.Value > 0 && _advUploadProgress.Value < 100)
             {
-                view.Progress(value: _advUploadProgress.Value, max: 100, rootStyle: [Progress.Root, "mt-2"]);
+                view.Progress(value: _advUploadProgress.Value, max: 100, rootStyle: [Progress.Root, "mt-2"], indicatorStyle: [Progress.IndicatorBase]);
             }
 
             // Callback status display

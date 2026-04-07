@@ -49,21 +49,21 @@ public partial class Validation
                     view.Box([FormField.Root], content: view =>
                     {
                         view.Text([FormField.Label], "Success state");
-                        view.TextField([Input.Base, Input.Variant.Success, Input.Size.Md], placeholder: "Valid input", value: "valid@email.com");
+                        view.TextField([Input.Success], placeholder: "Valid input", value: "valid@email.com");
                         view.Text([FormField.SuccessText], "Email format is valid");
                     });
 
                     view.Box([FormField.Root], content: view =>
                     {
                         view.Text([FormField.Label], "Warning state");
-                        view.TextField([Input.Base, Input.Variant.Warning, Input.Size.Md], placeholder: "Potentially problematic", value: "user123");
+                        view.TextField([Input.Warning], placeholder: "Potentially problematic", value: "user123");
                         view.Text([FormField.WarningText], "This username may be taken");
                     });
 
                     view.Box([FormField.Root], content: view =>
                     {
                         view.Text([FormField.Label], "Error state");
-                        view.TextField([Input.Base, Input.Variant.Error, Input.Size.Md], placeholder: "Invalid input", value: "invalid");
+                        view.TextField([Input.Error], placeholder: "Invalid input", value: "invalid");
                         view.Text([FormField.ErrorText], "Please enter a valid email address");
                     });
 

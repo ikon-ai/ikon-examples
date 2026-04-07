@@ -43,7 +43,7 @@ public partial class Validation
                     onOpenChange: async open => _alertDialogOpen.Value = open ?? false,
                     overlayStyle: [AlertDialog.Overlay],
                     contentStyle: [AlertDialog.Content],
-                    trigger: view => view.Button([Button.DangerMd], label: "Delete Item"),
+                    trigger: view => view.Button([Button.ErrorMd], label: "Delete Item"),
                     title: "Are you sure?",
                     titleStyle: [AlertDialog.Title],
                     description: "This action cannot be undone. This will permanently delete the item.",
@@ -52,7 +52,7 @@ public partial class Validation
                     cancelLabel: "Cancel",
                     cancelStyle: [AlertDialog.Cancel],
                     actionLabel: "Delete",
-                    actionStyle: [Button.DangerMd]);
+                    actionStyle: [Button.ErrorMd]);
             });
 
             // Popover
@@ -92,7 +92,7 @@ public partial class Validation
 
                     view.Tooltip(
                         contentStyle: [Tooltip.Content],
-                        trigger: view => view.Button([Button.GhostMd, Button.Size.Icon], content: v => v.Icon(name: "info-circled")),
+                        trigger: view => view.Button([Button.GhostMd, Button.Size.Icon], content: v => v.Icon([Icon.Default], name: "info")),
                         content: view => view.Text(text: "More information here"));
                 });
             });

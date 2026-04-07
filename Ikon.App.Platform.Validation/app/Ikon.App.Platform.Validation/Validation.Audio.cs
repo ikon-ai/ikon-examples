@@ -69,7 +69,7 @@ public partial class Validation
                                 _sineWaveIds.NotifyUpdate();
                             });
 
-                        view.Button([Button.DangerMd],
+                        view.Button([Button.ErrorMd],
                             label: "Remove",
                             onClick: async () =>
                             {
@@ -98,7 +98,7 @@ public partial class Validation
                                 _drumMachineIds.NotifyUpdate();
                             });
 
-                        view.Button([Button.DangerMd],
+                        view.Button([Button.ErrorMd],
                             label: "Remove",
                             onClick: async () =>
                             {
@@ -134,7 +134,7 @@ public partial class Validation
                                 UpdateSynthInfo();
                             });
 
-                        view.Button([Button.DangerMd],
+                        view.Button([Button.ErrorMd],
                             label: "Remove",
                             onClick: async () =>
                             {
@@ -155,11 +155,11 @@ public partial class Validation
                         view.Text([Text.Caption, "mb-2"], $"Patch: {_currentPatch.Value} | Pattern: {_currentPattern.Value}");
                         view.Row([Layout.Row.Md, "flex-wrap mb-2"], content: view =>
                         {
-                            view.Button([Button.SecondaryMd],
+                            view.Button([Button.NeutralMd],
                                 label: "Next Patch",
                                 onClick: async () => CycleSynthPatch());
 
-                            view.Button([Button.SecondaryMd],
+                            view.Button([Button.NeutralMd],
                                 label: "Next Pattern",
                                 onClick: async () => CycleSynthPattern());
 
@@ -195,7 +195,7 @@ public partial class Validation
                         }
                     });
 
-                    view.Button([Button.DangerMd],
+                    view.Button([Button.ErrorMd],
                         label: "Clear All Effects",
                         onClick: async () => ClearAllEffects());
 
@@ -212,7 +212,7 @@ public partial class Validation
                                 view.Row([Card.HeaderRow], content: view =>
                                 {
                                     view.Text([Text.BodyStrong], entry.EffectType);
-                                    view.Button([Button.DangerMd],
+                                    view.Button([Button.ErrorMd],
                                         label: "Remove",
                                         onClick: async () => RemoveEffect(index));
                                 });
@@ -316,7 +316,7 @@ public partial class Validation
                     view.Row([Layout.Row.Md, "flex-wrap mb-4"], content: view =>
                     {
                         view.CaptureButton(
-                            [_isAudioHoldRecording.Value ? Button.DangerMd : Button.PrimaryMd],
+                            [_isAudioHoldRecording.Value ? Button.ErrorMd : Button.PrimaryMd],
                             kind: MediaCaptureKind.Audio,
                             label: "Hold to Record",
                             captureMode: MediaCaptureButtonMode.Hold,
@@ -333,7 +333,7 @@ public partial class Validation
                             onCaptureStop: async e => _isAudioHoldRecording.Value = false);
 
                         view.CaptureButton(
-                            [_isAudioHoldRecording.Value ? Button.DangerMd : Button.PrimaryMd, Button.Size.Icon],
+                            [_isAudioHoldRecording.Value ? Button.ErrorMd : Button.PrimaryMd, Button.Size.Icon],
                             kind: MediaCaptureKind.Audio,
                             label: "Hold to Record",
                             captureMode: MediaCaptureButtonMode.Hold,
@@ -351,7 +351,7 @@ public partial class Validation
                             content: v => v.Icon([Icon.Default], name: "mic"));
 
                         view.CaptureButton(
-                            [_isAudioToggleRecording.Value ? Button.DangerMd : Button.SecondaryMd],
+                            [_isAudioToggleRecording.Value ? Button.ErrorMd : Button.NeutralMd],
                             kind: MediaCaptureKind.Audio,
                             label: _isAudioToggleRecording.Value ? "Stop Recording" : "Toggle Record",
                             captureMode: MediaCaptureButtonMode.Toggle,
@@ -368,7 +368,7 @@ public partial class Validation
                             onCaptureStop: async e => _isAudioToggleRecording.Value = false);
 
                         view.CaptureButton(
-                            [_isAudioToggleRecording.Value ? Button.DangerMd : Button.SecondaryMd, Button.Size.Icon],
+                            [_isAudioToggleRecording.Value ? Button.ErrorMd : Button.NeutralMd, Button.Size.Icon],
                             kind: MediaCaptureKind.Audio,
                             label: _isAudioToggleRecording.Value ? "Stop Recording" : "Toggle Record",
                             captureMode: MediaCaptureButtonMode.Toggle,
@@ -412,7 +412,7 @@ public partial class Validation
                         }
                     });
 
-                    view.Button([Button.DangerMd],
+                    view.Button([Button.ErrorMd],
                         label: "Clear Voice Effects",
                         onClick: async () => ClearVoiceEffects());
 
@@ -429,7 +429,7 @@ public partial class Validation
                                 view.Row([Card.HeaderRow], content: view =>
                                 {
                                     view.Text([Text.BodyStrong], entry.EffectType);
-                                    view.Button([Button.DangerMd],
+                                    view.Button([Button.ErrorMd],
                                         label: "Remove",
                                         onClick: async () => RemoveVoiceEffect(index));
                                 });
@@ -465,7 +465,7 @@ public partial class Validation
                                 _soundToastOpen.Value = true;
                             });
 
-                        view.Button([Button.SecondaryMd],
+                        view.Button([Button.NeutralMd],
                             label: "Play from data URL",
                             onClick: async () =>
                             {
@@ -489,7 +489,7 @@ public partial class Validation
                                 _soundToastOpen.Value = true;
                             });
 
-                        view.Button([Button.DangerMd],
+                        view.Button([Button.ErrorMd],
                             label: "Stop Sound",
                             onClick: async () =>
                             {

@@ -93,7 +93,7 @@ public partial class Validation
                     {
                         view.CaptureButton(
                             [_isCameraCaptureActive.Value
-                                ? Button.DangerMd
+                                ? Button.ErrorMd
                                 : Button.PrimaryMd],
                             kind: MediaCaptureKind.Camera,
                             label: _isCameraCaptureActive.Value ? "Stop Camera" : "Start Camera",
@@ -188,7 +188,7 @@ public partial class Validation
                     {
                         view.CaptureButton(
                             [_isScreenCaptureActive.Value
-                                ? Button.DangerMd
+                                ? Button.ErrorMd
                                 : Button.PrimaryMd],
                             kind: MediaCaptureKind.Screen,
                             label: _isScreenCaptureActive.Value ? "Stop Screen" : "Start Screen",

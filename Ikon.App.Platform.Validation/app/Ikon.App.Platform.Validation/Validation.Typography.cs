@@ -10,18 +10,33 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "Text Styles");
                 view.Column([Layout.Column.Md], content: view =>
                 {
-                    view.Text([Text.Display], "Text.Display");
-                    view.Text([Text.H1], "Text.H1");
-                    view.Text([Text.H2], "Text.H2");
-                    view.Text([Text.H3], "Text.H3");
-                    view.Text([Text.Body], "Text.Body - Regular body text with relaxed line height.");
-                    view.Text([Text.BodyStrong], "Text.BodyStrong - Bold body text.");
-                    view.Text([Text.Caption], "Text.Caption - Small caption text");
-                    view.Text([Text.Small], "Text.Small - Extra small text");
-                    view.Text([Text.Muted], "Text.Muted - Muted text color");
-                    view.Box([Text.Code], content: v => v.Text(text: "Text.Code - Monospace code style"));
-                    view.Text([Text.Link], "Text.Link - Clickable link style");
-                    view.Text([Text.Label], "Text.Label - Form label style");
+                    // Display scale
+                    view.Text([Text.Display], "Text.Display — Hero, splash");
+                    view.Text([Text.DisplaySm], "Text.DisplaySm — App hero numbers, large stats");
+                    view.Text([Text.H1], "Text.H1 — Page title");
+                    view.Text([Text.H2], "Text.H2 — Section title");
+                    view.Text([Text.H3], "Text.H3 — Card title");
+                    view.Text([Text.H4], "Text.H4 — Group label");
+
+                    view.Box(["h-px bg-secondary my-2"]);
+
+                    // Body scale
+                    view.Text([Text.Body], "Text.Body — Regular body text with relaxed line height.");
+                    view.Text([Text.BodySm], "Text.BodySm — Compact body for secondary content.");
+                    view.Text([Text.BodyStrong], "Text.BodyStrong — Emphasised body text.");
+                    view.Text([Text.Label], "Text.Label — Form label style");
+                    view.Text([Text.Caption], "Text.Caption — Metadata, timestamps, helper text");
+                    view.Text([Text.Muted], "Text.Muted — De-emphasised hints");
+                    view.Text([Text.Small], "Text.Small — Fine print, legal");
+                    view.Text([Text.Link], "Text.Link — Clickable link style");
+
+                    view.Box(["h-px bg-secondary my-2"]);
+
+                    // Data & utility scale
+                    view.Text([Text.Overline], "Text.Overline — Section label above heading");
+                    view.Text([Text.Numeric], "Text.Numeric — 12,345.67");
+                    view.Text([Text.Tabular], "Text.Tabular — 1,234  5,678  9,012  (aligned numerals)");
+                    view.Box([Text.Code], content: v => v.Text(text: "Text.Code — Monospace code style"));
                 });
             });
 
@@ -33,11 +48,11 @@ public partial class Validation
                 view.Column([Layout.Column.Md], content: view =>
                 {
                     view.Box([Tone.Primary, "p-3 rounded-md"], content: v => v.Text(text: "Tone.Primary"));
-                    view.Box([Tone.Secondary, "p-3 rounded-md"], content: v => v.Text(text: "Tone.Secondary"));
+                    view.Box([Tone.Neutral, "p-3 rounded-md"], content: v => v.Text(text: "Tone.Neutral"));
                     view.Box([Tone.Muted, "p-3 rounded-md"], content: v => v.Text(text: "Tone.Muted"));
                     view.Box([Tone.Success, "p-3 rounded-md"], content: v => v.Text(text: "Tone.Success"));
                     view.Box([Tone.Warning, "p-3 rounded-md"], content: v => v.Text(text: "Tone.Warning"));
-                    view.Box([Tone.Danger, "p-3 rounded-md"], content: v => v.Text(text: "Tone.Danger"));
+                    view.Box([Tone.Error, "p-3 rounded-md"], content: v => v.Text(text: "Tone.Error"));
                     view.Box([Tone.Info, "p-3 rounded-md"], content: v => v.Text(text: "Tone.Info"));
                     view.Box([Tone.Ghost, "p-3 rounded-md border"], content: v => v.Text(text: "Tone.Ghost"));
                     view.Box([Tone.Outline, "p-3 rounded-md"], content: v => v.Text(text: "Tone.Outline"));
@@ -103,25 +118,25 @@ public partial class Validation
                     view.Text([Text.Caption], "Grid.Cols2");
                     view.Box([Layout.Grid.Cols2], content: view =>
                     {
-                        view.Box([Badge.Secondary, "justify-center"], content: v => v.Text(text: "1"));
-                        view.Box([Badge.Secondary, "justify-center"], content: v => v.Text(text: "2"));
+                        view.Box([Badge.Grey, "justify-center"], content: v => v.Text(text: "1"));
+                        view.Box([Badge.Grey, "justify-center"], content: v => v.Text(text: "2"));
                     });
 
                     view.Text([Text.Caption], "Grid.Cols3");
                     view.Box([Layout.Grid.Cols3], content: view =>
                     {
-                        view.Box([Badge.Secondary, "justify-center"], content: v => v.Text(text: "1"));
-                        view.Box([Badge.Secondary, "justify-center"], content: v => v.Text(text: "2"));
-                        view.Box([Badge.Secondary, "justify-center"], content: v => v.Text(text: "3"));
+                        view.Box([Badge.Grey, "justify-center"], content: v => v.Text(text: "1"));
+                        view.Box([Badge.Grey, "justify-center"], content: v => v.Text(text: "2"));
+                        view.Box([Badge.Grey, "justify-center"], content: v => v.Text(text: "3"));
                     });
 
                     view.Text([Text.Caption], "Grid.Cols4");
                     view.Box([Layout.Grid.Cols4], content: view =>
                     {
-                        view.Box([Badge.Secondary, "justify-center"], content: v => v.Text(text: "1"));
-                        view.Box([Badge.Secondary, "justify-center"], content: v => v.Text(text: "2"));
-                        view.Box([Badge.Secondary, "justify-center"], content: v => v.Text(text: "3"));
-                        view.Box([Badge.Secondary, "justify-center"], content: v => v.Text(text: "4"));
+                        view.Box([Badge.Grey, "justify-center"], content: v => v.Text(text: "1"));
+                        view.Box([Badge.Grey, "justify-center"], content: v => v.Text(text: "2"));
+                        view.Box([Badge.Grey, "justify-center"], content: v => v.Text(text: "3"));
+                        view.Box([Badge.Grey, "justify-center"], content: v => v.Text(text: "4"));
                     });
                 });
             });
@@ -189,8 +204,13 @@ public partial class Validation
                 {
                     view.Box(["p-4 rounded-md bg-muted"], content: view =>
                     {
-                        view.Text([Text.Caption, "mb-2"], "font-sans (Default)");
-                        view.Text(["font-sans text-lg"], "The quick brown fox jumps over the lazy dog. 0123456789");
+                        view.Text([Text.Caption, "mb-2"], "font-body (Default)");
+                        view.Text(["font-body text-lg"], "The quick brown fox jumps over the lazy dog. 0123456789");
+                    });
+                    view.Box(["p-4 rounded-md bg-muted"], content: view =>
+                    {
+                        view.Text([Text.Caption, "mb-2"], "font-display");
+                        view.Text(["font-display text-lg"], "The quick brown fox jumps over the lazy dog. 0123456789");
                     });
                     view.Box(["p-4 rounded-md bg-muted"], content: view =>
                     {
@@ -201,11 +221,6 @@ public partial class Validation
                     {
                         view.Text([Text.Caption, "mb-2"], "font-mono");
                         view.Text(["font-mono text-lg"], "The quick brown fox jumps over the lazy dog. 0123456789");
-                    });
-                    view.Box(["p-4 rounded-md bg-muted"], content: view =>
-                    {
-                        view.Text([Text.Caption, "mb-2"], "font-display");
-                        view.Text(["font-display text-lg"], "The quick brown fox jumps over the lazy dog. 0123456789");
                     });
                 });
             });
