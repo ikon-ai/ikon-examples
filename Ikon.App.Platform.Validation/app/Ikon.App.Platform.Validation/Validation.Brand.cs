@@ -69,12 +69,13 @@ public partial class Validation
     private void GenerateScale(
         string hexColor,
         Reactive<string?> error,
-        Reactive<BrandColorScale?> scale)
+        Reactive<BrandColorScale?> scale,
+        bool neutral = false)
     {
         error.Value = null;
         try
         {
-            scale.Value = ColorScaleGenerator.Generate(hexColor);
+            scale.Value = ColorScaleGenerator.Generate(hexColor, neutral);
         }
         catch (Exception ex)
         {
@@ -128,7 +129,7 @@ public partial class Validation
             _infoHex.Value = result.Info;
 
             GenerateScale(_brandHex.Value, _brandError, _brandScale);
-            GenerateScale(_neutralHex.Value, _neutralError, _neutralScale);
+            GenerateScale(_neutralHex.Value, _neutralError, _neutralScale, neutral: true);
             GenerateScale(_errorHex.Value, _errorError, _errorScale);
             GenerateScale(_successHex.Value, _successError, _successScale);
             GenerateScale(_warningHex.Value, _warningError, _warningScale);
@@ -182,7 +183,7 @@ public partial class Validation
             });
 
             RenderColorGroupCard(view, "Brand",   _brandHex,   _brandError,   _brandScale);
-            RenderColorGroupCard(view, "Neutral", _neutralHex, _neutralError, _neutralScale);
+            RenderColorGroupCard(view, "Neutral", _neutralHex, _neutralError, _neutralScale, neutral: true);
             RenderColorGroupCard(view, "Error",   _errorHex,   _errorError,   _errorScale);
             RenderColorGroupCard(view, "Success", _successHex, _successError, _successScale);
             RenderColorGroupCard(view, "Warning", _warningHex, _warningError, _warningScale);
@@ -203,7 +204,8 @@ public partial class Validation
         string label,
         Reactive<string> hex,
         Reactive<string?> error,
-        Reactive<BrandColorScale?> scale)
+        Reactive<BrandColorScale?> scale,
+        bool neutral = false)
     {
         view.Box([Card.Default, "p-6"], content: view =>
         {
@@ -218,7 +220,7 @@ public partial class Validation
                     onValueChange: async v => { hex.Value = v; });
 
                 view.Button([Button.PrimaryMd], label: "Generate",
-                    onClick: async () => GenerateScale(hex.Value, error, scale));
+                    onClick: async () => GenerateScale(hex.Value, error, scale, neutral));
             });
 
             if (!string.IsNullOrEmpty(error.Value))
@@ -226,7 +228,7 @@ public partial class Validation
 
             if (scale.Value is { } s)
             {
-                view.Row(["gap-1 flex-wrap"], content: view =>
+                view.Row(["gap-1 flex-nowrap w-full"], content: view =>
                 {
                     RenderSwatch(view, "25",  s.Step25);
                     RenderSwatch(view, "50",  s.Step50);
@@ -247,10 +249,11 @@ public partial class Validation
 
     private static void RenderSwatch(UIView view, string step, string hex)
     {
-        view.Column(["items-center gap-1"], content: view =>
+        view.Column(["items-center gap-0.5 flex-1 min-w-0"], content: view =>
         {
-            view.Box([$"w-10 h-10 rounded", $"bg-[{hex}]"]);
-            view.Text([Text.Caption], step);
+            view.Box([$"w-full h-9 rounded", $"bg-[{hex}]"]);
+            view.Text([Text.Body], step);
+            view.Text([Text.Body, "text-[12px] text-tertiary"], hex);
         });
     }
 
@@ -336,35 +339,54 @@ internal sealed class BrandColorScale(
 // The seed maps to step 600. Lightness is varied while chroma and hue are preserved.
 internal static class ColorScaleGenerator
 {
-    // Target lightness for each step (0 = black, 1 = white).
-    // Step 600 is the seed — its lightness is used as anchor, but the scale is fixed
-    // so that themes with different seed lightness still produce a consistent ramp.
-    private static readonly (string Name, double L)[] Steps =
+    // Neutral greys — steep S-curve reaching near-black at 950 for maximum contrast range.
+    private static readonly (string Name, double L)[] NeutralSteps =
     [
-        ("25",  0.975),
-        ("50",  0.955),
-        ("100", 0.925),
-        ("200", 0.870),
-        ("300", 0.790),
-        ("400", 0.700),
-        ("500", 0.610),
-        ("600", 0.530),
-        ("700", 0.450),
-        ("800", 0.370),
-        ("900", 0.300),
-        ("950", 0.230),
+        ("25",  0.991),
+        ("50",  0.978),
+        ("100", 0.959),
+        ("200", 0.921),
+        ("300", 0.852),
+        ("400", 0.732),
+        ("500", 0.587),
+        ("600", 0.454),
+        ("700", 0.347),
+        ("800", 0.259),
+        ("900", 0.190),
+        ("950", 0.165),
     ];
 
-    public static BrandColorScale Generate(string hex)
+    // Chromatic colours (brand, error, success, warning, info) — gentler curve that
+    // stays lighter in the dark end to preserve colour vibrancy and avoid muddiness.
+    private static readonly (string Name, double L)[] ChromaticSteps =
+    [
+        ("25",  0.989),
+        ("50",  0.976),
+        ("100", 0.956),
+        ("200", 0.912),
+        ("300", 0.844),
+        ("400", 0.740),
+        ("500", 0.648),
+        ("600", 0.558),
+        ("700", 0.478),
+        ("800", 0.402),
+        ("900", 0.338),
+        ("950", 0.294),
+    ];
+
+    public static BrandColorScale Generate(string hex, bool neutral = false)
     {
+        var steps = neutral ? NeutralSteps : ChromaticSteps;
         var (_, c, h) = HexToOklch(hex);
         var hexSteps = new string[12];
 
-        for (int i = 0; i < Steps.Length; i++)
+        for (int i = 0; i < steps.Length; i++)
         {
-            // Reduce chroma at the extremes to avoid out-of-gamut clipping
-            double chromaScale = 1.0 - Math.Pow(Math.Abs(Steps[i].L - 0.55) / 0.45, 1.5) * 0.6;
-            hexSteps[i] = OklchToHex(Steps[i].L, c * Math.Max(chromaScale, 0.1), h);
+            double dist = steps[i].L - 0.55;
+            double chromaScale = dist >= 0
+                ? 1.0 - Math.Pow(dist / 0.45, 1.5) * 0.976
+                : 1.0 - Math.Pow(-dist / 0.30, 2.0) * 0.642;
+            hexSteps[i] = OklchToHex(steps[i].L, c * Math.Max(chromaScale, 0.0), h);
         }
 
         return new BrandColorScale(
