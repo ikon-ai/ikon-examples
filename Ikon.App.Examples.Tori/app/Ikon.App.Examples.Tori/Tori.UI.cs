@@ -70,7 +70,7 @@ public partial class Tori
             col.Popover(
                 open: _newMeetMenuOpen.Value,
                 onOpenChange: async open => _newMeetMenuOpen.Value = open ?? false,
-                contentStyle: [DropdownMenu.Content, "w-56 translate-y-4"],
+                contentStyle: [DropdownMenu.Content, "w-60 translate-y-4"],
                 trigger: v => v.Button(
                     [Button.PrimaryLg, "mt-4 gap-2 items-center"],
                     onClick: async () => _newMeetMenuOpen.Value = !_newMeetMenuOpen.Value,
@@ -214,6 +214,7 @@ public partial class Tori
                     [Input.Default, "w-64"],
                     placeholder: "Your name",
                     value: _nameInput.Value,
+                    clearOnSubmit: false,
                     props: new Dictionary<string, object?>
                     {
                         ["autoFocus"] = true,
@@ -612,7 +613,7 @@ public partial class Tori
             _ => "grid-cols-3 md:grid-cols-4"
         };
 
-        view.Grid([$"gap-4 {gridCols} auto-rows-fr h-full"], content: grid =>
+        view.Grid([$"gap-4 {gridCols} auto-rows-[minmax(200px,1fr)] h-full"], content: grid =>
         {
             foreach (var participant in participants)
             {
@@ -658,7 +659,7 @@ public partial class Tori
         var isSpeaking = GetIsSpeaking(participant.ClientSessionId);
         var participantKey = participant.ClientSessionId.ToString();
 
-        view.Box([Card.Default, gradient, "relative rounded-lg overflow-hidden min-h-[200px]"], key: $"participant-{participantKey}", content: tile =>
+        view.Box([Card.Default, gradient, "relative rounded-lg overflow-hidden"], key: $"participant-{participantKey}", content: tile =>
         {
             if (participant.IsVideoEnabled && participant.EchoVideoStreamId != null)
             {
