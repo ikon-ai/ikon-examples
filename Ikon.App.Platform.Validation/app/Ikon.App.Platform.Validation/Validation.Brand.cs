@@ -28,6 +28,10 @@ public partial class Validation
     private readonly Reactive<string?>           _infoError    = new(null);
     private readonly Reactive<BrandColorScale?>  _infoScale    = new(null);
 
+    private readonly Reactive<string>            _accentHex    = new("#d97706");
+    private readonly Reactive<string?>           _accentError  = new(null);
+    private readonly Reactive<BrandColorScale?>  _accentScale  = new(null);
+
     internal void AddColorScaleCss()
     {
         var css = BuildCssVarBlock();
@@ -44,6 +48,7 @@ public partial class Validation
         AppendScaleVars(sb, "success", _successScale.Value);
         AppendScaleVars(sb, "warning", _warningScale.Value);
         AppendScaleVars(sb, "info",    _infoScale.Value);
+        AppendScaleVars(sb, "accent", _accentScale.Value);
         sb.Append('}');
         // Return empty string if no scales are set (nothing to override)
         return sb.Length == ":root{}".Length ? "" : sb.ToString();
@@ -97,7 +102,7 @@ public partial class Validation
             {
                 pass.Command = $"""
                     Based on the following description, generate a cohesive color scheme for a UI design system.
-                    Return exactly 6 hex color values — one seed color for each group.
+                    Return exactly 7 hex color values — one seed color for each group.
 
                     Description: {_colorPrompt.Value}
 
@@ -108,9 +113,11 @@ public partial class Validation
                     - Success: a green-ish color for success states
                     - Warning: an amber/orange-ish color for warnings
                     - Info: a blue-ish color for informational elements
+                    - Accent: a highlight color for text selection and focus rings, distinct from brand
                     - All values must be valid 6-digit hex colors (e.g. #7e56d8)
                     - The brand and neutral should strongly reflect the description
                     - Error/success/warning/info should complement the brand while staying recognizable
+                    - Accent should complement the brand while being visually distinct
                     """;
                 pass.MaxOutputTokens = 200;
             }))
@@ -127,6 +134,7 @@ public partial class Validation
             _successHex.Value = result.Success;
             _warningHex.Value = result.Warning;
             _infoHex.Value = result.Info;
+            _accentHex.Value = result.Accent;
 
             GenerateScale(_brandHex.Value, _brandError, _brandScale);
             GenerateScale(_neutralHex.Value, _neutralError, _neutralScale, neutral: true);
@@ -134,6 +142,7 @@ public partial class Validation
             GenerateScale(_successHex.Value, _successError, _successScale);
             GenerateScale(_warningHex.Value, _warningError, _warningScale);
             GenerateScale(_infoHex.Value, _infoError, _infoScale);
+            GenerateScale(_accentHex.Value, _accentError, _accentScale);
         }
         catch (Exception ex)
         {
@@ -188,11 +197,13 @@ public partial class Validation
             RenderColorGroupCard(view, "Success", _successHex, _successError, _successScale);
             RenderColorGroupCard(view, "Warning", _warningHex, _warningError, _warningScale);
             RenderColorGroupCard(view, "Info",    _infoHex,    _infoError,    _infoScale);
+            RenderColorGroupCard(view, "Accent", _accentHex,  _accentError,  _accentScale);
 
             // Live preview is only shown after at least one scale has been generated
             var anyGenerated = _brandScale.Value != null || _neutralScale.Value != null
                 || _errorScale.Value != null || _successScale.Value != null
-                || _warningScale.Value != null || _infoScale.Value != null;
+                || _warningScale.Value != null || _infoScale.Value != null
+                || _accentScale.Value != null;
 
             if (anyGenerated)
                 RenderBrandLivePreview(view);
@@ -477,4 +488,5 @@ internal sealed class ColorSchemeResult
     public string Success { get; set; } = "#039855";
     public string Warning { get; set; } = "#f79009";
     public string Info { get; set; } = "#0284c7";
+    public string Accent { get; set; } = "#d97706";
 }
