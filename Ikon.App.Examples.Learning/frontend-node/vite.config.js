@@ -109,6 +109,9 @@ export default defineConfig(({ mode }) => {
         usePolling: true,
         interval: 300,
       },
+      warmup: {
+        clientFiles: ['src/main.tsx'],
+      },
     },
     build: {
       chunkSizeWarningLimit: '1mb',
