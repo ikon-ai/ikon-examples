@@ -48,7 +48,7 @@
     <ProjectReference Include="$(IkonRoot)\Ikon.Sdk\Ikon.Sdk.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="5.0.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="5.3.0" />
   </ItemGroup>
   <ItemGroup>
     <None Include="../../ikon-config*.toml">
