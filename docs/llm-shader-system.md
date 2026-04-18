@@ -363,7 +363,7 @@ Executed in template context – perfect for side effects.
 
 - BeforeShader / AfterShader: Run once before/after the whole shader (AfterShader runs after the model message is assembled).
 - BeforePass / AfterPass: Run before/after the selected Pass (every iteration).
-- Listeners: Dictionary "<StreamingResultType> → script". Runs whenever that result type is produced – Input contains the value. Common types include `String`, `FunctionCall`, `Citation`, `OutputAudioTranscript`, `OutputAudioId`, `Reasoning`, `ToolPlan`, `ClassificationResult`, `FinalTextResponse`, and `FinalModelMessage`.
+- Listeners: Dictionary "<StreamingResultType> → script". Runs whenever that result type is produced during generation – Input contains the value. Common types include `String`, `FunctionCall`, `Citation`, `OutputAudioTranscript`, `OutputAudioId`, `Reasoning`, `ToolPlan`, and `ClassificationResult`. Note: `FinalTextResponse` and `FinalModelMessage` are emitted after the generation loop and cannot be observed by Listeners.
 
 #### Output
 

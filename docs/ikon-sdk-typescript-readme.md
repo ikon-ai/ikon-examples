@@ -221,7 +221,7 @@ const client = new IkonClient({
   // ... authentication config ...
   timeouts: {
     slowConnectionThresholdMs: 5000,   // Time before 'connectingSlow' state
-    connectionTimeoutMs: 60000,        // Connection timeout (60 seconds)
+    connectionTimeoutMs: 180000,        // Connection timeout (3 minutes)
     keepaliveTimeoutMs: 15000,         // Keepalive timeout
     reconnectBackoffMs: 2000,          // Fixed delay between reconnect attempts
     maxReconnectAttempts: 2,           // Max attempts before going offline
@@ -380,8 +380,8 @@ const imageDefinition: FunctionDefinition = {
 client.functionRegistry.register(
   imageDefinition,
   async () => {
-    const imageData = await captureScreenshot();
-    return withResultData('image/png', imageData);
+    const imageData: Uint8Array = await captureScreenshot();
+    return withResultData('captured successfully', imageData);
   }
 );
 ```
@@ -569,8 +569,8 @@ interface UiNode {
 
 // HandlerCache provides stable event handler references
 const cache = new HandlerCache();
-const handler = cache.getHandler('node-id', 'action-id', (actionId, payload) => {
-  client.sendActionCall(actionId, JSON.stringify(payload));
+const handler = cache.getHandler('node-id', 'action-id', (actionId) => {
+  client.sendActionCall(actionId);
 });
 ```
 
@@ -585,7 +585,7 @@ const client = new IkonClient({
   // ... authentication config ...
   timeouts: {
     slowConnectionThresholdMs: 5000,   // Default: 5000
-    connectionTimeoutMs: 60000,        // Default: 60000 (60 seconds)
+    connectionTimeoutMs: 180000,        // Default: 180000 (3 minutes)
     keepaliveTimeoutMs: 15000,         // Default: 15000
     reconnectBackoffMs: 2000,          // Default: 2000
     maxReconnectAttempts: 2,           // Default: 2
