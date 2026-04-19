@@ -2,18 +2,12 @@
 
 ## Endpoints
 
-Custom HTTP/HTTPS/WebSocket endpoints for webhooks, external APIs, and integrations.
-
-Configure in `ikon-config.toml`:
-
-```toml
-Endpoints = ["api:https", "webhooks:http"]
-```
+Custom HTTP/HTTPS/WebSocket endpoints for webhooks, external APIs, and integrations. Requested at runtime — no config file entry needed.
 
 ### Creating and Starting an Endpoint
 
 ```csharp
-var endpoint = new AppEndpointHost(app, "api");
+var endpoint = new AppEndpointHost(app);
 
 endpoint.MapGet("/health", async ctx =>
 {
@@ -26,7 +20,7 @@ endpoint.MapPost("/data", async ctx =>
     using var reader = new StreamReader(ctx.Request.Body);
     var body = await reader.ReadToEndAsync();
     ctx.Response.ContentType = "application/json";
-    await ctx.Response.WriteAsync($"{{\"received\": true}}");
+    await ctx.Response.WriteAsync($"{{"received": true}}");
 });
 
 endpoint.MapWebSocket("/ws", async (ctx, webSocket) =>
@@ -42,6 +36,21 @@ endpoint.MapWebSocket("/ws", async (ctx, webSocket) =>
 
 await endpoint.StartAsync();
 ```
+
+Pass `secure: false` for plain HTTP (default is HTTPS with TLS terminated at the relay).
+
+### Raw TCP/TLS/UDP Endpoints
+
+`AppEndpointHost` only supports HTTP/HTTPS. For raw TCP/TLS/UDP, request an endpoint directly and bind your own listener:
+
+```csharp
+await using var endpoint = await app.RequestEndpointAsync(EndpointProtocol.Udp);
+var udp = new UdpClient(endpoint.LocalPort);
+// endpoint is reachable at udp://{endpoint.PublicHost}:{endpoint.PublicPort}
+// `await using` above releases the endpoint automatically.
+```
+
+Valid raw protocols: `EndpointProtocol.Tcp`, `Tls`, `Udp`. `Tls` enables TLS termination at the relay.
 
 ### Properties
 
