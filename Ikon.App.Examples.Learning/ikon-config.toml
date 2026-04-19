@@ -4,11 +4,6 @@
 # Examples: "mydb:postgres"
 Databases = []
 
-# Endpoint configurations for exposing the app externally (assigned port numbers and public URLs are available via app.Endpoints in the app)
-# Format: "name:protocol" - valid protocols: http, https, tcp, tls, udp
-# Examples: "api:https", "webhooks:http", "gameserver:tcp", "voip:udp"
-Endpoints = []
-
 # Activation configuration for the app (app activation is separate from deployment)
 [Activation]
 # Whether to stop all active sessions of the app when a version of the app is activated
