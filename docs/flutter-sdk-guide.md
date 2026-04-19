@@ -1,0 +1,361 @@
+# Flutter SDK Guide
+
+## Overview
+
+The Ikon Flutter SDK enables Flutter apps to render Parallax UI from a C# server — the same server that drives web frontends. One codebase, two renderers. The app developer writes zero platform-specific code.
+
+## Architecture
+
+```
+C# App (unchanged)
+  view.Button(style: ["px-4 py-2 bg-blue-500 rounded"], label: "Go")
+       │
+       ▼
+  Server builds UI tree, diffs it, sends to connected clients
+       │
+  ┌────┴────┐
+  │  Web    │  → CSS styles, React components
+  │ Flutter │  → Flutter tokens, native widgets
+  └─────────┘
+```
+
+The server sends the same component tree to all clients. Web clients receive CSS styles; Flutter clients receive typed tokens (EdgeInsets, Color, BorderRadius, etc.) resolved from the same Tailwind utility classes. The `StyleFormat` capability is negotiated at connect time.
+
+## Quick Start
+
+### 1. Create a Flutter frontend
+
+Add a `frontend-flutter/` directory alongside your existing `frontend-node/`:
+
+```
+Ikon.App.MyApp/
+├── app/                    ← C# backend
+├── frontend-node/          ← Web frontend (existing)
+├── frontend-flutter/       ← Flutter frontend (new)
+│   ├── pubspec.yaml
+│   ├── lib/main.dart
+│   └── ...
+└── ikon-config.development.toml
+```
+
+### 2. pubspec.yaml
+
+```yaml
+name: my_app_flutter
+description: Flutter frontend for My Ikon App
+
+environment:
+  sdk: ^3.3.0
+  flutter: '>=3.10.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  ikon_sdk:
+    path: ../../../platform-dart/ikon_sdk
+```
+
+### 3. lib/main.dart
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:ikon_sdk/ikon_sdk.dart';
+
+const _ikonPort = int.fromEnvironment('IKON_PORT', defaultValue: 8443);
+
+void main() => runApp(const MyApp());
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'My Ikon App',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData.dark(useMaterial3: true).copyWith(
+        scaffoldBackgroundColor: const Color(0xFF0F172A),
+      ),
+      home: const IkonScreen(),
+    );
+  }
+}
+
+class IkonScreen extends StatefulWidget {
+  const IkonScreen({super.key});
+  @override
+  State<IkonScreen> createState() => _IkonScreenState();
+}
+
+class _IkonScreenState extends State<IkonScreen> {
+  IkonClient? _client;
+  IkonUiCore? _uiCore;
+  IkonConnectionState _state = IkonConnectionState.idle;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _connect();
+  }
+
+  Future<void> _connect() async {
+    setState(() { _state = IkonConnectionState.connecting; _error = null; });
+    try {
+      final client = await IkonClient.connectLocal(host: 'localhost', port: _ikonPort);
+      client.onStateChange.listen((s) { if (mounted) setState(() => _state = s); });
+      _client = client;
+      _uiCore = IkonUiCore(client);
+      if (mounted) setState(() => _state = IkonConnectionState.connected);
+    } catch (e) {
+      if (mounted) setState(() { _state = IkonConnectionState.offlineError; _error = '$e'; });
+    }
+  }
+
+  @override
+  void dispose() { _uiCore?.dispose(); _client?.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_error != null) {
+      return Scaffold(body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.error_outline, size: 48, color: Colors.red),
+        const SizedBox(height: 16),
+        Text(_error!, textAlign: TextAlign.center),
+        const SizedBox(height: 16),
+        ElevatedButton(onPressed: _connect, child: const Text('Retry')),
+      ])));
+    }
+    if (_state != IkonConnectionState.connected || _uiCore == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    return Scaffold(body: SafeArea(child: IkonParallaxView(uiCore: _uiCore!, client: _client)));
+  }
+}
+```
+
+### 4. Run
+
+```bash
+# Terminal 1: Start the C# server with Flutter support
+cd Ikon.App.MyApp
+ikon app run --flutter
+
+# Or manually in two terminals:
+# Terminal 1: C# server
+ikon app run
+
+# Terminal 2: Flutter app
+cd frontend-flutter
+flutter run -d chrome --dart-define=IKON_PORT=8446
+```
+
+## Running on Different Platforms
+
+### Web (Chrome)
+
+```bash
+flutter run -d chrome --dart-define=IKON_PORT=8446
+```
+
+### macOS Desktop
+
+Requires Xcode installed:
+
+```bash
+flutter run -d macos --dart-define=IKON_PORT=8446
+```
+
+### Android
+
+Requires Android SDK. For the emulator, use `10.0.2.2` instead of `localhost`:
+
+```bash
+# Emulator
+flutter run -d android --dart-define=IKON_PORT=8446
+
+# Physical device — run server on LAN
+ikon app run --host-lan
+# Then use the LAN IP in the Flutter app
+```
+
+### iOS
+
+Requires Xcode + Apple Developer account:
+
+```bash
+# Simulator (localhost works)
+flutter run -d ios --dart-define=IKON_PORT=8446
+
+# Physical device — run server on LAN
+ikon app run --host-lan
+```
+
+### Release Builds
+
+```bash
+# Android APK
+flutter build apk --dart-define=IKON_PORT=8446
+
+# iOS IPA
+flutter build ipa --dart-define=IKON_PORT=8446
+
+# Web
+flutter build web --dart-define=IKON_PORT=8446
+```
+
+## Authentication
+
+### Local Development
+
+`IkonClient.connectLocal()` handles everything — no config needed:
+
+```dart
+final client = await IkonClient.connectLocal(host: 'localhost', port: 8446);
+```
+
+### Deployed Apps — Guest/Anonymous
+
+```dart
+final client = await IkonClient.connectGuest(
+  serverHost: 'myapp.ikon.ai',
+  spaceId: 'my-space-id',
+  authUrl: 'https://auth.ikonai.com',
+);
+```
+
+### Deployed Apps — OAuth (Google, Apple, Microsoft, etc.)
+
+```dart
+// 1. Start OAuth in system browser
+final auth = IkonAuthenticator(host: 'myapp.ikon.ai', port: 443);
+await auth.startOAuthLogin(
+  method: LoginMethod.google,  // or .apple, .microsoft, .github, etc.
+  spaceId: 'my-space-id',
+  authUrl: 'https://auth.ikonai.com',
+  returnUrl: 'myapp://auth/callback',  // your app's deep link
+);
+
+// 2. Handle the deep link callback in your app
+final token = IkonAuthenticator.extractTokenFromCallbackUrl(callbackUri);
+
+// 3. Connect with the token
+final client = await IkonClient.connectWithToken(
+  serverHost: 'myapp.ikon.ai',
+  token: token!,
+);
+```
+
+### Deployed Apps — API Key
+
+```dart
+final auth = IkonAuthenticator(host: 'myapp.ikon.ai', port: 443);
+final result = await auth.authenticateApiKey(
+  spaceId: 'my-space-id',
+  apiKey: 'my-api-key',
+);
+// Use result.websocketUrl and result.authTicket with IkonClientConfig
+```
+
+## Custom Components
+
+Register custom Flutter widgets for node types the server sends:
+
+```dart
+final registry = IkonComponentRegistry();
+registry.register('my-custom-widget', (node, style, children, context) {
+  final data = node.props['data'] as String? ?? '';
+  return MyCustomWidget(data: data);
+});
+
+// Use the custom registry
+IkonParallaxView(uiCore: uiCore, client: client, registry: registry)
+```
+
+## Client Functions
+
+The server can call functions registered on the Flutter client:
+
+```dart
+client.functionRegistry.register(
+  FunctionDefinition(name: 'my.customAction', resultTypeName: 'string'),
+  (args) async {
+    // Handle the call from the server
+    return 'result';
+  },
+);
+```
+
+Built-in Flutter functions (called automatically by the server):
+- `ikon.client.getLanguage` — device locale
+- `ikon.client.getTimezone` — device timezone
+- `ikon.client.getViewport` — viewport dimensions
+- `ikon.client.getVisibility` — app lifecycle state
+- `ikon.client.vibrate` — haptic feedback
+- `ikon.client.keepScreenAwake` — wakelock
+
+## File Upload
+
+```dart
+final uploader = IkonFileUpload(client);
+final result = await uploader.upload(
+  filename: 'photo.jpg',
+  mimeType: 'image/jpeg',
+  data: fileBytes,
+  onProgress: (sent, total) => print('$sent / $total'),
+);
+```
+
+## Media
+
+Audio and video use pluggable interfaces:
+
+```dart
+// Audio capture requires an AudioEncoder implementation (e.g., opus_dart)
+final capture = IkonAudioCapture(client: client, encoder: myOpusEncoder);
+await capture.start(sampleRate: 48000);
+// Feed PCM frames from mic
+await capture.feedPcmFrame(pcmData);
+await capture.stop();
+
+// WebRTC requires an RtcPeerAdapter implementation (e.g., flutter_webrtc)
+final webrtc = IkonWebRtc(client: client, peer: myRtcAdapter);
+await webrtc.startCamera();
+```
+
+## Supported Crosswind Styles
+
+The Flutter SDK resolves ~100 Tailwind/Crosswind utilities to native Flutter types:
+
+**Layout:** padding, margin, width/height/min/max, flex (direction/wrap/gap/align/justify), overflow, aspect ratio, position (absolute/relative), z-index
+
+**Visual:** background color, border (all sides), border radius, opacity, shadow (sm through 2xl), gradient (linear, 8 directions)
+
+**Typography:** font size/weight/family, line height, letter spacing, text align, text color, italic, text decoration (underline/line-through), text overflow (ellipsis/clip), truncate, max lines, text transform (uppercase/lowercase/capitalize), white space
+
+**Interactive:** cursor, visibility (hidden/invisible/visible)
+
+**Transform:** rotate, scale (uniform + x/y), translate (x/y), skew (x/y)
+
+## Supported Components
+
+The Flutter SDK renders 105+ registered component types including:
+
+- **Layout:** div (auto Row/Column from flex direction), scroll area, separator, aspect ratio
+- **Text:** text, heading, label, markdown (full rendering)
+- **Input:** text field (with echo suppression), text area, checkbox, switch, slider, radio group, toggle, select
+- **Buttons:** button, action button, icon button, form submit
+- **Display:** avatar (image + fallback), image (network), progress bar
+- **Disclosure:** accordion, collapsible, tabs
+- **Overlays:** dialog, alert dialog, tooltip, popover, toast
+- **Media:** Rive animations, charts (bar/line/pie via fl_chart)
+- **Structure:** form, file upload zone, drag & drop containers, keyboard listener
+
+## CI/CD
+
+To include Flutter in CI:
+
+1. Install Flutter SDK in the CI environment
+2. Add `platform-dart/builder.py` with `flutter pub get && flutter analyze && flutter test`
+3. Wire into repo root `builder.py` as the `dart` platform
+4. Run after `dotnet build IkonServer` (generates Dart protocol files)
