@@ -24,5 +24,3 @@ OrganisationId = ""
 SpaceId = ""
 ChannelId = ""
 Name = ""
-[Protocol]
-Slot = 0
