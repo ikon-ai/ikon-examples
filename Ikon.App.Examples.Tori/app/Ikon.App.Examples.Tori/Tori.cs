@@ -59,6 +59,7 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
 
     // Audio stream tracking
     private readonly Dictionary<string, AudioStreamState> _audioStreamStates = new();
+    private GroupAudioMixer? _groupAudioMixer;
 
     // Speaking detection state
     private readonly Dictionary<int, SpeakingState> _speakingStates = new();
@@ -391,6 +392,7 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
 
         app.ClientLeftAsync += async args =>
         {
+            _groupAudioMixer?.RemoveParticipant(args.ClientSessionId.ToString());
             await CleanupClientStreamsAsync(args.ClientSessionId);
 
             var list = _participants.Value.Where(p => p.ClientSessionId != args.ClientSessionId).ToList();
@@ -487,7 +489,6 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
 
     private void AddParticipant(int clientSessionId, string userId, string name, bool isMobile)
     {
-        // Check if participant already exists
         if (_participants.Value.Any(p => p.ClientSessionId == clientSessionId))
         {
             return;
@@ -498,6 +499,8 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
         list.Add(participant);
         _participants.Value = list;
         _participantsVersion.Value++;
+
+        _groupAudioMixer?.AddParticipant(clientSessionId.ToString());
     }
 
     private void JoinMeeting(string name)

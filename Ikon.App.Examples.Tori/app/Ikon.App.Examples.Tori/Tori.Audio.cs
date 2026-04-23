@@ -8,12 +8,23 @@ public partial class Tori
             var state = new AudioStreamState(args.SampleRate, args.ChannelCount, clientId);
             _audioStreamStates[args.StreamId] = state;
 
-            // Initialize speaking state for this participant
             _speakingStates[clientId] = new SpeakingState();
+
+            if (_groupAudioMixer == null)
+            {
+                _groupAudioMixer = new GroupAudioMixer();
+                await _groupAudioMixer.StartAsync(OnGroupAudioMixerOutputAsync);
+
+                foreach (var p in _participants.Value)
+                {
+                    _groupAudioMixer.AddParticipant(p.ClientSessionId.ToString());
+                }
+            }
+
+            _groupAudioMixer.AddStream(args.StreamId, clientId.ToString());
 
             UpdateParticipant(clientId, p => p with { IsAudioEnabled = true });
 
-            // Initialize speech recognition for this participant
             var participant = _participants.Value.FirstOrDefault(p => p.ClientSessionId == clientId);
 
             if (participant != null)
@@ -29,21 +40,10 @@ public partial class Tori
                 return;
             }
 
-            // Calculate RMS volume and update speaking state
             UpdateSpeakingState(args.ClientSessionId, args.Samples);
 
-            // Broadcast to all participants EXCEPT the sender
-            var targetIds = _participants.Value
-                .Where(p => p.ClientSessionId != args.ClientSessionId)
-                .Select(p => p.ClientSessionId)
-                .ToList();
+            _groupAudioMixer?.WriteSamples(args.StreamId, args.Samples, state.SampleRate, state.ChannelCount);
 
-            if (targetIds.Count > 0)
-            {
-                await Audio.SendAsync(args.Samples, state.SampleRate, state.ChannelCount, args.IsFirst, args.IsLast, args.StreamId, targetIds: targetIds);
-            }
-
-            // Send to this participant's speech recognizer
             if (_speechEnabled.Value && _participantSpeechStates.TryGetValue(state.ClientSessionId, out var speechState))
             {
                 speechState.AudioChannel.Writer.TryWrite(args.Samples.ToArray());
@@ -52,13 +52,13 @@ public partial class Tori
 
         Audio.AudioInputStreamEndAsync += async args =>
         {
+            _groupAudioMixer?.RemoveStream(args.StreamId);
+
             if (_audioStreamStates.TryGetValue(args.StreamId, out var state))
             {
-                // Stop speech recognition for this participant
                 StopSpeechRecognitionForParticipant(state.ClientSessionId);
             }
 
-            // Clean up speaking state
             if (_speakingStates.TryGetValue(args.ClientSessionId, out var speakingState) && speakingState.IsSpeaking)
             {
                 speakingState.IsSpeaking = false;
@@ -144,5 +144,16 @@ public partial class Tori
         }
 
         return state.IsSpeaking;
+    }
+
+    private async ValueTask OnGroupAudioMixerOutputAsync(string excludeKey, AudioFrameEx frame)
+    {
+        if (!int.TryParse(excludeKey, out var targetId))
+        {
+            return;
+        }
+
+        await Audio.SendAsync(frame.Samples, frame.SampleRate, frame.ChannelCount,
+            frame.IsFirst, frame.IsLast, frame.StreamId, targetIds: [targetId]);
     }
 }
