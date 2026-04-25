@@ -146,7 +146,7 @@ public partial class Kahoot
                     {
                         view.Text(style: ["text-xl font-semibold text-white shrink-0"], text: $"Players ({playerCount})");
 
-                        view.ScrollArea(rootStyle: ["flex-1 min-h-0"], content: view =>
+                        view.ScrollArea(rootStyle: ["flex-1"], content: view =>
                         {
                             view.Column(style: ["gap-3"], content: view =>
                             {
@@ -409,7 +409,7 @@ public partial class Kahoot
                 text: "Leaderboard"
             );
 
-            view.ScrollArea(rootStyle: ["flex-1 w-full min-h-0"], viewportStyle: ["w-full"], content: view =>
+            view.ScrollArea(rootStyle: ["flex-1 w-full"], viewportStyle: ["w-full"], content: view =>
             {
                 view.Column(style: ["w-full max-w-2xl gap-3 mx-auto"], content: view =>
                 {
@@ -468,7 +468,7 @@ public partial class Kahoot
                 });
             }
 
-            view.ScrollArea(rootStyle: ["flex-1 w-full min-h-0"], viewportStyle: ["w-full"], content: view =>
+            view.ScrollArea(rootStyle: ["flex-1 w-full"], viewportStyle: ["w-full"], content: view =>
             {
                 view.Column(style: ["w-full max-w-2xl gap-2 mx-auto"], content: view =>
                 {
@@ -874,7 +874,7 @@ public partial class Kahoot
 
             var player = GetCurrentPlayer();
 
-            view.ScrollArea(rootStyle: ["flex-1 min-h-0"], content: view =>
+            view.ScrollArea(rootStyle: ["flex-1"], content: view =>
             {
                 view.Column(style: ["items-center justify-center gap-4 py-4"], content: view =>
                 {
