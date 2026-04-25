@@ -138,7 +138,7 @@ public partial class DynamicUI
             view.Row([Layout.Row.Sm, "items-center"], content: view =>
             {
                 view.Checkbox([Checkbox.Root],
-                    @checked: isChecked.Value,
+                    isChecked: isChecked.Value,
                     onCheckedChange: async value => isChecked.Value = value,
                     content: view => view.CheckboxIndicator([Checkbox.Indicator],
                         content: v => v.Icon(name: "check")));
@@ -155,7 +155,7 @@ public partial class DynamicUI
             view.Row([Layout.Row.Sm, "items-center"], content: view =>
             {
                 view.Switch([Switch.Root],
-                    @checked: isEnabled.Value,
+                    isChecked: isEnabled.Value,
                     onCheckedChange: async v => isEnabled.Value = v,
                     content: view => view.SwitchThumb([Switch.Thumb]));
                 view.Text([Text.Body], isEnabled.Value ? "On" : "Off");
@@ -333,8 +333,8 @@ public partial class DynamicUI
             ## Important Rules
             1. Always use `state.GetOrCreate<Reactive<T>>()` for state
             2. Button text uses `label:` parameter: `view.Button([...], label: "Text")`
-            3. Checkbox uses `@checked` (with @): `@checked: value`
-            4. Switch uses `@checked` (with @): `@checked: value`
+            3. Checkbox uses `@checked` (with @): `isChecked: value`
+            4. Switch uses `@checked` (with @): `isChecked: value`
             5. onValueChange uses `async v =>`: `onValueChange: async v => x.Value = v ?? ""`
             6. Use `key:` parameter for list items
             7. All onClick/onValueChange handlers must be async

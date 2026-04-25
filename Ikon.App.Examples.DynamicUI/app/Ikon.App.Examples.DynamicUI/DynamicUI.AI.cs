@@ -179,8 +179,8 @@ public partial class DynamicUI
                 ## Critical Syntax Rules
                 - Button: `view.Button([Button.PrimaryMd], label: "Click", onClick: async () => counter.Value++);`
                 - TextField: `view.TextField([Input.Default], value: x.Value, onValueChange: async v => x.Value = v ?? "");`
-                - Checkbox: `view.Checkbox([Checkbox.Root], @checked: x.Value, onCheckedChange: async v => x.Value = v, content: ...);`
-                - Switch: `view.Switch([Switch.Root], @checked: x.Value, onCheckedChange: async v => x.Value = v, content: ...);`
+                - Checkbox: `view.Checkbox([Checkbox.Root], isChecked: x.Value, onCheckedChange: async v => x.Value = v, content: ...);`
+                - Switch: `view.Switch([Switch.Root], isChecked: x.Value, onCheckedChange: async v => x.Value = v, content: ...);`
 
                 Generate UI that matches EXACTLY what the user asked for.
                 """;
