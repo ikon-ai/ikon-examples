@@ -62,10 +62,10 @@ public partial class LearningApp
         public const string GlassCardStrong = "bg-white/80 backdrop-blur-lg border border-white/50 shadow-lg";
 
         // Custom button variants not in Default theme
-        public const string GhostXs = $"{Button.Base} {Button.Variant.Ghost} px-2 py-1 text-xs {State.Pressable}";
-        public const string GhostSm = $"{Button.Base} {Button.Variant.Ghost} {Button.Size.Sm} {State.Pressable}";
-        public const string SecondaryLg = $"{Button.Base} {Button.Variant.Secondary} {Button.Size.Lg} {State.Pressable}";
-        public const string OutlineLg = $"{Button.Base} {Button.Variant.Outline} {Button.Size.Lg} {State.Pressable}";
+        public const string GhostXs = $"{Button.Base} {Tone.Ghost} px-2 py-1 text-xs {State.Pressable}";
+        public const string GhostSm = $"{Button.Base} {Tone.Ghost} {Button.Size.Sm} {State.Pressable}";
+        public const string SecondaryLg = $"{Button.Base} {Tone.Neutral} {Button.Size.Lg} {State.Pressable}";
+        public const string OutlineLg = $"{Button.Base} {Tone.Outline} {Button.Size.Lg} {State.Pressable}";
 
         // Text styles
         public const string H4 = "block text-base font-medium";
