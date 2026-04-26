@@ -7,6 +7,6 @@ global using Ikon.Common.Core.Reactive;
 global using Ikon.Common.Core;
 global using Ikon.Common;
 global using Ikon.Parallax.Components.Standard;
-global using Ikon.Parallax.Themes.Default;
+global using Ikon.Parallax.Themes.Ikon;
 global using Ikon.Parallax;
 global using Ikon.Server;
