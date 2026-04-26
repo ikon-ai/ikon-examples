@@ -3,7 +3,7 @@ using Ikon.Common.Core.Reactive;
 using Ikon.Common.Core.Scope;
 using Ikon.Parallax;
 using Ikon.Parallax.Components.Standard;
-using Ikon.Parallax.Themes.Default;
+using Ikon.Parallax.Themes.Ikon;
 using Ikon.Server;
 using System;
 using System.Collections.Generic;
@@ -161,7 +161,7 @@ public partial class DynamicUI(IApp<SessionIdentity, ClientParams> app)
                 view.Row([Layout.Row.Sm], content: view =>
                 {
                     view.Button(
-                        [_showCode.Value ? Button.SecondaryMd : Button.OutlineMd],
+                        [_showCode.Value ? Button.NeutralMd : Button.OutlineMd],
                         _showCode.Value ? "Hide Code" : "Show Code",
                         onClick: async () => { _showCode.Value = !_showCode.Value; }
                     );
@@ -169,7 +169,7 @@ public partial class DynamicUI(IApp<SessionIdentity, ClientParams> app)
                     if (!string.IsNullOrEmpty(_lastError.Value))
                     {
                         view.Button(
-                            [Button.SecondaryMd],
+                            [Button.NeutralMd],
                             "Retry Fix",
                             disabled: _isGenerating.Value,
                             onClick: async () => { await RetryWithFixAsync(); }
@@ -200,7 +200,7 @@ public partial class DynamicUI(IApp<SessionIdentity, ClientParams> app)
             // Error display
             if (!string.IsNullOrEmpty(_lastError.Value))
             {
-                view.Box([Alert.Danger, "m-4"], content: view =>
+                view.Box([Alert.Error, "m-4"], content: view =>
                 {
                     view.Text([Alert.Title], "Error");
                     view.Text([Alert.Description, "text-xs font-mono whitespace-pre-wrap"], _lastError.Value);

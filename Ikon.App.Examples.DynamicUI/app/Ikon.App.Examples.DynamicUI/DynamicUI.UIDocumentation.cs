@@ -12,7 +12,7 @@ public partial class DynamicUI
             - Ikon.Parallax
             - Ikon.Parallax.Components.Standard
             - Ikon.Parallax.Components.Charts
-            - Ikon.Parallax.Themes.Default
+            - Ikon.Parallax.Themes.Ikon
             - Ikon.Common.Core.Reactive
 
             ## State Management
@@ -85,10 +85,10 @@ public partial class DynamicUI
             });
 
             // Other button variants
-            view.Button([Button.SecondaryMd], label: "Secondary");
+            view.Button([Button.NeutralMd], label: "Secondary");
             view.Button([Button.OutlineMd], label: "Outline");
             view.Button([Button.GhostMd], label: "Ghost");
-            view.Button([Button.DangerMd], label: "Delete");
+            view.Button([Button.ErrorMd], label: "Delete");
 
             // Disabled button
             view.Button([Button.PrimaryMd], label: "Disabled", disabled: true);
@@ -184,7 +184,7 @@ public partial class DynamicUI
                 view.Text([Alert.Description], "Your changes have been saved.");
             });
 
-            view.Box([Alert.Danger], content: view =>
+            view.Box([Alert.Error], content: view =>
             {
                 view.Text([Alert.Title], "Error");
                 view.Text([Alert.Description], "Something went wrong.");
@@ -260,7 +260,7 @@ public partial class DynamicUI
                     view.Row([Card.Default, "p-3", "mb-2", "items-center", "justify-between"], key: $"todo-{index}", content: view =>
                     {
                         view.Text([Text.Body], todo);
-                        view.Button([Button.DangerMd], label: "Remove", onClick: async () =>
+                        view.Button([Button.ErrorMd], label: "Remove", onClick: async () =>
                         {
                             var newList = todos.Value.ToList();
                             newList.RemoveAt(index);
@@ -294,10 +294,10 @@ public partial class DynamicUI
 
             ### Button Styles
             - `Button.PrimarySm/Md/Lg` - Primary buttons
-            - `Button.SecondaryMd` - Secondary
+            - `Button.NeutralMd` - Secondary
             - `Button.OutlineSm/Md` - Outline
             - `Button.GhostMd` - Ghost
-            - `Button.DangerMd` - Danger/delete
+            - `Button.ErrorMd` - Danger/delete
 
             ### Input Styles
             - `Input.Default/DefaultSm/DefaultLg` - Text inputs
