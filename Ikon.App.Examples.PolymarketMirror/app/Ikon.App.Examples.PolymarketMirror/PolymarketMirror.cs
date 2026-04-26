@@ -243,7 +243,7 @@ public class PolymarketMirror(IApp<SessionIdentity, ClientParams> app)
             view.Row(["flex flex-row gap-2 mt-4"], content: view =>
             {
                 view.Button([Button.PrimaryMd], _isCrawling.Value ? "Crawling..." : "Crawl Wallets", disabled: _isCrawling.Value, onClick: CrawlWalletsAsync);
-                view.Button([Button.SecondaryMd], "Generate AI Insights", disabled: _wallets.Value.Count == 0, onClick: GenerateInsightsAsync);
+                view.Button([Button.NeutralMd], "Generate AI Insights", disabled: _wallets.Value.Count == 0, onClick: GenerateInsightsAsync);
             });
 
             view.Text([Text.Small, "mt-3 text-zinc-400"], _status.Value);
@@ -461,7 +461,7 @@ public class PolymarketMirror(IApp<SessionIdentity, ClientParams> app)
 
                     col.Row(["mt-6 gap-2"], content: row =>
                     {
-                        row.Button([Button.SecondaryMd], "Polymarket Profile", href: GetPolymarketProfileUrl(wallet.Address));
+                        row.Button([Button.NeutralMd], "Polymarket Profile", href: GetPolymarketProfileUrl(wallet.Address));
                         row.Button([Button.GhostMd], "PolygonScan", href: GetPolygonScanUrl(wallet.Address));
                     });
                 });
@@ -486,7 +486,7 @@ public class PolymarketMirror(IApp<SessionIdentity, ClientParams> app)
             {
                 view.TextField([Input.Default], value: _chatQuestion.Value, onValueChange: async value => _chatQuestion.Value = value);
             });
-            view.Button([Button.SecondaryMd, "mt-3"], "Ask", disabled: _wallets.Value.Count == 0, onClick: GenerateInsightsAsync);
+            view.Button([Button.NeutralMd, "mt-3"], "Ask", disabled: _wallets.Value.Count == 0, onClick: GenerateInsightsAsync);
             view.Text([Text.Muted, "mt-3 whitespace-pre-wrap"], _chatAnswer.Value);
         });
     }
