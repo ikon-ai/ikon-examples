@@ -25,45 +25,45 @@ namespace Ikon.Pipeline
     Pipeline<T>.Branch<T> TransformStreamLambda(Func<IAsyncEnumerable<T>, IAsyncEnumerable<T>> transformFunc, string id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[] tags = null, Type[] retryableExceptionTypes = null)
   sealed class PipelineRunner.Config
     ctor()
-    bool AllApiKeys { get;  set; }
-    string CachePath { get;  set; }
-    bool ClearCache { get;  set; }
-    string ConfigPath { get;  set; }
-    CacheType ContentCacheType { get;  set; }
-    bool DefaultDisableProcessCache { get;  set; }
-    int? DefaultMaxProcessParallelism { get;  set; }
-    int? DefaultMaxRetries { get;  set; }
-    List<string> DefaultRetryableExceptionTypes { get;  set; }
-    bool DisableInputCache { get;  set; }
-    bool DisableMetadataOutput { get;  set; }
-    bool DisableOutputCache { get;  set; }
-    string DllPath { get;  set; }
-    bool EnableRemoteClient { get;  set; }
-    bool EnableRemoteHost { get;  set; }
-    bool EnableSseOutput { get;  set; }
-    bool EnumerateZips { get;  set; }
-    string FinalStatusPath { get;  set; }
-    string IkonBackendToken { get;  set; }
-    string IkonBackendUrl { get;  set; }
-    List<string> InputPaths { get;  set; }
-    bool IsTestRun { get;  set; }
-    bool KeepRunning { get;  set; }
-    int LogFilter { get;  set; }
-    int? MaxInputReadParallelism { get;  set; }
-    int? MaxRemoteRequestParallelism { get;  set; }
-    bool OutputFinalStatus { get;  set; }
-    List<string> OutputPaths { get;  set; }
-    int ProcessFailureThreshold { get;  set; }
-    string ProcessingId { get;  set; }
-    string RabbitMQConnectionString { get;  set; }
-    bool RecursiveInput { get;  set; }
-    List<string> RemoteClientProcessorWhiteList { get;  set; }
-    int ScanInterval { get;  set; }
-    StateType StateType { get;  set; }
-    int StatusUpdateInterval { get;  set; }
-    string TypeName { get;  set; }
-    object UserConfigInstance { get;  set; }
-    object UserPipelineInstance { get;  set; }
+    bool AllApiKeys { get; set; }
+    string CachePath { get; set; }
+    bool ClearCache { get; set; }
+    string ConfigPath { get; set; }
+    CacheType ContentCacheType { get; set; }
+    bool DefaultDisableProcessCache { get; set; }
+    int? DefaultMaxProcessParallelism { get; set; }
+    int? DefaultMaxRetries { get; set; }
+    List<string> DefaultRetryableExceptionTypes { get; set; }
+    bool DisableInputCache { get; set; }
+    bool DisableMetadataOutput { get; set; }
+    bool DisableOutputCache { get; set; }
+    string DllPath { get; set; }
+    bool EnableRemoteClient { get; set; }
+    bool EnableRemoteHost { get; set; }
+    bool EnableSseOutput { get; set; }
+    bool EnumerateZips { get; set; }
+    string FinalStatusPath { get; set; }
+    string IkonBackendToken { get; set; }
+    string IkonBackendUrl { get; set; }
+    List<string> InputPaths { get; set; }
+    bool IsTestRun { get; set; }
+    bool KeepRunning { get; set; }
+    int LogFilter { get; set; }
+    int? MaxInputReadParallelism { get; set; }
+    int? MaxRemoteRequestParallelism { get; set; }
+    bool OutputFinalStatus { get; set; }
+    List<string> OutputPaths { get; set; }
+    int ProcessFailureThreshold { get; set; }
+    string ProcessingId { get; set; }
+    string RabbitMQConnectionString { get; set; }
+    bool RecursiveInput { get; set; }
+    List<string> RemoteClientProcessorWhiteList { get; set; }
+    int ScanInterval { get; set; }
+    StateType StateType { get; set; }
+    int StatusUpdateInterval { get; set; }
+    string TypeName { get; set; }
+    object UserConfigInstance { get; set; }
+    object UserPipelineInstance { get; set; }
   sealed class ExposePipelineAttribute : Attribute
     ctor(Type pipelineType, string name = null, PipelineExecutionMode executionMode = None, string schedule = null)
     PipelineExecutionMode ExecutionMode { get; }
@@ -93,10 +93,10 @@ namespace Ikon.Pipeline
   static class PipelineFunction
     static Function Create<TPipeline>(string functionName, string description = null, object configInstance = null)
   struct PipelineFunctionItem
-    byte[] Content { get;  init; }
-    string MimeType { get;  init; }
-    string Name { get;  init; }
-    List<string> Tags { get;  init; }
+    byte[] Content { get; init; }
+    string MimeType { get; init; }
+    string Name { get; init; }
+    List<string> Tags { get; init; }
     static PipelineFunctionItem FromBytes(string name, byte[] content, string mimeType = null, List<string> tags = null)
     static PipelineFunctionItem FromString(string name, string content, string mimeType = null, List<string> tags = null)
     string GetContentAsString()
@@ -118,37 +118,37 @@ namespace Ikon.Pipeline
     Task Run(string configJson, Action<string> onStatusUpdate, CancellationToken cancellationToken)
   sealed class PipelineStatus
     ctor()
-    int DuplicateItemCount { get;  set; }
-    TimeSpan Duration { get;  set; }
-    int ErrorLogCount { get;  set; }
-    bool HasCompleted { get;  set; }
-    bool HasFaulted { get;  set; }
-    int InputItemCacheHits { get;  set; }
+    int DuplicateItemCount { get; set; }
+    TimeSpan Duration { get; set; }
+    int ErrorLogCount { get; set; }
+    bool HasCompleted { get; set; }
+    bool HasFaulted { get; set; }
+    int InputItemCacheHits { get; set; }
     int InputItemCacheMiss { get; }
-    int InputItemCount { get;  set; }
-    int InvalidItemCount { get;  set; }
-    int OutputItemCacheHits { get;  set; }
+    int InputItemCount { get; set; }
+    int InvalidItemCount { get; set; }
+    int OutputItemCacheHits { get; set; }
     int OutputItemCacheMiss { get; }
-    int OutputItemCount { get;  set; }
-    int ProcessFailureCount { get;  set; }
-    int ProcessRetryCount { get;  set; }
-    int ProcessedItemCacheHits { get;  set; }
+    int OutputItemCount { get; set; }
+    int ProcessFailureCount { get; set; }
+    int ProcessRetryCount { get; set; }
+    int ProcessedItemCacheHits { get; set; }
     int ProcessedItemCacheMiss { get; }
-    int ProcessedItemCount { get;  set; }
-    string ProcessingId { get;  set; }
-    DateTime StartTime { get;  set; }
-    Dictionary<string, double> Usages { get;  set; }
-    int WarningLogCount { get;  set; }
-    bool WasCancelled { get;  set; }
+    int ProcessedItemCount { get; set; }
+    string ProcessingId { get; set; }
+    DateTime StartTime { get; set; }
+    Dictionary<string, double> Usages { get; set; }
+    int WarningLogCount { get; set; }
+    bool WasCancelled { get; set; }
   sealed class Pipeline<T>.PipelineStatus<T> where T : IItem<T>
     ctor()
-    TimeSpan Duration { get;  set; }
-    int ErrorLogCount { get;  set; }
-    int ProcessFailureCount { get;  set; }
-    int ProcessRetryCount { get;  set; }
-    int ProcessedItemCacheHits { get;  set; }
-    int ProcessedItemCount { get;  set; }
-    int WarningLogCount { get;  set; }
+    TimeSpan Duration { get; set; }
+    int ErrorLogCount { get; set; }
+    int ProcessFailureCount { get; set; }
+    int ProcessRetryCount { get; set; }
+    int ProcessedItemCacheHits { get; set; }
+    int ProcessedItemCount { get; set; }
+    int WarningLogCount { get; set; }
   sealed class Pipeline<T> where T : IItem<T>
     Task Completion { get; }
     Pipeline<T>.PipelineStatus<T> Status { get; }
@@ -158,15 +158,15 @@ namespace Ikon.Pipeline
     event Pipeline<T>.AsyncEventHandler<T, T> Output
   sealed class ProcessorAttribute : Attribute
     ctor(string id = null, int version = 1, int maxParallelism = 0, int maxRetries = 0, bool isRemote = false, bool skipCache = false, bool allowDuplicates = true, ProcessorTags[] tags = null, Type[] retryableExceptionTypes = null)
-    bool AllowDuplicates { get;  set; }
-    string Id { get;  set; }
-    bool IsRemote { get;  set; }
-    int MaxParallelism { get;  set; }
-    int MaxRetries { get;  set; }
-    Type[] RetryableExceptionTypes { get;  set; }
-    bool SkipCache { get;  set; }
-    ProcessorTags[] Tags { get;  set; }
-    int Version { get;  set; }
+    bool AllowDuplicates { get; set; }
+    string Id { get; set; }
+    bool IsRemote { get; set; }
+    int MaxParallelism { get; set; }
+    int MaxRetries { get; set; }
+    Type[] RetryableExceptionTypes { get; set; }
+    bool SkipCache { get; set; }
+    ProcessorTags[] Tags { get; set; }
+    int Version { get; set; }
   enum ProcessorTags
     Gpu
   sealed class Pipeline<T>.RemoteCall<T> where T : IItem<T>
@@ -193,16 +193,16 @@ namespace Ikon.Pipeline.Items
     abstract T WithProcessId(Guid processId)
   struct Item : IItem<Item>
     ctor()
-    string GroupId { get;  init; }
-    string Hash { get;  init; }
-    string InitialPath { get;  init; }
+    string GroupId { get; init; }
+    string Hash { get; init; }
+    string InitialPath { get; init; }
     bool IsDefault { get; }
-    ItemMetadata? Metadata { get;  init; }
-    string MimeType { get;  init; }
-    string Name { get;  init; }
-    IReadOnlyList<string> ParentHashes { get;  init; }
-    Guid ProcessId { get;  init; }
-    IReadOnlyList<string> Tags { get;  init; }
+    ItemMetadata? Metadata { get; init; }
+    string MimeType { get; init; }
+    string Name { get; init; }
+    IReadOnlyList<string> ParentHashes { get; init; }
+    Guid ProcessId { get; init; }
+    IReadOnlyList<string> Tags { get; init; }
     static Task<Item> Create(List<Item> parents, string name, Stream content, string mimeTypeOverride = null, List<string> tags = null, ItemMetadata? metadata = null)
     static Task<Item> Create(Item parent, string name, Stream content, string mimeTypeOverride = null, List<string> tags = null, ItemMetadata? metadata = null)
     static Task<Item> Create(List<Item> parents, string name, string content, string mimeTypeOverride = null, List<string> tags = null, ItemMetadata? metadata = null)
@@ -275,20 +275,20 @@ namespace Ikon.Pipeline.Items
   struct ItemMetadata
     ctor()
     ctor(ItemMetadata? parent, string previousItemName = null, string nextItemName = null, string originalPath = null, string originalName = null, DateTime? createdAt = null, DateTime? updatedAt = null, string documentType = null, string documentTitle = null, IReadOnlyList<string> titleHierarchy = null, int? pageNumber = null, IReadOnlyList<int> pageNumbers = null, int? pageCount = null, IReadOnlyDictionary<string, string> properties = null, string customJson = null)
-    DateTime? CreatedAt { get;  init; }
-    string CustomJson { get;  init; }
-    string DocumentTitle { get;  init; }
-    string DocumentType { get;  init; }
-    string NextItemName { get;  init; }
-    string OriginalName { get;  init; }
-    string OriginalPath { get;  init; }
-    int? PageCount { get;  init; }
-    int? PageNumber { get;  init; }
-    IReadOnlyList<int> PageNumbers { get;  init; }
-    string PreviousItemName { get;  init; }
-    IReadOnlyDictionary<string, string> Properties { get;  init; }
-    IReadOnlyList<string> TitleHierarchy { get;  init; }
-    DateTime? UpdatedAt { get;  init; }
+    DateTime? CreatedAt { get; init; }
+    string CustomJson { get; init; }
+    string DocumentTitle { get; init; }
+    string DocumentType { get; init; }
+    string NextItemName { get; init; }
+    string OriginalName { get; init; }
+    string OriginalPath { get; init; }
+    int? PageCount { get; init; }
+    int? PageNumber { get; init; }
+    IReadOnlyList<int> PageNumbers { get; init; }
+    string PreviousItemName { get; init; }
+    IReadOnlyDictionary<string, string> Properties { get; init; }
+    IReadOnlyList<string> TitleHierarchy { get; init; }
+    DateTime? UpdatedAt { get; init; }
     static ItemMetadata ReadFromTeleport(ReadOnlySpan<byte> data)
     ItemMetadata With(string previousItemName = null, string nextItemName = null, string originalPath = null, string originalName = null, DateTime? createdAt = null, DateTime? updatedAt = null, string documentType = null, string documentTitle = null, IReadOnlyList<string> titleHierarchy = null, int? pageNumber = null, IReadOnlyList<int> pageNumbers = null, int? pageCount = null, IReadOnlyDictionary<string, string> properties = null, string customJson = null)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
@@ -319,18 +319,18 @@ namespace Ikon.Pipeline.Remote.Bus
   sealed class RemoteCallMessage
     ctor()
     ctor(string processorName, object[] args, Guid correlationId)
-    string[] ArgsJson { get;  set; }
-    Guid CorrelationId { get;  set; }
-    string ProcessorName { get;  set; }
+    string[] ArgsJson { get; set; }
+    Guid CorrelationId { get; set; }
+    string ProcessorName { get; set; }
     T GetArg<T>(int index)
   sealed class RemoteCallResult
     ctor()
     ctor(string processorName, Guid correlationId, string resultJson, RemoteCallResultType remoteCallResultType, string errorMessage = "")
-    Guid CorrelationId { get;  set; }
-    string ErrorMessage { get;  set; }
-    string ProcessorName { get;  set; }
-    string ResultJson { get;  set; }
-    RemoteCallResultType ResultType { get;  set; }
+    Guid CorrelationId { get; set; }
+    string ErrorMessage { get; set; }
+    string ProcessorName { get; set; }
+    string ResultJson { get; set; }
+    RemoteCallResultType ResultType { get; set; }
     T GetResult<T>()
   enum RemoteCallResultType
     Success
@@ -341,11 +341,11 @@ namespace Ikon.Pipeline.Remote.Bus
 namespace Ikon.Pipeline.Spec
   sealed class PipelineSpec
     ctor()
-    object Config { get;  set; }
-    string Guid { get;  set; }
-    object Input { get;  set; }
-    Dictionary<string, object> OpenApiSpec { get;  set; }
-    object Result { get;  set; }
+    object Config { get; set; }
+    string Guid { get; set; }
+    object Input { get; set; }
+    Dictionary<string, object> OpenApiSpec { get; set; }
+    object Result { get; set; }
   static class PipelineSpecGenerator
     static PipelineSpec Generate(Type pipelineType, bool includeExamples = true)
 

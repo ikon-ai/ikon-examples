@@ -7,60 +7,59 @@ namespace Ikon.Common
     Deleted
   class AppProjectConfig.ActivationConfig : ITomlMetadataProvider
     ctor()
-    bool StopSessions { get;  set; }
+    bool StopSessions { get; set; }
   class AppBundleConfig.ActivationConfig
     ctor()
-    bool StopSessions { get;  set; }
+    bool StopSessions { get; set; }
   class AppBundleConfig
     ctor()
-    AppBundleConfig.ActivationConfig Activation { get;  set; }
-    AppBundleConfig.AuthConfig Auth { get;  set; }
-    string ChannelId { get;  set; }
-    string CreatedAt { get;  set; }
-    List<AppBundleConfig.DatabaseEntry> Databases { get;  set; }
-    List<string> Endpoints { get;  set; }
-    string Hash { get;  set; }
-    string Name { get;  set; }
-    string OrganisationId { get;  set; }
-    List<AppBundleConfig.Pipeline> Pipelines { get;  set; }
-    List<string> SessionIdentityKeys { get;  set; }
-    string SpaceId { get;  set; }
-    string Version { get;  set; }
+    AppBundleConfig.ActivationConfig Activation { get; set; }
+    AppBundleConfig.AuthConfig Auth { get; set; }
+    string ChannelId { get; set; }
+    string CreatedAt { get; set; }
+    List<AppBundleConfig.DatabaseEntry> Databases { get; set; }
+    List<AppBundleConfig.EmailTemplate> EmailTemplates { get; set; }
+    string Hash { get; set; }
+    string Name { get; set; }
+    string OrganisationId { get; set; }
+    List<AppBundleConfig.Pipeline> Pipelines { get; set; }
+    List<string> SessionIdentityKeys { get; set; }
+    string SpaceId { get; set; }
+    string Version { get; set; }
+    List<AppBundleConfig.WebhookFunction> Webhooks { get; set; }
     static string ConfigFileName
   class AppBundleConfigLegacy
     ctor()
-    string AppTypeName { get;  set; }
-    string CreatedAt { get;  set; }
-    string DllName { get;  set; }
-    string Hash { get;  set; }
-    string Version { get;  set; }
+    string AppTypeName { get; set; }
+    string CreatedAt { get; set; }
+    string DllName { get; set; }
+    string Hash { get; set; }
+    string Version { get; set; }
     static string ConfigFileName
   class AppBundleRuntimeConfig
     ctor()
-    string AppTypeName { get;  set; }
-    string DllName { get;  set; }
+    string AppTypeName { get; set; }
+    string DllName { get; set; }
     static string ConfigFileName
   sealed class AppProjectUtils.AppDiscoveryResult
     ctor()
-    bool Found { get;  init; }
-    string TypeName { get;  init; }
+    bool Found { get; init; }
+    string TypeName { get; init; }
   class AppProjectConfig : ITomlMetadataProvider
     ctor()
-    AppProjectConfig.ActivationConfig Activation { get;  set; }
-    AppProjectConfig.AuthConfig Auth { get;  set; }
-    List<string> Databases { get;  set; }
-    List<string> Endpoints { get;  set; }
-    AppProjectConfig.TargetConfig Target { get;  set; }
+    AppProjectConfig.ActivationConfig Activation { get; set; }
+    AppProjectConfig.AuthConfig Auth { get; set; }
+    List<string> Databases { get; set; }
+    AppProjectConfig.TargetConfig Target { get; set; }
     static string GetConfigFileName(IkonBackend.EnvironmentType environment)
     static string GetConfigFileName(string targetName)
     static string ConfigFileName
   class AppProjectConfigLegacy : ITomlMetadataProvider
     ctor()
-    AppProjectConfig.ActivationConfig Activation { get;  set; }
-    AppProjectConfig.AuthConfig Auth { get;  set; }
-    List<string> Databases { get;  set; }
-    List<string> Endpoints { get;  set; }
-    Dictionary<string, AppProjectConfigLegacy.Target> Targets { get;  set; }
+    AppProjectConfig.ActivationConfig Activation { get; set; }
+    AppProjectConfig.AuthConfig Auth { get; set; }
+    List<string> Databases { get; set; }
+    Dictionary<string, AppProjectConfigLegacy.Target> Targets { get; set; }
   static class AppProjectUtils
     static IEnumerable<string> EnumerateCsprojFiles(string rootDirectory, int maxDepth = 3)
     static AppProjectUtils.AppDiscoveryResult FindAppTypeInAssembly(string dllPath)
@@ -80,18 +79,18 @@ namespace Ikon.Common
     static string StripIkonAppPrefix(string projectName)
   sealed class AppProjectVariables
     ctor()
-    string ConfigFilePath { get;  init; }
-    string CsProjectFilePath { get;  init; }
-    string CsProjectName { get;  init; }
-    string FrontendNodeDirectory { get;  init; }
-    string GitRootDirectory { get;  init; }
-    string ProjectDirectory { get;  init; }
-    string ProjectName { get;  init; }
-    string RelativeConfigFilePath { get;  init; }
-    string RelativeCsProjectFilePath { get;  init; }
-    string RelativeRootDirectory { get;  init; }
-    string RootDirectory { get;  init; }
-    string TargetDirectory { get;  init; }
+    string ConfigFilePath { get; init; }
+    string CsProjectFilePath { get; init; }
+    string CsProjectName { get; init; }
+    string FrontendNodeDirectory { get; init; }
+    string GitRootDirectory { get; init; }
+    string ProjectDirectory { get; init; }
+    string ProjectName { get; init; }
+    string RelativeConfigFilePath { get; init; }
+    string RelativeCsProjectFilePath { get; init; }
+    string RelativeRootDirectory { get; init; }
+    string RootDirectory { get; init; }
+    string TargetDirectory { get; init; }
   class AsyncLocalInstances
     void Capture(object owner, bool allowOverride = false)
     void InitializeAll()
@@ -101,14 +100,14 @@ namespace Ikon.Common
     static AsyncLocalInstances Instance
   class AppProjectConfig.AuthConfig : ITomlMetadataProvider
     ctor()
-    List<string> DomainAllowlist { get;  set; }
-    bool Enabled { get;  set; }
-    List<string> Methods { get;  set; }
+    List<string> DomainAllowlist { get; set; }
+    bool Enabled { get; set; }
+    List<string> Methods { get; set; }
   class AppBundleConfig.AuthConfig
     ctor()
-    List<string> DomainAllowlist { get;  set; }
-    bool Enabled { get;  set; }
-    List<string> Methods { get;  set; }
+    List<string> DomainAllowlist { get; set; }
+    bool Enabled { get; set; }
+    List<string> Methods { get; set; }
   struct CertificateStore.Certificate
     ctor(X509Certificate2 cert, X509Certificate2 rootCert, string certHash, string spkiHash, bool isDotnetDevCert)
     X509Certificate2 Cert { get; }
@@ -120,20 +119,29 @@ namespace Ikon.Common
     static CertificateStore.Certificate GetCertificate(string host, X509Certificate2 rootCert = null, bool disableDotnetDevCerts = false)
   sealed class DatabaseConnectionInfo
     ctor()
-    string ConnectionString { get;  set; }
-    string Name { get;  set; }
-    string Type { get;  set; }
+    string ConnectionString { get; set; }
+    string Name { get; set; }
+    string Type { get; set; }
   class AppBundleConfig.DatabaseEntry
     ctor()
-    string Name { get;  set; }
-    string Tier { get;  set; }
-    string Type { get;  set; }
+    string Name { get; set; }
+    string Tier { get; set; }
+    string Type { get; set; }
   class DescriptionAttribute : Attribute
     ctor(string description, object example = null, RequiredStatus isRequired = Default, int minArrayItems = 0)
     string Description { get; }
     object Example { get; }
     RequiredStatus IsRequired { get; }
     int MinArrayItems { get; }
+  class AppBundleConfig.EmailTemplate
+    ctor()
+    string Name { get; set; }
+    string Path { get; set; }
+    string Subject { get; set; }
+  enum EndpointProtocol
+    Tcp
+    Tls
+    Udp
   class ExponentialMovingAverage
     ctor(double smoothingFactor = 0.1)
     double CurrentValue { get; }
@@ -196,14 +204,14 @@ namespace Ikon.Common
     void Dispose()
   class IkonProjectConfigLegacy
     ctor()
-    string ChannelId { get;  set; }
-    string OrganisationId { get;  set; }
-    string ProjectId { get;  set; }
-    string SpaceId { get;  set; }
+    string ChannelId { get; set; }
+    string OrganisationId { get; set; }
+    string ProjectId { get; set; }
+    string SpaceId { get; set; }
     static string ConfigFileName
   class IkonProjectConfigLegacyPerEnv
     ctor()
-    Dictionary<string, IkonProjectConfigLegacy> Environments { get;  set; }
+    Dictionary<string, IkonProjectConfigLegacy> Environments { get; set; }
   sealed class InMemoryProtocolMessageChannel : IProtocolMessageChannel
     ctor()
     Context ClientContext { get; }
@@ -1020,21 +1028,21 @@ namespace Ikon.Common
     double GetAverage()
   class AppBundleConfig.Pipeline
     ctor()
-    string Description { get;  set; }
-    string DllName { get;  set; }
-    string Guid { get;  set; }
-    string Name { get;  set; }
-    string OpenApiSpecJson { get;  set; }
-    string TypeName { get;  set; }
-    int Version { get;  set; }
-    List<AppBundleConfig.Workflow> Workflows { get;  set; }
+    string Description { get; set; }
+    string DllName { get; set; }
+    string Guid { get; set; }
+    string Name { get; set; }
+    string OpenApiSpecJson { get; set; }
+    string TypeName { get; set; }
+    int Version { get; set; }
+    List<AppBundleConfig.Workflow> Workflows { get; set; }
   class PipelineBundleConfigLegacy
     ctor()
-    string CreatedAt { get;  set; }
-    string DllName { get;  set; }
-    string Hash { get;  set; }
-    string PipelineTypeName { get;  set; }
-    string Version { get;  set; }
+    string CreatedAt { get; set; }
+    string DllName { get; set; }
+    string Hash { get; set; }
+    string PipelineTypeName { get; set; }
+    string Version { get; set; }
     static string ConfigFileName
     static string SpecFileName
   enum PipelineExecutionMode
@@ -1055,28 +1063,40 @@ namespace Ikon.Common
     override void Write(Utf8JsonWriter writer, object value, JsonSerializerOptions options)
   class PriceInfo
     ctor()
-    bool IsCertain { get;  set; }
-    List<PriceTierInfo> PriceTiers { get;  set; }
-    string UncertaintyReason { get;  set; }
-    string UsageName { get;  set; }
+    bool IsCertain { get; set; }
+    List<PriceTierInfo> PriceTiers { get; set; }
+    string UncertaintyReason { get; set; }
+    string UsageName { get; set; }
   class PriceTierInfo
     ctor()
-    string Currency { get;  set; }
-    double Price { get;  set; }
-    double Quantity { get;  set; }
-    double Threshold { get;  set; }
-    string ThresholdCorrelatedUsageType { get;  set; }
-    string Unit { get;  set; }
+    string Currency { get; set; }
+    double Price { get; set; }
+    double Quantity { get; set; }
+    double Threshold { get; set; }
+    string ThresholdCorrelatedUsageType { get; set; }
+    string Unit { get; set; }
   class PricingOutput
     ctor()
-    string CreatedAt { get;  set; }
-    List<PriceInfo> PriceInfos { get;  set; }
+    string CreatedAt { get; set; }
+    List<PriceInfo> PriceInfos { get; set; }
   static class QrEncoder
     static string GenerateSvg(string data, int size)
   class RateLimiter
     ctor(TimeSpan window, int rateLimit)
     int Rate { get; }
     bool Guard()
+  sealed class RelayAgent : IAsyncDisposable
+    ctor(string relayServerAddress, int relayServerPort, string relayAuthToken, string stableId = "")
+    Task<RelayEndpoint> AddEndpointAsync(EndpointProtocol protocol, int localPort = 0, CancellationToken cancellationToken = null)
+    Task ConnectAsync(CancellationToken cancellationToken = null)
+    static RelayAgent CreateFromIkonBackend(string stableId = "")
+    ValueTask DisposeAsync()
+  sealed class RelayEndpoint : IAsyncDisposable
+    int LocalPort { get; }
+    EndpointProtocol Protocol { get; }
+    string PublicHost { get; }
+    int PublicPort { get; }
+    ValueTask DisposeAsync()
   enum RequiredStatus
     Default
     Required
@@ -1097,15 +1117,15 @@ namespace Ikon.Common
     static Task RunAsync(Func<Task> func, List<Type> retryableExceptions = null, int retries = 5, Func<Exception, Task> onRetry = null, Func<Exception, Task> onFailure = null, bool useExponentialBackoff = true, string description = null, string callerMemberName = "", string callerFilePath = "")
   class AppProjectConfigLegacy.Target : ITomlMetadataProvider
     ctor()
-    string ChannelId { get;  set; }
-    string OrganisationId { get;  set; }
-    string SpaceId { get;  set; }
+    string ChannelId { get; set; }
+    string OrganisationId { get; set; }
+    string SpaceId { get; set; }
   class AppProjectConfig.TargetConfig : ITomlMetadataProvider
     ctor()
-    string ChannelId { get;  set; }
-    string Name { get;  set; }
-    string OrganisationId { get;  set; }
-    string SpaceId { get;  set; }
+    string ChannelId { get; set; }
+    string Name { get; set; }
+    string OrganisationId { get; set; }
+    string SpaceId { get; set; }
   static class TaskExtensions
     static void RunParallel(Task task, Action<Exception> onException = null)
   class TempDirectory
@@ -1154,11 +1174,15 @@ namespace Ikon.Common
     double Average
     double Maximum
     double Minimum
+  class AppBundleConfig.WebhookFunction
+    ctor()
+    bool AutoRegistered { get; set; }
+    string Name { get; set; }
   class AppBundleConfig.Workflow
     ctor()
-    PipelineExecutionMode ExecutionMode { get;  set; }
-    string Name { get;  set; }
-    string Schedule { get;  set; }
+    PipelineExecutionMode ExecutionMode { get; set; }
+    string Name { get; set; }
+    string Schedule { get; set; }
 
 namespace Ikon.Common.Assets
   static class StorageExtensions
@@ -1171,9 +1195,9 @@ namespace Ikon.Common.Assets
 namespace Ikon.Common.Git
   class GitBranch : IEquatable<GitBranch>
     ctor(string Name, bool IsRemote, bool IsCurrent)
-    bool IsCurrent { get;  init; }
-    bool IsRemote { get;  init; }
-    string Name { get;  init; }
+    bool IsCurrent { get; init; }
+    bool IsRemote { get; init; }
+    string Name { get; init; }
   enum GitChangeType
     Added
     Modified
@@ -1182,37 +1206,37 @@ namespace Ikon.Common.Git
     Untracked
   class GitCloneOptions : IEquatable<GitCloneOptions>
     ctor(string Branch = null, bool Shallow = false, GitCredentials Credentials = null)
-    string Branch { get;  init; }
-    GitCredentials Credentials { get;  init; }
-    bool Shallow { get;  init; }
+    string Branch { get; init; }
+    GitCredentials Credentials { get; init; }
+    bool Shallow { get; init; }
   class GitCommit : IEquatable<GitCommit>
     ctor(string Sha, string ShortSha, string Author, string AuthorEmail, DateTimeOffset Date, string Message)
-    string Author { get;  init; }
-    string AuthorEmail { get;  init; }
-    DateTimeOffset Date { get;  init; }
-    string Message { get;  init; }
-    string Sha { get;  init; }
-    string ShortSha { get;  init; }
+    string Author { get; init; }
+    string AuthorEmail { get; init; }
+    DateTimeOffset Date { get; init; }
+    string Message { get; init; }
+    string Sha { get; init; }
+    string ShortSha { get; init; }
   class GitCredentials : IEquatable<GitCredentials>
     ctor(string Username, string Password)
-    string Password { get;  init; }
-    string Username { get;  init; }
+    string Password { get; init; }
+    string Username { get; init; }
   class GitDiff : IEquatable<GitDiff>
     ctor(string FromSha, string ToSha, List<GitFileDiff> Files)
-    List<GitFileDiff> Files { get;  init; }
-    string FromSha { get;  init; }
-    string ToSha { get;  init; }
+    List<GitFileDiff> Files { get; init; }
+    string FromSha { get; init; }
+    string ToSha { get; init; }
   class GitFileChange : IEquatable<GitFileChange>
     ctor(string Path, GitChangeType Type)
-    string Path { get;  init; }
-    GitChangeType Type { get;  init; }
+    string Path { get; init; }
+    GitChangeType Type { get; init; }
   class GitFileDiff : IEquatable<GitFileDiff>
     ctor(string Path, GitChangeType Type, int LinesAdded, int LinesRemoved, string Patch = null)
-    int LinesAdded { get;  init; }
-    int LinesRemoved { get;  init; }
-    string Patch { get;  init; }
-    string Path { get;  init; }
-    GitChangeType Type { get;  init; }
+    int LinesAdded { get; init; }
+    int LinesRemoved { get; init; }
+    string Patch { get; init; }
+    string Path { get; init; }
+    GitChangeType Type { get; init; }
   class GitRepository
     ctor(string workingDirectory, GitCredentials credentials = null)
     GitCredentials Credentials { get; }
@@ -1248,10 +1272,12 @@ namespace Ikon.Common.Git
     Task<bool> HasCommitsAsync(CancellationToken ct = null)
     Task<bool> HasRemoteAsync(string name = "origin", CancellationToken ct = null)
     Task<bool> HasUncommittedChangesAsync(CancellationToken ct = null)
+    Task<bool> HasUncommittedChangesAsync(string path, CancellationToken ct = null)
     static Task<GitRepository> InitAndConnectAsync(string directory, string remoteUrl, GitCredentials credentials = null, string configKey = null, string configValue = null, CancellationToken ct = null)
     static Task<GitRepository> InitAsync(string directory, CancellationToken ct = null)
     Task<bool> IsGitRepositoryAsync(CancellationToken ct = null)
     static Task<bool> IsGitRepositoryAsync(string directory, CancellationToken ct = null)
+    Task<List<GitWorktreeInfo>> ListWorktreesAsync(CancellationToken ct = null)
     Task PushAsync(bool setUpstream = false, CancellationToken ct = null)
     Task<bool> RefExistsAsync(string refName, CancellationToken ct = null)
     Task RenameBranchAsync(string oldName, string newName, CancellationToken ct = null)
@@ -1275,24 +1301,29 @@ namespace Ikon.Common.Git
     static bool UrlsMatch(string url1, string url2)
   class GitStatus : IEquatable<GitStatus>
     ctor(string Branch, string HeadSha, bool HasUncommittedChanges, bool IsDetachedHead, int AheadBy, int BehindBy, List<GitFileChange> Changes)
-    int AheadBy { get;  init; }
-    int BehindBy { get;  init; }
-    string Branch { get;  init; }
-    List<GitFileChange> Changes { get;  init; }
-    bool HasUncommittedChanges { get;  init; }
-    string HeadSha { get;  init; }
-    bool IsDetachedHead { get;  init; }
+    int AheadBy { get; init; }
+    int BehindBy { get; init; }
+    string Branch { get; init; }
+    List<GitFileChange> Changes { get; init; }
+    bool HasUncommittedChanges { get; init; }
+    string HeadSha { get; init; }
+    bool IsDetachedHead { get; init; }
   class GitSyncResult : IEquatable<GitSyncResult>
     ctor(bool Success, string PreviousSha, string CurrentSha, string Error = null)
-    string CurrentSha { get;  init; }
-    string Error { get;  init; }
-    string PreviousSha { get;  init; }
-    bool Success { get;  init; }
+    string CurrentSha { get; init; }
+    string Error { get; init; }
+    string PreviousSha { get; init; }
+    bool Success { get; init; }
   class GitTag : IEquatable<GitTag>
     ctor(string Name, string Sha, GitCommit Commit = null)
-    GitCommit Commit { get;  init; }
-    string Name { get;  init; }
-    string Sha { get;  init; }
+    GitCommit Commit { get; init; }
+    string Name { get; init; }
+    string Sha { get; init; }
+  class GitWorktreeInfo : IEquatable<GitWorktreeInfo>
+    ctor(string Path, string Head, string Branch)
+    string Branch { get; init; }
+    string Head { get; init; }
+    string Path { get; init; }
 
 namespace Ikon.Common.Maths
   enum AxisConvention
@@ -1306,9 +1337,9 @@ namespace Ikon.Common.Maths
     ctor(BoundingSphere sphere)
     ctor(Vector3[] points)
     ctor(Vector3 a, Vector3 b)
-    Vector3 Center { get;  set; }
-    Vector3 Diagonal { get;  set; }
-    Vector3 HalfDiagonal { get;  set; }
+    Vector3 Center { get; set; }
+    Vector3 Diagonal { get; set; }
+    Vector3 HalfDiagonal { get; set; }
     static BoundingBox UnitCube { get; }
     Vector3[] GetCorners()
     static BoundingBox Merge(BoundingBox value1, BoundingBox value2)
@@ -1320,7 +1351,7 @@ namespace Ikon.Common.Maths
     Plane Bottom { get; }
     Plane Far { get; }
     Plane Left { get; }
-    Matrix4x4 Matrix4x4 { get;  set; }
+    Matrix4x4 Matrix4x4 { get; set; }
     Plane Near { get; }
     Plane Right { get; }
     Plane Top { get; }

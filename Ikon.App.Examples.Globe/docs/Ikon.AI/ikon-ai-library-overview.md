@@ -12,7 +12,7 @@ This guide summarizes the principal namespaces in the Ikon.AI .NET library for d
 using Ikon.AI.Emergence;
 using Ikon.AI.Kernel;
 using Ikon.AI.LLM;
-using Ikon.Common;
+using Ikon.Common.Core;
 
 var context = new KernelContext();
 context = context.Add(new MessageBlock(MessageBlockRole.User, "Tell me about John Smith."));
@@ -53,7 +53,7 @@ Generate structured text using a shader definition stored in code, files, or emb
 ```csharp
 using Ikon.AI.Kernel;
 using Ikon.AI.Shader;
-using Ikon.Common;
+using Ikon.Common.Core;
 
 string shaderSource = @"
 {
@@ -98,14 +98,13 @@ Emit strongly typed results when the shader is configured for JSON output.
 
 ```csharp
 using Ikon.AI.Shader;
-using Ikon.Common;
 using Ikon.Common.Core;
 
 string shaderSource = @"
 {
   ShaderVersion: 2,
   Model: {
-    Name: 'OpenAI_GPT5Mini',
+    Name: 'Gpt5Mini',
     RequestTimeoutSeconds: 60,
     MaxOutputTokens: 4000,
     ReasoningEffort: 'Medium',
@@ -176,6 +175,7 @@ Pass preferred regions as an ordered list to keep inference within a geography. 
 using Ikon.AI;
 using Ikon.AI.Kernel;
 using Ikon.AI.LLM;
+using Ikon.Common.Core;
 
 var context = new KernelContext();
 context = context.Add(new Instruction(InstructionType.Context, "You are a helpful assistant that helps to summarize product release notes."));
@@ -511,6 +511,26 @@ foreach (var embedding in embeddings)
 ## Kernel
 
 `Ikon.AI.Kernel` supplies shared primitives such as `KernelContext`, `MessageBlock`, and `Instruction` that underpin shaders and direct LLM calls.
+
+### Attaching media from the asset system
+
+For large media that lives in the Ikon asset system, pass an `AssetUri` directly instead of reading the bytes yourself. `VideoAssetPart` lets you hand a video asset to a multimodal LLM without worrying about request-size limits:
+
+```csharp
+using Ikon.AI.Kernel;
+using Ikon.Common.Core.Assets;
+
+var assetUri = AssetUri.Parse("assets://space/abc123/cloud-file/clips/demo.mp4");
+
+var context = new KernelContext();
+context = context.Add(new MessageBlock(MessageBlockRole.User, new IMessagePart[]
+{
+    new TextPart("Describe what happens in this clip."),
+    new VideoAssetPart(assetUri),
+}));
+```
+
+When the target model runs on Google Vertex (current Gemini models) and the asset is backed by GCS-aware cloud-file storage, the request references the video by its native `gs://bucket/object` URI — the bytes never transit the client. For other backends, a small video is inlined; videos above the inline ceiling throw so you can move them to cloud-file storage. Other providers (Anthropic, OpenAI) do not accept video parts and ignore `VideoAssetPart` with a warning, matching how they handle `VideoUrlPart` today.
 
 ## Chat
 

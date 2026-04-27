@@ -3,7 +3,7 @@
 namespace Ikon.AI
   class IkonAIConnection : AsyncLocalInstance<IkonAIConnection>
     ctor()
-    IkonClientConfig ConfigOverride { get;  set; }
+    IkonClientConfig ConfigOverride { get; set; }
     Task ForceReconnectAsync(CancellationToken ct = null)
     Task<IkonClient> GetOrCreateClientAsync(CancellationToken ct = null)
     Task WarmupAsync(CancellationToken ct = null)
@@ -13,8 +13,8 @@ namespace Ikon.AI
     static string ProductionSpaceId
   class ImplementationSelector : AsyncLocalInstance<ImplementationSelector>
     ctor()
-    bool ForceLocal { get;  set; }
-    bool ForceRemote { get;  set; }
+    bool ForceLocal { get; set; }
+    bool ForceRemote { get; set; }
   enum ModelCategory
     Classifier
     Embeddings
@@ -73,7 +73,6 @@ namespace Ikon.AI
     Ikon
     Jina
     Mistral
-    Ngrok
     OpenAI
     OpenRouter
     Pollo
@@ -88,8 +87,8 @@ namespace Ikon.AI
 namespace Ikon.AI.Chat
   sealed class BasicChat : IAsyncDisposable
     ctor(AssetUri shaderUri)
-    KernelContext BaseContext { get;  set; }
-    int MaxHistoryLength { get;  set; }
+    KernelContext BaseContext { get; set; }
+    int MaxHistoryLength { get; set; }
     IReadOnlyList<MessageBlock> Messages { get; }
     void AddModelMessage(string text)
     void AddModelMessage(params object[] parts)
@@ -110,16 +109,16 @@ namespace Ikon.AI.Chat
 namespace Ikon.AI.Classification
   sealed class ClassificationDetail
     ctor(ClassificationLabel label, string originalCategory, bool isFlagged, double score)
-    bool IsFlagged { get;  init; }
-    ClassificationLabel Label { get;  init; }
-    string OriginalCategory { get;  init; }
-    double Score { get;  init; }
+    bool IsFlagged { get; init; }
+    ClassificationLabel Label { get; init; }
+    string OriginalCategory { get; init; }
+    double Score { get; init; }
   sealed class ClassificationInput
     ctor()
-    byte[] Data { get;  init; }
-    string MimeType { get;  init; }
-    string Text { get;  init; }
-    string Url { get;  init; }
+    byte[] Data { get; init; }
+    string MimeType { get; init; }
+    string Text { get; init; }
+    string Url { get; init; }
     static ClassificationInput FromMessagePart(IMessagePart messagePart)
   enum ClassificationLabel
     Unknown
@@ -143,8 +142,8 @@ namespace Ikon.AI.Classification
     static string DisplayName(ClassificationModel model)
   sealed class ClassificationResult
     ctor()
-    List<ClassificationDetail> Details { get;  init; }
-    bool IsFlagged { get;  init; }
+    List<ClassificationDetail> Details { get; init; }
+    bool IsFlagged { get; init; }
     override string ToString()
   sealed class Classifier : IClassifier, IDisposable
     ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
@@ -165,7 +164,7 @@ namespace Ikon.AI.Classification
 namespace Ikon.AI.Database
   sealed class BigQueryDbConnection : DbConnection
     ctor(string projectId, string datasetId)
-    string ConnectionString { get;  set; }
+    string ConnectionString { get; set; }
     string DataSource { get; }
     string Database { get; }
     string ServerVersion { get; }
@@ -178,46 +177,46 @@ namespace Ikon.AI.Database
     override void Open()
   class DatabaseConnection.Config
     ctor()
-    string EnvVarPrefix { get;  set; }
-    DatabaseConnection.SpaceSecret SpaceSecret { get;  set; }
+    string EnvVarPrefix { get; set; }
+    DatabaseConnection.SpaceSecret SpaceSecret { get; set; }
   class DatabaseInfoExtractor.Config
     ctor()
-    List<string> ColumnExcludeRegex { get;  set; }
-    Dictionary<string, string> ColumnExtraInfo { get;  set; }
-    bool IncludeEmptyColumns { get;  set; }
-    int JsonSampleLengthLimit { get;  set; }
-    int JsonSampleRowLimit { get;  set; }
-    int NonTextSampleRowLimit { get;  set; }
-    List<string> Schemas { get;  set; }
-    List<string> TableExcludeRegex { get;  set; }
-    Dictionary<string, string> TableExtraInfo { get;  set; }
-    List<string> TableIncludeRegex { get;  set; }
-    int TextSampleLengthLimit { get;  set; }
-    int TextSampleRowLimit { get;  set; }
+    List<string> ColumnExcludeRegex { get; set; }
+    Dictionary<string, string> ColumnExtraInfo { get; set; }
+    bool IncludeEmptyColumns { get; set; }
+    int JsonSampleLengthLimit { get; set; }
+    int JsonSampleRowLimit { get; set; }
+    int NonTextSampleRowLimit { get; set; }
+    List<string> Schemas { get; set; }
+    List<string> TableExcludeRegex { get; set; }
+    Dictionary<string, string> TableExtraInfo { get; set; }
+    List<string> TableIncludeRegex { get; set; }
+    int TextSampleLengthLimit { get; set; }
+    int TextSampleRowLimit { get; set; }
   class DatabaseColumnInfo
     ctor()
-    string ColumnName { get;  set; }
-    string DataType { get;  set; }
-    string Description { get;  set; }
-    string ExtraInfo { get;  set; }
-    string ForeignKeyColumnName { get;  set; }
-    string ForeignKeyTableName { get;  set; }
-    bool? IsForeignKey { get;  set; }
-    bool? IsPrimaryKey { get;  set; }
-    List<string> Values { get;  set; }
+    string ColumnName { get; set; }
+    string DataType { get; set; }
+    string Description { get; set; }
+    string ExtraInfo { get; set; }
+    string ForeignKeyColumnName { get; set; }
+    string ForeignKeyTableName { get; set; }
+    bool? IsForeignKey { get; set; }
+    bool? IsPrimaryKey { get; set; }
+    List<string> Values { get; set; }
   class DatabaseConnection
     ctor()
-    string BigQueryDataset { get;  set; }
-    string BigQueryProjectId { get;  set; }
-    DatabaseType DatabaseType { get;  set; }
-    DbConnection DbConnection { get;  set; }
+    string BigQueryDataset { get; set; }
+    string BigQueryProjectId { get; set; }
+    DatabaseType DatabaseType { get; set; }
+    DbConnection DbConnection { get; set; }
     static Task<DatabaseConnection> CreateAsync(DatabaseConnection.Config config)
   class DatabaseInfo
     ctor()
-    DatabaseType DatabaseType { get;  set; }
-    List<string> ExampleQuestions { get;  set; }
-    string SqlCteCommand { get;  set; }
-    List<DatabaseTableInfo> Tables { get;  set; }
+    DatabaseType DatabaseType { get; set; }
+    List<string> ExampleQuestions { get; set; }
+    string SqlCteCommand { get; set; }
+    List<DatabaseTableInfo> Tables { get; set; }
   class DatabaseInfoExtractor
     ctor(DatabaseConnection databaseConnection)
     Task<DatabaseInfo> ExtractAsync(DatabaseInfoExtractor.Config config, CancellationToken cancellationToken)
@@ -226,10 +225,10 @@ namespace Ikon.AI.Database
     Task<DatabaseInfo> ValidateAndFillCteDatabaseInfoAsync(DatabaseInfo cteDatabaseInfo, int maxRowsFilter)
   class DatabaseTableInfo
     ctor()
-    List<DatabaseColumnInfo> Columns { get;  set; }
-    string Description { get;  set; }
-    string ExtraInfo { get;  set; }
-    string TableName { get;  set; }
+    List<DatabaseColumnInfo> Columns { get; set; }
+    string Description { get; set; }
+    string ExtraInfo { get; set; }
+    string TableName { get; set; }
   enum DatabaseType
     Unknown
     PostgreSql
@@ -238,8 +237,8 @@ namespace Ikon.AI.Database
     Trino
   class DatabaseConnection.SpaceSecret
     ctor()
-    string Prefix { get;  set; }
-    string SpaceId { get;  set; }
+    string Prefix { get; set; }
+    string SpaceId { get; set; }
   static class SqlValidator
     static void ValidateReadOnly(string sql, HashSet<string> allowedTables)
 
@@ -258,16 +257,16 @@ namespace Ikon.AI.Embeddings
     static IReadOnlyList<ModelRegion> GetSupportedRegions(EmbeddingModel model)
   sealed class EmbeddingGeneratorCapabilities
     ctor()
-    int EmbeddingVectorSize { get;  init; }
-    int MaxInputCount { get;  init; }
+    int EmbeddingVectorSize { get; init; }
+    int MaxInputCount { get; init; }
   sealed class EmbeddingItem
     ctor(string context, EmbeddingModel model, EmbeddingType type, EmbeddingEncoding encoding, string embedding)
-    string Context { get;  init; }
-    string Embedding { get;  init; }
+    string Context { get; init; }
+    string Embedding { get; init; }
     float[] EmbeddingArray { get; }
-    EmbeddingEncoding Encoding { get;  init; }
-    EmbeddingModel Model { get;  init; }
-    EmbeddingType Type { get;  init; }
+    EmbeddingEncoding Encoding { get; init; }
+    EmbeddingModel Model { get; init; }
+    EmbeddingType Type { get; init; }
     static Task<EmbeddingItem> Create(string input, string context, EmbeddingModel model, EmbeddingType type, EmbeddingEncoding encoding, CancellationToken cancellationToken = null)
     static Task<EmbeddingItem> Create(float[] embedding, string context, EmbeddingModel model, EmbeddingType type, EmbeddingEncoding encoding)
   enum EmbeddingModel
@@ -282,6 +281,8 @@ namespace Ikon.AI.Embeddings
     JinaEmbeddings3
     Voyage35
     Voyage35Lite
+    Voyage4
+    Voyage4Lite
   static class EmbeddingModelExtensions
     static string DisplayName(EmbeddingModel model)
   enum EmbeddingType
@@ -309,9 +310,9 @@ namespace Ikon.AI.Embeddings
 namespace Ikon.AI.FileConversion
   sealed class ConvertedFile
     ctor()
-    byte[] Data { get;  init; }
-    string Mimetype { get;  init; }
-    string Name { get;  init; }
+    byte[] Data { get; init; }
+    string Mimetype { get; init; }
+    string Name { get; init; }
   sealed class FileConverter : IDisposable, IFileConverter
     ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
     ctor(FileConverterModel model, IReadOnlyList<ModelRegion> regions = null)
@@ -323,11 +324,11 @@ namespace Ikon.AI.FileConversion
     ctor()
   sealed class FileConverterConfig
     ctor()
-    AssetUri? AssetUri { get;  set; }
-    byte[] Data { get;  set; }
-    string FileName { get;  set; }
-    TimeSpan Timeout { get;  set; }
-    string Url { get;  set; }
+    AssetUri? AssetUri { get; set; }
+    byte[] Data { get; set; }
+    string FileName { get; set; }
+    TimeSpan Timeout { get; set; }
+    string Url { get; set; }
   enum FileConverterModel
     ConvertApi
   static class FileConverterModelExtensions
@@ -353,24 +354,25 @@ namespace Ikon.AI.ImageGeneration
     ctor()
   sealed class ImageGeneratorConfig
     ctor()
-    ImageBackground Background { get;  set; }
-    int Count { get;  set; }
-    int Height { get;  set; }
-    List<InputImage> InputImages { get;  set; }
-    string NegativePrompt { get;  set; }
-    string Prompt { get;  set; }
-    ImageQuality Quality { get;  set; }
-    SafetyLevel SafetyLevel { get;  set; }
-    string SearchPrompt { get;  set; }
-    int Seed { get;  set; }
-    int Steps { get;  set; }
-    string Style { get;  set; }
-    TimeSpan Timeout { get;  set; }
-    bool UpsamplePrompt { get;  set; }
-    int Width { get;  set; }
+    ImageBackground Background { get; set; }
+    int Count { get; set; }
+    int Height { get; set; }
+    List<InputImage> InputImages { get; set; }
+    string NegativePrompt { get; set; }
+    string Prompt { get; set; }
+    ImageQuality Quality { get; set; }
+    SafetyLevel SafetyLevel { get; set; }
+    string SearchPrompt { get; set; }
+    int Seed { get; set; }
+    int Steps { get; set; }
+    string Style { get; set; }
+    TimeSpan Timeout { get; set; }
+    bool UpsamplePrompt { get; set; }
+    int Width { get; set; }
   enum ImageGeneratorModel
-    GptImage1
+    GptImage1Mini
     GptImage15
+    GptImage2
     Imagen3
     Imagen4Fast
     Imagen4Standard
@@ -383,20 +385,25 @@ namespace Ikon.AI.ImageGeneration
     Flux11Pro
     Flux11ProUltra
     Flux11ProUltraRaw
+    Flux1Fill
     Flux1KontextPro
     Flux1KontextMax
     Flux1KreaDev
     Flux2Dev
     Flux2Flex
     Flux2Pro
+    Flux2Max
+    Flux2Klein9B
+    GrokImagineImage
+    GrokImagineImagePro
   static class ImageGeneratorModelExtensions
     static string DisplayName(ImageGeneratorModel model)
   sealed class ImageGeneratorResult
     ctor()
-    byte[] Data { get;  set; }
-    int Height { get;  set; }
-    string MimeType { get;  set; }
-    int Width { get;  set; }
+    byte[] Data { get; set; }
+    int Height { get; set; }
+    string MimeType { get; set; }
+    int Width { get; set; }
   enum ImageQuality
     Auto
     Low
@@ -404,11 +411,11 @@ namespace Ikon.AI.ImageGeneration
     High
   sealed class InputImage
     ctor()
-    byte[] Data { get;  set; }
-    double? MaskDilution { get;  set; }
-    string MimeType { get;  set; }
-    double? Strength { get;  set; }
-    InputImageType Type { get;  set; }
+    byte[] Data { get; set; }
+    double? MaskDilution { get; set; }
+    string MimeType { get; set; }
+    double? Strength { get; set; }
+    InputImageType Type { get; set; }
   enum InputImageType
     Normal
     Mask
@@ -471,18 +478,19 @@ namespace Ikon.AI.Kernel
     ctor(string reason)
     string Reason { get; }
   class FunctionCall
-    ctor(Function function, object[] parameters, string parametersJson, string callId, string hash, string thoughtSignature = "")
+    ctor(Function function, object[] parameters, string parametersJson, string callId, string hash, string thoughtSignature = "", string reasoningContent = "")
     string CallId { get; }
     Function Function { get; }
     string Hash { get; }
     object[] Parameters { get; }
     string ParametersJson { get; }
+    string ReasoningContent { get; }
     string ThoughtSignature { get; }
   class FunctionResult
     ctor(object result = null, string modelMessagePrefix = null, string modelMessageSuffix = null)
-    string ModelMessagePrefix { get;  set; }
-    string ModelMessageSuffix { get;  set; }
-    object Result { get;  set; }
+    string ModelMessagePrefix { get; set; }
+    string ModelMessageSuffix { get; set; }
+    object Result { get; set; }
   struct FunctionResultPart : IMessagePart
     ctor(FunctionCall functionCall, StreamingResult[] streamingResults, object result)
     FunctionCall FunctionCall { get; }
@@ -513,40 +521,40 @@ namespace Ikon.AI.Kernel
     static T GenerateExampleInstance<T>()
     static string GenerateExampleJson<T>()
   static class JsonSchemaGenerator
-    static ExpandoObject GenerateJsonSchemaExpandoObject<T>(bool supersetCompatibilityMode = false)
-    static string GenerateSchemaString<T>(bool supersetCompatibilityMode = false)
+    static ExpandoObject GenerateJsonSchemaExpandoObject<T>(SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
+    static string GenerateSchemaString<T>(SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
   struct KernelContext : IEquatable<KernelContext>
     ctor()
     ctor(KernelContext? baseContext = null, ImmutableList<Instruction> instructions = null, ImmutableList<MessageBlock> messages = null, ImmutableDictionary<string, Function> functions = null, TimeSpan? timeout = null, double? temperature = null, int? maxOutputTokens = null, ReasoningEffort? reasoningEffort = null, int? reasoningTokenBudget = null, bool? useStreaming = null, bool? useJson = null, bool? useCitations = null, bool? useUserNames = null, bool? useAudioOutput = null, string audioOutputVoiceId = null, bool? useCaching = null, bool? disableFunctionCalling = null, bool? discardTextOutputWithFunctionCalls = null, bool? logFullRequest = null, bool? logFullResponse = null, object jsonSchema = null, string gbnfGrammar = null, string toolPlan = null)
-    string AudioOutputVoiceId { get;  init; }
-    bool DisableFunctionCalling { get;  init; }
-    bool DiscardTextOutputWithFunctionCalls { get;  init; }
-    ImmutableDictionary<string, Function> Functions { get;  init; }
-    string GbnfGrammar { get;  init; }
-    ImmutableList<Instruction> Instructions { get;  init; }
-    object JsonSchema { get;  init; }
-    bool LogFullRequest { get;  init; }
-    bool LogFullResponse { get;  init; }
-    int MaxOutputTokens { get;  init; }
-    ImmutableList<MessageBlock> Messages { get;  init; }
-    ReasoningEffort ReasoningEffort { get;  init; }
-    int ReasoningTokenBudget { get;  init; }
-    double Temperature { get;  init; }
-    TimeSpan Timeout { get;  init; }
-    string ToolPlan { get;  init; }
-    bool UseAudioOutput { get;  init; }
-    bool UseCaching { get;  init; }
-    bool UseCitations { get;  init; }
-    bool UseJson { get;  init; }
-    bool UseStreaming { get;  init; }
-    bool UseUserNames { get;  init; }
+    string AudioOutputVoiceId { get; init; }
+    bool DisableFunctionCalling { get; init; }
+    bool DiscardTextOutputWithFunctionCalls { get; init; }
+    ImmutableDictionary<string, Function> Functions { get; init; }
+    string GbnfGrammar { get; init; }
+    ImmutableList<Instruction> Instructions { get; init; }
+    object JsonSchema { get; init; }
+    bool LogFullRequest { get; init; }
+    bool LogFullResponse { get; init; }
+    int MaxOutputTokens { get; init; }
+    ImmutableList<MessageBlock> Messages { get; init; }
+    ReasoningEffort ReasoningEffort { get; init; }
+    int ReasoningTokenBudget { get; init; }
+    double Temperature { get; init; }
+    TimeSpan Timeout { get; init; }
+    string ToolPlan { get; init; }
+    bool UseAudioOutput { get; init; }
+    bool UseCaching { get; init; }
+    bool UseCitations { get; init; }
+    bool UseJson { get; init; }
+    bool UseStreaming { get; init; }
+    bool UseUserNames { get; init; }
     KernelContext Add(Instruction instruction)
     KernelContext Add(MessageBlock message)
     static KernelContext Create(IEnumerable<Instruction> instructions = null, IEnumerable<MessageBlock> messages = null, IEnumerable<Function> functions = null, TimeSpan? timeout = null, double? temperature = null, int? maxOutputTokens = null, ReasoningEffort? reasoningEffort = null, int? reasoningTokenBudget = null, bool? useStreaming = null, bool? useJson = null, bool? useCitations = null, bool? useUserNames = null, bool? useAudioOutput = null, string audioOutputVoiceId = null, bool? useCaching = null, bool? disableFunctionCalling = null, bool? discardTextOutputWithFunctionCalls = null, bool? logFullRequest = null, bool? logFullResponse = null, object jsonSchema = null, string gbnfGrammar = null, string toolPlan = null)
     IAsyncEnumerable<StreamingResult> GenerateAsync(ILLM llm, CancellationToken cancellationToken = null)
     KernelContext KeepMessagesMax(int count)
     IAsyncEnumerable<StreamingResult> RecurseAsync(IAsyncEnumerable<StreamingResult> generator, HashSet<string> alreadyCalledFunctions)
-    IAsyncEnumerable<StreamingResult> ReturnFunctionCallAsync(string name, string parametersJson, string callId, string thoughtSignature = "")
+    IAsyncEnumerable<StreamingResult> ReturnFunctionCallAsync(string name, string parametersJson, string callId, string thoughtSignature = "", string reasoningContent = "")
     IAsyncEnumerable<StreamingResult> RunFunctionAsync(string functionName, object[] parameters, CancellationToken cancellationToken = null)
     KernelContext WithFunctions(IEnumerable<Function> functions, bool replaceExisting = false)
   struct MessageBlock
@@ -570,6 +578,7 @@ namespace Ikon.AI.Kernel
     AudioId
     Video
     VideoUrl
+    VideoAsset
     Pdf
     PdfUrl
     FunctionResult
@@ -597,6 +606,9 @@ namespace Ikon.AI.Kernel
     Low
     Medium
     High
+  enum SchemaDialect
+    JsonSchema202012
+    OpenApi30
   struct StreamingResult
     ctor(object value, string sourceName, string valueTypeName = null)
     string SourceName { get; }
@@ -614,6 +626,11 @@ namespace Ikon.AI.Kernel
   class ToolPlan
     ctor(string text)
     string Text { get; }
+  struct VideoAssetPart : IMessagePart
+    ctor(AssetUri uri, string mimeType = null)
+    string MimeType { get; }
+    MessagePartType Type { get; }
+    AssetUri Uri { get; }
   struct VideoPart : IMessagePart
     ctor(byte[] content, string mimeType)
     byte[] Content { get; }
@@ -631,6 +648,7 @@ namespace Ikon.AI.LLM
   interface ILLMInfo
     int ContextWindowSize { get; }
     string InlineReasoningTagName { get; }
+    SchemaDialect SchemaDialect { get; }
     bool SupportsGbnfGrammar { get; }
     bool SupportsInputAudio { get; }
     bool SupportsInputImages { get; }
@@ -647,6 +665,7 @@ namespace Ikon.AI.LLM
     ctor(LLMModel model, IReadOnlyList<ModelRegion> regions = null)
     int ContextWindowSize { get; }
     string InlineReasoningTagName { get; }
+    SchemaDialect SchemaDialect { get; }
     bool SupportsGbnfGrammar { get; }
     bool SupportsInputAudio { get; }
     bool SupportsInputImages { get; }
@@ -665,78 +684,79 @@ namespace Ikon.AI.LLM
     static IReadOnlyList<ModelRegion> GetSupportedRegions(LLMModel model)
   sealed class LLMCapabilities : ILLMInfo
     ctor()
-    int ContextWindowSize { get;  init; }
-    string InlineReasoningTagName { get;  init; }
-    bool SupportsGbnfGrammar { get;  init; }
-    bool SupportsInputAudio { get;  init; }
-    bool SupportsInputImages { get;  init; }
-    bool SupportsInputPdf { get;  init; }
-    bool SupportsInputVideo { get;  init; }
-    bool SupportsJsonSchema { get;  init; }
-    bool SupportsOutputAudio { get;  init; }
-    bool SupportsParallelToolCalling { get;  init; }
-    bool SupportsReasoning { get;  init; }
-    bool SupportsStreaming { get;  init; }
-    bool UsesInlineReasoning { get;  init; }
+    int ContextWindowSize { get; init; }
+    string InlineReasoningTagName { get; init; }
+    SchemaDialect SchemaDialect { get; init; }
+    bool SupportsGbnfGrammar { get; init; }
+    bool SupportsInputAudio { get; init; }
+    bool SupportsInputImages { get; init; }
+    bool SupportsInputPdf { get; init; }
+    bool SupportsInputVideo { get; init; }
+    bool SupportsJsonSchema { get; init; }
+    bool SupportsOutputAudio { get; init; }
+    bool SupportsParallelToolCalling { get; init; }
+    bool SupportsReasoning { get; init; }
+    bool SupportsStreaming { get; init; }
+    bool UsesInlineReasoning { get; init; }
   enum LLMModel
-    Gpt4Omni
     Gpt4OmniMini
-    Gpt4OmniAudio
     Gpt41
     Gpt41Mini
-    Gpt41Nano
     Gpt5
     Gpt5Mini
     Gpt5Nano
     Gpt51
     Gpt52
-    Gpt5Codex
-    Gpt51Codex
-    Gpt51CodexMax
-    Gpt52Codex
     Gpt5Pro
     Gpt52Pro
+    Gpt53Codex
     Gpt54
+    Gpt54Mini
+    Gpt54Nano
     Gpt54Pro
+    Gpt55
+    Gpt55Pro
     O3
-    O3Mini
     O3Pro
-    O4Mini
     Claude41Opus
     Claude45Haiku
     Claude45Sonnet
     Claude45Opus
     Claude46Opus
     Claude46Sonnet
-    Gemini20Flash
-    Gemini20FlashLite
+    Claude47Opus
     Gemini25Flash
+    Gemini25FlashLite
     Gemini25Pro
     Gemini3Flash
     Gemini31Pro
     Gemini31FlashLite
-    Grok4
-    Grok4Fast
-    GrokCodeFast1
+    Grok420Reasoning
+    Grok420NonReasoning
+    Grok41FastReasoning
+    Grok41FastNonReasoning
     MistralSmall
     MistralMedium
     MistralLarge
     MagistralSmall
     MagistralMedium
-    PixtralLarge
     Codestral
-    DevstralSmall
-    DevstralMedium
+    Devstral2
     CommandR
     CommandA
-    KimiK2Thinking
-    KimiK2
+    CommandAReasoning
     KimiK25
+    KimiK26
+    Qwen36
     GptOss120B
     Glm47
     Glm5
+    Glm51
     MiniMaxM25
+    MiniMaxM27
     DeepSeekV32
+    DeepSeekV4Pro
+    DeepSeekV4Flash
     NovaPro
     NovaLite
     NovaMicro
@@ -749,10 +769,10 @@ namespace Ikon.AI.Legacy
     ctor()
     Context CurrentUserClientContext { get; }
     string CurrentUserLocale { get; }
-    string DefaultModelName { get;  set; }
-    string DefaultSecondaryModelName { get;  set; }
-    string DefaultUserLocale { get;  set; }
-    string DefaultUserName { get;  set; }
+    string DefaultModelName { get; set; }
+    string DefaultSecondaryModelName { get; set; }
+    string DefaultUserLocale { get; set; }
+    string DefaultUserName { get; set; }
     KernelContext KernelContext { get; }
     Task AddModelInput(string text, bool isHistory = false)
     Task AddUserInput(Context clientContext, string userName, string userLocale, IReadOnlyList<object> inputs, bool isHistory = false)
@@ -796,9 +816,9 @@ namespace Ikon.AI.Legacy
     double MaxUserMessagesRateWindow
   class MindResult
     ctor()
-    string AudioId { get;  set; }
-    string ModelMessage { get;  set; }
-    string TextResponse { get;  set; }
+    string AudioId { get; set; }
+    string ModelMessage { get; set; }
+    string TextResponse { get; set; }
   class Mind.ShaderLoadResult
     ctor()
     string ErrorMessage
@@ -818,17 +838,17 @@ namespace Ikon.AI.OCR
     static IReadOnlyList<ModelRegion> GetSupportedRegions(OCRModel model)
   sealed class OCRBoundingBox
     ctor()
-    int PageNumber { get;  init; }
-    List<float> Polygon { get;  init; }
+    int PageNumber { get; init; }
+    List<float> Polygon { get; init; }
   sealed class OCRCapabilities
     ctor()
   sealed class OCRConfig
     ctor()
-    AssetUri? AssetUri { get;  set; }
-    byte[] Data { get;  set; }
-    DocumentType DocumentType { get;  set; }
-    TimeSpan Timeout { get;  set; }
-    string Url { get;  set; }
+    AssetUri? AssetUri { get; set; }
+    byte[] Data { get; set; }
+    DocumentType DocumentType { get; set; }
+    TimeSpan Timeout { get; set; }
+    string Url { get; set; }
   enum OCRModel
     AzureDocumentIntelligence
     MistralOCR
@@ -836,25 +856,25 @@ namespace Ikon.AI.OCR
     static string DisplayName(OCRModel model)
   sealed class OCRPage
     ctor()
-    float Height { get;  init; }
-    int PageNumber { get;  init; }
-    string Unit { get;  init; }
-    float Width { get;  init; }
+    float Height { get; init; }
+    int PageNumber { get; init; }
+    string Unit { get; init; }
+    float Width { get; init; }
   sealed class OCRParagraph
     ctor()
-    List<OCRBoundingBox> BoundingRegions { get;  init; }
-    string Content { get;  init; }
+    List<OCRBoundingBox> BoundingRegions { get; init; }
+    string Content { get; init; }
   sealed class OCRResult
     ctor()
-    List<OCRPage> Pages { get;  init; }
-    List<OCRParagraph> Paragraphs { get;  init; }
-    string Text { get;  init; }
-    List<OCRWord> Words { get;  init; }
+    List<OCRPage> Pages { get; init; }
+    List<OCRParagraph> Paragraphs { get; init; }
+    string Text { get; init; }
+    List<OCRWord> Words { get; init; }
   sealed class OCRWord
     ctor()
-    OCRBoundingBox BoundingBox { get;  init; }
-    float Confidence { get;  init; }
-    string Content { get;  init; }
+    OCRBoundingBox BoundingBox { get; init; }
+    float Confidence { get; init; }
+    string Content { get; init; }
 
 namespace Ikon.AI.Policy
   sealed class CreditLimitChecker : IUsageLimitChecker
@@ -866,8 +886,8 @@ namespace Ikon.AI.Reranking
     abstract Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, int topN = 0, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
   sealed class RerankItem
     ctor()
-    int Index { get;  init; }
-    double Score { get;  init; }
+    int Index { get; init; }
+    double Score { get; init; }
   enum RerankModel
     CohereRerank4Fast
     CohereRerank4Pro
@@ -909,38 +929,38 @@ namespace Ikon.AI.Retrieving
     List<string> Segments
   class Retriever.ContentMetadata
     ctor()
-    DateTime CreatedAt { get;  set; }
-    string DocumentTitle { get;  set; }
-    string OriginalName { get;  set; }
-    string OriginalPath { get;  set; }
-    int PageNumber { get;  set; }
-    List<int> PageNumbers { get;  set; }
-    List<string> TitleHierarchy { get;  set; }
-    DateTime UpdatedAt { get;  set; }
+    DateTime CreatedAt { get; set; }
+    string DocumentTitle { get; set; }
+    string OriginalName { get; set; }
+    string OriginalPath { get; set; }
+    int PageNumber { get; set; }
+    List<int> PageNumbers { get; set; }
+    List<string> TitleHierarchy { get; set; }
+    DateTime UpdatedAt { get; set; }
   class Retriever.Event
     ctor()
-    DateTime Date { get;  set; }
-    string Description { get;  set; }
+    DateTime Date { get; set; }
+    string Description { get; set; }
     override string ToString()
     ContentLink Source
   class Retriever.GetContentsOptions
     ctor()
-    string ContentPostfixes { get;  set; }
-    float CumulativeScoreThreshold { get;  set; }
-    int HitCountThreshold { get;  set; }
-    int MaxContentCount { get;  set; }
-    int MaxSearchResults { get;  set; }
-    int MinContentCount { get;  set; }
-    float SearchThreshold { get;  set; }
-    bool UseCumulativeScore { get;  set; }
-    bool UseIdMapper { get;  set; }
+    string ContentPostfixes { get; set; }
+    float CumulativeScoreThreshold { get; set; }
+    int HitCountThreshold { get; set; }
+    int MaxContentCount { get; set; }
+    int MaxSearchResults { get; set; }
+    int MinContentCount { get; set; }
+    float SearchThreshold { get; set; }
+    bool UseCumulativeScore { get; set; }
+    bool UseIdMapper { get; set; }
   class Retriever.GetContentsOptions2
     ctor()
-    bool IncludeFullTexts { get;  set; }
-    int MaxRerankResults { get;  set; }
-    int MaxSearchResults { get;  set; }
-    double RerankThreshold { get;  set; }
-    float SearchThreshold { get;  set; }
+    bool IncludeFullTexts { get; set; }
+    int MaxRerankResults { get; set; }
+    int MaxSearchResults { get; set; }
+    double RerankThreshold { get; set; }
+    float SearchThreshold { get; set; }
   class IdMapper
     ctor(IdMappingType mappingType = None, int randomHexLength = 8, int randomLettersLength = 8, int integerCounter = 0, int? seed = null)
     string ToMapped(string original)
@@ -985,10 +1005,10 @@ namespace Ikon.AI.Retrieving
 namespace Ikon.AI.Shader
   class Actions
     ctor()
-    ScriptableStringValue AfterPass { get;  set; }
-    ScriptableStringValue AfterShader { get;  set; }
-    ScriptableStringValue BeforePass { get;  set; }
-    ScriptableStringValue BeforeShader { get;  set; }
+    ScriptableStringValue AfterPass { get; set; }
+    ScriptableStringValue AfterShader { get; set; }
+    ScriptableStringValue BeforePass { get; set; }
+    ScriptableStringValue BeforeShader { get; set; }
     Dictionary<string, ScriptableStringValue> Listeners
   class FunctionDetailsDictionaryConverter<T> : JsonConverter where T : new(), IFunctionDetails
     ctor()
@@ -997,10 +1017,10 @@ namespace Ikon.AI.Shader
     override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
   class History
     ctor()
-    ScriptableValue<int> Max { get;  set; }
-    ScriptableValue<int> Skip { get;  set; }
+    ScriptableValue<int> Max { get; set; }
+    ScriptableValue<int> Skip { get; set; }
   interface IFunctionDetails
-    ScriptableValue<bool> Select { get;  set; }
+    ScriptableValue<bool> Select { get; set; }
   interface IScriptContext
     abstract void AddFilter(string name, KernelContext context, Function function)
     abstract void AddFunction(string name, KernelContext context, Function function)
@@ -1029,90 +1049,90 @@ namespace Ikon.AI.Shader
     Task<Shader> GetShaderAsync()
   class Intent
     ctor()
-    History History { get;  set; }
-    string Id { get;  set; }
-    Dictionary<string, object> Input { get;  set; }
-    Misc Misc { get;  set; }
-    Model Model { get;  set; }
-    List<Pass> Passes { get;  set; }
-    ScriptableValue<bool> Select { get;  set; }
+    History History { get; set; }
+    string Id { get; set; }
+    Dictionary<string, object> Input { get; set; }
+    Misc Misc { get; set; }
+    Model Model { get; set; }
+    List<Pass> Passes { get; set; }
+    ScriptableValue<bool> Select { get; set; }
   class JTokenConverter
     ctor()
     static object ConvertJTokenToObject(JToken token)
   class Misc
     ctor()
-    ScriptableStringValue CitationInsertionCommand { get;  set; }
-    ScriptableStringValue CitationUserMessageExtension { get;  set; }
-    List<string> FailClassificationLabels { get;  set; }
-    ScriptableStringValue FailureMessage { get;  set; }
-    ScriptableValue<bool> InsertCitationsBackToModelMessage { get;  set; }
-    ScriptableValue<bool> UseTrimming { get;  set; }
+    ScriptableStringValue CitationInsertionCommand { get; set; }
+    ScriptableStringValue CitationUserMessageExtension { get; set; }
+    List<string> FailClassificationLabels { get; set; }
+    ScriptableStringValue FailureMessage { get; set; }
+    ScriptableValue<bool> InsertCitationsBackToModelMessage { get; set; }
+    ScriptableValue<bool> UseTrimming { get; set; }
   class Model
     ctor()
-    ScriptableStringValue AudioOutputVoiceId { get;  set; }
-    ScriptableValue<int> CharsPerSecond { get;  set; }
-    ScriptableValue<int> CharsPerUpdate { get;  set; }
-    ScriptableValue<bool> DisableFunctionCalling { get;  set; }
-    ScriptableValue<bool> DiscardTextOutputWithFunctionCalls { get;  set; }
-    ScriptableValue<bool> ForceCitations { get;  set; }
-    ScriptableStringValue GbnfGrammar { get;  set; }
-    ExpandoObject JsonSchema { get;  set; }
-    ScriptableStringValue JsonSchemaString { get;  set; }
-    ScriptableValue<bool> LogFullRequest { get;  set; }
-    ScriptableValue<bool> LogRenderedShader { get;  set; }
-    ScriptableValue<int> MaxOutputTokens { get;  set; }
-    ScriptableValue<int> MaxRecursionDepth { get;  set; }
-    ScriptableStringValue Name { get;  set; }
-    ScriptableStringValue ReasoningEffort { get;  set; }
-    ScriptableValue<int> ReasoningTokenBudget { get;  set; }
-    List<ModelRegion> Regions { get;  set; }
-    ScriptableValue<int> RequestTimeoutSeconds { get;  set; }
-    ScriptableValue<double> Temperature { get;  set; }
-    List<Transform> Transforms { get;  set; }
-    ScriptableValue<bool> UseAudioOutput { get;  set; }
-    ScriptableValue<bool> UseCaching { get;  set; }
-    ScriptableValue<bool> UseCitations { get;  set; }
-    ScriptableValue<bool> UseJson { get;  set; }
-    ScriptableValue<bool> UseStreaming { get;  set; }
-    ScriptableValue<bool> UseThrottling { get;  set; }
-    ScriptableValue<bool> UseUserNames { get;  set; }
+    ScriptableStringValue AudioOutputVoiceId { get; set; }
+    ScriptableValue<int> CharsPerSecond { get; set; }
+    ScriptableValue<int> CharsPerUpdate { get; set; }
+    ScriptableValue<bool> DisableFunctionCalling { get; set; }
+    ScriptableValue<bool> DiscardTextOutputWithFunctionCalls { get; set; }
+    ScriptableValue<bool> ForceCitations { get; set; }
+    ScriptableStringValue GbnfGrammar { get; set; }
+    ExpandoObject JsonSchema { get; set; }
+    ScriptableStringValue JsonSchemaString { get; set; }
+    ScriptableValue<bool> LogFullRequest { get; set; }
+    ScriptableValue<bool> LogRenderedShader { get; set; }
+    ScriptableValue<int> MaxOutputTokens { get; set; }
+    ScriptableValue<int> MaxRecursionDepth { get; set; }
+    ScriptableStringValue Name { get; set; }
+    ScriptableStringValue ReasoningEffort { get; set; }
+    ScriptableValue<int> ReasoningTokenBudget { get; set; }
+    List<ModelRegion> Regions { get; set; }
+    ScriptableValue<int> RequestTimeoutSeconds { get; set; }
+    ScriptableValue<double> Temperature { get; set; }
+    List<Transform> Transforms { get; set; }
+    ScriptableValue<bool> UseAudioOutput { get; set; }
+    ScriptableValue<bool> UseCaching { get; set; }
+    ScriptableValue<bool> UseCitations { get; set; }
+    ScriptableValue<bool> UseJson { get; set; }
+    ScriptableValue<bool> UseStreaming { get; set; }
+    ScriptableValue<bool> UseThrottling { get; set; }
+    ScriptableValue<bool> UseUserNames { get; set; }
   class ModelFunctionDetails : IFunctionDetails
     ctor()
-    ScriptableStringValue Call { get;  set; }
-    ScriptableValue<bool> CallOnlyOnce { get;  set; }
-    ScriptableStringValue Description { get;  set; }
-    ScriptableValue<bool> InlineCall { get;  set; }
-    Dictionary<string, ParameterDetails> Parameters { get;  set; }
-    ScriptableStringValue Process { get;  set; }
-    ScriptableValue<bool> Select { get;  set; }
-    ScriptableStringValue Use { get;  set; }
+    ScriptableStringValue Call { get; set; }
+    ScriptableValue<bool> CallOnlyOnce { get; set; }
+    ScriptableStringValue Description { get; set; }
+    ScriptableValue<bool> InlineCall { get; set; }
+    Dictionary<string, ParameterDetails> Parameters { get; set; }
+    ScriptableStringValue Process { get; set; }
+    ScriptableValue<bool> Select { get; set; }
+    ScriptableStringValue Use { get; set; }
   class Output
     ctor()
-    ScriptableStringValue AfterPass { get;  set; }
-    ScriptableStringValue AfterShader { get;  set; }
-    ScriptableStringValue BeforePass { get;  set; }
-    ScriptableStringValue BeforeShader { get;  set; }
+    ScriptableStringValue AfterPass { get; set; }
+    ScriptableStringValue AfterShader { get; set; }
+    ScriptableStringValue BeforePass { get; set; }
+    ScriptableStringValue BeforeShader { get; set; }
   class ParameterDetails
     ctor()
-    object DefaultValue { get;  set; }
-    ScriptableStringValue Description { get;  set; }
-    ScriptableValue<bool> HasDefaultValue { get;  set; }
-    ScriptableStringValue Type { get;  set; }
-    ScriptableStringValue Use { get;  set; }
+    object DefaultValue { get; set; }
+    ScriptableStringValue Description { get; set; }
+    ScriptableValue<bool> HasDefaultValue { get; set; }
+    ScriptableStringValue Type { get; set; }
+    ScriptableStringValue Use { get; set; }
   class Pass
     ctor()
-    Actions Actions { get;  set; }
-    ScriptableStringValue Command { get;  set; }
-    ScriptableStringValue Context { get;  set; }
-    History History { get;  set; }
-    string Id { get;  set; }
-    Dictionary<string, object> Input { get;  set; }
-    Misc Misc { get;  set; }
-    Model Model { get;  set; }
-    Dictionary<string, ModelFunctionDetails> ModelFunctions { get;  set; }
-    Output Output { get;  set; }
-    ScriptableValue<bool> Select { get;  set; }
-    Dictionary<string, TemplateFunctionDetails> TemplateFunctions { get;  set; }
+    Actions Actions { get; set; }
+    ScriptableStringValue Command { get; set; }
+    ScriptableStringValue Context { get; set; }
+    History History { get; set; }
+    string Id { get; set; }
+    Dictionary<string, object> Input { get; set; }
+    Misc Misc { get; set; }
+    Model Model { get; set; }
+    Dictionary<string, ModelFunctionDetails> ModelFunctions { get; set; }
+    Output Output { get; set; }
+    ScriptableValue<bool> Select { get; set; }
+    Dictionary<string, TemplateFunctionDetails> TemplateFunctions { get; set; }
   class ScriptableStringDictionaryConverter : JsonConverter
     ctor()
     override bool CanConvert(Type objectType)
@@ -1151,20 +1171,20 @@ namespace Ikon.AI.Shader
     event EventHandler<string> RenderedShader
   class ShaderCache : AsyncLocalInstance<ShaderCache>
     ctor()
-    string DefaultSpaceId { get;  set; }
+    string DefaultSpaceId { get; set; }
     ShaderCache.ImplicitShader GetImplicitShader(string callerFilePath = "")
   class ShaderConfig
     ctor()
     static object Default { get; }
-    History History { get;  set; }
-    Dictionary<string, object> Input { get;  set; }
-    List<Intent> Intents { get;  set; }
-    ScriptableValue<int> MaxLogLineLength { get;  set; }
-    ScriptableValue<int> MaxLogSectionLineCount { get;  set; }
-    Misc Misc { get;  set; }
-    Model Model { get;  set; }
-    string ShaderLanguage { get;  set; }
-    int? ShaderVersion { get;  set; }
+    History History { get; set; }
+    Dictionary<string, object> Input { get; set; }
+    List<Intent> Intents { get; set; }
+    ScriptableValue<int> MaxLogLineLength { get; set; }
+    ScriptableValue<int> MaxLogSectionLineCount { get; set; }
+    Misc Misc { get; set; }
+    Model Model { get; set; }
+    string ShaderLanguage { get; set; }
+    int? ShaderVersion { get; set; }
   class ShaderInvocationContext
     ctor()
     string FailureMessage { get; }
@@ -1175,20 +1195,20 @@ namespace Ikon.AI.Shader
     int GetHashCode(string obj)
   class TemplateFunctionDetails : IFunctionDetails
     ctor()
-    ScriptableStringValue Name { get;  set; }
-    ScriptableValue<bool> Select { get;  set; }
+    ScriptableStringValue Name { get; set; }
+    ScriptableValue<bool> Select { get; set; }
   class Shader.TemplateMessage
     ctor()
-    string Content { get;  set; }
-    string Role { get;  set; }
+    string Content { get; set; }
+    string Role { get; set; }
   class Transform
     ctor()
-    Dictionary<string, object> Config { get;  set; }
-    ScriptableStringValue Name { get;  set; }
-    ScriptableValue<bool> ProcessInput { get;  set; }
-    ScriptableValue<bool> ProcessOutput { get;  set; }
-    ScriptableValue<int> WindowOverlap { get;  set; }
-    ScriptableValue<int> WindowSize { get;  set; }
+    Dictionary<string, object> Config { get; set; }
+    ScriptableStringValue Name { get; set; }
+    ScriptableValue<bool> ProcessInput { get; set; }
+    ScriptableValue<bool> ProcessOutput { get; set; }
+    ScriptableValue<int> WindowOverlap { get; set; }
+    ScriptableValue<int> WindowSize { get; set; }
 
 namespace Ikon.AI.Shader.Scriban
   class ScribanScriptEngine : IScriptEngine
@@ -1204,9 +1224,9 @@ namespace Ikon.AI.SoundEffectGeneration
   interface ISoundEffectGeneratorInfo
     bool SupportsLooping { get; }
   sealed class SoundEffectFileResult
-    byte[] AudioData { get;  init; }
-    string ContentType { get;  init; }
-    double DurationSeconds { get;  init; }
+    byte[] AudioData { get; init; }
+    string ContentType { get; init; }
+    double DurationSeconds { get; init; }
   sealed class SoundEffectGenerator : IDisposable, ISoundEffectGenerator, ISoundEffectGeneratorInfo
     ctor(string modelName, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
     ctor(SoundEffectGeneratorModel model, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
@@ -1222,13 +1242,13 @@ namespace Ikon.AI.SoundEffectGeneration
     static IReadOnlyList<ModelRegion> GetSupportedRegions(SoundEffectGeneratorModel model)
   sealed class SoundEffectGeneratorCapabilities : ISoundEffectGeneratorInfo
     ctor()
-    bool SupportsLooping { get;  init; }
+    bool SupportsLooping { get; init; }
   sealed class SoundEffectGeneratorConfig
-    double? DurationSeconds { get;  set; }
-    bool Loop { get;  set; }
-    string Prompt { get;  set; }
-    double PromptInfluence { get;  set; }
-    TimeSpan Timeout { get;  set; }
+    double? DurationSeconds { get; set; }
+    bool Loop { get; set; }
+    string Prompt { get; set; }
+    double PromptInfluence { get; set; }
+    TimeSpan Timeout { get; set; }
   enum SoundEffectGeneratorModel
     ElevenLabsV2
   static class SoundEffectGeneratorModelExtensions
@@ -1237,10 +1257,10 @@ namespace Ikon.AI.SoundEffectGeneration
 namespace Ikon.AI.SpeechGeneration
   sealed class TextFilter.Config
     ctor()
-    int MaxTextLength { get;  set; }
-    bool RemoveEmojis { get;  set; }
-    bool SimplifyUrls { get;  set; }
-    bool SpeakOnlyFirstParagraph { get;  set; }
+    int MaxTextLength { get; set; }
+    bool RemoveEmojis { get; set; }
+    bool SimplifyUrls { get; set; }
+    bool SpeakOnlyFirstParagraph { get; set; }
   interface ISpeechGenerator : IDisposable
     int ChannelCount { get; }
     int SampleRate { get; }
@@ -1263,12 +1283,12 @@ namespace Ikon.AI.SpeechGeneration
     ctor()
   sealed class SpeechGeneratorConfig
     ctor()
-    string Instructions { get;  set; }
-    string Language { get;  set; }
-    string Speed { get;  set; }
-    string Text { get;  set; }
-    TimeSpan Timeout { get;  set; }
-    string VoiceId { get;  set; }
+    string Instructions { get; set; }
+    string Language { get; set; }
+    string Speed { get; set; }
+    string Text { get; set; }
+    TimeSpan Timeout { get; set; }
+    string VoiceId { get; set; }
   static class SpeechGeneratorExtensions
     static Task StreamSpeechAsync(ISpeechGenerator speechGenerator, SpeechGeneratorConfig config, Func<AudioContainer, Task> onAudio, CancellationToken cancellationToken = null)
   enum SpeechGeneratorModel
@@ -1293,29 +1313,29 @@ namespace Ikon.AI.SpeechGeneration
 namespace Ikon.AI.SpeechRecognition
   sealed class AnalyzePronunciationConfig
     ctor()
-    int ChannelCount { get;  set; }
-    string Language { get;  set; }
-    string ReferenceText { get;  set; }
-    int SampleRate { get;  set; }
-    float[] Samples { get;  set; }
-    TimeSpan Timeout { get;  set; }
+    int ChannelCount { get; set; }
+    string Language { get; set; }
+    string ReferenceText { get; set; }
+    int SampleRate { get; set; }
+    float[] Samples { get; set; }
+    TimeSpan Timeout { get; set; }
   sealed class Pronunciation.Break
     ctor()
-    int BreakLength { get;  init; }
-    List<string> ErrorTypes { get;  init; }
-    Pronunciation.MissingBreak MissingBreak { get;  init; }
-    Pronunciation.UnexpectedBreak UnexpectedBreak { get;  init; }
+    int BreakLength { get; init; }
+    List<string> ErrorTypes { get; init; }
+    Pronunciation.MissingBreak MissingBreak { get; init; }
+    Pronunciation.UnexpectedBreak UnexpectedBreak { get; init; }
   sealed class SpeechRecognizerAdapter.Config
     ctor()
-    TimeSpan MaxSpeechDuration { get;  set; }
-    SpeechRecognizerAdapter.Mode Mode { get;  set; }
-    TimeSpan RecognitionInterval { get;  set; }
-    TimeSpan RequestTimeout { get;  set; }
-    TimeSpan SilenceDuration { get;  set; }
-    float SilenceThreshold { get;  set; }
+    TimeSpan MaxSpeechDuration { get; set; }
+    SpeechRecognizerAdapter.Mode Mode { get; set; }
+    TimeSpan RecognitionInterval { get; set; }
+    TimeSpan RequestTimeout { get; set; }
+    TimeSpan SilenceDuration { get; set; }
+    float SilenceThreshold { get; set; }
   sealed class Pronunciation.Feedback
     ctor()
-    Pronunciation.Prosody Prosody { get;  init; }
+    Pronunciation.Prosody Prosody { get; init; }
   interface ISpeechRecognizer : IDisposable, ISpeechRecognizerInfo
     int ChannelCount { get; }
     int SampleRate { get; }
@@ -1328,73 +1348,73 @@ namespace Ikon.AI.SpeechRecognition
     bool SupportsPronunciationAnalysis { get; }
   sealed class Pronunciation.Intonation
     ctor()
-    List<string> ErrorTypes { get;  init; }
-    Pronunciation.Monotone Monotone { get;  init; }
+    List<string> ErrorTypes { get; init; }
+    Pronunciation.Monotone Monotone { get; init; }
   sealed class Pronunciation.MissingBreak
     ctor()
-    double Confidence { get;  init; }
+    double Confidence { get; init; }
   enum SpeechRecognizerAdapter.Mode
     GrowingWindow
     SlidingWindow
     SilenceTriggered
   sealed class Pronunciation.Monotone
     ctor()
-    double SyllablePitchDeltaConfidence { get;  init; }
+    double SyllablePitchDeltaConfidence { get; init; }
   sealed class Pronunciation.NBest
     ctor()
-    double Confidence { get;  init; }
-    string Display { get;  init; }
-    string ITN { get;  init; }
-    string Lexical { get;  init; }
-    string MaskedITN { get;  init; }
-    Pronunciation.PronunciationAssessment PronunciationAssessment { get;  init; }
-    List<Pronunciation.Word> Words { get;  init; }
+    double Confidence { get; init; }
+    string Display { get; init; }
+    string ITN { get; init; }
+    string Lexical { get; init; }
+    string MaskedITN { get; init; }
+    Pronunciation.PronunciationAssessment PronunciationAssessment { get; init; }
+    List<Pronunciation.Word> Words { get; init; }
   sealed class Pronunciation.Phoneme
     ctor()
-    long Duration { get;  init; }
-    long Offset { get;  init; }
-    Pronunciation.PhonemePronunciationAssessment PronunciationAssessment { get;  init; }
-    string Text { get;  init; }
+    long Duration { get; init; }
+    long Offset { get; init; }
+    Pronunciation.PhonemePronunciationAssessment PronunciationAssessment { get; init; }
+    string Text { get; init; }
   sealed class Pronunciation.PhonemePronunciationAssessment
     ctor()
-    double AccuracyScore { get;  init; }
+    double AccuracyScore { get; init; }
   static class Pronunciation
   sealed class Pronunciation.PronunciationAssessment
     ctor()
-    double AccuracyScore { get;  init; }
-    double CompletenessScore { get;  init; }
-    double FluencyScore { get;  init; }
-    double PronScore { get;  init; }
-    double ProsodyScore { get;  init; }
+    double AccuracyScore { get; init; }
+    double CompletenessScore { get; init; }
+    double FluencyScore { get; init; }
+    double PronScore { get; init; }
+    double ProsodyScore { get; init; }
   sealed class Pronunciation.Prosody
     ctor()
-    Pronunciation.Break Break { get;  init; }
-    Pronunciation.Intonation Intonation { get;  init; }
+    Pronunciation.Break Break { get; init; }
+    Pronunciation.Intonation Intonation { get; init; }
   sealed class RecognizeContinuousSpeechConfig
     ctor()
-    string[] CandidateLanguages { get;  set; }
-    int ChannelCount { get;  set; }
-    string Language { get;  set; }
-    int SampleRate { get;  set; }
+    string[] CandidateLanguages { get; set; }
+    int ChannelCount { get; set; }
+    string Language { get; set; }
+    int SampleRate { get; set; }
   sealed class RecognizeSpeechConfig
     ctor()
-    int ChannelCount { get;  set; }
-    string Language { get;  set; }
-    string Prompt { get;  set; }
-    int SampleRate { get;  set; }
-    float[] Samples { get;  set; }
-    double Temperature { get;  set; }
-    TimeSpan Timeout { get;  set; }
+    int ChannelCount { get; set; }
+    string Language { get; set; }
+    string Prompt { get; set; }
+    int SampleRate { get; set; }
+    float[] Samples { get; set; }
+    double Temperature { get; set; }
+    TimeSpan Timeout { get; set; }
   sealed class Pronunciation.Result
     ctor()
-    int Channel { get;  init; }
-    string DisplayText { get;  init; }
-    long Duration { get;  init; }
-    string Id { get;  init; }
-    List<Pronunciation.NBest> NBest { get;  init; }
-    long Offset { get;  init; }
-    string RecognitionStatus { get;  init; }
-    double SNR { get;  init; }
+    int Channel { get; init; }
+    string DisplayText { get; init; }
+    long Duration { get; init; }
+    string Id { get; init; }
+    List<Pronunciation.NBest> NBest { get; init; }
+    long Offset { get; init; }
+    string RecognitionStatus { get; init; }
+    double SNR { get; init; }
   sealed class SpeechRecognizer : IDisposable, ISpeechRecognizer, ISpeechRecognizerInfo
     ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
     ctor(SpeechRecognizerModel model, IReadOnlyList<ModelRegion> regions = null)
@@ -1422,9 +1442,9 @@ namespace Ikon.AI.SpeechRecognition
     IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = null)
   sealed class SpeechRecognizerCapabilities : ISpeechRecognizerInfo
     ctor()
-    bool SupportsBatchRecognition { get;  init; }
-    bool SupportsContinuousRecognition { get;  init; }
-    bool SupportsPronunciationAnalysis { get;  init; }
+    bool SupportsBatchRecognition { get; init; }
+    bool SupportsContinuousRecognition { get; init; }
+    bool SupportsPronunciationAnalysis { get; init; }
   enum SpeechRecognizerModel
     AzureSpeechService
     Whisper2
@@ -1433,36 +1453,38 @@ namespace Ikon.AI.SpeechRecognition
     Gpt4OmniTranscribe
     Gpt4OmniMiniTranscribe
     DeepgramNova3General
-    AssemblyAIUniversalStreaming
+    AssemblyAIUniversal3ProStreaming
+    AssemblyAIUniversalStreamingEnglish
+    AssemblyAIUniversalStreamingMultilingual
     VoxtralMiniTranscribe2
   static class SpeechRecognizerModelExtensions
     static string DisplayName(SpeechRecognizerModel model)
   sealed class Pronunciation.Syllable
     ctor()
-    long Duration { get;  init; }
-    string Grapheme { get;  init; }
-    long Offset { get;  init; }
-    Pronunciation.SyllablePronunciationAssessment PronunciationAssessment { get;  init; }
-    string Text { get;  init; }
+    long Duration { get; init; }
+    string Grapheme { get; init; }
+    long Offset { get; init; }
+    Pronunciation.SyllablePronunciationAssessment PronunciationAssessment { get; init; }
+    string Text { get; init; }
   sealed class Pronunciation.SyllablePronunciationAssessment
     ctor()
-    double AccuracyScore { get;  init; }
+    double AccuracyScore { get; init; }
   sealed class Pronunciation.UnexpectedBreak
     ctor()
-    double Confidence { get;  init; }
+    double Confidence { get; init; }
   sealed class Pronunciation.Word
     ctor()
-    long Duration { get;  init; }
-    long Offset { get;  init; }
-    List<Pronunciation.Phoneme> Phonemes { get;  init; }
-    Pronunciation.WordPronunciationAssessment PronunciationAssessment { get;  init; }
-    List<Pronunciation.Syllable> Syllables { get;  init; }
-    string Text { get;  init; }
+    long Duration { get; init; }
+    long Offset { get; init; }
+    List<Pronunciation.Phoneme> Phonemes { get; init; }
+    Pronunciation.WordPronunciationAssessment PronunciationAssessment { get; init; }
+    List<Pronunciation.Syllable> Syllables { get; init; }
+    string Text { get; init; }
   sealed class Pronunciation.WordPronunciationAssessment
     ctor()
-    double AccuracyScore { get;  init; }
-    string ErrorType { get;  init; }
-    Pronunciation.Feedback Feedback { get;  init; }
+    double AccuracyScore { get; init; }
+    string ErrorType { get; init; }
+    Pronunciation.Feedback Feedback { get; init; }
 
 namespace Ikon.AI.Storage
   class KeywordIndex
@@ -1504,7 +1526,10 @@ namespace Ikon.AI.Utils
     static Task<string> GetErrorMessage(HttpRequestException exception, HttpResponseMessage response, string modelName)
     static Task<int> GetHttpRequestSize(HttpRequestMessage request)
   static class ImageUtils
+    static byte[] ConvertAlphaMaskToBlackWhiteMask(byte[] maskData)
+    static byte[] ConvertBlackWhiteMaskToAlphaMask(byte[] maskData)
     static ValueTuple<int, int> GetImageDimensions(byte[] buffer)
+    static byte[] InvertMask(byte[] maskData)
 
 namespace Ikon.AI.VideoEnhancement
   interface IVideoEnhancer : IDisposable
@@ -1520,13 +1545,13 @@ namespace Ikon.AI.VideoEnhancement
     ctor()
   sealed class VideoEnhancerConfig
     ctor()
-    int? EndFrame { get;  set; }
-    string MimeType { get;  set; }
-    int? StartFrame { get;  set; }
-    int? TargetFps { get;  set; }
-    TimeSpan Timeout { get;  set; }
-    byte[] VideoData { get;  set; }
-    string VideoUrl { get;  set; }
+    int? EndFrame { get; set; }
+    string MimeType { get; set; }
+    int? StartFrame { get; set; }
+    int? TargetFps { get; set; }
+    TimeSpan Timeout { get; set; }
+    byte[] VideoData { get; set; }
+    string VideoUrl { get; set; }
   enum VideoEnhancerModel
     TensorPixFpsBoost
     TensorPixUpscale2xUltra4
@@ -1536,9 +1561,9 @@ namespace Ikon.AI.VideoEnhancement
     static string DisplayName(VideoEnhancerModel model)
   sealed class VideoEnhancerResult
     ctor()
-    int? OutputFps { get;  init; }
-    long? OutputSizeBytes { get;  init; }
-    string Url { get;  init; }
+    int? OutputFps { get; init; }
+    long? OutputSizeBytes { get; init; }
+    string Url { get; init; }
 
 namespace Ikon.AI.VideoGeneration
   interface IVideoGenerator : IDisposable, IVideoGeneratorInfo
@@ -1557,9 +1582,9 @@ namespace Ikon.AI.VideoGeneration
     bool SupportsTextToVideo { get; }
   sealed class VideoGeneratorConfig.InputImage
     ctor()
-    byte[] Data { get;  set; }
-    string MimeType { get;  set; }
-    string Url { get;  set; }
+    byte[] Data { get; set; }
+    string MimeType { get; set; }
+    string Url { get; set; }
   sealed class VideoGenerator : IDisposable, IVideoGenerator, IVideoGeneratorInfo
     ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
     ctor(VideoGeneratorModel model, IReadOnlyList<ModelRegion> regions = null)
@@ -1586,38 +1611,40 @@ namespace Ikon.AI.VideoGeneration
     Ratio1x1
   sealed class VideoGeneratorCapabilities : IVideoGeneratorInfo
     ctor()
-    int MaxInputImages { get;  init; }
-    VideoGeneratorResolutionMode ResolutionMode { get;  init; }
-    IReadOnlyList<int> SupportedLengths { get;  init; }
-    IReadOnlyList<VideoGeneratorResolution> SupportedResolutions { get;  init; }
-    bool SupportsAudio { get;  init; }
-    bool SupportsImageToVideo { get;  init; }
-    bool SupportsMultipleImages { get;  init; }
-    bool SupportsNegativePrompt { get;  init; }
-    bool SupportsSeed { get;  init; }
-    bool SupportsTailImage { get;  init; }
-    bool SupportsTextToVideo { get;  init; }
+    int MaxInputImages { get; init; }
+    VideoGeneratorResolutionMode ResolutionMode { get; init; }
+    IReadOnlyList<int> SupportedLengths { get; init; }
+    IReadOnlyList<VideoGeneratorResolution> SupportedResolutions { get; init; }
+    bool SupportsAudio { get; init; }
+    bool SupportsImageToVideo { get; init; }
+    bool SupportsMultipleImages { get; init; }
+    bool SupportsNegativePrompt { get; init; }
+    bool SupportsSeed { get; init; }
+    bool SupportsTailImage { get; init; }
+    bool SupportsTextToVideo { get; init; }
   sealed class VideoGeneratorConfig
     ctor()
-    VideoGeneratorAspectRatio AspectRatio { get;  set; }
-    bool? GenerateAudio { get;  set; }
-    List<VideoGeneratorConfig.InputImage> InputImages { get;  set; }
-    int Length { get;  set; }
-    string NegativePrompt { get;  set; }
-    string Prompt { get;  set; }
-    VideoGeneratorResolution Resolution { get;  set; }
-    int? Seed { get;  set; }
-    TimeSpan Timeout { get;  set; }
+    VideoGeneratorAspectRatio AspectRatio { get; set; }
+    bool? GenerateAudio { get; set; }
+    List<VideoGeneratorConfig.InputImage> InputImages { get; set; }
+    int Length { get; set; }
+    string NegativePrompt { get; set; }
+    string Prompt { get; set; }
+    VideoGeneratorResolution Resolution { get; set; }
+    int? Seed { get; set; }
+    TimeSpan Timeout { get; set; }
   enum VideoGeneratorModel
     Hailuo23
     Hailuo23Fast
     Kling26
+    Kling30
     KlingVideoO1
     LumaRay20
     LumaRay20Flash
     Pika22
     Pixverse55
     Pollo20
+    Pollo30
     RunwayGen4
     Seedance15Pro
     Sora2
@@ -1626,7 +1653,9 @@ namespace Ikon.AI.VideoGeneration
     Veo31Fast
     ViduQ2Pro
     ViduQ2Turbo
+    ViduQ3Pro
     Wan26
+    GrokImagineVideo
   static class VideoGeneratorModelExtensions
     static string DisplayName(VideoGeneratorModel model)
   enum VideoGeneratorResolution
@@ -1642,23 +1671,23 @@ namespace Ikon.AI.VideoGeneration
     AspectRatio
   sealed class VideoGeneratorResult
     ctor()
-    string Url { get;  init; }
+    string Url { get; init; }
 
 namespace Ikon.AI.WebScraping
   sealed class Cookie
     ctor()
-    string Domain { get;  set; }
-    double ExpirationDate { get;  set; }
-    bool HostOnly { get;  set; }
-    bool HttpOnly { get;  set; }
-    int Id { get;  set; }
-    string Name { get;  set; }
-    string Path { get;  set; }
-    string SameSite { get;  set; }
-    bool Secure { get;  set; }
-    bool Session { get;  set; }
-    string StoreId { get;  set; }
-    string Value { get;  set; }
+    string Domain { get; set; }
+    double ExpirationDate { get; set; }
+    bool HostOnly { get; set; }
+    bool HttpOnly { get; set; }
+    int Id { get; set; }
+    string Name { get; set; }
+    string Path { get; set; }
+    string SameSite { get; set; }
+    bool Secure { get; set; }
+    bool Session { get; set; }
+    string StoreId { get; set; }
+    string Value { get; set; }
   interface IWebScraper : IDisposable, IWebScraperInfo
     abstract Task<List<PageResult>> ScrapeMultiplePagesAsync(MultiPageScrapeConfig config, CancellationToken cancellationToken = null)
     abstract Task<PageResult> ScrapeSinglePageAsync(SinglePageScrapeConfig config, CancellationToken cancellationToken = null)
@@ -1669,84 +1698,84 @@ namespace Ikon.AI.WebScraping
     bool SupportsSinglePageScraping { get; }
   sealed class MultiPageScrapeConfig
     ctor()
-    bool AddGivenUrlsToWhitelist { get;  set; }
-    bool AllowOnlyGivenUrls { get;  set; }
-    List<Cookie> Cookies { get;  set; }
-    string CountryCode { get;  set; }
-    int DelayMs { get;  set; }
-    string ExcludedCSSElements { get;  set; }
-    List<string> ExcludedLineStarts { get;  set; }
-    List<string> ExcludedWholeLines { get;  set; }
-    bool Headless { get;  set; }
-    bool IgnoreRobotsTxt { get;  set; }
-    bool IncludeLinkedFiles { get;  set; }
-    string IncludedCSSElements { get;  set; }
-    string JavaScript { get;  set; }
-    bool LoadResources { get;  set; }
-    string Locale { get;  set; }
-    int MaxDepth { get;  set; }
-    int MaxPages { get;  set; }
-    WebScraperOutputFormat OutputFormat { get;  set; }
-    string PlaywrightScript { get;  set; }
-    bool RerunIfGivenUrlsMissing { get;  set; }
-    TimeSpan SinglePageTimeout { get;  set; }
-    TimeSpan Timeout { get;  set; }
-    List<string> UrlBlacklist { get;  set; }
-    List<string> UrlWhitelist { get;  set; }
-    List<string> Urls { get;  set; }
-    bool UseReadability { get;  set; }
-    bool UseSitemap { get;  set; }
-    bool UseSitemapOnly { get;  set; }
-    bool UseStreaming { get;  set; }
-    TimeSpan WaitAfter { get;  set; }
-    WebScraperModel WebScraperModel { get;  set; }
+    bool AddGivenUrlsToWhitelist { get; set; }
+    bool AllowOnlyGivenUrls { get; set; }
+    List<Cookie> Cookies { get; set; }
+    string CountryCode { get; set; }
+    int DelayMs { get; set; }
+    string ExcludedCSSElements { get; set; }
+    List<string> ExcludedLineStarts { get; set; }
+    List<string> ExcludedWholeLines { get; set; }
+    bool Headless { get; set; }
+    bool IgnoreRobotsTxt { get; set; }
+    bool IncludeLinkedFiles { get; set; }
+    string IncludedCSSElements { get; set; }
+    string JavaScript { get; set; }
+    bool LoadResources { get; set; }
+    string Locale { get; set; }
+    int MaxDepth { get; set; }
+    int MaxPages { get; set; }
+    WebScraperOutputFormat OutputFormat { get; set; }
+    string PlaywrightScript { get; set; }
+    bool RerunIfGivenUrlsMissing { get; set; }
+    TimeSpan SinglePageTimeout { get; set; }
+    TimeSpan Timeout { get; set; }
+    List<string> UrlBlacklist { get; set; }
+    List<string> UrlWhitelist { get; set; }
+    List<string> Urls { get; set; }
+    bool UseReadability { get; set; }
+    bool UseSitemap { get; set; }
+    bool UseSitemapOnly { get; set; }
+    bool UseStreaming { get; set; }
+    TimeSpan WaitAfter { get; set; }
+    WebScraperModel WebScraperModel { get; set; }
   sealed class PageResult
     ctor()
-    string Content { get;  init; }
-    List<string> Keywords { get;  init; }
-    string Mimetype { get;  init; }
-    string Title { get;  init; }
-    string Url { get;  init; }
+    string Content { get; init; }
+    List<string> Keywords { get; init; }
+    string Mimetype { get; init; }
+    string Title { get; init; }
+    string Url { get; init; }
   sealed class ScreenshotConfig
     ctor()
-    List<Cookie> Cookies { get;  set; }
-    string CountryCode { get;  set; }
-    bool FullPage { get;  set; }
-    bool Headless { get;  set; }
-    int Height { get;  set; }
-    string JavaScript { get;  set; }
-    string Locale { get;  set; }
-    string PlaywrightScript { get;  set; }
-    TimeSpan Timeout { get;  set; }
-    string Url { get;  set; }
-    bool UseCaptchaSolver { get;  set; }
-    TimeSpan WaitAfter { get;  set; }
-    int Width { get;  set; }
+    List<Cookie> Cookies { get; set; }
+    string CountryCode { get; set; }
+    bool FullPage { get; set; }
+    bool Headless { get; set; }
+    int Height { get; set; }
+    string JavaScript { get; set; }
+    string Locale { get; set; }
+    string PlaywrightScript { get; set; }
+    TimeSpan Timeout { get; set; }
+    string Url { get; set; }
+    bool UseCaptchaSolver { get; set; }
+    TimeSpan WaitAfter { get; set; }
+    int Width { get; set; }
   sealed class ScreenshotResult
     ctor()
-    byte[] Data { get;  init; }
-    string MimeType { get;  init; }
+    byte[] Data { get; init; }
+    string MimeType { get; init; }
   sealed class SinglePageScrapeConfig
     ctor()
-    List<Cookie> Cookies { get;  set; }
-    string CountryCode { get;  set; }
-    string ExcludedCSSElements { get;  set; }
-    List<string> ExcludedLineStarts { get;  set; }
-    List<string> ExcludedWholeLines { get;  set; }
-    bool Headless { get;  set; }
-    bool IncludeLinkedFiles { get;  set; }
-    string IncludedCSSElements { get;  set; }
-    string JavaScript { get;  set; }
-    bool LoadResources { get;  set; }
-    string Locale { get;  set; }
-    WebScraperOutputFormat OutputFormat { get;  set; }
-    string PlaywrightScript { get;  set; }
-    TimeSpan Timeout { get;  set; }
-    string Url { get;  set; }
-    bool UseCaptchaSolver { get;  set; }
-    bool UseReadability { get;  set; }
-    TimeSpan WaitAfter { get;  set; }
-    WebScraperModel WebScraperModel { get;  set; }
+    List<Cookie> Cookies { get; set; }
+    string CountryCode { get; set; }
+    string ExcludedCSSElements { get; set; }
+    List<string> ExcludedLineStarts { get; set; }
+    List<string> ExcludedWholeLines { get; set; }
+    bool Headless { get; set; }
+    bool IncludeLinkedFiles { get; set; }
+    string IncludedCSSElements { get; set; }
+    string JavaScript { get; set; }
+    bool LoadResources { get; set; }
+    string Locale { get; set; }
+    WebScraperOutputFormat OutputFormat { get; set; }
+    string PlaywrightScript { get; set; }
+    TimeSpan Timeout { get; set; }
+    string Url { get; set; }
+    bool UseCaptchaSolver { get; set; }
+    bool UseReadability { get; set; }
+    TimeSpan WaitAfter { get; set; }
+    WebScraperModel WebScraperModel { get; set; }
   sealed class WebScraper : IDisposable, IWebScraper, IWebScraperInfo
     ctor(string modelName, bool useLocalCache = false)
     ctor(WebScraperModel model, bool useLocalCache = false)
@@ -1763,9 +1792,9 @@ namespace Ikon.AI.WebScraping
     Task<ScreenshotResult> TakeScreenshotAsync(ScreenshotConfig config, CancellationToken cancellationToken = null)
   sealed class WebScraperCapabilities : IWebScraperInfo
     ctor()
-    bool SupportsMultiPageScraping { get;  init; }
-    bool SupportsScreenshotting { get;  init; }
-    bool SupportsSinglePageScraping { get;  init; }
+    bool SupportsMultiPageScraping { get; init; }
+    bool SupportsScreenshotting { get; init; }
+    bool SupportsSinglePageScraping { get; init; }
   enum WebScraperModel
     Spider
     Jina
@@ -1787,20 +1816,20 @@ namespace Ikon.AI.WebSearching
     bool SupportsImageSearching { get; }
   sealed class SearchConfig
     ctor()
-    string CountryCode { get;  set; }
-    string InSiteUrl { get;  set; }
-    string Language { get;  set; }
-    int MaxResults { get;  set; }
-    WebSearcherOutputFormat OutputFormat { get;  set; }
-    string Query { get;  set; }
-    TimeSpan Timeout { get;  set; }
+    string CountryCode { get; set; }
+    string InSiteUrl { get; set; }
+    string Language { get; set; }
+    int MaxResults { get; set; }
+    WebSearcherOutputFormat OutputFormat { get; set; }
+    string Query { get; set; }
+    TimeSpan Timeout { get; set; }
   sealed class SearchResult
     ctor()
-    string Content { get;  init; }
-    List<string> Keywords { get;  init; }
-    string Mimetype { get;  init; }
-    string Title { get;  init; }
-    string Url { get;  init; }
+    string Content { get; init; }
+    List<string> Keywords { get; init; }
+    string Mimetype { get; init; }
+    string Title { get; init; }
+    string Url { get; init; }
   sealed class WebSearcher : IDisposable, IWebSearcher, IWebSearcherInfo
     ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
     ctor(WebSearcherModel model, IReadOnlyList<ModelRegion> regions = null)
@@ -1812,7 +1841,7 @@ namespace Ikon.AI.WebSearching
     Task<List<SearchResult>> SearchPagesAsync(SearchConfig config, CancellationToken cancellationToken = null)
   sealed class WebSearcherCapabilities : IWebSearcherInfo
     ctor()
-    bool SupportsImageSearching { get;  init; }
+    bool SupportsImageSearching { get; init; }
   enum WebSearcherModel
     Spider
     Jina
