@@ -61,12 +61,14 @@ Detailed API docs are available in `docs/guides/`. Each guide covers a specific 
 - **ai-advanced** (`docs/guides/ai-advanced.md`): database AI, vector store, AI policy, storage
 - **audio-video** (`docs/guides/audio-video.md`): audio, video, capture, speech, stream, effects, reverb, delay, mixer, synthesizer, oscillator, filter
 - **asset-system** (`docs/guides/asset-system.md`): asset, cloud file, local file, cloud json, storage, metadata, URI, optimistic concurrency
-- **endpoints-databases** (`docs/guides/endpoints-databases.md`): endpoints, HTTP, HTTPS, WebSocket, databases, PostgreSQL
+- **endpoints-webhooks** (`docs/guides/endpoints-webhooks.md`): endpoints, webhooks, HTTP, HTTPS, WebSocket, TCP, TLS, UDP, public URL, tunneling, AppEndpointHost, function
+- **databases** (`docs/guides/databases.md`): databases, PostgreSQL, SQL, db, AppDatabaseConnection
+- **secrets** (`docs/guides/secrets.md`): secrets, tokens, API keys, credentials, passwords, app.Secrets, ikon app secret
 - **function-registry** (`docs/guides/function-registry.md`): function registry, registration, attribute, visibility, LLM tools, callable functions
 - **logging** (`docs/guides/logging.md`): log, logging, debug, warning, error, diagnostics
 - **pipelines** (`docs/guides/pipelines.md`): pipeline, background processing, transform, processor, scheduled, cron
 - **pipelines-reference** (`docs/guides/pipelines-reference.md`): pipeline API, transform, processor, pipeline guide
-- **frontend-fundamentals** (`docs/guides/frontend-fundamentals.md`): frontend, SDK, auth, connection, i18n, styling, query params, custom UI component, module, resolver, React
+- **frontend-fundamentals** (`docs/guides/frontend-fundamentals.md`): frontend, SDK, auth, connection, i18n, styling, query params, custom UI component, module, resolver, React, magic link login email template, emails folder
 - **config-and-cli** (`docs/guides/config-and-cli.md`): ikon-config.toml, CLI commands, build, deploy, run, auth, activation, targets
 
 

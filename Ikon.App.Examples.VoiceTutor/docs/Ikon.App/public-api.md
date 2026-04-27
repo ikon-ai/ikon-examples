@@ -18,7 +18,7 @@ namespace Ikon.App
     static DbConnection Create(IAppBase app, string databaseName)
     static DbConnection Create(DatabaseConnectionInfo dbInfo)
   sealed class AppEndpointHost : IAsyncDisposable
-    ctor(IAppBase app, string endpointName, TimeSpan? webSocketKeepAliveInterval = null)
+    ctor(IAppBase app, bool secure = true, TimeSpan? webSocketKeepAliveInterval = null)
     int LocalPort { get; }
     string PublicUrl { get; }
     ValueTask DisposeAsync()
@@ -33,9 +33,13 @@ namespace Ikon.App
     TConfig Config { get; }
     string DataDirectory { get; }
     IReadOnlyList<DatabaseConnectionInfo> Databases { get; }
+    int MaxMemoryLimitMb { get; }
     Navigation Navigation { get; }
     ReactiveGlobalState ReactiveGlobalState { get; }
     ReactiveRoot ReactiveRoot { get; }
+    Secrets Secrets { get; }
+    IReadOnlyList<WebhookInfo> Webhooks { get; }
+    Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, CancellationToken ct = null)
     event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
     event AsyncEventHandler<ClientLeftEventArgs> ClientLeftAsync
     event AsyncEventHandler<MessageReceivedEventArgs> MessageReceivedAsync
@@ -47,10 +51,14 @@ namespace Ikon.App
     IClientCollection<TClientParameters> Clients { get; }
     string DataDirectory { get; }
     IReadOnlyList<DatabaseConnectionInfo> Databases { get; }
+    int MaxMemoryLimitMb { get; }
     Navigation Navigation { get; }
     ReactiveGlobalState ReactiveGlobalState { get; }
     ReactiveRoot ReactiveRoot { get; }
+    Secrets Secrets { get; }
     TSessionIdentity SessionIdentity { get; }
+    IReadOnlyList<WebhookInfo> Webhooks { get; }
+    Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, CancellationToken ct = null)
     event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
     event AsyncEventHandler<ClientLeftEventArgs> ClientLeftAsync
     event AsyncEventHandler<MessageReceivedEventArgs> MessageReceivedAsync
@@ -60,7 +68,7 @@ namespace Ikon.App
     Task AsyncEventHandler`1<TEventArgs>(TEventArgs e)
   class Audio
     ctor(IAppBase app)
-    AudioEncoderOptions DefaultEncoderOptions { get;  set; }
+    AudioEncoderOptions DefaultEncoderOptions { get; set; }
     AudioMetrics Metrics { get; }
     SpeechMixer SpeechMixer { get; }
     ValueTask CloseAllAsync()
@@ -73,31 +81,34 @@ namespace Ikon.App
     event AsyncEventHandler<AudioInputStreamBeginEventArgs> AudioInputStreamBeginAsync
     event AsyncEventHandler<AudioInputStreamEndEventArgs> AudioInputStreamEndAsync
   class AudioInputFrameEventArgs : EventArgs
-    ctor(string streamId, Context clientContext, float[] samples, bool isFirst, bool isLast, TimeSpan totalDuration)
+    ctor(string streamId, Context clientContext, float[] samples, bool isFirst, bool isLast, TimeSpan totalDuration, string correlationId)
     Context ClientContext { get; }
     int ClientSessionId { get; }
+    string CorrelationId { get; }
     bool IsFirst { get; }
     bool IsLast { get; }
     float[] Samples { get; }
     string StreamId { get; }
-    TimeSpan TotalDuration { get;  set; }
+    TimeSpan TotalDuration { get; set; }
     string UserId { get; }
   class AudioInputStreamBeginEventArgs : EventArgs
-    ctor(string streamId, string description, string sourceType, int sampleRate, int channelCount, Context clientContext, int trackId)
+    ctor(string streamId, string description, string sourceType, int sampleRate, int channelCount, Context clientContext, int trackId, string correlationId)
     int ChannelCount { get; }
     Context ClientContext { get; }
     int ClientSessionId { get; }
+    string CorrelationId { get; }
     string Description { get; }
     int SampleRate { get; }
     string SourceType { get; }
     string StreamId { get; }
-    AudioInputStreamingMode StreamingMode { get;  set; }
+    AudioInputStreamingMode StreamingMode { get; set; }
     int TrackId { get; }
     string UserId { get; }
   class AudioInputStreamEndEventArgs : EventArgs
-    ctor(string streamId, Context clientContext)
+    ctor(string streamId, Context clientContext, string correlationId)
     Context ClientContext { get; }
     int ClientSessionId { get; }
+    string CorrelationId { get; }
     string StreamId { get; }
     string UserId { get; }
   enum AudioInputStreamingMode
@@ -106,32 +117,36 @@ namespace Ikon.App
     DelayUntilIsLast
   class AudioOutputStreamInfo : IEquatable<AudioOutputStreamInfo>
     ctor(string StreamId, int TrackId, AudioCodec Codec, int SampleRate, int ChannelCount)
-    int ChannelCount { get;  init; }
-    AudioCodec Codec { get;  init; }
-    int SampleRate { get;  init; }
-    string StreamId { get;  init; }
-    int TrackId { get;  init; }
+    int ChannelCount { get; init; }
+    AudioCodec Codec { get; init; }
+    int SampleRate { get; init; }
+    string StreamId { get; init; }
+    int TrackId { get; init; }
   class BackgroundWork
     ValueTask<IAsyncDisposable> StartAsync()
     ValueTask StopAsync()
+  static class CaptureCorrelationBridge
+    static void RegisterStart(string correlationId, Func<AudioInputStreamBeginEventArgs, Task> handler)
+    static void RegisterStop(string correlationId, Func<AudioInputStreamEndEventArgs, Task> handler)
+    static void Unregister(string correlationId)
   sealed class ClientAudioCaptureOptions : IEquatable<ClientAudioCaptureOptions>
     ctor()
-    bool? AutoGainControl { get;  init; }
-    int? Bitrate { get;  init; }
+    bool? AutoGainControl { get; init; }
+    int? Bitrate { get; init; }
     static ClientAudioCaptureOptions Default { get; }
-    string DeviceId { get;  init; }
-    bool? EchoCancellation { get;  init; }
-    bool? NoiseSuppression { get;  init; }
-    IReadOnlyList<int> TargetIds { get;  init; }
+    string DeviceId { get; init; }
+    bool? EchoCancellation { get; init; }
+    bool? NoiseSuppression { get; init; }
+    IReadOnlyList<int> TargetIds { get; init; }
   class ClientCollection<TClientParameters> : IClientCollection<TClientParameters>
     ctor()
     int Count { get; }
     IClient<TClientParameters> Item { get; }
   sealed class ClientContact : IEquatable<ClientContact>
     ctor(IReadOnlyList<string> Names, IReadOnlyList<string> Emails, IReadOnlyList<string> Phones)
-    IReadOnlyList<string> Emails { get;  init; }
-    IReadOnlyList<string> Names { get;  init; }
-    IReadOnlyList<string> Phones { get;  init; }
+    IReadOnlyList<string> Emails { get; init; }
+    IReadOnlyList<string> Names { get; init; }
+    IReadOnlyList<string> Phones { get; init; }
   static class ClientFunctions
     static Task<ClientImageCapture> CaptureImageAsync(int targetId, ClientImageCaptureOptions options = null, CancellationToken cancellationToken = null)
     static Task<ClientImageCapture> CaptureImageAsync(ClientImageCaptureOptions options = null, CancellationToken cancellationToken = null)
@@ -141,6 +156,8 @@ namespace Ikon.App
     static Task<int?> GetBatteryLevelAsync(CancellationToken cancellationToken = null)
     static Task<string> GetLanguageAsync(int targetId, CancellationToken cancellationToken = null)
     static Task<string> GetLanguageAsync(CancellationToken cancellationToken = null)
+    static Task<ClientLocation> GetLocationAsync(int targetId, CancellationToken cancellationToken = null)
+    static Task<ClientLocation> GetLocationAsync(CancellationToken cancellationToken = null)
     static Task<IReadOnlyList<ClientMediaDevice>> GetMediaDevicesAsync(int targetId, CancellationToken cancellationToken = null)
     static Task<IReadOnlyList<ClientMediaDevice>> GetMediaDevicesAsync(CancellationToken cancellationToken = null)
     static Task<string> GetNetworkTypeAsync(int targetId, CancellationToken cancellationToken = null)
@@ -155,6 +172,7 @@ namespace Ikon.App
     static Task<string> GetVisibilityAsync(CancellationToken cancellationToken = null)
     static Task<bool> KeepScreenAwakeAsync(int targetId, bool enabled, CancellationToken cancellationToken = null)
     static Task<bool> KeepScreenAwakeAsync(bool enabled, CancellationToken cancellationToken = null)
+    static Task<bool> LoginShowAsync(int targetId, string reason = null, CancellationToken cancellationToken = null)
     static Task<bool> LogoutAsync(int targetId, CancellationToken cancellationToken = null)
     static Task<bool> LogoutAsync(CancellationToken cancellationToken = null)
     static Task<string> PlaySoundAsync(int targetId, string url, double volume = 1, bool loop = false, CancellationToken cancellationToken = null)
@@ -184,19 +202,19 @@ namespace Ikon.App
     PreferSoftware
   sealed class ClientImageCapture : IEquatable<ClientImageCapture>
     ctor(string Mime, int Width, int Height, byte[] Data)
-    byte[] Data { get;  init; }
-    int Height { get;  init; }
-    string Mime { get;  init; }
-    int Width { get;  init; }
+    byte[] Data { get; init; }
+    int Height { get; init; }
+    string Mime { get; init; }
+    int Width { get; init; }
   enum ClientImageCaptureFormat
     Jpeg
     Png
   sealed class ClientImageCaptureOptions : IEquatable<ClientImageCaptureOptions>
     ctor()
-    ClientImageCaptureFormat? Format { get;  init; }
-    int? Height { get;  init; }
-    double? Quality { get;  init; }
-    int? Width { get;  init; }
+    ClientImageCaptureFormat? Format { get; init; }
+    int? Height { get; init; }
+    double? Quality { get; init; }
+    int? Width { get; init; }
   class ClientJoinedEventArgs : EventArgs
     ctor(Context clientContext)
     Context ClientContext { get; }
@@ -209,19 +227,19 @@ namespace Ikon.App
     string UserId { get; }
   sealed class ClientLocation : IEquatable<ClientLocation>
     ctor(double Latitude, double Longitude, double Accuracy)
-    double Accuracy { get;  init; }
-    double Latitude { get;  init; }
-    double Longitude { get;  init; }
+    double Accuracy { get; init; }
+    double Latitude { get; init; }
+    double Longitude { get; init; }
   static class ClientMediaCaptureSerializer
     static string SerializeAudioOptions(ClientAudioCaptureOptions options)
     static string SerializeImageOptions(ClientImageCaptureOptions options)
     static string SerializeVideoOptions(ClientVideoCaptureOptions options)
   sealed class ClientMediaDevice : IEquatable<ClientMediaDevice>
     ctor(string DeviceId, string Kind, string Label, string GroupId)
-    string DeviceId { get;  init; }
-    string GroupId { get;  init; }
-    string Kind { get;  init; }
-    string Label { get;  init; }
+    string DeviceId { get; init; }
+    string GroupId { get; init; }
+    string Kind { get; init; }
+    string Label { get; init; }
   sealed class ClientProfile
     ProfileAddress Address { get; }
     string BirthDate { get; }
@@ -281,17 +299,17 @@ namespace Ikon.App
     Av1
   sealed class ClientVideoCaptureOptions : IEquatable<ClientVideoCaptureOptions>
     ctor()
-    int? Bitrate { get;  init; }
+    int? Bitrate { get; init; }
     static ClientVideoCaptureOptions DefaultCamera { get; }
     static ClientVideoCaptureOptions DefaultScreen { get; }
-    string DeviceId { get;  init; }
-    int? Framerate { get;  init; }
-    ClientHardwareAcceleration? HardwareAcceleration { get;  init; }
-    int? Height { get;  init; }
-    int? KeyFrameIntervalFrames { get;  init; }
-    IReadOnlyList<ClientVideoCaptureCodec> PreferredCodecs { get;  init; }
-    IReadOnlyList<int> TargetIds { get;  init; }
-    int? Width { get;  init; }
+    string DeviceId { get; init; }
+    int? Framerate { get; init; }
+    ClientHardwareAcceleration? HardwareAcceleration { get; init; }
+    int? Height { get; init; }
+    int? KeyFrameIntervalFrames { get; init; }
+    IReadOnlyList<ClientVideoCaptureCodec> PreferredCodecs { get; init; }
+    IReadOnlyList<int> TargetIds { get; init; }
+    int? Width { get; init; }
   enum ClientVideoCaptureSource
     Camera
     Screen
@@ -311,70 +329,73 @@ namespace Ikon.App
     Func<FileUploadStartArgs, Task<FileUploadStartResult>> OnUploadStart
   sealed class FileUploadChunkArgs : IEquatable<FileUploadChunkArgs>
     ctor(string UploadId, string FileName, string MimeType, long Size, byte[] Data, long BytesWritten)
-    long BytesWritten { get;  init; }
-    byte[] Data { get;  init; }
-    string FileName { get;  init; }
-    string MimeType { get;  init; }
-    long Size { get;  init; }
-    string UploadId { get;  init; }
+    long BytesWritten { get; init; }
+    byte[] Data { get; init; }
+    string FileName { get; init; }
+    string MimeType { get; init; }
+    long Size { get; init; }
+    string UploadId { get; init; }
   sealed class FileUploadCompleteArgs : IEquatable<FileUploadCompleteArgs>
     ctor(string UploadId, string FileName, string MimeType, long Size, string LocalTempFilePath, string AssetUri)
-    string AssetUri { get;  init; }
-    string FileName { get;  init; }
-    string LocalTempFilePath { get;  init; }
-    string MimeType { get;  init; }
-    long Size { get;  init; }
-    string UploadId { get;  init; }
+    string AssetUri { get; init; }
+    string FileName { get; init; }
+    string LocalTempFilePath { get; init; }
+    string MimeType { get; init; }
+    long Size { get; init; }
+    string UploadId { get; init; }
   sealed class FileUploadErrorArgs : IEquatable<FileUploadErrorArgs>
     ctor(string UploadId, string FileName, string MimeType, long Size, string ErrorMessage)
-    string ErrorMessage { get;  init; }
-    string FileName { get;  init; }
-    string MimeType { get;  init; }
-    long Size { get;  init; }
-    string UploadId { get;  init; }
+    string ErrorMessage { get; init; }
+    string FileName { get; init; }
+    string MimeType { get; init; }
+    long Size { get; init; }
+    string UploadId { get; init; }
   sealed class FileUploadHandler : IDisposable
     ctor(IAppBase app)
     void Dispose()
     void RegisterCallbacks(string uploadActionId, FileUploadCallbackSet callbackSet)
   sealed class FileUploadPreStartArgs : IEquatable<FileUploadPreStartArgs>
     ctor(string UploadId, string FileName, string MimeType, long Size, Func<string, Task> Cancel)
-    Func<string, Task> Cancel { get;  init; }
-    string FileName { get;  init; }
-    string MimeType { get;  init; }
-    long Size { get;  init; }
-    string UploadId { get;  init; }
+    Func<string, Task> Cancel { get; init; }
+    string FileName { get; init; }
+    string MimeType { get; init; }
+    long Size { get; init; }
+    string UploadId { get; init; }
   sealed class FileUploadPreStartResult : IEquatable<FileUploadPreStartResult>
     ctor()
-    bool Accepted { get;  set; }
-    string AssetUri { get;  set; }
+    bool Accepted { get; set; }
+    string AssetUri { get; set; }
   sealed class FileUploadProgressArgs : IEquatable<FileUploadProgressArgs>
     ctor(string UploadId, string FileName, string MimeType, long Size, double ProgressPercentage, long BytesUploaded)
-    long BytesUploaded { get;  init; }
-    string FileName { get;  init; }
-    string MimeType { get;  init; }
-    double ProgressPercentage { get;  init; }
-    long Size { get;  init; }
-    string UploadId { get;  init; }
+    long BytesUploaded { get; init; }
+    string FileName { get; init; }
+    string MimeType { get; init; }
+    double ProgressPercentage { get; init; }
+    long Size { get; init; }
+    string UploadId { get; init; }
   sealed class FileUploadStartArgs : IEquatable<FileUploadStartArgs>
     ctor(string UploadId, string FileName, string MimeType, long Size, string Hash)
-    string FileName { get;  init; }
-    string Hash { get;  init; }
-    string MimeType { get;  init; }
-    long Size { get;  init; }
-    string UploadId { get;  init; }
+    string FileName { get; init; }
+    string Hash { get; init; }
+    string MimeType { get; init; }
+    long Size { get; init; }
+    string UploadId { get; init; }
   sealed class FileUploadStartResult : IEquatable<FileUploadStartResult>
     ctor()
-    bool Accepted { get;  set; }
-    string AssetUri { get;  set; }
+    bool Accepted { get; set; }
+    string AssetUri { get; set; }
   interface IAppBase : IProtocolMessageChannel
     BackgroundWork BackgroundWork { get; }
     string DataDirectory { get; }
     IReadOnlyList<DatabaseConnectionInfo> Databases { get; }
-    IReadOnlyList<EndpointInfo> Endpoints { get; }
     GlobalState GlobalState { get; }
+    int MaxMemoryLimitMb { get; }
     Navigation Navigation { get; }
     ReactiveGlobalState ReactiveGlobalState { get; }
     ReactiveRoot ReactiveRoot { get; }
+    Secrets Secrets { get; }
+    IReadOnlyList<WebhookInfo> Webhooks { get; }
+    abstract Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, CancellationToken ct = null)
     event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
     event AsyncEventHandler<ClientLeftEventArgs> ClientLeftAsync
     event AsyncEventHandler<MessageReceivedEventArgs> MessageReceivedAsync
@@ -392,6 +413,10 @@ namespace Ikon.App
   interface IClient<TClientParameters>
     TClientParameters Parameters { get; }
   interface IProfileAttributes
+  static class LoginPrompt
+    static Task ShowAsync(int targetClientSessionId, string reason = null)
+    static Task ShowAsync(string reason = null)
+    static string HandoffParameterKey
   class MessageReceivedEventArgs : EventArgs
     ctor(ProtocolMessage message)
     ProtocolMessage Message { get; }
@@ -400,6 +425,7 @@ namespace Ikon.App
     static string ExitFullscreen
     static string GetBatteryLevel
     static string GetLanguage
+    static string GetLocation
     static string GetMediaDevices
     static string GetNetworkType
     static string GetTheme
@@ -407,6 +433,7 @@ namespace Ikon.App
     static string GetUrl
     static string GetVisibility
     static string KeepScreenAwake
+    static string LoginShow
     static string Logout
     static string PlaySound
     static string RequestFullscreen
@@ -442,24 +469,28 @@ namespace Ikon.App
     string Zip { get; }
   sealed class ProfileData
     ctor()
-    string AddressCity { get;  set; }
-    string AddressCountry { get;  set; }
-    string AddressState { get;  set; }
-    string AddressStreet { get;  set; }
-    string AddressZip { get;  set; }
-    string BirthDate { get;  set; }
-    string Email { get;  set; }
-    string FirstName { get;  set; }
-    string Gender { get;  set; }
-    string Language { get;  set; }
-    string LastName { get;  set; }
-    string Name { get;  set; }
-    string PhoneNumber { get;  set; }
-    string PreferredName { get;  set; }
+    string AddressCity { get; set; }
+    string AddressCountry { get; set; }
+    string AddressState { get; set; }
+    string AddressStreet { get; set; }
+    string AddressZip { get; set; }
+    string BirthDate { get; set; }
+    string Email { get; set; }
+    string FirstName { get; set; }
+    string Gender { get; set; }
+    string Language { get; set; }
+    string LastName { get; set; }
+    string Name { get; set; }
+    string PhoneNumber { get; set; }
+    string PreferredName { get; set; }
   class ReactiveRoot
     ctor(IAppBase app, int updateIntervalMs = 1000)
     ReactiveManager ReactiveManager { get; }
     Task RunAsync(Func<Task> render, Func<Context, bool> filter = null)
+  sealed class Secrets
+    string Item { get; }
+    IReadOnlyCollection<string> Keys { get; }
+    bool TryGet(string key, out string value)
   class StartingEventArgs : EventArgs
     ctor()
   class StoppingEventArgs : EventArgs
@@ -513,13 +544,17 @@ namespace Ikon.App
     string UserId { get; }
   class VideoOutputStreamInfo : IEquatable<VideoOutputStreamInfo>
     ctor(string StreamId, int TrackId, VideoCodec Codec, int Width, int Height, double Framerate)
-    VideoCodec Codec { get;  init; }
-    double Framerate { get;  init; }
-    int Height { get;  init; }
-    string StreamId { get;  init; }
-    int TrackId { get;  init; }
-    int Width { get;  init; }
+    VideoCodec Codec { get; init; }
+    double Framerate { get; init; }
+    int Height { get; init; }
+    string StreamId { get; init; }
+    int TrackId { get; init; }
+    int Width { get; init; }
+  sealed class WebhookInfo
+    ctor()
+    string FunctionName { get; set; }
+    string PublicUrl { get; set; }
   class WrapperConfig<TConfig> : BasePluginConfig
     ctor()
     ctor(TConfig userConfig)
-    TConfig AppConfig { get;  set; }
+    TConfig AppConfig { get; set; }
