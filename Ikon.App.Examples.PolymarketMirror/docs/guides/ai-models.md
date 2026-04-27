@@ -10,7 +10,7 @@ LLM model selection, connection configuration, and core AI infrastructure.
 namespace Ikon.AI
   class IkonAIConnection : AsyncLocalInstance<IkonAIConnection>
     ctor()
-    IkonClientConfig ConfigOverride { get;  set; }
+    IkonClientConfig ConfigOverride { get; set; }
     Task ForceReconnectAsync(CancellationToken ct = null)
     Task<IkonClient> GetOrCreateClientAsync(CancellationToken ct = null)
     Task WarmupAsync(CancellationToken ct = null)
@@ -20,8 +20,8 @@ namespace Ikon.AI
     static string ProductionSpaceId
   class ImplementationSelector : AsyncLocalInstance<ImplementationSelector>
     ctor()
-    bool ForceLocal { get;  set; }
-    bool ForceRemote { get;  set; }
+    bool ForceLocal { get; set; }
+    bool ForceRemote { get; set; }
   enum ModelCategory
     Classifier
     Embeddings
@@ -80,7 +80,6 @@ namespace Ikon.AI
     Ikon
     Jina
     Mistral
-    Ngrok
     OpenAI
     OpenRouter
     Pollo
@@ -142,18 +141,19 @@ namespace Ikon.AI.Kernel
     ctor(string reason)
     string Reason { get; }
   class FunctionCall
-    ctor(Function function, object[] parameters, string parametersJson, string callId, string hash, string thoughtSignature = "")
+    ctor(Function function, object[] parameters, string parametersJson, string callId, string hash, string thoughtSignature = "", string reasoningContent = "")
     string CallId { get; }
     Function Function { get; }
     string Hash { get; }
     object[] Parameters { get; }
     string ParametersJson { get; }
+    string ReasoningContent { get; }
     string ThoughtSignature { get; }
   class FunctionResult
     ctor(object result = null, string modelMessagePrefix = null, string modelMessageSuffix = null)
-    string ModelMessagePrefix { get;  set; }
-    string ModelMessageSuffix { get;  set; }
-    object Result { get;  set; }
+    string ModelMessagePrefix { get; set; }
+    string ModelMessageSuffix { get; set; }
+    object Result { get; set; }
   struct FunctionResultPart : IMessagePart
     ctor(FunctionCall functionCall, StreamingResult[] streamingResults, object result)
     FunctionCall FunctionCall { get; }
@@ -184,40 +184,40 @@ namespace Ikon.AI.Kernel
     static T GenerateExampleInstance<T>()
     static string GenerateExampleJson<T>()
   static class JsonSchemaGenerator
-    static ExpandoObject GenerateJsonSchemaExpandoObject<T>(bool supersetCompatibilityMode = false)
-    static string GenerateSchemaString<T>(bool supersetCompatibilityMode = false)
+    static ExpandoObject GenerateJsonSchemaExpandoObject<T>(SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
+    static string GenerateSchemaString<T>(SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
   struct KernelContext : IEquatable<KernelContext>
     ctor()
     ctor(KernelContext? baseContext = null, ImmutableList<Instruction> instructions = null, ImmutableList<MessageBlock> messages = null, ImmutableDictionary<string, Function> functions = null, TimeSpan? timeout = null, double? temperature = null, int? maxOutputTokens = null, ReasoningEffort? reasoningEffort = null, int? reasoningTokenBudget = null, bool? useStreaming = null, bool? useJson = null, bool? useCitations = null, bool? useUserNames = null, bool? useAudioOutput = null, string audioOutputVoiceId = null, bool? useCaching = null, bool? disableFunctionCalling = null, bool? discardTextOutputWithFunctionCalls = null, bool? logFullRequest = null, bool? logFullResponse = null, object jsonSchema = null, string gbnfGrammar = null, string toolPlan = null)
-    string AudioOutputVoiceId { get;  init; }
-    bool DisableFunctionCalling { get;  init; }
-    bool DiscardTextOutputWithFunctionCalls { get;  init; }
-    ImmutableDictionary<string, Function> Functions { get;  init; }
-    string GbnfGrammar { get;  init; }
-    ImmutableList<Instruction> Instructions { get;  init; }
-    object JsonSchema { get;  init; }
-    bool LogFullRequest { get;  init; }
-    bool LogFullResponse { get;  init; }
-    int MaxOutputTokens { get;  init; }
-    ImmutableList<MessageBlock> Messages { get;  init; }
-    ReasoningEffort ReasoningEffort { get;  init; }
-    int ReasoningTokenBudget { get;  init; }
-    double Temperature { get;  init; }
-    TimeSpan Timeout { get;  init; }
-    string ToolPlan { get;  init; }
-    bool UseAudioOutput { get;  init; }
-    bool UseCaching { get;  init; }
-    bool UseCitations { get;  init; }
-    bool UseJson { get;  init; }
-    bool UseStreaming { get;  init; }
-    bool UseUserNames { get;  init; }
+    string AudioOutputVoiceId { get; init; }
+    bool DisableFunctionCalling { get; init; }
+    bool DiscardTextOutputWithFunctionCalls { get; init; }
+    ImmutableDictionary<string, Function> Functions { get; init; }
+    string GbnfGrammar { get; init; }
+    ImmutableList<Instruction> Instructions { get; init; }
+    object JsonSchema { get; init; }
+    bool LogFullRequest { get; init; }
+    bool LogFullResponse { get; init; }
+    int MaxOutputTokens { get; init; }
+    ImmutableList<MessageBlock> Messages { get; init; }
+    ReasoningEffort ReasoningEffort { get; init; }
+    int ReasoningTokenBudget { get; init; }
+    double Temperature { get; init; }
+    TimeSpan Timeout { get; init; }
+    string ToolPlan { get; init; }
+    bool UseAudioOutput { get; init; }
+    bool UseCaching { get; init; }
+    bool UseCitations { get; init; }
+    bool UseJson { get; init; }
+    bool UseStreaming { get; init; }
+    bool UseUserNames { get; init; }
     KernelContext Add(Instruction instruction)
     KernelContext Add(MessageBlock message)
     static KernelContext Create(IEnumerable<Instruction> instructions = null, IEnumerable<MessageBlock> messages = null, IEnumerable<Function> functions = null, TimeSpan? timeout = null, double? temperature = null, int? maxOutputTokens = null, ReasoningEffort? reasoningEffort = null, int? reasoningTokenBudget = null, bool? useStreaming = null, bool? useJson = null, bool? useCitations = null, bool? useUserNames = null, bool? useAudioOutput = null, string audioOutputVoiceId = null, bool? useCaching = null, bool? disableFunctionCalling = null, bool? discardTextOutputWithFunctionCalls = null, bool? logFullRequest = null, bool? logFullResponse = null, object jsonSchema = null, string gbnfGrammar = null, string toolPlan = null)
     IAsyncEnumerable<StreamingResult> GenerateAsync(ILLM llm, CancellationToken cancellationToken = null)
     KernelContext KeepMessagesMax(int count)
     IAsyncEnumerable<StreamingResult> RecurseAsync(IAsyncEnumerable<StreamingResult> generator, HashSet<string> alreadyCalledFunctions)
-    IAsyncEnumerable<StreamingResult> ReturnFunctionCallAsync(string name, string parametersJson, string callId, string thoughtSignature = "")
+    IAsyncEnumerable<StreamingResult> ReturnFunctionCallAsync(string name, string parametersJson, string callId, string thoughtSignature = "", string reasoningContent = "")
     IAsyncEnumerable<StreamingResult> RunFunctionAsync(string functionName, object[] parameters, CancellationToken cancellationToken = null)
     KernelContext WithFunctions(IEnumerable<Function> functions, bool replaceExisting = false)
   struct MessageBlock
@@ -241,6 +241,7 @@ namespace Ikon.AI.Kernel
     AudioId
     Video
     VideoUrl
+    VideoAsset
     Pdf
     PdfUrl
     FunctionResult
@@ -268,6 +269,9 @@ namespace Ikon.AI.Kernel
     Low
     Medium
     High
+  enum SchemaDialect
+    JsonSchema202012
+    OpenApi30
   struct StreamingResult
     ctor(object value, string sourceName, string valueTypeName = null)
     string SourceName { get; }
@@ -285,6 +289,11 @@ namespace Ikon.AI.Kernel
   class ToolPlan
     ctor(string text)
     string Text { get; }
+  struct VideoAssetPart : IMessagePart
+    ctor(AssetUri uri, string mimeType = null)
+    string MimeType { get; }
+    MessagePartType Type { get; }
+    AssetUri Uri { get; }
   struct VideoPart : IMessagePart
     ctor(byte[] content, string mimeType)
     byte[] Content { get; }
@@ -302,6 +311,7 @@ namespace Ikon.AI.LLM
   interface ILLMInfo
     int ContextWindowSize { get; }
     string InlineReasoningTagName { get; }
+    SchemaDialect SchemaDialect { get; }
     bool SupportsGbnfGrammar { get; }
     bool SupportsInputAudio { get; }
     bool SupportsInputImages { get; }
@@ -318,6 +328,7 @@ namespace Ikon.AI.LLM
     ctor(LLMModel model, IReadOnlyList<ModelRegion> regions = null)
     int ContextWindowSize { get; }
     string InlineReasoningTagName { get; }
+    SchemaDialect SchemaDialect { get; }
     bool SupportsGbnfGrammar { get; }
     bool SupportsInputAudio { get; }
     bool SupportsInputImages { get; }
@@ -336,78 +347,79 @@ namespace Ikon.AI.LLM
     static IReadOnlyList<ModelRegion> GetSupportedRegions(LLMModel model)
   sealed class LLMCapabilities : ILLMInfo
     ctor()
-    int ContextWindowSize { get;  init; }
-    string InlineReasoningTagName { get;  init; }
-    bool SupportsGbnfGrammar { get;  init; }
-    bool SupportsInputAudio { get;  init; }
-    bool SupportsInputImages { get;  init; }
-    bool SupportsInputPdf { get;  init; }
-    bool SupportsInputVideo { get;  init; }
-    bool SupportsJsonSchema { get;  init; }
-    bool SupportsOutputAudio { get;  init; }
-    bool SupportsParallelToolCalling { get;  init; }
-    bool SupportsReasoning { get;  init; }
-    bool SupportsStreaming { get;  init; }
-    bool UsesInlineReasoning { get;  init; }
+    int ContextWindowSize { get; init; }
+    string InlineReasoningTagName { get; init; }
+    SchemaDialect SchemaDialect { get; init; }
+    bool SupportsGbnfGrammar { get; init; }
+    bool SupportsInputAudio { get; init; }
+    bool SupportsInputImages { get; init; }
+    bool SupportsInputPdf { get; init; }
+    bool SupportsInputVideo { get; init; }
+    bool SupportsJsonSchema { get; init; }
+    bool SupportsOutputAudio { get; init; }
+    bool SupportsParallelToolCalling { get; init; }
+    bool SupportsReasoning { get; init; }
+    bool SupportsStreaming { get; init; }
+    bool UsesInlineReasoning { get; init; }
   enum LLMModel
-    Gpt4Omni
     Gpt4OmniMini
-    Gpt4OmniAudio
     Gpt41
     Gpt41Mini
-    Gpt41Nano
     Gpt5
     Gpt5Mini
     Gpt5Nano
     Gpt51
     Gpt52
-    Gpt5Codex
-    Gpt51Codex
-    Gpt51CodexMax
-    Gpt52Codex
     Gpt5Pro
     Gpt52Pro
+    Gpt53Codex
     Gpt54
+    Gpt54Mini
+    Gpt54Nano
     Gpt54Pro
+    Gpt55
+    Gpt55Pro
     O3
-    O3Mini
     O3Pro
-    O4Mini
     Claude41Opus
     Claude45Haiku
     Claude45Sonnet
     Claude45Opus
     Claude46Opus
     Claude46Sonnet
-    Gemini20Flash
-    Gemini20FlashLite
+    Claude47Opus
     Gemini25Flash
+    Gemini25FlashLite
     Gemini25Pro
     Gemini3Flash
     Gemini31Pro
     Gemini31FlashLite
-    Grok4
-    Grok4Fast
-    GrokCodeFast1
+    Grok420Reasoning
+    Grok420NonReasoning
+    Grok41FastReasoning
+    Grok41FastNonReasoning
     MistralSmall
     MistralMedium
     MistralLarge
     MagistralSmall
     MagistralMedium
-    PixtralLarge
     Codestral
-    DevstralSmall
-    DevstralMedium
+    Devstral2
     CommandR
     CommandA
-    KimiK2Thinking
-    KimiK2
+    CommandAReasoning
     KimiK25
+    KimiK26
+    Qwen36
     GptOss120B
     Glm47
     Glm5
+    Glm51
     MiniMaxM25
+    MiniMaxM27
     DeepSeekV32
+    DeepSeekV4Pro
+    DeepSeekV4Flash
     NovaPro
     NovaLite
     NovaMicro

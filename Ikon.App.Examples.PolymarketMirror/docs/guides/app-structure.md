@@ -147,7 +147,7 @@ global using Ikon.Common.Core.Scope;
 global using Ikon.Common.Core;
 global using Ikon.Common;
 global using Ikon.Parallax.Components.Standard;
-global using Ikon.Parallax.Themes.Default;
+global using Ikon.Parallax.Themes.Ikon;
 global using Ikon.Parallax;
 global using Ikon.Server;
 ```
@@ -228,7 +228,6 @@ app.GlobalState.PrimaryUserId     // Static user ID of session owner
 app.GlobalState.FirstUserId       // First human user who joined (dynamically reassigned)
 app.GlobalState.GetClientContext(clientSessionId)  // Get client context
 app.DataDirectory                 // Path to app's Data directory
-app.Endpoints                     // Custom endpoint info (see Endpoints section)
 app.Databases                     // Database connection info (see Databases section)
 app.SessionIdentity               // Current session identity
 app.Clients[clientId].Parameters  // Client parameters

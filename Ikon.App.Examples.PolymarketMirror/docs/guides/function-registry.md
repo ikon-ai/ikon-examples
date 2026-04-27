@@ -56,6 +56,10 @@ var result = FunctionRegistry.Instance.Call<int>("Add", [2, 3]);
 var result = await FunctionRegistry.Instance.CallAsync<string>("Greet", args: ["World"]);
 ```
 
+### Webhook Functions
+
+A `[Function]` method on the App class can be marked with `Webhook = true` to expose it as a public HTTP endpoint at `/ikon/webhook/{name}` (cloud) or `/webhook/{name}` (local dev). The signature must be `(Dictionary<string, string> queryParams, Dictionary<string, string> headers, string body)` with a `string`/`Task<string>`/`void`/`Task` return type. See the **Webhook Functions** section under **Endpoints** for details.
+
 ---
 
 # Ikon.Common.Core Public API
@@ -65,8 +69,8 @@ namespace Ikon.Common.Core.Functions
     Async
     AsyncEnumerable
   struct Function
-    ctor(Guid id, string name, FunctionParameter[] parameters, string returnTypeName, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, bool requiresInstance = false, string version = null)
-    ctor(Guid id, string name, FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, Func<object[], object> callback, Func<object[], Task<object>> callbackAsync, Func<object[], IAsyncEnumerable<object>> callbackAsyncEnumerable, MethodInfo methodInfo = null, bool requiresInstance = false, PolicyDelegate policy = null, string version = null)
+    ctor(Guid id, string name, FunctionParameter[] parameters, string returnTypeName, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, bool requiresInstance = false, string version = null, bool webhook = false)
+    ctor(Guid id, string name, FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, Func<object[], object> callback, Func<object[], Task<object>> callbackAsync, Func<object[], IAsyncEnumerable<object>> callbackAsyncEnumerable, MethodInfo methodInfo = null, bool requiresInstance = false, PolicyDelegate policy = null, string version = null, bool webhook = false)
     CallbackType CallbackType { get; }
     int? ClientSessionId { get; }
     string Description { get; }
@@ -85,6 +89,7 @@ namespace Ikon.Common.Core.Functions
     string ReturnTypeName { get; }
     string Version { get; }
     FunctionVisibility Visibility { get; }
+    bool Webhook { get; }
     object Call(object[] args)
     Task<object> CallAsync(object[] args)
     IAsyncEnumerable<object> CallAsyncEnumerable(object[] args)
@@ -129,17 +134,18 @@ namespace Ikon.Common.Core.Functions
     static Function Register<T1, TResult>(Func<T1, IAsyncEnumerable<TResult>> function, string name = null, FunctionAttribute attribute = null, PolicyDelegate policy = null)
     static Function Register<T1, T2, TResult>(Func<T1, T2, IAsyncEnumerable<TResult>> function, string name = null, FunctionAttribute attribute = null, PolicyDelegate policy = null)
     override string ToString()
-    Function With(Guid? id = null, string name = null, FunctionParameter[] parameters = null, Type returnType = null, string description = null, FunctionVisibility? visibility = null, bool? llmInlineResult = null, bool? llmCallOnlyOnce = null, CallbackType? callbackType = null, int? clientSessionId = null, Func<object[], object> callback = null, Func<object[], Task<object>> callbackAsync = null, Func<object[], IAsyncEnumerable<object>> callbackAsyncEnumerable = null, MethodInfo methodInfo = null, bool? requiresInstance = null, PolicyDelegate policy = null, bool clearClientSessionId = false, bool clearMethodInfo = false, bool clearPolicy = false, string version = null)
+    Function With(Guid? id = null, string name = null, FunctionParameter[] parameters = null, Type returnType = null, string description = null, FunctionVisibility? visibility = null, bool? llmInlineResult = null, bool? llmCallOnlyOnce = null, CallbackType? callbackType = null, int? clientSessionId = null, Func<object[], object> callback = null, Func<object[], Task<object>> callbackAsync = null, Func<object[], IAsyncEnumerable<object>> callbackAsyncEnumerable = null, MethodInfo methodInfo = null, bool? requiresInstance = null, PolicyDelegate policy = null, bool clearClientSessionId = false, bool clearMethodInfo = false, bool clearPolicy = false, string version = null, bool? webhook = null)
     Function WithParamDescription(string paramName, string description)
   class FunctionAttribute : Attribute
     ctor()
     ctor(string description, bool llmInlineResult = false, bool llmCallOnlyOnce = false)
-    string Description { get;  set; }
-    bool LlmCallOnlyOnce { get;  set; }
-    bool LlmInlineResult { get;  set; }
-    string Name { get;  set; }
+    string Description { get; set; }
+    bool LlmCallOnlyOnce { get; set; }
+    bool LlmInlineResult { get; set; }
+    string Name { get; set; }
     object TypeId { get; }
-    FunctionVisibility Visibility { get;  set; }
+    FunctionVisibility Visibility { get; set; }
+    bool Webhook { get; set; }
   struct FunctionParameter
     ctor(int index, string name, string description, Type type, bool hasDefaultValue, object defaultValue)
     ctor(int index, string name, string description, string typeName, bool hasDefaultValue, object defaultValue)
@@ -154,8 +160,10 @@ namespace Ikon.Common.Core.Functions
     override string ToString()
   class FunctionRegistry : AsyncLocalInstance<FunctionRegistry>, BuiltInApprovalHandlers.IApprovalProtocolBridge
     ctor()
+    Func<int, string> AuthSessionIdResolver { get; set; }
     IReadOnlyDictionary<string, IReadOnlyList<Function>> Functions { get; }
-    static Action RemoteCallExecutionStarting { get;  set; }
+    static Action RemoteCallExecutionStarting { get; set; }
+    Func<int, string> UserIdResolver { get; set; }
     void AddFunction(Function function, FunctionVisibility? visibilityOverride = null)
     Task AttachProtocolAsync(IProtocolMessageChannel channel, int senderId)
     TResult Call<TResult>(string name, object[] args = null, int? targetId = null, bool propagateScopes = false, string version = null, Guid? instanceId = null)
@@ -204,18 +212,18 @@ namespace Ikon.Common.Core.Functions
     Shared
   class RegisterAllAttribute : Attribute
     ctor()
-    bool LlmCallOnlyOnce { get;  set; }
-    bool LlmInlineResult { get;  set; }
-    FunctionVisibility Visibility { get;  set; }
+    bool LlmCallOnlyOnce { get; set; }
+    bool LlmInlineResult { get; set; }
+    FunctionVisibility Visibility { get; set; }
   sealed class RemoteFunctionCallRequest
     ctor(string functionName)
-    CancellationToken CancellationToken { get;  set; }
+    CancellationToken CancellationToken { get; set; }
     string FunctionName { get; }
-    Guid? InstanceId { get;  set; }
-    object[] Parameters { get;  set; }
-    bool PropagateScopes { get;  set; }
-    int? TargetId { get;  set; }
-    string Version { get;  set; }
+    Guid? InstanceId { get; set; }
+    object[] Parameters { get; set; }
+    bool PropagateScopes { get; set; }
+    int? TargetId { get; set; }
+    string Version { get; set; }
   sealed class RemoteFunctionCaller
     ctor(IProtocolMessageChannel protocolMessageChannel, int senderId = 0, TimeSpan? actionAckTimeout = null, TimeSpan? callTimeout = null, int? enumerationBufferCapacity = null)
     TResult Call<TResult>(RemoteFunctionCallRequest request)

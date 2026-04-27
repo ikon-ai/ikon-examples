@@ -39,24 +39,25 @@ namespace Ikon.AI.ImageGeneration
     ctor()
   sealed class ImageGeneratorConfig
     ctor()
-    ImageBackground Background { get;  set; }
-    int Count { get;  set; }
-    int Height { get;  set; }
-    List<InputImage> InputImages { get;  set; }
-    string NegativePrompt { get;  set; }
-    string Prompt { get;  set; }
-    ImageQuality Quality { get;  set; }
-    SafetyLevel SafetyLevel { get;  set; }
-    string SearchPrompt { get;  set; }
-    int Seed { get;  set; }
-    int Steps { get;  set; }
-    string Style { get;  set; }
-    TimeSpan Timeout { get;  set; }
-    bool UpsamplePrompt { get;  set; }
-    int Width { get;  set; }
+    ImageBackground Background { get; set; }
+    int Count { get; set; }
+    int Height { get; set; }
+    List<InputImage> InputImages { get; set; }
+    string NegativePrompt { get; set; }
+    string Prompt { get; set; }
+    ImageQuality Quality { get; set; }
+    SafetyLevel SafetyLevel { get; set; }
+    string SearchPrompt { get; set; }
+    int Seed { get; set; }
+    int Steps { get; set; }
+    string Style { get; set; }
+    TimeSpan Timeout { get; set; }
+    bool UpsamplePrompt { get; set; }
+    int Width { get; set; }
   enum ImageGeneratorModel
-    GptImage1
+    GptImage1Mini
     GptImage15
+    GptImage2
     Imagen3
     Imagen4Fast
     Imagen4Standard
@@ -69,20 +70,25 @@ namespace Ikon.AI.ImageGeneration
     Flux11Pro
     Flux11ProUltra
     Flux11ProUltraRaw
+    Flux1Fill
     Flux1KontextPro
     Flux1KontextMax
     Flux1KreaDev
     Flux2Dev
     Flux2Flex
     Flux2Pro
+    Flux2Max
+    Flux2Klein9B
+    GrokImagineImage
+    GrokImagineImagePro
   static class ImageGeneratorModelExtensions
     static string DisplayName(ImageGeneratorModel model)
   sealed class ImageGeneratorResult
     ctor()
-    byte[] Data { get;  set; }
-    int Height { get;  set; }
-    string MimeType { get;  set; }
-    int Width { get;  set; }
+    byte[] Data { get; set; }
+    int Height { get; set; }
+    string MimeType { get; set; }
+    int Width { get; set; }
   enum ImageQuality
     Auto
     Low
@@ -90,11 +96,11 @@ namespace Ikon.AI.ImageGeneration
     High
   sealed class InputImage
     ctor()
-    byte[] Data { get;  set; }
-    double? MaskDilution { get;  set; }
-    string MimeType { get;  set; }
-    double? Strength { get;  set; }
-    InputImageType Type { get;  set; }
+    byte[] Data { get; set; }
+    double? MaskDilution { get; set; }
+    string MimeType { get; set; }
+    double? Strength { get; set; }
+    InputImageType Type { get; set; }
   enum InputImageType
     Normal
     Mask

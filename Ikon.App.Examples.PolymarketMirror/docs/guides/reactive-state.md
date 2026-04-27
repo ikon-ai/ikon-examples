@@ -122,8 +122,8 @@ namespace Ikon.Common.Core.Reactive
   class ClientReactive<T> : Reactive<T, ClientScope>
     ctor(T initialValue, string file = "", string member = "")
   sealed class ReactiveManager.Handle
-    string DebugDescription { get;  set; }
-    int? GroupId { get;  set; }
+    string DebugDescription { get; set; }
+    int? GroupId { get; set; }
     Guid Id { get; }
     bool IsUpdate { get; }
     DateTime? UpdatedAt { get; }
@@ -184,7 +184,7 @@ namespace Ikon.Common.Core.Reactive
     ctor(T initialValue, string file = "", string member = "")
     T Peek { get; }
     string StableId { get; }
-    T Value { get;  set; }
+    T Value { get; set; }
     long Version { get; }
     StoredReactiveState CaptureState()
     void NotifyUpdate()
@@ -198,7 +198,7 @@ namespace Ikon.Common.Core.Reactive
   class Signal<T> : IReactive
     ctor(T initial)
     T Peek { get; }
-    T Value { get;  set; }
+    T Value { get; set; }
     long Version { get; }
     void NotifyUpdate()
     event Action<T> ValueChanged
@@ -206,10 +206,10 @@ namespace Ikon.Common.Core.Reactive
   class StoredReactiveState
     ctor()
     ctor(string typeName, string memberName, int ordinal, Dictionary<int, string> sessionValues)
-    string MemberName { get;  set; }
-    int Ordinal { get;  set; }
-    Dictionary<int, string> SessionValues { get;  set; }
-    string TypeName { get;  set; }
+    string MemberName { get; set; }
+    int Ordinal { get; set; }
+    Dictionary<int, string> SessionValues { get; set; }
+    string TypeName { get; set; }
   struct UseDefault
   class UserReactive<T> : Reactive<T, UserScope>
     ctor(T initialValue, string file = "", string member = "")
