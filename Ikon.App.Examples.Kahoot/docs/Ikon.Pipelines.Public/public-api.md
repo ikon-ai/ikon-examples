@@ -3,7 +3,7 @@
 namespace Ikon.Pipelines.Public.Examples
   class FullExamplePipeline.Config
     ctor()
-    int TestValue1 { get;  set; }
+    int TestValue1 { get; set; }
     string TestValue2
   static class ExampleProcessors
     static Task<List<Item>> Run(Item inputItem)
@@ -15,14 +15,14 @@ namespace Ikon.Pipelines.Public.Examples
     Task Run(Pipeline<T>.Branch<Item> inputItems, CancellationToken cancellationToken)
   class FullExamplePipeline.Input
     ctor()
-    int TestValue1 { get;  set; }
+    int TestValue1 { get; set; }
     string TestValue2
   class MinimalExamplePipeline
     ctor()
     Task Run(Pipeline<T>.Branch<Item> inputItems, CancellationToken cancellationToken)
   class FullExamplePipeline.Result
     ctor()
-    int TestValue1 { get;  set; }
+    int TestValue1 { get; set; }
     string TestValue2
 
 namespace Ikon.Pipelines.Public.Processors.Json
@@ -36,14 +36,14 @@ namespace Ikon.Pipelines.Public.Processors.Json
 namespace Ikon.Pipelines.Public.Processors.OCR
   class OCRProcessor.Config
     ctor()
-    OCRModel OCRModel { get;  set; }
+    OCRModel OCRModel { get; set; }
   static class OCRProcessor
     static Task<List<Item>> Run(Item input, OCRProcessor.Config config, CancellationToken cancellationToken)
 
 namespace Ikon.Pipelines.Public.Processors.Pdf
   class ExtractPdfProcessor.Config
     ctor()
-    int MaxPageImageDimension { get;  set; }
+    int MaxPageImageDimension { get; set; }
   static class ExtractPdfProcessor
     static Task<List<Item>> Run(Item input, ExtractPdfProcessor.Config config, CancellationToken cancellationToken)
   interface IPdfDocument : IDisposable
@@ -63,15 +63,15 @@ namespace Ikon.Pipelines.Public.Processors.Pdf
 namespace Ikon.Pipelines.Public.UniversalRag
   class UniversalRagPipeline.Config
     ctor()
-    AnalyzePdfDocumentProcessor.Config AnalyzeDocumentType { get;  set; }
-    int EmbeddingBatchSize { get;  set; }
-    ExtractPdfProcessor.Config ExtractPdf { get;  set; }
-    ExtractFullTextAndSectionsProcessor.Config ExtractSections { get;  set; }
-    ExtractTextProcessor.Config ExtractText { get;  set; }
-    FormatWebPageProcessor.Config FormatWebPage { get;  set; }
-    GenerateEmbeddingsProcessor.Config GenerateEmbeddings { get;  set; }
-    GenerateSummaryProcessor.Config GenerateSummary { get;  set; }
-    int MaxLLMParallelism { get;  set; }
+    AnalyzePdfDocumentProcessor.Config AnalyzeDocumentType { get; set; }
+    int EmbeddingBatchSize { get; set; }
+    ExtractPdfProcessor.Config ExtractPdf { get; set; }
+    ExtractFullTextAndSectionsProcessor.Config ExtractSections { get; set; }
+    ExtractTextProcessor.Config ExtractText { get; set; }
+    FormatWebPageProcessor.Config FormatWebPage { get; set; }
+    GenerateEmbeddingsProcessor.Config GenerateEmbeddings { get; set; }
+    GenerateSummaryProcessor.Config GenerateSummary { get; set; }
+    int MaxLLMParallelism { get; set; }
   class UniversalRagPipeline
     ctor(IPipelineHost<UniversalRagPipeline.Config> host)
     Task Run(Pipeline<T>.Branch<Item> inputItems, CancellationToken cancellationToken)
@@ -83,29 +83,29 @@ namespace Ikon.Pipelines.Public.UniversalRag.Processors
     static Task<List<Item>> Run(List<Item> inputItems, CancellationToken cancellationToken)
   class AnalyzePdfDocumentProcessor.Config
     ctor()
-    LLMModel LLMModel { get;  set; }
-    int PagesToAnalyze { get;  set; }
+    LLMModel LLMModel { get; set; }
+    int PagesToAnalyze { get; set; }
   class ExtractFullTextAndSectionsProcessor.Config
     ctor()
-    string ExtraCommand { get;  set; }
-    string ExtraContext { get;  set; }
-    bool ExtractFullText { get;  set; }
-    bool ExtractSections { get;  set; }
-    LLMModel LLMModel { get;  set; }
+    string ExtraCommand { get; set; }
+    string ExtraContext { get; set; }
+    bool ExtractFullText { get; set; }
+    bool ExtractSections { get; set; }
+    LLMModel LLMModel { get; set; }
   class ExtractTextProcessor.Config
     ctor()
-    LLMModel LLMModel { get;  set; }
+    LLMModel LLMModel { get; set; }
   class FormatWebPageProcessor.Config
     ctor()
-    string ExtraCommand { get;  set; }
-    string ExtraContext { get;  set; }
-    LLMModel LLMModel { get;  set; }
+    string ExtraCommand { get; set; }
+    string ExtraContext { get; set; }
+    LLMModel LLMModel { get; set; }
   class GenerateEmbeddingsProcessor.Config
     ctor()
-    EmbeddingModel EmbeddingModel { get;  set; }
+    EmbeddingModel EmbeddingModel { get; set; }
   class GenerateSummaryProcessor.Config
     ctor()
-    LLMModel LLMModel { get;  set; }
+    LLMModel LLMModel { get; set; }
   static class ExtractFullTextAndSectionsProcessor
     static Task<List<Item>> Run(Item inputItem, ExtractFullTextAndSectionsProcessor.Config config, CancellationToken cancellationToken)
     static Task<List<Item>> Run(List<Item> inputItems, ExtractFullTextAndSectionsProcessor.Config config, CancellationToken cancellationToken)
@@ -150,20 +150,20 @@ namespace Ikon.Pipelines.Public.UniversalRag.Shaders
     static Task<string> Run(LLMModel llmModel, string content, CancellationToken cancellationToken = null)
   class AnalyzePdfDocument.Result
     ctor()
-    string Title { get;  set; }
-    AnalyzePdfDocument.DocumentType Type { get;  set; }
+    string Title { get; set; }
+    AnalyzePdfDocument.DocumentType Type { get; set; }
   class ExtractSections.Result
     ctor()
-    List<ExtractSections.Section> Sections { get;  set; }
+    List<ExtractSections.Section> Sections { get; set; }
   class FormatWebPage.Result
     ctor()
-    string Content { get;  set; }
-    bool HasContent { get;  set; }
+    string Content { get; set; }
+    bool HasContent { get; set; }
   class ExtractSections.Section
     ctor()
-    int EndLine { get;  set; }
-    int StartLine { get;  set; }
-    List<string> TitleHierarchy { get;  set; }
+    int EndLine { get; set; }
+    int StartLine { get; set; }
+    List<string> TitleHierarchy { get; set; }
 
 namespace Ikon.Pipelines.Public.UniversalRag.Utils
   static class TextUtils
@@ -175,72 +175,72 @@ namespace Ikon.Pipelines.Public.VideoImageSafety
     FixedInterval
   class ImageSafetyPipeline.Config
     ctor()
-    LLMModel AnalysisModel { get;  set; }
-    int MaxAnalysisParallelism { get;  set; }
-    int MaxModerationParallelism { get;  set; }
-    ClassificationModel ModerationModel { get;  set; }
+    LLMModel AnalysisModel { get; set; }
+    int MaxAnalysisParallelism { get; set; }
+    int MaxModerationParallelism { get; set; }
+    ClassificationModel ModerationModel { get; set; }
   class VideoSafetyPipeline.Config
     ctor()
-    LLMModel AnalysisModel { get;  set; }
-    int CollageCount { get;  set; }
-    int CollageFrameWidth { get;  set; }
-    double CollageIntervalMinutes { get;  set; }
-    CollageSelectionMode CollageSelection { get;  set; }
-    LLMModel EvaluationModel { get;  set; }
-    double FramesPerSecond { get;  set; }
-    int MaxAnalysisParallelism { get;  set; }
-    int MaxFrames { get;  set; }
-    int MaxModerationParallelism { get;  set; }
-    ClassificationModel ModerationModel { get;  set; }
-    double SceneChangeThreshold { get;  set; }
-    int TileColumns { get;  set; }
-    int TileRows { get;  set; }
-    string TranscriptionLanguage { get;  set; }
-    SpeechRecognizerModel TranscriptionModel { get;  set; }
-    float TranscriptionTemperature { get;  set; }
+    LLMModel AnalysisModel { get; set; }
+    int CollageCount { get; set; }
+    int CollageFrameWidth { get; set; }
+    double CollageIntervalMinutes { get; set; }
+    CollageSelectionMode CollageSelection { get; set; }
+    LLMModel EvaluationModel { get; set; }
+    double FramesPerSecond { get; set; }
+    int MaxAnalysisParallelism { get; set; }
+    int MaxFrames { get; set; }
+    int MaxModerationParallelism { get; set; }
+    ClassificationModel ModerationModel { get; set; }
+    double SceneChangeThreshold { get; set; }
+    int TileColumns { get; set; }
+    int TileRows { get; set; }
+    string TranscriptionLanguage { get; set; }
+    SpeechRecognizerModel TranscriptionModel { get; set; }
+    float TranscriptionTemperature { get; set; }
   class ImageSafetyPipeline
     ctor(IPipelineHost<ImageSafetyPipeline.Config> host)
     Task Run(Pipeline<T>.Branch<Item> inputItems, CancellationToken cancellationToken)
   class ImageSafetyResult
     ctor()
-    string ContentCategory { get;  set; }
-    string Facts { get;  set; }
-    string IdealAudience { get;  set; }
-    string ImageDescription { get;  set; }
-    string ImageMeaning { get;  set; }
-    bool IsSafe { get;  set; }
-    string PrimaryRisk { get;  set; }
-    string RecommendedActions { get;  set; }
-    string SafetySummary { get;  set; }
-    ImageSource Source { get;  set; }
-    string[] TriggeredCategories { get;  set; }
+    string ContentCategory { get; set; }
+    string Facts { get; set; }
+    string IdealAudience { get; set; }
+    string ImageDescription { get; set; }
+    string ImageMeaning { get; set; }
+    bool IsSafe { get; set; }
+    string PrimaryRisk { get; set; }
+    string RecommendedActions { get; set; }
+    string SafetySummary { get; set; }
+    ImageSource Source { get; set; }
+    string[] TriggeredCategories { get; set; }
   class ImageSource
     ctor()
-    string Description { get;  set; }
-    string Name { get;  set; }
-    string Url { get;  set; }
+    string Description { get; set; }
+    string Name { get; set; }
+    string Url { get; set; }
   class VideoSafetyPipeline
     ctor(IPipelineHost<VideoSafetyPipeline.Config> host)
     Task Run(Pipeline<T>.Branch<Item> inputItems, CancellationToken cancellationToken)
   class VideoSafetyResult
     ctor()
-    string ContentCategory { get;  set; }
-    string Facts { get;  set; }
-    string IdealAudience { get;  set; }
-    bool IsSafe { get;  set; }
-    string Meaning { get;  set; }
-    string PrimaryRisk { get;  set; }
-    string RecommendedActions { get;  set; }
-    string RepresentativeDescription { get;  set; }
-    string SafetySummary { get;  set; }
-    VideoSource Source { get;  set; }
-    string Transcript { get;  set; }
-    string[] TriggeredCategories { get;  set; }
+    string ContentCategory { get; set; }
+    string Facts { get; set; }
+    string IdealAudience { get; set; }
+    bool IsSafe { get; set; }
+    string Meaning { get; set; }
+    string PrimaryRisk { get; set; }
+    string RecommendedActions { get; set; }
+    string RepresentativeDescription { get; set; }
+    string SafetySummary { get; set; }
+    VideoSource Source { get; set; }
+    string Transcript { get; set; }
+    string[] TriggeredCategories { get; set; }
   class VideoSource
     ctor()
-    string Description { get;  set; }
-    string Name { get;  set; }
-    string Url { get;  set; }
+    string Description { get; set; }
+    string Name { get; set; }
+    string Url { get; set; }
 
 namespace Ikon.Pipelines.Public.VideoImageSafety.Shaders
   static class AnalyzeImageSafety
@@ -251,27 +251,27 @@ namespace Ikon.Pipelines.Public.VideoImageSafety.Shaders
     static Task<EvaluateVideoSafety.Result> RunAsync(LLMModel llmModel, string sourceName, string sourceDescription, string transcript, AnalyzeVideoFrames.Result combinedAnalysis, CancellationToken cancellationToken = null)
   class AnalyzeImageSafety.Result
     ctor()
-    string ContentCategory { get;  set; }
-    string Facts { get;  set; }
-    string IdealAudience { get;  set; }
-    string ImageDescription { get;  set; }
-    string ImageMeaning { get;  set; }
-    bool IsSafe { get;  set; }
-    string PrimaryRisk { get;  set; }
-    string RecommendedActions { get;  set; }
-    string SafetySummary { get;  set; }
-    string[] TriggeredCategories { get;  set; }
+    string ContentCategory { get; set; }
+    string Facts { get; set; }
+    string IdealAudience { get; set; }
+    string ImageDescription { get; set; }
+    string ImageMeaning { get; set; }
+    bool IsSafe { get; set; }
+    string PrimaryRisk { get; set; }
+    string RecommendedActions { get; set; }
+    string SafetySummary { get; set; }
+    string[] TriggeredCategories { get; set; }
   class AnalyzeVideoFrames.Result
     ctor()
-    string Facts { get;  set; }
-    string FramesDescription { get;  set; }
-    string VideoMeaning { get;  set; }
+    string Facts { get; set; }
+    string FramesDescription { get; set; }
+    string VideoMeaning { get; set; }
   class EvaluateVideoSafety.Result
     ctor()
-    string ContentCategory { get;  set; }
-    string IdealAudience { get;  set; }
-    bool IsSafe { get;  set; }
-    string PrimaryRisk { get;  set; }
-    string RecommendedActions { get;  set; }
-    string SafetySummary { get;  set; }
-    string[] TriggeredCategories { get;  set; }
+    string ContentCategory { get; set; }
+    string IdealAudience { get; set; }
+    bool IsSafe { get; set; }
+    string PrimaryRisk { get; set; }
+    string RecommendedActions { get; set; }
+    string SafetySummary { get; set; }
+    string[] TriggeredCategories { get; set; }

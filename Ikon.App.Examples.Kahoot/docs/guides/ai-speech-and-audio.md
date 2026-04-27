@@ -19,6 +19,30 @@ await foreach (var audio in speechGenerator.GenerateSpeechAsync(new SpeechGenera
 
 ### Speech Recognition (STT)
 
+For push-to-talk → chat (the most common case), use `PushToTalkButton` and `Audio.SpeechRecognizedAsync`. The framework wires up audio capture, transcription, and routing for you — no streamId-to-client plumbing.
+
+```csharp
+// One-time setup in the app
+Audio.UseSpeechRecognition(SpeechRecognizerModel.WhisperLarge3Turbo);
+
+Audio.SpeechRecognizedAsync += async args =>
+{
+    using var _ = ReactiveScope.Use(new ClientScope(args.ClientContext));
+    // args.Text — recognized speech
+    // args.ClientSessionId / args.UserId — who said it
+    await SendChatMessageAsync(args.Text);
+};
+
+// In your UI lambda:
+view.PushToTalkButton(style: ["w-16 h-16 rounded-full bg-red-600"]);
+```
+
+**Important — do NOT plumb state from `onCaptureStart` into audio frame handlers.** The audio events (`AudioInputStreamBeginAsync`, `AudioInputFrameAsync`) already carry `args.ClientContext` / `args.ClientSessionId`. A pattern like `onCaptureStart: e => _streamToClient[e.StreamId] = clientId` is unnecessary — read `args.ClientSessionId` directly inside the audio handler.
+
+#### Continuous / silence-triggered recognition (advanced)
+
+For always-on transcription with VAD-style segmentation (e.g., a virtual assistant that listens continuously), drop down to `SpeechRecognizerAdapter`:
+
 ```csharp
 var recognizer = new SpeechRecognizer(SpeechRecognizerModel.WhisperLarge3Turbo);
 var adapter = new SpeechRecognizerAdapter(recognizer, new SpeechRecognizerAdapter.Config
@@ -30,15 +54,37 @@ var adapter = new SpeechRecognizerAdapter(recognizer, new SpeechRecognizerAdapte
 });
 ```
 
+#### Custom raw audio handling (advanced)
+
+If you need direct access to PCM samples (e.g., custom DSP, your own VAD), subscribe to the audio events and **register per-stream state inside `AudioInputStreamBeginAsync` using `args.ClientSessionId`** — that fires reliably before any frame handler observes a frame from the stream.
+
+```csharp
+Audio.AudioInputStreamBeginAsync += async args =>
+{
+    // Snapshot per-stream state here. args.ClientSessionId / args.UserId identify the client.
+    _myStreamStates[args.StreamId] = new MyState(args.ClientContext);
+};
+
+Audio.AudioInputFrameAsync += async args =>
+{
+    if (!_myStreamStates.TryGetValue(args.StreamId, out var state)) return;
+    state.AddSamples(args.Samples);
+    if (args.IsLast) { /* process state.Samples */ }
+};
+```
+
 ### Sound Effect Generation
 
 ```csharp
 using var generator = new SoundEffectGenerator(SoundEffectGeneratorModel.ElevenLabsV2);
-var audio = await generator.GenerateSoundEffectAsync(new SoundEffectGeneratorConfig
+await foreach (var audio in generator.GenerateSoundEffectAsync(new SoundEffectGeneratorConfig
 {
     Prompt = "Thunder rumbling in the distance",
     DurationSeconds = 5.0
-});
+}))
+{
+    Audio.SendSpeech(audio);
+}
 ```
 
 ---
@@ -52,9 +98,9 @@ namespace Ikon.AI.SoundEffectGeneration
   interface ISoundEffectGeneratorInfo
     bool SupportsLooping { get; }
   sealed class SoundEffectFileResult
-    byte[] AudioData { get;  init; }
-    string ContentType { get;  init; }
-    double DurationSeconds { get;  init; }
+    byte[] AudioData { get; init; }
+    string ContentType { get; init; }
+    double DurationSeconds { get; init; }
   sealed class SoundEffectGenerator : IDisposable, ISoundEffectGenerator, ISoundEffectGeneratorInfo
     ctor(string modelName, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
     ctor(SoundEffectGeneratorModel model, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
@@ -70,13 +116,13 @@ namespace Ikon.AI.SoundEffectGeneration
     static IReadOnlyList<ModelRegion> GetSupportedRegions(SoundEffectGeneratorModel model)
   sealed class SoundEffectGeneratorCapabilities : ISoundEffectGeneratorInfo
     ctor()
-    bool SupportsLooping { get;  init; }
+    bool SupportsLooping { get; init; }
   sealed class SoundEffectGeneratorConfig
-    double? DurationSeconds { get;  set; }
-    bool Loop { get;  set; }
-    string Prompt { get;  set; }
-    double PromptInfluence { get;  set; }
-    TimeSpan Timeout { get;  set; }
+    double? DurationSeconds { get; set; }
+    bool Loop { get; set; }
+    string Prompt { get; set; }
+    double PromptInfluence { get; set; }
+    TimeSpan Timeout { get; set; }
   enum SoundEffectGeneratorModel
     ElevenLabsV2
   static class SoundEffectGeneratorModelExtensions
@@ -85,10 +131,10 @@ namespace Ikon.AI.SoundEffectGeneration
 namespace Ikon.AI.SpeechGeneration
   sealed class TextFilter.Config
     ctor()
-    int MaxTextLength { get;  set; }
-    bool RemoveEmojis { get;  set; }
-    bool SimplifyUrls { get;  set; }
-    bool SpeakOnlyFirstParagraph { get;  set; }
+    int MaxTextLength { get; set; }
+    bool RemoveEmojis { get; set; }
+    bool SimplifyUrls { get; set; }
+    bool SpeakOnlyFirstParagraph { get; set; }
   interface ISpeechGenerator : IDisposable
     int ChannelCount { get; }
     int SampleRate { get; }
@@ -111,12 +157,12 @@ namespace Ikon.AI.SpeechGeneration
     ctor()
   sealed class SpeechGeneratorConfig
     ctor()
-    string Instructions { get;  set; }
-    string Language { get;  set; }
-    string Speed { get;  set; }
-    string Text { get;  set; }
-    TimeSpan Timeout { get;  set; }
-    string VoiceId { get;  set; }
+    string Instructions { get; set; }
+    string Language { get; set; }
+    string Speed { get; set; }
+    string Text { get; set; }
+    TimeSpan Timeout { get; set; }
+    string VoiceId { get; set; }
   static class SpeechGeneratorExtensions
     static Task StreamSpeechAsync(ISpeechGenerator speechGenerator, SpeechGeneratorConfig config, Func<AudioContainer, Task> onAudio, CancellationToken cancellationToken = null)
   enum SpeechGeneratorModel
@@ -141,29 +187,29 @@ namespace Ikon.AI.SpeechGeneration
 namespace Ikon.AI.SpeechRecognition
   sealed class AnalyzePronunciationConfig
     ctor()
-    int ChannelCount { get;  set; }
-    string Language { get;  set; }
-    string ReferenceText { get;  set; }
-    int SampleRate { get;  set; }
-    float[] Samples { get;  set; }
-    TimeSpan Timeout { get;  set; }
+    int ChannelCount { get; set; }
+    string Language { get; set; }
+    string ReferenceText { get; set; }
+    int SampleRate { get; set; }
+    float[] Samples { get; set; }
+    TimeSpan Timeout { get; set; }
   sealed class Pronunciation.Break
     ctor()
-    int BreakLength { get;  init; }
-    List<string> ErrorTypes { get;  init; }
-    Pronunciation.MissingBreak MissingBreak { get;  init; }
-    Pronunciation.UnexpectedBreak UnexpectedBreak { get;  init; }
+    int BreakLength { get; init; }
+    List<string> ErrorTypes { get; init; }
+    Pronunciation.MissingBreak MissingBreak { get; init; }
+    Pronunciation.UnexpectedBreak UnexpectedBreak { get; init; }
   sealed class SpeechRecognizerAdapter.Config
     ctor()
-    TimeSpan MaxSpeechDuration { get;  set; }
-    SpeechRecognizerAdapter.Mode Mode { get;  set; }
-    TimeSpan RecognitionInterval { get;  set; }
-    TimeSpan RequestTimeout { get;  set; }
-    TimeSpan SilenceDuration { get;  set; }
-    float SilenceThreshold { get;  set; }
+    TimeSpan MaxSpeechDuration { get; set; }
+    SpeechRecognizerAdapter.Mode Mode { get; set; }
+    TimeSpan RecognitionInterval { get; set; }
+    TimeSpan RequestTimeout { get; set; }
+    TimeSpan SilenceDuration { get; set; }
+    float SilenceThreshold { get; set; }
   sealed class Pronunciation.Feedback
     ctor()
-    Pronunciation.Prosody Prosody { get;  init; }
+    Pronunciation.Prosody Prosody { get; init; }
   interface ISpeechRecognizer : IDisposable, ISpeechRecognizerInfo
     int ChannelCount { get; }
     int SampleRate { get; }
@@ -176,73 +222,73 @@ namespace Ikon.AI.SpeechRecognition
     bool SupportsPronunciationAnalysis { get; }
   sealed class Pronunciation.Intonation
     ctor()
-    List<string> ErrorTypes { get;  init; }
-    Pronunciation.Monotone Monotone { get;  init; }
+    List<string> ErrorTypes { get; init; }
+    Pronunciation.Monotone Monotone { get; init; }
   sealed class Pronunciation.MissingBreak
     ctor()
-    double Confidence { get;  init; }
+    double Confidence { get; init; }
   enum SpeechRecognizerAdapter.Mode
     GrowingWindow
     SlidingWindow
     SilenceTriggered
   sealed class Pronunciation.Monotone
     ctor()
-    double SyllablePitchDeltaConfidence { get;  init; }
+    double SyllablePitchDeltaConfidence { get; init; }
   sealed class Pronunciation.NBest
     ctor()
-    double Confidence { get;  init; }
-    string Display { get;  init; }
-    string ITN { get;  init; }
-    string Lexical { get;  init; }
-    string MaskedITN { get;  init; }
-    Pronunciation.PronunciationAssessment PronunciationAssessment { get;  init; }
-    List<Pronunciation.Word> Words { get;  init; }
+    double Confidence { get; init; }
+    string Display { get; init; }
+    string ITN { get; init; }
+    string Lexical { get; init; }
+    string MaskedITN { get; init; }
+    Pronunciation.PronunciationAssessment PronunciationAssessment { get; init; }
+    List<Pronunciation.Word> Words { get; init; }
   sealed class Pronunciation.Phoneme
     ctor()
-    long Duration { get;  init; }
-    long Offset { get;  init; }
-    Pronunciation.PhonemePronunciationAssessment PronunciationAssessment { get;  init; }
-    string Text { get;  init; }
+    long Duration { get; init; }
+    long Offset { get; init; }
+    Pronunciation.PhonemePronunciationAssessment PronunciationAssessment { get; init; }
+    string Text { get; init; }
   sealed class Pronunciation.PhonemePronunciationAssessment
     ctor()
-    double AccuracyScore { get;  init; }
+    double AccuracyScore { get; init; }
   static class Pronunciation
   sealed class Pronunciation.PronunciationAssessment
     ctor()
-    double AccuracyScore { get;  init; }
-    double CompletenessScore { get;  init; }
-    double FluencyScore { get;  init; }
-    double PronScore { get;  init; }
-    double ProsodyScore { get;  init; }
+    double AccuracyScore { get; init; }
+    double CompletenessScore { get; init; }
+    double FluencyScore { get; init; }
+    double PronScore { get; init; }
+    double ProsodyScore { get; init; }
   sealed class Pronunciation.Prosody
     ctor()
-    Pronunciation.Break Break { get;  init; }
-    Pronunciation.Intonation Intonation { get;  init; }
+    Pronunciation.Break Break { get; init; }
+    Pronunciation.Intonation Intonation { get; init; }
   sealed class RecognizeContinuousSpeechConfig
     ctor()
-    string[] CandidateLanguages { get;  set; }
-    int ChannelCount { get;  set; }
-    string Language { get;  set; }
-    int SampleRate { get;  set; }
+    string[] CandidateLanguages { get; set; }
+    int ChannelCount { get; set; }
+    string Language { get; set; }
+    int SampleRate { get; set; }
   sealed class RecognizeSpeechConfig
     ctor()
-    int ChannelCount { get;  set; }
-    string Language { get;  set; }
-    string Prompt { get;  set; }
-    int SampleRate { get;  set; }
-    float[] Samples { get;  set; }
-    double Temperature { get;  set; }
-    TimeSpan Timeout { get;  set; }
+    int ChannelCount { get; set; }
+    string Language { get; set; }
+    string Prompt { get; set; }
+    int SampleRate { get; set; }
+    float[] Samples { get; set; }
+    double Temperature { get; set; }
+    TimeSpan Timeout { get; set; }
   sealed class Pronunciation.Result
     ctor()
-    int Channel { get;  init; }
-    string DisplayText { get;  init; }
-    long Duration { get;  init; }
-    string Id { get;  init; }
-    List<Pronunciation.NBest> NBest { get;  init; }
-    long Offset { get;  init; }
-    string RecognitionStatus { get;  init; }
-    double SNR { get;  init; }
+    int Channel { get; init; }
+    string DisplayText { get; init; }
+    long Duration { get; init; }
+    string Id { get; init; }
+    List<Pronunciation.NBest> NBest { get; init; }
+    long Offset { get; init; }
+    string RecognitionStatus { get; init; }
+    double SNR { get; init; }
   sealed class SpeechRecognizer : IDisposable, ISpeechRecognizer, ISpeechRecognizerInfo
     ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
     ctor(SpeechRecognizerModel model, IReadOnlyList<ModelRegion> regions = null)
@@ -270,9 +316,9 @@ namespace Ikon.AI.SpeechRecognition
     IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = null)
   sealed class SpeechRecognizerCapabilities : ISpeechRecognizerInfo
     ctor()
-    bool SupportsBatchRecognition { get;  init; }
-    bool SupportsContinuousRecognition { get;  init; }
-    bool SupportsPronunciationAnalysis { get;  init; }
+    bool SupportsBatchRecognition { get; init; }
+    bool SupportsContinuousRecognition { get; init; }
+    bool SupportsPronunciationAnalysis { get; init; }
   enum SpeechRecognizerModel
     AzureSpeechService
     Whisper2
@@ -281,33 +327,35 @@ namespace Ikon.AI.SpeechRecognition
     Gpt4OmniTranscribe
     Gpt4OmniMiniTranscribe
     DeepgramNova3General
-    AssemblyAIUniversalStreaming
+    AssemblyAIUniversal3ProStreaming
+    AssemblyAIUniversalStreamingEnglish
+    AssemblyAIUniversalStreamingMultilingual
     VoxtralMiniTranscribe2
   static class SpeechRecognizerModelExtensions
     static string DisplayName(SpeechRecognizerModel model)
   sealed class Pronunciation.Syllable
     ctor()
-    long Duration { get;  init; }
-    string Grapheme { get;  init; }
-    long Offset { get;  init; }
-    Pronunciation.SyllablePronunciationAssessment PronunciationAssessment { get;  init; }
-    string Text { get;  init; }
+    long Duration { get; init; }
+    string Grapheme { get; init; }
+    long Offset { get; init; }
+    Pronunciation.SyllablePronunciationAssessment PronunciationAssessment { get; init; }
+    string Text { get; init; }
   sealed class Pronunciation.SyllablePronunciationAssessment
     ctor()
-    double AccuracyScore { get;  init; }
+    double AccuracyScore { get; init; }
   sealed class Pronunciation.UnexpectedBreak
     ctor()
-    double Confidence { get;  init; }
+    double Confidence { get; init; }
   sealed class Pronunciation.Word
     ctor()
-    long Duration { get;  init; }
-    long Offset { get;  init; }
-    List<Pronunciation.Phoneme> Phonemes { get;  init; }
-    Pronunciation.WordPronunciationAssessment PronunciationAssessment { get;  init; }
-    List<Pronunciation.Syllable> Syllables { get;  init; }
-    string Text { get;  init; }
+    long Duration { get; init; }
+    long Offset { get; init; }
+    List<Pronunciation.Phoneme> Phonemes { get; init; }
+    Pronunciation.WordPronunciationAssessment PronunciationAssessment { get; init; }
+    List<Pronunciation.Syllable> Syllables { get; init; }
+    string Text { get; init; }
   sealed class Pronunciation.WordPronunciationAssessment
     ctor()
-    double AccuracyScore { get;  init; }
-    string ErrorType { get;  init; }
-    Pronunciation.Feedback Feedback { get;  init; }
+    double AccuracyScore { get; init; }
+    string ErrorType { get; init; }
+    Pronunciation.Feedback Feedback { get; init; }

@@ -32,7 +32,7 @@ Key rules:
 | `CloudJson` | `cloud-json` | JSON documents persisted through the Hub API, suited for low-latency configuration payloads. Supports optimistic concurrency via the `LastModified` timestamp. |
 | `CloudProfile` | `cloud-profile` | Legacy profile projection support. Marked obsolete and scheduled for removal once dependent workloads migrate. |
 
-Each storage reports metadata such as MIME type, byte size, update timestamp, tags, download URL (when applicable), and the backend-specific identifier through `AssetMetadata` so callers can perform fine-grained reconciliation.
+Each storage reports metadata such as MIME type, byte size, update timestamp, tags, download URL (when applicable), and the backend-specific identifier through `AssetMetadata` so callers can perform fine-grained reconciliation. Storages with a canonical native addressing scheme may also expose it via `AssetMetadata.NativeUri` (for example `gs://bucket/object` on GCS-backed cloud files); downstream consumers that recognise the scheme can use it as a zero-copy fast path, and callers that do not should ignore it.
 
 ## Asset metadata helpers
 
