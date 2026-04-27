@@ -32,6 +32,16 @@ Teleport schema aligns 1:1 with the Teleport binary format, ensuring that field 
 
 Each file defines a single root message and may contain nested messages, enums, transforms, and constraints.
 
+### Include Directive
+
+A `.tp` file may include other `.tp` files using the `@include` directive. The directive must appear on its own line with a quoted path relative to the current file:
+
+```toml
+@include "shared/Common.tp"
+```
+
+The preprocessor inlines included content before TOML parsing. Circular includes are detected and rejected. Included files contribute their enum definitions to the current file's external enum resolution scope.
+
 ---
 
 ## 4. Top-Level Keys
@@ -66,6 +76,7 @@ namespace = "Example.Namespace"
 csharp     = "Example.Namespace"
 typescript = "Example.Namespace"
 cpp        = "Example.Namespace"
+dart       = "Example.Namespace"
 
 [fields]
 Description = "string"
@@ -88,9 +99,10 @@ namespace = "Example.Namespace"
 csharp     = "Example.Namespace"  # C#
 typescript = "Example.Namespace"  # TypeScript
 cpp        = "Example.Namespace"  # C++
+dart       = "Example.Namespace"  # Dart
 ```
 
-The `[namespaces]` table is optional and may contain only the `csharp`, `typescript`, and `cpp` keys. Set any of those entries to an empty string to suppress the namespace for that specific target while keeping it for the others.
+The `[namespaces]` table is optional and may contain only the `csharp`, `typescript`, `cpp`, and `dart` keys. Set any of those entries to an empty string to suppress the namespace for that specific target while keeping it for the others.
 
 ### Allowed Field Type Forms
 
@@ -283,6 +295,7 @@ ikon teleport generate --input ./schemas/cache.tp --type cpp --output ./generate
 | C#          | `sealed partial class` |
 | TypeScript  | `interface`            |
 | C++         | `struct`               |
+| Dart        | `class`                |
 
 ---
 

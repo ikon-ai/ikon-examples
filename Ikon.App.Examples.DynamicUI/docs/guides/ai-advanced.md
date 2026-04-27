@@ -16,7 +16,7 @@ Refer to generated API docs for full details.
 namespace Ikon.AI.Database
   sealed class BigQueryDbConnection : DbConnection
     ctor(string projectId, string datasetId)
-    string ConnectionString { get;  set; }
+    string ConnectionString { get; set; }
     string DataSource { get; }
     string Database { get; }
     string ServerVersion { get; }
@@ -29,46 +29,46 @@ namespace Ikon.AI.Database
     override void Open()
   class DatabaseConnection.Config
     ctor()
-    string EnvVarPrefix { get;  set; }
-    DatabaseConnection.SpaceSecret SpaceSecret { get;  set; }
+    string EnvVarPrefix { get; set; }
+    DatabaseConnection.SpaceSecret SpaceSecret { get; set; }
   class DatabaseInfoExtractor.Config
     ctor()
-    List<string> ColumnExcludeRegex { get;  set; }
-    Dictionary<string, string> ColumnExtraInfo { get;  set; }
-    bool IncludeEmptyColumns { get;  set; }
-    int JsonSampleLengthLimit { get;  set; }
-    int JsonSampleRowLimit { get;  set; }
-    int NonTextSampleRowLimit { get;  set; }
-    List<string> Schemas { get;  set; }
-    List<string> TableExcludeRegex { get;  set; }
-    Dictionary<string, string> TableExtraInfo { get;  set; }
-    List<string> TableIncludeRegex { get;  set; }
-    int TextSampleLengthLimit { get;  set; }
-    int TextSampleRowLimit { get;  set; }
+    List<string> ColumnExcludeRegex { get; set; }
+    Dictionary<string, string> ColumnExtraInfo { get; set; }
+    bool IncludeEmptyColumns { get; set; }
+    int JsonSampleLengthLimit { get; set; }
+    int JsonSampleRowLimit { get; set; }
+    int NonTextSampleRowLimit { get; set; }
+    List<string> Schemas { get; set; }
+    List<string> TableExcludeRegex { get; set; }
+    Dictionary<string, string> TableExtraInfo { get; set; }
+    List<string> TableIncludeRegex { get; set; }
+    int TextSampleLengthLimit { get; set; }
+    int TextSampleRowLimit { get; set; }
   class DatabaseColumnInfo
     ctor()
-    string ColumnName { get;  set; }
-    string DataType { get;  set; }
-    string Description { get;  set; }
-    string ExtraInfo { get;  set; }
-    string ForeignKeyColumnName { get;  set; }
-    string ForeignKeyTableName { get;  set; }
-    bool? IsForeignKey { get;  set; }
-    bool? IsPrimaryKey { get;  set; }
-    List<string> Values { get;  set; }
+    string ColumnName { get; set; }
+    string DataType { get; set; }
+    string Description { get; set; }
+    string ExtraInfo { get; set; }
+    string ForeignKeyColumnName { get; set; }
+    string ForeignKeyTableName { get; set; }
+    bool? IsForeignKey { get; set; }
+    bool? IsPrimaryKey { get; set; }
+    List<string> Values { get; set; }
   class DatabaseConnection
     ctor()
-    string BigQueryDataset { get;  set; }
-    string BigQueryProjectId { get;  set; }
-    DatabaseType DatabaseType { get;  set; }
-    DbConnection DbConnection { get;  set; }
+    string BigQueryDataset { get; set; }
+    string BigQueryProjectId { get; set; }
+    DatabaseType DatabaseType { get; set; }
+    DbConnection DbConnection { get; set; }
     static Task<DatabaseConnection> CreateAsync(DatabaseConnection.Config config)
   class DatabaseInfo
     ctor()
-    DatabaseType DatabaseType { get;  set; }
-    List<string> ExampleQuestions { get;  set; }
-    string SqlCteCommand { get;  set; }
-    List<DatabaseTableInfo> Tables { get;  set; }
+    DatabaseType DatabaseType { get; set; }
+    List<string> ExampleQuestions { get; set; }
+    string SqlCteCommand { get; set; }
+    List<DatabaseTableInfo> Tables { get; set; }
   class DatabaseInfoExtractor
     ctor(DatabaseConnection databaseConnection)
     Task<DatabaseInfo> ExtractAsync(DatabaseInfoExtractor.Config config, CancellationToken cancellationToken)
@@ -77,10 +77,10 @@ namespace Ikon.AI.Database
     Task<DatabaseInfo> ValidateAndFillCteDatabaseInfoAsync(DatabaseInfo cteDatabaseInfo, int maxRowsFilter)
   class DatabaseTableInfo
     ctor()
-    List<DatabaseColumnInfo> Columns { get;  set; }
-    string Description { get;  set; }
-    string ExtraInfo { get;  set; }
-    string TableName { get;  set; }
+    List<DatabaseColumnInfo> Columns { get; set; }
+    string Description { get; set; }
+    string ExtraInfo { get; set; }
+    string TableName { get; set; }
   enum DatabaseType
     Unknown
     PostgreSql
@@ -89,8 +89,8 @@ namespace Ikon.AI.Database
     Trino
   class DatabaseConnection.SpaceSecret
     ctor()
-    string Prefix { get;  set; }
-    string SpaceId { get;  set; }
+    string Prefix { get; set; }
+    string SpaceId { get; set; }
   static class SqlValidator
     static void ValidateReadOnly(string sql, HashSet<string> allowedTables)
 

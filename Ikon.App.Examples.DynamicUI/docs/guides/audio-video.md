@@ -13,10 +13,15 @@ await Audio.SendAsync(samples, sampleRate, channelCount, isFirst, isLast, stream
 // Send speech (throttles output to real-time playback speed and crossfades between sources)
 Audio.SendSpeech(audioChunk);
 
-// Receive audio input from client microphone
-Audio.AudioInputStreamBeginAsync += async args => { /* args.StreamId, args.SampleRate, args.ChannelCount */ };
-Audio.AudioInputFrameAsync += async args => { /* args.Samples, args.IsFirst, args.IsLast */ };
+// Receive audio input from client microphone. args carry args.ClientContext /
+// args.ClientSessionId / args.UserId — use these directly; do NOT plumb state through
+// onCaptureStart to identify the client (use args.ClientSessionId in the handler instead).
+Audio.AudioInputStreamBeginAsync += async args => { /* args.StreamId, args.SampleRate, args.ClientSessionId */ };
+Audio.AudioInputFrameAsync += async args => { /* args.Samples, args.IsFirst, args.IsLast, args.ClientSessionId */ };
 Audio.AudioInputStreamEndAsync += async args => { /* cleanup */ };
+
+// For push-to-talk → chat, prefer the higher-level Audio.SpeechRecognizedAsync / PushToTalkButton —
+// see "AI Speech & Audio" section.
 
 // Stream info and cleanup
 var info = Audio.GetOutputStreamInfo(streamId); // StreamId, TrackId, Codec, SampleRate, ChannelCount
@@ -118,27 +123,27 @@ namespace Ikon.Resonance
     string StreamId { get; }
   sealed class AudioGeneratorOptions
     ctor()
-    int BurstPacketCount { get;  set; }
-    double DriftFactor { get;  set; }
-    bool EnableBurstMode { get;  set; }
-    bool EnableDrift { get;  set; }
-    bool EnableJitter { get;  set; }
-    bool EnablePause { get;  set; }
-    int JitterMs { get;  set; }
-    int PauseDurationMs { get;  set; }
-    int PauseIntervalMs { get;  set; }
+    int BurstPacketCount { get; set; }
+    double DriftFactor { get; set; }
+    bool EnableBurstMode { get; set; }
+    bool EnableDrift { get; set; }
+    bool EnableJitter { get; set; }
+    bool EnablePause { get; set; }
+    int JitterMs { get; set; }
+    int PauseDurationMs { get; set; }
+    int PauseIntervalMs { get; set; }
   class AudioMetrics
     ctor()
     double AvgEncodeTimeMs { get; }
     double AvgIpdMs { get; }
     double CpuUsagePercent { get; }
-    bool Enabled { get;  set; }
+    bool Enabled { get; set; }
     double JitterMs { get; }
-    bool LogMetrics { get;  set; }
+    bool LogMetrics { get; set; }
     double MaxIpdMs { get; }
     double MinIpdMs { get; }
     int StreamCount { get; }
-    double UpdateIntervalSeconds { get;  set; }
+    double UpdateIntervalSeconds { get; set; }
     void RecordPacket(string streamId, double encodingTimeMs)
     void Remove(string streamId)
     void Reset(string streamId)
@@ -170,6 +175,18 @@ namespace Ikon.Resonance
   enum FadeMode
     Sequential
     Crossfade
+  sealed class GroupAudioMixer : IAsyncDisposable
+    ctor(GroupAudioMixerConfig config = null)
+    void AddParticipant(string excludeKey)
+    void AddStream(string streamId, string excludeKey)
+    ValueTask DisposeAsync()
+    void RemoveParticipant(string excludeKey)
+    void RemoveStream(string streamId)
+    Task StartAsync(Func<string, AudioFrameEx, ValueTask> onFrame, CancellationToken cancellationToken = null)
+    void WriteSamples(string streamId, ReadOnlySpan<float> samples, int sampleRate, int channelCount)
+  sealed class GroupAudioMixerConfig
+    ctor()
+    double MaxBufferSizeMs { get; set; }
   interface IAudioSource
     abstract void GenerateAudio(Span<float> buffer, int samplesPerChannel, int channelCount, int sampleRate)
   enum WavFile.SampleFormat
@@ -182,19 +199,19 @@ namespace Ikon.Resonance
     void Reset()
   sealed class SilenceRemoverConfig
     ctor()
-    float AttackAlpha { get;  set; }
-    float InitialNoiseFloor { get;  set; }
-    float MaxNoiseFloor { get;  set; }
-    float NoiseFloorAlpha { get;  set; }
-    float NoiseFloorMultiplier { get;  set; }
-    float NoiseFloorOffset { get;  set; }
-    int PreBufferMs { get;  set; }
-    float ReleaseAlpha { get;  set; }
-    int SpeechOnsetChunks { get;  set; }
-    int TrailingSilenceMs { get;  set; }
+    float AttackAlpha { get; set; }
+    float InitialNoiseFloor { get; set; }
+    float MaxNoiseFloor { get; set; }
+    float NoiseFloorAlpha { get; set; }
+    float NoiseFloorMultiplier { get; set; }
+    float NoiseFloorOffset { get; set; }
+    int PreBufferMs { get; set; }
+    float ReleaseAlpha { get; set; }
+    int SpeechOnsetChunks { get; set; }
+    int TrailingSilenceMs { get; set; }
   sealed class SpeechMixer : IAsyncDisposable
     ctor(SpeechMixerConfig config = null)
-    AudioEncoderOptions EncoderOptions { get;  set; }
+    AudioEncoderOptions EncoderOptions { get; set; }
     bool IsPaused { get; }
     string StreamId { get; }
     void AddSamples(AudioContainer container, IReadOnlyList<IAudioEffect> effects = null, IReadOnlyList<IAudioAnalyzer> analyzers = null, IReadOnlyList<int> targetIds = null)
@@ -207,14 +224,14 @@ namespace Ikon.Resonance
     Task StartAsync(Func<AudioFrameEx, ValueTask> onFrame, CancellationToken cancellationToken = null)
   sealed class SpeechMixerConfig
     ctor()
-    CrossfadeCurve CrossfadeCurve { get;  set; }
-    double EndPaddingMs { get;  set; }
-    double FadeInMs { get;  set; }
-    FadeMode FadeMode { get;  set; }
-    double FadeOutMs { get;  set; }
-    double MaxBufferSizeMs { get;  set; }
-    double MaxPaddingTimeMs { get;  set; }
-    double PaddingThreshold { get;  set; }
+    CrossfadeCurve CrossfadeCurve { get; set; }
+    double EndPaddingMs { get; set; }
+    double FadeInMs { get; set; }
+    FadeMode FadeMode { get; set; }
+    double FadeOutMs { get; set; }
+    double MaxBufferSizeMs { get; set; }
+    double MaxPaddingTimeMs { get; set; }
+    double PaddingThreshold { get; set; }
   class WavFile : IDisposable
     ctor(int sampleRate, int channelCount, WavFile.SampleFormat sampleFormat)
     void AddSamples(ReadOnlySpan<short> samples)
@@ -226,12 +243,12 @@ namespace Ikon.Resonance
 
 namespace Ikon.Resonance.Analysis
   struct AudioAnalysisResult
-    uint SetId { get;  set; }
-    float[] Values { get;  set; }
+    uint SetId { get; set; }
+    float[] Values { get; set; }
   struct AudioShapeSetDeclaration
-    string Name { get;  set; }
-    uint SetId { get;  set; }
-    string[] ShapeNames { get;  set; }
+    string Name { get; set; }
+    uint SetId { get; set; }
+    string[] ShapeNames { get; set; }
   interface IAudioAnalyzer
     AudioShapeSetDeclaration ShapeSetDeclaration { get; }
     abstract IAudioAnalyzerInstance Create(int sampleRate, int channelCount)
@@ -298,13 +315,13 @@ namespace Ikon.Resonance.Synth
 namespace Ikon.Resonance.Synth.Envelopes
   sealed class AdsrEnvelope
     ctor()
-    double Attack { get;  set; }
-    double Decay { get;  set; }
+    double Attack { get; set; }
+    double Decay { get; set; }
     bool IsActive { get; }
     double Output { get; }
-    double Release { get;  set; }
+    double Release { get; set; }
     EnvelopeStage Stage { get; }
-    double Sustain { get;  set; }
+    double Sustain { get; set; }
     void Gate(bool gate)
     void NoteOff()
     void NoteOn()
@@ -321,9 +338,9 @@ namespace Ikon.Resonance.Synth.Envelopes
 namespace Ikon.Resonance.Synth.Filters
   sealed class MoogLadderFilter
     ctor()
-    double Cutoff { get;  set; }
-    double Drive { get;  set; }
-    double Resonance { get;  set; }
+    double Cutoff { get; set; }
+    double Drive { get; set; }
+    double Resonance { get; set; }
     double Process(double input)
     void Reset()
     void SetSampleRate(double sampleRate)
@@ -332,8 +349,8 @@ namespace Ikon.Resonance.Synth.Modulation
   sealed class Lfo
     ctor()
     double Phase { get; }
-    double Rate { get;  set; }
-    LfoWaveform Waveform { get;  set; }
+    double Rate { get; set; }
+    LfoWaveform Waveform { get; set; }
     double Process()
     void Reset()
     void SetSampleRate(double sampleRate)
@@ -349,8 +366,8 @@ namespace Ikon.Resonance.Synth.Moog
   sealed class MoogSynth
     ctor(int voiceCount = 8)
     Lfo Lfo { get; }
-    double NoiseFloor { get;  set; }
-    MoogSynthPatch Patch { get;  set; }
+    double NoiseFloor { get; set; }
+    MoogSynthPatch Patch { get; set; }
     VoiceAllocator VoiceAllocator { get; }
     void AllNotesOff()
     void ApplyPatch()
@@ -362,31 +379,31 @@ namespace Ikon.Resonance.Synth.Moog
     void SetSampleRate(double sampleRate)
   sealed class MoogSynthPatch
     ctor()
-    double AmpAttack { get;  set; }
-    double AmpDecay { get;  set; }
-    double AmpRelease { get;  set; }
-    double AmpSustain { get;  set; }
-    double DriftAmount { get;  set; }
-    double FilterAttack { get;  set; }
-    double FilterCutoff { get;  set; }
-    double FilterDecay { get;  set; }
-    double FilterEnvAmount { get;  set; }
-    double FilterKeyTrack { get;  set; }
-    double FilterRelease { get;  set; }
-    double FilterResonance { get;  set; }
-    double FilterSustain { get;  set; }
-    double LfoRate { get;  set; }
-    double LfoToFilter { get;  set; }
-    double LfoToPitch { get;  set; }
-    double LfoToPwm { get;  set; }
-    LfoWaveform LfoWaveform { get;  set; }
-    double MasterVolume { get;  set; }
-    string Name { get;  set; }
-    double NoiseLevel { get;  set; }
-    double Osc1Level { get;  set; }
-    double Osc2Level { get;  set; }
-    double Osc2PulseWidth { get;  set; }
-    double SubLevel { get;  set; }
+    double AmpAttack { get; set; }
+    double AmpDecay { get; set; }
+    double AmpRelease { get; set; }
+    double AmpSustain { get; set; }
+    double DriftAmount { get; set; }
+    double FilterAttack { get; set; }
+    double FilterCutoff { get; set; }
+    double FilterDecay { get; set; }
+    double FilterEnvAmount { get; set; }
+    double FilterKeyTrack { get; set; }
+    double FilterRelease { get; set; }
+    double FilterResonance { get; set; }
+    double FilterSustain { get; set; }
+    double LfoRate { get; set; }
+    double LfoToFilter { get; set; }
+    double LfoToPitch { get; set; }
+    double LfoToPwm { get; set; }
+    LfoWaveform LfoWaveform { get; set; }
+    double MasterVolume { get; set; }
+    string Name { get; set; }
+    double NoiseLevel { get; set; }
+    double Osc1Level { get; set; }
+    double Osc2Level { get; set; }
+    double Osc2PulseWidth { get; set; }
+    double SubLevel { get; set; }
   static class MoogSynthPresets
     static MoogSynthPatch AcidLead()
     static MoogSynthPatch[] All()
@@ -421,7 +438,7 @@ namespace Ikon.Resonance.Synth.Oscillators
   sealed class PulseOscillator : IOscillator
     ctor()
     double Phase { get; }
-    double PulseWidth { get;  set; }
+    double PulseWidth { get; set; }
     double Process(double frequency, double sampleRate, double pulseWidth)
     double Process(double frequency, double sampleRate)
     void Reset()
@@ -435,13 +452,13 @@ namespace Ikon.Resonance.Synth.Oscillators
   sealed class SquareOscillator : IOscillator
     ctor()
     double Phase { get; }
-    double PulseWidth { get;  set; }
+    double PulseWidth { get; set; }
     double Process(double frequency, double sampleRate)
     void Reset()
     void Sync()
   sealed class SubOscillator : IOscillator
     ctor()
-    int OctaveDown { get;  set; }
+    int OctaveDown { get; set; }
     double Phase { get; }
     double Process(double frequency, double sampleRate)
     void Reset()
@@ -456,21 +473,21 @@ namespace Ikon.Resonance.Synth.Oscillators
 namespace Ikon.Resonance.Synth.Sequencer
   sealed class GenerativeSettings
     ctor()
-    double Bpm { get;  set; }
-    double ChordProbability { get;  set; }
-    double MaxVelocity { get;  set; }
-    double MinVelocity { get;  set; }
-    double NoteProbability { get;  set; }
-    int OctaveRange { get;  set; }
-    double RestProbability { get;  set; }
-    int RootNote { get;  set; }
-    int[] Scale { get;  set; }
+    double Bpm { get; set; }
+    double ChordProbability { get; set; }
+    double MaxVelocity { get; set; }
+    double MinVelocity { get; set; }
+    double NoteProbability { get; set; }
+    int OctaveRange { get; set; }
+    double RestProbability { get; set; }
+    int RootNote { get; set; }
+    int[] Scale { get; set; }
   sealed class Sequencer
     ctor(MoogSynth synth)
     double Bpm { get; }
-    GenerativeSettings GenerativeSettings { get;  set; }
-    SequencerMode Mode { get;  set; }
-    SequencerPattern Pattern { get;  set; }
+    GenerativeSettings GenerativeSettings { get; set; }
+    SequencerMode Mode { get; set; }
+    SequencerPattern Pattern { get; set; }
     void NextPattern()
     void Process(int sampleCount)
     void Reset()
@@ -485,10 +502,10 @@ namespace Ikon.Resonance.Synth.Sequencer
     double Velocity { get; }
   sealed class SequencerPattern
     ctor()
-    double Bpm { get;  set; }
-    string Name { get;  set; }
-    List<SequencerNote?> Steps { get;  set; }
-    int StepsPerBeat { get;  set; }
+    double Bpm { get; set; }
+    string Name { get; set; }
+    List<SequencerNote?> Steps { get; set; }
+    int StepsPerBeat { get; set; }
     static SequencerPattern AcidBass()
     static SequencerPattern Arpeggio()
     static SequencerPattern FilterSweep()
@@ -497,10 +514,10 @@ namespace Ikon.Resonance.Synth.Sequencer
 namespace Ikon.Resonance.Synth.Songs
   sealed class Song
     ctor()
-    double Bpm { get;  set; }
-    int LoopLengthBeats { get;  set; }
-    string Name { get;  set; }
-    List<SongTrack> Tracks { get;  set; }
+    double Bpm { get; set; }
+    int LoopLengthBeats { get; set; }
+    string Name { get; set; }
+    List<SongTrack> Tracks { get; set; }
   static class SongLibrary
     static Song[] All()
     static Song BinaryHorizon()
@@ -521,7 +538,7 @@ namespace Ikon.Resonance.Synth.Songs
     double BeatPosition { get; }
     string CurrentSongName { get; }
     bool IsPlaying { get; }
-    Song Song { get;  set; }
+    Song Song { get; set; }
     void Play()
     void Process(Span<float> buffer, int samplesPerChannel, int channelCount, int sampleRate)
     void Reset()
@@ -539,27 +556,27 @@ namespace Ikon.Resonance.Synth.Songs
     void Stop()
   sealed class SongTrack
     ctor()
-    string Name { get;  set; }
-    List<SongNote> Notes { get;  set; }
-    MoogSynthPatch Patch { get;  set; }
+    string Name { get; set; }
+    List<SongNote> Notes { get; set; }
+    MoogSynthPatch Patch { get; set; }
 
 namespace Ikon.Resonance.Synth.Voice
   sealed class SynthVoice
     ctor()
     AdsrEnvelope AmpEnvelope { get; }
-    double DriftAmount { get;  set; }
-    double FilterCutoff { get;  set; }
-    double FilterEnvAmount { get;  set; }
+    double DriftAmount { get; set; }
+    double FilterCutoff { get; set; }
+    double FilterEnvAmount { get; set; }
     AdsrEnvelope FilterEnvelope { get; }
-    double FilterKeyTrack { get;  set; }
-    double FilterResonance { get;  set; }
+    double FilterKeyTrack { get; set; }
+    double FilterResonance { get; set; }
     bool IsActive { get; }
-    double NoiseLevel { get;  set; }
+    double NoiseLevel { get; set; }
     int NoteNumber { get; }
-    double Osc1Level { get;  set; }
-    double Osc2Level { get;  set; }
-    double Osc2PulseWidth { get;  set; }
-    double SubLevel { get;  set; }
+    double Osc1Level { get; set; }
+    double Osc2Level { get; set; }
+    double Osc2PulseWidth { get; set; }
+    double SubLevel { get; set; }
     double Velocity { get; }
     void NoteOff()
     void NoteOn(int noteNumber, double velocity)
@@ -584,17 +601,17 @@ namespace Ikon.Resonance.Synth.Voice
 namespace Ikon.Resonance.Core
   class AudioContainer
     ctor(string id, float[] samples, int sampleRate, int channelCount, bool isFirst, bool isLast)
-    int ChannelCount { get;  set; }
-    string Id { get;  set; }
-    bool IsFirst { get;  set; }
-    bool IsLast { get;  set; }
-    int SampleRate { get;  set; }
-    float[] Samples { get;  set; }
+    int ChannelCount { get; set; }
+    string Id { get; set; }
+    bool IsFirst { get; set; }
+    bool IsLast { get; set; }
+    int SampleRate { get; set; }
+    float[] Samples { get; set; }
   class AudioEncoderOptions
     ctor()
-    int? Bitrate { get;  set; }
-    int? Complexity { get;  set; }
-    bool? UseVBR { get;  set; }
+    int? Bitrate { get; set; }
+    int? Complexity { get; set; }
+    bool? UseVBR { get; set; }
   class OpusEncoder.EncodedAudio
     ctor()
     float AverageVolume { get; }
@@ -616,15 +633,15 @@ namespace Ikon.Resonance.Core
     IEnumerable<OpusEncoder.EncodedAudio> Encode(ReadOnlyMemory<float> samples, bool isFirst, bool isLast)
   class OpusEncoderOptions
     ctor()
-    OpusApplication? Application { get;  set; }
-    int? Bitrate { get;  set; }
-    int ChannelCount { get;  set; }
-    int? Complexity { get;  set; }
-    float FrameDurationMs { get;  set; }
-    int InputBufferSizeMs { get;  set; }
-    OpusBandwidth? MaxBandwidth { get;  set; }
-    int SampleRate { get;  set; }
-    OpusSignal? SignalType { get;  set; }
-    bool? UseConstrainedVBR { get;  set; }
-    bool? UseVBR { get;  set; }
+    OpusApplication? Application { get; set; }
+    int? Bitrate { get; set; }
+    int ChannelCount { get; set; }
+    int? Complexity { get; set; }
+    float FrameDurationMs { get; set; }
+    int InputBufferSizeMs { get; set; }
+    OpusBandwidth? MaxBandwidth { get; set; }
+    int SampleRate { get; set; }
+    OpusSignal? SignalType { get; set; }
+    bool? UseConstrainedVBR { get; set; }
+    bool? UseVBR { get; set; }
     static OpusEncoderOptions FromAudioEncoderOptions(AudioEncoderOptions options)

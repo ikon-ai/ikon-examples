@@ -13,29 +13,57 @@ view.Box([Card.Default, "p-6 mb-4"], content: view => { ... });
 
 **Always use theme constants from `IkonTheme.cs` instead of raw Tailwind utilities.** Never use raw hex colors, Tailwind palette classes (`text-purple-500`, `bg-blue-100`), or hardcoded spacing/shadows/radius values when a theme constant exists.
 
-For the full list of every available constant, see the **Ikon Theme Constants** reference. Key categories:
+Key categories:
 
 - **Text**: `Text.Display`, `Text.H1`–`Text.H4`, `Text.Body`, `Text.BodyStrong`, `Text.Label`, `Text.Caption`, `Text.Muted`, `Text.Small`, `Text.Code`, `Text.Link`
-- **Button**: `Button.PrimarySm/Md/Lg`, `Button.SecondarySm/Md/Lg`, `Button.OutlineSm/Md/Lg`, `Button.GhostSm/Md/Lg`, `Button.DangerSm/Md/Lg`, `Button.LinkSm/Md/Lg`, `Button.Size.Icon`
-- **Card**: `Card.Default`, `Card.Elevated`, `Card.Interactive`, `Card.Ghost`, `Card.Glass`, `Card.GlassSubtle`, `Card.Header`, `Card.Content`, `Card.Footer`, `Card.HeaderRow`
-- **Layout**: `Layout.Row.Xs/Sm/Md/Lg/Xl`, `Layout.Row.SpaceBetween`, `Layout.Column.Xs/Sm/Md/Lg/Xl`, `Layout.Grid.Cols2/Cols3/Cols4`, `Layout.Page`, `Layout.Section`, `Layout.SectionHeader`, `Layout.Center`, `Layout.Stretch`
+- **Button**: `Button.SolidSm/Md/Lg`, `Button.PrimarySm/Md/Lg`, `Button.NeutralSm/Md/Lg`, `Button.OutlineSm/Md/Lg`, `Button.GhostSm/Md/Lg`, `Button.ErrorSm/Md/Lg`, `Button.SuccessSm/Md/Lg`, `Button.WarningSm/Md/Lg`, `Button.InfoSm/Md/Lg`, `Button.LinkSm/Md/Lg`, `Button.Size.Icon`
+- **Card**: `Card.Default`, `Card.Subtle`, `Card.Elevated`, `Card.Strong`, `Card.Outline`, `Card.Flat`, `Card.Ghost`, `Card.Interactive`, `Card.InteractiveFill`, `Card.Selected`, `Card.Glass`, `Card.GlassSubtle`, `Card.Header`, `Card.Content`, `Card.Footer`
+- **Layout**: `Layout.Row.Xs/Sm/Md/Lg/Xl`, `Layout.Row.SpaceBetween`, `Layout.Column.Xs/Sm/Md/Lg/Xl`, `Layout.Grid.Cols2/Cols3/Cols4`, `Layout.Split.Root/Sidebar/Main/Detail`, `Layout.Page`, `Layout.Section`, `Layout.Center`, `Layout.Stretch`
 - **Page**: `Page.Default`, `Page.Plain`, `Page.Gradient`
 - **Container**: `Container.Xs` through `Container.Xl7`, `Container.Full`, `Container.Prose`, `Container.Screen`
 - **Input**: `Input.Default`, `Input.DefaultSm`, `Input.DefaultLg`, `Input.Ghost`, `Input.Invalid`
-- **Badge**: `Badge.Grey/Brand/Success/Warning/Error/Info` (with Sm/Md/Lg sizes), `Badge.Outline*` variants
+- **Badge**: `Badge.GreySm/Md/Lg`, `Badge.BrandSm/Md/Lg`, `Badge.ErrorSm/Md/Lg`, `Badge.SuccessSm/Md/Lg`, `Badge.WarningSm/Md/Lg`, `Badge.InfoSm/Md/Lg`, `Badge.OutlineGrey/Brand/Error/Success/Warning/Info`
 - **Icon**: `Icon.Default`, `Icon.Size.Xs/Sm/Md/Lg`, `Icon.Spinner`, `Icon.SpinnerSm`, `Icon.SpinnerLg`
-- **Nav**: `NavPanel.*`, `NavSection.*`, `NavItem.*` (with size and state variants)
-- **Data**: `DataTable.*`, `StatCard.*`, `EmptyState.*`, `Progress.*`, `Skeleton.*`
+- **Nav**: `NavigationMenu.*` (Root, List, Trigger, Content, Link, Indicator)
+- **Data**: `DataTable.*`, `Progress.*`, `Skeleton.*`, `Media.*`
 - **State**: `State.Focusable`, `State.Disabled`, `State.Pressable`, `State.Loading`, `State.Selected`, `State.Invalid`, `State.Readonly`
 - **Tokens**: `Tokens.Radius.*`, `Tokens.Shadow.*`, `Tokens.Duration.*`
 - **Transition**: `Transition.Fast/Normal/Slow/Slower`, `Transition.Property.*`
 - **Overlay styles**: `Dialog.*`, `AlertDialog.*`, `Popover.*`, `Tooltip.*`, `HoverCard.*`, `Toast.*`, `Sheet.*`, `Drawer.*`
 - **Form**: `FormField.Root`, `FormField.Label`, `FormField.LabelRequired`, `FormField.HelpText`, `FormField.ErrorText`
+- **Nav**: `NavPanel.Base/Filled/Border/Ghost/Divided`, `NavSection.*`, `NavItem.Sm/Md/Lg` + `NavItem.Default/Active/ActiveBrand`
+- **Stat**: `StatCard.Root/Header/IconBox*/Label/Value/Trend/TrendVariant.*`, `EmptyState.Root/IconWrap/Title/Description/Actions`
+- **Split**: `ResizableSplit.Root/Handle/HandleVertical`
 - **Other**: `Tabs.*`, `Slider.*`, `Select.*`, `RadioGroup.*`, `Checkbox.*`, `Switch.*`, `Alert.*`, `Separator.*`, `Avatar.*`
 
 Use semantic color tokens (`text-primary`, `bg-card`, `border-secondary`) — never raw hex values. Follow the 60-30-10 rule: 60% `bg-background`, 30% `bg-card`/`bg-secondary`, 10% brand accents.
 
-For complete UI decision rules, see the **Ikon UI Guidelines** doc. For theme customization (brand colors, fonts, radius, design personalities), see the **Ikon Theme Customization** guide.
+### Theme Customization
+
+Edit `IkonTheme.cs` to customize the app's visual identity. The top of the CSS section contains the customizable values — colors, radius, shadows, and fonts. Everything below (semantic token mappings, dark mode overrides, C# style tokens) is infrastructure that rarely needs changing.
+
+**Colors** — Six color scales, each with 12 steps (25–950). To change a color, replace all 12 hex values for that scale. Generate scales using OKLCH: keep the seed color's hue and chroma, vary lightness across the steps (97% for step 25 down to 15% for step 950), reduce chroma at extremes.
+
+| Scale | Purpose |
+|-------|---------|
+| `--brand-*` | Primary accent — buttons, links, active states |
+| `--neutral-*` | Backgrounds, borders, text — 60% of the UI |
+| `--error-*` | Error states, destructive actions |
+| `--success-*` | Success states, confirmations |
+| `--warning-*` | Warning states, caution |
+| `--info-*` | Informational elements |
+
+**Radius** — Change only `--radius-base`. All other radius tokens derive from it. Sharp (0.25rem) → modern (0.5rem) → friendly (0.75rem) → playful (1rem).
+
+**Shadows** — Light and dark mode shadow definitions. Adjust opacity values for lighter/heavier shadows.
+
+**Fonts** — Four tokens + matching `@import` URLs. `--font-display` for headings, `--font-body` for UI text, `--font-serif` for editorial, `--font-mono` for code. Always keep fallback stacks.
+
+**Style tokens** — The C# static classes (`Button`, `Card`, `Text`, `Layout`, etc.) compose Crosswind utility classes into reusable constants. Use these in style arrays: `[Button.PrimaryMd, "mt-4"]`. You can also write Crosswind classes inline or create custom token variables for app-specific patterns. Using the built-in tokens is not mandatory but ensures visual consistency.
+
+**Generating from an image** — Extract: dominant accent color → brand scale, background tone → neutral scale, corner radius, heading/body font styles. Cross-check that all dimensions reinforce the same aesthetic. Apply in a single pass.
+
+**Aesthetic guidance** — Tint neutrals toward the brand hue. Use OKLCH for perceptually uniform scales. Pair a distinctive display font with a readable body font. Choose radius that matches the emotional tone. Avoid pure black/white, generic AI defaults (neon accents, gradient text), and overused fonts (Inter, Roboto) for display.
 
 ### Motion Syntax
 
