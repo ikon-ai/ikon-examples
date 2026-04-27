@@ -21,7 +21,7 @@ const app = useIkonApp({
   modules: [registerStandardUiModule, registerLucideIconsModule],
   audio: true,            // Enable audio playback (default: true)
   video: true,            // Enable video playback (default: true)
-  webRtc: false,          // Enable WebRTC for audio/video transport (default: false)
+  webRtc: true,           // Enable WebRTC for audio/video transport (default: true)
   backgroundAudio: false, // Allow audio playback when tab is in background (default: false)
   websocket: undefined,   // Force WebSocket transport (default: auto-detected)
   webtransport: undefined,// Force WebTransport transport (default: auto-detected)
@@ -79,7 +79,7 @@ Connection states: `idle` → `connecting` → `connectingSlow` → `connected`,
 **Timeline:**
 1. **0–5s:** `connecting` state (show blank or nothing)
 2. **5s threshold:** transitions to `connectingSlow` (show a loading indicator)
-3. **60s timeout:** if still not connected, transitions to `offline` or `offlineError`
+3. **180s timeout:** if still not connected, transitions to `offline` or `offlineError`
 4. **On disconnect:** enters `reconnecting` state — attempt 1 is immediate, attempt 2 after 2s delay. After 2 failed attempts, falls back to full re-authentication
 5. **Stability:** after 15s of stable connection, the reconnect counter resets
 
@@ -92,7 +92,7 @@ Connection states: `idle` → `connecting` → `connectingSlow` → `connected`,
 | Option | Default | Description |
 |---|---|---|
 | `slowConnectionThresholdMs` | 5000 | Time before `connectingSlow` state |
-| `connectionTimeoutMs` | 60000 | Max time to establish connection |
+| `connectionTimeoutMs` | 180000 | Max time to establish connection |
 | `keepaliveTimeoutMs` | 15000 | Max gap between keepalive messages |
 | `reconnectBackoffMs` | 2000 | Delay between reconnect attempts |
 | `maxReconnectAttempts` | 2 | Fast reconnect attempts before re-auth |
@@ -133,6 +133,49 @@ The frontend acts as an optional auth gate — when auth is enabled, users must 
 2. **Replace `AuthGuard`** — implement fully custom auth logic and pass `authConfig` to `useIkonApp` to control when the SDK connects
 
 The template's `auth-guard.tsx` shows the default implementation: it uses `useAuthGuard({ config, guestUrlParam: 'guest' })` which returns `shouldRenderChildren`, `isCheckingAuth`, `isAuthenticated`, and `error` for conditional rendering.
+
+#### Custom magic-link login email
+
+Magic-link login emails default to a platform-branded template. To ship your own, drop files into an optional `emails/` folder at the **project root** (sibling to `app/` and `frontend-node/`). The bundler picks them up automatically on `ikon app deploy`.
+
+Each template is a pair of sibling files:
+
+```
+emails/
+  magic-link-code.html     # Handlebars HTML
+  magic-link-code.json     # {"subject": "..."}
+```
+
+- File name without extension is the template key. Supported keys today: `magic-link-code`.
+- The `.json` provides the subject and is **required** — missing/empty subject produces a warning on activation and the template is not saved.
+- The subject string supports the same Handlebars tokens as the HTML.
+- Only `.html` ships in the app bundle; the `.json` is read by IkonTool at bundle time to populate subject metadata.
+
+**Allowed Handlebars tokens** for `magic-link-code`:
+
+| Token | Value |
+| --- | --- |
+| `{{code}}` | Full 9-digit login code |
+| `{{code1}}` | First 3 digits |
+| `{{code2}}` | Middle 3 digits |
+| `{{code3}}` | Last 3 digits |
+
+**Minimal example:**
+
+```html
+<!-- emails/magic-link-code.html -->
+<!DOCTYPE html><html><body>
+  <p>Enter this code to finish signing in:</p>
+  <p><strong>{{code1}} {{code2}} {{code3}}</strong></p>
+</body></html>
+```
+
+```json
+// emails/magic-link-code.json
+{ "subject": "Your sign-in code" }
+```
+
+Omit the folder entirely to keep the platform default.
 
 ### Internationalization (i18n)
 

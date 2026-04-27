@@ -9,22 +9,17 @@
 # Examples: "mydb:postgres"
 Databases = []
 
-# Endpoint configurations for exposing the app externally (assigned port numbers and public URLs are available via app.Endpoints in the app)
-# Format: "name:protocol" - valid protocols: http, https, tls, tcp
-# Examples: "api:https", "webhooks:http", "gameserver:tcp"
-Endpoints = []
-
 # Activation configuration for the app (app activation is separate from deployment)
 [Activation]
 # Whether to stop all active sessions of the app when a version of the app is activated
-StopSessions = false
+StopSessions = true
 
 # Authentication configuration for the app frontend
 [Auth]
 # Whether the frontend requires authentication before connection to the app is established
 Enabled = false
-# Available methods: google, facebook, apple, microsoft, linkedin, github, email, guest
-Methods = ["google", "facebook", "apple"]
+# Available methods: google, microsoft, guest
+Methods = ["google", "microsoft", "guest"]
 # If non-empty, only allow users with email addresses from these domains to authenticate (e.g. ["mycompany.com"])
 DomainAllowlist = []
 
@@ -51,7 +46,7 @@ Name = ""
   - `--log-trace` / `--log-debug`: enable verbose logging
   - `--debug`: enable debug mode
   - `--skip-npm-install`: skip npm install step
-- `ikon app stop`: stop a running app instance (`--pid <id>` or `--all`)
+- `ikon app stop`: stop a running app instance
 - `ikon app info`: show running app instance info (URLs, PIDs)
 
 ### Configuration & Deployment
