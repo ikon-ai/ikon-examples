@@ -30,6 +30,9 @@ await foreach (var ev in Emerge.Run<MyType>(model, ctx, pass => { ... }))
 
 // Non-streaming - just get the result
 var (result, context) = await Emerge.Run<MyType>(model, ctx, pass => { ... }).FinalAsync();
+
+// Non-streaming - get the result with trace info
+var (result, context, trace) = await Emerge.Run<MyType>(model, ctx, pass => { ... }).FinalWithTraceAsync();
 ```
 
 ### Event Types
@@ -157,6 +160,10 @@ var (best, _) = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
 - `Count` - Number of candidates (default: 3)
 - `Score` - Scoring function `Func<T, EmergenceTrace, double>`
 - `Candidate(Action<CandidateScope<T>>)` - Configure each candidate (has `Index`, `Seed`)
+- `EnableCritic` - Enable critic-guided refinement of candidates (default: false)
+- `Critic(Action<EmergeScope<T>>)` - Configure the critic scope
+- `BuildCriticFeedback` - Custom function `Func<T, ScoreBreakdown?, string>` to build critic feedback
+- `CriticMustImprove` - Require critic to improve on the current best (default: true)
 
 **Context flow:** Each candidate runs with an isolated derived context.
 
@@ -180,6 +187,10 @@ var (best, _) = await Emerge.ParallelBestOf<Answer>(LLMModel.Claude45Sonnet, ctx
 - `Count` - Number of candidates (default: 3)
 - `MaxParallel` - Concurrency limit (default: 4)
 - `Score` - Scoring function
+- `EnableCritic` - Enable critic-guided refinement of candidates (default: false)
+- `Critic(Action<EmergeScope<T>>)` - Configure the critic scope
+- `BuildCriticFeedback` - Custom function `Func<T, ScoreBreakdown?, string>` to build critic feedback
+- `CriticMustImprove` - Require critic to improve on the current best (default: true)
 
 ---
 
@@ -732,6 +743,8 @@ await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx,
 - `AddToolsFrom(object instance)` - Auto-discover methods with `[Function]` attributes
 - `AddTool(name, description, Func<..., TResult>)` - Inline sync function (0-8 parameters)
 - `AddTool(name, description, Func<..., Task<TResult>>)` - Inline async function (0-8 parameters)
+- `AddMcpTools(McpClient)` - Add all tools discovered from a connected MCP client
+- `DescribeParams(toolName, Dictionary<string, string>)` - Set parameter descriptions on a previously added tool
 
 All `AddTool` overloads return `EmergePass<T>` for chaining.
 

@@ -3,12 +3,12 @@
 namespace Ikon.Code
   sealed class ClassCard : IEquatable<ClassCard>
     ctor(string SymbolId, string FqName, int Loc, string Summary, string Source, ImmutableArray<ExternalCall> ExternalCalls)
-    ImmutableArray<ExternalCall> ExternalCalls { get;  init; }
-    string FqName { get;  init; }
-    int Loc { get;  init; }
-    string Source { get;  init; }
-    string Summary { get;  init; }
-    string SymbolId { get;  init; }
+    ImmutableArray<ExternalCall> ExternalCalls { get; init; }
+    string FqName { get; init; }
+    int Loc { get; init; }
+    string Source { get; init; }
+    string Summary { get; init; }
+    string SymbolId { get; init; }
   static class ClassCardBuilder
     static Task<ImmutableArray<ClassCard>> BuildClassCardsAsync(Compilation comp, GraphIndex graph, CancellationToken ct)
   static class ClassCardRanker
@@ -23,26 +23,26 @@ namespace Ikon.Code
     IAsyncEnumerable<EventStreamSummary> AnalyzeAsync(IAsyncEnumerable<ProtocolMessage> stream, CancellationToken cancellationToken = null)
   class EventStreamSummary
     ctor()
-    string History { get;  set; }
-    string Important { get;  set; }
-    string Summary { get;  set; }
+    string History { get; set; }
+    string Important { get; set; }
+    string Summary { get; set; }
   sealed class ExternalCall : IEquatable<ExternalCall>
     ctor(string Namespace, string Member)
-    string Member { get;  init; }
-    string Namespace { get;  init; }
+    string Member { get; init; }
+    string Namespace { get; init; }
   static class GraphBuilder
     static Task<GraphIndex> BuildCallGraphAsync(Compilation comp, CancellationToken ct)
   sealed class GraphIndex : IEquatable<GraphIndex>
     ctor(ImmutableDictionary<IMethodSymbol, ImmutableHashSet<IMethodSymbol>> ForwardEdges, ImmutableDictionary<INamedTypeSymbol, ImmutableHashSet<ISymbol>> TypeMembers, ImmutableDictionary<INamespaceSymbol, ImmutableHashSet<INamedTypeSymbol>> NamespaceTypes, ImmutableHashSet<ISymbol> PublicApiRoots)
-    ImmutableDictionary<IMethodSymbol, ImmutableHashSet<IMethodSymbol>> ForwardEdges { get;  init; }
-    ImmutableDictionary<INamespaceSymbol, ImmutableHashSet<INamedTypeSymbol>> NamespaceTypes { get;  init; }
-    ImmutableHashSet<ISymbol> PublicApiRoots { get;  init; }
-    ImmutableDictionary<INamedTypeSymbol, ImmutableHashSet<ISymbol>> TypeMembers { get;  init; }
+    ImmutableDictionary<IMethodSymbol, ImmutableHashSet<IMethodSymbol>> ForwardEdges { get; init; }
+    ImmutableDictionary<INamespaceSymbol, ImmutableHashSet<INamedTypeSymbol>> NamespaceTypes { get; init; }
+    ImmutableHashSet<ISymbol> PublicApiRoots { get; init; }
+    ImmutableDictionary<INamedTypeSymbol, ImmutableHashSet<ISymbol>> TypeMembers { get; init; }
   sealed class MindResult : IEquatable<MindResult>
     ctor()
-    string Error { get;  init; }
-    object Payload { get;  init; }
-    bool Success { get;  init; }
+    string Error { get; init; }
+    object Payload { get; init; }
+    bool Success { get; init; }
   static class MindTools
     static Task<MindResult> CodebaseSearchAsync(string query, string explanation = null, IEnumerable<string> targetDirectories = null)
     static Task<MindResult> CreateDiagramAsync(string content)
@@ -64,36 +64,36 @@ namespace Ikon.Code
     static string AssemblePrompt(IEnumerable<ClassCard> cards, string userQuery)
   class TaskFingerprint
     ctor()
-    List<string> Keywords { get;  set; }
-    string TaskBlurb { get;  set; }
+    List<string> Keywords { get; set; }
+    string TaskBlurb { get; set; }
 
 namespace Ikon.Code.AST
   class AddMemberAction : AstAction, IEquatable<AddMemberAction>
     ctor(AstSymbolKey ContainerKey, string ContainerKind, string ContainerName, string MemberKind, string MemberName, string Snippet, int? Position = null)
-    AstSymbolKey ContainerKey { get;  init; }
-    string ContainerKind { get;  init; }
-    string ContainerName { get;  init; }
-    string MemberKind { get;  init; }
-    string MemberName { get;  init; }
-    int? Position { get;  init; }
-    string Snippet { get;  init; }
+    AstSymbolKey ContainerKey { get; init; }
+    string ContainerKind { get; init; }
+    string ContainerName { get; init; }
+    string MemberKind { get; init; }
+    string MemberName { get; init; }
+    int? Position { get; init; }
+    string Snippet { get; init; }
   abstract class AstAction : IEquatable<AstAction>
   class AstDiagnostic
     ctor()
-    IReadOnlyList<AstDiagnosticLocation> AdditionalLocations { get;  init; }
-    string Category { get;  init; }
-    string Id { get;  init; }
-    bool IsSuppressed { get;  init; }
-    AstDiagnosticLocation Location { get;  init; }
-    string Message { get;  init; }
-    IReadOnlyDictionary<string, string> Properties { get;  init; }
-    AstDiagnosticSeverity Severity { get;  init; }
+    IReadOnlyList<AstDiagnosticLocation> AdditionalLocations { get; init; }
+    string Category { get; init; }
+    string Id { get; init; }
+    bool IsSuppressed { get; init; }
+    AstDiagnosticLocation Location { get; init; }
+    string Message { get; init; }
+    IReadOnlyDictionary<string, string> Properties { get; init; }
+    AstDiagnosticSeverity Severity { get; init; }
     override string ToString()
   class AstDiagnosticLocation
     ctor()
-    int Column { get;  init; }
-    string FilePath { get;  init; }
-    int Line { get;  init; }
+    int Column { get; init; }
+    string FilePath { get; init; }
+    int Line { get; init; }
     override string ToString()
   enum AstDiagnosticSeverity
     Hidden
@@ -109,25 +109,25 @@ namespace Ikon.Code.AST
     IReadOnlyList<AstDiagnostic> All
   class AstSymbol : IEquatable<AstSymbol>
     ctor()
-    string ContainerId { get;  init; }
-    string Documentation { get;  init; }
-    bool IsInSource { get;  init; }
-    AstSymbolKey Key { get;  init; }
-    AstSymbolKind Kind { get;  init; }
-    AstDiagnosticLocation Location { get;  init; }
-    string Name { get;  init; }
-    IReadOnlyList<string> RelatedSymbols { get;  init; }
-    double RelevanceScore { get;  init; }
-    string Signature { get;  init; }
+    string ContainerId { get; init; }
+    string Documentation { get; init; }
+    bool IsInSource { get; init; }
+    AstSymbolKey Key { get; init; }
+    AstSymbolKind Kind { get; init; }
+    AstDiagnosticLocation Location { get; init; }
+    string Name { get; init; }
+    IReadOnlyList<string> RelatedSymbols { get; init; }
+    double RelevanceScore { get; init; }
+    string Signature { get; init; }
     string Source { get; }
-    string Summary { get;  init; }
+    string Summary { get; init; }
   class AstSymbolKey : IEquatable<AstSymbolKey>
     ctor(string Namespace = null, string TypeName = null, string MemberName = null, string Kind = null, string[] ParameterTypes = null)
-    string Kind { get;  init; }
-    string MemberName { get;  init; }
-    string Namespace { get;  init; }
-    string[] ParameterTypes { get;  init; }
-    string TypeName { get;  init; }
+    string Kind { get; init; }
+    string MemberName { get; init; }
+    string Namespace { get; init; }
+    string[] ParameterTypes { get; init; }
+    string TypeName { get; init; }
     AstSymbolKey GetParent()
     AstSymbolKey WithMember(string member, string kind = null, string[] parameterTypes = null)
     AstSymbolKey WithoutName()
@@ -149,17 +149,17 @@ namespace Ikon.Code.AST
     Local
   class AstSymbolSearchOptions
     ctor()
-    bool CaseSensitive { get;  set; }
-    bool IncludeExternalDocs { get;  set; }
-    AstSymbolKind? Kind { get;  set; }
-    int MaxResults { get;  set; }
+    bool CaseSensitive { get; set; }
+    bool IncludeExternalDocs { get; set; }
+    AstSymbolKind? Kind { get; set; }
+    int MaxResults { get; set; }
   class AstTestCaseResult
     ctor()
-    TimeSpan Duration { get;  init; }
-    string Message { get;  init; }
-    string Name { get;  init; }
-    AstTestOutcome Outcome { get;  init; }
-    string StackTrace { get;  init; }
+    TimeSpan Duration { get; init; }
+    string Message { get; init; }
+    string Name { get; init; }
+    AstTestOutcome Outcome { get; init; }
+    string StackTrace { get; init; }
   enum AstTestOutcome
     Passed
     Failed
@@ -167,39 +167,39 @@ namespace Ikon.Code.AST
     Unknown
   class AstTestResults
     ctor()
-    string RawOutput { get;  init; }
+    string RawOutput { get; init; }
     bool Success { get; }
-    IReadOnlyList<AstTestCaseResult> Tests { get;  init; }
+    IReadOnlyList<AstTestCaseResult> Tests { get; init; }
   static class AstWorkspaceLoader
     static Task<IAstWorkspace> LoadAsync(string projectPath, bool initSymbols = false, CancellationToken ct = null)
   class ChangeAccessibilityAction : AstAction, IEquatable<ChangeAccessibilityAction>
     ctor(AstSymbolKey TargetKey, string OldAccessibility, string NewAccessibility)
-    string NewAccessibility { get;  init; }
-    string OldAccessibility { get;  init; }
-    AstSymbolKey TargetKey { get;  init; }
+    string NewAccessibility { get; init; }
+    string OldAccessibility { get; init; }
+    AstSymbolKey TargetKey { get; init; }
   class ChangeAttributesAction : AstAction, IEquatable<ChangeAttributesAction>
     ctor(AstSymbolKey TargetKey, string[] OldAttributes, string[] NewAttributes)
-    string[] NewAttributes { get;  init; }
-    string[] OldAttributes { get;  init; }
-    AstSymbolKey TargetKey { get;  init; }
+    string[] NewAttributes { get; init; }
+    string[] OldAttributes { get; init; }
+    AstSymbolKey TargetKey { get; init; }
   sealed class ChangeReturnTypeAction : AstAction, IEquatable<ChangeReturnTypeAction>
     ctor(string TargetId, string NewReturnType)
-    string NewReturnType { get;  init; }
-    string TargetId { get;  init; }
+    string NewReturnType { get; init; }
+    string TargetId { get; init; }
   class ChangeSignatureAction : AstAction, IEquatable<ChangeSignatureAction>
     ctor(AstSymbolKey MemberKey, ImmutableArray<string> NewParameters)
-    AstSymbolKey MemberKey { get;  init; }
-    ImmutableArray<string> NewParameters { get;  init; }
+    AstSymbolKey MemberKey { get; init; }
+    ImmutableArray<string> NewParameters { get; init; }
   class ChangeSignatureAction2 : AstAction, IEquatable<ChangeSignatureAction2>
     ctor(AstSymbolKey MemberKey, string[] NewParameters, string[] NewTypeParameters, string NewReturnType)
-    AstSymbolKey MemberKey { get;  init; }
-    string[] NewParameters { get;  init; }
-    string NewReturnType { get;  init; }
-    string[] NewTypeParameters { get;  init; }
+    AstSymbolKey MemberKey { get; init; }
+    string[] NewParameters { get; init; }
+    string NewReturnType { get; init; }
+    string[] NewTypeParameters { get; init; }
   class ChangeTypeAction : AstAction, IEquatable<ChangeTypeAction>
     ctor(AstSymbolKey MemberKey, string NewType)
-    AstSymbolKey MemberKey { get;  init; }
-    string NewType { get;  init; }
+    AstSymbolKey MemberKey { get; init; }
+    string NewType { get; init; }
   interface IAstSymbolGraph
     abstract Task<IReadOnlyList<AstSymbol>> GetReferencedSymbols(AstSymbol symbol)
     abstract Task<IReadOnlyList<AstSymbol>> GetReferencingSymbols(AstSymbol symbol)
@@ -236,45 +236,45 @@ namespace Ikon.Code.AST
     abstract Task<IAstWorkspace> WriteFileAsync(string filePath, string contents, CancellationToken ct = null)
   class MoveMemberAction : AstAction, IEquatable<MoveMemberAction>
     ctor(string MemberKind, string MemberName, AstSymbolKey OldContainerKey, string OldContainerKind, string OldContainerName, AstSymbolKey NewContainerKey, string NewContainerKind, string NewContainerName)
-    string MemberKind { get;  init; }
-    string MemberName { get;  init; }
-    AstSymbolKey NewContainerKey { get;  init; }
-    string NewContainerKind { get;  init; }
-    string NewContainerName { get;  init; }
-    AstSymbolKey OldContainerKey { get;  init; }
-    string OldContainerKind { get;  init; }
-    string OldContainerName { get;  init; }
+    string MemberKind { get; init; }
+    string MemberName { get; init; }
+    AstSymbolKey NewContainerKey { get; init; }
+    string NewContainerKind { get; init; }
+    string NewContainerName { get; init; }
+    AstSymbolKey OldContainerKey { get; init; }
+    string OldContainerKind { get; init; }
+    string OldContainerName { get; init; }
   class PatchMemberAction : AstAction, IEquatable<PatchMemberAction>
     ctor(string TargetKey, string Patch)
-    string Patch { get;  init; }
-    string TargetKey { get;  init; }
+    string Patch { get; init; }
+    string TargetKey { get; init; }
   class RemoveMemberAction : AstAction, IEquatable<RemoveMemberAction>
     ctor(AstSymbolKey ContainerKey, string ContainerKind, string ContainerName, string MemberKind, string MemberName)
-    AstSymbolKey ContainerKey { get;  init; }
-    string ContainerKind { get;  init; }
-    string ContainerName { get;  init; }
-    string MemberKind { get;  init; }
-    string MemberName { get;  init; }
+    AstSymbolKey ContainerKey { get; init; }
+    string ContainerKind { get; init; }
+    string ContainerName { get; init; }
+    string MemberKind { get; init; }
+    string MemberName { get; init; }
   class RenameAction : AstAction, IEquatable<RenameAction>
     ctor(AstSymbolKey OldKey, AstSymbolKey NewKey)
-    AstSymbolKey NewKey { get;  init; }
-    AstSymbolKey OldKey { get;  init; }
+    AstSymbolKey NewKey { get; init; }
+    AstSymbolKey OldKey { get; init; }
   class ReplaceBodyAction : AstAction, IEquatable<ReplaceBodyAction>
     ctor(AstSymbolKey HostKey, string HostKind, string NewBody)
-    AstSymbolKey HostKey { get;  init; }
-    string HostKind { get;  init; }
-    string NewBody { get;  init; }
+    AstSymbolKey HostKey { get; init; }
+    string HostKind { get; init; }
+    string NewBody { get; init; }
   class SearchConfig
     ctor()
-    bool EnableFuzzyMatching { get;  set; }
-    int ExactFullMatchScore { get;  set; }
-    int FuzzySegmentMatchScore { get;  set; }
-    int MaxResults { get;  set; }
-    int OrderedSegmentMatchScore { get;  set; }
-    int SegmentPenaltyPerExtra { get;  set; }
-    int SubstringMatchScore { get;  set; }
-    int SuffixMatchScore { get;  set; }
-    double UsageBoostFactor { get;  set; }
+    bool EnableFuzzyMatching { get; set; }
+    int ExactFullMatchScore { get; set; }
+    int FuzzySegmentMatchScore { get; set; }
+    int MaxResults { get; set; }
+    int OrderedSegmentMatchScore { get; set; }
+    int SegmentPenaltyPerExtra { get; set; }
+    int SubstringMatchScore { get; set; }
+    int SuffixMatchScore { get; set; }
+    double UsageBoostFactor { get; set; }
   enum SymbolInfoLevel
     Basic
     Summary
