@@ -225,7 +225,7 @@ Controls how the LLM is invoked:
 - Regions: Preferred model regions in priority order (e.g. Eu, UsWest). Values from the ModelRegion enum: Global, Eu, EuNorth, EuWest, EuCentral, EuSouth, Us, UsEast, UsWest.
 - RequestTimeoutSeconds: Hard timeout for the request.
 - Temperature, MaxOutputTokens: Standard sampling limits.
-- ReasoningEffort: Hint for the model on how much internal reasoning to allocate (None/Low/Medium/High).
+- ReasoningEffort: Hint for the model on how much internal reasoning to allocate (None/Minimal/Low/Medium/High).
 - ReasoningTokenBudget: Upper limit for the model’s hidden scratch-pad (0 → let the model decide).
 - UseStreaming: Stream partial results (StreamingResult).
 - UseJson: Ask the model to reply in pure JSON.
@@ -363,7 +363,7 @@ Executed in template context – perfect for side effects.
 
 - BeforeShader / AfterShader: Run once before/after the whole shader (AfterShader runs after the model message is assembled).
 - BeforePass / AfterPass: Run before/after the selected Pass (every iteration).
-- Listeners: Dictionary "<StreamingResultType> → script". Runs whenever that result type is produced – Input contains the value. Common types include `String`, `FunctionCall`, `Citation`, `OutputAudioTranscript`, `OutputAudioId`, `Reasoning`, `ToolPlan`, `ClassificationResult`, `FinalTextResponse`, and `FinalModelMessage`.
+- Listeners: Dictionary "<StreamingResultType> → script". Runs whenever that result type is produced during generation – Input contains the value. Common types include `String`, `FunctionCall`, `Citation`, `OutputAudioTranscript`, `OutputAudioId`, `Reasoning`, `ToolPlan`, and `ClassificationResult`. Note: `FinalTextResponse` and `FinalModelMessage` are emitted after the generation loop and cannot be observed by Listeners.
 
 #### Output
 
