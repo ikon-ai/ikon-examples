@@ -3,17 +3,17 @@
 namespace Ikon.Resonance.Core
   class AudioContainer
     ctor(string id, float[] samples, int sampleRate, int channelCount, bool isFirst, bool isLast)
-    int ChannelCount { get;  set; }
-    string Id { get;  set; }
-    bool IsFirst { get;  set; }
-    bool IsLast { get;  set; }
-    int SampleRate { get;  set; }
-    float[] Samples { get;  set; }
+    int ChannelCount { get; set; }
+    string Id { get; set; }
+    bool IsFirst { get; set; }
+    bool IsLast { get; set; }
+    int SampleRate { get; set; }
+    float[] Samples { get; set; }
   class AudioEncoderOptions
     ctor()
-    int? Bitrate { get;  set; }
-    int? Complexity { get;  set; }
-    bool? UseVBR { get;  set; }
+    int? Bitrate { get; set; }
+    int? Complexity { get; set; }
+    bool? UseVBR { get; set; }
   class OpusEncoder.EncodedAudio
     ctor()
     float AverageVolume { get; }
@@ -35,15 +35,15 @@ namespace Ikon.Resonance.Core
     IEnumerable<OpusEncoder.EncodedAudio> Encode(ReadOnlyMemory<float> samples, bool isFirst, bool isLast)
   class OpusEncoderOptions
     ctor()
-    OpusApplication? Application { get;  set; }
-    int? Bitrate { get;  set; }
-    int ChannelCount { get;  set; }
-    int? Complexity { get;  set; }
-    float FrameDurationMs { get;  set; }
-    int InputBufferSizeMs { get;  set; }
-    OpusBandwidth? MaxBandwidth { get;  set; }
-    int SampleRate { get;  set; }
-    OpusSignal? SignalType { get;  set; }
-    bool? UseConstrainedVBR { get;  set; }
-    bool? UseVBR { get;  set; }
+    OpusApplication? Application { get; set; }
+    int? Bitrate { get; set; }
+    int ChannelCount { get; set; }
+    int? Complexity { get; set; }
+    float FrameDurationMs { get; set; }
+    int InputBufferSizeMs { get; set; }
+    OpusBandwidth? MaxBandwidth { get; set; }
+    int SampleRate { get; set; }
+    OpusSignal? SignalType { get; set; }
+    bool? UseConstrainedVBR { get; set; }
+    bool? UseVBR { get; set; }
     static OpusEncoderOptions FromAudioEncoderOptions(AudioEncoderOptions options)

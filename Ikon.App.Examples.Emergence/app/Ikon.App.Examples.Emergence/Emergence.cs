@@ -124,7 +124,7 @@ public partial class Emergence(IApp<SessionIdentity, ClientParams> app)
                     {
                         if (state.IsRunning.Value)
                         {
-                            view.Button([Button.DangerMd], label: "Stop", onClick: async () =>
+                            view.Button([Button.ErrorMd], label: "Stop", onClick: async () =>
                             {
                                 _cts?.Cancel();
                                 state.IsRunning.Value = false;

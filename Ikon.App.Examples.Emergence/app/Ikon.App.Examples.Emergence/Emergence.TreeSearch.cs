@@ -187,7 +187,7 @@ public partial class Emergence
                     {
                         if (state.IsRunning.Value)
                         {
-                            view.Button([Button.DangerMd], label: "Stop", onClick: async () =>
+                            view.Button([Button.ErrorMd], label: "Stop", onClick: async () =>
                             {
                                 _cts?.Cancel();
                                 state.IsRunning.Value = false;
@@ -328,7 +328,7 @@ public partial class Emergence
                     {
                         if (state.IsRunning.Value)
                         {
-                            view.Button([Button.DangerMd], label: "Stop", onClick: async () =>
+                            view.Button([Button.ErrorMd], label: "Stop", onClick: async () =>
                             {
                                 _cts?.Cancel();
                                 state.IsRunning.Value = false;
@@ -348,7 +348,7 @@ public partial class Emergence
 
                         // Toggle source document view
                         view.Button(
-                            [_showSourceDocument.Value ? Button.SecondaryMd : Button.OutlineMd],
+                            [_showSourceDocument.Value ? Button.NeutralMd : Button.OutlineMd],
                             label: _showSourceDocument.Value ? "Hide Source" : "Show Source",
                             onClick: async () => _showSourceDocument.Value = !_showSourceDocument.Value);
                     });

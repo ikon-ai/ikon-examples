@@ -1,6 +1,25 @@
 # Ikon.Teleport.CodeGen Public API
 
 namespace Ikon.Teleport.CodeGen
+  sealed class TeleportAppCompiler.Inputs : IEquatable<TeleportAppCompiler.Inputs>
+    ctor(string SchemaRootDir, string CSharpOutputDir, IReadOnlyList<TeleportAppCompiler.Output> ExtraOutputs, string DefaultCSharpNamespace)
+    string CSharpOutputDir { get; init; }
+    string DefaultCSharpNamespace { get; init; }
+    IReadOnlyList<TeleportAppCompiler.Output> ExtraOutputs { get; init; }
+    string SchemaRootDir { get; init; }
+  sealed class TeleportAppCompiler.Output : IEquatable<TeleportAppCompiler.Output>
+    ctor(string Language, string Dir)
+    string Dir { get; init; }
+    string Language { get; init; }
+  sealed class TeleportAppCompiler.Result : IEquatable<TeleportAppCompiler.Result>
+    ctor(int SchemaCount, int CSharpFilesWritten, IReadOnlyDictionary<string, int> ExtraFilesWritten)
+    int CSharpFilesWritten { get; init; }
+    IReadOnlyDictionary<string, int> ExtraFilesWritten { get; init; }
+    int SchemaCount { get; init; }
+  static class TeleportAppCompiler
+    static IReadOnlyCollection<string> SupportedLanguages { get; }
+    static TeleportAppCompiler.Result Compile(TeleportAppCompiler.Inputs inputs)
+    static TeleportAppCompiler.Result CompileApp(string appDir)
   sealed class TeleportDocument
     IReadOnlyCollection<TeleportExternalReference> ExternalEnums { get; }
     IReadOnlyCollection<TeleportExternalReference> ExternalTypes { get; }
@@ -12,8 +31,8 @@ namespace Ikon.Teleport.CodeGen
     uint RootVersion { get; }
   sealed class TeleportExternalReference : IEquatable<TeleportExternalReference>
     ctor(string Name, string Namespace)
-    string Name { get;  init; }
-    string Namespace { get;  init; }
+    string Name { get; init; }
+    string Namespace { get; init; }
   sealed class TeleportGenerationResult
     string Code { get; }
     TeleportDocument Document { get; }
@@ -24,9 +43,15 @@ namespace Ikon.Teleport.CodeGen
     static TeleportGenerationResult GenerateCpp(string source, string rootDirectory = null, TeleportParserOptions parserOptions = null)
     static string GenerateCpp(TeleportDocument document)
     static TeleportGenerationResult GenerateCppFromFile(string path, TeleportParserOptions parserOptions = null)
+    static TeleportGenerationResult GenerateDart(string source, string rootDirectory = null, TeleportParserOptions parserOptions = null)
+    static string GenerateDart(TeleportDocument document)
+    static TeleportGenerationResult GenerateDartFromFile(string path, TeleportParserOptions parserOptions = null)
     static TeleportGenerationResult GenerateJson(string source, string rootDirectory = null, TeleportParserOptions parserOptions = null)
     static string GenerateJson(TeleportDocument document)
     static TeleportGenerationResult GenerateJsonFromFile(string path, TeleportParserOptions parserOptions = null)
+    static TeleportGenerationResult GenerateRust(string source, string rootDirectory = null, TeleportParserOptions parserOptions = null)
+    static string GenerateRust(TeleportDocument document)
+    static TeleportGenerationResult GenerateRustFromFile(string path, TeleportParserOptions parserOptions = null)
     static TeleportGenerationResult GenerateTypeScript(string source, string rootDirectory = null, TeleportTypeScriptGeneratorOptions options = null, TeleportParserOptions parserOptions = null)
     static string GenerateTypeScript(TeleportDocument document, TeleportTypeScriptGeneratorOptions options = null)
     static TeleportGenerationResult GenerateTypeScriptFromFile(string path, TeleportTypeScriptGeneratorOptions options = null, TeleportParserOptions parserOptions = null)
@@ -43,8 +68,8 @@ namespace Ikon.Teleport.CodeGen
   sealed class TeleportParserOptions
     ctor()
     static TeleportParserOptions Default { get; }
-    bool StrictOpcodeParsing { get;  init; }
+    bool StrictOpcodeParsing { get; init; }
   sealed class TeleportTypeScriptGeneratorOptions
     ctor()
     static TeleportTypeScriptGeneratorOptions Default { get; }
-    bool IncludeHeader { get;  init; }
+    bool IncludeHeader { get; init; }

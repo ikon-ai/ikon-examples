@@ -134,7 +134,7 @@ public partial class Emergence
                                     {
                                         view.Checkbox(
                                             [Checkbox.Root],
-                                            @checked: _taskGraphEnableReview.Value,
+                                            isChecked: _taskGraphEnableReview.Value,
                                             onCheckedChange: async value => _taskGraphEnableReview.Value = value,
                                             content: v => v.CheckboxIndicator([Checkbox.Indicator], content: i => i.Icon([Icon.Default], name: "check")));
                                         view.Text([Text.Caption, "text-muted-foreground ml-2"], "Enable parallel review");
@@ -165,7 +165,7 @@ public partial class Emergence
                     {
                         if (state.IsRunning.Value)
                         {
-                            view.Button([Button.DangerMd], label: "Stop", onClick: async () =>
+                            view.Button([Button.ErrorMd], label: "Stop", onClick: async () =>
                             {
                                 _cts?.Cancel();
                                 state.IsRunning.Value = false;
@@ -295,7 +295,7 @@ public partial class Emergence
                     {
                         if (state.IsRunning.Value)
                         {
-                            view.Button([Button.DangerMd], label: "Stop", onClick: async () =>
+                            view.Button([Button.ErrorMd], label: "Stop", onClick: async () =>
                             {
                                 _cts?.Cancel();
                                 state.IsRunning.Value = false;

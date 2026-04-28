@@ -205,7 +205,7 @@ Disappointed with the battery - doesn't last a full day for me.
                     {
                         if (state.IsRunning.Value)
                         {
-                            view.Button([Button.DangerMd], label: "Stop", onClick: async () =>
+                            view.Button([Button.ErrorMd], label: "Stop", onClick: async () =>
                             {
                                 _cts?.Cancel();
                                 state.IsRunning.Value = false;
@@ -360,7 +360,7 @@ Disappointed with the battery - doesn't last a full day for me.
                     {
                         if (state.IsRunning.Value)
                         {
-                            view.Button([Button.DangerMd], label: "Stop", onClick: async () =>
+                            view.Button([Button.ErrorMd], label: "Stop", onClick: async () =>
                             {
                                 _cts?.Cancel();
                                 state.IsRunning.Value = false;

@@ -203,7 +203,7 @@ Who lives where and has which pet?
                     {
                         if (state.IsRunning.Value)
                         {
-                            view.Button([Button.DangerMd], label: "Stop", onClick: async () =>
+                            view.Button([Button.ErrorMd], label: "Stop", onClick: async () =>
                             {
                                 _cts?.Cancel();
                                 state.IsRunning.Value = false;
@@ -358,7 +358,7 @@ Who lives where and has which pet?
                     {
                         if (state.IsRunning.Value)
                         {
-                            view.Button([Button.DangerMd], label: "Stop", onClick: async () =>
+                            view.Button([Button.ErrorMd], label: "Stop", onClick: async () =>
                             {
                                 _cts?.Cancel();
                                 state.IsRunning.Value = false;
@@ -511,7 +511,7 @@ Who lives where and has which pet?
                     {
                         if (state.IsRunning.Value)
                         {
-                            view.Button([Button.DangerMd], label: "Stop", onClick: async () =>
+                            view.Button([Button.ErrorMd], label: "Stop", onClick: async () =>
                             {
                                 _cts?.Cancel();
                                 state.IsRunning.Value = false;
