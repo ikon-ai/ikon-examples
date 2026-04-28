@@ -151,6 +151,59 @@ anchor.FocusHint(new FocusHintProps { Priority = FocusPriority.Assertive },
     key: $"scroll-{version}");
 ```
 
+### Scrolling inside a flex parent
+
+The canonical dialog / side-panel pattern is a `Column` with a fixed height, a
+header + footer, and a scrolling body. `ScrollArea` automatically applies
+`min-h-0 min-w-0` to its root so shrinking inside a flex parent Just Works —
+no ceremony required.
+
+**Why this matters.** A flex child's `min-height` defaults to `auto` (equal to
+its intrinsic content size), so without `min-h-0` a `flex-1` scroll region
+would grow to fit all its content — pushing siblings off-screen and bypassing
+the inner overflow. The framework handles this for `ScrollArea`. You only need
+to think about it on your own `Column`/`Row` with a manual `overflow-y-auto`.
+
+**Canonical recipe — `ScrollArea` inside a flex column:**
+
+```csharp
+view.Column(["h-[82vh] flex flex-col"], content: dialog =>
+{
+    dialog.Row(["items-center px-5 py-4 border-b"], content: header => ...);
+
+    dialog.ScrollArea(
+        rootStyle: ["flex-1"],              // min-h-0 is injected automatically
+        scrollbars: ScrollAreaScrollbars.Vertical,
+        content: body => ...);
+
+    dialog.Row(["items-center px-3 py-2 border-t"], content: composer => ...);
+});
+```
+
+**Or use the `ScrollColumn` primitive** that wraps the header/body/footer
+pattern in a single call, so the shape can't be misused:
+
+```csharp
+view.ScrollColumn(
+    style: ["h-[82vh] w-full sm:max-w-[560px] rounded-2xl bg-white"],
+    header: h => h.Row(["px-5 py-4 border-b"], content: title => ...),
+    footer: f => f.Row(["p-3 border-t"], content: composer => ...),
+    content: body => body.Column(["gap-3"], content: messages => ...));
+```
+
+**Raw `Column`/`Row` with overflow-auto.** If you're not using `ScrollArea`, you
+still need `min-h-0` (or a fixed height) yourself — the framework fix only
+applies to the `ScrollArea` component:
+
+```csharp
+view.Column(["flex-1 min-h-0 overflow-y-auto", ...], ...);
+```
+
+Dev builds (debugger attached or `IKON_DEV_WARNINGS=1`) emit a single
+`Log.Instance.Warning` when they detect a `Column`/`Row`/`Box`/`Flex` with
+`overflow-y-auto` + `flex-1` and no `min-h-0` — with the exact
+`file:line` of the offending callsite.
+
 ## Example: Interactive Form
 
 ```csharp

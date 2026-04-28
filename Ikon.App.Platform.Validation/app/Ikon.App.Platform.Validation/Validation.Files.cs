@@ -247,7 +247,7 @@ public partial class Validation
 
                 view.Row(["items-center gap-2"], content: view =>
                 {
-                    view.Switch([Switch.Root], @checked: _advUploadRejectAll.Value,
+                    view.Switch([Switch.Root], isChecked: _advUploadRejectAll.Value,
                         onCheckedChange: async v => _advUploadRejectAll.Value = v,
                         content: view => view.SwitchThumb([Switch.Thumb]));
                     view.Label([Label.Base], content: v => v.Text(text: "Reject all uploads"));

@@ -366,7 +366,7 @@ public partial class Validation
                         {
                             view.Switch(
                                 [Switch.Default],
-                                @checked: _videoUrlLoop.Value,
+                                isChecked: _videoUrlLoop.Value,
                                 onCheckedChange: value =>
                                 {
                                     _videoUrlLoop.Value = value;
@@ -380,7 +380,7 @@ public partial class Validation
                         {
                             view.Switch(
                                 [Switch.Default],
-                                @checked: _videoUrlMuted.Value,
+                                isChecked: _videoUrlMuted.Value,
                                 onCheckedChange: value =>
                                 {
                                     _videoUrlMuted.Value = value;
@@ -394,7 +394,7 @@ public partial class Validation
                         {
                             view.Switch(
                                 [Switch.Default],
-                                @checked: _videoUrlControls.Value,
+                                isChecked: _videoUrlControls.Value,
                                 onCheckedChange: value =>
                                 {
                                     _videoUrlControls.Value = value;

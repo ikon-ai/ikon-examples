@@ -274,7 +274,7 @@ public partial class Validation
                         {
                             view.Switch(
                                 [Switch.Default],
-                                @checked: _audioEchoCancellation.Value,
+                                isChecked: _audioEchoCancellation.Value,
                                 onCheckedChange: value =>
                                 {
                                     _audioEchoCancellation.Value = value;
@@ -288,7 +288,7 @@ public partial class Validation
                         {
                             view.Switch(
                                 [Switch.Default],
-                                @checked: _audioNoiseSuppression.Value,
+                                isChecked: _audioNoiseSuppression.Value,
                                 onCheckedChange: value =>
                                 {
                                     _audioNoiseSuppression.Value = value;
@@ -302,7 +302,7 @@ public partial class Validation
                         {
                             view.Switch(
                                 [Switch.Default],
-                                @checked: _audioAutoGainControl.Value,
+                                isChecked: _audioAutoGainControl.Value,
                                 onCheckedChange: value =>
                                 {
                                     _audioAutoGainControl.Value = value;
@@ -386,11 +386,33 @@ public partial class Validation
                             content: v => v.Icon([Icon.Default], name: "circle"));
                     });
 
+                    view.Row([Layout.Row.Md, "flex-wrap mb-4 items-center"], content: view =>
+                    {
+                        view.PushToTalkButton(
+                            style: [_isPushToTalkRecording.Value ? Button.ErrorMd : Button.PrimaryMd],
+                            label: "Hold to Record (Easy)",
+                            audioOptions: new ClientAudioCaptureOptions
+                            {
+                                AutoGainControl = _audioAutoGainControl.Value,
+                                NoiseSuppression = _audioNoiseSuppression.Value,
+                                EchoCancellation = _audioEchoCancellation.Value,
+                                Bitrate = ParseBitrateKbps(_audioBitrate.Value),
+                                DeviceId = GetSelectedDeviceId(_selectedMicrophoneId.Value),
+                            },
+                            onCaptureStart: async e => _isPushToTalkRecording.Value = true,
+                            onCaptureStop: async e => _isPushToTalkRecording.Value = false);
+
+                        if (!string.IsNullOrEmpty(_lastSpeechRecognized.Value))
+                        {
+                            view.Text([Text.Caption], _lastSpeechRecognized.Value);
+                        }
+                    });
+
                     view.Row([Layout.Row.InlineCenter, "mb-4"], content: view =>
                     {
                         view.Switch(
                             [Switch.Default],
-                            @checked: _audioPlaybackEnabled.Value,
+                            isChecked: _audioPlaybackEnabled.Value,
                             onCheckedChange: value =>
                             {
                                 _audioPlaybackEnabled.Value = value;

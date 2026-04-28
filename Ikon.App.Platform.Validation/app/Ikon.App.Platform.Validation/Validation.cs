@@ -11,15 +11,16 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private Video Video { get; } = new(app);
     private AudioGenerator AudioGenerator { get; } = new();
 
-    // Tab state
-    private readonly Reactive<string> _activeTab = new("buttons");
+    // Tab state — per-client so concurrent sessions don't trample each other's
+    // active tab via the shared-Reactive write path.
+    private readonly ClientReactive<string> _activeTab = new("buttons");
 
     private static readonly HashSet<string> ValidTabs =
     [
         "buttons", "inputs", "cards", "overlays", "navigation", "layout", "forms",
         "typography", "files", "assets", "actions", "video", "audio", "drag-drop", "nav-menu",
         "rive", "shadertoy", "crosswind", "charts", "profiling", "ikon-ai", "identity", "functions",
-        "brand", "icons"
+        "brand", "icons", "memory"
     ];
 
     // Input states
@@ -185,7 +186,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<string> _selectedMicrophoneId = new("default");
 
     // Audio capture options
-    private readonly Reactive<bool> _audioEchoCancellation = new(true);
+    private readonly Reactive<bool> _audioEchoCancellation = new(false);
     private readonly Reactive<bool> _audioNoiseSuppression = new(true);
     private readonly Reactive<bool> _audioAutoGainControl = new(true);
     private readonly Reactive<string> _audioBitrate = new("32");
@@ -232,6 +233,10 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<List<EffectEntry>> _voiceEffects = new([]);
     private readonly Dictionary<string, AudioStreamState> _audioStreamStates = new();
 
+    // PushToTalk validation
+    private readonly Reactive<bool> _isPushToTalkRecording = new(false);
+    private readonly Reactive<string> _lastSpeechRecognized = new("");
+
     // Chat state
     private readonly Reactive<string> _chatInputText = new("");
     private readonly Reactive<bool> _chatIsProcessing = new(false);
@@ -264,6 +269,24 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<string> _globalKeyDownEvent = new("(no event)");
     private readonly Reactive<string> _scopedKeyDownEvent = new("(no event)");
     private readonly Reactive<string> _globalKeyUpEvent = new("(no event)");
+
+    // Calendar / pickers state
+    private readonly Reactive<string> _calendarValue = new("2026-04-23");
+    private readonly Reactive<string> _datePickerValue = new("");
+    private readonly Reactive<string> _colorPickerValue = new("#9d76ed");
+    private readonly Reactive<string> _timePickerValue = new("09:30");
+
+    // Rich text / code editor state
+    private readonly Reactive<string> _richTextValue = new("<p>Edit <b>me</b> — try the toolbar!</p>");
+    private readonly Reactive<string> _codeEditorValue = new("public class Hello\n{\n    public static void Main() =>\n        Console.WriteLine(\"Hi\");\n}\n");
+
+    // Carousel state
+    private readonly Reactive<int> _carouselIndex = new(0);
+
+    // Feed scroller state
+    private readonly Reactive<int> _feedActiveIndex = new(0);
+    private readonly Reactive<bool> _feedMuted = new(true);
+    private readonly Reactive<int> _feedPagesLoaded = new(1);
 
     // Interactions test state
     private readonly Reactive<string> _textFieldSubmitStatus = new("(not submitted)");
@@ -315,7 +338,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
             }
             else
             {
-                await app.Navigation.SetPathAsync(args.ClientSessionId, $"/{_activeTab.Value}", replace: true);
+                await app.Navigation.SetPathAsync(args.ClientSessionId, "/buttons", replace: true);
             }
         };
 
@@ -334,7 +357,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
             }
             else
             {
-                await app.Navigation.SetPathAsync(args.ClientSessionId, $"/{_activeTab.Value}", replace: true);
+                await app.Navigation.SetPathAsync(args.ClientSessionId, "/buttons", replace: true);
             }
 
             _ = RefreshDevicesAsync(args.ClientSessionId);
@@ -397,6 +420,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             new TabItem("functions", "Functions", RenderFunctionsSection),
                             new TabItem("brand", "Brand", RenderBrandSection),
                             new TabItem("icons", "Icons", RenderIconsSection),
+                            new TabItem("memory", "Memory", RenderMemorySection),
                         ]);
                 });
             });
@@ -646,6 +670,15 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
     private void SetupAudioInputHandlers()
     {
+        // Enable the high-level Audio.SpeechRecognizedAsync pipeline so the PushToTalkButton
+        // in the audio tab produces transcriptions end-to-end.
+        Audio.UseSpeechRecognition(SpeechRecognizerModel.WhisperLarge3Turbo);
+
+        Audio.SpeechRecognizedAsync += async args =>
+        {
+            _lastSpeechRecognized.Value = args.Text;
+        };
+
         Audio.AudioInputStreamBeginAsync += async args =>
         {
             // Store stream info for speech recognizer (stream stays open, isFirst/isLast mark recordings)

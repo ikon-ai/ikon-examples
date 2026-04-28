@@ -167,7 +167,7 @@ public partial class Validation
                             {
                                 view.Switch(
                                     [Switch.Default],
-                                    @checked: _rivePersonAgreedToTerms.Value,
+                                    isChecked: _rivePersonAgreedToTerms.Value,
                                     onCheckedChange: value =>
                                     {
                                         _rivePersonAgreedToTerms.Value = value;

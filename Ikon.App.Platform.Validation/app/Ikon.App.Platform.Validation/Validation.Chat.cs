@@ -65,9 +65,13 @@ public partial class Validation
                             _chatInputText.Value = value ?? "";
                             return Task.CompletedTask;
                         },
-                        onSubmit: async _ =>
+                        onSubmit: async submitted =>
                         {
-                            var text = _chatInputText.Value.Trim();
+                            // Read the submitted value directly: clearOnSubmit
+                            // fires a trailing onValueChange("") that races with
+                            // onSubmit, so _chatInputText.Value can already be
+                            // empty by the time we observe it here.
+                            var text = (submitted ?? "").Trim();
 
                             if (!string.IsNullOrEmpty(text) && !_chatIsProcessing.Value)
                             {

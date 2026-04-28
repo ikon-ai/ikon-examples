@@ -87,7 +87,7 @@ await Asset.Instance.DeleteAsync(uri);
 namespace Ikon.Common.Core.Assets
   sealed class Asset : AsyncLocalInstance<Asset>, IAsyncDisposable
     ctor()
-    IkonBackend Backend { get;  set; }
+    IkonBackend Backend { get; set; }
     Task AddStorageAsync(AssetClass assetClass, IStorage storage, bool startInBackground = false)
     Task DeleteAsync(AssetUri assetUri)
     ValueTask DisposeAsync()
@@ -140,10 +140,11 @@ namespace Ikon.Common.Core.Assets
     AssetUri AssetUri { get; }
     AssetMetadata Metadata { get; }
   struct AssetMetadata
-    ctor(string mimeType = null, long? size = null, DateTime? lastModified = null, string url = null, bool? urlIsTemporal = null, string[] tags = null, string internalPath = null, string storageId = null)
+    ctor(string mimeType = null, long? size = null, DateTime? lastModified = null, string url = null, bool? urlIsTemporal = null, string[] tags = null, string internalPath = null, string storageId = null, string nativeUri = null)
     string InternalPath { get; }
     DateTime? LastModified { get; }
     string MimeType { get; }
+    string NativeUri { get; }
     long? Size { get; }
     string StorageId { get; }
     string[] Tags { get; }
@@ -152,20 +153,20 @@ namespace Ikon.Common.Core.Assets
   sealed class AssetQuery
     ctor(AssetClass assetClass)
     ctor(AssetUri folderUri)
-    string ChannelId { get;  set; }
+    string ChannelId { get; set; }
     AssetClass Class { get; }
-    string ContinuationToken { get;  set; }
+    string ContinuationToken { get; set; }
     string EffectiveChannelId { get; }
     string EffectiveFolderPrefix { get; }
     string EffectiveSpaceId { get; }
     string EffectiveUserId { get; }
-    string FolderPrefix { get;  set; }
-    AssetUri? FolderUri { get;  set; }
-    int? Limit { get;  set; }
-    string NextContinuationToken { get;  set; }
-    string SpaceId { get;  set; }
-    string[] Tags { get;  set; }
-    string UserId { get;  set; }
+    string FolderPrefix { get; set; }
+    AssetUri? FolderUri { get; set; }
+    int? Limit { get; set; }
+    string NextContinuationToken { get; set; }
+    string SpaceId { get; set; }
+    string[] Tags { get; set; }
+    string UserId { get; set; }
     AssetQuery Clone()
   enum AssetStatus
     None
@@ -252,7 +253,7 @@ Key rules:
 | `CloudJson` | `cloud-json` | JSON documents persisted through the Hub API, suited for low-latency configuration payloads. Supports optimistic concurrency via the `LastModified` timestamp. |
 | `CloudProfile` | `cloud-profile` | Legacy profile projection support. Marked obsolete and scheduled for removal once dependent workloads migrate. |
 
-Each storage reports metadata such as MIME type, byte size, update timestamp, tags, download URL (when applicable), and the backend-specific identifier through `AssetMetadata` so callers can perform fine-grained reconciliation.
+Each storage reports metadata such as MIME type, byte size, update timestamp, tags, download URL (when applicable), and the backend-specific identifier through `AssetMetadata` so callers can perform fine-grained reconciliation. Storages with a canonical native addressing scheme may also expose it via `AssetMetadata.NativeUri` (for example `gs://bucket/object` on GCS-backed cloud files); downstream consumers that recognise the scheme can use it as a zero-copy fast path, and callers that do not should ignore it.
 
 ## Asset metadata helpers
 

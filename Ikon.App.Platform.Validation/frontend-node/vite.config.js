@@ -97,6 +97,10 @@ export default defineConfig(({ mode }) => {
       port: port,
       https: httpsConfig,
       strictPort: true,
+      headers: waitForExternalConnectUrl ? {
+        'Cross-Origin-Embedder-Policy': 'require-corp',
+        'Cross-Origin-Resource-Policy': 'cross-origin',
+      } : undefined,
       fs: {
         allow: fsAllow,
       },
@@ -108,6 +112,9 @@ export default defineConfig(({ mode }) => {
       watch: {
         usePolling: true,
         interval: 300,
+      },
+      warmup: {
+        clientFiles: ['src/main.tsx'],
       },
     },
     build: {

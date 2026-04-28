@@ -211,9 +211,9 @@ public partial class Validation
                                 _ikonAIPassword.Value = v ?? "";
                                 _ikonAIPasswordError.Value = false;
                             },
-                            onSubmit: async _ =>
+                            onSubmit: async submitted =>
                             {
-                                if (_ikonAIPassword.Value == BuildConstants.ValidationAppPassword)
+                                if (submitted == BuildConstants.ValidationAppPassword)
                                 {
                                     _ikonAIUnlocked.Value = true;
                                     _ikonAIPasswordError.Value = false;
@@ -955,7 +955,7 @@ public partial class Validation
                 {
                     view.Checkbox(
                         [Checkbox.Default],
-                        @checked: _imageGeneratorUpsamplePrompt.Value,
+                        isChecked: _imageGeneratorUpsamplePrompt.Value,
                         onCheckedChange: async v => _imageGeneratorUpsamplePrompt.Value = v);
                     view.Text([Text.Body], "Upsample Prompt");
                 });
@@ -1349,7 +1349,7 @@ public partial class Validation
                 {
                     view.Switch(
                         [Switch.Default],
-                        @checked: isContinuous,
+                        isChecked: isContinuous,
                         onCheckedChange: value =>
                         {
                             _speechRecognizerContinuous.Value = value;
@@ -2027,7 +2027,7 @@ public partial class Validation
                     {
                         view.Checkbox(
                             [Checkbox.Default],
-                            @checked: _videoGeneratorGenerateAudio.Value,
+                            isChecked: _videoGeneratorGenerateAudio.Value,
                             onCheckedChange: async v => _videoGeneratorGenerateAudio.Value = v);
                         view.Text([Text.Body], "Generate Audio");
                     });
@@ -2260,7 +2260,7 @@ public partial class Validation
                     {
                         view.Checkbox(
                             [Checkbox.Default],
-                            @checked: _soundEffectLoop.Value,
+                            isChecked: _soundEffectLoop.Value,
                             onCheckedChange: async v => _soundEffectLoop.Value = v);
                         view.Text([Text.Body], "Loop");
                     });

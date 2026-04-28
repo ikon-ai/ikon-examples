@@ -194,7 +194,7 @@ public partial class Validation
                     view.Row([Layout.Row.Sm], content: view =>
                     {
                         view.Checkbox([Checkbox.Root],
-                            @checked: _checkboxChecked.Value,
+                            isChecked: _checkboxChecked.Value,
                             onCheckedChange: async state => _checkboxChecked.Value = state,
                             content: view => view.CheckboxIndicator([Checkbox.Indicator], content: v => v.Icon(name: "check")));
                         view.Label([Label.Base], content: v => v.Text(text: "Unchecked/Checked"));
@@ -211,7 +211,7 @@ public partial class Validation
                     view.Row([Layout.Row.Sm], content: view =>
                     {
                         view.Checkbox([Checkbox.Root],
-                            @checked: true, disabled: true,
+                            isChecked: true, disabled: true,
                             content: view => view.CheckboxIndicator([Checkbox.Indicator], content: v => v.Icon(name: "check")));
                         view.Label([Label.Base, "opacity-50"], content: v => v.Text(text: "Disabled checked"));
                     });
@@ -227,7 +227,7 @@ public partial class Validation
                     view.Row([Layout.Row.Sm], content: view =>
                     {
                         view.Switch([Switch.Root],
-                            @checked: _switchChecked.Value,
+                            isChecked: _switchChecked.Value,
                             onCheckedChange: async v => _switchChecked.Value = v, content: view => view.SwitchThumb([Switch.Thumb]));
                         view.Label([Label.Base], content: v => v.Text(text: _switchChecked.Value ? "On" : "Off"));
                     });
@@ -235,14 +235,14 @@ public partial class Validation
                     view.Row([Layout.Row.Sm], content: view =>
                     {
                         view.Switch([Switch.Root],
-                            @checked: true, disabled: true, content: view => view.SwitchThumb([Switch.Thumb]));
+                            isChecked: true, disabled: true, content: view => view.SwitchThumb([Switch.Thumb]));
                         view.Label([Label.Base, "opacity-50"], content: v => v.Text(text: "Disabled on"));
                     });
 
                     view.Row([Layout.Row.Sm], content: view =>
                     {
                         view.Switch([Switch.Root],
-                            @checked: false, disabled: true, content: view => view.SwitchThumb([Switch.Thumb]));
+                            isChecked: false, disabled: true, content: view => view.SwitchThumb([Switch.Thumb]));
                         view.Label([Label.Base, "opacity-50"], content: v => v.Text(text: "Disabled off"));
                     });
                 });
@@ -534,6 +534,218 @@ public partial class Validation
                             _textAreaSubmitStatus.Value = $"Submitted at {DateTime.Now:HH:mm:ss}";
                         });
                     view.Text([Text.Caption], $"Status: {_textAreaSubmitStatus.Value}");
+                });
+            });
+
+            // Calendar
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "Calendar");
+                view.Text([Text.Caption, "mb-4"], "Inline month-grid selector");
+                view.Column([Layout.Column.Md], content: view =>
+                {
+                    view.Calendar(
+                        style: [Calendar.Root],
+                        headerStyle: [Calendar.Header],
+                        weekdayStyle: [Calendar.Weekday],
+                        dayStyle: [Calendar.Day],
+                        daySelectedStyle: [Calendar.DaySelected],
+                        dayTodayStyle: [Calendar.DayToday],
+                        dayOutsideStyle: [Calendar.DayOutside],
+                        dayDisabledStyle: [Calendar.DayDisabled],
+                        navButtonStyle: [Calendar.NavButton],
+                        titleStyle: [Calendar.HeaderTitle],
+                        gridStyle: [Calendar.Grid],
+                        rowStyle: [Calendar.Row],
+                        value: _calendarValue.Value,
+                        onValueChange: async v => _calendarValue.Value = v ?? "");
+                    view.Text([Text.Caption], $"Selected: {_calendarValue.Value}");
+                });
+            });
+
+            // DatePicker
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "DatePicker");
+                view.Text([Text.Caption, "mb-4"], "Trigger + popover containing a calendar");
+                view.Column([Layout.Column.Md], content: view =>
+                {
+                    view.DatePicker(
+                        triggerStyle: [DatePicker.Trigger],
+                        contentStyle: [DatePicker.Content, "p-2"],
+                        calendarStyle: [Calendar.Root],
+                        headerStyle: [Calendar.Header],
+                        weekdayStyle: [Calendar.Weekday],
+                        dayStyle: [Calendar.Day],
+                        daySelectedStyle: [Calendar.DaySelected],
+                        dayTodayStyle: [Calendar.DayToday],
+                        dayOutsideStyle: [Calendar.DayOutside],
+                        dayDisabledStyle: [Calendar.DayDisabled],
+                        navButtonStyle: [Calendar.NavButton],
+                        titleStyle: [Calendar.HeaderTitle],
+                        gridStyle: [Calendar.Grid],
+                        rowStyle: [Calendar.Row],
+                        placeholder: "Select a date",
+                        value: _datePickerValue.Value,
+                        minDate: "2025-01-01",
+                        maxDate: "2030-12-31",
+                        onValueChange: async v => _datePickerValue.Value = v ?? "");
+                    view.Text([Text.Caption], $"Selected: {(_datePickerValue.Value == "" ? "(none)" : _datePickerValue.Value)}");
+                });
+            });
+
+            // ColorPicker
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "ColorPicker");
+                view.Text([Text.Caption, "mb-4"], "Saturation square + hue slider + hex input");
+                view.Column([Layout.Column.Md], content: view =>
+                {
+                    view.ColorPicker(
+                        triggerStyle: [ColorPicker.Trigger],
+                        contentStyle: [ColorPicker.Content],
+                        value: _colorPickerValue.Value,
+                        format: ColorFormat.Hex,
+                        presets: ["#ef4444", "#f97316", "#eab308", "#22c55e", "#14b8a6", "#3b82f6", "#6366f1", "#9d76ed"],
+                        onValueChange: async v => _colorPickerValue.Value = v ?? "#000000");
+                    view.Row([Layout.Row.Sm], content: v =>
+                    {
+                        v.Text([Text.Caption], $"Hex: {_colorPickerValue.Value}");
+                    });
+                });
+            });
+
+            // TimePicker
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "TimePicker");
+                view.Text([Text.Caption, "mb-4"], "Hour / minute columns with optional 12-hour format");
+                view.Column([Layout.Column.Md], content: view =>
+                {
+                    view.TimePicker(
+                        triggerStyle: [TimePicker.Trigger],
+                        contentStyle: [TimePicker.Content],
+                        columnStyle: [TimePicker.Column],
+                        itemStyle: [TimePicker.Item],
+                        itemSelectedStyle: [TimePicker.ItemSelected],
+                        value: _timePickerValue.Value,
+                        hourFormat: HourFormat.Hour24,
+                        granularity: TimeGranularity.Minute,
+                        minuteStep: 5,
+                        onValueChange: async v => _timePickerValue.Value = v ?? "");
+                    view.Text([Text.Caption], $"Selected: {_timePickerValue.Value}");
+                });
+            });
+
+            // RichTextEditor
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "RichTextEditor");
+                view.Text([Text.Caption, "mb-4"], "Inline HTML editor with formatting toolbar");
+                view.Column([Layout.Column.Md], content: view =>
+                {
+                    view.RichTextEditor(
+                        style: [RichTextEditor.Root],
+                        toolbarStyle: [RichTextEditor.Toolbar],
+                        toolbarButtonStyle: [RichTextEditor.ToolbarButton],
+                        contentStyle: [RichTextEditor.Content],
+                        placeholder: "Write something…",
+                        value: _richTextValue.Value,
+                        onValueChange: async v => _richTextValue.Value = v ?? "");
+                    view.Text([Text.Caption], $"HTML length: {_richTextValue.Value.Length}");
+                });
+            });
+
+            // CodeEditor
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "CodeEditor");
+                view.Text([Text.Caption, "mb-4"], "Monospace editor with line-number gutter");
+                view.Column([Layout.Column.Md], content: view =>
+                {
+                    view.CodeEditor(
+                        style: [CodeEditor.Root],
+                        gutterStyle: [CodeEditor.Gutter],
+                        contentStyle: [CodeEditor.Content],
+                        languageBadgeStyle: [CodeEditor.LanguageBadge],
+                        language: "csharp",
+                        value: _codeEditorValue.Value,
+                        tabSize: 4,
+                        onValueChange: async v => _codeEditorValue.Value = v ?? "");
+                    view.Text([Text.Caption], $"Lines: {_codeEditorValue.Value.Count(c => c == '\n') + 1}");
+                });
+            });
+
+            // Carousel
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "Carousel");
+                view.Text([Text.Caption, "mb-4"], "Horizontal slider with arrows + indicator dots");
+                view.Column([Layout.Column.Md], content: view =>
+                {
+                    view.Carousel(
+                        rootStyle: [Carousel.Root, "h-56 rounded-lg"],
+                        viewportStyle: [Carousel.Viewport],
+                        previousStyle: [Carousel.Previous],
+                        nextStyle: [Carousel.Next],
+                        indicatorsStyle: [Carousel.Indicators],
+                        indicatorStyle: [Carousel.Indicator],
+                        indicatorActiveStyle: [Carousel.IndicatorActive],
+                        loop: true,
+                        index: _carouselIndex.Value,
+                        onIndexChange: async i => _carouselIndex.Value = (int)i,
+                        slides:
+                        [
+                            new CarouselSlideItem(v => v.Box(["h-full w-full flex items-center justify-center bg-brand-secondary text-brand-primary text-3xl font-semibold"], content: vv => vv.Text(text: "Slide 1"))),
+                            new CarouselSlideItem(v => v.Box(["h-full w-full flex items-center justify-center bg-success-primary text-success-primary text-3xl font-semibold"], content: vv => vv.Text(text: "Slide 2"))),
+                            new CarouselSlideItem(v => v.Box(["h-full w-full flex items-center justify-center bg-warning-primary text-warning-primary text-3xl font-semibold"], content: vv => vv.Text(text: "Slide 3"))),
+                            new CarouselSlideItem(v => v.Box(["h-full w-full flex items-center justify-center bg-info-solid/10 text-info-primary text-3xl font-semibold"], content: vv => vv.Text(text: "Slide 4"))),
+                        ]);
+                    view.Text([Text.Caption], $"Active slide: {_carouselIndex.Value + 1}");
+                });
+            });
+
+            // FeedScroller (TikTok-style vertical feed)
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "FeedScroller");
+                view.Text([Text.Caption, "mb-4"], "Full-viewport vertical feed · scroll-snap · IntersectionObserver · preload window · near-end paging");
+
+                view.Box(["h-[560px] w-full max-w-[360px] mx-auto rounded-2xl overflow-hidden bg-black"], content: view =>
+                {
+                    var loaded = _feedPagesLoaded.Value;
+                    var colors = new[] { "from-violet-600 to-fuchsia-500", "from-sky-500 to-emerald-500", "from-rose-500 to-orange-500", "from-amber-500 to-pink-500", "from-cyan-500 to-indigo-500", "from-green-500 to-lime-400" };
+
+                    var slides = Enumerable.Range(0, loaded * 3).Select(i => new FeedSlide(
+                        Content: v => v.Box([$"h-full w-full bg-gradient-to-br {colors[i % colors.Length]} flex items-center justify-center relative"], content: vv =>
+                        {
+                            vv.Box([FeedScroller.SlideOverlay], content: o =>
+                            {
+                                o.Text(["text-2xl font-semibold"], $"Slide #{i + 1}");
+                                o.Text(["text-sm opacity-80"], "Vertical snap · preloaded · muted autoplay");
+                            });
+                        }),
+                        Key: $"slide-{i}")).ToList();
+
+                    view.FeedScroller(
+                        slides: slides,
+                        style: [FeedScroller.Root],
+                        slideStyle: [FeedScroller.Slide],
+                        activeIndex: _feedActiveIndex.Value,
+                        preloadAhead: 2,
+                        preloadBehind: 1,
+                        scrollEndThreshold: 2,
+                        muted: _feedMuted.Value,
+                        onActiveChange: async i => _feedActiveIndex.Value = (int)i,
+                        onScrollNearEnd: async _ => _feedPagesLoaded.Value = _feedPagesLoaded.Value + 1,
+                        onMuteChange: async m => _feedMuted.Value = m);
+                });
+
+                view.Row([Layout.Row.Md, "mt-3"], content: v =>
+                {
+                    v.Text([Text.Caption], $"Active: {_feedActiveIndex.Value + 1}");
+                    v.Text([Text.Caption], $"Pages loaded: {_feedPagesLoaded.Value}");
+                    v.Text([Text.Caption], _feedMuted.Value ? "🔇 Muted" : "🔊 On");
                 });
             });
 
