@@ -977,14 +977,14 @@ public class ExerciseState(LearningApp outer) : ILearningState
                             outer.InputText.Value = value;
                             return Task.CompletedTask;
                         },
-                        onSubmit: async _ =>
+                        onSubmit: async submitted =>
                         {
                             if (_hasConversationEnded)
                             {
                                 return;
                             }
 
-                            var text = outer.InputText.Value;
+                            var text = submitted ?? "";
 
                             if (!string.IsNullOrWhiteSpace(text))
                             {

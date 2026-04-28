@@ -220,9 +220,9 @@ public class ChatState(LearningApp outer) : ILearningState
                             outer.InputText.Value = value;
                             return Task.CompletedTask;
                         },
-                        onSubmit: async _ =>
+                        onSubmit: async submitted =>
                         {
-                            var text = outer.InputText.Value;
+                            var text = submitted ?? "";
 
                             if (!string.IsNullOrWhiteSpace(text))
                             {
