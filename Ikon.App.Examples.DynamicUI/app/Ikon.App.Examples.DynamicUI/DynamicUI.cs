@@ -135,7 +135,7 @@ public partial class DynamicUI(IApp<SessionIdentity, ClientParams> app)
                         placeholder: "Describe a UI you want to create...",
                         disabled: _isProcessing.Value,
                         onValueChange: async value => { _userInputValue = value ?? ""; },
-                        onSubmit: async _ => { await SendMessageAsync(); }
+                        onSubmit: async submitted => { await SendMessageAsync(submitted); }
                     );
 
                     view.Button(
@@ -321,7 +321,12 @@ public partial class DynamicUI(IApp<SessionIdentity, ClientParams> app)
 
     private async Task SendMessageAsync()
     {
-        var message = _userInputValue.Trim();
+        await SendMessageAsync(_userInputValue);
+    }
+
+    private async Task SendMessageAsync(string? submitted)
+    {
+        var message = (submitted ?? "").Trim();
 
         if (string.IsNullOrEmpty(message) || _isProcessing.Value)
         {
