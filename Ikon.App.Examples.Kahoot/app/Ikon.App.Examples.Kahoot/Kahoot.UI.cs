@@ -599,11 +599,14 @@ public partial class Kahoot
                     _playerName.Value = value;
                     return Task.CompletedTask;
                 },
-                onSubmit: async _ =>
+                onSubmit: async submitted =>
                 {
-                    if (!string.IsNullOrWhiteSpace(_playerName.Value) && _playerName.Value.Length >= 2)
+                    var name = submitted ?? "";
+
+                    if (!string.IsNullOrWhiteSpace(name) && name.Length >= 2)
                     {
-                        await AddOrUpdatePlayerAsync(ReactiveScope.ClientId, _playerName.Value);
+                        _playerName.Value = name;
+                        await AddOrUpdatePlayerAsync(ReactiveScope.ClientId, name);
                         _hasJoined.Value = true;
                     }
                 }
