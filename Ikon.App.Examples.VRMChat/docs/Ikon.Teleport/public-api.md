@@ -29,8 +29,8 @@ namespace Ikon.Teleport
     static string ToJson(ReadOnlySpan<byte> binary, TeleportJsonMirrorOptions options = null)
   sealed class TeleportJsonMirrorOptions
     ctor()
-    bool Indented { get;  set; }
-    TeleportJsonIrDocument Schema { get;  set; }
+    bool Indented { get; set; }
+    TeleportJsonIrDocument Schema { get; set; }
   delegate TeleportSerializer.TeleportReadDelegate<T>
     T TeleportReadDelegate`1<T>(ReadOnlySpan<byte> data)
   sealed class TeleportSerializedBuffer : IDisposable

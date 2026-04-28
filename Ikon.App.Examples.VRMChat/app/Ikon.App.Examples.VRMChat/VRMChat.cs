@@ -361,9 +361,9 @@ public class VRMChat(IApp<SessionIdentity, ClientParams> app)
                             _ttsText.Value = value;
                             return Task.CompletedTask;
                         },
-                        onSubmit: async _ =>
+                        onSubmit: async submitted =>
                         {
-                            var text = _ttsText.Value;
+                            var text = submitted ?? "";
                             _ttsText.Value = "";
                             QueueUserMessage(text);
                         });
@@ -498,7 +498,7 @@ public class VRMChat(IApp<SessionIdentity, ClientParams> app)
                 {
                     view.Switch(
                         style: ["w-10 h-5 rounded-full bg-gray-300 data-[state=checked]:bg-blue-500"],
-                        @checked: _sttContinuousMode.Value,
+                        isChecked: _sttContinuousMode.Value,
                         onCheckedChange: value =>
                         {
                             _sttContinuousMode.Value = value;
@@ -578,7 +578,7 @@ public class VRMChat(IApp<SessionIdentity, ClientParams> app)
                 {
                     var currentMotion = _currentMotion.Value;
                     var (idleAction, _) = await Emerge.Run<IdleAction>(
-                        LLMModel.Gpt41Nano,
+                        LLMModel.Gpt5Nano,
                         new KernelContext(),
                         pass =>
                         {

@@ -84,9 +84,9 @@ view.TextArea([Input.Default, "min-h-[100px]"], placeholder: "Type a message..."
     onSubmit: async _ => { await HandleSubmit(); });  // Ctrl+Enter submits; input auto-clears after submit
 // Note: clearOnSubmit defaults to true when onSubmit is set. Pass clearOnSubmit: false to keep the value.
 view.Checkbox([Checkbox.Default], checked: _checked.Value,
-    onCheckedChange: async v => _checked.Value = v ?? false);
+    onCheckedChange: async v => _checked.Value = v);
 view.Switch([Switch.Default], checked: _enabled.Value,
-    onCheckedChange: async v => _enabled.Value = v ?? false);
+    onCheckedChange: async v => _enabled.Value = v);
 view.Slider([Slider.Default], value: [_slider.Value], min: 0, max: 100, step: 1,
     onValueChange: async values => _slider.Value = values[0],
     content: view =>
@@ -94,21 +94,16 @@ view.Slider([Slider.Default], value: [_slider.Value], min: 0, max: 100, step: 1,
         view.SliderTrack([Slider.Track], content: view => { view.SliderRange([Slider.Range]); });
         view.SliderThumb([Slider.Thumb]);
     });
-view.Select([Select.Trigger], value: _selected.Value, placeholder: "Choose...",
-    onValueChange: async v => _selected.Value = v ?? "",
+view.Select(value: _selected.Value, placeholder: "Choose...",
+    onValueChange: async v => _selected.Value = v,
+    options: [new SelectOption("a", "Option A"), new SelectOption("b", "Option B")]);
+view.RadioGroup(value: _radio.Value, onValueChange: async v => _radio.Value = v,
     content: view =>
     {
-        view.SelectContent([Select.Content], content: view =>
-        {
-            view.SelectItem([Select.Item], value: "a", label: "Option A");
-            view.SelectItem([Select.Item], value: "b", label: "Option B");
-        });
-    });
-view.RadioGroup(value: _radio.Value, onValueChange: async v => _radio.Value = v ?? "",
-    content: view =>
-    {
-        view.RadioGroupItem([RadioGroup.Item], value: "opt1", label: "Option 1");
-        view.RadioGroupItem([RadioGroup.Item], value: "opt2", label: "Option 2");
+        view.RadioGroupItem([RadioGroup.Item], value: "opt1",
+            content: view => view.Text(text: "Option 1"));
+        view.RadioGroupItem([RadioGroup.Item], value: "opt2",
+            content: view => view.Text(text: "Option 2"));
     });
 view.FileUpload(
     onUploadComplete: async args => { /* args.UploadId, args.FileName, args.MimeType, args.Size, args.LocalTempFilePath, args.AssetUri */ },
@@ -144,7 +139,7 @@ view.Image(["rounded-lg"], data: bytes, mimeType: MimeTypes.ImageJpeg);  // From
 view.Dialog(open: _open.Value, onOpenChange: async o => _open.Value = o ?? false,
     overlayStyle: [Dialog.Overlay], contentStyle: [Dialog.Content],
     trigger: view => view.Button([Button.OutlineMd], label: "Open"),
-    content: view =>
+    contentSlot: view =>
     {
         view.Box([Dialog.Header], content: view =>
         {
@@ -162,20 +157,20 @@ view.Dialog(open: _open.Value, onOpenChange: async o => _open.Value = o ?? false
 // AlertDialog
 view.AlertDialog(open: _alertOpen.Value, onOpenChange: async o => _alertOpen.Value = o ?? false,
     overlayStyle: [AlertDialog.Overlay], contentStyle: [AlertDialog.Content],
-    trigger: view => view.Button([Button.DangerMd], label: "Delete"),
+    trigger: view => view.Button([Button.ErrorMd], label: "Delete"),
     title: "Are you sure?", titleStyle: [AlertDialog.Title],
     description: "This action cannot be undone.", descriptionStyle: [AlertDialog.Description],
     footerStyle: [AlertDialog.Footer], cancelLabel: "Cancel", cancelStyle: [AlertDialog.Cancel],
-    actionLabel: "Delete", actionStyle: [Button.DangerMd]);
+    actionLabel: "Delete", actionStyle: [Button.ErrorMd]);
 
 // Popover, Tooltip, HoverCard
 view.Popover(open: _popOpen.Value, onOpenChange: async o => _popOpen.Value = o ?? false,
     contentStyle: [Popover.Content],
     trigger: view => view.Button([Button.OutlineMd], label: "Open"),
-    content: view => { ... });
+    contentSlot: view => { ... });
 view.Tooltip(contentStyle: [Tooltip.Content],
     trigger: view => view.Button([Button.OutlineMd], label: "Hover me"),
-    content: view => view.Text(text: "Tooltip text"));
+    contentSlot: view => view.Text(text: "Tooltip text"));
 view.HoverCard(contentStyle: [HoverCard.Content],
     trigger: view => view.Text([Text.Link], "@user"),
     contentSlot: view => { ... });
@@ -194,7 +189,7 @@ view.Toast(open: _toastOpen.Value, onOpenChange: async o => _toastOpen.Value = o
 // Tabs with routing
 view.Tabs(value: _tab.Value, onValueChange: async v =>
     {
-        _tab.Value = v ?? "home";
+        _tab.Value = v;
         await app.Navigation.SetPathAsync($"/{v}");
     },
     listContainerStyle: [Card.Default, "p-2 mb-4"],
@@ -206,23 +201,33 @@ view.Tabs(value: _tab.Value, onValueChange: async v =>
 
 // Accordion (single open item at a time)
 view.AccordionSingle(value: _accordionValue.Value,
-    onValueChange: async v => _accordionValue.Value = v ?? "",
+    onValueChange: async v => _accordionValue.Value = v,
     content: view =>
     {
-        view.AccordionItem(value: "item1", triggerLabel: "Section 1",
-            content: view => view.Text(text: "Content 1"));
+        view.AccordionItem(value: "item1", content: view =>
+        {
+            view.AccordionHeader(content: view =>
+            {
+                view.AccordionTrigger(content: view => view.Text(text: "Section 1"));
+            });
+            view.AccordionContent(content: view => view.Text(text: "Content 1"));
+        });
     });
 
 // Collapsible
-view.Collapsible(open: _open.Value, onOpenChange: async o => _open.Value = o ?? false,
-    trigger: view => view.Button(label: "Toggle"),
-    content: view => { ... });
+view.Collapsible(open: _open.Value, onOpenChange: async o => _open.Value = o,
+    content: view =>
+    {
+        view.CollapsibleTrigger(content: view => view.Button(label: "Toggle"));
+        view.CollapsibleContent(content: view => { ... });
+    });
 
 // InfiniteScrollView
-view.InfiniteScrollView(["h-[400px]"],
+view.InfiniteScrollView(
+    rootStyle: ["h-[400px]"],
     hasMore: _hasMore.Value,
-    isLoading: _loading.Value,
-    onLoadMore: async () => { await LoadMoreItems(); },
+    loading: _loading.Value,
+    onNearEnd: async args => { await LoadMoreItems(); },
     content: view => { foreach (var item in _items.Value) { view.Text(text: item); } });
 ```
 
