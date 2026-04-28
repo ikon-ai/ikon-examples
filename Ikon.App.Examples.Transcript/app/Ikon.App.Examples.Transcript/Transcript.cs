@@ -143,7 +143,7 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
                             {
                                 view.Switch(
                                     [Switch.Default],
-                                    @checked: _generateSummary.Value,
+                                    isChecked: _generateSummary.Value,
                                     onCheckedChange: async value => _generateSummary.Value = value,
                                     content: view => view.SwitchThumb([Switch.Thumb]));
                                 view.Text([Text.Caption], "Generate summary and action items");

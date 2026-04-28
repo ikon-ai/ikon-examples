@@ -5,21 +5,21 @@ namespace Ikon.Sdk
   class ApiKeyConfig
     ctor()
     // API key for the space (from portal, format: 'ikon-xxxxx').
-    string ApiKey { get;  set; }
+    string ApiKey { get; set; }
     // Backend environment. Defaults to Production.
-    BackendType BackendType { get;  set; }
+    BackendType BackendType { get; set; }
     // Optional channel key (slug) for spaces with multiple channels. If not provided, connects to the first available channel.
-    string ChannelKey { get;  set; }
+    string ChannelKey { get; set; }
     // Client type for this connection. Default: DesktopApp
-    ClientType ClientType { get;  set; }
+    ClientType ClientType { get; set; }
     // External user identifier - an arbitrary string to identify the user. This does not need to be an internal Ikon user ID. The backend will create/map an internal user for this external ID.
-    string ExternalUserId { get;  set; }
+    string ExternalUserId { get; set; }
     // Optional session ID for targeting precomputed sessions.
-    string SessionId { get;  set; }
+    string SessionId { get; set; }
     // Space ID (MongoDB ObjectId from portal).
-    string SpaceId { get;  set; }
+    string SpaceId { get; set; }
     // User type for this connection. Default: Human
-    UserType UserType { get;  set; }
+    UserType UserType { get; set; }
   // Async event handler delegate.
   delegate AsyncEventHandler<TEventArgs> where TEventArgs : EventArgs
     Task AsyncEventHandler`1<TEventArgs>(object sender, TEventArgs e)
@@ -36,7 +36,7 @@ namespace Ikon.Sdk
     // Unique identifier for the audio stream
     string StreamId { get; }
     // Total duration of the audio if known, otherwise zero
-    TimeSpan TotalDuration { get;  set; }
+    TimeSpan TotalDuration { get; set; }
   // Event arguments raised when an incoming audio stream begins
   class AudioInputStreamBeginEventArgs : EventArgs
     // Event arguments raised when an incoming audio stream begins
@@ -50,13 +50,13 @@ namespace Ikon.Sdk
     // Description of the audio stream
     string Description { get; }
     // Sample rate in Hz (can be modified by event handler)
-    int SampleRate { get;  set; }
+    int SampleRate { get; set; }
     // Source type of the audio stream (e.g., "microphone")
     string SourceType { get; }
     // Unique identifier for the audio stream
     string StreamId { get; }
     // Controls when frames are output (can be modified by event handler)
-    AudioInputStreamingMode StreamingMode { get;  set; }
+    AudioInputStreamingMode StreamingMode { get; set; }
   // Event arguments raised when an incoming audio stream ends
   class AudioInputStreamEndEventArgs : EventArgs
     // Event arguments raised when an incoming audio stream ends
@@ -72,17 +72,17 @@ namespace Ikon.Sdk
   class BackendConfig
     ctor()
     // Optional channel key (slug) for spaces with multiple channels. If not provided, connects to the first available channel.
-    string ChannelKey { get;  set; }
+    string ChannelKey { get; set; }
     // Client type for this connection. Default: DesktopApp
-    ClientType ClientType { get;  set; }
+    ClientType ClientType { get; set; }
     // External user identifier - an arbitrary string to identify the user. This does not need to be an internal Ikon user ID. The backend will create/map an internal user for this external ID.
-    string ExternalUserId { get;  set; }
+    string ExternalUserId { get; set; }
     // Optional session ID for targeting precomputed sessions.
-    string SessionId { get;  set; }
+    string SessionId { get; set; }
     // Space ID (MongoDB ObjectId from portal).
-    string SpaceId { get;  set; }
+    string SpaceId { get; set; }
     // User type for this connection. Default: Human
-    UserType UserType { get;  set; }
+    UserType UserType { get; set; }
   // Backend environment type.
   enum BackendType
     Production
@@ -117,7 +117,7 @@ namespace Ikon.Sdk
     // Configuration used to create this client.
     IkonClientConfig Config { get; }
     // Default encoder options for audio output
-    AudioEncoderOptions DefaultEncoderOptions { get;  set; }
+    AudioEncoderOptions DefaultEncoderOptions { get; set; }
     // Function registry for this client instance. Each IkonClient has its own isolated FunctionRegistry, allowing multiple SDK connections to run independently (e.g., when running SDK inside an Ikon app, or multiple SDK clients).
     FunctionRegistry FunctionRegistry { get; }
     // Global state from the server. Available after connection is established.
@@ -157,50 +157,50 @@ namespace Ikon.Sdk
     event AsyncEventHandler<IkonClient.ConnectionStateEventArgs> StateChangedAsync
     // Event triggered when server is stopping. Messages can still be sent in this handler.
     event AsyncEventHandler<EventArgs> StoppingAsync
-  // Configuration for IkonClient. Exactly one of Local or ApiKey must be provided.
+  // Configuration for IkonClient. Exactly one of Local, ApiKey, or Backend must be provided.
   class IkonClientConfig
     ctor()
     // API key authentication for programmatic access. Use this for libraries, scripts, plugins that need to connect to cloud channels.
-    ApiKeyConfig ApiKey { get;  set; }
+    ApiKeyConfig ApiKey { get; set; }
     // Backend authentication using existing IkonBackend login. Use this for internal Ikon C# applications that have already logged in via CLI.
-    BackendConfig Backend { get;  set; }
+    BackendConfig Backend { get; set; }
     // Description for this client. Default: "Ikon SDK C#"
-    string Description { get;  set; }
+    string Description { get; set; }
     // Device ID for the connection. If not provided, a random one will be generated.
-    string DeviceId { get;  set; }
+    string DeviceId { get; set; }
     // Installation ID.
-    string InstallId { get;  set; }
+    string InstallId { get; set; }
     // Local server configuration for development mode. Use this when connecting to a local Ikon server.
-    LocalConfig Local { get;  set; }
+    LocalConfig Local { get; set; }
     // User locale (e.g., "en-US"). Default: "en-US"
-    string Locale { get;  set; }
+    string Locale { get; set; }
     // Opcode groups to receive from server. Default: All groups
-    Opcode OpcodeGroupsFromServer { get;  set; }
+    Opcode OpcodeGroupsFromServer { get; set; }
     // Opcode groups to send to server. Default: All groups
-    Opcode OpcodeGroupsToServer { get;  set; }
+    Opcode OpcodeGroupsToServer { get; set; }
     // Client parameters passed to the server.
-    Dictionary<string, string> Parameters { get;  set; }
+    Dictionary<string, string> Parameters { get; set; }
     // Payload type for protocol messages. Default: Teleport
-    PayloadType PayloadType { get;  set; }
+    PayloadType PayloadType { get; set; }
     // Product identifier.
-    string ProductId { get;  set; }
+    string ProductId { get; set; }
     // Timeout configuration.
-    TimeoutConfig Timeouts { get;  set; }
+    TimeoutConfig Timeouts { get; set; }
     // User agent string.
-    string UserAgent { get;  set; }
+    string UserAgent { get; set; }
     // Version identifier.
-    string VersionId { get;  set; }
+    string VersionId { get; set; }
     // Validates the configuration.
     void Validate()
   // Configuration for local development mode. Connects directly to a local Ikon server.
   class LocalConfig
     ctor()
     // Host of the local Ikon server. Example: "localhost"
-    string Host { get;  set; }
+    string Host { get; set; }
     // HTTPS port of the local Ikon server. Example: 8443
-    int HttpsPort { get;  set; }
+    int HttpsPort { get; set; }
     // User ID for the connection. Falls back to "local" if not provided (with a warning).
-    string UserId { get;  set; }
+    string UserId { get; set; }
   // Event arguments for protocol messages.
   class MessageEventArgs : EventArgs
     // Event arguments for protocol messages.
@@ -211,9 +211,9 @@ namespace Ikon.Sdk
   class TimeoutConfig
     ctor()
     // Initial delay before the first reconnection attempt. Each subsequent attempt doubles the delay (e.g. 500ms, 1s, 2s, 4s). Default: 500 milliseconds
-    TimeSpan InitialReconnectDelay { get;  set; }
+    TimeSpan InitialReconnectDelay { get; set; }
     // Maximum number of reconnection attempts. Default: 4
-    int MaxReconnectAttempts { get;  set; }
+    int MaxReconnectAttempts { get; set; }
   // Version class
   static class Version
     // Version string for the library
