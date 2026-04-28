@@ -109,7 +109,7 @@ public partial class Globe(IApp<SessionIdentity, ClientParams> app)
                             placeholder: "e.g., Show population by country",
                             value: _queryText.Value,
                             onValueChange: async value => { _queryText.Value = value; },
-                            onSubmit: async _ => await ProcessQueryAsync(_queryText.Value));
+                            onSubmit: async submitted => await ProcessQueryAsync(submitted));
 
                         inputGroup.Button(
                             [Button.PrimaryMd, "w-full"],
