@@ -18,7 +18,12 @@ public partial class Tori
 
     private async Task SendChatMessage()
     {
-        var text = _chatInputText.Value.Trim();
+        await SendChatMessage(_chatInputText.Value);
+    }
+
+    private async Task SendChatMessage(string? submitted)
+    {
+        var text = (submitted ?? "").Trim();
 
         if (string.IsNullOrWhiteSpace(text))
         {

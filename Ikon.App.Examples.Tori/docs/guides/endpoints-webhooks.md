@@ -1,10 +1,47 @@
-# Endpoints & Databases
+# Endpoints & Webhooks
+
+## Endpoints & Webhooks
+
+Two separate mechanisms for exposing your AI app to the public internet. They solve different problems — pick the one that fits.
+
+### Endpoints
+
+Endpoints are public host:port tunnels to the running AI app instance. Create them at runtime via `new AppEndpointHost(app)` (for HTTP/HTTPS) or `app.RequestEndpointAsync` (for raw TCP/TLS/UDP). The platform allocates a public hostname and forwards traffic to a local port inside your app. Your app code is then responsible for binding to that local port and serving whatever it wants — HTTP, HTTPS, WebSockets, raw TCP, TLS, UDP, etc.
+
+Key properties:
+- **Protocol-agnostic.** Endpoints carry any TCP/UDP-based protocol, not just HTTP. You write the listener.
+- **Only active while the app is running.** When the app stops, the endpoint disappears. There is no traffic queue and no way for an inbound request to start your app.
+- **Public URL changes on every restart.** In both local dev and cloud, restarting the app gets you a fresh public hostname. Endpoints are not suitable for use cases where the URL must be stable (e.g. registering it once in a third-party dashboard).
+- **No config file entry needed.** Endpoints are allocated dynamically at runtime — no `ikon-config.toml` declaration and no deploy-time registration.
+- **Convenience class for HTTP:** `AppEndpointHost` wraps Kestrel and gives you `MapGet`/`MapPost`/`MapWebSocket` so you don't have to set up a listener manually.
+
+### Webhooks
+
+Webhooks are static, name-based HTTP entry points that route incoming requests to a `[Function(Webhook = true)]` method on your App class. The platform owns the URL, the routing, and the AI app lifecycle.
+
+Key properties:
+- **Stable public URL in cloud deployments.** The cloud URL is `https://{space}.ikonai.app/ikon/webhook/{functionName}` and does not change across restarts or redeploys, so you can register it once with Stripe/GitHub/Slack/etc.
+- **In local dev the URL is NOT stable** — it uses the same public tunnel as endpoints, so it changes every time you restart the app with `--public-access`. Useful for testing real webhook traffic against your local app.
+- **Webhooks will start the app if it is not running.** A webhook hit causes the platform to provision an AI app instance on demand (~2-3 s with warm pool), wait for it to become ready, and then deliver the function call. Endpoints cannot do this.
+- **Always HTTP.** No TCP/UDP/WebSocket — webhooks are specifically for "external service POSTs JSON, function processes it, returns response".
+
+### When to use which
+
+| Use case | Use |
+|---|---|
+| Stripe / GitHub / Slack webhooks (need stable URL, app may be idle) | **Webhook function** |
+| Custom REST API with multiple routes, auth, file uploads | **AppEndpointHost** |
+| WebSocket server for a custom client | **AppEndpointHost** (`MapWebSocket`) |
+| Game server / TCP / UDP / DTLS | **AppEndpointHost** + raw listener on the local port |
+| Single "process this event" function | **Webhook function** |
+
+---
 
 ## Endpoints
 
-Custom HTTP/HTTPS/WebSocket endpoints for webhooks, external APIs, and integrations. Requested at runtime — no config file entry needed.
+Endpoints are requested at runtime from your app code. No `ikon-config.toml` entry is needed.
 
-### Creating and Starting an Endpoint
+### Creating and Starting an HTTP/HTTPS Endpoint
 
 ```csharp
 var endpoint = new AppEndpointHost(app);
@@ -20,7 +57,7 @@ endpoint.MapPost("/data", async ctx =>
     using var reader = new StreamReader(ctx.Request.Body);
     var body = await reader.ReadToEndAsync();
     ctx.Response.ContentType = "application/json";
-    await ctx.Response.WriteAsync($"{{"received": true}}");
+    await ctx.Response.WriteAsync($"{{\"received\": true}}");
 });
 
 endpoint.MapWebSocket("/ws", async (ctx, webSocket) =>
@@ -37,7 +74,7 @@ endpoint.MapWebSocket("/ws", async (ctx, webSocket) =>
 await endpoint.StartAsync();
 ```
 
-Pass `secure: false` for plain HTTP (default is HTTPS with TLS terminated at the relay).
+Pass `secure: false` for plain HTTP (the default is HTTPS with TLS terminated at the relay).
 
 ### Raw TCP/TLS/UDP Endpoints
 
@@ -46,16 +83,16 @@ Pass `secure: false` for plain HTTP (default is HTTPS with TLS terminated at the
 ```csharp
 await using var endpoint = await app.RequestEndpointAsync(EndpointProtocol.Udp);
 var udp = new UdpClient(endpoint.LocalPort);
-// endpoint is reachable at udp://{endpoint.PublicHost}:{endpoint.PublicPort}
-// `await using` above releases the endpoint automatically.
+Log.Instance.Info($"Game server listening at udp://{endpoint.PublicHost}:{endpoint.PublicPort}");
+// `await using` above releases the endpoint when it goes out of scope.
 ```
 
-Valid raw protocols: `EndpointProtocol.Tcp`, `Tls`, `Udp`. `Tls` enables TLS termination at the relay.
+Valid raw protocols: `EndpointProtocol.Tcp`, `Tls`, `Udp`. `Tls` enables TLS termination at the relay (your listener sees plaintext on the local port). For HTTP/HTTPS use `AppEndpointHost` with `secure: true` (default) or `secure: false`.
 
 ### Properties
 
-- `endpoint.PublicUrl` - The public URL assigned by the platform (use this to share with external services)
-- `endpoint.LocalPort` - The local port the endpoint is listening on
+- `endpoint.PublicUrl` - The public URL assigned by the platform (use this to share with external services). **Changes on every app restart.**
+- `endpoint.LocalPort` - The local port the endpoint is listening on.
 
 ### Cleanup
 
@@ -68,28 +105,76 @@ app.StoppingAsync += async _ =>
 };
 ```
 
-## Databases
+---
 
-Managed PostgreSQL database connections.
+## Webhooks
 
-Configure in `ikon-config.toml`:
+Mark any method with `[Function(Webhook = true)]` to expose it as a public HTTP endpoint. No `ikon-config.toml` entry is needed — webhook functions are discovered at deploy time and the deploy step prints the public URL for each one.
 
-```toml
-Databases = ["mydb:postgres"]
-```
+### Defining a webhook function
 
-### Usage
+The method signature must be:
+- Exactly three parameters: `(Dictionary<string, string> queryParams, Dictionary<string, string> headers, string body)`.
+- Return `string`, `Task<string>`, `void`, or `Task`. String returns become the HTTP response body; void/Task returns produce an empty 200.
 
-`AppDatabaseConnection.Create` returns a standard ADO.NET `DbConnection`. The caller is responsible for opening and disposing it.
+Webhook functions defined directly on the **App class** (the class with the `[App]` attribute) are registered automatically. Webhook functions defined on **other classes** still get discovered at deploy time and get a public URL, but they will only respond to incoming calls once they are actually registered with the FunctionRegistry through the normal function registration mechanism. The deploy console marks these with `(needs manual registration)`.
 
 ```csharp
-await using var connection = AppDatabaseConnection.Create(app, "mydb");
-await connection.OpenAsync();
+[App]
+public class MyApp(IApp<SessionIdentity, ClientParams> app)
+{
+    [Function(Webhook = true, Name = "stripe", Description = "Stripe payment events")]
+    public async Task<string> HandleStripe(
+        Dictionary<string, string> queryParams,
+        Dictionary<string, string> headers,
+        string body)
+    {
+        var signature = headers["Stripe-Signature"];
+        // Verify the signature against the body using your Stripe webhook secret...
 
-await using var cmd = connection.CreateCommand();
-cmd.CommandText = "SELECT COUNT(*) FROM users";
-var count = await cmd.ExecuteScalarAsync();
+        var stripeEvent = JsonSerializer.Deserialize<StripeEvent>(body);
+        // Process the event...
+
+        return "ok"; // becomes the HTTP response body
+    }
+
+    public async Task Main()
+    {
+        // app.Webhooks contains the live webhook URLs - log them or display in your UI
+        foreach (var webhook in app.Webhooks)
+        {
+            Log.Instance.Info($"Webhook: POST {webhook.PublicUrl}");
+        }
+    }
+}
 ```
+
+### URL format
+
+- **Cloud (stable):** `POST https://{space}.ikonai.app/ikon/webhook/{functionName}?userid=...&orgId=...`
+- **Local dev (changes per restart):** `POST {server-public-tunnel}/webhook/{functionName}` — uses the same public tunnel the IkonServer exposes when run with `--public-access`. You can configure this URL in Stripe/GitHub/etc. dashboards while testing locally; just remember to update it when you restart the app.
+
+The path segment `{functionName}` is the function's registered name — either the explicit `[Function(Name = "...")]` override or the auto-generated `TypeFullName.MethodName`. Use a `Name` override to keep URLs short and clean.
+
+After deployment, webhook URLs are printed by `ikon app deploy`. At runtime they are available via `app.Webhooks`.
+
+### Query params, session identity, and per-user routing
+
+If your `SessionIdentity` includes `UserId` (or any other custom field), webhook callers must include those values as query params on the URL so the platform can route to the correct app instance. Example for `SessionIdentity { UserId, OrganizationId }`:
+
+```
+https://myapp.ikonai.app/ikon/webhook/stripe?userid=u1&organizationid=org5
+```
+
+The query params are also passed verbatim to the function via the `queryParams` argument, so the function can read them too. URLs surfaced via `app.Webhooks` already have the current session identity prefilled — give that URL to the external service when you register the webhook for that user.
+
+### Authentication
+
+There is no API key. Webhook endpoints are unauthenticated at the platform level — best practice for webhooks is for the **function itself** to verify the request, e.g. validating Stripe's `Stripe-Signature` HMAC against the request body using a shared signing secret. Read the relevant header from the `headers` argument inside your function.
+
+### Cold start and provisioning
+
+If no AI app instance is running for the matching session identity when a webhook arrives, the platform provisions one and waits for it to become ready (~2-3 s with warm pool, longer on cold start) before delivering the function call. Plan your function to be idempotent in case the external service retries on timeouts.
 
 ---
 
@@ -100,21 +185,21 @@ namespace Ikon.Sdk
   class ApiKeyConfig
     ctor()
     // API key for the space (from portal, format: 'ikon-xxxxx').
-    string ApiKey { get;  set; }
+    string ApiKey { get; set; }
     // Backend environment. Defaults to Production.
-    BackendType BackendType { get;  set; }
+    BackendType BackendType { get; set; }
     // Optional channel key (slug) for spaces with multiple channels. If not provided, connects to the first available channel.
-    string ChannelKey { get;  set; }
+    string ChannelKey { get; set; }
     // Client type for this connection. Default: DesktopApp
-    ClientType ClientType { get;  set; }
+    ClientType ClientType { get; set; }
     // External user identifier - an arbitrary string to identify the user. This does not need to be an internal Ikon user ID. The backend will create/map an internal user for this external ID.
-    string ExternalUserId { get;  set; }
+    string ExternalUserId { get; set; }
     // Optional session ID for targeting precomputed sessions.
-    string SessionId { get;  set; }
+    string SessionId { get; set; }
     // Space ID (MongoDB ObjectId from portal).
-    string SpaceId { get;  set; }
+    string SpaceId { get; set; }
     // User type for this connection. Default: Human
-    UserType UserType { get;  set; }
+    UserType UserType { get; set; }
   // Async event handler delegate.
   delegate AsyncEventHandler<TEventArgs> where TEventArgs : EventArgs
     Task AsyncEventHandler`1<TEventArgs>(object sender, TEventArgs e)
@@ -131,7 +216,7 @@ namespace Ikon.Sdk
     // Unique identifier for the audio stream
     string StreamId { get; }
     // Total duration of the audio if known, otherwise zero
-    TimeSpan TotalDuration { get;  set; }
+    TimeSpan TotalDuration { get; set; }
   // Event arguments raised when an incoming audio stream begins
   class AudioInputStreamBeginEventArgs : EventArgs
     // Event arguments raised when an incoming audio stream begins
@@ -145,13 +230,13 @@ namespace Ikon.Sdk
     // Description of the audio stream
     string Description { get; }
     // Sample rate in Hz (can be modified by event handler)
-    int SampleRate { get;  set; }
+    int SampleRate { get; set; }
     // Source type of the audio stream (e.g., "microphone")
     string SourceType { get; }
     // Unique identifier for the audio stream
     string StreamId { get; }
     // Controls when frames are output (can be modified by event handler)
-    AudioInputStreamingMode StreamingMode { get;  set; }
+    AudioInputStreamingMode StreamingMode { get; set; }
   // Event arguments raised when an incoming audio stream ends
   class AudioInputStreamEndEventArgs : EventArgs
     // Event arguments raised when an incoming audio stream ends
@@ -167,17 +252,17 @@ namespace Ikon.Sdk
   class BackendConfig
     ctor()
     // Optional channel key (slug) for spaces with multiple channels. If not provided, connects to the first available channel.
-    string ChannelKey { get;  set; }
+    string ChannelKey { get; set; }
     // Client type for this connection. Default: DesktopApp
-    ClientType ClientType { get;  set; }
+    ClientType ClientType { get; set; }
     // External user identifier - an arbitrary string to identify the user. This does not need to be an internal Ikon user ID. The backend will create/map an internal user for this external ID.
-    string ExternalUserId { get;  set; }
+    string ExternalUserId { get; set; }
     // Optional session ID for targeting precomputed sessions.
-    string SessionId { get;  set; }
+    string SessionId { get; set; }
     // Space ID (MongoDB ObjectId from portal).
-    string SpaceId { get;  set; }
+    string SpaceId { get; set; }
     // User type for this connection. Default: Human
-    UserType UserType { get;  set; }
+    UserType UserType { get; set; }
   // Backend environment type.
   enum BackendType
     Production
@@ -212,7 +297,7 @@ namespace Ikon.Sdk
     // Configuration used to create this client.
     IkonClientConfig Config { get; }
     // Default encoder options for audio output
-    AudioEncoderOptions DefaultEncoderOptions { get;  set; }
+    AudioEncoderOptions DefaultEncoderOptions { get; set; }
     // Function registry for this client instance. Each IkonClient has its own isolated FunctionRegistry, allowing multiple SDK connections to run independently (e.g., when running SDK inside an Ikon app, or multiple SDK clients).
     FunctionRegistry FunctionRegistry { get; }
     // Global state from the server. Available after connection is established.
@@ -252,50 +337,50 @@ namespace Ikon.Sdk
     event AsyncEventHandler<IkonClient.ConnectionStateEventArgs> StateChangedAsync
     // Event triggered when server is stopping. Messages can still be sent in this handler.
     event AsyncEventHandler<EventArgs> StoppingAsync
-  // Configuration for IkonClient. Exactly one of Local or ApiKey must be provided.
+  // Configuration for IkonClient. Exactly one of Local, ApiKey, or Backend must be provided.
   class IkonClientConfig
     ctor()
     // API key authentication for programmatic access. Use this for libraries, scripts, plugins that need to connect to cloud channels.
-    ApiKeyConfig ApiKey { get;  set; }
+    ApiKeyConfig ApiKey { get; set; }
     // Backend authentication using existing IkonBackend login. Use this for internal Ikon C# applications that have already logged in via CLI.
-    BackendConfig Backend { get;  set; }
+    BackendConfig Backend { get; set; }
     // Description for this client. Default: "Ikon SDK C#"
-    string Description { get;  set; }
+    string Description { get; set; }
     // Device ID for the connection. If not provided, a random one will be generated.
-    string DeviceId { get;  set; }
+    string DeviceId { get; set; }
     // Installation ID.
-    string InstallId { get;  set; }
+    string InstallId { get; set; }
     // Local server configuration for development mode. Use this when connecting to a local Ikon server.
-    LocalConfig Local { get;  set; }
+    LocalConfig Local { get; set; }
     // User locale (e.g., "en-US"). Default: "en-US"
-    string Locale { get;  set; }
+    string Locale { get; set; }
     // Opcode groups to receive from server. Default: All groups
-    Opcode OpcodeGroupsFromServer { get;  set; }
+    Opcode OpcodeGroupsFromServer { get; set; }
     // Opcode groups to send to server. Default: All groups
-    Opcode OpcodeGroupsToServer { get;  set; }
+    Opcode OpcodeGroupsToServer { get; set; }
     // Client parameters passed to the server.
-    Dictionary<string, string> Parameters { get;  set; }
+    Dictionary<string, string> Parameters { get; set; }
     // Payload type for protocol messages. Default: Teleport
-    PayloadType PayloadType { get;  set; }
+    PayloadType PayloadType { get; set; }
     // Product identifier.
-    string ProductId { get;  set; }
+    string ProductId { get; set; }
     // Timeout configuration.
-    TimeoutConfig Timeouts { get;  set; }
+    TimeoutConfig Timeouts { get; set; }
     // User agent string.
-    string UserAgent { get;  set; }
+    string UserAgent { get; set; }
     // Version identifier.
-    string VersionId { get;  set; }
+    string VersionId { get; set; }
     // Validates the configuration.
     void Validate()
   // Configuration for local development mode. Connects directly to a local Ikon server.
   class LocalConfig
     ctor()
     // Host of the local Ikon server. Example: "localhost"
-    string Host { get;  set; }
+    string Host { get; set; }
     // HTTPS port of the local Ikon server. Example: 8443
-    int HttpsPort { get;  set; }
+    int HttpsPort { get; set; }
     // User ID for the connection. Falls back to "local" if not provided (with a warning).
-    string UserId { get;  set; }
+    string UserId { get; set; }
   // Event arguments for protocol messages.
   class MessageEventArgs : EventArgs
     // Event arguments for protocol messages.
@@ -306,9 +391,9 @@ namespace Ikon.Sdk
   class TimeoutConfig
     ctor()
     // Initial delay before the first reconnection attempt. Each subsequent attempt doubles the delay (e.g. 500ms, 1s, 2s, 4s). Default: 500 milliseconds
-    TimeSpan InitialReconnectDelay { get;  set; }
+    TimeSpan InitialReconnectDelay { get; set; }
     // Maximum number of reconnection attempts. Default: 4
-    int MaxReconnectAttempts { get;  set; }
+    int MaxReconnectAttempts { get; set; }
   // Version class
   static class Version
     // Version string for the library
@@ -444,7 +529,7 @@ The client tracks its connection state via the `State` property:
 | `Connecting` | Authentication and connection in progress |
 | `Connected` | Fully connected and ready |
 | `Reconnecting` | Lost connection, attempting automatic reconnect |
-| `Offline` | Disconnected (user-initiated or max retries exceeded) |
+| `Offline` | Disconnected (connection failed or max retries exceeded) |
 
 Helper extension methods are available:
 - `state.IsConnecting()` - True if `Connecting` or `Reconnecting`

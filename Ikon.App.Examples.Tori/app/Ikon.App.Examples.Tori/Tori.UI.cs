@@ -224,9 +224,12 @@ public partial class Tori
                         ["data-form-type"] = "other"
                     },
                     onValueChange: async value => _nameInput.Value = value,
-                    onSubmit: async _ =>
+                    onSubmit: async submitted =>
                     {
-                        var currentName = _nameInput.Value.Trim();
+                        // Read the submitted value directly: clearOnSubmit fires
+                        // a trailing onValueChange("") that races with onSubmit,
+                        // so _nameInput.Value can already be empty here.
+                        var currentName = (submitted ?? "").Trim();
                         if (!string.IsNullOrWhiteSpace(currentName))
                         {
                             JoinMeeting(currentName);
@@ -373,7 +376,7 @@ public partial class Tori
 
         // Leave meeting button
         view.Button(
-            [Button.DangerMd, Button.Size.Icon, "w-11 h-11"],
+            [Button.ErrorMd, Button.Size.Icon, "w-11 h-11"],
             onClick: async () => _leaveConfirmDialogOpen.Value = true,
             content: vv => vv.Icon([Icon.Default], name: "phone-off"));
 
@@ -501,12 +504,12 @@ public partial class Tori
                     placeholder: "Type a message",
                     value: _chatInputText.Value,
                     onValueChange: async value => _chatInputText.Value = value,
-                    onSubmit: async _ => await SendChatMessage());
+                    onSubmit: async submitted => await SendChatMessage(submitted));
 
                 row.Button(
                     [Button.PrimaryMd, Button.Size.Icon, "h-9 w-9"],
                     disabled: string.IsNullOrWhiteSpace(_chatInputText.Value),
-                    onClick: SendChatMessage,
+                    onClick: async () => await SendChatMessage(),
                     content: vv => vv.Icon([Icon.Size.Xs], name: "send"));
             });
         });
@@ -566,7 +569,7 @@ public partial class Tori
                             label: "Cancel",
                             onClick: async () => _leaveConfirmDialogOpen.Value = false);
                         row.Button(
-                            [Button.DangerMd],
+                            [Button.ErrorMd],
                             label: "Leave",
                             onClick: async () =>
                             {
@@ -763,7 +766,7 @@ public partial class Tori
             center.Tooltip(
                 contentStyle: [Tooltip.Content],
                 trigger: v => v.Button(
-                    [Button.DangerMd, Button.Size.Icon, "w-14 h-14 ml-3"],
+                    [Button.ErrorMd, Button.Size.Icon, "w-14 h-14 ml-3"],
                     onClick: async () => _leaveConfirmDialogOpen.Value = true,
                     content: vv => vv.Icon([Icon.Size.Md], name: "phone-off")),
                 contentSlot: v => v.Text([Text.Caption], "Leave meeting"));
@@ -863,14 +866,14 @@ public partial class Tori
                     placeholder: "Type a message",
                     value: _chatInputText.Value,
                     onValueChange: async value => _chatInputText.Value = value,
-                    onSubmit: async _ => await SendChatMessage());
+                    onSubmit: async submitted => await SendChatMessage(submitted));
 
                 row.Tooltip(
                     contentStyle: [Tooltip.Content],
                     trigger: v => v.Button(
                         [Button.PrimaryMd, Button.Size.Icon],
                         disabled: string.IsNullOrWhiteSpace(_chatInputText.Value),
-                        onClick: SendChatMessage,
+                        onClick: async () => await SendChatMessage(),
                         content: vv => vv.Icon([Icon.Default], name: "send")),
                     contentSlot: v => v.Text([Text.Caption], "Send message"));
             });

@@ -167,7 +167,7 @@ public partial class Tori
                         r.Text([Text.Body], "Enable transcription");
                         r.Switch(
                             [Switch.Default],
-                            @checked: _speechEnabled.Value,
+                            isChecked: _speechEnabled.Value,
                             onCheckedChange: async value =>
                             {
                                 _speechEnabled.Value = value;
@@ -244,7 +244,7 @@ public partial class Tori
                         r.Text([Text.Body], "Enable summary");
                         r.Switch(
                             [Switch.Default],
-                            @checked: _summaryEnabled.Value,
+                            isChecked: _summaryEnabled.Value,
                             onCheckedChange: async value =>
                             {
                                 _summaryEnabled.Value = value;
@@ -348,7 +348,7 @@ public partial class Tori
                         r.Text([Text.Body], "Echo cancellation");
                         r.Switch(
                             [Switch.Default],
-                            @checked: _audioEchoCancellation.Value,
+                            isChecked: _audioEchoCancellation.Value,
                             onCheckedChange: async value => _audioEchoCancellation.Value = value,
                             content: v => v.SwitchThumb([Switch.Thumb]));
                     });
@@ -365,7 +365,7 @@ public partial class Tori
                         r.Text([Text.Body], "Noise suppression");
                         r.Switch(
                             [Switch.Default],
-                            @checked: _audioNoiseSuppression.Value,
+                            isChecked: _audioNoiseSuppression.Value,
                             onCheckedChange: async value => _audioNoiseSuppression.Value = value,
                             content: v => v.SwitchThumb([Switch.Thumb]));
                     });
@@ -382,7 +382,7 @@ public partial class Tori
                         r.Text([Text.Body], "Auto gain control");
                         r.Switch(
                             [Switch.Default],
-                            @checked: _audioAutoGainControl.Value,
+                            isChecked: _audioAutoGainControl.Value,
                             onCheckedChange: async value => _audioAutoGainControl.Value = value,
                             content: v => v.SwitchThumb([Switch.Thumb]));
                     });
