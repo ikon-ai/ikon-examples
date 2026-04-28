@@ -221,9 +221,9 @@ public partial class QTribunal(IApp<SessionIdentity, ClientParams> app)
                         _inputText.Value = value;
                         return Task.CompletedTask;
                     },
-                    onSubmit: async _ =>
+                    onSubmit: async submitted =>
                     {
-                        SubmitCommand();
+                        SubmitCommand(submitted);
                     });
 
                 var canSend = !_isProcessing.Value && !string.IsNullOrWhiteSpace(_inputText.Value);
@@ -315,7 +315,12 @@ public partial class QTribunal(IApp<SessionIdentity, ClientParams> app)
 
     private void SubmitCommand()
     {
-        var text = _inputText.Value.Trim();
+        SubmitCommand(_inputText.Value);
+    }
+
+    private void SubmitCommand(string? submitted)
+    {
+        var text = (submitted ?? "").Trim();
 
         if (string.IsNullOrWhiteSpace(text) || _isProcessing.Value)
         {
