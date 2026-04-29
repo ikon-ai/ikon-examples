@@ -27,11 +27,15 @@ Available: `WebScraper`, `Classifier`, `OCR`, `FileConverter`, `Reranker`, `Retr
 # Ikon.AI Public API
 namespace Ikon.AI.Classification
   sealed class ClassificationDetail
+    ctor()
     ctor(ClassificationLabel label, string originalCategory, bool isFlagged, double score)
     bool IsFlagged { get; init; }
     ClassificationLabel Label { get; init; }
     string OriginalCategory { get; init; }
     double Score { get; init; }
+    static ClassificationDetail ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class ClassificationInput
     ctor()
     byte[] Data { get; init; }
@@ -39,6 +43,9 @@ namespace Ikon.AI.Classification
     string Text { get; init; }
     string Url { get; init; }
     static ClassificationInput FromMessagePart(IMessagePart messagePart)
+    static ClassificationInput ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   enum ClassificationLabel
     Unknown
     SafetyHateSpeech
@@ -63,7 +70,10 @@ namespace Ikon.AI.Classification
     ctor()
     List<ClassificationDetail> Details { get; init; }
     bool IsFlagged { get; init; }
+    static ClassificationResult ReadFromTeleport(ReadOnlySpan<byte> data)
     override string ToString()
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Classifier : IClassifier, IDisposable
     ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
     ctor(ClassificationModel model, IReadOnlyList<ModelRegion> regions = null)
@@ -233,6 +243,9 @@ namespace Ikon.AI.Reranking
     ctor()
     int Index { get; init; }
     double Score { get; init; }
+    static RerankItem ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   enum RerankModel
     CohereRerank4Fast
     CohereRerank4Pro
@@ -362,6 +375,9 @@ namespace Ikon.AI.WebScraping
     bool Session { get; set; }
     string StoreId { get; set; }
     string Value { get; set; }
+    static Cookie ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   interface IWebScraper : IDisposable, IWebScraperInfo
     abstract Task<List<PageResult>> ScrapeMultiplePagesAsync(MultiPageScrapeConfig config, CancellationToken cancellationToken = null)
     abstract Task<PageResult> ScrapeSinglePageAsync(SinglePageScrapeConfig config, CancellationToken cancellationToken = null)
@@ -403,6 +419,9 @@ namespace Ikon.AI.WebScraping
     bool UseStreaming { get; set; }
     TimeSpan WaitAfter { get; set; }
     WebScraperModel WebScraperModel { get; set; }
+    static MultiPageScrapeConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class PageResult
     ctor()
     string Content { get; init; }
@@ -410,6 +429,9 @@ namespace Ikon.AI.WebScraping
     string Mimetype { get; init; }
     string Title { get; init; }
     string Url { get; init; }
+    static PageResult ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class ScreenshotConfig
     ctor()
     List<Cookie> Cookies { get; set; }
@@ -425,10 +447,16 @@ namespace Ikon.AI.WebScraping
     bool UseCaptchaSolver { get; set; }
     TimeSpan WaitAfter { get; set; }
     int Width { get; set; }
+    static ScreenshotConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class ScreenshotResult
     ctor()
     byte[] Data { get; init; }
     string MimeType { get; init; }
+    static ScreenshotResult ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class SinglePageScrapeConfig
     ctor()
     List<Cookie> Cookies { get; set; }
@@ -450,6 +478,9 @@ namespace Ikon.AI.WebScraping
     bool UseReadability { get; set; }
     TimeSpan WaitAfter { get; set; }
     WebScraperModel WebScraperModel { get; set; }
+    static SinglePageScrapeConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class WebScraper : IDisposable, IWebScraper, IWebScraperInfo
     ctor(string modelName, bool useLocalCache = false)
     ctor(WebScraperModel model, bool useLocalCache = false)
@@ -497,6 +528,9 @@ namespace Ikon.AI.WebSearching
     WebSearcherOutputFormat OutputFormat { get; set; }
     string Query { get; set; }
     TimeSpan Timeout { get; set; }
+    static SearchConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class SearchResult
     ctor()
     string Content { get; init; }
@@ -504,6 +538,9 @@ namespace Ikon.AI.WebSearching
     string Mimetype { get; init; }
     string Title { get; init; }
     string Url { get; init; }
+    static SearchResult ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class WebSearcher : IDisposable, IWebSearcher, IWebSearcherInfo
     ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
     ctor(WebSearcherModel model, IReadOnlyList<ModelRegion> regions = null)
