@@ -77,10 +77,12 @@ namespace Ikon.App
     ValueTask SendAsync(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string streamId = null, TimeSpan totalDuration = null, AudioEncoderOptions encoderOptions = null, IReadOnlyList<int> targetIds = null)
     void SendSpeech(AudioContainer audio, IReadOnlyList<IAudioEffect> effects = null, IReadOnlyList<IAudioAnalyzer> analyzers = null, IReadOnlyList<int> targetIds = null)
     void SendSpeech(string speechEventId, ReadOnlySpan<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, IReadOnlyList<IAudioEffect> effects = null, IReadOnlyList<IAudioAnalyzer> analyzers = null, IReadOnlyList<int> targetIds = null)
+    void UseSpeechRecognition(SpeechRecognizerModel model, float silenceThresholdRms = 0.01, bool requireCorrelatedStream = true, string language = "", TimeSpan? timeout = null)
     event AsyncEventHandler<AudioInputFrameEventArgs> AudioInputFrameAsync
     event AsyncEventHandler<AudioInputStreamBeginEventArgs> AudioInputStreamBeginAsync
     event AsyncEventHandler<AudioInputStreamEndEventArgs> AudioInputStreamEndAsync
-  class AudioInputFrameEventArgs : EventArgs
+    event AsyncEventHandler<SpeechRecognizedEventArgs> SpeechRecognizedAsync
+  class AudioInputFrameEventArgs : EventArgs, ICaptureCorrelationArgs
     ctor(string streamId, Context clientContext, float[] samples, bool isFirst, bool isLast, TimeSpan totalDuration, string correlationId)
     Context ClientContext { get; }
     int ClientSessionId { get; }
@@ -126,8 +128,8 @@ namespace Ikon.App
     ValueTask<IAsyncDisposable> StartAsync()
     ValueTask StopAsync()
   static class CaptureCorrelationBridge
-    static void RegisterStart(string correlationId, Func<AudioInputStreamBeginEventArgs, Task> handler)
-    static void RegisterStop(string correlationId, Func<AudioInputStreamEndEventArgs, Task> handler)
+    static void RegisterStart(string correlationId, Func<ICaptureCorrelationArgs, Task> handler)
+    static void RegisterStop(string correlationId, Func<ICaptureCorrelationArgs, Task> handler)
     static void Unregister(string correlationId)
   sealed class ClientAudioCaptureOptions : IEquatable<ClientAudioCaptureOptions>
     ctor()
@@ -407,6 +409,10 @@ namespace Ikon.App
     TClientParameters ClientParameters { get; }
     IClientCollection<TClientParameters> Clients { get; }
     TSessionIdentity SessionIdentity { get; }
+  interface ICaptureCorrelationArgs
+    Context ClientContext { get; }
+    string CorrelationId { get; }
+    string StreamId { get; }
   interface IClientCollection<TClientParameters>
     int Count { get; }
     IClient<TClientParameters> Item { get; }
@@ -458,8 +464,22 @@ namespace Ikon.App
     string Path { get; }
     string Url { get; }
     string UserId { get; }
-  class PersistentReactive<T> : Reactive<T>
-    ctor(T initialValue, string file = "", string member = "")
+  class PersistentReactive<T> : Reactive<T>, IPersistedReactive
+    ctor(T initialValue, PersistenceBackend backend = Private, string postgresDatabase = null, string key = null, string file = "", string member = "")
+    PersistenceBackend Backend { get; }
+    string PostgresDatabase { get; }
+    string PublicUrl { get; }
+  class PersistentSessionReactive<T> : Reactive<T>, IPersistedReactive
+    ctor(T initialValue, PersistenceBackend backend = Private, string postgresDatabase = null, string key = null, string file = "", string member = "")
+    PersistenceBackend Backend { get; }
+    string PostgresDatabase { get; }
+    string PublicUrl { get; }
+  class PersistentUserReactive<T> : Reactive<T, UserScope>, IPersistedReactive
+    ctor(T initialValue, PersistenceBackend backend = Private, string postgresDatabase = null, string key = null, string file = "", string member = "")
+    ctor(Func<string, T> initialValue, PersistenceBackend backend = Private, string postgresDatabase = null, string key = null, string file = "", string member = "")
+    PersistenceBackend Backend { get; }
+    string PostgresDatabase { get; }
+    string PublicUrl { get; }
   sealed class ProfileAddress
     string City { get; }
     string Country { get; }
@@ -491,6 +511,16 @@ namespace Ikon.App
     string Item { get; }
     IReadOnlyCollection<string> Keys { get; }
     bool TryGet(string key, out string value)
+  sealed class SpeechRecognizedEventArgs : EventArgs
+    ctor(string text, Context clientContext, string streamId, string correlationId, TimeSpan duration, int sampleCount)
+    Context ClientContext { get; }
+    int ClientSessionId { get; }
+    string CorrelationId { get; }
+    TimeSpan Duration { get; }
+    int SampleCount { get; }
+    string StreamId { get; }
+    string Text { get; }
+    string UserId { get; }
   class StartingEventArgs : EventArgs
     ctor()
   class StoppingEventArgs : EventArgs
@@ -509,10 +539,11 @@ namespace Ikon.App
     event AsyncEventHandler<VideoInputFrameEventArgs> VideoInputFrameAsync
     event AsyncEventHandler<VideoInputStreamBeginEventArgs> VideoInputStreamBeginAsync
     event AsyncEventHandler<VideoInputStreamEndEventArgs> VideoInputStreamEndAsync
-  class VideoInputFrameEventArgs : EventArgs
-    ctor(string streamId, Context clientContext, int trackId, byte[] data, int frameNumber, bool isKey, ulong timestampInUs, uint durationInUs)
+  class VideoInputFrameEventArgs : EventArgs, ICaptureCorrelationArgs
+    ctor(string streamId, Context clientContext, int trackId, byte[] data, int frameNumber, bool isKey, ulong timestampInUs, uint durationInUs, string correlationId)
     Context ClientContext { get; }
     int ClientSessionId { get; }
+    string CorrelationId { get; }
     byte[] Data { get; }
     uint DurationInUs { get; }
     int FrameNumber { get; }
@@ -521,12 +552,13 @@ namespace Ikon.App
     ulong TimestampInUs { get; }
     int TrackId { get; }
     string UserId { get; }
-  class VideoInputStreamBeginEventArgs : EventArgs
-    ctor(string streamId, string description, string sourceType, VideoCodec codec, string codecDetails, int width, int height, double framerate, Context clientContext, int trackId)
+  class VideoInputStreamBeginEventArgs : EventArgs, ICaptureCorrelationArgs
+    ctor(string streamId, string description, string sourceType, VideoCodec codec, string codecDetails, int width, int height, double framerate, Context clientContext, int trackId, string correlationId)
     Context ClientContext { get; }
     int ClientSessionId { get; }
     VideoCodec Codec { get; }
     string CodecDetails { get; }
+    string CorrelationId { get; }
     string Description { get; }
     double Framerate { get; }
     int Height { get; }
@@ -535,10 +567,11 @@ namespace Ikon.App
     int TrackId { get; }
     string UserId { get; }
     int Width { get; }
-  class VideoInputStreamEndEventArgs : EventArgs
-    ctor(string streamId, Context clientContext, int trackId)
+  class VideoInputStreamEndEventArgs : EventArgs, ICaptureCorrelationArgs
+    ctor(string streamId, Context clientContext, int trackId, string correlationId)
     Context ClientContext { get; }
     int ClientSessionId { get; }
+    string CorrelationId { get; }
     string StreamId { get; }
     int TrackId { get; }
     string UserId { get; }
