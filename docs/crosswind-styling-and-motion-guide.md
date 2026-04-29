@@ -94,6 +94,40 @@ view.TextField(style: [Input.Default], defaultValue: "");
 view.Box(style: [Card.Default], content: view => { });
 ```
 
+### Customizing the Theme
+
+`Theme.Custom(b => b.Brand("#hex")...)` returns an `ITheme` you can pass to `new UI(app, ...)` at the top of your app file. It overrides specific CSS variables on top of the base theme — set as few or as many as you need; unset variables keep the base theme's values.
+
+```csharp
+private UI UI { get; } = new(app, Theme.Custom(b => b
+    .Brand("#7C3AED")
+    .Background("#FAFAFA")
+    .Foreground("#0A0A12")
+    .FontHeading("Crimson Pro")));
+```
+
+`ThemeBuilder` is **strictly fluent** — each method returns `this` so you chain calls. Do not use property assignment (`b.Brand = "#hex"` does not exist).
+
+The complete list of methods on `ThemeBuilder`:
+
+| Method | Sets |
+|---|---|
+| `.Brand(color)` | Primary brand color (drives `bg-brand-solid`, `--brand`, `--primary`, primary buttons, focus rings). Auto-computes white-or-black text against the brand color. |
+| `.Background(color)` | Page background (`bg-background`, `--background`). |
+| `.Foreground(color)` | Default text color (`text-primary`, `text-foreground`, `--foreground`). |
+| `.Card(color)` | Card / popover surface (`bg-card`, `bg-popover`, `--card`, `--popover`). |
+| `.Muted(color)` | Muted text (`text-muted-foreground`, `text-tertiary`, `--muted`). |
+| `.Accent(color)` | Secondary accent (`bg-accent`, `text-accent`). |
+| `.Border(color)` | Default border color (`border-primary`, `border-input`, `--border`). |
+| `.FontHeading(family)` | Heading font (`font-heading`, `font-display`). Adds a sensible system fallback stack automatically. |
+| `.FontBody(family)` | Body font (`font-body`, `font-sans`). |
+| `.RadiusBase(value)` | Base border radius — all `rounded-*` scales derive from this (`"0"` sharp, `"4px"` modest, `"12px"` friendly, `"24px"` very friendly). |
+| `.CustomColor(name, value)` | Escape hatch for arbitrary CSS variables (gradient stops, decorative tokens). Leading `--` is added if absent: `.CustomColor("gradient-start", "#10b981")` sets `--gradient-start`. |
+| `.Dark()` | Mark the current palette as the dark-mode palette too — same vars apply under `[data-theme="dark"]`, `.dark`, and `prefers-color-scheme: dark` in addition to root. Use when your base palette is already dark. |
+| `.Dark(d => d.Brand("#hex")...)` | Author a separate dark-mode palette using the same builder methods inside the callback. |
+
+These are the **only** methods. There is no `.GradientBrand`, `.BorderColor`, `.PrimaryColor`, `.SurfaceColor`, etc. — for any token outside the table, use `.CustomColor(name, value)` and reference it from utilities (e.g., `bg-[var(--gradient-start)]`). For Tailwind-style gradients, use the existing `bg-gradient-to-{r,br,...} from-{color} to-{color}` utility classes directly on components — gradients are styling, not theme tokens.
+
 ## Utility Classes
 
 Crosswind supports the standard Tailwind utility classes:
