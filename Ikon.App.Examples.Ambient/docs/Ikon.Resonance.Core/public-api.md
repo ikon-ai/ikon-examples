@@ -2,6 +2,7 @@
 
 namespace Ikon.Resonance.Core
   class AudioContainer
+    ctor()
     ctor(string id, float[] samples, int sampleRate, int channelCount, bool isFirst, bool isLast)
     int ChannelCount { get; set; }
     string Id { get; set; }
@@ -9,6 +10,9 @@ namespace Ikon.Resonance.Core
     bool IsLast { get; set; }
     int SampleRate { get; set; }
     float[] Samples { get; set; }
+    static AudioContainer ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   class AudioEncoderOptions
     ctor()
     int? Bitrate { get; set; }
