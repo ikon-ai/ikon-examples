@@ -44,7 +44,7 @@ Detailed API docs are available in `docs/guides/`. Each guide covers a specific 
 
 - **app-structure** (`docs/guides/app-structure.md`): app file structure, session identity, client parameters, partial class, global usings, lifecycle, host services, navigation, background work, client functions, messages, minimal app template, viewport layout, auto-scroll, QR code, join URL, multi-user session, invite link
 - **app-api-reference** (`docs/guides/app-api-reference.md`): IApp, host services, server API, navigation, session, common utilities
-- **reactive-state** (`docs/guides/reactive-state.md`): reactive, client reactive, user reactive, persistent reactive, reactive scope, value mutation
+- **reactive-state** (`docs/guides/reactive-state.md`): reactive, client reactive, user reactive, persistent reactive, persistent session reactive, persistent user reactive, persistence backend, postgres backend, public asset backend, reactive scope, value mutation
 - **ui-components** (`docs/guides/ui-components.md`): layout, overlays, inputs, display, navigation, drag-and-drop, text, button, dialog, tabs, accordion, scroll area, toast, popover, chat interface, message bubbles
 - **ui-api-reference** (`docs/guides/ui-api-reference.md`): parallax, UI components API, method signatures, component parameters, props
 - **styling-and-motion** (`docs/guides/styling-and-motion.md`): crosswind, tailwind, theme constants, style arrays, motion, animation, UI guidelines, theme customization
