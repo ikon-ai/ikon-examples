@@ -54,6 +54,9 @@ namespace Ikon.AI.ImageGeneration
     TimeSpan Timeout { get; set; }
     bool UpsamplePrompt { get; set; }
     int Width { get; set; }
+    static ImageGeneratorConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   enum ImageGeneratorModel
     GptImage1Mini
     GptImage15
@@ -89,6 +92,9 @@ namespace Ikon.AI.ImageGeneration
     int Height { get; set; }
     string MimeType { get; set; }
     int Width { get; set; }
+    static ImageGeneratorResult ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   enum ImageQuality
     Auto
     Low
@@ -101,6 +107,9 @@ namespace Ikon.AI.ImageGeneration
     string MimeType { get; set; }
     double? Strength { get; set; }
     InputImageType Type { get; set; }
+    static InputImage ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   enum InputImageType
     Normal
     Mask
