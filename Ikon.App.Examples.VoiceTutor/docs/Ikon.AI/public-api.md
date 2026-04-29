@@ -108,11 +108,15 @@ namespace Ikon.AI.Chat
 
 namespace Ikon.AI.Classification
   sealed class ClassificationDetail
+    ctor()
     ctor(ClassificationLabel label, string originalCategory, bool isFlagged, double score)
     bool IsFlagged { get; init; }
     ClassificationLabel Label { get; init; }
     string OriginalCategory { get; init; }
     double Score { get; init; }
+    static ClassificationDetail ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class ClassificationInput
     ctor()
     byte[] Data { get; init; }
@@ -120,6 +124,9 @@ namespace Ikon.AI.Classification
     string Text { get; init; }
     string Url { get; init; }
     static ClassificationInput FromMessagePart(IMessagePart messagePart)
+    static ClassificationInput ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   enum ClassificationLabel
     Unknown
     SafetyHateSpeech
@@ -144,7 +151,10 @@ namespace Ikon.AI.Classification
     ctor()
     List<ClassificationDetail> Details { get; init; }
     bool IsFlagged { get; init; }
+    static ClassificationResult ReadFromTeleport(ReadOnlySpan<byte> data)
     override string ToString()
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Classifier : IClassifier, IDisposable
     ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
     ctor(ClassificationModel model, IReadOnlyList<ModelRegion> regions = null)
@@ -369,6 +379,9 @@ namespace Ikon.AI.ImageGeneration
     TimeSpan Timeout { get; set; }
     bool UpsamplePrompt { get; set; }
     int Width { get; set; }
+    static ImageGeneratorConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   enum ImageGeneratorModel
     GptImage1Mini
     GptImage15
@@ -404,6 +417,9 @@ namespace Ikon.AI.ImageGeneration
     int Height { get; set; }
     string MimeType { get; set; }
     int Width { get; set; }
+    static ImageGeneratorResult ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   enum ImageQuality
     Auto
     Low
@@ -416,6 +432,9 @@ namespace Ikon.AI.ImageGeneration
     string MimeType { get; set; }
     double? Strength { get; set; }
     InputImageType Type { get; set; }
+    static InputImage ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   enum InputImageType
     Normal
     Mask
@@ -888,6 +907,9 @@ namespace Ikon.AI.Reranking
     ctor()
     int Index { get; init; }
     double Score { get; init; }
+    static RerankItem ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   enum RerankModel
     CohereRerank4Fast
     CohereRerank4Pro
@@ -1244,11 +1266,15 @@ namespace Ikon.AI.SoundEffectGeneration
     ctor()
     bool SupportsLooping { get; init; }
   sealed class SoundEffectGeneratorConfig
+    ctor()
     double? DurationSeconds { get; set; }
     bool Loop { get; set; }
     string Prompt { get; set; }
     double PromptInfluence { get; set; }
     TimeSpan Timeout { get; set; }
+    static SoundEffectGeneratorConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   enum SoundEffectGeneratorModel
     ElevenLabsV2
   static class SoundEffectGeneratorModelExtensions
@@ -1289,6 +1315,9 @@ namespace Ikon.AI.SpeechGeneration
     string Text { get; set; }
     TimeSpan Timeout { get; set; }
     string VoiceId { get; set; }
+    static SpeechGeneratorConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   static class SpeechGeneratorExtensions
     static Task StreamSpeechAsync(ISpeechGenerator speechGenerator, SpeechGeneratorConfig config, Func<AudioContainer, Task> onAudio, CancellationToken cancellationToken = null)
   enum SpeechGeneratorModel
@@ -1318,13 +1347,20 @@ namespace Ikon.AI.SpeechRecognition
     string ReferenceText { get; set; }
     int SampleRate { get; set; }
     float[] Samples { get; set; }
+    byte[] SamplesPcm16 { get; set; }
     TimeSpan Timeout { get; set; }
+    static AnalyzePronunciationConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.Break
     ctor()
     int BreakLength { get; init; }
     List<string> ErrorTypes { get; init; }
     Pronunciation.MissingBreak MissingBreak { get; init; }
     Pronunciation.UnexpectedBreak UnexpectedBreak { get; init; }
+    static Pronunciation.Break ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class SpeechRecognizerAdapter.Config
     ctor()
     TimeSpan MaxSpeechDuration { get; set; }
@@ -1336,6 +1372,9 @@ namespace Ikon.AI.SpeechRecognition
   sealed class Pronunciation.Feedback
     ctor()
     Pronunciation.Prosody Prosody { get; init; }
+    static Pronunciation.Feedback ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   interface ISpeechRecognizer : IDisposable, ISpeechRecognizerInfo
     int ChannelCount { get; }
     int SampleRate { get; }
@@ -1350,9 +1389,15 @@ namespace Ikon.AI.SpeechRecognition
     ctor()
     List<string> ErrorTypes { get; init; }
     Pronunciation.Monotone Monotone { get; init; }
+    static Pronunciation.Intonation ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.MissingBreak
     ctor()
     double Confidence { get; init; }
+    static Pronunciation.MissingBreak ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   enum SpeechRecognizerAdapter.Mode
     GrowingWindow
     SlidingWindow
@@ -1360,6 +1405,9 @@ namespace Ikon.AI.SpeechRecognition
   sealed class Pronunciation.Monotone
     ctor()
     double SyllablePitchDeltaConfidence { get; init; }
+    static Pronunciation.Monotone ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.NBest
     ctor()
     double Confidence { get; init; }
@@ -1369,15 +1417,24 @@ namespace Ikon.AI.SpeechRecognition
     string MaskedITN { get; init; }
     Pronunciation.PronunciationAssessment PronunciationAssessment { get; init; }
     List<Pronunciation.Word> Words { get; init; }
+    static Pronunciation.NBest ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.Phoneme
     ctor()
     long Duration { get; init; }
     long Offset { get; init; }
     Pronunciation.PhonemePronunciationAssessment PronunciationAssessment { get; init; }
     string Text { get; init; }
+    static Pronunciation.Phoneme ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.PhonemePronunciationAssessment
     ctor()
     double AccuracyScore { get; init; }
+    static Pronunciation.PhonemePronunciationAssessment ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   static class Pronunciation
   sealed class Pronunciation.PronunciationAssessment
     ctor()
@@ -1386,16 +1443,25 @@ namespace Ikon.AI.SpeechRecognition
     double FluencyScore { get; init; }
     double PronScore { get; init; }
     double ProsodyScore { get; init; }
+    static Pronunciation.PronunciationAssessment ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.Prosody
     ctor()
     Pronunciation.Break Break { get; init; }
     Pronunciation.Intonation Intonation { get; init; }
+    static Pronunciation.Prosody ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class RecognizeContinuousSpeechConfig
     ctor()
     string[] CandidateLanguages { get; set; }
     int ChannelCount { get; set; }
     string Language { get; set; }
     int SampleRate { get; set; }
+    static RecognizeContinuousSpeechConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class RecognizeSpeechConfig
     ctor()
     int ChannelCount { get; set; }
@@ -1403,8 +1469,12 @@ namespace Ikon.AI.SpeechRecognition
     string Prompt { get; set; }
     int SampleRate { get; set; }
     float[] Samples { get; set; }
+    byte[] SamplesPcm16 { get; set; }
     double Temperature { get; set; }
     TimeSpan Timeout { get; set; }
+    static RecognizeSpeechConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.Result
     ctor()
     int Channel { get; init; }
@@ -1415,6 +1485,9 @@ namespace Ikon.AI.SpeechRecognition
     long Offset { get; init; }
     string RecognitionStatus { get; init; }
     double SNR { get; init; }
+    static Pronunciation.Result ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class SpeechRecognizer : IDisposable, ISpeechRecognizer, ISpeechRecognizerInfo
     ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
     ctor(SpeechRecognizerModel model, IReadOnlyList<ModelRegion> regions = null)
@@ -1466,12 +1539,21 @@ namespace Ikon.AI.SpeechRecognition
     long Offset { get; init; }
     Pronunciation.SyllablePronunciationAssessment PronunciationAssessment { get; init; }
     string Text { get; init; }
+    static Pronunciation.Syllable ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.SyllablePronunciationAssessment
     ctor()
     double AccuracyScore { get; init; }
+    static Pronunciation.SyllablePronunciationAssessment ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.UnexpectedBreak
     ctor()
     double Confidence { get; init; }
+    static Pronunciation.UnexpectedBreak ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.Word
     ctor()
     long Duration { get; init; }
@@ -1480,11 +1562,17 @@ namespace Ikon.AI.SpeechRecognition
     Pronunciation.WordPronunciationAssessment PronunciationAssessment { get; init; }
     List<Pronunciation.Syllable> Syllables { get; init; }
     string Text { get; init; }
+    static Pronunciation.Word ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.WordPronunciationAssessment
     ctor()
     double AccuracyScore { get; init; }
     string ErrorType { get; init; }
     Pronunciation.Feedback Feedback { get; init; }
+    static Pronunciation.WordPronunciationAssessment ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
 
 namespace Ikon.AI.Storage
   class KeywordIndex
@@ -1552,6 +1640,9 @@ namespace Ikon.AI.VideoEnhancement
     TimeSpan Timeout { get; set; }
     byte[] VideoData { get; set; }
     string VideoUrl { get; set; }
+    static VideoEnhancerConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   enum VideoEnhancerModel
     TensorPixFpsBoost
     TensorPixUpscale2xUltra4
@@ -1564,6 +1655,9 @@ namespace Ikon.AI.VideoEnhancement
     int? OutputFps { get; init; }
     long? OutputSizeBytes { get; init; }
     string Url { get; init; }
+    static VideoEnhancerResult ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
 
 namespace Ikon.AI.VideoGeneration
   interface IVideoGenerator : IDisposable, IVideoGeneratorInfo
@@ -1585,6 +1679,9 @@ namespace Ikon.AI.VideoGeneration
     byte[] Data { get; set; }
     string MimeType { get; set; }
     string Url { get; set; }
+    static VideoGeneratorConfig.InputImage ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class VideoGenerator : IDisposable, IVideoGenerator, IVideoGeneratorInfo
     ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
     ctor(VideoGeneratorModel model, IReadOnlyList<ModelRegion> regions = null)
@@ -1633,6 +1730,9 @@ namespace Ikon.AI.VideoGeneration
     VideoGeneratorResolution Resolution { get; set; }
     int? Seed { get; set; }
     TimeSpan Timeout { get; set; }
+    static VideoGeneratorConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   enum VideoGeneratorModel
     Hailuo23
     Hailuo23Fast
@@ -1672,6 +1772,9 @@ namespace Ikon.AI.VideoGeneration
   sealed class VideoGeneratorResult
     ctor()
     string Url { get; init; }
+    static VideoGeneratorResult ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
 
 namespace Ikon.AI.WebScraping
   sealed class Cookie
@@ -1688,6 +1791,9 @@ namespace Ikon.AI.WebScraping
     bool Session { get; set; }
     string StoreId { get; set; }
     string Value { get; set; }
+    static Cookie ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   interface IWebScraper : IDisposable, IWebScraperInfo
     abstract Task<List<PageResult>> ScrapeMultiplePagesAsync(MultiPageScrapeConfig config, CancellationToken cancellationToken = null)
     abstract Task<PageResult> ScrapeSinglePageAsync(SinglePageScrapeConfig config, CancellationToken cancellationToken = null)
@@ -1729,6 +1835,9 @@ namespace Ikon.AI.WebScraping
     bool UseStreaming { get; set; }
     TimeSpan WaitAfter { get; set; }
     WebScraperModel WebScraperModel { get; set; }
+    static MultiPageScrapeConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class PageResult
     ctor()
     string Content { get; init; }
@@ -1736,6 +1845,9 @@ namespace Ikon.AI.WebScraping
     string Mimetype { get; init; }
     string Title { get; init; }
     string Url { get; init; }
+    static PageResult ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class ScreenshotConfig
     ctor()
     List<Cookie> Cookies { get; set; }
@@ -1751,10 +1863,16 @@ namespace Ikon.AI.WebScraping
     bool UseCaptchaSolver { get; set; }
     TimeSpan WaitAfter { get; set; }
     int Width { get; set; }
+    static ScreenshotConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class ScreenshotResult
     ctor()
     byte[] Data { get; init; }
     string MimeType { get; init; }
+    static ScreenshotResult ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class SinglePageScrapeConfig
     ctor()
     List<Cookie> Cookies { get; set; }
@@ -1776,6 +1894,9 @@ namespace Ikon.AI.WebScraping
     bool UseReadability { get; set; }
     TimeSpan WaitAfter { get; set; }
     WebScraperModel WebScraperModel { get; set; }
+    static SinglePageScrapeConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class WebScraper : IDisposable, IWebScraper, IWebScraperInfo
     ctor(string modelName, bool useLocalCache = false)
     ctor(WebScraperModel model, bool useLocalCache = false)
@@ -1823,6 +1944,9 @@ namespace Ikon.AI.WebSearching
     WebSearcherOutputFormat OutputFormat { get; set; }
     string Query { get; set; }
     TimeSpan Timeout { get; set; }
+    static SearchConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class SearchResult
     ctor()
     string Content { get; init; }
@@ -1830,6 +1954,9 @@ namespace Ikon.AI.WebSearching
     string Mimetype { get; init; }
     string Title { get; init; }
     string Url { get; init; }
+    static SearchResult ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class WebSearcher : IDisposable, IWebSearcher, IWebSearcherInfo
     ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
     ctor(WebSearcherModel model, IReadOnlyList<ModelRegion> regions = null)

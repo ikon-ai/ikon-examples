@@ -1933,13 +1933,14 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class ActionFunctionEnumerationItem : IProtocolMessagePayload
     ctor()
-    ctor(Guid callId, Guid instanceId, Guid enumerationId, long itemIndex, string itemTypeName, string itemJson, byte[] itemData)
+    ctor(Guid callId, Guid instanceId, Guid enumerationId, long itemIndex, string itemTypeName, string itemJson, byte[] itemData, byte[] itemTeleport)
     Guid CallId { get; set; }
     Guid EnumerationId { get; set; }
     Guid InstanceId { get; set; }
     byte[] ItemData { get; set; }
     long ItemIndex { get; set; }
     string ItemJson { get; set; }
+    byte[] ItemTeleport { get; set; }
     string ItemTypeName { get; set; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
@@ -2006,13 +2007,14 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class ActionFunctionResult : IProtocolMessagePayload
     ctor()
-    ctor(Guid callId, Guid instanceId, string resultTypeName, string resultJson, byte[] resultData)
+    ctor(Guid callId, Guid instanceId, string resultTypeName, string resultJson, byte[] resultData, byte[] resultTeleport)
     Guid CallId { get; set; }
     Guid InstanceId { get; set; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     byte[] ResultData { get; set; }
     string ResultJson { get; set; }
+    byte[] ResultTeleport { get; set; }
     string ResultTypeName { get; set; }
     static ActionFunctionResult ReadFromTeleport(ReadOnlySpan<byte> data)
     static ActionFunctionResult ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionResult destination)
@@ -2891,7 +2893,7 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class FunctionParameter : IProtocolMessagePayload
     ctor()
-    ctor(int parameterIndex, string typeName, string valueJson, byte[] valueData, bool isEnumerable, string enumerableItemTypeName, Guid enumerationId)
+    ctor(int parameterIndex, string typeName, string valueJson, byte[] valueData, bool isEnumerable, string enumerableItemTypeName, Guid enumerationId, byte[] valueTeleport)
     string EnumerableItemTypeName { get; set; }
     Guid EnumerationId { get; set; }
     bool IsEnumerable { get; set; }
@@ -2901,6 +2903,7 @@ namespace Ikon.Common.Core.Protocol
     string TypeName { get; set; }
     byte[] ValueData { get; set; }
     string ValueJson { get; set; }
+    byte[] ValueTeleport { get; set; }
     static FunctionParameter ReadFromTeleport(ReadOnlySpan<byte> data)
     static FunctionParameter ReadFromTeleport(ReadOnlySpan<byte> data, FunctionParameter destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
@@ -3188,6 +3191,7 @@ namespace Ikon.Common.Core.Protocol
     CORE_WEBRTC_READY
     CORE_WEBRTC_AUDIO_SEGMENT
     CORE_WEBRTC_TRACK_MAP
+    CORE_WEBRTC_VIDEO_CAPTURE
     CORE_RELAY_AGENT_AUTH
     CORE_RELAY_AGENT_AUTH_RESULT
     CORE_RELAY_HEARTBEAT
@@ -4602,9 +4606,10 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class VideoStreamBegin : IProtocolMessagePayload
     ctor()
-    ctor(string streamId, string description, string sourceType, VideoCodec codec, string codecDetails, int width, int height, double framerate)
+    ctor(string streamId, string description, string sourceType, VideoCodec codec, string codecDetails, int width, int height, double framerate, string correlationId)
     VideoCodec Codec { get; set; }
     string CodecDetails { get; set; }
+    string CorrelationId { get; set; }
     string Description { get; set; }
     double Framerate { get; set; }
     int Height { get; set; }
@@ -4649,7 +4654,8 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class WebRTCAudioSegment : IProtocolMessagePayload
     ctor()
-    ctor(bool isStart)
+    ctor(bool isStart, string correlationId)
+    string CorrelationId { get; set; }
     bool IsStart { get; set; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
@@ -4711,10 +4717,24 @@ namespace Ikon.Common.Core.Protocol
     static WebRTCTrackMap ReadFromTeleport(ReadOnlySpan<byte> data, WebRTCTrackMap destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
+  sealed class WebRTCVideoCapture : IProtocolMessagePayload
+    ctor()
+    ctor(int senderIndex, string correlationId)
+    string CorrelationId { get; set; }
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    int SenderIndex { get; set; }
+    static WebRTCVideoCapture ReadFromTeleport(ReadOnlySpan<byte> data)
+    static WebRTCVideoCapture ReadFromTeleport(ReadOnlySpan<byte> data, WebRTCVideoCapture destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
 
 namespace Ikon.Common.Core.Reactive
   static class ClientReactive
     static ClientReactive<T> Create<T>(Func<int, T> factory, string file = "", string member = "")
+  class ClientReactiveEffect : ReactiveEffect<ClientScope>
+    ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
+    ctor(Action body, params IReactive[] deps)
   class ClientReactive<T> : Reactive<T, ClientScope>
     ctor(T initialValue, string file = "", string member = "")
   sealed class ReactiveManager.Handle
@@ -4728,20 +4748,46 @@ namespace Ikon.Common.Core.Reactive
   sealed class HotReloadStateStore : AsyncLocalInstance<HotReloadStateStore>
     ctor()
     Dictionary<string, StoredReactiveState> CaptureAllForHotReload()
-    Dictionary<string, StoredReactiveState> CaptureForStorage()
     void Clear()
+    IReadOnlyList<PersistedRegistration> GetPersistedRegistrations()
     void LoadHotReloadStates(Dictionary<string, StoredReactiveState> states)
-    void LoadStorageStates(Dictionary<string, StoredReactiveState> states)
-    void Register(string stableId, IReactiveWithState reactive, bool persistent)
+    void Register(string stableId, IReactiveWithState reactive, PersistenceScope persistence, PersistenceBackend backend = Private, string postgresDatabase = null)
+  interface IPersistedReactive : IReactiveWithState
+    abstract void SetPublicUrl(string url)
   interface IReactive
     long Version { get; }
+    event Action Changed
   interface IReactiveWithState
     string StableId { get; }
     abstract StoredReactiveState CaptureState()
     abstract void RestoreState(StoredReactiveState state)
+  sealed class PersistedRegistration
+    ctor(string stableId, IReactiveWithState reactive, PersistenceScope persistence, PersistenceBackend backend, string postgresDatabase)
+    PersistenceBackend Backend { get; }
+    PersistenceScope Persistence { get; }
+    string PostgresDatabase { get; }
+    IReactiveWithState Reactive { get; }
+    string StableId { get; }
+  enum PersistenceBackend
+    Private
+    Public
+    Postgres
+  enum PersistenceScope
+    None
+    Global
+    Session
+    User
   static class Reactive
     static void Run<T>(Reactive<T> reactiveValue, Func<Task<T>> action, Action<Exception> onError = null, CancellationToken token = null)
     static void Run<T>(Reactive<T> reactiveValue, Func<CancellationToken, Task<T>> action, Action<Exception> onError = null, CancellationToken token = null)
+  class ReactiveEffect : IDisposable
+    ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
+    ctor(Action body, params IReactive[] deps)
+    void Dispose()
+  class ReactiveEffect<TScope> : IDisposable where TScope : struct, IScopeKey
+    ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
+    ctor(Action body, params IReactive[] deps)
+    void Dispose()
   class ReactiveManager : IDisposable
     ctor(string category)
     string Category { get; }
@@ -4786,6 +4832,7 @@ namespace Ikon.Common.Core.Reactive
     void NotifyUpdate()
     void RestoreState(StoredReactiveState state)
     override string ToString()
+    event Action Changed
     event Action<T> ValueChanged
     event Func<T, Task> ValueChangedAsync
   class Reactive<T, TScope> : Reactive<T> where TScope : IScopeKey
@@ -4797,6 +4844,7 @@ namespace Ikon.Common.Core.Reactive
     T Value { get; set; }
     long Version { get; }
     void NotifyUpdate()
+    event Action Changed
     event Action<T> ValueChanged
     event Func<T, Task> ValueChangedAsync
   class StoredReactiveState
@@ -4807,6 +4855,9 @@ namespace Ikon.Common.Core.Reactive
     Dictionary<int, string> SessionValues { get; set; }
     string TypeName { get; set; }
   struct UseDefault
+  class UserReactiveEffect : ReactiveEffect<UserScope>
+    ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
+    ctor(Action body, params IReactive[] deps)
   class UserReactive<T> : Reactive<T, UserScope>
     ctor(T initialValue, string file = "", string member = "")
     ctor(Func<string, T> initialValue, string file = "", string member = "")

@@ -1431,7 +1431,7 @@ namespace Ikon.Common.Maths
     static Vector3 Abs(Vector3 a)
     static Vector2 Abs(Vector2 a)
     static float Abs(float a)
-    int Abs(int a)
+    static int Abs(int a)
     static Vector4 Acos(Vector4 a)
     static Vector3 Acos(Vector3 a)
     static Vector2 Acos(Vector2 a)
