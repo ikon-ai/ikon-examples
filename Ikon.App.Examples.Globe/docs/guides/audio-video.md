@@ -48,7 +48,9 @@ await Video.CloseAsync(streamId);
 await Video.CloseAllAsync();
 ```
 
-Use `CaptureButton` in the UI to start audio/video capture from the client.
+Use `CaptureButton` in the UI to start audio/video capture from the client. Render the captured stream to other clients with `view.VideoStreamCanvas(streamId: ...)`.
+
+**Critical: do NOT set `TargetIds` on `ClientVideoCaptureOptions` / `ClientAudioCaptureOptions`** unless you explicitly want to bypass the server. `TargetIds` restricts the WebRTC route to the listed session IDs only — when set to the originating session (or any subset that excludes the server), the server-side `Video.VideoInputStreamBeginAsync` / `Audio.AudioInputStreamBeginAsync` handler never fires, so server-side analysis, recording, and broadcasting all silently break. The browser tab still shows the camera light because local capture is independent. Leave `TargetIds` unset (the default) for the normal "client streams to server, server fans out" flow.
 
 ### Audio Effects & Mixer
 
@@ -600,6 +602,7 @@ namespace Ikon.Resonance.Synth.Voice
 
 namespace Ikon.Resonance.Core
   class AudioContainer
+    ctor()
     ctor(string id, float[] samples, int sampleRate, int channelCount, bool isFirst, bool isLast)
     int ChannelCount { get; set; }
     string Id { get; set; }
@@ -607,6 +610,9 @@ namespace Ikon.Resonance.Core
     bool IsLast { get; set; }
     int SampleRate { get; set; }
     float[] Samples { get; set; }
+    static AudioContainer ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   class AudioEncoderOptions
     ctor()
     int? Bitrate { get; set; }
