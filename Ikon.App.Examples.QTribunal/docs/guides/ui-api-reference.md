@@ -680,9 +680,9 @@ namespace Ikon.Parallax.Components.Standard
     // Button that triggers a client-side action (e.g., clipboard, download). Supports both text mode and icon mode. In text mode (content is null or label is null), label is displayed as visible text. In icon mode (content and label are both provided), label becomes the accessible aria-label and content is displayed.
     static void ActionButton(UIView view, string[] style = null, ActionKind action = Unknown, string label = null, ActionOptions options = null, bool? disabled = null, string className = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<ActionEvent, Task> onActionComplete = null, Action<UIView> content = null, string file = "", int line = 0)
     // Clickable button that triggers an action. Supports both text mode and icon mode. In text mode (content is null), text is displayed as visible button text. In icon mode (content is provided), text becomes the accessible aria-label and content is displayed.
-    static void Button(UIView view, string[] style = null, string text = null, string label = null, bool? disabled = null, string href = null, string type = null, string target = null, string rel = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<Task> onClick = null, string icon = null, string iconPosition = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Button(UIView view, string[] style = null, string text = null, string label = null, bool? disabled = null, string href = null, string type = null, string target = null, string rel = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Delegate onClick = null, string icon = null, string iconPosition = null, Action<UIView> content = null, string file = "", int line = 0)
     // Button — positional-text-first overload. Same rationale as the matching Text overload — avoids CS1744 when models write view.Button("Sign in", onClick: …). First parameter is named buttonText to avoid ambiguity with callers using Button(text: "...") by name.
-    static void Button(UIView view, string buttonText, string[] style = null, string label = null, bool? disabled = null, string href = null, string type = null, string target = null, string rel = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<Task> onClick = null, string icon = null, string iconPosition = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Button(UIView view, string buttonText, string[] style = null, string label = null, bool? disabled = null, string href = null, string type = null, string target = null, string rel = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Delegate onClick = null, string icon = null, string iconPosition = null, Action<UIView> content = null, string file = "", int line = 0)
     // Semantic heading element for titles and section headers.
     static void Heading(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
     // Renders an icon from an icon library.
@@ -1026,12 +1026,18 @@ namespace Ikon.Parallax.Components.Standard
   enum MediaCaptureButtonMode
     Hold
     Toggle
-  // Event data for media capture start/stop callbacks, containing the stream identifier and capture kind.
+  // Event data for media capture start/stop callbacks, containing the stream identifier and capture kind. identifies the user who initiated the capture and is populated for all capture kinds (audio, camera, screen). Prefer reading / rather than tracking streamId-to-client mappings yourself.
   sealed class MediaCaptureEvent : IEquatable<MediaCaptureEvent>
-    // Event data for media capture start/stop callbacks, containing the stream identifier and capture kind.
+    // Event data for media capture start/stop callbacks, containing the stream identifier and capture kind. identifies the user who initiated the capture and is populated for all capture kinds (audio, camera, screen). Prefer reading / rather than tracking streamId-to-client mappings yourself.
     ctor(string StreamId, string Kind)
+    // Client context of the user who initiated the capture.
+    Context ClientContext { get; init; }
+    // Client session id of the user who initiated the capture.
+    int? ClientSessionId { get; }
     string Kind { get; init; }
     string StreamId { get; init; }
+    // User id of the user who initiated the capture.
+    string UserId { get; }
   // Specifies the type of media to capture with a CaptureButton.
   enum MediaCaptureKind
     Audio
@@ -1043,6 +1049,8 @@ namespace Ikon.Parallax.Components.Standard
     static void AudioUrlPlayer(UIView view, string[] style = null, string url = null, bool? controls = null, bool? autoplay = null, bool? loop = null, bool? muted = null, string preload = null, string className = null, string styleId = null, string key = null, string file = "", int line = 0)
     // Button that captures media (audio, camera, or screen) based on the specified kind. Supports both text mode and icon mode. In text mode (content is null), label is displayed as visible text. In icon mode (content is provided), label becomes the accessible aria-label and content is displayed.
     static void CaptureButton(UIView view, string[] style = null, MediaCaptureKind kind = Audio, string label = null, MediaCaptureButtonMode captureMode = Hold, ClientAudioCaptureOptions audioOptions = null, ClientVideoCaptureOptions videoOptions = null, int? holdReleaseDelayMs = null, bool? disabled = null, string className = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<MediaCaptureEvent, Task> onCaptureStart = null, Func<MediaCaptureEvent, Task> onCaptureStop = null, Action<UIView> content = null, string file = "", int line = 0)
+    // Push-to-talk microphone button: a CaptureButton(kind: Audio, mode: Hold) that integrates with . After enabling speech recognition once (Audio.UseSpeechRecognition(...)), subscribe to Audio.SpeechRecognizedAsync to receive transcriptions when the user releases the button. The user's client context is carried on the event args — no streamId-to-client plumbing needed in the app.
+    static void PushToTalkButton(UIView view, string[] style = null, string label = "⏺", int holdReleaseDelayMs = 500, ClientAudioCaptureOptions audioOptions = null, bool? disabled = null, string className = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<MediaCaptureEvent, Task> onCaptureStart = null, Func<MediaCaptureEvent, Task> onCaptureStop = null, Action<UIView> content = null, string file = "", int line = 0)
     // Canvas element for rendering a live video stream.
     static void VideoStreamCanvas(UIView view, string[] style = null, string streamId = null, int? width = null, int? height = null, string className = null, string styleId = null, string key = null, string file = "", int line = 0)
     // Video player for URL-based video content.
@@ -1151,7 +1159,7 @@ namespace Ikon.Parallax.Components.Standard
     IReadOnlyList<T> Source { get; init; }
     // Total number of pages (always >= 1, even when is empty).
     int TotalPages { get; init; }
-  // Per-client pagination on top of a server-side list. Holds zero rendering opinion — returns a the caller iterates and binds to whatever prev/next UI suits the design.
+  // Bounded-cursor primitive on top of . Slices an in-memory list, returns the slice + bound actions (Prev/Next/JumpTo/First/Last) the caller binds to whatever UI fits. Holds zero rendering opinion — no tab bars, no default control rows, no opinionated layout. Most Ikon apps don't need pagination at all (live feeds, autoscroll, virtualization handle the common cases via Reactive<List<T>> + ScrollArea(autoScroll: true)). Use this when you have a static list large enough to warrant explicit page navigation. For DB-backed pagination (load only the current page from a backend), drive directly and observe its value in your data-loading code — same per-client semantics, no special helper needed.
   static class PaginationExtensions
     static Page<T> Paginate<T>(UIView view, IReadOnlyList<T> items, ClientReactive<int> page, int pageSize = 20)
   // Options for the Contact Picker API action.
@@ -1202,6 +1210,10 @@ namespace Ikon.Parallax.Components.Standard
     static void ForRole(UIView view, ClientProfiles profiles, Context clientContext, string role, Action<UIView> content)
     // Renders content only if the client has any of the specified roles.
     static void ForRoles(UIView view, ClientProfiles profiles, Context clientContext, IEnumerable<UserRole> roles, Action<UIView> content)
+  // Tiny primitives for using as a signal the app reads to decide what to render. Routes, tabs, modes, panel selections, "which dialog is open" — same shape, same primitives. Intentionally minimal: no opinionated tab bars, no URL coupling, no rendering bias. The signal is the building block; the app decides how to consume it. For URL ↔ signal sync (browser bar, deep links, back/forward), use on the host app — keeps URL concerns in one place instead of forking them through this layer.
+  static class RoutingExtensions
+    static void Routed<T>(UIView view, ClientReactive<T> signal, Dictionary<T, Action<UIView>> cases, Action<UIView> fallback = null, string file = "", int line = 0)
+    static Func<Task> Set<T>(UIView view, ClientReactive<T> signal, T value)
   // Represents which scrollbars to show in ScrollAreaSimple.
   enum ScrollAreaScrollbars
     None
@@ -2259,11 +2271,11 @@ namespace Ikon.Parallax.Themes.Ikon
     ctor()
     // Secondary accent color — for badges, chart highlights, the second CTA in a hero. Drives bg-accent, text-accent.
     ThemeBuilder Accent(string color)
-    // Page background. Drives bg-background.
+    // Page background. Drives bg-background + the shadcn --background alias for bracket-syntax users.
     ThemeBuilder Background(string color)
     // Primary brand color — drives bg-brand-solid, the primary button background, focus rings, the brand color ramp seed, AND the shorthand --brand / --primary tokens that models trained on shadcn / Radix conventions reach for. Pass any CSS color (hex, hsl, oklch).
     ThemeBuilder Brand(string color)
-    // Card / surface background. Drives bg-card, bg-popover.
+    // Card / surface background. Drives bg-card, bg-popover, and the shadcn --card / --popover aliases for bracket-syntax users.
     ThemeBuilder Card(string color)
     // Author a parallel set of tokens for dark mode. The same builder methods (Brand, Background, Foreground, Card, Muted, Accent) re-target a dark-mode selector block matching the default theme convention ([data-theme="dark"]) plus .dark for Tailwind's darkMode: 'class' opt-in and a @media (prefers-color-scheme: dark) fallback so a system-level dark preference applies even before the app sets the attribute. Example: Theme.Custom(b => b .Brand("#7C3AED").Background("#FAFAFA").Foreground("#0A0A12") .Dark(d => d.Brand("#A78BFA").Background("#0A0A12").Foreground("#FAFAFA")));
     ThemeBuilder Dark(Action<ThemeBuilder> configure)
@@ -2271,9 +2283,9 @@ namespace Ikon.Parallax.Themes.Ikon
     ThemeBuilder FontBody(string family)
     // Heading font family. Drives font-heading, font-display.
     ThemeBuilder FontHeading(string family)
-    // Primary text color. Drives text-primary AND text-foreground (the shadcn/Tailwind idiom name) so either utility honors the override.
+    // Primary text color. Drives text-primary AND text-foreground (the shadcn/Tailwind idiom name) so either utility honors the override. Also exports the shadcn --foreground alias for bracket-syntax users.
     ThemeBuilder Foreground(string color)
-    // Muted text color. Drives text-muted-foreground, text-tertiary, text-quaternary.
+    // Muted text color. Drives text-muted-foreground, text-tertiary, text-quaternary, and the shadcn --muted-foreground + --muted aliases for bracket-syntax users.
     ThemeBuilder Muted(string color)
     // Base border radius. All radius scales (rounded-sm, rounded-md, etc.) are derived from this. Use "0" for sharp, "4px" for modest, "12px" for friendly, "24px" for very friendly.
     ThemeBuilder RadiusBase(string value)
