@@ -43,11 +43,14 @@ public class MyApp(IApp<SessionIdentity, ClientParameters> app)
                     view.TextField([Input.Default, "flex-1"], placeholder: "Type a message...",
                         value: _input.Value,
                         onValueChange: async v => _input.Value = v,
-                        onSubmit: async _ =>
+                        onSubmit: async submitted =>
                         {
-                            if (!string.IsNullOrWhiteSpace(_input.Value))
+                            // Use the `submitted` parameter, NOT `_input.Value`. onValueChange is a separate
+                            // round-trip and may not have landed yet when onSubmit fires (fast typists hit Enter
+                            // before the last keystroke arrives). Reading the bound reactive can give stale text.
+                            if (!string.IsNullOrWhiteSpace(submitted))
                             {
-                                _messages.Value.Add(_input.Value);
+                                _messages.Value.Add(submitted);
                                 _messages.NotifyUpdate();
                                 _input.Value = "";
                             }

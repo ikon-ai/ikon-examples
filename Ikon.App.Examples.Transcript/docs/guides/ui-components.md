@@ -45,11 +45,13 @@ view.Column(["h-screen"], content: view =>
             placeholder: "Type a message...",
             value: _input.Value,
             onValueChange: async v => _input.Value = v,
-            onSubmit: async _ =>
+            onSubmit: async submitted =>
             {
-                if (!string.IsNullOrWhiteSpace(_input.Value))
+                // Use the `submitted` parameter — NOT `_input.Value`. onValueChange round-trips
+                // separately and may not have landed when onSubmit fires for a fast typist.
+                if (!string.IsNullOrWhiteSpace(submitted))
                 {
-                    _messages.Value.Add(new Message("User", _input.Value));
+                    _messages.Value.Add(new Message("User", submitted));
                     _messages.NotifyUpdate();
                 }
             },
@@ -78,10 +80,13 @@ view.Button([Button.GhostMd, Button.Size.Icon], onClick: async () => { ... },
     content: v => v.Icon([Icon.Default], name: "settings"));
 view.TextField([Input.Default], placeholder: "Enter text", value: _text.Value,
     onValueChange: async v => _text.Value = v,
-    onSubmit: async _ => { await HandleSubmit(); });  // Enter submits; input auto-clears after submit
+    onSubmit: async submitted => { await HandleSubmit(submitted); });  // Enter submits; input auto-clears after submit
 view.TextArea([Input.Default, "min-h-[100px]"], placeholder: "Type a message...", value: _text.Value,
     onValueChange: async v => _text.Value = v,
-    onSubmit: async _ => { await HandleSubmit(); });  // Ctrl+Enter submits; input auto-clears after submit
+    onSubmit: async submitted => { await HandleSubmit(submitted); });  // Ctrl+Enter submits; input auto-clears after submit
+// IMPORTANT — onSubmit's parameter is the submitted value. Always use it. Do NOT re-read the bound reactive
+// (`_text.Value`) inside onSubmit: onValueChange is a separate round-trip and may not have landed when
+// onSubmit fires for a fast typist, so the reactive can be one keystroke behind.
 // Note: clearOnSubmit defaults to true when onSubmit is set. Pass clearOnSubmit: false to keep the value.
 view.Checkbox([Checkbox.Default], checked: _checked.Value,
     onCheckedChange: async v => _checked.Value = v);
@@ -319,6 +324,7 @@ Available ActionKinds: `CaptureImage`, `CopyToClipboard`, `DownloadFile`, `ExitF
 CaptureButton starts audio/video capture from the client:
 
 ```csharp
+// Audio capture (microphone)
 view.CaptureButton([Button.OutlineMd, Button.Size.Icon],
     kind: MediaCaptureKind.Audio,
     captureMode: MediaCaptureButtonMode.Toggle,  // or Hold
@@ -326,4 +332,14 @@ view.CaptureButton([Button.OutlineMd, Button.Size.Icon],
     onCaptureStart: async args => { _streamId.Value = args.StreamId; },
     onCaptureStop: async args => { _streamId.Value = null; },
     content: v => v.Icon([Icon.Default], name: "mic"));
+
+// Video capture (camera). Note: do NOT set TargetIds — see "Critical" warning in
+// the Video section above. Leave it unset so the server receives the stream.
+view.CaptureButton([Button.OutlineMd, Button.Size.Icon],
+    kind: MediaCaptureKind.Camera,
+    captureMode: MediaCaptureButtonMode.Toggle,
+    videoOptions: new ClientVideoCaptureOptions { Framerate = 10, Width = 1280, Height = 720 },
+    onCaptureStart: async args => { /* args.StreamId — but prefer args.StreamId from VideoInputStreamBeginAsync */ },
+    onCaptureStop: async args => { /* cleanup */ },
+    content: v => v.Icon([Icon.Default], name: "video"));
 ```
