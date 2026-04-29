@@ -51,6 +51,9 @@ namespace Ikon.AI.VideoEnhancement
     TimeSpan Timeout { get; set; }
     byte[] VideoData { get; set; }
     string VideoUrl { get; set; }
+    static VideoEnhancerConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   enum VideoEnhancerModel
     TensorPixFpsBoost
     TensorPixUpscale2xUltra4
@@ -63,6 +66,9 @@ namespace Ikon.AI.VideoEnhancement
     int? OutputFps { get; init; }
     long? OutputSizeBytes { get; init; }
     string Url { get; init; }
+    static VideoEnhancerResult ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
 
 namespace Ikon.AI.VideoGeneration
   interface IVideoGenerator : IDisposable, IVideoGeneratorInfo
@@ -84,6 +90,9 @@ namespace Ikon.AI.VideoGeneration
     byte[] Data { get; set; }
     string MimeType { get; set; }
     string Url { get; set; }
+    static VideoGeneratorConfig.InputImage ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class VideoGenerator : IDisposable, IVideoGenerator, IVideoGeneratorInfo
     ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
     ctor(VideoGeneratorModel model, IReadOnlyList<ModelRegion> regions = null)
@@ -132,6 +141,9 @@ namespace Ikon.AI.VideoGeneration
     VideoGeneratorResolution Resolution { get; set; }
     int? Seed { get; set; }
     TimeSpan Timeout { get; set; }
+    static VideoGeneratorConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   enum VideoGeneratorModel
     Hailuo23
     Hailuo23Fast
@@ -171,3 +183,6 @@ namespace Ikon.AI.VideoGeneration
   sealed class VideoGeneratorResult
     ctor()
     string Url { get; init; }
+    static VideoGeneratorResult ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
