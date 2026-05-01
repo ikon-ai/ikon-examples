@@ -17,10 +17,14 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
     private static readonly HashSet<string> ValidTabs =
     [
-        "buttons", "inputs", "cards", "overlays", "navigation", "layout", "forms",
-        "typography", "files", "assets", "actions", "video", "audio", "drag-drop", "nav-menu",
-        "rive", "shadertoy", "crosswind", "charts", "profiling", "ikon-ai", "identity", "functions",
-        "brand", "icons", "memory"
+        "buttons", "inputs", "typography", "icons", "cards",
+        "layout", "forms", "navigation", "nav-menu", "overlays", "drag-drop",
+        "crosswind", "brand",
+        "charts",
+        "files", "assets", "actions",
+        "video", "audio", "rive", "shadertoy",
+        "ikon-ai",
+        "profiling", "memory", "identity", "functions"
     ];
 
     // Input states
@@ -82,8 +86,8 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     // Drag and drop states
     private readonly Reactive<string> _dndStatus = new("");
     private readonly Reactive<string> _activeDragId = new("");
-    private readonly Reactive<IReadOnlyList<string>> _sortableSimpleVertical = new(["Simple 1", "Simple 2", "Simple 3", "Simple 4"]);
-    private readonly Reactive<IReadOnlyList<string>> _sortableSimpleHorizontal = new(["X", "Y", "Z"]);
+    private readonly Reactive<IReadOnlyList<string>> _sortableHandleCards = new(["Card A", "Card B", "Card C", "Card D"]);
+    private readonly Reactive<IReadOnlyList<string>> _sortableClickThroughList = new(["Item 1", "Item 2", "Item 3", "Item 4"]);
     private readonly Reactive<Dictionary<string, string?>> _draggableItemZones = new(
         new Dictionary<string, string?>
         {
@@ -338,7 +342,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
             }
             else
             {
-                await app.Navigation.SetPathAsync(args.ClientSessionId, "/buttons", replace: true);
+                await app.Navigation.SetPathAsync(args.ClientSessionId, $"/{_activeTab.Value}", replace: true);
             }
         };
 
@@ -357,7 +361,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
             }
             else
             {
-                await app.Navigation.SetPathAsync(args.ClientSessionId, "/buttons", replace: true);
+                await app.Navigation.SetPathAsync(args.ClientSessionId, $"/{_activeTab.Value}", replace: true);
             }
 
             _ = RefreshDevicesAsync(args.ClientSessionId);
@@ -397,30 +401,30 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                         tabs: [
                             new TabItem("buttons", "Buttons", RenderButtonsSection),
                             new TabItem("inputs", "Inputs", RenderInputsSection),
+                            new TabItem("typography", "Typography", RenderTypographySection),
+                            new TabItem("icons", "Icons", RenderIconsSection, ForceMount: true),
                             new TabItem("cards", "Cards", RenderCardsSection),
-                            new TabItem("overlays", "Overlays", RenderOverlaysSection),
-                            new TabItem("navigation", "Navigation", RenderNavigationSection),
                             new TabItem("layout", "Layout", RenderLayoutSection),
                             new TabItem("forms", "Forms", RenderFormsSection),
-                            new TabItem("typography", "Typography", RenderTypographySection),
+                            new TabItem("navigation", "Navigation", RenderNavigationSection),
+                            new TabItem("nav-menu", "Nav Menu", RenderNavMenuSection),
+                            new TabItem("overlays", "Overlays", RenderOverlaysSection),
+                            new TabItem("drag-drop", "Drag & Drop", RenderDragDropSection),
+                            new TabItem("crosswind", "Crosswind", RenderCrosswindSection),
+                            new TabItem("brand", "Brand", RenderBrandSection),
+                            new TabItem("charts", "Charts", RenderChartsSection),
                             new TabItem("files", "Files", RenderFilesSection),
                             new TabItem("assets", "Assets", RenderAssetsSection),
                             new TabItem("actions", "Actions", RenderActionsSection),
                             new TabItem("video", "Video", RenderVideoSection),
                             new TabItem("audio", "Audio", RenderAudioSection),
-                            new TabItem("drag-drop", "Drag & Drop", RenderDragDropSection),
-                            new TabItem("nav-menu", "Nav Menu", RenderNavMenuSection),
                             new TabItem("rive", "Rive", RenderRiveSection),
                             new TabItem("shadertoy", "Shadertoy", RenderShadertoySection),
-                            new TabItem("crosswind", "Crosswind", RenderCrosswindSection),
-                            new TabItem("charts", "Charts", RenderChartsSection),
+                            new TabItem("ikon-ai", "Ikon.AI Library", RenderIkonAISection, ForceMount: true),
                             new TabItem("profiling", "Profiling", RenderProfilingSection),
-                            new TabItem("ikon-ai", "Ikon.AI Library", RenderIkonAISection),
+                            new TabItem("memory", "Memory", RenderMemorySection),
                             new TabItem("identity", "Identity", RenderIdentitySection),
                             new TabItem("functions", "Functions", RenderFunctionsSection),
-                            new TabItem("brand", "Brand", RenderBrandSection),
-                            new TabItem("icons", "Icons", RenderIconsSection),
-                            new TabItem("memory", "Memory", RenderMemorySection),
                         ]);
                 });
             });

@@ -24,7 +24,7 @@
         "invite link"
       ],
       "file": "docs/guides/app-structure.md",
-      "sizeBytes": 12968,
+      "sizeBytes": 12970,
       "alsoInclude": []
     },
     {
@@ -39,7 +39,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 102963,
+      "sizeBytes": 105069,
       "alsoInclude": []
     },
     {
@@ -50,11 +50,16 @@
         "client reactive",
         "user reactive",
         "persistent reactive",
+        "persistent session reactive",
+        "persistent user reactive",
+        "persistence backend",
+        "postgres backend",
+        "public asset backend",
         "reactive scope",
         "value mutation"
       ],
       "file": "docs/guides/reactive-state.md",
-      "sizeBytes": 10087,
+      "sizeBytes": 18161,
       "alsoInclude": [
         "app-structure",
         "ui-components"
@@ -82,7 +87,7 @@
         "message bubbles"
       ],
       "file": "docs/guides/ui-components.md",
-      "sizeBytes": 14008,
+      "sizeBytes": 14864,
       "alsoInclude": [
         "app-structure"
       ]
@@ -98,7 +103,7 @@
         "props"
       ],
       "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 150846,
+      "sizeBytes": 153922,
       "alsoInclude": []
     },
     {
@@ -115,7 +120,7 @@
         "theme customization"
       ],
       "file": "docs/guides/styling-and-motion.md",
-      "sizeBytes": 9343,
+      "sizeBytes": 9204,
       "alsoInclude": [
         "ui-components",
         "app-structure",
@@ -137,7 +142,7 @@
         "scanline"
       ],
       "file": "docs/guides/styling-guide.md",
-      "sizeBytes": 28023,
+      "sizeBytes": 28015,
       "alsoInclude": [
         "styling-and-motion"
       ]
@@ -157,7 +162,7 @@
         "motion syntax grammar"
       ],
       "file": "docs/guides/motion-reference.md",
-      "sizeBytes": 25956,
+      "sizeBytes": 25948,
       "alsoInclude": [
         "styling-and-motion"
       ]
@@ -180,7 +185,7 @@
         "transitions"
       ],
       "file": "docs/guides/tailwind-reference.md",
-      "sizeBytes": 90793,
+      "sizeBytes": 90781,
       "alsoInclude": []
     },
     {
@@ -201,7 +206,7 @@
         "timeout"
       ],
       "file": "docs/guides/emergence.md",
-      "sizeBytes": 36687,
+      "sizeBytes": 36569,
       "alsoInclude": [
         "app-structure",
         "ai-models"
@@ -225,7 +230,7 @@
         "advanced patterns"
       ],
       "file": "docs/guides/emergence-patterns.md",
-      "sizeBytes": 29323,
+      "sizeBytes": 29315,
       "alsoInclude": [
         "emergence"
       ]
@@ -245,7 +250,7 @@
         "AI connection"
       ],
       "file": "docs/guides/ai-models.md",
-      "sizeBytes": 16436,
+      "sizeBytes": 16009,
       "alsoInclude": []
     },
     {
@@ -260,7 +265,7 @@
         "ImageGeneratorConfig"
       ],
       "file": "docs/guides/ai-image.md",
-      "sizeBytes": 3492,
+      "sizeBytes": 3888,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -282,7 +287,7 @@
         "SoundEffectGenerator"
       ],
       "file": "docs/guides/ai-speech-and-audio.md",
-      "sizeBytes": 16380,
+      "sizeBytes": 19897,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -299,7 +304,7 @@
         "VideoEnhancer"
       ],
       "file": "docs/guides/ai-video.md",
-      "sizeBytes": 6080,
+      "sizeBytes": 6782,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -323,7 +328,7 @@
         "EmbeddingGenerator"
       ],
       "file": "docs/guides/ai-web-and-data.md",
-      "sizeBytes": 22435,
+      "sizeBytes": 23933,
       "alsoInclude": [
         "emergence"
       ]
@@ -338,7 +343,7 @@
         "storage"
       ],
       "file": "docs/guides/ai-advanced.md",
-      "sizeBytes": 5695,
+      "sizeBytes": 5562,
       "alsoInclude": [
         "emergence"
       ]
@@ -361,7 +366,7 @@
         "filter"
       ],
       "file": "docs/guides/audio-video.md",
-      "sizeBytes": 24018,
+      "sizeBytes": 24866,
       "alsoInclude": []
     },
     {
@@ -378,7 +383,7 @@
         "optimistic concurrency"
       ],
       "file": "docs/guides/asset-system.md",
-      "sizeBytes": 20234,
+      "sizeBytes": 20013,
       "alsoInclude": []
     },
     {
@@ -399,7 +404,7 @@
         "function"
       ],
       "file": "docs/guides/endpoints-webhooks.md",
-      "sizeBytes": 38435,
+      "sizeBytes": 38251,
       "alsoInclude": []
     },
     {
@@ -413,7 +418,7 @@
         "AppDatabaseConnection"
       ],
       "file": "docs/guides/databases.md",
-      "sizeBytes": 570,
+      "sizeBytes": 547,
       "alsoInclude": []
     },
     {
@@ -429,7 +434,7 @@
         "ikon app secret"
       ],
       "file": "docs/guides/secrets.md",
-      "sizeBytes": 1430,
+      "sizeBytes": 1390,
       "alsoInclude": []
     },
     {
@@ -444,7 +449,7 @@
         "callable functions"
       ],
       "file": "docs/guides/function-registry.md",
-      "sizeBytes": 17492,
+      "sizeBytes": 17254,
       "alsoInclude": []
     },
     {
@@ -459,7 +464,7 @@
         "diagnostics"
       ],
       "file": "docs/guides/logging.md",
-      "sizeBytes": 228,
+      "sizeBytes": 219,
       "alsoInclude": []
     },
     {
@@ -474,7 +479,7 @@
         "cron"
       ],
       "file": "docs/guides/pipelines.md",
-      "sizeBytes": 1141,
+      "sizeBytes": 1115,
       "alsoInclude": []
     },
     {
@@ -487,7 +492,7 @@
         "pipeline guide"
       ],
       "file": "docs/guides/pipelines-reference.md",
-      "sizeBytes": 63763,
+      "sizeBytes": 63747,
       "alsoInclude": []
     },
     {
@@ -509,7 +514,7 @@
         "emails folder"
       ],
       "file": "docs/guides/frontend-fundamentals.md",
-      "sizeBytes": 16196,
+      "sizeBytes": 15844,
       "alsoInclude": [
         "ui-components"
       ]
@@ -528,7 +533,7 @@
         "targets"
       ],
       "file": "docs/guides/config-and-cli.md",
-      "sizeBytes": 4001,
+      "sizeBytes": 3912,
       "alsoInclude": []
     }
   ]

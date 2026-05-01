@@ -4,42 +4,47 @@ public partial class Validation
     {
         view.Column([Layout.Column.Lg], content: view =>
         {
-            // Sortable List
+            // Sortable: handle and click-through
             view.Box([Card.Default, "p-6"], content: view =>
             {
-                view.Text([Text.H2, "mb-4"], "Sortable List");
-                view.Text([Text.Caption, "mb-4"], "Drag items to reorder with auto-handled reordering");
+                view.Text([Text.H2, "mb-4"], "Sortable: handle and click-through");
+                view.Text([Text.Caption, "mb-4"], "Sortable lists with inner clickable elements. The handle scopes drag activation to the grip; activationDistance lets a click pass through if the pointer doesn't move.");
 
                 view.Column([Layout.Column.Lg], content: view =>
                 {
-                    view.Text([Text.BodyStrong], "Vertical (default)");
+                    view.Text([Text.BodyStrong], "Cards with drag handle (only the grip starts a drag)");
                     view.SortableList(
-                        items: _sortableSimpleVertical.Value,
-                        itemStyle: [DragDrop.Item.Base],
-                        strategy: SortStrategy.VerticalList,
-                        onReorder: async args => _sortableSimpleVertical.Value = args.NewOrder);
-
-                    view.Text([Text.BodyStrong, "mt-4"], "Horizontal");
-                    view.SortableList(
-                        items: _sortableSimpleHorizontal.Value,
-                        itemStyle: [DragDrop.Item.Base],
+                        items: _sortableHandleCards.Value,
                         strategy: SortStrategy.HorizontalList,
-                        onReorder: async args => _sortableSimpleHorizontal.Value = args.NewOrder);
-
-                    view.Text([Text.BodyStrong, "mt-4"], "With custom content");
-                    view.SortableList(
-                        items: _sortableSimpleVertical.Value,
-                        itemStyle: [DragDrop.Item.Base],
-                        strategy: SortStrategy.VerticalList,
-                        onReorder: async args => _sortableSimpleVertical.Value = args.NewOrder,
-                        itemContent: (v, item) =>
+                        itemStyle: ["p-3 border border-secondary rounded-md bg-secondary text-secondary hover:bg-secondary-hover transition-colors"],
+                        onReorder: async args => _sortableHandleCards.Value = args.NewOrder,
+                        itemContent: (slot, id) =>
                         {
-                            v.Row([Layout.Row.InlineCenter], content: v =>
+                            slot.Row(["items-center gap-3"], content: row =>
                             {
-                                v.Icon([Icon.Default], name: "star");
-                                v.Text([Text.BodyStrong], item);
-                                v.Text([Text.Caption, "ml-auto"], "(custom)");
+                                row.Button(
+                                    ["px-2 py-1 cursor-pointer hover:underline"],
+                                    onClick: async () => _dndStatus.Value = $"Clicked {id}",
+                                    text: id);
+                                row.SortableHandle(
+                                    ["cursor-grab active:cursor-grabbing opacity-60 hover:opacity-100"],
+                                    content: h => h.Icon([Icon.Default], name: "drag-handle-horizontal"));
                             });
+                        });
+
+                    view.Text([Text.BodyStrong, "mt-4"], "Click-through list (activationDistance: 5)");
+                    view.SortableList(
+                        items: _sortableClickThroughList.Value,
+                        strategy: SortStrategy.VerticalList,
+                        activationDistance: 5,
+                        itemStyle: ["p-1 border border-secondary rounded-md bg-secondary"],
+                        onReorder: async args => _sortableClickThroughList.Value = args.NewOrder,
+                        itemContent: (slot, id) =>
+                        {
+                            slot.Button(
+                                ["w-full px-3 py-2 text-left cursor-pointer hover:bg-secondary-hover"],
+                                onClick: async () => _dndStatus.Value = $"Clicked {id}",
+                                text: id);
                         });
                 });
             });

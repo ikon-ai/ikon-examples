@@ -1,6 +1,8 @@
 public partial class Validation
 {
+    private const int IconsInitialDisplay = 120;
     private readonly ClientReactive<string> _iconSearch = new("");
+    private readonly ClientReactive<bool> _iconShowAll = new(false);
 
     private static readonly string[] AllIcons =
     [
@@ -306,9 +308,14 @@ public partial class Validation
     private void RenderIconsSection(UIView view)
     {
         var search = _iconSearch.Value.Trim().ToLowerInvariant();
-        var filtered = string.IsNullOrEmpty(search)
+        var matched = string.IsNullOrEmpty(search)
             ? AllIcons
             : AllIcons.Where(name => name.Contains(search)).ToArray();
+
+        var displayed = _iconShowAll.Value || matched.Length <= IconsInitialDisplay
+            ? matched
+            : matched.Take(IconsInitialDisplay).ToArray();
+        var hiddenCount = matched.Length - displayed.Length;
 
         view.Column([Layout.Column.Lg], content: view =>
         {
@@ -319,13 +326,20 @@ public partial class Validation
                 view.TextField([Input.Default, "mb-4"],
                     placeholder: "Search icons...",
                     value: _iconSearch.Value,
-                    onValueChange: async v => _iconSearch.Value = v ?? "");
+                    onValueChange: async v =>
+                    {
+                        _iconSearch.Value = v ?? "";
+                        _iconShowAll.Value = false;
+                    });
 
-                view.Text([Text.Muted, "mb-4"], $"Showing {filtered.Length} of {AllIcons.Length} icons");
+                view.Text([Text.Muted, "mb-4"],
+                    hiddenCount > 0
+                        ? $"Showing {displayed.Length} of {matched.Length} icons"
+                        : $"Showing {matched.Length} of {AllIcons.Length} icons");
 
                 view.Box(["flex flex-wrap gap-2"], content: view =>
                 {
-                    foreach (var name in filtered)
+                    foreach (var name in displayed)
                     {
                         view.Column(["w-24 items-center gap-1 p-2 rounded hover:bg-muted"], content: view =>
                         {
@@ -334,6 +348,14 @@ public partial class Validation
                         });
                     }
                 });
+
+                if (hiddenCount > 0)
+                {
+                    view.Button(
+                        [Button.OutlineMd, "mt-4"],
+                        label: $"Show all {matched.Length}",
+                        onClick: async () => _iconShowAll.Value = true);
+                }
             });
 
             view.Box([Card.Default, "p-6"], content: view =>

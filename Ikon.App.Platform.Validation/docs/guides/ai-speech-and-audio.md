@@ -27,9 +27,9 @@ Audio.UseSpeechRecognition(SpeechRecognizerModel.WhisperLarge3Turbo);
 
 Audio.SpeechRecognizedAsync += async args =>
 {
-    using var _ = ReactiveScope.Use(new ClientScope(args.ClientContext));
     // args.Text — recognized speech
     // args.ClientSessionId / args.UserId — who said it
+    // ClientScope is established automatically — per-client reactive writes route correctly.
     await SendChatMessageAsync(args.Text);
 };
 
@@ -118,11 +118,15 @@ namespace Ikon.AI.SoundEffectGeneration
     ctor()
     bool SupportsLooping { get; init; }
   sealed class SoundEffectGeneratorConfig
+    ctor()
     double? DurationSeconds { get; set; }
     bool Loop { get; set; }
     string Prompt { get; set; }
     double PromptInfluence { get; set; }
     TimeSpan Timeout { get; set; }
+    static SoundEffectGeneratorConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   enum SoundEffectGeneratorModel
     ElevenLabsV2
   static class SoundEffectGeneratorModelExtensions
@@ -163,6 +167,9 @@ namespace Ikon.AI.SpeechGeneration
     string Text { get; set; }
     TimeSpan Timeout { get; set; }
     string VoiceId { get; set; }
+    static SpeechGeneratorConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   static class SpeechGeneratorExtensions
     static Task StreamSpeechAsync(ISpeechGenerator speechGenerator, SpeechGeneratorConfig config, Func<AudioContainer, Task> onAudio, CancellationToken cancellationToken = null)
   enum SpeechGeneratorModel
@@ -192,13 +199,20 @@ namespace Ikon.AI.SpeechRecognition
     string ReferenceText { get; set; }
     int SampleRate { get; set; }
     float[] Samples { get; set; }
+    byte[] SamplesPcm16 { get; set; }
     TimeSpan Timeout { get; set; }
+    static AnalyzePronunciationConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.Break
     ctor()
     int BreakLength { get; init; }
     List<string> ErrorTypes { get; init; }
     Pronunciation.MissingBreak MissingBreak { get; init; }
     Pronunciation.UnexpectedBreak UnexpectedBreak { get; init; }
+    static Pronunciation.Break ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class SpeechRecognizerAdapter.Config
     ctor()
     TimeSpan MaxSpeechDuration { get; set; }
@@ -210,6 +224,9 @@ namespace Ikon.AI.SpeechRecognition
   sealed class Pronunciation.Feedback
     ctor()
     Pronunciation.Prosody Prosody { get; init; }
+    static Pronunciation.Feedback ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   interface ISpeechRecognizer : IDisposable, ISpeechRecognizerInfo
     int ChannelCount { get; }
     int SampleRate { get; }
@@ -224,9 +241,15 @@ namespace Ikon.AI.SpeechRecognition
     ctor()
     List<string> ErrorTypes { get; init; }
     Pronunciation.Monotone Monotone { get; init; }
+    static Pronunciation.Intonation ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.MissingBreak
     ctor()
     double Confidence { get; init; }
+    static Pronunciation.MissingBreak ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   enum SpeechRecognizerAdapter.Mode
     GrowingWindow
     SlidingWindow
@@ -234,6 +257,9 @@ namespace Ikon.AI.SpeechRecognition
   sealed class Pronunciation.Monotone
     ctor()
     double SyllablePitchDeltaConfidence { get; init; }
+    static Pronunciation.Monotone ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.NBest
     ctor()
     double Confidence { get; init; }
@@ -243,15 +269,24 @@ namespace Ikon.AI.SpeechRecognition
     string MaskedITN { get; init; }
     Pronunciation.PronunciationAssessment PronunciationAssessment { get; init; }
     List<Pronunciation.Word> Words { get; init; }
+    static Pronunciation.NBest ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.Phoneme
     ctor()
     long Duration { get; init; }
     long Offset { get; init; }
     Pronunciation.PhonemePronunciationAssessment PronunciationAssessment { get; init; }
     string Text { get; init; }
+    static Pronunciation.Phoneme ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.PhonemePronunciationAssessment
     ctor()
     double AccuracyScore { get; init; }
+    static Pronunciation.PhonemePronunciationAssessment ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   static class Pronunciation
   sealed class Pronunciation.PronunciationAssessment
     ctor()
@@ -260,16 +295,25 @@ namespace Ikon.AI.SpeechRecognition
     double FluencyScore { get; init; }
     double PronScore { get; init; }
     double ProsodyScore { get; init; }
+    static Pronunciation.PronunciationAssessment ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.Prosody
     ctor()
     Pronunciation.Break Break { get; init; }
     Pronunciation.Intonation Intonation { get; init; }
+    static Pronunciation.Prosody ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class RecognizeContinuousSpeechConfig
     ctor()
     string[] CandidateLanguages { get; set; }
     int ChannelCount { get; set; }
     string Language { get; set; }
     int SampleRate { get; set; }
+    static RecognizeContinuousSpeechConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class RecognizeSpeechConfig
     ctor()
     int ChannelCount { get; set; }
@@ -277,8 +321,12 @@ namespace Ikon.AI.SpeechRecognition
     string Prompt { get; set; }
     int SampleRate { get; set; }
     float[] Samples { get; set; }
+    byte[] SamplesPcm16 { get; set; }
     double Temperature { get; set; }
     TimeSpan Timeout { get; set; }
+    static RecognizeSpeechConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.Result
     ctor()
     int Channel { get; init; }
@@ -289,6 +337,9 @@ namespace Ikon.AI.SpeechRecognition
     long Offset { get; init; }
     string RecognitionStatus { get; init; }
     double SNR { get; init; }
+    static Pronunciation.Result ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class SpeechRecognizer : IDisposable, ISpeechRecognizer, ISpeechRecognizerInfo
     ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
     ctor(SpeechRecognizerModel model, IReadOnlyList<ModelRegion> regions = null)
@@ -340,12 +391,21 @@ namespace Ikon.AI.SpeechRecognition
     long Offset { get; init; }
     Pronunciation.SyllablePronunciationAssessment PronunciationAssessment { get; init; }
     string Text { get; init; }
+    static Pronunciation.Syllable ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.SyllablePronunciationAssessment
     ctor()
     double AccuracyScore { get; init; }
+    static Pronunciation.SyllablePronunciationAssessment ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.UnexpectedBreak
     ctor()
     double Confidence { get; init; }
+    static Pronunciation.UnexpectedBreak ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.Word
     ctor()
     long Duration { get; init; }
@@ -354,8 +414,14 @@ namespace Ikon.AI.SpeechRecognition
     Pronunciation.WordPronunciationAssessment PronunciationAssessment { get; init; }
     List<Pronunciation.Syllable> Syllables { get; init; }
     string Text { get; init; }
+    static Pronunciation.Word ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class Pronunciation.WordPronunciationAssessment
     ctor()
     double AccuracyScore { get; init; }
     string ErrorType { get; init; }
     Pronunciation.Feedback Feedback { get; init; }
+    static Pronunciation.WordPronunciationAssessment ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
