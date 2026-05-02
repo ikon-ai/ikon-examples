@@ -94,12 +94,32 @@ view.TextField(style: [Input.Default], defaultValue: "");
 view.Box(style: [Card.Default], content: view => { });
 ```
 
+### Theme Activation
+
+The active theme determines what semantic tokens like `text-primary`, `bg-background`, `text-muted-foreground` resolve to. **If you don't set a theme explicitly, the runtime picks one from the browser's `prefers-color-scheme`, falling back to light.**
+
+This matters because Parallax button styles use semantic tokens. `Button.GhostMd`, `Button.OutlineMd`, `Button.NeutralMd` all set `text-primary`, which is dark in the light theme and light in the dark theme. If you build a custom dark UI with **fixed** Tailwind classes (`bg-slate-950`, `bg-zinc-900`, etc.) without setting the theme, ghost and outline buttons will render dark text on your dark background — invisible.
+
+Two ways to avoid this:
+
+1. **Use semantic background tokens** that follow the theme: `bg-background`, `bg-card`, `bg-muted`, `bg-tertiary`. These flip automatically with the theme, so `text-primary` always contrasts.
+2. **Set the theme explicitly** to match the UI you're rendering. The scaffolded `TemplateApp.cs` does this in `ClientJoinedAsync`:
+   ```csharp
+   app.ClientJoinedAsync += async args =>
+   {
+       await ClientFunctions.SetThemeAsync(args.ClientSessionId, "dark");
+   };
+   ```
+   If you rewrite the app body and remove this boilerplate, you re-introduce the trap. Keep it in any app that uses fixed dark Tailwind classes for surfaces.
+
+The same applies in reverse for a fixed-light UI: don't strand `text-primary` on a fixed-white background while the theme is dark.
+
 ### Customizing the Theme
 
-`Theme.Custom(b => b.Brand("#hex")...)` returns an `ITheme` you can pass to `new UI(app, ...)` at the top of your app file. It overrides specific CSS variables on top of the base theme — set as few or as many as you need; unset variables keep the base theme's values.
+`Theming.Custom(b => b.Brand("#hex")...)` returns an `ITheme` you can pass to `new UI(app, ...)` at the top of your app file. It overrides specific CSS variables on top of the base theme — set as few or as many as you need; unset variables keep the base theme's values.
 
 ```csharp
-private UI UI { get; } = new(app, Theme.Custom(b => b
+private UI UI { get; } = new(app, Theming.Custom(b => b
     .Brand("#7C3AED")
     .Background("#FAFAFA")
     .Foreground("#0A0A12")
