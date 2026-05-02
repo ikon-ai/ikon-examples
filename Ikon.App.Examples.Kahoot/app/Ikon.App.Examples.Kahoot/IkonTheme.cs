@@ -581,15 +581,12 @@ public static class Page
 
 public static class Icon
 {
-    public static class Size
-    {
-        public const string Xs = "w-4 h-4 shrink-0";
+    public const string Xs = "w-4 h-4 shrink-0";
         public const string Sm = "w-5 h-5 shrink-0";
         public const string Md = "w-6 h-6 shrink-0";
         public const string Lg = "w-8 h-8 shrink-0";
-    }
 
-    public const string Default = Size.Sm;
+    public const string Default = Sm;
     public const string Spinner = "inline-block animate-spin rounded-full border-2 border-muted-foreground/40 border-t-muted-foreground h-4 w-4";
     public const string SpinnerSm = "inline-block animate-spin rounded-full border-2 border-muted-foreground/40 border-t-muted-foreground h-3 w-3";
     public const string SpinnerLg = "inline-block animate-spin rounded-full border-2 border-muted-foreground/40 border-t-muted-foreground h-5 w-5";
@@ -662,8 +659,9 @@ public static class Button
         public const string Sm = "h-9 px-3 rounded-md";
         public const string Md = "h-10 px-4 py-2";
         public const string Lg = "h-11 px-8 rounded-md";
-        public const string Icon = "h-10 w-10";
     }
+
+    public const string Icon = "h-10 w-10";
 
     public const string PrimarySm = $"{Base} {Variant.Primary} {Size.Sm} {State.Pressable}";
     public const string PrimaryMd = $"{Base} {Variant.Primary} {Size.Md} {State.Pressable}";
