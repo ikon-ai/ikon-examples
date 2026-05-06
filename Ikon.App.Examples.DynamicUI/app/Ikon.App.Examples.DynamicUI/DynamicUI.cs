@@ -77,7 +77,7 @@ public partial class DynamicUI(IApp<SessionIdentity, ClientParams> app)
 
                 // Theme toggle
                 var isDark = _currentTheme.Value == ThemeDark;
-                view.Button([Button.GhostMd, Button.Size.Icon],
+                view.Button([Button.GhostMd, Button.Icon],
                     onClick: ToggleThemeAsync,
                     content: v => v.Icon([Icon.Default], name: isDark ? "sun" : "moon"));
             });

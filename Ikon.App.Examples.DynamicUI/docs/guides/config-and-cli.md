@@ -48,6 +48,11 @@ Name = ""
   - `--skip-npm-install`: skip npm install step
 - `ikon app stop`: stop a running app instance
 - `ikon app info`: show running app instance info (URLs, PIDs)
+- `ikon app pipeline run <PipelineName>`: build the app and run one of its pipelines from the CLI. Auto-resolves the DLL and uses the space ID from `ikon-config.toml`.
+  - `<PipelineName>`: short class name (e.g. `MyPipeline`) or fully qualified name; alternatively pass `--type-name <FQN>`
+  - `--no-build`: reuse the existing build output instead of rebuilding
+  - `--target <name>`: pick a specific `ikon-config.<name>.toml`
+  - All `ikon pipeline run` flags pass through (`--input`, `--output`, `--config`, `--cache`, `--keep-running`, etc.) — run with `--help` for the full list
 
 ### Configuration & Deployment
 
