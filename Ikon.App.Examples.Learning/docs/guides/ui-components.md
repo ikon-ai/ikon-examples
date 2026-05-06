@@ -88,9 +88,9 @@ view.TextArea([Input.Default, "min-h-[100px]"], placeholder: "Type a message..."
 // (`_text.Value`) inside onSubmit: onValueChange is a separate round-trip and may not have landed when
 // onSubmit fires for a fast typist, so the reactive can be one keystroke behind.
 // Note: clearOnSubmit defaults to true when onSubmit is set. Pass clearOnSubmit: false to keep the value.
-view.Checkbox([Checkbox.Default], checked: _checked.Value,
+view.Checkbox([Checkbox.Default], isChecked: _checked.Value,
     onCheckedChange: async v => _checked.Value = v);
-view.Switch([Switch.Default], checked: _enabled.Value,
+view.Switch([Switch.Default], isChecked: _enabled.Value,
     onCheckedChange: async v => _enabled.Value = v);
 view.Slider([Slider.Default], value: [_slider.Value], min: 0, max: 100, step: 1,
     onValueChange: async values => _slider.Value = values[0],

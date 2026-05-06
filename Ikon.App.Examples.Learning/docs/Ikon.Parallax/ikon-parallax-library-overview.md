@@ -232,7 +232,7 @@ public async Task Main()
             {
                 view.Switch(
                     style: ["w-10 h-5 rounded-full bg-neutral-700 data-[state=checked]:bg-blue-500"],
-                    @checked: _subscribed.Value,
+                    isChecked: _subscribed.Value,
                     onCheckedChange: value =>
                     {
                         _subscribed.Value = value;

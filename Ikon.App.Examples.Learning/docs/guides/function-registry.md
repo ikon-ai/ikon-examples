@@ -135,6 +135,7 @@ namespace Ikon.Common.Core.Functions
     static Function Register<T1, T2, TResult>(Func<T1, T2, IAsyncEnumerable<TResult>> function, string name = null, FunctionAttribute attribute = null, PolicyDelegate policy = null)
     override string ToString()
     Function With(Guid? id = null, string name = null, FunctionParameter[] parameters = null, Type returnType = null, string description = null, FunctionVisibility? visibility = null, bool? llmInlineResult = null, bool? llmCallOnlyOnce = null, CallbackType? callbackType = null, int? clientSessionId = null, Func<object[], object> callback = null, Func<object[], Task<object>> callbackAsync = null, Func<object[], IAsyncEnumerable<object>> callbackAsyncEnumerable = null, MethodInfo methodInfo = null, bool? requiresInstance = null, PolicyDelegate policy = null, bool clearClientSessionId = false, bool clearMethodInfo = false, bool clearPolicy = false, string version = null, bool? webhook = null)
+    Function WithAllowedValues(string paramName, IReadOnlyList<string> allowedValues)
     Function WithParamDescription(string paramName, string description)
   class FunctionAttribute : Attribute
     ctor()
@@ -147,8 +148,9 @@ namespace Ikon.Common.Core.Functions
     FunctionVisibility Visibility { get; set; }
     bool Webhook { get; set; }
   struct FunctionParameter
-    ctor(int index, string name, string description, Type type, bool hasDefaultValue, object defaultValue)
-    ctor(int index, string name, string description, string typeName, bool hasDefaultValue, object defaultValue)
+    ctor(int index, string name, string description, Type type, bool hasDefaultValue, object defaultValue, IReadOnlyList<string> allowedValues = null)
+    ctor(int index, string name, string description, string typeName, bool hasDefaultValue, object defaultValue, IReadOnlyList<string> allowedValues = null)
+    IReadOnlyList<string> AllowedValues { get; }
     object DefaultValue { get; }
     string Description { get; }
     bool HasDefaultValue { get; }
@@ -232,6 +234,7 @@ namespace Ikon.Common.Core.Functions
     Task CallAsync(RemoteFunctionCallRequest request)
     IAsyncEnumerable<TItem> CallAsyncEnumerable<TItem>(RemoteFunctionCallRequest request)
     void CancelAllPendingCalls()
+    void CancelPendingCallsForTarget(int targetId)
     static object CreateAsyncEnumerableParameter<T>(IAsyncEnumerable<T> source)
     static object CreateEnumerableParameter<T>(IEnumerable<T> source)
     static FunctionParameter CreateParameter<T>(T value)
