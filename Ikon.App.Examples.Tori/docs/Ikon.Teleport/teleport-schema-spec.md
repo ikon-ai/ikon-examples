@@ -53,12 +53,26 @@ The preprocessor inlines included content before TOML parsing. Circular includes
 | `[namespaces]`   | optional | Code generator specific namespaces.                                                      |
 | `version`        | optional | Integer version for message. Required when `type` is present.                            |
 | `opcode`         | optional | Protocol opcode (int or string). Required when `type` is present.                        |
+| `unreliable`     | optional | If `true`, generated messages of this type get `MessageFlag.Unreliable` set by default.  |
 | `doc`            | optional | Comment or docstring                                                                     |
 | `[fields]`       | optional | Field names and types. Only allowed when `type` is present.                              |
 | `[nested.*]`     | optional | Nested subtypes                                                                          |
 | `[enums.*]`      | optional | Enumerations. When `type` is omitted, these enums become namespace-level (global) types. |
 | `[[transforms]]` | optional | Version upgrade logic                                                                    |
 | `[constraints]`  | optional | Numeric/string constraints                                                               |
+
+### Unreliable Transport Default
+
+A root message may declare `unreliable = true` at the top level to mark every wire message of that type as unreliable by default. The Ikon core server routes such messages through unreliable transports (UDP datagram channel or WebRTC SCTP data channel) when the recipient has one, falling back to the reliable channel otherwise. This removes the need for every call site to remember to set the flag manually when constructing the message.
+
+```toml
+type = "VoiceFrame"
+version = 1
+opcode = "VOICE_FRAME"
+unreliable = true
+```
+
+Caller-supplied flags OR-merge with this default — adding `SendBackToSender` at a call site does not suppress the schema-declared `Unreliable` bit. The key is only valid when `type` is present.
 
 ---
 

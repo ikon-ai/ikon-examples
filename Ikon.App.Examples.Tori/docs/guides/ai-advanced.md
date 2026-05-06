@@ -62,7 +62,11 @@ namespace Ikon.AI.Database
     string BigQueryProjectId { get; set; }
     DatabaseType DatabaseType { get; set; }
     DbConnection DbConnection { get; set; }
+    static DatabaseConnection BigQuery(string projectId, string dataset)
     static Task<DatabaseConnection> CreateAsync(DatabaseConnection.Config config)
+    static DatabaseConnection Postgres(string host, int port, string database, string user, string password)
+    static DatabaseConnection Sqlite(string path)
+    static DatabaseConnection Trino(string host, int port, string catalog, string user, string password)
   class DatabaseInfo
     ctor()
     DatabaseType DatabaseType { get; set; }

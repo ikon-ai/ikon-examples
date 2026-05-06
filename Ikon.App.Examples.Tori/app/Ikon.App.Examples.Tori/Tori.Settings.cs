@@ -110,7 +110,7 @@ public partial class Tori
                     {
                         row.Text([Text.H3], "Settings");
                         row.Button(
-                            [Button.GhostMd, Button.Size.Icon],
+                            [Button.GhostMd, Button.Icon],
                             onClick: async () => _settingsOpen.Value = false,
                             content: v => v.Icon([Icon.Default], name: "x"));
                     });
@@ -298,7 +298,7 @@ public partial class Tori
                     labelRow.Tooltip(
                         contentStyle: [Tooltip.Content, "z-[100]"],
                         trigger: v => v.Button(
-                            [Button.GhostMd, Button.Size.Icon, "h-6 w-6"],
+                            [Button.GhostMd, Button.Icon, "h-6 w-6"],
                             disabled: _devicesLoading.Value,
                             onClick: async () =>
                             {
@@ -310,7 +310,7 @@ public partial class Tori
                                     await RefreshDevicesAsync(clientScope.Value.Id, context);
                                 }
                             },
-                            content: vv => vv.Icon([Icon.Size.Xs], name: _devicesLoading.Value ? "loader-2" : "refresh-cw")),
+                            content: vv => vv.Icon([Icon.Xs], name: _devicesLoading.Value ? "loader-2" : "refresh-cw")),
                         contentSlot: v => v.Text([Text.Caption], "Refresh"));
                 });
                 field.Select(
@@ -410,7 +410,7 @@ public partial class Tori
                     labelRow.Tooltip(
                         contentStyle: [Tooltip.Content, "z-[100]"],
                         trigger: v => v.Button(
-                            [Button.GhostMd, Button.Size.Icon, "h-6 w-6"],
+                            [Button.GhostMd, Button.Icon, "h-6 w-6"],
                             disabled: _devicesLoading.Value,
                             onClick: async () =>
                             {
@@ -422,7 +422,7 @@ public partial class Tori
                                     await RefreshDevicesAsync(clientScope.Value.Id, context);
                                 }
                             },
-                            content: vv => vv.Icon([Icon.Size.Xs], name: _devicesLoading.Value ? "loader-2" : "refresh-cw")),
+                            content: vv => vv.Icon([Icon.Xs], name: _devicesLoading.Value ? "loader-2" : "refresh-cw")),
                         contentSlot: v => v.Text([Text.Caption], "Refresh"));
                 });
                 field.Select(

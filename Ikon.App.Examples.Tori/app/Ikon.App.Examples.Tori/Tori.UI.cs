@@ -57,7 +57,7 @@ public partial class Tori
                 corner.Tooltip(
                     contentStyle: [Tooltip.Content],
                     trigger: v => v.Button(
-                        [Button.GhostMd, Button.Size.Icon],
+                        [Button.GhostMd, Button.Icon],
                         onClick: ToggleThemeAsync,
                         content: vv => vv.Icon([Icon.Default], name: isDark ? "sun" : "moon")),
                     contentSlot: v => v.Text([Text.Caption], isDark ? "Light mode" : "Dark mode"));
@@ -143,7 +143,7 @@ public partial class Tori
                     {
                         row.Text([Text.H3], "Meeting link created");
                         row.Button(
-                            [Button.GhostMd, Button.Size.Icon],
+                            [Button.GhostMd, Button.Icon],
                             onClick: async () => _meetLinkDialogOpen.Value = false,
                             content: v => v.Icon([Icon.Default], name: "x"));
                     });
@@ -158,7 +158,7 @@ public partial class Tori
                         row.Tooltip(
                             contentStyle: [Tooltip.Content, "z-[100]"],
                             trigger: v => v.ActionButton(
-                                [Button.GhostMd, Button.Size.Icon],
+                                [Button.GhostMd, Button.Icon],
                                 action: ActionKind.CopyToClipboard,
                                 options: new CopyToClipboardActionOptions { Text = meetLink },
                                 content: vv => vv.Icon([Icon.Default], name: "clipboard-copy")),
@@ -166,7 +166,7 @@ public partial class Tori
                         row.Tooltip(
                             contentStyle: [Tooltip.Content, "z-[100]"],
                             trigger: v => v.ActionButton(
-                                [Button.GhostMd, Button.Size.Icon],
+                                [Button.GhostMd, Button.Icon],
                                 action: ActionKind.Share,
                                 options: new ShareActionOptions { Title = "Join my meeting", Text = meetLink },
                                 content: vv => vv.Icon([Icon.Default], name: "share")),
@@ -199,7 +199,7 @@ public partial class Tori
                 corner.Tooltip(
                     contentStyle: [Tooltip.Content],
                     trigger: v => v.Button(
-                        [Button.GhostMd, Button.Size.Icon],
+                        [Button.GhostMd, Button.Icon],
                         onClick: ToggleThemeAsync,
                         content: vv => vv.Icon([Icon.Default], name: isDark ? "sun" : "moon")),
                     contentSlot: v => v.Text([Text.Caption], isDark ? "Light mode" : "Dark mode"));
@@ -239,7 +239,7 @@ public partial class Tori
                 row.Tooltip(
                     contentStyle: [Tooltip.Content],
                     trigger: v => v.Button(
-                        [Button.PrimaryMd, Button.Size.Icon],
+                        [Button.PrimaryMd, Button.Icon],
                         disabled: !hasValidName,
                         onClick: async () => JoinMeeting(nameValue),
                         content: vv => vv.Icon([Icon.Default], name: "arrow-right")),
@@ -266,7 +266,7 @@ public partial class Tori
                 corner.Tooltip(
                     contentStyle: [Tooltip.Content],
                     trigger: v => v.Button(
-                        [Button.GhostMd, Button.Size.Icon],
+                        [Button.GhostMd, Button.Icon],
                         onClick: ToggleThemeAsync,
                         content: vv => vv.Icon([Icon.Default], name: isDark ? "sun" : "moon")),
                     contentSlot: v => v.Text([Text.Caption], isDark ? "Light mode" : "Dark mode"));
@@ -348,7 +348,7 @@ public partial class Tori
 
         // Audio toggle
         view.CaptureButton(
-            [Button.OutlineMd, Button.Size.Icon, "w-11 h-11"],
+            [Button.OutlineMd, Button.Icon, "w-11 h-11"],
             kind: MediaCaptureKind.Audio,
             label: isAudioOn ? "Mute" : "Unmute",
             captureMode: MediaCaptureButtonMode.Toggle,
@@ -359,7 +359,7 @@ public partial class Tori
 
         // Video toggle
         view.CaptureButton(
-            [Button.OutlineMd, Button.Size.Icon, "w-11 h-11"],
+            [Button.OutlineMd, Button.Icon, "w-11 h-11"],
             kind: MediaCaptureKind.Camera,
             label: isVideoOn ? "Camera off" : "Camera on",
             captureMode: MediaCaptureButtonMode.Toggle,
@@ -370,19 +370,19 @@ public partial class Tori
 
         // Panel toggle button
         view.Button(
-            [Button.OutlineMd, Button.Size.Icon, "w-11 h-11"],
+            [Button.OutlineMd, Button.Icon, "w-11 h-11"],
             onClick: async () => _mobilePanelOpen.Value = true,
             content: vv => vv.Icon([Icon.Default], name: "message-square"));
 
         // Leave meeting button
         view.Button(
-            [Button.ErrorMd, Button.Size.Icon, "w-11 h-11"],
+            [Button.ErrorMd, Button.Icon, "w-11 h-11"],
             onClick: async () => _leaveConfirmDialogOpen.Value = true,
             content: vv => vv.Icon([Icon.Default], name: "phone-off"));
 
         // Settings button
         view.Button(
-            [Button.GhostMd, Button.Size.Icon, "w-10 h-10"],
+            [Button.GhostMd, Button.Icon, "w-10 h-10"],
             onClick: async () => _settingsOpen.Value = true,
             content: vv => vv.Icon([Icon.Default], name: "settings"));
     }
@@ -407,9 +407,9 @@ public partial class Tori
         {
             // Close button in top right corner
             drawer.Button(
-                [Button.GhostMd, Button.Size.Icon, "absolute top-1 right-1 h-8 w-8 z-10"],
+                [Button.GhostMd, Button.Icon, "absolute top-1 right-1 h-8 w-8 z-10"],
                 onClick: async () => _mobilePanelOpen.Value = false,
-                content: v => v.Icon([Icon.Size.Xs], name: "x"));
+                content: v => v.Icon([Icon.Xs], name: "x"));
 
             // Drag handle
             drawer.Box([Layout.Center, "py-1.5"], content: v =>
@@ -507,10 +507,10 @@ public partial class Tori
                     onSubmit: async submitted => await SendChatMessage(submitted));
 
                 row.Button(
-                    [Button.PrimaryMd, Button.Size.Icon, "h-9 w-9"],
+                    [Button.PrimaryMd, Button.Icon, "h-9 w-9"],
                     disabled: string.IsNullOrWhiteSpace(_chatInputText.Value),
                     onClick: async () => await SendChatMessage(),
-                    content: vv => vv.Icon([Icon.Size.Xs], name: "send"));
+                    content: vv => vv.Icon([Icon.Xs], name: "send"));
             });
         });
     }
@@ -642,7 +642,7 @@ public partial class Tori
             {
                 v.Row([Card.Default, "h-7 items-center gap-2 px-3 rounded-full bg-background/80"], content: r =>
                 {
-                    r.Icon([Icon.Size.Sm], name: "monitor");
+                    r.Icon([Icon.Sm], name: "monitor");
                     r.Text([Text.Caption], $"{screenSharer.Name} is presenting");
                 });
             });
@@ -721,28 +721,28 @@ public partial class Tori
             center.Tooltip(
                 contentStyle: [Tooltip.Content],
                 trigger: v => v.CaptureButton(
-                    [Button.OutlineMd, Button.Size.Icon, "w-14 h-14"],
+                    [Button.OutlineMd, Button.Icon, "w-14 h-14"],
                     kind: MediaCaptureKind.Audio,
                     label: isAudioOn ? "Unmute" : "Mute",
                     captureMode: MediaCaptureButtonMode.Toggle,
                     audioOptions: GetAudioCaptureOptions(),
                     onCaptureStart: OnAudioCaptureStart,
                     onCaptureStop: OnAudioCaptureStop,
-                    content: vv => vv.Icon([Icon.Size.Md, isAudioOn ? "text-emerald-600 dark:text-success" : "text-danger"], name: isAudioOn ? "mic" : "mic-off")),
+                    content: vv => vv.Icon([Icon.Md, isAudioOn ? "text-emerald-600 dark:text-success" : "text-danger"], name: isAudioOn ? "mic" : "mic-off")),
                 contentSlot: v => v.Text([Text.Caption], isAudioOn ? "Mute" : "Unmute"));
 
             // Video toggle
             center.Tooltip(
                 contentStyle: [Tooltip.Content],
                 trigger: v => v.CaptureButton(
-                    [Button.OutlineMd, Button.Size.Icon, "w-14 h-14"],
+                    [Button.OutlineMd, Button.Icon, "w-14 h-14"],
                     kind: MediaCaptureKind.Camera,
                     label: isVideoOn ? "Video On" : "Video Off",
                     captureMode: MediaCaptureButtonMode.Toggle,
                     videoOptions: GetCameraCaptureOptions(),
                     onCaptureStart: OnVideoCaptureStart,
                     onCaptureStop: OnVideoCaptureStop,
-                    content: vv => vv.Icon([Icon.Size.Md, isVideoOn ? "text-emerald-600 dark:text-success" : "text-danger"], name: isVideoOn ? "video" : "video-off")),
+                    content: vv => vv.Icon([Icon.Md, isVideoOn ? "text-emerald-600 dark:text-success" : "text-danger"], name: isVideoOn ? "video" : "video-off")),
                 contentSlot: v => v.Text([Text.Caption], isVideoOn ? "Turn off camera" : "Turn on camera"));
 
             // Screen share toggle (not available on mobile layout)
@@ -751,14 +751,14 @@ public partial class Tori
                 center.Tooltip(
                     contentStyle: [Tooltip.Content],
                     trigger: v => v.CaptureButton(
-                        [Button.OutlineMd, Button.Size.Icon, "w-14 h-14"],
+                        [Button.OutlineMd, Button.Icon, "w-14 h-14"],
                         kind: MediaCaptureKind.Screen,
                         label: isScreenShareOn ? "Stop Sharing" : "Share Screen",
                         captureMode: MediaCaptureButtonMode.Toggle,
                         videoOptions: GetScreenCaptureOptions(),
                         onCaptureStart: OnScreenShareStart,
                         onCaptureStop: OnScreenShareStop,
-                        content: vv => vv.Icon([Icon.Size.Md, isScreenShareOn ? "text-emerald-600 dark:text-success" : "text-danger"], name: isScreenShareOn ? "monitor" : "monitor-off")),
+                        content: vv => vv.Icon([Icon.Md, isScreenShareOn ? "text-emerald-600 dark:text-success" : "text-danger"], name: isScreenShareOn ? "monitor" : "monitor-off")),
                     contentSlot: v => v.Text([Text.Caption], isScreenShareOn ? "Stop sharing" : "Share screen"));
             }
 
@@ -766,9 +766,9 @@ public partial class Tori
             center.Tooltip(
                 contentStyle: [Tooltip.Content],
                 trigger: v => v.Button(
-                    [Button.ErrorMd, Button.Size.Icon, "w-14 h-14 ml-3"],
+                    [Button.ErrorMd, Button.Icon, "w-14 h-14 ml-3"],
                     onClick: async () => _leaveConfirmDialogOpen.Value = true,
-                    content: vv => vv.Icon([Icon.Size.Md], name: "phone-off")),
+                    content: vv => vv.Icon([Icon.Md], name: "phone-off")),
                 contentSlot: v => v.Text([Text.Caption], "Leave meeting"));
         });
 
@@ -779,7 +779,7 @@ public partial class Tori
             right.Tooltip(
                 contentStyle: [Tooltip.Content],
                 trigger: v => v.Button(
-                    [Button.GhostMd, Button.Size.Icon, "w-10 h-10"],
+                    [Button.GhostMd, Button.Icon, "w-10 h-10"],
                     onClick: ToggleThemeAsync,
                     content: vv => vv.Icon([Icon.Default], name: isDark ? "sun" : "moon")),
                 contentSlot: v => v.Text([Text.Caption], isDark ? "Light mode" : "Dark mode"));
@@ -788,7 +788,7 @@ public partial class Tori
             right.Tooltip(
                 contentStyle: [Tooltip.Content],
                 trigger: v => v.Button(
-                    [Button.GhostMd, Button.Size.Icon, "w-10 h-10"],
+                    [Button.GhostMd, Button.Icon, "w-10 h-10"],
                     onClick: async () => _settingsOpen.Value = true,
                     content: vv => vv.Icon([Icon.Default], name: "settings")),
                 contentSlot: v => v.Text([Text.Caption], "Settings"));
@@ -871,7 +871,7 @@ public partial class Tori
                 row.Tooltip(
                     contentStyle: [Tooltip.Content],
                     trigger: v => v.Button(
-                        [Button.PrimaryMd, Button.Size.Icon],
+                        [Button.PrimaryMd, Button.Icon],
                         disabled: string.IsNullOrWhiteSpace(_chatInputText.Value),
                         onClick: async () => await SendChatMessage(),
                         content: vv => vv.Icon([Icon.Default], name: "send")),
@@ -897,7 +897,7 @@ public partial class Tori
                         {
                             list.Box(["flex-1 flex flex-col items-center justify-center py-8 gap-3"], content: empty =>
                             {
-                                empty.Icon([Text.Muted, Icon.Size.Lg], name: "users");
+                                empty.Icon([Text.Muted, Icon.Lg], name: "users");
                                 empty.Text([Text.Muted, "text-center"], "No participants yet");
                             });
                         }
@@ -947,20 +947,20 @@ public partial class Tori
                                     {
                                         if (participant.IsMobile)
                                         {
-                                            icons.Icon(["text-muted-foreground", Icon.Size.Xs], name: "smartphone");
+                                            icons.Icon(["text-muted-foreground", Icon.Xs], name: "smartphone");
                                         }
 
                                         var micIcon = participant.IsAudioEnabled ? "mic" : "mic-off";
                                         var micColor = participant.IsAudioEnabled ? "text-emerald-600 dark:text-success" : "text-danger";
-                                        icons.Icon([micColor, Icon.Size.Xs], name: micIcon);
+                                        icons.Icon([micColor, Icon.Xs], name: micIcon);
 
                                         var videoIcon = participant.IsVideoEnabled ? "video" : "video-off";
                                         var videoColor = participant.IsVideoEnabled ? "text-emerald-600 dark:text-success" : "text-danger";
-                                        icons.Icon([videoColor, Icon.Size.Xs], name: videoIcon);
+                                        icons.Icon([videoColor, Icon.Xs], name: videoIcon);
 
                                         if (participant.IsScreenSharing)
                                         {
-                                            icons.Icon(["text-primary", Icon.Size.Xs], name: "monitor");
+                                            icons.Icon(["text-primary", Icon.Xs], name: "monitor");
                                         }
                                     });
                                 });
@@ -991,7 +991,7 @@ public partial class Tori
                         {
                             content.Box(["flex-1 flex flex-col items-center justify-center py-8 gap-3"], content: empty =>
                             {
-                                empty.Icon([Text.Muted, Icon.Size.Lg], name: "file-text");
+                                empty.Icon([Text.Muted, Icon.Lg], name: "file-text");
                                 empty.Text([Text.Muted, "text-center"], "Summary will appear here");
                             });
                         }
@@ -1017,7 +1017,7 @@ public partial class Tori
                                 [extractBtnStyle],
                                 disabled: isExtracting,
                                 onClick: async () => _ = ExtractSummaryAsync(force: true),
-                                content: vv => vv.Icon(["text-foreground", Icon.Size.Sm], name: "sparkles")),
+                                content: vv => vv.Icon(["text-foreground", Icon.Sm], name: "sparkles")),
                             contentSlot: v => v.Text([Text.Caption], isExtracting ? "Generating..." : "Generate summary"));
                     }
 
@@ -1029,7 +1029,7 @@ public partial class Tori
                                 ["h-8 w-8 inline-flex items-center justify-center rounded-md bg-transparent hover:bg-foreground/10 transition-colors"],
                                 action: ActionKind.CopyToClipboard,
                                 options: new CopyToClipboardActionOptions { Text = _summary.Value },
-                                content: vv => vv.Icon(["text-foreground", Icon.Size.Sm], name: "clipboard-copy")),
+                                content: vv => vv.Icon(["text-foreground", Icon.Sm], name: "clipboard-copy")),
                             contentSlot: v => v.Text([Text.Caption], "Copy summary"));
 
                         actions.Tooltip(
@@ -1038,7 +1038,7 @@ public partial class Tori
                                 ["h-8 w-8 inline-flex items-center justify-center rounded-md bg-transparent hover:bg-foreground/10 transition-colors"],
                                 action: ActionKind.Share,
                                 options: new ShareActionOptions { Title = "Meeting Summary", Text = _summary.Value },
-                                content: vv => vv.Icon(["text-foreground", Icon.Size.Sm], name: "share")),
+                                content: vv => vv.Icon(["text-foreground", Icon.Sm], name: "share")),
                             contentSlot: v => v.Text([Text.Caption], "Share summary"));
                     }
                 });
@@ -1066,7 +1066,7 @@ public partial class Tori
                         {
                             msgs.Box(["flex-1 flex flex-col items-center justify-center py-8 gap-3"], content: empty =>
                             {
-                                empty.Icon([Text.Muted, Icon.Size.Lg], name: "message-square-text");
+                                empty.Icon([Text.Muted, Icon.Lg], name: "message-square-text");
                                 empty.Text([Text.Muted, "text-center"], "Transcript will appear here");
                             });
                         }
@@ -1099,7 +1099,7 @@ public partial class Tori
                             ["h-8 w-8 inline-flex items-center justify-center rounded-md bg-transparent hover:bg-foreground/10 transition-colors"],
                             action: ActionKind.CopyToClipboard,
                             options: new CopyToClipboardActionOptions { Text = transcriptText },
-                            content: vv => vv.Icon(["text-foreground", Icon.Size.Sm], name: "clipboard-copy")),
+                            content: vv => vv.Icon(["text-foreground", Icon.Sm], name: "clipboard-copy")),
                         contentSlot: v => v.Text([Text.Caption], "Copy transcript"));
 
                     actions.Tooltip(
@@ -1108,7 +1108,7 @@ public partial class Tori
                             ["h-8 w-8 inline-flex items-center justify-center rounded-md bg-transparent hover:bg-foreground/10 transition-colors"],
                             action: ActionKind.Share,
                             options: new ShareActionOptions { Title = "Transcript", Text = transcriptText },
-                            content: vv => vv.Icon(["text-foreground", Icon.Size.Sm], name: "share")),
+                            content: vv => vv.Icon(["text-foreground", Icon.Sm], name: "share")),
                         contentSlot: v => v.Text([Text.Caption], "Share transcript"));
                 });
             }
