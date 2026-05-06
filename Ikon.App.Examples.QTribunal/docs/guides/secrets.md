@@ -39,3 +39,20 @@ public class MyApp(IApp<SessionIdentity, ClientParams> app)
 ```
 
 Rotating a secret with `ikon app secret set` while the app is running only takes effect after the app restarts.
+
+### Reading a secret from inside a pipeline
+
+Pipelines that take an `IPipelineHost<TConfig>` constructor parameter get the same secrets accessor (plus `host.OrganisationId` and `host.SpaceId`). Use `EmptyPipelineConfig` when the pipeline has no user-defined configuration.
+
+```csharp
+[Pipeline]
+public class FetchFromGithub(IPipelineHost<EmptyPipelineConfig> host)
+{
+    public async Task Run(Pipeline<Item>.Branch inputItems, CancellationToken cancellationToken)
+    {
+        string token = host.Secrets["GITHUB_TOKEN"];
+        // ...
+        await Task.CompletedTask;
+    }
+}
+```
