@@ -351,3 +351,28 @@ view.MyComponent("Hello from custom component",
 - **Props dictionary** - C# sends a `Dictionary<string, object?>` that maps directly to React component props
 - **Action IDs** - C# creates action IDs via `view.CreateAction<T>()`, passes them as props, and the React component calls `context.dispatchAction(actionId, payload)` to send events back
 - **Crosswind styles** - Style arrays passed from C# via `view.AddNode` work with custom components just like built-in components
+
+### Stateful components — pass `key:` for stable identity
+
+Without an explicit `key:`, the C# call site determines the node's identity. Across re-renders that swap the underlying *thing* the component represents (a different file, bot, document, etc.), the same React component instance is reused and the new props are pushed into it. For dumb display nodes that's fine — the new props re-render the view.
+
+For **stateful components that wrap a third-party imperative library** — Monaco, video players, canvas-based games, audio synths, anything that owns its own internal buffer — controlled-prop sync is unreliable after the user has interacted. The component sees a new `value` prop but doesn't always swap its internal model.
+
+The fix is to pass a `key:` derived from the underlying identity, so React unmounts the old instance and mounts a fresh one on identity change:
+
+```csharp
+view.AddNode(
+    type: "custom.lua-editor",
+    key: $"editor:{activeBot.Id}",  // remount when activeBot changes
+    props: new Dictionary<string, object?>
+    {
+        ["value"] = activeBot.DraftCode,
+        ["onValueChangeId"] = view.CreateAction<string>(args =>
+        {
+            UpdateActiveDraftCode(args.Value ?? "");
+            return Task.CompletedTask;
+        }),
+    });
+```
+
+Rule of thumb: if your custom component holds state the user can mutate (a code editor's text buffer, a video's playhead, a canvas-game's frame state), and the C# side can swap which underlying entity it represents, **always pass a `key:` keyed on that entity's ID.** Without this, switching entities will appear to do nothing — the old buffer stays put.
