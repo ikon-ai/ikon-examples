@@ -392,7 +392,7 @@ public class PolymarketMirror(IApp<SessionIdentity, ClientParams> app)
                         });
 
                         row.Button(
-                            [Button.GhostMd, Button.Size.Icon, "text-zinc-400 hover:text-white"],
+                            [Button.GhostMd, Button.Icon, "text-zinc-400 hover:text-white"],
                             onClick: async () => _walletDialogOpen.Value = false,
                             content: v => v.Icon([Icon.Default], name: "x"));
                     });
