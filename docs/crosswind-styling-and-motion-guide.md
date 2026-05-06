@@ -116,37 +116,37 @@ The same applies in reverse for a fixed-light UI: don't strand `text-primary` on
 
 ### Customizing the Theme
 
-`Theming.Custom(b => b.Brand("#hex")...)` returns an `ITheme` you can pass to `new UI(app, ...)` at the top of your app file. It overrides specific CSS variables on top of the base theme — set as few or as many as you need; unset variables keep the base theme's values.
+`Theming.Apply(...)` returns an `ITheme` you can pass to `new UI(app, ...)` at the top of your app file. Every parameter is a named C# argument that takes a **Crosswind/Tailwind class name** as its value (e.g. `amber-400`, `zinc-950`, `rounded-lg`, `150ms`, `ease-out`) — never a raw hex or CSS string. Set as few or as many as you need; unset roles keep the base theme's values.
 
 ```csharp
-private UI UI { get; } = new(app, Theming.Custom(b => b
-    .Brand("#7C3AED")
-    .Background("#FAFAFA")
-    .Foreground("#0A0A12")
-    .FontHeading("Crimson Pro")));
+private UI UI { get; } = new(app, Theming.Apply(
+    brand: "amber-400",
+    background: "zinc-950",
+    foreground: "zinc-50",
+    fontHeading: "Crimson Pro",
+    radiusBase: "rounded-lg"));
 ```
 
-`ThemeBuilder` is **strictly fluent** — each method returns `this` so you chain calls. Do not use property assignment (`b.Brand = "#hex"` does not exist).
+The complete set of named parameters:
 
-The complete list of methods on `ThemeBuilder`:
+| Parameter | Value form | Sets |
+|---|---|---|
+| `brand` | palette step (`amber-400`, `violet-600`) | Primary brand color (drives `bg-brand-solid`, `--brand`, `--primary`, primary buttons, focus rings). Foreground-on-brand auto-derives. |
+| `background` | palette step | Page background (`bg-background`, `--background`). |
+| `foreground` | palette step | Default text color (`text-primary`, `text-foreground`, `--foreground`). |
+| `card` | palette step | Card / popover surface (`bg-card`, `bg-popover`, `--card`, `--popover`). |
+| `muted` | palette step | Muted text (`text-muted-foreground`, `text-tertiary`, `--muted`). |
+| `accent` | palette step | Secondary accent (`bg-accent`, `text-accent`). |
+| `border` | palette step | Default border color (`border-primary`, `border-input`, `--border`). |
+| `fontHeading` | font family name | Heading font (`font-heading`, `font-display`). System fallback stack appended automatically. |
+| `fontBody` | font family name | Body font (`font-body`, `font-sans`). |
+| `radiusBase` | rounded utility (`rounded-none`, `rounded-md`, `rounded-2xl`, …) | Base radius — all `rounded-*` scales derive from this. |
+| `motionDuration` | duration token (`100ms`, `300ms`) | Default transition duration (`--motion-duration`). |
+| `motionEasing` | easing keyword (`linear`, `ease-out`, `ease-in-out`) | Default easing (`--motion-easing`). |
+| `custom` | `Dictionary<string, string>` | Escape hatch for arbitrary CSS vars (gradient stops, decorative tokens). Keys without a leading `--` get one. |
+| `darkMode` | another `Theming.Apply(...)` | Separate dark-mode palette applied under `[data-theme="dark"]`, `.dark`, and `prefers-color-scheme: dark`. |
 
-| Method | Sets |
-|---|---|
-| `.Brand(color)` | Primary brand color (drives `bg-brand-solid`, `--brand`, `--primary`, primary buttons, focus rings). Auto-computes white-or-black text against the brand color. |
-| `.Background(color)` | Page background (`bg-background`, `--background`). |
-| `.Foreground(color)` | Default text color (`text-primary`, `text-foreground`, `--foreground`). |
-| `.Card(color)` | Card / popover surface (`bg-card`, `bg-popover`, `--card`, `--popover`). |
-| `.Muted(color)` | Muted text (`text-muted-foreground`, `text-tertiary`, `--muted`). |
-| `.Accent(color)` | Secondary accent (`bg-accent`, `text-accent`). |
-| `.Border(color)` | Default border color (`border-primary`, `border-input`, `--border`). |
-| `.FontHeading(family)` | Heading font (`font-heading`, `font-display`). Adds a sensible system fallback stack automatically. |
-| `.FontBody(family)` | Body font (`font-body`, `font-sans`). |
-| `.RadiusBase(value)` | Base border radius — all `rounded-*` scales derive from this (`"0"` sharp, `"4px"` modest, `"12px"` friendly, `"24px"` very friendly). |
-| `.CustomColor(name, value)` | Escape hatch for arbitrary CSS variables (gradient stops, decorative tokens). Leading `--` is added if absent: `.CustomColor("gradient-start", "#10b981")` sets `--gradient-start`. |
-| `.Dark()` | Mark the current palette as the dark-mode palette too — same vars apply under `[data-theme="dark"]`, `.dark`, and `prefers-color-scheme: dark` in addition to root. Use when your base palette is already dark. |
-| `.Dark(d => d.Brand("#hex")...)` | Author a separate dark-mode palette using the same builder methods inside the callback. |
-
-These are the **only** methods. There is no `.GradientBrand`, `.BorderColor`, `.PrimaryColor`, `.SurfaceColor`, etc. — for any token outside the table, use `.CustomColor(name, value)` and reference it from utilities (e.g., `bg-[var(--gradient-start)]`). For Tailwind-style gradients, use the existing `bg-gradient-to-{r,br,...} from-{color} to-{color}` utility classes directly on components — gradients are styling, not theme tokens.
+For any role outside the table, use `custom: new() { ["my-token"] = "value" }` and reference it from utilities (e.g. `bg-[var(--my-token)]`). For Tailwind-style gradients, use `bg-gradient-to-{r,br,...} from-{color} to-{color}` directly on components — gradients are styling, not theme tokens.
 
 ## Utility Classes
 
