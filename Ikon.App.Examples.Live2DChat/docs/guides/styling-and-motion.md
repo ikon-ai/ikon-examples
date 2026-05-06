@@ -40,6 +40,43 @@ Use semantic color tokens (`text-primary`, `bg-card`, `border-secondary`) — ne
 
 ### Theme Customization
 
+For per-app palette overrides without editing the base theme, use `Theming.Apply(...)` at the top of your app file. Every parameter is a named C# argument that takes a **Crosswind/Tailwind class name** as its value (e.g. `amber-400`, `zinc-950`, `rounded-lg`, `150ms`, `ease-out`) — never a raw hex or CSS string. Set as few or as many as you need; unset roles inherit the base theme.
+
+```csharp
+private UI UI { get; } = new(app, Theming.Apply(
+    brand: "violet-500",
+    background: "slate-950",
+    foreground: "slate-50",
+    card: "slate-900",
+    border: "slate-700",
+    fontHeading: "Inter",
+    radiusBase: "rounded-lg",
+    darkMode: Theming.Apply(brand: "violet-400", background: "slate-950")));
+```
+
+The complete set of named parameters:
+
+| Parameter | Value form | Sets |
+|---|---|---|
+| `brand` | palette step (`amber-400`, `violet-600`) | Primary brand color (drives `bg-brand-solid`, `--brand`, `--primary`, primary buttons, focus rings). Foreground-on-brand auto-derives. |
+| `background` | palette step | Page background (`bg-background`, `--background`). |
+| `foreground` | palette step | Default text color (`text-primary`, `text-foreground`, `--foreground`). |
+| `card` | palette step | Card / popover surface (`bg-card`, `bg-popover`, `--card`, `--popover`). |
+| `muted` | palette step | Muted text (`text-muted-foreground`, `--muted`). |
+| `accent` | palette step | Secondary accent (`bg-accent`, `text-accent`). |
+| `border` | palette step | Default border color (`border-primary`, `border-input`, `--border`). |
+| `fontHeading` | font family name | Heading font (`font-heading`, `font-display`). System fallback stack appended automatically. |
+| `fontBody` | font family name | Body font (`font-body`, `font-sans`). |
+| `radiusBase` | rounded utility (`rounded-none`, `rounded-md`, `rounded-2xl`) | Base radius — all `rounded-*` scales derive from this. |
+| `motionDuration` | duration token (`100ms`, `300ms`) | Default transition duration (`--motion-duration`). |
+| `motionEasing` | easing keyword (`linear`, `ease-out`, `ease-in-out`) | Default easing (`--motion-easing`). |
+| `custom` | `Dictionary<string, string>` | Escape hatch for arbitrary CSS vars (gradient stops, decorative tokens). Keys without a leading `--` get one. |
+| `darkMode` | another `Theming.Apply(...)` | Separate dark-mode palette applied under `[data-theme="dark"]`, `.dark`, and `prefers-color-scheme: dark`. |
+
+`Theming.Apply` is the **only** factory. **`Theme.Custom(...)` and `Theming.Custom(...)` were removed** — they were the older fluent-builder API. Do not invent `.GradientBrand` / `.BorderColor` / `.PrimaryColor` / `.SurfaceColor` either; they never existed. For tokens outside the table, use `custom: new() { ["my-token"] = "value" }` and reference it via `bg-[var(--my-token)]`. For Tailwind-style gradients, use the utility classes (`bg-gradient-to-br from-{color} to-{color}`) directly on components.
+
+For deeper customization (full color scales, every radius/shadow token, dark-mode shadows, font fallbacks):
+
 Edit `IkonTheme.cs` to customize the app's visual identity. The top of the CSS section contains the customizable values — colors, radius, shadows, and fonts. Everything below (semantic token mappings, dark mode overrides, C# style tokens) is infrastructure that rarely needs changing.
 
 **Colors** — Six color scales, each with 12 steps (25–950). To change a color, replace all 12 hex values for that scale. Generate scales using OKLCH: keep the seed color's hue and chroma, vary lightness across the steps (97% for step 25 down to 15% for step 950), reduce chroma at extremes.

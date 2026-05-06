@@ -64,6 +64,8 @@ namespace Ikon.Pipeline
     string TypeName { get; set; }
     object UserConfigInstance { get; set; }
     object UserPipelineInstance { get; set; }
+  sealed class EmptyPipelineConfig
+    ctor()
   sealed class ExposePipelineAttribute : Attribute
     ctor(Type pipelineType, string name = null, PipelineExecutionMode executionMode = None, string schedule = null)
     PipelineExecutionMode ExecutionMode { get; }
@@ -74,6 +76,9 @@ namespace Ikon.Pipeline
     static void RegisterPipeline<TPipeline>(FunctionRegistry registry, string functionName, string description = null, object configInstance = null)
   interface IPipelineHost<TConfig>
     TConfig Config { get; }
+    string OrganisationId { get; }
+    Secrets Secrets { get; }
+    string SpaceId { get; }
   sealed class LocalFile : IDisposable
     ctor(string mimeType, string existingFilePath = null)
     string MimeType { get; }
