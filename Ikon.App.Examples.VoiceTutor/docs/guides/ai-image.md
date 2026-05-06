@@ -32,6 +32,7 @@ namespace Ikon.AI.ImageGeneration
     ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
     ctor(ImageGeneratorModel model, IReadOnlyList<ModelRegion> regions = null)
     void Dispose()
+    static Task<ImageGeneratorResult> GenerateAsync(string prompt, ImageGeneratorModel model = Gemini25FlashImage, CancellationToken cancellationToken = null)
     Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = null)
     static ImageGeneratorCapabilities GetCapabilities(ImageGeneratorModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ImageGeneratorModel model)
