@@ -41,10 +41,13 @@ namespace Ikon.Common.Core
     ctor()
     List<IkonBackend.AppBundleWarning> Warnings { get; set; }
   class ArrayQueue<T> where T : struct
-    ctor(int capacity)
+    ctor(int maxCapacity)
+    ctor(int maxCapacity, int initialCapacity)
+    int Capacity { get; }
     int Count { get; }
     int FreeCount { get; }
     T Item { get; }
+    int MaxCapacity { get; }
     Span<T> Span { get; }
     void Clear()
     void Dequeue(Span<T> target, int skipCount, int count)
@@ -55,6 +58,7 @@ namespace Ikon.Common.Core
     void EnqueueMemory(int count)
     Memory<T> GetDequeueMemory(int skipCount, int count)
     Memory<T> GetEnqueueMemory(int count)
+    void TrimExcess()
   class IkonBackend.Asset
     ctor()
     string AssetId { get; set; }
@@ -181,6 +185,19 @@ namespace Ikon.Common.Core
   class IkonBackend.ChannelInstanceLaunchToken
     ctor()
     string Token { get; set; }
+  class IkonBackend.ChannelInstanceSession
+    ctor()
+    string ChannelInstance { get; set; }
+    string ChannelTitle { get; set; }
+    string CrashLog { get; set; }
+    string CreatedAt { get; set; }
+    string Hostname { get; set; }
+    string Id { get; set; }
+    string Ip { get; set; }
+    string Space { get; set; }
+    string Status { get; set; }
+    string UpdatedAt { get; set; }
+    string UserSummary { get; set; }
   class IkonBackend.ChannelPlugin
     ctor()
     List<IkonBackend.ChannelPluginConfiguration> Configurations { get; set; }
@@ -361,6 +378,7 @@ namespace Ikon.Common.Core
     abstract ValueTask SendMessageAsync(IProtocolMessagePayload payload)
   class IkonBackend : AsyncLocalInstance<IkonBackend>
     ctor()
+    IReadOnlyList<string> Capabilities { get; }
     string ChannelDomain { get; }
     string ChannelDomainLegacy { get; }
     IkonBackend.EnvironmentType Environment { get; }
@@ -369,10 +387,13 @@ namespace Ikon.Common.Core
     bool IsLoggedIn { get; }
     bool IsSpaceToken { get; }
     static string LoginJsonPath { get; }
+    string OrganisationId { get; }
+    string SpaceId { get; }
     string Token { get; set; }
     int TotalSentMessageByteCount { get; }
     int TotalSentMessageCount { get; }
     string Url { get; set; }
+    string UserAgent { get; set; }
     string UserId { get; }
     Task<IkonBackend.AppBundle> ActivateAppBundleAsync(string id)
     Task<IkonBackend.ApplyAppBundleConfigResponse> ApplyAppBundleConfigAsync(object config)
@@ -396,6 +417,7 @@ namespace Ikon.Common.Core
     Task DeleteAppBundleAsync(string id)
     Task DeleteChannelAsync(string id)
     Task<IkonBackend.ChannelInstance> DeleteChannelInstanceAsync(string id)
+    Task DeleteDatabaseAsync(string databaseId)
     Task DeleteItemAsync(string id)
     Task DeletePluginAsync(string id)
     Task DeleteProfileFileAsync(string profileId, string assetId)
@@ -407,6 +429,9 @@ namespace Ikon.Common.Core
     Task<Dictionary<string, string>> GetApiKeysAsync(bool all = false)
     Task<IkonBackend.AppBundle> GetAppBundleAsync(string id)
     Task<List<IkonBackend.AppBundle>> GetAppBundlesAsync(string spaceId, IkonBackend.AppBundleState? state = null, int maxResults = 1000)
+    Task<IkonBackend.ChannelInstanceSession> GetAppSessionAsync(string sessionId)
+    Task<IkonBackend.IkonLogQueryResult> GetAppSessionLogsAsync(string sessionId, int? level = null, string cursor = null, int limit = 200)
+    Task<IkonBackend.CursorResponse<IkonBackend.ChannelInstanceSession>> GetAppSessionsAsync(string spaceId, string cursor = null, int limit = 50, string searchId = null)
     Task<string> GetAssetSignedUrlAsync(string assetId)
     Task<IkonBackend.BillingStatusResult> GetBillingStatusAsync(string organisationId)
     Task<IkonBackend.Channel> GetChannelAsync(string id)
@@ -416,7 +441,7 @@ namespace Ikon.Common.Core
     Task<List<IkonBackend.ChatMessage>> GetChatMessagesAsync(string channelInstanceId, int maxResults = 1000)
     Task<List<IkonBackend.SpaceCostEventName>> GetCostEventNamesAsync(string spaceId)
     Task<List<IkonBackend.SpaceCostScope>> GetCostScopesAsync(string spaceId)
-    Task<List<IkonBackend.SpaceCostRow>> GetCostsAsync(string spaceId, string startDate, string endDate, string category = null, string eventName = null, string scopeType = null, string scopeId = null)
+    Task<List<IkonBackend.SpaceCostRow>> GetCostsAsync(string spaceId, string startDate, string endDate, string category = null, string eventName = null, IReadOnlyList<IkonBackend.SpaceCostScopeFilter> scopes = null)
     Task<IkonBackend.User> GetCurrentUserAsync()
     Task<List<IkonBackend.CustomField>> GetCustomFieldsAsync(string spaceId, int maxResults = 1000)
     Task<IkonBackend.DatabaseConnectionResponse> GetDatabaseConnectionAsync(string databaseId)
@@ -426,7 +451,7 @@ namespace Ikon.Common.Core
     static IEnumerable<string> GetIkonDataDirectoryCandidates()
     Task<IkonBackend.Item> GetItemAsync(AssetUri assetUri)
     Task<IkonBackend.ItemDownloadUrl> GetItemSignedDownloadUrlAsync(string id)
-    Task<IkonBackend.ItemSignedUpload> GetItemSignedUploadUrlAsync(string uri, string filename, string mime, string[] tags)
+    Task<IkonBackend.ItemSignedUpload> GetItemSignedUploadUrlAsync(string uri, string filename, string mime, string[] tags, bool? isAppServed = null)
     Task<List<IkonBackend.Item>> GetItemsAsync(string spaceId, string folderId, int maxResults = 1000)
     Task<IkonBackend.LocalIkonServerTokenResponse> GetLocalIkonServerTokenAsync(string spaceId)
     Task<IkonBackend.Profile> GetOrCreateCurrentProfileAsync(string spaceId)
@@ -455,6 +480,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.TurnServerCredentialsResponse> GetTurnServerCredentialsAsync(int sessionId)
     Task<IkonBackend.User> GetUserAsync(string id)
     Task<List<IkonBackend.User>> GetUsersAsync(string query, int limit = 20)
+    bool HasCapability(string capability)
     Task<bool> IsSpaceDomainAvailableAsync(string domain)
     Task<IkonBackend.ItemListResponse> ListItemsAsync(IkonBackend.ItemListRequest request)
     bool Login(ValueTuple<string, string>? fromCommandLine = null, ValueTuple<string, string>? fromConfig = null, bool logSource = true, bool mustLogin = true)
@@ -485,12 +511,25 @@ namespace Ikon.Common.Core
     static string DevelopmentBackendEndpointUrl
     static string ProductionAuthEndpointUrl
     static string ProductionBackendEndpointUrl
+  class IkonBackend.IkonLogEntry
+    ctor()
+    Dictionary<string, string> Labels { get; set; }
+    JsonElement Message { get; set; }
+    string SenderId { get; set; }
+    string SenderType { get; set; }
+    JsonElement Severity { get; set; }
+    JsonElement Timestamp { get; set; }
+  class IkonBackend.IkonLogQueryResult
+    ctor()
+    string Cursor { get; set; }
+    List<IkonBackend.IkonLogEntry> Logs { get; set; }
   class IkonBackend.Item
     ctor()
     IkonBackend.ItemAsset Asset { get; set; }
     DateTime CreatedAt { get; set; }
     string Folder { get; set; }
     string Id { get; set; }
+    bool? IsAppServed { get; set; }
     bool IsPrivate { get; set; }
     string Name { get; set; }
     string OrganisationId { get; set; }
@@ -533,6 +572,8 @@ namespace Ikon.Common.Core
     static T From<T>(string json, bool useJson5 = false, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false, bool caseInsensitive = false)
     static object From(string json, Type type, bool useJson5 = false, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false)
     static object From(string json, string typeName, bool useJson5 = false, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false)
+    static T FromLLMResponse<T>(string text, JsonSerializerOptions options)
+    static T FromLLMResponse<T>(string text, bool useJson5 = false, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false, bool caseInsensitive = false)
     static string To<T>(T obj, bool useJson5 = false, bool indentation = true, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false)
   static class JwtHelper
     static string Decode(string token, byte[] key)
@@ -558,6 +599,8 @@ namespace Ikon.Common.Core
     void EnableFileOutput(string filePath, bool append = false)
     void Error(LogErrorHandler handler)
     void Error(string message, string filePath = "", int lineNumber = 0, string memberName = "")
+    void Error(string message, Exception exception, string filePath = "", int lineNumber = 0, string memberName = "")
+    void Error(Exception exception, string message, string filePath = "", int lineNumber = 0, string memberName = "")
     void Event(string name, object parameters = null, string filePath = "", int lineNumber = 0, string memberName = "")
     string Exception(LogExceptionHandler handler)
     string Exception(string message, string filePath = "", int lineNumber = 0, string memberName = "")
@@ -843,6 +886,10 @@ namespace Ikon.Common.Core
     string SpaceId { get; set; }
     DateTime UpdatedAt { get; set; }
     string Value { get; set; }
+  sealed class Secrets
+    string Item { get; }
+    IReadOnlyCollection<string> Keys { get; }
+    bool TryGet(string key, out string value)
   class Sensitive<T>
     ctor(T value, SensitivityPolicy sensitivityPolicy = Default)
     bool IsSensitive { get; }
@@ -886,6 +933,10 @@ namespace Ikon.Common.Core
     ctor()
     string ScopeId { get; set; }
     string ScopeType { get; set; }
+  class IkonBackend.SpaceCostScopeFilter
+    ctor()
+    string Type { get; set; }
+    string Value { get; set; }
   class IkonBackend.SpaceDomainAvailability
     ctor()
     bool Available { get; set; }
@@ -1003,8 +1054,9 @@ namespace Ikon.Common.Core.Assets
     AssetUri AssetUri { get; }
     AssetMetadata Metadata { get; }
   struct AssetMetadata
-    ctor(string mimeType = null, long? size = null, DateTime? lastModified = null, string url = null, bool? urlIsTemporal = null, string[] tags = null, string internalPath = null, string storageId = null, string nativeUri = null)
+    ctor(string mimeType = null, long? size = null, DateTime? lastModified = null, string url = null, bool? urlIsTemporal = null, string[] tags = null, string internalPath = null, string storageId = null, string nativeUri = null, bool? isAppServed = null)
     string InternalPath { get; }
+    bool? IsAppServed { get; }
     DateTime? LastModified { get; }
     string MimeType { get; }
     string NativeUri { get; }
@@ -1213,6 +1265,7 @@ namespace Ikon.Common.Core.Functions
     static Function Register<T1, T2, TResult>(Func<T1, T2, IAsyncEnumerable<TResult>> function, string name = null, FunctionAttribute attribute = null, PolicyDelegate policy = null)
     override string ToString()
     Function With(Guid? id = null, string name = null, FunctionParameter[] parameters = null, Type returnType = null, string description = null, FunctionVisibility? visibility = null, bool? llmInlineResult = null, bool? llmCallOnlyOnce = null, CallbackType? callbackType = null, int? clientSessionId = null, Func<object[], object> callback = null, Func<object[], Task<object>> callbackAsync = null, Func<object[], IAsyncEnumerable<object>> callbackAsyncEnumerable = null, MethodInfo methodInfo = null, bool? requiresInstance = null, PolicyDelegate policy = null, bool clearClientSessionId = false, bool clearMethodInfo = false, bool clearPolicy = false, string version = null, bool? webhook = null)
+    Function WithAllowedValues(string paramName, IReadOnlyList<string> allowedValues)
     Function WithParamDescription(string paramName, string description)
   class FunctionAttribute : Attribute
     ctor()
@@ -1225,8 +1278,9 @@ namespace Ikon.Common.Core.Functions
     FunctionVisibility Visibility { get; set; }
     bool Webhook { get; set; }
   struct FunctionParameter
-    ctor(int index, string name, string description, Type type, bool hasDefaultValue, object defaultValue)
-    ctor(int index, string name, string description, string typeName, bool hasDefaultValue, object defaultValue)
+    ctor(int index, string name, string description, Type type, bool hasDefaultValue, object defaultValue, IReadOnlyList<string> allowedValues = null)
+    ctor(int index, string name, string description, string typeName, bool hasDefaultValue, object defaultValue, IReadOnlyList<string> allowedValues = null)
+    IReadOnlyList<string> AllowedValues { get; }
     object DefaultValue { get; }
     string Description { get; }
     bool HasDefaultValue { get; }
@@ -1310,6 +1364,7 @@ namespace Ikon.Common.Core.Functions
     Task CallAsync(RemoteFunctionCallRequest request)
     IAsyncEnumerable<TItem> CallAsyncEnumerable<TItem>(RemoteFunctionCallRequest request)
     void CancelAllPendingCalls()
+    void CancelPendingCallsForTarget(int targetId)
     static object CreateAsyncEnumerableParameter<T>(IAsyncEnumerable<T> source)
     static object CreateEnumerableParameter<T>(IEnumerable<T> source)
     static FunctionParameter CreateParameter<T>(T value)
@@ -2596,6 +2651,7 @@ namespace Ikon.Common.Core.Protocol
     ctor(uint epoch, uint sequence, uint frameSizeInInterleavedSamples, ulong timeStampInInterleavedSamples, List<AudioShapeFrame.AudioShapeSetValues> shapeSetValues)
     uint Epoch { get; set; }
     uint FrameSizeInInterleavedSamples { get; set; }
+    MessageFlag MessageDefaultFlags { get; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     uint Sequence { get; set; }
@@ -2978,6 +3034,7 @@ namespace Ikon.Common.Core.Protocol
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   interface IProtocolMessagePayload
+    MessageFlag MessageDefaultFlags { get; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
   interface IUIContainerElement
@@ -3401,6 +3458,7 @@ namespace Ikon.Common.Core.Protocol
     static ProtocolMessage ModifyMessage(ProtocolMessage message, int? senderId = null, int? trackId = null, int? sequenceId = null, MessageFlag? flags = null, IReadOnlyList<int> targetIds = null)
     static ProtocolMessage ModifyPayload(IProtocolMessagePayload payload, ProtocolMessage message, PayloadType payloadType = Unknown)
     override string ToString()
+    static ProtocolMessage WithFlags(ProtocolMessage message, MessageFlag additionalFlags)
     PayloadType DefaultPayloadType
     static int MaxMessageSize
     static int MinimumHeaderLength
@@ -3408,9 +3466,10 @@ namespace Ikon.Common.Core.Protocol
     static Dictionary<Type, Opcode> TypeToOpcode
     static Dictionary<Type, int> TypeToVersion
   class ProtocolMessageAttribute : Attribute
-    ctor(int version = 0, Opcode opcode = NONE)
+    ctor(int version = 0, Opcode opcode = NONE, bool unreliable = false)
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
+    bool Unreliable { get; }
   static class ProtocolVersion
     static int Version { get; }
   sealed class ProxyRpcAuthTicket : IProtocolMessagePayload
@@ -4780,6 +4839,23 @@ namespace Ikon.Common.Core.Reactive
   static class Reactive
     static void Run<T>(Reactive<T> reactiveValue, Func<Task<T>> action, Action<Exception> onError = null, CancellationToken token = null)
     static void Run<T>(Reactive<T> reactiveValue, Func<CancellationToken, Task<T>> action, Action<Exception> onError = null, CancellationToken token = null)
+  static class ReactiveBoolExtensions
+    static IDisposable AsToken(Reactive<bool> reactive)
+  static class ReactiveCollectionExtensions
+    static void Add<T>(Reactive<List<T>> reactive, T item)
+    static bool Add<T>(Reactive<HashSet<T>> reactive, T item)
+    static void AddRange<T>(Reactive<List<T>> reactive, IEnumerable<T> items)
+    static void Clear<T>(Reactive<List<T>> reactive)
+    static void Clear<T>(Reactive<HashSet<T>> reactive)
+    static void Clear<TKey, TValue>(Reactive<Dictionary<TKey, TValue>> reactive)
+    static void Insert<T>(Reactive<List<T>> reactive, int index, T item)
+    static void Mutate<T>(Reactive<T> reactive, Action<T> mutator)
+    static bool Remove<T>(Reactive<List<T>> reactive, T item)
+    static bool Remove<T>(Reactive<HashSet<T>> reactive, T item)
+    static bool Remove<TKey, TValue>(Reactive<Dictionary<TKey, TValue>> reactive, TKey key)
+    static int RemoveAll<T>(Reactive<List<T>> reactive, Predicate<T> match)
+    static void RemoveAt<T>(Reactive<List<T>> reactive, int index)
+    static void Set<TKey, TValue>(Reactive<Dictionary<TKey, TValue>> reactive, TKey key, TValue value)
   class ReactiveEffect : IDisposable
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
     ctor(Action body, params IReactive[] deps)
