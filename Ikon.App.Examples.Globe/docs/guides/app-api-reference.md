@@ -515,10 +515,6 @@ namespace Ikon.App
     ctor(IAppBase app, int updateIntervalMs = 1000)
     ReactiveManager ReactiveManager { get; }
     Task RunAsync(Func<Task> render, Func<Context, bool> filter = null)
-  sealed class Secrets
-    string Item { get; }
-    IReadOnlyCollection<string> Keys { get; }
-    bool TryGet(string key, out string value)
   sealed class SpeechRecognizedEventArgs : EventArgs
     ctor(string text, Context clientContext, string streamId, string correlationId, TimeSpan duration, int sampleCount)
     Context ClientContext { get; }

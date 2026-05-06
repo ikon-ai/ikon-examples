@@ -478,9 +478,83 @@ foreach (var outputItem in outputItems)
 }
 ```
 
+## Reading Secrets and Space Context from a Pipeline
+
+A pipeline that takes an `IPipelineHost<TConfig>` constructor parameter exposes three accessors
+alongside `host.Config`:
+
+- `host.Secrets` — secrets (API keys, tokens, passwords) for the current space. Manage values
+  with `ikon app secret set/list/delete`.
+- `host.OrganisationId` — id of the current organisation.
+- `host.SpaceId` — id of the current space.
+
+Use `EmptyPipelineConfig` when the pipeline has no user-defined configuration:
+
+```csharp
+[Pipeline]
+public class FetchFromGithub(IPipelineHost<EmptyPipelineConfig> host)
+{
+    public async Task Run(Pipeline<Item>.Branch inputItems, CancellationToken cancellationToken)
+    {
+        string token = host.Secrets["GITHUB_TOKEN"];
+
+        if (host.Secrets.TryGet("GITHUB_API_BASE", out var apiBase))
+        {
+            Log.Instance.Info($"Using custom GitHub API base: {apiBase}");
+        }
+
+        Log.Instance.Info($"Running in organisation {host.OrganisationId} space {host.SpaceId}");
+
+        // ...
+        await Task.CompletedTask;
+    }
+}
+```
+
+Pipelines that already have a config type get the same accessors:
+
+```csharp
+[Pipeline]
+public class TranscribeAudio(IPipelineHost<TranscribeAudio.Config> host)
+{
+    public class Config
+    {
+        public string Language { get; set; } = "en";
+    }
+
+    public async Task Run(Pipeline<Item>.Branch inputItems, CancellationToken cancellationToken)
+    {
+        string apiKey = host.Secrets["OPENAI_API_KEY"];
+        string lang = host.Config.Language;
+        // ...
+        await Task.CompletedTask;
+    }
+}
+```
+
+Indexer access throws if a secret is not set; use `TryGet` for optional secrets. Rotating a
+value with `ikon app secret set` takes effect on the next pipeline run.
+
 ## Running Pipelines with the ikon CLI
 
-Use `ikon pipeline run` to execute a pipeline outside your application code.
+Use `ikon pipeline run` to execute a pipeline outside your application code, or `ikon app pipeline run` from inside an Ikon AI app project for the common case where the DLL and space ID can be auto-resolved from the project.
+
+### From an Ikon AI app project
+
+Run from the app project root:
+
+```bash
+# Short name resolves to the matching [Pipeline] class in the app's DLL
+ikon app pipeline run MyPipeline --input ./data/ --output ./output/
+
+# Skip the rebuild step and reuse the previous build output
+ikon app pipeline run MyPipeline --no-build
+
+# Pick a non-default target config (e.g. ikon-config.production.toml)
+ikon app pipeline run MyPipeline --target production
+```
+
+`ikon app pipeline run` builds the app, locates the output assembly, resolves the pipeline type, reads `Target.SpaceId` from `ikon-config.toml`, and exchanges for a space token automatically. All `ikon pipeline run` flags below pass through.
 
 ### Common Options
 
