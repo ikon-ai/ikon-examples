@@ -343,7 +343,7 @@ public partial class Validation
                     {
                         view.Column(["w-24 items-center gap-1 p-2 rounded hover:bg-muted"], content: view =>
                         {
-                            view.Icon([Icon.Size.Md], name: name);
+                            view.Icon([Icon.Md], name: name);
                             view.Text([Text.Caption, "text-center truncate w-full"], name);
                         });
                     }
@@ -372,7 +372,7 @@ public partial class Validation
 
                         view.Column(["w-32 items-center gap-1 p-2 rounded hover:bg-muted"], content: view =>
                         {
-                            view.Icon([Icon.Size.Md], name: alias);
+                            view.Icon([Icon.Md], name: alias);
                             view.Text([Text.Caption, "text-center font-medium"], alias);
                             view.Text([Text.Small, "text-center text-quaternary"], $"→ {target}");
                         });

@@ -994,7 +994,7 @@ public partial class Validation
                         {
                             view.Text([Text.Caption], _imageGeneratorInputImageName.Value);
                             view.Button(
-                                [Button.GhostMd, Button.Size.Icon],
+                                [Button.GhostMd, Button.Icon],
                                 onClick: async () =>
                                 {
                                     _imageGeneratorInputImageData = null;
@@ -2069,7 +2069,7 @@ public partial class Validation
                             {
                                 view.Text([Text.Caption], _videoGeneratorInputImageName.Value);
                                 view.Button(
-                                    [Button.GhostMd, Button.Size.Icon],
+                                    [Button.GhostMd, Button.Icon],
                                     onClick: async () =>
                                     {
                                         _videoGeneratorInputImageData = null;

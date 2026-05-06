@@ -257,27 +257,27 @@ public partial class Validation
                     {
                         view.Box([Badge.SuccessMd, Badge.IconLeft], content: view =>
                         {
-                            view.Icon([Icon.Size.Xs], name: "circle-check");
+                            view.Icon([Icon.Xs], name: "circle-check");
                             view.Text(text: "Success");
                         });
                         view.Box([Badge.ErrorMd, Badge.IconLeft], content: view =>
                         {
-                            view.Icon([Icon.Size.Xs], name: "circle-x");
+                            view.Icon([Icon.Xs], name: "circle-x");
                             view.Text(text: "Error");
                         });
                         view.Box([Badge.WarningMd, Badge.IconLeft], content: view =>
                         {
-                            view.Icon([Icon.Size.Xs], name: "triangle-alert");
+                            view.Icon([Icon.Xs], name: "triangle-alert");
                             view.Text(text: "Warning");
                         });
                         view.Box([Badge.InfoMd, Badge.IconLeft], content: view =>
                         {
-                            view.Icon([Icon.Size.Xs], name: "info");
+                            view.Icon([Icon.Xs], name: "info");
                             view.Text(text: "Info");
                         });
                         view.Box([Badge.GreyMd, Badge.IconRight], content: view =>
                         {
-                            view.Icon([Icon.Size.Xs], name: "x");
+                            view.Icon([Icon.Xs], name: "x");
                             view.Text(text: "Dismiss");
                         });
                     });

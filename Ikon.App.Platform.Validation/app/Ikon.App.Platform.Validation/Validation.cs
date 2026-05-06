@@ -30,6 +30,10 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     // Input states
     private readonly Reactive<string> _textFieldValue = new("");
     private readonly Reactive<string> _textAreaValue = new("");
+    private readonly Reactive<int> _autoResizePlaygroundRows = new(1);
+    private readonly Reactive<int> _autoResizePlaygroundMaxRows = new(6);
+    private readonly Reactive<bool> _autoResizePlaygroundMaxRowsDefined = new(true);
+    private readonly Reactive<bool> _autoResizePlaygroundEnabled = new(true);
     private readonly Reactive<string> _selectValue = new("");
     private readonly Reactive<bool> _checkboxChecked = new(false);
     private readonly Reactive<string> _checkboxIndeterminate = new("unchecked");
@@ -185,6 +189,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     // Camera device selection
     private readonly Reactive<string> _selectedCameraId = new("default");
     private readonly Reactive<string> _selectedImageCameraId = new("default");
+    private readonly Reactive<string> _selectedImageFacing = new("auto");
 
     // Microphone device selection
     private readonly Reactive<string> _selectedMicrophoneId = new("default");
@@ -380,7 +385,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                         view.Text([Text.Display], "Validation");
                         var isDark = _currentTheme.Value == Constants.DarkTheme;
                         var iconName = isDark ? "sun" : "moon";
-                        view.Button([Button.GhostMd, Button.Size.Icon],
+                        view.Button([Button.GhostMd, Button.Icon],
                             onClick: ToggleThemeAsync,
                             content: v => v.Icon([Icon.Default], name: iconName));
                     });

@@ -725,10 +725,10 @@ public partial class Validation
 
                             view.Box([Layout.Split.Main, "bg-card p-2"], content: view =>
                             {
-                                view.Button([Button.GhostSm, Button.Size.Icon], onClick: async () =>
+                                view.Button([Button.GhostSm, Button.Icon], onClick: async () =>
                                 {
                                     _splitSidebarOpen.Value = !_splitSidebarOpen.Value;
-                                }, content: v => v.Icon([Icon.Size.Xs], name: _splitSidebarOpen.Value ? "panel-left-close" : "panel-left-open"));
+                                }, content: v => v.Icon([Icon.Xs], name: _splitSidebarOpen.Value ? "panel-left-close" : "panel-left-open"));
                             });
                         });
                     });

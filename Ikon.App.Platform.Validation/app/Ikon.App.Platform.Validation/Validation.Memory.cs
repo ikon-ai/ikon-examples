@@ -28,7 +28,7 @@ public partial class Validation
                 view.Row(["flex items-center gap-2 mb-4"], content: view =>
                 {
                     view.Text([Text.H2], "Memory Info");
-                    view.Button([Button.GhostMd, Button.Size.Icon],
+                    view.Button([Button.GhostMd, Button.Icon],
                         onClick: async () => _memoryAllocationVersion.Value++,
                         content: v => v.Icon([Icon.Default], name: "refresh-cw"));
                 });

@@ -29,7 +29,7 @@ public partial class Validation
                                 disabled: _devicesLoading.Value,
                                 onValueChange: async v => _selectedCameraId.Value = v);
                         });
-                        view.Button([Button.OutlineMd, Button.Size.Icon],
+                        view.Button([Button.OutlineMd, Button.Icon],
                             disabled: _devicesLoading.Value,
                             onClick: async () =>
                             {
@@ -263,7 +263,20 @@ public partial class Validation
                                 disabled: _devicesLoading.Value,
                                 onValueChange: async v => _selectedImageCameraId.Value = v);
                         });
-                        view.Button([Button.OutlineMd, Button.Size.Icon],
+                        view.Column(["flex-1 min-w-[140px]"], content: view =>
+                        {
+                            view.Text([Text.Caption, "mb-1"], "Facing");
+                            view.Select(
+                                value: _selectedImageFacing.Value,
+                                options:
+                                [
+                                    new SelectOption("auto", "Auto"),
+                                    new SelectOption("user", "Front"),
+                                    new SelectOption("environment", "Back"),
+                                ],
+                                onValueChange: async v => _selectedImageFacing.Value = v);
+                        });
+                        view.Button([Button.OutlineMd, Button.Icon],
                             disabled: _devicesLoading.Value,
                             onClick: async () =>
                             {
@@ -278,28 +291,66 @@ public partial class Validation
                     });
 
                     var imageDeviceId = GetSelectedDeviceId(_selectedImageCameraId.Value);
+                    var imageFacing = _selectedImageFacing.Value switch
+                    {
+                        "user" => (CameraFacing?)CameraFacing.User,
+                        "environment" => CameraFacing.Environment,
+                        _ => null
+                    };
+                    var imageConstraints = (imageDeviceId != null || imageFacing != null)
+                        ? new CaptureImageConstraints { DeviceId = imageDeviceId, FacingMode = imageFacing }
+                        : null;
 
                     view.Row([Layout.Row.Md, "flex-wrap mb-4"], content: view =>
                     {
+                        Func<ImageCaptureActionEvent, Task> handleCaptured = async img =>
+                        {
+                            if (img.Success && img.Data != null)
+                            {
+                                _capturedImageData.Value = img.Data;
+                                _capturedImageMime.Value = img.Mime;
+                                _capturedImageWidth.Value = img.Width;
+                                _capturedImageHeight.Value = img.Height;
+                            }
+                        };
+
                         view.ActionButton([Button.PrimaryMd],
                             action: ActionKind.CaptureImage,
                             label: "Capture Image",
                             options: new CaptureImageActionOptions
                             {
+                                Mode = CaptureImageMode.Headless,
                                 Width = 1920,
                                 Height = 1080,
                                 Format = ClientImageCaptureFormat.Jpeg,
                                 Quality = 0.9,
-                                Constraints = imageDeviceId != null ? new CaptureImageConstraints { DeviceId = imageDeviceId } : null
+                                Constraints = imageConstraints
                             },
                             onActionComplete: async result =>
                             {
-                                if (result is ImageCaptureActionEvent img && img.Success && img.Data != null)
+                                if (result is ImageCaptureActionEvent img)
                                 {
-                                    _capturedImageData.Value = img.Data;
-                                    _capturedImageMime.Value = img.Mime;
-                                    _capturedImageWidth.Value = img.Width;
-                                    _capturedImageHeight.Value = img.Height;
+                                    await handleCaptured(img);
+                                }
+                            });
+
+                        view.ActionButton([Button.PrimaryMd],
+                            action: ActionKind.CaptureImage,
+                            label: "Capture Image (Native)",
+                            options: new CaptureImageActionOptions
+                            {
+                                Mode = CaptureImageMode.Native,
+                                Width = 1920,
+                                Height = 1080,
+                                Format = ClientImageCaptureFormat.Jpeg,
+                                Quality = 0.9,
+                                Constraints = imageConstraints
+                            },
+                            onActionComplete: async result =>
+                            {
+                                if (result is ImageCaptureActionEvent img)
+                                {
+                                    await handleCaptured(img);
                                 }
                             });
 
@@ -324,7 +375,7 @@ public partial class Validation
                         view.Text([Text.Caption, "mb-2"], $"Captured: {_capturedImageWidth.Value}x{_capturedImageHeight.Value}");
                         view.Box([Media.VideoContainer], content: view =>
                         {
-                            view.Image([Media.Fill, Media.Mirror], src: dataUrl, alt: "Captured image");
+                            view.Image([Media.Fill], src: dataUrl, alt: "Captured image");
                         });
                     }
                     else

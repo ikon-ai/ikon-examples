@@ -248,7 +248,7 @@ public partial class Validation
                                 disabled: _devicesLoading.Value,
                                 onValueChange: async v => _selectedMicrophoneId.Value = v);
                         });
-                        view.Button([Button.OutlineMd, Button.Size.Icon],
+                        view.Button([Button.OutlineMd, Button.Icon],
                             disabled: _devicesLoading.Value,
                             onClick: async () =>
                             {
@@ -333,7 +333,7 @@ public partial class Validation
                             onCaptureStop: async e => _isAudioHoldRecording.Value = false);
 
                         view.CaptureButton(
-                            [_isAudioHoldRecording.Value ? Button.ErrorMd : Button.PrimaryMd, Button.Size.Icon],
+                            [_isAudioHoldRecording.Value ? Button.ErrorMd : Button.PrimaryMd, Button.Icon],
                             kind: MediaCaptureKind.Audio,
                             label: "Hold to Record",
                             captureMode: MediaCaptureButtonMode.Hold,
@@ -368,7 +368,7 @@ public partial class Validation
                             onCaptureStop: async e => _isAudioToggleRecording.Value = false);
 
                         view.CaptureButton(
-                            [_isAudioToggleRecording.Value ? Button.ErrorMd : Button.NeutralMd, Button.Size.Icon],
+                            [_isAudioToggleRecording.Value ? Button.ErrorMd : Button.NeutralMd, Button.Icon],
                             kind: MediaCaptureKind.Audio,
                             label: _isAudioToggleRecording.Value ? "Stop Recording" : "Toggle Record",
                             captureMode: MediaCaptureButtonMode.Toggle,

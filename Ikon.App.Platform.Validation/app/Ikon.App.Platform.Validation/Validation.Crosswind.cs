@@ -381,10 +381,15 @@ public partial class Validation
                 view.Column([Layout.Column.Sm, "items-center"], content: view =>
                 {
                     view.Box([
-                        "w-16 h-16 rounded-lg bg-muted",
-                        "motion-[0:opacity-40,50:opacity-80,100:opacity-40]",
-                        "motion-duration-1500ms motion-loop motion-ease-ease-in-out"
-                    ]);
+                        "w-16 h-16 rounded-lg bg-muted relative overflow-hidden"
+                    ], content: v =>
+                    {
+                        v.Box([
+                            "absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-white/50 to-transparent",
+                            "motion-[0:translate-x-[-200%],100:translate-x-[300%]]",
+                            "motion-duration-1500ms motion-loop motion-ease-linear"
+                        ]);
+                    });
                     view.Text([Text.Caption], "Shimmer");
                 });
             });
@@ -1233,17 +1238,17 @@ public partial class Validation
                     ], content: v => v.Text([Text.H3, "text-white"], "3D"));
                 });
 
-                // Wobble plate (X + Y slight oscillation)
+                // Wobble plate (X + Y oscillation)
                 view.Column([Layout.Column.Sm], content: view =>
                 {
                     view.Text([Text.Label], "Wobble Plate");
                     view.Box([
-                        "w-24 h-24 rounded-full bg-gradient-to-br from-slate-300 to-gray-400 shadow-inner",
-                        "motion-[0:rotate-x-[5deg]_rotate-y-0," +
-                        "25:rotate-x-0_rotate-y-[5deg]," +
-                        "50:rotate-x-[-5deg]_rotate-y-0," +
-                        "75:rotate-x-0_rotate-y-[-5deg]," +
-                        "100:rotate-x-[5deg]_rotate-y-0]",
+                        "w-24 h-24 rounded-lg bg-gradient-to-br from-slate-300 to-gray-500 shadow-inner",
+                        "motion-[0:rotate-x-[18deg]_rotate-y-0," +
+                        "25:rotate-x-0_rotate-y-[18deg]," +
+                        "50:rotate-x-[-18deg]_rotate-y-0," +
+                        "75:rotate-x-0_rotate-y-[-18deg]," +
+                        "100:rotate-x-[18deg]_rotate-y-0]",
                         "motion-duration-2000ms motion-loop motion-ease-ease-in-out"
                     ]);
                 });
@@ -1625,15 +1630,20 @@ public partial class Validation
                     ]);
                 });
 
-                // Ring pulse effect
+                // Ring pulse effect (always-on breathing ring around the dot)
                 view.Column([Layout.Column.Sm], content: view =>
                 {
                     view.Text([Text.Label], "Ring Pulse");
                     view.Box([
-                        "w-16 h-16 rounded-full bg-violet-500",
-                        "motion-[0:ring-0_ring-violet-400,50:ring-8_ring-violet-400/50,100:ring-0_ring-violet-400]",
-                        "motion-duration-1500ms motion-loop motion-ease-ease-out"
-                    ]);
+                        "w-16 h-16 rounded-full bg-violet-500 relative"
+                    ], content: v =>
+                    {
+                        v.Box([
+                            "absolute inset-0 rounded-full border-2 border-violet-300",
+                            "motion-[0:scale-100_opacity-90,50:scale-[1.35]_opacity-20,100:scale-100_opacity-90]",
+                            "motion-duration-1800ms motion-loop motion-ease-ease-in-out"
+                        ]);
+                    });
                 });
 
                 // Outline offset animation
@@ -1641,9 +1651,9 @@ public partial class Validation
                 {
                     view.Text([Text.Label], "Outline Expand");
                     view.Box([
-                        "w-20 h-20 rounded-lg bg-emerald-500 outline outline-2 outline-emerald-300",
-                        "motion-[0:outline-offset-0,50:outline-offset-8,100:outline-offset-0]",
-                        "motion-duration-1200ms motion-loop motion-ease-ease-in-out"
+                        "w-20 h-20 rounded-lg bg-emerald-500 outline-solid outline-4 outline-yellow-300",
+                        "motion-[0:outline-offset-0,50:outline-offset-[16px],100:outline-offset-0]",
+                        "motion-duration-1600ms motion-loop motion-ease-ease-in-out"
                     ]);
                 });
 
@@ -1658,15 +1668,20 @@ public partial class Validation
                     ]);
                 });
 
-                // Multi-ring ripple (stacked elements approach simulation)
+                // Focus ripple (one-shot ripple emanating outward, with rest beat)
                 view.Column([Layout.Column.Sm], content: view =>
                 {
                     view.Text([Text.Label], "Focus Ripple");
                     view.Box([
-                        "w-16 h-16 rounded-xl bg-sky-500",
-                        "motion-[0:shadow-[0_0_0_0_rgba(56,189,248,0.7)],100:shadow-[0_0_0_15px_rgba(56,189,248,0)]]",
-                        "motion-duration-1500ms motion-loop motion-ease-ease-out"
-                    ]);
+                        "w-16 h-16 rounded-xl bg-sky-500 relative"
+                    ], content: v =>
+                    {
+                        v.Box([
+                            "absolute inset-0 rounded-xl border-2 border-sky-300",
+                            "motion-[0:scale-100_opacity-0,10:scale-100_opacity-90,60:scale-[1.6]_opacity-0,100:scale-[1.6]_opacity-0]",
+                            "motion-duration-2000ms motion-loop motion-ease-ease-out"
+                        ]);
+                    });
                 });
 
                 // Border radius morph

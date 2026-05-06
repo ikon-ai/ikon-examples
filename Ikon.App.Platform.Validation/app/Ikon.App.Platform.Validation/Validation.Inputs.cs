@@ -132,6 +132,81 @@ public partial class Validation
                 });
             });
 
+            // TextArea autoResize playground
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "TextArea - Auto-resize");
+                view.Text([Text.Caption, "mb-4"], "Toggle autoResize and tweak rows / maxRows live.");
+
+                view.Column([Layout.Column.Md], content: view =>
+                {
+                    view.Row(["items-center gap-3 flex-wrap"], content: row =>
+                    {
+                        row.Switch([Switch.Root],
+                            isChecked: _autoResizePlaygroundEnabled.Value,
+                            onCheckedChange: async v => _autoResizePlaygroundEnabled.Value = v,
+                            content: s => s.SwitchThumb([Switch.Thumb]));
+                        row.Text([Text.Body], $"autoResize: {(_autoResizePlaygroundEnabled.Value ? "true" : "false")}");
+                    });
+
+                    view.Row(["items-center gap-3 flex-wrap"], content: row =>
+                    {
+                        row.Text([Text.Body, "w-28"], $"rows: {_autoResizePlaygroundRows.Value}");
+                        row.Slider([Slider.Root, "w-64"],
+                            value: [_autoResizePlaygroundRows.Value],
+                            min: 1, max: 10, step: 1,
+                            onValueChange: async v => { if (v.Count > 0) _autoResizePlaygroundRows.Value = (int)v[0]; },
+                            content: s =>
+                            {
+                                s.SliderTrack([Slider.Track], content: t => t.SliderRange([Slider.Range]));
+                                s.SliderThumb([Slider.Thumb]);
+                            });
+                    });
+
+                    view.Row(["items-center gap-3 flex-wrap"], content: row =>
+                    {
+                        row.Switch([Switch.Root],
+                            isChecked: _autoResizePlaygroundMaxRowsDefined.Value,
+                            onCheckedChange: async v => _autoResizePlaygroundMaxRowsDefined.Value = v,
+                            content: s => s.SwitchThumb([Switch.Thumb]));
+                        row.Text([Text.Body], $"maxRows defined: {(_autoResizePlaygroundMaxRowsDefined.Value ? "true" : "false")}");
+                    });
+
+                    if (_autoResizePlaygroundMaxRowsDefined.Value)
+                    {
+                        view.Row(["items-center gap-3 flex-wrap"], content: row =>
+                        {
+                            row.Text([Text.Body, "w-28"], $"maxRows: {_autoResizePlaygroundMaxRows.Value}");
+                            row.Slider([Slider.Root, "w-64"],
+                                value: [_autoResizePlaygroundMaxRows.Value],
+                                min: 1, max: 20, step: 1,
+                                onValueChange: async v => { if (v.Count > 0) _autoResizePlaygroundMaxRows.Value = (int)v[0]; },
+                                content: s =>
+                                {
+                                    s.SliderTrack([Slider.Track], content: t => t.SliderRange([Slider.Range]));
+                                    s.SliderThumb([Slider.Thumb]);
+                                });
+                        });
+                    }
+
+                    var maxRowsLabel = _autoResizePlaygroundMaxRowsDefined.Value
+                        ? _autoResizePlaygroundMaxRows.Value.ToString()
+                        : "undefined (uncapped)";
+
+                    view.Text([Text.Caption],
+                        $"Live config — autoResize: {(_autoResizePlaygroundEnabled.Value ? "true" : "false")}, rows: {_autoResizePlaygroundRows.Value}, maxRows: {maxRowsLabel}");
+
+                    view.TextArea([Textarea.Default, "!min-h-0"],
+                        placeholder: "Type multiple lines and watch the height respond to the controls above.",
+                        value: _textAreaValue.Value,
+                        rows: _autoResizePlaygroundRows.Value,
+                        autoResize: _autoResizePlaygroundEnabled.Value,
+                        maxRows: _autoResizePlaygroundMaxRowsDefined.Value ? _autoResizePlaygroundMaxRows.Value : (int?)null,
+                        submitOnEnter: false,
+                        onValueChange: async v => _textAreaValue.Value = v ?? "");
+                });
+            });
+
             // Select
             view.Box([Card.Default, "p-6"], content: view =>
             {

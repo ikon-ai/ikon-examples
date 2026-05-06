@@ -176,9 +176,9 @@ public partial class Validation
                     view.Text([Text.Caption, "mt-4"], "Icon button loading");
                     view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                     {
-                        view.Button([Button.PrimaryMd, Button.Size.Icon, State.Loading], label: "Loading", content: v => v.Box([Icon.Spinner]));
-                        view.Button([Button.NeutralMd, Button.Size.Icon, State.Loading], label: "Loading", content: v => v.Box([Icon.Spinner]));
-                        view.Button([Button.OutlineMd, Button.Size.Icon, State.Loading], label: "Loading", content: v => v.Box([Icon.Spinner]));
+                        view.Button([Button.PrimaryMd, Button.Icon, State.Loading], label: "Loading", content: v => v.Box([Icon.Spinner]));
+                        view.Button([Button.NeutralMd, Button.Icon, State.Loading], label: "Loading", content: v => v.Box([Icon.Spinner]));
+                        view.Button([Button.OutlineMd, Button.Icon, State.Loading], label: "Loading", content: v => v.Box([Icon.Spinner]));
                     });
                 });
             });
@@ -189,22 +189,22 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "Icon Buttons");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.PrimaryMd, Button.Size.Icon], label: "Heart", content: v => v.Icon([Icon.Default], name: "heart"));
-                    view.Button([Button.NeutralMd, Button.Size.Icon], label: "Star", content: v => v.Icon([Icon.Default], name: "star"));
-                    view.Button([Button.OutlineMd, Button.Size.Icon], label: "Settings", content: v => v.Icon([Icon.Default], name: "settings"));
-                    view.Button([Button.GhostMd, Button.Size.Icon], label: "Search", content: v => v.Icon([Icon.Default], name: "search"));
-                    view.Button([Button.ErrorMd, Button.Size.Icon], label: "Delete", content: v => v.Icon([Icon.Default], name: "trash-2"));
+                    view.Button([Button.PrimaryMd, Button.Icon], label: "Heart", content: v => v.Icon([Icon.Default], name: "heart"));
+                    view.Button([Button.NeutralMd, Button.Icon], label: "Star", content: v => v.Icon([Icon.Default], name: "star"));
+                    view.Button([Button.OutlineMd, Button.Icon], label: "Settings", content: v => v.Icon([Icon.Default], name: "settings"));
+                    view.Button([Button.GhostMd, Button.Icon], label: "Search", content: v => v.Icon([Icon.Default], name: "search"));
+                    view.Button([Button.ErrorMd, Button.Icon], label: "Delete", content: v => v.Icon([Icon.Default], name: "trash-2"));
                 });
                 view.Row([Layout.Row.Md, "flex-wrap", "mt-4"], content: view =>
                 {
-                    view.Button([Button.OutlineMd, Button.Size.Icon], label: "Add", content: v => v.Icon([Icon.Default], name: "plus"));
-                    view.Button([Button.OutlineMd, Button.Size.Icon], label: "Remove", content: v => v.Icon([Icon.Default], name: "minus"));
-                    view.Button([Button.OutlineMd, Button.Size.Icon], label: "Confirm", content: v => v.Icon([Icon.Default], name: "check"));
-                    view.Button([Button.OutlineMd, Button.Size.Icon], label: "Close", content: v => v.Icon([Icon.Default], name: "x"));
-                    view.Button([Button.OutlineMd, Button.Size.Icon], label: "Expand", content: v => v.Icon([Icon.Default], name: "chevron-down"));
-                    view.Button([Button.OutlineMd, Button.Size.Icon], label: "Collapse", content: v => v.Icon([Icon.Default], name: "chevron-up"));
-                    view.Button([Button.OutlineMd, Button.Size.Icon], label: "Menu", content: v => v.Icon([Icon.Default], name: "menu"));
-                    view.Button([Button.OutlineMd, Button.Size.Icon], label: "More options", content: v => v.Icon([Icon.Default], name: "more-horizontal"));
+                    view.Button([Button.OutlineMd, Button.Icon], label: "Add", content: v => v.Icon([Icon.Default], name: "plus"));
+                    view.Button([Button.OutlineMd, Button.Icon], label: "Remove", content: v => v.Icon([Icon.Default], name: "minus"));
+                    view.Button([Button.OutlineMd, Button.Icon], label: "Confirm", content: v => v.Icon([Icon.Default], name: "check"));
+                    view.Button([Button.OutlineMd, Button.Icon], label: "Close", content: v => v.Icon([Icon.Default], name: "x"));
+                    view.Button([Button.OutlineMd, Button.Icon], label: "Expand", content: v => v.Icon([Icon.Default], name: "chevron-down"));
+                    view.Button([Button.OutlineMd, Button.Icon], label: "Collapse", content: v => v.Icon([Icon.Default], name: "chevron-up"));
+                    view.Button([Button.OutlineMd, Button.Icon], label: "Menu", content: v => v.Icon([Icon.Default], name: "menu"));
+                    view.Button([Button.OutlineMd, Button.Icon], label: "More options", content: v => v.Icon([Icon.Default], name: "more-horizontal"));
                 });
             });
 
@@ -214,11 +214,11 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "Emoji Buttons");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.PrimaryMd, Button.Size.Icon], label: "Heart", content: v => v.Text(text: "❤️"));
-                    view.Button([Button.NeutralMd, Button.Size.Icon], label: "Star", content: v => v.Text(text: "⭐"));
-                    view.Button([Button.OutlineMd, Button.Size.Icon], label: "Settings", content: v => v.Text(text: "⚙️"));
-                    view.Button([Button.GhostMd, Button.Size.Icon], label: "Search", content: v => v.Text(text: "🔍"));
-                    view.Button([Button.ErrorMd, Button.Size.Icon], label: "Delete", content: v => v.Text(text: "🗑️"));
+                    view.Button([Button.PrimaryMd, Button.Icon], label: "Heart", content: v => v.Text(text: "❤️"));
+                    view.Button([Button.NeutralMd, Button.Icon], label: "Star", content: v => v.Text(text: "⭐"));
+                    view.Button([Button.OutlineMd, Button.Icon], label: "Settings", content: v => v.Text(text: "⚙️"));
+                    view.Button([Button.GhostMd, Button.Icon], label: "Search", content: v => v.Text(text: "🔍"));
+                    view.Button([Button.ErrorMd, Button.Icon], label: "Delete", content: v => v.Text(text: "🗑️"));
                 });
             });
 
@@ -233,27 +233,27 @@ public partial class Validation
                     {
                         view.Button([Button.PrimaryMd, Button.IconLeft], content: v =>
                         {
-                            v.Icon([Icon.Size.Xs], name: "plus");
+                            v.Icon([Icon.Xs], name: "plus");
                             v.Text(text: "Create New");
                         });
                         view.Button([Button.NeutralMd, Button.IconLeft], content: v =>
                         {
-                            v.Icon([Icon.Size.Xs], name: "settings");
+                            v.Icon([Icon.Xs], name: "settings");
                             v.Text(text: "Settings");
                         });
                         view.Button([Button.OutlineMd, Button.IconLeft], content: v =>
                         {
-                            v.Icon([Icon.Size.Xs], name: "search");
+                            v.Icon([Icon.Xs], name: "search");
                             v.Text(text: "Search");
                         });
                         view.Button([Button.GhostMd, Button.IconLeft], content: v =>
                         {
-                            v.Icon([Icon.Size.Xs], name: "download");
+                            v.Icon([Icon.Xs], name: "download");
                             v.Text(text: "Download");
                         });
                         view.Button([Button.ErrorMd, Button.IconLeft], content: v =>
                         {
-                            v.Icon([Icon.Size.Xs], name: "trash-2");
+                            v.Icon([Icon.Xs], name: "trash-2");
                             v.Text(text: "Delete");
                         });
                     });
@@ -262,17 +262,17 @@ public partial class Validation
                     {
                         view.Button([Button.PrimaryMd, Button.IconRight], content: v =>
                         {
-                            v.Icon([Icon.Size.Xs], name: "arrow-right");
+                            v.Icon([Icon.Xs], name: "arrow-right");
                             v.Text(text: "Continue");
                         });
                         view.Button([Button.NeutralMd, Button.IconRight], content: v =>
                         {
-                            v.Icon([Icon.Size.Xs], name: "external-link");
+                            v.Icon([Icon.Xs], name: "external-link");
                             v.Text(text: "Open");
                         });
                         view.Button([Button.OutlineMd, Button.IconRight], content: v =>
                         {
-                            v.Icon([Icon.Size.Xs], name: "chevron-down");
+                            v.Icon([Icon.Xs], name: "chevron-down");
                             v.Text(text: "More");
                         });
                     });

@@ -198,6 +198,23 @@ namespace Ikon.Common.Core.Reactive
   static class Reactive
     static void Run<T>(Reactive<T> reactiveValue, Func<Task<T>> action, Action<Exception> onError = null, CancellationToken token = null)
     static void Run<T>(Reactive<T> reactiveValue, Func<CancellationToken, Task<T>> action, Action<Exception> onError = null, CancellationToken token = null)
+  static class ReactiveBoolExtensions
+    static IDisposable AsToken(Reactive<bool> reactive)
+  static class ReactiveCollectionExtensions
+    static void Add<T>(Reactive<List<T>> reactive, T item)
+    static bool Add<T>(Reactive<HashSet<T>> reactive, T item)
+    static void AddRange<T>(Reactive<List<T>> reactive, IEnumerable<T> items)
+    static void Clear<T>(Reactive<List<T>> reactive)
+    static void Clear<T>(Reactive<HashSet<T>> reactive)
+    static void Clear<TKey, TValue>(Reactive<Dictionary<TKey, TValue>> reactive)
+    static void Insert<T>(Reactive<List<T>> reactive, int index, T item)
+    static void Mutate<T>(Reactive<T> reactive, Action<T> mutator)
+    static bool Remove<T>(Reactive<List<T>> reactive, T item)
+    static bool Remove<T>(Reactive<HashSet<T>> reactive, T item)
+    static bool Remove<TKey, TValue>(Reactive<Dictionary<TKey, TValue>> reactive, TKey key)
+    static int RemoveAll<T>(Reactive<List<T>> reactive, Predicate<T> match)
+    static void RemoveAt<T>(Reactive<List<T>> reactive, int index)
+    static void Set<TKey, TValue>(Reactive<Dictionary<TKey, TValue>> reactive, TKey key, TValue value)
   class ReactiveEffect : IDisposable
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
     ctor(Action body, params IReactive[] deps)

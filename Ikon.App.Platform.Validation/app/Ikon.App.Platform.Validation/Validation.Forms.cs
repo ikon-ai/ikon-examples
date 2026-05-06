@@ -99,8 +99,8 @@ public partial class Validation
                         view.PasswordToggleFieldToggle([Input.Password.Toggle], content: view =>
                         {
                             view.PasswordToggleFieldIcon(
-                                visibleIcon: v => v.Icon([Icon.Size.Sm], name: "eye-open"),
-                                hiddenIcon: v => v.Icon([Icon.Size.Sm], name: "eye-closed"));
+                                visibleIcon: v => v.Icon([Icon.Sm], name: "eye-open"),
+                                hiddenIcon: v => v.Icon([Icon.Sm], name: "eye-closed"));
                         });
                     });
                 });
