@@ -17,7 +17,7 @@ Ikon AI App is a cloud-native platform for building interactive, AI-powered mult
 - `new SpeechRecognizer(model)` — speech-to-text (Whisper)
 - `new VideoGenerator(model)`, `new EmbeddingGenerator(model)`, `new WebSearcher(model)` — other AI services
 
-**UI system:** Declared in C# inside `UI.Root(content: view => { ... })`. The `view` parameter (`UIView`) provides component methods: `view.Text()`, `view.Button()`, `view.ScrollArea()`, `view.TextField()`, etc. Nested content lambdas receive their own `view` parameter.
+**UI system:** Declared in C# inside `UI.Root(content: view => { ... })`. The `view` parameter type is `UIView` (a class — NOT `IView`, there is no `I`-prefixed interface, that's a hallucination that produces CS0246). Helper methods that accept a view parameter take `UIView view`, never `IView view`. `UIView` provides component methods: `view.Text()`, `view.Button()`, `view.ScrollArea()`, `view.TextField()`, etc. Nested content lambdas receive their own `UIView view` parameter.
 
 **State:** `Reactive<T>` (shared across all clients), `ClientReactive<T>` (per-client), `UserReactive<T>` (per-user). Changes automatically trigger UI updates — only the diff is streamed to clients.
 
@@ -38,11 +38,25 @@ Ikon AI App is a cloud-native platform for building interactive, AI-powered mult
 - Only modify frontend-node when integrating custom React UI components
 - Developers can freely add any NuGet packages to C# app or npm packages to frontend
 
+## Common Pitfalls
+
+These are the recurring hallucination + footgun classes seen across generated Ikon apps. Each one compiles or runs cleanly in the wrong shape and silently breaks the app — read this list before writing UI code.
+
+- **`UIView` is the view type, not `IView`.** Helper methods that take a view parameter declare `static void Render(UIView view, ...)`. There is no I-prefixed interface; `IView` produces CS0246. The C# convention "I-prefix means interface" doesn't apply here.
+- **TextField `disabled:` must NOT be bound to fast-changing reactive state.** Binding `disabled: _busy.Value` or `disabled: _phase.Value != null` re-mounts the input on every flip and drops keyboard focus mid-typing — the textbox becomes unusable. Static `disabled: true` for read-only fields is fine. To gate a submit during async work: leave the TextField enabled, gate the action on the Button (`disabled: _busy.Value`) and early-return in the submit handler.
+- **`onClick:` lambdas with assignments need braces.** `onClick: () => _foo.Value = x` is interpreted as `Func<T>` (returning the assigned value) and throws at runtime when the platform expects `Action`/`Func<Task>`. Wrap assignments: `onClick: () => { _foo.Value = x; }` or use an `async` lambda body block: `onClick: async () => { _foo.Value = x; }`.
+- **`ScrollArea` uses `rootStyle:` and `viewportStyle:`, not the positional `style:`.** `view.ScrollArea(rootStyle: ["flex-1 min-h-0"], viewportStyle: ["px-4"], content: …)` for full-page scroll wrapping. The bare `style:` exists for outer wrapper styling only; content-area styling goes through `viewportStyle`.
+- **`AudioContainer` carries PCM samples, not encoded bytes.** Properties are `float[] Samples`, `int SampleRate`, `int ChannelCount` — there is no `.Data` / `.MimeType`. To play `SpeechGenerator` output: declare `private Audio Audio { get; } = new(app);` then `Audio.SendSpeech(audio)` per chunk in the `await foreach`. `ClientFunctions.PlaySoundAsync(byte[], string)` is a different API for already-encoded MP3/WAV blobs.
+- **`WebSearcher` uses `SearchPagesAsync(SearchConfig)`, not a positional `SearchAsync(string, int)`.** Real shape: `await searcher.SearchPagesAsync(new SearchConfig { Query = q, MaxResults = 5 });`. `SearchResult` exposes `Url`, `Title`, `Content`, `Mimetype`, `Keywords` — there is no `Snippet`; use `result.Content` for the body text.
+- **`MessageAuthor` value comparison uses the static instances, not the nested types.** `Author == MessageAuthor.User` works (User is a static `MessageAuthor` instance). `Author == MessageAuthor.UserAuthor` does NOT compile — `UserAuthor` is a nested record type, not a value. For type-pattern matching use `is`: `Author is MessageAuthor.UserAuthor`. Same for `System` / `SystemAuthor`, `Agent(name)` / `AgentAuthor`, `Thread(id)` / `ThreadAuthor`.
+- **`Reactive<List<T>>` collection mutation must go through the extensions, not `.Value.Add(...)`.** `_items.Add(x)` mutates and notifies in one call. `_items.Value.Add(x)` mutates the underlying list without firing the change event — UI doesn't refresh. Same for `Remove`, `Clear`, `RemoveAt`, `Insert`, `RemoveAll`.
+
 ## API Reference Guides
 
 Detailed API docs are available in `docs/guides/`. Each guide covers a specific topic:
 
 - **app-structure** (`docs/guides/app-structure.md`): app file structure, session identity, client parameters, partial class, global usings, lifecycle, host services, navigation, background work, client functions, messages, minimal app template, viewport layout, auto-scroll, QR code, join URL, multi-user session, invite link
+- **csharp-primer** (`docs/guides/csharp-primer.md`): C# 13, modern C#, dictionary literal, collection expression, primary constructor, raw string literal, async, await, ValueTask, IAsyncEnumerable, target typing, nullable reference types, records, pattern matching, file-scoped namespace, top-level statements, modern idioms, enterprise patterns, abstractions, factory, IUnitOfWork, dependency injection, mock, interface, abstract base class, syntax error, CS1003, CS1525, CS1026, CS0173, CS8917, CS0234
 - **app-api-reference** (`docs/guides/app-api-reference.md`): IApp, host services, server API, navigation, session, common utilities
 - **reactive-state** (`docs/guides/reactive-state.md`): reactive, client reactive, user reactive, persistent reactive, persistent session reactive, persistent user reactive, persistence backend, postgres backend, public asset backend, reactive scope, value mutation
 - **ui-components** (`docs/guides/ui-components.md`): layout, overlays, inputs, display, navigation, drag-and-drop, text, button, dialog, tabs, accordion, scroll area, toast, popover, chat interface, message bubbles

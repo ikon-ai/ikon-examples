@@ -153,6 +153,10 @@ namespace Ikon.AI.Emergence
     void Debater(Action<AgentScope<T>> configure)
     void Judge(Action<EmergeScope<T>> configure)
   static class Emerge
+    static Task<string> AskAsync(string command, CancellationToken ct = null)
+    static Task<string> AskAsync(string command, LLMModel model, CancellationToken ct = null)
+    static Task<T> AskAsync<T>(string command, CancellationToken ct = null)
+    static Task<T> AskAsync<T>(string command, LLMModel model, CancellationToken ct = null)
     static IAsyncEnumerable<EmergeEvent<T>> BestOf<T>(LLMModel model, KernelContext context, Action<BestOfOptions<T>> configure, CancellationToken ct = null)
     static IAsyncEnumerable<EmergeEvent<T>> BestOf<T>(LLMModel model, KernelContext context, Action<BestOfOptions<T>> configure, ILLM llm, CancellationToken ct = null)
     static IAsyncEnumerable<EmergeEvent<T>> DebateThenJudge<T>(LLMModel model, KernelContext context, Action<DebateThenJudgeOptions<T>> configure, CancellationToken ct = null)
@@ -302,6 +306,8 @@ namespace Ikon.AI.Emergence
     static EmergenceBudget Unlimited { get; }
   sealed class EmergenceCallInfo
     ctor()
+    long CacheCreationInputTokens { get; set; }
+    long CachedInputTokens { get; set; }
     string CallId { get; init; }
     TimeSpan? Duration { get; set; }
     string Error { get; set; }
@@ -336,7 +342,9 @@ namespace Ikon.AI.Emergence
     Failed
   sealed class EmergenceTrace : IEquatable<EmergenceTrace>
     ctor()
-    ctor(int iterations, int toolCalls, TimeSpan duration, IReadOnlyList<FunctionCall> toolCallHistory = null, string finishReason = null, Exception error = null, long inputTokens = 0, long outputTokens = 0)
+    ctor(int iterations, int toolCalls, TimeSpan duration, IReadOnlyList<FunctionCall> toolCallHistory = null, string finishReason = null, Exception error = null, long inputTokens = 0, long cachedInputTokens = 0, long cacheCreationInputTokens = 0, long outputTokens = 0)
+    long CacheCreationInputTokens { get; init; }
+    long CachedInputTokens { get; init; }
     TimeSpan Duration { get; init; }
     Exception Error { get; init; }
     string FinishReason { get; init; }
@@ -428,7 +436,9 @@ namespace Ikon.AI.Emergence
     ctor(string Text)
     string Text { get; init; }
   sealed class ObserverTokenEvent : EmergenceObserverEvent, IEquatable<ObserverTokenEvent>
-    ctor(long InputTokens, long OutputTokens)
+    ctor(long InputTokens, long CachedInputTokens, long CacheCreationInputTokens, long OutputTokens)
+    long CacheCreationInputTokens { get; init; }
+    long CachedInputTokens { get; init; }
     long InputTokens { get; init; }
     long OutputTokens { get; init; }
   sealed class ObserverToolCallPlannedEvent : EmergenceObserverEvent, IEquatable<ObserverToolCallPlannedEvent>
@@ -633,7 +643,9 @@ namespace Ikon.AI.Emergence
     double Score { get; set; }
     T Value { get; set; }
   sealed class TokenUpdate<T> : EmergeEvent<T>, IEquatable<TokenUpdate<T>>
-    ctor(long InputTokens, long OutputTokens)
+    ctor(long InputTokens, long CachedInputTokens, long CacheCreationInputTokens, long OutputTokens)
+    long CacheCreationInputTokens { get; init; }
+    long CachedInputTokens { get; init; }
     long InputTokens { get; init; }
     long OutputTokens { get; init; }
   sealed class ToolCallPlanned<T> : EmergeEvent<T>, IEquatable<ToolCallPlanned<T>>

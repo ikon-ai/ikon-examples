@@ -73,6 +73,10 @@ namespace Ikon.Parallax
     static void ResetHistory()
     // Resumes history recording after a pause.
     static void ResumeHistory()
+  // Per-project Ikon theme customization. returns a branded built on top of the base Ikon theme. Lives at the top of the Ikon.Parallax namespace (not on Theme itself) because each scaffolded Ikon app declares its own Theme : ITheme partial in namespace Themes.Ikon — a separate type from the framework's Ikon.Parallax.Themes.Ikon.Theme (partials don't merge across assemblies). Putting the factory on a standalone static class in the always-imported Ikon.Parallax namespace keeps Theming.Apply(...) reachable from app code without any extra using plumbing. All values are Crosswind / Tailwind class names — "amber-400", "zinc-950", "rounded-lg", "font-sans", "150ms", "ease-out". Raw hex / rem / family-stack values pass through as fallback for cases that don't fit the palette (custom brand colors, bespoke families). Example: private UI UI { get; } = new(app, Theming.Apply( brand: "amber-400", background: "zinc-950", foreground: "zinc-50", card: "zinc-900", fontHeading: "font-sans", radiusBase: "rounded-lg"));
+  static class Theming
+    // Returns a per-project themed . Use this to commit to a brand mood (palette, fonts, radii, motion) at the top of your app file so every component inherits it.
+    static ITheme Apply(string brand = null, string background = null, string foreground = null, string card = null, string muted = null, string accent = null, string border = null, string fontHeading = null, string fontBody = null, string radiusBase = null, string motionDuration = null, string motionEasing = null, IReadOnlyDictionary<string, string> motion = null, IReadOnlyDictionary<string, string> custom = null, ITheme darkMode = null)
   // Main entry point for the Ikon Parallax reactive UI system. Manages client connections, render cycles, style distribution, and action handling for server-driven UI.
   class UI
     // Creates a new UI instance bound to the given app and theme.
@@ -383,7 +387,7 @@ namespace Ikon.Parallax.Components.ImageEditor
   // Extension methods for the image editor canvas component.
   static class ImageEditorExtensions
     // Canvas for editing images with brush and eraser tools.
-    static void ImageEditorCanvas(UIView view, string[] style = null, string src = null, int? brushWidth = null, string brushColor = null, string tool = null, double? zoom = null, Func<ImageEditorSaveArgs, Task> onSave = null, Func<ImageEditorHistoryArgs, Task> onHistoryChange = null, int? triggerSave = null, int? triggerUndo = null, int? triggerRedo = null, string styleId = null, string key = null, string file = "", int line = 0)
+    static void ImageEditorCanvas(UIView view, string[] style = null, string src = null, int? brushWidth = null, string brushColor = null, string tool = null, double? zoom = null, int? textMaxLength = null, int? textFontSize = null, int? textPadding = null, Func<ImageEditorSaveArgs, Task> onSave = null, Func<ImageEditorHistoryArgs, Task> onHistoryChange = null, int? triggerSave = null, int? triggerUndo = null, int? triggerRedo = null, string styleId = null, string key = null, string file = "", int line = 0)
   // Event args for when the undo/redo history state changes.
   sealed class ImageEditorHistoryArgs : IEquatable<ImageEditorHistoryArgs>
     // Event args for when the undo/redo history state changes.
@@ -556,6 +560,10 @@ namespace Ikon.Parallax.Components.Standard
     static void Calendar(UIView view, string[] style = null, string value = null, string defaultValue = null, string month = null, string defaultMonth = null, string minDate = null, string maxDate = null, IReadOnlyList<string> disabledDates = null, WeekStart weekStart = Monday, string locale = null, bool? disabled = null, string[] headerStyle = null, string[] weekdayStyle = null, string[] dayStyle = null, string[] daySelectedStyle = null, string[] dayTodayStyle = null, string[] dayOutsideStyle = null, string[] dayDisabledStyle = null, string[] navButtonStyle = null, string[] titleStyle = null, string[] gridStyle = null, string[] rowStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Func<string, Task> onMonthChange = null, string file = "", int line = 0)
     // Button that opens a popover containing a .
     static void DatePicker(UIView view, string[] style = null, string value = null, string defaultValue = null, string placeholder = null, string format = null, string minDate = null, string maxDate = null, IReadOnlyList<string> disabledDates = null, WeekStart weekStart = Monday, bool? disabled = null, bool? open = null, bool? defaultOpen = null, Side side = Bottom, Align align = Start, string[] triggerStyle = null, string[] contentStyle = null, string[] calendarStyle = null, string[] headerStyle = null, string[] weekdayStyle = null, string[] dayStyle = null, string[] daySelectedStyle = null, string[] dayTodayStyle = null, string[] dayOutsideStyle = null, string[] dayDisabledStyle = null, string[] navButtonStyle = null, string[] titleStyle = null, string[] gridStyle = null, string[] rowStyle = null, string[] rootStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Func<bool?, Task> onOpenChange = null, string file = "", int line = 0)
+  // Which physical camera to prefer when starting the capture. Maps to the W3C MediaStream facingMode constraint and is treated as an "ideal" hint — the browser falls back to whatever camera is available if the requested side does not exist (e.g. desktops without a rear camera).
+  enum CameraFacing
+    User
+    Environment
   // Options for capturing an image from the client's camera.
   sealed class CaptureImageActionOptions : ActionOptions, IEquatable<CaptureImageActionOptions>
     ctor()
@@ -565,15 +573,23 @@ namespace Ikon.Parallax.Components.Standard
     ClientImageCaptureFormat? Format { get; init; }
     // Desired image height in pixels.
     int? Height { get; init; }
+    // How the capture is presented (native OS camera UI vs. headless silent grab). Defaults to — silent webcam capture via getUserMedia, which works uniformly on desktop and mobile. Set to to opt in to the OS camera app on phones (preview + shutter + front/back toggle); on desktop browsers Native transparently falls back to the headless path because the web platform doesn't expose a camera-app launch.
+    CaptureImageMode? Mode { get; init; }
     // Image quality (0.0 to 1.0) for lossy formats.
     double? Quality { get; init; }
     // Desired image width in pixels.
     int? Width { get; init; }
-  // Hardware constraints for image capture.
+  // Hardware constraints for image capture. Applied directly when is . In mode only is honored (mapped to the file input's capture attribute); the OS camera UI ignores other constraints.
   sealed class CaptureImageConstraints : IEquatable<CaptureImageConstraints>
     ctor()
-    // Preferred camera device ID.
+    // Preferred camera device ID. Headless mode only.
     string DeviceId { get; init; }
+    // Preferred camera side (front vs. rear). Most useful on phones where opens the rear camera by default. On desktops with only a webcam this is ignored.
+    CameraFacing? FacingMode { get; init; }
+  // How the image capture is presented to the user. Controls whether the OS camera UI is invoked or whether the capture happens silently.
+  enum CaptureImageMode
+    Native
+    Headless
   // Alignment of slides relative to the carousel viewport.
   enum CarouselAlign
     Start
@@ -593,6 +609,10 @@ namespace Ikon.Parallax.Components.Standard
     Action<UIView> Content { get; init; }
     // Optional stable key used for diffing.
     string Key { get; init; }
+  // Extension methods for the ChatLog primitive — the canonical chat-bubble layout shape: header + scrolling auto-scrolled body + composer. Wraps with chat-friendly defaults so callers don't have to remember to set autoScroll: true.
+  static class ChatLogExtensions
+    // Renders a chat-style scrolling region: an optional pinned header (e.g. "Conversation"), a scrollable body that auto-scrolls to the bottom on change, and an optional pinned footer (typically the input row).
+    static void ChatLog(UIView view, int messageCount, string[] style = null, Action<UIView> header = null, Action<UIView> footer = null, Action<UIView> content = null, string styleId = null, string key = null, string file = "", int line = 0)
   // Represents the checked state for checkbox-like components.
   enum CheckedState
     Unchecked
@@ -731,7 +751,7 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for drag and drop components.
   static class DragAndDropExtensions
     // Root context for drag and drop operations.
-    static void DndContext(UIView view, string[] style = null, CollisionDetection collisionDetection = ClosestCenter, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<DragStartArgs, Task> onDragStart = null, Func<DragMoveArgs, Task> onDragMove = null, Func<DragOverArgs, Task> onDragOver = null, Func<DragEndArgs, Task> onDragEnd = null, Func<Task> onDragCancel = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void DndContext(UIView view, string[] style = null, CollisionDetection collisionDetection = ClosestCenter, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<DragStartArgs, Task> onDragStart = null, Func<DragMoveArgs, Task> onDragMove = null, Func<DragOverArgs, Task> onDragOver = null, Func<DragEndArgs, Task> onDragEnd = null, Func<Task> onDragCancel = null, int? activationDistance = null, Action<UIView> content = null, string file = "", int line = 0)
     // Overlay shown while dragging.
     static void DragOverlay(UIView view, string[] style = null, bool? dropAnimation = true, string activeDragId = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
     // Element that can be dragged.
@@ -740,10 +760,12 @@ namespace Ikon.Parallax.Components.Standard
     static void Droppable(UIView view, string[] style = null, string id = null, bool? disabled = null, object data = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
     // Context for sortable list operations.
     static void SortableContext(UIView view, string[] style = null, IReadOnlyList<string> items = null, SortStrategy strategy = VerticalList, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    // Drag handle for a SortableItem. When a SortableHandle descendant is present, only pointerdown on the handle starts a drag; the rest of the item remains free for inner clickable elements like buttons. Place inside a SortableItem (or a SortableList itemContent). Outside a SortableItem the handle renders as a plain container.
+    static void SortableHandle(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
     // Sortable item within a SortableContext.
     static void SortableItem(UIView view, string[] style = null, string id = null, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
     // SortableList component that auto-handles reordering.
-    static void SortableList(UIView view, IReadOnlyList<string> items = null, SortStrategy strategy = VerticalList, CollisionDetection collisionDetection = ClosestCenter, Func<SortableReorderArgs, Task> onReorder = null, Func<DragStartArgs, Task> onDragStart = null, Action<UIView, string> itemContent = null, string[] listStyle = null, string[] itemStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, string file = "", int line = 0)
+    static void SortableList(UIView view, IReadOnlyList<string> items = null, SortStrategy strategy = VerticalList, CollisionDetection collisionDetection = ClosestCenter, Func<SortableReorderArgs, Task> onReorder = null, Func<DragStartArgs, Task> onDragStart = null, Action<UIView, string> itemContent = null, string[] listStyle = null, string[] itemStyle = null, int? activationDistance = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, string file = "", int line = 0)
   // Event args for drag cancel in @dnd-kit.
   sealed class DragCancelArgs : IEquatable<DragCancelArgs>
     // Event args for drag cancel in @dnd-kit.
@@ -935,8 +957,12 @@ namespace Ikon.Parallax.Components.Standard
     static void PasswordToggleFieldInput(UIView view, string[] style = null, string autoComplete = null, string placeholder = null, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, string file = "", int line = 0)
     // Button to toggle password visibility.
     static void PasswordToggleFieldToggle(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    // Two-way bind a TextArea to a in one call. Same shape as the TextField bind overload.
+    static void TextArea(UIView view, Reactive<string> bind, string[] style = null, string placeholder = null, bool? disabled = null, int? rows = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onSubmit = null, Func<Context, Task> onSubmitWithContext = null, bool? clearOnSubmit = null, Action<UIView> content = null, string file = "", int line = 0)
     // Multi-line text input area.
-    static void TextArea(UIView view, string[] style = null, string value = null, string defaultValue = null, string placeholder = null, bool? disabled = null, int? rows = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Func<string, Task> onSubmit = null, Func<Context, Task> onSubmitWithContext = null, bool? clearOnSubmit = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void TextArea(UIView view, string[] style = null, string value = null, string defaultValue = null, string placeholder = null, bool? disabled = null, int? rows = null, bool? autoResize = null, int? maxRows = null, bool? submitOnEnter = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Func<string, Task> onSubmit = null, Func<Context, Task> onSubmitWithContext = null, bool? clearOnSubmit = null, Action<UIView> content = null, string file = "", int line = 0)
+    // Two-way bind a TextField to a in one call — reads bind.Value for the controlled value and writes bind.Value = v on every keystroke. Use this instead of pairing value: bind.Value with a manual onValueChange.
+    static void TextField(UIView view, Reactive<string> bind, string[] style = null, string placeholder = null, bool? disabled = null, string type = null, string step = null, string min = null, string max = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onSubmit = null, bool? clearOnSubmit = null, Action<UIView> content = null, string file = "", int line = 0)
     // Single-line text input field.
     static void TextField(UIView view, string[] style = null, string value = null, string defaultValue = null, string placeholder = null, bool? disabled = null, string type = null, string step = null, string min = null, string max = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Func<string, Task> onSubmit = null, bool? clearOnSubmit = null, Action<UIView> content = null, string file = "", int line = 0)
   // Event args for interact outside events on overlays (combines pointer and focus).
@@ -1316,11 +1342,13 @@ namespace Ikon.Parallax.Components.Standard
   // Defines a tab for use with the Tabs component.
   class TabItem : IEquatable<TabItem>
     // Defines a tab for use with the Tabs component.
-    ctor(string Value, string Label, Action<UIView> Content, bool Disabled = false)
+    ctor(string Value, string Label, Action<UIView> Content, bool Disabled = false, bool ForceMount = false)
     // Builder function for rendering the tab's content panel.
     Action<UIView> Content { get; init; }
     // When true, prevents user interaction with this tab.
     bool Disabled { get; init; }
+    // When true, the tab's content is mounted in the DOM even when inactive (Radix hides via data-state="inactive"). Use this for heavy panels you want to amortise into initial paint and keep mounted across tab switches; the trade-off is a slower first render and any mount-time effects firing on hidden panels.
+    bool ForceMount { get; init; }
     // Text label displayed on the tab trigger.
     string Label { get; init; }
     // Unique identifier for the tab.
@@ -1493,12 +1521,15 @@ namespace Ikon.Parallax.Themes.Ikon
   static class Button
     static string Base
     static string Default
+    static string DefaultLg
+    static string DefaultSm
     static string ErrorLg
     static string ErrorMd
     static string ErrorSm
     static string GhostLg
     static string GhostMd
     static string GhostSm
+    static string Icon
     static string IconLeft
     static string IconRight
     static string InfoLg
@@ -1516,6 +1547,9 @@ namespace Ikon.Parallax.Themes.Ikon
     static string PrimaryLg
     static string PrimaryMd
     static string PrimarySm
+    static string SecondaryLg
+    static string SecondaryMd
+    static string SecondarySm
     static string SolidLg
     static string SolidMd
     static string SolidSm
@@ -1543,6 +1577,7 @@ namespace Ikon.Parallax.Themes.Ikon
     static string Base
     static string Content
     static string Default
+    static string Description
     static string Elevated
     static string Flat
     static string Footer
@@ -1557,6 +1592,7 @@ namespace Ikon.Parallax.Themes.Ikon
     static string Selected
     static string Strong
     static string Subtle
+    static string Title
   static class OnSurface.Card
     static string Caption
     static string Muted
@@ -1658,6 +1694,20 @@ namespace Ikon.Parallax.Themes.Ikon
     static string CellMuted
     static string Default
     static string Header
+  // Resolves a Crosswind class name (color step, radius rung, font role, motion duration / easing) to the underlying CSS value the IkonTheme variables expect. Hex / rem / family-stack passthrough — values that don't look like Crosswind tokens are returned as-is so users can mix in raw hex when they need a custom palette.
+  static class CrosswindResolver
+    // True when a Tailwind palette token represents a "light" step (50-500 inclusive). Used by to pick the auto-derived primary-foreground (dark text on light brand vs. white text on dark brand). Returns null when we can't infer (raw hex, non-palette tokens) — caller falls back to luminance computation.
+    static bool? IsLightPaletteStep(string token)
+    // Resolve a color token (e.g. "amber-400", "zinc-950") to a CSS color expression referencing the corresponding Tailwind palette CSS variable shipped by TailwindCssBaseline. Raw colors (hex, oklch, hsl, rgb, named) pass through unchanged.
+    static string ResolveColor(string token)
+    // Resolve a motion duration token (e.g. "duration-150", "150ms", "0.2s") to a CSS duration literal.
+    static string ResolveDuration(string token)
+    // Resolve an easing token (e.g. "ease-out", "linear") to a CSS easing value. Cubic-bezier expressions and raw keywords pass through unchanged.
+    static string ResolveEasing(string token)
+    // Resolve a font-family token (e.g. "font-sans", "font-serif", or a literal family name) to a quoted CSS font-family stack. Custom family names get a sensible system fallback chain.
+    static string ResolveFontFamily(string token)
+    // Resolve a radius token (e.g. "rounded-lg", "rounded-2xl") to its rem value. Raw rem / px values pass through unchanged.
+    static string ResolveRadius(string token)
   static class DataTable
     static string Cell
     static string DataCell
@@ -1804,9 +1854,13 @@ namespace Ikon.Parallax.Themes.Ikon
     static string Default
   static class Icon
     static string Default
+    static string Lg
+    static string Md
+    static string Sm
     static string Spinner
     static string SpinnerLg
     static string SpinnerSm
+    static string Xs
   static class FileUpload.Icon
     static string Base
     static string Brand
@@ -2115,13 +2169,7 @@ namespace Ikon.Parallax.Themes.Ikon
     static string Left
     static string Right
     static string Top
-  static class Icon.Size
-    static string Lg
-    static string Md
-    static string Sm
-    static string Xs
   static class Button.Size
-    static string Icon
     static string Lg
     static string Md
     static string Sm
@@ -2256,31 +2304,15 @@ namespace Ikon.Parallax.Themes.Ikon
     ctor()
     string Css { get; }
     string DefaultIconLibrary { get; }
-    // Returns a per-project themed . Use this to commit to a brand mood (palette, fonts, radii) at the top of your app file so every component inherits it. See for the available knobs.
-    static ITheme Custom(Action<ThemeBuilder> configure)
-  // Fluent builder for per-project theme overrides. Each setter writes one or more CSS variables that override the base Theme's values via the CSS cascade. Set as few or as many as you need — unset variables keep the base Theme's values.
-  sealed class ThemeBuilder
-    ctor()
-    // Secondary accent color — for badges, chart highlights, the second CTA in a hero. Drives bg-accent, text-accent.
-    ThemeBuilder Accent(string color)
-    // Page background. Drives bg-background + the shadcn --background alias for bracket-syntax users.
-    ThemeBuilder Background(string color)
-    // Primary brand color — drives bg-brand-solid, the primary button background, focus rings, the brand color ramp seed, AND the shorthand --brand / --primary tokens that models trained on shadcn / Radix conventions reach for. Pass any CSS color (hex, hsl, oklch).
-    ThemeBuilder Brand(string color)
-    // Card / surface background. Drives bg-card, bg-popover, and the shadcn --card / --popover aliases for bracket-syntax users.
-    ThemeBuilder Card(string color)
-    // Author a parallel set of tokens for dark mode. The same builder methods (Brand, Background, Foreground, Card, Muted, Accent) re-target a dark-mode selector block matching the default theme convention ([data-theme="dark"]) plus .dark for Tailwind's darkMode: 'class' opt-in and a @media (prefers-color-scheme: dark) fallback so a system-level dark preference applies even before the app sets the attribute. Example: Theme.Custom(b => b .Brand("#7C3AED").Background("#FAFAFA").Foreground("#0A0A12") .Dark(d => d.Brand("#A78BFA").Background("#0A0A12").Foreground("#FAFAFA")));
-    ThemeBuilder Dark(Action<ThemeBuilder> configure)
-    // Body font family. Drives font-body, font-sans.
-    ThemeBuilder FontBody(string family)
-    // Heading font family. Drives font-heading, font-display.
-    ThemeBuilder FontHeading(string family)
-    // Primary text color. Drives text-primary AND text-foreground (the shadcn/Tailwind idiom name) so either utility honors the override. Also exports the shadcn --foreground alias for bracket-syntax users.
-    ThemeBuilder Foreground(string color)
-    // Muted text color. Drives text-muted-foreground, text-tertiary, text-quaternary, and the shadcn --muted-foreground + --muted aliases for bracket-syntax users.
-    ThemeBuilder Muted(string color)
-    // Base border radius. All radius scales (rounded-sm, rounded-md, etc.) are derived from this. Use "0" for sharp, "4px" for modest, "12px" for friendly, "24px" for very friendly.
-    ThemeBuilder RadiusBase(string value)
+  // One named override on an app's theme: a role + Crosswind value, or a free-form custom CSS variable. The codegen Styling Oracle emits a list of these; the CSS renderer walks them.
+  sealed class ThemeIntent : IEquatable<ThemeIntent>
+    // One named override on an app's theme: a role + Crosswind value, or a free-form custom CSS variable. The codegen Styling Oracle emits a list of these; the CSS renderer walks them.
+    ctor(string Role, string Value, string CustomName = null)
+    string CustomName { get; init; }
+    string Role { get; init; }
+    string Value { get; init; }
+    // Theme roles recognized by the renderer. Anything else passes through as a custom variable (in which case must be set and matches the variable name without the leading --).
+    static IReadOnlyList<string> Roles
   static class TimePicker
     static string Column
     static string ColumnSeparator

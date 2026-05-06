@@ -140,8 +140,9 @@ namespace Ikon.Common.Core.Assets
     AssetUri AssetUri { get; }
     AssetMetadata Metadata { get; }
   struct AssetMetadata
-    ctor(string mimeType = null, long? size = null, DateTime? lastModified = null, string url = null, bool? urlIsTemporal = null, string[] tags = null, string internalPath = null, string storageId = null, string nativeUri = null)
+    ctor(string mimeType = null, long? size = null, DateTime? lastModified = null, string url = null, bool? urlIsTemporal = null, string[] tags = null, string internalPath = null, string storageId = null, string nativeUri = null, bool? isAppServed = null)
     string InternalPath { get; }
+    bool? IsAppServed { get; }
     DateTime? LastModified { get; }
     string MimeType { get; }
     string NativeUri { get; }

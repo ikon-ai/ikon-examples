@@ -220,7 +220,11 @@ namespace Ikon.AI.Database
     string BigQueryProjectId { get; set; }
     DatabaseType DatabaseType { get; set; }
     DbConnection DbConnection { get; set; }
+    static DatabaseConnection BigQuery(string projectId, string dataset)
     static Task<DatabaseConnection> CreateAsync(DatabaseConnection.Config config)
+    static DatabaseConnection Postgres(string host, int port, string database, string user, string password)
+    static DatabaseConnection Sqlite(string path)
+    static DatabaseConnection Trino(string host, int port, string catalog, string user, string password)
   class DatabaseInfo
     ctor()
     DatabaseType DatabaseType { get; set; }
@@ -357,6 +361,7 @@ namespace Ikon.AI.ImageGeneration
     ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
     ctor(ImageGeneratorModel model, IReadOnlyList<ModelRegion> regions = null)
     void Dispose()
+    static Task<ImageGeneratorResult> GenerateAsync(string prompt, ImageGeneratorModel model = Gemini25FlashImage, CancellationToken cancellationToken = null)
     Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = null)
     static ImageGeneratorCapabilities GetCapabilities(ImageGeneratorModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ImageGeneratorModel model)
@@ -461,7 +466,7 @@ namespace Ikon.AI.Kernel
     static IAsyncEnumerable<StreamingResult> WithCitationsAsync(IAsyncEnumerable<StreamingResult> source, IdMapper idMapper)
     static IAsyncEnumerable<StreamingResult> WithParsedTagsAsync(IAsyncEnumerable<StreamingResult> source, List<string> tagWhitelist = null, List<string> tagBlacklist = null)
     static IAsyncEnumerable<StreamingResult> WithReasoningFromTagAsync(IAsyncEnumerable<StreamingResult> source, string reasoningTagName)
-    static IAsyncEnumerable<StreamingResult> WithThrottlingAsync(IAsyncEnumerable<StreamingResult> source, int charsPerSecond, int charsPerUpdate)
+    static IAsyncEnumerable<StreamingResult> WithThrottlingAsync(IAsyncEnumerable<StreamingResult> source, int charsPerSecond, int charsPerUpdate, CancellationToken cancellationToken = null)
     static IAsyncEnumerable<StreamingResult> WithWindowedProcessingAsync(IAsyncEnumerable<StreamingResult> source, Func<string, List<StreamingResult>, Task<ValueTuple<bool, List<StreamingResult>>>> processAsync, int windowSize = 0, int windowOverlap = 0)
   struct AudioIdPart : IMessagePart
     ctor(string id)
@@ -483,10 +488,6 @@ namespace Ikon.AI.Kernel
     int PositionIndex { get; }
     int ReferEndIndex { get; }
     int ReferStartIndex { get; }
-  class CompletionTokenUsage
-    ctor(int inputTokens, int outputTokens)
-    int InputTokens { get; }
-    int OutputTokens { get; }
   class FinalModelMessage
     ctor(string text)
     string Text { get; }
@@ -572,7 +573,7 @@ namespace Ikon.AI.Kernel
     static KernelContext Create(IEnumerable<Instruction> instructions = null, IEnumerable<MessageBlock> messages = null, IEnumerable<Function> functions = null, TimeSpan? timeout = null, double? temperature = null, int? maxOutputTokens = null, ReasoningEffort? reasoningEffort = null, int? reasoningTokenBudget = null, bool? useStreaming = null, bool? useJson = null, bool? useCitations = null, bool? useUserNames = null, bool? useAudioOutput = null, string audioOutputVoiceId = null, bool? useCaching = null, bool? disableFunctionCalling = null, bool? discardTextOutputWithFunctionCalls = null, bool? logFullRequest = null, bool? logFullResponse = null, object jsonSchema = null, string gbnfGrammar = null, string toolPlan = null)
     IAsyncEnumerable<StreamingResult> GenerateAsync(ILLM llm, CancellationToken cancellationToken = null)
     KernelContext KeepMessagesMax(int count)
-    IAsyncEnumerable<StreamingResult> RecurseAsync(IAsyncEnumerable<StreamingResult> generator, HashSet<string> alreadyCalledFunctions)
+    IAsyncEnumerable<StreamingResult> RecurseAsync(IAsyncEnumerable<StreamingResult> generator, HashSet<string> alreadyCalledFunctions, CancellationToken cancellationToken = null)
     IAsyncEnumerable<StreamingResult> ReturnFunctionCallAsync(string name, string parametersJson, string callId, string thoughtSignature = "", string reasoningContent = "")
     IAsyncEnumerable<StreamingResult> RunFunctionAsync(string functionName, object[] parameters, CancellationToken cancellationToken = null)
     KernelContext WithFunctions(IEnumerable<Function> functions, bool replaceExisting = false)
@@ -642,6 +643,12 @@ namespace Ikon.AI.Kernel
     ctor(string content)
     string Content { get; }
     MessagePartType Type { get; }
+  class TokenUsage
+    ctor(int inputTokens, int cachedInputTokens, int cacheCreationInputTokens, int outputTokens)
+    int CacheCreationInputTokens { get; }
+    int CachedInputTokens { get; }
+    int InputTokens { get; }
+    int OutputTokens { get; }
   class ToolPlan
     ctor(string text)
     string Text { get; }
@@ -678,6 +685,7 @@ namespace Ikon.AI.LLM
     bool SupportsParallelToolCalling { get; }
     bool SupportsReasoning { get; }
     bool SupportsStreaming { get; }
+    bool SupportsZeroDataRetention { get; }
     bool UsesInlineReasoning { get; }
   sealed class LLM : IDisposable, ILLM, ILLMInfo
     ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
@@ -696,10 +704,12 @@ namespace Ikon.AI.LLM
     bool SupportsReasoning { get; }
     bool SupportsSingleToolCalling { get; }
     bool SupportsStreaming { get; }
+    bool SupportsZeroDataRetention { get; }
     bool UsesInlineReasoning { get; }
     void Dispose()
     IAsyncEnumerable<StreamingResult> GenerateAsync(KernelContext context, CancellationToken cancellationToken = null)
     static LLMCapabilities GetCapabilities(LLMModel model)
+    static LLMCapabilities GetCapabilities(LLMModel model, IReadOnlyList<ModelRegion> regions)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(LLMModel model)
   sealed class LLMCapabilities : ILLMInfo
     ctor()
@@ -716,6 +726,7 @@ namespace Ikon.AI.LLM
     bool SupportsParallelToolCalling { get; init; }
     bool SupportsReasoning { get; init; }
     bool SupportsStreaming { get; init; }
+    bool SupportsZeroDataRetention { get; init; }
     bool UsesInlineReasoning { get; init; }
   enum LLMModel
     Gpt4OmniMini
