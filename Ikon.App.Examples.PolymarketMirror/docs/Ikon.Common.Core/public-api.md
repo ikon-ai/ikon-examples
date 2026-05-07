@@ -574,6 +574,7 @@ namespace Ikon.Common.Core
     static object From(string json, string typeName, bool useJson5 = false, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false)
     static T FromLLMResponse<T>(string text, JsonSerializerOptions options)
     static T FromLLMResponse<T>(string text, bool useJson5 = false, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false, bool caseInsensitive = false)
+    static Type ResolveTypeByName(string typeName)
     static string To<T>(T obj, bool useJson5 = false, bool indentation = true, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false)
   static class JwtHelper
     static string Decode(string token, byte[] key)
