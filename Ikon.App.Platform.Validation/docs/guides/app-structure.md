@@ -141,9 +141,15 @@ All files use `public partial class MyApp` and share the same constructor-inject
 Reduce `using` clutter with a GlobalUsings file:
 
 ```csharp
+global using Ikon.AI.Chat;
 global using Ikon.AI.Emergence;
+global using Ikon.AI.ImageGeneration;
 global using Ikon.AI.Kernel;
 global using Ikon.AI.LLM;
+global using Ikon.AI.SpeechGeneration;
+global using Ikon.AI.SpeechRecognition;
+global using Ikon.AI.WebSearching;
+global using Ikon.AI.WebScraping;
 global using Ikon.App;
 global using Ikon.Common.Core.Reactive;
 global using Ikon.Common.Core.Scope;
@@ -183,6 +189,33 @@ Examples:
 
 - `/s/[sessionId]` - direct session ID, bypasses SessionIdentity calculation
 - Query params (`?key=value`) - mapped to SessionIdentity and ClientParameters
+
+### Anti-patterns — DO NOT use
+
+- `IApp<NoSession, NoClient>` / `IApp<None, None>` / `IApp<,>` — sentinel "no session/client" types **do not exist**. Always declare concrete `record SessionIdentity(...)` and `record ClientParameters(...)` (use empty `()` if you don't need any fields).
+- Implementing `IApp` as an interface (`class MyApp : IApp<S,C>`) — wrong. The `[App]` attribute generates the interface implementation; you only declare a primary constructor `(IApp<S,C> app)` parameter.
+
+## Common hallucinations the C# compiler will reject
+
+When in doubt, prefer the canonical name. These are the recurring wrong names the compiler has rejected — assume the right answer is the one in the right column.
+
+| Wrong (don't write) | Right (real API) | Notes |
+|---|---|---|
+| `Theme.Custom(b => b...)` | `Theming.Apply(brand: "amber-400", ...)` | The fluent builder was removed; `Theming.Apply` is named-args. |
+| `Theming.Custom(...)` | `Theming.Apply(...)` | Same. |
+| `IApp<NoSession, NoClient>` | `IApp<SessionIdentity, ClientParameters>` with concrete records above | `NoSession` / `NoClient` types do not exist. Always declare records — use `record SessionIdentity()` empty if you have nothing. |
+| `Audio.SpeakAsync(text)` | `Audio.SendSpeech(audio)` | Only `SendSpeech` exists. The `audio` argument is an `AudioContainer` from `SpeechGenerator.GenerateSpeechAsync`. |
+| `Audio.Speech` (property) | `new SpeechGenerator(...)` then `Audio.SendSpeech(...)` | No `Speech` property on `Audio`. The full chain is `var gen = new SpeechGenerator(model); await foreach (var chunk in gen.GenerateSpeechAsync(cfg)) Audio.SendSpeech(chunk);`. |
+| `app.PlayAudioAsync(bytes, mime)` | `ClientFunctions.PlaySoundAsync(bytes, mime)` | Audio routes live on the static `ClientFunctions`, not `IApp`. |
+| `Button.Primary` / `Button.Ghost` / `Button.Secondary` | `Button.PrimaryMd` / `Button.GhostMd` / `Button.SecondaryMd` (or `Button.Default`) | All theme constants are size-suffixed. |
+| `Layout.Container` | `Layout.Page` | Doesn't exist. |
+| `Icon.Size.Sm` | `Icon.Sm` | Flattened — no `.Size` segment. |
+| `IView` (parameter type) | `UIView` | `UIView` is a class, not an interface; there is no `IView`. |
+| `pass.User(...)` | `pass.Command = $"..."` | `Command` is a property. |
+| `EmergePass<T>.User` method | `pass.Command` / `pass.SystemPrompt` properties | All pass-config is property assignment. |
+| `Theme.Builder` | `Theming.Apply` | Builder pattern was removed entirely. |
+
+If a compiler error names one of these on the right-hand column, the fix is mechanical: replace the wrong name with the right name. Do not call `guide()` to re-confirm — the compiler is authoritative.
 
 ## Host Services & Lifecycle
 
