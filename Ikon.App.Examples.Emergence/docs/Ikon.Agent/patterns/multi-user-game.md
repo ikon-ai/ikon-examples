@@ -1,123 +1,132 @@
-# Multi-User Game — Per-Client + Shared State
+# Multi-User Game — Host + Players + Per-Client Answers
 
-The mix that makes Ikon's real-time-multi-user shape sing: shared state for the game (current question, scores) + per-client state for each player's pick.
+A real-time multi-user trivia/quiz game (Kahoot-style). One client is the **host** (sees question + reveals); other clients are **players** (see same question, tap an answer, see leaderboard). Mixes shared state (current question, leaderboard) with per-client state (player name, selected answer, has-joined flag).
 
 ## When to use
 
-Trivia game, voting, shared canvas, polls, multiplayer puzzles, lobby + game flow. Anywhere players interact independently while seeing the same world.
+Live trivia, multiplayer quiz, kahoot-style games, party quizzes, classroom quizzes, multi-user voting, crowd-sourced polls. Any app where one client orchestrates and others participate with their own choices visible only to themselves.
 
 ## Snippet
 
 ```csharp
-public sealed record Question(string Prompt, string[] Choices, int CorrectIndex);
+return await App.Run(args);
 
-private readonly Reactive<Question?> _current = new(null);
-private readonly Reactive<int> _round = new(0);
-private readonly Reactive<bool> _revealed = new(false);
-private readonly Reactive<Dictionary<string, int>> _scores = new(new());
-private readonly Reactive<Dictionary<string, int>> _picks = new(new()); // clientId -> pickedIndex
-private readonly ClientReactive<int?> _myPick = new(null);
+// Host detection lives in ClientParams. The host client connects with `?host=true` query param.
+public record SessionIdentity(string Id);
+public record ClientParams(string Id = "", bool Host = false);
 
-private async Task GenerateAsync(string topic)
+[App]
+public partial class LiveQuizApp(IApp<SessionIdentity, ClientParams> app)
 {
-    var (qs, _) = await Emerge.Run<List<Question>>(LLMModel.Claude46Sonnet, new KernelContext(),
-        pass => { pass.Command = $"Generate 5 multiple-choice trivia questions on {topic}."; })
-        .FinalAsync();
-    if (qs is { Count: > 0 })
+    // ── Shared state (all clients see the same values) ──────────────────────
+    private readonly Reactive<GameStage> _stage = new(GameStage.Lobby);
+    private readonly Reactive<int> _questionIndex = new(0);
+    private readonly Reactive<List<Question>> _questions = new([]);
+    private readonly Reactive<List<Player>> _players = new([]);
+
+    // ── Per-client state (each player has their own copy) ───────────────────
+    private readonly ClientReactive<string> _playerName = new("");
+    private readonly ClientReactive<bool> _hasJoined = new(false);
+    private readonly ClientReactive<int?> _selectedAnswer = new((int?)null);
+
+    // ── Server-side bookkeeping (not reactive — used in handlers only) ──────
+    private readonly ConcurrentDictionary<int, int> _playerAnswers = new();  // ClientSessionId → choice
+
+    public async Task Main()
     {
-        _current.Value = qs[0];
-        _round.Value = 0;
+        app.ClientJoinedAsync += OnClientJoinedAsync;   // 1-arg async — never `() =>`
+        app.ClientLeftAsync += OnClientLeftAsync;       // 1-arg async — never `() =>`
+
+        UI.Root([Page.Default], content: RenderUI);
     }
-}
 
-private void Pick(string clientId, int index)
-{
-    if (_revealed.Value) return;
-    var picks = new Dictionary<string, int>(_picks.Value) { [clientId] = index };
-    _picks.Value = picks;
-    _myPick.Value = index;
-}
-
-private void Reveal()
-{
-    _revealed.Value = true;
-    if (_current.Value is { } q)
+    private async Task OnClientJoinedAsync(ClientJoinedEventArgs args)
     {
-        var scores = new Dictionary<string, int>(_scores.Value);
-        foreach (var (clientId, pick) in _picks.Value)
+        // ReactiveScope inside event handlers needs an explicit ClientScope —
+        // args.ClientSessionId is the int identity for this client.
+        using var _ = ReactiveScope.Use(new ClientScope(args.ClientSessionId));
+        // Now ClientReactive<T>.Value reads/writes for THIS specific client.
+    }
+
+    private async Task OnClientLeftAsync(ClientLeftEventArgs args)
+    {
+        var players = _players.Value.ToList();
+        var leaver = players.FirstOrDefault(p => p.ClientId == args.ClientSessionId);
+        if (leaver != null)
         {
-            if (pick == q.CorrectIndex)
-                scores[clientId] = scores.GetValueOrDefault(clientId) + 1;
+            players.Remove(leaver);
+            _players.Value = players;
         }
-        _scores.Value = scores;
+        _playerAnswers.TryRemove(args.ClientSessionId, out _);
+    }
+
+    // Host detection — read parameters of the CURRENT client through the indexer.
+    // ReactiveScope.ClientId is int (not string).
+    private bool IsHost()
+    {
+        var client = app.Clients[ReactiveScope.ClientId];
+        return client?.Parameters.Host == true;
+    }
+
+    private Player? CurrentPlayer() =>
+        _players.Value.FirstOrDefault(p => p.ClientId == ReactiveScope.ClientId);
+
+    private async Task JoinAsync(string name)
+    {
+        var clientId = ReactiveScope.ClientId;
+        var players = _players.Value.ToList();
+
+        if (!players.Any(p => p.ClientId == clientId))
+        {
+            players.Add(new Player(clientId, name, Score: 0));
+            _players.Value = players;
+        }
+        _hasJoined.Value = true;        // per-client reactive — only THIS client's UI flips
+        _playerName.Value = name;
+    }
+
+    private async Task SelectAnswerAsync(int choice)
+    {
+        if (_selectedAnswer.Value != null) return;     // per-client guard — already answered
+        _selectedAnswer.Value = choice;
+        _playerAnswers[ReactiveScope.ClientId] = choice;
+    }
+
+    private async Task HostStartNextQuestionAsync()
+    {
+        // Reset per-client state for everyone by walking the player list.
+        // (Don't iterate `app.Clients` — there is no .All / .Current; use the
+        // shared `_players` list instead, then enter each client's scope.)
+        foreach (var player in _players.Value)
+        {
+            using var _ = ReactiveScope.Use(new ClientScope(player.ClientId));
+            _selectedAnswer.Value = null;
+        }
+        _playerAnswers.Clear();
+        _questionIndex.Value++;
+        _stage.Value = GameStage.Question;
     }
 }
 
-// UI:
-if (_current.Value is { } question)
-{
-    view.Column(["gap-4 p-6"], content: view =>
-    {
-        view.Text(["text-2xl font-semibold"], text: question.Prompt);
-        view.Column(["gap-2"], content: view =>
-        {
-            for (int i = 0; i < question.Choices.Length; i++)
-            {
-                var idx = i;
-                var picked = _myPick.Value == idx;
-                var correct = _revealed.Value && idx == question.CorrectIndex;
-                var wrong = _revealed.Value && picked && idx != question.CorrectIndex;
-                var style = correct ? "bg-success text-success-foreground"
-                          : wrong ? "bg-destructive text-destructive-foreground"
-                          : picked ? "bg-primary/30" : "bg-surface";
-                view.Button(style: [style, "transition-colors duration-150 hover:opacity-90 text-left p-3 rounded-lg"],
-                    disabled: _revealed.Value,
-                    onClick: () => Pick(app.ClientSessionId, idx),
-                    content: v => v.Text(text: question.Choices[idx]));
-            }
-        });
-
-        view.Row(["gap-2"], content: view =>
-        {
-            if (!_revealed.Value)
-            {
-                view.Button(style: [Button.SecondaryMd], onClick: Reveal,
-                    content: v => v.Text(text: "Reveal"));
-            }
-            else
-            {
-                view.Button(style: [Button.Default],
-                    onClick: () => { _round.Value++; _revealed.Value = false; _picks.Value = new(); /* load next question */ },
-                    content: v => v.Text(text: "Next"));
-            }
-        });
-    });
-}
-
-// Leaderboard
-view.Column(["border-t p-4 gap-1"], content: view =>
-{
-    foreach (var (clientId, score) in _scores.Value.OrderByDescending(kv => kv.Value))
-    {
-        view.Row(["gap-3 items-center"], content: v =>
-        {
-            v.Text(["font-mono text-sm flex-1"], text: clientId[..8]);
-            v.Text(["font-semibold"], text: $"{score}");
-        });
-    }
-});
+public enum GameStage { Lobby, Question, Reveal, Leaderboard, GameOver }
+public record Player(int ClientId, string Name, int Score);
+public record Question(string Prompt, string[] Choices, int CorrectIndex);
 ```
 
 ## Notes
 
-- **Shared** (`Reactive<T>`): the question, scores, who picked what (visible to all so the host knows when to reveal). When a client picks, the dictionary mutation triggers a re-render on every connected client.
-- **Per-client** (`ClientReactive<T>`): which choice the local player tapped. Each client has their own value; nobody else sees it.
-- Always **reassign** Reactive dictionaries (`_picks.Value = new Dictionary<string,int>(_picks.Value) { [k] = v }`). Don't mutate in place.
-- The `disabled: _revealed.Value` on choice buttons stops late picks.
-- Per-client correct/wrong feedback is computed from `_revealed && _myPick == correct` — pure derivation, no extra state.
+- **Host detection via `ClientParams.Host`** — the `Host` flag on `ClientParams` is set by query param (`?host=true`). All other clients default to `Host = false`. Don't try to make the first joiner the host; URL-driven role is robust and lets the host reload without losing the role.
+- **`app.ClientJoinedAsync` and `ClientLeftAsync` are 1-arg async handlers** — `async args => { ... }`, never `async () => { ... }`. Wrong arity produces CS1593.
+- **`ReactiveScope.ClientId` is `int`, not `string`.** `app.Clients[id]?.Parameters` is the read path. There is **NO** `app.ClientSessionId`, **NO** `app.ClientParameters`, **NO** `app.Clients.All`, **NO** `IClientCollection.Current`. Inside event handlers, wrap with `using var _ = ReactiveScope.Use(new ClientScope(args.ClientSessionId))` to enter the joining client's scope.
+- **Mix shared + per-client state explicitly.** The current question, players list, and game stage are `Reactive<T>` (everyone sees same value). Each player's name, has-joined state, and selected answer are `ClientReactive<T>` (each client sees their own). Trying to make a single `Reactive<Dictionary<int, T>>` work for per-client state defeats the purpose — `ClientReactive<T>` auto-scopes for free.
+- **Server-side bookkeeping uses `ConcurrentDictionary<int, …>`** keyed by `ClientSessionId` — for state that doesn't need to be reactive (vote tallies, timestamps, internal counters). Only push to `Reactive`/`ClientReactive` when the UI needs to refresh.
+- **Don't iterate `app.Clients` to reset per-client state.** `IClientCollection<T>` exposes only `Count` and the indexer. To touch every client's `ClientReactive` value, walk your shared `_players` list and `ReactiveScope.Use(new ClientScope(p.ClientId))` per entry.
+- **`Reactive<T>` constructor must take an explicit initial value** — `new Reactive<List<Player>>([])`, `new Reactive<int>(0)`, `new ClientReactive<int?>((int?)null)`. Bare `new Reactive<T>()` produces CS0121 ambiguous-call.
+- **Game flow as a state machine via `Reactive<GameStage>`**: Lobby → Question → Reveal → Leaderboard → (next round or GameOver). UI branches on `_stage.Value`; transitions happen in host-only handlers.
 
 ## See also
 
-- `reactive-state` (top-level guide) — full lifecycle of Reactive vs ClientReactive vs UserReactive.
-- `chatbot-streaming` — single-LLM-call pattern, simpler state.
-- `kanban-multi-column` — also uses shared lists, not games.
+- `chatbot-streaming` — the single-LLM-conversation single-client variant.
+- `kanban-multi-column` — shared state with mutation buttons (no host role).
+- `app-structure` (top-level guide) — `[App]`, partial class, `IApp<TSessionIdentity, TClientParameters>`, ClientParameters via query-param.
+- `reactive-state` (top-level guide) — `Reactive<T>` vs `ClientReactive<T>` mechanics, `ReactiveScope.Use` pattern.
