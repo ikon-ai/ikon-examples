@@ -170,15 +170,23 @@ namespace Ikon.Common.Core.Reactive
     IReadOnlyList<PersistedRegistration> GetPersistedRegistrations()
     void LoadHotReloadStates(Dictionary<string, StoredReactiveState> states)
     void Register(string stableId, IReactiveWithState reactive, PersistenceScope persistence, PersistenceBackend backend = Private, string postgresDatabase = null)
+    bool TryGet(string stableId, out IReactiveWithState reactive)
   interface IPersistedReactive : IReactiveWithState
     abstract void SetPublicUrl(string url)
   interface IReactive
     long Version { get; }
     event Action Changed
+    event Action<int> SessionChanged
   interface IReactiveWithState
+    int CurrentScopeSessionId { get; }
     string StableId { get; }
     abstract StoredReactiveState CaptureState()
+    virtual string ReadCurrentValueAsJson()
     abstract void RestoreState(StoredReactiveState state)
+  static class MountReactive
+    static MountReactive<T> Create<T>(Func<string, T> factory, string file = "", string member = "")
+  class MountReactive<T> : Reactive<T, MountScope>
+    ctor(T initialValue, string file = "", string member = "")
   sealed class PersistedRegistration
     ctor(string stableId, IReactiveWithState reactive, PersistenceScope persistence, PersistenceBackend backend, string postgresDatabase)
     PersistenceBackend Backend { get; }
@@ -242,6 +250,8 @@ namespace Ikon.Common.Core.Reactive
     static int ClientId { get; }
     static int? ClientIdOrNull { get; }
     static IList<IScopeKey> Current { get; }
+    static string MountId { get; }
+    static string MountIdOrNull { get; }
     static string UserId { get; }
     static string UserIdOrNull { get; }
     static void Add(IScopeKey scope)
@@ -256,18 +266,31 @@ namespace Ikon.Common.Core.Reactive
     static IDisposable Activate(IReadOnlyList<IScopeKey> scopes)
     static IScopeKey[] CaptureCurrent()
     static IScopeKey[] CopyInRestorableOrder(IList<IScopeKey> scopes)
+  sealed class ReactiveSubscriptionService : AsyncLocalInstance<ReactiveSubscriptionService>
+    ctor()
+    Func<int, IReadOnlyList<IScopeKey>> ScopeResolver { get; set; }
+    void AttachTo(FunctionRegistry registry)
+    void RemoveSession(int sessionId)
+    string Subscribe(string stableId, string mountId)
+    void Unsubscribe(string stableId, string mountId)
+    static string SubscribeFunctionName
+    static string UnsubscribeFunctionName
+    static string UpdateFunctionName
   class Reactive<T> : IReactive, IReactiveWithState
     ctor(UseDefault _ = null, string file = "", string member = "")
     ctor(T initialValue, string file = "", string member = "")
+    int CurrentScopeSessionId { get; }
     T Peek { get; }
     string StableId { get; }
     T Value { get; set; }
     long Version { get; }
     StoredReactiveState CaptureState()
     void NotifyUpdate()
+    string ReadCurrentValueAsJson()
     void RestoreState(StoredReactiveState state)
     override string ToString()
     event Action Changed
+    event Action<int> SessionChanged
     event Action<T> ValueChanged
     event Func<T, Task> ValueChangedAsync
   class Reactive<T, TScope> : Reactive<T> where TScope : IScopeKey
@@ -280,6 +303,7 @@ namespace Ikon.Common.Core.Reactive
     long Version { get; }
     void NotifyUpdate()
     event Action Changed
+    event Action<int> SessionChanged
     event Action<T> ValueChanged
     event Func<T, Task> ValueChangedAsync
   class StoredReactiveState
@@ -314,6 +338,11 @@ namespace Ikon.Common.Core.Scope
   interface IScopeKey
     object Id { get; }
     string Name { get; }
+  struct MountScope : IScopeKey
+    ctor(string mountId)
+    string Id { get; }
+    string Name { get; }
+    static string DefaultMountId
   struct OperationScope : IScopeKey
     ctor()
     ctor(Guid id)
