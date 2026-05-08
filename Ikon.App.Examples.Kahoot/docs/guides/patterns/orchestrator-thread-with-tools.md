@@ -1,7 +1,7 @@
 <!-- mined-from: Oiva.Agent -->
-# Mind + Thread With Tools — Per-App Agent With Domain Tools
+# Orchestrator + Thread With Tools — Per-App Agent With Domain Tools
 
-Wire `Mind.Create` with one `Agent` (system prompt + brain) and a set of `b.AddToolAsync` registrations that are just C# methods returning strings. Create a single thread on app start, then subscribe to `_mind.Events()` to fan `MessageAppended` and `ToolCallPlanned` events into reactive UI state. User messages go through `Threads.AppendMessageAsync` followed by a `TransitionAsync` whose enum varies by current `ThreadStatus`.
+Wire `Orchestrator.Create` with one `Agent` (system prompt + brain) and a set of `b.AddToolAsync` registrations that are just C# methods returning strings. Create a single thread on app start, then subscribe to `_mind.Events()` to fan `MessageAppended` and `ToolCallPlanned` events into reactive UI state. User messages go through `Threads.AppendMessageAsync` followed by a `TransitionAsync` whose enum varies by current `ThreadStatus`.
 
 ## When to use
 
@@ -17,10 +17,10 @@ private async Task InitializeMindAsync()
         Name = "oiva",
         SystemPrompt = "You are Oiva — a building maintenance assistant. " +
                        "Use the tools to ground every claim. Reply briefly.",
-        Brain = AgentBrain.Standard,
+        Reasoning = Reasoning.Standard,
     };
 
-    _mind = await Mind.Create(b =>
+    _mind = await Orchestrator.Create(b =>
     {
         b.WithMemoryStorage().AddAgent(agent);
         b.AddToolAsync<string, string>("search_building",
@@ -79,7 +79,7 @@ private async Task PostUserMessageAsync(string text)
 
 ## Notes
 
-- One `Agent` per app role. Multiple agents in one Mind is for multi-role orchestration, not the common case.
+- One `Agent` per app role. Multiple agents in one Orchestrator is for multi-role orchestration, not the common case.
 - Tools return strings (often pre-formatted multi-line text) — the LLM is happy to re-summarize them.
 - Subscribe to `_mind.Events()` on app start, not per-render — render only reads `_chatTurns.Value`.
 - The transition table on user-message-post is needed because the thread can be in any status; using `Reactivate` blindly will fail for `WaitingForInput`.

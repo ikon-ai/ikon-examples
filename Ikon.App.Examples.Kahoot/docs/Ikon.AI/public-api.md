@@ -617,7 +617,7 @@ namespace Ikon.AI.Kernel
     ctor(string url)
     MessagePartType Type { get; }
     string Url { get; }
-  class Reasoning
+  class ReasoningBlock
     ctor(string text)
     string Text { get; }
   enum ReasoningEffort
