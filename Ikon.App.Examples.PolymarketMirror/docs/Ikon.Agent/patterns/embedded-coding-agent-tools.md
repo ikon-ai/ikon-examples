@@ -57,5 +57,5 @@ private void RegisterTools(EmergePass<AgentResponse> pass)
 
 ## See also
 
-- `mind-thread-with-tools`
+- `orchestrator-thread-with-tools`
 - `chat-with-tool-calls`
