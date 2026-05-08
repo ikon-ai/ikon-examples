@@ -86,4 +86,4 @@ foreach (var log in state.Logs.Value.TakeLast(100))
 
 - `streaming-agent-status`
 - `agent-streaming-with-tool-status`
-- `mind-thread-with-tools`
+- `orchestrator-thread-with-tools`

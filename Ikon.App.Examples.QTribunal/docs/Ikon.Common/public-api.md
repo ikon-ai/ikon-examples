@@ -64,7 +64,7 @@ namespace Ikon.Common
     static IEnumerable<string> EnumerateCsprojFiles(string rootDirectory, int maxDepth = 3)
     static AppProjectUtils.AppDiscoveryResult FindAppTypeInAssembly(string dllPath)
     static string FindBestProjectFilePath(string targetDirectory)
-    static string FindIkonPlatformDotnetRoot(string startDirectory)
+    static string FindIkonPlatformDotnetRoot(string startDirectory, bool includeSibling = false)
     static string FindIkonPlatformRepoRoot(string startDirectory)
     static string FindIkonPlatformSlnx(string startDirectory)
     static Task GenerateTsconfigPathsJsonAsync(string frontendNodeDirectory)
