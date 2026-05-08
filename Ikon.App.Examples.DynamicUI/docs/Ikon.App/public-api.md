@@ -34,6 +34,7 @@ namespace Ikon.App
     string DataDirectory { get; }
     IReadOnlyList<DatabaseConnectionInfo> Databases { get; }
     int MaxMemoryLimitMb { get; }
+    Reactive<IReadOnlyList<string>> Mounts { get; }
     Navigation Navigation { get; }
     ReactiveGlobalState ReactiveGlobalState { get; }
     ReactiveRoot ReactiveRoot { get; }
@@ -52,6 +53,7 @@ namespace Ikon.App
     string DataDirectory { get; }
     IReadOnlyList<DatabaseConnectionInfo> Databases { get; }
     int MaxMemoryLimitMb { get; }
+    Reactive<IReadOnlyList<string>> Mounts { get; }
     Navigation Navigation { get; }
     ReactiveGlobalState ReactiveGlobalState { get; }
     ReactiveRoot ReactiveRoot { get; }
@@ -392,6 +394,7 @@ namespace Ikon.App
     IReadOnlyList<DatabaseConnectionInfo> Databases { get; }
     GlobalState GlobalState { get; }
     int MaxMemoryLimitMb { get; }
+    Reactive<IReadOnlyList<string>> Mounts { get; }
     Navigation Navigation { get; }
     ReactiveGlobalState ReactiveGlobalState { get; }
     ReactiveRoot ReactiveRoot { get; }
