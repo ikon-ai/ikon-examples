@@ -147,6 +147,8 @@ namespace Ikon.Common.Core.Functions
     object TypeId { get; }
     FunctionVisibility Visibility { get; set; }
     bool Webhook { get; set; }
+  static class FunctionCallContext
+    static int? CallerSessionId { get; }
   struct FunctionParameter
     ctor(int index, string name, string description, Type type, bool hasDefaultValue, object defaultValue, IReadOnlyList<string> allowedValues = null)
     ctor(int index, string name, string description, string typeName, bool hasDefaultValue, object defaultValue, IReadOnlyList<string> allowedValues = null)

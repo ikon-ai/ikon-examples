@@ -1391,6 +1391,12 @@ namespace Ikon.Parallax.Components.Standard
   enum ToastType
     Foreground
     Background
+  // Extension methods for the DOM-virtualized scroll containers and . Items outside the visible window plus an overscan buffer have their content children skipped at the React layer (the wrapper still occupies space via fixed dimensions), so DOM size scales with viewport, not itemCount.
+  static class VirtualListExtensions
+    // DOM-virtualized scrollable grid. Items are laid out in a fixed number of columns and rows outside the visible window are not mounted in the DOM.
+    static void VirtualGrid(UIView view, int itemCount, int columns, double rowHeight, Action<UIView, int> onRenderItem, int overscan = 2, int gap = 12, int? minItemWidthPx = null, int? maxColumns = null, double? aspectRatio = null, string resetScrollKey = null, Func<double, Task> onNearEnd = null, int nearEndThresholdRows = 2, string[] style = null, string[] itemStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, string file = "", int line = 0)
+    // DOM-virtualized vertical list with fixed item height. Renders only items inside the visible window plus an overscan buffer.
+    static void VirtualList(UIView view, int itemCount, double itemHeight, Action<UIView, int> onRenderItem, int overscan = 4, Func<double, Task> onNearEnd = null, int nearEndThreshold = 5, string[] style = null, string[] itemStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, string file = "", int line = 0)
   // Day of the week used as the first column in the calendar grid.
   enum WeekStart
     Sunday
