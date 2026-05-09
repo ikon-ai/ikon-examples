@@ -24,6 +24,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         "files", "assets", "actions",
         "video", "audio", "rive", "shadertoy",
         "ikon-ai",
+        "virtualization", "drawing", "resizable-split",
         "profiling", "memory", "identity", "functions"
     ];
 
@@ -260,6 +261,8 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     // Split layout demos
     private readonly Reactive<bool> _splitSidebarOpen = new(true);
     private readonly Reactive<double> _resizableSplitSize = new(224);
+    private readonly Reactive<double> _resizableNestedOuterSize = new(320);
+    private readonly Reactive<double> _resizableNestedInnerSize = new(140);
 
     // Card selected demo
     private readonly Reactive<string> _selectedCardId = new("card-2");
@@ -426,6 +429,8 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             new TabItem("rive", "Rive", RenderRiveSection),
                             new TabItem("shadertoy", "Shadertoy", RenderShadertoySection),
                             new TabItem("ikon-ai", "Ikon.AI Library", RenderIkonAISection, ForceMount: true),
+                            new TabItem("virtualization", "Virtualization", RenderVirtualizationSection),
+                            new TabItem("drawing", "Drawing", RenderDrawingSection),
                             new TabItem("profiling", "Profiling", RenderProfilingSection),
                             new TabItem("memory", "Memory", RenderMemorySection),
                             new TabItem("identity", "Identity", RenderIdentitySection),

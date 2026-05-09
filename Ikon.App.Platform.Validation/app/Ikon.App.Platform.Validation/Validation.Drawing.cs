@@ -1,0 +1,190 @@
+public partial class Validation
+{
+    private readonly Reactive<string> _drawingTool = new("brush");
+    private readonly Reactive<string> _drawingBrushColor = new("#ef4444");
+    private readonly Reactive<int> _drawingBrushWidth = new(8);
+    private readonly Reactive<double> _drawingZoom = new(1.0);
+    private readonly Reactive<int> _drawingTriggerSave = new(0);
+    private readonly Reactive<int> _drawingTriggerUndo = new(0);
+    private readonly Reactive<int> _drawingTriggerRedo = new(0);
+    private readonly Reactive<string?> _drawingSavedImage = new(null);
+    private readonly Reactive<bool> _drawingCanUndo = new(false);
+    private readonly Reactive<bool> _drawingCanRedo = new(false);
+    private readonly Reactive<string> _drawingSourceUrl = new("https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900");
+
+    private static readonly (string Url, string Label)[] DrawingSources =
+    [
+        ("https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900", "Landscape"),
+        ("https://images.unsplash.com/photo-1518770660439-4636190af475?w=900", "Tech"),
+        ("https://images.unsplash.com/photo-1554080353-a576cf803bda?w=900", "Wide aspect"),
+        ("https://images.unsplash.com/photo-1517816743773-6e0fd518b4a6?w=600&h=800&fit=crop", "Portrait")
+    ];
+
+    private static readonly string[] DrawingPalette =
+    [
+        "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#a855f7", "#ec4899", "#000000", "#ffffff"
+    ];
+
+    private static readonly (string Tool, string Icon, string Label)[] DrawingTools =
+    [
+        ("brush", "brush", "Brush"),
+        ("eraser", "eraser", "Eraser"),
+        ("text", "type", "Text"),
+        ("arrow", "move-up-right", "Arrow"),
+        ("region", "square-dashed", "Region")
+    ];
+
+    private static readonly int[] DrawingBrushSizes = [2, 4, 8, 16, 32, 48, 64];
+
+    private void RenderDrawingSection(UIView view)
+    {
+        view.Column([Layout.Column.Lg, "p-6"], content: section =>
+        {
+            section.Text([Text.H3], "Image Editor Canvas");
+            section.Text([Text.Body, "text-secondary"],
+                "ImageEditorCanvas exposes brush, eraser, text, arrow, and region tools with zoom, undo/redo, and save triggers.");
+
+            section.Box([Card.Default, "p-3"], content: toolbar =>
+            {
+                toolbar.Column(["gap-2"], content: rows =>
+                {
+                    // Row 1: tools
+                    rows.Row([Layout.Row.Xs, "flex flex-wrap items-center gap-1"], content: toolsRow =>
+                    {
+                        foreach (var (toolId, icon, label) in DrawingTools)
+                        {
+                            var captured = toolId;
+                            var active = _drawingTool.Value == toolId;
+                            toolsRow.Button([active ? Button.SolidSm : Button.NeutralSm, "gap-1.5"],
+                                label: label,
+                                icon: icon,
+                                onClick: async () => _drawingTool.Value = captured);
+                        }
+                    });
+
+                    // Row 2: brush size + colors
+                    rows.Row(["flex flex-row flex-wrap items-center gap-3"], content: row2 =>
+                    {
+                        row2.Row([Layout.Row.Xs, "items-center gap-1"], content: brushRow =>
+                        {
+                            brushRow.Text([Text.Caption, "text-tertiary whitespace-nowrap mr-1"], "Brush");
+                            foreach (var size in DrawingBrushSizes)
+                            {
+                                var captured = size;
+                                var active = _drawingBrushWidth.Value == size;
+                                brushRow.Button([active ? Button.SolidSm : Button.NeutralSm],
+                                    label: $"{size}",
+                                    onClick: async () => _drawingBrushWidth.Value = captured);
+                            }
+                        });
+
+                        row2.Box(["w-px h-8 bg-secondary"]);
+
+                        row2.Row(["items-center gap-1"], content: paletteRow =>
+                        {
+                            foreach (var color in DrawingPalette)
+                            {
+                                var captured = color;
+                                var active = _drawingBrushColor.Value == color;
+                                paletteRow.Box([$"w-7 h-7 rounded-full border border-secondary cursor-pointer hover:scale-110 transition-transform bg-[{captured}] {(active ? "ring-2 ring-brand ring-offset-2" : "")}"],
+                                    onClick: async () => _drawingBrushColor.Value = captured);
+                            }
+                        });
+                    });
+
+                    // Row 3: zoom + history + save
+                    rows.Row(["flex flex-row flex-wrap items-center gap-3"], content: row3 =>
+                    {
+                        row3.Row([Layout.Row.Xs, "items-center gap-1"], content: zoomRow =>
+                        {
+                            zoomRow.Button([Button.NeutralSm, Button.Icon], label: "Zoom out",
+                                onClick: async () => _drawingZoom.Value = Math.Max(0.5, _drawingZoom.Value - 0.25),
+                                content: b => b.Icon([Icon.Default], name: "minus"));
+                            zoomRow.Text([Text.Caption, "text-tertiary w-12 text-center"], $"{_drawingZoom.Value:0.0}×");
+                            zoomRow.Button([Button.NeutralSm, Button.Icon], label: "Zoom in",
+                                onClick: async () => _drawingZoom.Value = Math.Min(4.0, _drawingZoom.Value + 0.25),
+                                content: b => b.Icon([Icon.Default], name: "plus"));
+                            zoomRow.Button([Button.NeutralSm], label: "1×",
+                                onClick: async () => _drawingZoom.Value = 1.0);
+                        });
+
+                        row3.Box(["w-px h-8 bg-secondary"]);
+
+                        row3.Row([Layout.Row.Xs, "items-center gap-1"], content: histRow =>
+                        {
+                            histRow.Button([Button.NeutralSm, Button.Icon], label: "Undo",
+                                disabled: !_drawingCanUndo.Value,
+                                onClick: async () => _drawingTriggerUndo.Value = _drawingTriggerUndo.Value + 1,
+                                content: b => b.Icon([Icon.Default], name: "undo-2"));
+                            histRow.Button([Button.NeutralSm, Button.Icon], label: "Redo",
+                                disabled: !_drawingCanRedo.Value,
+                                onClick: async () => _drawingTriggerRedo.Value = _drawingTriggerRedo.Value + 1,
+                                content: b => b.Icon([Icon.Default], name: "redo-2"));
+                        });
+
+                        row3.Box(["w-px h-8 bg-secondary"]);
+
+                        row3.Button([Button.SolidSm, "gap-1.5"], label: "Save", icon: "save",
+                            onClick: async () => _drawingTriggerSave.Value = _drawingTriggerSave.Value + 1);
+                    });
+
+                    // Row 4: source
+                    rows.Row([Layout.Row.Xs, "flex flex-wrap items-center gap-1"], content: srcRow =>
+                    {
+                        srcRow.Text([Text.Caption, "text-tertiary whitespace-nowrap mr-1"], "Source");
+                        foreach (var (url, label) in DrawingSources)
+                        {
+                            var captured = url;
+                            var active = _drawingSourceUrl.Value == url;
+                            srcRow.Button([active ? Button.SolidSm : Button.NeutralSm], label: label,
+                                onClick: async () => _drawingSourceUrl.Value = captured);
+                        }
+                    });
+                });
+            });
+
+            section.Box([Card.Default, "p-2 h-[600px] w-full overflow-hidden"], content: canvasBox =>
+            {
+                canvasBox.ImageEditorCanvas(
+                    style: ["w-full h-full"],
+                    src: _drawingSourceUrl.Value,
+                    tool: _drawingTool.Value,
+                    brushColor: _drawingBrushColor.Value,
+                    brushWidth: _drawingBrushWidth.Value,
+                    zoom: _drawingZoom.Value,
+                    triggerSave: _drawingTriggerSave.Value,
+                    triggerUndo: _drawingTriggerUndo.Value,
+                    triggerRedo: _drawingTriggerRedo.Value,
+                    onSave: async args =>
+                    {
+                        _drawingSavedImage.Value = args.ImageData;
+                    },
+                    onHistoryChange: async args =>
+                    {
+                        _drawingCanUndo.Value = args.CanUndo;
+                        _drawingCanRedo.Value = args.CanRedo;
+                    },
+                    key: $"drawing-canvas-{_drawingSourceUrl.Value}");
+            });
+
+            if (_drawingSavedImage.Value != null)
+            {
+                section.Box([Card.Default, "p-3"], content: savedCard =>
+                {
+                    savedCard.Column([Layout.Column.Sm], content: c =>
+                    {
+                        c.Row([Layout.Row.SpaceBetween, "items-center"], content: header =>
+                        {
+                            header.Text([Text.Label], "Last saved image");
+                            header.Button([Button.GhostSm],
+                                onClick: async () => _drawingSavedImage.Value = null,
+                                content: b => b.Icon([Icon.Default, "w-3.5 h-3.5"], name: "x"));
+                        });
+                        c.Image(["max-h-32 w-auto rounded-md border border-secondary"],
+                            src: _drawingSavedImage.Value!, alt: "Saved");
+                    });
+                });
+            }
+        });
+    }
+}

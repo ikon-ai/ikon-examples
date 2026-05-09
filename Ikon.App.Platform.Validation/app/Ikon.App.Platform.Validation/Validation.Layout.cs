@@ -807,6 +807,53 @@ public partial class Validation
                                 });
                         });
                     });
+
+                    view.Column([Layout.Column.Sm], content: view =>
+                    {
+                        view.Text([Text.H3], "Nested");
+                        view.Text([Text.Caption, "mb-3"], $"Outer {(int)_resizableNestedOuterSize.Value}px, inner {(int)_resizableNestedInnerSize.Value}px");
+                        view.Box(["h-96 rounded-lg overflow-hidden border border-secondary"], content: view =>
+                        {
+                            view.ResizableSplit(
+                                orientation: Orientation.Horizontal,
+                                initialSize: _resizableNestedOuterSize.Value,
+                                minSize: 200,
+                                maxSize: 600,
+                                onResized: async w => _resizableNestedOuterSize.Value = w,
+                                style: [ResizableSplit.Root, "h-full"],
+                                first: view =>
+                                {
+                                    view.Box(["bg-surface p-3 h-full"], content: view =>
+                                    {
+                                        view.Text([Text.Caption, "text-tertiary"], "Outer first");
+                                    });
+                                },
+                                second: outer =>
+                                {
+                                    outer.ResizableSplit(
+                                        orientation: Orientation.Vertical,
+                                        initialSize: _resizableNestedInnerSize.Value,
+                                        minSize: 60,
+                                        maxSize: 320,
+                                        onResized: async h => _resizableNestedInnerSize.Value = h,
+                                        style: [ResizableSplit.Root, "h-full"],
+                                        first: view =>
+                                        {
+                                            view.Box(["bg-card p-3 h-full"], content: view =>
+                                            {
+                                                view.Text([Text.Caption, "text-tertiary"], "Inner top");
+                                            });
+                                        },
+                                        second: view =>
+                                        {
+                                            view.Box(["bg-surface p-3 h-full"], content: view =>
+                                            {
+                                                view.Text([Text.Caption, "text-tertiary"], "Inner bottom");
+                                            });
+                                        });
+                                });
+                        });
+                    });
                 });
             });
 

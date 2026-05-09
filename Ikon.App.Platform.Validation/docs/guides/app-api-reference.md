@@ -42,6 +42,7 @@ namespace Ikon.App
     string DataDirectory { get; }
     IReadOnlyList<DatabaseConnectionInfo> Databases { get; }
     int MaxMemoryLimitMb { get; }
+    Reactive<IReadOnlyList<string>> Mounts { get; }
     Navigation Navigation { get; }
     ReactiveGlobalState ReactiveGlobalState { get; }
     ReactiveRoot ReactiveRoot { get; }
@@ -60,6 +61,7 @@ namespace Ikon.App
     string DataDirectory { get; }
     IReadOnlyList<DatabaseConnectionInfo> Databases { get; }
     int MaxMemoryLimitMb { get; }
+    Reactive<IReadOnlyList<string>> Mounts { get; }
     Navigation Navigation { get; }
     ReactiveGlobalState ReactiveGlobalState { get; }
     ReactiveRoot ReactiveRoot { get; }
@@ -400,6 +402,7 @@ namespace Ikon.App
     IReadOnlyList<DatabaseConnectionInfo> Databases { get; }
     GlobalState GlobalState { get; }
     int MaxMemoryLimitMb { get; }
+    Reactive<IReadOnlyList<string>> Mounts { get; }
     Navigation Navigation { get; }
     ReactiveGlobalState ReactiveGlobalState { get; }
     ReactiveRoot ReactiveRoot { get; }
@@ -665,7 +668,7 @@ namespace Ikon.Common
     static IEnumerable<string> EnumerateCsprojFiles(string rootDirectory, int maxDepth = 3)
     static AppProjectUtils.AppDiscoveryResult FindAppTypeInAssembly(string dllPath)
     static string FindBestProjectFilePath(string targetDirectory)
-    static string FindIkonPlatformDotnetRoot(string startDirectory)
+    static string FindIkonPlatformDotnetRoot(string startDirectory, bool includeSibling = false)
     static string FindIkonPlatformRepoRoot(string startDirectory)
     static string FindIkonPlatformSlnx(string startDirectory)
     static Task GenerateTsconfigPathsJsonAsync(string frontendNodeDirectory)
