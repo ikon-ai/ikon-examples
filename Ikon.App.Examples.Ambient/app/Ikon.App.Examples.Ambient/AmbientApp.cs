@@ -30,6 +30,9 @@ public class AmbientApp
     private readonly Reactive<bool> _showCreateForm = new(false);
     private readonly Reactive<string> _createDescription = new("");
     private readonly Reactive<bool> _isCreating = new(false);
+    private readonly Reactive<Dictionary<string, string>> _thumbnailUrls = new(new Dictionary<string, string>());
+    private readonly Reactive<int> _featuredIndex = new(0);
+    private readonly Reactive<int?> _hoveredIndex = new(null);
 
     private record VideoVersion(string Name, string Url);
     private readonly Dictionary<string, List<VideoVersion>> _videoVersionsCache = new();
@@ -399,9 +402,82 @@ public class AmbientApp
         }
     }
 
+    private async Task PreloadThumbnailsAsync()
+    {
+        var experiences = GetAllExperiences();
+        var map = new Dictionary<string, string>(_thumbnailUrls.Value);
+        var upscaled = new HashSet<string>();
+
+        foreach (var exp in experiences)
+        {
+            if (map.ContainsKey(exp.VideoPrompt))
+            {
+                continue;
+            }
+
+            try
+            {
+                var versions = await GetCachedVideoVersions(exp.VideoPrompt);
+
+                if (versions != null && versions.Count > 0)
+                {
+                    var best = versions.FirstOrDefault(v => v.Name == "Upscaled");
+
+                    if (best != null)
+                    {
+                        upscaled.Add(exp.VideoPrompt);
+                    }
+                    else
+                    {
+                        best = versions[^1];
+                    }
+
+                    map[exp.VideoPrompt] = best.Url;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Instance.Warning($"Thumbnail preload failed for {exp.Title}: {ex.Message}");
+            }
+        }
+
+        _thumbnailUrls.Value = map;
+
+        var indexed = experiences.Select((e, i) => (exp: e, idx: i)).ToList();
+
+        // 1. Prefer any experience with a true 4K upscaled version
+        var preferred = indexed.FirstOrDefault(t => upscaled.Contains(t.exp.VideoPrompt));
+
+        if (preferred.exp != null)
+        {
+            _featuredIndex.Value = preferred.idx;
+            return;
+        }
+
+        // 2. Then prefer Desert if it has a cached video
+        var desert = indexed.FirstOrDefault(t =>
+            string.Equals(t.exp.Title, "Desert", StringComparison.OrdinalIgnoreCase) &&
+            map.ContainsKey(t.exp.VideoPrompt));
+
+        if (desert.exp != null)
+        {
+            _featuredIndex.Value = desert.idx;
+            return;
+        }
+
+        // 3. Otherwise the first cached experience
+        var fallback = indexed.FirstOrDefault(t => map.ContainsKey(t.exp.VideoPrompt));
+
+        if (fallback.exp != null)
+        {
+            _featuredIndex.Value = fallback.idx;
+        }
+    }
+
     public async Task Main()
     {
         await LoadCustomExperiences();
+        _ = Task.Run(async () => await PreloadThumbnailsAsync());
 
         UI.Root([Page.Default, "min-h-screen bg-slate-950 text-white font-sans"], content: view =>
         {
@@ -426,140 +502,504 @@ public class AmbientApp
     private void RenderSelection(UIView view)
     {
         var experiences = GetAllExperiences();
+        var thumbnails = _thumbnailUrls.Value;
+        var featuredIndex = Math.Clamp(_featuredIndex.Value, 0, experiences.Count - 1);
+        var featured = experiences[featuredIndex];
+        var builtIns = experiences.Select((e, i) => (exp: e, idx: i)).Where(t => !t.exp.IsCustom).ToList();
+        var customs = experiences.Select((e, i) => (exp: e, idx: i)).Where(t => t.exp.IsCustom).ToList();
 
-        view.Column(["min-h-screen w-full px-8 py-10 2xl:px-24 box-border", Layout.Column.Lg], content: view =>
+        view.Box([
+            "min-h-screen w-full",
+            "bg-[radial-gradient(ellipse_at_50%_-10%,rgba(34,211,238,0.05)_0%,transparent_50%),linear-gradient(180deg,#0a0a0e_0%,#050507_100%)]",
+            "text-white relative overflow-hidden"
+        ], content: shell =>
         {
-            view.Column([Layout.Column.Sm], content: view =>
+            shell.Column(["relative z-10"], content: column =>
             {
-                view.Text([
-                    "text-5xl font-semibold tracking-tight",
-                    "wave:motion-[0:translate-y-0,50:translate-y-[-6px],100:translate-y-0]",
-                    "wave:motion-duration-2200ms wave:motion-stagger-120ms wave:motion-per-letter-loop wave:motion-ease-ease-in-out"
-                ], "Ambient Experiences");
-                view.Text([Text.Body, "text-white/70 max-w-2xl"], "Select a scene to fill the room with calm motion");
-                view.Text([Text.Caption, "text-white/50"], "Designed for large screens with minimal controls");
-            });
-
-            view.Box(["grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5"], content: view =>
-            {
-                for (var i = 0; i < experiences.Count; i++)
+                RenderTopNav(column);
+                RenderHero(column, featured, featuredIndex, thumbnails);
+                column.Column(["px-10 2xl:px-24 pt-10 pb-20 gap-12 relative z-20"], content: rails =>
                 {
-                    var index = i;
-                    var experience = experiences[i];
-                    view.Button(
-                        [
-                            "group relative h-44 sm:h-48 lg:h-52 2xl:h-56 w-full rounded-3xl border border-white/10",
-                            "bg-slate-900/60 text-left overflow-hidden",
-                            "transition duration-500 ease-out hover:-translate-y-1 hover:border-white/30",
-                            "hover:shadow-[0_24px_70px_-35px_rgba(15,23,42,0.9)]",
-                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60",
-                            "motion-[0:opacity-0_translate-y-[12px],100:opacity-100_translate-y-0] motion-duration-500ms motion-fill-both"
-                        ],
-                        onClick: async () =>
-                        {
-                            _selectedIndex.Value = index;
-                            _currentVideoPrompt.Value = experience.VideoPrompt;
-                            _ = GenerateVideoForExperience(index, experience);
-                            _ = GenerateAudioForExperience(index, experience);
-                        },
-                        content: view =>
-                        {
-                            view.Box(["absolute inset-0 rounded-3xl", experience.Backdrop, "opacity-80"]);
-                            view.Box(["absolute inset-0 rounded-3xl bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent"]);
-
-                            if (experience.IsCustom)
-                            {
-                                view.Box(["absolute top-3 right-3 px-2 py-1 bg-pink-500/30 rounded-full z-20"], content: view =>
-                                {
-                                    view.Text(["text-[10px] uppercase tracking-wider text-pink-200"], "Custom");
-                                });
-                            }
-
-                            view.Box([
-                                "relative z-10 h-full w-full p-5",
-                                "flex flex-col justify-between"
-                            ], content: view =>
-                            {
-                                view.Column([Layout.Column.Xs], content: view =>
-                                {
-                                    view.Text(["text-xs uppercase tracking-[0.28em] text-white/60"], experience.Subtitle);
-                                    view.Text([
-                                        "text-2xl font-semibold tracking-tight",
-                                        experience.Accent,
-                                        "motion-[0:opacity-0_translate-y-[6px],100:opacity-100_translate-y-0] motion-duration-400ms motion-fill-both"
-                                    ], experience.Title);
-                                });
-
-                                view.Column([Layout.Column.Xs], content: view =>
-                                {
-                                    view.Text(["text-sm text-white/70"], experience.Description);
-                                    view.Text(["text-[11px] uppercase tracking-[0.3em] text-white/40"], experience.Atmosphere);
-                                });
-                            });
-                        }
-                    );
-                }
-
-                view.Button(
-                    [
-                        "group relative h-44 sm:h-48 lg:h-52 2xl:h-56 w-full rounded-3xl border border-dashed border-white/20",
-                        "bg-slate-900/40 text-left overflow-hidden",
-                        "transition duration-500 ease-out hover:-translate-y-1 hover:border-white/40",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-400/60",
-                        "motion-[0:opacity-0_translate-y-[12px],100:opacity-100_translate-y-0] motion-duration-500ms motion-fill-both"
-                    ],
-                    onClick: async () => { _showCreateForm.Value = true; },
-                    content: view =>
+                    if (customs.Count > 0)
                     {
-                        view.Box(["absolute inset-0 flex items-center justify-center"], content: view =>
-                        {
-                            view.Column(["items-center text-center", Layout.Column.Sm], content: view =>
-                            {
-                                view.Text(["text-4xl text-white/40"], "+");
-                                view.Text(["text-lg font-semibold text-white/60"], "Create Your Own");
-                                view.Text(["text-sm text-white/40"], "Describe your ambient scene");
-                            });
-                        });
+                        RenderRail(rails, "Your Creations", customs, thumbnails, featuredIndex);
                     }
-                );
+
+                    RenderRail(rails, "Atmospheres", builtIns, thumbnails, featuredIndex);
+                });
             });
         });
     }
 
+    private void RenderTopNav(UIView parent)
+    {
+        parent.Row(["px-10 2xl:px-24 py-7 items-center justify-between"], content: nav =>
+        {
+            nav.Text(["text-white text-[22px] font-black tracking-[0.18em] leading-none"], "AMBIENT");
+
+            nav.Button(
+                [
+                    "h-10 px-5 rounded-full backdrop-blur-2xl",
+                    "bg-[linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.04))]",
+                    "shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]",
+                    "text-white text-[11px] font-bold tracking-[0.22em] uppercase",
+                    "hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))]",
+                    "transition-all duration-300"
+                ],
+                label: "+ Create Scene",
+                onClick: async () => { _showCreateForm.Value = true; }
+            );
+        });
+    }
+
+    private void RenderHero(UIView parent, AmbientExperience featured, int index, Dictionary<string, string> thumbnails)
+    {
+        var hasThumb = thumbnails.TryGetValue(featured.VideoPrompt, out var thumbUrl);
+        var experiences = GetAllExperiences();
+        var navigable = experiences
+            .Select((e, i) => (e, i))
+            .Where(t => thumbnails.ContainsKey(t.e.VideoPrompt) || t.i == index)
+            .OrderBy(t => string.Equals(t.e.Title, "Desert", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+            .ThenBy(t => t.i)
+            .ToList();
+        var posInNav = navigable.FindIndex(t => t.i == index);
+        var prevIdx = navigable.Count > 1 && posInNav > 0
+            ? navigable[posInNav - 1].i
+            : (navigable.Count > 1 ? navigable[^1].i : index);
+        var nextIdx = navigable.Count > 1 && posInNav < navigable.Count - 1
+            ? navigable[posInNav + 1].i
+            : (navigable.Count > 1 ? navigable[0].i : index);
+
+        parent.Box([
+            "px-10 2xl:px-24 pt-2 pb-0",
+            "drop-shadow-[0_24px_40px_rgba(0,0,0,0.45)]"
+        ], content: outer =>
+        {
+            outer.Box([
+                "relative w-full h-[680px] overflow-hidden rounded-[28px]",
+                featured.Backdrop
+            ], content: hero =>
+            {
+                if (hasThumb && thumbUrl != null)
+                {
+                    hero.Box(["absolute inset-0"], content: media =>
+                    {
+                        media.AmbientVideoPlayer(
+                            url: thumbUrl,
+                            playbackRate: 0.5f,
+                            loop: true,
+                            muted: true,
+                            autoplay: true,
+                            thumbnail: true,
+                            style: ["w-full h-full"],
+                            key: $"hero-{index}");
+                    });
+                }
+
+                // Soft directional gradients — no vignette, no inset frame
+                hero.Box(["pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,transparent_0%,transparent_45%,rgba(2,4,10,0.65)_100%)]"]);
+                hero.Box(["pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(2,4,10,0.7)_0%,rgba(2,4,10,0.25)_50%,transparent_75%)]"]);
+
+                hero.Column([
+                    "relative z-10 px-14 py-14 h-full justify-end max-w-[820px]",
+                    "motion-[0:opacity-0_translate-y-[28px],100:opacity-100_translate-y-0] motion-duration-1000ms motion-fill-both motion-ease-[cubic-bezier(0.22,1,0.36,1)]"
+                ], content: text =>
+                {
+                    text.Row(["items-center gap-4 mb-5 opacity-90"], content: meta =>
+                    {
+                        meta.Box([
+                            "px-3 py-1 rounded-full backdrop-blur-2xl",
+                            "bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.04))]"
+                        ], content: badge =>
+                        {
+                            badge.Row(["items-center gap-2"], content: row =>
+                            {
+                                row.Box(["w-1.5 h-1.5 rounded-full bg-white/80"]);
+                                row.Text(["text-white/85 text-[10px] font-bold tracking-[0.36em] uppercase"], "Featured");
+                            });
+                        });
+                        meta.Text(["text-white/90 text-xs tracking-[0.32em] uppercase font-semibold"], featured.Subtitle);
+                        meta.Box(["w-1 h-1 rounded-full bg-white/40"]);
+                        meta.Text(["text-white/65 text-xs tracking-[0.28em] uppercase"], "Atmospheric Loop · 4K");
+                    });
+
+                    text.Text([
+                        "text-white/95 text-[128px] leading-[0.88] font-black tracking-[-0.02em]",
+                        "drop-shadow-[0_6px_40px_rgba(0,0,0,0.95)] mb-7",
+                        featured.Accent
+                    ], featured.Title);
+
+                    text.Text(["text-white/75 text-2xl leading-snug max-w-[680px] mb-10 font-light drop-shadow-[0_2px_14px_rgba(0,0,0,0.9)]"], featured.Description);
+
+                    text.Row(["items-center gap-3"], content: cta =>
+                    {
+                        cta.Button(
+                            [
+                                "h-14 px-10 bg-white hover:bg-white/95 text-zinc-950",
+                                "font-bold tracking-[0.18em] text-sm rounded-full",
+                                "shadow-[0_10px_30px_-12px_rgba(0,0,0,0.6)]",
+                                "transition-all duration-300 hover:scale-[1.02]"
+                            ],
+                            label: "▶   PLAY",
+                            onClick: async () => await SelectExperienceAsync(index)
+                        );
+
+                        cta.Button(
+                            [
+                                "h-14 px-7 backdrop-blur-2xl text-white",
+                                "bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.05))]",
+                                "shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]",
+                                "font-bold tracking-[0.18em] text-xs rounded-full",
+                                "hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.26),rgba(255,255,255,0.10))]",
+                                "transition-all duration-300"
+                            ],
+                            label: "+  MY LIST",
+                            onClick: async () => { }
+                        );
+
+                        cta.Button(
+                            [
+                                "h-14 w-14 backdrop-blur-2xl text-white",
+                                "bg-[linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.04))]",
+                                "shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]",
+                                "font-bold rounded-full text-base p-0",
+                                "hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))]",
+                                "transition-all duration-300"
+                            ],
+                            label: "ⓘ",
+                            onClick: async () => { }
+                        );
+
+                        if (!hasThumb)
+                        {
+                            cta.Box([
+                                "ml-2 px-4 py-2.5 rounded-full backdrop-blur-2xl",
+                                "bg-[linear-gradient(180deg,rgba(217,70,239,0.22),rgba(217,70,239,0.06))]"
+                            ], content: hint =>
+                            {
+                                hint.Text(["text-pink-100/80 text-[10px] font-bold tracking-[0.28em] uppercase"], "Generates on Play");
+                            });
+                        }
+                    });
+                });
+
+                // 2026-style minimal control cluster bottom-right: ‹ • • • • ›
+                if (navigable.Count > 1)
+                {
+                    var capturedPrev = prevIdx;
+                    var capturedNext = nextIdx;
+                    hero.Row([
+                        "absolute bottom-8 right-10 z-20 items-center gap-3",
+                        "px-4 py-2.5 rounded-full backdrop-blur-2xl",
+                        "bg-[linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.03))]",
+                        "shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]"
+                    ], content: cluster =>
+                    {
+                        cluster.Box([
+                            "h-7 w-7 rounded-full cursor-pointer flex items-center justify-center",
+                            "text-white/80 hover:text-white hover:bg-white/10 transition-all"
+                        ], onClick: async () => { _featuredIndex.Value = capturedPrev; }, content: btn =>
+                        {
+                            btn.Text(["text-base leading-none -mt-0.5"], "‹");
+                        });
+
+                        cluster.Row(["items-center gap-1.5"], content: dots =>
+                        {
+                            foreach (var (_, i) in navigable.Take(8))
+                            {
+                                var capturedIdx = i;
+                                var isActive = capturedIdx == index;
+                                var dotStyle = isActive
+                                    ? "w-6 h-[3px] rounded-full bg-white/85 transition-all duration-500"
+                                    : "w-1.5 h-[3px] rounded-full bg-white/30 hover:bg-white/60 transition-all duration-300";
+                                dots.Box(
+                                    [dotStyle, "cursor-pointer"],
+                                    onClick: async () => { _featuredIndex.Value = capturedIdx; });
+                            }
+                        });
+
+                        cluster.Box([
+                            "h-7 w-7 rounded-full cursor-pointer flex items-center justify-center",
+                            "text-white/80 hover:text-white hover:bg-white/10 transition-all"
+                        ], onClick: async () => { _featuredIndex.Value = capturedNext; }, content: btn =>
+                        {
+                            btn.Text(["text-base leading-none -mt-0.5"], "›");
+                        });
+                    });
+                }
+            });
+        });
+    }
+
+    private async Task SelectExperienceAsync(int index)
+    {
+        var experiences = GetAllExperiences();
+
+        if (index < 0 || index >= experiences.Count)
+        {
+            return;
+        }
+
+        var experience = experiences[index];
+        _selectedIndex.Value = index;
+        _currentVideoPrompt.Value = experience.VideoPrompt;
+        _ = GenerateVideoForExperience(index, experience);
+        _ = GenerateAudioForExperience(index, experience);
+    }
+
+    private void RenderRail(UIView parent, string title, List<(AmbientExperience exp, int idx)> entries, Dictionary<string, string> thumbnails, int featuredIndex)
+    {
+        parent.Column(["gap-6"], content: section =>
+        {
+            section.Row(["items-end justify-between"], content: head =>
+            {
+                head.Text(["text-white/85 text-[15px] font-bold tracking-[0.04em]"], title);
+                head.Text(["text-white/35 text-[10px] tracking-[0.32em] uppercase"], $"{entries.Count} scenes");
+            });
+
+            section.Row(["gap-6 overflow-x-auto pb-4 -mx-2 px-2"], content: row =>
+            {
+                foreach (var (exp, idx) in entries)
+                {
+                    RenderSceneCard(row, exp, idx, thumbnails, idx == featuredIndex);
+                }
+
+                if (title == "Atmospheres")
+                {
+                    RenderCreateCard(row);
+                }
+            });
+        });
+    }
+
+    private void RenderSceneCard(UIView parent, AmbientExperience exp, int index, Dictionary<string, string> thumbnails, bool isFeatured)
+    {
+        var hasThumb = thumbnails.TryGetValue(exp.VideoPrompt, out var thumbUrl);
+
+        parent.Button(
+            [
+                "group relative w-[560px] min-w-[560px] h-[316px] rounded-2xl overflow-hidden cursor-pointer",
+                "transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                "hover:scale-[1.03] hover:-translate-y-1",
+                "shadow-[0_10px_28px_-12px_rgba(0,0,0,0.55)]",
+                "hover:shadow-[0_18px_44px_-14px_rgba(0,0,0,0.7)]",
+                "focus-visible:outline-none",
+                "motion-[0:opacity-0_translate-y-[16px],100:opacity-100_translate-y-0] motion-duration-600ms motion-fill-both motion-ease-[cubic-bezier(0.22,1,0.36,1)]"
+            ],
+            onClick: async () =>
+            {
+                _featuredIndex.Value = index;
+                await SelectExperienceAsync(index);
+            },
+            content: card =>
+            {
+                if (hasThumb && thumbUrl != null)
+                {
+                    card.AmbientVideoPlayer(
+                        url: thumbUrl,
+                        playbackRate: 0.25f,
+                        loop: true,
+                        muted: true,
+                        autoplay: true,
+                        thumbnail: true,
+                        style: ["absolute inset-0 w-full h-full"],
+                        key: $"thumb-{index}");
+                }
+                else
+                {
+                    card.Box(["absolute inset-0", exp.Backdrop]);
+                    card.Box(["pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(255,255,255,0.08)_0%,transparent_60%)]"]);
+                }
+
+                // Cinematic darkening — lifts on hover so the thumbnail brightens
+                card.Box(["pointer-events-none absolute inset-0 bg-black/45 group-hover:bg-black/15 transition-colors duration-500"]);
+                card.Box(["pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(2,4,10,0.65)_0%,rgba(2,4,10,0.3)_35%,rgba(2,4,10,0.6)_70%,rgba(2,4,10,0.95)_100%)] group-hover:opacity-60 transition-opacity duration-500"]);
+                card.Box(["pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_115%,rgba(0,0,0,0.65)_0%,transparent_60%)]"]);
+
+                if (isFeatured)
+                {
+                    card.Box(["pointer-events-none absolute inset-0 rounded-2xl shadow-[inset_0_0_0_1.5px_rgba(255,255,255,0.35)]"]);
+                }
+
+                // Hover shimmer
+                card.Box(["pointer-events-none absolute -inset-px rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-[linear-gradient(135deg,transparent_40%,rgba(255,255,255,0.06)_50%,transparent_60%)]"]);
+
+                if (hasThumb)
+                {
+                    card.Box([
+                        "absolute top-4 left-4 z-10 px-2.5 py-1 rounded-full backdrop-blur-xl",
+                        "bg-[linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.04))]"
+                    ], content: tag =>
+                    {
+                        tag.Row(["items-center gap-1.5"], content: row =>
+                        {
+                            row.Box(["w-1.5 h-1.5 rounded-full bg-white/80"]);
+                            row.Text(["text-white/85 text-[9px] font-bold tracking-[0.28em] uppercase"], "Ready");
+                        });
+                    });
+                }
+
+                if (exp.IsCustom)
+                {
+                    card.Box([
+                        "absolute top-4 right-4 z-10 px-2.5 py-1 rounded-full backdrop-blur-xl",
+                        "bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.02))]"
+                    ], content: tag =>
+                    {
+                        tag.Text(["text-white/65 text-[9px] font-bold tracking-[0.28em] uppercase"], "Custom");
+                    });
+                }
+
+                card.Column(["relative z-10 p-7 h-full justify-end gap-2"], content: body =>
+                {
+                    body.Text(["text-white/45 text-[11px] tracking-[0.32em] uppercase"], exp.Subtitle);
+                    body.Text([
+                        "text-white/85 text-[40px] font-black tracking-[-0.02em] leading-[1.02] line-clamp-2",
+                        "drop-shadow-[0_2px_16px_rgba(0,0,0,0.9)]"
+                    ], exp.Title);
+                    body.Row(["items-center gap-2 mt-1"], content: meta =>
+                    {
+                        meta.Text(["text-zinc-400/70 text-[12px] tracking-[0.18em] uppercase"], exp.Atmosphere);
+                    });
+                });
+
+                // Wide PLAY slice on hover, no circle, no border
+                card.Box([
+                    "pointer-events-none absolute left-7 right-7 bottom-7 z-20",
+                    "opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0",
+                    "transition-all duration-300 ease-out"
+                ], content: slice =>
+                {
+                    slice.Row([
+                        "items-center justify-center gap-3 h-11 rounded-full",
+                        "bg-white/95 backdrop-blur-xl",
+                        "shadow-[0_18px_40px_-12px_rgba(255,255,255,0.45)]"
+                    ], content: row =>
+                    {
+                        row.Text(["text-zinc-950 text-sm leading-none"], "▶");
+                        row.Text(["text-zinc-950 text-[11px] font-black tracking-[0.32em] uppercase"], "Play");
+                    });
+                });
+            }
+        );
+    }
+
+    private void RenderCreateCard(UIView parent)
+    {
+        parent.Button(
+            [
+                "group relative w-[560px] min-w-[560px] h-[316px] rounded-2xl overflow-hidden cursor-pointer",
+                "bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))]",
+                "shadow-[0_10px_28px_-12px_rgba(0,0,0,0.55)]",
+                "hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))]",
+                "transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-[1.03] hover:-translate-y-1",
+                "focus-visible:outline-none"
+            ],
+            onClick: async () => { _showCreateForm.Value = true; },
+            content: card =>
+            {
+                card.Column(["absolute inset-0 items-center justify-center gap-3"], content: inner =>
+                {
+                    inner.Box([
+                        "w-12 h-12 rounded-full backdrop-blur-xl flex items-center justify-center",
+                        "bg-[linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.03))]"
+                    ], content: circle =>
+                    {
+                        circle.Text(["text-white/70 text-2xl font-extralight leading-none"], "+");
+                    });
+                    inner.Text(["text-white/80 text-sm font-bold tracking-[0.18em] uppercase"], "Create Scene");
+                    inner.Text(["text-white/40 text-[10px] tracking-[0.22em] uppercase"], "Describe your own");
+                });
+            }
+        );
+    }
+
     private void RenderCreateForm(UIView view)
     {
-        view.Column(["min-h-screen w-full px-8 py-10 items-center justify-center", Layout.Column.Lg], content: view =>
+        view.Box([
+            "min-h-screen w-full",
+            "bg-[radial-gradient(ellipse_at_50%_-10%,rgba(34,211,238,0.05)_0%,transparent_50%),linear-gradient(180deg,#0a0a0e_0%,#050507_100%)]",
+            "text-white relative overflow-hidden"
+        ], content: shell =>
         {
-            view.Column(["max-w-2xl w-full", Layout.Column.Lg], content: view =>
+            shell.Column(["relative z-10 min-h-screen w-full"], content: column =>
             {
-                view.Text(["text-4xl font-semibold text-white"], "Create Your Ambient Scene");
-                view.Text(["text-white/60"], "Describe the scene you want to create. Be specific about visuals and sounds.");
-
-                view.TextArea(
-                    [Input.Default, "w-full h-32 bg-slate-800/50 border-white/20 text-white placeholder:text-white/40"],
-                    placeholder: "e.g., A peaceful Japanese zen garden at dawn with cherry blossoms falling...",
-                    value: _createDescription.Value,
-                    onValueChange: async value => _createDescription.Value = value ?? ""
-                );
-
-                view.Row(["gap-4"], content: view =>
+                column.Row(["px-10 2xl:px-24 py-7 items-center justify-between"], content: nav =>
                 {
-                    view.Button(
-                        [Button.OutlineMd, "bg-white/10 border-white/20 text-white"],
-                        label: "Cancel",
+                    nav.Text(["text-white text-[22px] font-black tracking-[0.18em] leading-none"], "AMBIENT");
+                    nav.Button(
+                        [
+                            "h-10 px-5 rounded-full backdrop-blur-2xl",
+                            "bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.02))]",
+                            "shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]",
+                            "text-white/80 text-[11px] font-bold tracking-[0.22em] uppercase",
+                            "hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.06))]",
+                            "transition-all duration-300"
+                        ],
+                        label: "← Back",
                         onClick: async () =>
                         {
                             _showCreateForm.Value = false;
                             _createDescription.Value = "";
                         }
                     );
+                });
 
-                    view.Button(
-                        [Button.PrimaryMd, "bg-pink-500 text-white"],
-                        label: _isCreating.Value ? "Creating..." : "Create Experience",
-                        disabled: _isCreating.Value || string.IsNullOrWhiteSpace(_createDescription.Value),
-                        onClick: async () => await CreateCustomExperience()
+                column.Column(["flex-1 px-10 2xl:px-24 pt-12 pb-20 max-w-3xl gap-10 motion-[0:opacity-0_translate-y-[20px],100:opacity-100_translate-y-0] motion-duration-800ms motion-fill-both motion-ease-[cubic-bezier(0.22,1,0.36,1)]"], content: form =>
+                {
+                    form.Column(["gap-3"], content: head =>
+                    {
+                        head.Text(["text-white/45 text-[10px] tracking-[0.4em] uppercase"], "Compose your own");
+                        head.Text(["text-white/95 text-[64px] leading-[0.95] font-black tracking-[-0.02em]"], "Create Scene");
+                        head.Text(["text-white/55 text-lg leading-snug max-w-2xl mt-2"], "Describe the place. We compose the visuals and the sound. Be specific — light, motion, texture, mood.");
+                    });
+
+                    form.TextArea(
+                        [
+                            "w-full h-44 px-5 py-4 rounded-2xl backdrop-blur-2xl",
+                            "bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.015))]",
+                            "shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)]",
+                            "text-white/90 placeholder:text-white/30 text-base leading-relaxed",
+                            "outline-none focus:bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.03))]",
+                            "transition-all duration-300"
+                        ],
+                        placeholder: "A peaceful Japanese zen garden at dawn with cherry blossoms falling...",
+                        value: _createDescription.Value,
+                        onValueChange: async value => _createDescription.Value = value ?? ""
                     );
+
+                    form.Row(["gap-3 items-center"], content: actions =>
+                    {
+                        actions.Button(
+                            [
+                                "h-14 px-10 bg-white hover:bg-white/95 text-zinc-950",
+                                "font-black tracking-[0.18em] text-sm rounded-full",
+                                "shadow-[0_18px_50px_-10px_rgba(255,255,255,0.4)]",
+                                "transition-all duration-300 hover:scale-[1.03]",
+                                "disabled:opacity-40 disabled:hover:scale-100"
+                            ],
+                            label: _isCreating.Value ? "Creating..." : "▶  Create Scene",
+                            disabled: _isCreating.Value || string.IsNullOrWhiteSpace(_createDescription.Value),
+                            onClick: async () => await CreateCustomExperience()
+                        );
+
+                        actions.Button(
+                            [
+                                "h-14 px-7 backdrop-blur-2xl text-white/80",
+                                "bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.02))]",
+                                "shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]",
+                                "font-bold tracking-[0.18em] text-xs rounded-full",
+                                "hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.06))]",
+                                "transition-all duration-300"
+                            ],
+                            label: "Cancel",
+                            onClick: async () =>
+                            {
+                                _showCreateForm.Value = false;
+                                _createDescription.Value = "";
+                            }
+                        );
+                    });
                 });
             });
         });
@@ -567,22 +1007,25 @@ public class AmbientApp
 
     private void RenderExperience(UIView view, AmbientExperience experience)
     {
-        view.Column(["min-h-screen w-full px-8 py-10 2xl:px-24 relative box-border overflow-hidden", Layout.Column.Lg], content: view =>
+        view.Box([
+            "min-h-screen w-full",
+            "bg-[radial-gradient(ellipse_at_50%_-10%,rgba(34,211,238,0.04)_0%,transparent_50%),linear-gradient(180deg,#0a0a0e_0%,#050507_100%)]",
+            "text-white relative overflow-hidden"
+        ], content: shell =>
         {
-            view.Box(["absolute inset-0 -mx-8 -my-10 2xl:-mx-24", experience.Backdrop, "opacity-90"]);
-            view.Box(["absolute inset-0 -mx-8 -my-10 2xl:-mx-24 bg-slate-950/70"]);
-
-            view.Row(["relative z-10 items-center justify-between gap-6"], content: view =>
+            shell.Column(["relative z-10 min-h-screen w-full px-10 2xl:px-24 py-7 gap-7"], content: view =>
             {
-                view.Column([Layout.Column.Sm, "min-w-0 flex-1"], content: view =>
+            view.Row(["items-center justify-between gap-6"], content: view =>
+            {
+                view.Column(["gap-2 min-w-0 flex-1"], content: view =>
                 {
-                    view.Text(["text-sm uppercase tracking-[0.35em] text-white/60"], experience.Subtitle);
+                    view.Text(["text-white/45 text-[10px] tracking-[0.4em] uppercase"], experience.Subtitle);
                     view.Text([
-                        "text-5xl font-semibold tracking-tight",
+                        "text-white/95 text-[56px] leading-[0.95] font-black tracking-[-0.02em]",
                         experience.Accent,
                         "motion-[0:opacity-0_translate-y-[10px],100:opacity-100_translate-y-0] motion-duration-500ms motion-fill-both"
                     ], experience.Title);
-                    view.Text(["text-lg text-white/70 max-w-xl"], experience.Description);
+                    view.Text(["text-white/55 text-base leading-snug max-w-xl mt-1"], experience.Description);
                 });
 
                 view.Row(["gap-3 flex-shrink-0 items-center flex-wrap"], content: view =>
@@ -592,14 +1035,17 @@ public class AmbientApp
 
                     if (!hasUpscaled)
                     {
-                        var upscaleLabel = _isUpscaling.Value ? "Upscaling..." : "Upscale";
+                        var upscaleLabel = _isUpscaling.Value ? "Upscaling..." : "↑  Upscale";
 
                         view.Button(
                             [
-                                Button.OutlineMd,
-                                canUpscale ? "bg-violet-500/20 border-violet-400/40 text-violet-200" : "bg-white/5 border-white/10 text-white/40",
-                                canUpscale ? "hover:bg-violet-500/30 hover:border-violet-400/60" : "",
-                                "flex-shrink-0"
+                                "h-11 px-6 rounded-full backdrop-blur-2xl flex-shrink-0",
+                                "font-bold tracking-[0.18em] text-[11px] uppercase",
+                                "shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]",
+                                "transition-all duration-300",
+                                canUpscale
+                                    ? "bg-[linear-gradient(180deg,rgba(167,139,250,0.32),rgba(167,139,250,0.10))] text-violet-100 hover:bg-[linear-gradient(180deg,rgba(167,139,250,0.42),rgba(167,139,250,0.16))]"
+                                    : "bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] text-white/40"
                             ],
                             label: upscaleLabel,
                             disabled: !canUpscale,
@@ -615,11 +1061,14 @@ public class AmbientApp
 
                     view.Button(
                         [
-                            Button.OutlineMd,
-                            "bg-white/10 border-white/20 text-white flex-shrink-0",
-                            "hover:bg-white/20 hover:border-white/40"
+                            "h-11 px-6 rounded-full backdrop-blur-2xl flex-shrink-0",
+                            "bg-[linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.04))]",
+                            "shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]",
+                            "text-white/85 font-bold tracking-[0.18em] text-[11px] uppercase",
+                            "hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))]",
+                            "transition-all duration-300"
                         ],
-                        label: "Back",
+                        label: "←  Back",
                         onClick: async () =>
                         {
                             _selectedIndex.Value = -1;
@@ -639,9 +1088,12 @@ public class AmbientApp
                     {
                         view.Button(
                             [
-                                Button.OutlineMd,
-                                "bg-rose-500/20 border-rose-400/40 text-rose-200 flex-shrink-0",
-                                "hover:bg-rose-500/30 hover:border-rose-400/60"
+                                "h-11 px-6 rounded-full backdrop-blur-2xl flex-shrink-0",
+                                "bg-[linear-gradient(180deg,rgba(244,63,94,0.28),rgba(244,63,94,0.08))]",
+                                "shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]",
+                                "text-rose-100/90 font-bold tracking-[0.18em] text-[11px] uppercase",
+                                "hover:bg-[linear-gradient(180deg,rgba(244,63,94,0.38),rgba(244,63,94,0.14))]",
+                                "transition-all duration-300"
                             ],
                             label: "Delete",
                             onClick: async () => await DeleteCustomExperience(experience.CustomId!)
@@ -651,43 +1103,41 @@ public class AmbientApp
             });
 
             view.Box([
-                "relative z-10 flex-1 w-full rounded-[32px] border border-white/10",
-                "bg-slate-900/60 backdrop-blur-xl overflow-hidden"
+                "relative flex-1 w-full rounded-[28px] overflow-hidden",
+                "bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))]"
             ],
             content: view =>
             {
-                view.Box(["absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/40"]);
                 view.Box(["absolute inset-0 flex items-center justify-center"], content: view =>
                 {
                     if (_isVideoLoading.Value)
                     {
-                        view.Column(["items-center text-center", Layout.Column.Lg], content: view =>
+                        view.Column(["items-center text-center gap-4"], content: view =>
                         {
                             view.Box([
-                                "w-12 h-12 border-4 border-white/20 border-t-white/80 rounded-full",
+                                "w-10 h-10 border-2 border-white/15 border-t-white/70 rounded-full",
                                 "animate-spin"
                             ]);
-                            view.Text(["text-sm uppercase tracking-[0.4em] text-white/50 mt-6"], "Generating video");
-                            view.Text(["text-xl font-semibold text-white"], "Creating your ambient scene...");
-                            view.Text(["text-white/60 max-w-md text-center"], "This may take a minute or two");
+                            view.Text(["text-[10px] uppercase tracking-[0.4em] text-white/40 mt-4"], "Generating");
+                            view.Text(["text-2xl font-light text-white/90 tracking-tight"], "Creating your scene");
+                            view.Text(["text-sm text-white/45 max-w-md text-center"], "This usually takes a minute or two");
                         });
                     }
                     else if (_videoError.Value != null)
                     {
-                        view.Column(["items-center text-center px-8", Layout.Column.Lg], content: view =>
+                        view.Column(["items-center text-center px-8 gap-3"], content: view =>
                         {
-                            view.Text(["text-sm uppercase tracking-[0.4em] text-rose-400/80"], "Error");
-                            view.Text(["text-xl font-semibold text-white"], "Failed to generate video");
-                            view.Text(["text-white/60 max-w-md text-center break-words"], _videoError.Value);
+                            view.Text(["text-[10px] uppercase tracking-[0.4em] text-rose-300/80"], "Something went wrong");
+                            view.Text(["text-2xl font-light text-white/90 tracking-tight"], "We couldn't generate that scene");
+                            view.Text(["text-sm text-white/45 max-w-md text-center break-words"], _videoError.Value);
                         });
                     }
                     else if (_currentVideoUrl.Value == null)
                     {
-                        view.Column(["items-center text-center", Layout.Column.Lg], content: view =>
+                        view.Column(["items-center text-center gap-3"], content: view =>
                         {
-                            view.Text(["text-sm uppercase tracking-[0.4em] text-white/50"], "Video placeholder");
-                            view.Text(["text-3xl font-semibold text-white"], "Ambient video feed will play here");
-                            view.Text(["text-white/60 max-w-md text-center"], "Use this space for looped motion visuals tailored for large screens");
+                            view.Text(["text-[10px] uppercase tracking-[0.4em] text-white/40"], "Idle");
+                            view.Text(["text-2xl font-light text-white/85 tracking-tight"], "Ambient feed will play here");
                         });
                     }
                 });
@@ -715,7 +1165,7 @@ public class AmbientApp
                 }
             });
 
-            view.Row(["relative z-10 justify-between text-xs uppercase tracking-[0.3em] text-white/40"], content: view =>
+            view.Row(["justify-between text-[10px] uppercase tracking-[0.36em] text-white/35"], content: view =>
             {
                 view.Text([], experience.Atmosphere);
 
@@ -747,6 +1197,7 @@ public class AmbientApp
                 }
 
                 view.Text([], string.Join(" · ", statusParts));
+            });
             });
         });
     }

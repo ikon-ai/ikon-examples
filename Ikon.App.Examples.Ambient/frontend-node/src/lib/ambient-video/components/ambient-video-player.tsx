@@ -9,6 +9,7 @@ type AmbientVideoProps = {
   autoplay?: boolean;
   className?: string;
   crossfadeDuration?: number;
+  thumbnail?: boolean;
 };
 
 function toStringValue(value: unknown): string | undefined {
@@ -82,6 +83,7 @@ const AmbientVideoPlayer = memo(function AmbientVideoPlayer({
   autoplay = true,
   className,
   crossfadeDuration = 2,
+  thumbnail = false,
 }: AmbientVideoProps) {
   const videoARef = useRef<HTMLVideoElement>(null);
   const videoBRef = useRef<HTMLVideoElement>(null);
@@ -197,6 +199,34 @@ const AmbientVideoPlayer = memo(function AmbientVideoPlayer({
 
   if (!url) {
     return null;
+  }
+
+  if (thumbnail) {
+    return (
+      <div className={className} style={{ overflow: 'hidden' }}>
+        <video
+          src={url}
+          crossOrigin="anonymous"
+          muted
+          playsInline
+          autoPlay
+          loop
+          preload="auto"
+          ref={(el) => {
+            if (el) {
+              el.playbackRate = playbackRate;
+            }
+          }}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            pointerEvents: 'none',
+            display: 'block',
+          }}
+        />
+      </div>
+    );
   }
 
   const videoStyle: React.CSSProperties = {
@@ -329,6 +359,7 @@ const AmbientVideoRenderer = memo(function AmbientVideoRenderer({
   const muted = toOptionalBoolean(node.props['muted']) ?? true;
   const autoplay = toOptionalBoolean(node.props['autoplay']) ?? true;
   const crossfadeDuration = toFiniteNumber(node.props['crossfadeDuration']) ?? 2;
+  const thumbnail = toOptionalBoolean(node.props['thumbnail']) ?? false;
   const inlineStyle = toStringValue(node.props['style']);
 
   const combinedClassName = combineClassNames(node.styleIds, className, inlineStyle);
@@ -341,6 +372,7 @@ const AmbientVideoRenderer = memo(function AmbientVideoRenderer({
       muted={muted}
       autoplay={autoplay}
       crossfadeDuration={crossfadeDuration}
+      thumbnail={thumbnail}
       className={combinedClassName}
     />
   );

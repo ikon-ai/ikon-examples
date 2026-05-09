@@ -13,6 +13,7 @@ public static class AmbientVideoExtensions
         bool muted = true,
         bool autoplay = true,
         float crossfadeDuration = 2f,
+        bool thumbnail = false,
         string[]? style = null,
         string? styleId = null,
         string? key = null,
@@ -28,7 +29,8 @@ public static class AmbientVideoExtensions
                 ["loop"] = loop,
                 ["muted"] = muted,
                 ["autoplay"] = autoplay,
-                ["crossfadeDuration"] = crossfadeDuration
+                ["crossfadeDuration"] = crossfadeDuration,
+                ["thumbnail"] = thumbnail
             },
             key: key,
             style: style,
