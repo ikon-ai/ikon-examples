@@ -16,6 +16,12 @@ namespace Ikon.Parallax
     Context ClientContext
     // The deserialized action payload.
     T Value
+  // Per-app theme configuration. Composes the platform's Ikon CSS baseline with per-token CSS-variable overrides addressed by name. One uniform syntax: an indexer keyed by CSS variable name (without the leading --) or by Tailwind utility token. The renderer dispatches by key shape: Tailwind palette step (amber-400) → --color-amber-400rounded-{rung} → --radius-{rung}shadow-{rung} → --shadow-{rung}font-{role} → --font-{role}ease-{kind} → --ease-{kind}Anything else → --{key} (free CSS variable) Values are Crosswind / Tailwind class names (resolved via ) or raw CSS values (hex, rem, family stacks, gradients) — the resolver passes raw values through. Example: private UI UI { get; } = new(app, new IkonTheme { // Brand commitment — set the semantic vars that components consume. ["primary"] = "amber-400", ["bg-brand-solid"] = "amber-400", ["bg-brand-solid-hover"] = "amber-400", ["text-brand"] = "amber-400", ["border-brand"] = "amber-400", ["primary-foreground"] = "#0A0A0A", // pick contrast yourself // Background + foreground. ["background"] = "zinc-950", ["text-primary"] = "amber-50", ["text-foreground"] = "amber-50", // Surfaces. ["card"] = "zinc-900", ["popover"] = "zinc-900", // Type + shape. ["font-heading"] = "Crimson Pro", ["font-body"] = "Inter", ["radius-base"] = "rounded-lg", // Motion. ["motion-duration-base"] = "200ms", ["ease-default"] = "ease-out", // Per-token Tailwind palette / radius / shadow overrides. ["amber-400"] = "#F5A524", ["rounded-lg"] = "1.25rem", ["shadow-lg"] = "0 8px 16px rgba(0,0,0,.18)", // Bespoke decorative tokens. ["hero-glow"] = "radial-gradient(circle, #F5A52488, transparent 70%)", DarkMode = new IkonTheme { ["background"] = "zinc-50", ["text-primary"] = "zinc-950", }, }); The indexer is the only configurable surface — there are no magic property fan-outs and no auto-derived contrast text. What you write IS what lands in the override block.
+  sealed class IkonTheme : ITheme
+    ctor()
+    // Paired dark-mode theme. Pass another ; its overrides are emitted under [data-theme="dark"], .dark, and prefers-color-scheme: dark.
+    IkonTheme DarkMode { get; init; }
+    string Item { get; set; }
   // Accumulates profiling samples over multiple render passes, providing aggregate statistics (avg, min, max, p95, p99).
   sealed class ProfileHistory
     // Creates a new history buffer that retains the last render sessions.
@@ -81,10 +87,6 @@ namespace Ikon.Parallax
     static void ResetHistory()
     // Resumes history recording after a pause.
     static void ResumeHistory()
-  // Per-project Ikon theme customization. returns a branded built on top of the base Ikon theme. Lives at the top of the Ikon.Parallax namespace (not on Theme itself) because each scaffolded Ikon app declares its own Theme : ITheme partial in namespace Themes.Ikon — a separate type from the framework's Ikon.Parallax.Themes.Ikon.Theme (partials don't merge across assemblies). Putting the factory on a standalone static class in the always-imported Ikon.Parallax namespace keeps Theming.Apply(...) reachable from app code without any extra using plumbing. All values are Crosswind / Tailwind class names — "amber-400", "zinc-950", "rounded-lg", "font-sans", "150ms", "ease-out". Raw hex / rem / family-stack values pass through as fallback for cases that don't fit the palette (custom brand colors, bespoke families). Example: private UI UI { get; } = new(app, Theming.Apply( brand: "amber-400", background: "zinc-950", foreground: "zinc-50", card: "zinc-900", fontHeading: "font-sans", radiusBase: "rounded-lg"));
-  static class Theming
-    // Returns a per-project themed . Use this to commit to a brand mood (palette, fonts, radii, motion) at the top of your app file so every component inherits it.
-    static ITheme Apply(string brand = null, string background = null, string foreground = null, string card = null, string muted = null, string accent = null, string border = null, string fontHeading = null, string fontBody = null, string radiusBase = null, string motionDuration = null, string motionEasing = null, IReadOnlyDictionary<string, string> motion = null, IReadOnlyDictionary<string, string> custom = null, ITheme darkMode = null)
   // Main entry point for the Ikon Parallax reactive UI system. Manages client connections, render cycles, style distribution, and action handling for server-driven UI.
   class UI
     // Creates a new UI instance bound to the given app and theme.
@@ -1712,6 +1714,8 @@ namespace Ikon.Parallax.Themes.Ikon
   static class CrosswindResolver
     // True when a Tailwind palette token represents a "light" step (50-500 inclusive). Used by to pick the auto-derived primary-foreground (dark text on light brand vs. white text on dark brand). Returns null when we can't infer (raw hex, non-palette tokens) — caller falls back to luminance computation.
     static bool? IsLightPaletteStep(string token)
+    // True when the token is a recognized Tailwind palette step (e.g. "amber-400", "zinc-950"). Used by to dispatch indexer overrides to the right CSS-variable target.
+    static bool IsTailwindPaletteToken(string token)
     // Resolve a color token (e.g. "amber-400", "zinc-950") to a CSS color expression referencing the corresponding Tailwind palette CSS variable shipped by TailwindCssBaseline. Raw colors (hex, oklch, hsl, rgb, named) pass through unchanged.
     static string ResolveColor(string token)
     // Resolve a motion duration token (e.g. "duration-150", "150ms", "0.2s") to a CSS duration literal.
