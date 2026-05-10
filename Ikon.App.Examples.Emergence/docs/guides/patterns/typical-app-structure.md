@@ -55,7 +55,7 @@ public class MyApp(IApp<SessionIdentity, ClientParameters> app)
 - **Match the plan's STRUCTURE section.** If STRUCTURE names header / sidebar / main, build those regions explicitly — `view.Row` for the header, `view.Column` for the sidebar, etc., each with its own `flex-shrink-0` / `flex-1 min-h-0` discipline so they don't collapse. Don't ship a single centered card if the plan named multiple regions.
 - The root `["h-screen flex flex-col"]` + region-by-region children is the standard shape for any multi-region app. For a genuine single-region app, `[Layout.Page, "py-8 gap-4"]` directly inside `UI.Root` is fine.
 - GlobalUsings imports every Ikon namespace — explicit `using Ikon.X;` is a CS0234.
-- Theme: when STYLING is in the plan, pass `Theming.Apply(brand: "amber-400", background: "zinc-950", foreground: "zinc-50", ...)` to `UI` — values are Crosswind/Tailwind class names per role. When STYLING is absent, pass `new Theme()` for the platform default. Never `Theme.Custom(...)` or `Theming.Custom(...)` — those factories were replaced by `Theming.Apply`. See `theme-commitment` for the role taxonomy + Styling Oracle flow.
+- Theme: when STYLING is in the plan, pass `new IkonTheme { ["primary"] = "amber-400", ["background"] = "zinc-950", ["text-primary"] = "zinc-50", ... }` to `UI` — every entry is a single CSS-variable override. Values are Crosswind/Tailwind class names. When STYLING is absent, pass `new Theme()` for the platform default. Never `Theming.Apply(...)`, `Theming.Custom(...)`, or `Theme.Custom(...)` — those factories were retired. See `theme-commitment` for the indexer-key taxonomy + Styling Oracle flow.
 
 ## See also
 
