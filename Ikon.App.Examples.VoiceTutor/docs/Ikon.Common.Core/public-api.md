@@ -59,6 +59,9 @@ namespace Ikon.Common.Core
     Memory<T> GetDequeueMemory(int skipCount, int count)
     Memory<T> GetEnqueueMemory(int count)
     void TrimExcess()
+  sealed class AssertionVerifier
+    ctor(string platformBaseUrl, HttpClient httpClient = null, Func<DateTimeOffset> clock = null)
+    Task<StepUpAssertion> VerifyAsync(string token, string expectedIssuer, string expectedAudience, CancellationToken ct = null)
   class IkonBackend.Asset
     ctor()
     string AssetId { get; set; }
@@ -266,6 +269,30 @@ namespace Ikon.Common.Core
   class IkonBackend.ConnectTokenResponse
     ctor()
     string ServerUrl { get; set; }
+  sealed class CreateSignatureOrderDocumentDto
+    ctor()
+    string ContentBase64 { get; set; }
+    string Filename { get; set; }
+    string MimeType { get; set; }
+  sealed class CreateSignatureOrderRequest
+    ctor()
+    string CostAttributionKey { get; set; }
+    List<CreateSignatureOrderDocumentDto> Documents { get; set; }
+    string Purpose { get; set; }
+    List<CreateSignatureOrderSignerDto> Signers { get; set; }
+    string Space { get; set; }
+    string Title { get; set; }
+  sealed class CreateSignatureOrderResponse
+    ctor()
+    string ExpiresAt { get; set; }
+    string OrderId { get; set; }
+    string SignatureUrl { get; set; }
+  sealed class CreateSignatureOrderSignerDto
+    ctor()
+    List<string> IdpNames { get; set; }
+    List<string> RequestedAttributes { get; set; }
+    string SigningPolicy { get; set; }
+    string Vendor { get; set; }
   class IkonBackend.CursorResponse<T>
     ctor()
     int Count { get; set; }
@@ -320,6 +347,12 @@ namespace Ikon.Common.Core
     string Password { get; set; }
     int Port { get; set; }
     string Username { get; set; }
+  static class DeveloperMode
+    static string MarkerPath { get; }
+    static string DescribeSource()
+    static void Disable()
+    static void Enable()
+    static bool IsEnabled()
   static class DiagnosticUtils
     static string BuildMemoryInfo()
   class ReactiveGlobalState.DictionaryComparer<TKey, TValue> : IEqualityComparer<Dictionary<TKey, TValue>>
@@ -357,6 +390,19 @@ namespace Ikon.Common.Core
     string Path { get; set; }
     List<string> PathSegments { get; set; }
     string SpaceId { get; set; }
+  sealed class GetSignatureOrderResponse
+    ctor()
+    string EvidenceLevel { get; set; }
+    string FailureCode { get; set; }
+    string IdentityScheme { get; set; }
+    string OrderId { get; set; }
+    string SignatureUrl { get; set; }
+    string SignedAt { get; set; }
+    string SignedDocumentBase64 { get; set; }
+    string SignedDocumentHash { get; set; }
+    string SignedDocumentMimeType { get; set; }
+    string SignerNameHash { get; set; }
+    string Status { get; set; }
   class HighPrecisionTimestamp : AsyncLocalInstance<HighPrecisionTimestamp>
     ctor()
     DateTime UtcNow { get; }
@@ -398,6 +444,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.AppBundle> ActivateAppBundleAsync(string id)
     Task<IkonBackend.ApplyAppBundleConfigResponse> ApplyAppBundleConfigAsync(object config)
     Task<string> AuthenticateSpaceTokenAsync(string spaceId, string externalUserId)
+    Task CancelSignatureOrderAsync(string orderId)
     Task CompleteItemSignedUploadAsync(string uri, string path, string sha256 = null)
     Task<IkonBackend.ConnectChannelInstanceResponse> ConnectChannelInstanceAsync(IkonBackend.ConnectChannelInstanceRequest request)
     Task<IkonBackend.AppBundle> CreateAppBundleAsync(string spaceId, string version, string itemId, IkonBackend.AppBundleState? state = null)
@@ -410,6 +457,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.Pipeline> CreatePipelineAsync(object form)
     Task<IkonBackend.Plugin> CreatePluginAsync(IkonBackend.Plugin plugin)
     Task CreateProfileLeadAsync(string profileId, string source)
+    Task<CreateSignatureOrderResponse> CreateSignatureOrderAsync(CreateSignatureOrderRequest request)
     Task<IkonBackend.SpaceApiKey> CreateSpaceApiKeyAsync(string spaceId)
     Task<IkonBackend.Space> CreateSpaceAsync(string name, string organisationId, string domain)
     Task<IkonBackend.Secret> CreateSpaceSecretAsync(string spaceId, string key, string value, string name = null, string description = null)
@@ -454,6 +502,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.ItemSignedUpload> GetItemSignedUploadUrlAsync(string uri, string filename, string mime, string[] tags, bool? isAppServed = null)
     Task<List<IkonBackend.Item>> GetItemsAsync(string spaceId, string folderId, int maxResults = 1000)
     Task<IkonBackend.LocalIkonServerTokenResponse> GetLocalIkonServerTokenAsync(string spaceId)
+    Task<IkonBackend.MintCashoutStatus> GetMintCashoutStatusAsync(string appId)
     Task<IkonBackend.Profile> GetOrCreateCurrentProfileAsync(string spaceId)
     Task<IkonBackend.Organisation> GetOrganisationAsync(string id)
     Task<List<IkonBackend.Organisation>> GetOrganisationsAsync(int maxResults = 1000)
@@ -468,6 +517,7 @@ namespace Ikon.Common.Core
     Task<List<string>> GetReleaseNoteVersions(string target)
     Task<List<IkonBackend.ReleaseNoteEntry>> GetReleaseNotes(string target, string minVersion = null, int maxResults = 100)
     Task<Dictionary<string, string>> GetSecretsAsync(string spaceId)
+    Task<GetSignatureOrderResponse> GetSignatureOrderAsync(string orderId)
     Task<IkonBackend.SpaceApiKey> GetSpaceApiKeyAsync(string id)
     Task<List<IkonBackend.SpaceApiKey>> GetSpaceApiKeysAsync(string spaceId, int maxResults = 1000)
     Task<IkonBackend.Space> GetSpaceAsync(string id)
@@ -475,6 +525,7 @@ namespace Ikon.Common.Core
     Task<List<IkonBackend.Secret>> GetSpaceSecretsAsync(string spaceId, int maxResults = 1000)
     Task<List<IkonBackend.Space>> GetSpacesAsync(string organisationId, int maxResults = 1000)
     Task<List<IkonBackend.Space>> GetSpacesAsync(string organisationId, string search, int maxResults = 100)
+    Task<StepUpAssertionResponse> GetStepUpAssertionAsync(string challengeId)
     Task<T> GetStorageAsync<T>(string spaceId, string entity, string entityId, IEnumerable<string> keys)
     Task<IkonBackend.Translation> GetTranslationAsync(string spaceId, string text, string locale, string description)
     Task<IkonBackend.TurnServerCredentialsResponse> GetTurnServerCredentialsAsync(int sessionId)
@@ -482,14 +533,21 @@ namespace Ikon.Common.Core
     Task<List<IkonBackend.User>> GetUsersAsync(string query, int limit = 20)
     bool HasCapability(string capability)
     Task<bool> IsSpaceDomainAvailableAsync(string domain)
+    Task<IkonBackend.MintApiKeyIssued> IssueMintApiKeyAsync(string appId, string label = null)
     Task<IkonBackend.ItemListResponse> ListItemsAsync(IkonBackend.ItemListRequest request)
+    Task<List<IkonBackend.MintApiKeySummary>> ListMintApiKeysAsync(string appId)
     bool Login(ValueTuple<string, string>? fromCommandLine = null, ValueTuple<string, string>? fromConfig = null, bool logSource = true, bool mustLogin = true)
     static IkonBackend.LoginInfo ReadLoginConfig()
     Task<IkonBackend.CampaignRedeemResult> RedeemCampaignAsync(string code, string organisationId)
     Task<string> RequestAccessTokenAsync(string apiKey, string spaceId, string externalUserId)
     Task<IkonBackend.ChannelInstance> RequestChannelAsync(IkonBackend.RequestChannelRequest request)
+    Task<IkonBackend.MintCashoutRequested> RequestMintCashoutAsync(string appId, decimal amountEur)
+    Task<IkonBackend.MintCashoutOnboarding> RequestMintCashoutOnboardingAsync(string appId)
+    Task<StepUpStartResponse> RequestStepUpStartAsync(StepUpStartRequest request)
     void ResetCounters()
     Task ResetProfileAsync(string profileId)
+    Task RevokeMintApiKeyAsync(string appId, string keyId)
+    Task SendEmailAsync(SendEmailDto request)
     void SendMessage(ProtocolMessage message)
     Task SetStorageAsync(string spaceId, string entity, string entityId, Dictionary<string, object> values)
     Task StopAsync()
@@ -693,6 +751,43 @@ namespace Ikon.Common.Core
     string IkonBackendEnvironment
     string IkonBackendToken
     string IkonBackendUrl
+  class IkonBackend.MintApiKeyIssued
+    ctor()
+    string AppId { get; set; }
+    DateTime CreatedAt { get; set; }
+    string Plaintext { get; set; }
+  class IkonBackend.MintApiKeySummary
+    ctor()
+    DateTime CreatedAt { get; set; }
+    string Id { get; set; }
+    string Label { get; set; }
+    DateTime? LastUsedAt { get; set; }
+    DateTime? RevokedAt { get; set; }
+  class IkonBackend.MintCashoutHistoryRow
+    ctor()
+    decimal AmountEur { get; set; }
+    DateTime? CreatedAt { get; set; }
+    string Id { get; set; }
+    DateTime? PaidAt { get; set; }
+    string Status { get; set; }
+    string StripeTransferId { get; set; }
+  class IkonBackend.MintCashoutOnboarding
+    ctor()
+    string AccountId { get; set; }
+    string KycStatus { get; set; }
+    string OnboardingUrl { get; set; }
+  class IkonBackend.MintCashoutRequested
+    ctor()
+    decimal AmountEur { get; set; }
+    string CashoutId { get; set; }
+    string StripeTransferId { get; set; }
+  class IkonBackend.MintCashoutStatus
+    ctor()
+    decimal AvailableEur { get; set; }
+    bool HasConnectAccount { get; set; }
+    string KycStatus { get; set; }
+    decimal MinCashoutEur { get; set; }
+    List<IkonBackend.MintCashoutHistoryRow> RecentCashouts { get; set; }
   static class NameConversions
     static string ToCamelCase(string input)
     static string ToDisplayName(string input)
@@ -832,8 +927,9 @@ namespace Ikon.Common.Core
     Reactive<string> PrimaryUserId { get; }
     Reactive<bool> PublicAccess { get; }
     Reactive<ServerRunType> ServerRunType { get; }
+    Reactive<string> ServerSessionId { get; }
     Reactive<string> SessionChannelUrl { get; }
-    Reactive<string> SessionId { get; }
+    Reactive<string> SessionHash { get; }
     Reactive<string> SpaceId { get; }
     Reactive<string> SpaceName { get; }
     Reactive<Dictionary<string, GlobalState.TrackingStreamState>> TrackingStreams { get; }
@@ -891,6 +987,23 @@ namespace Ikon.Common.Core
     string Item { get; }
     IReadOnlyCollection<string> Keys { get; }
     bool TryGet(string key, out string value)
+  sealed class SendEmailAttachmentDto
+    ctor()
+    string ContentBase64 { get; set; }
+    string Filename { get; set; }
+    string MimeType { get; set; }
+  sealed class SendEmailDto
+    ctor()
+    List<SendEmailAttachmentDto> Attachments { get; set; }
+    string Html { get; set; }
+    Dictionary<string, string> Metadata { get; set; }
+    string ReplyTo { get; set; }
+    string Subject { get; set; }
+    string Text { get; set; }
+    string To { get; set; }
+  sealed class SendEmailResponseDto
+    ctor()
+    bool Accepted { get; set; }
   class Sensitive<T>
     ctor(T value, SensitivityPolicy sensitivityPolicy = Default)
     bool IsSensitive { get; }
@@ -958,6 +1071,23 @@ namespace Ikon.Common.Core
     static Task<bool> SaveXmlAsync(XDocument document, string path, CancellationToken cancellationToken = null)
     static bool WriteAllText(string path, string content)
     static Task<bool> WriteAllTextAsync(string path, string content, CancellationToken cancellationToken = null)
+  sealed class StepUpAssertionResponse
+    ctor()
+    string Assertion { get; set; }
+    string FailureCode { get; set; }
+    string Status { get; set; }
+  sealed class StepUpStartRequest
+    ctor()
+    List<string> AcrValues { get; set; }
+    string AppCallbackUrl { get; set; }
+    string ClientReturnUrl { get; set; }
+    int? MaxAgeSeconds { get; set; }
+    string Purpose { get; set; }
+    string SpaceId { get; set; }
+  sealed class StepUpStartResponse
+    ctor()
+    string ChallengeId { get; set; }
+    string RedirectUrl { get; set; }
   class IkonBackend.StorageResponse<T> where T : new()
     ctor()
     string Entity { get; set; }
@@ -1133,6 +1263,30 @@ namespace Ikon.Common.Core.Assets
   static class StorageExtensions
     static Task AddEmbeddedFileStorageAsync(Asset asset, Assembly assembly = null, string resourceNamespace = "")
 
+namespace Ikon.Common.Core.Auth
+  sealed class StepUpAssertion : IEquatable<StepUpAssertion>
+    ctor(string Issuer, string Audience, string Subject, long IssuedAt, long ExpiresAt, string Jti, string UserId, string AuthSessionId, string ChallengeId, string Purpose, string SpaceId, string IdentityScheme, string AssuranceLevel, string EidSubjectHash, string IdentifierHash, string VerifiedName, string Birthdate, long VerifiedAt, string IdTokenHash, IReadOnlyDictionary<string, object> RawClaims)
+    string AssuranceLevel { get; init; }
+    string Audience { get; init; }
+    string AuthSessionId { get; init; }
+    string Birthdate { get; init; }
+    string ChallengeId { get; init; }
+    string EidSubjectHash { get; init; }
+    long ExpiresAt { get; init; }
+    string IdTokenHash { get; init; }
+    string IdentifierHash { get; init; }
+    string IdentityScheme { get; init; }
+    long IssuedAt { get; init; }
+    string Issuer { get; init; }
+    string Jti { get; init; }
+    string Purpose { get; init; }
+    IReadOnlyDictionary<string, object> RawClaims { get; init; }
+    string SpaceId { get; init; }
+    string Subject { get; init; }
+    string UserId { get; init; }
+    long VerifiedAt { get; init; }
+    string VerifiedName { get; init; }
+
 namespace Ikon.Common.Core.CommandLineParser
   static class CommandLineParser
     static Task<ParseResult<TGlobalOptions>> ParseAsync<TGlobalOptions>(string[] args, bool globalOptionsOnly = false)
@@ -1161,9 +1315,10 @@ namespace Ikon.Common.Core.CommandLineParser
     ctor(string description)
     string Description { get; }
   sealed class VerbAttribute : Attribute
-    ctor(string verb, string description, string category = null, bool loginNeeded = false, bool spaceTokenNeeded = false, string[] synonyms = null)
+    ctor(string verb, string description, string category = null, bool loginNeeded = false, bool spaceTokenNeeded = false, bool developerOnly = false, string[] synonyms = null)
     string Category { get; }
     string Description { get; }
+    bool DeveloperOnly { get; }
     bool LoginNeeded { get; }
     bool SpaceTokenNeeded { get; }
     string[] Synonyms { get; }
@@ -1176,6 +1331,7 @@ namespace Ikon.Common.Core.CommandLineParser
     ctor()
     string AssemblyName { get; set; }
     string Description { get; set; }
+    bool DeveloperOnly { get; set; }
     bool LoginNeeded { get; set; }
     string MethodName { get; set; }
     string OptionsTypeAssemblyName { get; set; }
@@ -1193,6 +1349,22 @@ namespace Ikon.Common.Core.CommandLineParser
   static class VerbResolver
     static bool LoadVerbCache(string path)
     static void WriteVerbCache(string path, string hash)
+
+namespace Ikon.Common.Core.Email
+  sealed class EmailAttachment : IEquatable<EmailAttachment>
+    ctor(string Filename, string MimeType, byte[] Bytes)
+    byte[] Bytes { get; init; }
+    string Filename { get; init; }
+    string MimeType { get; init; }
+  sealed class EmailSendRequest : IEquatable<EmailSendRequest>
+    ctor(string To, string Subject, string HtmlBody, string TextBody = null, string ReplyTo = null, IReadOnlyList<EmailAttachment> Attachments = null, IReadOnlyDictionary<string, string> Metadata = null)
+    IReadOnlyList<EmailAttachment> Attachments { get; init; }
+    string HtmlBody { get; init; }
+    IReadOnlyDictionary<string, string> Metadata { get; init; }
+    string ReplyTo { get; init; }
+    string Subject { get; init; }
+    string TextBody { get; init; }
+    string To { get; init; }
 
 namespace Ikon.Common.Core.Functions
   enum CallbackType
@@ -2985,7 +3157,7 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class GlobalState : ILogInfo, IProtocolMessagePayload
     ctor()
-    ctor(Dictionary<int, Context> clients, Dictionary<int, List<ActionFunctionRegister>> functions, Dictionary<string, GlobalState.UIStreamState> uiStreams, Dictionary<string, GlobalState.AudioStreamState> audioStreams, Dictionary<string, GlobalState.VideoStreamState> videoStreams, Dictionary<string, GlobalState.TrackingStreamState> trackingStreams, string spaceId, string channelId, string sessionId, string channelUrl, string sessionChannelUrl, string firstUserId, string primaryUserId, string organisationName, string spaceName, string channelName, ServerRunType serverRunType, AppSourceType appSourceType, bool publicAccess, bool debugMode)
+    ctor(Dictionary<int, Context> clients, Dictionary<int, List<ActionFunctionRegister>> functions, Dictionary<string, GlobalState.UIStreamState> uiStreams, Dictionary<string, GlobalState.AudioStreamState> audioStreams, Dictionary<string, GlobalState.VideoStreamState> videoStreams, Dictionary<string, GlobalState.TrackingStreamState> trackingStreams, string spaceId, string channelId, string serverSessionId, string sessionHash, string channelUrl, string sessionChannelUrl, string firstUserId, string primaryUserId, string organisationName, string spaceName, string channelName, ServerRunType serverRunType, AppSourceType appSourceType, bool publicAccess, bool debugMode)
     AppSourceType AppSourceType { get; set; }
     Dictionary<string, GlobalState.AudioStreamState> AudioStreams { get; set; }
     string ChannelId { get; set; }
@@ -3002,8 +3174,9 @@ namespace Ikon.Common.Core.Protocol
     string PrimaryUserId { get; set; }
     bool PublicAccess { get; set; }
     ServerRunType ServerRunType { get; set; }
+    string ServerSessionId { get; set; }
     string SessionChannelUrl { get; set; }
-    string SessionId { get; set; }
+    string SessionHash { get; set; }
     string SpaceId { get; set; }
     string SpaceName { get; set; }
     Dictionary<string, GlobalState.TrackingStreamState> TrackingStreams { get; set; }
@@ -5025,3 +5198,36 @@ namespace Ikon.Common.Core.Scope
     ctor(Context context)
     string Id { get; }
     string Name { get; }
+
+namespace Ikon.Common.Core.Signing
+  sealed class SignatureDocument : IEquatable<SignatureDocument>
+    ctor(string Filename, string MimeType, byte[] Bytes)
+    byte[] Bytes { get; init; }
+    string Filename { get; init; }
+    string MimeType { get; init; }
+  sealed class SignatureOrderRequest : IEquatable<SignatureOrderRequest>
+    ctor(string Purpose, IReadOnlyList<SignatureDocument> Documents, SignatureSigner Signer, string CostAttributionKey = null, string Title = null)
+    string CostAttributionKey { get; init; }
+    IReadOnlyList<SignatureDocument> Documents { get; init; }
+    string Purpose { get; init; }
+    SignatureSigner Signer { get; init; }
+    string Title { get; init; }
+  enum SignaturePolicy
+    PkiSigning
+    EidHub
+  sealed class SignatureSigner : IEquatable<SignatureSigner>
+    ctor(SignaturePolicy Policy, string Vendor = null, IReadOnlyList<string> IdpNames = null, IReadOnlyList<string> RequestedAttributes = null)
+    IReadOnlyList<string> IdpNames { get; init; }
+    SignaturePolicy Policy { get; init; }
+    IReadOnlyList<string> RequestedAttributes { get; init; }
+    string Vendor { get; init; }
+  sealed class SignedDocument : IEquatable<SignedDocument>
+    ctor(string OrderId, byte[] Bytes, string MimeType, DateTimeOffset SignedAt, string SignedDocumentHash, string IdentityScheme, string SignerNameHash, string EvidenceLevel)
+    byte[] Bytes { get; init; }
+    string EvidenceLevel { get; init; }
+    string IdentityScheme { get; init; }
+    string MimeType { get; init; }
+    string OrderId { get; init; }
+    DateTimeOffset SignedAt { get; init; }
+    string SignedDocumentHash { get; init; }
+    string SignerNameHash { get; init; }
