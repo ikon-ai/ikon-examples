@@ -1,7 +1,7 @@
 <!-- regenerated when pattern count crosses ten-mark thresholds -->
 # Pattern Index
 
-100 focused 30-60 LOC code patterns mined from production Ikon AI Apps. Coder agents call `guide("<name> pattern")` to retrieve any of them. Planner names them in the PATTERNS section of every plan; Coder retrieves and adapts as the structural skeleton. Together they replace prose rubrics — the corpus is the rubric.
+100 focused 30-60 LOC code patterns mined from production Ikon AI Apps. Coder agents call `guide("<name> pattern")` to retrieve any of them. Planner names them in the PATTERNS section of every plan; Coder retrieves and adapts as the structural skeleton. Together they replace prose criteria — the corpus is the criteria.
 
 ## Foundations (start here)
 
