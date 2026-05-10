@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 105114,
+      "sizeBytes": 110254,
       "alsoInclude": []
     },
     {
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 161335,
+      "sizeBytes": 162077,
       "alsoInclude": []
     },
     {
@@ -183,7 +183,7 @@
         "scanline"
       ],
       "file": "docs/guides/styling-guide.md",
-      "sizeBytes": 32142,
+      "sizeBytes": 29886,
       "alsoInclude": [
         "styling-and-motion"
       ]
@@ -247,7 +247,7 @@
         "timeout"
       ],
       "file": "docs/guides/emergence.md",
-      "sizeBytes": 37444,
+      "sizeBytes": 37678,
       "alsoInclude": [
         "app-structure",
         "ai-models"
@@ -291,7 +291,7 @@
         "AI connection"
       ],
       "file": "docs/guides/ai-models.md",
-      "sizeBytes": 16455,
+      "sizeBytes": 16504,
       "alsoInclude": []
     },
     {
