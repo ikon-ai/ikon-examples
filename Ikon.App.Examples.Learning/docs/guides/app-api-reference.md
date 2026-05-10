@@ -48,7 +48,10 @@ namespace Ikon.App
     ReactiveRoot ReactiveRoot { get; }
     Secrets Secrets { get; }
     IReadOnlyList<WebhookInfo> Webhooks { get; }
+    Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = null)
     Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, CancellationToken ct = null)
+    Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string> acrValues = null, CancellationToken ct = null)
+    Task SendEmailAsync(EmailSendRequest request, CancellationToken ct = null)
     event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
     event AsyncEventHandler<ClientLeftEventArgs> ClientLeftAsync
     event AsyncEventHandler<MessageReceivedEventArgs> MessageReceivedAsync
@@ -68,7 +71,10 @@ namespace Ikon.App
     Secrets Secrets { get; }
     TSessionIdentity SessionIdentity { get; }
     IReadOnlyList<WebhookInfo> Webhooks { get; }
+    Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = null)
     Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, CancellationToken ct = null)
+    Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string> acrValues = null, CancellationToken ct = null)
+    Task SendEmailAsync(EmailSendRequest request, CancellationToken ct = null)
     event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
     event AsyncEventHandler<ClientLeftEventArgs> ClientLeftAsync
     event AsyncEventHandler<MessageReceivedEventArgs> MessageReceivedAsync
@@ -134,6 +140,12 @@ namespace Ikon.App
     int SampleRate { get; init; }
     string StreamId { get; init; }
     int TrackId { get; init; }
+  sealed class AuthOutcome : IEquatable<AuthOutcome>
+    ctor(HttpResult Reject, IReadOnlyDictionary<string, string> Claims = null)
+    IReadOnlyDictionary<string, string> Claims { get; init; }
+    HttpResult Reject { get; init; }
+    static AuthOutcome Pass(IReadOnlyDictionary<string, string> claims = null)
+    static AuthOutcome RejectWith(HttpResult result)
   class BackgroundWork
     ValueTask<IAsyncDisposable> StartAsync()
     ValueTask StopAsync()
@@ -396,6 +408,51 @@ namespace Ikon.App
     ctor()
     bool Accepted { get; set; }
     string AssetUri { get; set; }
+  sealed class HttpEndpointAttribute : Attribute
+    ctor(string method, string path)
+    bool Absolute { get; init; }
+    Type Auth { get; init; }
+    string Method { get; }
+    string Path { get; }
+  static class HttpEndpointDiscovery
+    static IReadOnlyList<HttpEndpointInfo> ForType(Type ownerType)
+    static IReadOnlyList<HttpEndpointInfo> ForTypes(IEnumerable<Type> types)
+  sealed class HttpEndpointEnvelope : IEquatable<HttpEndpointEnvelope>
+    ctor(int StatusCode, string Body, string ContentType)
+    string Body { get; init; }
+    string ContentType { get; init; }
+    int StatusCode { get; init; }
+  sealed class HttpEndpointInfo : IEquatable<HttpEndpointInfo>
+    ctor(string Method, string Path, Type Auth, bool Absolute, MethodInfo Handler, Type OwnerType)
+    bool Absolute { get; init; }
+    Type Auth { get; init; }
+    MethodInfo Handler { get; init; }
+    string Method { get; init; }
+    Type OwnerType { get; init; }
+    string Path { get; init; }
+  sealed class HttpRequest : IEquatable<HttpRequest>
+    ctor(string Method, string Path, IReadOnlyDictionary<string, string> Query, IReadOnlyDictionary<string, string> Headers, string Body)
+    string Body { get; init; }
+    IReadOnlyDictionary<string, string> Headers { get; init; }
+    string Method { get; init; }
+    string Path { get; init; }
+    IReadOnlyDictionary<string, string> Query { get; init; }
+  sealed class HttpResult : IEquatable<HttpResult>
+    ctor(int StatusCode, object Body = null, string ContentType = "application/json")
+    object Body { get; init; }
+    string ContentType { get; init; }
+    int StatusCode { get; init; }
+    static HttpResult Accepted(object body = null)
+    static HttpResult BadRequest(string reason = null)
+    static HttpResult Conflict(string reason = null)
+    static HttpResult Created(object body = null)
+    static HttpResult Forbidden(string reason = null)
+    static HttpResult Json(object body, int statusCode = 200)
+    static HttpResult NoContent()
+    static HttpResult NotFound(string reason = null)
+    static HttpResult Ok(object body = null)
+    static HttpResult Text(string body, int statusCode = 200)
+    static HttpResult Unauthorized(string reason = null)
   interface IAppBase : IProtocolMessageChannel
     BackgroundWork BackgroundWork { get; }
     string DataDirectory { get; }
@@ -408,7 +465,10 @@ namespace Ikon.App
     ReactiveRoot ReactiveRoot { get; }
     Secrets Secrets { get; }
     IReadOnlyList<WebhookInfo> Webhooks { get; }
+    abstract Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = null)
     abstract Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, CancellationToken ct = null)
+    abstract Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string> acrValues = null, CancellationToken ct = null)
+    abstract Task SendEmailAsync(EmailSendRequest request, CancellationToken ct = null)
     event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
     event AsyncEventHandler<ClientLeftEventArgs> ClientLeftAsync
     event AsyncEventHandler<MessageReceivedEventArgs> MessageReceivedAsync
@@ -518,6 +578,11 @@ namespace Ikon.App
     ctor(IAppBase app, int updateIntervalMs = 1000)
     ReactiveManager ReactiveManager { get; }
     Task RunAsync(Func<Task> render, Func<Context, bool> filter = null)
+  sealed class RouteTemplate
+    IReadOnlyList<string> CaptureNames { get; }
+    string Pattern { get; }
+    static RouteTemplate Parse(string template)
+    bool TryMatch(string path, out IReadOnlyDictionary<string, string> captures)
   sealed class SpeechRecognizedEventArgs : EventArgs
     ctor(string text, Context clientContext, string streamId, string correlationId, TimeSpan duration, int sampleCount)
     Context ClientContext { get; }
@@ -592,12 +657,40 @@ namespace Ikon.App
     int Width { get; init; }
   sealed class WebhookInfo
     ctor()
+    string CellType { get; set; }
     string FunctionName { get; set; }
     string PublicUrl { get; set; }
   class WrapperConfig<TConfig> : BasePluginConfig
     ctor()
     ctor(TConfig userConfig)
     TConfig AppConfig { get; set; }
+
+namespace Ikon.App.Auth
+  sealed class AnonymousAuth
+    ctor(ICell<AnonymousAuth.SessionIdentity> ctx)
+    Task<AuthOutcome> Authenticate(HttpRequest request)
+  sealed class ApiKeyAuth
+    ctor(ICell<ApiKeyAuth.SessionIdentity> ctx)
+    Task<AuthOutcome> Authenticate(HttpRequest request)
+  sealed class AuthTicketAuth
+    ctor(ICell<AuthTicketAuth.SessionIdentity> ctx)
+    Task<AuthOutcome> Authenticate(HttpRequest request)
+  sealed class EdgeTrustedHeaderAuth
+    ctor(ICell<EdgeTrustedHeaderAuth.SessionIdentity> ctx)
+    Task<AuthOutcome> Authenticate(HttpRequest request)
+  class AnonymousAuth.SessionIdentity : IEquatable<AnonymousAuth.SessionIdentity>
+    ctor()
+  class ApiKeyAuth.SessionIdentity : IEquatable<ApiKeyAuth.SessionIdentity>
+    ctor()
+  class AuthTicketAuth.SessionIdentity : IEquatable<AuthTicketAuth.SessionIdentity>
+    ctor()
+  class EdgeTrustedHeaderAuth.SessionIdentity : IEquatable<EdgeTrustedHeaderAuth.SessionIdentity>
+    ctor()
+  class SessionTokenAuth.SessionIdentity : IEquatable<SessionTokenAuth.SessionIdentity>
+    ctor()
+  sealed class SessionTokenAuth
+    ctor(ICell<SessionTokenAuth.SessionIdentity> ctx)
+    Task<AuthOutcome> Authenticate(HttpRequest request)
 
 
 ---
