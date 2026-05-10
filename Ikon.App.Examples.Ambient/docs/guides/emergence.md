@@ -309,6 +309,8 @@ namespace Ikon.AI.Emergence
     long CacheCreationInputTokens { get; set; }
     long CachedInputTokens { get; set; }
     string CallId { get; init; }
+    int ContextWindowSize { get; init; }
+    double ContextWindowUtilization { get; }
     TimeSpan? Duration { get; set; }
     string Error { get; set; }
     long InputTokens { get; set; }
@@ -436,9 +438,11 @@ namespace Ikon.AI.Emergence
     ctor(string Text)
     string Text { get; init; }
   sealed class ObserverTokenEvent : EmergenceObserverEvent, IEquatable<ObserverTokenEvent>
-    ctor(long InputTokens, long CachedInputTokens, long CacheCreationInputTokens, long OutputTokens)
+    ctor(long InputTokens, long CachedInputTokens, long CacheCreationInputTokens, long OutputTokens, int ContextWindowSize, double ContextWindowUtilization)
     long CacheCreationInputTokens { get; init; }
     long CachedInputTokens { get; init; }
+    int ContextWindowSize { get; init; }
+    double ContextWindowUtilization { get; init; }
     long InputTokens { get; init; }
     long OutputTokens { get; init; }
   sealed class ObserverToolCallPlannedEvent : EmergenceObserverEvent, IEquatable<ObserverToolCallPlannedEvent>

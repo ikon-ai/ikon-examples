@@ -1,126 +1,132 @@
 {
-  "extractedAt": "2026-05-08T01:05:28.7050531Z",
+  "extractedAt": "2026-05-10T01:10:11.4881837Z",
   "mode": "in-repo",
-  "platformRoot": "/opt/github-runners/runner3/_work/ikon-platform/ikon-platform/platform-dotnet",
+  "platformRoot": "/opt/github-runners/runner2/_work/ikon-platform/ikon-platform/platform-dotnet",
   "assemblies": [
     {
       "name": "Ikon.Agent",
       "version": "1.0.0.0",
-      "dllMtimeUtc": "2026-05-08T00:49:44.9798053Z",
-      "dllSize": 1991168
+      "dllMtimeUtc": "2026-05-10T00:52:42.2144385Z",
+      "dllSize": 1374208
     },
     {
       "name": "Ikon.AI",
       "version": "1.0.0.0",
-      "dllMtimeUtc": "2026-05-08T00:49:42.643815Z",
+      "dllMtimeUtc": "2026-05-10T00:52:39.8624489Z",
       "dllSize": 2274816
     },
     {
       "name": "Ikon.AI.Emergence",
       "version": "1.0.0.0",
-      "dllMtimeUtc": "2026-05-08T00:49:43.4558116Z",
-      "dllSize": 427008
+      "dllMtimeUtc": "2026-05-10T00:52:40.7664449Z",
+      "dllSize": 428544
     },
     {
       "name": "Ikon.App",
       "version": "1.0.0.0",
-      "dllMtimeUtc": "2026-05-08T00:49:43.4278117Z",
-      "dllSize": 357376
+      "dllMtimeUtc": "2026-05-10T00:52:40.7904448Z",
+      "dllSize": 415232
+    },
+    {
+      "name": "Ikon.Cells",
+      "version": "1.0.0.0",
+      "dllMtimeUtc": "2026-05-10T00:52:34.170474Z",
+      "dllSize": 23040
     },
     {
       "name": "Ikon.Code",
       "version": "1.0.0.0",
-      "dllMtimeUtc": "2026-05-08T00:49:43.4718115Z",
+      "dllMtimeUtc": "2026-05-10T00:52:40.8824444Z",
       "dllSize": 418304
     },
     {
       "name": "Ikon.Common",
       "version": "1.0.0.0",
-      "dllMtimeUtc": "2026-05-08T00:49:40.3998243Z",
+      "dllMtimeUtc": "2026-05-10T00:52:37.7304583Z",
       "dllSize": 1001472
     },
     {
       "name": "Ikon.Common.Core",
       "version": "1.0.0.0",
-      "dllMtimeUtc": "2026-05-08T00:49:37.7758352Z",
-      "dllSize": 1839104
+      "dllMtimeUtc": "2026-05-10T00:52:35.6104676Z",
+      "dllSize": 1921536
     },
     {
       "name": "Ikon.Common.Core.Internal",
       "version": "1.0.0.0",
-      "dllMtimeUtc": "2026-05-08T00:49:45.1318046Z",
+      "dllMtimeUtc": "2026-05-10T00:52:41.2984425Z",
       "dllSize": 60928
     },
     {
       "name": "Ikon.Crosswind",
       "version": "1.0.0.0",
-      "dllMtimeUtc": "2026-05-08T00:49:39.491828Z",
-      "dllSize": 633344
+      "dllMtimeUtc": "2026-05-10T00:52:36.8544621Z",
+      "dllSize": 631296
     },
     {
       "name": "Ikon.Parallax",
       "version": "1.0.0.0",
-      "dllMtimeUtc": "2026-05-08T00:49:44.7558062Z",
-      "dllSize": 894976
+      "dllMtimeUtc": "2026-05-10T00:52:42.334438Z",
+      "dllSize": 888320
     },
     {
       "name": "Ikon.Pipeline",
       "version": "1.0.0.0",
-      "dllMtimeUtc": "2026-05-08T00:49:41.1398212Z",
+      "dllMtimeUtc": "2026-05-10T00:52:38.474455Z",
       "dllSize": 583168
     },
     {
       "name": "Ikon.Pipelines.Internal",
       "version": "1.0.0.0",
-      "dllMtimeUtc": "2026-05-08T00:49:45.511803Z",
+      "dllMtimeUtc": "2026-05-10T00:52:42.0704391Z",
       "dllSize": 257536
     },
     {
       "name": "Ikon.Pipelines.Public",
       "version": "1.0.0.0",
-      "dllMtimeUtc": "2026-05-08T00:49:43.5558112Z",
+      "dllMtimeUtc": "2026-05-10T00:52:40.7624449Z",
       "dllSize": 301056
     },
     {
       "name": "Ikon.Resonance",
       "version": "1.0.0.0",
-      "dllMtimeUtc": "2026-05-08T00:49:38.8078309Z",
+      "dllMtimeUtc": "2026-05-10T00:52:36.7624625Z",
       "dllSize": 189952
     },
     {
       "name": "Ikon.Resonance.Core",
       "version": "1.0.0.0",
-      "dllMtimeUtc": "2026-05-08T00:49:38.4158325Z",
+      "dllMtimeUtc": "2026-05-10T00:52:36.3584643Z",
       "dllSize": 22016
     },
     {
       "name": "Ikon.Sdk",
       "version": "1.0.0.0",
-      "dllMtimeUtc": "2026-05-08T00:49:38.7478311Z",
+      "dllMtimeUtc": "2026-05-10T00:52:36.8144623Z",
       "dllSize": 99840
     },
     {
       "name": "Ikon.Server",
       "version": "1.0.0.0",
-      "dllMtimeUtc": "2026-05-08T00:49:44.9278055Z",
-      "dllSize": 407040
+      "dllMtimeUtc": "2026-05-10T00:52:42.3864377Z",
+      "dllSize": 429056
     },
     {
       "name": "Ikon.Server.Core",
       "version": "1.0.0.0",
-      "dllMtimeUtc": "2026-05-08T00:49:42.3038164Z",
-      "dllSize": 452608
+      "dllMtimeUtc": "2026-05-10T00:52:38.7984536Z",
+      "dllSize": 455680
     },
     {
       "name": "Ikon.Teleport",
       "version": "1.0.0.0",
-      "dllMtimeUtc": "2026-05-08T00:49:36.3038413Z",
+      "dllMtimeUtc": "2026-05-10T00:52:34.170474Z",
       "dllSize": 91648
     },
     {
       "name": "Ikon.Teleport.CodeGen",
       "version": "1.0.0.0",
-      "dllMtimeUtc": "2026-05-08T00:49:38.1518336Z",
+      "dllMtimeUtc": "2026-05-10T00:52:35.982466Z",
       "dllSize": 256000
     }
   ]

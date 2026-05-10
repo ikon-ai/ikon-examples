@@ -124,37 +124,7 @@ The same applies in reverse for a fixed-light UI: don't strand `text-primary` on
 
 ### Customizing the Theme
 
-`Theming.Apply(...)` returns an `ITheme` you can pass to `new UI(app, ...)` at the top of your app file. Every parameter is a named C# argument that takes a **Crosswind/Tailwind class name** as its value (e.g. `amber-400`, `zinc-950`, `rounded-lg`, `150ms`, `ease-out`) — never a raw hex or CSS string. Set as few or as many as you need; unset roles keep the base theme's values.
-
-```csharp
-private UI UI { get; } = new(app, Theming.Apply(
-    brand: "amber-400",
-    background: "zinc-950",
-    foreground: "zinc-50",
-    fontHeading: "Crimson Pro",
-    radiusBase: "rounded-lg"));
-```
-
-The complete set of named parameters:
-
-| Parameter | Value form | Sets |
-|---|---|---|
-| `brand` | palette step (`amber-400`, `violet-600`) | Primary brand color (drives `bg-brand-solid`, `--brand`, `--primary`, primary buttons, focus rings). Foreground-on-brand auto-derives. |
-| `background` | palette step | Page background (`bg-background`, `--background`). |
-| `foreground` | palette step | Default text color (`text-primary`, `text-foreground`, `--foreground`). |
-| `card` | palette step | Card / popover surface (`bg-card`, `bg-popover`, `--card`, `--popover`). |
-| `muted` | palette step | Muted text (`text-muted-foreground`, `text-tertiary`, `--muted`). |
-| `accent` | palette step | Secondary accent (`bg-accent`, `text-accent`). |
-| `border` | palette step | Default border color (`border-primary`, `border-input`, `--border`). |
-| `fontHeading` | font family name | Heading font (`font-heading`, `font-display`). System fallback stack appended automatically. |
-| `fontBody` | font family name | Body font (`font-body`, `font-sans`). |
-| `radiusBase` | rounded utility (`rounded-none`, `rounded-md`, `rounded-2xl`, …) | Base radius — all `rounded-*` scales derive from this. |
-| `motionDuration` | duration token (`100ms`, `300ms`) | Default transition duration (`--motion-duration`). |
-| `motionEasing` | easing keyword (`linear`, `ease-out`, `ease-in-out`) | Default easing (`--motion-easing`). |
-| `custom` | `Dictionary<string, string>` | Escape hatch for arbitrary CSS vars (gradient stops, decorative tokens). Keys without a leading `--` get one. |
-| `darkMode` | another `Theming.Apply(...)` | Separate dark-mode palette applied under `[data-theme="dark"]`, `.dark`, and `prefers-color-scheme: dark`. |
-
-For any role outside the table, use `custom: new() { ["my-token"] = "value" }` and reference it from utilities (e.g. `bg-[var(--my-token)]`). For Tailwind-style gradients, use `bg-gradient-to-{r,br,...} from-{color} to-{color}` directly on components — gradients are styling, not theme tokens.
+For per-app palette / radius / shadow / font / motion overrides, see the [Ikon Theming Guide](ikon-theming-guide.md). It documents the `new IkonTheme { ... }` configurable surface — an indexer-keyed object initializer where each entry maps one CSS variable. No factory, no fan-out, no auto-contrast — what you write is what lands in the override block.
 
 ## Utility Classes
 
