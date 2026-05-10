@@ -431,4 +431,5 @@ namespace Ikon.AI.LLM
     NovaMicro
     Nova2Lite
   static class LLMModelExtensions
+    static int ContextWindowSize(LLMModel model)
     static string DisplayName(LLMModel model)
