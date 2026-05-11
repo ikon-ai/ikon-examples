@@ -18,8 +18,8 @@ StopSessions = true
 [Auth]
 # Whether the frontend requires authentication before connection to the app is established
 Enabled = false
-# Available methods: google, microsoft, guest
-Methods = ["google", "microsoft", "guest"]
+# Available methods: google, microsoft, email, guest
+Methods = ["google", "microsoft", "email", "guest"]
 # If non-empty, only allow users with email addresses from these domains to authenticate (e.g. ["mycompany.com"])
 DomainAllowlist = []
 
