@@ -406,6 +406,10 @@ namespace Ikon.Common.Core
   class HighPrecisionTimestamp : AsyncLocalInstance<HighPrecisionTimestamp>
     ctor()
     DateTime UtcNow { get; }
+  static class HotReloadGate
+    static TimeSpan CooldownDuration { get; set; }
+    static bool IsInCooldown()
+    static void MarkReloaded()
   interface ILogInfo
     object LogInfo { get; }
   interface IPlugin : IProtocolMessageChannel
@@ -525,7 +529,7 @@ namespace Ikon.Common.Core
     Task<List<IkonBackend.Secret>> GetSpaceSecretsAsync(string spaceId, int maxResults = 1000)
     Task<List<IkonBackend.Space>> GetSpacesAsync(string organisationId, int maxResults = 1000)
     Task<List<IkonBackend.Space>> GetSpacesAsync(string organisationId, string search, int maxResults = 100)
-    Task<StepUpAssertionResponse> GetStepUpAssertionAsync(string challengeId)
+    Task<StepUpAssertionResponse> GetStepUpAssertionAsync(string challengeId, string userId)
     Task<T> GetStorageAsync<T>(string spaceId, string entity, string entityId, IEnumerable<string> keys)
     Task<IkonBackend.Translation> GetTranslationAsync(string spaceId, string text, string locale, string description)
     Task<IkonBackend.TurnServerCredentialsResponse> GetTurnServerCredentialsAsync(int sessionId)
@@ -1084,6 +1088,7 @@ namespace Ikon.Common.Core
     int? MaxAgeSeconds { get; set; }
     string Purpose { get; set; }
     string SpaceId { get; set; }
+    string UserId { get; set; }
   sealed class StepUpStartResponse
     ctor()
     string ChallengeId { get; set; }
@@ -1093,6 +1098,8 @@ namespace Ikon.Common.Core
     string Entity { get; set; }
     string EntityId { get; set; }
     T Values { get; set; }
+  static class StringDistance
+    static int Levenshtein(string a, string b)
   static class Throttler
     static bool TryExecute(Action action, TimeSpan throttleInterval = null, string extraKey = null)
   static class Toml
@@ -1265,10 +1272,9 @@ namespace Ikon.Common.Core.Assets
 
 namespace Ikon.Common.Core.Auth
   sealed class StepUpAssertion : IEquatable<StepUpAssertion>
-    ctor(string Issuer, string Audience, string Subject, long IssuedAt, long ExpiresAt, string Jti, string UserId, string AuthSessionId, string ChallengeId, string Purpose, string SpaceId, string IdentityScheme, string AssuranceLevel, string EidSubjectHash, string IdentifierHash, string VerifiedName, string Birthdate, long VerifiedAt, string IdTokenHash, IReadOnlyDictionary<string, object> RawClaims)
+    ctor(string Issuer, string Audience, string Subject, long IssuedAt, long ExpiresAt, string Jti, string UserId, string ChallengeId, string Purpose, string SpaceId, string IdentityScheme, string AssuranceLevel, string EidSubjectHash, string IdentifierHash, string VerifiedName, string Birthdate, long VerifiedAt, string IdTokenHash, IReadOnlyDictionary<string, object> RawClaims)
     string AssuranceLevel { get; init; }
     string Audience { get; init; }
-    string AuthSessionId { get; init; }
     string Birthdate { get; init; }
     string ChallengeId { get; init; }
     string EidSubjectHash { get; init; }
