@@ -490,7 +490,7 @@ The full Tailwind palette (`bg-amber-400`, `text-zinc-50`, etc.) and motion DSL 
 
 ## Common pitfalls
 
-- **Don't pass `new Theme()` if you have a brand intent.** That uses the platform default — generic dark-zinc. Either commit a real `new IkonTheme { ... }` or accept the default.
+- **Don't pass `new IkonTheme()` (no body) if you have a brand intent.** That uses the platform default — generic dark-zinc. Either commit a real `new IkonTheme { ... }` with overrides or accept the default. Never write `class IkonTheme : ITheme` or `class Theme : ITheme` in the app source — both are provided by `Ikon.Parallax`.
 - **Don't try `Theming.Apply(...)`, `Theming.Custom(...)`, `Theme.Custom(...)`.** Those factories were retired. The only configurable surface is `new IkonTheme { ... }`.
 - **Don't forget `primary-foreground`.** Setting `["primary"] = "amber-400"` won't auto-pick a contrasting text color. You set `["primary-foreground"] = "#0A0A0A"` (light brand step) or `"#ffffff"` (dark brand step) yourself.
 - **Don't strand text on the wrong background.** Setting `["background"] = "zinc-950"` does not auto-set `["text-primary"]`. If you skip the text-primary override, the platform default (which assumes a light background) renders dark text on your dark background — invisible.
@@ -506,7 +506,7 @@ Five-step recipe for an external LLM (Cursor, Codex, Copilot, ChatGPT) to theme 
 4. **Adjust the brand** if the user named a specific color — replace every `["primary"] = "..."`, `["bg-brand-solid"] = "..."`, `["text-brand"] = "..."`, `["border-brand"] = "..."` line with the user's choice. Keep `primary-foreground` consistent (light step → `#0A0A0A`; dark step → `#ffffff`).
 5. **Verify** — the output should have a `new IkonTheme { ... }` block, no `Theming.Apply(...)`, no hex unless the user asked for one, and the palette family stays coherent (no `amber-400` paired with `cyan-500`).
 
-The generated code goes at the top of the App class, replacing the default `new Theme()`:
+The generated code goes at the top of the App class, replacing the default bare `new IkonTheme()`:
 
 ```csharp
 [App]

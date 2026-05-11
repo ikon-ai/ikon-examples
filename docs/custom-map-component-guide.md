@@ -486,7 +486,7 @@ public static class MyMapExtensions
 [App]
 public class MyApp(IApp<SessionIdentity, ClientParameters> app)
 {
-    private UI UI { get; } = new(app, new Theme());
+    private UI UI { get; } = new(app, new IkonTheme());
 
     private readonly Reactive<List<MapPin>> _pins = new([]);
     private readonly Reactive<string?> _selectedPinId = new(null);
