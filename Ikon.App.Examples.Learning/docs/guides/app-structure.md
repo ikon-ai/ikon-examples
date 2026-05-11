@@ -11,7 +11,7 @@ public record ClientParameters(string Name = "Ikon");
 [App]
 public class MyApp(IApp<SessionIdentity, ClientParameters> app)
 {
-    private UI UI { get; } = new(app, new Theme());
+    private UI UI { get; } = new(app, new IkonTheme());
     private Audio Audio { get; } = new(app);
 
     // Shared state — same value for all clients
@@ -118,7 +118,7 @@ Key elements:
 - `return await App.Run(args);` - Required entry point at the top of the file
 - `[App]` attribute - Mandatory, must appear exactly once. Marks the class whose `Main()` method will be executed. Do NOT explicitly implement `: IApp<>` — the `[App]` attribute handles interface implementation via source generation
 - `IApp<SessionIdentity, ClientParameters> app` - Must specify types for SessionIdentity and ClientParameters. Passed as a primary constructor parameter, not implemented as an interface
-- `private UI UI { get; } = new(app, new Theme());` - Initialize UI with app and theme
+- `private UI UI { get; } = new(app, new IkonTheme());` - Initialize UI with app and theme. For brand customization, use the indexer: `new IkonTheme { ["primary"] = "amber-400", ["background"] = "zinc-950" }` — every entry is one CSS-variable override expressed in Crosswind tokens. **Never redefine `IkonTheme` or `Theme` as a class in your app source** — both are provided by `Ikon.Parallax` and auto-imported via `global using`.
 - `Reactive<T>` - Reactive state that triggers UI updates when changed
 - `public async Task Main()` - App entry point. Declares UI shape and returns quickly. All work code goes in callbacks
 
@@ -201,8 +201,10 @@ When in doubt, prefer the canonical name. These are the recurring wrong names th
 
 | Wrong (don't write) | Right (real API) | Notes |
 |---|---|---|
-| `Theme.Custom(b => b...)` | `Theming.Apply(brand: "amber-400", ...)` | The fluent builder was removed; `Theming.Apply` is named-args. |
-| `Theming.Custom(...)` | `Theming.Apply(...)` | Same. |
+| `Theme.Custom(b => b...)` | `new IkonTheme { ["primary"] = "amber-400", ... }` | Fluent builder retired; `IkonTheme` is an indexer-keyed class — every entry sets one CSS variable. |
+| `Theming.Custom(...)` | `new IkonTheme { ... }` | Same. |
+| `Theming.Apply(...)` | `new IkonTheme { ... }` | Factory retired; the indexer is the only configurable surface. |
+| `new IkonTheme { Brand = "...", Background = "..." }` | `new IkonTheme { ["primary"] = "...", ["background"] = "..." }` | No named init properties — every override is an indexer entry. |
 | `IApp<NoSession, NoClient>` | `IApp<SessionIdentity, ClientParameters>` with concrete records above | `NoSession` / `NoClient` types do not exist. Always declare records — use `record SessionIdentity()` empty if you have nothing. |
 | `Audio.SpeakAsync(text)` | `Audio.SendSpeech(audio)` | Only `SendSpeech` exists. The `audio` argument is an `AudioContainer` from `SpeechGenerator.GenerateSpeechAsync`. |
 | `Audio.Speech` (property) | `new SpeechGenerator(...)` then `Audio.SendSpeech(...)` | No `Speech` property on `Audio`. The full chain is `var gen = new SpeechGenerator(model); await foreach (var chunk in gen.GenerateSpeechAsync(cfg)) Audio.SendSpeech(chunk);`. |
@@ -213,7 +215,7 @@ When in doubt, prefer the canonical name. These are the recurring wrong names th
 | `IView` (parameter type) | `UIView` | `UIView` is a class, not an interface; there is no `IView`. |
 | `pass.User(...)` | `pass.Command = $"..."` | `Command` is a property. |
 | `EmergePass<T>.User` method | `pass.Command` / `pass.SystemPrompt` properties | All pass-config is property assignment. |
-| `Theme.Builder` | `Theming.Apply` | Builder pattern was removed entirely. |
+| `Theme.Builder` | `new IkonTheme { ... }` | Builder pattern was removed entirely. |
 
 If a compiler error names one of these on the right-hand column, the fix is mechanical: replace the wrong name with the right name. Do not call `guide()` to re-confirm — the compiler is authoritative.
 
@@ -257,7 +259,8 @@ await app.Navigation.SetPathAsync(args.ClientSessionId, $"/{tab}", replace: true
 ```csharp
 app.GlobalState.SpaceId           // Current space ID
 app.GlobalState.ChannelId         // Current channel ID
-app.GlobalState.SessionId         // Server session ID
+app.GlobalState.ServerSessionId   // Id of this Ikon server instance
+app.GlobalState.SessionHash       // Hash of session identity params (logical session id)
 app.GlobalState.ChannelUrl        // Channel access URL
 app.GlobalState.SessionChannelUrl // Session-specific access URL
 app.GlobalState.PrimaryUserId     // Static user ID of session owner
