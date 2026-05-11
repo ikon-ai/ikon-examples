@@ -40,40 +40,64 @@ Use semantic color tokens (`text-primary`, `bg-card`, `border-secondary`) — ne
 
 ### Theme Customization
 
-For per-app palette overrides without editing the base theme, use `Theming.Apply(...)` at the top of your app file. Every parameter is a named C# argument that takes a **Crosswind/Tailwind class name** as its value (e.g. `amber-400`, `zinc-950`, `rounded-lg`, `150ms`, `ease-out`) — never a raw hex or CSS string. Set as few or as many as you need; unset roles inherit the base theme.
+For per-app palette overrides without editing the base theme, use `new IkonTheme { ... }` at the top of your app file. **The only configurable surface is the indexer + `DarkMode` property** — there are no named init properties (no `Brand =`, no `Background =`). Every entry sets one CSS variable. Values are Crosswind/Tailwind class names (e.g. `amber-400`, `zinc-950`, `rounded-lg`, `150ms`, `ease-out`) or raw CSS (hex / rem / family stack / gradient). Set as few or as many as you need; unset CSS variables inherit the base theme.
 
 ```csharp
-private UI UI { get; } = new(app, Theming.Apply(
-    brand: "violet-500",
-    background: "slate-950",
-    foreground: "slate-50",
-    card: "slate-900",
-    border: "slate-700",
-    fontHeading: "Inter",
-    radiusBase: "rounded-lg",
-    darkMode: Theming.Apply(brand: "violet-400", background: "slate-950")));
+private UI UI { get; } = new(app, new IkonTheme
+{
+    // Brand cluster — every brand-tinted CSS var, set explicitly.
+    ["primary"]              = "violet-500",
+    ["bg-brand-solid"]       = "violet-500",
+    ["bg-brand-solid-hover"] = "violet-600",
+    ["text-brand"]           = "violet-500",
+    ["border-brand"]         = "violet-500",
+    ["primary-foreground"]   = "#ffffff",
+
+    // Surfaces.
+    ["background"]   = "slate-950",
+    ["text-primary"] = "slate-50",
+    ["card"]         = "slate-900",
+    ["border-primary"] = "slate-700",
+
+    // Type + shape.
+    ["font-heading"] = "Inter",
+    ["radius-base"]  = "rounded-lg",
+
+    // Per-token Tailwind overrides (optional).
+    ["amber-400"]  = "#F5A524",     // re-skin a Tailwind palette step app-wide
+    ["rounded-lg"] = "1.25rem",     // tune one radius rung
+    ["hero-glow"]  = "radial-gradient(circle, #F5A52488, transparent 70%)",  // bespoke decorative
+
+    DarkMode = new IkonTheme { ["primary"] = "violet-400", ["background"] = "slate-950" },
+});
 ```
 
-The complete set of named parameters:
+Common CSS variable names (set the ones you want themed; the rest inherit):
 
-| Parameter | Value form | Sets |
+| Cluster | Variables |
+|---|---|
+| Brand | `primary`, `brand`, `bg-brand-solid`, `bg-brand-solid-hover`, `text-brand`, `border-brand`, `ring-brand`, `primary-foreground` |
+| Page | `background`, `bg-background`, `text-primary`, `text-foreground` |
+| Surfaces | `card`, `popover`, `text-card-foreground`, `text-popover-foreground` |
+| Muted | `muted`, `text-muted-foreground`, `text-tertiary`, `text-quaternary` |
+| Accent | `accent-500`, `accent-600` |
+| Borders | `border-primary`, `border-secondary`, `border-input` |
+| Type | `font-heading`, `font-display`, `font-body`, `font-sans`, `font-mono` |
+| Shape + motion | `radius-base`, `motion-duration-base`, `ease-default` |
+
+Per-token Tailwind overrides also work — the renderer dispatches by key shape:
+
+| Indexer key form | Example | Effect |
 |---|---|---|
-| `brand` | palette step (`amber-400`, `violet-600`) | Primary brand color (drives `bg-brand-solid`, `--brand`, `--primary`, primary buttons, focus rings). Foreground-on-brand auto-derives. |
-| `background` | palette step | Page background (`bg-background`, `--background`). |
-| `foreground` | palette step | Default text color (`text-primary`, `text-foreground`, `--foreground`). |
-| `card` | palette step | Card / popover surface (`bg-card`, `bg-popover`, `--card`, `--popover`). |
-| `muted` | palette step | Muted text (`text-muted-foreground`, `--muted`). |
-| `accent` | palette step | Secondary accent (`bg-accent`, `text-accent`). |
-| `border` | palette step | Default border color (`border-primary`, `border-input`, `--border`). |
-| `fontHeading` | font family name | Heading font (`font-heading`, `font-display`). System fallback stack appended automatically. |
-| `fontBody` | font family name | Body font (`font-body`, `font-sans`). |
-| `radiusBase` | rounded utility (`rounded-none`, `rounded-md`, `rounded-2xl`) | Base radius — all `rounded-*` scales derive from this. |
-| `motionDuration` | duration token (`100ms`, `300ms`) | Default transition duration (`--motion-duration`). |
-| `motionEasing` | easing keyword (`linear`, `ease-out`, `ease-in-out`) | Default easing (`--motion-easing`). |
-| `custom` | `Dictionary<string, string>` | Escape hatch for arbitrary CSS vars (gradient stops, decorative tokens). Keys without a leading `--` get one. |
-| `darkMode` | another `Theming.Apply(...)` | Separate dark-mode palette applied under `[data-theme="dark"]`, `.dark`, and `prefers-color-scheme: dark`. |
+| Tailwind palette step | `["amber-400"] = "#F5A524"` | Override what `bg-amber-400` / `text-amber-400` / `border-amber-400` paints app-wide. |
+| Radius rung | `["rounded-lg"] = "1.25rem"` | Override one radius rung independently. |
+| Shadow rung | `["shadow-lg"] = "0 8px 16px rgba(0,0,0,.18)"` | Override one shadow rung. |
+| Font role | `["font-mono"] = "JetBrains Mono"` | Override one font slot. |
+| Bespoke token | `["hero-glow"] = "radial-gradient(...)"` | Free CSS variable referenced as `bg-[var(--hero-glow)]`. |
 
-`Theming.Apply` is the **only** factory. **`Theme.Custom(...)` and `Theming.Custom(...)` were removed** — they were the older fluent-builder API. Do not invent `.GradientBrand` / `.BorderColor` / `.PrimaryColor` / `.SurfaceColor` either; they never existed. For tokens outside the table, use `custom: new() { ["my-token"] = "value" }` and reference it via `bg-[var(--my-token)]`. For Tailwind-style gradients, use the utility classes (`bg-gradient-to-br from-{color} to-{color}`) directly on components.
+The renderer dispatches by key shape: Tailwind palette step → `--color-{name}-{step}`; `rounded-*` → `--radius-*`; `shadow-*` → `--shadow-*`; `font-*` → `--font-*`; `ease-*` → `--ease-*`. Anything else falls through as `--{key}: {value}` (with smart sniff so Tailwind tokens used as values still resolve).
+
+`new IkonTheme { ... }` is the **only** configurable surface. **`Theming.Apply(...)`, `Theming.Custom(...)`, `Theme.Custom(...)` were retired** — they were the older factory-style APIs. There is also no auto-fan-out and no auto-contrast: setting `["primary"]` does not also set `["bg-brand-solid"]`, and setting `["background"]` does not auto-pick `["text-primary"]`. Spell out each var. Do not invent `.GradientBrand` / `.BorderColor` / `.PrimaryColor` / `.SurfaceColor` either; they never existed. For Tailwind-style gradients, use the utility classes (`bg-gradient-to-br from-{color} to-{color}`) directly on components.
 
 For deeper customization (full color scales, every radius/shadow token, dark-mode shadows, font fallbacks):
 
