@@ -71,7 +71,7 @@ using Ikon.Parallax.Themes.Default;
 [App]
 public class MyApp(IApp<SessionIdentity, ClientParams> app)
 {
-    private UI UI { get; } = new(app, new Theme());
+    private UI UI { get; } = new(app, new IkonTheme());
 
     private readonly Reactive<int> _counter = new(0);
 
