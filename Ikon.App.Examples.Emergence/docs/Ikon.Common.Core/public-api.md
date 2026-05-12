@@ -280,7 +280,6 @@ namespace Ikon.Common.Core
     List<CreateSignatureOrderDocumentDto> Documents { get; set; }
     string Purpose { get; set; }
     List<CreateSignatureOrderSignerDto> Signers { get; set; }
-    string Space { get; set; }
     string Title { get; set; }
   sealed class CreateSignatureOrderResponse
     ctor()
