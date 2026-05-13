@@ -276,6 +276,7 @@ namespace Ikon.Common.Core
     string MimeType { get; set; }
   sealed class CreateSignatureOrderRequest
     ctor()
+    string ClientReturnUrl { get; set; }
     string CostAttributionKey { get; set; }
     List<CreateSignatureOrderDocumentDto> Documents { get; set; }
     string Purpose { get; set; }
@@ -397,8 +398,8 @@ namespace Ikon.Common.Core
     string OrderId { get; set; }
     string SignatureUrl { get; set; }
     string SignedAt { get; set; }
-    string SignedDocumentBase64 { get; set; }
     string SignedDocumentHash { get; set; }
+    string SignedDocumentItemId { get; set; }
     string SignedDocumentMimeType { get; set; }
     string SignerNameHash { get; set; }
     string Status { get; set; }
@@ -3287,6 +3288,16 @@ namespace Ikon.Common.Core.Protocol
     static OnClientLeft ReadFromTeleport(ReadOnlySpan<byte> data, OnClientLeft destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
+  sealed class OnClientLeftAfterGracePeriod : IProtocolMessagePayload
+    ctor()
+    ctor(Context clientContext)
+    Context ClientContext { get; set; }
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    static OnClientLeftAfterGracePeriod ReadFromTeleport(ReadOnlySpan<byte> data)
+    static OnClientLeftAfterGracePeriod ReadFromTeleport(ReadOnlySpan<byte> data, OnClientLeftAfterGracePeriod destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class OnClientReady : IProtocolMessagePayload
     ctor()
     ctor(Context clientContext)
@@ -3423,6 +3434,7 @@ namespace Ikon.Common.Core.Protocol
     CORE_SERVER_INIT2
     CORE_UPDATE_CLIENT_CONTEXT
     CORE_BACKGROUND_WORK_ACTIVE
+    CORE_ON_CLIENT_LEFT_AFTER_GRACE_PERIOD
     CORE_WEBRTC_OFFER
     CORE_WEBRTC_ANSWER
     CORE_WEBRTC_ICE_CANDIDATE
@@ -5211,7 +5223,8 @@ namespace Ikon.Common.Core.Signing
     string Filename { get; init; }
     string MimeType { get; init; }
   sealed class SignatureOrderRequest : IEquatable<SignatureOrderRequest>
-    ctor(string Purpose, IReadOnlyList<SignatureDocument> Documents, SignatureSigner Signer, string CostAttributionKey = null, string Title = null)
+    ctor(string Purpose, IReadOnlyList<SignatureDocument> Documents, SignatureSigner Signer, string CostAttributionKey = null, string Title = null, string ClientReturnUrl = null)
+    string ClientReturnUrl { get; init; }
     string CostAttributionKey { get; init; }
     IReadOnlyList<SignatureDocument> Documents { get; init; }
     string Purpose { get; init; }
