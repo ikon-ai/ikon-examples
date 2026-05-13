@@ -50,7 +50,7 @@ namespace Ikon.App
     IReadOnlyList<WebhookInfo> Webhooks { get; }
     Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = null)
     Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, CancellationToken ct = null)
-    Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string> acrValues = null, CancellationToken ct = null)
+    Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string> acrValues = null, string clientReturnUrl = null, CancellationToken ct = null)
     Task SendEmailAsync(EmailSendRequest request, CancellationToken ct = null)
     event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
     event AsyncEventHandler<ClientLeftEventArgs> ClientLeftAsync
@@ -73,7 +73,7 @@ namespace Ikon.App
     IReadOnlyList<WebhookInfo> Webhooks { get; }
     Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = null)
     Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, CancellationToken ct = null)
-    Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string> acrValues = null, CancellationToken ct = null)
+    Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string> acrValues = null, string clientReturnUrl = null, CancellationToken ct = null)
     Task SendEmailAsync(EmailSendRequest request, CancellationToken ct = null)
     event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
     event AsyncEventHandler<ClientLeftEventArgs> ClientLeftAsync
@@ -199,6 +199,8 @@ namespace Ikon.App
     static Task<bool> LoginShowAsync(int targetId, string reason = null, CancellationToken cancellationToken = null)
     static Task<bool> LogoutAsync(int targetId, CancellationToken cancellationToken = null)
     static Task<bool> LogoutAsync(CancellationToken cancellationToken = null)
+    static Task<bool> OpenExternalUrlAsync(int targetId, string url, CancellationToken cancellationToken = null)
+    static Task<bool> OpenExternalUrlAsync(string url, CancellationToken cancellationToken = null)
     static Task<string> PlaySoundAsync(int targetId, string url, double volume = 1, bool loop = false, CancellationToken cancellationToken = null)
     static Task<string> PlaySoundAsync(int targetId, byte[] data, string mimeType, double volume = 1, bool loop = false, CancellationToken cancellationToken = null)
     static Task<string> PlaySoundAsync(string url, double volume = 1, bool loop = false, CancellationToken cancellationToken = null)
@@ -467,7 +469,7 @@ namespace Ikon.App
     IReadOnlyList<WebhookInfo> Webhooks { get; }
     abstract Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = null)
     abstract Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, CancellationToken ct = null)
-    abstract Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string> acrValues = null, CancellationToken ct = null)
+    abstract Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string> acrValues = null, string clientReturnUrl = null, CancellationToken ct = null)
     abstract Task SendEmailAsync(EmailSendRequest request, CancellationToken ct = null)
     event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
     event AsyncEventHandler<ClientLeftEventArgs> ClientLeftAsync
@@ -512,6 +514,7 @@ namespace Ikon.App
     static string KeepScreenAwake
     static string LoginShow
     static string Logout
+    static string OpenExternalUrl
     static string PlaySound
     static string RequestFullscreen
     static string ScrollTo
@@ -715,6 +718,7 @@ namespace Ikon.Common
     string ChannelId { get; set; }
     string CreatedAt { get; set; }
     List<AppBundleConfig.DatabaseEntry> Databases { get; set; }
+    AppBundleConfig.EmailConfig Email { get; set; }
     List<AppBundleConfig.EmailTemplate> EmailTemplates { get; set; }
     string Hash { get; set; }
     string Name { get; set; }
@@ -747,6 +751,7 @@ namespace Ikon.Common
     AppProjectConfig.ActivationConfig Activation { get; set; }
     AppProjectConfig.AuthConfig Auth { get; set; }
     List<string> Databases { get; set; }
+    AppProjectConfig.EmailConfig Email { get; set; }
     AppProjectConfig.TargetConfig Target { get; set; }
     static string GetConfigFileName(IkonBackend.EnvironmentType environment)
     static string GetConfigFileName(string targetName)
@@ -830,6 +835,14 @@ namespace Ikon.Common
     object Example { get; }
     RequiredStatus IsRequired { get; }
     int MinArrayItems { get; }
+  class AppProjectConfig.EmailConfig : ITomlMetadataProvider
+    ctor()
+    bool Enabled { get; set; }
+    string SenderDomain { get; set; }
+  class AppBundleConfig.EmailConfig
+    ctor()
+    bool Enabled { get; set; }
+    string SenderDomain { get; set; }
   class AppBundleConfig.EmailTemplate
     ctor()
     string Name { get; set; }
