@@ -18,6 +18,7 @@ namespace Ikon.Common
     string ChannelId { get; set; }
     string CreatedAt { get; set; }
     List<AppBundleConfig.DatabaseEntry> Databases { get; set; }
+    AppBundleConfig.EmailConfig Email { get; set; }
     List<AppBundleConfig.EmailTemplate> EmailTemplates { get; set; }
     string Hash { get; set; }
     string Name { get; set; }
@@ -50,6 +51,7 @@ namespace Ikon.Common
     AppProjectConfig.ActivationConfig Activation { get; set; }
     AppProjectConfig.AuthConfig Auth { get; set; }
     List<string> Databases { get; set; }
+    AppProjectConfig.EmailConfig Email { get; set; }
     AppProjectConfig.TargetConfig Target { get; set; }
     static string GetConfigFileName(IkonBackend.EnvironmentType environment)
     static string GetConfigFileName(string targetName)
@@ -133,6 +135,14 @@ namespace Ikon.Common
     object Example { get; }
     RequiredStatus IsRequired { get; }
     int MinArrayItems { get; }
+  class AppProjectConfig.EmailConfig : ITomlMetadataProvider
+    ctor()
+    bool Enabled { get; set; }
+    string SenderDomain { get; set; }
+  class AppBundleConfig.EmailConfig
+    ctor()
+    bool Enabled { get; set; }
+    string SenderDomain { get; set; }
   class AppBundleConfig.EmailTemplate
     ctor()
     string Name { get; set; }
