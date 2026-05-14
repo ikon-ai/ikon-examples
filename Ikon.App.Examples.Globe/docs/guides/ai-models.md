@@ -8,6 +8,39 @@ LLM model selection, connection configuration, and core AI infrastructure.
 
 # Ikon.AI Public API
 namespace Ikon.AI
+  enum GovernanceAction
+    Allow
+    Deny
+    Escalate
+    Obfuscate
+    Delay
+  sealed class GovernanceCall : IEquatable<GovernanceCall>
+    ctor(string Operation, string Subject, IReadOnlyDictionary<string, object> Args, IReadOnlyDictionary<string, object> Ctx)
+    IReadOnlyDictionary<string, object> Args { get; init; }
+    IReadOnlyDictionary<string, object> Ctx { get; init; }
+    string Operation { get; init; }
+    string Subject { get; init; }
+  sealed class GovernanceCallResult : IEquatable<GovernanceCallResult>
+    ctor(bool Failed, string Outcome, string ErrorMessage = null)
+    string ErrorMessage { get; init; }
+    bool Failed { get; init; }
+    string Outcome { get; init; }
+  static class GovernanceInvoker
+    static Task<T> RunAsync<T>(GovernanceCall call, Func<Task<T>> invoke, CancellationToken ct = null)
+  sealed class GovernanceOutcome : IEquatable<GovernanceOutcome>
+    ctor(GovernanceAction Action, string DecisionId, string RuleId, string PolicyId, string Reason, string Target = null)
+    GovernanceAction Action { get; init; }
+    string DecisionId { get; init; }
+    string PolicyId { get; init; }
+    string Reason { get; init; }
+    string RuleId { get; init; }
+    string Target { get; init; }
+  static class GovernanceScope
+    static IGovernanceHook Current { get; }
+    static IDisposable Use(IGovernanceHook hook)
+  interface IGovernanceHook
+    abstract Task AfterAsync(GovernanceCall call, GovernanceCallResult result, CancellationToken ct)
+    abstract Task<GovernanceOutcome> BeforeAsync(GovernanceCall call, CancellationToken ct)
   class IkonAIConnection : AsyncLocalInstance<IkonAIConnection>
     ctor()
     IkonClientConfig ConfigOverride { get; set; }
@@ -59,6 +92,11 @@ namespace Ikon.AI
   static class ModelRegionSelector
     static void SetPriorityList(ModelRegionPriorityKey key, IReadOnlyList<ModelRegion> priorities)
     static bool TryGetPriorityList(ModelRegionPriorityKey key, out IReadOnlyList<ModelRegion> priorities)
+  sealed class NullGovernanceHook : IGovernanceHook
+    ctor()
+    Task AfterAsync(GovernanceCall call, GovernanceCallResult result, CancellationToken ct)
+    Task<GovernanceOutcome> BeforeAsync(GovernanceCall call, CancellationToken ct)
+    static NullGovernanceHook Instance
   enum Organization
     None
     AI21
@@ -181,7 +219,9 @@ namespace Ikon.AI.Kernel
     static string GenerateExampleJson<T>()
   static class JsonSchemaGenerator
     static ExpandoObject GenerateJsonSchemaExpandoObject<T>(SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
+    static JsonNode GenerateSchemaNode(Type type, string description = null, SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
     static string GenerateSchemaString<T>(SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
+    static string GenerateSchemaString(Type type, SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
   struct KernelContext : IEquatable<KernelContext>
     ctor()
     ctor(KernelContext? baseContext = null, ImmutableList<Instruction> instructions = null, ImmutableList<MessageBlock> messages = null, ImmutableDictionary<string, Function> functions = null, TimeSpan? timeout = null, double? temperature = null, int? maxOutputTokens = null, ReasoningEffort? reasoningEffort = null, int? reasoningTokenBudget = null, bool? useStreaming = null, bool? useJson = null, bool? useCitations = null, bool? useUserNames = null, bool? useAudioOutput = null, string audioOutputVoiceId = null, bool? useCaching = null, bool? disableFunctionCalling = null, bool? discardTextOutputWithFunctionCalls = null, bool? logFullRequest = null, bool? logFullResponse = null, object jsonSchema = null, string gbnfGrammar = null, string toolPlan = null)
