@@ -61,6 +61,7 @@ namespace Ikon.Common.Core
     void TrimExcess()
   sealed class AssertionVerifier
     ctor(string platformBaseUrl, HttpClient httpClient = null, Func<DateTimeOffset> clock = null)
+    Task<ValueTuple<JsonDocument, DateTimeOffset>> VerifyAndExtractClaimsAsync(string token, string expectedIssuer, string expectedAudience, CancellationToken ct = null)
     Task<StepUpAssertion> VerifyAsync(string token, string expectedIssuer, string expectedAudience, CancellationToken ct = null)
   class IkonBackend.Asset
     ctor()
@@ -408,8 +409,11 @@ namespace Ikon.Common.Core
     DateTime UtcNow { get; }
   static class HotReloadGate
     static TimeSpan CooldownDuration { get; set; }
+    static bool IsEnabled { get; }
     static bool IsInCooldown()
+    static void MarkEnabled()
     static void MarkReloaded()
+    static int LocalMemoryMarginMb
   interface ILogInfo
     object LogInfo { get; }
   interface IPlugin : IProtocolMessageChannel
@@ -1390,6 +1394,7 @@ namespace Ikon.Common.Core.Functions
     bool IsRemote { get; }
     bool LlmCallOnlyOnce { get; }
     bool LlmInlineResult { get; }
+    MethodInfo MethodInfo { get; }
     string Name { get; }
     FunctionParameter[] Parameters { get; }
     PolicyDelegate Policy { get; }
@@ -1476,6 +1481,8 @@ namespace Ikon.Common.Core.Functions
     Func<int, string> AuthSessionIdResolver { get; set; }
     IReadOnlyDictionary<string, IReadOnlyList<Function>> Functions { get; }
     static Action RemoteCallExecutionStarting { get; set; }
+    Func<int, IReadOnlyCollection<string>> RolesResolver { get; set; }
+    Func<int, IReadOnlyList<IScopeKey>> ScopeResolver { get; set; }
     Func<int, string> UserIdResolver { get; set; }
     void AddFunction(Function function, FunctionVisibility? visibilityOverride = null)
     Task AttachProtocolAsync(IProtocolMessageChannel channel, int senderId)
@@ -1522,7 +1529,7 @@ namespace Ikon.Common.Core.Functions
     static string EncodeFunctionName(string typeName, string functionName)
   enum FunctionVisibility
     Local
-    Shared
+    External
   class RegisterAllAttribute : Attribute
     ctor()
     bool LlmCallOnlyOnce { get; set; }
@@ -1554,6 +1561,8 @@ namespace Ikon.Common.Core.Functions
 
 namespace Ikon.Common.Core.Functions.Policy
   sealed class PolicyDecision.Allow : PolicyDecision
+  sealed class AllowAnonymousAttribute : Attribute
+    ctor()
   sealed class ApprovalAuditEntry
     ctor(Guid approvalId, Guid callId, string functionName, int approverSessionId, string approverUserId, bool approved, string reason, string policyName, DateTimeOffset timestamp)
     Guid ApprovalId { get; }
@@ -1711,6 +1720,18 @@ namespace Ikon.Common.Core.Functions.Policy
   sealed class RequireLoginAttribute : PolicyAttribute
     ctor()
     override IFunctionPolicy CreatePolicy()
+  sealed class RequireRoleAttribute : PolicyAttribute
+    ctor(params string[] roles)
+    bool RequireAll { get; set; }
+    string[] RequiredRoles { get; }
+    override IFunctionPolicy CreatePolicy()
+  sealed class RoleBasedPolicy : IFunctionPolicy
+    ctor(string[] required, bool requireAll, int priority)
+    string Name { get; }
+    int Priority { get; }
+    ValueTask<PolicyDecision> EvaluateAsync(object[] args, PolicyCallContext context)
+    static string MissingRoleCode
+    static string RolesContextKey
   sealed class UsageLimitAttribute : PolicyAttribute
     ctor(Type checkerType)
     Type CheckerType { get; }
@@ -5080,6 +5101,10 @@ namespace Ikon.Common.Core.Reactive
     event EventHandler<Guid> Deleted
     event EventHandler ReactiveObjectUpdated
     event EventHandler<Guid> Updating
+  static class ReactiveNameIndex
+    static void Clear()
+    static void Register(string memberName, string stableId)
+    static bool TryGet(string memberName, out string stableId)
   static class ReactiveScope
     static int ClientId { get; }
     static int? ClientIdOrNull { get; }
@@ -5104,9 +5129,11 @@ namespace Ikon.Common.Core.Reactive
     ctor()
     Func<int, IReadOnlyList<IScopeKey>> ScopeResolver { get; set; }
     void AttachTo(FunctionRegistry registry)
+    string GetStableIdByName(string memberName)
     void RemoveSession(int sessionId)
     string Subscribe(string stableId, string mountId)
     void Unsubscribe(string stableId, string mountId)
+    static string GetStableIdByNameFunctionName
     static string SubscribeFunctionName
     static string UnsubscribeFunctionName
     static string UpdateFunctionName
@@ -5154,6 +5181,11 @@ namespace Ikon.Common.Core.Reactive
   class UserReactive<T> : Reactive<T, UserScope>
     ctor(T initialValue, string file = "", string member = "")
     ctor(Func<string, T> initialValue, string file = "", string member = "")
+
+namespace Ikon.Common.Core.Reflection
+  static class TaskTypeUnwrap
+    static ValueTask<object> AwaitAndGetResultAsync(object raw)
+    static Type UnwrapResultType(Type declaredReturnType)
 
 namespace Ikon.Common.Core.Scope
   struct BackendTokenScope : IScopeKey

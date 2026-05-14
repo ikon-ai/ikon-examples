@@ -246,6 +246,10 @@ namespace Ikon.Common.Core.Reactive
     event EventHandler<Guid> Deleted
     event EventHandler ReactiveObjectUpdated
     event EventHandler<Guid> Updating
+  static class ReactiveNameIndex
+    static void Clear()
+    static void Register(string memberName, string stableId)
+    static bool TryGet(string memberName, out string stableId)
   static class ReactiveScope
     static int ClientId { get; }
     static int? ClientIdOrNull { get; }
@@ -270,9 +274,11 @@ namespace Ikon.Common.Core.Reactive
     ctor()
     Func<int, IReadOnlyList<IScopeKey>> ScopeResolver { get; set; }
     void AttachTo(FunctionRegistry registry)
+    string GetStableIdByName(string memberName)
     void RemoveSession(int sessionId)
     string Subscribe(string stableId, string mountId)
     void Unsubscribe(string stableId, string mountId)
+    static string GetStableIdByNameFunctionName
     static string SubscribeFunctionName
     static string UnsubscribeFunctionName
     static string UpdateFunctionName
