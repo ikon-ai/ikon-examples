@@ -10,7 +10,7 @@ Register callable functions that can be invoked by LLMs, clients, and pipelines.
 FunctionRegistry.Instance.AddFunction(
     Function.Register(MyMethod, "my_function",
         new FunctionAttribute { Description = "Description of what it does" }),
-    FunctionVisibility.Shared);
+    FunctionVisibility.External);
 ```
 
 ### Attribute-Based Registration (Static Methods)
@@ -18,7 +18,7 @@ FunctionRegistry.Instance.AddFunction(
 ```csharp
 public class MathFunctions
 {
-    [Function(Name = "Add", Description = "Adds two numbers", Visibility = FunctionVisibility.Shared)]
+    [Function(Name = "Add", Description = "Adds two numbers", Visibility = FunctionVisibility.External)]
     public static int Add(int a, int b) => a + b;
 }
 
@@ -28,7 +28,7 @@ FunctionRegistry.Instance.RegisterFromType(typeof(MathFunctions));
 ### Attribute-Based Registration (Instance Methods)
 
 ```csharp
-[RegisterAll(Visibility = FunctionVisibility.Shared)]
+[RegisterAll(Visibility = FunctionVisibility.External)]
 public class GreetingFunctions(string greeting)
 {
     [Function(Name = "Greet", Description = "Greets a person")]
@@ -46,8 +46,24 @@ FunctionRegistry.Instance.RegisterPipeline<MyPipeline>("run_my_pipeline");
 
 ### Function Visibility
 
-- `FunctionVisibility.Shared` - Distributed to connected clients and available to LLMs
-- `FunctionVisibility.Local` - Only callable within the server process
+- `FunctionVisibility.External` - Advertised over the protocol; remote clients and LLMs can call it
+- `FunctionVisibility.Local` - Only callable within the server process (the default)
+
+`External` functions must declare auth intent or the substrate emits a startup WARN:
+
+- `[RequireLogin]` - caller must have an authenticated session
+- `[AllowAnonymous]` - explicit opt-in for genuinely open endpoints
+- `[RequireRole("admin")]` - caller must hold a specific role (composes with `[RequireLogin]`)
+
+```csharp
+[Function(Visibility = FunctionVisibility.External)]
+[RequireLogin]
+public string GetUserSecret() => "for logged-in users only";
+
+[Function(Visibility = FunctionVisibility.External)]
+[AllowAnonymous]
+public string GetPublicStatus() => "anyone can call this";
+```
 
 ### Calling Functions
 
@@ -81,6 +97,7 @@ namespace Ikon.Common.Core.Functions
     bool IsRemote { get; }
     bool LlmCallOnlyOnce { get; }
     bool LlmInlineResult { get; }
+    MethodInfo MethodInfo { get; }
     string Name { get; }
     FunctionParameter[] Parameters { get; }
     PolicyDelegate Policy { get; }
@@ -167,6 +184,8 @@ namespace Ikon.Common.Core.Functions
     Func<int, string> AuthSessionIdResolver { get; set; }
     IReadOnlyDictionary<string, IReadOnlyList<Function>> Functions { get; }
     static Action RemoteCallExecutionStarting { get; set; }
+    Func<int, IReadOnlyCollection<string>> RolesResolver { get; set; }
+    Func<int, IReadOnlyList<IScopeKey>> ScopeResolver { get; set; }
     Func<int, string> UserIdResolver { get; set; }
     void AddFunction(Function function, FunctionVisibility? visibilityOverride = null)
     Task AttachProtocolAsync(IProtocolMessageChannel channel, int senderId)
@@ -213,7 +232,7 @@ namespace Ikon.Common.Core.Functions
     static string EncodeFunctionName(string typeName, string functionName)
   enum FunctionVisibility
     Local
-    Shared
+    External
   class RegisterAllAttribute : Attribute
     ctor()
     bool LlmCallOnlyOnce { get; set; }
