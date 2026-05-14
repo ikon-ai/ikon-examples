@@ -830,7 +830,7 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for file picker components. Unlike , a FilePicker only opens the native file picker and reports selected file metadata to the server — it does not transfer bytes. The picked File handles are cached on the client and uploaded later by a rendered with a matching seedSelectionIds prop.
   static class FilePickerExtensions
     // Native file picker. Emits once per selected file with its metadata (name, mime, size, client-generated selection id). The File bytes stay on the client and are not transferred until a FileUpload with matching seedSelectionIds is mounted.
-    static void FilePicker(UIView view, string[] style = null, string[] accept = null, bool? multiple = null, long? maxFileSize = null, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<FilePickerSelectedArgs, Task> onFileSelected = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void FilePicker(UIView view, string[] style = null, string[] accept = null, bool? multiple = null, long? maxFileSize = null, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<FilePickerSelectedArgs, Task> onFileSelected = null, Func<FilePickerValidationErrorArgs, Task> onValidationError = null, Action<UIView> content = null, string file = "", int line = 0)
   // Metadata for a file chosen in a . The file bytes are held on the client until an upload is triggered later via a FileUpload with matching seedSelectionIds.
   sealed class FilePickerSelectedArgs : IEquatable<FilePickerSelectedArgs>
     // Metadata for a file chosen in a . The file bytes are held on the client until an upload is triggered later via a FileUpload with matching seedSelectionIds.
@@ -838,6 +838,14 @@ namespace Ikon.Parallax.Components.Standard
     string FileName { get; init; }
     string MimeType { get; init; }
     string SelectionId { get; init; }
+    long Size { get; init; }
+  // Reported when client-side validation rejects a picked file (e.g. file too large for maxFileSize). Host UIs should surface to the user — without a handler the rejection is silent and the user just sees "nothing happened" after clicking the picker.
+  sealed class FilePickerValidationErrorArgs : IEquatable<FilePickerValidationErrorArgs>
+    // Reported when client-side validation rejects a picked file (e.g. file too large for maxFileSize). Host UIs should surface to the user — without a handler the rejection is silent and the user just sees "nothing happened" after clicking the picker.
+    ctor(string FileName, string MimeType, long Size, string Reason)
+    string FileName { get; init; }
+    string MimeType { get; init; }
+    string Reason { get; init; }
     long Size { get; init; }
   // Extension methods for file upload components.
   static class FileUploadExtensions
