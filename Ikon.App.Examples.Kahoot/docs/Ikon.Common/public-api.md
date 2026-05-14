@@ -53,6 +53,7 @@ namespace Ikon.Common
     List<string> Databases { get; set; }
     AppProjectConfig.EmailConfig Email { get; set; }
     AppProjectConfig.TargetConfig Target { get; set; }
+    static AppProjectConfig FromToml(string tomlContent)
     static string GetConfigFileName(IkonBackend.EnvironmentType environment)
     static string GetConfigFileName(string targetName)
     static string ConfigFileName
@@ -138,8 +139,26 @@ namespace Ikon.Common
   class AppProjectConfig.EmailConfig : ITomlMetadataProvider
     ctor()
     bool Enabled { get; set; }
-    string SenderDomain { get; set; }
+    AppProjectConfig.EmailInboundConfig Inbound { get; set; }
+    AppProjectConfig.EmailOutboundConfig Outbound { get; set; }
   class AppBundleConfig.EmailConfig
+    ctor()
+    bool Enabled { get; set; }
+    AppBundleConfig.EmailInboundConfig Inbound { get; set; }
+    AppBundleConfig.EmailOutboundConfig Outbound { get; set; }
+  class AppProjectConfig.EmailInboundConfig : ITomlMetadataProvider
+    ctor()
+    string Domain { get; set; }
+    bool Enabled { get; set; }
+  class AppBundleConfig.EmailInboundConfig
+    ctor()
+    string Domain { get; set; }
+    bool Enabled { get; set; }
+  class AppProjectConfig.EmailOutboundConfig : ITomlMetadataProvider
+    ctor()
+    bool Enabled { get; set; }
+    string SenderDomain { get; set; }
+  class AppBundleConfig.EmailOutboundConfig
     ctor()
     bool Enabled { get; set; }
     string SenderDomain { get; set; }
