@@ -18,10 +18,26 @@ Methods = ["google"]
 # If non-empty, only allow users with email addresses from these domains to authenticate (e.g. ["mycompany.com"])
 DomainAllowlist = []
 
-# Target information for deployment (automatically configured with 'ikon app config')
+# Email configuration for the app
 [Email]
+# Master gate for the email feature — outbound and inbound additionally require their own Enabled flag
 Enabled = false
+
+# Outbound email (sending from the app via a verified sender domain)
+[Email.Outbound]
+Enabled = false
+# Subdomain label only — emails will be sent from <SenderDomain>.ikonai.app.
+# Custom full domains (e.g. "mail.mycompany.com") are coming soon.
 SenderDomain = ""
+
+# Inbound email (receiving mail to a subdomain under ikonai.app)
+[Email.Inbound]
+Enabled = false
+# Subdomain label only — emails to *@<Domain>.ikonai.app will be routed to this app.
+# Custom full domains (e.g. "mail.mycompany.com") are coming soon.
+Domain = ""
+
+# Target information for deployment (automatically configured with 'ikon app config')
 [Target]
 OrganisationId = ""
 SpaceId = ""

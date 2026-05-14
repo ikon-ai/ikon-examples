@@ -410,6 +410,8 @@ namespace Ikon.App
     ctor()
     bool Accepted { get; set; }
     string AssetUri { get; set; }
+  static class HttpDispatchGovernance
+    static Task<object> InvokeAsync(MethodInfo handler, Type ownerType, IReadOnlyDictionary<string, object> args, Func<Task<object>> invoke, CancellationToken ct = null)
   sealed class HttpEndpointAttribute : Attribute
     ctor(string method, string path)
     bool Absolute { get; init; }
@@ -492,10 +494,43 @@ namespace Ikon.App
   interface IClient<TClientParameters>
     TClientParameters Parameters { get; }
   interface IProfileAttributes
+  static class JsonSchemaBuilder
+    static JsonElement BuildObjectSchema(IReadOnlyList<ParameterInfo> parameters)
+    static JsonElement BuildObjectSchema(IReadOnlyList<ParameterInfo> parameters, IReadOnlyList<ValueTuple<string, Type, string>> extraRequired)
   static class LoginPrompt
     static Task ShowAsync(int targetClientSessionId, string reason = null)
     static Task ShowAsync(string reason = null)
     static string HandoffParameterKey
+  static class McpHttpTransport
+    static Task HandlePostAsync(HttpContext context, McpHost mcp, IReadOnlyDictionary<string, string> sessionIdentityFields = null)
+    static Task HandleProtectedResourceDiscoveryAsync(HttpContext context)
+  static class McpResourceBridge
+    static McpResourceHandler BuildHandler(CellHost cellHost, McpResourceInfo info)
+  static class McpResourceDiscovery
+    static IReadOnlyList<McpResourceInfo> ForType(Type ownerType)
+    static IReadOnlyList<McpResourceInfo> ForTypes(IEnumerable<Type> types)
+  sealed class McpResourceInfo : IEquatable<McpResourceInfo>
+    ctor(string DisplayName, string Description, string MimeType, UriTemplate UriTemplate, MethodInfo Handler, Type OwnerCellType)
+    string Description { get; init; }
+    string DisplayName { get; init; }
+    MethodInfo Handler { get; init; }
+    bool IsStatic { get; }
+    string MimeType { get; init; }
+    Type OwnerCellType { get; init; }
+    string SubjectId { get; }
+    UriTemplate UriTemplate { get; init; }
+  static class McpToolBridge
+    static McpToolHandler BuildHandler(CellHost cellHost, McpToolInfo info)
+  static class McpToolDiscovery
+    static IReadOnlyList<McpToolInfo> ForType(Type ownerType)
+    static IReadOnlyList<McpToolInfo> ForTypes(IEnumerable<Type> types)
+  sealed class McpToolInfo : IEquatable<McpToolInfo>
+    ctor(string Name, string Description, MethodInfo Handler, Type OwnerCellType)
+    string Description { get; init; }
+    MethodInfo Handler { get; init; }
+    string Name { get; init; }
+    Type OwnerCellType { get; init; }
+    string SubjectId { get; }
   class MessageReceivedEventArgs : EventArgs
     ctor(ProtocolMessage message)
     ProtocolMessage Message { get; }
@@ -600,6 +635,12 @@ namespace Ikon.App
     ctor()
   class StoppingEventArgs : EventArgs
     ctor()
+  sealed class UriTemplate
+    bool IsStatic { get; }
+    IReadOnlyList<string> PlaceholderNames { get; }
+    string Template { get; }
+    IReadOnlyDictionary<string, string> Match(string uri)
+    static UriTemplate Parse(string template)
   enum UserRole
     Guest
     User
@@ -681,6 +722,10 @@ namespace Ikon.App.Auth
   sealed class EdgeTrustedHeaderAuth
     ctor(ICell<EdgeTrustedHeaderAuth.SessionIdentity> ctx)
     Task<AuthOutcome> Authenticate(HttpRequest request)
+  sealed class OAuthAuth
+    ctor(ICell<OAuthAuth.SessionIdentity> ctx)
+    static string ConfiguredIssuer { get; }
+    Task<AuthOutcome> Authenticate(HttpRequest request)
   class AnonymousAuth.SessionIdentity : IEquatable<AnonymousAuth.SessionIdentity>
     ctor()
   class ApiKeyAuth.SessionIdentity : IEquatable<ApiKeyAuth.SessionIdentity>
@@ -688,6 +733,8 @@ namespace Ikon.App.Auth
   class AuthTicketAuth.SessionIdentity : IEquatable<AuthTicketAuth.SessionIdentity>
     ctor()
   class EdgeTrustedHeaderAuth.SessionIdentity : IEquatable<EdgeTrustedHeaderAuth.SessionIdentity>
+    ctor()
+  class OAuthAuth.SessionIdentity : IEquatable<OAuthAuth.SessionIdentity>
     ctor()
   class SessionTokenAuth.SessionIdentity : IEquatable<SessionTokenAuth.SessionIdentity>
     ctor()
@@ -753,6 +800,7 @@ namespace Ikon.Common
     List<string> Databases { get; set; }
     AppProjectConfig.EmailConfig Email { get; set; }
     AppProjectConfig.TargetConfig Target { get; set; }
+    static AppProjectConfig FromToml(string tomlContent)
     static string GetConfigFileName(IkonBackend.EnvironmentType environment)
     static string GetConfigFileName(string targetName)
     static string ConfigFileName
@@ -838,8 +886,26 @@ namespace Ikon.Common
   class AppProjectConfig.EmailConfig : ITomlMetadataProvider
     ctor()
     bool Enabled { get; set; }
-    string SenderDomain { get; set; }
+    AppProjectConfig.EmailInboundConfig Inbound { get; set; }
+    AppProjectConfig.EmailOutboundConfig Outbound { get; set; }
   class AppBundleConfig.EmailConfig
+    ctor()
+    bool Enabled { get; set; }
+    AppBundleConfig.EmailInboundConfig Inbound { get; set; }
+    AppBundleConfig.EmailOutboundConfig Outbound { get; set; }
+  class AppProjectConfig.EmailInboundConfig : ITomlMetadataProvider
+    ctor()
+    string Domain { get; set; }
+    bool Enabled { get; set; }
+  class AppBundleConfig.EmailInboundConfig
+    ctor()
+    string Domain { get; set; }
+    bool Enabled { get; set; }
+  class AppProjectConfig.EmailOutboundConfig : ITomlMetadataProvider
+    ctor()
+    bool Enabled { get; set; }
+    string SenderDomain { get; set; }
+  class AppBundleConfig.EmailOutboundConfig
     ctor()
     bool Enabled { get; set; }
     string SenderDomain { get; set; }
