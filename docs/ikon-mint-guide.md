@@ -59,7 +59,7 @@ You **never** type or copy the key value. If you need to rotate it, run the verb
 | **`Ikon.Mint` library** | The C# wrapper your app sees. Builds checkout sessions, polls fulfillment, reads entitlements. Stateless — every call hits the backend. |
 | **Your `Products.cs`** | Single source of truth for SKUs, prices, copy. Catalogue is reflected once at startup and synced to the backend. |
 
-The library never persists anything itself. Wallet balances, unlock flags, subscription end dates — all live in the backend's `CustomerEntitlement` collection, projected from Stripe events. You read them via `GetEntitlementAsync`; you don't cache them.
+The library never persists anything itself. Wallet balances, unlock flags, subscription end dates — all live in the backend's `MintCustomerEntitlement` collection, projected from Stripe events. You read them via `GetEntitlementAsync`; you don't cache them.
 
 ## The four primitives
 
@@ -301,7 +301,7 @@ Customer click → Mint.OfferUnlockAsync()
   Stripe → backend webhook (checkout.session.completed, mintFlow=true)
   ↓
   MintCheckoutCompletedUseCase:
-    - Updates CustomerEntitlement (UnlockGranted=true, etc.)
+    - Updates MintCustomerEntitlement (UnlockGranted=true, etc.)
     - Splits charge: PlatformFee → platform org, Creator → PurchasedCredits ledger
     - Writes MintTransaction record
   ↓
