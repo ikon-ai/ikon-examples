@@ -3876,7 +3876,7 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class ServerInit : IProtocolMessagePayload
     ctor()
-    ctor(string ikonBackendUrl, string ikonBackendToken, string spaceId, string channelId, List<ServerInit.ServerPluginInit> plugins, string primaryUserId, string channelInstanceId, string channelUrl, List<ServerInit.ServerExtensionInit> extensions, Dictionary<string, string> dynamicConfigObsolete, string organisationName, string spaceName, string channelName, string dynamicConfigJsonContent, string spaceGitRepositoryUrl, string sessionId, string legacyChannelCode, bool disableLegacyDefaultExtensions, Dictionary<string, string> sessionIdentity, List<ServerInit.ServerInitEndpointRequest> endpointRequests, int frontendPort, AppSourceType appSourceType, bool debugMode, List<ServerInit.ServerInitDatabaseConnectionInfo> databaseConnectionInfos)
+    ctor(string ikonBackendUrl, string ikonBackendToken, string spaceId, string channelId, List<ServerInit.ServerPluginInit> plugins, string primaryUserId, string channelInstanceId, string channelUrl, List<ServerInit.ServerExtensionInit> extensions, Dictionary<string, string> dynamicConfigObsolete, string organisationName, string spaceName, string channelName, string dynamicConfigJsonContent, string spaceGitRepositoryUrl, string sessionId, string legacyChannelCode, bool disableLegacyDefaultExtensions, Dictionary<string, string> sessionIdentity, List<ServerInit.ServerInitEndpointRequest> endpointRequests, int frontendPort, AppSourceType appSourceType, bool debugMode, List<ServerInit.ServerInitDatabaseConnectionInfo> databaseConnectionInfos, string runTarget)
     AppSourceType AppSourceType { get; set; }
     string ChannelId { get; set; }
     string ChannelInstanceId { get; set; }
@@ -3898,6 +3898,7 @@ namespace Ikon.Common.Core.Protocol
     string OrganisationName { get; set; }
     List<ServerInit.ServerPluginInit> Plugins { get; set; }
     string PrimaryUserId { get; set; }
+    string RunTarget { get; set; }
     string SessionId { get; set; }
     Dictionary<string, string> SessionIdentity { get; set; }
     string SpaceGitRepositoryUrl { get; set; }
