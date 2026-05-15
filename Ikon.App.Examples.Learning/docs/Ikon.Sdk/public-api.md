@@ -207,6 +207,13 @@ namespace Ikon.Sdk
     ctor(ProtocolMessage message)
     // The protocol message.
     ProtocolMessage Message { get; }
+  // Subscribes local callbacks to a server-side over the existing function-call wire. The current value is fetched on first subscribe and pushed by the server on every change — no polling.
+  sealed class ReactiveRegistry
+    // Create a registry over an 's function registry. Registers the reactive-update handler immediately; call on teardown.
+    ctor(FunctionRegistry functionRegistry)
+    // Drop all subscriptions and unregister the update handler. Intended for client teardown — does not notify the server per key (the server's per-session subscription map is cleaned up when the session disconnects).
+    void Detach()
+    Task<IAsyncDisposable> SubscribeAsync<T>(string stableId, Action<T> callback, string mountId = "", CancellationToken cancellationToken = null)
   // Timeout configuration for the SDK.
   class TimeoutConfig
     ctor()

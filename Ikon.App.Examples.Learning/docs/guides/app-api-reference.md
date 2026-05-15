@@ -762,6 +762,7 @@ namespace Ikon.Common
     ctor()
     AppBundleConfig.ActivationConfig Activation { get; set; }
     AppBundleConfig.AuthConfig Auth { get; set; }
+    List<AppBundleConfig.CellEntry> Cells { get; set; }
     string ChannelId { get; set; }
     string CreatedAt { get; set; }
     List<AppBundleConfig.DatabaseEntry> Databases { get; set; }
@@ -858,6 +859,31 @@ namespace Ikon.Common
     List<string> DomainAllowlist { get; set; }
     bool Enabled { get; set; }
     List<string> Methods { get; set; }
+  class AppBundleConfig.CellEntry
+    ctor()
+    string DllName { get; set; }
+    string FullTypeName { get; set; }
+    List<AppBundleConfig.CellHttpEndpoint> HttpEndpoints { get; set; }
+    List<AppBundleConfig.CellIdentityField> IdentityFields { get; set; }
+    List<AppBundleConfig.CellMcpTool> McpTools { get; set; }
+    string ProcessScope { get; set; }
+    string TypeName { get; set; }
+  class AppBundleConfig.CellHttpEndpoint
+    ctor()
+    string AuthCellName { get; set; }
+    string HttpMethod { get; set; }
+    string MethodName { get; set; }
+    string Path { get; set; }
+  class AppBundleConfig.CellIdentityField
+    ctor()
+    bool HasDefault { get; set; }
+    string Name { get; set; }
+    string TypeName { get; set; }
+  class AppBundleConfig.CellMcpTool
+    ctor()
+    string Description { get; set; }
+    string MethodName { get; set; }
+    string ToolName { get; set; }
   struct CertificateStore.Certificate
     ctor(X509Certificate2 cert, X509Certificate2 rootCert, string certHash, string spkiHash, bool isDotnetDevCert)
     X509Certificate2 Cert { get; }
@@ -1888,6 +1914,7 @@ namespace Ikon.Common
     static void Run(List<Type> retryableExceptions, int retries, Action func, string callerMemberName = "", string callerFilePath = "")
     static void Run(Action func, List<Type> retryableExceptions = null, int retries = 5, Action<Exception> onRetry = null, Action<Exception> onFailure = null, bool useExponentialBackoff = true, string description = null, string callerMemberName = "", string callerFilePath = "")
     static Task<T> RunAsync<T>(List<Type> retryableExceptions, int retries, Func<Task<T>> func, string callerMemberName = "", string callerFilePath = "")
+    static Task<T> RunAsync<T>(Func<CancellationToken, Task<T>> func, CancellationToken cancellationToken, List<Type> retryableExceptions = null, int retries = 5, Func<Exception, Task> onRetry = null, Func<Exception, Task> onFailure = null, bool useExponentialBackoff = true, string description = null, string callerMemberName = "", string callerFilePath = "")
     static Task<T> RunAsync<T>(Func<Task<T>> func, List<Type> retryableExceptions = null, int retries = 5, Func<Exception, Task> onRetry = null, Func<Exception, Task> onFailure = null, bool useExponentialBackoff = true, string description = null, string callerMemberName = "", string callerFilePath = "")
     static Task RunAsync(List<Type> retryableExceptions, int retries, Func<Task> func, string callerMemberName = "", string callerFilePath = "")
     static Task RunAsync(Func<Task> func, List<Type> retryableExceptions = null, int retries = 5, Func<Exception, Task> onRetry = null, Func<Exception, Task> onFailure = null, bool useExponentialBackoff = true, string description = null, string callerMemberName = "", string callerFilePath = "")
