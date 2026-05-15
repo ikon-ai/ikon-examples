@@ -69,11 +69,11 @@ Name = ""
 ### Database Management
 
 - `ikon app db connection-string`: print the database connection string
-- `ikon app db migrate add <name>`: create a new EF Core migration
-- `ikon app db migrate apply`: apply pending EF Core migrations
-- `ikon app db migrate list`: list EF Core migrations and their status
-- `ikon app db migrate remove`: remove the last unapplied EF Core migration
-- `ikon app db reset`: reset the database by dropping and recreating it
+- `ikon app db reset`: empty the database — drops all data; the app recreates its schema on next start
+- `ikon app db ef-migrate-add <name>` (EF Core apps only): create a new EF Core migration
+- `ikon app db ef-migrate-apply` (EF Core apps only): apply pending EF Core migrations
+- `ikon app db ef-migrate-list` (EF Core apps only): list EF Core migrations and their status
+- `ikon app db ef-migrate-remove` (EF Core apps only): remove the last unapplied EF Core migration
 
 ### Version Control
 
