@@ -164,30 +164,24 @@ namespace Ikon.Common
     int MinArrayItems { get; }
   class AppProjectConfig.EmailConfig : ITomlMetadataProvider
     ctor()
-    bool Enabled { get; set; }
     AppProjectConfig.EmailInboundConfig Inbound { get; set; }
     AppProjectConfig.EmailOutboundConfig Outbound { get; set; }
   class AppBundleConfig.EmailConfig
     ctor()
-    bool Enabled { get; set; }
     AppBundleConfig.EmailInboundConfig Inbound { get; set; }
     AppBundleConfig.EmailOutboundConfig Outbound { get; set; }
   class AppProjectConfig.EmailInboundConfig : ITomlMetadataProvider
     ctor()
-    string Domain { get; set; }
     bool Enabled { get; set; }
   class AppBundleConfig.EmailInboundConfig
     ctor()
-    string Domain { get; set; }
     bool Enabled { get; set; }
   class AppProjectConfig.EmailOutboundConfig : ITomlMetadataProvider
     ctor()
     bool Enabled { get; set; }
-    string SenderDomain { get; set; }
   class AppBundleConfig.EmailOutboundConfig
     ctor()
     bool Enabled { get; set; }
-    string SenderDomain { get; set; }
   class AppBundleConfig.EmailTemplate
     ctor()
     string Name { get; set; }
@@ -1142,7 +1136,7 @@ namespace Ikon.Common
     bool Guard()
   sealed class RelayAgent : IAsyncDisposable
     ctor(string relayServerAddress, int relayServerPort, string relayAuthToken, string stableId = "")
-    Task<RelayEndpoint> AddEndpointAsync(EndpointProtocol protocol, int localPort = 0, CancellationToken cancellationToken = null)
+    Task<RelayEndpoint> AddEndpointAsync(EndpointProtocol protocol, int localPort = 0, string stablePortName = "", CancellationToken cancellationToken = null)
     Task ConnectAsync(CancellationToken cancellationToken = null)
     static RelayAgent CreateFromIkonBackend(string stableId = "")
     ValueTask DisposeAsync()
