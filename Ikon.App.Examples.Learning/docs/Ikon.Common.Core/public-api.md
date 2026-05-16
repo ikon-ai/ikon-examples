@@ -3244,6 +3244,16 @@ namespace Ikon.Common.Core.Protocol
     int ElementId { get; set; }
     List<string> Labels { get; set; }
     string StyleId { get; set; }
+  sealed class IkonServerEndpointHostInfo : IProtocolMessagePayload
+    ctor()
+    ctor(string relayEndpointPublicUrl)
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    string RelayEndpointPublicUrl { get; set; }
+    static IkonServerEndpointHostInfo ReadFromTeleport(ReadOnlySpan<byte> data)
+    static IkonServerEndpointHostInfo ReadFromTeleport(ReadOnlySpan<byte> data, IkonServerEndpointHostInfo destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class InvalidateVideoFrame : IProtocolMessagePayload
     ctor()
     ctor(ulong frameNumber, ulong timeStampInUs)
@@ -3473,6 +3483,7 @@ namespace Ikon.Common.Core.Protocol
     CORE_RELAY_ADD_TUNNEL
     CORE_RELAY_TUNNEL_ADDED
     CORE_RELAY_REMOVE_TUNNEL
+    CORE_IKON_SERVER_ENDPOINT_HOST_INFO
     GROUP_KEEPALIVE
     KEEPALIVE_REQUEST
     KEEPALIVE_RESPONSE
@@ -3699,12 +3710,13 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class RelayAddTunnel : IProtocolMessagePayload
     ctor()
-    ctor(uint requestId, string protocol, int localPort, bool terminateTls)
+    ctor(uint requestId, string protocol, int localPort, bool terminateTls, string stablePortName)
     int LocalPort { get; set; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     string Protocol { get; set; }
     uint RequestId { get; set; }
+    string StablePortName { get; set; }
     bool TerminateTls { get; set; }
     static RelayAddTunnel ReadFromTeleport(ReadOnlySpan<byte> data)
     static RelayAddTunnel ReadFromTeleport(ReadOnlySpan<byte> data, RelayAddTunnel destination)
