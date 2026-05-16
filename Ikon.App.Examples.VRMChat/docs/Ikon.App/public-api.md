@@ -18,7 +18,7 @@ namespace Ikon.App
     static DbConnection Create(IAppBase app, string databaseName)
     static DbConnection Create(DatabaseConnectionInfo dbInfo)
   sealed class AppEndpointHost : IAsyncDisposable
-    ctor(IAppBase app, bool secure = true, TimeSpan? webSocketKeepAliveInterval = null)
+    ctor(IAppBase app, bool secure = true, TimeSpan? webSocketKeepAliveInterval = null, string stablePortName = "")
     int LocalPort { get; }
     string PublicUrl { get; }
     ValueTask DisposeAsync()
@@ -41,7 +41,7 @@ namespace Ikon.App
     Secrets Secrets { get; }
     IReadOnlyList<WebhookInfo> Webhooks { get; }
     Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = null)
-    Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, CancellationToken ct = null)
+    Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", CancellationToken ct = null)
     Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string> acrValues = null, string clientReturnUrl = null, CancellationToken ct = null)
     Task SendEmailAsync(EmailSendRequest request, CancellationToken ct = null)
     event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
@@ -64,7 +64,7 @@ namespace Ikon.App
     TSessionIdentity SessionIdentity { get; }
     IReadOnlyList<WebhookInfo> Webhooks { get; }
     Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = null)
-    Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, CancellationToken ct = null)
+    Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", CancellationToken ct = null)
     Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string> acrValues = null, string clientReturnUrl = null, CancellationToken ct = null)
     Task SendEmailAsync(EmailSendRequest request, CancellationToken ct = null)
     event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
@@ -462,7 +462,7 @@ namespace Ikon.App
     Secrets Secrets { get; }
     IReadOnlyList<WebhookInfo> Webhooks { get; }
     abstract Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = null)
-    abstract Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, CancellationToken ct = null)
+    abstract Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", CancellationToken ct = null)
     abstract Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string> acrValues = null, string clientReturnUrl = null, CancellationToken ct = null)
     abstract Task SendEmailAsync(EmailSendRequest request, CancellationToken ct = null)
     event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
