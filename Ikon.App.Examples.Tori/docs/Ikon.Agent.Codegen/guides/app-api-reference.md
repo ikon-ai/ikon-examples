@@ -26,7 +26,7 @@ namespace Ikon.App
     static DbConnection Create(IAppBase app, string databaseName)
     static DbConnection Create(DatabaseConnectionInfo dbInfo)
   sealed class AppEndpointHost : IAsyncDisposable
-    ctor(IAppBase app, bool secure = true, TimeSpan? webSocketKeepAliveInterval = null)
+    ctor(IAppBase app, bool secure = true, TimeSpan? webSocketKeepAliveInterval = null, string stablePortName = "")
     int LocalPort { get; }
     string PublicUrl { get; }
     ValueTask DisposeAsync()
@@ -49,7 +49,7 @@ namespace Ikon.App
     Secrets Secrets { get; }
     IReadOnlyList<WebhookInfo> Webhooks { get; }
     Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = null)
-    Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, CancellationToken ct = null)
+    Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", CancellationToken ct = null)
     Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string> acrValues = null, string clientReturnUrl = null, CancellationToken ct = null)
     Task SendEmailAsync(EmailSendRequest request, CancellationToken ct = null)
     event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
@@ -72,7 +72,7 @@ namespace Ikon.App
     TSessionIdentity SessionIdentity { get; }
     IReadOnlyList<WebhookInfo> Webhooks { get; }
     Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = null)
-    Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, CancellationToken ct = null)
+    Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", CancellationToken ct = null)
     Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string> acrValues = null, string clientReturnUrl = null, CancellationToken ct = null)
     Task SendEmailAsync(EmailSendRequest request, CancellationToken ct = null)
     event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
@@ -470,7 +470,7 @@ namespace Ikon.App
     Secrets Secrets { get; }
     IReadOnlyList<WebhookInfo> Webhooks { get; }
     abstract Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = null)
-    abstract Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, CancellationToken ct = null)
+    abstract Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", CancellationToken ct = null)
     abstract Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string> acrValues = null, string clientReturnUrl = null, CancellationToken ct = null)
     abstract Task SendEmailAsync(EmailSendRequest request, CancellationToken ct = null)
     event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
@@ -911,30 +911,24 @@ namespace Ikon.Common
     int MinArrayItems { get; }
   class AppProjectConfig.EmailConfig : ITomlMetadataProvider
     ctor()
-    bool Enabled { get; set; }
     AppProjectConfig.EmailInboundConfig Inbound { get; set; }
     AppProjectConfig.EmailOutboundConfig Outbound { get; set; }
   class AppBundleConfig.EmailConfig
     ctor()
-    bool Enabled { get; set; }
     AppBundleConfig.EmailInboundConfig Inbound { get; set; }
     AppBundleConfig.EmailOutboundConfig Outbound { get; set; }
   class AppProjectConfig.EmailInboundConfig : ITomlMetadataProvider
     ctor()
-    string Domain { get; set; }
     bool Enabled { get; set; }
   class AppBundleConfig.EmailInboundConfig
     ctor()
-    string Domain { get; set; }
     bool Enabled { get; set; }
   class AppProjectConfig.EmailOutboundConfig : ITomlMetadataProvider
     ctor()
     bool Enabled { get; set; }
-    string SenderDomain { get; set; }
   class AppBundleConfig.EmailOutboundConfig
     ctor()
     bool Enabled { get; set; }
-    string SenderDomain { get; set; }
   class AppBundleConfig.EmailTemplate
     ctor()
     string Name { get; set; }
@@ -1889,7 +1883,7 @@ namespace Ikon.Common
     bool Guard()
   sealed class RelayAgent : IAsyncDisposable
     ctor(string relayServerAddress, int relayServerPort, string relayAuthToken, string stableId = "")
-    Task<RelayEndpoint> AddEndpointAsync(EndpointProtocol protocol, int localPort = 0, CancellationToken cancellationToken = null)
+    Task<RelayEndpoint> AddEndpointAsync(EndpointProtocol protocol, int localPort = 0, string stablePortName = "", CancellationToken cancellationToken = null)
     Task ConnectAsync(CancellationToken cancellationToken = null)
     static RelayAgent CreateFromIkonBackend(string stableId = "")
     ValueTask DisposeAsync()
