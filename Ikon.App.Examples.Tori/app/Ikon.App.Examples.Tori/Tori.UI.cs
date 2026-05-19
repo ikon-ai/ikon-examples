@@ -215,7 +215,7 @@ public partial class Tori
                     placeholder: "Your name",
                     value: _nameInput.Value,
                     clearOnSubmit: false,
-                    props: new Dictionary<string, object?>
+                    props: new Dictionary<string, object>
                     {
                         ["autoFocus"] = true,
                         ["autoComplete"] = "off",
