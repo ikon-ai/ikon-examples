@@ -586,7 +586,7 @@ public partial class Kahoot
                 style: [Input.Default, "w-full max-w-sm text-lg py-3 bg-white/10 border-white/20 text-white placeholder:text-gray-500"],
                 value: _playerName.Value,
                 placeholder: "Enter your name...",
-                props: new Dictionary<string, object?>
+                props: new Dictionary<string, object>
                 {
                     ["autoFocus"] = true,
                     ["autoComplete"] = "off",
