@@ -373,7 +373,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                         style: ["flex-1 bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 focus:border-0 focus:border-transparent shadow-none text-gray-800 text-xl placeholder-gray-400 font-medium [&]:border-0 [&]:outline-0"],
                         value: _ttsText.Value,
                         placeholder: "Type a message...",
-                        props: new Dictionary<string, object?>
+                        props: new Dictionary<string, object>
                         {
                             ["spellCheck"] = false,
                             ["autoComplete"] = "off",
@@ -858,7 +858,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                 style: [InputStyle],
                 value: paramValue.ToString("F2"),
                 type: "number",
-                props: new Dictionary<string, object?> { ["step"] = "0.1" },
+                props: new Dictionary<string, object> { ["step"] = "0.1" },
                 onValueChange: value =>
                 {
                     if (float.TryParse(value, out var v))
