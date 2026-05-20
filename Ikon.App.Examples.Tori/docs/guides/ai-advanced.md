@@ -25,7 +25,7 @@ namespace Ikon.AI.Database
     override void Close()
     override DataTable GetSchema()
     override DataTable GetSchema(string collectionName)
-    override DataTable GetSchema(string collectionName, string[] restrictionValues)
+    override DataTable GetSchema(string collectionName, string?[]? restrictionValues)
     override void Open()
   class DatabaseConnection.Config
     ctor()
@@ -101,7 +101,7 @@ namespace Ikon.AI.Database
 namespace Ikon.AI.Policy
   sealed class CreditLimitChecker : IUsageLimitChecker
     ctor()
-    ValueTask<UsageLimitCheckResult> CheckAsync(PolicyCallContext context, object[] args)
+    ValueTask<UsageLimitCheckResult> CheckAsync(PolicyCallContext context, object?[] args)
 
 namespace Ikon.AI.Storage
   class KeywordIndex
@@ -130,9 +130,9 @@ namespace Ikon.AI.Storage
     Task CreateCollectionAsync(string collectionName, EmbeddingModel model)
     Task<int> GetDataItemCount(string collectionName)
     Task RemoveAsync(string collectionName, IEnumerable<string> tags)
-    Task<List<Result<object>>> SearchAsync(string collectionName, float[] queryVector, int maxItems, float threshold, Metric metric, Func<IEnumerable<string>, bool> tagsFilter = null)
-    Task<List<Result<object>>> SearchAsync(string collectionName, string query, int maxItems, float threshold, Metric metric, Func<IEnumerable<string>, bool> tagsFilter = null)
-    Task<List<Result<T>>> SearchAsync<T>(string collectionName, string query, int maxItems, float threshold, Metric metric, Func<IEnumerable<string>, bool> tagsFilter = null)
-    Task<List<Result<T>>> SearchAsync<T>(string collectionName, float[] queryVector, int maxItems, float threshold, Metric metric, Func<IEnumerable<string>, bool> tagsFilter = null)
-    Task<int> SetAsync(string collectionName, int? key, string text, object value, IEnumerable<string> tags = null)
-    Task<int> SetAsync(string collectionName, int? key, float[] vector, object value, IEnumerable<string> tags = null)
+    Task<List<Result<object>>> SearchAsync(string collectionName, float[] queryVector, int maxItems, float threshold, Metric metric, Func<IEnumerable<string>, bool>? tagsFilter = null)
+    Task<List<Result<object>>> SearchAsync(string collectionName, string query, int maxItems, float threshold, Metric metric, Func<IEnumerable<string>, bool>? tagsFilter = null)
+    Task<List<Result<T>>> SearchAsync<T>(string collectionName, string query, int maxItems, float threshold, Metric metric, Func<IEnumerable<string>, bool>? tagsFilter = null)
+    Task<List<Result<T>>> SearchAsync<T>(string collectionName, float[] queryVector, int maxItems, float threshold, Metric metric, Func<IEnumerable<string>, bool>? tagsFilter = null)
+    Task<int> SetAsync(string collectionName, int? key, string text, object value, IEnumerable<string>? tags = null)
+    Task<int> SetAsync(string collectionName, int? key, float[] vector, object value, IEnumerable<string>? tags = null)

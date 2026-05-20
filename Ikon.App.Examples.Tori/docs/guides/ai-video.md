@@ -34,8 +34,8 @@ namespace Ikon.AI.VideoEnhancement
   interface IVideoEnhancer : IDisposable
     abstract Task<VideoEnhancerResult> EnhanceVideoAsync(VideoEnhancerConfig config, CancellationToken cancellationToken = null)
   sealed class VideoEnhancer : IDisposable, IVideoEnhancer
-    ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
-    ctor(VideoEnhancerModel model, IReadOnlyList<ModelRegion> regions = null)
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
+    ctor(VideoEnhancerModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
     Task<VideoEnhancerResult> EnhanceVideoAsync(VideoEnhancerConfig config, CancellationToken cancellationToken = null)
     static VideoEnhancerCapabilities GetCapabilities(VideoEnhancerModel model)
@@ -94,8 +94,8 @@ namespace Ikon.AI.VideoGeneration
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class VideoGenerator : IDisposable, IVideoGenerator, IVideoGeneratorInfo
-    ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
-    ctor(VideoGeneratorModel model, IReadOnlyList<ModelRegion> regions = null)
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
+    ctor(VideoGeneratorModel model, IReadOnlyList<ModelRegion>? regions = null)
     int MaxInputImages { get; }
     VideoGeneratorResolutionMode ResolutionMode { get; }
     IReadOnlyList<int> SupportedLengths { get; }
@@ -156,6 +156,8 @@ namespace Ikon.AI.VideoGeneration
     Pixverse55
     Pollo20
     Pollo30
+    Pollodance20
+    Pollodance20Fast
     RunwayGen4
     Seedance15Pro
     Sora2
