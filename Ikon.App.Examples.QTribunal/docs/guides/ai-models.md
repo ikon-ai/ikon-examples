@@ -15,20 +15,20 @@ namespace Ikon.AI
     Obfuscate
     Delay
   sealed class GovernanceCall : IEquatable<GovernanceCall>
-    ctor(string Operation, string Subject, IReadOnlyDictionary<string, object> Args, IReadOnlyDictionary<string, object> Ctx)
+    ctor(string Operation, string Subject, IReadOnlyDictionary<string, object?> Args, IReadOnlyDictionary<string, object?> Ctx)
     IReadOnlyDictionary<string, object> Args { get; init; }
     IReadOnlyDictionary<string, object> Ctx { get; init; }
     string Operation { get; init; }
     string Subject { get; init; }
   sealed class GovernanceCallResult : IEquatable<GovernanceCallResult>
-    ctor(bool Failed, string Outcome, string ErrorMessage = null)
+    ctor(bool Failed, string Outcome, string? ErrorMessage = null)
     string ErrorMessage { get; init; }
     bool Failed { get; init; }
     string Outcome { get; init; }
   static class GovernanceInvoker
     static Task<T> RunAsync<T>(GovernanceCall call, Func<Task<T>> invoke, CancellationToken ct = null)
   sealed class GovernanceOutcome : IEquatable<GovernanceOutcome>
-    ctor(GovernanceAction Action, string DecisionId, string RuleId, string PolicyId, string Reason, string Target = null)
+    ctor(GovernanceAction Action, string DecisionId, string RuleId, string PolicyId, string Reason, string? Target = null)
     GovernanceAction Action { get; init; }
     string DecisionId { get; init; }
     string PolicyId { get; init; }
@@ -141,7 +141,7 @@ namespace Ikon.AI.Kernel
     static Task<T1> AsFirstAsync<T1>(IAsyncEnumerable<StreamingResult> source)
     static Task<string> AsStringAsync(IAsyncEnumerable<StreamingResult> source)
     static IAsyncEnumerable<StreamingResult> WithCitationsAsync(IAsyncEnumerable<StreamingResult> source, IdMapper idMapper)
-    static IAsyncEnumerable<StreamingResult> WithParsedTagsAsync(IAsyncEnumerable<StreamingResult> source, List<string> tagWhitelist = null, List<string> tagBlacklist = null)
+    static IAsyncEnumerable<StreamingResult> WithParsedTagsAsync(IAsyncEnumerable<StreamingResult> source, List<string>? tagWhitelist = null, List<string>? tagBlacklist = null)
     static IAsyncEnumerable<StreamingResult> WithReasoningFromTagAsync(IAsyncEnumerable<StreamingResult> source, string reasoningTagName)
     static IAsyncEnumerable<StreamingResult> WithThrottlingAsync(IAsyncEnumerable<StreamingResult> source, int charsPerSecond, int charsPerUpdate, CancellationToken cancellationToken = null)
     static IAsyncEnumerable<StreamingResult> WithWindowedProcessingAsync(IAsyncEnumerable<StreamingResult> source, Func<string, List<StreamingResult>, Task<ValueTuple<bool, List<StreamingResult>>>> processAsync, int windowSize = 0, int windowOverlap = 0)
@@ -175,7 +175,7 @@ namespace Ikon.AI.Kernel
     ctor(string reason)
     string Reason { get; }
   class FunctionCall
-    ctor(Function function, object[] parameters, string parametersJson, string callId, string hash, string thoughtSignature = "", string reasoningContent = "")
+    ctor(Function function, object?[] parameters, string parametersJson, string callId, string hash, string thoughtSignature = "", string reasoningContent = "")
     string CallId { get; }
     Function Function { get; }
     string Hash { get; }
@@ -184,7 +184,7 @@ namespace Ikon.AI.Kernel
     string ReasoningContent { get; }
     string ThoughtSignature { get; }
   class FunctionResult
-    ctor(object result = null, string modelMessagePrefix = null, string modelMessageSuffix = null)
+    ctor(object? result = null, string? modelMessagePrefix = null, string? modelMessageSuffix = null)
     string ModelMessagePrefix { get; set; }
     string ModelMessageSuffix { get; set; }
     object Result { get; set; }
@@ -214,20 +214,22 @@ namespace Ikon.AI.Kernel
     Command
   class JsonExampleGenerator
     ctor()
-    static JsonNode DeepSerialize(object obj)
+    static JsonNode DeepSerialize(object? obj)
     static T GenerateExampleInstance<T>()
     static string GenerateExampleJson<T>()
   static class JsonSchemaGenerator
     static ExpandoObject GenerateJsonSchemaExpandoObject<T>(SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
-    static JsonNode GenerateSchemaNode(Type type, string description = null, SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
+    static JsonNode GenerateSchemaNode(Type type, string? description = null, SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
     static string GenerateSchemaString<T>(SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
     static string GenerateSchemaString(Type type, SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
   struct KernelContext : IEquatable<KernelContext>
     ctor()
-    ctor(KernelContext? baseContext = null, ImmutableList<Instruction> instructions = null, ImmutableList<MessageBlock> messages = null, ImmutableDictionary<string, Function> functions = null, TimeSpan? timeout = null, double? temperature = null, int? maxOutputTokens = null, ReasoningEffort? reasoningEffort = null, int? reasoningTokenBudget = null, bool? useStreaming = null, bool? useJson = null, bool? useCitations = null, bool? useUserNames = null, bool? useAudioOutput = null, string audioOutputVoiceId = null, bool? useCaching = null, bool? disableFunctionCalling = null, bool? discardTextOutputWithFunctionCalls = null, bool? logFullRequest = null, bool? logFullResponse = null, object jsonSchema = null, string gbnfGrammar = null, string toolPlan = null)
+    ctor(KernelContext? baseContext = null, ImmutableList<Instruction>? instructions = null, ImmutableList<MessageBlock>? messages = null, ImmutableDictionary<string, Function>? functions = null, TimeSpan? timeout = null, double? temperature = null, int? maxOutputTokens = null, ReasoningEffort? reasoningEffort = null, int? reasoningTokenBudget = null, bool? useStreaming = null, bool? useJson = null, bool? useCitations = null, bool? useUserNames = null, bool? useAudioOutput = null, string? audioOutputVoiceId = null, bool? useCaching = null, bool? disableFunctionCalling = null, bool? discardTextOutputWithFunctionCalls = null, bool? logFullRequest = null, bool? logFullResponse = null, object? jsonSchema = null, string? gbnfGrammar = null, string? toolPlan = null)
     string AudioOutputVoiceId { get; init; }
+    static KernelContext Default { get; }
     bool DisableFunctionCalling { get; init; }
     bool DiscardTextOutputWithFunctionCalls { get; init; }
+    static KernelContext Empty { get; }
     ImmutableDictionary<string, Function> Functions { get; init; }
     string GbnfGrammar { get; init; }
     ImmutableList<Instruction> Instructions { get; init; }
@@ -249,21 +251,21 @@ namespace Ikon.AI.Kernel
     bool UseUserNames { get; init; }
     KernelContext Add(Instruction instruction)
     KernelContext Add(MessageBlock message)
-    static KernelContext Create(IEnumerable<Instruction> instructions = null, IEnumerable<MessageBlock> messages = null, IEnumerable<Function> functions = null, TimeSpan? timeout = null, double? temperature = null, int? maxOutputTokens = null, ReasoningEffort? reasoningEffort = null, int? reasoningTokenBudget = null, bool? useStreaming = null, bool? useJson = null, bool? useCitations = null, bool? useUserNames = null, bool? useAudioOutput = null, string audioOutputVoiceId = null, bool? useCaching = null, bool? disableFunctionCalling = null, bool? discardTextOutputWithFunctionCalls = null, bool? logFullRequest = null, bool? logFullResponse = null, object jsonSchema = null, string gbnfGrammar = null, string toolPlan = null)
+    static KernelContext Create(IEnumerable<Instruction>? instructions = null, IEnumerable<MessageBlock>? messages = null, IEnumerable<Function>? functions = null, TimeSpan? timeout = null, double? temperature = null, int? maxOutputTokens = null, ReasoningEffort? reasoningEffort = null, int? reasoningTokenBudget = null, bool? useStreaming = null, bool? useJson = null, bool? useCitations = null, bool? useUserNames = null, bool? useAudioOutput = null, string? audioOutputVoiceId = null, bool? useCaching = null, bool? disableFunctionCalling = null, bool? discardTextOutputWithFunctionCalls = null, bool? logFullRequest = null, bool? logFullResponse = null, object? jsonSchema = null, string? gbnfGrammar = null, string? toolPlan = null)
     IAsyncEnumerable<StreamingResult> GenerateAsync(ILLM llm, CancellationToken cancellationToken = null)
     KernelContext KeepMessagesMax(int count)
     IAsyncEnumerable<StreamingResult> RecurseAsync(IAsyncEnumerable<StreamingResult> generator, HashSet<string> alreadyCalledFunctions, CancellationToken cancellationToken = null)
     IAsyncEnumerable<StreamingResult> ReturnFunctionCallAsync(string name, string parametersJson, string callId, string thoughtSignature = "", string reasoningContent = "")
-    IAsyncEnumerable<StreamingResult> RunFunctionAsync(string functionName, object[] parameters, CancellationToken cancellationToken = null)
-    KernelContext WithFunctions(IEnumerable<Function> functions, bool replaceExisting = false)
+    IAsyncEnumerable<StreamingResult> RunFunctionAsync(string functionName, object?[] parameters, CancellationToken cancellationToken = null)
+    KernelContext WithFunctions(IEnumerable<Function>? functions, bool replaceExisting = false)
   struct MessageBlock
-    ctor(MessageBlockRole role, IMessagePart[] parts, string userName = null)
-    ctor(MessageBlockRole role, IEnumerable<IMessagePart> parts, string userName = null)
-    ctor(MessageBlockRole role, string message, string userName = null)
+    ctor(MessageBlockRole role, IMessagePart[] parts, string? userName = null)
+    ctor(MessageBlockRole role, IEnumerable<IMessagePart> parts, string? userName = null)
+    ctor(MessageBlockRole role, string message, string? userName = null)
     IMessagePart[] Parts { get; }
     MessageBlockRole Role { get; }
     string UserName { get; }
-    static MessageBlock? CreateFromObjects(IReadOnlyList<object> inputs, MessageBlockRole role)
+    static MessageBlock? CreateFromObjects(IReadOnlyList<object?> inputs, MessageBlockRole role)
     override string ToString()
   enum MessageBlockRole
     User
@@ -309,12 +311,12 @@ namespace Ikon.AI.Kernel
     JsonSchema202012
     OpenApi30
   struct StreamingResult
-    ctor(object value, string sourceName, string valueTypeName = null)
+    ctor(object value, string sourceName, string? valueTypeName = null)
     string SourceName { get; }
     object Value { get; }
     string ValueTypeName { get; }
   class Tag
-    ctor(string name, string content, Dictionary<string, string> attributes = null)
+    ctor(string name, string content, Dictionary<string, string>? attributes = null)
     Dictionary<string, string> Attributes { get; }
     string Content { get; }
     string Name { get; }
@@ -332,7 +334,7 @@ namespace Ikon.AI.Kernel
     ctor(string text)
     string Text { get; }
   struct VideoAssetPart : IMessagePart
-    ctor(AssetUri uri, string mimeType = null)
+    ctor(AssetUri uri, string? mimeType = null)
     string MimeType { get; }
     MessagePartType Type { get; }
     AssetUri Uri { get; }
@@ -367,8 +369,8 @@ namespace Ikon.AI.LLM
     bool SupportsZeroDataRetention { get; }
     bool UsesInlineReasoning { get; }
   sealed class LLM : IDisposable, ILLM, ILLMInfo
-    ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
-    ctor(LLMModel model, IReadOnlyList<ModelRegion> regions = null)
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
+    ctor(LLMModel model, IReadOnlyList<ModelRegion>? regions = null)
     int ContextWindowSize { get; }
     string InlineReasoningTagName { get; }
     SchemaDialect SchemaDialect { get; }
@@ -388,7 +390,7 @@ namespace Ikon.AI.LLM
     void Dispose()
     IAsyncEnumerable<StreamingResult> GenerateAsync(KernelContext context, CancellationToken cancellationToken = null)
     static LLMCapabilities GetCapabilities(LLMModel model)
-    static LLMCapabilities GetCapabilities(LLMModel model, IReadOnlyList<ModelRegion> regions)
+    static LLMCapabilities GetCapabilities(LLMModel model, IReadOnlyList<ModelRegion>? regions)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(LLMModel model)
   sealed class LLMCapabilities : ILLMInfo
     ctor()
@@ -440,10 +442,9 @@ namespace Ikon.AI.LLM
     Gemini3Flash
     Gemini31Pro
     Gemini31FlashLite
+    Grok43
     Grok420Reasoning
     Grok420NonReasoning
-    Grok41FastReasoning
-    Grok41FastNonReasoning
     MistralSmall
     MistralMedium
     MistralLarge
@@ -458,7 +459,6 @@ namespace Ikon.AI.LLM
     KimiK26
     Qwen36
     GptOss120B
-    Glm47
     Glm5
     Glm51
     MiniMaxM25
