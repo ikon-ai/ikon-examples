@@ -104,8 +104,8 @@ namespace Ikon.AI.SoundEffectGeneration
   sealed class SoundEffectGenerator : IDisposable, ISoundEffectGenerator, ISoundEffectGeneratorInfo
     ctor(string modelName, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
     ctor(SoundEffectGeneratorModel model, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
-    ctor(string modelName, IReadOnlyList<ModelRegion> regions, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
-    ctor(SoundEffectGeneratorModel model, IReadOnlyList<ModelRegion> regions, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
+    ctor(SoundEffectGeneratorModel model, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
     int ChannelCount { get; }
     int SampleRate { get; }
     bool SupportsLooping { get; }
@@ -147,8 +147,8 @@ namespace Ikon.AI.SpeechGeneration
   sealed class SpeechGenerator : IDisposable, ISpeechGenerator
     ctor(string modelName, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
     ctor(SpeechGeneratorModel model, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
-    ctor(string modelName, IReadOnlyList<ModelRegion> regions, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
-    ctor(SpeechGeneratorModel model, IReadOnlyList<ModelRegion> regions, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
+    ctor(SpeechGeneratorModel model, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
     int ChannelCount { get; }
     int SampleRate { get; }
     IReadOnlyList<string> VoiceIds { get; }
@@ -178,14 +178,13 @@ namespace Ikon.AI.SpeechGeneration
     OpenAITts1Hd
     Gpt4OmniMiniTts
     ElevenFlash2
-    ElevenTurbo2
     ElevenMultilingual2
     ElevenFlash25
-    ElevenTurbo25
     Eleven3
     GoogleChirp3
     Gemini25FlashTts
     Gemini25ProTts
+    Gemini31FlashTts
   static class SpeechGeneratorModelExtensions
     static string DisplayName(SpeechGeneratorModel model)
   static class TextFilter
@@ -341,8 +340,8 @@ namespace Ikon.AI.SpeechRecognition
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class SpeechRecognizer : IDisposable, ISpeechRecognizer, ISpeechRecognizerInfo
-    ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
-    ctor(SpeechRecognizerModel model, IReadOnlyList<ModelRegion> regions = null)
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
+    ctor(SpeechRecognizerModel model, IReadOnlyList<ModelRegion>? regions = null)
     int ChannelCount { get; }
     int SampleRate { get; }
     bool SupportsBatchRecognition { get; }
@@ -355,7 +354,7 @@ namespace Ikon.AI.SpeechRecognition
     Task<string> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = null)
     IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = null)
   sealed class SpeechRecognizerAdapter : IDisposable, ISpeechRecognizer, ISpeechRecognizerInfo
-    ctor(ISpeechRecognizer speechRecognizer, SpeechRecognizerAdapter.Config config = null)
+    ctor(ISpeechRecognizer speechRecognizer, SpeechRecognizerAdapter.Config? config = null)
     int ChannelCount { get; }
     int SampleRate { get; }
     bool SupportsBatchRecognition { get; }
