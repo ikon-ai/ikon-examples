@@ -25,8 +25,8 @@ namespace Ikon.Teleport
   sealed class TeleportJsonIrDocument
     static TeleportJsonIrDocument Parse(string json)
   static class TeleportJsonMirror
-    static string ToJson(ReadOnlySpan<byte> binary, TeleportJsonIrDocument schema)
-    static string ToJson(ReadOnlySpan<byte> binary, TeleportJsonMirrorOptions options = null)
+    static string ToJson(ReadOnlySpan<byte> binary, TeleportJsonIrDocument? schema)
+    static string ToJson(ReadOnlySpan<byte> binary, TeleportJsonMirrorOptions? options = null)
   sealed class TeleportJsonMirrorOptions
     ctor()
     bool Indented { get; set; }

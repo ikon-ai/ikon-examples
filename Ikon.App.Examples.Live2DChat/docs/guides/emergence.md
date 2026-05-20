@@ -260,10 +260,10 @@ namespace Ikon.AI.Emergence
     bool? UseCitations { get; set; }
     bool UseJson { get; set; }
     int? UseLastNMessages { get; set; }
-    void Stop(string reason = null)
+    void Stop(string? reason = null)
     void UseLastMessages(int count, int skipLast = 0)
   class EmergeResult
-    ctor(object result = null)
+    ctor(object? result = null)
     object Result { get; }
     bool SkipReprocessing { get; init; }
   sealed class EmergeScope : EmergeScopeBase
@@ -344,7 +344,7 @@ namespace Ikon.AI.Emergence
     Failed
   sealed class EmergenceTrace : IEquatable<EmergenceTrace>
     ctor()
-    ctor(int iterations, int toolCalls, TimeSpan duration, IReadOnlyList<FunctionCall> toolCallHistory = null, string finishReason = null, Exception error = null, long inputTokens = 0, long cachedInputTokens = 0, long cacheCreationInputTokens = 0, long outputTokens = 0)
+    ctor(int iterations, int toolCalls, TimeSpan duration, IReadOnlyList<FunctionCall>? toolCallHistory = null, string? finishReason = null, Exception? error = null, long inputTokens = 0, long cachedInputTokens = 0, long cacheCreationInputTokens = 0, long outputTokens = 0)
     long CacheCreationInputTokens { get; init; }
     long CachedInputTokens { get; init; }
     TimeSpan Duration { get; init; }
@@ -394,20 +394,20 @@ namespace Ikon.AI.Emergence
     void Map(Action<EmergeScope<TChunk>> configure)
     void Reduce(Action<EmergeScope<TResult>> configure)
   sealed class McpClient : IDisposable
-    ctor(string endpoint, Dictionary<string, string> headers = null)
+    ctor(string endpoint, Dictionary<string, string>? headers = null)
     IReadOnlyList<McpTool> Tools { get; }
     Task<string> CallToolAsync(string name, JsonElement arguments, CancellationToken ct = null)
-    Task<McpToolResult> CallToolRawAsync(string name, JsonElement arguments, CancellationToken ct = null, string cursor = null)
+    Task<McpToolResult> CallToolRawAsync(string name, JsonElement arguments, CancellationToken ct = null, string? cursor = null)
     Task ConnectAsync(CancellationToken ct = null)
     void Dispose()
     Function[] ToFunctions()
   class McpTool : IEquatable<McpTool>
-    ctor(string Name, string Description, JsonElement? InputSchema)
+    ctor(string Name, string? Description, JsonElement? InputSchema)
     string Description { get; init; }
     JsonElement? InputSchema { get; init; }
     string Name { get; init; }
   class McpToolResult : IEquatable<McpToolResult>
-    ctor(string Content, string NextCursor)
+    ctor(string Content, string? NextCursor)
     string Content { get; init; }
     string NextCursor { get; init; }
   sealed class ModelText<T> : EmergeEvent<T>, IEquatable<ModelText<T>>
@@ -432,7 +432,7 @@ namespace Ikon.AI.Emergence
     ctor(string Name)
     string Name { get; init; }
   sealed class ObserverStoppedEvent : EmergenceObserverEvent, IEquatable<ObserverStoppedEvent>
-    ctor(string Reason)
+    ctor(string? Reason)
     string Reason { get; init; }
   sealed class ObserverTextEvent : EmergenceObserverEvent, IEquatable<ObserverTextEvent>
     ctor(string Text)
@@ -520,7 +520,7 @@ namespace Ikon.AI.Emergence
     ctor()
     EmergeScope<RouterDecision> RouterScope { get; }
     List<Route> Routes { get; }
-    void AddRoute(string name, string description, LLMModel? model = null, Action<EmergeScopeBase> configure = null)
+    void AddRoute(string name, string description, LLMModel? model = null, Action<EmergeScopeBase>? configure = null)
     void Router(Action<EmergeScope<RouterDecision>> configure)
   sealed class RunnerCompletedEvent : RunnerEvent, IEquatable<RunnerCompletedEvent>
     ctor(string FinalText)
@@ -577,7 +577,7 @@ namespace Ikon.AI.Emergence
     ctor(string Name)
     string Name { get; init; }
   sealed class Stopped<T> : EmergeEvent<T>, IEquatable<Stopped<T>>
-    ctor(KernelContext Context, string Reason)
+    ctor(KernelContext Context, string? Reason)
     KernelContext Context { get; init; }
     string Reason { get; init; }
   sealed class SwarmAgent<T>
@@ -714,8 +714,8 @@ namespace Ikon.AI.Emergence.Tree
     ctor()
     ctor(TreeNode root)
     TreeNode Root { get; set; }
-    static IAsyncEnumerable<EmergeEvent<TreeIndex>> BuildAsync(LLMModel model, string content, TreeIndexOptions options = null, CancellationToken ct = null)
-    static IAsyncEnumerable<EmergeEvent<TreeIndex>> BuildAsync(LLMModel model, IContentReader reader, TreeIndexOptions options = null, CancellationToken ct = null)
+    static IAsyncEnumerable<EmergeEvent<TreeIndex>> BuildAsync(LLMModel model, string content, TreeIndexOptions? options = null, CancellationToken ct = null)
+    static IAsyncEnumerable<EmergeEvent<TreeIndex>> BuildAsync(LLMModel model, IContentReader reader, TreeIndexOptions? options = null, CancellationToken ct = null)
     TreeNode FindById(string id)
     void RebuildIndex()
     string ToTableOfContents(int maxDepth = -1)
