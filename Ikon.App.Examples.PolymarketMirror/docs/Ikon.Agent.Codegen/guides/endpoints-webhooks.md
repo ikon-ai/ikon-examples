@@ -311,14 +311,14 @@ namespace Ikon.Sdk
     // Disposes the client and releases all resources.
     ValueTask DisposeAsync()
     // Sends audio data to the server.
-    ValueTask SendAudioAsync(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string streamId = null, TimeSpan totalDuration = null, AudioEncoderOptions encoderOptions = null, IReadOnlyList<int> targetIds = null)
+    ValueTask SendAudioAsync(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string? streamId = null, TimeSpan totalDuration = null, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null)
     // Send a protocol message to the server.
     ValueTask SendMessageAsync(ProtocolMessage message)
     ValueTask SendMessageAsync<T>(T payload)
     // Signal that the client is ready. Should be called after initialization in the ReadyAsync event handler.
     Task SignalReadyAsync()
     // Wait for a specific client to connect and become ready.
-    Task<bool> WaitForClientAsync(string productId = null, string userId = null, TimeSpan timeout = null)
+    Task<bool> WaitForClientAsync(string? productId = null, string? userId = null, TimeSpan timeout = null)
     // Event raised when an incoming audio frame is received and decoded
     event AsyncEventHandler<AudioInputFrameEventArgs> AudioInputFrameAsync
     // Event raised when an incoming audio stream begins

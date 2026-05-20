@@ -60,7 +60,7 @@ namespace Ikon.Common.Core
     Memory<T> GetEnqueueMemory(int count)
     void TrimExcess()
   sealed class AssertionVerifier
-    ctor(string platformBaseUrl, HttpClient httpClient = null, Func<DateTimeOffset> clock = null)
+    ctor(string platformBaseUrl, HttpClient? httpClient = null, Func<DateTimeOffset>? clock = null)
     Task<ValueTuple<JsonDocument, DateTimeOffset>> VerifyAndExtractClaimsAsync(string token, string expectedIssuer, string expectedAudience, CancellationToken ct = null)
     Task<StepUpAssertion> VerifyAsync(string token, string expectedIssuer, string expectedAudience, CancellationToken ct = null)
   class IkonBackend.Asset
@@ -117,13 +117,13 @@ namespace Ikon.Common.Core
     Task ConnectAsync2(string connectUrl, CancellationToken ct = null)
     Task ConnectAsync2(string host, int port, bool useTls, CancellationToken ct = null)
     void OverrideConfigValues(string overrideConfigJson)
-    IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[] opcodes = null)
+    IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[]? opcodes = null)
     virtual ValueTask SendMessageAsync(ProtocolMessage message)
     ValueTask SendMessageAsync(IProtocolMessagePayload payload)
     Task SignalReadyAsync()
     Task StopAsync()
     override string ToString()
-    Task<bool> WaitForClientAsync(int? clientSessionId = null, string description = null, string userId = null, string deviceId = null, string productId = null, TimeSpan timeout = null)
+    Task<bool> WaitForClientAsync(int? clientSessionId = null, string? description = null, string? userId = null, string? deviceId = null, string? productId = null, TimeSpan timeout = null)
     Task WaitForUdpReadyAsync(CancellationToken ct = null)
     Func<Task> ConnectedAsync
     Func<Task> ConnectingAsync
@@ -358,7 +358,7 @@ namespace Ikon.Common.Core
     static string BuildMemoryInfo()
   class ReactiveGlobalState.DictionaryComparer<TKey, TValue> : IEqualityComparer<Dictionary<TKey, TValue>>
     ctor()
-    bool Equals(Dictionary<TKey, TValue> x, Dictionary<TKey, TValue> y)
+    bool Equals(Dictionary<TKey, TValue>? x, Dictionary<TKey, TValue>? y)
     int GetHashCode(Dictionary<TKey, TValue> obj)
     static ReactiveGlobalState.DictionaryComparer<TKey, TValue> Instance
   enum IkonBackend.EnvironmentType
@@ -369,12 +369,12 @@ namespace Ikon.Common.Core
   static class ExceptionFormatter
     static string FormatException(Exception ex, bool includeFilePaths = true)
   static class ExtendedCast
-    static T Convert<T>(object value)
-    static object Convert(object value, Type targetType)
+    static T Convert<T>(object? value)
+    static object Convert(object? value, Type targetType)
     static object FromJsonElement(JsonElement element, Type targetType)
   static class ExtendedCastExtensions
-    static T ExtendedCast<T>(object value)
-    static object ExtendedCast(object value, Type targetType)
+    static T ExtendedCast<T>(object? value)
+    static object ExtendedCast(object? value, Type targetType)
   class FeatureFlagsStorage : AsyncLocalInstance<FeatureFlagsStorage>
     ctor()
     ImmutableDictionary<string, bool> ReadOnlyFeatureFlags { get; }
@@ -427,7 +427,7 @@ namespace Ikon.Common.Core
     abstract Task StopAsync()
   interface IProtocolMessageChannel
     Context ClientContext { get; }
-    abstract IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[] opcodes = null)
+    abstract IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[]? opcodes = null)
     abstract ValueTask SendMessageAsync(ProtocolMessage message)
     abstract ValueTask SendMessageAsync(IProtocolMessagePayload payload)
   class IkonBackend : AsyncLocalInstance<IkonBackend>
@@ -453,10 +453,10 @@ namespace Ikon.Common.Core
     Task<IkonBackend.ApplyAppBundleConfigResponse> ApplyAppBundleConfigAsync(object config)
     Task<string> AuthenticateSpaceTokenAsync(string spaceId, string externalUserId)
     Task CancelSignatureOrderAsync(string orderId)
-    Task CompleteItemSignedUploadAsync(string uri, string path, string sha256 = null)
+    Task CompleteItemSignedUploadAsync(string uri, string path, string? sha256 = null)
     Task<IkonBackend.ConnectChannelInstanceResponse> ConnectChannelInstanceAsync(IkonBackend.ConnectChannelInstanceRequest request)
     Task<IkonBackend.AppBundle> CreateAppBundleAsync(string spaceId, string version, string itemId, IkonBackend.AppBundleState? state = null)
-    Task CreateAuditEventAsync(string eventName, string spaceId, string userId, string entityType = null, string entityId = null, string ip = null)
+    Task CreateAuditEventAsync(string eventName, string spaceId, string userId, string? entityType = null, string? entityId = null, string? ip = null)
     Task<IkonBackend.Channel> CreateChannelAsync(string spaceId, string name, string type, bool isPrivate)
     Task<IkonBackend.ConnectTokenResponse> CreateChannelConnectTokenAsync(IkonBackend.ConnectTokenRequest request)
     Task<IkonBackend.ChannelInstance> CreateChannelInstanceAsync(string channelId, string mode)
@@ -468,7 +468,7 @@ namespace Ikon.Common.Core
     Task<CreateSignatureOrderResponse> CreateSignatureOrderAsync(CreateSignatureOrderRequest request)
     Task<IkonBackend.SpaceApiKey> CreateSpaceApiKeyAsync(string spaceId)
     Task<IkonBackend.Space> CreateSpaceAsync(string name, string organisationId, string domain)
-    Task<IkonBackend.Secret> CreateSpaceSecretAsync(string spaceId, string key, string value, string name = null, string description = null)
+    Task<IkonBackend.Secret> CreateSpaceSecretAsync(string spaceId, string key, string value, string? name = null, string? description = null)
     Task<string> DelegateSpaceTokenAsync(string spaceId, string userId)
     Task DeleteAppBundleAsync(string id)
     Task DeleteChannelAsync(string id)
@@ -486,18 +486,18 @@ namespace Ikon.Common.Core
     Task<IkonBackend.AppBundle> GetAppBundleAsync(string id)
     Task<List<IkonBackend.AppBundle>> GetAppBundlesAsync(string spaceId, IkonBackend.AppBundleState? state = null, int maxResults = 1000)
     Task<IkonBackend.ChannelInstanceSession> GetAppSessionAsync(string sessionId)
-    Task<IkonBackend.IkonLogQueryResult> GetAppSessionLogsAsync(string sessionId, int? level = null, string cursor = null, int limit = 200)
-    Task<IkonBackend.CursorResponse<IkonBackend.ChannelInstanceSession>> GetAppSessionsAsync(string spaceId, string cursor = null, int limit = 50, string searchId = null)
+    Task<IkonBackend.IkonLogQueryResult> GetAppSessionLogsAsync(string sessionId, int? level = null, string? cursor = null, int limit = 200)
+    Task<IkonBackend.CursorResponse<IkonBackend.ChannelInstanceSession>> GetAppSessionsAsync(string spaceId, string? cursor = null, int limit = 50, string? searchId = null)
     Task<string> GetAssetSignedUrlAsync(string assetId)
     Task<IkonBackend.BillingStatusResult> GetBillingStatusAsync(string organisationId)
     Task<IkonBackend.Channel> GetChannelAsync(string id)
     Task<IkonBackend.ChannelInstance> GetChannelInstanceAsync(string id)
-    Task<List<IkonBackend.ChannelInstance>> GetChannelInstancesAsync(string spaceId = null, string userId = null, string scope = "all", int maxResults = 1000)
+    Task<List<IkonBackend.ChannelInstance>> GetChannelInstancesAsync(string? spaceId = null, string? userId = null, string scope = "all", int maxResults = 1000)
     Task<List<IkonBackend.Channel>> GetChannelsAsync(string spaceId, int maxResults = 1000)
     Task<List<IkonBackend.ChatMessage>> GetChatMessagesAsync(string channelInstanceId, int maxResults = 1000)
     Task<List<IkonBackend.SpaceCostEventName>> GetCostEventNamesAsync(string spaceId)
     Task<List<IkonBackend.SpaceCostScope>> GetCostScopesAsync(string spaceId)
-    Task<List<IkonBackend.SpaceCostRow>> GetCostsAsync(string spaceId, string startDate, string endDate, string category = null, string eventName = null, IReadOnlyList<IkonBackend.SpaceCostScopeFilter> scopes = null)
+    Task<List<IkonBackend.SpaceCostRow>> GetCostsAsync(string spaceId, string startDate, string endDate, string? category = null, string? eventName = null, IReadOnlyList<IkonBackend.SpaceCostScopeFilter>? scopes = null)
     Task<IkonBackend.User> GetCurrentUserAsync()
     Task<List<IkonBackend.CustomField>> GetCustomFieldsAsync(string spaceId, int maxResults = 1000)
     Task<IkonBackend.DatabaseConnectionResponse> GetDatabaseConnectionAsync(string databaseId)
@@ -507,7 +507,7 @@ namespace Ikon.Common.Core
     static IEnumerable<string> GetIkonDataDirectoryCandidates()
     Task<IkonBackend.Item> GetItemAsync(AssetUri assetUri)
     Task<IkonBackend.ItemDownloadUrl> GetItemSignedDownloadUrlAsync(string id)
-    Task<IkonBackend.ItemSignedUpload> GetItemSignedUploadUrlAsync(string uri, string filename, string mime, string[] tags, bool? isAppServed = null)
+    Task<IkonBackend.ItemSignedUpload> GetItemSignedUploadUrlAsync(string uri, string filename, string mime, string[]? tags, bool? isAppServed = null)
     Task<List<IkonBackend.Item>> GetItemsAsync(string spaceId, string folderId, int maxResults = 1000)
     Task<IkonBackend.LocalIkonServerTokenResponse> GetLocalIkonServerTokenAsync(string spaceId)
     Task<IkonBackend.MintCashoutStatus> GetMintCashoutStatusAsync(string appId)
@@ -523,7 +523,7 @@ namespace Ikon.Common.Core
     Task<List<IkonBackend.Profile>> GetProfilesAsync(string spaceId, int maxResults = 1000)
     Task<IkonBackend.RelayServerConfigResponse> GetRelayServerConfigAsync()
     Task<List<string>> GetReleaseNoteVersions(string target)
-    Task<List<IkonBackend.ReleaseNoteEntry>> GetReleaseNotes(string target, string minVersion = null, int maxResults = 100)
+    Task<List<IkonBackend.ReleaseNoteEntry>> GetReleaseNotes(string target, string? minVersion = null, int maxResults = 100)
     Task<Dictionary<string, string>> GetSecretsAsync(string spaceId)
     Task<GetSignatureOrderResponse> GetSignatureOrderAsync(string orderId)
     Task<IkonBackend.SpaceApiKey> GetSpaceApiKeyAsync(string id)
@@ -541,7 +541,7 @@ namespace Ikon.Common.Core
     Task<List<IkonBackend.User>> GetUsersAsync(string query, int limit = 20)
     bool HasCapability(string capability)
     Task<bool> IsSpaceDomainAvailableAsync(string domain)
-    Task<IkonBackend.MintApiKeyIssued> IssueMintApiKeyAsync(string appId, string label = null)
+    Task<IkonBackend.MintApiKeyIssued> IssueMintApiKeyAsync(string appId, string? label = null)
     Task<IkonBackend.ItemListResponse> ListItemsAsync(IkonBackend.ItemListRequest request)
     Task<List<IkonBackend.MintApiKeySummary>> ListMintApiKeysAsync(string appId)
     bool Login(ValueTuple<string, string>? fromCommandLine = null, ValueTuple<string, string>? fromConfig = null, bool logSource = true, bool mustLogin = true)
@@ -562,14 +562,14 @@ namespace Ikon.Common.Core
     Task<IkonBackend.AppBundle> UpdateAppBundleAsync(string id, IkonBackend.AppBundleState state)
     Task<IkonBackend.Channel> UpdateChannelAsync(string id, object form)
     Task<IkonBackend.ChannelInstance> UpdateChannelInstanceAsync(string id, object form)
-    Task<IkonBackend.Item> UpdateItemAsync(AssetUri assetUri, object text, string[] tags, DateTime? ifUpdatedAt = null)
+    Task<IkonBackend.Item> UpdateItemAsync(AssetUri assetUri, object text, string[]? tags, DateTime? ifUpdatedAt = null)
     Task<IkonBackend.Pipeline> UpdatePipelineAsync(string id, object form)
     Task<IkonBackend.Plugin> UpdatePluginAsync(string id, object form)
     Task UpdateProfileFieldAsync(string profileId, object form)
     Task UpdateProfileFieldAsync(string profileId, string field, string value)
     Task UpdateProfileFieldAsync(string profileId, string field, List<string> value)
     Task<IkonBackend.Space> UpdateSpaceAsync(string id, object form)
-    Task<IkonBackend.Secret> UpdateSpaceSecretAsync(string id, string key, string value, string name = null, string description = null)
+    Task<IkonBackend.Secret> UpdateSpaceSecretAsync(string id, string key, string value, string? name = null, string? description = null)
     Task UploadFileAsync(string url, string mime, string filePath)
     Task<IkonBackend.FileUploadResponse> UploadProfileFileAsync(string profileId, string type, string filename, string mime)
     static void WriteLoginConfig(IkonBackend.LoginInfo info)
@@ -638,7 +638,7 @@ namespace Ikon.Common.Core
     static T From<T>(string json, bool useJson5 = false, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false, bool caseInsensitive = false)
     static object From(string json, Type type, bool useJson5 = false, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false)
     static object From(string json, string typeName, bool useJson5 = false, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false)
-    static T FromLLMResponse<T>(string text, JsonSerializerOptions options)
+    static T FromLLMResponse<T>(string text, JsonSerializerOptions? options)
     static T FromLLMResponse<T>(string text, bool useJson5 = false, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false, bool caseInsensitive = false)
     static Type ResolveTypeByName(string typeName)
     static string To<T>(T obj, bool useJson5 = false, bool indentation = true, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false)
@@ -657,7 +657,7 @@ namespace Ikon.Common.Core
     void AddLogEvent(LogEvent logEvent)
     void AddScope(IScopeKey scope)
     IDisposable BeginTimer(string name, LogType logType = Debug, string filePath = "", int lineNumber = 0, string memberName = "")
-    IDisposable CreateAsyncFlow(string description = null)
+    IDisposable CreateAsyncFlow(string? description = null)
     void Critical(LogCriticalHandler handler)
     void Critical(string message, string filePath = "", int lineNumber = 0, string memberName = "")
     void Debug(LogDebugHandler handler)
@@ -668,7 +668,7 @@ namespace Ikon.Common.Core
     void Error(string message, string filePath = "", int lineNumber = 0, string memberName = "")
     void Error(string message, Exception exception, string filePath = "", int lineNumber = 0, string memberName = "")
     void Error(Exception exception, string message, string filePath = "", int lineNumber = 0, string memberName = "")
-    void Event(string name, object parameters = null, string filePath = "", int lineNumber = 0, string memberName = "")
+    void Event(string name, object? parameters = null, string filePath = "", int lineNumber = 0, string memberName = "")
     string Exception(LogExceptionHandler handler)
     string Exception(string message, string filePath = "", int lineNumber = 0, string memberName = "")
     TScope GetScope<TScope>()
@@ -823,7 +823,7 @@ namespace Ikon.Common.Core
     PayloadType PayloadType { get; set; }
     ServerRunType ServerRunType { get; set; }
   struct LogEvent.Parameter
-    ctor(string name, object value)
+    ctor(string name, object? value)
     string Name
     object Value
   class IkonBackend.Pipeline
@@ -855,7 +855,7 @@ namespace Ikon.Common.Core
     string Type { get; set; }
     string TypeName { get; set; }
   class PluginAttribute : Attribute
-    ctor(string name, string productId, string description, int version, string guid, UserType userType, Opcode opcodeGroupsFromServer, Opcode opcodeGroupsToServer, bool receiveAllMessages, string[] dependencies = null)
+    ctor(string name, string productId, string description, int version, string guid, UserType userType, Opcode opcodeGroupsFromServer, Opcode opcodeGroupsToServer, bool receiveAllMessages, string[]? dependencies = null)
     string[] Dependencies { get; }
     string Description { get; }
     string Guid { get; }
@@ -877,8 +877,8 @@ namespace Ikon.Common.Core
   static class ProcessGuard
     static void HandleOutOfMemory()
   static class ProcessRunner
-    static ProcessRunner.Result Run(string command, bool ignoreErrors = false, bool runInBackground = false, bool runInNewWindow = false, bool attachToConsole = false, string workingDirectory = null, string stdinInput = null, IDictionary<string, string> environmentVariables = null, TimeSpan waitAfterCancel = null, bool captureBinaryOutput = false, CancellationToken cancellationToken = null)
-    static Task<ProcessRunner.Result> RunAsync(string command, bool ignoreErrors = false, bool runInBackground = false, bool runInNewWindow = false, bool attachToConsole = false, string workingDirectory = null, string stdinInput = null, IDictionary<string, string> environmentVariables = null, TimeSpan waitAfterCancel = null, bool captureBinaryOutput = false, CancellationToken cancellationToken = null)
+    static ProcessRunner.Result Run(string command, bool ignoreErrors = false, bool runInBackground = false, bool runInNewWindow = false, bool attachToConsole = false, string? workingDirectory = null, string? stdinInput = null, IDictionary<string, string?>? environmentVariables = null, TimeSpan waitAfterCancel = null, bool captureBinaryOutput = false, CancellationToken cancellationToken = null)
+    static Task<ProcessRunner.Result> RunAsync(string command, bool ignoreErrors = false, bool runInBackground = false, bool runInNewWindow = false, bool attachToConsole = false, string? workingDirectory = null, string? stdinInput = null, IDictionary<string, string?>? environmentVariables = null, TimeSpan waitAfterCancel = null, bool captureBinaryOutput = false, CancellationToken cancellationToken = null)
   class IkonBackend.Profile
     ctor()
     IkonBackend.Address Address { get; set; }
@@ -917,7 +917,7 @@ namespace Ikon.Common.Core
     ctor()
     bool HasHandlers { get; }
     ValueTask DispatchAsync(ProtocolMessage message)
-    IDisposable Register(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[] opcodes = null)
+    IDisposable Register(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[]? opcodes = null)
   sealed class PublicApiDocIgnoreAttribute : Attribute
     ctor()
   class ReactiveGlobalState
@@ -994,7 +994,7 @@ namespace Ikon.Common.Core
   sealed class Secrets
     string Item { get; }
     IReadOnlyCollection<string> Keys { get; }
-    bool TryGet(string key, out string value)
+    bool TryGet(string key, out string? value)
   sealed class SendEmailAttachmentDto
     ctor()
     string ContentBase64 { get; set; }
@@ -1103,9 +1103,9 @@ namespace Ikon.Common.Core
     string EntityId { get; set; }
     T Values { get; set; }
   static class StringDistance
-    static int Levenshtein(string a, string b)
+    static int Levenshtein(string? a, string? b)
   static class Throttler
-    static bool TryExecute(Action action, TimeSpan throttleInterval = null, string extraKey = null)
+    static bool TryExecute(Action action, TimeSpan throttleInterval = null, string? extraKey = null)
   static class Toml
     static T From<T>(string toml)
     static string To<T>(T obj)
@@ -1133,7 +1133,7 @@ namespace Ikon.Common.Core
     string Id { get; set; }
     string Name { get; set; }
   static class Utils
-    static int FindAvailableTcpAndUdpPort(int startPort, HashSet<int> usedPorts = null)
+    static int FindAvailableTcpAndUdpPort(int startPort, HashSet<int>? usedPorts = null)
     static int FindAvailableUdpPortRange(int startPort, int count)
     static string GenerateDeviceId()
     static void OpenBrowser(string url)
@@ -1152,15 +1152,15 @@ namespace Ikon.Common.Core.Assets
     Task<byte[]> GetBytesAsync(AssetUri assetUri)
     Task<AssetContent<byte[]>> GetBytesWithMetadataAsync(AssetUri assetUri)
     Task<AssetMetadata> GetMetadataAsync(AssetUri assetUri)
-    Task<IAsyncDisposable> GetOrUpdateWithMetadataAsync<T>(AssetUri assetUri, Func<AssetEventArgs, AssetContent<T>, Task> onAsset, Func<AssetEventArgs, Task> onAssetNotFound = null)
-    Task<IAsyncDisposable> GetOrUpdateWithMetadataAsync<T>(AssetUri assetUri, Action<AssetEventArgs, AssetContent<T>> onAsset, Func<AssetEventArgs, Task> onAssetNotFound = null)
+    Task<IAsyncDisposable> GetOrUpdateWithMetadataAsync<T>(AssetUri assetUri, Func<AssetEventArgs, AssetContent<T>?, Task> onAsset, Func<AssetEventArgs, Task>? onAssetNotFound = null)
+    Task<IAsyncDisposable> GetOrUpdateWithMetadataAsync<T>(AssetUri assetUri, Action<AssetEventArgs, AssetContent<T>?> onAsset, Func<AssetEventArgs, Task>? onAssetNotFound = null)
     Task<AssetContent<Stream>> GetReadStreamAsync(AssetUri assetUri)
-    Task<string> GetTextAsync(AssetUri assetUri, Encoding encoding = null)
-    Task<AssetContent<string>> GetTextWithMetadataAsync(AssetUri assetUri, Encoding encoding = null)
+    Task<string> GetTextAsync(AssetUri assetUri, Encoding? encoding = null)
+    Task<AssetContent<string>> GetTextWithMetadataAsync(AssetUri assetUri, Encoding? encoding = null)
     Task<AssetContent<T>> GetWithMetadataAsync<T>(AssetUri assetUri)
     Task<Stream> GetWriteStreamAsync(AssetUri assetUri, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
     Task<IReadOnlyList<AssetListingEntry>> ListAsync(AssetQuery query, CancellationToken cancellationToken = null)
-    Task<IReadOnlyList<AssetUri>> ListAsync(AssetClass assetClass, string prefix = null, CancellationToken cancellationToken = null)
+    Task<IReadOnlyList<AssetUri>> ListAsync(AssetClass assetClass, string? prefix = null, CancellationToken cancellationToken = null)
     Task<IReadOnlyList<AssetUri>> ListAsync(AssetUri folderUri, CancellationToken cancellationToken = null)
     Task NotifyUpdateAsync(AssetUri assetUri)
     Task SetAsync<T>(AssetUri assetUri, T asset, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
@@ -1170,8 +1170,8 @@ namespace Ikon.Common.Core.Assets
     Task<byte[]> TryGetBytesAsync(AssetUri assetUri)
     Task<AssetContent<byte[]>> TryGetBytesWithMetadataAsync(AssetUri assetUri)
     Task<AssetMetadata?> TryGetMetadataAsync(AssetUri assetUri)
-    Task<string> TryGetTextAsync(AssetUri assetUri, Encoding encoding = null)
-    Task<AssetContent<string>> TryGetTextWithMetadataAsync(AssetUri assetUri, Encoding encoding = null)
+    Task<string> TryGetTextAsync(AssetUri assetUri, Encoding? encoding = null)
+    Task<AssetContent<string>> TryGetTextWithMetadataAsync(AssetUri assetUri, Encoding? encoding = null)
     Task<AssetContent<T>> TryGetWithMetadataAsync<T>(AssetUri assetUri)
     Task<AssetWriteResult> TrySetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
     Task<AssetWriteResult> TrySetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
@@ -1196,7 +1196,7 @@ namespace Ikon.Common.Core.Assets
     AssetUri AssetUri { get; }
     AssetMetadata Metadata { get; }
   struct AssetMetadata
-    ctor(string mimeType = null, long? size = null, DateTime? lastModified = null, string url = null, bool? urlIsTemporal = null, string[] tags = null, string internalPath = null, string storageId = null, string nativeUri = null, bool? isAppServed = null)
+    ctor(string? mimeType = null, long? size = null, DateTime? lastModified = null, string? url = null, bool? urlIsTemporal = null, string[]? tags = null, string? internalPath = null, string? storageId = null, string? nativeUri = null, bool? isAppServed = null)
     string InternalPath { get; }
     bool? IsAppServed { get; }
     DateTime? LastModified { get; }
@@ -1233,7 +1233,7 @@ namespace Ikon.Common.Core.Assets
     Deleted
   struct AssetUri : IEquatable<AssetUri>
     ctor(string uriString)
-    ctor(AssetClass assetClass, string path = null, string spaceId = null, string userId = null, string channelId = null, string query = null)
+    ctor(AssetClass assetClass, string? path = null, string? spaceId = null, string? userId = null, string? channelId = null, string? query = null)
     string ChannelId { get; }
     AssetClass Class { get; }
     string FileName { get; }
@@ -1245,9 +1245,9 @@ namespace Ikon.Common.Core.Assets
     static AssetUri FromFilesystemPath(string relativePathToRoot, AssetClass defaultAssetClass = LocalFile)
     static bool IsValid(string uriString)
     static string ToFilesystemPath(AssetUri assetUri)
-    static bool TryParse(string uriString, out AssetUri assetUri, out string failureReason)
+    static bool TryParse(string uriString, out AssetUri assetUri, out string? failureReason)
     static bool TryParse(string uriString, out AssetUri assetUri)
-    AssetUri With(AssetClass? assetClass = null, string path = null, string spaceId = null, string userId = null, string channelId = null, string query = null)
+    AssetUri With(AssetClass? assetClass = null, string? path = null, string? spaceId = null, string? userId = null, string? channelId = null, string? query = null)
   struct AssetWriteResult
     ctor(AssetWriteStatus status, AssetMetadata? metadata = null)
     bool IsConflict { get; }
@@ -1260,7 +1260,7 @@ namespace Ikon.Common.Core.Assets
     Skipped
     Success
   interface IHashableStream
-    abstract void SetSha256Hash(string hash)
+    abstract void SetSha256Hash(string? hash)
   interface IStorage : IAsyncDisposable
     abstract Task DeleteAsync(AssetUri assetUri)
     abstract Task<bool> ExistsAsync(AssetUri assetUri)
@@ -1272,11 +1272,11 @@ namespace Ikon.Common.Core.Assets
     abstract Task WaitUntilQueueEmptyAsync()
     event Func<AssetEventArgs, Task> AssetEventAsync
   static class StorageExtensions
-    static Task AddEmbeddedFileStorageAsync(Asset asset, Assembly assembly = null, string resourceNamespace = "")
+    static Task AddEmbeddedFileStorageAsync(Asset asset, Assembly? assembly = null, string resourceNamespace = "")
 
 namespace Ikon.Common.Core.Auth
   sealed class StepUpAssertion : IEquatable<StepUpAssertion>
-    ctor(string Issuer, string Audience, string Subject, long IssuedAt, long ExpiresAt, string Jti, string UserId, string ChallengeId, string Purpose, string SpaceId, string IdentityScheme, string AssuranceLevel, string EidSubjectHash, string IdentifierHash, string VerifiedName, string Birthdate, long VerifiedAt, string IdTokenHash, IReadOnlyDictionary<string, object> RawClaims)
+    ctor(string Issuer, string Audience, string Subject, long IssuedAt, long ExpiresAt, string Jti, string UserId, string ChallengeId, string Purpose, string? SpaceId, string IdentityScheme, string? AssuranceLevel, string EidSubjectHash, string? IdentifierHash, string? VerifiedName, string? Birthdate, long VerifiedAt, string IdTokenHash, IReadOnlyDictionary<string, object?> RawClaims)
     string AssuranceLevel { get; init; }
     string Audience { get; init; }
     string Birthdate { get; init; }
@@ -1301,13 +1301,13 @@ namespace Ikon.Common.Core.CommandLineParser
   static class CommandLineParser
     static Task<ParseResult<TGlobalOptions>> ParseAsync<TGlobalOptions>(string[] args, bool globalOptionsOnly = false)
   sealed class OptionAttribute : Attribute
-    ctor(string name, string description, bool required = false, string[] synonyms = null)
+    ctor(string name, string description, bool required = false, string[]? synonyms = null)
     string Description { get; }
     string Name { get; }
     bool Required { get; set; }
     string[] Synonyms { get; }
   sealed class ParseResult<TGlobalOptions>
-    ctor(bool success, string errorMessage, bool helpRequested, string helpText, TGlobalOptions globalOptions, VerbInfo verbInfo, bool unknownVerb = false)
+    ctor(bool success, string? errorMessage, bool helpRequested, string? helpText, TGlobalOptions globalOptions, VerbInfo? verbInfo, bool unknownVerb = false)
     string ErrorMessage { get; }
     TGlobalOptions GlobalOptions { get; }
     bool HelpRequested { get; }
@@ -1325,7 +1325,7 @@ namespace Ikon.Common.Core.CommandLineParser
     ctor(string description)
     string Description { get; }
   sealed class VerbAttribute : Attribute
-    ctor(string verb, string description, string category = null, bool loginNeeded = false, bool spaceTokenNeeded = false, bool developerOnly = false, string[] synonyms = null)
+    ctor(string verb, string description, string? category = null, bool loginNeeded = false, bool spaceTokenNeeded = false, bool developerOnly = false, string[]? synonyms = null)
     string Category { get; }
     string Description { get; }
     bool DeveloperOnly { get; }
@@ -1351,11 +1351,12 @@ namespace Ikon.Common.Core.CommandLineParser
     string TypeFullName { get; set; }
     string Verb { get; set; }
   sealed class VerbInfo
-    ctor(bool loginNeeded, bool spaceTokenNeeded, object options, Func<object, CancellationToken, ValueTask> callback)
+    ctor(string verb, bool loginNeeded, bool spaceTokenNeeded, object? options, Func<object?, CancellationToken, ValueTask> callback)
     Func<object, CancellationToken, ValueTask> Callback { get; }
     bool LoginNeeded { get; }
     object Options { get; }
     bool SpaceTokenNeeded { get; }
+    string Verb { get; }
   static class VerbResolver
     static bool LoadVerbCache(string path)
     static void WriteVerbCache(string path, string hash)
@@ -1367,7 +1368,7 @@ namespace Ikon.Common.Core.Email
     string Filename { get; init; }
     string MimeType { get; init; }
   sealed class EmailSendRequest : IEquatable<EmailSendRequest>
-    ctor(string To, string Subject, string HtmlBody, string TextBody = null, string ReplyTo = null, IReadOnlyList<EmailAttachment> Attachments = null, IReadOnlyDictionary<string, string> Metadata = null)
+    ctor(string To, string Subject, string HtmlBody, string? TextBody = null, string? ReplyTo = null, IReadOnlyList<EmailAttachment>? Attachments = null, IReadOnlyDictionary<string, string>? Metadata = null)
     IReadOnlyList<EmailAttachment> Attachments { get; init; }
     string HtmlBody { get; init; }
     IReadOnlyDictionary<string, string> Metadata { get; init; }
@@ -1382,8 +1383,8 @@ namespace Ikon.Common.Core.Functions
     Async
     AsyncEnumerable
   struct Function
-    ctor(Guid id, string name, FunctionParameter[] parameters, string returnTypeName, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, bool requiresInstance = false, string version = null, bool webhook = false)
-    ctor(Guid id, string name, FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, Func<object[], object> callback, Func<object[], Task<object>> callbackAsync, Func<object[], IAsyncEnumerable<object>> callbackAsyncEnumerable, MethodInfo methodInfo = null, bool requiresInstance = false, PolicyDelegate policy = null, string version = null, bool webhook = false)
+    ctor(Guid id, string name, FunctionParameter[] parameters, string returnTypeName, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, bool requiresInstance = false, string? version = null, bool webhook = false)
+    ctor(Guid id, string name, FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, Func<object?[], object?>? callback, Func<object?[], Task<object?>>? callbackAsync, Func<object?[], IAsyncEnumerable<object?>>? callbackAsyncEnumerable, MethodInfo? methodInfo = null, bool requiresInstance = false, PolicyDelegate? policy = null, string? version = null, bool webhook = false)
     CallbackType CallbackType { get; }
     int? ClientSessionId { get; }
     string Description { get; }
@@ -1404,52 +1405,52 @@ namespace Ikon.Common.Core.Functions
     string Version { get; }
     FunctionVisibility Visibility { get; }
     bool Webhook { get; }
-    object Call(object[] args)
-    Task<object> CallAsync(object[] args)
-    IAsyncEnumerable<object> CallAsyncEnumerable(object[] args)
-    IEnumerable<object> CallEnumerable(object[] args)
-    static Function Create<TResult>(string name, string description, Func<TResult> function, PolicyDelegate policy = null)
-    static Function Create<T1, TResult>(string name, string description, Func<T1, TResult> function, PolicyDelegate policy = null)
-    static Function Create<T1, T2, TResult>(string name, string description, Func<T1, T2, TResult> function, PolicyDelegate policy = null)
-    static Function Create<T1, T2, T3, TResult>(string name, string description, Func<T1, T2, T3, TResult> function, PolicyDelegate policy = null)
-    static Function Create<T1, T2, T3, T4, TResult>(string name, string description, Func<T1, T2, T3, T4, TResult> function, PolicyDelegate policy = null)
-    static Function Create<T1, T2, T3, T4, T5, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, TResult> function, PolicyDelegate policy = null)
-    static Function Create<T1, T2, T3, T4, T5, T6, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, T6, TResult> function, PolicyDelegate policy = null)
-    static Function Create<T1, T2, T3, T4, T5, T6, T7, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, T6, T7, TResult> function, PolicyDelegate policy = null)
-    static Function Create<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, T6, T7, T8, TResult> function, PolicyDelegate policy = null)
-    static Function Create<TResult>(string name, string description, Func<Task<TResult>> function, PolicyDelegate policy = null)
-    static Function Create<T1, TResult>(string name, string description, Func<T1, Task<TResult>> function, PolicyDelegate policy = null)
-    static Function Create<T1, T2, TResult>(string name, string description, Func<T1, T2, Task<TResult>> function, PolicyDelegate policy = null)
-    static Function Create<T1, T2, T3, TResult>(string name, string description, Func<T1, T2, T3, Task<TResult>> function, PolicyDelegate policy = null)
-    static Function Create<T1, T2, T3, T4, TResult>(string name, string description, Func<T1, T2, T3, T4, Task<TResult>> function, PolicyDelegate policy = null)
-    static Function Create<T1, T2, T3, T4, T5, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, Task<TResult>> function, PolicyDelegate policy = null)
-    static Function Create<T1, T2, T3, T4, T5, T6, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, T6, Task<TResult>> function, PolicyDelegate policy = null)
-    static Function Create<T1, T2, T3, T4, T5, T6, T7, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, T6, T7, Task<TResult>> function, PolicyDelegate policy = null)
-    static Function Create<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, T6, T7, T8, Task<TResult>> function, PolicyDelegate policy = null)
-    static Function Create<TResult>(string name, string description, Func<IAsyncEnumerable<TResult>> function, PolicyDelegate policy = null)
-    static Function Create<T1, TResult>(string name, string description, Func<T1, IAsyncEnumerable<TResult>> function, PolicyDelegate policy = null)
-    static Function Create<T1, T2, TResult>(string name, string description, Func<T1, T2, IAsyncEnumerable<TResult>> function, PolicyDelegate policy = null)
-    static Function Register(Delegate function, string name = null, FunctionAttribute attribute = null, MethodInfo methodInfo = null, PolicyDelegate policy = null, Dictionary<string, string> paramDescriptions = null)
-    static Function Register<TResult>(Func<TResult> function, string name = null, FunctionAttribute attribute = null, PolicyDelegate policy = null)
-    static Function Register<T1, TResult>(Func<T1, TResult> function, string name = null, FunctionAttribute attribute = null, PolicyDelegate policy = null)
-    static Function Register<T1, T2, TResult>(Func<T1, T2, TResult> function, string name = null, FunctionAttribute attribute = null, PolicyDelegate policy = null)
-    static Function Register<T1, T2, T3, TResult>(Func<T1, T2, T3, TResult> function, string name = null, FunctionAttribute attribute = null, PolicyDelegate policy = null)
-    static Function Register<T1, T2, T3, T4, TResult>(Func<T1, T2, T3, T4, TResult> function, string name = null, FunctionAttribute attribute = null, PolicyDelegate policy = null)
-    static Function Register<T1, T2, T3, T4, T5, TResult>(Func<T1, T2, T3, T4, T5, TResult> function, string name = null, FunctionAttribute attribute = null, PolicyDelegate policy = null)
-    static Function Register<T1, T2, T3, T4, T5, T6, TResult>(Func<T1, T2, T3, T4, T5, T6, TResult> function, string name = null, FunctionAttribute attribute = null, PolicyDelegate policy = null)
-    static Function Register<T1, T2, T3, T4, T5, T6, T7, TResult>(Func<T1, T2, T3, T4, T5, T6, T7, TResult> function, string name = null, FunctionAttribute attribute = null, PolicyDelegate policy = null)
-    static Function Register<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(Func<T1, T2, T3, T4, T5, T6, T7, T8, TResult> function, string name = null, FunctionAttribute attribute = null, PolicyDelegate policy = null)
-    static Function Register<TResult>(Func<Task<TResult>> function, string name = null, FunctionAttribute attribute = null, PolicyDelegate policy = null)
-    static Function Register<T1, TResult>(Func<T1, Task<TResult>> function, string name = null, FunctionAttribute attribute = null, PolicyDelegate policy = null)
-    static Function Register<T1, T2, TResult>(Func<T1, T2, Task<TResult>> function, string name = null, FunctionAttribute attribute = null, PolicyDelegate policy = null)
-    static Function Register<T1, T2, T3, TResult>(Func<T1, T2, T3, Task<TResult>> function, string name = null, FunctionAttribute attribute = null, PolicyDelegate policy = null)
-    static Function Register<T1, T2, T3, T4, TResult>(Func<T1, T2, T3, T4, Task<TResult>> function, string name = null, FunctionAttribute attribute = null, PolicyDelegate policy = null)
-    static Function Register<TResult>(Func<IAsyncEnumerable<TResult>> function, string name = null, FunctionAttribute attribute = null, PolicyDelegate policy = null)
-    static Function Register<T1, TResult>(Func<T1, IAsyncEnumerable<TResult>> function, string name = null, FunctionAttribute attribute = null, PolicyDelegate policy = null)
-    static Function Register<T1, T2, TResult>(Func<T1, T2, IAsyncEnumerable<TResult>> function, string name = null, FunctionAttribute attribute = null, PolicyDelegate policy = null)
+    object Call(object?[] args)
+    Task<object> CallAsync(object?[] args)
+    IAsyncEnumerable<object> CallAsyncEnumerable(object?[] args)
+    IEnumerable<object> CallEnumerable(object?[] args)
+    static Function Create<TResult>(string name, string description, Func<TResult> function, PolicyDelegate? policy = null)
+    static Function Create<T1, TResult>(string name, string description, Func<T1, TResult> function, PolicyDelegate? policy = null)
+    static Function Create<T1, T2, TResult>(string name, string description, Func<T1, T2, TResult> function, PolicyDelegate? policy = null)
+    static Function Create<T1, T2, T3, TResult>(string name, string description, Func<T1, T2, T3, TResult> function, PolicyDelegate? policy = null)
+    static Function Create<T1, T2, T3, T4, TResult>(string name, string description, Func<T1, T2, T3, T4, TResult> function, PolicyDelegate? policy = null)
+    static Function Create<T1, T2, T3, T4, T5, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, TResult> function, PolicyDelegate? policy = null)
+    static Function Create<T1, T2, T3, T4, T5, T6, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, T6, TResult> function, PolicyDelegate? policy = null)
+    static Function Create<T1, T2, T3, T4, T5, T6, T7, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, T6, T7, TResult> function, PolicyDelegate? policy = null)
+    static Function Create<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, T6, T7, T8, TResult> function, PolicyDelegate? policy = null)
+    static Function Create<TResult>(string name, string description, Func<Task<TResult>> function, PolicyDelegate? policy = null)
+    static Function Create<T1, TResult>(string name, string description, Func<T1, Task<TResult>> function, PolicyDelegate? policy = null)
+    static Function Create<T1, T2, TResult>(string name, string description, Func<T1, T2, Task<TResult>> function, PolicyDelegate? policy = null)
+    static Function Create<T1, T2, T3, TResult>(string name, string description, Func<T1, T2, T3, Task<TResult>> function, PolicyDelegate? policy = null)
+    static Function Create<T1, T2, T3, T4, TResult>(string name, string description, Func<T1, T2, T3, T4, Task<TResult>> function, PolicyDelegate? policy = null)
+    static Function Create<T1, T2, T3, T4, T5, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, Task<TResult>> function, PolicyDelegate? policy = null)
+    static Function Create<T1, T2, T3, T4, T5, T6, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, T6, Task<TResult>> function, PolicyDelegate? policy = null)
+    static Function Create<T1, T2, T3, T4, T5, T6, T7, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, T6, T7, Task<TResult>> function, PolicyDelegate? policy = null)
+    static Function Create<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, T6, T7, T8, Task<TResult>> function, PolicyDelegate? policy = null)
+    static Function Create<TResult>(string name, string description, Func<IAsyncEnumerable<TResult>> function, PolicyDelegate? policy = null)
+    static Function Create<T1, TResult>(string name, string description, Func<T1, IAsyncEnumerable<TResult>> function, PolicyDelegate? policy = null)
+    static Function Create<T1, T2, TResult>(string name, string description, Func<T1, T2, IAsyncEnumerable<TResult>> function, PolicyDelegate? policy = null)
+    static Function Register(Delegate function, string? name = null, FunctionAttribute? attribute = null, MethodInfo? methodInfo = null, PolicyDelegate? policy = null, Dictionary<string, string>? paramDescriptions = null)
+    static Function Register<TResult>(Func<TResult> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
+    static Function Register<T1, TResult>(Func<T1, TResult> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
+    static Function Register<T1, T2, TResult>(Func<T1, T2, TResult> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
+    static Function Register<T1, T2, T3, TResult>(Func<T1, T2, T3, TResult> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
+    static Function Register<T1, T2, T3, T4, TResult>(Func<T1, T2, T3, T4, TResult> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
+    static Function Register<T1, T2, T3, T4, T5, TResult>(Func<T1, T2, T3, T4, T5, TResult> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
+    static Function Register<T1, T2, T3, T4, T5, T6, TResult>(Func<T1, T2, T3, T4, T5, T6, TResult> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
+    static Function Register<T1, T2, T3, T4, T5, T6, T7, TResult>(Func<T1, T2, T3, T4, T5, T6, T7, TResult> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
+    static Function Register<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(Func<T1, T2, T3, T4, T5, T6, T7, T8, TResult> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
+    static Function Register<TResult>(Func<Task<TResult>> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
+    static Function Register<T1, TResult>(Func<T1, Task<TResult>> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
+    static Function Register<T1, T2, TResult>(Func<T1, T2, Task<TResult>> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
+    static Function Register<T1, T2, T3, TResult>(Func<T1, T2, T3, Task<TResult>> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
+    static Function Register<T1, T2, T3, T4, TResult>(Func<T1, T2, T3, T4, Task<TResult>> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
+    static Function Register<TResult>(Func<IAsyncEnumerable<TResult>> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
+    static Function Register<T1, TResult>(Func<T1, IAsyncEnumerable<TResult>> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
+    static Function Register<T1, T2, TResult>(Func<T1, T2, IAsyncEnumerable<TResult>> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
     override string ToString()
-    Function With(Guid? id = null, string name = null, FunctionParameter[] parameters = null, Type returnType = null, string description = null, FunctionVisibility? visibility = null, bool? llmInlineResult = null, bool? llmCallOnlyOnce = null, CallbackType? callbackType = null, int? clientSessionId = null, Func<object[], object> callback = null, Func<object[], Task<object>> callbackAsync = null, Func<object[], IAsyncEnumerable<object>> callbackAsyncEnumerable = null, MethodInfo methodInfo = null, bool? requiresInstance = null, PolicyDelegate policy = null, bool clearClientSessionId = false, bool clearMethodInfo = false, bool clearPolicy = false, string version = null, bool? webhook = null)
-    Function WithAllowedValues(string paramName, IReadOnlyList<string> allowedValues)
+    Function With(Guid? id = null, string? name = null, FunctionParameter[]? parameters = null, Type? returnType = null, string? description = null, FunctionVisibility? visibility = null, bool? llmInlineResult = null, bool? llmCallOnlyOnce = null, CallbackType? callbackType = null, int? clientSessionId = null, Func<object?[], object?>? callback = null, Func<object?[], Task<object?>>? callbackAsync = null, Func<object?[], IAsyncEnumerable<object?>>? callbackAsyncEnumerable = null, MethodInfo? methodInfo = null, bool? requiresInstance = null, PolicyDelegate? policy = null, bool clearClientSessionId = false, bool clearMethodInfo = false, bool clearPolicy = false, string? version = null, bool? webhook = null)
+    Function WithAllowedValues(string paramName, IReadOnlyList<string>? allowedValues)
     Function WithParamDescription(string paramName, string description)
   class FunctionAttribute : Attribute
     ctor()
@@ -1464,8 +1465,8 @@ namespace Ikon.Common.Core.Functions
   static class FunctionCallContext
     static int? CallerSessionId { get; }
   struct FunctionParameter
-    ctor(int index, string name, string description, Type type, bool hasDefaultValue, object defaultValue, IReadOnlyList<string> allowedValues = null)
-    ctor(int index, string name, string description, string typeName, bool hasDefaultValue, object defaultValue, IReadOnlyList<string> allowedValues = null)
+    ctor(int index, string name, string description, Type type, bool hasDefaultValue, object? defaultValue, IReadOnlyList<string>? allowedValues = null)
+    ctor(int index, string name, string description, string typeName, bool hasDefaultValue, object? defaultValue, IReadOnlyList<string>? allowedValues = null)
     IReadOnlyList<string> AllowedValues { get; }
     object DefaultValue { get; }
     string Description { get; }
@@ -1486,27 +1487,27 @@ namespace Ikon.Common.Core.Functions
     Func<int, string> UserIdResolver { get; set; }
     void AddFunction(Function function, FunctionVisibility? visibilityOverride = null)
     Task AttachProtocolAsync(IProtocolMessageChannel channel, int senderId)
-    TResult Call<TResult>(string name, object[] args = null, int? targetId = null, bool propagateScopes = false, string version = null, Guid? instanceId = null)
-    Task<TResult> CallAsync<TResult>(string name, CancellationToken cancellationToken = null, object[] args = null, int? targetId = null, bool propagateScopes = false, string version = null, Guid? instanceId = null)
-    Task CallAsync(string name, CancellationToken cancellationToken = null, object[] args = null, int? targetId = null, bool propagateScopes = false, string version = null, Guid? instanceId = null)
-    IAsyncEnumerable<TItem> CallAsyncEnumerable<TItem>(string name, CancellationToken cancellationToken = null, object[] args = null, int? targetId = null, bool propagateScopes = false, string version = null, Guid? instanceId = null)
-    IEnumerable<TItem> CallEnumerable<TItem>(string name, object[] args = null)
+    TResult Call<TResult>(string name, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
+    Task<TResult> CallAsync<TResult>(string name, CancellationToken cancellationToken = null, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
+    Task CallAsync(string name, CancellationToken cancellationToken = null, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
+    IAsyncEnumerable<TItem> CallAsyncEnumerable<TItem>(string name, CancellationToken cancellationToken = null, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
+    IEnumerable<TItem> CallEnumerable<TItem>(string name, object?[]? args = null)
     void ClearLocalFunctions()
     void DetachProtocol()
     Task DisposeInstanceAsync(Guid instanceId, int? targetId = null)
     IReadOnlyCollection<int> GetClientSessionsWithFunction(string name)
     Function? GetFunction(string name)
-    Function? GetFunction(string name, object[] args)
+    Function? GetFunction(string name, object?[] args)
     Function? GetFunction(string name, IReadOnlyList<FunctionParameter> protocolParameters)
     Function? GetFunction(string name, IReadOnlyList<FunctionParameter> protocolParameters, string version)
     Function? GetFunction(string name, int clientSessionId)
     IReadOnlyList<Function> GetFunctions(string name)
     bool HasFunction(string name)
     bool HasFunction(string name, int clientSessionId)
-    void RegisterFromAssembly(Assembly assembly, FunctionVisibility? visibilityOverride = null, string version = null)
-    void RegisterFromInstance(object instance, FunctionVisibility? visibilityOverride = null, string version = null)
-    void RegisterFromType<T>(FunctionVisibility? visibilityOverride = null, string version = null)
-    void RegisterFromType(Type type, FunctionVisibility? visibilityOverride = null, string version = null)
+    void RegisterFromAssembly(Assembly assembly, FunctionVisibility? visibilityOverride = null, string? version = null)
+    void RegisterFromInstance(object instance, FunctionVisibility? visibilityOverride = null, string? version = null)
+    void RegisterFromType<T>(FunctionVisibility? visibilityOverride = null, string? version = null)
+    void RegisterFromType(Type type, FunctionVisibility? visibilityOverride = null, string? version = null)
     void RegisterRemoteFunction(Guid id, string name, FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int clientSessionId, bool requiresInstance = false)
     bool RemoveFunction(string name, FunctionVisibility visibility)
     bool RemoveFunction(string name)
@@ -1526,7 +1527,7 @@ namespace Ikon.Common.Core.Functions
     T Value { get; }
   static class FunctionUtils
     static ValueTuple<string, string> DecodeFunctionName(string encodedFunctionName)
-    static string EncodeFunctionName(string typeName, string functionName)
+    static string EncodeFunctionName(string? typeName, string functionName)
   enum FunctionVisibility
     Local
     External
@@ -1556,7 +1557,7 @@ namespace Ikon.Common.Core.Functions
     static object CreateAsyncEnumerableParameter<T>(IAsyncEnumerable<T> source)
     static object CreateEnumerableParameter<T>(IEnumerable<T> source)
     static FunctionParameter CreateParameter<T>(T value)
-    static FunctionParameter CreateParameter(Type type, object value)
+    static FunctionParameter CreateParameter(Type type, object? value)
     Task DisposeInstanceAsync(Guid instanceId, int? targetId = null)
 
 namespace Ikon.Common.Core.Functions.Policy
@@ -1564,7 +1565,7 @@ namespace Ikon.Common.Core.Functions.Policy
   sealed class AllowAnonymousAttribute : Attribute
     ctor()
   sealed class ApprovalAuditEntry
-    ctor(Guid approvalId, Guid callId, string functionName, int approverSessionId, string approverUserId, bool approved, string reason, string policyName, DateTimeOffset timestamp)
+    ctor(Guid approvalId, Guid callId, string functionName, int approverSessionId, string? approverUserId, bool approved, string? reason, string policyName, DateTimeOffset timestamp)
     Guid ApprovalId { get; }
     bool Approved { get; }
     int ApproverSessionId { get; }
@@ -1574,8 +1575,8 @@ namespace Ikon.Common.Core.Functions.Policy
     string PolicyName { get; }
     string Reason { get; }
     DateTimeOffset Timestamp { get; }
-    static ApprovalAuditEntry CreateApproved(Guid approvalId, Guid callId, string functionName, int approverSessionId, string approverUserId, string policyName)
-    static ApprovalAuditEntry CreateRejected(Guid approvalId, Guid callId, string functionName, int approverSessionId, string approverUserId, string reason, string policyName)
+    static ApprovalAuditEntry CreateApproved(Guid approvalId, Guid callId, string functionName, int approverSessionId, string? approverUserId, string policyName)
+    static ApprovalAuditEntry CreateRejected(Guid approvalId, Guid callId, string functionName, int approverSessionId, string? approverUserId, string? reason, string policyName)
   sealed class ApprovalContext
     Guid ApprovalId { get; }
     string ApprovalTokenHash { get; }
@@ -1587,7 +1588,7 @@ namespace Ikon.Common.Core.Functions.Policy
     string FunctionName { get; }
     string Reason { get; }
     int TimeoutSeconds { get; }
-    static ValueTuple<ApprovalContext, Guid> Create(string functionName, string reason, object[] args, PolicyCallContext callContext, int timeoutSeconds = 300)
+    static ValueTuple<ApprovalContext, Guid> Create(string functionName, string reason, object?[] args, PolicyCallContext callContext, int timeoutSeconds = 300)
     bool IsExpired()
     bool ValidateToken(Guid providedToken)
     bool ValidateToken(string providedToken)
@@ -1597,7 +1598,7 @@ namespace Ikon.Common.Core.Functions.Policy
     bool IsApproved { get; }
     string RejectionReason { get; }
     static ApprovalResult Approved()
-    static ApprovalResult Rejected(string reason = null)
+    static ApprovalResult Rejected(string? reason = null)
     override string ToString()
   enum ApproverType
     Caller
@@ -1613,30 +1614,30 @@ namespace Ikon.Common.Core.Functions.Policy
   interface IFunctionPolicy
     string Name { get; }
     int Priority { get; }
-    abstract ValueTask<PolicyDecision> EvaluateAsync(object[] args, PolicyCallContext context)
+    abstract ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
   interface IUsageLimitChecker
-    abstract ValueTask<UsageLimitCheckResult> CheckAsync(PolicyCallContext context, object[] args)
+    abstract ValueTask<UsageLimitCheckResult> CheckAsync(PolicyCallContext context, object?[] args)
   sealed class LoggedInPolicy : IFunctionPolicy
     ctor()
     string Name { get; }
     int Priority { get; }
-    ValueTask<PolicyDecision> EvaluateAsync(object[] args, PolicyCallContext context)
+    ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
     static string LoginRequiredCode
   sealed class PolicyDecision.NeedsApproval : PolicyDecision
     int ExpirySeconds { get; }
     ApprovalHandlerDelegate Handler { get; }
     string Message { get; }
   sealed class PerSessionRateLimitPolicy : IFunctionPolicy
-    ctor(int limit, int windowSeconds, string name = null, int priority = 50)
+    ctor(int limit, int windowSeconds, string? name = null, int priority = 50)
     string Name { get; }
     int Priority { get; }
-    ValueTask<PolicyDecision> EvaluateAsync(object[] args, PolicyCallContext context)
+    ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
     PolicyDelegate ToDelegate()
   static class PolicyArgs
-    static bool HasAll(object[] args, params int[] requiredIndices)
-    static T Optional<T>(object[] args, int index, T defaultValue = null)
-    static T Required<T>(object[] args, int index)
-    static bool TryGet<T>(object[] args, int index, out T value)
+    static bool HasAll(object?[] args, params int[] requiredIndices)
+    static T Optional<T>(object?[] args, int index, T defaultValue = null)
+    static T Required<T>(object?[] args, int index)
+    static bool TryGet<T>(object?[] args, int index, out T value)
   abstract class PolicyAttribute : Attribute
     int Priority { get; set; }
     abstract IFunctionPolicy CreatePolicy()
@@ -1644,7 +1645,7 @@ namespace Ikon.Common.Core.Functions.Policy
     ctor()
     override IFunctionPolicy CreatePolicy()
   sealed class PolicyCallContext
-    ctor(Guid callId, string functionName, int callerSessionId, string userId, string tenantId, Guid? instanceId, bool isInternal, CancellationToken cancellationToken, string authSessionId = null, DateTime? callTimestamp = null, IReadOnlyDictionary<string, object> additionalContext = null)
+    ctor(Guid callId, string functionName, int callerSessionId, string? userId, string? tenantId, Guid? instanceId, bool isInternal, CancellationToken cancellationToken, string? authSessionId = null, DateTime? callTimestamp = null, IReadOnlyDictionary<string, object?>? additionalContext = null)
     IReadOnlyDictionary<string, object> AdditionalContext { get; }
     string AuthSessionId { get; }
     Guid CallId { get; }
@@ -1661,7 +1662,7 @@ namespace Ikon.Common.Core.Functions.Policy
     static PolicyDelegate AllAsDelegate(params IFunctionPolicy[] policies)
   abstract class PolicyDecision
     static PolicyDecision Allowed()
-    static PolicyDecision Denied(string reason, string code = null)
+    static PolicyDecision Denied(string reason, string? code = null)
     static PolicyDecision RequireApproval(string message)
     static PolicyDecision RequireApproval(string message, int expirySeconds)
     static PolicyDecision RequireApproval(string message, ApprovalHandlerDelegate handler)
@@ -1669,9 +1670,9 @@ namespace Ikon.Common.Core.Functions.Policy
     static int DefaultExpirySeconds
     static int MinExpirySeconds
   delegate PolicyDelegate
-    ValueTask<PolicyDecision> PolicyDelegate(object[] args, PolicyCallContext context)
+    ValueTask<PolicyDecision> PolicyDelegate(object?[] args, PolicyCallContext context)
   sealed class PolicyEvaluationResult
-    ctor(PolicyDecision decision, string functionName, Guid callId, string decidingPolicyName, TimeSpan evaluationDuration)
+    ctor(PolicyDecision decision, string functionName, Guid callId, string? decidingPolicyName, TimeSpan evaluationDuration)
     Guid CallId { get; }
     string DecidingPolicyName { get; }
     PolicyDecision Decision { get; }
@@ -1681,8 +1682,8 @@ namespace Ikon.Common.Core.Functions.Policy
     bool IsDenied { get; }
     bool RequiresApproval { get; }
     static PolicyEvaluationResult Allowed(string functionName, Guid callId)
-    static PolicyEvaluationResult Denied(string functionName, Guid callId, string reason, string policyName, TimeSpan evaluationDuration)
-    static PolicyEvaluationResult Denied(string functionName, Guid callId, string reason, string code, string policyName, TimeSpan evaluationDuration)
+    static PolicyEvaluationResult Denied(string functionName, Guid callId, string? reason, string policyName, TimeSpan evaluationDuration)
+    static PolicyEvaluationResult Denied(string functionName, Guid callId, string reason, string? code, string policyName, TimeSpan evaluationDuration)
     static PolicyEvaluationResult NeedsApproval(PolicyDecision decision, string functionName, Guid callId, string policyName, TimeSpan evaluationDuration)
     override string ToString()
   sealed class PolicyTypeAttribute : PolicyAttribute
@@ -1696,10 +1697,10 @@ namespace Ikon.Common.Core.Functions.Policy
     int WindowSeconds { get; }
     override IFunctionPolicy CreatePolicy()
   sealed class RateLimitPolicy : IFunctionPolicy
-    ctor(int limit, int windowSeconds, string name = null, int priority = 50)
+    ctor(int limit, int windowSeconds, string? name = null, int priority = 50)
     string Name { get; }
     int Priority { get; }
-    ValueTask<PolicyDecision> EvaluateAsync(object[] args, PolicyCallContext context)
+    ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
     PolicyDelegate ToDelegate()
   sealed class RequireApprovalAttribute : PolicyAttribute
     ctor()
@@ -1709,13 +1710,13 @@ namespace Ikon.Common.Core.Functions.Policy
     string UserId { get; set; }
     override IFunctionPolicy CreatePolicy()
   sealed class RequireApprovalPolicy : IFunctionPolicy
-    ctor(string reason, string name = null, int priority = 100)
-    ctor(string reason, ApprovalHandlerDelegate handler, string name = null, int priority = 100)
+    ctor(string reason, string? name = null, int priority = 100)
+    ctor(string reason, ApprovalHandlerDelegate handler, string? name = null, int priority = 100)
     string Name { get; }
     int Priority { get; }
-    ValueTask<PolicyDecision> EvaluateAsync(object[] args, PolicyCallContext context)
-    static RequireApprovalPolicy ForClient(string reason, int clientSessionId, string name = null, int priority = 100)
-    static RequireApprovalPolicy ForUser(string reason, string userId, string name = null, int priority = 100)
+    ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
+    static RequireApprovalPolicy ForClient(string reason, int clientSessionId, string? name = null, int priority = 100)
+    static RequireApprovalPolicy ForUser(string reason, string userId, string? name = null, int priority = 100)
     PolicyDelegate ToDelegate()
   sealed class RequireLoginAttribute : PolicyAttribute
     ctor()
@@ -1729,7 +1730,7 @@ namespace Ikon.Common.Core.Functions.Policy
     ctor(string[] required, bool requireAll, int priority)
     string Name { get; }
     int Priority { get; }
-    ValueTask<PolicyDecision> EvaluateAsync(object[] args, PolicyCallContext context)
+    ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
     static string MissingRoleCode
     static string RolesContextKey
   sealed class UsageLimitAttribute : PolicyAttribute
@@ -1741,12 +1742,12 @@ namespace Ikon.Common.Core.Functions.Policy
     string DenyCode { get; }
     string DenyReason { get; }
     static UsageLimitCheckResult Allow()
-    static UsageLimitCheckResult Deny(string reason, string code = "usage_limit_exceeded")
+    static UsageLimitCheckResult Deny(string reason, string? code = "usage_limit_exceeded")
   sealed class UsageLimitPolicy : IFunctionPolicy
-    ctor(IUsageLimitChecker checker, string name = null, int priority = 10)
+    ctor(IUsageLimitChecker checker, string? name = null, int priority = 10)
     string Name { get; }
     int Priority { get; }
-    ValueTask<PolicyDecision> EvaluateAsync(object[] args, PolicyCallContext context)
+    ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
     PolicyDelegate ToDelegate()
 
 namespace Ikon.Common.Core.Protocol
@@ -1758,7 +1759,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static Action ReadFromTeleport(ReadOnlySpan<byte> data)
-    static Action ReadFromTeleport(ReadOnlySpan<byte> data, Action destination)
+    static Action ReadFromTeleport(ReadOnlySpan<byte> data, Action? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionActive : IProtocolMessagePayload
@@ -1769,7 +1770,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionActive ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionActive ReadFromTeleport(ReadOnlySpan<byte> data, ActionActive destination)
+    static ActionActive ReadFromTeleport(ReadOnlySpan<byte> data, ActionActive? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionAudioStop : IProtocolMessagePayload
@@ -1780,7 +1781,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionAudioStop ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionAudioStop ReadFromTeleport(ReadOnlySpan<byte> data, ActionAudioStop destination)
+    static ActionAudioStop ReadFromTeleport(ReadOnlySpan<byte> data, ActionAudioStop? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionCall : IProtocolMessagePayload
@@ -1792,7 +1793,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionCall ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionCall ReadFromTeleport(ReadOnlySpan<byte> data, ActionCall destination)
+    static ActionCall ReadFromTeleport(ReadOnlySpan<byte> data, ActionCall? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionCall2 : IProtocolMessagePayload
@@ -1804,7 +1805,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string PayloadJson { get; set; }
     static ActionCall2 ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionCall2 ReadFromTeleport(ReadOnlySpan<byte> data, ActionCall2 destination)
+    static ActionCall2 ReadFromTeleport(ReadOnlySpan<byte> data, ActionCall2? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionCallAck : IProtocolMessagePayload
@@ -1814,7 +1815,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionCallAck ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionCallAck ReadFromTeleport(ReadOnlySpan<byte> data, ActionCallAck destination)
+    static ActionCallAck ReadFromTeleport(ReadOnlySpan<byte> data, ActionCallAck? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionCallResult : IProtocolMessagePayload
@@ -1825,7 +1826,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string ResultJson { get; set; }
     static ActionCallResult ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionCallResult ReadFromTeleport(ReadOnlySpan<byte> data, ActionCallResult destination)
+    static ActionCallResult ReadFromTeleport(ReadOnlySpan<byte> data, ActionCallResult? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionCallText : IProtocolMessagePayload
@@ -1836,7 +1837,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string Text { get; set; }
     static ActionCallText ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionCallText ReadFromTeleport(ReadOnlySpan<byte> data, ActionCallText destination)
+    static ActionCallText ReadFromTeleport(ReadOnlySpan<byte> data, ActionCallText? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionCancelGeneration : IProtocolMessagePayload
@@ -1844,7 +1845,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionCancelGeneration ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionCancelGeneration ReadFromTeleport(ReadOnlySpan<byte> data, ActionCancelGeneration destination)
+    static ActionCancelGeneration ReadFromTeleport(ReadOnlySpan<byte> data, ActionCancelGeneration? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionClassificationResult.ActionClassificationDetail
@@ -1855,7 +1856,7 @@ namespace Ikon.Common.Core.Protocol
     string OriginalCategory { get; set; }
     double Score { get; set; }
     static ActionClassificationResult.ActionClassificationDetail ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionClassificationResult.ActionClassificationDetail ReadFromTeleport(ReadOnlySpan<byte> data, ActionClassificationResult.ActionClassificationDetail destination)
+    static ActionClassificationResult.ActionClassificationDetail ReadFromTeleport(ReadOnlySpan<byte> data, ActionClassificationResult.ActionClassificationDetail? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionClassificationResult : IProtocolMessagePayload
@@ -1866,7 +1867,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionClassificationResult ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionClassificationResult ReadFromTeleport(ReadOnlySpan<byte> data, ActionClassificationResult destination)
+    static ActionClassificationResult ReadFromTeleport(ReadOnlySpan<byte> data, ActionClassificationResult? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionClearChatMessageHistory : IProtocolMessagePayload
@@ -1874,7 +1875,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionClearChatMessageHistory ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionClearChatMessageHistory ReadFromTeleport(ReadOnlySpan<byte> data, ActionClearChatMessageHistory destination)
+    static ActionClearChatMessageHistory ReadFromTeleport(ReadOnlySpan<byte> data, ActionClearChatMessageHistory? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionClearState : IProtocolMessagePayload
@@ -1882,12 +1883,12 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionClearState ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionClearState ReadFromTeleport(ReadOnlySpan<byte> data, ActionClearState destination)
+    static ActionClearState ReadFromTeleport(ReadOnlySpan<byte> data, ActionClearState? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionCustomUserMessage : IProtocolMessagePayload
     ctor()
-    ctor(int? opcode, string typeName, string mimeType, string jsonPayload, byte[] binaryPayload)
+    ctor(int? opcode, string? typeName, string? mimeType, string? jsonPayload, byte[]? binaryPayload)
     byte[] BinaryPayload { get; set; }
     string JsonPayload { get; set; }
     Opcode MessageOpcode { get; }
@@ -1896,7 +1897,7 @@ namespace Ikon.Common.Core.Protocol
     int? Opcode { get; set; }
     string TypeName { get; set; }
     static ActionCustomUserMessage ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionCustomUserMessage ReadFromTeleport(ReadOnlySpan<byte> data, ActionCustomUserMessage destination)
+    static ActionCustomUserMessage ReadFromTeleport(ReadOnlySpan<byte> data, ActionCustomUserMessage? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionDownload : IProtocolMessagePayload
@@ -1908,7 +1909,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string Mime { get; set; }
     static ActionDownload ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionDownload ReadFromTeleport(ReadOnlySpan<byte> data, ActionDownload destination)
+    static ActionDownload ReadFromTeleport(ReadOnlySpan<byte> data, ActionDownload? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionEnterFullscreen : IProtocolMessagePayload
@@ -1916,7 +1917,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionEnterFullscreen ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionEnterFullscreen ReadFromTeleport(ReadOnlySpan<byte> data, ActionEnterFullscreen destination)
+    static ActionEnterFullscreen ReadFromTeleport(ReadOnlySpan<byte> data, ActionEnterFullscreen? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFileUploadAck : IProtocolMessagePayload
@@ -1927,7 +1928,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     int SequenceId { get; set; }
     static ActionFileUploadAck ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFileUploadAck ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadAck destination)
+    static ActionFileUploadAck ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadAck? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFileUploadAck2 : IProtocolMessagePayload
@@ -1938,7 +1939,7 @@ namespace Ikon.Common.Core.Protocol
     int SequenceId { get; set; }
     string UploadId { get; set; }
     static ActionFileUploadAck2 ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFileUploadAck2 ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadAck2 destination)
+    static ActionFileUploadAck2 ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadAck2? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFileUploadBegin : IProtocolMessagePayload
@@ -1953,7 +1954,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string Mime { get; set; }
     static ActionFileUploadBegin ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFileUploadBegin ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadBegin destination)
+    static ActionFileUploadBegin ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadBegin? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFileUploadCallback : IProtocolMessagePayload
@@ -1967,7 +1968,7 @@ namespace Ikon.Common.Core.Protocol
     string Mime { get; set; }
     long Size { get; set; }
     static ActionFileUploadCallback ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFileUploadCallback ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadCallback destination)
+    static ActionFileUploadCallback ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadCallback? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFileUploadComplete2 : IProtocolMessagePayload
@@ -1977,7 +1978,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string UploadId { get; set; }
     static ActionFileUploadComplete2 ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFileUploadComplete2 ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadComplete2 destination)
+    static ActionFileUploadComplete2 ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadComplete2? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFileUploadData : IProtocolMessagePayload
@@ -1989,7 +1990,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     int SequenceId { get; set; }
     static ActionFileUploadData ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFileUploadData ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadData destination)
+    static ActionFileUploadData ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadData? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFileUploadData2 : IProtocolMessagePayload
@@ -2001,7 +2002,7 @@ namespace Ikon.Common.Core.Protocol
     int SequenceId { get; set; }
     string UploadId { get; set; }
     static ActionFileUploadData2 ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFileUploadData2 ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadData2 destination)
+    static ActionFileUploadData2 ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadData2? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFileUploadEnd : IProtocolMessagePayload
@@ -2011,7 +2012,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionFileUploadEnd ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFileUploadEnd ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadEnd destination)
+    static ActionFileUploadEnd ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadEnd? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFileUploadEnd2 : IProtocolMessagePayload
@@ -2021,7 +2022,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string UploadId { get; set; }
     static ActionFileUploadEnd2 ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFileUploadEnd2 ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadEnd2 destination)
+    static ActionFileUploadEnd2 ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadEnd2? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFileUploadPreStart2 : IProtocolMessagePayload
@@ -2035,7 +2036,7 @@ namespace Ikon.Common.Core.Protocol
     string UploadActionId { get; set; }
     string UploadId { get; set; }
     static ActionFileUploadPreStart2 ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFileUploadPreStart2 ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadPreStart2 destination)
+    static ActionFileUploadPreStart2 ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadPreStart2? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFileUploadPreStartResponse2 : IProtocolMessagePayload
@@ -2046,7 +2047,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string UploadId { get; set; }
     static ActionFileUploadPreStartResponse2 ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFileUploadPreStartResponse2 ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadPreStartResponse2 destination)
+    static ActionFileUploadPreStartResponse2 ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadPreStartResponse2? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFileUploadResult : IProtocolMessagePayload
@@ -2058,7 +2059,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionFileUploadResult ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFileUploadResult ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadResult destination)
+    static ActionFileUploadResult ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadResult? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFileUploadStart2 : IProtocolMessagePayload
@@ -2069,7 +2070,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string UploadId { get; set; }
     static ActionFileUploadStart2 ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFileUploadStart2 ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadStart2 destination)
+    static ActionFileUploadStart2 ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadStart2? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFileUploadStartResponse2 : IProtocolMessagePayload
@@ -2080,7 +2081,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string UploadId { get; set; }
     static ActionFileUploadStartResponse2 ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFileUploadStartResponse2 ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadStartResponse2 destination)
+    static ActionFileUploadStartResponse2 ReadFromTeleport(ReadOnlySpan<byte> data, ActionFileUploadStartResponse2? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFunctionAck : IProtocolMessagePayload
@@ -2091,7 +2092,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionFunctionAck ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFunctionAck ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionAck destination)
+    static ActionFunctionAck ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionAck? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFunctionApprovalRequired : IProtocolMessagePayload
@@ -2107,7 +2108,7 @@ namespace Ikon.Common.Core.Protocol
     string Reason { get; set; }
     int TimeoutSeconds { get; set; }
     static ActionFunctionApprovalRequired ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFunctionApprovalRequired ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionApprovalRequired destination)
+    static ActionFunctionApprovalRequired ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionApprovalRequired? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFunctionApprovalResponse : IProtocolMessagePayload
@@ -2120,7 +2121,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string RejectionReason { get; set; }
     static ActionFunctionApprovalResponse ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFunctionApprovalResponse ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionApprovalResponse destination)
+    static ActionFunctionApprovalResponse ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionApprovalResponse? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFunctionAwaitingApproval : IProtocolMessagePayload
@@ -2134,7 +2135,7 @@ namespace Ikon.Common.Core.Protocol
     string Reason { get; set; }
     int TimeoutSeconds { get; set; }
     static ActionFunctionAwaitingApproval ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFunctionAwaitingApproval ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionAwaitingApproval destination)
+    static ActionFunctionAwaitingApproval ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionAwaitingApproval? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFunctionCall : IProtocolMessagePayload
@@ -2151,7 +2152,7 @@ namespace Ikon.Common.Core.Protocol
     List<ActionFunctionCall.UserCredentialEntry> UserCredentials { get; set; }
     string Version { get; set; }
     static ActionFunctionCall ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFunctionCall ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionCall destination)
+    static ActionFunctionCall ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionCall? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFunctionCancel : IProtocolMessagePayload
@@ -2162,7 +2163,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionFunctionCancel ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFunctionCancel ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionCancel destination)
+    static ActionFunctionCancel ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionCancel? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFunctionDispose : IProtocolMessagePayload
@@ -2173,7 +2174,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionFunctionDispose ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFunctionDispose ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionDispose destination)
+    static ActionFunctionDispose ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionDispose? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFunctionEnumerationEnd : IProtocolMessagePayload
@@ -2185,7 +2186,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionFunctionEnumerationEnd ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFunctionEnumerationEnd ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionEnumerationEnd destination)
+    static ActionFunctionEnumerationEnd ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionEnumerationEnd? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFunctionEnumerationItem : IProtocolMessagePayload
@@ -2202,7 +2203,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionFunctionEnumerationItem ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFunctionEnumerationItem ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionEnumerationItem destination)
+    static ActionFunctionEnumerationItem ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionEnumerationItem? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFunctionEnumerationItemBatch : IProtocolMessagePayload
@@ -2212,7 +2213,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionFunctionEnumerationItemBatch ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFunctionEnumerationItemBatch ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionEnumerationItemBatch destination)
+    static ActionFunctionEnumerationItemBatch ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionEnumerationItemBatch? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFunctionError : IProtocolMessagePayload
@@ -2227,7 +2228,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string StackTrace { get; set; }
     static ActionFunctionError ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFunctionError ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionError destination)
+    static ActionFunctionError ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionError? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFunctionRegister : IProtocolMessagePayload
@@ -2247,9 +2248,9 @@ namespace Ikon.Common.Core.Protocol
     bool RequiresInstance { get; set; }
     string ResultTypeName { get; set; }
     List<string> Versions { get; set; }
-    static ActionFunctionRegister.FunctionRegisterParameter CreateParameter(int parameterIndex, string parameterName, Type clrType, bool hasDefaultValue, object defaultValue, bool isEnumerable, string enumerableItemTypeName, string description)
+    static ActionFunctionRegister.FunctionRegisterParameter CreateParameter(int parameterIndex, string parameterName, Type clrType, bool hasDefaultValue, object? defaultValue, bool isEnumerable, string enumerableItemTypeName, string description)
     static ActionFunctionRegister ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFunctionRegister ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionRegister destination)
+    static ActionFunctionRegister ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionRegister? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFunctionRegisterBatch : IProtocolMessagePayload
@@ -2259,7 +2260,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionFunctionRegisterBatch ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFunctionRegisterBatch ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionRegisterBatch destination)
+    static ActionFunctionRegisterBatch ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionRegisterBatch? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFunctionResult : IProtocolMessagePayload
@@ -2274,7 +2275,7 @@ namespace Ikon.Common.Core.Protocol
     byte[] ResultTeleport { get; set; }
     string ResultTypeName { get; set; }
     static ActionFunctionResult ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFunctionResult ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionResult destination)
+    static ActionFunctionResult ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionResult? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionGenerateAnswer : IProtocolMessagePayload
@@ -2282,7 +2283,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionGenerateAnswer ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionGenerateAnswer ReadFromTeleport(ReadOnlySpan<byte> data, ActionGenerateAnswer destination)
+    static ActionGenerateAnswer ReadFromTeleport(ReadOnlySpan<byte> data, ActionGenerateAnswer? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionOpenChannel : IProtocolMessagePayload
@@ -2293,7 +2294,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string Prompt { get; set; }
     static ActionOpenChannel ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionOpenChannel ReadFromTeleport(ReadOnlySpan<byte> data, ActionOpenChannel destination)
+    static ActionOpenChannel ReadFromTeleport(ReadOnlySpan<byte> data, ActionOpenChannel? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionOpenExternalUrl : IProtocolMessagePayload
@@ -2304,7 +2305,7 @@ namespace Ikon.Common.Core.Protocol
     string Name { get; set; }
     string Url { get; set; }
     static ActionOpenExternalUrl ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionOpenExternalUrl ReadFromTeleport(ReadOnlySpan<byte> data, ActionOpenExternalUrl destination)
+    static ActionOpenExternalUrl ReadFromTeleport(ReadOnlySpan<byte> data, ActionOpenExternalUrl? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionPan : IProtocolMessagePayload
@@ -2315,7 +2316,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionPan ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionPan ReadFromTeleport(ReadOnlySpan<byte> data, ActionPan destination)
+    static ActionPan ReadFromTeleport(ReadOnlySpan<byte> data, ActionPan? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionPlaySound : IProtocolMessagePayload
@@ -2327,7 +2328,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string Url { get; set; }
     static ActionPlaySound ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionPlaySound ReadFromTeleport(ReadOnlySpan<byte> data, ActionPlaySound destination)
+    static ActionPlaySound ReadFromTeleport(ReadOnlySpan<byte> data, ActionPlaySound? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionRegenerateAnswer : IProtocolMessagePayload
@@ -2335,7 +2336,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionRegenerateAnswer ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionRegenerateAnswer ReadFromTeleport(ReadOnlySpan<byte> data, ActionRegenerateAnswer destination)
+    static ActionRegenerateAnswer ReadFromTeleport(ReadOnlySpan<byte> data, ActionRegenerateAnswer? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionReloadApplication : IProtocolMessagePayload
@@ -2345,7 +2346,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionReloadApplication ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionReloadApplication ReadFromTeleport(ReadOnlySpan<byte> data, ActionReloadApplication destination)
+    static ActionReloadApplication ReadFromTeleport(ReadOnlySpan<byte> data, ActionReloadApplication? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionReloadChannels : IProtocolMessagePayload
@@ -2353,7 +2354,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionReloadChannels ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionReloadChannels ReadFromTeleport(ReadOnlySpan<byte> data, ActionReloadChannels destination)
+    static ActionReloadChannels ReadFromTeleport(ReadOnlySpan<byte> data, ActionReloadChannels? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionReloadProfile : IProtocolMessagePayload
@@ -2364,7 +2365,7 @@ namespace Ikon.Common.Core.Protocol
     string ProfileId { get; set; }
     string UserId { get; set; }
     static ActionReloadProfile ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionReloadProfile ReadFromTeleport(ReadOnlySpan<byte> data, ActionReloadProfile destination)
+    static ActionReloadProfile ReadFromTeleport(ReadOnlySpan<byte> data, ActionReloadProfile? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionReloadProvider : IProtocolMessagePayload
@@ -2374,7 +2375,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string ProviderId { get; set; }
     static ActionReloadProvider ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionReloadProvider ReadFromTeleport(ReadOnlySpan<byte> data, ActionReloadProvider destination)
+    static ActionReloadProvider ReadFromTeleport(ReadOnlySpan<byte> data, ActionReloadProvider? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionScrollToContainer : IProtocolMessagePayload
@@ -2384,7 +2385,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionScrollToContainer ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionScrollToContainer ReadFromTeleport(ReadOnlySpan<byte> data, ActionScrollToContainer destination)
+    static ActionScrollToContainer ReadFromTeleport(ReadOnlySpan<byte> data, ActionScrollToContainer? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionSetState : IProtocolMessagePayload
@@ -2396,7 +2397,7 @@ namespace Ikon.Common.Core.Protocol
     string TypeName { get; set; }
     string ValueJson { get; set; }
     static ActionSetState ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionSetState ReadFromTeleport(ReadOnlySpan<byte> data, ActionSetState destination)
+    static ActionSetState ReadFromTeleport(ReadOnlySpan<byte> data, ActionSetState? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionSpeechRecognized : IProtocolMessagePayload
@@ -2407,7 +2408,7 @@ namespace Ikon.Common.Core.Protocol
     string Text { get; set; }
     bool WasSuccessful { get; set; }
     static ActionSpeechRecognized ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionSpeechRecognized ReadFromTeleport(ReadOnlySpan<byte> data, ActionSpeechRecognized destination)
+    static ActionSpeechRecognized ReadFromTeleport(ReadOnlySpan<byte> data, ActionSpeechRecognized? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionStartRecording : IProtocolMessagePayload
@@ -2415,7 +2416,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionStartRecording ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionStartRecording ReadFromTeleport(ReadOnlySpan<byte> data, ActionStartRecording destination)
+    static ActionStartRecording ReadFromTeleport(ReadOnlySpan<byte> data, ActionStartRecording? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionStopRecording : IProtocolMessagePayload
@@ -2423,7 +2424,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionStopRecording ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionStopRecording ReadFromTeleport(ReadOnlySpan<byte> data, ActionStopRecording destination)
+    static ActionStopRecording ReadFromTeleport(ReadOnlySpan<byte> data, ActionStopRecording? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionStopSound : IProtocolMessagePayload
@@ -2434,7 +2435,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionStopSound ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionStopSound ReadFromTeleport(ReadOnlySpan<byte> data, ActionStopSound destination)
+    static ActionStopSound ReadFromTeleport(ReadOnlySpan<byte> data, ActionStopSound? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionTap : IProtocolMessagePayload
@@ -2444,7 +2445,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionTap ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionTap ReadFromTeleport(ReadOnlySpan<byte> data, ActionTap destination)
+    static ActionTap ReadFromTeleport(ReadOnlySpan<byte> data, ActionTap? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionTextOutput : IProtocolMessagePayload
@@ -2458,7 +2459,7 @@ namespace Ikon.Common.Core.Protocol
     string Text { get; set; }
     string UserId { get; set; }
     static ActionTextOutput ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionTextOutput ReadFromTeleport(ReadOnlySpan<byte> data, ActionTextOutput destination)
+    static ActionTextOutput ReadFromTeleport(ReadOnlySpan<byte> data, ActionTextOutput? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionTextOutputDelta : IProtocolMessagePayload
@@ -2468,7 +2469,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionTextOutputDelta ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionTextOutputDelta ReadFromTeleport(ReadOnlySpan<byte> data, ActionTextOutputDelta destination)
+    static ActionTextOutputDelta ReadFromTeleport(ReadOnlySpan<byte> data, ActionTextOutputDelta? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionTextOutputDeltaFull : IProtocolMessagePayload
@@ -2478,18 +2479,18 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionTextOutputDeltaFull ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionTextOutputDeltaFull ReadFromTeleport(ReadOnlySpan<byte> data, ActionTextOutputDeltaFull destination)
+    static ActionTextOutputDeltaFull ReadFromTeleport(ReadOnlySpan<byte> data, ActionTextOutputDeltaFull? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionTriggerGitPull : IProtocolMessagePayload
     ctor()
-    ctor(bool forceFullRebuild, string target)
+    ctor(bool forceFullRebuild, string? target)
     bool ForceFullRebuild { get; set; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     string Target { get; set; }
     static ActionTriggerGitPull ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionTriggerGitPull ReadFromTeleport(ReadOnlySpan<byte> data, ActionTriggerGitPull destination)
+    static ActionTriggerGitPull ReadFromTeleport(ReadOnlySpan<byte> data, ActionTriggerGitPull? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionUIBlockingBegin : IProtocolMessagePayload
@@ -2497,7 +2498,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionUIBlockingBegin ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionUIBlockingBegin ReadFromTeleport(ReadOnlySpan<byte> data, ActionUIBlockingBegin destination)
+    static ActionUIBlockingBegin ReadFromTeleport(ReadOnlySpan<byte> data, ActionUIBlockingBegin? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionUIBlockingEnd : IProtocolMessagePayload
@@ -2505,7 +2506,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionUIBlockingEnd ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionUIBlockingEnd ReadFromTeleport(ReadOnlySpan<byte> data, ActionUIBlockingEnd destination)
+    static ActionUIBlockingEnd ReadFromTeleport(ReadOnlySpan<byte> data, ActionUIBlockingEnd? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionUIClearStream : IProtocolMessagePayload
@@ -2513,7 +2514,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionUIClearStream ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionUIClearStream ReadFromTeleport(ReadOnlySpan<byte> data, ActionUIClearStream destination)
+    static ActionUIClearStream ReadFromTeleport(ReadOnlySpan<byte> data, ActionUIClearStream? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionUICloseView : IProtocolMessagePayload
@@ -2521,7 +2522,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionUICloseView ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionUICloseView ReadFromTeleport(ReadOnlySpan<byte> data, ActionUICloseView destination)
+    static ActionUICloseView ReadFromTeleport(ReadOnlySpan<byte> data, ActionUICloseView? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionUIDeleteContainer : IProtocolMessagePayload
@@ -2531,7 +2532,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionUIDeleteContainer ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionUIDeleteContainer ReadFromTeleport(ReadOnlySpan<byte> data, ActionUIDeleteContainer destination)
+    static ActionUIDeleteContainer ReadFromTeleport(ReadOnlySpan<byte> data, ActionUIDeleteContainer? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionUIOpenView : IProtocolMessagePayload
@@ -2539,7 +2540,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionUIOpenView ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionUIOpenView ReadFromTeleport(ReadOnlySpan<byte> data, ActionUIOpenView destination)
+    static ActionUIOpenView ReadFromTeleport(ReadOnlySpan<byte> data, ActionUIOpenView? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionUISetContainerStable : IProtocolMessagePayload
@@ -2549,7 +2550,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionUISetContainerStable ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionUISetContainerStable ReadFromTeleport(ReadOnlySpan<byte> data, ActionUISetContainerStable destination)
+    static ActionUISetContainerStable ReadFromTeleport(ReadOnlySpan<byte> data, ActionUISetContainerStable? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionUIUpdateTextDelta : IProtocolMessagePayload
@@ -2561,7 +2562,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ActionUIUpdateTextDelta ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionUIUpdateTextDelta ReadFromTeleport(ReadOnlySpan<byte> data, ActionUIUpdateTextDelta destination)
+    static ActionUIUpdateTextDelta ReadFromTeleport(ReadOnlySpan<byte> data, ActionUIUpdateTextDelta? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionUpdateGfxShader : IProtocolMessagePayload
@@ -2574,7 +2575,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string Name { get; set; }
     static ActionUpdateGfxShader ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionUpdateGfxShader ReadFromTeleport(ReadOnlySpan<byte> data, ActionUpdateGfxShader destination)
+    static ActionUpdateGfxShader ReadFromTeleport(ReadOnlySpan<byte> data, ActionUpdateGfxShader? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionUrlChanged : IProtocolMessagePayload
@@ -2584,7 +2585,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string Path { get; set; }
     static ActionUrlChanged ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionUrlChanged ReadFromTeleport(ReadOnlySpan<byte> data, ActionUrlChanged destination)
+    static ActionUrlChanged ReadFromTeleport(ReadOnlySpan<byte> data, ActionUrlChanged? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionZoom : IProtocolMessagePayload
@@ -2595,7 +2596,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     float StartScale { get; set; }
     static ActionZoom ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionZoom ReadFromTeleport(ReadOnlySpan<byte> data, ActionZoom destination)
+    static ActionZoom ReadFromTeleport(ReadOnlySpan<byte> data, ActionZoom? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AnalyticsEvents : IProtocolMessagePayload
@@ -2605,7 +2606,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static AnalyticsEvents ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AnalyticsEvents ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsEvents destination)
+    static AnalyticsEvents ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsEvents? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AnalyticsEvents.AnalyticsEventsItem
@@ -2616,7 +2617,7 @@ namespace Ikon.Common.Core.Protocol
     string Parameters { get; set; }
     string Time { get; set; }
     static AnalyticsEvents.AnalyticsEventsItem ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AnalyticsEvents.AnalyticsEventsItem ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsEvents.AnalyticsEventsItem destination)
+    static AnalyticsEvents.AnalyticsEventsItem ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsEvents.AnalyticsEventsItem? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AnalyticsIkonProxyServerStats : IProtocolMessagePayload
@@ -2637,7 +2638,7 @@ namespace Ikon.Common.Core.Protocol
     double SentMessagesPerSecond { get; set; }
     string Time { get; set; }
     static AnalyticsIkonProxyServerStats ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AnalyticsIkonProxyServerStats ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsIkonProxyServerStats destination)
+    static AnalyticsIkonProxyServerStats ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsIkonProxyServerStats? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AnalyticsIkonRelayServerStats : IProtocolMessagePayload
@@ -2655,7 +2656,7 @@ namespace Ikon.Common.Core.Protocol
     string Time { get; set; }
     int UdpTunnelCount { get; set; }
     static AnalyticsIkonRelayServerStats ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AnalyticsIkonRelayServerStats ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsIkonRelayServerStats destination)
+    static AnalyticsIkonRelayServerStats ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsIkonRelayServerStats? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AnalyticsIkonTurnServerStats : IProtocolMessagePayload
@@ -2673,7 +2674,7 @@ namespace Ikon.Common.Core.Protocol
     string Time { get; set; }
     long TotalAllocationsCreated { get; set; }
     static AnalyticsIkonTurnServerStats ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AnalyticsIkonTurnServerStats ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsIkonTurnServerStats destination)
+    static AnalyticsIkonTurnServerStats ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsIkonTurnServerStats? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AnalyticsLogs : IProtocolMessagePayload
@@ -2683,7 +2684,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static AnalyticsLogs ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AnalyticsLogs ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsLogs destination)
+    static AnalyticsLogs ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsLogs? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AnalyticsLogs.AnalyticsLogsItem
@@ -2694,7 +2695,7 @@ namespace Ikon.Common.Core.Protocol
     string Time { get; set; }
     int Type { get; set; }
     static AnalyticsLogs.AnalyticsLogsItem ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AnalyticsLogs.AnalyticsLogsItem ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsLogs.AnalyticsLogsItem destination)
+    static AnalyticsLogs.AnalyticsLogsItem ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsLogs.AnalyticsLogsItem? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AnalyticsProcessingUpdate : IProtocolMessagePayload
@@ -2716,7 +2717,7 @@ namespace Ikon.Common.Core.Protocol
     int TotalRuns { get; set; }
     Dictionary<string, double> Usages { get; set; }
     static AnalyticsProcessingUpdate ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AnalyticsProcessingUpdate ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsProcessingUpdate destination)
+    static AnalyticsProcessingUpdate ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsProcessingUpdate? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AnalyticsReactiveProcessingUpdate : IProtocolMessagePayload
@@ -2747,7 +2748,7 @@ namespace Ikon.Common.Core.Protocol
     int WarningLogCount { get; set; }
     bool WasCancelled { get; set; }
     static AnalyticsReactiveProcessingUpdate ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AnalyticsReactiveProcessingUpdate ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsReactiveProcessingUpdate destination)
+    static AnalyticsReactiveProcessingUpdate ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsReactiveProcessingUpdate? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AnalyticsSpecialLog : IProtocolMessagePayload
@@ -2758,7 +2759,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string Title { get; set; }
     static AnalyticsSpecialLog ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AnalyticsSpecialLog ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsSpecialLog destination)
+    static AnalyticsSpecialLog ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsSpecialLog? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AnalyticsUsage : IProtocolMessagePayload
@@ -2769,7 +2770,7 @@ namespace Ikon.Common.Core.Protocol
     float Usage { get; set; }
     string UsageName { get; set; }
     static AnalyticsUsage ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AnalyticsUsage ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsUsage destination)
+    static AnalyticsUsage ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsUsage? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AnalyticsUsages : IProtocolMessagePayload
@@ -2779,7 +2780,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     List<AnalyticsUsages.AnalyticsUsagesItem> Usages { get; set; }
     static AnalyticsUsages ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AnalyticsUsages ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsUsages destination)
+    static AnalyticsUsages ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsUsages? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AnalyticsUsages.AnalyticsUsagesItem
@@ -2790,7 +2791,7 @@ namespace Ikon.Common.Core.Protocol
     string Time { get; set; }
     float Usage { get; set; }
     static AnalyticsUsages.AnalyticsUsagesItem ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AnalyticsUsages.AnalyticsUsagesItem ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsUsages.AnalyticsUsagesItem destination)
+    static AnalyticsUsages.AnalyticsUsagesItem ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsUsages.AnalyticsUsagesItem? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum AppSourceType
@@ -2816,7 +2817,7 @@ namespace Ikon.Common.Core.Protocol
     float Volume { get; set; }
     int VolumeSampleCount { get; set; }
     static AudioFrame ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AudioFrame ReadFromTeleport(ReadOnlySpan<byte> data, AudioFrame destination)
+    static AudioFrame ReadFromTeleport(ReadOnlySpan<byte> data, AudioFrame? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AudioFrame2 : IProtocolMessagePayload
@@ -2834,7 +2835,7 @@ namespace Ikon.Common.Core.Protocol
     uint Sequence { get; set; }
     ulong TimeStampInInterleavedSamples { get; set; }
     static AudioFrame2 ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AudioFrame2 ReadFromTeleport(ReadOnlySpan<byte> data, AudioFrame2 destination)
+    static AudioFrame2 ReadFromTeleport(ReadOnlySpan<byte> data, AudioFrame2? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AudioFrameVolume : IProtocolMessagePayload
@@ -2845,7 +2846,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     float Volume { get; set; }
     static AudioFrameVolume ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AudioFrameVolume ReadFromTeleport(ReadOnlySpan<byte> data, AudioFrameVolume destination)
+    static AudioFrameVolume ReadFromTeleport(ReadOnlySpan<byte> data, AudioFrameVolume? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AudioShapeFrame : IProtocolMessagePayload
@@ -2860,7 +2861,7 @@ namespace Ikon.Common.Core.Protocol
     List<AudioShapeFrame.AudioShapeSetValues> ShapeSetValues { get; set; }
     ulong TimeStampInInterleavedSamples { get; set; }
     static AudioShapeFrame ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AudioShapeFrame ReadFromTeleport(ReadOnlySpan<byte> data, AudioShapeFrame destination)
+    static AudioShapeFrame ReadFromTeleport(ReadOnlySpan<byte> data, AudioShapeFrame? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AudioStreamBegin.AudioShapeSet
@@ -2870,7 +2871,7 @@ namespace Ikon.Common.Core.Protocol
     uint SetId { get; set; }
     List<string> ShapeNames { get; set; }
     static AudioStreamBegin.AudioShapeSet ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AudioStreamBegin.AudioShapeSet ReadFromTeleport(ReadOnlySpan<byte> data, AudioStreamBegin.AudioShapeSet destination)
+    static AudioStreamBegin.AudioShapeSet ReadFromTeleport(ReadOnlySpan<byte> data, AudioStreamBegin.AudioShapeSet? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AudioShapeFrame.AudioShapeSetValues
@@ -2879,12 +2880,12 @@ namespace Ikon.Common.Core.Protocol
     uint SetId { get; set; }
     List<float> Values { get; set; }
     static AudioShapeFrame.AudioShapeSetValues ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AudioShapeFrame.AudioShapeSetValues ReadFromTeleport(ReadOnlySpan<byte> data, AudioShapeFrame.AudioShapeSetValues destination)
+    static AudioShapeFrame.AudioShapeSetValues ReadFromTeleport(ReadOnlySpan<byte> data, AudioShapeFrame.AudioShapeSetValues? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AudioStreamBegin : IProtocolMessagePayload
     ctor()
-    ctor(string streamId, string description, string sourceType, AudioCodec codec, string codecDetails, int sampleRate, int channels, List<AudioStreamBegin.AudioShapeSet> shapeSets, string correlationId)
+    ctor(string streamId, string description, string sourceType, AudioCodec codec, string codecDetails, int sampleRate, int channels, List<AudioStreamBegin.AudioShapeSet>? shapeSets, string? correlationId)
     int Channels { get; set; }
     AudioCodec Codec { get; set; }
     string CodecDetails { get; set; }
@@ -2897,7 +2898,7 @@ namespace Ikon.Common.Core.Protocol
     string SourceType { get; set; }
     string StreamId { get; set; }
     static AudioStreamBegin ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AudioStreamBegin ReadFromTeleport(ReadOnlySpan<byte> data, AudioStreamBegin destination)
+    static AudioStreamBegin ReadFromTeleport(ReadOnlySpan<byte> data, AudioStreamBegin? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AudioStreamEnd : IProtocolMessagePayload
@@ -2905,7 +2906,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static AudioStreamEnd ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AudioStreamEnd ReadFromTeleport(ReadOnlySpan<byte> data, AudioStreamEnd destination)
+    static AudioStreamEnd ReadFromTeleport(ReadOnlySpan<byte> data, AudioStreamEnd? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class GlobalState.AudioStreamState
@@ -2916,7 +2917,7 @@ namespace Ikon.Common.Core.Protocol
     string StreamId { get; set; }
     int TrackId { get; set; }
     static GlobalState.AudioStreamState ReadFromTeleport(ReadOnlySpan<byte> data)
-    static GlobalState.AudioStreamState ReadFromTeleport(ReadOnlySpan<byte> data, GlobalState.AudioStreamState destination)
+    static GlobalState.AudioStreamState ReadFromTeleport(ReadOnlySpan<byte> data, GlobalState.AudioStreamState? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AuthResponse : IProtocolMessagePayload
@@ -2935,7 +2936,7 @@ namespace Ikon.Common.Core.Protocol
     string ServerSessionId { get; set; }
     string SpaceId { get; set; }
     static AuthResponse ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AuthResponse ReadFromTeleport(ReadOnlySpan<byte> data, AuthResponse destination)
+    static AuthResponse ReadFromTeleport(ReadOnlySpan<byte> data, AuthResponse? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class AuthTicket : IProtocolMessagePayload
@@ -2954,7 +2955,7 @@ namespace Ikon.Common.Core.Protocol
     int UdpDtlsPort { get; set; }
     int UdpPort { get; set; }
     static AuthTicket ReadFromTeleport(ReadOnlySpan<byte> data)
-    static AuthTicket ReadFromTeleport(ReadOnlySpan<byte> data, AuthTicket destination)
+    static AuthTicket ReadFromTeleport(ReadOnlySpan<byte> data, AuthTicket? destination)
     override string ToString()
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
@@ -2965,7 +2966,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static BackgroundWorkActive ReadFromTeleport(ReadOnlySpan<byte> data)
-    static BackgroundWorkActive ReadFromTeleport(ReadOnlySpan<byte> data, BackgroundWorkActive destination)
+    static BackgroundWorkActive ReadFromTeleport(ReadOnlySpan<byte> data, BackgroundWorkActive? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ClientReady : IProtocolMessagePayload
@@ -2973,7 +2974,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ClientReady ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ClientReady ReadFromTeleport(ReadOnlySpan<byte> data, ClientReady destination)
+    static ClientReady ReadFromTeleport(ReadOnlySpan<byte> data, ClientReady? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum ClientType
@@ -3019,7 +3020,7 @@ namespace Ikon.Common.Core.Protocol
     int ViewportHeight { get; set; }
     int ViewportWidth { get; set; }
     static ConnectToken ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ConnectToken ReadFromTeleport(ReadOnlySpan<byte> data, ConnectToken destination)
+    static ConnectToken ReadFromTeleport(ReadOnlySpan<byte> data, ConnectToken? destination)
     override string ToString()
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
@@ -3060,7 +3061,7 @@ namespace Ikon.Common.Core.Protocol
     int ViewportHeight { get; set; }
     int ViewportWidth { get; set; }
     static Context ReadFromTeleport(ReadOnlySpan<byte> data)
-    static Context ReadFromTeleport(ReadOnlySpan<byte> data, Context destination)
+    static Context ReadFromTeleport(ReadOnlySpan<byte> data, Context? destination)
     override string ToString()
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
@@ -3078,7 +3079,7 @@ namespace Ikon.Common.Core.Protocol
     float X { get; set; }
     float Y { get; set; }
     static Coordinate2D ReadFromTeleport(ReadOnlySpan<byte> data)
-    static Coordinate2D ReadFromTeleport(ReadOnlySpan<byte> data, Coordinate2D destination)
+    static Coordinate2D ReadFromTeleport(ReadOnlySpan<byte> data, Coordinate2D? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class DynamicConfig : IProtocolMessagePayload
@@ -3088,7 +3089,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static DynamicConfig ReadFromTeleport(ReadOnlySpan<byte> data)
-    static DynamicConfig ReadFromTeleport(ReadOnlySpan<byte> data, DynamicConfig destination)
+    static DynamicConfig ReadFromTeleport(ReadOnlySpan<byte> data, DynamicConfig? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class Entrypoint : IProtocolMessagePayload
@@ -3105,7 +3106,7 @@ namespace Ikon.Common.Core.Protocol
     EntrypointType Type { get; set; }
     string Uri { get; set; }
     static Entrypoint ReadFromTeleport(ReadOnlySpan<byte> data)
-    static Entrypoint ReadFromTeleport(ReadOnlySpan<byte> data, Entrypoint destination)
+    static Entrypoint ReadFromTeleport(ReadOnlySpan<byte> data, Entrypoint? destination)
     override string ToString()
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
@@ -3127,7 +3128,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static EventsOnChannelComplete ReadFromTeleport(ReadOnlySpan<byte> data)
-    static EventsOnChannelComplete ReadFromTeleport(ReadOnlySpan<byte> data, EventsOnChannelComplete destination)
+    static EventsOnChannelComplete ReadFromTeleport(ReadOnlySpan<byte> data, EventsOnChannelComplete? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class EventsOnProfileUpdate : IProtocolMessagePayload
@@ -3138,7 +3139,7 @@ namespace Ikon.Common.Core.Protocol
     string UserId { get; set; }
     string ValuesAsJson { get; set; }
     static EventsOnProfileUpdate ReadFromTeleport(ReadOnlySpan<byte> data)
-    static EventsOnProfileUpdate ReadFromTeleport(ReadOnlySpan<byte> data, EventsOnProfileUpdate destination)
+    static EventsOnProfileUpdate ReadFromTeleport(ReadOnlySpan<byte> data, EventsOnProfileUpdate? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class EventsSpeechPlaybackCompleted : IProtocolMessagePayload
@@ -3146,7 +3147,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static EventsSpeechPlaybackCompleted ReadFromTeleport(ReadOnlySpan<byte> data)
-    static EventsSpeechPlaybackCompleted ReadFromTeleport(ReadOnlySpan<byte> data, EventsSpeechPlaybackCompleted destination)
+    static EventsSpeechPlaybackCompleted ReadFromTeleport(ReadOnlySpan<byte> data, EventsSpeechPlaybackCompleted? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class FunctionParameter : IProtocolMessagePayload
@@ -3163,7 +3164,7 @@ namespace Ikon.Common.Core.Protocol
     string ValueJson { get; set; }
     byte[] ValueTeleport { get; set; }
     static FunctionParameter ReadFromTeleport(ReadOnlySpan<byte> data)
-    static FunctionParameter ReadFromTeleport(ReadOnlySpan<byte> data, FunctionParameter destination)
+    static FunctionParameter ReadFromTeleport(ReadOnlySpan<byte> data, FunctionParameter? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFunctionRegister.FunctionRegisterParameter
@@ -3179,7 +3180,7 @@ namespace Ikon.Common.Core.Protocol
     string ParameterName { get; set; }
     string TypeName { get; set; }
     static ActionFunctionRegister.FunctionRegisterParameter ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFunctionRegister.FunctionRegisterParameter ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionRegister.FunctionRegisterParameter destination)
+    static ActionFunctionRegister.FunctionRegisterParameter ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionRegister.FunctionRegisterParameter? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class GlobalState : ILogInfo, IProtocolMessagePayload
@@ -3225,7 +3226,7 @@ namespace Ikon.Common.Core.Protocol
     int[] GetMachineClientSessionIds()
     List<string> GetUserIds(IEnumerable<int> targetIds)
     static GlobalState ReadFromTeleport(ReadOnlySpan<byte> data)
-    static GlobalState ReadFromTeleport(ReadOnlySpan<byte> data, GlobalState destination)
+    static GlobalState ReadFromTeleport(ReadOnlySpan<byte> data, GlobalState? destination)
     void RemoveAudioStream(string streamId)
     void RemoveClient(int clientSessionId)
     void RemoveFunction(Guid functionId)
@@ -3251,7 +3252,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string RelayEndpointPublicUrl { get; set; }
     static IkonServerEndpointHostInfo ReadFromTeleport(ReadOnlySpan<byte> data)
-    static IkonServerEndpointHostInfo ReadFromTeleport(ReadOnlySpan<byte> data, IkonServerEndpointHostInfo destination)
+    static IkonServerEndpointHostInfo ReadFromTeleport(ReadOnlySpan<byte> data, IkonServerEndpointHostInfo? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class InvalidateVideoFrame : IProtocolMessagePayload
@@ -3262,7 +3263,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     ulong TimeStampInUs { get; set; }
     static InvalidateVideoFrame ReadFromTeleport(ReadOnlySpan<byte> data)
-    static InvalidateVideoFrame ReadFromTeleport(ReadOnlySpan<byte> data, InvalidateVideoFrame destination)
+    static InvalidateVideoFrame ReadFromTeleport(ReadOnlySpan<byte> data, InvalidateVideoFrame? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class KeepaliveRequest : IProtocolMessagePayload
@@ -3270,7 +3271,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static KeepaliveRequest ReadFromTeleport(ReadOnlySpan<byte> data)
-    static KeepaliveRequest ReadFromTeleport(ReadOnlySpan<byte> data, KeepaliveRequest destination)
+    static KeepaliveRequest ReadFromTeleport(ReadOnlySpan<byte> data, KeepaliveRequest? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class KeepaliveResponse : IProtocolMessagePayload
@@ -3278,7 +3279,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static KeepaliveResponse ReadFromTeleport(ReadOnlySpan<byte> data)
-    static KeepaliveResponse ReadFromTeleport(ReadOnlySpan<byte> data, KeepaliveResponse destination)
+    static KeepaliveResponse ReadFromTeleport(ReadOnlySpan<byte> data, KeepaliveResponse? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum LogType
@@ -3306,7 +3307,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static OnClientJoined ReadFromTeleport(ReadOnlySpan<byte> data)
-    static OnClientJoined ReadFromTeleport(ReadOnlySpan<byte> data, OnClientJoined destination)
+    static OnClientJoined ReadFromTeleport(ReadOnlySpan<byte> data, OnClientJoined? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class OnClientLeft : IProtocolMessagePayload
@@ -3316,7 +3317,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static OnClientLeft ReadFromTeleport(ReadOnlySpan<byte> data)
-    static OnClientLeft ReadFromTeleport(ReadOnlySpan<byte> data, OnClientLeft destination)
+    static OnClientLeft ReadFromTeleport(ReadOnlySpan<byte> data, OnClientLeft? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class OnClientLeftAfterGracePeriod : IProtocolMessagePayload
@@ -3326,7 +3327,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static OnClientLeftAfterGracePeriod ReadFromTeleport(ReadOnlySpan<byte> data)
-    static OnClientLeftAfterGracePeriod ReadFromTeleport(ReadOnlySpan<byte> data, OnClientLeftAfterGracePeriod destination)
+    static OnClientLeftAfterGracePeriod ReadFromTeleport(ReadOnlySpan<byte> data, OnClientLeftAfterGracePeriod? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class OnClientReady : IProtocolMessagePayload
@@ -3336,7 +3337,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static OnClientReady ReadFromTeleport(ReadOnlySpan<byte> data)
-    static OnClientReady ReadFromTeleport(ReadOnlySpan<byte> data, OnClientReady destination)
+    static OnClientReady ReadFromTeleport(ReadOnlySpan<byte> data, OnClientReady? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class OnHostedServerExit : IProtocolMessagePayload
@@ -3347,7 +3348,7 @@ namespace Ikon.Common.Core.Protocol
     string ServerSessionId { get; set; }
     bool WasSuccessful { get; set; }
     static OnHostedServerExit ReadFromTeleport(ReadOnlySpan<byte> data)
-    static OnHostedServerExit ReadFromTeleport(ReadOnlySpan<byte> data, OnHostedServerExit destination)
+    static OnHostedServerExit ReadFromTeleport(ReadOnlySpan<byte> data, OnHostedServerExit? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class OnPluginReloaded : IProtocolMessagePayload
@@ -3358,7 +3359,7 @@ namespace Ikon.Common.Core.Protocol
     string PluginName { get; set; }
     Context ServerContext { get; set; }
     static OnPluginReloaded ReadFromTeleport(ReadOnlySpan<byte> data)
-    static OnPluginReloaded ReadFromTeleport(ReadOnlySpan<byte> data, OnPluginReloaded destination)
+    static OnPluginReloaded ReadFromTeleport(ReadOnlySpan<byte> data, OnPluginReloaded? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class OnServerStarted : IProtocolMessagePayload
@@ -3368,7 +3369,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     Context ServerContext { get; set; }
     static OnServerStarted ReadFromTeleport(ReadOnlySpan<byte> data)
-    static OnServerStarted ReadFromTeleport(ReadOnlySpan<byte> data, OnServerStarted destination)
+    static OnServerStarted ReadFromTeleport(ReadOnlySpan<byte> data, OnServerStarted? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class OnServerStatusPing : IProtocolMessagePayload
@@ -3394,7 +3395,7 @@ namespace Ikon.Common.Core.Protocol
     ServerStatus Status { get; set; }
     int UserCount { get; set; }
     static OnServerStatusPing ReadFromTeleport(ReadOnlySpan<byte> data)
-    static OnServerStatusPing ReadFromTeleport(ReadOnlySpan<byte> data, OnServerStatusPing destination)
+    static OnServerStatusPing ReadFromTeleport(ReadOnlySpan<byte> data, OnServerStatusPing? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class OnServerStopped : IProtocolMessagePayload
@@ -3404,7 +3405,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     Context ServerContext { get; set; }
     static OnServerStopped ReadFromTeleport(ReadOnlySpan<byte> data)
-    static OnServerStopped ReadFromTeleport(ReadOnlySpan<byte> data, OnServerStopped destination)
+    static OnServerStopped ReadFromTeleport(ReadOnlySpan<byte> data, OnServerStopped? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class OnServerStopping : IProtocolMessagePayload
@@ -3414,7 +3415,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     Context ServerContext { get; set; }
     static OnServerStopping ReadFromTeleport(ReadOnlySpan<byte> data)
-    static OnServerStopping ReadFromTeleport(ReadOnlySpan<byte> data, OnServerStopping destination)
+    static OnServerStopping ReadFromTeleport(ReadOnlySpan<byte> data, OnServerStopping? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class OnUserJoined : IProtocolMessagePayload
@@ -3424,7 +3425,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static OnUserJoined ReadFromTeleport(ReadOnlySpan<byte> data)
-    static OnUserJoined ReadFromTeleport(ReadOnlySpan<byte> data, OnUserJoined destination)
+    static OnUserJoined ReadFromTeleport(ReadOnlySpan<byte> data, OnUserJoined? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class OnUserLeft : IProtocolMessagePayload
@@ -3434,7 +3435,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static OnUserLeft ReadFromTeleport(ReadOnlySpan<byte> data)
-    static OnUserLeft ReadFromTeleport(ReadOnlySpan<byte> data, OnUserLeft destination)
+    static OnUserLeft ReadFromTeleport(ReadOnlySpan<byte> data, OnUserLeft? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum Opcode
@@ -3649,7 +3650,7 @@ namespace Ikon.Common.Core.Protocol
   static class PayloadCompression
     static ValueTuple<byte[], int> Compress(ReadOnlySpan<byte> data)
     static ValueTuple<byte[], int> Decompress(ReadOnlySpan<byte> compressedData, int estimatedSize = 0)
-    static void ReturnBuffer(byte[] buffer)
+    static void ReturnBuffer(byte[]? buffer)
     static bool ShouldCompress(int payloadSize)
     static int CompressionThreshold
   enum PayloadType
@@ -3677,10 +3678,10 @@ namespace Ikon.Common.Core.Protocol
     int[] TargetIds { get; }
     ReadOnlySpan<int> TargetIdsSpan { get; }
     int TrackId { get; }
-    static ProtocolMessage Create(int senderId, IProtocolMessagePayload payload, PayloadType payloadType = Unknown, int trackId = 0, int sequenceId = 0, MessageFlag flags = None, IReadOnlyList<int> targetIds = null, bool compress = false)
+    static ProtocolMessage Create(int senderId, IProtocolMessagePayload payload, PayloadType payloadType = Unknown, int trackId = 0, int sequenceId = 0, MessageFlag flags = None, IReadOnlyList<int>? targetIds = null, bool compress = false)
     T GetPayload<T>()
     IProtocolMessagePayload GetPayload()
-    static ProtocolMessage ModifyMessage(ProtocolMessage message, int? senderId = null, int? trackId = null, int? sequenceId = null, MessageFlag? flags = null, IReadOnlyList<int> targetIds = null)
+    static ProtocolMessage ModifyMessage(ProtocolMessage message, int? senderId = null, int? trackId = null, int? sequenceId = null, MessageFlag? flags = null, IReadOnlyList<int>? targetIds = null)
     static ProtocolMessage ModifyPayload(IProtocolMessagePayload payload, ProtocolMessage message, PayloadType payloadType = Unknown)
     override string ToString()
     static ProtocolMessage WithFlags(ProtocolMessage message, MessageFlag additionalFlags)
@@ -3705,7 +3706,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string ProxyServerToken { get; set; }
     static ProxyRpcAuthTicket ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ProxyRpcAuthTicket ReadFromTeleport(ReadOnlySpan<byte> data, ProxyRpcAuthTicket destination)
+    static ProxyRpcAuthTicket ReadFromTeleport(ReadOnlySpan<byte> data, ProxyRpcAuthTicket? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class RelayAddTunnel : IProtocolMessagePayload
@@ -3719,7 +3720,7 @@ namespace Ikon.Common.Core.Protocol
     string StablePortName { get; set; }
     bool TerminateTls { get; set; }
     static RelayAddTunnel ReadFromTeleport(ReadOnlySpan<byte> data)
-    static RelayAddTunnel ReadFromTeleport(ReadOnlySpan<byte> data, RelayAddTunnel destination)
+    static RelayAddTunnel ReadFromTeleport(ReadOnlySpan<byte> data, RelayAddTunnel? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class RelayAgentAuth : IProtocolMessagePayload
@@ -3730,7 +3731,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string StableId { get; set; }
     static RelayAgentAuth ReadFromTeleport(ReadOnlySpan<byte> data)
-    static RelayAgentAuth ReadFromTeleport(ReadOnlySpan<byte> data, RelayAgentAuth destination)
+    static RelayAgentAuth ReadFromTeleport(ReadOnlySpan<byte> data, RelayAgentAuth? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class RelayAgentAuthResult : IProtocolMessagePayload
@@ -3742,7 +3743,7 @@ namespace Ikon.Common.Core.Protocol
     string PublicHost { get; set; }
     bool Success { get; set; }
     static RelayAgentAuthResult ReadFromTeleport(ReadOnlySpan<byte> data)
-    static RelayAgentAuthResult ReadFromTeleport(ReadOnlySpan<byte> data, RelayAgentAuthResult destination)
+    static RelayAgentAuthResult ReadFromTeleport(ReadOnlySpan<byte> data, RelayAgentAuthResult? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class RelayHeartbeat : IProtocolMessagePayload
@@ -3750,7 +3751,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static RelayHeartbeat ReadFromTeleport(ReadOnlySpan<byte> data)
-    static RelayHeartbeat ReadFromTeleport(ReadOnlySpan<byte> data, RelayHeartbeat destination)
+    static RelayHeartbeat ReadFromTeleport(ReadOnlySpan<byte> data, RelayHeartbeat? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class RelayRemoveTunnel : IProtocolMessagePayload
@@ -3760,7 +3761,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     uint TunnelId { get; set; }
     static RelayRemoveTunnel ReadFromTeleport(ReadOnlySpan<byte> data)
-    static RelayRemoveTunnel ReadFromTeleport(ReadOnlySpan<byte> data, RelayRemoveTunnel destination)
+    static RelayRemoveTunnel ReadFromTeleport(ReadOnlySpan<byte> data, RelayRemoveTunnel? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class RelayTcpConnectionClosed : IProtocolMessagePayload
@@ -3771,7 +3772,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     uint TunnelId { get; set; }
     static RelayTcpConnectionClosed ReadFromTeleport(ReadOnlySpan<byte> data)
-    static RelayTcpConnectionClosed ReadFromTeleport(ReadOnlySpan<byte> data, RelayTcpConnectionClosed destination)
+    static RelayTcpConnectionClosed ReadFromTeleport(ReadOnlySpan<byte> data, RelayTcpConnectionClosed? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class RelayTcpConnectionOpened : IProtocolMessagePayload
@@ -3782,7 +3783,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     uint TunnelId { get; set; }
     static RelayTcpConnectionOpened ReadFromTeleport(ReadOnlySpan<byte> data)
-    static RelayTcpConnectionOpened ReadFromTeleport(ReadOnlySpan<byte> data, RelayTcpConnectionOpened destination)
+    static RelayTcpConnectionOpened ReadFromTeleport(ReadOnlySpan<byte> data, RelayTcpConnectionOpened? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class RelayTcpData : IProtocolMessagePayload
@@ -3794,7 +3795,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     uint TunnelId { get; set; }
     static RelayTcpData ReadFromTeleport(ReadOnlySpan<byte> data)
-    static RelayTcpData ReadFromTeleport(ReadOnlySpan<byte> data, RelayTcpData destination)
+    static RelayTcpData ReadFromTeleport(ReadOnlySpan<byte> data, RelayTcpData? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class RelayTunnelAdded : IProtocolMessagePayload
@@ -3808,7 +3809,7 @@ namespace Ikon.Common.Core.Protocol
     bool Success { get; set; }
     uint TunnelId { get; set; }
     static RelayTunnelAdded ReadFromTeleport(ReadOnlySpan<byte> data)
-    static RelayTunnelAdded ReadFromTeleport(ReadOnlySpan<byte> data, RelayTunnelAdded destination)
+    static RelayTunnelAdded ReadFromTeleport(ReadOnlySpan<byte> data, RelayTunnelAdded? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class RelayUdpData : IProtocolMessagePayload
@@ -3821,7 +3822,7 @@ namespace Ikon.Common.Core.Protocol
     int SourcePort { get; set; }
     uint TunnelId { get; set; }
     static RelayUdpData ReadFromTeleport(ReadOnlySpan<byte> data)
-    static RelayUdpData ReadFromTeleport(ReadOnlySpan<byte> data, RelayUdpData destination)
+    static RelayUdpData ReadFromTeleport(ReadOnlySpan<byte> data, RelayUdpData? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class RequestIdrVideoFrame : IProtocolMessagePayload
@@ -3829,7 +3830,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static RequestIdrVideoFrame ReadFromTeleport(ReadOnlySpan<byte> data)
-    static RequestIdrVideoFrame ReadFromTeleport(ReadOnlySpan<byte> data, RequestIdrVideoFrame destination)
+    static RequestIdrVideoFrame ReadFromTeleport(ReadOnlySpan<byte> data, RequestIdrVideoFrame? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class SceneArray : IProtocolMessagePayload
@@ -3847,7 +3848,7 @@ namespace Ikon.Common.Core.Protocol
     string Type { get; set; }
     int TypeSize { get; set; }
     static SceneArray ReadFromTeleport(ReadOnlySpan<byte> data)
-    static SceneArray ReadFromTeleport(ReadOnlySpan<byte> data, SceneArray destination)
+    static SceneArray ReadFromTeleport(ReadOnlySpan<byte> data, SceneArray? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class SceneMesh : IProtocolMessagePayload
@@ -3857,7 +3858,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     List<float> Vertices { get; set; }
     static SceneMesh ReadFromTeleport(ReadOnlySpan<byte> data)
-    static SceneMesh ReadFromTeleport(ReadOnlySpan<byte> data, SceneMesh destination)
+    static SceneMesh ReadFromTeleport(ReadOnlySpan<byte> data, SceneMesh? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFunctionCall.ScopeEntry
@@ -3866,7 +3867,7 @@ namespace Ikon.Common.Core.Protocol
     string Id { get; set; }
     string Type { get; set; }
     static ActionFunctionCall.ScopeEntry ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFunctionCall.ScopeEntry ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionCall.ScopeEntry destination)
+    static ActionFunctionCall.ScopeEntry ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionCall.ScopeEntry? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum SdkType
@@ -3883,7 +3884,7 @@ namespace Ikon.Common.Core.Protocol
     bool Enabled { get; set; }
     string TypeName { get; set; }
     static ServerInit.ServerExtensionInit ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ServerInit.ServerExtensionInit ReadFromTeleport(ReadOnlySpan<byte> data, ServerInit.ServerExtensionInit destination)
+    static ServerInit.ServerExtensionInit ReadFromTeleport(ReadOnlySpan<byte> data, ServerInit.ServerExtensionInit? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ServerInit : IProtocolMessagePayload
@@ -3917,7 +3918,7 @@ namespace Ikon.Common.Core.Protocol
     string SpaceId { get; set; }
     string SpaceName { get; set; }
     static ServerInit ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ServerInit ReadFromTeleport(ReadOnlySpan<byte> data, ServerInit destination)
+    static ServerInit ReadFromTeleport(ReadOnlySpan<byte> data, ServerInit? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ServerInit2 : IProtocolMessagePayload
@@ -3928,7 +3929,7 @@ namespace Ikon.Common.Core.Protocol
     string SessionId { get; set; }
     Dictionary<string, string> SessionIdentity { get; set; }
     static ServerInit2 ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ServerInit2 ReadFromTeleport(ReadOnlySpan<byte> data, ServerInit2 destination)
+    static ServerInit2 ReadFromTeleport(ReadOnlySpan<byte> data, ServerInit2? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ServerInit.ServerInitDatabaseConnectionInfo
@@ -3938,7 +3939,7 @@ namespace Ikon.Common.Core.Protocol
     string Name { get; set; }
     string Type { get; set; }
     static ServerInit.ServerInitDatabaseConnectionInfo ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ServerInit.ServerInitDatabaseConnectionInfo ReadFromTeleport(ReadOnlySpan<byte> data, ServerInit.ServerInitDatabaseConnectionInfo destination)
+    static ServerInit.ServerInitDatabaseConnectionInfo ReadFromTeleport(ReadOnlySpan<byte> data, ServerInit.ServerInitDatabaseConnectionInfo? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ServerInit.ServerInitEndpointRequest
@@ -3947,7 +3948,7 @@ namespace Ikon.Common.Core.Protocol
     string Descriptor { get; set; }
     int LocalPort { get; set; }
     static ServerInit.ServerInitEndpointRequest ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ServerInit.ServerInitEndpointRequest ReadFromTeleport(ReadOnlySpan<byte> data, ServerInit.ServerInitEndpointRequest destination)
+    static ServerInit.ServerInitEndpointRequest ReadFromTeleport(ReadOnlySpan<byte> data, ServerInit.ServerInitEndpointRequest? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ServerInit.ServerPluginInit
@@ -3962,7 +3963,7 @@ namespace Ikon.Common.Core.Protocol
     List<ServerInit.ServerPluginInitExtraConfig> ExtraConfigs { get; set; }
     string TypeName { get; set; }
     static ServerInit.ServerPluginInit ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ServerInit.ServerPluginInit ReadFromTeleport(ReadOnlySpan<byte> data, ServerInit.ServerPluginInit destination)
+    static ServerInit.ServerPluginInit ReadFromTeleport(ReadOnlySpan<byte> data, ServerInit.ServerPluginInit? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ServerInit.ServerPluginInitExtraConfig
@@ -3971,7 +3972,7 @@ namespace Ikon.Common.Core.Protocol
     string Content { get; set; }
     string FilePath { get; set; }
     static ServerInit.ServerPluginInitExtraConfig ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ServerInit.ServerPluginInitExtraConfig ReadFromTeleport(ReadOnlySpan<byte> data, ServerInit.ServerPluginInitExtraConfig destination)
+    static ServerInit.ServerPluginInitExtraConfig ReadFromTeleport(ReadOnlySpan<byte> data, ServerInit.ServerPluginInitExtraConfig? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum ServerRunType
@@ -3985,7 +3986,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static ServerStart ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ServerStart ReadFromTeleport(ReadOnlySpan<byte> data, ServerStart destination)
+    static ServerStart ReadFromTeleport(ReadOnlySpan<byte> data, ServerStart? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum ServerStatus
@@ -4002,7 +4003,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string TargetServerSessionId { get; set; }
     static ServerStop ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ServerStop ReadFromTeleport(ReadOnlySpan<byte> data, ServerStop destination)
+    static ServerStop ReadFromTeleport(ReadOnlySpan<byte> data, ServerStop? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum StyleFormat
@@ -4018,7 +4019,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     ulong TimestampInUs { get; set; }
     static TrackingFrame ReadFromTeleport(ReadOnlySpan<byte> data)
-    static TrackingFrame ReadFromTeleport(ReadOnlySpan<byte> data, TrackingFrame destination)
+    static TrackingFrame ReadFromTeleport(ReadOnlySpan<byte> data, TrackingFrame? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class TrackingStreamBegin : IProtocolMessagePayload
@@ -4030,7 +4031,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     TrackingType Type { get; set; }
     static TrackingStreamBegin ReadFromTeleport(ReadOnlySpan<byte> data)
-    static TrackingStreamBegin ReadFromTeleport(ReadOnlySpan<byte> data, TrackingStreamBegin destination)
+    static TrackingStreamBegin ReadFromTeleport(ReadOnlySpan<byte> data, TrackingStreamBegin? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class TrackingStreamEnd : IProtocolMessagePayload
@@ -4038,7 +4039,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static TrackingStreamEnd ReadFromTeleport(ReadOnlySpan<byte> data)
-    static TrackingStreamEnd ReadFromTeleport(ReadOnlySpan<byte> data, TrackingStreamEnd destination)
+    static TrackingStreamEnd ReadFromTeleport(ReadOnlySpan<byte> data, TrackingStreamEnd? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class GlobalState.TrackingStreamState
@@ -4049,7 +4050,7 @@ namespace Ikon.Common.Core.Protocol
     string StreamId { get; set; }
     int TrackId { get; set; }
     static GlobalState.TrackingStreamState ReadFromTeleport(ReadOnlySpan<byte> data)
-    static GlobalState.TrackingStreamState ReadFromTeleport(ReadOnlySpan<byte> data, GlobalState.TrackingStreamState destination)
+    static GlobalState.TrackingStreamState ReadFromTeleport(ReadOnlySpan<byte> data, GlobalState.TrackingStreamState? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum TrackingType
@@ -4075,7 +4076,7 @@ namespace Ikon.Common.Core.Protocol
     string UpdateActionId { get; set; }
     UIInputVariant Variant { get; set; }
     static UIAutocomplete ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIAutocomplete ReadFromTeleport(ReadOnlySpan<byte> data, UIAutocomplete destination)
+    static UIAutocomplete ReadFromTeleport(ReadOnlySpan<byte> data, UIAutocomplete? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIAutocomplete.UIAutocompleteOption
@@ -4085,7 +4086,7 @@ namespace Ikon.Common.Core.Protocol
     string Name { get; set; }
     string Value { get; set; }
     static UIAutocomplete.UIAutocompleteOption ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIAutocomplete.UIAutocompleteOption ReadFromTeleport(ReadOnlySpan<byte> data, UIAutocomplete.UIAutocompleteOption destination)
+    static UIAutocomplete.UIAutocompleteOption ReadFromTeleport(ReadOnlySpan<byte> data, UIAutocomplete.UIAutocompleteOption? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIBadge : IProtocolMessagePayload, IUIContainerElement
@@ -4111,7 +4112,7 @@ namespace Ikon.Common.Core.Protocol
     string Text { get; set; }
     UIBadgeVariant Variant { get; set; }
     static UIBadge ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIBadge ReadFromTeleport(ReadOnlySpan<byte> data, UIBadge destination)
+    static UIBadge ReadFromTeleport(ReadOnlySpan<byte> data, UIBadge? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum UIBadgeVariant
@@ -4141,7 +4142,7 @@ namespace Ikon.Common.Core.Protocol
     string Text { get; set; }
     UIButtonVariant Variant { get; set; }
     static UIButton ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIButton ReadFromTeleport(ReadOnlySpan<byte> data, UIButton destination)
+    static UIButton ReadFromTeleport(ReadOnlySpan<byte> data, UIButton? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIButtonBegin : IProtocolMessagePayload, IUIContainerElement
@@ -4166,7 +4167,7 @@ namespace Ikon.Common.Core.Protocol
     string StyleId { get; set; }
     UIButtonVariant Variant { get; set; }
     static UIButtonBegin ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIButtonBegin ReadFromTeleport(ReadOnlySpan<byte> data, UIButtonBegin destination)
+    static UIButtonBegin ReadFromTeleport(ReadOnlySpan<byte> data, UIButtonBegin? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIButtonEnd : IProtocolMessagePayload
@@ -4174,7 +4175,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static UIButtonEnd ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIButtonEnd ReadFromTeleport(ReadOnlySpan<byte> data, UIButtonEnd destination)
+    static UIButtonEnd ReadFromTeleport(ReadOnlySpan<byte> data, UIButtonEnd? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum UIButtonVariant
@@ -4193,7 +4194,7 @@ namespace Ikon.Common.Core.Protocol
     string StyleId { get; set; }
     string UpdateActionId { get; set; }
     static UICheckbox ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UICheckbox ReadFromTeleport(ReadOnlySpan<byte> data, UICheckbox destination)
+    static UICheckbox ReadFromTeleport(ReadOnlySpan<byte> data, UICheckbox? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum UIColor
@@ -4224,7 +4225,7 @@ namespace Ikon.Common.Core.Protocol
     string UserId { get; set; }
     UIVisibilityType Visibility { get; set; }
     static UIContainerBegin ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIContainerBegin ReadFromTeleport(ReadOnlySpan<byte> data, UIContainerBegin destination)
+    static UIContainerBegin ReadFromTeleport(ReadOnlySpan<byte> data, UIContainerBegin? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIContainerDelete : IProtocolMessagePayload
@@ -4232,7 +4233,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static UIContainerDelete ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIContainerDelete ReadFromTeleport(ReadOnlySpan<byte> data, UIContainerDelete destination)
+    static UIContainerDelete ReadFromTeleport(ReadOnlySpan<byte> data, UIContainerDelete? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIContainerEnd : IProtocolMessagePayload
@@ -4240,7 +4241,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static UIContainerEnd ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIContainerEnd ReadFromTeleport(ReadOnlySpan<byte> data, UIContainerEnd destination)
+    static UIContainerEnd ReadFromTeleport(ReadOnlySpan<byte> data, UIContainerEnd? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIContentLink : IProtocolMessagePayload, IUIContainerElement
@@ -4254,7 +4255,7 @@ namespace Ikon.Common.Core.Protocol
     string StyleId { get; set; }
     UIContentLinkType Type { get; set; }
     static UIContentLink ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIContentLink ReadFromTeleport(ReadOnlySpan<byte> data, UIContentLink destination)
+    static UIContentLink ReadFromTeleport(ReadOnlySpan<byte> data, UIContentLink? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum UIContentLinkType
@@ -4274,7 +4275,7 @@ namespace Ikon.Common.Core.Protocol
     Dictionary<string, UIPayload> Payloads { get; set; }
     string StyleId { get; set; }
     static UIElement ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIElement ReadFromTeleport(ReadOnlySpan<byte> data, UIElement destination)
+    static UIElement ReadFromTeleport(ReadOnlySpan<byte> data, UIElement? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   static class UIElementLabels
@@ -4309,7 +4310,7 @@ namespace Ikon.Common.Core.Protocol
     string Type { get; set; }
     string UploadActionId { get; set; }
     static UIFile ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIFile ReadFromTeleport(ReadOnlySpan<byte> data, UIFile destination)
+    static UIFile ReadFromTeleport(ReadOnlySpan<byte> data, UIFile? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIFile.UIFileInfo
@@ -4322,7 +4323,7 @@ namespace Ikon.Common.Core.Protocol
     int Size { get; set; }
     string Url { get; set; }
     static UIFile.UIFileInfo ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIFile.UIFileInfo ReadFromTeleport(ReadOnlySpan<byte> data, UIFile.UIFileInfo destination)
+    static UIFile.UIFileInfo ReadFromTeleport(ReadOnlySpan<byte> data, UIFile.UIFileInfo? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIFileUploadSectionBegin : IProtocolMessagePayload, IUIContainerElement
@@ -4338,7 +4339,7 @@ namespace Ikon.Common.Core.Protocol
     string StyleId { get; set; }
     string UploadActionId { get; set; }
     static UIFileUploadSectionBegin ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIFileUploadSectionBegin ReadFromTeleport(ReadOnlySpan<byte> data, UIFileUploadSectionBegin destination)
+    static UIFileUploadSectionBegin ReadFromTeleport(ReadOnlySpan<byte> data, UIFileUploadSectionBegin? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIFileUploadSectionEnd : IProtocolMessagePayload
@@ -4346,7 +4347,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static UIFileUploadSectionEnd ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIFileUploadSectionEnd ReadFromTeleport(ReadOnlySpan<byte> data, UIFileUploadSectionEnd destination)
+    static UIFileUploadSectionEnd ReadFromTeleport(ReadOnlySpan<byte> data, UIFileUploadSectionEnd? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIHeader : IProtocolMessagePayload, IUIContainerElement
@@ -4361,7 +4362,7 @@ namespace Ikon.Common.Core.Protocol
     string SubText { get; set; }
     string Text { get; set; }
     static UIHeader ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIHeader ReadFromTeleport(ReadOnlySpan<byte> data, UIHeader destination)
+    static UIHeader ReadFromTeleport(ReadOnlySpan<byte> data, UIHeader? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum UIHeaderLevel
@@ -4381,7 +4382,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string StyleId { get; set; }
     static UIIcon ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIIcon ReadFromTeleport(ReadOnlySpan<byte> data, UIIcon destination)
+    static UIIcon ReadFromTeleport(ReadOnlySpan<byte> data, UIIcon? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIIconButton : IProtocolMessagePayload, IUIContainerElement
@@ -4406,7 +4407,7 @@ namespace Ikon.Common.Core.Protocol
     string PressUpActionId { get; set; }
     string StyleId { get; set; }
     static UIIconButton ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIIconButton ReadFromTeleport(ReadOnlySpan<byte> data, UIIconButton destination)
+    static UIIconButton ReadFromTeleport(ReadOnlySpan<byte> data, UIIconButton? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum UIIconType
@@ -4449,7 +4450,7 @@ namespace Ikon.Common.Core.Protocol
     string StyleId { get; set; }
     string Url { get; set; }
     static UIImage ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIImage ReadFromTeleport(ReadOnlySpan<byte> data, UIImage destination)
+    static UIImage ReadFromTeleport(ReadOnlySpan<byte> data, UIImage? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIInit : IProtocolMessagePayload
@@ -4459,16 +4460,16 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     List<UIInit.UIInitModule> Modules { get; set; }
     static UIInit ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIInit ReadFromTeleport(ReadOnlySpan<byte> data, UIInit destination)
+    static UIInit ReadFromTeleport(ReadOnlySpan<byte> data, UIInit? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIInit.UIInitModule
     ctor()
-    ctor(string name, string javascript)
+    ctor(string name, string? javascript)
     string Javascript { get; set; }
     string Name { get; set; }
     static UIInit.UIInitModule ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIInit.UIInitModule ReadFromTeleport(ReadOnlySpan<byte> data, UIInit.UIInitModule destination)
+    static UIInit.UIInitModule ReadFromTeleport(ReadOnlySpan<byte> data, UIInit.UIInitModule? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIInputText : IProtocolMessagePayload, IUIContainerElement
@@ -4487,7 +4488,7 @@ namespace Ikon.Common.Core.Protocol
     string UpdateActionId { get; set; }
     UIInputVariant Variant { get; set; }
     static UIInputText ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIInputText ReadFromTeleport(ReadOnlySpan<byte> data, UIInputText destination)
+    static UIInputText ReadFromTeleport(ReadOnlySpan<byte> data, UIInputText? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum UIInputVariant
@@ -4504,7 +4505,7 @@ namespace Ikon.Common.Core.Protocol
     string StyleId { get; set; }
     UIListType Type { get; set; }
     static UIListBegin ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIListBegin ReadFromTeleport(ReadOnlySpan<byte> data, UIListBegin destination)
+    static UIListBegin ReadFromTeleport(ReadOnlySpan<byte> data, UIListBegin? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIListEnd : IProtocolMessagePayload
@@ -4512,7 +4513,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static UIListEnd ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIListEnd ReadFromTeleport(ReadOnlySpan<byte> data, UIListEnd destination)
+    static UIListEnd ReadFromTeleport(ReadOnlySpan<byte> data, UIListEnd? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIListItem : IProtocolMessagePayload, IUIContainerElement
@@ -4526,7 +4527,7 @@ namespace Ikon.Common.Core.Protocol
     string StyleId { get; set; }
     string Text { get; set; }
     static UIListItem ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIListItem ReadFromTeleport(ReadOnlySpan<byte> data, UIListItem destination)
+    static UIListItem ReadFromTeleport(ReadOnlySpan<byte> data, UIListItem? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum UIListType
@@ -4546,7 +4547,7 @@ namespace Ikon.Common.Core.Protocol
     string Name { get; set; }
     string StyleId { get; set; }
     static UIMap ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIMap ReadFromTeleport(ReadOnlySpan<byte> data, UIMap destination)
+    static UIMap ReadFromTeleport(ReadOnlySpan<byte> data, UIMap? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIMap.UIMapMarker
@@ -4556,7 +4557,7 @@ namespace Ikon.Common.Core.Protocol
     float Longitude { get; set; }
     string Title { get; set; }
     static UIMap.UIMapMarker ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIMap.UIMapMarker ReadFromTeleport(ReadOnlySpan<byte> data, UIMap.UIMapMarker destination)
+    static UIMap.UIMapMarker ReadFromTeleport(ReadOnlySpan<byte> data, UIMap.UIMapMarker? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIMaterialSymbol : IProtocolMessagePayload, IUIContainerElement
@@ -4571,7 +4572,7 @@ namespace Ikon.Common.Core.Protocol
     string StyleId { get; set; }
     UIMaterialSymbolVariant Variant { get; set; }
     static UIMaterialSymbol ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIMaterialSymbol ReadFromTeleport(ReadOnlySpan<byte> data, UIMaterialSymbol destination)
+    static UIMaterialSymbol ReadFromTeleport(ReadOnlySpan<byte> data, UIMaterialSymbol? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum UIMaterialSymbolVariant
@@ -4585,7 +4586,7 @@ namespace Ikon.Common.Core.Protocol
     string MimeType { get; set; }
     byte[] Value { get; set; }
     static UIPayload ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIPayload ReadFromTeleport(ReadOnlySpan<byte> data, UIPayload destination)
+    static UIPayload ReadFromTeleport(ReadOnlySpan<byte> data, UIPayload? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIProgressBar : IProtocolMessagePayload, IUIContainerElement
@@ -4598,7 +4599,7 @@ namespace Ikon.Common.Core.Protocol
     float Percentage { get; set; }
     string StyleId { get; set; }
     static UIProgressBar ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIProgressBar ReadFromTeleport(ReadOnlySpan<byte> data, UIProgressBar destination)
+    static UIProgressBar ReadFromTeleport(ReadOnlySpan<byte> data, UIProgressBar? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIQS : IProtocolMessagePayload, IUIContainerElement
@@ -4613,7 +4614,7 @@ namespace Ikon.Common.Core.Protocol
     string Name { get; set; }
     string StyleId { get; set; }
     static UIQS ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIQS ReadFromTeleport(ReadOnlySpan<byte> data, UIQS destination)
+    static UIQS ReadFromTeleport(ReadOnlySpan<byte> data, UIQS? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UISectionBegin : IProtocolMessagePayload, IUIContainerElement
@@ -4638,7 +4639,7 @@ namespace Ikon.Common.Core.Protocol
     string StyleId { get; set; }
     UISectionType Type { get; set; }
     static UISectionBegin ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UISectionBegin ReadFromTeleport(ReadOnlySpan<byte> data, UISectionBegin destination)
+    static UISectionBegin ReadFromTeleport(ReadOnlySpan<byte> data, UISectionBegin? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UISectionEnd : IProtocolMessagePayload
@@ -4646,7 +4647,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static UISectionEnd ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UISectionEnd ReadFromTeleport(ReadOnlySpan<byte> data, UISectionEnd destination)
+    static UISectionEnd ReadFromTeleport(ReadOnlySpan<byte> data, UISectionEnd? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum UISectionType
@@ -4666,7 +4667,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string StyleId { get; set; }
     static UISeparator ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UISeparator ReadFromTeleport(ReadOnlySpan<byte> data, UISeparator destination)
+    static UISeparator ReadFromTeleport(ReadOnlySpan<byte> data, UISeparator? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIStreamBegin : IProtocolMessagePayload
@@ -4676,7 +4677,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static UIStreamBegin ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIStreamBegin ReadFromTeleport(ReadOnlySpan<byte> data, UIStreamBegin destination)
+    static UIStreamBegin ReadFromTeleport(ReadOnlySpan<byte> data, UIStreamBegin? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   static class UIStreamCategories
@@ -4696,7 +4697,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static UIStreamEnd ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIStreamEnd ReadFromTeleport(ReadOnlySpan<byte> data, UIStreamEnd destination)
+    static UIStreamEnd ReadFromTeleport(ReadOnlySpan<byte> data, UIStreamEnd? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class GlobalState.UIStreamState
@@ -4707,7 +4708,7 @@ namespace Ikon.Common.Core.Protocol
     string StreamId { get; set; }
     int TrackId { get; set; }
     static GlobalState.UIStreamState ReadFromTeleport(ReadOnlySpan<byte> data)
-    static GlobalState.UIStreamState ReadFromTeleport(ReadOnlySpan<byte> data, GlobalState.UIStreamState destination)
+    static GlobalState.UIStreamState ReadFromTeleport(ReadOnlySpan<byte> data, GlobalState.UIStreamState? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIStyles : IProtocolMessagePayload
@@ -4718,7 +4719,7 @@ namespace Ikon.Common.Core.Protocol
     Dictionary<string, string> Style { get; set; }
     string StyleId { get; set; }
     static UIStyles ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIStyles ReadFromTeleport(ReadOnlySpan<byte> data, UIStyles destination)
+    static UIStyles ReadFromTeleport(ReadOnlySpan<byte> data, UIStyles? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIStylesBatch : IProtocolMessagePayload
@@ -4728,7 +4729,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     List<UIStylesBatch.UIStylesBatchItem> Styles { get; set; }
     static UIStylesBatch ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIStylesBatch ReadFromTeleport(ReadOnlySpan<byte> data, UIStylesBatch destination)
+    static UIStylesBatch ReadFromTeleport(ReadOnlySpan<byte> data, UIStylesBatch? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIStylesBatch.UIStylesBatchItem
@@ -4737,7 +4738,7 @@ namespace Ikon.Common.Core.Protocol
     Dictionary<string, string> Style { get; set; }
     string StyleId { get; set; }
     static UIStylesBatch.UIStylesBatchItem ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIStylesBatch.UIStylesBatchItem ReadFromTeleport(ReadOnlySpan<byte> data, UIStylesBatch.UIStylesBatchItem destination)
+    static UIStylesBatch.UIStylesBatchItem ReadFromTeleport(ReadOnlySpan<byte> data, UIStylesBatch.UIStylesBatchItem? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIStylesDelete : IProtocolMessagePayload
@@ -4747,7 +4748,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     List<string> StyleIds { get; set; }
     static UIStylesDelete ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIStylesDelete ReadFromTeleport(ReadOnlySpan<byte> data, UIStylesDelete destination)
+    static UIStylesDelete ReadFromTeleport(ReadOnlySpan<byte> data, UIStylesDelete? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   static class UIStylesKeys
@@ -4766,7 +4767,7 @@ namespace Ikon.Common.Core.Protocol
     string StyleId { get; set; }
     string Svg { get; set; }
     static UISvg ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UISvg ReadFromTeleport(ReadOnlySpan<byte> data, UISvg destination)
+    static UISvg ReadFromTeleport(ReadOnlySpan<byte> data, UISvg? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIText : IProtocolMessagePayload, IUIContainerElement
@@ -4781,7 +4782,7 @@ namespace Ikon.Common.Core.Protocol
     string Text { get; set; }
     UITextType Type { get; set; }
     static UIText ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIText ReadFromTeleport(ReadOnlySpan<byte> data, UIText destination)
+    static UIText ReadFromTeleport(ReadOnlySpan<byte> data, UIText? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum UITextType
@@ -4798,7 +4799,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     Dictionary<string, UIPayload> Payloads { get; set; }
     static UIUpdate ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIUpdate ReadFromTeleport(ReadOnlySpan<byte> data, UIUpdate destination)
+    static UIUpdate ReadFromTeleport(ReadOnlySpan<byte> data, UIUpdate? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIUpdateAck : IProtocolMessagePayload
@@ -4808,7 +4809,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     uint Version { get; set; }
     static UIUpdateAck ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIUpdateAck ReadFromTeleport(ReadOnlySpan<byte> data, UIUpdateAck destination)
+    static UIUpdateAck ReadFromTeleport(ReadOnlySpan<byte> data, UIUpdateAck? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIUpdateBegin : IProtocolMessagePayload
@@ -4816,7 +4817,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static UIUpdateBegin ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIUpdateBegin ReadFromTeleport(ReadOnlySpan<byte> data, UIUpdateBegin destination)
+    static UIUpdateBegin ReadFromTeleport(ReadOnlySpan<byte> data, UIUpdateBegin? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIUpdateEnd : IProtocolMessagePayload
@@ -4824,7 +4825,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static UIUpdateEnd ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIUpdateEnd ReadFromTeleport(ReadOnlySpan<byte> data, UIUpdateEnd destination)
+    static UIUpdateEnd ReadFromTeleport(ReadOnlySpan<byte> data, UIUpdateEnd? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class UIVegaChart : IProtocolMessagePayload, IUIContainerElement
@@ -4838,7 +4839,7 @@ namespace Ikon.Common.Core.Protocol
     string SpecJson { get; set; }
     string StyleId { get; set; }
     static UIVegaChart ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UIVegaChart ReadFromTeleport(ReadOnlySpan<byte> data, UIVegaChart destination)
+    static UIVegaChart ReadFromTeleport(ReadOnlySpan<byte> data, UIVegaChart? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum UIVisibilityType
@@ -4854,7 +4855,7 @@ namespace Ikon.Common.Core.Protocol
     int ViewportHeight { get; set; }
     int ViewportWidth { get; set; }
     static UpdateClientContext ReadFromTeleport(ReadOnlySpan<byte> data)
-    static UpdateClientContext ReadFromTeleport(ReadOnlySpan<byte> data, UpdateClientContext destination)
+    static UpdateClientContext ReadFromTeleport(ReadOnlySpan<byte> data, UpdateClientContext? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ActionFunctionCall.UserCredentialEntry
@@ -4863,7 +4864,7 @@ namespace Ikon.Common.Core.Protocol
     string Name { get; set; }
     string Value { get; set; }
     static ActionFunctionCall.UserCredentialEntry ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ActionFunctionCall.UserCredentialEntry ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionCall.UserCredentialEntry destination)
+    static ActionFunctionCall.UserCredentialEntry ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionCall.UserCredentialEntry? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   enum UserType
@@ -4887,12 +4888,12 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     ulong TimestampInUs { get; set; }
     static VideoFrame ReadFromTeleport(ReadOnlySpan<byte> data)
-    static VideoFrame ReadFromTeleport(ReadOnlySpan<byte> data, VideoFrame destination)
+    static VideoFrame ReadFromTeleport(ReadOnlySpan<byte> data, VideoFrame? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class VideoStreamBegin : IProtocolMessagePayload
     ctor()
-    ctor(string streamId, string description, string sourceType, VideoCodec codec, string codecDetails, int width, int height, double framerate, string correlationId)
+    ctor(string streamId, string description, string sourceType, VideoCodec codec, string codecDetails, int width, int height, double framerate, string? correlationId)
     VideoCodec Codec { get; set; }
     string CodecDetails { get; set; }
     string CorrelationId { get; set; }
@@ -4905,7 +4906,7 @@ namespace Ikon.Common.Core.Protocol
     string StreamId { get; set; }
     int Width { get; set; }
     static VideoStreamBegin ReadFromTeleport(ReadOnlySpan<byte> data)
-    static VideoStreamBegin ReadFromTeleport(ReadOnlySpan<byte> data, VideoStreamBegin destination)
+    static VideoStreamBegin ReadFromTeleport(ReadOnlySpan<byte> data, VideoStreamBegin? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class VideoStreamEnd : IProtocolMessagePayload
@@ -4913,7 +4914,7 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static VideoStreamEnd ReadFromTeleport(ReadOnlySpan<byte> data)
-    static VideoStreamEnd ReadFromTeleport(ReadOnlySpan<byte> data, VideoStreamEnd destination)
+    static VideoStreamEnd ReadFromTeleport(ReadOnlySpan<byte> data, VideoStreamEnd? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class GlobalState.VideoStreamState
@@ -4924,7 +4925,7 @@ namespace Ikon.Common.Core.Protocol
     string StreamId { get; set; }
     int TrackId { get; set; }
     static GlobalState.VideoStreamState ReadFromTeleport(ReadOnlySpan<byte> data)
-    static GlobalState.VideoStreamState ReadFromTeleport(ReadOnlySpan<byte> data, GlobalState.VideoStreamState destination)
+    static GlobalState.VideoStreamState ReadFromTeleport(ReadOnlySpan<byte> data, GlobalState.VideoStreamState? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class WebRTCAnswer : IProtocolMessagePayload
@@ -4935,18 +4936,18 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     string Sdp { get; set; }
     static WebRTCAnswer ReadFromTeleport(ReadOnlySpan<byte> data)
-    static WebRTCAnswer ReadFromTeleport(ReadOnlySpan<byte> data, WebRTCAnswer destination)
+    static WebRTCAnswer ReadFromTeleport(ReadOnlySpan<byte> data, WebRTCAnswer? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class WebRTCAudioSegment : IProtocolMessagePayload
     ctor()
-    ctor(bool isStart, string correlationId)
+    ctor(bool isStart, string? correlationId)
     string CorrelationId { get; set; }
     bool IsStart { get; set; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     static WebRTCAudioSegment ReadFromTeleport(ReadOnlySpan<byte> data)
-    static WebRTCAudioSegment ReadFromTeleport(ReadOnlySpan<byte> data, WebRTCAudioSegment destination)
+    static WebRTCAudioSegment ReadFromTeleport(ReadOnlySpan<byte> data, WebRTCAudioSegment? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class WebRTCIceCandidate : IProtocolMessagePayload
@@ -4958,7 +4959,7 @@ namespace Ikon.Common.Core.Protocol
     int SdpMLineIndex { get; set; }
     string SdpMid { get; set; }
     static WebRTCIceCandidate ReadFromTeleport(ReadOnlySpan<byte> data)
-    static WebRTCIceCandidate ReadFromTeleport(ReadOnlySpan<byte> data, WebRTCIceCandidate destination)
+    static WebRTCIceCandidate ReadFromTeleport(ReadOnlySpan<byte> data, WebRTCIceCandidate? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class WebRTCOffer : IProtocolMessagePayload
@@ -4973,7 +4974,7 @@ namespace Ikon.Common.Core.Protocol
     bool UseDataChannel { get; set; }
     bool UseVideoTrack { get; set; }
     static WebRTCOffer ReadFromTeleport(ReadOnlySpan<byte> data)
-    static WebRTCOffer ReadFromTeleport(ReadOnlySpan<byte> data, WebRTCOffer destination)
+    static WebRTCOffer ReadFromTeleport(ReadOnlySpan<byte> data, WebRTCOffer? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class WebRTCReady : IProtocolMessagePayload
@@ -4984,7 +4985,7 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     bool Success { get; set; }
     static WebRTCReady ReadFromTeleport(ReadOnlySpan<byte> data)
-    static WebRTCReady ReadFromTeleport(ReadOnlySpan<byte> data, WebRTCReady destination)
+    static WebRTCReady ReadFromTeleport(ReadOnlySpan<byte> data, WebRTCReady? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class WebRTCTrackMap : IProtocolMessagePayload
@@ -5000,18 +5001,18 @@ namespace Ikon.Common.Core.Protocol
     string StreamId { get; set; }
     int TrackIndex { get; set; }
     static WebRTCTrackMap ReadFromTeleport(ReadOnlySpan<byte> data)
-    static WebRTCTrackMap ReadFromTeleport(ReadOnlySpan<byte> data, WebRTCTrackMap destination)
+    static WebRTCTrackMap ReadFromTeleport(ReadOnlySpan<byte> data, WebRTCTrackMap? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class WebRTCVideoCapture : IProtocolMessagePayload
     ctor()
-    ctor(int senderIndex, string correlationId)
+    ctor(int senderIndex, string? correlationId)
     string CorrelationId { get; set; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     int SenderIndex { get; set; }
     static WebRTCVideoCapture ReadFromTeleport(ReadOnlySpan<byte> data)
-    static WebRTCVideoCapture ReadFromTeleport(ReadOnlySpan<byte> data, WebRTCVideoCapture destination)
+    static WebRTCVideoCapture ReadFromTeleport(ReadOnlySpan<byte> data, WebRTCVideoCapture? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
 
@@ -5037,10 +5038,10 @@ namespace Ikon.Common.Core.Reactive
     void Clear()
     IReadOnlyList<PersistedRegistration> GetPersistedRegistrations()
     void LoadHotReloadStates(Dictionary<string, StoredReactiveState> states)
-    void Register(string stableId, IReactiveWithState reactive, PersistenceScope persistence, PersistenceBackend backend = Private, string postgresDatabase = null)
-    bool TryGet(string stableId, out IReactiveWithState reactive)
+    void Register(string stableId, IReactiveWithState reactive, PersistenceScope persistence, PersistenceBackend backend = Private, string? postgresDatabase = null)
+    bool TryGet(string stableId, out IReactiveWithState? reactive)
   interface IPersistedReactive : IReactiveWithState
-    abstract void SetPublicUrl(string url)
+    abstract void SetPublicUrl(string? url)
   interface IReactive
     long Version { get; }
     event Action Changed
@@ -5056,7 +5057,7 @@ namespace Ikon.Common.Core.Reactive
   class MountReactive<T> : Reactive<T, MountScope>
     ctor(T initialValue, string file = "", string member = "")
   sealed class PersistedRegistration
-    ctor(string stableId, IReactiveWithState reactive, PersistenceScope persistence, PersistenceBackend backend, string postgresDatabase)
+    ctor(string stableId, IReactiveWithState reactive, PersistenceScope persistence, PersistenceBackend backend, string? postgresDatabase)
     PersistenceBackend Backend { get; }
     PersistenceScope Persistence { get; }
     string PostgresDatabase { get; }
@@ -5072,8 +5073,8 @@ namespace Ikon.Common.Core.Reactive
     Session
     User
   static class Reactive
-    static void Run<T>(Reactive<T> reactiveValue, Func<Task<T>> action, Action<Exception> onError = null, CancellationToken token = null)
-    static void Run<T>(Reactive<T> reactiveValue, Func<CancellationToken, Task<T>> action, Action<Exception> onError = null, CancellationToken token = null)
+    static void Run<T>(Reactive<T> reactiveValue, Func<Task<T>> action, Action<Exception>? onError = null, CancellationToken token = null)
+    static void Run<T>(Reactive<T> reactiveValue, Func<CancellationToken, Task<T>> action, Action<Exception>? onError = null, CancellationToken token = null)
   static class ReactiveBoolExtensions
     static IDisposable AsToken(Reactive<bool> reactive)
   static class ReactiveCollectionExtensions
@@ -5197,7 +5198,7 @@ namespace Ikon.Common.Core.Reactive
 
 namespace Ikon.Common.Core.Reflection
   static class TaskTypeUnwrap
-    static ValueTask<object> AwaitAndGetResultAsync(object raw)
+    static ValueTask<object> AwaitAndGetResultAsync(object? raw)
     static Type UnwrapResultType(Type declaredReturnType)
 
 namespace Ikon.Common.Core.Scope
@@ -5268,7 +5269,7 @@ namespace Ikon.Common.Core.Signing
     string Filename { get; init; }
     string MimeType { get; init; }
   sealed class SignatureOrderRequest : IEquatable<SignatureOrderRequest>
-    ctor(string Purpose, IReadOnlyList<SignatureDocument> Documents, SignatureSigner Signer, string CostAttributionKey = null, string Title = null, string ClientReturnUrl = null)
+    ctor(string Purpose, IReadOnlyList<SignatureDocument> Documents, SignatureSigner Signer, string? CostAttributionKey = null, string? Title = null, string? ClientReturnUrl = null)
     string ClientReturnUrl { get; init; }
     string CostAttributionKey { get; init; }
     IReadOnlyList<SignatureDocument> Documents { get; init; }
@@ -5279,13 +5280,13 @@ namespace Ikon.Common.Core.Signing
     PkiSigning
     EidHub
   sealed class SignatureSigner : IEquatable<SignatureSigner>
-    ctor(SignaturePolicy Policy, string Vendor = null, IReadOnlyList<string> IdpNames = null, IReadOnlyList<string> RequestedAttributes = null)
+    ctor(SignaturePolicy Policy, string? Vendor = null, IReadOnlyList<string>? IdpNames = null, IReadOnlyList<string>? RequestedAttributes = null)
     IReadOnlyList<string> IdpNames { get; init; }
     SignaturePolicy Policy { get; init; }
     IReadOnlyList<string> RequestedAttributes { get; init; }
     string Vendor { get; init; }
   sealed class SignedDocument : IEquatable<SignedDocument>
-    ctor(string OrderId, byte[] Bytes, string MimeType, DateTimeOffset SignedAt, string SignedDocumentHash, string IdentityScheme, string SignerNameHash, string EvidenceLevel)
+    ctor(string OrderId, byte[] Bytes, string MimeType, DateTimeOffset SignedAt, string SignedDocumentHash, string IdentityScheme, string? SignerNameHash, string? EvidenceLevel)
     byte[] Bytes { get; init; }
     string EvidenceLevel { get; init; }
     string IdentityScheme { get; init; }
