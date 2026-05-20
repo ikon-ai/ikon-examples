@@ -75,8 +75,8 @@ namespace Ikon.AI.Classification
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class Classifier : IClassifier, IDisposable
-    ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
-    ctor(ClassificationModel model, IReadOnlyList<ModelRegion> regions = null)
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
+    ctor(ClassificationModel model, IReadOnlyList<ModelRegion>? regions = null)
     Task<ClassificationResult> ClassifyAsync(IReadOnlyList<ClassificationInput> inputs, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
     Task<ClassificationResult> ClassifyAsync(IReadOnlyList<IMessagePart> messageParts, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
     Task<ClassificationResult> ClassifyAsync(string text, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
@@ -95,8 +95,8 @@ namespace Ikon.AI.Embeddings
     Base64
     GzipBase64
   sealed class EmbeddingGenerator : IDisposable, IEmbeddingGenerator
-    ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
-    ctor(EmbeddingModel model, IReadOnlyList<ModelRegion> regions = null)
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
+    ctor(EmbeddingModel model, IReadOnlyList<ModelRegion>? regions = null)
     int EmbeddingVectorSize { get; }
     int MaxInputCount { get; }
     void Dispose()
@@ -127,6 +127,7 @@ namespace Ikon.AI.Embeddings
     GoogleTextEmbedding5
     GoogleTextMultilingualEmbedding2
     JinaEmbeddings3
+    JinaEmbeddings4
     Voyage35
     Voyage35Lite
     Voyage4
@@ -162,8 +163,8 @@ namespace Ikon.AI.FileConversion
     string Mimetype { get; init; }
     string Name { get; init; }
   sealed class FileConverter : IDisposable, IFileConverter
-    ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
-    ctor(FileConverterModel model, IReadOnlyList<ModelRegion> regions = null)
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
+    ctor(FileConverterModel model, IReadOnlyList<ModelRegion>? regions = null)
     Task<ConvertedFile> ConvertToPdfAsync(FileConverterConfig config, CancellationToken cancellationToken = null)
     void Dispose()
     static FileConverterCapabilities GetCapabilities(FileConverterModel model)
@@ -190,8 +191,8 @@ namespace Ikon.AI.OCR
   interface IOCR : IDisposable
     abstract Task<OCRResult> AnalyzeDocumentAsync(OCRConfig config, CancellationToken cancellationToken = null)
   sealed class OCR : IDisposable, IOCR
-    ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
-    ctor(OCRModel model, IReadOnlyList<ModelRegion> regions = null)
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
+    ctor(OCRModel model, IReadOnlyList<ModelRegion>? regions = null)
     Task<OCRResult> AnalyzeDocumentAsync(OCRConfig config, CancellationToken cancellationToken = null)
     void Dispose()
     static OCRCapabilities GetCapabilities(OCRModel model)
@@ -207,6 +208,8 @@ namespace Ikon.AI.OCR
     AssetUri? AssetUri { get; set; }
     byte[] Data { get; set; }
     DocumentType DocumentType { get; set; }
+    bool IncludeWords { get; set; }
+    string Pages { get; set; }
     TimeSpan Timeout { get; set; }
     string Url { get; set; }
   enum OCRModel
@@ -255,8 +258,8 @@ namespace Ikon.AI.Reranking
   static class RerankModelExtensions
     static string DisplayName(RerankModel model)
   sealed class Reranker : IDisposable, IReranker
-    ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
-    ctor(RerankModel model, IReadOnlyList<ModelRegion> regions = null)
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
+    ctor(RerankModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
     static RerankerCapabilities GetCapabilities(RerankModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(RerankModel model)
@@ -278,7 +281,7 @@ namespace Ikon.AI.Retrieving
     ctor(string link, string secondPart, float score = 0)
     ContentLink Parent { get; }
     ContentLink Root { get; }
-    override bool Equals(object obj)
+    override bool Equals(object? obj)
     List<ValueTuple<string, string>> GenerateHierarchicalSplitLinks()
     override int GetHashCode()
     override string ToString()
@@ -335,8 +338,8 @@ namespace Ikon.AI.Retrieving
     ctor(string content)
     IEnumerable<string> GetAllKeys()
     string[] GetKeys()
-    bool TryGetValue(string keyPath, out object value)
-    bool TryGetValueAsObject(string keyPath, out object value)
+    bool TryGetValue(string keyPath, out object? value)
+    bool TryGetValueAsObject(string keyPath, out object? value)
   class Retriever : IAsyncDisposable
     ctor()
     KernelContext Context { get; }
@@ -484,8 +487,8 @@ namespace Ikon.AI.WebScraping
   sealed class WebScraper : IDisposable, IWebScraper, IWebScraperInfo
     ctor(string modelName, bool useLocalCache = false)
     ctor(WebScraperModel model, bool useLocalCache = false)
-    ctor(string modelName, IReadOnlyList<ModelRegion> regions, bool useLocalCache = false)
-    ctor(WebScraperModel model, IReadOnlyList<ModelRegion> regions, bool useLocalCache = false)
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = false)
+    ctor(WebScraperModel model, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = false)
     bool SupportsMultiPageScraping { get; }
     bool SupportsScreenshotting { get; }
     bool SupportsSinglePageScraping { get; }
@@ -542,8 +545,8 @@ namespace Ikon.AI.WebSearching
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class WebSearcher : IDisposable, IWebSearcher, IWebSearcherInfo
-    ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
-    ctor(WebSearcherModel model, IReadOnlyList<ModelRegion> regions = null)
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
+    ctor(WebSearcherModel model, IReadOnlyList<ModelRegion>? regions = null)
     bool SupportsImageSearching { get; }
     void Dispose()
     static WebSearcherCapabilities GetCapabilities(WebSearcherModel model)
