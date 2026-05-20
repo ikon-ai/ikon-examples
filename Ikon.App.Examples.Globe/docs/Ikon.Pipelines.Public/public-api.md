@@ -31,7 +31,7 @@ namespace Ikon.Pipelines.Public.Processors.Json
   static class SplitJsonArrayProcessor
     static Task<List<Item>> Run(Item input)
   static class TrimJsonProcessor
-    static Task<List<Item>> Run(Item input, List<string> fieldsToRemove = null)
+    static Task<List<Item>> Run(Item input, List<string>? fieldsToRemove = null)
 
 namespace Ikon.Pipelines.Public.Processors.OCR
   class OCRProcessor.Config
@@ -58,7 +58,7 @@ namespace Ikon.Pipelines.Public.Processors.Pdf
     abstract ValueTuple<Rgba32[], byte[], int, int> GetPixels(int width, int height, bool hasAlpha)
     abstract string GetText()
   static class PdfDocument
-    static IPdfDocument Load(byte[] bytes, string password = null)
+    static IPdfDocument Load(byte[] bytes, string? password = null)
 
 namespace Ikon.Pipelines.Public.UniversalRag
   class UniversalRagPipeline.Config

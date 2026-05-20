@@ -98,20 +98,20 @@ namespace Ikon.Parallax
     // Adds a global CSS block that is sent to all connected clients. Idempotent: identical CSS returns the same style ID.
     string AddGlobalCss(string css)
     // Defines the root UI view tree. Call this in a reactive context to re-render when dependencies change.
-    void Root(string[] style = null, Action<UIView> content = null, string styleId = null)
+    void Root(string[]? style = null, Action<UIView>? content = null, string? styleId = null)
   // Represents a UI view scope for building the component tree. Extension methods on this type provide the component API (e.g. Text, Button, Input).
   class UIView
     // The default icon library name used when no library is specified on an icon component.
     string DefaultIconLibrary { get; }
     // Adds a child node with the given type and props to the current view.
-    void AddNode(string type, Dictionary<string, object> props, List<UIViewNode> children = null, string key = null, string[] style = null, string styleId = null, string file = "", int line = 0)
-    string CreateAction<T>(Func<ActionArgs<T>, Task> callback)
+    void AddNode(string type, Dictionary<string, object?> props, List<UIViewNode>? children = null, string? key = null, string[]? style = null, string? styleId = null, string file = "", int line = 0)
+    string CreateAction<T>(Func<ActionArgs<T>, Task>? callback)
     // Registers binary data as a payload and returns a reference string for use as an image src.
     string RegisterPayload(byte[] data, string mimeType)
   // Represents a single node in the UI view tree, with identity, props, children, and style information.
   sealed class UIViewNode
     // Creates a new view node with the given type, props, and optional children.
-    ctor(string type, Guid viewId, Dictionary<string, object> props, List<UIViewNode> children = null, string key = null, IReadOnlyList<string> styleIds = null, ulong parentPathHash = 0, IReadOnlyCollection<IReadOnlyList<string>> styleIdProps = null, string file = "", int line = 0)
+    ctor(string type, Guid viewId, Dictionary<string, object?> props, List<UIViewNode>? children = null, string? key = null, IReadOnlyList<string>? styleIds = null, ulong parentPathHash = 0, IReadOnlyCollection<IReadOnlyList<string>>? styleIdProps = null, string file = "", int line = 0)
     // Ordered child nodes.
     List<UIViewNode> Children { get; }
     // Lazily computed content signature used for subtree caching and diffing.
@@ -221,11 +221,11 @@ namespace Ikon.Parallax.Components.Charts
   // Extension methods for rendering interactive chart components (bar, line, pie).
   static class ChartExtensions
     // Renders an interactive bar chart with configurable grouping, layout, axes, and theming.
-    static void BarChart(UIView view, string[] style = null, IEnumerable<Dictionary<string, object>> data = null, IEnumerable<string> keys = null, string indexBy = null, BarGroupMode? groupMode = null, BarLayout? layout = null, ScaleType? valueScale = null, ScaleType? indexScale = null, bool? reverse = null, double? minValue = null, double? maxValue = null, double? padding = null, double? innerPadding = null, ChartMargin margin = null, AxisConfig axisTop = null, AxisConfig axisRight = null, AxisConfig axisBottom = null, AxisConfig axisLeft = null, bool? enableGridX = null, bool? enableGridY = null, bool? enableLabel = null, int? labelSkipWidth = null, int? labelSkipHeight = null, string labelTextColor = null, IEnumerable<LegendConfig> legends = null, IEnumerable<string> colors = null, ChartColorScheme? colorScheme = null, ChartTheme theme = null, string borderColor = null, double? borderRadius = null, double? borderWidth = null, bool? isInteractive = null, Func<ChartClickArgs, Task> onClick = null, string styleId = null, string key = null, string file = "", int line = 0)
+    static void BarChart(UIView view, string[]? style = null, IEnumerable<Dictionary<string, object>>? data = null, IEnumerable<string>? keys = null, string? indexBy = null, BarGroupMode? groupMode = null, BarLayout? layout = null, ScaleType? valueScale = null, ScaleType? indexScale = null, bool? reverse = null, double? minValue = null, double? maxValue = null, double? padding = null, double? innerPadding = null, ChartMargin? margin = null, AxisConfig? axisTop = null, AxisConfig? axisRight = null, AxisConfig? axisBottom = null, AxisConfig? axisLeft = null, bool? enableGridX = null, bool? enableGridY = null, bool? enableLabel = null, int? labelSkipWidth = null, int? labelSkipHeight = null, string? labelTextColor = null, IEnumerable<LegendConfig>? legends = null, IEnumerable<string>? colors = null, ChartColorScheme? colorScheme = null, ChartTheme? theme = null, string? borderColor = null, double? borderRadius = null, double? borderWidth = null, bool? isInteractive = null, Func<ChartClickArgs, Task>? onClick = null, string? styleId = null, string? key = null, string file = "", int line = 0)
     // Renders an interactive line chart with configurable curves, points, areas, and crosshairs.
-    static void LineChart(UIView view, string[] style = null, IEnumerable<LineChartSeries> data = null, ScaleType? xScaleType = null, ScaleType? yScaleType = null, double? yScaleMin = null, double? yScaleMax = null, bool? yScaleStacked = null, ChartMargin margin = null, AxisConfig axisTop = null, AxisConfig axisRight = null, AxisConfig axisBottom = null, AxisConfig axisLeft = null, bool? enableGridX = null, bool? enableGridY = null, bool? enablePoints = null, int? pointSize = null, string pointColor = null, string pointBorderColor = null, int? pointBorderWidth = null, bool? enableArea = null, double? areaOpacity = null, double? areaBaselineValue = null, bool? enableCrosshair = null, CrosshairType? crosshairType = null, LineCurve? curve = null, IEnumerable<LegendConfig> legends = null, IEnumerable<string> colors = null, ChartColorScheme? colorScheme = null, ChartTheme theme = null, double? lineWidth = null, bool? isInteractive = null, bool? useMesh = null, Func<ChartClickArgs, Task> onClick = null, string styleId = null, string key = null, string file = "", int line = 0)
+    static void LineChart(UIView view, string[]? style = null, IEnumerable<LineChartSeries>? data = null, ScaleType? xScaleType = null, ScaleType? yScaleType = null, double? yScaleMin = null, double? yScaleMax = null, bool? yScaleStacked = null, ChartMargin? margin = null, AxisConfig? axisTop = null, AxisConfig? axisRight = null, AxisConfig? axisBottom = null, AxisConfig? axisLeft = null, bool? enableGridX = null, bool? enableGridY = null, bool? enablePoints = null, int? pointSize = null, string? pointColor = null, string? pointBorderColor = null, int? pointBorderWidth = null, bool? enableArea = null, double? areaOpacity = null, double? areaBaselineValue = null, bool? enableCrosshair = null, CrosshairType? crosshairType = null, LineCurve? curve = null, IEnumerable<LegendConfig>? legends = null, IEnumerable<string>? colors = null, ChartColorScheme? colorScheme = null, ChartTheme? theme = null, double? lineWidth = null, bool? isInteractive = null, bool? useMesh = null, Func<ChartClickArgs, Task>? onClick = null, string? styleId = null, string? key = null, string file = "", int line = 0)
     // Renders an interactive pie/donut chart with configurable arc labels, link labels, and legends.
-    static void PieChart(UIView view, string[] style = null, IEnumerable<PieChartDatum> data = null, double? innerRadius = null, double? padAngle = null, double? cornerRadius = null, double? startAngle = null, double? endAngle = null, bool? sortByValue = null, ChartMargin margin = null, bool? enableArcLabels = null, string arcLabelsTextColor = null, double? arcLabelsSkipAngle = null, bool? enableArcLinkLabels = null, string arcLinkLabelsTextColor = null, double? arcLinkLabelsSkipAngle = null, double? arcLinkLabelsThickness = null, string arcLinkLabelsColor = null, double? activeOuterRadiusOffset = null, IEnumerable<LegendConfig> legends = null, IEnumerable<string> colors = null, ChartColorScheme? colorScheme = null, ChartTheme theme = null, string borderColor = null, double? borderWidth = null, bool? isInteractive = null, Func<ChartClickArgs, Task> onClick = null, string styleId = null, string key = null, string file = "", int line = 0)
+    static void PieChart(UIView view, string[]? style = null, IEnumerable<PieChartDatum>? data = null, double? innerRadius = null, double? padAngle = null, double? cornerRadius = null, double? startAngle = null, double? endAngle = null, bool? sortByValue = null, ChartMargin? margin = null, bool? enableArcLabels = null, string? arcLabelsTextColor = null, double? arcLabelsSkipAngle = null, bool? enableArcLinkLabels = null, string? arcLinkLabelsTextColor = null, double? arcLinkLabelsSkipAngle = null, double? arcLinkLabelsThickness = null, string? arcLinkLabelsColor = null, double? activeOuterRadiusOffset = null, IEnumerable<LegendConfig>? legends = null, IEnumerable<string>? colors = null, ChartColorScheme? colorScheme = null, ChartTheme? theme = null, string? borderColor = null, double? borderWidth = null, bool? isInteractive = null, Func<ChartClickArgs, Task>? onClick = null, string? styleId = null, string? key = null, string file = "", int line = 0)
   // Styling for chart grid lines.
   class ChartGridStyle : IEquatable<ChartGridStyle>
     ctor()
@@ -355,19 +355,19 @@ namespace Ikon.Parallax.Components.DataTable
     // Visual variant for badge cells.
     string Variant { get; init; }
     // Creates an action button cell.
-    static Cell Action(string label, string actionId, string[] style = null)
+    static Cell Action(string label, string actionId, string[]? style = null)
     // Creates a cell containing multiple action buttons.
     static Cell ActionGroup(CellAction[] actions)
     // Creates a badge cell with an optional variant.
-    static Cell Badge(string value, string variant = null, string[] style = null)
+    static Cell Badge(string value, string? variant = null, string[]? style = null)
     // Creates a checkbox cell.
-    static Cell Checkbox(bool checked, string actionId, string[] style = null, bool disabled = false)
+    static Cell Checkbox(bool checked, string actionId, string[]? style = null, bool disabled = false)
     // Creates a text cell.
-    static Cell Text(string value, string[] style = null)
+    static Cell Text(string? value, string[]? style = null)
   // An action button that can be displayed within a data table cell.
   class CellAction : IEquatable<CellAction>
     // An action button that can be displayed within a data table cell.
-    ctor(string Label, string ActionId, string[] Style = null, string Icon = null)
+    ctor(string Label, string ActionId, string[]? Style = null, string? Icon = null)
     string ActionId { get; init; }
     string Icon { get; init; }
     string Label { get; init; }
@@ -375,7 +375,7 @@ namespace Ikon.Parallax.Components.DataTable
   // Defines a column in a data table including header text, width, and alignment.
   class DataTableColumn : IEquatable<DataTableColumn>
     // Defines a column in a data table including header text, width, and alignment.
-    ctor(string Header, string Width = null, int Flex = 0, ColumnAlign Align = Left, string MinWidth = null, bool Wrap = false)
+    ctor(string Header, string? Width = null, int Flex = 0, ColumnAlign Align = Left, string? MinWidth = null, bool Wrap = false)
     ColumnAlign Align { get; init; }
     int Flex { get; init; }
     string Header { get; init; }
@@ -385,7 +385,7 @@ namespace Ikon.Parallax.Components.DataTable
   // Extension methods for rendering paginated data tables.
   static class DataTableExtensions
     // Renders a paginated data table with configurable columns, rows, actions, and styling.
-    static void DataTable(UIView view, DataTableColumn[] columns, DataTableRow[] rows, int totalCount, int pageIndex, int pageSize, Func<int, Task> onPageChange = null, Func<string, Task> onRowClick = null, Func<string, Task> onActionClick = null, Action<UIView> emptyContent = null, int[] columnWidths = null, Func<string, Task> onColumnResize = null, string[] style = null, string[] headerStyle = null, string[] rowStyle = null, string[] cellStyle = null, string[] headerCellStyle = null, string[] dataCellStyle = null, string[] paginationStyle = null, string[] paginationButtonStyle = null, string[] pageNumberStyle = null, string[] pageNumberActiveStyle = null, string[] emptyStyle = null, string[] actionButtonStyle = null, string[] resizeHandleStyle = null, string[] tooltipStyle = null, string prevLabel = null, string nextLabel = null, string pageLabel = null, string key = null, string file = "", int line = 0)
+    static void DataTable(UIView view, DataTableColumn[] columns, DataTableRow[] rows, int totalCount, int pageIndex, int pageSize, Func<int, Task>? onPageChange = null, Func<string, Task>? onRowClick = null, Func<string, Task>? onActionClick = null, Action<UIView>? emptyContent = null, int[]? columnWidths = null, Func<string, Task>? onColumnResize = null, string[]? style = null, string[]? headerStyle = null, string[]? rowStyle = null, string[]? cellStyle = null, string[]? headerCellStyle = null, string[]? dataCellStyle = null, string[]? paginationStyle = null, string[]? paginationButtonStyle = null, string[]? pageNumberStyle = null, string[]? pageNumberActiveStyle = null, string[]? emptyStyle = null, string[]? actionButtonStyle = null, string[]? resizeHandleStyle = null, string[]? tooltipStyle = null, string? prevLabel = null, string? nextLabel = null, string? pageLabel = null, string? key = null, string file = "", int line = 0)
   // A single row in a data table, identified by a unique ID and containing an array of cells.
   class DataTableRow : IEquatable<DataTableRow>
     // A single row in a data table, identified by a unique ID and containing an array of cells.
@@ -397,7 +397,7 @@ namespace Ikon.Parallax.Components.ImageEditor
   // Extension methods for the image editor canvas component.
   static class ImageEditorExtensions
     // Canvas for editing images with brush and eraser tools.
-    static void ImageEditorCanvas(UIView view, string[] style = null, string src = null, int? brushWidth = null, string brushColor = null, string tool = null, double? zoom = null, int? textMaxLength = null, int? textFontSize = null, int? textPadding = null, Func<ImageEditorSaveArgs, Task> onSave = null, Func<ImageEditorHistoryArgs, Task> onHistoryChange = null, int? triggerSave = null, int? triggerUndo = null, int? triggerRedo = null, string styleId = null, string key = null, string file = "", int line = 0)
+    static void ImageEditorCanvas(UIView view, string[]? style = null, string? src = null, int? brushWidth = null, string? brushColor = null, string? tool = null, double? zoom = null, int? textMaxLength = null, int? textFontSize = null, int? textPadding = null, Func<ImageEditorSaveArgs, Task>? onSave = null, Func<ImageEditorHistoryArgs, Task>? onHistoryChange = null, int? triggerSave = null, int? triggerUndo = null, int? triggerRedo = null, string? styleId = null, string? key = null, string file = "", int line = 0)
   // Event args for when the undo/redo history state changes.
   sealed class ImageEditorHistoryArgs : IEquatable<ImageEditorHistoryArgs>
     // Event args for when the undo/redo history state changes.
@@ -451,7 +451,7 @@ namespace Ikon.Parallax.Components.Rive
   // Helper class for accessing Rive event properties with type-safe methods.
   sealed class RiveEventProperties
     // Helper class for accessing Rive event properties with type-safe methods.
-    ctor(Dictionary<string, JsonElement> properties)
+    ctor(Dictionary<string, JsonElement>? properties)
     // Gets a boolean property value, or if not found.
     bool GetBool(string key, bool defaultValue = false)
     // Gets a double property value, or if not found.
@@ -463,7 +463,7 @@ namespace Ikon.Parallax.Components.Rive
   // Extension methods for Rive animation components.
   static class RiveExtensions
     // Canvas for rendering Rive animations with state machine support.
-    static void RiveCanvas(UIView view, string[] style = null, string source = null, IEnumerable<string> stateMachines = null, RiveViewModel viewModel = null, IEnumerable<RiveTrigger> triggers = null, Func<RiveEventData, Task> onEvent = null, RiveFit? layoutFit = null, RiveAlignment? layoutAlignment = null, bool? autoplay = null, bool? useOffscreenRenderer = null, bool? autoBind = null, bool? enableMultiTouch = null, bool? dispatchPointerExit = null, bool? isTouchScrollEnabled = null, bool? shouldDisableRiveListeners = null, IEnumerable<RiveKeyboardBinding> keyboardBindings = null, string backgroundColor = null, string width = null, string height = null, string styleId = null, string key = null, string file = "", int line = 0)
+    static void RiveCanvas(UIView view, string[]? style = null, string? source = null, IEnumerable<string>? stateMachines = null, RiveViewModel? viewModel = null, IEnumerable<RiveTrigger>? triggers = null, Func<RiveEventData, Task>? onEvent = null, RiveFit? layoutFit = null, RiveAlignment? layoutAlignment = null, bool? autoplay = null, bool? useOffscreenRenderer = null, bool? autoBind = null, bool? enableMultiTouch = null, bool? dispatchPointerExit = null, bool? isTouchScrollEnabled = null, bool? shouldDisableRiveListeners = null, IEnumerable<RiveKeyboardBinding>? keyboardBindings = null, string? backgroundColor = null, string? width = null, string? height = null, string? styleId = null, string? key = null, string file = "", int line = 0)
   // Layout fit options for Rive animations.
   enum RiveFit
     Contain
@@ -521,15 +521,15 @@ namespace Ikon.Parallax.Components.Rive
     // Sets a number input on the Rive state machine.
     RiveViewModel Number(string name, double? value)
     // Sets a string input on the Rive state machine.
-    RiveViewModel String(string name, string value)
+    RiveViewModel String(string name, string? value)
 
 namespace Ikon.Parallax.Components.Standard
   // Extension methods for accessibility components.
   static class AccessibilityExtensions
     // Wraps an icon with accessible label for screen readers.
-    static void AccessibleIcon(UIView view, string[] style = null, string label = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void AccessibleIcon(UIView view, string[]? style = null, string? label = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Hides content visually while keeping it accessible to screen readers.
-    static void VisuallyHidden(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void VisuallyHidden(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
   // Base event returned from a client-side action, indicating the action type and whether it succeeded.
   class ActionEvent : IEquatable<ActionEvent>
     // Base event returned from a client-side action, indicating the action type and whether it succeeded.
@@ -567,9 +567,9 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for Calendar and DatePicker components.
   static class CalendarExtensions
     // Month-grid date selector. Renders a single month with day cells. Dates are ISO yyyy-MM-dd strings.
-    static void Calendar(UIView view, string[] style = null, string value = null, string defaultValue = null, string month = null, string defaultMonth = null, string minDate = null, string maxDate = null, IReadOnlyList<string> disabledDates = null, WeekStart weekStart = Monday, string locale = null, bool? disabled = null, string[] headerStyle = null, string[] weekdayStyle = null, string[] dayStyle = null, string[] daySelectedStyle = null, string[] dayTodayStyle = null, string[] dayOutsideStyle = null, string[] dayDisabledStyle = null, string[] navButtonStyle = null, string[] titleStyle = null, string[] gridStyle = null, string[] rowStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Func<string, Task> onMonthChange = null, string file = "", int line = 0)
+    static void Calendar(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? month = null, string? defaultMonth = null, string? minDate = null, string? maxDate = null, IReadOnlyList<string>? disabledDates = null, WeekStart weekStart = Monday, string? locale = null, bool? disabled = null, string[]? headerStyle = null, string[]? weekdayStyle = null, string[]? dayStyle = null, string[]? daySelectedStyle = null, string[]? dayTodayStyle = null, string[]? dayOutsideStyle = null, string[]? dayDisabledStyle = null, string[]? navButtonStyle = null, string[]? titleStyle = null, string[]? gridStyle = null, string[]? rowStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onMonthChange = null, string file = "", int line = 0)
     // Button that opens a popover containing a .
-    static void DatePicker(UIView view, string[] style = null, string value = null, string defaultValue = null, string placeholder = null, string format = null, string minDate = null, string maxDate = null, IReadOnlyList<string> disabledDates = null, WeekStart weekStart = Monday, bool? disabled = null, bool? open = null, bool? defaultOpen = null, Side side = Bottom, Align align = Start, string[] triggerStyle = null, string[] contentStyle = null, string[] calendarStyle = null, string[] headerStyle = null, string[] weekdayStyle = null, string[] dayStyle = null, string[] daySelectedStyle = null, string[] dayTodayStyle = null, string[] dayOutsideStyle = null, string[] dayDisabledStyle = null, string[] navButtonStyle = null, string[] titleStyle = null, string[] gridStyle = null, string[] rowStyle = null, string[] rootStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Func<bool?, Task> onOpenChange = null, string file = "", int line = 0)
+    static void DatePicker(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, string? format = null, string? minDate = null, string? maxDate = null, IReadOnlyList<string>? disabledDates = null, WeekStart weekStart = Monday, bool? disabled = null, bool? open = null, bool? defaultOpen = null, Side side = Bottom, Align align = Start, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? calendarStyle = null, string[]? headerStyle = null, string[]? weekdayStyle = null, string[]? dayStyle = null, string[]? daySelectedStyle = null, string[]? dayTodayStyle = null, string[]? dayOutsideStyle = null, string[]? dayDisabledStyle = null, string[]? navButtonStyle = null, string[]? titleStyle = null, string[]? gridStyle = null, string[]? rowStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool?, Task>? onOpenChange = null, string file = "", int line = 0)
   // Which physical camera to prefer when starting the capture. Maps to the W3C MediaStream facingMode constraint and is treated as an "ideal" hint — the browser falls back to whatever camera is available if the requested side does not exist (e.g. desktops without a rear camera).
   enum CameraFacing
     User
@@ -608,13 +608,13 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for Carousel components.
   static class CarouselExtensions
     // Horizontal or vertical carousel with optional navigation arrows and indicator dots.
-    static void Carousel(UIView view, string[] style = null, int? index = null, int? defaultIndex = null, Orientation orientation = Horizontal, CarouselAlign align = Start, bool? loop = null, int? autoPlayMs = null, IEnumerable<CarouselSlideItem> slides = null, bool? showArrows = null, bool? showIndicators = null, string previousLabel = null, string nextLabel = null, string previousIconName = null, string nextIconName = null, string[] rootStyle = null, string[] viewportStyle = null, string[] slideStyle = null, string[] previousStyle = null, string[] nextStyle = null, string[] indicatorsStyle = null, string[] indicatorStyle = null, string[] indicatorActiveStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, Func<double, Task> onIndexChange = null, string file = "", int line = 0)
+    static void Carousel(UIView view, string[]? style = null, int? index = null, int? defaultIndex = null, Orientation orientation = Horizontal, CarouselAlign align = Start, bool? loop = null, int? autoPlayMs = null, IEnumerable<CarouselSlideItem>? slides = null, bool? showArrows = null, bool? showIndicators = null, string? previousLabel = null, string? nextLabel = null, string? previousIconName = null, string? nextIconName = null, string[]? rootStyle = null, string[]? viewportStyle = null, string[]? slideStyle = null, string[]? previousStyle = null, string[]? nextStyle = null, string[]? indicatorsStyle = null, string[]? indicatorStyle = null, string[]? indicatorActiveStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, Func<double, Task>? onIndexChange = null, string file = "", int line = 0)
     // A single slide inside a . Use when rendering slides manually.
-    static void Slide(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Slide(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
   // Declarative slide definition for .
   sealed class CarouselSlideItem : IEquatable<CarouselSlideItem>
     // Declarative slide definition for .
-    ctor(Action<UIView> Content, string Key = null)
+    ctor(Action<UIView> Content, string? Key = null)
     // Builder function for rendering the slide.
     Action<UIView> Content { get; init; }
     // Optional stable key used for diffing.
@@ -622,7 +622,7 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for the ChatLog primitive — the canonical chat-bubble layout shape: header + scrolling auto-scrolled body + composer. Wraps with chat-friendly defaults so callers don't have to remember to set autoScroll: true.
   static class ChatLogExtensions
     // Renders a chat-style scrolling region: an optional pinned header (e.g. "Conversation"), a scrollable body that auto-scrolls to the bottom on change, and an optional pinned footer (typically the input row).
-    static void ChatLog(UIView view, int messageCount, string[] style = null, Action<UIView> header = null, Action<UIView> footer = null, Action<UIView> content = null, string styleId = null, string key = null, string file = "", int line = 0)
+    static void ChatLog(UIView view, int messageCount, string[]? style = null, Action<UIView>? header = null, Action<UIView>? footer = null, Action<UIView>? content = null, string? styleId = null, string? key = null, string file = "", int line = 0)
   // Represents the checked state for checkbox-like components.
   enum CheckedState
     Unchecked
@@ -631,7 +631,7 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for the CodeEditor component.
   static class CodeEditorExtensions
     // Monospace code editor with an optional line-number gutter.
-    static void CodeEditor(UIView view, string value = null, string defaultValue = null, string language = null, string placeholder = null, bool? readOnly = null, bool? disabled = null, bool? showLineNumbers = null, int? tabSize = null, bool? insertSpaces = null, bool? wrap = null, int? minRows = null, int? maxRows = null, string[] style = null, string[] gutterStyle = null, string[] contentStyle = null, string[] languageBadgeStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Func<string, Task> onSubmit = null, string file = "", int line = 0)
+    static void CodeEditor(UIView view, string? value = null, string? defaultValue = null, string? language = null, string? placeholder = null, bool? readOnly = null, bool? disabled = null, bool? showLineNumbers = null, int? tabSize = null, bool? insertSpaces = null, bool? wrap = null, int? minRows = null, int? maxRows = null, string[]? style = null, string[]? gutterStyle = null, string[]? contentStyle = null, string[]? languageBadgeStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, string file = "", int line = 0)
   // Represents collision detection strategy for @dnd-kit.
   enum CollisionDetection
     ClosestCenter
@@ -646,7 +646,7 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for ColorPicker components.
   static class ColorPickerExtensions
     // Swatch-triggered color picker with hue slider, saturation/lightness square, and hex input.
-    static void ColorPicker(UIView view, string[] style = null, string value = null, string defaultValue = null, ColorFormat format = Hex, bool? showAlpha = null, IReadOnlyList<string> presets = null, bool? disabled = null, bool? open = null, bool? defaultOpen = null, Side side = Bottom, Align align = Start, string[] triggerStyle = null, string[] contentStyle = null, string[] rootStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Func<string, Task> onValueCommit = null, Func<bool?, Task> onOpenChange = null, string file = "", int line = 0)
+    static void ColorPicker(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, ColorFormat format = Hex, bool? showAlpha = null, IReadOnlyList<string>? presets = null, bool? disabled = null, bool? open = null, bool? defaultOpen = null, Side side = Bottom, Align align = Start, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onValueCommit = null, Func<bool?, Task>? onOpenChange = null, string file = "", int line = 0)
   // Horizontal alignment for a content grid or data table column.
   enum ColumnAlign
     Left
@@ -655,36 +655,36 @@ namespace Ikon.Parallax.Components.Standard
   // Event returned from a contact picker action with the selected contacts.
   sealed class ContactsActionEvent : ActionEvent, IEquatable<ContactsActionEvent>
     // Event returned from a contact picker action with the selected contacts.
-    ctor(bool Success, IReadOnlyList<ClientContact> Contacts)
+    ctor(bool Success, IReadOnlyList<ClientContact>? Contacts)
     IReadOnlyList<ClientContact> Contacts { get; init; }
   // Extension methods for container components.
   static class ContainerExtensions
     // Generic container element.
-    static void Box(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<Task> onClick = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Box(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<Task>? onClick = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Box — positional (style, children) overload. Models reach for view.Box([style], v => {...}) with the lambda as the 2nd positional; without this overload it tries to bind to styleId (string?) and trips CS1660. The lambda parameter is named children (not content) so existing callers that use content: by name unambiguously match the original.
-    static void Box(UIView view, string[] style, Action<UIView> children, string file = "", int line = 0)
+    static void Box(UIView view, string[]? style, Action<UIView> children, string file = "", int line = 0)
     // Container with vertical flexbox layout (flex-col).
-    static void Column(UIView view, string[] style = null, string styleId = null, string key = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Column(UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Column — positional (style, children) overload.
-    static void Column(UIView view, string[] style, Action<UIView> children, string file = "", int line = 0)
+    static void Column(UIView view, string[]? style, Action<UIView> children, string file = "", int line = 0)
     // Container with flexbox layout enabled.
-    static void Flex(UIView view, string[] style = null, string styleId = null, string key = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Flex(UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Container with CSS grid layout enabled.
-    static void Grid(UIView view, string[] style = null, string styleId = null, string key = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Grid(UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Grid — positional (style, children) overload.
-    static void Grid(UIView view, string[] style, Action<UIView> children, string file = "", int line = 0)
+    static void Grid(UIView view, string[]? style, Action<UIView> children, string file = "", int line = 0)
     // Absolutely positioned layer within a Stack container.
-    static void Layer(UIView view, string[] style = null, string styleId = null, string key = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Layer(UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Container with horizontal flexbox layout (flex-row).
-    static void Row(UIView view, string[] style = null, string styleId = null, string key = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Row(UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Row — positional (style, children) overload (see ).
-    static void Row(UIView view, string[] style, Action<UIView> children, string file = "", int line = 0)
+    static void Row(UIView view, string[]? style, Action<UIView> children, string file = "", int line = 0)
     // Container for layering children on top of each other. Use with Layer components as children.
-    static void Stack(UIView view, string[] style = null, string styleId = null, string key = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Stack(UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null, string file = "", int line = 0)
   // Defines a column in a content grid including optional header, width, flex, and alignment.
   class ContentGridColumn : IEquatable<ContentGridColumn>
     // Defines a column in a content grid including optional header, width, flex, and alignment.
-    ctor(string Header, string Width = null, int Flex = 0, ColumnAlign Align = Left)
+    ctor(string? Header, string? Width = null, int Flex = 0, ColumnAlign Align = Left)
     ColumnAlign Align { get; init; }
     int Flex { get; init; }
     string Header { get; init; }
@@ -692,7 +692,7 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for CSS grid-based content layout.
   static class ContentGridExtensions
     // Renders a CSS grid layout with configurable columns, optional headers, and child content.
-    static void ContentGrid(UIView view, ContentGridColumn[] columns, Action<UIView> content = null, string[] style = null, string[] headerStyle = null, string key = null, string file = "", int line = 0)
+    static void ContentGrid(UIView view, ContentGridColumn[] columns, Action<UIView>? content = null, string[]? style = null, string[]? headerStyle = null, string? key = null, string file = "", int line = 0)
   // Options for copying text to the clipboard.
   sealed class CopyToClipboardActionOptions : ActionOptions, IEquatable<CopyToClipboardActionOptions>
     // The text to copy.
@@ -700,29 +700,31 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for core UI components including buttons, toggles, text inputs, dialogs, and typography.
   static class CoreExtensions
     // Button that triggers a client-side action (e.g., clipboard, download). Supports both text mode and icon mode. In text mode (content is null or label is null), label is displayed as visible text. In icon mode (content and label are both provided), label becomes the accessible aria-label and content is displayed.
-    static void ActionButton(UIView view, string[] style = null, ActionKind action = Unknown, string label = null, ActionOptions options = null, bool? disabled = null, string className = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<ActionEvent, Task> onActionComplete = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void ActionButton(UIView view, string[]? style = null, ActionKind action = Unknown, string? label = null, ActionOptions? options = null, bool? disabled = null, string? className = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<ActionEvent, Task>? onActionComplete = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Clickable button that triggers an action. Supports both text mode and icon mode. In text mode (content is null), text is displayed as visible button text. In icon mode (content is provided), text becomes the accessible aria-label and content is displayed.
-    static void Button(UIView view, string[] style = null, string text = null, string label = null, bool? disabled = null, string href = null, string type = null, string target = null, string rel = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Delegate onClick = null, string icon = null, string iconPosition = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Button(UIView view, string[]? style = null, string? text = null, string? label = null, bool? disabled = null, string? href = null, string? type = null, string? target = null, string? rel = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Delegate? onClick = null, string? icon = null, string? iconPosition = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Button — positional-text-first overload. Same rationale as the matching Text overload — avoids CS1744 when models write view.Button("Sign in", onClick: …). First parameter is named buttonText to avoid ambiguity with callers using Button(text: "...") by name.
-    static void Button(UIView view, string buttonText, string[] style = null, string label = null, bool? disabled = null, string href = null, string type = null, string target = null, string rel = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Delegate onClick = null, string icon = null, string iconPosition = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Button(UIView view, string buttonText, string[]? style = null, string? label = null, bool? disabled = null, string? href = null, string? type = null, string? target = null, string? rel = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Delegate? onClick = null, string? icon = null, string? iconPosition = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Semantic heading element for titles and section headers.
-    static void Heading(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Heading(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Renders an icon from an icon library.
-    static void Icon(UIView view, string[] style = null, string name = null, string library = null, string className = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Icon(UIView view, string[]? style = null, string? name = null, string? library = null, string? className = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
+    // Inline anchor link — sugar for a `Button` styled like a hyperlink with an `href`. Mirrors HTML anchor semantics. By default opens in the same tab; pass target: "_blank" to open in a new tab (we automatically add `rel="noopener noreferrer"` for `_blank` if no other `rel` is provided). Generated code naturally reaches for `view.Link(text:, href:)`; this gives it the canonical shape rather than forcing every link into `view.Button(href:, …)`.
+    static void Link(UIView view, string[]? style = null, string? text = null, string? href = null, string? target = null, string? rel = null, Delegate? onClick = null, string? icon = null, string? iconPosition = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Renders markdown content with formatting support.
-    static void Markdown(UIView view, string[] style = null, string content = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, string file = "", int line = 0)
+    static void Markdown(UIView view, string[]? style = null, string? content = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // Text element for displaying content.
-    static void Text(UIView view, string[] style = null, string text = null, string href = null, string target = null, string rel = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Text(UIView view, string[]? style = null, string? text = null, string? href = null, string? target = null, string? rel = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Text element — positional-text-first overload. Models trained on shadcn / Radix / React conventions reach for view.Text("Hello", style: ["text-xl"]) rather than the view.Text(["text-xl"], "Hello") ordering. Without this overload, the positional string argument fails to bind to the original signature's first parameter (string[]? style), producing CS1744 / CS1503 — the most common compile error in the codegen benchmark. Parameter is named textContent (not text) to avoid ambiguity with existing callers that use Text(text: "...") by name.
-    static void Text(UIView view, string textContent, string[] style = null, string href = null, string target = null, string rel = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Text(UIView view, string textContent, string[]? style = null, string? href = null, string? target = null, string? rel = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Single toggle button.
-    static void Toggle(UIView view, string[] style = null, bool? pressed = null, bool? defaultPressed = null, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<bool, Task> onPressedChange = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Toggle(UIView view, string[]? style = null, bool? pressed = null, bool? defaultPressed = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onPressedChange = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Item within a toggle group.
-    static void ToggleGroupItem(UIView view, string[] style = null, string value = null, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void ToggleGroupItem(UIView view, string[]? style = null, string? value = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Toggle group with multiple selection.
-    static void ToggleGroupMultiple(UIView view, string[] style = null, IReadOnlyList<string> value = null, IReadOnlyList<string> defaultValue = null, bool? rovingFocus = true, bool loop = true, Orientation orientation = Horizontal, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<IReadOnlyList<string>, Task> onValueChange = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void ToggleGroupMultiple(UIView view, string[]? style = null, IReadOnlyList<string>? value = null, IReadOnlyList<string>? defaultValue = null, bool? rovingFocus = true, bool loop = true, Orientation orientation = Horizontal, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<IReadOnlyList<string>, Task>? onValueChange = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Toggle group with single selection.
-    static void ToggleGroupSingle(UIView view, string[] style = null, string value = null, string defaultValue = null, bool? rovingFocus = true, bool loop = true, Orientation orientation = Horizontal, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void ToggleGroupSingle(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, bool? rovingFocus = true, bool loop = true, Orientation orientation = Horizontal, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null, string file = "", int line = 0)
   // Represents the text direction for DirectionProvider.
   enum Dir
     Ltr
@@ -730,23 +732,23 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for Accordion and Collapsible components.
   static class DisclosureExtensions
     // Content for an accordion item, collapsed or expanded.
-    static void AccordionContent(UIView view, string[] style = null, bool? forceMount = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void AccordionContent(UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Wraps an AccordionTrigger.
-    static void AccordionHeader(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void AccordionHeader(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Container for an accordion item.
-    static void AccordionItem(UIView view, string[] style = null, string value = null, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void AccordionItem(UIView view, string[]? style = null, string? value = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Accordion with multiple items open at a time.
-    static void AccordionMultiple(UIView view, string[] style = null, IReadOnlyList<string> value = null, IReadOnlyList<string> defaultValue = null, Orientation orientation = Vertical, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<IReadOnlyList<string>, Task> onValueChange = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void AccordionMultiple(UIView view, string[]? style = null, IReadOnlyList<string>? value = null, IReadOnlyList<string>? defaultValue = null, Orientation orientation = Vertical, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<IReadOnlyList<string>, Task>? onValueChange = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Accordion with single item open at a time.
-    static void AccordionSingle(UIView view, string[] style = null, string value = null, string defaultValue = null, bool? collapsible = null, Orientation orientation = Vertical, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void AccordionSingle(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, bool? collapsible = null, Orientation orientation = Vertical, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Toggles the collapsed state of an accordion item.
-    static void AccordionTrigger(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void AccordionTrigger(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Expandable/collapsible container.
-    static void Collapsible(UIView view, string[] style = null, bool? open = null, bool? defaultOpen = null, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<bool, Task> onOpenChange = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Collapsible(UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Content that is shown or hidden.
-    static void CollapsibleContent(UIView view, string[] style = null, bool? forceMount = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void CollapsibleContent(UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Toggles the collapsed state.
-    static void CollapsibleTrigger(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void CollapsibleTrigger(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
   // Options for downloading a file to the client.
   sealed class DownloadFileActionOptions : ActionOptions, IEquatable<DownloadFileActionOptions>
     ctor()
@@ -761,21 +763,21 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for drag and drop components.
   static class DragAndDropExtensions
     // Root context for drag and drop operations.
-    static void DndContext(UIView view, string[] style = null, CollisionDetection collisionDetection = ClosestCenter, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<DragStartArgs, Task> onDragStart = null, Func<DragMoveArgs, Task> onDragMove = null, Func<DragOverArgs, Task> onDragOver = null, Func<DragEndArgs, Task> onDragEnd = null, Func<Task> onDragCancel = null, int? activationDistance = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void DndContext(UIView view, string[]? style = null, CollisionDetection collisionDetection = ClosestCenter, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<DragStartArgs, Task>? onDragStart = null, Func<DragMoveArgs, Task>? onDragMove = null, Func<DragOverArgs, Task>? onDragOver = null, Func<DragEndArgs, Task>? onDragEnd = null, Func<Task>? onDragCancel = null, int? activationDistance = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Overlay shown while dragging.
-    static void DragOverlay(UIView view, string[] style = null, bool? dropAnimation = true, string activeDragId = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void DragOverlay(UIView view, string[]? style = null, bool? dropAnimation = true, string? activeDragId = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Element that can be dragged.
-    static void Draggable(UIView view, string[] style = null, string id = null, bool? disabled = null, bool? hideOnDrag = null, object data = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Draggable(UIView view, string[]? style = null, string? id = null, bool? disabled = null, bool? hideOnDrag = null, object? data = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Drop target area.
-    static void Droppable(UIView view, string[] style = null, string id = null, bool? disabled = null, object data = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Droppable(UIView view, string[]? style = null, string? id = null, bool? disabled = null, object? data = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Context for sortable list operations.
-    static void SortableContext(UIView view, string[] style = null, IReadOnlyList<string> items = null, SortStrategy strategy = VerticalList, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void SortableContext(UIView view, string[]? style = null, IReadOnlyList<string>? items = null, SortStrategy strategy = VerticalList, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Drag handle for a SortableItem. When a SortableHandle descendant is present, only pointerdown on the handle starts a drag; the rest of the item remains free for inner clickable elements like buttons. Place inside a SortableItem (or a SortableList itemContent). Outside a SortableItem the handle renders as a plain container.
-    static void SortableHandle(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void SortableHandle(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Sortable item within a SortableContext.
-    static void SortableItem(UIView view, string[] style = null, string id = null, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void SortableItem(UIView view, string[]? style = null, string? id = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // SortableList component that auto-handles reordering.
-    static void SortableList(UIView view, IReadOnlyList<string> items = null, SortStrategy strategy = VerticalList, CollisionDetection collisionDetection = ClosestCenter, Func<SortableReorderArgs, Task> onReorder = null, Func<DragStartArgs, Task> onDragStart = null, Action<UIView, string> itemContent = null, string[] listStyle = null, string[] itemStyle = null, int? activationDistance = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, string file = "", int line = 0)
+    static void SortableList(UIView view, IReadOnlyList<string>? items = null, SortStrategy strategy = VerticalList, CollisionDetection collisionDetection = ClosestCenter, Func<SortableReorderArgs, Task>? onReorder = null, Func<DragStartArgs, Task>? onDragStart = null, Action<UIView, string>? itemContent = null, string[]? listStyle = null, string[]? itemStyle = null, int? activationDistance = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
   // Event args for drag cancel in @dnd-kit.
   sealed class DragCancelArgs : IEquatable<DragCancelArgs>
     // Event args for drag cancel in @dnd-kit.
@@ -784,7 +786,7 @@ namespace Ikon.Parallax.Components.Standard
   // Event args for drag end in @dnd-kit.
   sealed class DragEndArgs : IEquatable<DragEndArgs>
     // Event args for drag end in @dnd-kit.
-    ctor(string ActiveId, string OverId)
+    ctor(string ActiveId, string? OverId)
     string ActiveId { get; init; }
     string OverId { get; init; }
   // Event args for drag move in @dnd-kit.
@@ -797,7 +799,7 @@ namespace Ikon.Parallax.Components.Standard
   // Event args for drag over in @dnd-kit.
   sealed class DragOverArgs : IEquatable<DragOverArgs>
     // Event args for drag over in @dnd-kit.
-    ctor(string ActiveId, string OverId)
+    ctor(string ActiveId, string? OverId)
     string ActiveId { get; init; }
     string OverId { get; init; }
   // Event args for drag start in @dnd-kit.
@@ -818,13 +820,13 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for the FeedScroller component — a vertically-snapping, full-viewport feed optimized for media-heavy content (TikTok / Reels / Shorts-style).
   static class FeedScrollerExtensions
     // Renders a TikTok-style vertical feed: each slide occupies the viewport and snaps into place.
-    static void FeedScroller(UIView view, IEnumerable<FeedSlide> slides, int? activeIndex = null, int? defaultActiveIndex = null, int preloadAhead = 2, int preloadBehind = 1, bool? autoPlay = null, bool? muted = null, bool? loop = null, int scrollEndThreshold = 2, string[] style = null, string[] slideStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<double, Task> onActiveChange = null, Func<double, Task> onScrollNearEnd = null, Func<bool, Task> onMuteChange = null, string file = "", int line = 0)
+    static void FeedScroller(UIView view, IEnumerable<FeedSlide> slides, int? activeIndex = null, int? defaultActiveIndex = null, int preloadAhead = 2, int preloadBehind = 1, bool? autoPlay = null, bool? muted = null, bool? loop = null, int scrollEndThreshold = 2, string[]? style = null, string[]? slideStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<double, Task>? onActiveChange = null, Func<double, Task>? onScrollNearEnd = null, Func<bool, Task>? onMuteChange = null, string file = "", int line = 0)
     // A single slide inside a . Use when rendering slides manually rather than via the declarative API.
-    static void FeedSlide(UIView view, int index, string[] style = null, FeedMediaKind mediaKind = None, string mediaUrl = null, string mediaPoster = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void FeedSlide(UIView view, int index, string[]? style = null, FeedMediaKind mediaKind = None, string? mediaUrl = null, string? mediaPoster = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
   // A single slide in a .
   sealed class FeedSlide : IEquatable<FeedSlide>
     // A single slide in a .
-    ctor(Action<UIView> Content, string Key = null, FeedMediaKind MediaKind = None, string MediaUrl = null, string MediaPoster = null)
+    ctor(Action<UIView> Content, string? Key = null, FeedMediaKind MediaKind = None, string? MediaUrl = null, string? MediaPoster = null)
     // Builder invoked to render the slide. Only slides inside the render window are realized.
     Action<UIView> Content { get; init; }
     // Stable key used for diffing and preload identity. Defaults to slide index.
@@ -838,7 +840,7 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for file picker components. Unlike , a FilePicker only opens the native file picker and reports selected file metadata to the server — it does not transfer bytes. The picked File handles are cached on the client and uploaded later by a rendered with a matching seedSelectionIds prop.
   static class FilePickerExtensions
     // Native file picker. Emits once per selected file with its metadata (name, mime, size, client-generated selection id). The File bytes stay on the client and are not transferred until a FileUpload with matching seedSelectionIds is mounted.
-    static void FilePicker(UIView view, string[] style = null, string[] accept = null, bool? multiple = null, long? maxFileSize = null, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<FilePickerSelectedArgs, Task> onFileSelected = null, Func<FilePickerValidationErrorArgs, Task> onValidationError = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void FilePicker(UIView view, string[]? style = null, string[]? accept = null, bool? multiple = null, long? maxFileSize = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<FilePickerSelectedArgs, Task>? onFileSelected = null, Func<FilePickerValidationErrorArgs, Task>? onValidationError = null, Action<UIView>? content = null, string file = "", int line = 0)
   // Metadata for a file chosen in a . The file bytes are held on the client until an upload is triggered later via a FileUpload with matching seedSelectionIds.
   sealed class FilePickerSelectedArgs : IEquatable<FilePickerSelectedArgs>
     // Metadata for a file chosen in a . The file bytes are held on the client until an upload is triggered later via a FileUpload with matching seedSelectionIds.
@@ -858,13 +860,13 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for file upload components.
   static class FileUploadExtensions
     // File upload component with explicit upload area, button click, drag-drop, and paste support.
-    static void FileUpload(UIView view, string[] style = null, string[] accept = null, bool? multiple = null, long? maxFileSize = null, bool? disabled = null, bool? allowPaste = null, string capture = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<FileUploadPreStartArgs, Task<FileUploadPreStartResult>> onUploadPreStart = null, Func<FileUploadStartArgs, Task<FileUploadStartResult>> onUploadStart = null, Func<FileUploadProgressArgs, Task> onUploadProgress = null, Func<FileUploadCompleteArgs, Task> onUploadComplete = null, Func<FileUploadErrorArgs, Task> onUploadError = null, Func<FileUploadChunkArgs, Task> onChunkReceived = null, string[] seedSelectionIds = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void FileUpload(UIView view, string[]? style = null, string[]? accept = null, bool? multiple = null, long? maxFileSize = null, bool? disabled = null, bool? allowPaste = null, string? capture = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<FileUploadPreStartArgs, Task<FileUploadPreStartResult>>? onUploadPreStart = null, Func<FileUploadStartArgs, Task<FileUploadStartResult>>? onUploadStart = null, Func<FileUploadProgressArgs, Task>? onUploadProgress = null, Func<FileUploadCompleteArgs, Task>? onUploadComplete = null, Func<FileUploadErrorArgs, Task>? onUploadError = null, Func<FileUploadChunkArgs, Task>? onChunkReceived = null, string[]? seedSelectionIds = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Wrapper component that adds file upload capability (drag-drop + paste) to any content. Children define the visual appearance.
-    static void FileUploadZone(UIView view, string[] accept = null, bool? multiple = null, long? maxFileSize = null, bool? disabled = null, bool? allowPaste = null, Func<FileUploadPreStartArgs, Task<FileUploadPreStartResult>> onUploadPreStart = null, Func<FileUploadStartArgs, Task<FileUploadStartResult>> onUploadStart = null, Func<FileUploadProgressArgs, Task> onUploadProgress = null, Func<FileUploadCompleteArgs, Task> onUploadComplete = null, Func<FileUploadErrorArgs, Task> onUploadError = null, Func<FileUploadChunkArgs, Task> onChunkReceived = null, Func<bool, Task> onDragActiveChange = null, Action<UIView> content = null, string[] zoneStyle = null, string[] activeStyle = null, string activeStyleId = null, string styleId = null, string key = null, string[] seedSelectionIds = null, IReadOnlyDictionary<string, object> props = null, string file = "", int line = 0)
+    static void FileUploadZone(UIView view, string[]? accept = null, bool? multiple = null, long? maxFileSize = null, bool? disabled = null, bool? allowPaste = null, Func<FileUploadPreStartArgs, Task<FileUploadPreStartResult>>? onUploadPreStart = null, Func<FileUploadStartArgs, Task<FileUploadStartResult>>? onUploadStart = null, Func<FileUploadProgressArgs, Task>? onUploadProgress = null, Func<FileUploadCompleteArgs, Task>? onUploadComplete = null, Func<FileUploadErrorArgs, Task>? onUploadError = null, Func<FileUploadChunkArgs, Task>? onChunkReceived = null, Func<bool, Task>? onDragActiveChange = null, Action<UIView>? content = null, string[]? zoneStyle = null, string[]? activeStyle = null, string? activeStyleId = null, string? styleId = null, string? key = null, string[]? seedSelectionIds = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
   // Extension methods for focus hint management.
   static class FocusHintExtensions
     // Requests focus attention for a UI element, typically for accessibility announcements.
-    static void FocusHint(UIView view, FocusHintProps props, string key = null, Guid? targetViewId = null)
+    static void FocusHint(UIView view, FocusHintProps props, string? key = null, Guid? targetViewId = null)
   // Configuration for a focus hint request including priority, ranking, and cooldown behavior.
   sealed class FocusHintProps : IEquatable<FocusHintProps>
     ctor()
@@ -879,7 +881,7 @@ namespace Ikon.Parallax.Components.Standard
   // Event args for focus outside events on overlays.
   sealed class FocusOutsideArgs : IEquatable<FocusOutsideArgs>
     // Event args for focus outside events on overlays.
-    ctor(string TargetId)
+    ctor(string? TargetId)
     string TargetId { get; init; }
   // Priority level for focus hint announcements, matching ARIA live region politeness.
   enum FocusPriority
@@ -888,43 +890,43 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for Form, Checkbox, RadioGroup, Switch, Slider, and Label components.
   static class FormExtensions
     // Checkbox control with simple boolean state. For tri-state support (indeterminate), use the CheckedState overload.
-    static void Checkbox(UIView view, string[] style = null, bool? isChecked = null, bool? defaultChecked = null, bool? required = null, bool? disabled = null, string name = null, string value = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<bool, Task> onCheckedChange = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Checkbox(UIView view, string[]? style = null, bool? isChecked = null, bool? defaultChecked = null, bool? required = null, bool? disabled = null, string? name = null, string? value = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onCheckedChange = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Checkbox control with tri-state support (checked, unchecked, indeterminate).
-    static void Checkbox(UIView view, string[] style = null, CheckedState? checkedState = null, CheckedState? defaultCheckedState = null, bool? required = null, bool? disabled = null, string name = null, string value = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<CheckedState, Task> onCheckedStateChange = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Checkbox(UIView view, string[]? style = null, CheckedState? checkedState = null, CheckedState? defaultCheckedState = null, bool? required = null, bool? disabled = null, string? name = null, string? value = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<CheckedState, Task>? onCheckedStateChange = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Visual indicator for the checkbox state.
-    static void CheckboxIndicator(UIView view, string[] style = null, bool? forceMount = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void CheckboxIndicator(UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Form container with validation support.
-    static void Form(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<Task> onClearServerErrors = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Form(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<Task>? onClearServerErrors = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Wraps the input control.
-    static void FormControl(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void FormControl(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Container for a form field with label and validation.
-    static void FormField(UIView view, string[] style = null, string name = null, bool? serverInvalid = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void FormField(UIView view, string[]? style = null, string? name = null, bool? serverInvalid = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Label for a form field.
-    static void FormLabel(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void FormLabel(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Validation message for a form field.
-    static void FormMessage(UIView view, string[] style = null, FormMessageMatch? match = null, bool? forceMatch = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void FormMessage(UIView view, string[]? style = null, FormMessageMatch? match = null, bool? forceMatch = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Submit button for the form.
-    static void FormSubmit(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void FormSubmit(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Accessible label for form controls.
-    static void Label(UIView view, string[] style = null, string htmlFor = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Label(UIView view, string[]? style = null, string? htmlFor = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Container for radio buttons.
-    static void RadioGroup(UIView view, string[] style = null, string value = null, string defaultValue = null, bool? required = null, bool? disabled = null, bool loop = true, Orientation orientation = Vertical, string name = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void RadioGroup(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, bool? required = null, bool? disabled = null, bool loop = true, Orientation orientation = Vertical, string? name = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Visual indicator for the selected radio.
-    static void RadioGroupIndicator(UIView view, string[] style = null, bool? forceMount = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void RadioGroupIndicator(UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Individual radio button.
-    static void RadioGroupItem(UIView view, string[] style = null, string value = null, bool? disabled = null, bool? required = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void RadioGroupItem(UIView view, string[]? style = null, string? value = null, bool? disabled = null, bool? required = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Range slider control.
-    static void Slider(UIView view, string[] style = null, IReadOnlyList<double> value = null, IReadOnlyList<double> defaultValue = null, double? min = null, double? max = null, double? step = null, int? minStepsBetweenThumbs = null, Orientation orientation = Horizontal, bool? disabled = null, bool? inverted = null, string name = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<IReadOnlyList<double>, Task> onValueChange = null, Func<IReadOnlyList<double>, Task> onValueCommit = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Slider(UIView view, string[]? style = null, IReadOnlyList<double>? value = null, IReadOnlyList<double>? defaultValue = null, double? min = null, double? max = null, double? step = null, int? minStepsBetweenThumbs = null, Orientation orientation = Horizontal, bool? disabled = null, bool? inverted = null, string? name = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<IReadOnlyList<double>, Task>? onValueChange = null, Func<IReadOnlyList<double>, Task>? onValueCommit = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Filled range portion of the slider.
-    static void SliderRange(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, string file = "", int line = 0)
+    static void SliderRange(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // Draggable thumb on the slider.
-    static void SliderThumb(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, string file = "", int line = 0)
+    static void SliderThumb(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // Track for the slider.
-    static void SliderTrack(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void SliderTrack(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Toggle switch control.
-    static void Switch(UIView view, string[] style = null, bool? isChecked = null, bool? defaultChecked = null, bool? required = null, bool? disabled = null, string name = null, string value = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<bool, Task> onCheckedChange = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Switch(UIView view, string[]? style = null, bool? isChecked = null, bool? defaultChecked = null, bool? required = null, bool? disabled = null, string? name = null, string? value = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onCheckedChange = null, Action<UIView>? content = null, string file = "", int line = 0)
     // The thumb that moves when the switch is toggled.
-    static void SwitchThumb(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void SwitchThumb(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
   // Represents form validation message types matching browser constraint validation.
   enum FormMessageMatch
     ValueMissing
@@ -944,7 +946,7 @@ namespace Ikon.Parallax.Components.Standard
   // Event returned from an image capture action with the captured image data.
   sealed class ImageCaptureActionEvent : ActionEvent, IEquatable<ImageCaptureActionEvent>
     // Event returned from an image capture action with the captured image data.
-    ctor(bool Success, string Mime, int Width, int Height, string Data)
+    ctor(bool Success, string? Mime, int Width, int Height, string? Data)
     string Data { get; init; }
     int Height { get; init; }
     string Mime { get; init; }
@@ -952,41 +954,41 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for image and avatar components.
   static class ImageExtensions
     // Avatar container with image and fallback.
-    static void Avatar(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Avatar(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Fallback content shown when image fails to load.
-    static void AvatarFallback(UIView view, string[] style = null, int? delayMs = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void AvatarFallback(UIView view, string[]? style = null, int? delayMs = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Image element for the avatar.
-    static void AvatarImage(UIView view, string[] style = null, string src = null, string alt = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<Task> onLoadingStatusChange = null, string file = "", int line = 0)
+    static void AvatarImage(UIView view, string[]? style = null, string? src = null, string? alt = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<Task>? onLoadingStatusChange = null, string file = "", int line = 0)
     // Image element.
-    static void Image(UIView view, string[] style = null, string src = null, AssetUri? assetUri = null, string alt = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<Task> onClick = null, string file = "", int line = 0)
+    static void Image(UIView view, string[]? style = null, string? src = null, AssetUri? assetUri = null, string? alt = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<Task>? onClick = null, string file = "", int line = 0)
     // Image element with binary data payload.
-    static void Image(UIView view, string[] style = null, byte[] data = null, string mimeType = null, string alt = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<Task> onClick = null, string file = "", int line = 0)
+    static void Image(UIView view, string[]? style = null, byte[]? data = null, string? mimeType = null, string? alt = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<Task>? onClick = null, string file = "", int line = 0)
   // Extension methods for input components (TextField, TextArea, OTP, Password).
   static class InputExtensions
     // One-time password input field.
-    static void OtpField(UIView view, string[] style = null, string value = null, int? maxLength = null, bool autoSubmit = false, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Func<Task> onAutoSubmit = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void OtpField(UIView view, string[]? style = null, string? value = null, int? maxLength = null, bool autoSubmit = false, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<Task>? onAutoSubmit = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Individual input slot for OTP.
-    static void OtpFieldInput(UIView view, string[] style = null, int index = 0, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, string file = "", int line = 0)
+    static void OtpFieldInput(UIView view, string[]? style = null, int index = 0, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // Password input with visibility toggle.
-    static void PasswordToggleField(UIView view, string[] style = null, bool? visible = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<bool, Task> onVisibilityChange = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void PasswordToggleField(UIView view, string[]? style = null, bool? visible = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onVisibilityChange = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Icon that changes based on visibility state.
-    static void PasswordToggleFieldIcon(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> visibleIcon = null, Action<UIView> hiddenIcon = null, string file = "", int line = 0)
+    static void PasswordToggleFieldIcon(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? visibleIcon = null, Action<UIView>? hiddenIcon = null, string file = "", int line = 0)
     // The password input element.
-    static void PasswordToggleFieldInput(UIView view, string[] style = null, string autoComplete = null, string placeholder = null, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, string file = "", int line = 0)
+    static void PasswordToggleFieldInput(UIView view, string[]? style = null, string? autoComplete = null, string? placeholder = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // Button to toggle password visibility.
-    static void PasswordToggleFieldToggle(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void PasswordToggleFieldToggle(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Two-way bind a TextArea to a in one call. Same shape as the TextField bind overload.
-    static void TextArea(UIView view, Reactive<string> bind, string[] style = null, string placeholder = null, bool? disabled = null, int? rows = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onSubmit = null, Func<Context, Task> onSubmitWithContext = null, bool? clearOnSubmit = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void TextArea(UIView view, Reactive<string> bind, string[]? style = null, string? placeholder = null, bool? disabled = null, int? rows = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onSubmit = null, Func<Context, Task>? onSubmitWithContext = null, bool? clearOnSubmit = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Multi-line text input area.
-    static void TextArea(UIView view, string[] style = null, string value = null, string defaultValue = null, string placeholder = null, bool? disabled = null, int? rows = null, bool? autoResize = null, int? maxRows = null, bool? submitOnEnter = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Func<string, Task> onSubmit = null, Func<Context, Task> onSubmitWithContext = null, bool? clearOnSubmit = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void TextArea(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, int? rows = null, bool? autoResize = null, int? maxRows = null, bool? submitOnEnter = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, Func<Context, Task>? onSubmitWithContext = null, bool? clearOnSubmit = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Two-way bind a TextField to a in one call — reads bind.Value for the controlled value and writes bind.Value = v on every keystroke. Use this instead of pairing value: bind.Value with a manual onValueChange.
-    static void TextField(UIView view, Reactive<string> bind, string[] style = null, string placeholder = null, bool? disabled = null, string type = null, string step = null, string min = null, string max = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onSubmit = null, bool? clearOnSubmit = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void TextField(UIView view, Reactive<string> bind, string[]? style = null, string? placeholder = null, bool? disabled = null, string? type = null, string? step = null, string? min = null, string? max = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onSubmit = null, bool? clearOnSubmit = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Single-line text input field.
-    static void TextField(UIView view, string[] style = null, string value = null, string defaultValue = null, string placeholder = null, bool? disabled = null, string type = null, string step = null, string min = null, string max = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Func<string, Task> onSubmit = null, bool? clearOnSubmit = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void TextField(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, string? type = null, string? step = null, string? min = null, string? max = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, bool? clearOnSubmit = null, Action<UIView>? content = null, string file = "", int line = 0)
   // Event args for interact outside events on overlays (combines pointer and focus).
   sealed class InteractOutsideArgs : IEquatable<InteractOutsideArgs>
     // Event args for interact outside events on overlays (combines pointer and focus).
-    ctor(string TargetId)
+    ctor(string? TargetId)
     string TargetId { get; init; }
   // String constants for common keyboard key names, matching the browser KeyboardEvent.key specification. Use these with for type-safe key filtering. Raw strings can also be used for uncommon keys not listed here.
   static class Key
@@ -1034,23 +1036,23 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for keyboard input listening.
   static class KeyboardExtensions
     // Listens for keyboard events and invokes callbacks on key presses.
-    static void KeyboardListener(UIView view, Func<KeyboardEventArgs, Task> onKeyDown = null, Func<KeyboardEventArgs, Task> onKeyUp = null, IReadOnlyList<string> keys = null, bool? global = true, bool? preventDefault = null, bool? stopPropagation = null, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void KeyboardListener(UIView view, Func<KeyboardEventArgs, Task>? onKeyDown = null, Func<KeyboardEventArgs, Task>? onKeyUp = null, IReadOnlyList<string>? keys = null, bool? global = true, bool? preventDefault = null, bool? stopPropagation = null, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
   // Extension methods for scroll area and layout components.
   static class LayoutExtensions
     // Maintains a specific aspect ratio for content.
-    static void AspectRatio(UIView view, string[] style = null, double ratio = 1, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void AspectRatio(UIView view, string[]? style = null, double ratio = 1, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Provides text direction context (ltr/rtl) to descendants.
-    static void DirectionProvider(UIView view, string[] style = null, Dir dir = Ltr, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void DirectionProvider(UIView view, string[]? style = null, Dir dir = Ltr, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Infinite scroll view that fires callbacks when user scrolls near the end.
-    static void InfiniteScrollView(UIView view, string[] style = null, int threshold = 200, int debounceMs = 100, bool loading = false, bool hasMore = true, ScrollDirection direction = Down, ScrollAreaScrollbars scrollbars = Vertical, Action<UIView> loadingIndicator = null, Func<ScrollNearEndArgs, Task> onNearEnd = null, Action<UIView> content = null, string[] viewportStyle = null, string[] scrollbarStyle = null, string[] thumbStyle = null, string[] rootStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, string file = "", int line = 0)
+    static void InfiniteScrollView(UIView view, string[]? style = null, int threshold = 200, int debounceMs = 100, bool loading = false, bool hasMore = true, ScrollDirection direction = Down, ScrollAreaScrollbars scrollbars = Vertical, Action<UIView>? loadingIndicator = null, Func<ScrollNearEndArgs, Task>? onNearEnd = null, Action<UIView>? content = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // Progress component that auto-renders the indicator with transform.
-    static void Progress(UIView view, string[] style = null, double? value = null, double? max = null, string variant = null, bool indeterminate = false, Func<double?, string> getValueLabel = null, string[] rootStyle = null, string[] indicatorStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, string file = "", int line = 0)
+    static void Progress(UIView view, string[]? style = null, double? value = null, double? max = null, string? variant = null, bool indeterminate = false, Func<double?, string>? getValueLabel = null, string[]? rootStyle = null, string[]? indicatorStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // Resizable split panel with a drag handle between two panes. Resize is handled entirely on the client — only the final size is sent to the server via .
-    static void ResizableSplit(UIView view, Orientation orientation = Horizontal, double initialSize = 200, double minSize = 100, double maxSize = 500, bool reversed = false, Func<double, Task> onResized = null, Action<UIView> first = null, Action<UIView> second = null, string[] style = null, string[] handleStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, string file = "", int line = 0)
+    static void ResizableSplit(UIView view, Orientation orientation = Horizontal, double initialSize = 200, double minSize = 100, double maxSize = 500, bool reversed = false, Func<double, Task>? onResized = null, Action<UIView>? first = null, Action<UIView>? second = null, string[]? style = null, string[]? handleStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // ScrollArea component that auto-renders viewport and scrollbars.
-    static void ScrollArea(UIView view, string[] style = null, ScrollAreaScrollbars scrollbars = Vertical, ScrollAreaType type = Hover, int? scrollHideDelay = null, Dir dir = Ltr, bool autoScroll = false, string autoScrollKey = null, Action<UIView> content = null, string[] viewportStyle = null, string[] scrollbarStyle = null, string[] thumbStyle = null, string[] cornerStyle = null, string[] rootStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, string file = "", int line = 0)
+    static void ScrollArea(UIView view, string[]? style = null, ScrollAreaScrollbars scrollbars = Vertical, ScrollAreaType type = Hover, int? scrollHideDelay = null, Dir dir = Ltr, bool autoScroll = false, string? autoScrollKey = null, Action<UIView>? content = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string[]? cornerStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // Visual separator between content.
-    static void Separator(UIView view, string[] style = null, Orientation orientation = Horizontal, bool decorative = true, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, string file = "", int line = 0)
+    static void Separator(UIView view, string[]? style = null, Orientation orientation = Horizontal, bool decorative = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
   // Event returned from a geolocation action with latitude/longitude coordinates.
   sealed class LocationActionEvent : ActionEvent, IEquatable<LocationActionEvent>
     // Event returned from a geolocation action with latitude/longitude coordinates.
@@ -1082,73 +1084,73 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for media playback components.
   static class MediaExtensions
     // Audio player for URL-based audio content.
-    static void AudioUrlPlayer(UIView view, string[] style = null, string url = null, bool? controls = null, bool? autoplay = null, bool? loop = null, bool? muted = null, string preload = null, string className = null, string styleId = null, string key = null, string file = "", int line = 0)
+    static void AudioUrlPlayer(UIView view, string[]? style = null, string? url = null, bool? controls = null, bool? autoplay = null, bool? loop = null, bool? muted = null, string? preload = null, string? className = null, string? styleId = null, string? key = null, string file = "", int line = 0)
     // Button that captures media (audio, camera, or screen) based on the specified kind. Supports both text mode and icon mode. In text mode (content is null), label is displayed as visible text. In icon mode (content is provided), label becomes the accessible aria-label and content is displayed.
-    static void CaptureButton(UIView view, string[] style = null, MediaCaptureKind kind = Audio, string label = null, MediaCaptureButtonMode captureMode = Hold, ClientAudioCaptureOptions audioOptions = null, ClientVideoCaptureOptions videoOptions = null, int? holdReleaseDelayMs = null, bool? disabled = null, string className = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<MediaCaptureEvent, Task> onCaptureStart = null, Func<MediaCaptureEvent, Task> onCaptureStop = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void CaptureButton(UIView view, string[]? style = null, MediaCaptureKind kind = Audio, string? label = null, MediaCaptureButtonMode captureMode = Hold, ClientAudioCaptureOptions? audioOptions = null, ClientVideoCaptureOptions? videoOptions = null, int? holdReleaseDelayMs = null, bool? disabled = null, string? className = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<MediaCaptureEvent, Task>? onCaptureStart = null, Func<MediaCaptureEvent, Task>? onCaptureStop = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Push-to-talk microphone button: a CaptureButton(kind: Audio, mode: Hold) that integrates with . After enabling speech recognition once (Audio.UseSpeechRecognition(...)), subscribe to Audio.SpeechRecognizedAsync to receive transcriptions when the user releases the button. The user's client context is carried on the event args — no streamId-to-client plumbing needed in the app.
-    static void PushToTalkButton(UIView view, string[] style = null, string label = "⏺", int holdReleaseDelayMs = 500, ClientAudioCaptureOptions audioOptions = null, bool? disabled = null, string className = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<MediaCaptureEvent, Task> onCaptureStart = null, Func<MediaCaptureEvent, Task> onCaptureStop = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void PushToTalkButton(UIView view, string[]? style = null, string? label = "⏺", int holdReleaseDelayMs = 500, ClientAudioCaptureOptions? audioOptions = null, bool? disabled = null, string? className = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<MediaCaptureEvent, Task>? onCaptureStart = null, Func<MediaCaptureEvent, Task>? onCaptureStop = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Canvas element for rendering a live video stream.
-    static void VideoStreamCanvas(UIView view, string[] style = null, string streamId = null, int? width = null, int? height = null, string className = null, string styleId = null, string key = null, string file = "", int line = 0)
+    static void VideoStreamCanvas(UIView view, string[]? style = null, string? streamId = null, int? width = null, int? height = null, string? className = null, string? styleId = null, string? key = null, string file = "", int line = 0)
     // Video player for URL-based video content.
-    static void VideoUrlPlayer(UIView view, string[] style = null, string url = null, bool? controls = null, bool? autoplay = null, bool? loop = null, bool? muted = null, bool? playsInline = null, string poster = null, int? width = null, int? height = null, string className = null, string styleId = null, string key = null, string file = "", int line = 0)
+    static void VideoUrlPlayer(UIView view, string[]? style = null, string? url = null, bool? controls = null, bool? autoplay = null, bool? loop = null, bool? muted = null, bool? playsInline = null, string? poster = null, int? width = null, int? height = null, string? className = null, string? styleId = null, string? key = null, string file = "", int line = 0)
   // Extension methods for NavigationMenu, Menubar, and Toolbar components.
   static class NavigationExtensions
     // Menubar root container.
-    static void Menubar(UIView view, string[] style = null, string value = null, string defaultValue = null, Dir dir = Ltr, bool loop = true, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Menubar(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, Dir dir = Ltr, bool loop = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Checkbox item in menu.
-    static void MenubarCheckboxItem(UIView view, string[] style = null, CheckedState isChecked = Unchecked, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<CheckedState, Task> onCheckedChange = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void MenubarCheckboxItem(UIView view, string[]? style = null, CheckedState isChecked = Unchecked, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<CheckedState, Task>? onCheckedChange = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Dropdown content for the menu.
-    static void MenubarContent(UIView view, string[] style = null, bool loop = true, Side side = Bottom, Align align = Start, double? sideOffset = null, double? alignOffset = null, bool? forceMount = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void MenubarContent(UIView view, string[]? style = null, bool loop = true, Side side = Bottom, Align align = Start, double? sideOffset = null, double? alignOffset = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Clickable menu item.
-    static void MenubarItem(UIView view, string[] style = null, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<Task> onSelect = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void MenubarItem(UIView view, string[]? style = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<Task>? onSelect = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Visual indicator for checkbox/radio state.
-    static void MenubarItemIndicator(UIView view, string[] style = null, bool? forceMount = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void MenubarItemIndicator(UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Individual menu in the menubar.
-    static void MenubarMenu(UIView view, string[] style = null, string value = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void MenubarMenu(UIView view, string[]? style = null, string? value = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Radio group in menu.
-    static void MenubarRadioGroup(UIView view, string[] style = null, string value = null, string defaultValue = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void MenubarRadioGroup(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Radio item in menu.
-    static void MenubarRadioItem(UIView view, string[] style = null, string value = null, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void MenubarRadioItem(UIView view, string[]? style = null, string? value = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Separator between menu items.
-    static void MenubarSeparator(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, string file = "", int line = 0)
+    static void MenubarSeparator(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // Submenu container.
-    static void MenubarSub(UIView view, string[] style = null, bool? open = null, bool? defaultOpen = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<bool?, Task> onOpenChange = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void MenubarSub(UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool?, Task>? onOpenChange = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Content for submenu.
-    static void MenubarSubContent(UIView view, string[] style = null, bool loop = true, Side side = Right, Align align = Start, double? sideOffset = null, double? alignOffset = null, bool? forceMount = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void MenubarSubContent(UIView view, string[]? style = null, bool loop = true, Side side = Right, Align align = Start, double? sideOffset = null, double? alignOffset = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Trigger for submenu.
-    static void MenubarSubTrigger(UIView view, string[] style = null, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void MenubarSubTrigger(UIView view, string[]? style = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Button that opens a menu.
-    static void MenubarTrigger(UIView view, string[] style = null, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void MenubarTrigger(UIView view, string[]? style = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Navigation menu root.
-    static void NavigationMenu(UIView view, string[] style = null, string value = null, string defaultValue = null, Orientation orientation = Horizontal, int? delayDuration = null, int? skipDelayDuration = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void NavigationMenu(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, Orientation orientation = Horizontal, int? delayDuration = null, int? skipDelayDuration = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Content shown when navigation item is active.
-    static void NavigationMenuContent(UIView view, string[] style = null, bool? forceMount = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void NavigationMenuContent(UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Visual indicator for active navigation item.
-    static void NavigationMenuIndicator(UIView view, string[] style = null, bool? forceMount = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void NavigationMenuIndicator(UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Individual navigation menu item.
-    static void NavigationMenuItem(UIView view, string[] style = null, string value = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void NavigationMenuItem(UIView view, string[]? style = null, string? value = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Link within navigation menu.
-    static void NavigationMenuLink(UIView view, string[] style = null, bool? active = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<Task> onSelect = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void NavigationMenuLink(UIView view, string[]? style = null, bool? active = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<Task>? onSelect = null, Action<UIView>? content = null, string file = "", int line = 0)
     // List of navigation menu items.
-    static void NavigationMenuList(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void NavigationMenuList(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Trigger that opens navigation content.
-    static void NavigationMenuTrigger(UIView view, string[] style = null, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void NavigationMenuTrigger(UIView view, string[]? style = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Viewport for navigation menu content.
-    static void NavigationMenuViewport(UIView view, string[] style = null, bool? forceMount = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void NavigationMenuViewport(UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Toolbar container.
-    static void Toolbar(UIView view, string[] style = null, Orientation orientation = Horizontal, Dir dir = Ltr, bool loop = true, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void Toolbar(UIView view, string[]? style = null, Orientation orientation = Horizontal, Dir dir = Ltr, bool loop = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Button in the toolbar.
-    static void ToolbarButton(UIView view, string[] style = null, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<Task> onClick = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void ToolbarButton(UIView view, string[]? style = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<Task>? onClick = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Link in the toolbar.
-    static void ToolbarLink(UIView view, string[] style = null, string href = null, string target = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void ToolbarLink(UIView view, string[]? style = null, string? href = null, string? target = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Separator in the toolbar.
-    static void ToolbarSeparator(UIView view, string[] style = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, string file = "", int line = 0)
+    static void ToolbarSeparator(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // Multi-select toggle group in toolbar.
-    static void ToolbarToggleGroupMultiple(UIView view, string[] style = null, IReadOnlyList<string> value = null, IReadOnlyList<string> defaultValue = null, bool? rovingFocus = true, bool loop = true, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<IReadOnlyList<string>, Task> onValueChange = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void ToolbarToggleGroupMultiple(UIView view, string[]? style = null, IReadOnlyList<string>? value = null, IReadOnlyList<string>? defaultValue = null, bool? rovingFocus = true, bool loop = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<IReadOnlyList<string>, Task>? onValueChange = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Single-select toggle group in toolbar.
-    static void ToolbarToggleGroupSingle(UIView view, string[] style = null, string value = null, string defaultValue = null, bool? rovingFocus = true, bool loop = true, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void ToolbarToggleGroupSingle(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, bool? rovingFocus = true, bool loop = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Toggle item in toolbar toggle group.
-    static void ToolbarToggleItem(UIView view, string[] style = null, string value = null, bool? disabled = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Action<UIView> content = null, string file = "", int line = 0)
+    static void ToolbarToggleItem(UIView view, string[]? style = null, string? value = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
   // Represents the orientation for components like Tabs, Slider, etc.
   enum Orientation
     Horizontal
@@ -1156,17 +1158,17 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for overlay component child elements. For the main overlay components (Dialog, AlertDialog, Popover, Tooltip, HoverCard), use the simplified APIs in CoreExtensions.cs which handle Portal/Overlay management automatically.
   static class OverlayExtensions
     // Alert dialog that requires explicit user acknowledgment. Cannot be dismissed by clicking outside.
-    static void AlertDialog(UIView view, bool? open = null, bool? defaultOpen = null, string title = null, string description = null, string cancelLabel = null, string actionLabel = null, Func<Task> onAction = null, Action<UIView> trigger = null, Action<UIView> contentSlot = null, string[] overlayStyle = null, string overlayStyleId = null, string[] contentStyle = null, string contentStyleId = null, string[] titleStyle = null, string[] descriptionStyle = null, string[] footerStyle = null, string[] cancelStyle = null, string[] actionStyle = null, string[] rootStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<bool?, Task> onOpenChange = null, string file = "", int line = 0)
+    static void AlertDialog(UIView view, bool? open = null, bool? defaultOpen = null, string? title = null, string? description = null, string? cancelLabel = null, string? actionLabel = null, Func<Task>? onAction = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, string[]? overlayStyle = null, string? overlayStyleId = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? footerStyle = null, string[]? cancelStyle = null, string[]? actionStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool?, Task>? onOpenChange = null, string file = "", int line = 0)
     // Modal dialog window.
-    static void Dialog(UIView view, string[] style = null, bool? open = null, bool? defaultOpen = null, bool? modal = null, Action<UIView> trigger = null, Action<UIView> contentSlot = null, Action<UIView> content = null, string[] overlayStyle = null, string overlayStyleId = null, string[] contentStyle = null, string contentStyleId = null, string[] rootStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<bool?, Task> onOpenChange = null, string file = "", int line = 0)
+    static void Dialog(UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, bool? modal = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? overlayStyle = null, string? overlayStyleId = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool?, Task>? onOpenChange = null, string file = "", int line = 0)
     // Rich content card that appears on hover with configurable delays.
-    static void HoverCard(UIView view, bool? open = null, bool? defaultOpen = null, int? openDelay = null, int? closeDelay = null, Action<UIView> trigger = null, Action<UIView> contentSlot = null, Action<UIView> content = null, string[] contentStyle = null, string contentStyleId = null, string[] rootStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<bool?, Task> onOpenChange = null, string file = "", int line = 0)
+    static void HoverCard(UIView view, bool? open = null, bool? defaultOpen = null, int? openDelay = null, int? closeDelay = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool?, Task>? onOpenChange = null, string file = "", int line = 0)
     // Floating content panel that appears next to a trigger element.
-    static void Popover(UIView view, bool? open = null, bool? defaultOpen = null, bool? modal = null, Side side = Bottom, Align align = Center, double? sideOffset = null, double? alignOffset = null, Action<UIView> trigger = null, Action<UIView> contentSlot = null, Action<UIView> content = null, string[] contentStyle = null, string contentStyleId = null, string[] rootStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<bool?, Task> onOpenChange = null, string file = "", int line = 0)
+    static void Popover(UIView view, bool? open = null, bool? defaultOpen = null, bool? modal = null, Side side = Bottom, Align align = Center, double? sideOffset = null, double? alignOffset = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool?, Task>? onOpenChange = null, string file = "", int line = 0)
     // Toast notification with built-in provider and viewport.
-    static void Toast(UIView view, ToastType type = Foreground, bool? open = null, bool? defaultOpen = null, int? durationMs = null, bool? forceMount = null, ToastSwipeDirection swipeDirection = Right, int? swipeThreshold = null, string title = null, string description = null, bool? showClose = null, string closeLabel = null, Action<UIView> content = null, string[] toastStyle = null, string[] viewportStyle = null, string[] titleStyle = null, string[] descriptionStyle = null, string[] closeStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<bool?, Task> onOpenChange = null, Func<Task> onEscapeKeyDown = null, Func<Task> onPause = null, Func<Task> onResume = null, Func<ToastSwipeArgs, Task> onSwipeStart = null, Func<ToastSwipeArgs, Task> onSwipeMove = null, Func<ToastSwipeArgs, Task> onSwipeEnd = null, Func<ToastSwipeArgs, Task> onSwipeCancel = null, string file = "", int line = 0)
+    static void Toast(UIView view, ToastType type = Foreground, bool? open = null, bool? defaultOpen = null, int? durationMs = null, bool? forceMount = null, ToastSwipeDirection swipeDirection = Right, int? swipeThreshold = null, string? title = null, string? description = null, bool? showClose = null, string? closeLabel = null, Action<UIView>? content = null, string[]? toastStyle = null, string[]? viewportStyle = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? closeStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool?, Task>? onOpenChange = null, Func<Task>? onEscapeKeyDown = null, Func<Task>? onPause = null, Func<Task>? onResume = null, Func<ToastSwipeArgs, Task>? onSwipeStart = null, Func<ToastSwipeArgs, Task>? onSwipeMove = null, Func<ToastSwipeArgs, Task>? onSwipeEnd = null, Func<ToastSwipeArgs, Task>? onSwipeCancel = null, string file = "", int line = 0)
     // Brief informational message that appears on hover. Includes built-in provider.
-    static void Tooltip(UIView view, bool? open = null, bool? defaultOpen = null, double? delayDuration = null, double? skipDelayDuration = null, bool? disableHoverableContent = null, Action<UIView> trigger = null, Action<UIView> contentSlot = null, Action<UIView> content = null, string[] contentStyle = null, string contentStyleId = null, string[] rootStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<bool?, Task> onOpenChange = null, string file = "", int line = 0)
+    static void Tooltip(UIView view, bool? open = null, bool? defaultOpen = null, double? delayDuration = null, double? skipDelayDuration = null, bool? disableHoverableContent = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool?, Task>? onOpenChange = null, string file = "", int line = 0)
   // One page of items plus the controls needed to render prev/next buttons. Returned by .
   sealed class Page<T> : IEquatable<Page<T>>
     // One page of items plus the controls needed to render prev/next buttons. Returned by .
@@ -1206,16 +1208,16 @@ namespace Ikon.Parallax.Components.Standard
   // Event args for pointer down outside events on overlays.
   sealed class PointerDownOutsideArgs : IEquatable<PointerDownOutsideArgs>
     // Event args for pointer down outside events on overlays.
-    ctor(string TargetId)
+    ctor(string? TargetId)
     string TargetId { get; init; }
   // Extension methods for QR code generation.
   static class QrCodeExtensions
     // QR code image. Generates a QR code server-side and renders it as an image.
-    static void QR(UIView view, string[] style = null, string value = null, int size = 256, string key = null, string file = "", int line = 0)
+    static void QR(UIView view, string[]? style = null, string? value = null, int size = 256, string? key = null, string file = "", int line = 0)
   // Extension methods for the RichTextEditor component.
   static class RichTextEditorExtensions
     // Inline rich-text editor with a configurable toolbar. Values are HTML strings.
-    static void RichTextEditor(UIView view, string value = null, string defaultValue = null, string placeholder = null, bool? disabled = null, IReadOnlyList<RichTextTool> tools = null, bool? showToolbar = null, int? minRows = null, int? maxRows = null, string[] style = null, string[] toolbarStyle = null, string[] toolbarButtonStyle = null, string[] contentStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Func<string, Task> onSubmit = null, string file = "", int line = 0)
+    static void RichTextEditor(UIView view, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, IReadOnlyList<RichTextTool>? tools = null, bool? showToolbar = null, int? minRows = null, int? maxRows = null, string[]? style = null, string[]? toolbarStyle = null, string[]? toolbarButtonStyle = null, string[]? contentStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, string file = "", int line = 0)
   // Formatting action available in the toolbar.
   enum RichTextTool
     Bold
@@ -1248,7 +1250,7 @@ namespace Ikon.Parallax.Components.Standard
     static void ForRoles(UIView view, ClientProfiles profiles, Context clientContext, IEnumerable<UserRole> roles, Action<UIView> content)
   // Tiny primitives for using as a signal the app reads to decide what to render. Routes, tabs, modes, panel selections, "which dialog is open" — same shape, same primitives. Intentionally minimal: no opinionated tab bars, no URL coupling, no rendering bias. The signal is the building block; the app decides how to consume it. For URL ↔ signal sync (browser bar, deep links, back/forward), use on the host app — keeps URL concerns in one place instead of forking them through this layer.
   static class RoutingExtensions
-    static void Routed<T>(UIView view, ClientReactive<T> signal, Dictionary<T, Action<UIView>> cases, Action<UIView> fallback = null, string file = "", int line = 0)
+    static void Routed<T>(UIView view, ClientReactive<T> signal, Dictionary<T, Action<UIView>> cases, Action<UIView>? fallback = null, string file = "", int line = 0)
     static Func<Task> Set<T>(UIView view, ClientReactive<T> signal, T value)
   // Represents which scrollbars to show in ScrollAreaSimple.
   enum ScrollAreaScrollbars
@@ -1265,7 +1267,7 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for the ScrollColumn primitive — a header/body/footer dialog pattern where the body scrolls. Wraps a with the correct flex sizing so scrolling engages without ceremony.
   static class ScrollColumnExtensions
     // Renders a flex column with an optional header, a scrollable body, and an optional footer. The header and footer stay pinned; the body scrolls.
-    static void ScrollColumn(UIView view, string[] style = null, Action<UIView> header = null, Action<UIView> footer = null, Action<UIView> content = null, ScrollAreaScrollbars scrollbars = Vertical, ScrollAreaType scrollType = Hover, bool autoScroll = false, string autoScrollKey = null, string[] bodyStyle = null, string[] viewportStyle = null, string[] scrollbarStyle = null, string[] thumbStyle = null, string styleId = null, string key = null, string file = "", int line = 0)
+    static void ScrollColumn(UIView view, string[]? style = null, Action<UIView>? header = null, Action<UIView>? footer = null, Action<UIView>? content = null, ScrollAreaScrollbars scrollbars = Vertical, ScrollAreaType scrollType = Hover, bool autoScroll = false, string? autoScrollKey = null, string[]? bodyStyle = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string? styleId = null, string? key = null, string file = "", int line = 0)
   // Direction for infinite scroll loading.
   enum ScrollDirection
     Down
@@ -1281,7 +1283,7 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for Select components.
   static class SelectExtensions
     // Select dropdown component that auto-renders the full structure with trigger button, dropdown content, and items. Use either options (flat list) or groups (grouped items) - not both.
-    static void Select(UIView view, string[] style = null, IReadOnlyList<SelectOption> options = null, IReadOnlyList<SelectOptionGroup> groups = null, string value = null, string defaultValue = null, string placeholder = null, bool? disabled = null, bool? required = null, bool? open = null, string name = null, string[] triggerStyle = null, string[] contentStyle = null, string[] itemStyle = null, string[] itemIndicatorStyle = null, string indicatorIconName = "check", string[] rootStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Func<bool?, Task> onOpenChange = null, string file = "", int line = 0)
+    static void Select(UIView view, string[]? style = null, IReadOnlyList<SelectOption>? options = null, IReadOnlyList<SelectOptionGroup>? groups = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, bool? required = null, bool? open = null, string? name = null, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? itemStyle = null, string[]? itemIndicatorStyle = null, string? indicatorIconName = "check", string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool?, Task>? onOpenChange = null, string file = "", int line = 0)
   // Represents a selectable option in a Select component.
   sealed class SelectOption : IEquatable<SelectOption>
     // Represents a selectable option in a Select component.
@@ -1292,7 +1294,7 @@ namespace Ikon.Parallax.Components.Standard
   // Represents a group of selectable options in a Select component.
   sealed class SelectOptionGroup : IEquatable<SelectOptionGroup>
     // Represents a group of selectable options in a Select component.
-    ctor(string Label, IReadOnlyList<SelectOption> Options)
+    ctor(string? Label, IReadOnlyList<SelectOption> Options)
     string Label { get; init; }
     IReadOnlyList<SelectOption> Options { get; init; }
   // A typed uniform value to pass to a WebGL shader. Use the static factory methods to create instances.
@@ -1316,7 +1318,7 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for WebGL shader components.
   static class ShadertoyExtensions
     // Shadertoy-compatible WebGL fragment shader canvas.
-    static void ShadertoyCanvas(UIView view, string[] style = null, string shaderSource = null, int? fps = null, IReadOnlyDictionary<string, ShaderUniform> uniforms = null, bool? enableMouse = null, int? width = null, int? height = null, string styleId = null, string key = null, string file = "", int line = 0)
+    static void ShadertoyCanvas(UIView view, string[]? style = null, string? shaderSource = null, int? fps = null, IReadOnlyDictionary<string, ShaderUniform>? uniforms = null, bool? enableMouse = null, int? width = null, int? height = null, string? styleId = null, string? key = null, string file = "", int line = 0)
   // Options for the Web Share API action.
   sealed class ShareActionOptions : ActionOptions, IEquatable<ShareActionOptions>
     ctor()
@@ -1374,7 +1376,7 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for Tabs components.
   static class TabsExtensions
     // Container for Tabs components. Use the 'tabs' parameter to define tab content.
-    static void Tabs(UIView view, string[] style = null, string value = null, string defaultValue = null, Orientation orientation = Horizontal, ActivationMode activationMode = Automatic, IEnumerable<TabItem> tabs = null, string[] listContainerStyle = null, string[] listStyle = null, string[] triggerStyle = null, string[] disabledTriggerStyle = null, string[] contentContainerStyle = null, string[] contentStyle = null, string[] rootStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, string file = "", int line = 0)
+    static void Tabs(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, Orientation orientation = Horizontal, ActivationMode activationMode = Automatic, IEnumerable<TabItem>? tabs = null, string[]? listContainerStyle = null, string[]? listStyle = null, string[]? triggerStyle = null, string[]? disabledTriggerStyle = null, string[]? contentContainerStyle = null, string[]? contentStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, string file = "", int line = 0)
   // Smallest time unit shown by a .
   enum TimeGranularity
     Hour
@@ -1383,7 +1385,7 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for TimePicker components.
   static class TimePickerExtensions
     // Picker for a time of day. Values are ISO-8601 HH:mm or HH:mm:ss strings.
-    static void TimePicker(UIView view, string[] style = null, string value = null, string defaultValue = null, HourFormat hourFormat = Hour24, TimeGranularity granularity = Minute, int? minuteStep = null, int? secondStep = null, bool? disabled = null, bool? open = null, bool? defaultOpen = null, Side side = Bottom, Align align = Start, string placeholder = null, string[] triggerStyle = null, string[] contentStyle = null, string[] columnStyle = null, string[] itemStyle = null, string[] itemSelectedStyle = null, string[] rootStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, Func<string, Task> onValueChange = null, Func<bool?, Task> onOpenChange = null, string file = "", int line = 0)
+    static void TimePicker(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, HourFormat hourFormat = Hour24, TimeGranularity granularity = Minute, int? minuteStep = null, int? secondStep = null, bool? disabled = null, bool? open = null, bool? defaultOpen = null, Side side = Bottom, Align align = Start, string? placeholder = null, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? columnStyle = null, string[]? itemStyle = null, string[]? itemSelectedStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool?, Task>? onOpenChange = null, string file = "", int line = 0)
   // Event args for toast swipe events.
   sealed class ToastSwipeArgs : IEquatable<ToastSwipeArgs>
     // Event args for toast swipe events.
@@ -1404,9 +1406,9 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for the DOM-virtualized scroll containers and . Items outside the visible window plus an overscan buffer have their content children skipped at the React layer (the wrapper still occupies space via fixed dimensions), so DOM size scales with viewport, not itemCount.
   static class VirtualListExtensions
     // DOM-virtualized scrollable grid. Items are laid out in a fixed number of columns and rows outside the visible window are not mounted in the DOM.
-    static void VirtualGrid(UIView view, int itemCount, int columns, double rowHeight, Action<UIView, int> onRenderItem, int overscan = 2, int gap = 12, int? minItemWidthPx = null, int? maxColumns = null, double? aspectRatio = null, string resetScrollKey = null, Func<double, Task> onNearEnd = null, int nearEndThresholdRows = 2, string[] style = null, string[] itemStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, string file = "", int line = 0)
+    static void VirtualGrid(UIView view, int itemCount, int columns, double rowHeight, Action<UIView, int> onRenderItem, int overscan = 2, int gap = 12, int? minItemWidthPx = null, int? maxColumns = null, double? aspectRatio = null, string? resetScrollKey = null, Func<double, Task>? onNearEnd = null, int nearEndThresholdRows = 2, string[]? style = null, string[]? itemStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // DOM-virtualized vertical list with fixed item height. Renders only items inside the visible window plus an overscan buffer.
-    static void VirtualList(UIView view, int itemCount, double itemHeight, Action<UIView, int> onRenderItem, int overscan = 4, Func<double, Task> onNearEnd = null, int nearEndThreshold = 5, string[] style = null, string[] itemStyle = null, string styleId = null, string key = null, IReadOnlyDictionary<string, object> props = null, string file = "", int line = 0)
+    static void VirtualList(UIView view, int itemCount, double itemHeight, Action<UIView, int> onRenderItem, int overscan = 4, Func<double, Task>? onNearEnd = null, int nearEndThreshold = 5, string[]? style = null, string[]? itemStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
   // Day of the week used as the first column in the calendar grid.
   enum WeekStart
     Sunday
@@ -1550,6 +1552,7 @@ namespace Ikon.Parallax.Themes.Ikon
     static string ErrorLg
     static string ErrorMd
     static string ErrorSm
+    static string Ghost
     static string GhostLg
     static string GhostMd
     static string GhostSm
@@ -1559,6 +1562,7 @@ namespace Ikon.Parallax.Themes.Ikon
     static string InfoLg
     static string InfoMd
     static string InfoSm
+    static string Link
     static string LinkLg
     static string LinkMd
     static string LinkSm
@@ -1568,6 +1572,7 @@ namespace Ikon.Parallax.Themes.Ikon
     static string OutlineLg
     static string OutlineMd
     static string OutlineSm
+    static string Primary
     static string PrimaryLg
     static string PrimaryMd
     static string PrimarySm
@@ -1871,7 +1876,7 @@ namespace Ikon.Parallax.Themes.Ikon
     static string Label
     static string Root
   static class Helper
-    static string Join(params string[] parts)
+    static string Join(params string?[] parts)
   static class ImageCard.Hover
     static string Dim
     static string Zoom
@@ -2072,7 +2077,7 @@ namespace Ikon.Parallax.Themes.Ikon
     static string Subtle
     static string Text
   static class Progress
-    static string ComposeIndicator(string variant = null, bool indeterminate = false, params string[] overrides)
+    static string ComposeIndicator(string? variant = null, bool indeterminate = false, params string?[] overrides)
     static string IndicatorTransform(double value)
     static string Base
     static string Default
@@ -2313,6 +2318,8 @@ namespace Ikon.Parallax.Themes.Ikon
     static string H2
     static string H3
     static string H4
+    static string H5
+    static string H6
     static string Label
     static string Link
     static string Muted
@@ -2333,7 +2340,7 @@ namespace Ikon.Parallax.Themes.Ikon
   // One named override on an app's theme: a role + Crosswind value, or a free-form custom CSS variable. The codegen Styling Oracle emits a list of these; the CSS renderer walks them.
   sealed class ThemeIntent : IEquatable<ThemeIntent>
     // One named override on an app's theme: a role + Crosswind value, or a free-form custom CSS variable. The codegen Styling Oracle emits a list of these; the CSS renderer walks them.
-    ctor(string Role, string Value, string CustomName = null)
+    ctor(string Role, string Value, string? CustomName = null)
     string CustomName { get; init; }
     string Role { get; init; }
     string Value { get; init; }
