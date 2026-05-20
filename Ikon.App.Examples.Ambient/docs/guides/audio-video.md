@@ -88,7 +88,7 @@ using Ikon.Resonance.Synth.Envelopes;
 
 namespace Ikon.Resonance
   struct AudioFrameEx
-    ctor(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string streamId, TimeSpan totalDuration = null, AudioEncoderOptions encoderOptions = null, IReadOnlyList<int> targetIds = null, IReadOnlyList<AudioAnalysisResult> analysisResults = null, IReadOnlyList<AudioShapeSetDeclaration> shapeSetDeclarations = null)
+    ctor(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string streamId, TimeSpan totalDuration = null, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null, IReadOnlyList<AudioAnalysisResult>? analysisResults = null, IReadOnlyList<AudioShapeSetDeclaration>? shapeSetDeclarations = null)
     IReadOnlyList<AudioAnalysisResult> AnalysisResults { get; }
     int ChannelCount { get; }
     AudioEncoderOptions EncoderOptions { get; }
@@ -112,7 +112,7 @@ namespace Ikon.Resonance
     void RemoveEffectAt(int index)
     bool RemoveSource(string streamId)
     void ReplaceEffect(int index, IAudioEffect newEffect)
-    Task StartAsync(Func<AudioGeneratorFrame, ValueTask> onFrame, Func<string, ValueTask> onStreamEnd = null, CancellationToken cancellationToken = null)
+    Task StartAsync(Func<AudioGeneratorFrame, ValueTask> onFrame, Func<string, ValueTask>? onStreamEnd = null, CancellationToken cancellationToken = null)
     Task StopAsync()
     void UpdateOptions(Action<AudioGeneratorOptions> configure)
   struct AudioGeneratorFrame
@@ -178,7 +178,7 @@ namespace Ikon.Resonance
     Sequential
     Crossfade
   sealed class GroupAudioMixer : IAsyncDisposable
-    ctor(GroupAudioMixerConfig config = null)
+    ctor(GroupAudioMixerConfig? config = null)
     void AddParticipant(string excludeKey)
     void AddStream(string streamId, string excludeKey)
     ValueTask DisposeAsync()
@@ -195,8 +195,8 @@ namespace Ikon.Resonance
     Short
     Float
   sealed class SilenceRemover
-    ctor(int sampleRate, int channelCount, SilenceRemoverConfig config = null)
-    static IAsyncEnumerable<float[]> FilterAsync(IAsyncEnumerable<float[]> source, int sampleRate, int channelCount, SilenceRemoverConfig config = null, CancellationToken ct = null)
+    ctor(int sampleRate, int channelCount, SilenceRemoverConfig? config = null)
+    static IAsyncEnumerable<float[]> FilterAsync(IAsyncEnumerable<float[]> source, int sampleRate, int channelCount, SilenceRemoverConfig? config = null, CancellationToken ct = null)
     float[] ProcessChunk(ReadOnlySpan<float> chunk)
     void Reset()
   sealed class SilenceRemoverConfig
@@ -212,12 +212,12 @@ namespace Ikon.Resonance
     int SpeechOnsetChunks { get; set; }
     int TrailingSilenceMs { get; set; }
   sealed class SpeechMixer : IAsyncDisposable
-    ctor(SpeechMixerConfig config = null)
+    ctor(SpeechMixerConfig? config = null)
     AudioEncoderOptions EncoderOptions { get; set; }
     bool IsPaused { get; }
     string StreamId { get; }
-    void AddSamples(AudioContainer container, IReadOnlyList<IAudioEffect> effects = null, IReadOnlyList<IAudioAnalyzer> analyzers = null, IReadOnlyList<int> targetIds = null)
-    void AddSamples(string speechEventId, ReadOnlySpan<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, IReadOnlyList<IAudioEffect> effects = null, IReadOnlyList<IAudioAnalyzer> analyzers = null, IReadOnlyList<int> targetIds = null)
+    void AddSamples(AudioContainer container, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null)
+    void AddSamples(string speechEventId, ReadOnlySpan<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null)
     void Clear()
     ValueTask DisposeAsync()
     void FadeOut()
@@ -415,7 +415,7 @@ namespace Ikon.Resonance.Synth.Moog
     static MoogSynthPatch LushPad()
     static MoogSynthPatch Pluck()
   sealed class MoogSynthSource : IAudioSource
-    ctor(MoogSynthPatch patch = null)
+    ctor(MoogSynthPatch? patch = null)
     Sequencer Sequencer { get; }
     MoogSynth Synth { get; }
     void GenerateAudio(Span<float> buffer, int samplesPerChannel, int channelCount, int sampleRate)
@@ -547,7 +547,7 @@ namespace Ikon.Resonance.Synth.Songs
     void SetSampleRate(double sampleRate)
     void Stop()
   sealed class SongPlayerSource : IAudioSource
-    ctor(Song song = null)
+    ctor(Song? song = null)
     string CurrentSongName { get; }
     SongPlayer Player { get; }
     void GenerateAudio(Span<float> buffer, int samplesPerChannel, int channelCount, int sampleRate)

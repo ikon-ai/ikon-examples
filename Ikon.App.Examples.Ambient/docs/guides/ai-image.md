@@ -29,8 +29,8 @@ namespace Ikon.AI.ImageGeneration
     Opaque
     Transparent
   sealed class ImageGenerator : IDisposable, IImageGenerator
-    ctor(string modelName, IReadOnlyList<ModelRegion> regions = null)
-    ctor(ImageGeneratorModel model, IReadOnlyList<ModelRegion> regions = null)
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
+    ctor(ImageGeneratorModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
     static Task<ImageGeneratorResult> GenerateAsync(string prompt, ImageGeneratorModel model = Gemini25FlashImage, CancellationToken cancellationToken = null)
     Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = null)
@@ -83,8 +83,9 @@ namespace Ikon.AI.ImageGeneration
     Flux2Pro
     Flux2Max
     Flux2Klein9B
+    Flux2Klein4B
     GrokImagineImage
-    GrokImagineImagePro
+    GrokImagineImageQuality
   static class ImageGeneratorModelExtensions
     static string DisplayName(ImageGeneratorModel model)
   sealed class ImageGeneratorResult
