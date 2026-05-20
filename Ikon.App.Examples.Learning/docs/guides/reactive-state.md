@@ -169,10 +169,10 @@ namespace Ikon.Common.Core.Reactive
     void Clear()
     IReadOnlyList<PersistedRegistration> GetPersistedRegistrations()
     void LoadHotReloadStates(Dictionary<string, StoredReactiveState> states)
-    void Register(string stableId, IReactiveWithState reactive, PersistenceScope persistence, PersistenceBackend backend = Private, string postgresDatabase = null)
-    bool TryGet(string stableId, out IReactiveWithState reactive)
+    void Register(string stableId, IReactiveWithState reactive, PersistenceScope persistence, PersistenceBackend backend = Private, string? postgresDatabase = null)
+    bool TryGet(string stableId, out IReactiveWithState? reactive)
   interface IPersistedReactive : IReactiveWithState
-    abstract void SetPublicUrl(string url)
+    abstract void SetPublicUrl(string? url)
   interface IReactive
     long Version { get; }
     event Action Changed
@@ -188,7 +188,7 @@ namespace Ikon.Common.Core.Reactive
   class MountReactive<T> : Reactive<T, MountScope>
     ctor(T initialValue, string file = "", string member = "")
   sealed class PersistedRegistration
-    ctor(string stableId, IReactiveWithState reactive, PersistenceScope persistence, PersistenceBackend backend, string postgresDatabase)
+    ctor(string stableId, IReactiveWithState reactive, PersistenceScope persistence, PersistenceBackend backend, string? postgresDatabase)
     PersistenceBackend Backend { get; }
     PersistenceScope Persistence { get; }
     string PostgresDatabase { get; }
@@ -204,8 +204,8 @@ namespace Ikon.Common.Core.Reactive
     Session
     User
   static class Reactive
-    static void Run<T>(Reactive<T> reactiveValue, Func<Task<T>> action, Action<Exception> onError = null, CancellationToken token = null)
-    static void Run<T>(Reactive<T> reactiveValue, Func<CancellationToken, Task<T>> action, Action<Exception> onError = null, CancellationToken token = null)
+    static void Run<T>(Reactive<T> reactiveValue, Func<Task<T>> action, Action<Exception>? onError = null, CancellationToken token = null)
+    static void Run<T>(Reactive<T> reactiveValue, Func<CancellationToken, Task<T>> action, Action<Exception>? onError = null, CancellationToken token = null)
   static class ReactiveBoolExtensions
     static IDisposable AsToken(Reactive<bool> reactive)
   static class ReactiveCollectionExtensions
