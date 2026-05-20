@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 115521,
+      "sizeBytes": 115030,
       "alsoInclude": []
     },
     {
@@ -100,7 +100,7 @@
         "value mutation"
       ],
       "file": "docs/guides/reactive-state.md",
-      "sizeBytes": 20845,
+      "sizeBytes": 20851,
       "alsoInclude": [
         "app-structure",
         "ui-components"
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 162983,
+      "sizeBytes": 165151,
       "alsoInclude": []
     },
     {
@@ -226,7 +226,7 @@
         "transitions"
       ],
       "file": "docs/guides/tailwind-reference.md",
-      "sizeBytes": 90977,
+      "sizeBytes": 91039,
       "alsoInclude": []
     },
     {
@@ -247,7 +247,7 @@
         "timeout"
       ],
       "file": "docs/guides/emergence.md",
-      "sizeBytes": 37678,
+      "sizeBytes": 37692,
       "alsoInclude": [
         "app-structure",
         "ai-models"
@@ -291,7 +291,7 @@
         "AI connection"
       ],
       "file": "docs/guides/ai-models.md",
-      "sizeBytes": 18649,
+      "sizeBytes": 18719,
       "alsoInclude": []
     },
     {
@@ -306,7 +306,7 @@
         "ImageGeneratorConfig"
       ],
       "file": "docs/guides/ai-image.md",
-      "sizeBytes": 4047,
+      "sizeBytes": 4070,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -328,7 +328,7 @@
         "SoundEffectGenerator"
       ],
       "file": "docs/guides/ai-speech-and-audio.md",
-      "sizeBytes": 19897,
+      "sizeBytes": 19890,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -345,7 +345,7 @@
         "VideoEnhancer"
       ],
       "file": "docs/guides/ai-video.md",
-      "sizeBytes": 6782,
+      "sizeBytes": 6824,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -369,7 +369,7 @@
         "EmbeddingGenerator"
       ],
       "file": "docs/guides/ai-web-and-data.md",
-      "sizeBytes": 23933,
+      "sizeBytes": 24037,
       "alsoInclude": [
         "emergence"
       ]
@@ -384,7 +384,7 @@
         "storage"
       ],
       "file": "docs/guides/ai-advanced.md",
-      "sizeBytes": 5899,
+      "sizeBytes": 5908,
       "alsoInclude": [
         "emergence"
       ]
@@ -407,7 +407,7 @@
         "filter"
       ],
       "file": "docs/guides/audio-video.md",
-      "sizeBytes": 24866,
+      "sizeBytes": 24883,
       "alsoInclude": []
     },
     {
@@ -424,7 +424,7 @@
         "optimistic concurrency"
       ],
       "file": "docs/guides/asset-system.md",
-      "sizeBytes": 20070,
+      "sizeBytes": 20098,
       "alsoInclude": []
     },
     {
@@ -445,7 +445,7 @@
         "function"
       ],
       "file": "docs/guides/endpoints-webhooks.md",
-      "sizeBytes": 39029,
+      "sizeBytes": 39034,
       "alsoInclude": []
     },
     {
@@ -490,7 +490,7 @@
         "callable functions"
       ],
       "file": "docs/guides/function-registry.md",
-      "sizeBytes": 18400,
+      "sizeBytes": 18536,
       "alsoInclude": []
     },
     {
@@ -533,7 +533,7 @@
         "pipeline guide"
       ],
       "file": "docs/guides/pipelines-reference.md",
-      "sizeBytes": 66483,
+      "sizeBytes": 66601,
       "alsoInclude": []
     },
     {

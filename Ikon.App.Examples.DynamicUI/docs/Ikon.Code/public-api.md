@@ -12,7 +12,7 @@ namespace Ikon.Code
   static class ClassCardBuilder
     static Task<ImmutableArray<ClassCard>> BuildClassCardsAsync(Compilation comp, GraphIndex graph, CancellationToken ct)
   static class ClassCardRanker
-    static ImmutableArray<ClassCard> Rank(ImmutableArray<ClassCard> cards, string query, ISymbol caretSymbol)
+    static ImmutableArray<ClassCard> Rank(ImmutableArray<ClassCard> cards, string query, ISymbol? caretSymbol)
   sealed class CompilationGraphPipeline
     ctor()
     Task Run(Pipeline<T>.Branch<Item> input, CancellationToken ct)
@@ -44,22 +44,22 @@ namespace Ikon.Code
     object Payload { get; init; }
     bool Success { get; init; }
   static class MindTools
-    static Task<MindResult> CodebaseSearchAsync(string query, string explanation = null, IEnumerable<string> targetDirectories = null)
+    static Task<MindResult> CodebaseSearchAsync(string query, string? explanation = null, IEnumerable<string>? targetDirectories = null)
     static Task<MindResult> CreateDiagramAsync(string content)
-    static Task<MindResult> DeleteFileAsync(string targetFile, string explanation = null)
+    static Task<MindResult> DeleteFileAsync(string targetFile, string? explanation = null)
     static Task<MindResult> EditFileAsync(string targetFile, string instructions, string codeEdit)
     static Task<MindResult> EditNotebookAsync(string targetNotebook, int cellIdx, bool isNewCell, string cellLanguage, string oldString, string newString)
     static Task<MindResult> FilePatchAsync(IAstWorkspace workspace, string targetFile, string patch)
     static Task<MindResult> FileReadAsync(IAstWorkspace workspace, string targetFile)
     static Task<MindResult> FileSearchAsync(string query, string explanation)
     static Task<MindResult> FileWriteAsync(IAstWorkspace workspace, string targetFile, string contents)
-    static Task<MindResult> GrepSearchAsync(string query, bool caseSensitive = false, string includePattern = null, string excludePattern = null, string explanation = null)
-    static Task<MindResult> ListDirAsync(string relativeWorkspacePath, string explanation = null)
-    static Task<MindResult> ReadFileAsync(string targetFile, bool shouldReadEntireFile, int startLineOneIndexed, int endLineOneIndexedInclusive, string explanation = null)
+    static Task<MindResult> GrepSearchAsync(string query, bool caseSensitive = false, string? includePattern = null, string? excludePattern = null, string? explanation = null)
+    static Task<MindResult> ListDirAsync(string relativeWorkspacePath, string? explanation = null)
+    static Task<MindResult> ReadFileAsync(string targetFile, bool shouldReadEntireFile, int startLineOneIndexed, int endLineOneIndexedInclusive, string? explanation = null)
     static Task<MindResult> ReapplyAsync(string targetFile)
-    static Task<MindResult> RunTerminalCmdAsync(string command, bool isBackground, string explanation = null)
+    static Task<MindResult> RunTerminalCmdAsync(string command, bool isBackground, string? explanation = null)
     static Task<MindResult> SearchReplaceAsync(string filePath, string oldString, string newString)
-    static Task<MindResult> WebSearchAsync(string searchTerm, string explanation = null)
+    static Task<MindResult> WebSearchAsync(string searchTerm, string? explanation = null)
   static class PromptAssembler
     static string AssemblePrompt(IEnumerable<ClassCard> cards, string userQuery)
   class TaskFingerprint
@@ -122,14 +122,14 @@ namespace Ikon.Code.AST
     string Source { get; }
     string Summary { get; init; }
   class AstSymbolKey : IEquatable<AstSymbolKey>
-    ctor(string Namespace = null, string TypeName = null, string MemberName = null, string Kind = null, string[] ParameterTypes = null)
+    ctor(string? Namespace = null, string? TypeName = null, string? MemberName = null, string? Kind = null, string[]? ParameterTypes = null)
     string Kind { get; init; }
     string MemberName { get; init; }
     string Namespace { get; init; }
     string[] ParameterTypes { get; init; }
     string TypeName { get; init; }
     AstSymbolKey GetParent()
-    AstSymbolKey WithMember(string member, string kind = null, string[] parameterTypes = null)
+    AstSymbolKey WithMember(string member, string? kind = null, string[]? parameterTypes = null)
     AstSymbolKey WithoutName()
     AstSymbolKey WithoutParameters()
   enum AstSymbolKind
@@ -191,7 +191,7 @@ namespace Ikon.Code.AST
     AstSymbolKey MemberKey { get; init; }
     ImmutableArray<string> NewParameters { get; init; }
   class ChangeSignatureAction2 : AstAction, IEquatable<ChangeSignatureAction2>
-    ctor(AstSymbolKey MemberKey, string[] NewParameters, string[] NewTypeParameters, string NewReturnType)
+    ctor(AstSymbolKey MemberKey, string[] NewParameters, string[]? NewTypeParameters, string? NewReturnType)
     AstSymbolKey MemberKey { get; init; }
     string[] NewParameters { get; init; }
     string NewReturnType { get; init; }
@@ -231,7 +231,7 @@ namespace Ikon.Code.AST
     abstract Task<IAstWorkspace> PatchFileAsync(string filePath, string patch, CancellationToken ct = null)
     abstract Task<string> ReadFileAsync(string filePath, CancellationToken ct = null)
     abstract Task SaveAsync(CancellationToken ct = null)
-    abstract Task<IReadOnlyList<AstSymbol>> SearchSymbolsAsync(string query, AstSymbolSearchOptions options = null, CancellationToken ct = null)
+    abstract Task<IReadOnlyList<AstSymbol>> SearchSymbolsAsync(string query, AstSymbolSearchOptions? options = null, CancellationToken ct = null)
     abstract Task<AstDiagnostics> ValidateAsync(CancellationToken ct = null)
     abstract Task<IAstWorkspace> WriteFileAsync(string filePath, string contents, CancellationToken ct = null)
   class MoveMemberAction : AstAction, IEquatable<MoveMemberAction>
@@ -298,16 +298,16 @@ namespace Ikon.Code.AST.Roslyn
     Task<AstTestResults> RunAllTestsAsync(string projectOrSolutionPath, CancellationToken ct = null)
     Task<AstTestResults> RunSelectedTestsAsync(string projectOrSolutionPath, IEnumerable<string> fullyQualifiedTestNames, CancellationToken ct = null)
   class RoslynAstSymbolGraph : IAstSymbolGraph
-    ctor(Solution solution, Project project, Func<AstSymbolKey, Task<ISymbol>> keyToRoslynSymbol, Func<ISymbol, Task<AstSymbol>> roslynToAstSymbol)
+    ctor(Solution solution, Project project, Func<AstSymbolKey, Task<ISymbol?>> keyToRoslynSymbol, Func<ISymbol, Task<AstSymbol?>> roslynToAstSymbol)
     Task<IReadOnlySet<AstSymbol>> CollectTransitiveDependenciesAsync(IEnumerable<AstSymbol> roots)
     Task<IReadOnlyList<AstSymbol>> GetReferencedSymbols(AstSymbol symbol)
     Task<IReadOnlyList<AstSymbol>> GetReferencingSymbols(AstSymbol symbol)
   static class RoslynAstSymbolKeyExtensions
     static string GetNodeName(SyntaxNode node)
     static AstSymbolKey ToSymbolKey(ISymbol symbol)
-    static AstSymbolKey ToSymbolKey(SyntaxNode node, SemanticModel semanticModel = null)
+    static AstSymbolKey ToSymbolKey(SyntaxNode node, SemanticModel? semanticModel = null)
     static AstSymbolKey ToSymbolKeyFromDocumentationCommentId(string documentationCommentId)
-    static AstSymbolKey TryToSymbolKey(SyntaxNode node, SemanticModel semanticModel = null)
+    static AstSymbolKey TryToSymbolKey(SyntaxNode node, SemanticModel? semanticModel = null)
   class RoslynAstSymbolTree : IAstSymbolTree
     ctor(Project project)
     AstSymbol FindSymbolByKey(AstSymbolKey key)
@@ -335,15 +335,15 @@ namespace Ikon.Code.AST.Roslyn
     Task<IAstWorkspace> PatchFileAsync(string filePath, string patch, CancellationToken cancellationToken = null)
     Task<string> ReadFileAsync(string filePath, CancellationToken cancellationToken = null)
     Task SaveAsync(CancellationToken cancellationToken = null)
-    Task<IReadOnlyList<AstSymbol>> SearchSymbolsAsync(string query, AstSymbolSearchOptions options = null, CancellationToken cancellationToken = null)
+    Task<IReadOnlyList<AstSymbol>> SearchSymbolsAsync(string query, AstSymbolSearchOptions? options = null, CancellationToken cancellationToken = null)
     Task<AstDiagnostics> ValidateAsync(CancellationToken cancellationToken = null)
     Task<IAstWorkspace> WriteFileAsync(string filePath, string contents, CancellationToken cancellationToken = null)
     IMethodSymbol _entrypoint
   static class RoslynDiagnosticAdapter
     static AstDiagnostic ConvertFromRoslyn(Diagnostic roslynDiagnostic)
   static class RoslynSymbolAdapter
-    static AstSymbol ToAstSymbol(ISymbol symbol, string containerId = null)
-    static AstDiagnosticLocation ToDiagnosticLocation(Location location)
+    static AstSymbol ToAstSymbol(ISymbol symbol, string? containerId = null)
+    static AstDiagnosticLocation ToDiagnosticLocation(Location? location)
   static class RoslynSymbolSummaryProvider
     static Task<string> GetDocumentationAsync(ISymbol symbol, CancellationToken cancellationToken)
     static Task<string> GetSummaryAsync(ISymbol symbol, CancellationToken cancellationToken)
@@ -371,7 +371,7 @@ namespace Ikon.Code.AST.Roslyn.Normalizing
   interface ISolutionNormalizer : ISyntaxNormalizer
     abstract Task<Solution> NormalizeSolutionAsync(Solution solution, NormalizationOptions options, CancellationToken ct = null)
   interface ISyntaxNormalizer
-    abstract Task<SyntaxNode> Normalize(SyntaxNode root, SemanticModel semanticModel = null, IReadOnlyDictionary<SyntaxNode, TypeSyntax> typeMap = null)
+    abstract Task<SyntaxNode> Normalize(SyntaxNode root, SemanticModel? semanticModel = null, IReadOnlyDictionary<SyntaxNode, TypeSyntax>? typeMap = null)
   enum NormalizationOptions
     None
     PrimaryConstructorToExplicit
@@ -391,35 +391,35 @@ namespace Ikon.Code.AST.Roslyn.Normalizing
     AllSafe
   static class Normalizer
     static Task<Document> DenormalizeDocumentAsync(Document document, CancellationToken ct = null)
-    static Task<SyntaxNode> DenormalizeNode(SyntaxNode root, NormalizationOptions options, SemanticModel semanticModel = null)
+    static Task<SyntaxNode> DenormalizeNode(SyntaxNode root, NormalizationOptions options, SemanticModel? semanticModel = null)
     static Task<Solution> DenormalizeSolutionAsync(Solution solution, NormalizationOptions options, CancellationToken ct = null)
-    static Task<Solution> DenormalizeSolutionAsync(Solution solution, Project project, CancellationToken ct = null)
-    static Task<Solution> DenormalizeSolutionAsync(Solution solution, Project project, NormalizationOptions options, CancellationToken ct = null)
-    static Task<SyntaxNode> NormalizeNode(SyntaxNode root, NormalizationOptions options = AllSafe, SemanticModel semanticModel = null, Document document = null, CancellationToken ct = null)
+    static Task<Solution> DenormalizeSolutionAsync(Solution solution, Project? project, CancellationToken ct = null)
+    static Task<Solution> DenormalizeSolutionAsync(Solution solution, Project? project, NormalizationOptions options, CancellationToken ct = null)
+    static Task<SyntaxNode> NormalizeNode(SyntaxNode root, NormalizationOptions options = AllSafe, SemanticModel? semanticModel = null, Document? document = null, CancellationToken ct = null)
     static Task<Solution> NormalizeSolutionAsync(Solution solution, NormalizationOptions options = AllSafe, CancellationToken ct = null)
-    static Task<Solution> NormalizeSolutionAsync(Solution solution, Project project, CancellationToken ct = null)
-    static Task<Solution> NormalizeSolutionAsync(Solution solution, Project project, NormalizationOptions options, CancellationToken ct = null)
-    static IReadOnlyDictionary<SyntaxNode, TypeSyntax> PrepareTypeMap(SyntaxNode node, SemanticModel sem, NormalizationOptions options)
+    static Task<Solution> NormalizeSolutionAsync(Solution solution, Project? project, CancellationToken ct = null)
+    static Task<Solution> NormalizeSolutionAsync(Solution solution, Project? project, NormalizationOptions options, CancellationToken ct = null)
+    static IReadOnlyDictionary<SyntaxNode, TypeSyntax> PrepareTypeMap(SyntaxNode node, SemanticModel? sem, NormalizationOptions options)
     static Task<Solution> RunNormalizersAsync(Solution solution, IEnumerable<ISyntaxNormalizer> pipeline, NormalizationOptions options, CancellationToken ct = null)
 
 namespace Ikon.Code.AST.Roslyn.Normalizing.Core
   sealed class AddBracesNormalizer : ISyntaxNormalizer
     ctor()
-    Task<SyntaxNode> Normalize(SyntaxNode root, SemanticModel _ = null, IReadOnlyDictionary<SyntaxNode, TypeSyntax> __ = null)
+    Task<SyntaxNode> Normalize(SyntaxNode root, SemanticModel? _ = null, IReadOnlyDictionary<SyntaxNode, TypeSyntax>? __ = null)
   sealed class CollectionNormalizer : ISyntaxNormalizer
     ctor()
-    Task<SyntaxNode> Normalize(SyntaxNode root, SemanticModel semanticModel = null, IReadOnlyDictionary<SyntaxNode, TypeSyntax> __ = null)
+    Task<SyntaxNode> Normalize(SyntaxNode root, SemanticModel? semanticModel = null, IReadOnlyDictionary<SyntaxNode, TypeSyntax>? __ = null)
   sealed class NamespaceNormalizer : ISyntaxNormalizer
     ctor()
-    Task<SyntaxNode> Normalize(SyntaxNode root, SemanticModel _ = null, IReadOnlyDictionary<SyntaxNode, TypeSyntax> __ = null)
+    Task<SyntaxNode> Normalize(SyntaxNode root, SemanticModel? _ = null, IReadOnlyDictionary<SyntaxNode, TypeSyntax>? __ = null)
   sealed class SingleLineParametersNormalizer : ISyntaxNormalizer
     ctor()
-    Task<SyntaxNode> Normalize(SyntaxNode root, SemanticModel _ = null, IReadOnlyDictionary<SyntaxNode, TypeSyntax> __ = null)
+    Task<SyntaxNode> Normalize(SyntaxNode root, SemanticModel? _ = null, IReadOnlyDictionary<SyntaxNode, TypeSyntax>? __ = null)
   sealed class VarNormalizer : ISyntaxNormalizer
     ctor()
-    Task<SyntaxNode> Normalize(SyntaxNode root, SemanticModel semanticModel = null, IReadOnlyDictionary<SyntaxNode, TypeSyntax> _ = null)
+    Task<SyntaxNode> Normalize(SyntaxNode root, SemanticModel? semanticModel = null, IReadOnlyDictionary<SyntaxNode, TypeSyntax>? _ = null)
 
 namespace Ikon.Code.AST.Roslyn.Normalizing.Pretty
   class LinebreaksAndIndentNormalizer : ISyntaxNormalizer
     ctor()
-    Task<SyntaxNode> Normalize(SyntaxNode root, SemanticModel semanticModel = null, IReadOnlyDictionary<SyntaxNode, TypeSyntax> typeMap = null)
+    Task<SyntaxNode> Normalize(SyntaxNode root, SemanticModel? semanticModel = null, IReadOnlyDictionary<SyntaxNode, TypeSyntax>? typeMap = null)

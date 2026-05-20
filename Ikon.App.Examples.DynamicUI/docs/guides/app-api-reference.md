@@ -10,7 +10,7 @@ Full API reference for Ikon.App and Ikon.Common.
 
 namespace Ikon.App
   sealed class AppAttribute : Attribute
-    ctor(string name = null, string productId = null, string description = null, int version = 1, string guid = null, UserType userType = Machine, Opcode receiveOpcodeGroups = GROUP_ALL, Opcode sendOpcodeGroups = GROUP_ALL, string[] dependencies = null)
+    ctor(string? name = null, string? productId = null, string? description = null, int version = 1, string? guid = null, UserType userType = Machine, Opcode receiveOpcodeGroups = GROUP_ALL, Opcode sendOpcodeGroups = GROUP_ALL, string[]? dependencies = null)
     int AppVersion { get; }
     string[] Dependencies { get; }
     string Description { get; }
@@ -50,7 +50,7 @@ namespace Ikon.App
     IReadOnlyList<WebhookInfo> Webhooks { get; }
     Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = null)
     Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", CancellationToken ct = null)
-    Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string> acrValues = null, string clientReturnUrl = null, CancellationToken ct = null)
+    Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string>? acrValues = null, string? clientReturnUrl = null, CancellationToken ct = null)
     Task SendEmailAsync(EmailSendRequest request, CancellationToken ct = null)
     event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
     event AsyncEventHandler<ClientLeftEventArgs> ClientLeftAsync
@@ -73,7 +73,7 @@ namespace Ikon.App
     IReadOnlyList<WebhookInfo> Webhooks { get; }
     Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = null)
     Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", CancellationToken ct = null)
-    Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string> acrValues = null, string clientReturnUrl = null, CancellationToken ct = null)
+    Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string>? acrValues = null, string? clientReturnUrl = null, CancellationToken ct = null)
     Task SendEmailAsync(EmailSendRequest request, CancellationToken ct = null)
     event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
     event AsyncEventHandler<ClientLeftEventArgs> ClientLeftAsync
@@ -88,18 +88,18 @@ namespace Ikon.App
     AudioMetrics Metrics { get; }
     SpeechMixer SpeechMixer { get; }
     ValueTask CloseAllAsync()
-    ValueTask CloseAsync(string streamId = null)
-    AudioOutputStreamInfo GetOutputStreamInfo(string streamId = null)
-    ValueTask SendAsync(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string streamId = null, TimeSpan totalDuration = null, AudioEncoderOptions encoderOptions = null, IReadOnlyList<int> targetIds = null)
-    void SendSpeech(AudioContainer audio, IReadOnlyList<IAudioEffect> effects = null, IReadOnlyList<IAudioAnalyzer> analyzers = null, IReadOnlyList<int> targetIds = null)
-    void SendSpeech(string speechEventId, ReadOnlySpan<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, IReadOnlyList<IAudioEffect> effects = null, IReadOnlyList<IAudioAnalyzer> analyzers = null, IReadOnlyList<int> targetIds = null)
+    ValueTask CloseAsync(string? streamId = null)
+    AudioOutputStreamInfo GetOutputStreamInfo(string? streamId = null)
+    ValueTask SendAsync(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string? streamId = null, TimeSpan totalDuration = null, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null)
+    void SendSpeech(AudioContainer audio, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null)
+    void SendSpeech(string speechEventId, ReadOnlySpan<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null)
     void UseSpeechRecognition(SpeechRecognizerModel model, float silenceThresholdRms = 0.01, bool requireCorrelatedStream = true, string language = "", TimeSpan? timeout = null)
     event AsyncEventHandler<AudioInputFrameEventArgs> AudioInputFrameAsync
     event AsyncEventHandler<AudioInputStreamBeginEventArgs> AudioInputStreamBeginAsync
     event AsyncEventHandler<AudioInputStreamEndEventArgs> AudioInputStreamEndAsync
     event AsyncEventHandler<SpeechRecognizedEventArgs> SpeechRecognizedAsync
   class AudioInputFrameEventArgs : EventArgs, ICaptureCorrelationArgs
-    ctor(string streamId, Context clientContext, float[] samples, bool isFirst, bool isLast, TimeSpan totalDuration, string correlationId)
+    ctor(string streamId, Context clientContext, float[] samples, bool isFirst, bool isLast, TimeSpan totalDuration, string? correlationId)
     Context ClientContext { get; }
     int ClientSessionId { get; }
     string CorrelationId { get; }
@@ -110,7 +110,7 @@ namespace Ikon.App
     TimeSpan TotalDuration { get; set; }
     string UserId { get; }
   class AudioInputStreamBeginEventArgs : EventArgs
-    ctor(string streamId, string description, string sourceType, int sampleRate, int channelCount, Context clientContext, int trackId, string correlationId)
+    ctor(string streamId, string description, string sourceType, int sampleRate, int channelCount, Context clientContext, int trackId, string? correlationId)
     int ChannelCount { get; }
     Context ClientContext { get; }
     int ClientSessionId { get; }
@@ -123,7 +123,7 @@ namespace Ikon.App
     int TrackId { get; }
     string UserId { get; }
   class AudioInputStreamEndEventArgs : EventArgs
-    ctor(string streamId, Context clientContext, string correlationId)
+    ctor(string streamId, Context clientContext, string? correlationId)
     Context ClientContext { get; }
     int ClientSessionId { get; }
     string CorrelationId { get; }
@@ -141,10 +141,10 @@ namespace Ikon.App
     string StreamId { get; init; }
     int TrackId { get; init; }
   sealed class AuthOutcome : IEquatable<AuthOutcome>
-    ctor(HttpResult Reject, IReadOnlyDictionary<string, string> Claims = null)
+    ctor(HttpResult? Reject, IReadOnlyDictionary<string, string>? Claims = null)
     IReadOnlyDictionary<string, string> Claims { get; init; }
     HttpResult Reject { get; init; }
-    static AuthOutcome Pass(IReadOnlyDictionary<string, string> claims = null)
+    static AuthOutcome Pass(IReadOnlyDictionary<string, string>? claims = null)
     static AuthOutcome RejectWith(HttpResult result)
   class BackgroundWork
     ValueTask<IAsyncDisposable> StartAsync()
@@ -162,18 +162,20 @@ namespace Ikon.App
     bool? EchoCancellation { get; init; }
     bool? NoiseSuppression { get; init; }
     IReadOnlyList<int> TargetIds { get; init; }
-  class ClientCollection<TClientParameters> : IClientCollection<TClientParameters>
+  class ClientCollection<TClientParameters> : IClientCollection<TClientParameters>, IEnumerable, IEnumerable<IClient<TClientParameters>>
     ctor()
     int Count { get; }
+    IEnumerable<int> Ids { get; }
     IClient<TClientParameters> Item { get; }
+    IEnumerator<IClient<TClientParameters>> GetEnumerator()
   sealed class ClientContact : IEquatable<ClientContact>
     ctor(IReadOnlyList<string> Names, IReadOnlyList<string> Emails, IReadOnlyList<string> Phones)
     IReadOnlyList<string> Emails { get; init; }
     IReadOnlyList<string> Names { get; init; }
     IReadOnlyList<string> Phones { get; init; }
   static class ClientFunctions
-    static Task<ClientImageCapture> CaptureImageAsync(int targetId, ClientImageCaptureOptions options = null, CancellationToken cancellationToken = null)
-    static Task<ClientImageCapture> CaptureImageAsync(ClientImageCaptureOptions options = null, CancellationToken cancellationToken = null)
+    static Task<ClientImageCapture> CaptureImageAsync(int targetId, ClientImageCaptureOptions? options = null, CancellationToken cancellationToken = null)
+    static Task<ClientImageCapture> CaptureImageAsync(ClientImageCaptureOptions? options = null, CancellationToken cancellationToken = null)
     static Task<bool> ExitFullscreenAsync(int targetId, CancellationToken cancellationToken = null)
     static Task<bool> ExitFullscreenAsync(CancellationToken cancellationToken = null)
     static Task<int?> GetBatteryLevelAsync(int targetId, CancellationToken cancellationToken = null)
@@ -196,7 +198,7 @@ namespace Ikon.App
     static Task<string> GetVisibilityAsync(CancellationToken cancellationToken = null)
     static Task<bool> KeepScreenAwakeAsync(int targetId, bool enabled, CancellationToken cancellationToken = null)
     static Task<bool> KeepScreenAwakeAsync(bool enabled, CancellationToken cancellationToken = null)
-    static Task<bool> LoginShowAsync(int targetId, string reason = null, CancellationToken cancellationToken = null)
+    static Task<bool> LoginShowAsync(int targetId, string? reason = null, CancellationToken cancellationToken = null)
     static Task<bool> LogoutAsync(int targetId, CancellationToken cancellationToken = null)
     static Task<bool> LogoutAsync(CancellationToken cancellationToken = null)
     static Task<bool> OpenExternalUrlAsync(int targetId, string url, CancellationToken cancellationToken = null)
@@ -213,10 +215,10 @@ namespace Ikon.App
     static Task<bool> SetThemeAsync(string theme, bool persist = true, CancellationToken cancellationToken = null)
     static Task<bool> SetUrlAsync(int targetId, string url, bool replace = false, bool preserveQueryParams = false, CancellationToken cancellationToken = null)
     static Task<bool> SetUrlAsync(string url, bool replace = false, bool preserveQueryParams = false, CancellationToken cancellationToken = null)
-    static Task<string> StartAudioCaptureAsync(int targetId, ClientAudioCaptureOptions options = null, CancellationToken cancellationToken = null)
-    static Task<string> StartAudioCaptureAsync(ClientAudioCaptureOptions options = null, CancellationToken cancellationToken = null)
-    static Task<string> StartVideoCaptureAsync(int targetId, ClientVideoCaptureSource source = Camera, ClientVideoCaptureOptions options = null, CancellationToken cancellationToken = null)
-    static Task<string> StartVideoCaptureAsync(ClientVideoCaptureSource source = Camera, ClientVideoCaptureOptions options = null, CancellationToken cancellationToken = null)
+    static Task<string> StartAudioCaptureAsync(int targetId, ClientAudioCaptureOptions? options = null, CancellationToken cancellationToken = null)
+    static Task<string> StartAudioCaptureAsync(ClientAudioCaptureOptions? options = null, CancellationToken cancellationToken = null)
+    static Task<string> StartVideoCaptureAsync(int targetId, ClientVideoCaptureSource source = Camera, ClientVideoCaptureOptions? options = null, CancellationToken cancellationToken = null)
+    static Task<string> StartVideoCaptureAsync(ClientVideoCaptureSource source = Camera, ClientVideoCaptureOptions? options = null, CancellationToken cancellationToken = null)
     static Task<bool> StopCaptureAsync(int targetId, string streamId, CancellationToken cancellationToken = null)
     static Task<bool> StopCaptureAsync(string streamId, CancellationToken cancellationToken = null)
     static Task<bool> StopSoundAsync(int targetId, string playbackId, CancellationToken cancellationToken = null)
@@ -257,9 +259,9 @@ namespace Ikon.App
     double Latitude { get; init; }
     double Longitude { get; init; }
   static class ClientMediaCaptureSerializer
-    static string SerializeAudioOptions(ClientAudioCaptureOptions options)
-    static string SerializeImageOptions(ClientImageCaptureOptions options)
-    static string SerializeVideoOptions(ClientVideoCaptureOptions options)
+    static string SerializeAudioOptions(ClientAudioCaptureOptions? options)
+    static string SerializeImageOptions(ClientImageCaptureOptions? options)
+    static string SerializeVideoOptions(ClientVideoCaptureOptions? options)
   sealed class ClientMediaDevice : IEquatable<ClientMediaDevice>
     ctor(string DeviceId, string Kind, string Label, string GroupId)
     string DeviceId { get; init; }
@@ -362,7 +364,7 @@ namespace Ikon.App
     long Size { get; init; }
     string UploadId { get; init; }
   sealed class FileUploadCompleteArgs : IEquatable<FileUploadCompleteArgs>
-    ctor(string UploadId, string FileName, string MimeType, long Size, string LocalTempFilePath, string AssetUri)
+    ctor(string UploadId, string FileName, string MimeType, long Size, string? LocalTempFilePath, string? AssetUri)
     string AssetUri { get; init; }
     string FileName { get; init; }
     string LocalTempFilePath { get; init; }
@@ -381,7 +383,7 @@ namespace Ikon.App
     void Dispose()
     void RegisterCallbacks(string uploadActionId, FileUploadCallbackSet callbackSet)
   sealed class FileUploadPreStartArgs : IEquatable<FileUploadPreStartArgs>
-    ctor(string UploadId, string FileName, string MimeType, long Size, Func<string, Task> Cancel)
+    ctor(string UploadId, string FileName, string MimeType, long Size, Func<string?, Task> Cancel)
     Func<string, Task> Cancel { get; init; }
     string FileName { get; init; }
     string MimeType { get; init; }
@@ -411,7 +413,7 @@ namespace Ikon.App
     bool Accepted { get; set; }
     string AssetUri { get; set; }
   static class HttpDispatchGovernance
-    static Task<object> InvokeAsync(MethodInfo handler, Type ownerType, IReadOnlyDictionary<string, object> args, Func<Task<object>> invoke, CancellationToken ct = null)
+    static Task<object> InvokeAsync(MethodInfo handler, Type ownerType, IReadOnlyDictionary<string, object?> args, Func<Task<object?>> invoke, CancellationToken ct = null)
   sealed class HttpEndpointAttribute : Attribute
     ctor(string method, string path)
     bool Absolute { get; init; }
@@ -422,12 +424,12 @@ namespace Ikon.App
     static IReadOnlyList<HttpEndpointInfo> ForType(Type ownerType)
     static IReadOnlyList<HttpEndpointInfo> ForTypes(IEnumerable<Type> types)
   sealed class HttpEndpointEnvelope : IEquatable<HttpEndpointEnvelope>
-    ctor(int StatusCode, string Body, string ContentType)
+    ctor(int StatusCode, string? Body, string ContentType)
     string Body { get; init; }
     string ContentType { get; init; }
     int StatusCode { get; init; }
   sealed class HttpEndpointInfo : IEquatable<HttpEndpointInfo>
-    ctor(string Method, string Path, Type Auth, bool Absolute, MethodInfo Handler, Type OwnerType)
+    ctor(string Method, string Path, Type? Auth, bool Absolute, MethodInfo Handler, Type OwnerType)
     bool Absolute { get; init; }
     Type Auth { get; init; }
     MethodInfo Handler { get; init; }
@@ -442,21 +444,21 @@ namespace Ikon.App
     string Path { get; init; }
     IReadOnlyDictionary<string, string> Query { get; init; }
   sealed class HttpResult : IEquatable<HttpResult>
-    ctor(int StatusCode, object Body = null, string ContentType = "application/json")
+    ctor(int StatusCode, object? Body = null, string ContentType = "application/json")
     object Body { get; init; }
     string ContentType { get; init; }
     int StatusCode { get; init; }
-    static HttpResult Accepted(object body = null)
-    static HttpResult BadRequest(string reason = null)
-    static HttpResult Conflict(string reason = null)
-    static HttpResult Created(object body = null)
-    static HttpResult Forbidden(string reason = null)
+    static HttpResult Accepted(object? body = null)
+    static HttpResult BadRequest(string? reason = null)
+    static HttpResult Conflict(string? reason = null)
+    static HttpResult Created(object? body = null)
+    static HttpResult Forbidden(string? reason = null)
     static HttpResult Json(object body, int statusCode = 200)
     static HttpResult NoContent()
-    static HttpResult NotFound(string reason = null)
-    static HttpResult Ok(object body = null)
+    static HttpResult NotFound(string? reason = null)
+    static HttpResult Ok(object? body = null)
     static HttpResult Text(string body, int statusCode = 200)
-    static HttpResult Unauthorized(string reason = null)
+    static HttpResult Unauthorized(string? reason = null)
   interface IAppBase : IProtocolMessageChannel
     BackgroundWork BackgroundWork { get; }
     string DataDirectory { get; }
@@ -471,7 +473,7 @@ namespace Ikon.App
     IReadOnlyList<WebhookInfo> Webhooks { get; }
     abstract Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = null)
     abstract Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", CancellationToken ct = null)
-    abstract Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string> acrValues = null, string clientReturnUrl = null, CancellationToken ct = null)
+    abstract Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string>? acrValues = null, string? clientReturnUrl = null, CancellationToken ct = null)
     abstract Task SendEmailAsync(EmailSendRequest request, CancellationToken ct = null)
     event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
     event AsyncEventHandler<ClientLeftEventArgs> ClientLeftAsync
@@ -488,21 +490,22 @@ namespace Ikon.App
     Context ClientContext { get; }
     string CorrelationId { get; }
     string StreamId { get; }
-  interface IClientCollection<TClientParameters>
+  interface IClientCollection<TClientParameters> : IEnumerable, IEnumerable<IClient<TClientParameters>>
     int Count { get; }
+    IEnumerable<int> Ids { get; }
     IClient<TClientParameters> Item { get; }
   interface IClient<TClientParameters>
     TClientParameters Parameters { get; }
   interface IProfileAttributes
   static class JsonSchemaBuilder
     static JsonElement BuildObjectSchema(IReadOnlyList<ParameterInfo> parameters)
-    static JsonElement BuildObjectSchema(IReadOnlyList<ParameterInfo> parameters, IReadOnlyList<ValueTuple<string, Type, string>> extraRequired)
+    static JsonElement BuildObjectSchema(IReadOnlyList<ParameterInfo> parameters, IReadOnlyList<ValueTuple<string, Type, string?>> extraRequired)
   static class LoginPrompt
-    static Task ShowAsync(int targetClientSessionId, string reason = null)
-    static Task ShowAsync(string reason = null)
+    static Task ShowAsync(int targetClientSessionId, string? reason = null)
+    static Task ShowAsync(string? reason = null)
     static string HandoffParameterKey
   static class McpHttpTransport
-    static Task HandlePostAsync(HttpContext context, McpHost mcp, IReadOnlyDictionary<string, string> sessionIdentityFields = null)
+    static Task HandlePostAsync(HttpContext context, McpHost mcp, IReadOnlyDictionary<string, string>? sessionIdentityFields = null)
     static Task HandleProtectedResourceDiscoveryAsync(HttpContext context)
   static class McpResourceBridge
     static McpResourceHandler BuildHandler(CellHost cellHost, McpResourceInfo info)
@@ -574,18 +577,18 @@ namespace Ikon.App
     string Url { get; }
     string UserId { get; }
   class PersistentReactive<T> : Reactive<T>, IPersistedReactive
-    ctor(T initialValue, PersistenceBackend backend = Private, string postgresDatabase = null, string key = null, string file = "", string member = "")
+    ctor(T initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null, string file = "", string member = "")
     PersistenceBackend Backend { get; }
     string PostgresDatabase { get; }
     string PublicUrl { get; }
   class PersistentSessionReactive<T> : Reactive<T>, IPersistedReactive
-    ctor(T initialValue, PersistenceBackend backend = Private, string postgresDatabase = null, string key = null, string file = "", string member = "")
+    ctor(T initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null, string file = "", string member = "")
     PersistenceBackend Backend { get; }
     string PostgresDatabase { get; }
     string PublicUrl { get; }
   class PersistentUserReactive<T> : Reactive<T, UserScope>, IPersistedReactive
-    ctor(T initialValue, PersistenceBackend backend = Private, string postgresDatabase = null, string key = null, string file = "", string member = "")
-    ctor(Func<string, T> initialValue, PersistenceBackend backend = Private, string postgresDatabase = null, string key = null, string file = "", string member = "")
+    ctor(T initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null, string file = "", string member = "")
+    ctor(Func<string, T> initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null, string file = "", string member = "")
     PersistenceBackend Backend { get; }
     string PostgresDatabase { get; }
     string PublicUrl { get; }
@@ -615,14 +618,14 @@ namespace Ikon.App
   class ReactiveRoot
     ctor(IAppBase app, int updateIntervalMs = 1000)
     ReactiveManager ReactiveManager { get; }
-    Task RunAsync(Func<Task> render, Func<Context, bool> filter = null)
+    Task RunAsync(Func<Task> render, Func<Context, bool>? filter = null)
   sealed class RouteTemplate
     IReadOnlyList<string> CaptureNames { get; }
     string Pattern { get; }
     static RouteTemplate Parse(string template)
     bool TryMatch(string path, out IReadOnlyDictionary<string, string> captures)
   sealed class SpeechRecognizedEventArgs : EventArgs
-    ctor(string text, Context clientContext, string streamId, string correlationId, TimeSpan duration, int sampleCount)
+    ctor(string text, Context clientContext, string streamId, string? correlationId, TimeSpan duration, int sampleCount)
     Context ClientContext { get; }
     int ClientSessionId { get; }
     string CorrelationId { get; }
@@ -649,14 +652,14 @@ namespace Ikon.App
   class Video
     ctor(IAppBase app)
     ValueTask CloseAllAsync()
-    ValueTask CloseAsync(string streamKey = null)
-    VideoOutputStreamInfo GetOutputStreamInfo(string streamId = null)
-    ValueTask SendAsync(byte[] data, int frameNumber, bool isKey, ulong timestampInUs, uint durationInUs, VideoCodec codec, int width, int height, double framerate, string streamId = null, IReadOnlyList<int> targetIds = null, int? trackId = null)
+    ValueTask CloseAsync(string? streamKey = null)
+    VideoOutputStreamInfo GetOutputStreamInfo(string? streamId = null)
+    ValueTask SendAsync(byte[] data, int frameNumber, bool isKey, ulong timestampInUs, uint durationInUs, VideoCodec codec, int width, int height, double framerate, string? streamId = null, IReadOnlyList<int>? targetIds = null, int? trackId = null)
     event AsyncEventHandler<VideoInputFrameEventArgs> VideoInputFrameAsync
     event AsyncEventHandler<VideoInputStreamBeginEventArgs> VideoInputStreamBeginAsync
     event AsyncEventHandler<VideoInputStreamEndEventArgs> VideoInputStreamEndAsync
   class VideoInputFrameEventArgs : EventArgs, ICaptureCorrelationArgs
-    ctor(string streamId, Context clientContext, int trackId, byte[] data, int frameNumber, bool isKey, ulong timestampInUs, uint durationInUs, string correlationId)
+    ctor(string streamId, Context clientContext, int trackId, byte[] data, int frameNumber, bool isKey, ulong timestampInUs, uint durationInUs, string? correlationId)
     Context ClientContext { get; }
     int ClientSessionId { get; }
     string CorrelationId { get; }
@@ -669,7 +672,7 @@ namespace Ikon.App
     int TrackId { get; }
     string UserId { get; }
   class VideoInputStreamBeginEventArgs : EventArgs, ICaptureCorrelationArgs
-    ctor(string streamId, string description, string sourceType, VideoCodec codec, string codecDetails, int width, int height, double framerate, Context clientContext, int trackId, string correlationId)
+    ctor(string streamId, string description, string sourceType, VideoCodec codec, string codecDetails, int width, int height, double framerate, Context clientContext, int trackId, string? correlationId)
     Context ClientContext { get; }
     int ClientSessionId { get; }
     VideoCodec Codec { get; }
@@ -684,7 +687,7 @@ namespace Ikon.App
     string UserId { get; }
     int Width { get; }
   class VideoInputStreamEndEventArgs : EventArgs, ICaptureCorrelationArgs
-    ctor(string streamId, Context clientContext, int trackId, string correlationId)
+    ctor(string streamId, Context clientContext, int trackId, string? correlationId)
     Context ClientContext { get; }
     int ClientSessionId { get; }
     string CorrelationId { get; }
@@ -766,7 +769,6 @@ namespace Ikon.Common
     string ChannelId { get; set; }
     string CreatedAt { get; set; }
     List<AppBundleConfig.DatabaseEntry> Databases { get; set; }
-    AppBundleConfig.EmailConfig Email { get; set; }
     List<AppBundleConfig.EmailTemplate> EmailTemplates { get; set; }
     string Hash { get; set; }
     string Name { get; set; }
@@ -799,7 +801,6 @@ namespace Ikon.Common
     AppProjectConfig.ActivationConfig Activation { get; set; }
     AppProjectConfig.AuthConfig Auth { get; set; }
     List<string> Databases { get; set; }
-    AppProjectConfig.EmailConfig Email { get; set; }
     AppProjectConfig.TargetConfig Target { get; set; }
     static AppProjectConfig FromToml(string tomlContent)
     static string GetConfigFileName(IkonBackend.EnvironmentType environment)
@@ -819,7 +820,7 @@ namespace Ikon.Common
     static string FindIkonPlatformRepoRoot(string startDirectory)
     static string FindIkonPlatformSlnx(string startDirectory)
     static Task GenerateTsconfigPathsJsonAsync(string frontendNodeDirectory)
-    static AppProjectVariables GetAppProjectVars(string targetDirectory)
+    static AppProjectVariables GetAppProjectVars(string? targetDirectory)
     static string GetAssemblyNameFromCsproj(string csprojPath)
     static Type[] GetTypesSafely(Assembly assembly)
     static bool HasIkonAppAttribute(Type type)
@@ -885,14 +886,14 @@ namespace Ikon.Common
     string MethodName { get; set; }
     string ToolName { get; set; }
   struct CertificateStore.Certificate
-    ctor(X509Certificate2 cert, X509Certificate2 rootCert, string certHash, string spkiHash, bool isDotnetDevCert)
+    ctor(X509Certificate2 cert, X509Certificate2? rootCert, string certHash, string spkiHash, bool isDotnetDevCert)
     X509Certificate2 Cert { get; }
     string CertHash { get; }
     bool IsDotnetDevCert { get; }
     X509Certificate2 RootCert { get; }
     string SpkiHash { get; }
   static class CertificateStore
-    static CertificateStore.Certificate GetCertificate(string host, X509Certificate2 rootCert = null, bool disableDotnetDevCerts = false)
+    static CertificateStore.Certificate GetCertificate(string host, X509Certificate2? rootCert = null, bool disableDotnetDevCerts = false)
   sealed class DatabaseConnectionInfo
     ctor()
     string ConnectionString { get; set; }
@@ -904,31 +905,11 @@ namespace Ikon.Common
     string Tier { get; set; }
     string Type { get; set; }
   class DescriptionAttribute : Attribute
-    ctor(string description, object example = null, RequiredStatus isRequired = Default, int minArrayItems = 0)
+    ctor(string description, object? example = null, RequiredStatus isRequired = Default, int minArrayItems = 0)
     string Description { get; }
     object Example { get; }
     RequiredStatus IsRequired { get; }
     int MinArrayItems { get; }
-  class AppProjectConfig.EmailConfig : ITomlMetadataProvider
-    ctor()
-    AppProjectConfig.EmailInboundConfig Inbound { get; set; }
-    AppProjectConfig.EmailOutboundConfig Outbound { get; set; }
-  class AppBundleConfig.EmailConfig
-    ctor()
-    AppBundleConfig.EmailInboundConfig Inbound { get; set; }
-    AppBundleConfig.EmailOutboundConfig Outbound { get; set; }
-  class AppProjectConfig.EmailInboundConfig : ITomlMetadataProvider
-    ctor()
-    bool Enabled { get; set; }
-  class AppBundleConfig.EmailInboundConfig
-    ctor()
-    bool Enabled { get; set; }
-  class AppProjectConfig.EmailOutboundConfig : ITomlMetadataProvider
-    ctor()
-    bool Enabled { get; set; }
-  class AppBundleConfig.EmailOutboundConfig
-    ctor()
-    bool Enabled { get; set; }
   class AppBundleConfig.EmailTemplate
     ctor()
     string Name { get; set; }
@@ -1008,11 +989,13 @@ namespace Ikon.Common
   class IkonProjectConfigLegacyPerEnv
     ctor()
     Dictionary<string, IkonProjectConfigLegacy> Environments { get; set; }
+  static class IkonTaskExtensions
+    static void RunParallel(Task task, Action<Exception>? onException = null)
   sealed class InMemoryProtocolMessageChannel : IProtocolMessageChannel
     ctor()
     Context ClientContext { get; }
     static ValueTuple<InMemoryProtocolMessageChannel, InMemoryProtocolMessageChannel> CreateConnectedPair()
-    IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[] opcodes = null)
+    IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[]? opcodes = null)
     ValueTask SendMessageAsync(ProtocolMessage message)
     ValueTask SendMessageAsync(IProtocolMessagePayload payload)
   sealed class AppProjectUtils.IsolatedLoadContext : AssemblyLoadContext, IDisposable
@@ -1903,15 +1886,15 @@ namespace Ikon.Common
     Task<Stream> ReadAsStreamAsync(string resourcePath)
     Task<string> ReadAsStringAsync(string resourcePath)
   static class Retrier
-    static T Run<T>(List<Type> retryableExceptions, int retries, Func<T> func, string callerMemberName = "", string callerFilePath = "")
-    static T Run<T>(Func<T> func, List<Type> retryableExceptions = null, int retries = 5, Action<Exception> onRetry = null, Action<Exception> onFailure = null, bool useExponentialBackoff = true, string description = null, string callerMemberName = "", string callerFilePath = "")
-    static void Run(List<Type> retryableExceptions, int retries, Action func, string callerMemberName = "", string callerFilePath = "")
-    static void Run(Action func, List<Type> retryableExceptions = null, int retries = 5, Action<Exception> onRetry = null, Action<Exception> onFailure = null, bool useExponentialBackoff = true, string description = null, string callerMemberName = "", string callerFilePath = "")
-    static Task<T> RunAsync<T>(List<Type> retryableExceptions, int retries, Func<Task<T>> func, string callerMemberName = "", string callerFilePath = "")
-    static Task<T> RunAsync<T>(Func<CancellationToken, Task<T>> func, CancellationToken cancellationToken, List<Type> retryableExceptions = null, int retries = 5, Func<Exception, Task> onRetry = null, Func<Exception, Task> onFailure = null, bool useExponentialBackoff = true, string description = null, string callerMemberName = "", string callerFilePath = "")
-    static Task<T> RunAsync<T>(Func<Task<T>> func, List<Type> retryableExceptions = null, int retries = 5, Func<Exception, Task> onRetry = null, Func<Exception, Task> onFailure = null, bool useExponentialBackoff = true, string description = null, string callerMemberName = "", string callerFilePath = "")
-    static Task RunAsync(List<Type> retryableExceptions, int retries, Func<Task> func, string callerMemberName = "", string callerFilePath = "")
-    static Task RunAsync(Func<Task> func, List<Type> retryableExceptions = null, int retries = 5, Func<Exception, Task> onRetry = null, Func<Exception, Task> onFailure = null, bool useExponentialBackoff = true, string description = null, string callerMemberName = "", string callerFilePath = "")
+    static T Run<T>(List<Type>? retryableExceptions, int retries, Func<T> func, string callerMemberName = "", string callerFilePath = "")
+    static T Run<T>(Func<T> func, List<Type>? retryableExceptions = null, int retries = 5, Action<Exception>? onRetry = null, Action<Exception>? onFailure = null, bool useExponentialBackoff = true, string? description = null, string callerMemberName = "", string callerFilePath = "")
+    static void Run(List<Type>? retryableExceptions, int retries, Action func, string callerMemberName = "", string callerFilePath = "")
+    static void Run(Action func, List<Type>? retryableExceptions = null, int retries = 5, Action<Exception>? onRetry = null, Action<Exception>? onFailure = null, bool useExponentialBackoff = true, string? description = null, string callerMemberName = "", string callerFilePath = "")
+    static Task<T> RunAsync<T>(List<Type>? retryableExceptions, int retries, Func<Task<T>> func, string callerMemberName = "", string callerFilePath = "")
+    static Task<T> RunAsync<T>(Func<CancellationToken, Task<T>> func, CancellationToken cancellationToken, List<Type>? retryableExceptions = null, int retries = 5, Func<Exception, Task>? onRetry = null, Func<Exception, Task>? onFailure = null, bool useExponentialBackoff = true, string? description = null, string callerMemberName = "", string callerFilePath = "")
+    static Task<T> RunAsync<T>(Func<Task<T>> func, List<Type>? retryableExceptions = null, int retries = 5, Func<Exception, Task>? onRetry = null, Func<Exception, Task>? onFailure = null, bool useExponentialBackoff = true, string? description = null, string callerMemberName = "", string callerFilePath = "")
+    static Task RunAsync(List<Type>? retryableExceptions, int retries, Func<Task> func, string callerMemberName = "", string callerFilePath = "")
+    static Task RunAsync(Func<Task> func, List<Type>? retryableExceptions = null, int retries = 5, Func<Exception, Task>? onRetry = null, Func<Exception, Task>? onFailure = null, bool useExponentialBackoff = true, string? description = null, string callerMemberName = "", string callerFilePath = "")
   class AppProjectConfigLegacy.Target : ITomlMetadataProvider
     ctor()
     string ChannelId { get; set; }
@@ -1923,8 +1906,6 @@ namespace Ikon.Common
     string Name { get; set; }
     string OrganisationId { get; set; }
     string SpaceId { get; set; }
-  static class TaskExtensions
-    static void RunParallel(Task task, Action<Exception> onException = null)
   class TempDirectory
     ctor(string rootDirName)
     string FullPath { get; }
@@ -1959,7 +1940,7 @@ namespace Ikon.Common
     void Register(string name, double value)
   static class Utils
     static string GenerateRandomToken(int size = 32)
-    static string GetCSharpTypeName(object obj)
+    static string GetCSharpTypeName(object? obj)
     static IPAddress GetFirstIPv4AddressOrLocalhost()
     static string ToUnescapedString(string input, bool unicodeOnly = false)
   class ValueStatistics
@@ -2002,7 +1983,7 @@ namespace Ikon.Common.Git
     Renamed
     Untracked
   class GitCloneOptions : IEquatable<GitCloneOptions>
-    ctor(string Branch = null, bool Shallow = false, GitCredentials Credentials = null)
+    ctor(string? Branch = null, bool Shallow = false, GitCredentials? Credentials = null)
     string Branch { get; init; }
     GitCredentials Credentials { get; init; }
     bool Shallow { get; init; }
@@ -2019,7 +2000,7 @@ namespace Ikon.Common.Git
     string Password { get; init; }
     string Username { get; init; }
   class GitDiff : IEquatable<GitDiff>
-    ctor(string FromSha, string ToSha, List<GitFileDiff> Files)
+    ctor(string? FromSha, string? ToSha, List<GitFileDiff> Files)
     List<GitFileDiff> Files { get; init; }
     string FromSha { get; init; }
     string ToSha { get; init; }
@@ -2028,14 +2009,14 @@ namespace Ikon.Common.Git
     string Path { get; init; }
     GitChangeType Type { get; init; }
   class GitFileDiff : IEquatable<GitFileDiff>
-    ctor(string Path, GitChangeType Type, int LinesAdded, int LinesRemoved, string Patch = null)
+    ctor(string Path, GitChangeType Type, int LinesAdded, int LinesRemoved, string? Patch = null)
     int LinesAdded { get; init; }
     int LinesRemoved { get; init; }
     string Patch { get; init; }
     string Path { get; init; }
     GitChangeType Type { get; init; }
   class GitRepository
-    ctor(string workingDirectory, GitCredentials credentials = null)
+    ctor(string workingDirectory, GitCredentials? credentials = null)
     GitCredentials Credentials { get; }
     string WorkingDirectory { get; }
     Task AbortAllInProgressOperationsAsync(CancellationToken ct = null)
@@ -2045,12 +2026,12 @@ namespace Ikon.Common.Git
     Task AddRemoteAsync(string name, string url, CancellationToken ct = null)
     Task CheckoutAsync(string branchOrRef, CancellationToken ct = null)
     Task CheckoutFilesFromRefAsync(string refName, string path = ".", CancellationToken ct = null)
-    static Task<GitRepository> CloneAsync(string url, string targetDir, GitCloneOptions options = null, CancellationToken ct = null)
-    static Task<ValueTuple<GitRepository, string, bool>> CloneOrSyncAsync(string url, string targetDir, GitCloneOptions options = null, CancellationToken ct = null)
+    static Task<GitRepository> CloneAsync(string url, string targetDir, GitCloneOptions? options = null, CancellationToken ct = null)
+    static Task<ValueTuple<GitRepository, string, bool>> CloneOrSyncAsync(string url, string targetDir, GitCloneOptions? options = null, CancellationToken ct = null)
     Task<GitCommit> CommitAsync(string message, CancellationToken ct = null)
     Task<GitCommit> CommitAsync(string message, string authorName, string authorEmail, bool allowEmpty = false, CancellationToken ct = null)
-    Task CreateBranchAsync(string name, string startPoint = null, CancellationToken ct = null)
-    Task<GitTag> CreateTagAsync(string name, string message = null, CancellationToken ct = null)
+    Task CreateBranchAsync(string name, string? startPoint = null, CancellationToken ct = null)
+    Task<GitTag> CreateTagAsync(string name, string? message = null, CancellationToken ct = null)
     Task DeleteTagAsync(string name, CancellationToken ct = null)
     Task DiscardChangesAsync(CancellationToken ct = null)
     static string EscapeMessage(string message)
@@ -2059,10 +2040,10 @@ namespace Ikon.Common.Git
     Task<List<GitBranch>> GetBranchesAsync(CancellationToken ct = null)
     Task<string> GetConfigAsync(string key, CancellationToken ct = null)
     Task<string> GetCurrentBranchAsync(CancellationToken ct = null)
-    Task<GitDiff> GetDiffAsync(string target = null, CancellationToken ct = null)
+    Task<GitDiff> GetDiffAsync(string? target = null, CancellationToken ct = null)
     Task<GitCommit> GetHeadCommitAsync(CancellationToken ct = null)
     Task<string> GetHeadShaAsync(bool shortSha = false, CancellationToken ct = null)
-    Task<List<GitCommit>> GetHistoryAsync(int limit = 20, string fromRef = null, CancellationToken ct = null)
+    Task<List<GitCommit>> GetHistoryAsync(int limit = 20, string? fromRef = null, CancellationToken ct = null)
     Task<string> GetRemoteUrlAsync(string name = "origin", CancellationToken ct = null)
     Task<GitStatus> GetStatusAsync(CancellationToken ct = null)
     Task<List<GitTag>> GetTagsAsync(CancellationToken ct = null)
@@ -2070,7 +2051,7 @@ namespace Ikon.Common.Git
     Task<bool> HasRemoteAsync(string name = "origin", CancellationToken ct = null)
     Task<bool> HasUncommittedChangesAsync(CancellationToken ct = null)
     Task<bool> HasUncommittedChangesAsync(string path, CancellationToken ct = null)
-    static Task<GitRepository> InitAndConnectAsync(string directory, string remoteUrl, GitCredentials credentials = null, string configKey = null, string configValue = null, CancellationToken ct = null)
+    static Task<GitRepository> InitAndConnectAsync(string directory, string remoteUrl, GitCredentials? credentials = null, string? configKey = null, string? configValue = null, CancellationToken ct = null)
     static Task<GitRepository> InitAsync(string directory, CancellationToken ct = null)
     Task<bool> IsGitRepositoryAsync(CancellationToken ct = null)
     static Task<bool> IsGitRepositoryAsync(string directory, CancellationToken ct = null)
@@ -2086,18 +2067,18 @@ namespace Ikon.Common.Git
     Task SetConfigAsync(string key, string value, CancellationToken ct = null)
     Task SetRemoteUrlAsync(string name, string url, CancellationToken ct = null)
     Task SetUpstreamAsync(string remoteBranch, CancellationToken ct = null)
-    static string ShortCommitHash(string hash)
+    static string ShortCommitHash(string? hash)
     Task StageAllAsync(CancellationToken ct = null)
     Task StagePathAsync(string path, CancellationToken ct = null)
-    Task<bool> StashAsync(string message = null, CancellationToken ct = null)
+    Task<bool> StashAsync(string? message = null, CancellationToken ct = null)
     Task<bool> StashPopAsync(CancellationToken ct = null)
     static string StripCredentialsFromUrl(string url)
     Task<GitSyncResult> SyncAsync(CancellationToken ct = null)
     static GitRepository TryOpen(string directory)
     Task<ValueTuple<bool, string, string>> TryRunAsync(string args, CancellationToken ct = null)
-    static bool UrlsMatch(string url1, string url2)
+    static bool UrlsMatch(string? url1, string? url2)
   class GitStatus : IEquatable<GitStatus>
-    ctor(string Branch, string HeadSha, bool HasUncommittedChanges, bool IsDetachedHead, int AheadBy, int BehindBy, List<GitFileChange> Changes)
+    ctor(string Branch, string? HeadSha, bool HasUncommittedChanges, bool IsDetachedHead, int AheadBy, int BehindBy, List<GitFileChange> Changes)
     int AheadBy { get; init; }
     int BehindBy { get; init; }
     string Branch { get; init; }
@@ -2106,18 +2087,18 @@ namespace Ikon.Common.Git
     string HeadSha { get; init; }
     bool IsDetachedHead { get; init; }
   class GitSyncResult : IEquatable<GitSyncResult>
-    ctor(bool Success, string PreviousSha, string CurrentSha, string Error = null)
+    ctor(bool Success, string? PreviousSha, string? CurrentSha, string? Error = null)
     string CurrentSha { get; init; }
     string Error { get; init; }
     string PreviousSha { get; init; }
     bool Success { get; init; }
   class GitTag : IEquatable<GitTag>
-    ctor(string Name, string Sha, GitCommit Commit = null)
+    ctor(string Name, string Sha, GitCommit? Commit = null)
     GitCommit Commit { get; init; }
     string Name { get; init; }
     string Sha { get; init; }
   class GitWorktreeInfo : IEquatable<GitWorktreeInfo>
-    ctor(string Path, string Head, string Branch)
+    ctor(string Path, string? Head, string? Branch)
     string Branch { get; init; }
     string Head { get; init; }
     string Path { get; init; }
@@ -2255,8 +2236,8 @@ namespace Ikon.Common.Maths
     static Vector3 Atan2(Vector3 a, Vector3 b)
     static Vector2 Atan2(Vector2 a, Vector2 b)
     static float Atan2(float a, float b)
-    static Vector3 CalculateCentroid(Vector3[] positions, double[] weights = null)
-    static float CalculateCentroidRootMeanSquareDistance(Vector3[] positions, Vector3 centroid, double[] weights = null)
+    static Vector3 CalculateCentroid(Vector3[] positions, double[]? weights = null)
+    static float CalculateCentroidRootMeanSquareDistance(Vector3[] positions, Vector3 centroid, double[]? weights = null)
     static float CalculatePositionWiseRootMeanSquareDistance(Vector3[] positions)
     static float CalculateRootMeanSquareDistance(Vector3[] a, Vector3[] b)
     static Vector4 CatmullRom(Vector4 value1, Vector4 value2, Vector4 value3, Vector4 value4, float weight)

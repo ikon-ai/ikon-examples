@@ -19,7 +19,6 @@ namespace Ikon.Common
     string ChannelId { get; set; }
     string CreatedAt { get; set; }
     List<AppBundleConfig.DatabaseEntry> Databases { get; set; }
-    AppBundleConfig.EmailConfig Email { get; set; }
     List<AppBundleConfig.EmailTemplate> EmailTemplates { get; set; }
     string Hash { get; set; }
     string Name { get; set; }
@@ -52,7 +51,6 @@ namespace Ikon.Common
     AppProjectConfig.ActivationConfig Activation { get; set; }
     AppProjectConfig.AuthConfig Auth { get; set; }
     List<string> Databases { get; set; }
-    AppProjectConfig.EmailConfig Email { get; set; }
     AppProjectConfig.TargetConfig Target { get; set; }
     static AppProjectConfig FromToml(string tomlContent)
     static string GetConfigFileName(IkonBackend.EnvironmentType environment)
@@ -72,7 +70,7 @@ namespace Ikon.Common
     static string FindIkonPlatformRepoRoot(string startDirectory)
     static string FindIkonPlatformSlnx(string startDirectory)
     static Task GenerateTsconfigPathsJsonAsync(string frontendNodeDirectory)
-    static AppProjectVariables GetAppProjectVars(string targetDirectory)
+    static AppProjectVariables GetAppProjectVars(string? targetDirectory)
     static string GetAssemblyNameFromCsproj(string csprojPath)
     static Type[] GetTypesSafely(Assembly assembly)
     static bool HasIkonAppAttribute(Type type)
@@ -138,14 +136,14 @@ namespace Ikon.Common
     string MethodName { get; set; }
     string ToolName { get; set; }
   struct CertificateStore.Certificate
-    ctor(X509Certificate2 cert, X509Certificate2 rootCert, string certHash, string spkiHash, bool isDotnetDevCert)
+    ctor(X509Certificate2 cert, X509Certificate2? rootCert, string certHash, string spkiHash, bool isDotnetDevCert)
     X509Certificate2 Cert { get; }
     string CertHash { get; }
     bool IsDotnetDevCert { get; }
     X509Certificate2 RootCert { get; }
     string SpkiHash { get; }
   static class CertificateStore
-    static CertificateStore.Certificate GetCertificate(string host, X509Certificate2 rootCert = null, bool disableDotnetDevCerts = false)
+    static CertificateStore.Certificate GetCertificate(string host, X509Certificate2? rootCert = null, bool disableDotnetDevCerts = false)
   sealed class DatabaseConnectionInfo
     ctor()
     string ConnectionString { get; set; }
@@ -157,31 +155,11 @@ namespace Ikon.Common
     string Tier { get; set; }
     string Type { get; set; }
   class DescriptionAttribute : Attribute
-    ctor(string description, object example = null, RequiredStatus isRequired = Default, int minArrayItems = 0)
+    ctor(string description, object? example = null, RequiredStatus isRequired = Default, int minArrayItems = 0)
     string Description { get; }
     object Example { get; }
     RequiredStatus IsRequired { get; }
     int MinArrayItems { get; }
-  class AppProjectConfig.EmailConfig : ITomlMetadataProvider
-    ctor()
-    AppProjectConfig.EmailInboundConfig Inbound { get; set; }
-    AppProjectConfig.EmailOutboundConfig Outbound { get; set; }
-  class AppBundleConfig.EmailConfig
-    ctor()
-    AppBundleConfig.EmailInboundConfig Inbound { get; set; }
-    AppBundleConfig.EmailOutboundConfig Outbound { get; set; }
-  class AppProjectConfig.EmailInboundConfig : ITomlMetadataProvider
-    ctor()
-    bool Enabled { get; set; }
-  class AppBundleConfig.EmailInboundConfig
-    ctor()
-    bool Enabled { get; set; }
-  class AppProjectConfig.EmailOutboundConfig : ITomlMetadataProvider
-    ctor()
-    bool Enabled { get; set; }
-  class AppBundleConfig.EmailOutboundConfig
-    ctor()
-    bool Enabled { get; set; }
   class AppBundleConfig.EmailTemplate
     ctor()
     string Name { get; set; }
@@ -261,11 +239,13 @@ namespace Ikon.Common
   class IkonProjectConfigLegacyPerEnv
     ctor()
     Dictionary<string, IkonProjectConfigLegacy> Environments { get; set; }
+  static class IkonTaskExtensions
+    static void RunParallel(Task task, Action<Exception>? onException = null)
   sealed class InMemoryProtocolMessageChannel : IProtocolMessageChannel
     ctor()
     Context ClientContext { get; }
     static ValueTuple<InMemoryProtocolMessageChannel, InMemoryProtocolMessageChannel> CreateConnectedPair()
-    IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[] opcodes = null)
+    IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[]? opcodes = null)
     ValueTask SendMessageAsync(ProtocolMessage message)
     ValueTask SendMessageAsync(IProtocolMessagePayload payload)
   sealed class AppProjectUtils.IsolatedLoadContext : AssemblyLoadContext, IDisposable
@@ -1156,15 +1136,15 @@ namespace Ikon.Common
     Task<Stream> ReadAsStreamAsync(string resourcePath)
     Task<string> ReadAsStringAsync(string resourcePath)
   static class Retrier
-    static T Run<T>(List<Type> retryableExceptions, int retries, Func<T> func, string callerMemberName = "", string callerFilePath = "")
-    static T Run<T>(Func<T> func, List<Type> retryableExceptions = null, int retries = 5, Action<Exception> onRetry = null, Action<Exception> onFailure = null, bool useExponentialBackoff = true, string description = null, string callerMemberName = "", string callerFilePath = "")
-    static void Run(List<Type> retryableExceptions, int retries, Action func, string callerMemberName = "", string callerFilePath = "")
-    static void Run(Action func, List<Type> retryableExceptions = null, int retries = 5, Action<Exception> onRetry = null, Action<Exception> onFailure = null, bool useExponentialBackoff = true, string description = null, string callerMemberName = "", string callerFilePath = "")
-    static Task<T> RunAsync<T>(List<Type> retryableExceptions, int retries, Func<Task<T>> func, string callerMemberName = "", string callerFilePath = "")
-    static Task<T> RunAsync<T>(Func<CancellationToken, Task<T>> func, CancellationToken cancellationToken, List<Type> retryableExceptions = null, int retries = 5, Func<Exception, Task> onRetry = null, Func<Exception, Task> onFailure = null, bool useExponentialBackoff = true, string description = null, string callerMemberName = "", string callerFilePath = "")
-    static Task<T> RunAsync<T>(Func<Task<T>> func, List<Type> retryableExceptions = null, int retries = 5, Func<Exception, Task> onRetry = null, Func<Exception, Task> onFailure = null, bool useExponentialBackoff = true, string description = null, string callerMemberName = "", string callerFilePath = "")
-    static Task RunAsync(List<Type> retryableExceptions, int retries, Func<Task> func, string callerMemberName = "", string callerFilePath = "")
-    static Task RunAsync(Func<Task> func, List<Type> retryableExceptions = null, int retries = 5, Func<Exception, Task> onRetry = null, Func<Exception, Task> onFailure = null, bool useExponentialBackoff = true, string description = null, string callerMemberName = "", string callerFilePath = "")
+    static T Run<T>(List<Type>? retryableExceptions, int retries, Func<T> func, string callerMemberName = "", string callerFilePath = "")
+    static T Run<T>(Func<T> func, List<Type>? retryableExceptions = null, int retries = 5, Action<Exception>? onRetry = null, Action<Exception>? onFailure = null, bool useExponentialBackoff = true, string? description = null, string callerMemberName = "", string callerFilePath = "")
+    static void Run(List<Type>? retryableExceptions, int retries, Action func, string callerMemberName = "", string callerFilePath = "")
+    static void Run(Action func, List<Type>? retryableExceptions = null, int retries = 5, Action<Exception>? onRetry = null, Action<Exception>? onFailure = null, bool useExponentialBackoff = true, string? description = null, string callerMemberName = "", string callerFilePath = "")
+    static Task<T> RunAsync<T>(List<Type>? retryableExceptions, int retries, Func<Task<T>> func, string callerMemberName = "", string callerFilePath = "")
+    static Task<T> RunAsync<T>(Func<CancellationToken, Task<T>> func, CancellationToken cancellationToken, List<Type>? retryableExceptions = null, int retries = 5, Func<Exception, Task>? onRetry = null, Func<Exception, Task>? onFailure = null, bool useExponentialBackoff = true, string? description = null, string callerMemberName = "", string callerFilePath = "")
+    static Task<T> RunAsync<T>(Func<Task<T>> func, List<Type>? retryableExceptions = null, int retries = 5, Func<Exception, Task>? onRetry = null, Func<Exception, Task>? onFailure = null, bool useExponentialBackoff = true, string? description = null, string callerMemberName = "", string callerFilePath = "")
+    static Task RunAsync(List<Type>? retryableExceptions, int retries, Func<Task> func, string callerMemberName = "", string callerFilePath = "")
+    static Task RunAsync(Func<Task> func, List<Type>? retryableExceptions = null, int retries = 5, Func<Exception, Task>? onRetry = null, Func<Exception, Task>? onFailure = null, bool useExponentialBackoff = true, string? description = null, string callerMemberName = "", string callerFilePath = "")
   class AppProjectConfigLegacy.Target : ITomlMetadataProvider
     ctor()
     string ChannelId { get; set; }
@@ -1176,8 +1156,6 @@ namespace Ikon.Common
     string Name { get; set; }
     string OrganisationId { get; set; }
     string SpaceId { get; set; }
-  static class TaskExtensions
-    static void RunParallel(Task task, Action<Exception> onException = null)
   class TempDirectory
     ctor(string rootDirName)
     string FullPath { get; }
@@ -1212,7 +1190,7 @@ namespace Ikon.Common
     void Register(string name, double value)
   static class Utils
     static string GenerateRandomToken(int size = 32)
-    static string GetCSharpTypeName(object obj)
+    static string GetCSharpTypeName(object? obj)
     static IPAddress GetFirstIPv4AddressOrLocalhost()
     static string ToUnescapedString(string input, bool unicodeOnly = false)
   class ValueStatistics
@@ -1255,7 +1233,7 @@ namespace Ikon.Common.Git
     Renamed
     Untracked
   class GitCloneOptions : IEquatable<GitCloneOptions>
-    ctor(string Branch = null, bool Shallow = false, GitCredentials Credentials = null)
+    ctor(string? Branch = null, bool Shallow = false, GitCredentials? Credentials = null)
     string Branch { get; init; }
     GitCredentials Credentials { get; init; }
     bool Shallow { get; init; }
@@ -1272,7 +1250,7 @@ namespace Ikon.Common.Git
     string Password { get; init; }
     string Username { get; init; }
   class GitDiff : IEquatable<GitDiff>
-    ctor(string FromSha, string ToSha, List<GitFileDiff> Files)
+    ctor(string? FromSha, string? ToSha, List<GitFileDiff> Files)
     List<GitFileDiff> Files { get; init; }
     string FromSha { get; init; }
     string ToSha { get; init; }
@@ -1281,14 +1259,14 @@ namespace Ikon.Common.Git
     string Path { get; init; }
     GitChangeType Type { get; init; }
   class GitFileDiff : IEquatable<GitFileDiff>
-    ctor(string Path, GitChangeType Type, int LinesAdded, int LinesRemoved, string Patch = null)
+    ctor(string Path, GitChangeType Type, int LinesAdded, int LinesRemoved, string? Patch = null)
     int LinesAdded { get; init; }
     int LinesRemoved { get; init; }
     string Patch { get; init; }
     string Path { get; init; }
     GitChangeType Type { get; init; }
   class GitRepository
-    ctor(string workingDirectory, GitCredentials credentials = null)
+    ctor(string workingDirectory, GitCredentials? credentials = null)
     GitCredentials Credentials { get; }
     string WorkingDirectory { get; }
     Task AbortAllInProgressOperationsAsync(CancellationToken ct = null)
@@ -1298,12 +1276,12 @@ namespace Ikon.Common.Git
     Task AddRemoteAsync(string name, string url, CancellationToken ct = null)
     Task CheckoutAsync(string branchOrRef, CancellationToken ct = null)
     Task CheckoutFilesFromRefAsync(string refName, string path = ".", CancellationToken ct = null)
-    static Task<GitRepository> CloneAsync(string url, string targetDir, GitCloneOptions options = null, CancellationToken ct = null)
-    static Task<ValueTuple<GitRepository, string, bool>> CloneOrSyncAsync(string url, string targetDir, GitCloneOptions options = null, CancellationToken ct = null)
+    static Task<GitRepository> CloneAsync(string url, string targetDir, GitCloneOptions? options = null, CancellationToken ct = null)
+    static Task<ValueTuple<GitRepository, string, bool>> CloneOrSyncAsync(string url, string targetDir, GitCloneOptions? options = null, CancellationToken ct = null)
     Task<GitCommit> CommitAsync(string message, CancellationToken ct = null)
     Task<GitCommit> CommitAsync(string message, string authorName, string authorEmail, bool allowEmpty = false, CancellationToken ct = null)
-    Task CreateBranchAsync(string name, string startPoint = null, CancellationToken ct = null)
-    Task<GitTag> CreateTagAsync(string name, string message = null, CancellationToken ct = null)
+    Task CreateBranchAsync(string name, string? startPoint = null, CancellationToken ct = null)
+    Task<GitTag> CreateTagAsync(string name, string? message = null, CancellationToken ct = null)
     Task DeleteTagAsync(string name, CancellationToken ct = null)
     Task DiscardChangesAsync(CancellationToken ct = null)
     static string EscapeMessage(string message)
@@ -1312,10 +1290,10 @@ namespace Ikon.Common.Git
     Task<List<GitBranch>> GetBranchesAsync(CancellationToken ct = null)
     Task<string> GetConfigAsync(string key, CancellationToken ct = null)
     Task<string> GetCurrentBranchAsync(CancellationToken ct = null)
-    Task<GitDiff> GetDiffAsync(string target = null, CancellationToken ct = null)
+    Task<GitDiff> GetDiffAsync(string? target = null, CancellationToken ct = null)
     Task<GitCommit> GetHeadCommitAsync(CancellationToken ct = null)
     Task<string> GetHeadShaAsync(bool shortSha = false, CancellationToken ct = null)
-    Task<List<GitCommit>> GetHistoryAsync(int limit = 20, string fromRef = null, CancellationToken ct = null)
+    Task<List<GitCommit>> GetHistoryAsync(int limit = 20, string? fromRef = null, CancellationToken ct = null)
     Task<string> GetRemoteUrlAsync(string name = "origin", CancellationToken ct = null)
     Task<GitStatus> GetStatusAsync(CancellationToken ct = null)
     Task<List<GitTag>> GetTagsAsync(CancellationToken ct = null)
@@ -1323,7 +1301,7 @@ namespace Ikon.Common.Git
     Task<bool> HasRemoteAsync(string name = "origin", CancellationToken ct = null)
     Task<bool> HasUncommittedChangesAsync(CancellationToken ct = null)
     Task<bool> HasUncommittedChangesAsync(string path, CancellationToken ct = null)
-    static Task<GitRepository> InitAndConnectAsync(string directory, string remoteUrl, GitCredentials credentials = null, string configKey = null, string configValue = null, CancellationToken ct = null)
+    static Task<GitRepository> InitAndConnectAsync(string directory, string remoteUrl, GitCredentials? credentials = null, string? configKey = null, string? configValue = null, CancellationToken ct = null)
     static Task<GitRepository> InitAsync(string directory, CancellationToken ct = null)
     Task<bool> IsGitRepositoryAsync(CancellationToken ct = null)
     static Task<bool> IsGitRepositoryAsync(string directory, CancellationToken ct = null)
@@ -1339,18 +1317,18 @@ namespace Ikon.Common.Git
     Task SetConfigAsync(string key, string value, CancellationToken ct = null)
     Task SetRemoteUrlAsync(string name, string url, CancellationToken ct = null)
     Task SetUpstreamAsync(string remoteBranch, CancellationToken ct = null)
-    static string ShortCommitHash(string hash)
+    static string ShortCommitHash(string? hash)
     Task StageAllAsync(CancellationToken ct = null)
     Task StagePathAsync(string path, CancellationToken ct = null)
-    Task<bool> StashAsync(string message = null, CancellationToken ct = null)
+    Task<bool> StashAsync(string? message = null, CancellationToken ct = null)
     Task<bool> StashPopAsync(CancellationToken ct = null)
     static string StripCredentialsFromUrl(string url)
     Task<GitSyncResult> SyncAsync(CancellationToken ct = null)
     static GitRepository TryOpen(string directory)
     Task<ValueTuple<bool, string, string>> TryRunAsync(string args, CancellationToken ct = null)
-    static bool UrlsMatch(string url1, string url2)
+    static bool UrlsMatch(string? url1, string? url2)
   class GitStatus : IEquatable<GitStatus>
-    ctor(string Branch, string HeadSha, bool HasUncommittedChanges, bool IsDetachedHead, int AheadBy, int BehindBy, List<GitFileChange> Changes)
+    ctor(string Branch, string? HeadSha, bool HasUncommittedChanges, bool IsDetachedHead, int AheadBy, int BehindBy, List<GitFileChange> Changes)
     int AheadBy { get; init; }
     int BehindBy { get; init; }
     string Branch { get; init; }
@@ -1359,18 +1337,18 @@ namespace Ikon.Common.Git
     string HeadSha { get; init; }
     bool IsDetachedHead { get; init; }
   class GitSyncResult : IEquatable<GitSyncResult>
-    ctor(bool Success, string PreviousSha, string CurrentSha, string Error = null)
+    ctor(bool Success, string? PreviousSha, string? CurrentSha, string? Error = null)
     string CurrentSha { get; init; }
     string Error { get; init; }
     string PreviousSha { get; init; }
     bool Success { get; init; }
   class GitTag : IEquatable<GitTag>
-    ctor(string Name, string Sha, GitCommit Commit = null)
+    ctor(string Name, string Sha, GitCommit? Commit = null)
     GitCommit Commit { get; init; }
     string Name { get; init; }
     string Sha { get; init; }
   class GitWorktreeInfo : IEquatable<GitWorktreeInfo>
-    ctor(string Path, string Head, string Branch)
+    ctor(string Path, string? Head, string? Branch)
     string Branch { get; init; }
     string Head { get; init; }
     string Path { get; init; }
@@ -1508,8 +1486,8 @@ namespace Ikon.Common.Maths
     static Vector3 Atan2(Vector3 a, Vector3 b)
     static Vector2 Atan2(Vector2 a, Vector2 b)
     static float Atan2(float a, float b)
-    static Vector3 CalculateCentroid(Vector3[] positions, double[] weights = null)
-    static float CalculateCentroidRootMeanSquareDistance(Vector3[] positions, Vector3 centroid, double[] weights = null)
+    static Vector3 CalculateCentroid(Vector3[] positions, double[]? weights = null)
+    static float CalculateCentroidRootMeanSquareDistance(Vector3[] positions, Vector3 centroid, double[]? weights = null)
     static float CalculatePositionWiseRootMeanSquareDistance(Vector3[] positions)
     static float CalculateRootMeanSquareDistance(Vector3[] a, Vector3[] b)
     static Vector4 CatmullRom(Vector4 value1, Vector4 value2, Vector4 value3, Vector4 value4, float weight)
