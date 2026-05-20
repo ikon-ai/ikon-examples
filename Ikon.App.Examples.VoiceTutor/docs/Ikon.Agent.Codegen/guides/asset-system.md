@@ -96,15 +96,15 @@ namespace Ikon.Common.Core.Assets
     Task<byte[]> GetBytesAsync(AssetUri assetUri)
     Task<AssetContent<byte[]>> GetBytesWithMetadataAsync(AssetUri assetUri)
     Task<AssetMetadata> GetMetadataAsync(AssetUri assetUri)
-    Task<IAsyncDisposable> GetOrUpdateWithMetadataAsync<T>(AssetUri assetUri, Func<AssetEventArgs, AssetContent<T>, Task> onAsset, Func<AssetEventArgs, Task> onAssetNotFound = null)
-    Task<IAsyncDisposable> GetOrUpdateWithMetadataAsync<T>(AssetUri assetUri, Action<AssetEventArgs, AssetContent<T>> onAsset, Func<AssetEventArgs, Task> onAssetNotFound = null)
+    Task<IAsyncDisposable> GetOrUpdateWithMetadataAsync<T>(AssetUri assetUri, Func<AssetEventArgs, AssetContent<T>?, Task> onAsset, Func<AssetEventArgs, Task>? onAssetNotFound = null)
+    Task<IAsyncDisposable> GetOrUpdateWithMetadataAsync<T>(AssetUri assetUri, Action<AssetEventArgs, AssetContent<T>?> onAsset, Func<AssetEventArgs, Task>? onAssetNotFound = null)
     Task<AssetContent<Stream>> GetReadStreamAsync(AssetUri assetUri)
-    Task<string> GetTextAsync(AssetUri assetUri, Encoding encoding = null)
-    Task<AssetContent<string>> GetTextWithMetadataAsync(AssetUri assetUri, Encoding encoding = null)
+    Task<string> GetTextAsync(AssetUri assetUri, Encoding? encoding = null)
+    Task<AssetContent<string>> GetTextWithMetadataAsync(AssetUri assetUri, Encoding? encoding = null)
     Task<AssetContent<T>> GetWithMetadataAsync<T>(AssetUri assetUri)
     Task<Stream> GetWriteStreamAsync(AssetUri assetUri, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
     Task<IReadOnlyList<AssetListingEntry>> ListAsync(AssetQuery query, CancellationToken cancellationToken = null)
-    Task<IReadOnlyList<AssetUri>> ListAsync(AssetClass assetClass, string prefix = null, CancellationToken cancellationToken = null)
+    Task<IReadOnlyList<AssetUri>> ListAsync(AssetClass assetClass, string? prefix = null, CancellationToken cancellationToken = null)
     Task<IReadOnlyList<AssetUri>> ListAsync(AssetUri folderUri, CancellationToken cancellationToken = null)
     Task NotifyUpdateAsync(AssetUri assetUri)
     Task SetAsync<T>(AssetUri assetUri, T asset, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
@@ -114,8 +114,8 @@ namespace Ikon.Common.Core.Assets
     Task<byte[]> TryGetBytesAsync(AssetUri assetUri)
     Task<AssetContent<byte[]>> TryGetBytesWithMetadataAsync(AssetUri assetUri)
     Task<AssetMetadata?> TryGetMetadataAsync(AssetUri assetUri)
-    Task<string> TryGetTextAsync(AssetUri assetUri, Encoding encoding = null)
-    Task<AssetContent<string>> TryGetTextWithMetadataAsync(AssetUri assetUri, Encoding encoding = null)
+    Task<string> TryGetTextAsync(AssetUri assetUri, Encoding? encoding = null)
+    Task<AssetContent<string>> TryGetTextWithMetadataAsync(AssetUri assetUri, Encoding? encoding = null)
     Task<AssetContent<T>> TryGetWithMetadataAsync<T>(AssetUri assetUri)
     Task<AssetWriteResult> TrySetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
     Task<AssetWriteResult> TrySetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
@@ -140,7 +140,7 @@ namespace Ikon.Common.Core.Assets
     AssetUri AssetUri { get; }
     AssetMetadata Metadata { get; }
   struct AssetMetadata
-    ctor(string mimeType = null, long? size = null, DateTime? lastModified = null, string url = null, bool? urlIsTemporal = null, string[] tags = null, string internalPath = null, string storageId = null, string nativeUri = null, bool? isAppServed = null)
+    ctor(string? mimeType = null, long? size = null, DateTime? lastModified = null, string? url = null, bool? urlIsTemporal = null, string[]? tags = null, string? internalPath = null, string? storageId = null, string? nativeUri = null, bool? isAppServed = null)
     string InternalPath { get; }
     bool? IsAppServed { get; }
     DateTime? LastModified { get; }
@@ -177,7 +177,7 @@ namespace Ikon.Common.Core.Assets
     Deleted
   struct AssetUri : IEquatable<AssetUri>
     ctor(string uriString)
-    ctor(AssetClass assetClass, string path = null, string spaceId = null, string userId = null, string channelId = null, string query = null)
+    ctor(AssetClass assetClass, string? path = null, string? spaceId = null, string? userId = null, string? channelId = null, string? query = null)
     string ChannelId { get; }
     AssetClass Class { get; }
     string FileName { get; }
@@ -189,9 +189,9 @@ namespace Ikon.Common.Core.Assets
     static AssetUri FromFilesystemPath(string relativePathToRoot, AssetClass defaultAssetClass = LocalFile)
     static bool IsValid(string uriString)
     static string ToFilesystemPath(AssetUri assetUri)
-    static bool TryParse(string uriString, out AssetUri assetUri, out string failureReason)
+    static bool TryParse(string uriString, out AssetUri assetUri, out string? failureReason)
     static bool TryParse(string uriString, out AssetUri assetUri)
-    AssetUri With(AssetClass? assetClass = null, string path = null, string spaceId = null, string userId = null, string channelId = null, string query = null)
+    AssetUri With(AssetClass? assetClass = null, string? path = null, string? spaceId = null, string? userId = null, string? channelId = null, string? query = null)
   struct AssetWriteResult
     ctor(AssetWriteStatus status, AssetMetadata? metadata = null)
     bool IsConflict { get; }
@@ -204,7 +204,7 @@ namespace Ikon.Common.Core.Assets
     Skipped
     Success
   interface IHashableStream
-    abstract void SetSha256Hash(string hash)
+    abstract void SetSha256Hash(string? hash)
   interface IStorage : IAsyncDisposable
     abstract Task DeleteAsync(AssetUri assetUri)
     abstract Task<bool> ExistsAsync(AssetUri assetUri)
@@ -216,7 +216,7 @@ namespace Ikon.Common.Core.Assets
     abstract Task WaitUntilQueueEmptyAsync()
     event Func<AssetEventArgs, Task> AssetEventAsync
   static class StorageExtensions
-    static Task AddEmbeddedFileStorageAsync(Asset asset, Assembly assembly = null, string resourceNamespace = "")
+    static Task AddEmbeddedFileStorageAsync(Asset asset, Assembly? assembly = null, string resourceNamespace = "")
 
 ---
 
