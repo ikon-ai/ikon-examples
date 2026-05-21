@@ -556,6 +556,127 @@ namespace Ikon.Parallax.Components.Standard
     Start
     Center
     End
+  // One row in the charges list.
+  sealed class BillingChargeView : IEquatable<BillingChargeView>
+    // One row in the charges list.
+    ctor(string Id, string AmountLabel, string Status, DateTimeOffset Created, bool Paid, bool Refunded, string? PaymentIntentId, string? ReceiptUrl, string? Description = null)
+    string AmountLabel { get; init; }
+    DateTimeOffset Created { get; init; }
+    string Description { get; init; }
+    string Id { get; init; }
+    bool Paid { get; init; }
+    string PaymentIntentId { get; init; }
+    string ReceiptUrl { get; init; }
+    bool Refunded { get; init; }
+    string Status { get; init; }
+  // Composed Parallax components for billing UIs — pricing tables, checkout actions, customer-portal entry points, payment-method and invoice lists, and subscription status. Pair with for end-to-end flows. All components are pure compositions of existing primitives (Box / Text / Button / Icon / Column / Row), so they participate in the standard theming, motion, and validation rules just like the rest of the Parallax surface.
+  static class BillingExtensions
+    // Dual-mode billing-management entry point. BYOK mode (default): renders a button that invokes , expected to call BillingService.CreatePortalAsync, and redirects to the returned Stripe-hosted Customer Portal URL.Connect mode: pass a non-empty and the component renders an embedded instead — Stripe doesn't expose a hosted Customer Portal for connected accounts, so the embedded management surface is the only equivalent.
+    static void BillingPortalButton(UIView view, Func<Task<string?>>? onOpenPortal = null, string? connectAccountSessionClientSecret = null, string? publishableKey = null, string? text = null, string[]? style = null, bool? disabled = null, string? icon = "settings", string? key = null, string file = "", int line = 0)
+    // Vertical list of charge / receipt rows. Each row shows formatted amount, status, optional refund button (when is supplied and the charge is paid + non-refunded), and a "Receipt" link when present.
+    static void ChargeList(UIView view, IReadOnlyList<BillingChargeView> charges, Func<string, Task>? onRefund = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
+    // Button that initiates a redirect-to-Stripe checkout. The handler is expected to call BillingService.CreateCheckoutAsync(...) and return the session url; the component then redirects the current client via ClientFunctions.SetUrlAsync. Returning null from the handler disables the redirect (e.g. for guest validation).
+    static void CheckoutButton(UIView view, Func<Task<string?>> onCheckout, string? text = null, string[]? style = null, bool? disabled = null, string? icon = "credit-card", string? key = null, string file = "", int line = 0)
+    // Mount Stripe Connect Embedded "Account Management" inline. Lets the connected-account holder update bank account, business details and KYC info after onboarding. Server enables the account_management component on the account session.
+    static void ConnectAccountManagementFrame(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
+    // Mount Stripe Connect Embedded "Balances" inline. Shows available and pending balance per currency. Server enables the balances component on the account session.
+    static void ConnectBalancesFrame(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
+    // Mount Stripe Connect Embedded "Documents" inline. Shows tax-form documents for the connected account.
+    static void ConnectDocumentsFrame(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
+    // Mount Stripe Connect Embedded "Notification Banner" inline. Surfaces Stripe-issued action items (e.g. "verify your ID"). Server enables the notification_banner component on the account session. Renders compactly (no min-height by default).
+    static void ConnectNotificationBanner(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? key = null, string file = "", int line = 0)
+    // Mount Stripe Connect Embedded "Account Onboarding" inline. Server supplies an account_sessions client secret with the account_onboarding component enabled. Frontend resolver loads Stripe Connect.js and mounts <ConnectAccountOnboarding> inside the host node.
+    static void ConnectOnboardingFrame(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
+    // Mount Stripe Connect Embedded "Payments" inline. Lists charges with refund / dispute / capture controls. Server enables the payments component on the account session.
+    static void ConnectPaymentsFrame(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
+    // Mount Stripe Connect Embedded "Payouts" inline. Lists payouts and (when enabled) lets the holder edit payout schedule. Server enables the payouts component on the account session.
+    static void ConnectPayoutsFrame(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
+    // Mount point for Stripe's Embedded Checkout. Renders a host element with data-stripe-client-secret that the frontend's EmbeddedCheckoutProvider mounts into. Pass the obtained from BillingService.CreateEmbeddedCheckoutAsync. When is null/empty (e.g. the user hasn't picked a plan yet) the component renders a placeholder so callers can drop it into a layout unconditionally.
+    static void EmbeddedCheckoutFrame(UIView view, string? clientSecret, string? publishableKey = null, string? connectedAccountId = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
+    // Vertical list of past invoices. Each row links to the hosted invoice url when present, and to the PDF when present.
+    static void InvoiceList(UIView view, IReadOnlyList<BillingInvoiceView> invoices, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
+    // Mount Stripe Elements bound to a PaymentIntent for confirming a one-shot payment (e.g., capturing a saved card, completing a manual capture flow). Frontend resolver mounts <PaymentElement /> inside <Elements> and confirms via stripe.confirmPayment. Symmetric to — that one saves a card without charging; this one charges (possibly using a saved card on file).
+    static void PaymentIntentFrame(UIView view, string? clientSecret, string? publishableKey = null, string? returnUrl = null, string? connectedAccountId = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
+    // Vertical list of saved payment methods. Each row shows brand, last four, and expiry. Optional renders a remove action.
+    static void PaymentMethodList(UIView view, IReadOnlyList<BillingPaymentMethodView> methods, Func<string, Task>? onDetach = null, Func<Task>? onAddCard = null, string? setupIntentClientSecret = null, string? publishableKey = null, string? connectedAccountId = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
+    // Single pricing plan card with name, price, optional badge, feature bullet list and CTA. Use directly when laying plans out by hand, or via for the common grid case.
+    static void PlanCard(UIView view, BillingPlanView plan, Func<string, Task>? onSelect = null, string[]? style = null, string? key = null, string file = "", int line = 0)
+    // Render a grid of pricing plan cards. Each card invokes with the plan's id when the CTA is pressed. The card whose is true gets the brand-emphasis treatment (one card max).
+    static void PricingTable(UIView view, IReadOnlyList<BillingPlanView> plans, Func<string, Task>? onSelect = null, string[]? style = null, int? columns = null, string? key = null, string file = "", int line = 0)
+    // Mount Stripe Elements bound to a SetupIntent for saving a card without an immediate charge. Frontend resolver mounts <PaymentElement /> inside <Elements> and confirms via stripe.confirmSetup. The SetupIntent's payment_method is auto-attached to the customer it was created for; refresh PaymentMethodList afterwards.
+    static void SetupIntentFrame(UIView view, string? clientSecret, string? publishableKey = null, string? returnUrl = null, string? connectedAccountId = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
+    // Renders a vertical list of cards, one per subscription. Pass the same callback set you'd pass to a single ; each callback receives the subscription id of the row that fired it.
+    static void SubscriptionList(UIView view, IReadOnlyList<BillingSubscription> subscriptions, Func<BillingSubscription, BillingSubscriptionView>? projector = null, Func<string, Task>? onResume = null, Func<string, Task>? onCancel = null, Func<string, Task>? onCancelImmediate = null, Func<string, Task>? onPause = null, Func<string, Task>? onResumeFromPause = null, Action<UIView, BillingSubscription>? footer = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
+    // Compact subscription status card showing plan name, status pill and renewal/expiry date. Slot a BillingPortalButton in the footer to give the user a manage entry point.
+    static void SubscriptionStatus(UIView view, BillingSubscriptionView subscription, string[]? style = null, Action<UIView>? footer = null, Func<Task>? onResume = null, Func<Task>? onCancel = null, Func<Task>? onCancelImmediate = null, Func<Task>? onPause = null, Func<Task>? onResumeFromPause = null, string? key = null, string file = "", int line = 0)
+    // Grid of one-tap tip preset amounts. Each preset renders as a rounded button showing the currency-formatted amount; clicking invokes with the chosen minor-unit amount. App handler typically passes the amount to BillingService.CreateTipCheckoutAsync and redirects.
+    static void TipPresetGrid(UIView view, IReadOnlyList<long> presetsMinor, string currencySymbol, Func<long, Task> onTip, string[]? style = null, string? key = null, string file = "", int line = 0)
+    // Display-only preview card for the next-billing-cycle invoice. Pair with BillingService.PreviewUpcomingInvoiceAsync: call before committing a plan change so the user sees "next bill = €X · €Y proration".
+    static void UpcomingInvoicePreview(UIView view, BillingUpcomingInvoice preview, string[]? style = null, string? key = null, string file = "", int line = 0)
+  // One row in the invoice / receipt list.
+  sealed class BillingInvoiceView : IEquatable<BillingInvoiceView>
+    // One row in the invoice / receipt list.
+    ctor(string Id, DateTimeOffset Date, string AmountLabel, string Status, string? HostedUrl = null, string? PdfUrl = null)
+    string AmountLabel { get; init; }
+    DateTimeOffset Date { get; init; }
+    string HostedUrl { get; init; }
+    string Id { get; init; }
+    string PdfUrl { get; init; }
+    string Status { get; init; }
+  // Parallax node-type strings emitted by for the Stripe-embedded surfaces. The frontend resolver in @ikonai/sdk-react-ui-billing matches against these exact strings — they form a cross-language contract. If a constant value changes here, update the matching constant in platform-typescript/sdk/sdk-react-ui-billing/src/node-types.ts.
+  static class BillingNodeTypes
+    // Node type for Stripe Connect Account Management ().
+    static string ConnectAccountManagement
+    // Node type for Stripe Connect Balances ().
+    static string ConnectBalances
+    // Node type for Stripe Connect Documents ().
+    static string ConnectDocuments
+    // Node type for Stripe Connect Notification Banner ().
+    static string ConnectNotificationBanner
+    // Node type for Stripe Connect Account Onboarding ().
+    static string ConnectOnboarding
+    // Node type for Stripe Connect Payments ().
+    static string ConnectPayments
+    // Node type for Stripe Connect Payouts ().
+    static string ConnectPayouts
+    // Node type for Stripe Embedded Checkout ().
+    static string EmbeddedCheckout
+    // Node type for Stripe Elements PaymentElement bound to a PaymentIntent ().
+    static string PaymentIntent
+    // Node type for Stripe Elements PaymentElement bound to a SetupIntent ().
+    static string SetupIntent
+  // One saved card / payment method.
+  sealed class BillingPaymentMethodView : IEquatable<BillingPaymentMethodView>
+    // One saved card / payment method.
+    ctor(string Id, string Brand, string Last4, int ExpMonth, int ExpYear, bool IsDefault = false)
+    string Brand { get; init; }
+    int ExpMonth { get; init; }
+    int ExpYear { get; init; }
+    string Id { get; init; }
+    bool IsDefault { get; init; }
+    string Last4 { get; init; }
+  // View-model records for the Parallax billing components. They are intentionally lightweight and decoupled from the Stripe-shaped records so the components can be driven from any source — a live , a fake in-memory list, or static catalog data.
+  sealed class BillingPlanView : IEquatable<BillingPlanView>
+    // View-model records for the Parallax billing components. They are intentionally lightweight and decoupled from the Stripe-shaped records so the components can be driven from any source — a live , a fake in-memory list, or static catalog data.
+    ctor(string PlanId, string Name, string PriceLabel, string? IntervalLabel = null, IReadOnlyList<string>? Features = null, string? Badge = null, string? CtaLabel = null, bool Highlighted = false, bool Disabled = false)
+    string Badge { get; init; }
+    string CtaLabel { get; init; }
+    bool Disabled { get; init; }
+    IReadOnlyList<string> Features { get; init; }
+    bool Highlighted { get; init; }
+    string IntervalLabel { get; init; }
+    string Name { get; init; }
+    string PlanId { get; init; }
+    string PriceLabel { get; init; }
+  // Subscription header / status card model.
+  sealed class BillingSubscriptionView : IEquatable<BillingSubscriptionView>
+    // Subscription header / status card model.
+    ctor(string PlanName, string Status, DateTimeOffset? CurrentPeriodEnd = null, bool CancelAtPeriodEnd = false, string? PriceLabel = null)
+    bool CancelAtPeriodEnd { get; init; }
+    DateTimeOffset? CurrentPeriodEnd { get; init; }
+    string PlanName { get; init; }
+    string PriceLabel { get; init; }
+    string Status { get; init; }
   // Extension methods for Calendar and DatePicker components.
   static class CalendarExtensions
     // Month-grid date selector. Renders a single month with day cells. Dates are ISO yyyy-MM-dd strings.
@@ -974,7 +1095,7 @@ namespace Ikon.Parallax.Components.Standard
     // Multi-line text input area.
     static void TextArea(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, int? rows = null, bool? autoResize = null, int? maxRows = null, bool? submitOnEnter = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, Func<Context, Task>? onSubmitWithContext = null, bool? clearOnSubmit = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Two-way bind a TextField to a in one call — reads bind.Value for the controlled value and writes bind.Value = v on every keystroke. Use this instead of pairing value: bind.Value with a manual onValueChange.
-    static void TextField(UIView view, Reactive<string> bind, string[]? style = null, string? placeholder = null, bool? disabled = null, string? type = null, string? step = null, string? min = null, string? max = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onSubmit = null, bool? clearOnSubmit = null, Action<UIView>? content = null, string file = "", int line = 0)
+    static void TextField(UIView view, Reactive<string> bind, string[]? style = null, string? placeholder = null, bool? disabled = null, string? type = null, string? step = null, string? min = null, string? max = null, bool? multiline = null, int? rows = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onSubmit = null, bool? clearOnSubmit = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Single-line text input field.
     static void TextField(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, string? type = null, string? step = null, string? min = null, string? max = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, bool? clearOnSubmit = null, Action<UIView>? content = null, string file = "", int line = 0)
   // Event args for interact outside events on overlays (combines pointer and focus).
@@ -1541,6 +1662,7 @@ namespace Ikon.Parallax.Themes.Ikon
     static string Default
     static string DefaultLg
     static string DefaultSm
+    static string Error
     static string ErrorLg
     static string ErrorMd
     static string ErrorSm
@@ -1551,6 +1673,7 @@ namespace Ikon.Parallax.Themes.Ikon
     static string Icon
     static string IconLeft
     static string IconRight
+    static string Info
     static string InfoLg
     static string InfoMd
     static string InfoSm
@@ -1558,9 +1681,11 @@ namespace Ikon.Parallax.Themes.Ikon
     static string LinkLg
     static string LinkMd
     static string LinkSm
+    static string Neutral
     static string NeutralLg
     static string NeutralMd
     static string NeutralSm
+    static string Outline
     static string OutlineLg
     static string OutlineMd
     static string OutlineSm
@@ -1568,15 +1693,18 @@ namespace Ikon.Parallax.Themes.Ikon
     static string PrimaryLg
     static string PrimaryMd
     static string PrimarySm
+    static string Secondary
     static string SecondaryLg
     static string SecondaryMd
     static string SecondarySm
     static string SolidLg
     static string SolidMd
     static string SolidSm
+    static string Success
     static string SuccessLg
     static string SuccessMd
     static string SuccessSm
+    static string Warning
     static string WarningLg
     static string WarningMd
     static string WarningSm
