@@ -2030,8 +2030,7 @@ namespace Ikon.AI.WebSearching
     Spider
     Jina
     Google
-    GoogleLight
-    GoogleLightImages
+    GoogleImages
     Amazon
     Bing
     BingImages
