@@ -4,11 +4,19 @@
 
 Managed PostgreSQL database connections.
 
-Configure in `ikon-config.toml`:
+**One command sets up both the toml entry AND the platform provisioning** if your code calls `AppDatabaseConnection.Create(app, "mydb")`:
 
-```toml
-Databases = ["mydb:postgres"]
 ```
+ikon app config --add-database mydb:postgres
+```
+
+That adds `"mydb:postgres"` to `Databases` in `ikon-config.development.toml` (preserving the rest of the file — `[Target]`, `[Auth]`, `[Activation]`), then triggers normal provisioning so the database comes online. Idempotent — repeat the flag for additional databases or re-run safely.
+
+For staging/production envs, repeat with `--target staging` / `--target production` — there is no inheritance across env-specific tomls.
+
+Manual two-step path (only if you need to inspect/edit the toml first): `read` the env-specific toml → `edit` the `Databases = []` line to add `"mydb:postgres"` → `ikon app config`. NEVER `write` the toml end-to-end — that destroys the `[Target]` section and `ikon app config` will revert it.
+
+Code-only changes that touch `AppDatabaseConnection.Create` but skip the database setup leave the app broken at runtime. The Critic should reject any pass where the C# uses `AppDatabaseConnection.Create(app, "X")` but `ikon-config.development.toml` doesn't declare `"X:postgres"` in `Databases`.
 
 ### Usage
 

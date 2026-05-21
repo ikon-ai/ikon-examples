@@ -14,6 +14,13 @@ namespace Ikon.Common.Core
   class IkonBackend.ApiKeyResponse
     ctor()
     string Token { get; set; }
+  class IkonBackend.AppBillingInitResult
+    ctor()
+    string AppToken { get; set; }
+    string BackendUrl { get; set; }
+    string Mode { get; set; }
+    string PublishableKey { get; set; }
+    string WebhookSecret { get; set; }
   class IkonBackend.AppBundle
     ctor()
     List<IkonBackend.AppBundleWarning> ActivationErrors { get; set; }
@@ -474,12 +481,14 @@ namespace Ikon.Common.Core
     Task DeleteChannelAsync(string id)
     Task<IkonBackend.ChannelInstance> DeleteChannelInstanceAsync(string id)
     Task DeleteDatabaseAsync(string databaseId)
+    Task DeleteInboundEmailAsync(string id)
     Task DeleteItemAsync(string id)
     Task DeletePluginAsync(string id)
     Task DeleteProfileFileAsync(string profileId, string assetId)
     Task DeleteSpaceApiKeyAsync(string id)
     Task DeleteSpaceSecretAsync(string id)
     static IkonBackend.EnvironmentType DetermineEnvironment(string url)
+    Task<HttpResponseMessage> DownloadInboundEmailAttachmentAsync(string emailId, string attachmentId)
     Task<List<IkonBackend.Profile>> FindProfilesAsync(string spaceId, Dictionary<string, string> filters, int maxResults = 1000)
     Task<List<IkonBackend.Translation>> GetAllTranslationsAsync(string spaceId, int maxResults = 1000)
     Task<Dictionary<string, string>> GetApiKeysAsync(bool all = false)
@@ -505,6 +514,8 @@ namespace Ikon.Common.Core
     Task<IkonBackend.Folder> GetFolderByPathAsync(string spaceId, string path)
     Task<List<IkonBackend.Folder>> GetFoldersAsync(string spaceId, string path, int maxResults = 1000)
     static IEnumerable<string> GetIkonDataDirectoryCandidates()
+    Task<InboundEmailDetailDto> GetInboundEmailAsync(string id)
+    Task<InboundEmailPageDto> GetInboundEmailsAsync(string? recipient, string? fromAddress, DateTimeOffset? since, DateTimeOffset? until, int? limit, string? cursor)
     Task<IkonBackend.Item> GetItemAsync(AssetUri assetUri)
     Task<IkonBackend.ItemDownloadUrl> GetItemSignedDownloadUrlAsync(string id)
     Task<IkonBackend.ItemSignedUpload> GetItemSignedUploadUrlAsync(string uri, string filename, string mime, string[]? tags, bool? isAppServed = null)
@@ -540,6 +551,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.User> GetUserAsync(string id)
     Task<List<IkonBackend.User>> GetUsersAsync(string query, int limit = 20)
     bool HasCapability(string capability)
+    Task<IkonBackend.AppBillingInitResult> InitAppBillingAsync(string spaceId, string mode = "ikon-connect", bool rotate = false)
     Task<bool> IsSpaceDomainAvailableAsync(string domain)
     Task<IkonBackend.MintApiKeyIssued> IssueMintApiKeyAsync(string appId, string? label = null)
     Task<IkonBackend.ItemListResponse> ListItemsAsync(IkonBackend.ItemListRequest request)
@@ -589,6 +601,51 @@ namespace Ikon.Common.Core
     ctor()
     string Cursor { get; set; }
     List<IkonBackend.IkonLogEntry> Logs { get; set; }
+  sealed class InboundEmailAddressDto
+    ctor()
+    string Email { get; set; }
+    string Name { get; set; }
+    string Subaddress { get; set; }
+  sealed class InboundEmailAttachmentDto
+    ctor()
+    string Filename { get; set; }
+    string Id { get; set; }
+    string MimeType { get; set; }
+    long Size { get; set; }
+  sealed class InboundEmailDetailDto
+    ctor()
+    List<InboundEmailAttachmentDto> Attachments { get; set; }
+    string BodyHtml { get; set; }
+    string BodyText { get; set; }
+    List<InboundEmailAddressDto> Cc { get; set; }
+    string From { get; set; }
+    List<InboundEmailHeaderDto> Headers { get; set; }
+    string Id { get; set; }
+    DateTimeOffset ReceivedAt { get; set; }
+    string Recipient { get; set; }
+    string ReplyTo { get; set; }
+    double? SpamScore { get; set; }
+    string Subject { get; set; }
+    string Tag { get; set; }
+    List<InboundEmailAddressDto> To { get; set; }
+  sealed class InboundEmailHeaderDto
+    ctor()
+    string Name { get; set; }
+    string Value { get; set; }
+  sealed class InboundEmailPageDto
+    ctor()
+    List<InboundEmailSummaryDto> Items { get; set; }
+    string NextCursor { get; set; }
+  sealed class InboundEmailSummaryDto
+    ctor()
+    int AttachmentCount { get; set; }
+    string From { get; set; }
+    string Id { get; set; }
+    DateTimeOffset ReceivedAt { get; set; }
+    string Recipient { get; set; }
+    double? SpamScore { get; set; }
+    string Subject { get; set; }
+    string Tag { get; set; }
   class IkonBackend.Item
     ctor()
     IkonBackend.ItemAsset Asset { get; set; }
@@ -1362,11 +1419,26 @@ namespace Ikon.Common.Core.CommandLineParser
     static void WriteVerbCache(string path, string hash)
 
 namespace Ikon.Common.Core.Email
+  sealed class EmailAddress : IEquatable<EmailAddress>
+    ctor(string Email, string? Name, string? Subaddress)
+    string Email { get; init; }
+    string Name { get; init; }
+    string Subaddress { get; init; }
   sealed class EmailAttachment : IEquatable<EmailAttachment>
     ctor(string Filename, string MimeType, byte[] Bytes)
     byte[] Bytes { get; init; }
     string Filename { get; init; }
     string MimeType { get; init; }
+  sealed class EmailAttachmentDownload : IAsyncDisposable
+    Stream Content { get; }
+    string Filename { get; }
+    string MimeType { get; }
+    long Size { get; }
+    ValueTask DisposeAsync()
+  sealed class EmailHeader : IEquatable<EmailHeader>
+    ctor(string Name, string Value)
+    string Name { get; init; }
+    string Value { get; init; }
   sealed class EmailSendRequest : IEquatable<EmailSendRequest>
     ctor(string To, string Subject, string HtmlBody, string? TextBody = null, string? ReplyTo = null, IReadOnlyList<EmailAttachment>? Attachments = null, IReadOnlyDictionary<string, string>? Metadata = null)
     IReadOnlyList<EmailAttachment> Attachments { get; init; }
@@ -1376,6 +1448,50 @@ namespace Ikon.Common.Core.Email
     string Subject { get; init; }
     string TextBody { get; init; }
     string To { get; init; }
+  sealed class InboundAttachmentInfo : IEquatable<InboundAttachmentInfo>
+    ctor(string Id, string Filename, string MimeType, long Size)
+    string Filename { get; init; }
+    string Id { get; init; }
+    string MimeType { get; init; }
+    long Size { get; init; }
+  sealed class InboundEmailDetail : IEquatable<InboundEmailDetail>
+    ctor(string Id, string Recipient, string From, string Subject, string? BodyText, string? BodyHtml, IReadOnlyList<EmailAddress> To, IReadOnlyList<EmailAddress> Cc, string? ReplyTo, IReadOnlyList<EmailHeader> Headers, IReadOnlyList<InboundAttachmentInfo> Attachments, DateTimeOffset ReceivedAt, double? SpamScore, string? Tag)
+    IReadOnlyList<InboundAttachmentInfo> Attachments { get; init; }
+    string BodyHtml { get; init; }
+    string BodyText { get; init; }
+    IReadOnlyList<EmailAddress> Cc { get; init; }
+    string From { get; init; }
+    IReadOnlyList<EmailHeader> Headers { get; init; }
+    string Id { get; init; }
+    DateTimeOffset ReceivedAt { get; init; }
+    string Recipient { get; init; }
+    string ReplyTo { get; init; }
+    double? SpamScore { get; init; }
+    string Subject { get; init; }
+    string Tag { get; init; }
+    IReadOnlyList<EmailAddress> To { get; init; }
+  sealed class InboundEmailSummary : IEquatable<InboundEmailSummary>
+    ctor(string Id, string Recipient, string From, string Subject, DateTimeOffset ReceivedAt, int AttachmentCount, double? SpamScore, string? Tag)
+    int AttachmentCount { get; init; }
+    string From { get; init; }
+    string Id { get; init; }
+    DateTimeOffset ReceivedAt { get; init; }
+    string Recipient { get; init; }
+    double? SpamScore { get; init; }
+    string Subject { get; init; }
+    string Tag { get; init; }
+  sealed class InboxPage : IEquatable<InboxPage>
+    ctor(IReadOnlyList<InboundEmailSummary> Items, string? NextCursor)
+    IReadOnlyList<InboundEmailSummary> Items { get; init; }
+    string NextCursor { get; init; }
+  sealed class InboxQuery : IEquatable<InboxQuery>
+    ctor()
+    string Cursor { get; init; }
+    string From { get; init; }
+    int Limit { get; init; }
+    string Recipient { get; init; }
+    DateTimeOffset? Since { get; init; }
+    DateTimeOffset? Until { get; init; }
 
 namespace Ikon.Common.Core.Functions
   enum CallbackType
@@ -3029,6 +3145,7 @@ namespace Ikon.Common.Core.Protocol
     ctor(ContextType contextType, UserType userType, PayloadType payloadType, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, int sessionId, bool isInternal, bool isReady, bool hasInput, string channelLocale, string embeddedSpaceId, string authSessionId, bool receiveAllMessages, ulong preciseJoinedAt, string userAgent, ClientType clientType, string uniqueSessionId, Dictionary<string, string> parameters, SdkType sdkType, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat)
     string AuthSessionId { get; set; }
     string ChannelLocale { get; set; }
+    int ClientSessionId { get; }
     ClientType ClientType { get; set; }
     ContextType ContextType { get; set; }
     string Description { get; set; }
