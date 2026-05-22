@@ -34,30 +34,30 @@ public partial class LiveQuizApp(IApp<SessionIdentity, ClientParams> app)
 
     public async Task Main()
     {
-        app.ClientJoinedAsync += OnClientJoinedAsync;   // 1-arg async — never `() =>`
-        app.ClientLeftAsync += OnClientLeftAsync;       // 1-arg async — never `() =>`
+        app.OnClientJoined(OnClientJoinedAsync);   // friendly extension — Func<Context, Task>
+        app.OnClientLeft(OnClientLeftAsync);       // never raw `app.ClientJoinedAsync += ...`
 
         UI.Root([Page.Default], content: RenderUI);
     }
 
-    private async Task OnClientJoinedAsync(ClientJoinedEventArgs args)
+    private async Task OnClientJoinedAsync(Context ctx)
     {
         // ReactiveScope inside event handlers needs an explicit ClientScope —
-        // args.ClientSessionId is the int identity for this client.
-        using var _ = ReactiveScope.Use(new ClientScope(args.ClientSessionId));
+        // ctx.ClientSessionId is the int identity for this client.
+        using var _ = ReactiveScope.Use(new ClientScope(ctx.ClientSessionId));
         // Now ClientReactive<T>.Value reads/writes for THIS specific client.
     }
 
-    private async Task OnClientLeftAsync(ClientLeftEventArgs args)
+    private async Task OnClientLeftAsync(Context ctx)
     {
         var players = _players.Value.ToList();
-        var leaver = players.FirstOrDefault(p => p.ClientId == args.ClientSessionId);
+        var leaver = players.FirstOrDefault(p => p.ClientId == ctx.ClientSessionId);
         if (leaver != null)
         {
             players.Remove(leaver);
             _players.Value = players;
         }
-        _playerAnswers.TryRemove(args.ClientSessionId, out _);
+        _playerAnswers.TryRemove(ctx.ClientSessionId, out _);
     }
 
     // Host detection — read parameters of the CURRENT client through the indexer.

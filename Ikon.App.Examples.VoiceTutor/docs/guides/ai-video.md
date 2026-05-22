@@ -15,6 +15,23 @@ var result = await generator.GenerateVideoAsync(new VideoGeneratorConfig
 // result.Url (string)
 ```
 
+### Video Playback
+
+To DISPLAY/play a video (e.g. the `result.Url` from generation) inline, use the
+`view.VideoUrlPlayer` component — there is no `view.Video`, no raw HTML `<video>`
+tag, and no custom React component needed.
+
+```csharp
+view.VideoUrlPlayer(
+    ["w-full rounded-xl"],
+    url: clip.Url,
+    controls: true,
+    autoplay: false,
+    loop: false,
+    muted: false,
+    poster: clip.PosterUrl);  // optional still-frame shown before play
+```
+
 ### Video Enhancement
 
 ```csharp
