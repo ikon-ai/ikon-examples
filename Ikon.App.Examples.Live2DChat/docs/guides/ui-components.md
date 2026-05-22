@@ -76,7 +76,7 @@ view.Markdown(content: "**Bold** and `code`");
 ```csharp
 view.Button([Button.PrimaryMd], label: "Click", onClick: async () => { ... });
 view.Button([Button.OutlineMd], label: "Secondary", disabled: isLoading, onClick: async () => { ... });
-view.Button([Button.GhostMd, Button.Size.Icon], onClick: async () => { ... },
+view.Button([Button.GhostMd, Button.Icon], onClick: async () => { ... },
     content: v => v.Icon([Icon.Default], name: "settings"));
 view.TextField([Input.Default], placeholder: "Enter text", value: _text.Value,
     onValueChange: async v => _text.Value = v,
@@ -325,7 +325,7 @@ CaptureButton starts audio/video capture from the client:
 
 ```csharp
 // Audio capture (microphone)
-view.CaptureButton([Button.OutlineMd, Button.Size.Icon],
+view.CaptureButton([Button.OutlineMd, Button.Icon],
     kind: MediaCaptureKind.Audio,
     captureMode: MediaCaptureButtonMode.Toggle,  // or Hold
     audioOptions: new ClientAudioCaptureOptions { ... },
@@ -335,7 +335,7 @@ view.CaptureButton([Button.OutlineMd, Button.Size.Icon],
 
 // Video capture (camera). Note: do NOT set TargetIds — see "Critical" warning in
 // the Video section above. Leave it unset so the server receives the stream.
-view.CaptureButton([Button.OutlineMd, Button.Size.Icon],
+view.CaptureButton([Button.OutlineMd, Button.Icon],
     kind: MediaCaptureKind.Camera,
     captureMode: MediaCaptureButtonMode.Toggle,
     videoOptions: new ClientVideoCaptureOptions { Framerate = 10, Width = 1280, Height = 720 },

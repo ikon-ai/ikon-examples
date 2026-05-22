@@ -46,10 +46,13 @@ Endpoints are requested at runtime from your app code. No `ikon-config.toml` ent
 ```csharp
 var endpoint = new AppEndpointHost(app);
 
+// Write the response via ctx.Response.Body (a Stream). NOT ctx.Response.WriteAsync(string)
+// — that ASP.NET Core extension (Microsoft.AspNetCore.Http) is not in scope in a
+// generated app and produces CS1061. Write UTF-8 bytes to the body stream.
 endpoint.MapGet("/health", async ctx =>
 {
     ctx.Response.ContentType = "text/plain";
-    await ctx.Response.WriteAsync("OK");
+    await ctx.Response.Body.WriteAsync(System.Text.Encoding.UTF8.GetBytes("OK"));
 });
 
 endpoint.MapPost("/data", async ctx =>
@@ -57,7 +60,7 @@ endpoint.MapPost("/data", async ctx =>
     using var reader = new StreamReader(ctx.Request.Body);
     var body = await reader.ReadToEndAsync();
     ctx.Response.ContentType = "application/json";
-    await ctx.Response.WriteAsync($"{{\"received\": true}}");
+    await ctx.Response.Body.WriteAsync(System.Text.Encoding.UTF8.GetBytes("{\"received\": true}"));
 });
 
 endpoint.MapWebSocket("/ws", async (ctx, webSocket) =>
@@ -99,10 +102,10 @@ Valid raw protocols: `EndpointProtocol.Tcp`, `Tls`, `Udp`. `Tls` enables TLS ter
 Dispose endpoints when the app stops:
 
 ```csharp
-app.StoppingAsync += async _ =>
+app.OnStopping(async () =>
 {
     await endpoint.DisposeAsync();
-};
+});
 ```
 
 ---
