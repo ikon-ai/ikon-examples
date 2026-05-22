@@ -224,14 +224,20 @@ If a compiler error names one of these on the right-hand column, the fix is mech
 ### Lifecycle Events
 
 ```csharp
-app.StartingAsync += async args => { /* app starting */ };
-app.StoppingAsync += async args => { /* app stopping, cleanup */ };
-app.ClientJoinedAsync += async args =>
+// Use the friendly extension helpers — NOT raw `app.StartingAsync += ...`.
+// The raw events take AsyncEventHandler<TEventArgs> (one-arg); subscribing to
+// them and typing the arg invents non-existent types like AppStartingEventArgs.
+app.OnStarting(async () => { /* app starting */ });
+app.OnStopping(async () => { /* app stopping, cleanup */ });
+app.OnClientJoined(async ctx =>
 {
-    // args.ClientSessionId, args.ClientContext (Theme, Timezone, UserId, ClientType, InitialPath, ViewportWidth)
-    var client = app.Clients[args.ClientSessionId];
-};
-app.ClientLeftAsync += async args => { /* cleanup client state */ };
+    // ctx IS the Context. ctx.ClientSessionId is an int (alias of ctx.SessionId);
+    // ctx.UserId is a string. Also ctx.Theme, ctx.Timezone, ctx.ClientType,
+    // ctx.InitialPath, ctx.ViewportWidth. Type any "which client" state you keep
+    // as Reactive<int?> — NOT Reactive<string?> — to match ClientSessionId.
+    var client = app.Clients[ctx.ClientSessionId];
+});
+app.OnClientLeft(async ctx => { /* cleanup client state */ });
 ```
 
 ### Navigation
@@ -337,7 +343,7 @@ await ClientFunctions.SetThemeAsync(targetId, "dark");
 ### Messages
 
 ```csharp
-app.MessageReceivedAsync += async args => { /* args.Message.Opcode, args.Message.TrackId */ };
+app.OnMessageReceived(async msg => { /* msg is the ProtocolMessage: msg.Opcode, msg.TrackId */ });
 await app.SendMessageAsync(ProtocolMessage.Create(app.ClientContext.SessionId, new RequestIdrVideoFrame(),
     trackId: trackId, targetIds: [clientSessionId]));
 ```
