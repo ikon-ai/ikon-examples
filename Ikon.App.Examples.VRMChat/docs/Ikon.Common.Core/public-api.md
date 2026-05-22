@@ -16,7 +16,6 @@ namespace Ikon.Common.Core
     string Token { get; set; }
   class IkonBackend.AppBillingInitResult
     ctor()
-    string AppToken { get; set; }
     string BackendUrl { get; set; }
     string Mode { get; set; }
     string PublishableKey { get; set; }
@@ -469,6 +468,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.ChannelInstance> CreateChannelInstanceAsync(string channelId, string mode)
     Task<IkonBackend.ChannelInstanceLaunchToken> CreateChannelInstanceLaunchTokenAsync(string id, int? httpsPort = null, int? httpPort = null, int? tcpPort = null, int? tlsPort = null)
     Task CreateChatMessageAsync(string channelInstanceId, string userId, string text, string createdAt)
+    Task<IkonBackend.Organisation> CreateOrganisationAsync(string name)
     Task<IkonBackend.Pipeline> CreatePipelineAsync(object form)
     Task<IkonBackend.Plugin> CreatePluginAsync(IkonBackend.Plugin plugin)
     Task CreateProfileLeadAsync(string profileId, string source)
@@ -494,6 +494,7 @@ namespace Ikon.Common.Core
     Task<Dictionary<string, string>> GetApiKeysAsync(bool all = false)
     Task<IkonBackend.AppBundle> GetAppBundleAsync(string id)
     Task<List<IkonBackend.AppBundle>> GetAppBundlesAsync(string spaceId, IkonBackend.AppBundleState? state = null, int maxResults = 1000)
+    Task<IkonBackend.CursorResponse<IkonBackend.SpaceEventRow>> GetAppEventsAsync(string spaceId, int days, int limit, string? cursor = null)
     Task<IkonBackend.ChannelInstanceSession> GetAppSessionAsync(string sessionId)
     Task<IkonBackend.IkonLogQueryResult> GetAppSessionLogsAsync(string sessionId, int? level = null, string? cursor = null, int limit = 200)
     Task<IkonBackend.CursorResponse<IkonBackend.ChannelInstanceSession>> GetAppSessionsAsync(string spaceId, string? cursor = null, int limit = 50, string? searchId = null)
@@ -551,7 +552,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.User> GetUserAsync(string id)
     Task<List<IkonBackend.User>> GetUsersAsync(string query, int limit = 20)
     bool HasCapability(string capability)
-    Task<IkonBackend.AppBillingInitResult> InitAppBillingAsync(string spaceId, string mode = "ikon-connect", bool rotate = false)
+    Task<IkonBackend.AppBillingInitResult> InitAppBillingAsync(string spaceId, string mode = "ikon-connect")
     Task<bool> IsSpaceDomainAvailableAsync(string domain)
     Task<IkonBackend.MintApiKeyIssued> IssueMintApiKeyAsync(string appId, string? label = null)
     Task<IkonBackend.ItemListResponse> ListItemsAsync(IkonBackend.ItemListRequest request)
@@ -1120,6 +1121,13 @@ namespace Ikon.Common.Core
     ctor()
     bool Available { get; set; }
     string Domain { get; set; }
+  class IkonBackend.SpaceEventRow
+    ctor()
+    string EventName { get; set; }
+    string Message { get; set; }
+    JsonElement? Parameters { get; set; }
+    string SessionId { get; set; }
+    string Time { get; set; }
   class IkonBackend.SpaceGitRepository
     ctor()
     string GitPassword { get; set; }
