@@ -27,6 +27,25 @@ var result = await enhancer.EnhanceVideoAsync(new VideoEnhancerConfig
 // result.Url (string), result.OutputFps, result.OutputSizeBytes
 ```
 
+### Video Playback (displaying / playing a video)
+
+To DISPLAY or play a video — e.g. the `result.Url` returned by generation — use
+the `view.VideoUrlPlayer` UI component. There is NO `view.Video`, no raw HTML
+`<video>` tag, and no custom React component needed.
+
+```csharp
+view.VideoUrlPlayer(
+    ["w-full rounded-xl"],
+    url: clip.Url,
+    controls: true,
+    autoplay: false,
+    loop: false,
+    muted: false,
+    poster: clip.PosterUrl);  // optional still-frame shown before play
+```
+
+`view.VideoUrlPlayer(style[], url, controls, autoplay, loop, muted, playsInline, poster, ...)` — style array first (like every component), the rest named.
+
 ---
 
 # Ikon.AI Public API
