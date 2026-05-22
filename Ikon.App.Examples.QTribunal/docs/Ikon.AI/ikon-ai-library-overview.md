@@ -377,26 +377,28 @@ await File.WriteAllBytesAsync("screenshot.png", screenshot.Data);
 ```csharp
 using Ikon.AI.WebSearching;
 
-var searcher = new WebSearcher(WebSearcherModel.Google);
+var pageSearcher = new WebSearcher(WebSearcherModel.Google);
 
-var results = await searcher.SearchPagesAsync(new SearchConfig
+var pageResults = await pageSearcher.SearchPagesAsync(new SearchConfig
 {
     Query = "Finnish ice hockey teams",
     MaxResults = 5
 });
 
-foreach (var result in results)
+foreach (var result in pageResults)
 {
     Log.Instance.Info($"{result.Title}: {result.Url}");
 }
 
-results = await searcher.SearchImagesAsync(new SearchConfig
+var imageSearcher = new WebSearcher(WebSearcherModel.GoogleImages);
+
+var imageResults = await imageSearcher.SearchImagesAsync(new SearchConfig
 {
     Query = "Coffee beans",
     MaxResults = 5
 });
 
-foreach (var result in results)
+foreach (var result in imageResults)
 {
     Log.Instance.Info($"{result.Title}: {result.Url}");
 }

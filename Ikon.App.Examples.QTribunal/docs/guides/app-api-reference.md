@@ -35,7 +35,7 @@ namespace Ikon.App
     void MapWebSocket(string pattern, Func<HttpContext, WebSocket, Task> handler)
     Task StartAsync(CancellationToken cancellationToken = null)
     Task StopAsync(CancellationToken cancellationToken = null)
-  class App<TConfig> : BasePlugin<App<TConfig>, WrapperConfig<TConfig>>, IAppBase, IApp<TConfig>
+  class App<TConfig> : BasePlugin<App<TConfig>, WrapperConfig<TConfig>>, IAppBase, IApp<TConfig>, IUserAppInstanceHost
     ctor(Type appInstanceType, WrapperConfig<TConfig> userConfig, PluginAttribute pluginAttribute, string argsJson)
     BackgroundWork BackgroundWork { get; }
     TConfig Config { get; }
@@ -48,6 +48,7 @@ namespace Ikon.App
     ReactiveGlobalState ReactiveGlobalState { get; }
     ReactiveRoot ReactiveRoot { get; }
     Secrets Secrets { get; }
+    object UserAppInstance { get; }
     IReadOnlyList<WebhookInfo> Webhooks { get; }
     Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = null)
     Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", CancellationToken ct = null)
@@ -57,7 +58,7 @@ namespace Ikon.App
     event AsyncEventHandler<MessageReceivedEventArgs> MessageReceivedAsync
     event AsyncEventHandler<StartingEventArgs> StartingAsync
     event AsyncEventHandler<StoppingEventArgs> StoppingAsync
-  class App<TSessionIdentity, TClientParameters> : BasePlugin<App<TSessionIdentity, TClientParameters>, BasePluginConfig>, IAppBase, IApp<TSessionIdentity, TClientParameters>
+  class App<TSessionIdentity, TClientParameters> : BasePlugin<App<TSessionIdentity, TClientParameters>, BasePluginConfig>, IAppBase, IApp<TSessionIdentity, TClientParameters>, IUserAppInstanceHost
     ctor(Type appInstanceType, PluginAttribute pluginAttribute, string argsJson)
     BackgroundWork BackgroundWork { get; }
     IClientCollection<TClientParameters> Clients { get; }
@@ -71,6 +72,7 @@ namespace Ikon.App
     ReactiveRoot ReactiveRoot { get; }
     Secrets Secrets { get; }
     TSessionIdentity SessionIdentity { get; }
+    object UserAppInstance { get; }
     IReadOnlyList<WebhookInfo> Webhooks { get; }
     Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = null)
     Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", CancellationToken ct = null)
@@ -398,6 +400,8 @@ namespace Ikon.App
     string UploadId { get; init; }
   sealed class FileUploadPreStartResult : IEquatable<FileUploadPreStartResult>
     ctor()
+    ctor(string? assetUri)
+    ctor(bool accepted, string? assetUri = null)
     bool Accepted { get; set; }
     string AssetUri { get; set; }
   sealed class FileUploadProgressArgs : IEquatable<FileUploadProgressArgs>
@@ -417,6 +421,8 @@ namespace Ikon.App
     string UploadId { get; init; }
   sealed class FileUploadStartResult : IEquatable<FileUploadStartResult>
     ctor()
+    ctor(string? assetUri)
+    ctor(bool accepted, string? assetUri = null)
     bool Accepted { get; set; }
     string AssetUri { get; set; }
   static class HttpDispatchGovernance
@@ -513,6 +519,8 @@ namespace Ikon.App
   interface IClient<TClientParameters>
     TClientParameters Parameters { get; }
   interface IProfileAttributes
+  interface IUserAppInstanceHost
+    object UserAppInstance { get; }
   static class JsonSchemaBuilder
     static JsonElement BuildObjectSchema(IReadOnlyList<ParameterInfo> parameters)
     static JsonElement BuildObjectSchema(IReadOnlyList<ParameterInfo> parameters, IReadOnlyList<ValueTuple<string, Type, string?>> extraRequired)
@@ -989,7 +997,6 @@ namespace Ikon.App.Billing
     string DefaultPortalReturnUrl { get; init; }
     string DefaultSuccessUrl { get; init; }
     string IkonAppId { get; init; }
-    string IkonAppToken { get; init; }
     string IkonBackendUrl { get; init; }
     string IkonWebhookSecret { get; init; }
     int MaxRetryAttempts { get; init; }
