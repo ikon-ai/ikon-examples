@@ -46,10 +46,14 @@ Endpoints are requested at runtime from your app code. No `ikon-config.toml` ent
 ```csharp
 var endpoint = new AppEndpointHost(app);
 
+// Write the response body via ctx.Response.Body (a Stream). Do NOT use
+// ctx.Response.WriteAsync(string) — that's an ASP.NET Core extension method
+// (Microsoft.AspNetCore.Http) that is NOT in scope in a generated app, so it
+// produces CS1061. Write UTF-8 bytes to the body stream instead.
 endpoint.MapGet("/health", async ctx =>
 {
     ctx.Response.ContentType = "text/plain";
-    await ctx.Response.WriteAsync("OK");
+    await ctx.Response.Body.WriteAsync(System.Text.Encoding.UTF8.GetBytes("OK"));
 });
 
 endpoint.MapPost("/data", async ctx =>
@@ -57,7 +61,7 @@ endpoint.MapPost("/data", async ctx =>
     using var reader = new StreamReader(ctx.Request.Body);
     var body = await reader.ReadToEndAsync();
     ctx.Response.ContentType = "application/json";
-    await ctx.Response.WriteAsync($"{{\"received\": true}}");
+    await ctx.Response.Body.WriteAsync(System.Text.Encoding.UTF8.GetBytes("{\"received\": true}"));
 });
 
 endpoint.MapWebSocket("/ws", async (ctx, webSocket) =>
@@ -99,10 +103,10 @@ Valid raw protocols: `EndpointProtocol.Tcp`, `Tls`, `Udp`. `Tls` enables TLS ter
 Dispose endpoints when the app stops:
 
 ```csharp
-app.StoppingAsync += async _ =>
+app.OnStopping(async () =>
 {
     await endpoint.DisposeAsync();
-};
+});
 ```
 
 ---
@@ -140,11 +144,19 @@ public class MyApp(IApp<SessionIdentity, ClientParams> app)
 
     public async Task Main()
     {
-        // app.Webhooks contains the live webhook URLs - log them or display in your UI
+        // app.Webhooks contains the live webhook URLs - log them or display in your UI.
+        // Each entry is a WebhookInfo with exactly three properties:
+        //   .FunctionName (string) — the registered name; equals the [Function(Name = "...")]
+        //                            override (here "stripe"), NOT a property called .Name
+        //   .PublicUrl    (string) — the public POST URL for this webhook
+        //   .CellType     (string) — internal routing type; rarely needed
         foreach (var webhook in app.Webhooks)
         {
-            Log.Instance.Info($"Webhook: POST {webhook.PublicUrl}");
+            Log.Instance.Info($"Webhook {webhook.FunctionName}: POST {webhook.PublicUrl}");
         }
+
+        // To grab one specific webhook's URL, match on FunctionName (NOT .Name):
+        var stripeUrl = app.Webhooks.FirstOrDefault(w => w.FunctionName == "stripe")?.PublicUrl ?? "";
     }
 }
 ```
