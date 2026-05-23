@@ -192,7 +192,7 @@ Examples:
 
 ### Anti-patterns — DO NOT use
 
-- `IApp<NoSession, NoClient>` / `IApp<None, None>` / `IApp<,>` — sentinel "no session/client" types **do not exist**. Always declare concrete `record SessionIdentity(...)` and `record ClientParameters(...)` (use empty `()` if you don't need any fields).
+- `IApp<NoSession, NoClient>` / `IApp<None, None>` / `IApp<,>` — sentinel "no session/client" types **do not exist**. Always declare concrete `public record SessionIdentity(...)` and `public record ClientParameters(...)` (use empty `()` if you don't need any fields; both MUST be `public` or you get CS0051).
 - Implementing `IApp` as an interface (`class MyApp : IApp<S,C>`) — wrong. The `[App]` attribute generates the interface implementation; you only declare a primary constructor `(IApp<S,C> app)` parameter.
 
 ## Common hallucinations the C# compiler will reject
@@ -205,7 +205,7 @@ When in doubt, prefer the canonical name. These are the recurring wrong names th
 | `Theming.Custom(...)` | `new IkonTheme { ... }` | Same. |
 | `Theming.Apply(...)` | `new IkonTheme { ... }` | Factory retired; the indexer is the only configurable surface. |
 | `new IkonTheme { Brand = "...", Background = "..." }` | `new IkonTheme { ["primary"] = "...", ["background"] = "..." }` | No named init properties — every override is an indexer entry. |
-| `IApp<NoSession, NoClient>` | `IApp<SessionIdentity, ClientParameters>` with concrete records above | `NoSession` / `NoClient` types do not exist. Always declare records — use `record SessionIdentity()` empty if you have nothing. |
+| `IApp<NoSession, NoClient>` | `IApp<SessionIdentity, ClientParameters>` with concrete records above | `NoSession` / `NoClient` types do not exist. Always declare `public record SessionIdentity()` / `public record ClientParameters()` — `public` is required (CS0051 otherwise); use empty `()` if you have nothing. |
 | `Audio.SpeakAsync(text)` | `Audio.SendSpeech(audio)` | Only `SendSpeech` exists. The `audio` argument is an `AudioContainer` from `SpeechGenerator.GenerateSpeechAsync`. |
 | `Audio.Speech` (property) | `new SpeechGenerator(...)` then `Audio.SendSpeech(...)` | No `Speech` property on `Audio`. The full chain is `var gen = new SpeechGenerator(model); await foreach (var chunk in gen.GenerateSpeechAsync(cfg)) Audio.SendSpeech(chunk);`. |
 | `app.PlayAudioAsync(bytes, mime)` | `ClientFunctions.PlaySoundAsync(bytes, mime)` | Audio routes live on the static `ClientFunctions`, not `IApp`. |
@@ -231,13 +231,28 @@ app.OnStarting(async () => { /* app starting */ });
 app.OnStopping(async () => { /* app stopping, cleanup */ });
 app.OnClientJoined(async ctx =>
 {
-    // ctx IS the Context. ctx.ClientSessionId is an int (alias of ctx.SessionId);
-    // ctx.UserId is a string. Also ctx.Theme, ctx.Timezone, ctx.ClientType,
-    // ctx.InitialPath, ctx.ViewportWidth. Type any "which client" state you keep
-    // as Reactive<int?> — NOT Reactive<string?> — to match ClientSessionId.
+    // ctx IS the Context: ctx.ClientSessionId (alias of ctx.SessionId), ctx.UserId,
+    // ctx.Theme, ctx.Timezone, ctx.ClientType, ctx.InitialPath, ctx.ViewportWidth
     var client = app.Clients[ctx.ClientSessionId];
 });
 app.OnClientLeft(async ctx => { /* cleanup client state */ });
+
+// For a periodic background loop (live clock, polling, game tick), start it
+// inside OnStarting and cancel it in OnStopping — there is no app.BackgroundWork
+// "start a task" API (BackgroundWork only ref-counts idle-shutdown prevention):
+var clockCts = new CancellationTokenSource();
+app.OnStarting(async () =>
+{
+    _ = Task.Run(async () =>
+    {
+        while (!clockCts.Token.IsCancellationRequested)
+        {
+            ReactiveScope.Use(() => _now.Value = DateTime.Now);
+            await Task.Delay(1000, clockCts.Token);
+        }
+    }, clockCts.Token);
+});
+app.OnStopping(async () => clockCts.Cancel());
 ```
 
 ### Navigation
@@ -343,7 +358,7 @@ await ClientFunctions.SetThemeAsync(targetId, "dark");
 ### Messages
 
 ```csharp
-app.OnMessageReceived(async msg => { /* msg is the ProtocolMessage: msg.Opcode, msg.TrackId */ });
+app.MessageReceivedAsync += async args => { /* args.Message.Opcode, args.Message.TrackId */ };
 await app.SendMessageAsync(ProtocolMessage.Create(app.ClientContext.SessionId, new RequestIdrVideoFrame(),
     trackId: trackId, targetIds: [clientSessionId]));
 ```

@@ -15,23 +15,11 @@ var result = await generator.GenerateVideoAsync(new VideoGeneratorConfig
 // result.Url (string)
 ```
 
-### Video Enhancement
+### Video Playback
 
-```csharp
-using var enhancer = new VideoEnhancer(VideoEnhancerModel.TensorPixUpscale2xUltra41);
-var result = await enhancer.EnhanceVideoAsync(new VideoEnhancerConfig
-{
-    VideoData = videoBytes,
-    MimeType = "video/mp4"
-});
-// result.Url (string), result.OutputFps, result.OutputSizeBytes
-```
-
-### Video Playback (displaying / playing a video)
-
-To DISPLAY or play a video — e.g. the `result.Url` returned by generation — use
-the `view.VideoUrlPlayer` UI component. There is NO `view.Video`, no raw HTML
-`<video>` tag, and no custom React component needed.
+To DISPLAY/play a video (e.g. the `result.Url` from generation) inline, use the
+`view.VideoUrlPlayer` component — there is no `view.Video`, no raw HTML `<video>`
+tag, and no custom React component needed.
 
 ```csharp
 view.VideoUrlPlayer(
@@ -44,7 +32,17 @@ view.VideoUrlPlayer(
     poster: clip.PosterUrl);  // optional still-frame shown before play
 ```
 
-`view.VideoUrlPlayer(style[], url, controls, autoplay, loop, muted, playsInline, poster, ...)` — style array first (like every component), the rest named.
+### Video Enhancement
+
+```csharp
+using var enhancer = new VideoEnhancer(VideoEnhancerModel.TensorPixUpscale2xUltra41);
+var result = await enhancer.EnhanceVideoAsync(new VideoEnhancerConfig
+{
+    VideoData = videoBytes,
+    MimeType = "video/mp4"
+});
+// result.Url (string), result.OutputFps, result.OutputSizeBytes
+```
 
 ---
 
