@@ -46,10 +46,9 @@ Endpoints are requested at runtime from your app code. No `ikon-config.toml` ent
 ```csharp
 var endpoint = new AppEndpointHost(app);
 
-// Write the response body via ctx.Response.Body (a Stream). Do NOT use
-// ctx.Response.WriteAsync(string) — that's an ASP.NET Core extension method
-// (Microsoft.AspNetCore.Http) that is NOT in scope in a generated app, so it
-// produces CS1061. Write UTF-8 bytes to the body stream instead.
+// Write the response via ctx.Response.Body (a Stream). NOT ctx.Response.WriteAsync(string)
+// — that ASP.NET Core extension (Microsoft.AspNetCore.Http) is not in scope in a
+// generated app and produces CS1061. Write UTF-8 bytes to the body stream.
 endpoint.MapGet("/health", async ctx =>
 {
     ctx.Response.ContentType = "text/plain";
@@ -144,19 +143,11 @@ public class MyApp(IApp<SessionIdentity, ClientParams> app)
 
     public async Task Main()
     {
-        // app.Webhooks contains the live webhook URLs - log them or display in your UI.
-        // Each entry is a WebhookInfo with exactly three properties:
-        //   .FunctionName (string) — the registered name; equals the [Function(Name = "...")]
-        //                            override (here "stripe"), NOT a property called .Name
-        //   .PublicUrl    (string) — the public POST URL for this webhook
-        //   .CellType     (string) — internal routing type; rarely needed
+        // app.Webhooks contains the live webhook URLs - log them or display in your UI
         foreach (var webhook in app.Webhooks)
         {
-            Log.Instance.Info($"Webhook {webhook.FunctionName}: POST {webhook.PublicUrl}");
+            Log.Instance.Info($"Webhook: POST {webhook.PublicUrl}");
         }
-
-        // To grab one specific webhook's URL, match on FunctionName (NOT .Name):
-        var stripeUrl = app.Webhooks.FirstOrDefault(w => w.FunctionName == "stripe")?.PublicUrl ?? "";
     }
 }
 ```
