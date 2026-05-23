@@ -519,10 +519,9 @@ namespace Ikon.Common.Core
     Task<InboundEmailPageDto> GetInboundEmailsAsync(string? recipient, string? fromAddress, DateTimeOffset? since, DateTimeOffset? until, int? limit, string? cursor)
     Task<IkonBackend.Item> GetItemAsync(AssetUri assetUri)
     Task<IkonBackend.ItemDownloadUrl> GetItemSignedDownloadUrlAsync(string id)
-    Task<IkonBackend.ItemSignedUpload> GetItemSignedUploadUrlAsync(string uri, string filename, string mime, string[]? tags, bool? isAppServed = null)
+    Task<IkonBackend.ItemSignedUpload> GetItemSignedUploadUrlAsync(string uri, string filename, string mime, string[]? tags, bool? isAppServed = null, DateTime? expiresAt = null)
     Task<List<IkonBackend.Item>> GetItemsAsync(string spaceId, string folderId, int maxResults = 1000)
     Task<IkonBackend.LocalIkonServerTokenResponse> GetLocalIkonServerTokenAsync(string spaceId)
-    Task<IkonBackend.MintCashoutStatus> GetMintCashoutStatusAsync(string appId)
     Task<IkonBackend.Profile> GetOrCreateCurrentProfileAsync(string spaceId)
     Task<IkonBackend.Organisation> GetOrganisationAsync(string id)
     Task<List<IkonBackend.Organisation>> GetOrganisationsAsync(int maxResults = 1000)
@@ -554,20 +553,15 @@ namespace Ikon.Common.Core
     bool HasCapability(string capability)
     Task<IkonBackend.AppBillingInitResult> InitAppBillingAsync(string spaceId, string mode = "ikon-connect")
     Task<bool> IsSpaceDomainAvailableAsync(string domain)
-    Task<IkonBackend.MintApiKeyIssued> IssueMintApiKeyAsync(string appId, string? label = null)
     Task<IkonBackend.ItemListResponse> ListItemsAsync(IkonBackend.ItemListRequest request)
-    Task<List<IkonBackend.MintApiKeySummary>> ListMintApiKeysAsync(string appId)
     bool Login(ValueTuple<string, string>? fromCommandLine = null, ValueTuple<string, string>? fromConfig = null, bool logSource = true, bool mustLogin = true)
     static IkonBackend.LoginInfo ReadLoginConfig()
     Task<IkonBackend.CampaignRedeemResult> RedeemCampaignAsync(string code, string organisationId)
     Task<string> RequestAccessTokenAsync(string apiKey, string spaceId, string externalUserId)
     Task<IkonBackend.ChannelInstance> RequestChannelAsync(IkonBackend.RequestChannelRequest request)
-    Task<IkonBackend.MintCashoutRequested> RequestMintCashoutAsync(string appId, decimal amountEur)
-    Task<IkonBackend.MintCashoutOnboarding> RequestMintCashoutOnboardingAsync(string appId)
     Task<StepUpStartResponse> RequestStepUpStartAsync(StepUpStartRequest request)
     void ResetCounters()
     Task ResetProfileAsync(string profileId)
-    Task RevokeMintApiKeyAsync(string appId, string keyId)
     Task SendEmailAsync(SendEmailDto request)
     void SendMessage(ProtocolMessage message)
     Task SetStorageAsync(string spaceId, string entity, string entityId, Dictionary<string, object> values)
@@ -575,7 +569,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.AppBundle> UpdateAppBundleAsync(string id, IkonBackend.AppBundleState state)
     Task<IkonBackend.Channel> UpdateChannelAsync(string id, object form)
     Task<IkonBackend.ChannelInstance> UpdateChannelInstanceAsync(string id, object form)
-    Task<IkonBackend.Item> UpdateItemAsync(AssetUri assetUri, object text, string[]? tags, DateTime? ifUpdatedAt = null)
+    Task<IkonBackend.Item> UpdateItemAsync(AssetUri assetUri, object text, string[]? tags, DateTime? ifUpdatedAt = null, DateTime? expiresAt = null)
     Task<IkonBackend.Pipeline> UpdatePipelineAsync(string id, object form)
     Task<IkonBackend.Plugin> UpdatePluginAsync(string id, object form)
     Task UpdateProfileFieldAsync(string profileId, object form)
@@ -619,7 +613,7 @@ namespace Ikon.Common.Core
     string BodyHtml { get; set; }
     string BodyText { get; set; }
     List<InboundEmailAddressDto> Cc { get; set; }
-    string From { get; set; }
+    InboundEmailAddressDto From { get; set; }
     List<InboundEmailHeaderDto> Headers { get; set; }
     string Id { get; set; }
     DateTimeOffset ReceivedAt { get; set; }
@@ -639,8 +633,8 @@ namespace Ikon.Common.Core
     string NextCursor { get; set; }
   sealed class InboundEmailSummaryDto
     ctor()
-    int AttachmentCount { get; set; }
-    string From { get; set; }
+    List<InboundEmailAttachmentDto> Attachments { get; set; }
+    string FromAddress { get; set; }
     string Id { get; set; }
     DateTimeOffset ReceivedAt { get; set; }
     string Recipient { get; set; }
@@ -651,6 +645,7 @@ namespace Ikon.Common.Core
     ctor()
     IkonBackend.ItemAsset Asset { get; set; }
     DateTime CreatedAt { get; set; }
+    DateTime? ExpiresAt { get; set; }
     string Folder { get; set; }
     string Id { get; set; }
     bool? IsAppServed { get; set; }
@@ -817,43 +812,6 @@ namespace Ikon.Common.Core
     string IkonBackendEnvironment
     string IkonBackendToken
     string IkonBackendUrl
-  class IkonBackend.MintApiKeyIssued
-    ctor()
-    string AppId { get; set; }
-    DateTime CreatedAt { get; set; }
-    string Plaintext { get; set; }
-  class IkonBackend.MintApiKeySummary
-    ctor()
-    DateTime CreatedAt { get; set; }
-    string Id { get; set; }
-    string Label { get; set; }
-    DateTime? LastUsedAt { get; set; }
-    DateTime? RevokedAt { get; set; }
-  class IkonBackend.MintCashoutHistoryRow
-    ctor()
-    decimal AmountEur { get; set; }
-    DateTime? CreatedAt { get; set; }
-    string Id { get; set; }
-    DateTime? PaidAt { get; set; }
-    string Status { get; set; }
-    string StripeTransferId { get; set; }
-  class IkonBackend.MintCashoutOnboarding
-    ctor()
-    string AccountId { get; set; }
-    string KycStatus { get; set; }
-    string OnboardingUrl { get; set; }
-  class IkonBackend.MintCashoutRequested
-    ctor()
-    decimal AmountEur { get; set; }
-    string CashoutId { get; set; }
-    string StripeTransferId { get; set; }
-  class IkonBackend.MintCashoutStatus
-    ctor()
-    decimal AvailableEur { get; set; }
-    bool HasConnectAccount { get; set; }
-    string KycStatus { get; set; }
-    decimal MinCashoutEur { get; set; }
-    List<IkonBackend.MintCashoutHistoryRow> RecentCashouts { get; set; }
   static class NameConversions
     static string ToCamelCase(string input)
     static string ToDisplayName(string input)
@@ -1261,7 +1219,8 @@ namespace Ikon.Common.Core.Assets
     AssetUri AssetUri { get; }
     AssetMetadata Metadata { get; }
   struct AssetMetadata
-    ctor(string? mimeType = null, long? size = null, DateTime? lastModified = null, string? url = null, bool? urlIsTemporal = null, string[]? tags = null, string? internalPath = null, string? storageId = null, string? nativeUri = null, bool? isAppServed = null)
+    ctor(string? mimeType = null, long? size = null, DateTime? lastModified = null, string? url = null, bool? urlIsTemporal = null, string[]? tags = null, string? internalPath = null, string? storageId = null, string? nativeUri = null, bool? isAppServed = null, DateTime? expiresAt = null)
+    DateTime? ExpiresAt { get; }
     string InternalPath { get; }
     bool? IsAppServed { get; }
     DateTime? LastModified { get; }

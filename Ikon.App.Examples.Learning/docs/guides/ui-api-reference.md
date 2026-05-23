@@ -889,9 +889,9 @@ namespace Ikon.Parallax.Components.Standard
     byte[] Data { get; init; }
     // Suggested filename for the downloaded file.
     string Filename { get; init; }
-    // MIME type for binary data (e.g. "image/png"). Required when Data is set.
+    // MIME type for binary data (e.g. "image/png"). Optional — defaults to "application/octet-stream" when is set without a MIME type.
     string MimeType { get; init; }
-    // URL to download. Can be a regular URL or a data URL. If Data is provided, this is auto-generated from the binary data.
+    // URL to download. Can be a regular URL or a data URL. If Data is provided, this is auto-generated from the binary data using , falling back to "application/octet-stream" when MimeType is unset so the download still fires.
     string Url { get; init; }
   // Extension methods for drag and drop components.
   static class DragAndDropExtensions

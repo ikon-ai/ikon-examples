@@ -1024,9 +1024,9 @@ Deny codes (stable across versions):
 | `[BillingRequireUnlock]` | `billing_unlock_required` | same |
 | `[BillingChargeCredits]` | `billing_credits_insufficient` | `billing_no_credit_store`, `billing_credits_deduction_error` |
 
-**Design note**: unlike Mint's equivalent, these policies **do NOT
-auto-open Stripe Checkout** on denial. Ikon.App.Billing is webhook-driven,
-not polling-driven. The policy's role is gate + signal; the app's UI
+**Design note**: these policies are webhook-driven, not polling-driven,
+and **do NOT auto-open Stripe Checkout** on denial. The policy's role is
+gate + signal; the app's UI
 catches the deny code, calls `OfferCheckoutAsync`, and waits for the
 webhook to flip entitlement. The user clicks the same button again and
 the policy now allows.
@@ -1086,8 +1086,7 @@ public static readonly BillingPlanSpec ImgCredits = BillingPlanSpec.Credits("img
 ```
 
 Pair with `BillingCatalogSync.SyncFromCatalogClassAsync(typeof(Plans))` to
-provision Stripe products + prices in one call, mirroring Mint's catalog
-pattern but talking directly to Stripe:
+provision Stripe products + prices in one call:
 
 ```csharp
 public static class Plans
