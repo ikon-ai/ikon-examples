@@ -24,7 +24,7 @@
         "invite link"
       ],
       "file": "docs/guides/app-structure.md",
-      "sizeBytes": 17721,
+      "sizeBytes": 18221,
       "alsoInclude": []
     },
     {
@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 151253,
+      "sizeBytes": 162126,
       "alsoInclude": []
     },
     {
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 181876,
+      "sizeBytes": 182036,
       "alsoInclude": []
     },
     {
@@ -462,7 +462,7 @@
         "optimistic concurrency"
       ],
       "file": "docs/guides/asset-system.md",
-      "sizeBytes": 20098,
+      "sizeBytes": 20159,
       "alsoInclude": []
     },
     {
