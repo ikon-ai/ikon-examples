@@ -42,11 +42,6 @@ var (result, context) = await Emerge.Run<AnalysisResult>(LLMModel.Claude46Sonnet
     pass.Command = $"Analyze: {topic}\n\nReturn JSON:\n{pass.JsonSchema}";
     pass.Temperature = 0.3;
 }).FinalAsync();
-
-// result is NULLABLE (AnalysisResult?) — Emerge can fail. Null-guard before use,
-// or the build fails with CS8602 (the build runs warnings-as-errors).
-if (result is null) { /* surface the failure to the UI */ return; }
-// now safe to use: result.Summary, result.KeyPoints, ...
 ```
 
 ### Conversation History (Chatbots)
