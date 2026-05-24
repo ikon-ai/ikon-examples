@@ -528,36 +528,6 @@ namespace Ikon.App
     static Task ShowAsync(int targetClientSessionId, string? reason = null)
     static Task ShowAsync(string? reason = null)
     static string HandoffParameterKey
-  static class McpHttpTransport
-    static Task HandlePostAsync(HttpContext context, McpHost mcp, IReadOnlyDictionary<string, string>? sessionIdentityFields = null)
-    static Task HandleProtectedResourceDiscoveryAsync(HttpContext context)
-  static class McpResourceBridge
-    static McpResourceHandler BuildHandler(CellHost cellHost, McpResourceInfo info)
-  static class McpResourceDiscovery
-    static IReadOnlyList<McpResourceInfo> ForType(Type ownerType)
-    static IReadOnlyList<McpResourceInfo> ForTypes(IEnumerable<Type> types)
-  sealed class McpResourceInfo : IEquatable<McpResourceInfo>
-    ctor(string DisplayName, string Description, string MimeType, UriTemplate UriTemplate, MethodInfo Handler, Type OwnerCellType)
-    string Description { get; init; }
-    string DisplayName { get; init; }
-    MethodInfo Handler { get; init; }
-    bool IsStatic { get; }
-    string MimeType { get; init; }
-    Type OwnerCellType { get; init; }
-    string SubjectId { get; }
-    UriTemplate UriTemplate { get; init; }
-  static class McpToolBridge
-    static McpToolHandler BuildHandler(CellHost cellHost, McpToolInfo info)
-  static class McpToolDiscovery
-    static IReadOnlyList<McpToolInfo> ForType(Type ownerType)
-    static IReadOnlyList<McpToolInfo> ForTypes(IEnumerable<Type> types)
-  sealed class McpToolInfo : IEquatable<McpToolInfo>
-    ctor(string Name, string Description, MethodInfo Handler, Type OwnerCellType)
-    string Description { get; init; }
-    MethodInfo Handler { get; init; }
-    string Name { get; init; }
-    Type OwnerCellType { get; init; }
-    string SubjectId { get; }
   class MessageReceivedEventArgs : EventArgs
     ctor(ProtocolMessage message)
     ProtocolMessage Message { get; }
@@ -1273,6 +1243,258 @@ namespace Ikon.App.Billing
     abstract Task<int> DeductAsync(string appCustomerKey, string sku, int credits, string idempotencyKey, CancellationToken cancellationToken = null)
     abstract Task<int> GetCreditsAsync(string appCustomerKey, string sku, CancellationToken cancellationToken = null)
     abstract Task<int> GrantAsync(string appCustomerKey, string sku, int credits, string idempotencyKey, CancellationToken cancellationToken = null)
+
+namespace Ikon.App.Cells
+  sealed class CellAttribute : Attribute
+    ctor()
+    int Capacity { get; init; }
+    int IdleTtlSeconds { get; init; }
+    CellProcessScope ProcessScope { get; init; }
+  sealed class CellConnectRequest : IEquatable<CellConnectRequest>
+    ctor(string CellTypeName, IReadOnlyDictionary<string, string> Identity)
+    string CellTypeName { get; init; }
+    IReadOnlyDictionary<string, string> Identity { get; init; }
+  sealed class CellConnection : IAsyncDisposable
+    IkonClient Client { get; }
+    ReactiveRegistry Reactive { get; }
+    ValueTask DisposeAsync()
+  sealed class CellHost : IAsyncDisposable
+    ctor(IEnumerable<Assembly>? assemblies = null)
+    IReadOnlyCollection<Type> CellTypes { get; }
+    ValueTask DisposeAsync()
+    Task<int> EvictIdleAsync()
+    Task<int> EvictIdleOlderThanAsync(DateTime cutoffUtc)
+    static Type GetSessionIdentityType(Type cellType)
+    static bool HasIdentityParameters(Type identityType)
+    void RegisterSingleton(object instance)
+    TInterface Resolve<TInterface>(object sessionIdentity)
+    object ResolveByCellTypeName(string cellTypeName, IReadOnlyDictionary<string, string> sessionIdentityFields)
+    bool TryGetCellTypeForInterface(Type iface, out Type cellType)
+    event Action TopologyChanged
+  static class CellNaming
+    static string SdkFunctionName(Type cellType, string methodName)
+    static string WebhookFunctionName(Type cellType, string methodName)
+    static string CellEndpointBaseUrlFunctionName
+  enum CellProcessScope
+    AppProcess
+    Substrate
+  static class Cells
+    static CellHost Current { get; }
+    static TInterface Connect<TInterface>(object sessionIdentity)
+    static ValueTask DisposeAsync()
+    static void Initialize(CellHost host)
+    static void SetCellClientFactory(Func<CellConnectRequest, Task<IkonClient>> factory)
+    static void SetWebhookUrlResolver(Func<string, string?> resolver)
+    static string CellTypeParam
+  interface ICell<TSessionIdentity>
+    TSessionIdentity Identity { get; }
+  sealed class McpResourceAttribute : Attribute
+    ctor(string uriTemplate)
+    string Description { get; init; }
+    string MimeType { get; init; }
+    string Name { get; init; }
+    string UriTemplate { get; }
+  sealed class McpToolAttribute : Attribute
+    ctor()
+    string Description { get; init; }
+    string Name { get; init; }
+  class SubstrateCellProxy<TInterface> : DispatchProxy where TInterface : class
+    ctor()
+    static TInterface Create(Type cellType, object sessionIdentity, Func<string, string?> webhookUrlResolver)
+
+namespace Ikon.App.Mcp
+  sealed class CallToolParams : IEquatable<CallToolParams>
+    ctor()
+    JsonElement Arguments { get; init; }
+    string Name { get; init; }
+  sealed class CallToolResult : IEquatable<CallToolResult>
+    ctor(IReadOnlyList<ToolContent> Content, bool IsError)
+    IReadOnlyList<ToolContent> Content { get; init; }
+    bool IsError { get; init; }
+  sealed class CancelledNotificationParams : IEquatable<CancelledNotificationParams>
+    ctor(JsonElement RequestId, string? Reason = null)
+    string Reason { get; init; }
+    JsonElement RequestId { get; init; }
+  interface IMcpNotificationSink
+    abstract Task SendNotificationAsync(string method, object params, CancellationToken ct)
+  sealed class InitializeResult : IEquatable<InitializeResult>
+    ctor(string ProtocolVersion, McpCapabilities Capabilities, McpServerInfo ServerInfo)
+    McpCapabilities Capabilities { get; init; }
+    string ProtocolVersion { get; init; }
+    McpServerInfo ServerInfo { get; init; }
+  sealed class JsonRpcError : IEquatable<JsonRpcError>
+    ctor(int Code, string Message, JsonElement? Data = null)
+    int Code { get; init; }
+    JsonElement? Data { get; init; }
+    string Message { get; init; }
+  sealed class JsonRpcRequest : IEquatable<JsonRpcRequest>
+    ctor()
+    JsonElement? Id { get; init; }
+    bool IsNotification { get; }
+    string JsonRpc { get; init; }
+    string Method { get; init; }
+    JsonElement? Params { get; init; }
+  sealed class JsonRpcResponse : IEquatable<JsonRpcResponse>
+    ctor()
+    JsonRpcError Error { get; init; }
+    JsonElement? Id { get; init; }
+    string JsonRpc { get; init; }
+    object Result { get; init; }
+    static JsonRpcResponse Fail(JsonElement? id, int code, string message)
+    static JsonRpcResponse Ok(JsonElement? id, object? result)
+  sealed class ListResourceTemplatesResult : IEquatable<ListResourceTemplatesResult>
+    ctor(IReadOnlyList<ResourceTemplate> ResourceTemplates)
+    string NextCursor { get; init; }
+    IReadOnlyList<ResourceTemplate> ResourceTemplates { get; init; }
+  sealed class ListResourcesResult : IEquatable<ListResourcesResult>
+    ctor(IReadOnlyList<Resource> Resources)
+    string NextCursor { get; init; }
+    IReadOnlyList<Resource> Resources { get; init; }
+  sealed class ListToolsParams : IEquatable<ListToolsParams>
+    ctor()
+    string Cursor { get; init; }
+  sealed class ListToolsResult : IEquatable<ListToolsResult>
+    ctor(IReadOnlyList<ToolDefinition> Tools)
+    string NextCursor { get; init; }
+    IReadOnlyList<ToolDefinition> Tools { get; init; }
+  sealed class McpCallContext : IEquatable<McpCallContext>
+    ctor(CancellationToken CancellationToken, Func<ProgressUpdate, Task>? OnProgress, IReadOnlyDictionary<string, string>? SessionIdentityFields = null)
+    CancellationToken CancellationToken { get; init; }
+    static McpCallContext Current { get; }
+    Func<ProgressUpdate, Task> OnProgress { get; init; }
+    IReadOnlyDictionary<string, string> SessionIdentityFields { get; init; }
+    static IDisposable Use(McpCallContext context)
+  sealed class McpCapabilities : IEquatable<McpCapabilities>
+    ctor(McpToolsCapability? Tools = null, McpResourcesCapability? Resources = null)
+    McpResourcesCapability Resources { get; init; }
+    McpToolsCapability Tools { get; init; }
+  static class McpErrorCode
+    static int GovernanceDenied
+    static int GovernanceEscalated
+    static int InternalError
+    static int InvalidParams
+    static int InvalidRequest
+    static int MethodNotFound
+    static int ParseError
+  sealed class McpHost
+    ctor(string serverName = "ikon-mcp", string serverVersion = "0.1.0", string protocolVersion = "2024-11-05")
+    IReadOnlyCollection<McpResourceHandler> Resources { get; }
+    McpServerInfo ServerInfo { get; }
+    IReadOnlyCollection<McpToolHandler> Tools { get; }
+    Task<JsonRpcResponse> HandleRequestAsync(JsonRpcRequest request, CancellationToken ct = null, IReadOnlyDictionary<string, string>? sessionIdentityFields = null, IMcpNotificationSink? perRequestSink = null)
+    McpHost RegisterResource(McpResourceHandler resource)
+    McpHost RegisterTool(McpToolHandler handler)
+    void SetNotificationSink(IMcpNotificationSink sink)
+  static class McpHttpTransport
+    static Task HandlePostAsync(HttpContext context, McpHost mcp, IReadOnlyDictionary<string, string>? sessionIdentityFields = null)
+    static Task HandleProtectedResourceDiscoveryAsync(HttpContext context)
+  static class McpJson
+    static T Deserialize<T>(string json)
+    static T DeserializeParams<T>(JsonElement? element)
+    static string Serialize<T>(T value)
+    static JsonSerializerOptions Options
+  static class McpResourceBridge
+    static McpResourceHandler BuildHandler(CellHost cellHost, McpResourceInfo info)
+  static class McpResourceDiscovery
+    static IReadOnlyList<McpResourceInfo> ForType(Type ownerType)
+    static IReadOnlyList<McpResourceInfo> ForTypes(IEnumerable<Type> types)
+  sealed class McpResourceHandler : IEquatable<McpResourceHandler>
+    ctor(string DisplayName, string Description, string MimeType, string UriTemplate, bool IsStatic, Func<string, IReadOnlyDictionary<string, string>?> TryMatch, Func<string, IReadOnlyDictionary<string, string>, CancellationToken, Task<ResourceContents>> Read)
+    string Description { get; init; }
+    string DisplayName { get; init; }
+    bool IsStatic { get; init; }
+    string MimeType { get; init; }
+    Func<string, IReadOnlyDictionary<string, string>, CancellationToken, Task<ResourceContents>> Read { get; init; }
+    string SubjectId { get; init; }
+    Func<string, IReadOnlyDictionary<string, string>> TryMatch { get; init; }
+    string UriTemplate { get; init; }
+  sealed class McpResourceInfo : IEquatable<McpResourceInfo>
+    ctor(string DisplayName, string Description, string MimeType, UriTemplate UriTemplate, MethodInfo Handler, Type OwnerCellType)
+    string Description { get; init; }
+    string DisplayName { get; init; }
+    MethodInfo Handler { get; init; }
+    bool IsStatic { get; }
+    string MimeType { get; init; }
+    Type OwnerCellType { get; init; }
+    string SubjectId { get; }
+    UriTemplate UriTemplate { get; init; }
+  sealed class McpResourcesCapability : IEquatable<McpResourcesCapability>
+    ctor()
+  sealed class McpServerInfo : IEquatable<McpServerInfo>
+    ctor(string Name, string Version)
+    string Name { get; init; }
+    string Version { get; init; }
+  static class McpToolBridge
+    static McpToolHandler BuildHandler(CellHost cellHost, McpToolInfo info)
+  static class McpToolDiscovery
+    static IReadOnlyList<McpToolInfo> ForType(Type ownerType)
+    static IReadOnlyList<McpToolInfo> ForTypes(IEnumerable<Type> types)
+  sealed class McpToolHandler : IEquatable<McpToolHandler>
+    ctor(string Name, string Description, JsonElement InputSchema, Func<JsonElement, CancellationToken, Task<string>> Invoke)
+    string Description { get; init; }
+    JsonElement InputSchema { get; init; }
+    Func<JsonElement, CancellationToken, Task<string>> Invoke { get; init; }
+    string Name { get; init; }
+    JsonElement? OutputSchema { get; init; }
+    string SubjectId { get; init; }
+  sealed class McpToolInfo : IEquatable<McpToolInfo>
+    ctor(string Name, string Description, MethodInfo Handler, Type OwnerCellType)
+    string Description { get; init; }
+    MethodInfo Handler { get; init; }
+    string Name { get; init; }
+    Type OwnerCellType { get; init; }
+    string SubjectId { get; }
+  sealed class McpToolsCapability : IEquatable<McpToolsCapability>
+    ctor()
+  sealed class ProgressNotificationParams : IEquatable<ProgressNotificationParams>
+    ctor(JsonElement ProgressToken, double Progress, double? Total = null, string? Message = null)
+    string Message { get; init; }
+    double Progress { get; init; }
+    JsonElement ProgressToken { get; init; }
+    double? Total { get; init; }
+  sealed class ProgressUpdate : IEquatable<ProgressUpdate>
+    ctor(double Progress, double? Total = null, string? Message = null)
+    string Message { get; init; }
+    double Progress { get; init; }
+    double? Total { get; init; }
+  sealed class ReadResourceParams : IEquatable<ReadResourceParams>
+    ctor(string Uri)
+    string Uri { get; init; }
+  sealed class ReadResourceResult : IEquatable<ReadResourceResult>
+    ctor(IReadOnlyList<ResourceContents> Contents)
+    IReadOnlyList<ResourceContents> Contents { get; init; }
+  sealed class Resource : IEquatable<Resource>
+    ctor(string Uri, string Name, string? Description = null, string? MimeType = null)
+    string Description { get; init; }
+    string MimeType { get; init; }
+    string Name { get; init; }
+    string Uri { get; init; }
+  sealed class ResourceContents : IEquatable<ResourceContents>
+    ctor(string Uri, string? MimeType = null, string? Text = null, string? Blob = null)
+    string Blob { get; init; }
+    string MimeType { get; init; }
+    string Text { get; init; }
+    string Uri { get; init; }
+  sealed class ResourceTemplate : IEquatable<ResourceTemplate>
+    ctor(string UriTemplate, string Name, string? Description = null, string? MimeType = null)
+    string Description { get; init; }
+    string MimeType { get; init; }
+    string Name { get; init; }
+    string UriTemplate { get; init; }
+  sealed class StdioTransport : IMcpNotificationSink
+    ctor(McpHost host, TextReader? input = null, TextWriter? output = null)
+    Task RunAsync(CancellationToken ct = null)
+    Task SendNotificationAsync(string method, object params, CancellationToken ct)
+  sealed class ToolContent : IEquatable<ToolContent>
+    ctor(string Type, string Text)
+    string Text { get; init; }
+    string Type { get; init; }
+  sealed class ToolDefinition : IEquatable<ToolDefinition>
+    ctor(string Name, string Description, JsonElement InputSchema)
+    string Description { get; init; }
+    JsonElement InputSchema { get; init; }
+    string Name { get; init; }
+    JsonElement? OutputSchema { get; init; }
 
 
 ---
