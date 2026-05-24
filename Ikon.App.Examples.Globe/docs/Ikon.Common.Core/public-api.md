@@ -3767,6 +3767,7 @@ namespace Ikon.Common.Core.Protocol
     IProtocolMessagePayload GetPayload()
     static ProtocolMessage ModifyMessage(ProtocolMessage message, int? senderId = null, int? trackId = null, int? sequenceId = null, MessageFlag? flags = null, IReadOnlyList<int>? targetIds = null)
     static ProtocolMessage ModifyPayload(IProtocolMessagePayload payload, ProtocolMessage message, PayloadType payloadType = Unknown)
+    static void RegisterAppLocalMessageType(Type type, Opcode opcode, int version)
     override string ToString()
     static ProtocolMessage WithFlags(ProtocolMessage message, MessageFlag additionalFlags)
     PayloadType DefaultPayloadType

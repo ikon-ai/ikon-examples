@@ -6373,7 +6373,7 @@ namespace Ikon.Crosswind
 
 namespace Ikon.App
   sealed class AppAttribute : Attribute
-    ctor(string? name = null, string? productId = null, string? description = null, int version = 1, string? guid = null, UserType userType = Machine, Opcode receiveOpcodeGroups = GROUP_ALL, Opcode sendOpcodeGroups = GROUP_ALL, string[]? dependencies = null)
+    ctor(string? name = null, string? productId = null, string? description = null, int version = 1, string? guid = null, UserType userType = Machine, Opcode receiveOpcodeGroups = GROUP_ALL, GROUP_APP_LOCAL, Opcode sendOpcodeGroups = GROUP_ALL, GROUP_APP_LOCAL, string[]? dependencies = null)
     int AppVersion { get; }
     string[] Dependencies { get; }
     string Description { get; }
@@ -6398,6 +6398,10 @@ namespace Ikon.App
     void MapWebSocket(string pattern, Func<HttpContext, WebSocket, Task> handler)
     Task StartAsync(CancellationToken cancellationToken = null)
     Task StopAsync(CancellationToken cancellationToken = null)
+  static class AppMessaging
+    static IDisposable OnMessage<T>(IProtocolMessageChannel app, Func<T, int, ValueTask> handler)
+    static ValueTask SendMessageAsync<T>(IProtocolMessageChannel app, T message, IReadOnlyList<int> targetIds)
+    static ValueTask SendMessageAsync<T>(IProtocolMessageChannel app, T message, int targetClientSessionId)
   class App<TConfig> : BasePlugin<App<TConfig>, WrapperConfig<TConfig>>, IAppBase, IApp<TConfig>, IUserAppInstanceHost
     ctor(Type appInstanceType, WrapperConfig<TConfig> userConfig, PluginAttribute pluginAttribute, string argsJson)
     BackgroundWork BackgroundWork { get; }
@@ -6527,12 +6531,6 @@ namespace Ikon.App
     bool? EchoCancellation { get; init; }
     bool? NoiseSuppression { get; init; }
     IReadOnlyList<int> TargetIds { get; init; }
-  class ClientCollection<TClientParameters> : IClientCollection<TClientParameters>, IEnumerable, IEnumerable<IClient<TClientParameters>>
-    ctor()
-    int Count { get; }
-    IEnumerable<int> Ids { get; }
-    IClient<TClientParameters> Item { get; }
-    IEnumerator<IClient<TClientParameters>> GetEnumerator()
   sealed class ClientContact : IEquatable<ClientContact>
     ctor(IReadOnlyList<string> Names, IReadOnlyList<string> Emails, IReadOnlyList<string> Phones)
     IReadOnlyList<string> Emails { get; init; }
@@ -6706,9 +6704,6 @@ namespace Ikon.App
   enum ClientVideoCaptureSource
     Camera
     Screen
-  class Client<TClientParameters> : IClient<TClientParameters>
-    ctor(TClientParameters parameters)
-    TClientParameters Parameters { get; }
   static class Constants
     static string DarkTheme
     static string LightTheme
@@ -6788,30 +6783,12 @@ namespace Ikon.App
     ctor(bool accepted, string? assetUri = null)
     bool Accepted { get; set; }
     string AssetUri { get; set; }
-  static class HttpDispatchGovernance
-    static Task<object> InvokeAsync(MethodInfo handler, Type ownerType, IReadOnlyDictionary<string, object?> args, Func<Task<object?>> invoke, CancellationToken ct = null)
   sealed class HttpEndpointAttribute : Attribute
     ctor(string method, string path)
     bool Absolute { get; init; }
     Type Auth { get; init; }
     string Method { get; }
     string Path { get; }
-  static class HttpEndpointDiscovery
-    static IReadOnlyList<HttpEndpointInfo> ForType(Type ownerType)
-    static IReadOnlyList<HttpEndpointInfo> ForTypes(IEnumerable<Type> types)
-  sealed class HttpEndpointEnvelope : IEquatable<HttpEndpointEnvelope>
-    ctor(int StatusCode, string? Body, string ContentType)
-    string Body { get; init; }
-    string ContentType { get; init; }
-    int StatusCode { get; init; }
-  sealed class HttpEndpointInfo : IEquatable<HttpEndpointInfo>
-    ctor(string Method, string Path, Type? Auth, bool Absolute, MethodInfo Handler, Type OwnerType)
-    bool Absolute { get; init; }
-    Type Auth { get; init; }
-    MethodInfo Handler { get; init; }
-    string Method { get; init; }
-    Type OwnerType { get; init; }
-    string Path { get; init; }
   sealed class HttpRequest : IEquatable<HttpRequest>
     ctor(string Method, string Path, IReadOnlyDictionary<string, string> Query, IReadOnlyDictionary<string, string> Headers, string Body)
     string Body { get; init; }
@@ -6884,13 +6861,6 @@ namespace Ikon.App
   interface IProfileAttributes
   interface IUserAppInstanceHost
     object UserAppInstance { get; }
-  static class JsonSchemaBuilder
-    static JsonElement BuildObjectSchema(IReadOnlyList<ParameterInfo> parameters)
-    static JsonElement BuildObjectSchema(IReadOnlyList<ParameterInfo> parameters, IReadOnlyList<ValueTuple<string, Type, string?>> extraRequired)
-  static class LoginPrompt
-    static Task ShowAsync(int targetClientSessionId, string? reason = null)
-    static Task ShowAsync(string? reason = null)
-    static string HandoffParameterKey
   class MessageReceivedEventArgs : EventArgs
     ctor(ProtocolMessage message)
     ProtocolMessage Message { get; }
@@ -6976,11 +6946,6 @@ namespace Ikon.App
     ctor(IAppBase app, int updateIntervalMs = 1000)
     ReactiveManager ReactiveManager { get; }
     Task RunAsync(Func<Task> render, Func<Context, bool>? filter = null)
-  sealed class RouteTemplate
-    IReadOnlyList<string> CaptureNames { get; }
-    string Pattern { get; }
-    static RouteTemplate Parse(string template)
-    bool TryMatch(string path, out IReadOnlyDictionary<string, string> captures)
   sealed class SpeechRecognizedEventArgs : EventArgs
     ctor(string text, Context clientContext, string streamId, string? correlationId, TimeSpan duration, int sampleCount)
     Context ClientContext { get; }
@@ -6995,12 +6960,6 @@ namespace Ikon.App
     ctor()
   class StoppingEventArgs : EventArgs
     ctor()
-  sealed class UriTemplate
-    bool IsStatic { get; }
-    IReadOnlyList<string> PlaceholderNames { get; }
-    string Template { get; }
-    IReadOnlyDictionary<string, string> Match(string uri)
-    static UriTemplate Parse(string template)
   enum UserRole
     Guest
     User
@@ -7082,6 +7041,10 @@ namespace Ikon.App.Auth
   sealed class EdgeTrustedHeaderAuth
     ctor(ICell<EdgeTrustedHeaderAuth.SessionIdentity> ctx)
     Task<AuthOutcome> Authenticate(HttpRequest request)
+  static class LoginPrompt
+    static Task ShowAsync(int targetClientSessionId, string? reason = null)
+    static Task ShowAsync(string? reason = null)
+    static string HandoffParameterKey
   sealed class OAuthAuth
     ctor(ICell<OAuthAuth.SessionIdentity> ctx)
     static string ConfiguredIssuer { get; }
@@ -7665,6 +7628,48 @@ namespace Ikon.App.Cells
     ctor()
     static TInterface Create(Type cellType, object sessionIdentity, Func<string, string?> webhookUrlResolver)
 
+namespace Ikon.App.Client
+  class ClientCollection<TClientParameters> : IClientCollection<TClientParameters>, IEnumerable, IEnumerable<IClient<TClientParameters>>
+    ctor()
+    int Count { get; }
+    IEnumerable<int> Ids { get; }
+    IClient<TClientParameters> Item { get; }
+    IEnumerator<IClient<TClientParameters>> GetEnumerator()
+  class Client<TClientParameters> : IClient<TClientParameters>
+    ctor(TClientParameters parameters)
+    TClientParameters Parameters { get; }
+
+namespace Ikon.App.Http
+  static class HttpDispatchGovernance
+    static Task<object> InvokeAsync(MethodInfo handler, Type ownerType, IReadOnlyDictionary<string, object?> args, Func<Task<object?>> invoke, CancellationToken ct = null)
+  static class HttpEndpointDiscovery
+    static IReadOnlyList<HttpEndpointInfo> ForType(Type ownerType)
+    static IReadOnlyList<HttpEndpointInfo> ForTypes(IEnumerable<Type> types)
+  sealed class HttpEndpointEnvelope : IEquatable<HttpEndpointEnvelope>
+    ctor(int StatusCode, string? Body, string ContentType)
+    string Body { get; init; }
+    string ContentType { get; init; }
+    int StatusCode { get; init; }
+  sealed class HttpEndpointInfo : IEquatable<HttpEndpointInfo>
+    ctor(string Method, string Path, Type? Auth, bool Absolute, MethodInfo Handler, Type OwnerType)
+    bool Absolute { get; init; }
+    Type Auth { get; init; }
+    MethodInfo Handler { get; init; }
+    string Method { get; init; }
+    Type OwnerType { get; init; }
+    string Path { get; init; }
+  sealed class RouteTemplate
+    IReadOnlyList<string> CaptureNames { get; }
+    string Pattern { get; }
+    static RouteTemplate Parse(string template)
+    bool TryMatch(string path, out IReadOnlyDictionary<string, string> captures)
+  sealed class UriTemplate
+    bool IsStatic { get; }
+    IReadOnlyList<string> PlaceholderNames { get; }
+    string Template { get; }
+    IReadOnlyDictionary<string, string> Match(string uri)
+    static UriTemplate Parse(string template)
+
 namespace Ikon.App.Mcp
   sealed class CallToolParams : IEquatable<CallToolParams>
     ctor()
@@ -7705,6 +7710,9 @@ namespace Ikon.App.Mcp
     object Result { get; init; }
     static JsonRpcResponse Fail(JsonElement? id, int code, string message)
     static JsonRpcResponse Ok(JsonElement? id, object? result)
+  static class JsonSchemaBuilder
+    static JsonElement BuildObjectSchema(IReadOnlyList<ParameterInfo> parameters)
+    static JsonElement BuildObjectSchema(IReadOnlyList<ParameterInfo> parameters, IReadOnlyList<ValueTuple<string, Type, string?>> extraRequired)
   sealed class ListResourceTemplatesResult : IEquatable<ListResourceTemplatesResult>
     ctor(IReadOnlyList<ResourceTemplate> ResourceTemplates)
     string NextCursor { get; init; }
