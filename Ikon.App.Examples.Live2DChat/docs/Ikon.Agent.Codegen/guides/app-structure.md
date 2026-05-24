@@ -253,6 +253,13 @@ app.OnStarting(async () =>
     }, clockCts.Token);
 });
 app.OnStopping(async () => clockCts.Cancel());
+// The loop's CancellationTokenSource is a plain field with a field initializer
+// (`private readonly CancellationTokenSource _clockCts = new();`) — do NOT
+// declare the loop as a `readonly ClientReactiveEffect`/effect field and assign
+// it inside Main(): Main() is a normal method, not a constructor, so assigning a
+// `readonly` field there is CS0191/CS8618. A game tick / timer is just the
+// Task.Run loop above started from OnStarting (or directly in Main), not a
+// readonly effect object.
 ```
 
 ### Navigation
