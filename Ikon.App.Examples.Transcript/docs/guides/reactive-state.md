@@ -148,11 +148,14 @@ _clientTheme.Value = "dark"; // Now targets the specified client
 
 # Ikon.Common.Core Public API
 namespace Ikon.Common.Core.Reactive
+  // Factory methods for creating ClientReactive`1 with per-client initialization.
   static class ClientReactive
     static ClientReactive<T> Create<T>(Func<int, T> factory, string file = "", string member = "")
+  // Shorthand for ReactiveEffect<ClientScope>. Mirrors ClientReactive<T> as the per-client variant of Reactive<T>. Each connected client gets its own runner with independent cancel/queue, materialized on first dep change inside that client's scope.
   class ClientReactiveEffect : ReactiveEffect<ClientScope>
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
     ctor(Action body, params IReactive[] deps)
+  // A reactive variable with a separate value for each client session.
   class ClientReactive<T> : Reactive<T, ClientScope>
     ctor(T initialValue, string file = "", string member = "")
   sealed class ReactiveManager.Handle
@@ -170,34 +173,43 @@ namespace Ikon.Common.Core.Reactive
     IReadOnlyList<PersistedRegistration> GetPersistedRegistrations()
     void LoadHotReloadStates(Dictionary<string, StoredReactiveState> states)
     void Register(string stableId, IReactiveWithState reactive, PersistenceScope persistence, PersistenceBackend backend = Private, string? postgresDatabase = null)
+    // Look up a registered reactive by its stable id. Returns false if no reactive is registered under stableId or if the underlying reactive has been garbage-collected.
     bool TryGet(string stableId, out IReactiveWithState? reactive)
   interface IPersistedReactive : IReactiveWithState
     abstract void SetPublicUrl(string? url)
   interface IReactive
     long Version { get; }
-    event Action Changed
-    event Action<int> SessionChanged
+    // Fires whenever this reactive's value changes (in any scope, for scoped variants). Payload-free so a single subscription can be taken across heterogeneous reactives — handlers fetch the new value via .Value when they need it. Used by ReactiveEffect and other dependency-tracked consumers.
+    event Action? Changed
+    // Fires with the scope-derived session id whose Signal<T> value just changed. For unscoped reactives the id is always 0; for ClientReactive<T> it is the hash of ClientScope; for UserReactive<T> the hash of UserScope; etc. Lets external subscription routing fan out to only the clients whose scope matches the changed signal.
+    event Action<int>? SessionChanged
   interface IReactiveWithState
+    // Hash-derived session id that this reactive's .Value would resolve to under the currently-active ReactiveScope . Used by the subscription service to key per-scope subscriber routing. Default implementation returns 0 — override on per-scope reactives.
     int CurrentScopeSessionId { get; }
     string StableId { get; }
     abstract StoredReactiveState CaptureState()
+    // Read this reactive's value for the currently-active scope, serialize to JSON, and trigger per-scope initialization if needed. Default implementation returns the session-0 value from CaptureState .
     virtual string ReadCurrentValueAsJson()
     abstract void RestoreState(StoredReactiveState state)
+  // Factory methods for creating MountReactive`1 with per-mount initialization.
   static class MountReactive
     static MountReactive<T> Create<T>(Func<string, T> factory, string file = "", string member = "")
+  // A reactive variable with a separate value for each Parallax mount in the active render iteration.
   class MountReactive<T> : Reactive<T, MountScope>
     ctor(T initialValue, string file = "", string member = "")
   sealed class PersistedRegistration
     ctor(string stableId, IReactiveWithState reactive, PersistenceScope persistence, PersistenceBackend backend, string? postgresDatabase)
     PersistenceBackend Backend { get; }
     PersistenceScope Persistence { get; }
-    string PostgresDatabase { get; }
+    string? PostgresDatabase { get; }
     IReactiveWithState Reactive { get; }
     string StableId { get; }
+  // Selects the backing store for a persistent reactive.
   enum PersistenceBackend
     Private
     Public
     Postgres
+  // Identifies where a reactive's value is persisted in cloud storage and how it is keyed.
   enum PersistenceScope
     None
     Global
@@ -206,8 +218,11 @@ namespace Ikon.Common.Core.Reactive
   static class Reactive
     static void Run<T>(Reactive<T> reactiveValue, Func<Task<T>> action, Action<Exception>? onError = null, CancellationToken token = null)
     static void Run<T>(Reactive<T> reactiveValue, Func<CancellationToken, Task<T>> action, Action<Exception>? onError = null, CancellationToken token = null)
+  // Convenience helpers on Reactive`1 for the busy-flag pattern that every async handler uses. Without these, the standard shape is verbose and easy to break: _busy.Value = true; try { await SlowThingAsync(); } finally { _busy.Value = false; } Forgetting finally leaves the flag stuck on if the call throws. AsToken collapses the shape to: using var _ = _busy.AsToken(); await SlowThingAsync(); — the flag flips to true on entry, the IDisposable returns it to false on dispose (including the catch-and-rethrow path of using).
   static class ReactiveBoolExtensions
+    // Set the flag to true and return an IDisposable that returns it to false on dispose. Idempotent — disposing twice is safe (the second dispose is a no-op).
     static IDisposable AsToken(Reactive<bool> reactive)
+  // Mutation helpers for Reactive`1 wrapping a collection. They mutate the underlying instance AND fire NotifyUpdate in one call so callers can write _items.Add(x) instead of the two-step _items.Value.Add(x); _items.NotifyUpdate();. Why these exist on a Reactive wrapping a mutable collection: the reference-equality check at the Value setter doesn't trigger when the underlying list is mutated in-place. Forgetting NotifyUpdate is the dominant "UI doesn't update after Add/Remove" bug class. These helpers make the right thing the easy thing. Reassignment (_items.Value = [.. _items.Value, x]) still works and stays the right form when callers want immutable-style updates; these helpers are the in-place alternative for the common case.
   static class ReactiveCollectionExtensions
     static void Add<T>(Reactive<List<T>> reactive, T item)
     static bool Add<T>(Reactive<HashSet<T>> reactive, T item)
@@ -223,10 +238,14 @@ namespace Ikon.Common.Core.Reactive
     static int RemoveAll<T>(Reactive<List<T>> reactive, Predicate<T> match)
     static void RemoveAt<T>(Reactive<List<T>> reactive, int index)
     static void Set<TKey, TValue>(Reactive<Dictionary<TKey, TValue>> reactive, TKey key, TValue value)
+  // Side-effect primitive that runs on tracked IReactive dependency changes. Mirrors the shape of Reactive`1 / Reactive`2 : this class is the unscoped (global) variant; ReactiveEffect`1 binds to a single scope type; further generic variants (forthcoming) compose multiple scopes the same way Reactive<T, TScope1, TScope2> does.
   class ReactiveEffect : IDisposable
+    // Create an effect with an async body. The token cancels when a dep changes mid-run; respect it for clean cancellation.
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
+    // Create an effect with a sync body.
     ctor(Action body, params IReactive[] deps)
     void Dispose()
+  // Side-effect primitive bound to a single scope type. Mirrors Reactive<T, TScope>: each instance of TScope gets its own per-scope effect runner with independent cancel/queue state, materialized lazily on first dep change in that scope. Unlike the global ReactiveEffect , this variant does NOT fire eagerly at construction — there's no scope active yet. The first dep change observed inside a scope of type TScope instantiates that scope's runner and fires the body for the first time. For "fire when scope first opens regardless of deps" lifecycle hooks (e.g. preload data on client connect), use the host app's existing scope-creation events directly.
   class ReactiveEffect<TScope> : IDisposable where TScope : struct, IScopeKey
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
     ctor(Action body, params IReactive[] deps)
@@ -243,48 +262,62 @@ namespace Ikon.Common.Core.Reactive
     Task ReactiveAsync(Func<ReactiveManager.Handle, Task> callback)
     void StopTrackingAll()
     Task UpdateAsync()
-    event EventHandler<Guid> Deleted
-    event EventHandler ReactiveObjectUpdated
-    event EventHandler<Guid> Updating
+    event EventHandler<Guid>? Deleted
+    event EventHandler? ReactiveObjectUpdated
+    event EventHandler<Guid>? Updating
+  // App-scoped lookup mapping a reactive's source-code member name (the C# field or property declared on the App class) to its StableId . Built by reflection at App startup; consumed by the Ikon.Reactive.GetStableIdByName framework function so frontends can subscribe by member name instead of needing a per-app helper RPC to fetch the hashed id.
   static class ReactiveNameIndex
+    // Drop every registered mapping. Used by hot-reload to clear stale entries from the previous App instance before the next instance re-indexes.
     static void Clear()
+    // Register a reactive member-name → stableId mapping. Idempotent; re-registering the same name with the same stableId is a no-op.
     static void Register(string memberName, string stableId)
+    // Look up a stableId by reactive member name. Returns false when the name was not indexed at startup (e.g. reactive declared in a helper class outside the App).
     static bool TryGet(string memberName, out string stableId)
+  // A general-purpose scope stack that supports multiple overlapping scope types (Client, User, Tenant, etc.), each tracked independently. This is a static wrapper around a shared ScopeStack instance for the reactive system. Scope changes are automatically mirrored to Log.Instance for logging purposes.
   static class ReactiveScope
     static int ClientId { get; }
     static int? ClientIdOrNull { get; }
     static IList<IScopeKey> Current { get; }
     static string MountId { get; }
-    static string MountIdOrNull { get; }
+    static string? MountIdOrNull { get; }
     static string UserId { get; }
-    static string UserIdOrNull { get; }
+    static string? UserIdOrNull { get; }
     static void Add(IScopeKey scope)
-    static TScope Get<TScope>()
+    static TScope Get<TScope>() where TScope : struct, IScopeKey
     static IScopeKey GetByName(string name)
-    static TScope? TryGet<TScope>()
-    static bool TryGet<TScope>(out TScope scope)
-    static IScopeKey TryGetByName(string name)
+    static TScope? TryGet<TScope>() where TScope : struct, IScopeKey
+    static bool TryGet<TScope>(out TScope scope) where TScope : struct, IScopeKey
+    static IScopeKey? TryGetByName(string name)
     static IDisposable Use(IScopeKey scope)
     static IDisposable Use(params IScopeKey[] scopes)
   static class ReactiveScopeRestorer
-    static IDisposable Activate(IReadOnlyList<IScopeKey> scopes)
+    static IDisposable? Activate(IReadOnlyList<IScopeKey> scopes)
     static IScopeKey[] CaptureCurrent()
     static IScopeKey[] CopyInRestorableOrder(IList<IScopeKey> scopes)
+  // Bridges Reactive`1 change notifications to remote clients over the existing function-call wire. Exposes three framework-shipped shared functions — Ikon.Reactive.Subscribe, Ikon.Reactive.Unsubscribe, and Ikon.Reactive.Update — so any FunctionRegistry -connected client can observe a server-side reactive value without registering a Parallax UI tree.
   sealed class ReactiveSubscriptionService : AsyncLocalInstance<ReactiveSubscriptionService>
     ctor()
-    Func<int, IReadOnlyList<IScopeKey>> ScopeResolver { get; set; }
+    // Optional resolver: given a calling session id, returns the scopes that should be active during Subscribe/Unsubscribe so per-scope reactives resolve to the caller's natural session/user. Typically wired in app startup as sid => { var ctx = app.GlobalState.GetClientContext(sid); return [new ClientScope(ctx), new UserScope(ctx)]; }. When unset, the service falls back to [new ClientScope(sessionId)] only — ClientReactive`1 works, UserReactive`1 throws.
+    Func<int, IReadOnlyList<IScopeKey>>? ScopeResolver { get; set; }
+    // Wires this service's framework functions into the given registry. Call once during app/server startup, after the registry has its protocol channel attached.
     void AttachTo(FunctionRegistry registry)
+    // Resolves a reactive's StableId by the C# field or property name on the App class. Used by the JS-side useReactive(client, name, ...) hook so frontends don't need a per-app helper RPC just to learn the stable id.
     string GetStableIdByName(string memberName)
+    // Drop all subscriptions belonging to a session — call when a client disconnects to release subscriber-state without waiting for explicit unsubscribes.
     void RemoveSession(int sessionId)
+    // Subscribe the calling session to changes on the reactive identified by stableId . Returns the current value as JSON. The caller receives subsequent updates via Ikon.Reactive.Update calls routed only to subscribers whose scope hash matches the changed signal.
     string Subscribe(string stableId, string mountId)
+    // Unsubscribe the calling session from a reactive. Idempotent; calling for an unsubscribed reactive is a no-op. The mountId must match the value passed to Subscribe so the same scope hash is computed for symmetric removal.
     void Unsubscribe(string stableId, string mountId)
     static string GetStableIdByNameFunctionName
     static string SubscribeFunctionName
     static string UnsubscribeFunctionName
     static string UpdateFunctionName
+  // A reactive variable that automatically triggers UI updates when its value changes.
   class Reactive<T> : IReactive, IReactiveWithState
     ctor(UseDefault _ = null, string file = "", string member = "")
     ctor(T initialValue, string file = "", string member = "")
+    // Hash-derived session id that Value would resolve to under the currently-active ReactiveScope . Throws if a required scope is missing — same conditions as accessing Value . External subscribers use this to key their subscription routing.
     int CurrentScopeSessionId { get; }
     T Peek { get; }
     string StableId { get; }
@@ -292,13 +325,15 @@ namespace Ikon.Common.Core.Reactive
     long Version { get; }
     StoredReactiveState CaptureState()
     void NotifyUpdate()
+    // Read this reactive's value for the currently-active scope and serialize it to JSON. Triggers per-scope initialization if no signal exists yet — the returned JSON is the initial value the consumer should observe.
     string ReadCurrentValueAsJson()
     void RestoreState(StoredReactiveState state)
     override string ToString()
-    event Action Changed
-    event Action<int> SessionChanged
-    event Action<T> ValueChanged
-    event Func<T, Task> ValueChangedAsync
+    event Action? Changed
+    event Action<int>? SessionChanged
+    event Action<T>? ValueChanged
+    event Func<T, Task>? ValueChangedAsync
+  // A reactive variable scoped to a specific scope type, providing isolated values per scope instance.
   class Reactive<T, TScope> : Reactive<T> where TScope : IScopeKey
     ctor(T initialValue, string file = "", string member = "")
     ctor(Func<T> initialValue, string file = "", string member = "")
@@ -308,10 +343,10 @@ namespace Ikon.Common.Core.Reactive
     T Value { get; set; }
     long Version { get; }
     void NotifyUpdate()
-    event Action Changed
-    event Action<int> SessionChanged
-    event Action<T> ValueChanged
-    event Func<T, Task> ValueChangedAsync
+    event Action? Changed
+    event Action<int>? SessionChanged
+    event Action<T>? ValueChanged
+    event Func<T, Task>? ValueChangedAsync
   class StoredReactiveState
     ctor()
     ctor(string typeName, string memberName, int ordinal, Dictionary<int, string> sessionValues)
@@ -320,23 +355,29 @@ namespace Ikon.Common.Core.Reactive
     Dictionary<int, string> SessionValues { get; set; }
     string TypeName { get; set; }
   struct UseDefault
+  // Shorthand for ReactiveEffect<UserScope>. Mirrors UserReactive<T> as the per-user variant of Reactive<T>. Each distinct user gets its own runner; the same user across multiple sessions shares one runner.
   class UserReactiveEffect : ReactiveEffect<UserScope>
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
     ctor(Action body, params IReactive[] deps)
+  // A reactive variable with a separate value for each user, shared across their client sessions.
   class UserReactive<T> : Reactive<T, UserScope>
     ctor(T initialValue, string file = "", string member = "")
     ctor(Func<string, T> initialValue, string file = "", string member = "")
 
 namespace Ikon.Common.Core.Scope
+  // Scope for backend token context, transports the backend token of the caller.
   struct BackendTokenScope : IScopeKey
+    // Scope for backend token context, transports the backend token of the caller.
     ctor(string token)
     string Id { get; }
     string Name { get; }
+  // Scope for client session context, providing unique identity for each connected client.
   struct ClientScope : IScopeKey
     ctor(int sessionId)
     ctor(Context context)
     int Id { get; }
     string Name { get; }
+  // Scope with a user-specified name and ID, enabling dynamic scoping without needing new struct types.
   struct CustomScope : IScopeKey
     ctor(string name, string id)
     string Id { get; }
@@ -344,44 +385,55 @@ namespace Ikon.Common.Core.Scope
   interface IScopeKey
     object Id { get; }
     string Name { get; }
+  // Identifies the Parallax render target ("mount") an app is currently producing UI for. An app may declare multiple mounts via Mounts ; each ( ClientScope , MountScope ) pair gets its own per-render UI tree and an independent stream on the wire. Default mount id is "ikon-ui" — the value every app emits today on its single stream.
   struct MountScope : IScopeKey
     ctor(string mountId)
     string Id { get; }
     string Name { get; }
+    // The mount id every Ikon app emits today on its single Parallax stream. Apps that don't override IAppBase.Mounts render under this id.
     static string DefaultMountId
+  // Scope for grouping a single logical operation (e.g., LLM generation, image generation).
   struct OperationScope : IScopeKey
     ctor()
+    // Scope for grouping a single logical operation (e.g., LLM generation, image generation).
     ctor(Guid id)
     Guid Id { get; }
     string Name { get; }
+  // Scope for application run context, typically set at program startup in Program.cs. Used to group all log events and operations within a single application run.
   struct RunScope : IScopeKey
     ctor()
+    // Scope for application run context, typically set at program startup in Program.cs. Used to group all log events and operations within a single application run.
     ctor(Guid id)
     Guid Id { get; }
     string Name { get; }
   class ScopeRestorer
     ctor(ScopeStack scopeStack)
-    IDisposable Activate(IReadOnlyList<IScopeKey> scopes)
+    IDisposable? Activate(IReadOnlyList<IScopeKey> scopes)
     IScopeKey[] CaptureCurrent()
     static IScopeKey[] CopyInRestorableOrder(IList<IScopeKey> scopes)
+  // Serializes and deserializes scopes for function call propagation.
   static class ScopeSerializer
+    // Captures current scopes for inclusion in a function call. Excludes RunScope since each process has its own run context.
     static List<ActionFunctionCall.ScopeEntry> CaptureForFunctionCall()
     static IScopeKey[] Deserialize(IReadOnlyList<ActionFunctionCall.ScopeEntry> entries)
   class ScopeStack
     ctor()
     IList<IScopeKey> Current { get; }
     void Add(IScopeKey scope)
-    TScope Get<TScope>()
+    TScope Get<TScope>() where TScope : struct, IScopeKey
     IScopeKey GetByName(string name)
-    TScope? TryGet<TScope>()
-    bool TryGet<TScope>(out TScope scope)
-    IScopeKey TryGetByName(string name)
+    TScope? TryGet<TScope>() where TScope : struct, IScopeKey
+    bool TryGet<TScope>(out TScope scope) where TScope : struct, IScopeKey
+    IScopeKey? TryGetByName(string name)
     IDisposable Use(IScopeKey scope)
     IDisposable UseScopes(params IScopeKey[] scopes)
+  // Scope for tenant/customer context, an arbitrary user-specified ID for scoping AI app logic.
   struct TenantScope : IScopeKey
+    // Scope for tenant/customer context, an arbitrary user-specified ID for scoping AI app logic.
     ctor(string tenantId)
     string Id { get; }
     string Name { get; }
+  // Scope for end user identity context, providing unique identity for each user.
   struct UserScope : IScopeKey
     ctor(string userId)
     ctor(Context context)
