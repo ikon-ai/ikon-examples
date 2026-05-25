@@ -29,33 +29,34 @@ namespace Ikon.AI.Database
     override void Open()
   class DatabaseConnection.Config
     ctor()
-    string EnvVarPrefix { get; set; }
-    DatabaseConnection.SpaceSecret SpaceSecret { get; set; }
+    string? EnvVarPrefix { get; set; }
+    DatabaseConnection.SpaceSecret? SpaceSecret { get; set; }
   class DatabaseInfoExtractor.Config
     ctor()
-    List<string> ColumnExcludeRegex { get; set; }
+    List<string>? ColumnExcludeRegex { get; set; }
     Dictionary<string, string> ColumnExtraInfo { get; set; }
     bool IncludeEmptyColumns { get; set; }
     int JsonSampleLengthLimit { get; set; }
     int JsonSampleRowLimit { get; set; }
     int NonTextSampleRowLimit { get; set; }
-    List<string> Schemas { get; set; }
-    List<string> TableExcludeRegex { get; set; }
+    List<string>? Schemas { get; set; }
+    List<string>? TableExcludeRegex { get; set; }
     Dictionary<string, string> TableExtraInfo { get; set; }
-    List<string> TableIncludeRegex { get; set; }
+    List<string>? TableIncludeRegex { get; set; }
     int TextSampleLengthLimit { get; set; }
     int TextSampleRowLimit { get; set; }
   class DatabaseColumnInfo
     ctor()
     string ColumnName { get; set; }
     string DataType { get; set; }
-    string Description { get; set; }
-    string ExtraInfo { get; set; }
-    string ForeignKeyColumnName { get; set; }
-    string ForeignKeyTableName { get; set; }
+    string? Description { get; set; }
+    string? ExtraInfo { get; set; }
+    string? ForeignKeyColumnName { get; set; }
+    string? ForeignKeyTableName { get; set; }
     bool? IsForeignKey { get; set; }
     bool? IsPrimaryKey { get; set; }
-    List<string> Values { get; set; }
+    List<string>? Values { get; set; }
+  // Creates database connections. Prefer the typed factory methods ( Trino , Postgres , Sqlite , BigQuery ) for app code — host, port, and catalog are not secrets, only the password is. Pass that password from app.Secrets: DatabaseConnection.Trino(host: "trino.example.com", port: 443, catalog: "hive", user: "ikon", password: app.Secrets["TRINO_PASSWORD"]) CreateAsync remains for shared pipelines that read all of host/port/user/password/etc. from environment variables or space secrets.
   class DatabaseConnection
     ctor()
     string BigQueryDataset { get; set; }
@@ -70,8 +71,8 @@ namespace Ikon.AI.Database
   class DatabaseInfo
     ctor()
     DatabaseType DatabaseType { get; set; }
-    List<string> ExampleQuestions { get; set; }
-    string SqlCteCommand { get; set; }
+    List<string>? ExampleQuestions { get; set; }
+    string? SqlCteCommand { get; set; }
     List<DatabaseTableInfo> Tables { get; set; }
   class DatabaseInfoExtractor
     ctor(DatabaseConnection databaseConnection)
@@ -82,8 +83,8 @@ namespace Ikon.AI.Database
   class DatabaseTableInfo
     ctor()
     List<DatabaseColumnInfo> Columns { get; set; }
-    string Description { get; set; }
-    string ExtraInfo { get; set; }
+    string? Description { get; set; }
+    string? ExtraInfo { get; set; }
     string TableName { get; set; }
   enum DatabaseType
     Unknown

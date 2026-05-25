@@ -8,15 +8,15 @@ namespace Ikon.Parallax
     Context ClientContext
     // The deserialized action payload.
     T Value
-  // Per-app theme configuration. Composes the platform's Ikon CSS baseline with per-token CSS-variable overrides addressed by name. One uniform syntax: an indexer keyed by CSS variable name (without the leading --) or by Tailwind utility token. The renderer dispatches by key shape: Tailwind palette step (amber-400) → --color-amber-400rounded-{rung} → --radius-{rung}shadow-{rung} → --shadow-{rung}font-{role} → --font-{role}ease-{kind} → --ease-{kind}Anything else → --{key} (free CSS variable) Values are Crosswind / Tailwind class names (resolved via ) or raw CSS values (hex, rem, family stacks, gradients) — the resolver passes raw values through. Example: private UI UI { get; } = new(app, new IkonTheme { // Brand commitment — set the semantic vars that components consume. ["primary"] = "amber-400", ["bg-brand-solid"] = "amber-400", ["bg-brand-solid-hover"] = "amber-400", ["text-brand"] = "amber-400", ["border-brand"] = "amber-400", ["primary-foreground"] = "#0A0A0A", // pick contrast yourself // Background + foreground. ["background"] = "zinc-950", ["text-primary"] = "amber-50", ["text-foreground"] = "amber-50", // Surfaces. ["card"] = "zinc-900", ["popover"] = "zinc-900", // Type + shape. ["font-heading"] = "Crimson Pro", ["font-body"] = "Inter", ["radius-base"] = "rounded-lg", // Motion. ["motion-duration-base"] = "200ms", ["ease-default"] = "ease-out", // Per-token Tailwind palette / radius / shadow overrides. ["amber-400"] = "#F5A524", ["rounded-lg"] = "1.25rem", ["shadow-lg"] = "0 8px 16px rgba(0,0,0,.18)", // Bespoke decorative tokens. ["hero-glow"] = "radial-gradient(circle, #F5A52488, transparent 70%)", DarkMode = new IkonTheme { ["background"] = "zinc-50", ["text-primary"] = "zinc-950", }, }); The indexer is the only configurable surface — there are no magic property fan-outs and no auto-derived contrast text. What you write IS what lands in the override block.
+  // Per-app theme configuration. Composes the platform's Ikon CSS baseline with per-token CSS-variable overrides addressed by name. One uniform syntax: an indexer keyed by CSS variable name (without the leading --) or by Tailwind utility token. The renderer dispatches by key shape: Tailwind palette step (amber-400) → --color-amber-400rounded-{rung} → --radius-{rung}shadow-{rung} → --shadow-{rung}font-{role} → --font-{role}ease-{kind} → --ease-{kind}Anything else → --{key} (free CSS variable) Values are Crosswind / Tailwind class names (resolved via CrosswindResolver ) or raw CSS values (hex, rem, family stacks, gradients) — the resolver passes raw values through. Example: private UI UI { get; } = new(app, new IkonTheme { // Brand commitment — set the semantic vars that components consume. ["primary"] = "amber-400", ["bg-brand-solid"] = "amber-400", ["bg-brand-solid-hover"] = "amber-400", ["text-brand"] = "amber-400", ["border-brand"] = "amber-400", ["primary-foreground"] = "#0A0A0A", // pick contrast yourself // Background + foreground. ["background"] = "zinc-950", ["text-primary"] = "amber-50", ["text-foreground"] = "amber-50", // Surfaces. ["card"] = "zinc-900", ["popover"] = "zinc-900", // Type + shape. ["font-heading"] = "Crimson Pro", ["font-body"] = "Inter", ["radius-base"] = "rounded-lg", // Motion. ["motion-duration-base"] = "200ms", ["ease-default"] = "ease-out", // Per-token Tailwind palette / radius / shadow overrides. ["amber-400"] = "#F5A524", ["rounded-lg"] = "1.25rem", ["shadow-lg"] = "0 8px 16px rgba(0,0,0,.18)", // Bespoke decorative tokens. ["hero-glow"] = "radial-gradient(circle, #F5A52488, transparent 70%)", DarkMode = new IkonTheme { ["background"] = "zinc-50", ["text-primary"] = "zinc-950", }, }); The indexer is the only configurable surface — there are no magic property fan-outs and no auto-derived contrast text. What you write IS what lands in the override block.
   sealed class IkonTheme : ITheme
     ctor()
-    // Paired dark-mode theme. Pass another ; its overrides are emitted under [data-theme="dark"], .dark, and prefers-color-scheme: dark.
-    IkonTheme DarkMode { get; init; }
+    // Paired dark-mode theme. Pass another IkonTheme ; its overrides are emitted under [data-theme="dark"], .dark, and prefers-color-scheme: dark.
+    IkonTheme? DarkMode { get; init; }
     string Item { get; set; }
   // Accumulates profiling samples over multiple render passes, providing aggregate statistics (avg, min, max, p95, p99).
   sealed class ProfileHistory
-    // Creates a new history buffer that retains the last render sessions.
+    // Creates a new history buffer that retains the last maxSamples render sessions.
     ctor(int maxSamples)
     // Ordered list of distinct measurement names seen across all recorded sessions.
     IReadOnlyList<string> Names { get; }
@@ -30,7 +30,7 @@ namespace Ikon.Parallax
     ProfileStats GetTotalStats()
     // Clears all accumulated samples and resets the sample count.
     void Reset()
-  // Disposable timing scope that records elapsed time into the current when disposed.
+  // Disposable timing scope that records elapsed time into the current ProfileSession when disposed.
   struct ProfileScope : IDisposable
     // Records the elapsed time into the profiling session.
     void Dispose()
@@ -62,18 +62,18 @@ namespace Ikon.Parallax
   // Provides UI render profiling with per-frame timing breakdowns and optional historical statistics.
   static class Profiler
     // Current profiling session for this async context, or null if not profiling.
-    static ProfileSession Current { get; }
+    static ProfileSession? Current { get; }
     // Historical profiling data, or null if history is not enabled.
-    static ProfileHistory History { get; }
+    static ProfileHistory? History { get; }
     // Whether history recording is currently paused.
     static bool IsHistoryPaused { get; }
     // Disables profiling history collection and discards accumulated data.
     static void DisableHistory()
-    // Enables profiling history collection, keeping up to render sessions.
+    // Enables profiling history collection, keeping up to maxSamples render sessions.
     static void EnableHistory(int maxSamples = 1000)
     // Starts a named timing measurement within the current profiling session. Dispose the returned scope to record the elapsed time.
     static ProfileScope Measure(string name)
-    // Pauses history recording. New render sessions are not recorded until is called.
+    // Pauses history recording. New render sessions are not recorded until ResumeHistory is called.
     static void PauseHistory()
     // Clears all accumulated profiling history samples.
     static void ResetHistory()
@@ -83,7 +83,7 @@ namespace Ikon.Parallax
   class UI
     // Creates a new UI instance bound to the given app and theme.
     ctor(IAppBase app, ITheme theme)
-    // When true, each render cycle logs timing breakdowns. See for history.
+    // When true, each render cycle logs timing breakdowns. See Profiler for history.
     bool EnableProfiling { get; set; }
     // When true, caches subtrees with unchanged reactive dependencies to skip redundant re-renders.
     bool EnableSubtreeCaching { get; set; }
@@ -97,7 +97,7 @@ namespace Ikon.Parallax
     string DefaultIconLibrary { get; }
     // Adds a child node with the given type and props to the current view.
     void AddNode(string type, Dictionary<string, object?> props, List<UIViewNode>? children = null, string? key = null, string[]? style = null, string? styleId = null, string file = "", int line = 0)
-    string CreateAction<T>(Func<ActionArgs<T>, Task>? callback)
+    string? CreateAction<T>(Func<ActionArgs<T>, Task>? callback)
     // Registers binary data as a payload and returns a reference string for use as an image src.
     string RegisterPayload(byte[] data, string mimeType)
   // Represents a single node in the UI view tree, with identity, props, children, and style information.
@@ -107,21 +107,21 @@ namespace Ikon.Parallax
     // Ordered child nodes.
     List<UIViewNode> Children { get; }
     // Lazily computed content signature used for subtree caching and diffing.
-    string ContentFingerprint { get; }
-    // True when came from an explicit key argument, not from a prop such as value or text.
+    string? ContentFingerprint { get; }
+    // True when StableHint came from an explicit key argument, not from a prop such as value or text.
     bool HasExplicitKey { get; }
     // Stable unique identifier for this node.
     string Id { get; }
-    // Precomputed hash of for fast lookups.
+    // Precomputed hash of Id for fast lookups.
     int IdHash { get; }
     // When true, nodes include source file and line markers for debugging.
     static bool IncludeSourceMarkers { get; set; }
     // Component properties passed to the frontend renderer.
-    Dictionary<string, object> Props { get; }
-    // Source file and line marker for debugging, included only when is true.
-    string SourceMarker { get; }
+    Dictionary<string, object?> Props { get; }
+    // Source file and line marker for debugging, included only when IncludeSourceMarkers is true.
+    string? SourceMarker { get; }
     // Hint string used by the stable ID generator to produce deterministic IDs.
-    string StableHint { get; }
+    string? StableHint { get; }
     // Resolved Crosswind style class identifiers.
     IReadOnlyList<string> StyleIds { get; }
     // The component type name (e.g. "div", "button").
@@ -132,8 +132,8 @@ namespace Ikon.Parallax.Components.Charts
   class AxisConfig
     ctor()
     // Format string for tick labels. For time scales, use d3-time-format tokens (e.g. "%H:%M", "%m/%d %H:%M").
-    string Format { get; set; }
-    string Legend { get; set; }
+    string? Format { get; set; }
+    string? Legend { get; set; }
     int? LegendOffset { get; set; }
     int? TickPadding { get; set; }
     int? TickRotation { get; set; }
@@ -153,17 +153,17 @@ namespace Ikon.Parallax.Components.Charts
   // Styling for chart axis elements including ticks, legends, and domain lines.
   class ChartAxisStyle : IEquatable<ChartAxisStyle>
     ctor()
-    string DomainColor { get; init; }
-    ChartTextStyle Legend { get; init; }
-    string TickColor { get; init; }
-    ChartTextStyle TickLabel { get; init; }
+    string? DomainColor { get; init; }
+    ChartTextStyle? Legend { get; init; }
+    string? TickColor { get; init; }
+    ChartTextStyle? TickLabel { get; init; }
   // Event arguments for chart click interactions.
   class ChartClickArgs
     ctor()
-    string Id { get; set; }
-    string IndexValue { get; set; }
-    string SerieId { get; set; }
-    object Value { get; set; }
+    string? Id { get; set; }
+    string? IndexValue { get; set; }
+    string? SerieId { get; set; }
+    object? Value { get; set; }
   // Predefined color schemes for chart series, based on D3 color scales.
   enum ChartColorScheme
     Nivo
@@ -207,8 +207,8 @@ namespace Ikon.Parallax.Components.Charts
   // Styling for chart crosshair lines.
   class ChartCrosshairStyle : IEquatable<ChartCrosshairStyle>
     ctor()
-    string LineColor { get; init; }
-    string LineDashArray { get; init; }
+    string? LineColor { get; init; }
+    string? LineDashArray { get; init; }
     int? LineWidth { get; init; }
   // Extension methods for rendering interactive chart components (bar, line, pie).
   static class ChartExtensions
@@ -221,18 +221,18 @@ namespace Ikon.Parallax.Components.Charts
   // Styling for chart grid lines.
   class ChartGridStyle : IEquatable<ChartGridStyle>
     ctor()
-    string LineColor { get; init; }
-    string LineDashArray { get; init; }
+    string? LineColor { get; init; }
+    string? LineDashArray { get; init; }
     int? LineWidth { get; init; }
   // Styling for chart data labels.
   class ChartLabelsStyle : IEquatable<ChartLabelsStyle>
     ctor()
-    ChartTextStyle Text { get; init; }
+    ChartTextStyle? Text { get; init; }
   // Styling for chart legend text and title.
   class ChartLegendStyle : IEquatable<ChartLegendStyle>
     ctor()
-    ChartTextStyle Text { get; init; }
-    ChartTextStyle Title { get; init; }
+    ChartTextStyle? Text { get; init; }
+    ChartTextStyle? Title { get; init; }
   // Margin configuration for chart containers.
   class ChartMargin
     ctor()
@@ -243,21 +243,21 @@ namespace Ikon.Parallax.Components.Charts
   // Text styling for chart elements.
   class ChartTextStyle : IEquatable<ChartTextStyle>
     ctor()
-    string Color { get; init; }
-    string FontFamily { get; init; }
+    string? Color { get; init; }
+    string? FontFamily { get; init; }
     int? FontSize { get; init; }
   // Complete theme configuration for chart components, combining all styling aspects.
   class ChartTheme : IEquatable<ChartTheme>
     ctor()
-    ChartAxisStyle Axis { get; init; }
+    ChartAxisStyle? Axis { get; init; }
     ChartColorScheme? ColorScheme { get; init; }
-    string[] Colors { get; init; }
-    ChartCrosshairStyle Crosshair { get; init; }
-    ChartGridStyle Grid { get; init; }
-    ChartLabelsStyle Labels { get; init; }
-    ChartLegendStyle Legends { get; init; }
-    ChartTextStyle Text { get; init; }
-    ChartTooltipStyle Tooltip { get; init; }
+    string[]? Colors { get; init; }
+    ChartCrosshairStyle? Crosshair { get; init; }
+    ChartGridStyle? Grid { get; init; }
+    ChartLabelsStyle? Labels { get; init; }
+    ChartLegendStyle? Legends { get; init; }
+    ChartTextStyle? Text { get; init; }
+    ChartTooltipStyle? Tooltip { get; init; }
   // Built-in chart theme presets for light and dark backgrounds.
   static class ChartThemes
     // Chart theme optimized for dark backgrounds with muted but saturated series colors.
@@ -267,10 +267,10 @@ namespace Ikon.Parallax.Components.Charts
   // Styling for chart tooltips.
   class ChartTooltipStyle : IEquatable<ChartTooltipStyle>
     ctor()
-    string BackgroundColor { get; init; }
-    string BorderColor { get; init; }
+    string? BackgroundColor { get; init; }
+    string? BorderColor { get; init; }
     int? BorderRadius { get; init; }
-    ChartTextStyle Text { get; init; }
+    ChartTextStyle? Text { get; init; }
   // Crosshair display type for interactive charts.
   enum CrosshairType
     X
@@ -287,8 +287,8 @@ namespace Ikon.Parallax.Components.Charts
   // Configuration for a chart legend including positioning, layout direction, and item sizing.
   class LegendConfig
     ctor()
-    string Anchor { get; set; }
-    string Direction { get; set; }
+    string? Anchor { get; set; }
+    string? Direction { get; set; }
     int? ItemHeight { get; set; }
     int? ItemWidth { get; set; }
     int? ItemsSpacing { get; set; }
@@ -301,8 +301,8 @@ namespace Ikon.Parallax.Components.Charts
     object Y { get; set; }
   // A named data series for a line chart, containing an ordered collection of points.
   class LineChartSeries
-    string Color { get; set; }
-    IEnumerable<LineChartPoint> Data { get; set; }
+    string? Color { get; set; }
+    IEnumerable<LineChartPoint>? Data { get; set; }
     string Id { get; set; }
   // Interpolation curve type for line charts.
   enum LineCurve
@@ -315,9 +315,9 @@ namespace Ikon.Parallax.Components.Charts
     Basis
   // A single slice in a pie chart.
   class PieChartDatum
-    string Color { get; set; }
+    string? Color { get; set; }
     string Id { get; set; }
-    string Label { get; set; }
+    string? Label { get; set; }
     double Value { get; set; }
   // Scale type for chart axes.
   enum ScaleType
@@ -331,21 +331,21 @@ namespace Ikon.Parallax.Components.DataTable
   class Cell : IEquatable<Cell>
     ctor()
     // Action identifier passed to the onActionClick callback.
-    string ActionId { get; init; }
+    string? ActionId { get; init; }
     // Action buttons for "actions" type cells.
-    CellAction[] Actions { get; init; }
+    CellAction[]? Actions { get; init; }
     // When true, the cell's interactive element is disabled.
     bool? Disabled { get; init; }
     // Button label for action cells.
-    string Label { get; init; }
+    string? Label { get; init; }
     // Crosswind style classes for the cell.
-    string[] Style { get; init; }
+    string[]? Style { get; init; }
     // Cell type: "text", "badge", "action", "actions", or "checkbox".
     string Type { get; init; }
     // Display value or checkbox state ("true"/"false").
-    string Value { get; init; }
+    string? Value { get; init; }
     // Visual variant for badge cells.
-    string Variant { get; init; }
+    string? Variant { get; init; }
     // Creates an action button cell.
     static Cell Action(string label, string actionId, string[]? style = null)
     // Creates a cell containing multiple action buttons.
@@ -361,9 +361,9 @@ namespace Ikon.Parallax.Components.DataTable
     // An action button that can be displayed within a data table cell.
     ctor(string Label, string ActionId, string[]? Style = null, string? Icon = null)
     string ActionId { get; init; }
-    string Icon { get; init; }
+    string? Icon { get; init; }
     string Label { get; init; }
-    string[] Style { get; init; }
+    string[]? Style { get; init; }
   // Defines a column in a data table including header text, width, and alignment.
   class DataTableColumn : IEquatable<DataTableColumn>
     // Defines a column in a data table including header text, width, and alignment.
@@ -371,8 +371,8 @@ namespace Ikon.Parallax.Components.DataTable
     ColumnAlign Align { get; init; }
     int Flex { get; init; }
     string Header { get; init; }
-    string MinWidth { get; init; }
-    string Width { get; init; }
+    string? MinWidth { get; init; }
+    string? Width { get; init; }
     bool Wrap { get; init; }
   // Extension methods for rendering paginated data tables.
   static class DataTableExtensions
@@ -431,26 +431,26 @@ namespace Ikon.Parallax.Components.Rive
     // The name of the Rive event.
     string Name { get; init; }
     // Custom properties attached to the event as JSON elements.
-    Dictionary<string, JsonElement> Properties { get; init; }
+    Dictionary<string, JsonElement>? Properties { get; init; }
     // Type-safe accessor for the event's custom properties.
     RiveEventProperties Props { get; }
     // Target identifier for the event.
-    string Target { get; init; }
+    string? Target { get; init; }
     // The Rive event type identifier.
     int? Type { get; init; }
     // URL associated with the event, if any.
-    string Url { get; init; }
+    string? Url { get; init; }
   // Helper class for accessing Rive event properties with type-safe methods.
   sealed class RiveEventProperties
     // Helper class for accessing Rive event properties with type-safe methods.
     ctor(Dictionary<string, JsonElement>? properties)
-    // Gets a boolean property value, or if not found.
+    // Gets a boolean property value, or defaultValue if not found.
     bool GetBool(string key, bool defaultValue = false)
-    // Gets a double property value, or if not found.
+    // Gets a double property value, or defaultValue if not found.
     double GetDouble(string key, double defaultValue = 0)
-    // Gets an integer property value, or if not found.
+    // Gets an integer property value, or defaultValue if not found.
     int GetInt(string key, int defaultValue = 0)
-    // Gets a string property value, or if not found.
+    // Gets a string property value, or defaultValue if not found.
     string GetString(string key, string defaultValue = "")
   // Extension methods for Rive animation components.
   static class RiveExtensions
@@ -528,10 +528,10 @@ namespace Ikon.Parallax.Components.Standard
     ctor(string ActionType, bool Success)
     string ActionType { get; init; }
     bool Success { get; init; }
-  // JSON converter that deserializes into the correct derived type based on the ActionType field.
+  // JSON converter that deserializes ActionEvent into the correct derived type based on the ActionType field.
   class ActionEventConverter : JsonConverter<ActionEvent>
     ctor()
-    override ActionEvent Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    override ActionEvent? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     override void Write(Utf8JsonWriter writer, ActionEvent value, JsonSerializerOptions options)
   // Types of client-side actions that can be triggered from the server.
   enum ActionKind
@@ -562,20 +562,20 @@ namespace Ikon.Parallax.Components.Standard
     ctor(string Id, string AmountLabel, string Status, DateTimeOffset Created, bool Paid, bool Refunded, string? PaymentIntentId, string? ReceiptUrl, string? Description = null)
     string AmountLabel { get; init; }
     DateTimeOffset Created { get; init; }
-    string Description { get; init; }
+    string? Description { get; init; }
     string Id { get; init; }
     bool Paid { get; init; }
-    string PaymentIntentId { get; init; }
-    string ReceiptUrl { get; init; }
+    string? PaymentIntentId { get; init; }
+    string? ReceiptUrl { get; init; }
     bool Refunded { get; init; }
     string Status { get; init; }
-  // Composed Parallax components for billing UIs — pricing tables, checkout actions, customer-portal entry points, payment-method and invoice lists, and subscription status. Pair with for end-to-end flows. All components are pure compositions of existing primitives (Box / Text / Button / Icon / Column / Row), so they participate in the standard theming, motion, and validation rules just like the rest of the Parallax surface.
+  // Composed Parallax components for billing UIs — pricing tables, checkout actions, customer-portal entry points, payment-method and invoice lists, and subscription status. Pair with BillingService for end-to-end flows. All components are pure compositions of existing primitives (Box / Text / Button / Icon / Column / Row), so they participate in the standard theming, motion, and validation rules just like the rest of the Parallax surface.
   static class BillingExtensions
-    // Dual-mode billing-management entry point. BYOK mode (default): renders a button that invokes , expected to call BillingService.CreatePortalAsync, and redirects to the returned Stripe-hosted Customer Portal URL.Connect mode: pass a non-empty and the component renders an embedded instead — Stripe doesn't expose a hosted Customer Portal for connected accounts, so the embedded management surface is the only equivalent.
+    // Dual-mode billing-management entry point. BYOK mode (default): renders a button that invokes onOpenPortal , expected to call BillingService.CreatePortalAsync, and redirects to the returned Stripe-hosted Customer Portal URL.Connect mode: pass a non-empty connectAccountSessionClientSecret and the component renders an embedded ConnectAccountManagementFrame instead — Stripe doesn't expose a hosted Customer Portal for connected accounts, so the embedded management surface is the only equivalent.
     static void BillingPortalButton(UIView view, Func<Task<string?>>? onOpenPortal = null, string? connectAccountSessionClientSecret = null, string? publishableKey = null, string? text = null, string[]? style = null, bool? disabled = null, string? icon = "settings", string? key = null, string file = "", int line = 0)
-    // Vertical list of charge / receipt rows. Each row shows formatted amount, status, optional refund button (when is supplied and the charge is paid + non-refunded), and a "Receipt" link when present.
+    // Vertical list of charge / receipt rows. Each row shows formatted amount, status, optional refund button (when onRefund is supplied and the charge is paid + non-refunded), and a "Receipt" link when present.
     static void ChargeList(UIView view, IReadOnlyList<BillingChargeView> charges, Func<string, Task>? onRefund = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
-    // Button that initiates a redirect-to-Stripe checkout. The handler is expected to call BillingService.CreateCheckoutAsync(...) and return the session url; the component then redirects the current client via ClientFunctions.SetUrlAsync. Returning null from the handler disables the redirect (e.g. for guest validation).
+    // Button that initiates a redirect-to-Stripe checkout. The onCheckout handler is expected to call BillingService.CreateCheckoutAsync(...) and return the session url; the component then redirects the current client via ClientFunctions.SetUrlAsync. Returning null from the handler disables the redirect (e.g. for guest validation).
     static void CheckoutButton(UIView view, Func<Task<string?>> onCheckout, string? text = null, string[]? style = null, bool? disabled = null, string? icon = "credit-card", string? key = null, string file = "", int line = 0)
     // Mount Stripe Connect Embedded "Account Management" inline. Lets the connected-account holder update bank account, business details and KYC info after onboarding. Server enables the account_management component on the account session.
     static void ConnectAccountManagementFrame(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
@@ -591,25 +591,25 @@ namespace Ikon.Parallax.Components.Standard
     static void ConnectPaymentsFrame(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
     // Mount Stripe Connect Embedded "Payouts" inline. Lists payouts and (when enabled) lets the holder edit payout schedule. Server enables the payouts component on the account session.
     static void ConnectPayoutsFrame(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
-    // Mount point for Stripe's Embedded Checkout. Renders a host element with data-stripe-client-secret that the frontend's EmbeddedCheckoutProvider mounts into. Pass the obtained from BillingService.CreateEmbeddedCheckoutAsync. When is null/empty (e.g. the user hasn't picked a plan yet) the component renders a placeholder so callers can drop it into a layout unconditionally.
+    // Mount point for Stripe's Embedded Checkout. Renders a host element with data-stripe-client-secret that the frontend's EmbeddedCheckoutProvider mounts into. Pass the ClientSecret obtained from BillingService.CreateEmbeddedCheckoutAsync. When clientSecret is null/empty (e.g. the user hasn't picked a plan yet) the component renders a placeholder so callers can drop it into a layout unconditionally.
     static void EmbeddedCheckoutFrame(UIView view, string? clientSecret, string? publishableKey = null, string? connectedAccountId = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
     // Vertical list of past invoices. Each row links to the hosted invoice url when present, and to the PDF when present.
     static void InvoiceList(UIView view, IReadOnlyList<BillingInvoiceView> invoices, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
-    // Mount Stripe Elements bound to a PaymentIntent for confirming a one-shot payment (e.g., capturing a saved card, completing a manual capture flow). Frontend resolver mounts <PaymentElement /> inside <Elements> and confirms via stripe.confirmPayment. Symmetric to — that one saves a card without charging; this one charges (possibly using a saved card on file).
+    // Mount Stripe Elements bound to a PaymentIntent for confirming a one-shot payment (e.g., capturing a saved card, completing a manual capture flow). Frontend resolver mounts <PaymentElement /> inside <Elements> and confirms via stripe.confirmPayment. Symmetric to SetupIntentFrame — that one saves a card without charging; this one charges (possibly using a saved card on file).
     static void PaymentIntentFrame(UIView view, string? clientSecret, string? publishableKey = null, string? returnUrl = null, string? connectedAccountId = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
-    // Vertical list of saved payment methods. Each row shows brand, last four, and expiry. Optional renders a remove action.
+    // Vertical list of saved payment methods. Each row shows brand, last four, and expiry. Optional onDetach renders a remove action.
     static void PaymentMethodList(UIView view, IReadOnlyList<BillingPaymentMethodView> methods, Func<string, Task>? onDetach = null, Func<Task>? onAddCard = null, string? setupIntentClientSecret = null, string? publishableKey = null, string? connectedAccountId = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
-    // Single pricing plan card with name, price, optional badge, feature bullet list and CTA. Use directly when laying plans out by hand, or via for the common grid case.
+    // Single pricing plan card with name, price, optional badge, feature bullet list and CTA. Use directly when laying plans out by hand, or via PricingTable for the common grid case.
     static void PlanCard(UIView view, BillingPlanView plan, Func<string, Task>? onSelect = null, string[]? style = null, string? key = null, string file = "", int line = 0)
-    // Render a grid of pricing plan cards. Each card invokes with the plan's id when the CTA is pressed. The card whose is true gets the brand-emphasis treatment (one card max).
+    // Render a grid of pricing plan cards. Each card invokes onSelect with the plan's id when the CTA is pressed. The card whose Highlighted is true gets the brand-emphasis treatment (one card max).
     static void PricingTable(UIView view, IReadOnlyList<BillingPlanView> plans, Func<string, Task>? onSelect = null, string[]? style = null, int? columns = null, string? key = null, string file = "", int line = 0)
     // Mount Stripe Elements bound to a SetupIntent for saving a card without an immediate charge. Frontend resolver mounts <PaymentElement /> inside <Elements> and confirms via stripe.confirmSetup. The SetupIntent's payment_method is auto-attached to the customer it was created for; refresh PaymentMethodList afterwards.
     static void SetupIntentFrame(UIView view, string? clientSecret, string? publishableKey = null, string? returnUrl = null, string? connectedAccountId = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
-    // Renders a vertical list of cards, one per subscription. Pass the same callback set you'd pass to a single ; each callback receives the subscription id of the row that fired it.
+    // Renders a vertical list of SubscriptionStatus cards, one per subscription. Pass the same callback set you'd pass to a single SubscriptionStatus ; each callback receives the subscription id of the row that fired it.
     static void SubscriptionList(UIView view, IReadOnlyList<BillingSubscription> subscriptions, Func<BillingSubscription, BillingSubscriptionView>? projector = null, Func<string, Task>? onResume = null, Func<string, Task>? onCancel = null, Func<string, Task>? onCancelImmediate = null, Func<string, Task>? onPause = null, Func<string, Task>? onResumeFromPause = null, Action<UIView, BillingSubscription>? footer = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
     // Compact subscription status card showing plan name, status pill and renewal/expiry date. Slot a BillingPortalButton in the footer to give the user a manage entry point.
     static void SubscriptionStatus(UIView view, BillingSubscriptionView subscription, string[]? style = null, Action<UIView>? footer = null, Func<Task>? onResume = null, Func<Task>? onCancel = null, Func<Task>? onCancelImmediate = null, Func<Task>? onPause = null, Func<Task>? onResumeFromPause = null, string? key = null, string file = "", int line = 0)
-    // Grid of one-tap tip preset amounts. Each preset renders as a rounded button showing the currency-formatted amount; clicking invokes with the chosen minor-unit amount. App handler typically passes the amount to BillingService.CreateTipCheckoutAsync and redirects.
+    // Grid of one-tap tip preset amounts. Each preset renders as a rounded button showing the currency-formatted amount; clicking invokes onTip with the chosen minor-unit amount. App handler typically passes the amount to BillingService.CreateTipCheckoutAsync and redirects.
     static void TipPresetGrid(UIView view, IReadOnlyList<long> presetsMinor, string currencySymbol, Func<long, Task> onTip, string[]? style = null, string? key = null, string file = "", int line = 0)
     // Display-only preview card for the next-billing-cycle invoice. Pair with BillingService.PreviewUpcomingInvoiceAsync: call before committing a plan change so the user sees "next bill = €X · €Y proration".
     static void UpcomingInvoicePreview(UIView view, BillingUpcomingInvoice preview, string[]? style = null, string? key = null, string file = "", int line = 0)
@@ -619,31 +619,31 @@ namespace Ikon.Parallax.Components.Standard
     ctor(string Id, DateTimeOffset Date, string AmountLabel, string Status, string? HostedUrl = null, string? PdfUrl = null)
     string AmountLabel { get; init; }
     DateTimeOffset Date { get; init; }
-    string HostedUrl { get; init; }
+    string? HostedUrl { get; init; }
     string Id { get; init; }
-    string PdfUrl { get; init; }
+    string? PdfUrl { get; init; }
     string Status { get; init; }
-  // Parallax node-type strings emitted by for the Stripe-embedded surfaces. The frontend resolver in @ikonai/sdk-react-ui-billing matches against these exact strings — they form a cross-language contract. If a constant value changes here, update the matching constant in platform-typescript/sdk/sdk-react-ui-billing/src/node-types.ts.
+  // Parallax node-type strings emitted by BillingExtensions for the Stripe-embedded surfaces. The frontend resolver in @ikonai/sdk-react-ui-billing matches against these exact strings — they form a cross-language contract. If a constant value changes here, update the matching constant in platform-typescript/sdk/sdk-react-ui-billing/src/node-types.ts.
   static class BillingNodeTypes
-    // Node type for Stripe Connect Account Management ().
+    // Node type for Stripe Connect Account Management ( ConnectAccountManagementFrame ).
     static string ConnectAccountManagement
-    // Node type for Stripe Connect Balances ().
+    // Node type for Stripe Connect Balances ( ConnectBalancesFrame ).
     static string ConnectBalances
-    // Node type for Stripe Connect Documents ().
+    // Node type for Stripe Connect Documents ( ConnectDocumentsFrame ).
     static string ConnectDocuments
-    // Node type for Stripe Connect Notification Banner ().
+    // Node type for Stripe Connect Notification Banner ( ConnectNotificationBanner ).
     static string ConnectNotificationBanner
-    // Node type for Stripe Connect Account Onboarding ().
+    // Node type for Stripe Connect Account Onboarding ( ConnectOnboardingFrame ).
     static string ConnectOnboarding
-    // Node type for Stripe Connect Payments ().
+    // Node type for Stripe Connect Payments ( ConnectPaymentsFrame ).
     static string ConnectPayments
-    // Node type for Stripe Connect Payouts ().
+    // Node type for Stripe Connect Payouts ( ConnectPayoutsFrame ).
     static string ConnectPayouts
-    // Node type for Stripe Embedded Checkout ().
+    // Node type for Stripe Embedded Checkout ( EmbeddedCheckoutFrame ).
     static string EmbeddedCheckout
-    // Node type for Stripe Elements PaymentElement bound to a PaymentIntent ().
+    // Node type for Stripe Elements PaymentElement bound to a PaymentIntent ( PaymentIntentFrame ).
     static string PaymentIntent
-    // Node type for Stripe Elements PaymentElement bound to a SetupIntent ().
+    // Node type for Stripe Elements PaymentElement bound to a SetupIntent ( SetupIntentFrame ).
     static string SetupIntent
   // One saved card / payment method.
   sealed class BillingPaymentMethodView : IEquatable<BillingPaymentMethodView>
@@ -655,16 +655,16 @@ namespace Ikon.Parallax.Components.Standard
     string Id { get; init; }
     bool IsDefault { get; init; }
     string Last4 { get; init; }
-  // View-model records for the Parallax billing components. They are intentionally lightweight and decoupled from the Stripe-shaped records so the components can be driven from any source — a live , a fake in-memory list, or static catalog data.
+  // View-model records for the Parallax billing components. They are intentionally lightweight and decoupled from the Stripe-shaped Billing records so the components can be driven from any source — a live BillingService , a fake in-memory list, or static catalog data.
   sealed class BillingPlanView : IEquatable<BillingPlanView>
-    // View-model records for the Parallax billing components. They are intentionally lightweight and decoupled from the Stripe-shaped records so the components can be driven from any source — a live , a fake in-memory list, or static catalog data.
+    // View-model records for the Parallax billing components. They are intentionally lightweight and decoupled from the Stripe-shaped Billing records so the components can be driven from any source — a live BillingService , a fake in-memory list, or static catalog data.
     ctor(string PlanId, string Name, string PriceLabel, string? IntervalLabel = null, IReadOnlyList<string>? Features = null, string? Badge = null, string? CtaLabel = null, bool Highlighted = false, bool Disabled = false)
-    string Badge { get; init; }
-    string CtaLabel { get; init; }
+    string? Badge { get; init; }
+    string? CtaLabel { get; init; }
     bool Disabled { get; init; }
-    IReadOnlyList<string> Features { get; init; }
+    IReadOnlyList<string>? Features { get; init; }
     bool Highlighted { get; init; }
-    string IntervalLabel { get; init; }
+    string? IntervalLabel { get; init; }
     string Name { get; init; }
     string PlanId { get; init; }
     string PriceLabel { get; init; }
@@ -675,13 +675,13 @@ namespace Ikon.Parallax.Components.Standard
     bool CancelAtPeriodEnd { get; init; }
     DateTimeOffset? CurrentPeriodEnd { get; init; }
     string PlanName { get; init; }
-    string PriceLabel { get; init; }
+    string? PriceLabel { get; init; }
     string Status { get; init; }
   // Extension methods for Calendar and DatePicker components.
   static class CalendarExtensions
     // Month-grid date selector. Renders a single month with day cells. Dates are ISO yyyy-MM-dd strings.
     static void Calendar(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? month = null, string? defaultMonth = null, string? minDate = null, string? maxDate = null, IReadOnlyList<string>? disabledDates = null, WeekStart weekStart = Monday, string? locale = null, bool? disabled = null, string[]? headerStyle = null, string[]? weekdayStyle = null, string[]? dayStyle = null, string[]? daySelectedStyle = null, string[]? dayTodayStyle = null, string[]? dayOutsideStyle = null, string[]? dayDisabledStyle = null, string[]? navButtonStyle = null, string[]? titleStyle = null, string[]? gridStyle = null, string[]? rowStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onMonthChange = null, string file = "", int line = 0)
-    // Button that opens a popover containing a .
+    // Button that opens a popover containing a Calendar .
     static void DatePicker(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, string? format = null, string? minDate = null, string? maxDate = null, IReadOnlyList<string>? disabledDates = null, WeekStart weekStart = Monday, bool? disabled = null, bool? open = null, bool? defaultOpen = null, Side side = Bottom, Align align = Start, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? calendarStyle = null, string[]? headerStyle = null, string[]? weekdayStyle = null, string[]? dayStyle = null, string[]? daySelectedStyle = null, string[]? dayTodayStyle = null, string[]? dayOutsideStyle = null, string[]? dayDisabledStyle = null, string[]? navButtonStyle = null, string[]? titleStyle = null, string[]? gridStyle = null, string[]? rowStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool?, Task>? onOpenChange = null, string file = "", int line = 0)
   // Which physical camera to prefer when starting the capture. Maps to the W3C MediaStream facingMode constraint and is treated as an "ideal" hint — the browser falls back to whatever camera is available if the requested side does not exist (e.g. desktops without a rear camera).
   enum CameraFacing
@@ -691,23 +691,23 @@ namespace Ikon.Parallax.Components.Standard
   sealed class CaptureImageActionOptions : ActionOptions, IEquatable<CaptureImageActionOptions>
     ctor()
     // Hardware constraints for camera selection.
-    CaptureImageConstraints Constraints { get; init; }
+    CaptureImageConstraints? Constraints { get; init; }
     // Output image format.
     ClientImageCaptureFormat? Format { get; init; }
     // Desired image height in pixels.
     int? Height { get; init; }
-    // How the capture is presented (native OS camera UI vs. headless silent grab). Defaults to — silent webcam capture via getUserMedia, which works uniformly on desktop and mobile. Set to to opt in to the OS camera app on phones (preview + shutter + front/back toggle); on desktop browsers Native transparently falls back to the headless path because the web platform doesn't expose a camera-app launch.
+    // How the capture is presented (native OS camera UI vs. headless silent grab). Defaults to Headless — silent webcam capture via getUserMedia, which works uniformly on desktop and mobile. Set to Native to opt in to the OS camera app on phones (preview + shutter + front/back toggle); on desktop browsers Native transparently falls back to the headless path because the web platform doesn't expose a camera-app launch.
     CaptureImageMode? Mode { get; init; }
     // Image quality (0.0 to 1.0) for lossy formats.
     double? Quality { get; init; }
     // Desired image width in pixels.
     int? Width { get; init; }
-  // Hardware constraints for image capture. Applied directly when is . In mode only is honored (mapped to the file input's capture attribute); the OS camera UI ignores other constraints.
+  // Hardware constraints for image capture. Applied directly when Mode is Headless . In Native mode only FacingMode is honored (mapped to the file input's capture attribute); the OS camera UI ignores other constraints.
   sealed class CaptureImageConstraints : IEquatable<CaptureImageConstraints>
     ctor()
     // Preferred camera device ID. Headless mode only.
-    string DeviceId { get; init; }
-    // Preferred camera side (front vs. rear). Most useful on phones where opens the rear camera by default. On desktops with only a webcam this is ignored.
+    string? DeviceId { get; init; }
+    // Preferred camera side (front vs. rear). Most useful on phones where Environment opens the rear camera by default. On desktops with only a webcam this is ignored.
     CameraFacing? FacingMode { get; init; }
   // How the image capture is presented to the user. Controls whether the OS camera UI is invoked or whether the capture happens silently.
   enum CaptureImageMode
@@ -726,7 +726,7 @@ namespace Ikon.Parallax.Components.Standard
     int MinWidth { get; init; }
     // Gap in CSS pixels between adjacent slides at this breakpoint. Defaults to the top-level slideGapPx when null.
     int? SlideGapPx { get; init; }
-    // Number of slides advanced per navigation step at this breakpoint. Defaults to when null.
+    // Number of slides advanced per navigation step at this breakpoint. Defaults to SlidesPerView when null.
     int? SlidesPerGroup { get; init; }
     // Number of slides visible in the viewport at this breakpoint.
     int SlidesPerView { get; init; }
@@ -734,17 +734,17 @@ namespace Ikon.Parallax.Components.Standard
   static class CarouselExtensions
     // Horizontal or vertical carousel with optional navigation arrows and indicator dots.
     static void Carousel(UIView view, string[]? style = null, int? index = null, int? defaultIndex = null, Orientation orientation = Horizontal, CarouselAlign align = Start, bool? loop = null, int? autoPlayMs = null, int? slidesPerView = null, int? slidesPerGroup = null, int? slideGapPx = null, IEnumerable<CarouselBreakpoint>? breakpoints = null, IEnumerable<CarouselSlideItem>? slides = null, bool? showArrows = null, bool? showIndicators = null, string? previousLabel = null, string? nextLabel = null, string? previousIconName = null, string? nextIconName = null, string[]? rootStyle = null, string[]? viewportStyle = null, string[]? slideStyle = null, string[]? previousStyle = null, string[]? nextStyle = null, string[]? indicatorsStyle = null, string[]? indicatorStyle = null, string[]? indicatorActiveStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, Func<double, Task>? onIndexChange = null, string file = "", int line = 0)
-    // A single slide inside a . Use when rendering slides manually.
+    // A single slide inside a Carousel . Use when rendering slides manually.
     static void Slide(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
-  // Declarative slide definition for .
+  // Declarative slide definition for Carousel .
   sealed class CarouselSlideItem : IEquatable<CarouselSlideItem>
-    // Declarative slide definition for .
+    // Declarative slide definition for Carousel .
     ctor(Action<UIView> Content, string? Key = null)
     // Builder function for rendering the slide.
     Action<UIView> Content { get; init; }
     // Optional stable key used for diffing.
-    string Key { get; init; }
-  // Extension methods for the ChatLog primitive — the canonical chat-bubble layout shape: header + scrolling auto-scrolled body + composer. Wraps with chat-friendly defaults so callers don't have to remember to set autoScroll: true.
+    string? Key { get; init; }
+  // Extension methods for the ChatLog primitive — the canonical chat-bubble layout shape: header + scrolling auto-scrolled body + composer. Wraps ScrollColumn with chat-friendly defaults so callers don't have to remember to set autoScroll: true.
   static class ChatLogExtensions
     // Renders a chat-style scrolling region: an optional pinned header (e.g. "Conversation"), a scrollable body that auto-scrolls to the bottom on change, and an optional pinned footer (typically the input row).
     static void ChatLog(UIView view, int messageCount, string[]? style = null, Action<UIView>? header = null, Action<UIView>? footer = null, Action<UIView>? content = null, string? styleId = null, string? key = null, string file = "", int line = 0)
@@ -763,7 +763,7 @@ namespace Ikon.Parallax.Components.Standard
     ClosestCorners
     RectIntersection
     PointerWithin
-  // Output string format for .
+  // Output string format for ColorPicker .
   enum ColorFormat
     Hex
     Rgb
@@ -781,7 +781,7 @@ namespace Ikon.Parallax.Components.Standard
   sealed class ContactsActionEvent : ActionEvent, IEquatable<ContactsActionEvent>
     // Event returned from a contact picker action with the selected contacts.
     ctor(bool Success, IReadOnlyList<ClientContact>? Contacts)
-    IReadOnlyList<ClientContact> Contacts { get; init; }
+    IReadOnlyList<ClientContact>? Contacts { get; init; }
   // Extension methods for container components.
   static class ContainerExtensions
     // Generic container element.
@@ -802,8 +802,10 @@ namespace Ikon.Parallax.Components.Standard
     static void Layer(UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Container with horizontal flexbox layout (flex-row).
     static void Row(UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null, string file = "", int line = 0)
-    // Row — positional (style, children) overload (see ).
+    // Row — positional (style, children) overload (see Box ).
     static void Row(UIView view, string[]? style, Action<UIView> children, string file = "", int line = 0)
+    // Loading spinner — an animated circular indicator for async/pending states. A typed convenience over the spin utility classes (equivalent to a div with the Default.Icon.Spinner style): render it while waiting on data, e.g. if (_loading.Value) { view.Spinner(); }. Override colour/size via the style array; the default tracks the theme's muted foreground.
+    static void Spinner(UIView view, string[]? style = null, SpinnerSize size = Md, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // Container for layering children on top of each other. Use with Layer components as children.
     static void Stack(UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null, string file = "", int line = 0)
   // Defines a column in a content grid including optional header, width, flex, and alignment.
@@ -812,8 +814,8 @@ namespace Ikon.Parallax.Components.Standard
     ctor(string? Header, string? Width = null, int Flex = 0, ColumnAlign Align = Left)
     ColumnAlign Align { get; init; }
     int Flex { get; init; }
-    string Header { get; init; }
-    string Width { get; init; }
+    string? Header { get; init; }
+    string? Width { get; init; }
   // Extension methods for CSS grid-based content layout.
   static class ContentGridExtensions
     // Renders a CSS grid layout with configurable columns, optional headers, and child content.
@@ -835,7 +837,7 @@ namespace Ikon.Parallax.Components.Standard
     // Renders an icon from an icon library.
     static void Icon(UIView view, string[]? style = null, string? name = null, string? library = null, string? className = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Inline anchor link — sugar for a `Button` styled like a hyperlink with an `href`. Mirrors HTML anchor semantics. By default opens in the same tab; pass target: "_blank" to open in a new tab (we automatically add `rel="noopener noreferrer"` for `_blank` if no other `rel` is provided). Generated code naturally reaches for `view.Link(text:, href:)`; this gives it the canonical shape rather than forcing every link into `view.Button(href:, …)`.
-    static void Link(UIView view, string[]? style = null, string? text = null, string? href = null, string? target = null, string? rel = null, Delegate? onClick = null, string? icon = null, string? iconPosition = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
+    static void Link(UIView view, string[]? style = null, string? text = null, string? label = null, string? href = null, string? target = null, string? rel = null, Delegate? onClick = null, string? icon = null, string? iconPosition = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Renders markdown content with formatting support.
     static void Markdown(UIView view, string[]? style = null, string? content = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // Text element for displaying content.
@@ -878,12 +880,12 @@ namespace Ikon.Parallax.Components.Standard
   sealed class DownloadFileActionOptions : ActionOptions, IEquatable<DownloadFileActionOptions>
     ctor()
     // Binary data to download. When set, Url is auto-generated as a data URL.
-    byte[] Data { get; init; }
+    byte[]? Data { get; init; }
     // Suggested filename for the downloaded file.
-    string Filename { get; init; }
-    // MIME type for binary data (e.g. "image/png"). Optional — defaults to "application/octet-stream" when is set without a MIME type.
-    string MimeType { get; init; }
-    // URL to download. Can be a regular URL or a data URL. If Data is provided, this is auto-generated from the binary data using , falling back to "application/octet-stream" when MimeType is unset so the download still fires.
+    string? Filename { get; init; }
+    // MIME type for binary data (e.g. "image/png"). Optional — defaults to "application/octet-stream" when Data is set without a MIME type.
+    string? MimeType { get; init; }
+    // URL to download. Can be a regular URL or a data URL. If Data is provided, this is auto-generated from the binary data using MimeType , falling back to "application/octet-stream" when MimeType is unset so the download still fires.
     string Url { get; init; }
   // Extension methods for drag and drop components.
   static class DragAndDropExtensions
@@ -913,7 +915,7 @@ namespace Ikon.Parallax.Components.Standard
     // Event args for drag end in @dnd-kit.
     ctor(string ActiveId, string? OverId)
     string ActiveId { get; init; }
-    string OverId { get; init; }
+    string? OverId { get; init; }
   // Event args for drag move in @dnd-kit.
   sealed class DragMoveArgs : IEquatable<DragMoveArgs>
     // Event args for drag move in @dnd-kit.
@@ -926,7 +928,7 @@ namespace Ikon.Parallax.Components.Standard
     // Event args for drag over in @dnd-kit.
     ctor(string ActiveId, string? OverId)
     string ActiveId { get; init; }
-    string OverId { get; init; }
+    string? OverId { get; init; }
   // Event args for drag start in @dnd-kit.
   sealed class DragStartArgs : IEquatable<DragStartArgs>
     // Event args for drag start in @dnd-kit.
@@ -936,7 +938,7 @@ namespace Ikon.Parallax.Components.Standard
   sealed class EscapeKeyDownArgs : IEquatable<EscapeKeyDownArgs>
     // Event args for escape key down events on overlays.
     ctor()
-  // Hint used by to preload the slide's primary media asset.
+  // Hint used by FeedSlide to preload the slide's primary media asset.
   enum FeedMediaKind
     None
     Image
@@ -946,37 +948,37 @@ namespace Ikon.Parallax.Components.Standard
   static class FeedScrollerExtensions
     // Renders a TikTok-style vertical feed: each slide occupies the viewport and snaps into place.
     static void FeedScroller(UIView view, IEnumerable<FeedSlide> slides, int? activeIndex = null, int? defaultActiveIndex = null, int preloadAhead = 2, int preloadBehind = 1, bool? autoPlay = null, bool? muted = null, bool? loop = null, int scrollEndThreshold = 2, string[]? style = null, string[]? slideStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<double, Task>? onActiveChange = null, Func<double, Task>? onScrollNearEnd = null, Func<bool, Task>? onMuteChange = null, string file = "", int line = 0)
-    // A single slide inside a . Use when rendering slides manually rather than via the declarative API.
+    // A single slide inside a FeedScroller . Use when rendering slides manually rather than via the FeedSlide declarative API.
     static void FeedSlide(UIView view, int index, string[]? style = null, FeedMediaKind mediaKind = None, string? mediaUrl = null, string? mediaPoster = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
-  // A single slide in a .
+  // A single slide in a FeedScroller .
   sealed class FeedSlide : IEquatable<FeedSlide>
-    // A single slide in a .
+    // A single slide in a FeedScroller .
     ctor(Action<UIView> Content, string? Key = null, FeedMediaKind MediaKind = None, string? MediaUrl = null, string? MediaPoster = null)
     // Builder invoked to render the slide. Only slides inside the render window are realized.
     Action<UIView> Content { get; init; }
     // Stable key used for diffing and preload identity. Defaults to slide index.
-    string Key { get; init; }
+    string? Key { get; init; }
     // Kind of media the slide needs preloaded.
     FeedMediaKind MediaKind { get; init; }
     // Optional poster image URL for video slides.
-    string MediaPoster { get; init; }
-    // URL of the media asset matching .
-    string MediaUrl { get; init; }
-  // Extension methods for file picker components. Unlike , a FilePicker only opens the native file picker and reports selected file metadata to the server — it does not transfer bytes. The picked File handles are cached on the client and uploaded later by a rendered with a matching seedSelectionIds prop.
+    string? MediaPoster { get; init; }
+    // URL of the media asset matching MediaKind .
+    string? MediaUrl { get; init; }
+  // Extension methods for file picker components. Unlike FileUpload , a FilePicker only opens the native file picker and reports selected file metadata to the server — it does not transfer bytes. The picked File handles are cached on the client and uploaded later by a FileUpload rendered with a matching seedSelectionIds prop.
   static class FilePickerExtensions
-    // Native file picker. Emits once per selected file with its metadata (name, mime, size, client-generated selection id). The File bytes stay on the client and are not transferred until a FileUpload with matching seedSelectionIds is mounted.
+    // Native file picker. Emits onFileSelected once per selected file with its metadata (name, mime, size, client-generated selection id). The File bytes stay on the client and are not transferred until a FileUpload with matching seedSelectionIds is mounted.
     static void FilePicker(UIView view, string[]? style = null, string[]? accept = null, bool? multiple = null, long? maxFileSize = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<FilePickerSelectedArgs, Task>? onFileSelected = null, Func<FilePickerValidationErrorArgs, Task>? onValidationError = null, Action<UIView>? content = null, string file = "", int line = 0)
-  // Metadata for a file chosen in a . The file bytes are held on the client until an upload is triggered later via a FileUpload with matching seedSelectionIds.
+  // Metadata for a file chosen in a FilePicker . The file bytes are held on the client until an upload is triggered later via a FileUpload with matching seedSelectionIds.
   sealed class FilePickerSelectedArgs : IEquatable<FilePickerSelectedArgs>
-    // Metadata for a file chosen in a . The file bytes are held on the client until an upload is triggered later via a FileUpload with matching seedSelectionIds.
+    // Metadata for a file chosen in a FilePicker . The file bytes are held on the client until an upload is triggered later via a FileUpload with matching seedSelectionIds.
     ctor(string SelectionId, string FileName, string MimeType, long Size)
     string FileName { get; init; }
     string MimeType { get; init; }
     string SelectionId { get; init; }
     long Size { get; init; }
-  // Reported when client-side validation rejects a picked file (e.g. file too large for maxFileSize). Host UIs should surface to the user — without a handler the rejection is silent and the user just sees "nothing happened" after clicking the picker.
+  // Reported when client-side validation rejects a picked file (e.g. file too large for maxFileSize). Host UIs should surface Reason to the user — without a handler the rejection is silent and the user just sees "nothing happened" after clicking the picker.
   sealed class FilePickerValidationErrorArgs : IEquatable<FilePickerValidationErrorArgs>
-    // Reported when client-side validation rejects a picked file (e.g. file too large for maxFileSize). Host UIs should surface to the user — without a handler the rejection is silent and the user just sees "nothing happened" after clicking the picker.
+    // Reported when client-side validation rejects a picked file (e.g. file too large for maxFileSize). Host UIs should surface Reason to the user — without a handler the rejection is silent and the user just sees "nothing happened" after clicking the picker.
     ctor(string FileName, string MimeType, long Size, string Reason)
     string FileName { get; init; }
     string MimeType { get; init; }
@@ -1007,7 +1009,7 @@ namespace Ikon.Parallax.Components.Standard
   sealed class FocusOutsideArgs : IEquatable<FocusOutsideArgs>
     // Event args for focus outside events on overlays.
     ctor(string? TargetId)
-    string TargetId { get; init; }
+    string? TargetId { get; init; }
   // Priority level for focus hint announcements, matching ARIA live region politeness.
   enum FocusPriority
     Polite
@@ -1064,7 +1066,7 @@ namespace Ikon.Parallax.Components.Standard
     StepMismatch
     BadInput
     CustomError
-  // Hour display format for .
+  // Hour display format for TimePicker .
   enum HourFormat
     Hour24
     Hour12
@@ -1072,9 +1074,9 @@ namespace Ikon.Parallax.Components.Standard
   sealed class ImageCaptureActionEvent : ActionEvent, IEquatable<ImageCaptureActionEvent>
     // Event returned from an image capture action with the captured image data.
     ctor(bool Success, string? Mime, int Width, int Height, string? Data)
-    string Data { get; init; }
+    string? Data { get; init; }
     int Height { get; init; }
-    string Mime { get; init; }
+    string? Mime { get; init; }
     int Width { get; init; }
   // Extension methods for image and avatar components.
   static class ImageExtensions
@@ -1102,20 +1104,20 @@ namespace Ikon.Parallax.Components.Standard
     static void PasswordToggleFieldInput(UIView view, string[]? style = null, string? autoComplete = null, string? placeholder = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // Button to toggle password visibility.
     static void PasswordToggleFieldToggle(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
-    // Two-way bind a TextArea to a in one call. Same shape as the TextField bind overload.
-    static void TextArea(UIView view, Reactive<string> bind, string[]? style = null, string? placeholder = null, bool? disabled = null, int? rows = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, Func<Context, Task>? onSubmitWithContext = null, bool? clearOnSubmit = null, Action<UIView>? content = null, string file = "", int line = 0)
+    // Two-way bind a TextArea to a Reactive`1 in one call. Same shape as the TextField bind overload.
+    static void TextArea(UIView view, Reactive<string> bind, string[]? style = null, string? placeholder = null, bool? disabled = null, int? rows = null, bool? autoResize = null, int? maxRows = null, bool? submitOnEnter = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, Func<Context, Task>? onSubmitWithContext = null, bool? clearOnSubmit = null, Action<UIView>? content = null, bool? autoFocus = null, string? label = null, string file = "", int line = 0)
     // Multi-line text input area.
-    static void TextArea(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, int? rows = null, bool? autoResize = null, int? maxRows = null, bool? submitOnEnter = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, Func<Context, Task>? onSubmitWithContext = null, bool? clearOnSubmit = null, Action<UIView>? content = null, string file = "", int line = 0)
-    // Two-way bind a TextField to a in one call — reads bind.Value for the controlled value and writes bind.Value = v on every keystroke. Use this instead of pairing value: bind.Value with a manual onValueChange.
-    static void TextField(UIView view, Reactive<string> bind, string[]? style = null, string? placeholder = null, bool? disabled = null, string? type = null, string? step = null, string? min = null, string? max = null, bool? multiline = null, int? rows = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, bool? clearOnSubmit = null, Action<UIView>? content = null, string file = "", int line = 0)
+    static void TextArea(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, int? rows = null, bool? autoResize = null, int? maxRows = null, bool? submitOnEnter = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, Func<Context, Task>? onSubmitWithContext = null, bool? clearOnSubmit = null, Action<UIView>? content = null, bool? autoFocus = null, string? label = null, string file = "", int line = 0)
+    // Two-way bind a TextField to a Reactive`1 in one call — reads bind.Value for the controlled value and writes bind.Value = v on every keystroke. Use this instead of pairing value: bind.Value with a manual onValueChange.
+    static void TextField(UIView view, Reactive<string> bind, string[]? style = null, string? placeholder = null, bool? disabled = null, string? type = null, string? step = null, string? min = null, string? max = null, bool? multiline = null, int? rows = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, bool? clearOnSubmit = null, Action<UIView>? content = null, bool? autoFocus = null, string? label = null, string file = "", int line = 0)
     // Single-line text input field.
-    static void TextField(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, string? type = null, string? step = null, string? min = null, string? max = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, bool? clearOnSubmit = null, Action<UIView>? content = null, string file = "", int line = 0)
+    static void TextField(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, string? type = null, string? step = null, string? min = null, string? max = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, bool? clearOnSubmit = null, Action<UIView>? content = null, bool? autoFocus = null, string? label = null, string file = "", int line = 0)
   // Event args for interact outside events on overlays (combines pointer and focus).
   sealed class InteractOutsideArgs : IEquatable<InteractOutsideArgs>
     // Event args for interact outside events on overlays (combines pointer and focus).
     ctor(string? TargetId)
-    string TargetId { get; init; }
-  // String constants for common keyboard key names, matching the browser KeyboardEvent.key specification. Use these with for type-safe key filtering. Raw strings can also be used for uncommon keys not listed here.
+    string? TargetId { get; init; }
+  // String constants for common keyboard key names, matching the browser KeyboardEvent.key specification. Use these with KeyboardListener for type-safe key filtering. Raw strings can also be used for uncommon keys not listed here.
   static class Key
     static string Alt
     static string ArrowDown
@@ -1172,7 +1174,7 @@ namespace Ikon.Parallax.Components.Standard
     static void InfiniteScrollView(UIView view, string[]? style = null, int threshold = 200, int debounceMs = 100, bool loading = false, bool hasMore = true, ScrollDirection direction = Down, ScrollAreaScrollbars scrollbars = Vertical, Action<UIView>? loadingIndicator = null, Func<ScrollNearEndArgs, Task>? onNearEnd = null, Action<UIView>? content = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // Progress component that auto-renders the indicator with transform.
     static void Progress(UIView view, string[]? style = null, double? value = null, double? max = null, string? variant = null, bool indeterminate = false, Func<double?, string>? getValueLabel = null, string[]? rootStyle = null, string[]? indicatorStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
-    // Resizable split panel with a drag handle between two panes. Resize is handled entirely on the client — only the final size is sent to the server via .
+    // Resizable split panel with a drag handle between two panes. Resize is handled entirely on the client — only the final size is sent to the server via onResized .
     static void ResizableSplit(UIView view, Orientation orientation = Horizontal, double initialSize = 200, double minSize = 100, double maxSize = 500, bool reversed = false, Func<double, Task>? onResized = null, Action<UIView>? first = null, Action<UIView>? second = null, string[]? style = null, string[]? handleStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // ScrollArea component that auto-renders viewport and scrollbars.
     static void ScrollArea(UIView view, string[]? style = null, ScrollAreaScrollbars scrollbars = Vertical, ScrollAreaType type = Hover, int? scrollHideDelay = null, Dir dir = Ltr, bool autoScroll = false, string? autoScrollKey = null, Action<UIView>? content = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string[]? cornerStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
@@ -1189,18 +1191,18 @@ namespace Ikon.Parallax.Components.Standard
   enum MediaCaptureButtonMode
     Hold
     Toggle
-  // Event data for media capture start/stop callbacks, containing the stream identifier and capture kind. identifies the user who initiated the capture and is populated for all capture kinds (audio, camera, screen). Prefer reading / rather than tracking streamId-to-client mappings yourself.
+  // Event data for media capture start/stop callbacks, containing the stream identifier and capture kind. ClientContext identifies the user who initiated the capture and is populated for all capture kinds (audio, camera, screen). Prefer reading ClientSessionId / UserId rather than tracking streamId-to-client mappings yourself.
   sealed class MediaCaptureEvent : IEquatable<MediaCaptureEvent>
-    // Event data for media capture start/stop callbacks, containing the stream identifier and capture kind. identifies the user who initiated the capture and is populated for all capture kinds (audio, camera, screen). Prefer reading / rather than tracking streamId-to-client mappings yourself.
+    // Event data for media capture start/stop callbacks, containing the stream identifier and capture kind. ClientContext identifies the user who initiated the capture and is populated for all capture kinds (audio, camera, screen). Prefer reading ClientSessionId / UserId rather than tracking streamId-to-client mappings yourself.
     ctor(string StreamId, string Kind)
     // Client context of the user who initiated the capture.
-    Context ClientContext { get; init; }
+    Context? ClientContext { get; init; }
     // Client session id of the user who initiated the capture.
     int? ClientSessionId { get; }
     string Kind { get; init; }
     string StreamId { get; init; }
     // User id of the user who initiated the capture.
-    string UserId { get; }
+    string? UserId { get; }
   // Specifies the type of media to capture with a CaptureButton.
   enum MediaCaptureKind
     Audio
@@ -1212,7 +1214,7 @@ namespace Ikon.Parallax.Components.Standard
     static void AudioUrlPlayer(UIView view, string[]? style = null, string? url = null, bool? controls = null, bool? autoplay = null, bool? loop = null, bool? muted = null, string? preload = null, string? className = null, string? styleId = null, string? key = null, string file = "", int line = 0)
     // Button that captures media (audio, camera, or screen) based on the specified kind. Supports both text mode and icon mode. In text mode (content is null), label is displayed as visible text. In icon mode (content is provided), label becomes the accessible aria-label and content is displayed.
     static void CaptureButton(UIView view, string[]? style = null, MediaCaptureKind kind = Audio, string? label = null, MediaCaptureButtonMode captureMode = Hold, ClientAudioCaptureOptions? audioOptions = null, ClientVideoCaptureOptions? videoOptions = null, int? holdReleaseDelayMs = null, bool? disabled = null, string? className = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<MediaCaptureEvent, Task>? onCaptureStart = null, Func<MediaCaptureEvent, Task>? onCaptureStop = null, Action<UIView>? content = null, string file = "", int line = 0)
-    // Push-to-talk microphone button: a CaptureButton(kind: Audio, mode: Hold) that integrates with . After enabling speech recognition once (Audio.UseSpeechRecognition(...)), subscribe to Audio.SpeechRecognizedAsync to receive transcriptions when the user releases the button. The user's client context is carried on the event args — no streamId-to-client plumbing needed in the app.
+    // Push-to-talk microphone button: a CaptureButton(kind: Audio, mode: Hold) that integrates with SpeechRecognizedAsync . After enabling speech recognition once (Audio.UseSpeechRecognition(...)), subscribe to Audio.SpeechRecognizedAsync to receive transcriptions when the user releases the button. The user's client context is carried on the event args — no streamId-to-client plumbing needed in the app.
     static void PushToTalkButton(UIView view, string[]? style = null, string? label = "⏺", int holdReleaseDelayMs = 500, ClientAudioCaptureOptions? audioOptions = null, bool? disabled = null, string? className = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<MediaCaptureEvent, Task>? onCaptureStart = null, Func<MediaCaptureEvent, Task>? onCaptureStop = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Canvas element for rendering a live video stream.
     static void VideoStreamCanvas(UIView view, string[]? style = null, string? streamId = null, int? width = null, int? height = null, string? className = null, string? styleId = null, string? key = null, string file = "", int line = 0)
@@ -1283,9 +1285,9 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for overlay component child elements. For the main overlay components (Dialog, AlertDialog, Popover, Tooltip, HoverCard), use the simplified APIs in CoreExtensions.cs which handle Portal/Overlay management automatically.
   static class OverlayExtensions
     // Alert dialog that requires explicit user acknowledgment. Cannot be dismissed by clicking outside.
-    static void AlertDialog(UIView view, bool? open = null, bool? defaultOpen = null, string? title = null, string? description = null, string? cancelLabel = null, string? actionLabel = null, Func<Task>? onAction = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, string[]? overlayStyle = null, string? overlayStyleId = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? footerStyle = null, string[]? cancelStyle = null, string[]? actionStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool?, Task>? onOpenChange = null, string file = "", int line = 0)
+    static void AlertDialog(UIView view, bool? open = null, bool? defaultOpen = null, string? title = null, string? description = null, string? cancelLabel = null, string? actionLabel = null, Func<Task>? onAction = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, string[]? overlayStyle = null, string? overlayStyleId = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? footerStyle = null, string[]? cancelStyle = null, string[]? actionStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool?, Task>? onOpenChange = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Modal dialog window.
-    static void Dialog(UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, bool? modal = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? overlayStyle = null, string? overlayStyleId = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool?, Task>? onOpenChange = null, string file = "", int line = 0)
+    static void Dialog(UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, bool? modal = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? overlayStyle = null, string? overlayStyleId = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool?, Task>? onOpenChange = null, string? title = null, string? description = null, string file = "", int line = 0)
     // Rich content card that appears on hover with configurable delays.
     static void HoverCard(UIView view, bool? open = null, bool? defaultOpen = null, int? openDelay = null, int? closeDelay = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool?, Task>? onOpenChange = null, string file = "", int line = 0)
     // Floating content panel that appears next to a trigger element.
@@ -1294,9 +1296,9 @@ namespace Ikon.Parallax.Components.Standard
     static void Toast(UIView view, ToastType type = Foreground, bool? open = null, bool? defaultOpen = null, int? durationMs = null, bool? forceMount = null, ToastSwipeDirection swipeDirection = Right, int? swipeThreshold = null, string? title = null, string? description = null, bool? showClose = null, string? closeLabel = null, Action<UIView>? content = null, string[]? toastStyle = null, string[]? viewportStyle = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? closeStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool?, Task>? onOpenChange = null, Func<Task>? onEscapeKeyDown = null, Func<Task>? onPause = null, Func<Task>? onResume = null, Func<ToastSwipeArgs, Task>? onSwipeStart = null, Func<ToastSwipeArgs, Task>? onSwipeMove = null, Func<ToastSwipeArgs, Task>? onSwipeEnd = null, Func<ToastSwipeArgs, Task>? onSwipeCancel = null, string file = "", int line = 0)
     // Brief informational message that appears on hover. Includes built-in provider.
     static void Tooltip(UIView view, bool? open = null, bool? defaultOpen = null, double? delayDuration = null, double? skipDelayDuration = null, bool? disableHoverableContent = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool?, Task>? onOpenChange = null, string file = "", int line = 0)
-  // One page of items plus the controls needed to render prev/next buttons. Returned by .
+  // One page of items plus the controls needed to render prev/next buttons. Returned by Paginate``1 .
   sealed class Page<T> : IEquatable<Page<T>>
-    // One page of items plus the controls needed to render prev/next buttons. Returned by .
+    // One page of items plus the controls needed to render prev/next buttons. Returned by Paginate``1 .
     ctor(IReadOnlyList<T> Items, int Index, int TotalPages, int PageSize, bool CanPrev, bool CanNext, Func<Task> Prev, Func<Task> Next, Func<int, Task> JumpTo, Func<Task> First, Func<Task> Last, IReadOnlyList<T> Source)
     // True if there is a next page.
     bool CanNext { get; init; }
@@ -1306,7 +1308,7 @@ namespace Ikon.Parallax.Components.Standard
     Func<Task> First { get; init; }
     // Zero-based current page index.
     int Index { get; init; }
-    // The slice of for the current page.
+    // The slice of Source for the current page.
     IReadOnlyList<T> Items { get; init; }
     // Action that moves to a specific page (0-based). Clamps to valid range.
     Func<int, Task> JumpTo { get; init; }
@@ -1320,9 +1322,9 @@ namespace Ikon.Parallax.Components.Standard
     Func<Task> Prev { get; init; }
     // The full input list, if the caller wants the original.
     IReadOnlyList<T> Source { get; init; }
-    // Total number of pages (always >= 1, even when is empty).
+    // Total number of pages (always >= 1, even when Source is empty).
     int TotalPages { get; init; }
-  // Bounded-cursor primitive on top of . Slices an in-memory list, returns the slice + bound actions (Prev/Next/JumpTo/First/Last) the caller binds to whatever UI fits. Holds zero rendering opinion — no tab bars, no default control rows, no opinionated layout. Most Ikon apps don't need pagination at all (live feeds, autoscroll, virtualization handle the common cases via Reactive<List<T>> + ScrollArea(autoScroll: true)). Use this when you have a static list large enough to warrant explicit page navigation. For DB-backed pagination (load only the current page from a backend), drive directly and observe its value in your data-loading code — same per-client semantics, no special helper needed.
+  // Bounded-cursor primitive on top of ClientReactive`1 . Slices an in-memory list, returns the slice + bound actions (Prev/Next/JumpTo/First/Last) the caller binds to whatever UI fits. Holds zero rendering opinion — no tab bars, no default control rows, no opinionated layout. Most Ikon apps don't need pagination at all (live feeds, autoscroll, virtualization handle the common cases via Reactive<List<T>> + ScrollArea(autoScroll: true)). Use this when you have a static list large enough to warrant explicit page navigation. For DB-backed pagination (load only the current page from a backend), drive ClientReactive`1 directly and observe its value in your data-loading code — same per-client semantics, no special helper needed.
   static class PaginationExtensions
     static Page<T> Paginate<T>(UIView view, IReadOnlyList<T> items, ClientReactive<int> page, int pageSize = 20)
   // Options for the Contact Picker API action.
@@ -1334,7 +1336,7 @@ namespace Ikon.Parallax.Components.Standard
   sealed class PointerDownOutsideArgs : IEquatable<PointerDownOutsideArgs>
     // Event args for pointer down outside events on overlays.
     ctor(string? TargetId)
-    string TargetId { get; init; }
+    string? TargetId { get; init; }
   // Extension methods for QR code generation.
   static class QrCodeExtensions
     // QR code image. Generates a QR code server-side and renders it as an image.
@@ -1343,7 +1345,7 @@ namespace Ikon.Parallax.Components.Standard
   static class RichTextEditorExtensions
     // Inline rich-text editor with a configurable toolbar. Values are HTML strings.
     static void RichTextEditor(UIView view, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, IReadOnlyList<RichTextTool>? tools = null, bool? showToolbar = null, int? minRows = null, int? maxRows = null, string[]? style = null, string[]? toolbarStyle = null, string[]? toolbarButtonStyle = null, string[]? contentStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, string file = "", int line = 0)
-  // Formatting action available in the toolbar.
+  // Formatting action available in the RichTextEditor toolbar.
   enum RichTextTool
     Bold
     Italic
@@ -1373,7 +1375,7 @@ namespace Ikon.Parallax.Components.Standard
     static void ForRole(UIView view, ClientProfiles profiles, Context clientContext, string role, Action<UIView> content)
     // Renders content only if the client has any of the specified roles.
     static void ForRoles(UIView view, ClientProfiles profiles, Context clientContext, IEnumerable<UserRole> roles, Action<UIView> content)
-  // Tiny primitives for using as a signal the app reads to decide what to render. Routes, tabs, modes, panel selections, "which dialog is open" — same shape, same primitives. Intentionally minimal: no opinionated tab bars, no URL coupling, no rendering bias. The signal is the building block; the app decides how to consume it. For URL ↔ signal sync (browser bar, deep links, back/forward), use on the host app — keeps URL concerns in one place instead of forking them through this layer.
+  // Tiny primitives for using ClientReactive`1 as a signal the app reads to decide what to render. Routes, tabs, modes, panel selections, "which dialog is open" — same shape, same primitives. Intentionally minimal: no opinionated tab bars, no URL coupling, no rendering bias. The signal is the building block; the app decides how to consume it. For URL ↔ signal sync (browser bar, deep links, back/forward), use Navigation on the host app — keeps URL concerns in one place instead of forking them through this layer.
   static class RoutingExtensions
     static void Routed<T>(UIView view, ClientReactive<T> signal, Dictionary<T, Action<UIView>> cases, Action<UIView>? fallback = null, string file = "", int line = 0)
     static Func<Task> Set<T>(UIView view, ClientReactive<T> signal, T value)
@@ -1389,7 +1391,7 @@ namespace Ikon.Parallax.Components.Standard
     Always
     Scroll
     Hover
-  // Extension methods for the ScrollColumn primitive — a header/body/footer dialog pattern where the body scrolls. Wraps a with the correct flex sizing so scrolling engages without ceremony.
+  // Extension methods for the ScrollColumn primitive — a header/body/footer dialog pattern where the body scrolls. Wraps a ScrollArea with the correct flex sizing so scrolling engages without ceremony.
   static class ScrollColumnExtensions
     // Renders a flex column with an optional header, a scrollable body, and an optional footer. The header and footer stay pinned; the body scrolls.
     static void ScrollColumn(UIView view, string[]? style = null, Action<UIView>? header = null, Action<UIView>? footer = null, Action<UIView>? content = null, ScrollAreaScrollbars scrollbars = Vertical, ScrollAreaType scrollType = Hover, bool autoScroll = false, string? autoScrollKey = null, string[]? bodyStyle = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string? styleId = null, string? key = null, string file = "", int line = 0)
@@ -1420,7 +1422,7 @@ namespace Ikon.Parallax.Components.Standard
   sealed class SelectOptionGroup : IEquatable<SelectOptionGroup>
     // Represents a group of selectable options in a Select component.
     ctor(string? Label, IReadOnlyList<SelectOption> Options)
-    string Label { get; init; }
+    string? Label { get; init; }
     IReadOnlyList<SelectOption> Options { get; init; }
   // A typed uniform value to pass to a WebGL shader. Use the static factory methods to create instances.
   struct ShaderUniform
@@ -1448,17 +1450,17 @@ namespace Ikon.Parallax.Components.Standard
   sealed class ShareActionOptions : ActionOptions, IEquatable<ShareActionOptions>
     ctor()
     // Text body for the shared content.
-    string Text { get; init; }
+    string? Text { get; init; }
     // Title for the shared content.
-    string Title { get; init; }
+    string? Title { get; init; }
     // URL to share.
-    string Url { get; init; }
+    string? Url { get; init; }
   // Options for showing a browser notification.
   sealed class ShowNotificationActionOptions : ActionOptions, IEquatable<ShowNotificationActionOptions>
     // Notification body text.
-    string Body { get; init; }
+    string? Body { get; init; }
     // URL of the notification icon image.
-    string Icon { get; init; }
+    string? Icon { get; init; }
     // Notification title text.
     string Title { get; init; }
   // Represents the side for positioning overlays.
@@ -1480,6 +1482,11 @@ namespace Ikon.Parallax.Components.Standard
     IReadOnlyList<string> NewOrder { get; init; }
     int OldIndex { get; init; }
     string OverId { get; init; }
+  // Size of the loading Spinner.
+  enum SpinnerSize
+    Sm
+    Md
+    Lg
   // Represents sticky behavior for Select/DropdownMenu.
   enum Sticky
     Partial
@@ -1502,7 +1509,7 @@ namespace Ikon.Parallax.Components.Standard
   static class TabsExtensions
     // Container for Tabs components. Use the 'tabs' parameter to define tab content.
     static void Tabs(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, Orientation orientation = Horizontal, ActivationMode activationMode = Automatic, IEnumerable<TabItem>? tabs = null, string[]? listContainerStyle = null, string[]? listStyle = null, string[]? triggerStyle = null, string[]? disabledTriggerStyle = null, string[]? contentContainerStyle = null, string[]? contentStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, string file = "", int line = 0)
-  // Smallest time unit shown by a .
+  // Smallest time unit shown by a TimePicker .
   enum TimeGranularity
     Hour
     Minute
@@ -1528,7 +1535,7 @@ namespace Ikon.Parallax.Components.Standard
   enum ToastType
     Foreground
     Background
-  // Extension methods for the DOM-virtualized scroll containers and . Items outside the visible window plus an overscan buffer have their content children skipped at the React layer (the wrapper still occupies space via fixed dimensions), so DOM size scales with viewport, not itemCount.
+  // Extension methods for the DOM-virtualized scroll containers VirtualList and VirtualGrid . Items outside the visible window plus an overscan buffer have their content children skipped at the React layer (the wrapper still occupies space via fixed dimensions), so DOM size scales with viewport, not itemCount.
   static class VirtualListExtensions
     // DOM-virtualized scrollable grid. Items are laid out in a fixed number of columns and rows outside the visible window are not mounted in the DOM.
     static void VirtualGrid(UIView view, int itemCount, int columns, double rowHeight, Action<UIView, int> onRenderItem, int overscan = 2, int gap = 12, int? minItemWidthPx = null, int? maxColumns = null, double? aspectRatio = null, string? resetScrollKey = null, Func<double, Task>? onNearEnd = null, int nearEndThresholdRows = 2, string[]? style = null, string[]? itemStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
@@ -1858,9 +1865,9 @@ namespace Ikon.Parallax.Themes.Ikon
     static string Header
   // Resolves a Crosswind class name (color step, radius rung, font role, motion duration / easing) to the underlying CSS value the IkonTheme variables expect. Hex / rem / family-stack passthrough — values that don't look like Crosswind tokens are returned as-is so users can mix in raw hex when they need a custom palette.
   static class CrosswindResolver
-    // True when a Tailwind palette token represents a "light" step (50-500 inclusive). Used by to pick the auto-derived primary-foreground (dark text on light brand vs. white text on dark brand). Returns null when we can't infer (raw hex, non-palette tokens) — caller falls back to luminance computation.
+    // True when a Tailwind palette token represents a "light" step (50-500 inclusive). Used by CssRenderer to pick the auto-derived primary-foreground (dark text on light brand vs. white text on dark brand). Returns null when we can't infer (raw hex, non-palette tokens) — caller falls back to luminance computation.
     static bool? IsLightPaletteStep(string token)
-    // True when the token is a recognized Tailwind palette step (e.g. "amber-400", "zinc-950"). Used by to dispatch indexer overrides to the right CSS-variable target.
+    // True when the token is a recognized Tailwind palette step (e.g. "amber-400", "zinc-950"). Used by CssRenderer to dispatch indexer overrides to the right CSS-variable target.
     static bool IsTailwindPaletteToken(string token)
     // Resolve a color token (e.g. "amber-400", "zinc-950") to a CSS color expression referencing the corresponding Tailwind palette CSS variable shipped by TailwindCssBaseline. Raw colors (hex, oklch, hsl, rgb, named) pass through unchanged.
     static string ResolveColor(string token)
@@ -2474,10 +2481,10 @@ namespace Ikon.Parallax.Themes.Ikon
   sealed class ThemeIntent : IEquatable<ThemeIntent>
     // One named override on an app's theme: a role + Crosswind value, or a free-form custom CSS variable. The codegen Styling Oracle emits a list of these; the CSS renderer walks them.
     ctor(string Role, string Value, string? CustomName = null)
-    string CustomName { get; init; }
+    string? CustomName { get; init; }
     string Role { get; init; }
     string Value { get; init; }
-    // Theme roles recognized by the renderer. Anything else passes through as a custom variable (in which case must be set and matches the variable name without the leading --).
+    // Theme roles recognized by the renderer. Anything else passes through as a custom variable (in which case CustomName must be set and matches the variable name without the leading --).
     static IReadOnlyList<string> Roles
   static class TimePicker
     static string Column
