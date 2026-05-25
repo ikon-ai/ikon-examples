@@ -16,6 +16,7 @@ namespace Ikon.Teleport.CodeGen
     int CSharpFilesWritten { get; init; }
     IReadOnlyDictionary<string, int> ExtraFilesWritten { get; init; }
     int SchemaCount { get; init; }
+  // Driver for compiling app-local Teleport schemas. Unlike the platform-wide protocol pipeline (which aggregates hundreds of .tp files into a single ikon-protocol.ts + registry.ts + ikon_protocol.h), app-local schemas are small (typically 2-10 files per app) and don't need registry integration — they ride on top of the already-generated platform teleport runtime. C# always emits (the app's host language); every other language is opt-in via ExtraOutputs . The caller decides which languages to emit and where — nothing is language-hardcoded in the compiler beyond the per-language dispatch table below. Called by ikon app teleport build and by the per-app MSBuild hook that runs before every app build.
   static class TeleportAppCompiler
     static IReadOnlyCollection<string> SupportedLanguages { get; }
     static TeleportAppCompiler.Result Compile(TeleportAppCompiler.Inputs inputs)
@@ -26,13 +27,13 @@ namespace Ikon.Teleport.CodeGen
     bool HasMessage { get; }
     TeleportNamespaces Namespaces { get; }
     string RootName { get; }
-    string RootNamespace { get; }
+    string? RootNamespace { get; }
     uint RootOpcode { get; }
     uint RootVersion { get; }
   sealed class TeleportExternalReference : IEquatable<TeleportExternalReference>
     ctor(string Name, string? Namespace)
     string Name { get; init; }
-    string Namespace { get; init; }
+    string? Namespace { get; init; }
   sealed class TeleportGenerationResult
     string Code { get; }
     TeleportDocument Document { get; }
@@ -59,11 +60,11 @@ namespace Ikon.Teleport.CodeGen
     static TeleportDocument Parse(string source, string? rootDirectory = null, TeleportParserOptions? parserOptions = null)
     static TeleportDocument ParseFile(string path, TeleportParserOptions? parserOptions = null)
   sealed class TeleportNamespaces
-    string Default { get; }
+    string? Default { get; }
     static TeleportNamespaces Empty { get; }
-    IReadOnlyDictionary<string, string> Values { get; }
-    string GetNamespace(string? target)
-    string TryGet(string key)
+    IReadOnlyDictionary<string, string?> Values { get; }
+    string? GetNamespace(string? target)
+    string? TryGet(string key)
     bool TryGetExplicit(string key, out string? value)
   sealed class TeleportParserOptions
     ctor()
