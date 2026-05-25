@@ -525,3 +525,8 @@ messaging.send(StrokeMessage, { StrokeId: '__sync__', Color: '', Width: 0, Point
 Build it exactly like any custom component (the four parts in "Custom UI Components" above) — a `<canvas>` that draws per-item imperatively, sending input over `.tp` and applying received messages. For a game, run a `requestAnimationFrame` loop with **client-side prediction** (move your own entity locally on input for instant response) and **interpolation** (ease remote entities toward their last received position). `context.client` gives you the `IkonClient` for `appMessaging`; `client.sessionId` is your own id.
 
 Note: the `appMessaging` helper ships in `@ikonai/sdk`; the two reference apps include a local copy at `frontend-node/src/lib/app-messaging.ts` (built on `client.sendProtocolMessage` / `client.subscribeToProtocolMessages`) for SDK versions that predate it — copy that file if `@ikonai/sdk` doesn't export `appMessaging` yet.
+
+### Common mistakes (these fail the build now that the gate compiles the frontend)
+
+- **Import paths.** `appMessaging` is from `@ikonai/sdk`. The custom-UI renderer types (`UiComponentRendererProps`, `useUiNode`, `IkonUiComponentResolver`, `IkonUiModuleLoader`, `IkonUiRegistry`) are from `@ikonai/sdk-react-ui`. The generated codecs are from `'../generated/protocol/<name>'`. **There is no `@ikonai/sdk-react` package** — importing from it fails `npm run build`.
+- **Don't use the untyped passthrough on the server.** `app.OnMessageReceived(async msg => await app.SendMessageAsync(msg))` blindly re-broadcasts the raw message — no typed payload, no chosen recipients, no late-join. Use the typed `app.OnMessage<T>((payload, senderId) => …)` + `app.SendMessageAsync(payload, targetIds)` router shown above.

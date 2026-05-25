@@ -16,14 +16,14 @@ namespace Ikon.Common.Core
     string Token { get; set; }
   class IkonBackend.AppBillingInitResult
     ctor()
-    string BackendUrl { get; set; }
+    string? BackendUrl { get; set; }
     string Mode { get; set; }
-    string PublishableKey { get; set; }
-    string WebhookSecret { get; set; }
+    string? PublishableKey { get; set; }
+    string? WebhookSecret { get; set; }
   class IkonBackend.AppBundle
     ctor()
-    List<IkonBackend.AppBundleWarning> ActivationErrors { get; set; }
-    List<IkonBackend.AppBundleWarning> ActivationWarnings { get; set; }
+    List<IkonBackend.AppBundleWarning>? ActivationErrors { get; set; }
+    List<IkonBackend.AppBundleWarning>? ActivationWarnings { get; set; }
     DateTime CreatedAt { get; set; }
     string Hash { get; set; }
     string Id { get; set; }
@@ -46,6 +46,7 @@ namespace Ikon.Common.Core
   class IkonBackend.ApplyAppBundleConfigResponse
     ctor()
     List<IkonBackend.AppBundleWarning> Warnings { get; set; }
+  // High performance custom queue type for value type arrays. The backing array starts small and grows on demand up to MaxCapacity ; pre-allocating the maximum upfront would waste large amounts of memory for queues that are usually only partially filled (e.g. audio buffers sized for a worst-case duration that is rarely reached).
   class ArrayQueue<T> where T : struct
     ctor(int maxCapacity)
     ctor(int maxCapacity, int initialCapacity)
@@ -64,9 +65,12 @@ namespace Ikon.Common.Core
     void EnqueueMemory(int count)
     Memory<T> GetDequeueMemory(int skipCount, int count)
     Memory<T> GetEnqueueMemory(int count)
+    // Releases excess buffer capacity, shrinking the backing array down to fit the current content. Useful in long-lived queues that have hit a transient peak and now want to return memory (in particular Large Object Heap memory) to the GC.
     void TrimExcess()
+  // Verifies platform-signed assertions (e.g. StepUpAssertion ) issued by the Ikon platform backend. Fetches the platform JWKS from {platformBaseUrl}/.well-known/jwks.json on demand and caches the keys for the lifetime of the verifier instance.
   sealed class AssertionVerifier
     ctor(string platformBaseUrl, HttpClient? httpClient = null, Func<DateTimeOffset>? clock = null)
+    // Generic JWT validation: JWKS-backed signature verification + standard iss/aud/exp checks + (when present) iat clock-skew guard. Returns the decoded claims as a JsonDocument — caller owns disposal — plus the token's exp so callers (e.g. OAuthAuth's bearer-cache) can cache against the token lifetime. Use this for OAuth 2.1 bearer-token resource-server validation where the step-up-specific projection in VerifyAsync isn't relevant.
     Task<ValueTuple<JsonDocument, DateTimeOffset>> VerifyAndExtractClaimsAsync(string token, string expectedIssuer, string expectedAudience, CancellationToken ct = null)
     Task<StepUpAssertion> VerifyAsync(string token, string expectedIssuer, string expectedAudience, CancellationToken ct = null)
   class IkonBackend.Asset
@@ -75,7 +79,7 @@ namespace Ikon.Common.Core
     DateTime CreatedAt { get; set; }
     string Filename { get; set; }
     string Type { get; set; }
-    string Url { get; set; }
+    string? Url { get; set; }
   class IkonBackend.AssetSignedDownload
     ctor()
     string Url { get; set; }
@@ -108,7 +112,7 @@ namespace Ikon.Common.Core
     int TcpSendBufferSize
     bool ThrowOnUdpConnectionFailure
     string UserId
-  abstract class BasePlugin<TPlugin, TConfig> : ILogInfo, IPlugin, IProtocolMessageChannel where TConfig : new(), BasePluginConfig
+  abstract class BasePlugin<TPlugin, TConfig> : ILogInfo, IPlugin, IProtocolMessageChannel where TConfig : BasePluginConfig, new()
     Context ClientContext { get; }
     string ConnectTokenJson { get; }
     Dictionary<string, object> DynamicConfig { get; }
@@ -140,18 +144,18 @@ namespace Ikon.Common.Core
   class IkonBackend.BillingStatusResult
     ctor()
     bool CancelAtPeriodEnd { get; set; }
-    string PeriodEnd { get; set; }
-    string PeriodStart { get; set; }
+    string? PeriodEnd { get; set; }
+    string? PeriodStart { get; set; }
     double PurchasedRemaining { get; set; }
     double SubscriptionAllocation { get; set; }
     double SubscriptionRemaining { get; set; }
-    string SubscriptionStatus { get; set; }
+    string? SubscriptionStatus { get; set; }
     double TotalRemaining { get; set; }
   class IkonBackend.CampaignRedeemResult
     ctor()
     string CampaignName { get; set; }
     int? CreditsGranted { get; set; }
-    string SubscriptionExpiresAt { get; set; }
+    string? SubscriptionExpiresAt { get; set; }
     string Type { get; set; }
   class IkonBackend.Channel
     ctor()
@@ -198,16 +202,16 @@ namespace Ikon.Common.Core
   class IkonBackend.ChannelInstanceSession
     ctor()
     string ChannelInstance { get; set; }
-    string ChannelTitle { get; set; }
-    string CrashLog { get; set; }
+    string? ChannelTitle { get; set; }
+    string? CrashLog { get; set; }
     string CreatedAt { get; set; }
-    string Hostname { get; set; }
+    string? Hostname { get; set; }
     string Id { get; set; }
-    string Ip { get; set; }
+    string? Ip { get; set; }
     string Space { get; set; }
-    string Status { get; set; }
+    string? Status { get; set; }
     string UpdatedAt { get; set; }
-    string UserSummary { get; set; }
+    string? UserSummary { get; set; }
   class IkonBackend.ChannelPlugin
     ctor()
     List<IkonBackend.ChannelPluginConfiguration> Configurations { get; set; }
@@ -253,7 +257,7 @@ namespace Ikon.Common.Core
     bool WaitForRunning { get; set; }
   class IkonBackend.ConnectChannelInstanceResponse
     ctor()
-    IkonBackend.ConnectChannelInstanceConfiguration Configuration { get; set; }
+    IkonBackend.ConnectChannelInstanceConfiguration? Configuration { get; set; }
     bool IsProvisioning { get; }
     bool IsRunning { get; }
     string State { get; set; }
@@ -263,14 +267,14 @@ namespace Ikon.Common.Core
     int ContextType { get; set; }
     string Description { get; set; }
     string DeviceId { get; set; }
-    string Hash { get; set; }
+    string? Hash { get; set; }
     string InstallId { get; set; }
     int OpcodeGroupsFromServer { get; set; }
     int OpcodeGroupsToServer { get; set; }
     int PayloadType { get; set; }
     string ProductId { get; set; }
     int ProtocolVersion { get; set; }
-    string Space { get; set; }
+    string? Space { get; set; }
     int UserType { get; set; }
     string VersionId { get; set; }
   class IkonBackend.ConnectTokenResponse
@@ -283,12 +287,12 @@ namespace Ikon.Common.Core
     string MimeType { get; set; }
   sealed class CreateSignatureOrderRequest
     ctor()
-    string ClientReturnUrl { get; set; }
-    string CostAttributionKey { get; set; }
+    string? ClientReturnUrl { get; set; }
+    string? CostAttributionKey { get; set; }
     List<CreateSignatureOrderDocumentDto> Documents { get; set; }
     string Purpose { get; set; }
     List<CreateSignatureOrderSignerDto> Signers { get; set; }
-    string Title { get; set; }
+    string? Title { get; set; }
   sealed class CreateSignatureOrderResponse
     ctor()
     string ExpiresAt { get; set; }
@@ -296,10 +300,10 @@ namespace Ikon.Common.Core
     string SignatureUrl { get; set; }
   sealed class CreateSignatureOrderSignerDto
     ctor()
-    List<string> IdpNames { get; set; }
-    List<string> RequestedAttributes { get; set; }
+    List<string>? IdpNames { get; set; }
+    List<string>? RequestedAttributes { get; set; }
     string SigningPolicy { get; set; }
-    string Vendor { get; set; }
+    string? Vendor { get; set; }
   class IkonBackend.CursorResponse<T>
     ctor()
     int Count { get; set; }
@@ -374,13 +378,15 @@ namespace Ikon.Common.Core
     Production
   static class ExceptionFormatter
     static string FormatException(Exception ex, bool includeFilePaths = true)
+  // Provides resilient conversions between loosely typed LLM/tool payloads and strongly typed function parameters/results. Handles primitives, arrays (including single-item arrays), Newtonsoft JSON tokens, and falls back to System.Text.Json when needed.
   static class ExtendedCast
     static T Convert<T>(object? value)
-    static object Convert(object? value, Type targetType)
-    static object FromJsonElement(JsonElement element, Type targetType)
+    static object? Convert(object? value, Type targetType)
+    // Deserializes a JsonElement into targetType , tolerating the placeholders LLMs often emit when a schema marks every property required but the underlying field is nullable: "" for collections/objects becomes null, "" for bool becomes false, etc. Falls back to ExtendedCast conversion on type mismatch so callers pick up array-wrap and single-item-array behaviour for free.
+    static object? FromJsonElement(JsonElement element, Type targetType)
   static class ExtendedCastExtensions
     static T ExtendedCast<T>(object? value)
-    static object ExtendedCast(object? value, Type targetType)
+    static object? ExtendedCast(object? value, Type targetType)
   class FeatureFlagsStorage : AsyncLocalInstance<FeatureFlagsStorage>
     ctor()
     ImmutableDictionary<string, bool> ReadOnlyFeatureFlags { get; }
@@ -399,16 +405,16 @@ namespace Ikon.Common.Core
     string SpaceId { get; set; }
   sealed class GetSignatureOrderResponse
     ctor()
-    string EvidenceLevel { get; set; }
-    string FailureCode { get; set; }
-    string IdentityScheme { get; set; }
+    string? EvidenceLevel { get; set; }
+    string? FailureCode { get; set; }
+    string? IdentityScheme { get; set; }
     string OrderId { get; set; }
     string SignatureUrl { get; set; }
-    string SignedAt { get; set; }
-    string SignedDocumentHash { get; set; }
-    string SignedDocumentItemId { get; set; }
-    string SignedDocumentMimeType { get; set; }
-    string SignerNameHash { get; set; }
+    string? SignedAt { get; set; }
+    string? SignedDocumentHash { get; set; }
+    string? SignedDocumentItemId { get; set; }
+    string? SignedDocumentMimeType { get; set; }
+    string? SignerNameHash { get; set; }
     string Status { get; set; }
   class HighPrecisionTimestamp : AsyncLocalInstance<HighPrecisionTimestamp>
     ctor()
@@ -526,13 +532,13 @@ namespace Ikon.Common.Core
     Task<IkonBackend.Organisation> GetOrganisationAsync(string id)
     Task<List<IkonBackend.Organisation>> GetOrganisationsAsync(int maxResults = 1000)
     Task<IkonBackend.Pipeline> GetPipelineAsync(string id)
-    Task<IkonBackend.Pipeline> GetPipelineByTypeNameAsync(string spaceId, string typeName)
+    Task<IkonBackend.Pipeline?> GetPipelineByTypeNameAsync(string spaceId, string typeName)
     Task<List<IkonBackend.Pipeline>> GetPipelinesAsync(string spaceId, int maxResults = 1000)
     Task<IkonBackend.Plugin> GetPluginAsync(string id)
     Task<List<IkonBackend.Plugin>> GetPluginsAsync(string spaceId, int maxResults = 1000)
     Task<IkonBackend.Profile> GetProfileAsync(string spaceId, string userId)
     Task<List<IkonBackend.Profile>> GetProfilesAsync(string spaceId, int maxResults = 1000)
-    Task<IkonBackend.RelayServerConfigResponse> GetRelayServerConfigAsync()
+    Task<IkonBackend.RelayServerConfigResponse?> GetRelayServerConfigAsync()
     Task<List<string>> GetReleaseNoteVersions(string target)
     Task<List<IkonBackend.ReleaseNoteEntry>> GetReleaseNotes(string target, string? minVersion = null, int maxResults = 100)
     Task<Dictionary<string, string>> GetSecretsAsync(string spaceId)
@@ -545,9 +551,9 @@ namespace Ikon.Common.Core
     Task<List<IkonBackend.Space>> GetSpacesAsync(string organisationId, int maxResults = 1000)
     Task<List<IkonBackend.Space>> GetSpacesAsync(string organisationId, string search, int maxResults = 100)
     Task<StepUpAssertionResponse> GetStepUpAssertionAsync(string challengeId, string userId)
-    Task<T> GetStorageAsync<T>(string spaceId, string entity, string entityId, IEnumerable<string> keys)
+    Task<T> GetStorageAsync<T>(string spaceId, string entity, string entityId, IEnumerable<string> keys) where T : new()
     Task<IkonBackend.Translation> GetTranslationAsync(string spaceId, string text, string locale, string description)
-    Task<IkonBackend.TurnServerCredentialsResponse> GetTurnServerCredentialsAsync(int sessionId)
+    Task<IkonBackend.TurnServerCredentialsResponse?> GetTurnServerCredentialsAsync(int sessionId)
     Task<IkonBackend.User> GetUserAsync(string id)
     Task<List<IkonBackend.User>> GetUsersAsync(string query, int limit = 20)
     bool HasCapability(string capability)
@@ -555,7 +561,7 @@ namespace Ikon.Common.Core
     Task<bool> IsSpaceDomainAvailableAsync(string domain)
     Task<IkonBackend.ItemListResponse> ListItemsAsync(IkonBackend.ItemListRequest request)
     bool Login(ValueTuple<string, string>? fromCommandLine = null, ValueTuple<string, string>? fromConfig = null, bool logSource = true, bool mustLogin = true)
-    static IkonBackend.LoginInfo ReadLoginConfig()
+    static IkonBackend.LoginInfo? ReadLoginConfig()
     Task<IkonBackend.CampaignRedeemResult> RedeemCampaignAsync(string code, string organisationId)
     Task<string> RequestAccessTokenAsync(string apiKey, string spaceId, string externalUserId)
     Task<IkonBackend.ChannelInstance> RequestChannelAsync(IkonBackend.RequestChannelRequest request)
@@ -586,21 +592,21 @@ namespace Ikon.Common.Core
     static string ProductionBackendEndpointUrl
   class IkonBackend.IkonLogEntry
     ctor()
-    Dictionary<string, string> Labels { get; set; }
+    Dictionary<string, string>? Labels { get; set; }
     JsonElement Message { get; set; }
-    string SenderId { get; set; }
-    string SenderType { get; set; }
+    string? SenderId { get; set; }
+    string? SenderType { get; set; }
     JsonElement Severity { get; set; }
     JsonElement Timestamp { get; set; }
   class IkonBackend.IkonLogQueryResult
     ctor()
-    string Cursor { get; set; }
+    string? Cursor { get; set; }
     List<IkonBackend.IkonLogEntry> Logs { get; set; }
   sealed class InboundEmailAddressDto
     ctor()
     string Email { get; set; }
-    string Name { get; set; }
-    string Subaddress { get; set; }
+    string? Name { get; set; }
+    string? Subaddress { get; set; }
   sealed class InboundEmailAttachmentDto
     ctor()
     string Filename { get; set; }
@@ -610,18 +616,18 @@ namespace Ikon.Common.Core
   sealed class InboundEmailDetailDto
     ctor()
     List<InboundEmailAttachmentDto> Attachments { get; set; }
-    string BodyHtml { get; set; }
-    string BodyText { get; set; }
+    string? BodyHtml { get; set; }
+    string? BodyText { get; set; }
     List<InboundEmailAddressDto> Cc { get; set; }
     InboundEmailAddressDto From { get; set; }
     List<InboundEmailHeaderDto> Headers { get; set; }
     string Id { get; set; }
     DateTimeOffset ReceivedAt { get; set; }
     string Recipient { get; set; }
-    string ReplyTo { get; set; }
+    string? ReplyTo { get; set; }
     double? SpamScore { get; set; }
     string Subject { get; set; }
-    string Tag { get; set; }
+    string? Tag { get; set; }
     List<InboundEmailAddressDto> To { get; set; }
   sealed class InboundEmailHeaderDto
     ctor()
@@ -630,7 +636,7 @@ namespace Ikon.Common.Core
   sealed class InboundEmailPageDto
     ctor()
     List<InboundEmailSummaryDto> Items { get; set; }
-    string NextCursor { get; set; }
+    string? NextCursor { get; set; }
   sealed class InboundEmailSummaryDto
     ctor()
     List<InboundEmailAttachmentDto> Attachments { get; set; }
@@ -640,7 +646,7 @@ namespace Ikon.Common.Core
     string Recipient { get; set; }
     double? SpamScore { get; set; }
     string Subject { get; set; }
-    string Tag { get; set; }
+    string? Tag { get; set; }
   class IkonBackend.Item
     ctor()
     IkonBackend.ItemAsset Asset { get; set; }
@@ -661,7 +667,7 @@ namespace Ikon.Common.Core
     ctor()
     string Filename { get; set; }
     string Mime { get; set; }
-    string NativeUri { get; set; }
+    string? NativeUri { get; set; }
     string Sha256 { get; set; }
     long Size { get; set; }
     string Url { get; set; }
@@ -670,15 +676,15 @@ namespace Ikon.Common.Core
     string Url { get; set; }
   class IkonBackend.ItemListRequest
     ctor()
-    string ContinuationToken { get; set; }
-    string FolderPrefix { get; set; }
+    string? ContinuationToken { get; set; }
+    string? FolderPrefix { get; set; }
     int? Limit { get; set; }
-    string SpaceId { get; set; }
-    string[] Tags { get; set; }
+    string? SpaceId { get; set; }
+    string[]? Tags { get; set; }
   class IkonBackend.ItemListResponse
     ctor()
     List<IkonBackend.Item> Items { get; set; }
-    string NextPageToken { get; set; }
+    string? NextPageToken { get; set; }
   class IkonBackend.ItemSignedUpload
     ctor()
     string Path { get; set; }
@@ -689,15 +695,18 @@ namespace Ikon.Common.Core
     static T DeepCopy<T>(T obj)
     static string Format(string json, bool useJson5 = false, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false)
     static T From<T>(string json, bool useJson5 = false, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false, bool caseInsensitive = false)
-    static object From(string json, Type type, bool useJson5 = false, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false)
-    static object From(string json, string typeName, bool useJson5 = false, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false)
+    static object? From(string json, Type type, bool useJson5 = false, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false)
+    static object? From(string json, string typeName, bool useJson5 = false, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false)
     static T FromLLMResponse<T>(string text, JsonSerializerOptions? options)
     static T FromLLMResponse<T>(string text, bool useJson5 = false, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false, bool caseInsensitive = false)
-    static Type ResolveTypeByName(string typeName)
+    static Type? ResolveTypeByName(string typeName)
     static string To<T>(T obj, bool useJson5 = false, bool indentation = true, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false)
   static class JwtHelper
+    // Decodes and verifies a JWT token with HS256 signature. Throws if signature is invalid.
     static string Decode(string token, byte[] key)
+    // Decodes a JWT token payload without verifying the signature. Use this only when signature verification is not required (e.g., reading claims on the client side).
     static string DecodePayload(string token)
+    // Creates a JWT token with HS256 signature.
     static string Encode(string payload, byte[] key)
   class IkonBackend.LocalIkonServerTokenResponse
     ctor()
@@ -709,7 +718,7 @@ namespace Ikon.Common.Core
     void AddDefaultLogHandlers()
     void AddLogEvent(LogEvent logEvent)
     void AddScope(IScopeKey scope)
-    IDisposable BeginTimer(string name, LogType logType = Debug, string filePath = "", int lineNumber = 0, string memberName = "")
+    IDisposable? BeginTimer(string name, LogType logType = Debug, string filePath = "", int lineNumber = 0, string memberName = "")
     IDisposable CreateAsyncFlow(string? description = null)
     void Critical(LogCriticalHandler handler)
     void Critical(string message, string filePath = "", int lineNumber = 0, string memberName = "")
@@ -719,12 +728,14 @@ namespace Ikon.Common.Core
     void EnableFileOutput(string filePath, bool append = false)
     void Error(LogErrorHandler handler)
     void Error(string message, string filePath = "", int lineNumber = 0, string memberName = "")
+    // Log an error with an associated exception. Convenience overload for the .NET-conventional logger.Error(message, exception) shape — the exception's full ToString() is appended to the message so stack traces land in the log without needing to interpolate ex into the message.
     void Error(string message, Exception exception, string filePath = "", int lineNumber = 0, string memberName = "")
+    // Log an exception with an associated message — same as Error but with the exception first, matching the Serilog / Microsoft.Extensions.Logging idiom logger.LogError(ex, message).
     void Error(Exception exception, string message, string filePath = "", int lineNumber = 0, string memberName = "")
     void Event(string name, object? parameters = null, string filePath = "", int lineNumber = 0, string memberName = "")
     string Exception(LogExceptionHandler handler)
     string Exception(string message, string filePath = "", int lineNumber = 0, string memberName = "")
-    TScope GetScope<TScope>()
+    TScope GetScope<TScope>() where TScope : struct, IScopeKey
     IScopeKey GetScopeByName(string name)
     void Info(LogInfoHandler handler)
     void Info(string message, string filePath = "", int lineNumber = 0, string memberName = "")
@@ -739,9 +750,9 @@ namespace Ikon.Common.Core
     Task StopAsync()
     void Trace(LogTraceHandler handler)
     void Trace(string message, string filePath = "", int lineNumber = 0, string memberName = "")
-    TScope? TryGetScope<TScope>()
-    bool TryGetScope<TScope>(out TScope scope)
-    IScopeKey TryGetScopeByName(string name)
+    TScope? TryGetScope<TScope>() where TScope : struct, IScopeKey
+    bool TryGetScope<TScope>(out TScope scope) where TScope : struct, IScopeKey
+    IScopeKey? TryGetScopeByName(string name)
     void Usage(string usageName, double usage, string filePath = "", int lineNumber = 0, string memberName = "")
     void Usage(string usageName, Func<Task<double>> usageFunc, string filePath = "", int lineNumber = 0, string memberName = "")
     IDisposable UseScope(IScopeKey scope)
@@ -759,16 +770,16 @@ namespace Ikon.Common.Core
     static bool RequireInitCall
     bool ShowAsyncFlow
     string TraceFilter
-    static event Log.AsyncFlowFinishedHandler AsyncFlowFinished
-    event Log.LogEventHandler LogEvent
+    static event Log.AsyncFlowFinishedHandler? AsyncFlowFinished
+    event Log.LogEventHandler? LogEvent
   class LogEvent
     ctor()
-    Dictionary<string, object> GetParameters(bool includeExtraParameters = true)
-    string GetParametersAsJson(bool includeExtraParameters = true)
+    Dictionary<string, object?> GetParameters(bool includeExtraParameters = true)
+    string? GetParametersAsJson(bool includeExtraParameters = true)
     int AsyncFlowId
     string EventName
-    object EventParameters
-    string EventParametersJsonRedacted
+    object? EventParameters
+    string? EventParametersJsonRedacted
     int LineNumber
     string MemberName
     string Message
@@ -805,13 +816,14 @@ namespace Ikon.Common.Core
     string Type { get; set; }
   class IkonBackend.LoginInfo
     ctor()
-    string DefaultOrganisationId
-    string DefaultOrganisationName
-    string DefaultSpaceId
-    string DefaultSpaceName
-    string IkonBackendEnvironment
-    string IkonBackendToken
-    string IkonBackendUrl
+    string? DefaultOrganisationId
+    string? DefaultOrganisationName
+    string? DefaultSpaceId
+    string? DefaultSpaceName
+    string? IkonBackendEnvironment
+    string? IkonBackendToken
+    string? IkonBackendUrl
+  // Provides optimized utility methods for converting strings between different naming conventions.
   static class NameConversions
     static string ToCamelCase(string input)
     static string ToDisplayName(string input)
@@ -833,7 +845,7 @@ namespace Ikon.Common.Core
     AppSourceType AppSourceType { get; set; }
     string DataDirectory { get; set; }
     bool DebugMode { get; set; }
-    Dictionary<string, object> DynamicConfig { get; set; }
+    Dictionary<string, object>? DynamicConfig { get; set; }
     string IkonBackendToken { get; set; }
     string IkonBackendUrl { get; set; }
     PayloadType PayloadType { get; set; }
@@ -841,18 +853,18 @@ namespace Ikon.Common.Core
   struct LogEvent.Parameter
     ctor(string name, object? value)
     string Name
-    object Value
+    object? Value
   class IkonBackend.Pipeline
     ctor()
-    string BundleAsset { get; set; }
-    object Config { get; set; }
+    string? BundleAsset { get; set; }
+    object? Config { get; set; }
     DateTime CreatedAt { get; set; }
     string DllName { get; set; }
-    string Guid { get; set; }
-    string Hash { get; set; }
+    string? Guid { get; set; }
+    string? Hash { get; set; }
     string Id { get; set; }
-    string Name { get; set; }
-    string OpenApiSpecJson { get; set; }
+    string? Name { get; set; }
+    string? OpenApiSpecJson { get; set; }
     string SpaceId { get; set; }
     string TypeName { get; set; }
     DateTime UpdatedAt { get; set; }
@@ -897,38 +909,38 @@ namespace Ikon.Common.Core
     static Task<ProcessRunner.Result> RunAsync(string command, bool ignoreErrors = false, bool runInBackground = false, bool runInNewWindow = false, bool attachToConsole = false, string? workingDirectory = null, string? stdinInput = null, IDictionary<string, string?>? environmentVariables = null, TimeSpan waitAfterCancel = null, bool captureBinaryOutput = false, CancellationToken cancellationToken = null)
   class IkonBackend.Profile
     ctor()
-    IkonBackend.Address Address { get; set; }
+    IkonBackend.Address? Address { get; set; }
     List<IkonBackend.Asset> Assets { get; set; }
-    Dictionary<string, object> Attributes { get; set; }
-    IkonBackend.Asset Avatar { get; }
-    string BirthDate { get; set; }
-    string Email { get; set; }
-    string FirstName { get; set; }
-    string Gender { get; set; }
+    Dictionary<string, object?> Attributes { get; set; }
+    IkonBackend.Asset? Avatar { get; }
+    string? BirthDate { get; set; }
+    string? Email { get; set; }
+    string? FirstName { get; set; }
+    string? Gender { get; set; }
     string Id { get; set; }
-    string Language { get; set; }
-    string LastName { get; set; }
-    IkonBackend.ProfileModules Modules { get; set; }
+    string? Language { get; set; }
+    string? LastName { get; set; }
+    IkonBackend.ProfileModules? Modules { get; set; }
     string Name { get; set; }
-    string NativeLanguage { get; set; }
-    string PhoneNumber { get; set; }
-    string PreferredName { get; set; }
+    string? NativeLanguage { get; set; }
+    string? PhoneNumber { get; set; }
+    string? PreferredName { get; set; }
     List<string> Roles { get; set; }
-    List<string> SpokenLanguages { get; set; }
+    List<string>? SpokenLanguages { get; set; }
     string UserId { get; set; }
     string VisibleAddress { get; }
     string VisibleName { get; }
-    string GetStringAttribute(string name)
+    string? GetStringAttribute(string name)
   static class ProfileExtensions
-    static string GetValueByPath(IkonBackend.Profile profile, string path)
+    static string? GetValueByPath(IkonBackend.Profile profile, string path)
   class IkonBackend.ProfileModules
     ctor()
-    IkonBackend.ProfileProviderModule Provider { get; set; }
+    IkonBackend.ProfileProviderModule? Provider { get; set; }
   class IkonBackend.ProfileProviderModule
     ctor()
     bool? Accepted { get; set; }
     DateTime? AcceptedAt { get; set; }
-    string Provider { get; set; }
+    string? Provider { get; set; }
   sealed class ProtocolMessageHandlerRegistry
     ctor()
     bool HasHandlers { get; }
@@ -936,39 +948,67 @@ namespace Ikon.Common.Core
     IDisposable Register(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[]? opcodes = null)
   sealed class PublicApiDocIgnoreAttribute : Attribute
     ctor()
+  // A reactive version of the protocol GlobalState. Each property is wrapped in a ReactiveT so that any UI binding to it will update only when the value changes.
   class ReactiveGlobalState
     ctor()
+    // Tells the source where the app is being run from
     Reactive<AppSourceType> AppSourceType { get; }
+    // Active audio streams indexed by stream ID
     Reactive<Dictionary<string, GlobalState.AudioStreamState>> AudioStreams { get; }
+    // Unique identifier for the channel within the space
     Reactive<string> ChannelId { get; }
+    // Display name of the channel
     Reactive<string> ChannelName { get; }
+    // URL for accessing the channel
     Reactive<string> ChannelUrl { get; }
+    // All connected clients indexed by their client session ID, containing client metadata such as user ID, device info, viewport dimensions, and locale
     Reactive<Dictionary<int, Context>> Clients { get; }
+    // Whether debug mode is enabled, providing additional logging and development features
     Reactive<bool> DebugMode { get; }
+    // User ID of the first human user who joined this session, dynamically reassigned when that user leaves
     Reactive<string> FirstUserId { get; }
+    // Registry of callable functions organized by client session ID
     Reactive<Dictionary<int, List<ActionFunctionRegister>>> Functions { get; }
+    // Display name of the organization
     Reactive<string> OrganisationName { get; }
+    // Static user ID of the session owner from server configuration, used for user-specific asset storage paths
     Reactive<string> PrimaryUserId { get; }
+    // Tells whether the app is being run through publicly accessible endpoints (in local development)
     Reactive<bool> PublicAccess { get; }
+    // Tells where the server is running from
     Reactive<ServerRunType> ServerRunType { get; }
+    // Unique identifier of the specific Ikon server instance handling this session
     Reactive<string> ServerSessionId { get; }
+    // Full URL with session identifier for direct access to current session
     Reactive<string> SessionChannelUrl { get; }
+    // Hash derived from the session identity parameters
     Reactive<string> SessionHash { get; }
+    // Unique identifier for the space where this session is running
     Reactive<string> SpaceId { get; }
+    // Display name of the space
     Reactive<string> SpaceName { get; }
+    // Active tracking streams indexed by stream ID
     Reactive<Dictionary<string, GlobalState.TrackingStreamState>> TrackingStreams { get; }
+    // Active UI streams indexed by stream ID
     Reactive<Dictionary<string, GlobalState.UIStreamState>> UIStreams { get; }
+    // Active video streams indexed by stream ID
     Reactive<Dictionary<string, GlobalState.VideoStreamState>> VideoStreams { get; }
+    // Returns the client context against the clientSesssionId
     Context GetClientContext(int clientSessionId)
-    Context GetClientContext(string userId)
+    // Returns the first or null client context against the userId
+    Context? GetClientContext(string userId)
+    // Gets a collection of all human client contexts. This includes all clients whose UserType includes the Human flag.
     IEnumerable<Context> GetHumanClients()
+    // Gets a collection of client contexts grouped by unique AuthSessionId. If a user has multiple clients, only the first one (by the iteration order) is returned.
     IEnumerable<Context> GetUniqueAuthClientContexts()
+    // Gets a collection of client contexts grouped by unique AuthSessionId. If a user has multiple clients, only the first one (by the iteration order) is returned.
     IEnumerable<Context> GetUniqueHumanAuthClientContexts()
+    // Updates the ReactiveGlobalState from a new GlobalState. Only those reactive properties that have actually changed will trigger notifications.
     void UpdateFrom(GlobalState newState)
   class UdpFragmentation.ReassemblyBuffer
     ctor()
     void EvictStale(long maxAgeTicks = 10000000)
-    byte[] TryReassemble(ReadOnlySpan<byte> datagram)
+    byte[]? TryReassemble(ReadOnlySpan<byte> datagram)
   class IkonBackend.RelayServerConfigResponse
     ctor()
     string AuthToken { get; set; }
@@ -984,17 +1024,17 @@ namespace Ikon.Common.Core
     List<string> Results { get; set; }
   class IkonBackend.RequestChannelRequest
     ctor()
-    string Hash { get; set; }
-    string Key { get; set; }
-    Dictionary<string, string> Params { get; set; }
+    string? Hash { get; set; }
+    string? Key { get; set; }
+    Dictionary<string, string>? Params { get; set; }
     string Space { get; set; }
   sealed class ProcessRunner.Result
     ctor()
     int ExitCode { get; set; }
-    Process Process { get; set; }
+    Process? Process { get; set; }
     string StdErr { get; set; }
     string StdOut { get; set; }
-    byte[] StdOutBytes { get; set; }
+    byte[]? StdOutBytes { get; set; }
     bool Success { get; set; }
   class IkonBackend.Secret
     ctor()
@@ -1007,9 +1047,12 @@ namespace Ikon.Common.Core
     string SpaceId { get; set; }
     DateTime UpdatedAt { get; set; }
     string Value { get; set; }
+  // Read-only view of the space-scoped secrets (tokens, API keys, passwords) loaded from the Ikon backend. Apps receive a Secrets via app.Secrets; pipelines receive one via host.Secrets on IPipelineHost<TConfig>. Manage values from the CLI with ikon app secret set/list/delete. Rotating a secret while an app or pipeline is running only takes effect after a restart.
   sealed class Secrets
     string Item { get; }
+    // Keys of all secrets available for this space. Values are intentionally not exposed in bulk.
     IReadOnlyCollection<string> Keys { get; }
+    // Non-throwing lookup. Returns true and sets value when the key exists; returns false and sets value to null otherwise.
     bool TryGet(string key, out string? value)
   sealed class SendEmailAttachmentDto
     ctor()
@@ -1018,12 +1061,12 @@ namespace Ikon.Common.Core
     string MimeType { get; set; }
   sealed class SendEmailDto
     ctor()
-    List<SendEmailAttachmentDto> Attachments { get; set; }
+    List<SendEmailAttachmentDto>? Attachments { get; set; }
     string Html { get; set; }
-    Dictionary<string, string> Metadata { get; set; }
-    string ReplyTo { get; set; }
+    Dictionary<string, string>? Metadata { get; set; }
+    string? ReplyTo { get; set; }
     string Subject { get; set; }
-    string Text { get; set; }
+    string? Text { get; set; }
     string To { get; set; }
   sealed class SendEmailResponseDto
     ctor()
@@ -1074,7 +1117,7 @@ namespace Ikon.Common.Core
   class IkonBackend.SpaceCostScopeFilter
     ctor()
     string Type { get; set; }
-    string Value { get; set; }
+    string? Value { get; set; }
   class IkonBackend.SpaceDomainAvailability
     ctor()
     bool Available { get; set; }
@@ -1084,12 +1127,12 @@ namespace Ikon.Common.Core
     string EventName { get; set; }
     string Message { get; set; }
     JsonElement? Parameters { get; set; }
-    string SessionId { get; set; }
+    string? SessionId { get; set; }
     string Time { get; set; }
   class IkonBackend.SpaceGitRepository
     ctor()
     string GitPassword { get; set; }
-    string GitRepositoryPath { get; set; }
+    string? GitRepositoryPath { get; set; }
     string GitRepositoryUrl { get; set; }
     string GitUsername { get; set; }
   class IkonBackend.SpaceLanguages
@@ -1104,18 +1147,18 @@ namespace Ikon.Common.Core
     static Task<bool> WriteAllTextAsync(string path, string content, CancellationToken cancellationToken = null)
   sealed class StepUpAssertionResponse
     ctor()
-    string Assertion { get; set; }
-    string FailureCode { get; set; }
+    string? Assertion { get; set; }
+    string? FailureCode { get; set; }
     string Status { get; set; }
   sealed class StepUpStartRequest
     ctor()
-    List<string> AcrValues { get; set; }
-    string AppCallbackUrl { get; set; }
-    string ClientReturnUrl { get; set; }
+    List<string>? AcrValues { get; set; }
+    string? AppCallbackUrl { get; set; }
+    string? ClientReturnUrl { get; set; }
     int? MaxAgeSeconds { get; set; }
     string Purpose { get; set; }
-    string SpaceId { get; set; }
-    string UserId { get; set; }
+    string? SpaceId { get; set; }
+    string? UserId { get; set; }
   sealed class StepUpStartResponse
     ctor()
     string ChallengeId { get; set; }
@@ -1125,13 +1168,15 @@ namespace Ikon.Common.Core
     string Entity { get; set; }
     string EntityId { get; set; }
     T Values { get; set; }
+  // String-distance utilities. Single home for primitives that otherwise breed private copies in every caller (Levenshtein had three implementations across Ikon.Code, Ikon.Agent.Codegen, and the MiniAgent app before being consolidated here).
   static class StringDistance
+    // Standard-shape Levenshtein edit distance. Returns the minimum number of single-character insertions, deletions, or substitutions to turn a into b . Empty / null inputs return the length of the other side. O(|a|·|b|) time and memory; fine for the sub-100-char identifiers and filenames the platform compares.
     static int Levenshtein(string? a, string? b)
   static class Throttler
     static bool TryExecute(Action action, TimeSpan throttleInterval = null, string? extraKey = null)
   static class Toml
-    static T From<T>(string toml)
-    static string To<T>(T obj)
+    static T From<T>(string toml) where T : class, new()
+    static string To<T>(T obj) where T : class
   class IkonBackend.Translation
     ctor()
     string Text { get; set; }
@@ -1141,6 +1186,7 @@ namespace Ikon.Common.Core
     string Credential { get; set; }
     string Url { get; set; }
     string Username { get; set; }
+  // Application-layer fragmentation and reassembly for UDP datagrams. Fragment header (4 bytes prepended to each datagram): MessageId (uint16) — rolling counter correlating fragments of one message FragmentIndex (byte) — 0-based index within the message FragmentFlags (byte) — bit 0 = last fragment (E), bit 1 = single/unfragmented (B+E) Single-datagram messages carry flags = 0x03 (B+E). Multi-fragment messages: first has flags = 0x02 (B), middle = 0x00, last = 0x01 (E).
   static class UdpFragmentation
     static void ForEachFragment<TState>(ReadOnlySpan<byte> messageData, int maxDatagramSize, TState state, Action<TState, byte[]> onFragment)
     static List<byte[]> Fragment(ReadOnlySpan<byte> messageData, int maxDatagramSize)
@@ -1152,7 +1198,7 @@ namespace Ikon.Common.Core
     static int MaxReassemblyBuffers
   class IkonBackend.User
     ctor()
-    string Email { get; set; }
+    string? Email { get; set; }
     string Id { get; set; }
     string Name { get; set; }
   static class Utils
@@ -1166,38 +1212,39 @@ namespace Ikon.Common.Core
 namespace Ikon.Common.Core.Assets
   sealed class Asset : AsyncLocalInstance<Asset>, IAsyncDisposable
     ctor()
-    IkonBackend Backend { get; set; }
+    IkonBackend? Backend { get; set; }
     Task AddStorageAsync(AssetClass assetClass, IStorage storage, bool startInBackground = false)
     Task DeleteAsync(AssetUri assetUri)
     ValueTask DisposeAsync()
     Task<bool> ExistsAsync(AssetUri assetUri)
-    Task<T> GetAsync<T>(AssetUri assetUri)
+    Task<T> GetAsync<T>(AssetUri assetUri) where T : class
     Task<byte[]> GetBytesAsync(AssetUri assetUri)
     Task<AssetContent<byte[]>> GetBytesWithMetadataAsync(AssetUri assetUri)
     Task<AssetMetadata> GetMetadataAsync(AssetUri assetUri)
-    Task<IAsyncDisposable> GetOrUpdateWithMetadataAsync<T>(AssetUri assetUri, Func<AssetEventArgs, AssetContent<T>?, Task> onAsset, Func<AssetEventArgs, Task>? onAssetNotFound = null)
-    Task<IAsyncDisposable> GetOrUpdateWithMetadataAsync<T>(AssetUri assetUri, Action<AssetEventArgs, AssetContent<T>?> onAsset, Func<AssetEventArgs, Task>? onAssetNotFound = null)
+    Task<IAsyncDisposable> GetOrUpdateWithMetadataAsync<T>(AssetUri assetUri, Func<AssetEventArgs, AssetContent<T>?, Task> onAsset, Func<AssetEventArgs, Task>? onAssetNotFound = null) where T : class
+    Task<IAsyncDisposable> GetOrUpdateWithMetadataAsync<T>(AssetUri assetUri, Action<AssetEventArgs, AssetContent<T>?> onAsset, Func<AssetEventArgs, Task>? onAssetNotFound = null) where T : class
     Task<AssetContent<Stream>> GetReadStreamAsync(AssetUri assetUri)
     Task<string> GetTextAsync(AssetUri assetUri, Encoding? encoding = null)
     Task<AssetContent<string>> GetTextWithMetadataAsync(AssetUri assetUri, Encoding? encoding = null)
-    Task<AssetContent<T>> GetWithMetadataAsync<T>(AssetUri assetUri)
+    Task<AssetContent<T>> GetWithMetadataAsync<T>(AssetUri assetUri) where T : class
     Task<Stream> GetWriteStreamAsync(AssetUri assetUri, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
     Task<IReadOnlyList<AssetListingEntry>> ListAsync(AssetQuery query, CancellationToken cancellationToken = null)
     Task<IReadOnlyList<AssetUri>> ListAsync(AssetClass assetClass, string? prefix = null, CancellationToken cancellationToken = null)
     Task<IReadOnlyList<AssetUri>> ListAsync(AssetUri folderUri, CancellationToken cancellationToken = null)
     Task NotifyUpdateAsync(AssetUri assetUri)
-    Task SetAsync<T>(AssetUri assetUri, T asset, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
+    Task SetAsync<T>(AssetUri assetUri, T asset, AssetMetadata? metadata = null, CancellationToken cancellationToken = null) where T : class
     Task SetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
     Task SetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
-    Task<T> TryGetAsync<T>(AssetUri assetUri)
-    Task<byte[]> TryGetBytesAsync(AssetUri assetUri)
-    Task<AssetContent<byte[]>> TryGetBytesWithMetadataAsync(AssetUri assetUri)
+    Task<T> TryGetAsync<T>(AssetUri assetUri) where T : class
+    Task<byte[]?> TryGetBytesAsync(AssetUri assetUri)
+    Task<AssetContent<byte[]>?> TryGetBytesWithMetadataAsync(AssetUri assetUri)
     Task<AssetMetadata?> TryGetMetadataAsync(AssetUri assetUri)
-    Task<string> TryGetTextAsync(AssetUri assetUri, Encoding? encoding = null)
-    Task<AssetContent<string>> TryGetTextWithMetadataAsync(AssetUri assetUri, Encoding? encoding = null)
-    Task<AssetContent<T>> TryGetWithMetadataAsync<T>(AssetUri assetUri)
+    Task<string?> TryGetTextAsync(AssetUri assetUri, Encoding? encoding = null)
+    Task<AssetContent<string>?> TryGetTextWithMetadataAsync(AssetUri assetUri, Encoding? encoding = null)
+    Task<AssetContent<T>?> TryGetWithMetadataAsync<T>(AssetUri assetUri) where T : class
     Task<AssetWriteResult> TrySetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
     Task<AssetWriteResult> TrySetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
+  // Asset class determines which storage backend is used to store/retrieve the asset.
   enum AssetClass
     LocalFile
     EmbeddedFile
@@ -1221,33 +1268,33 @@ namespace Ikon.Common.Core.Assets
   struct AssetMetadata
     ctor(string? mimeType = null, long? size = null, DateTime? lastModified = null, string? url = null, bool? urlIsTemporal = null, string[]? tags = null, string? internalPath = null, string? storageId = null, string? nativeUri = null, bool? isAppServed = null, DateTime? expiresAt = null)
     DateTime? ExpiresAt { get; }
-    string InternalPath { get; }
+    string? InternalPath { get; }
     bool? IsAppServed { get; }
     DateTime? LastModified { get; }
-    string MimeType { get; }
-    string NativeUri { get; }
+    string? MimeType { get; }
+    string? NativeUri { get; }
     long? Size { get; }
-    string StorageId { get; }
-    string[] Tags { get; }
-    string Url { get; }
+    string? StorageId { get; }
+    string[]? Tags { get; }
+    string? Url { get; }
     bool? UrlIsTemporal { get; }
   sealed class AssetQuery
     ctor(AssetClass assetClass)
     ctor(AssetUri folderUri)
-    string ChannelId { get; set; }
+    string? ChannelId { get; set; }
     AssetClass Class { get; }
-    string ContinuationToken { get; set; }
-    string EffectiveChannelId { get; }
-    string EffectiveFolderPrefix { get; }
-    string EffectiveSpaceId { get; }
-    string EffectiveUserId { get; }
-    string FolderPrefix { get; set; }
+    string? ContinuationToken { get; set; }
+    string? EffectiveChannelId { get; }
+    string? EffectiveFolderPrefix { get; }
+    string? EffectiveSpaceId { get; }
+    string? EffectiveUserId { get; }
+    string? FolderPrefix { get; set; }
     AssetUri? FolderUri { get; set; }
     int? Limit { get; set; }
-    string NextContinuationToken { get; set; }
-    string SpaceId { get; set; }
-    string[] Tags { get; set; }
-    string UserId { get; set; }
+    string? NextContinuationToken { get; set; }
+    string? SpaceId { get; set; }
+    string[]? Tags { get; set; }
+    string? UserId { get; set; }
     AssetQuery Clone()
   enum AssetStatus
     None
@@ -1255,17 +1302,18 @@ namespace Ikon.Common.Core.Assets
     Exists
     Changed
     Deleted
+  // AssetUris are used to store and retrieve data on the Ikon platform. Use the asset class to select the storage backend. Space ID, User ID, and Channel ID are optional identifiers to scope the asset. Path is the location of the asset within the storage backend. It may include subdirectories and/or a file name. Query is optional and is not used for now. Example asset URIs: assets://space/12345/user/67890/channel/12345/cloud-file/images/photos/pic1.jpg assets://cloud-json/config/settings.json assets://space/12345/local-file/documents/report.pdf assets://embedded-file/logo.png
   struct AssetUri : IEquatable<AssetUri>
     ctor(string uriString)
     ctor(AssetClass assetClass, string? path = null, string? spaceId = null, string? userId = null, string? channelId = null, string? query = null)
-    string ChannelId { get; }
+    string? ChannelId { get; }
     AssetClass Class { get; }
     string FileName { get; }
     string Path { get; }
-    string Query { get; }
+    string? Query { get; }
     static string Scheme { get; }
-    string SpaceId { get; }
-    string UserId { get; }
+    string? SpaceId { get; }
+    string? UserId { get; }
     static AssetUri FromFilesystemPath(string relativePathToRoot, AssetClass defaultAssetClass = LocalFile)
     static bool IsValid(string uriString)
     static string ToFilesystemPath(AssetUri assetUri)
@@ -1301,44 +1349,44 @@ namespace Ikon.Common.Core.Assets
 namespace Ikon.Common.Core.Auth
   sealed class StepUpAssertion : IEquatable<StepUpAssertion>
     ctor(string Issuer, string Audience, string Subject, long IssuedAt, long ExpiresAt, string Jti, string UserId, string ChallengeId, string Purpose, string? SpaceId, string IdentityScheme, string? AssuranceLevel, string EidSubjectHash, string? IdentifierHash, string? VerifiedName, string? Birthdate, long VerifiedAt, string IdTokenHash, IReadOnlyDictionary<string, object?> RawClaims)
-    string AssuranceLevel { get; init; }
+    string? AssuranceLevel { get; init; }
     string Audience { get; init; }
-    string Birthdate { get; init; }
+    string? Birthdate { get; init; }
     string ChallengeId { get; init; }
     string EidSubjectHash { get; init; }
     long ExpiresAt { get; init; }
     string IdTokenHash { get; init; }
-    string IdentifierHash { get; init; }
+    string? IdentifierHash { get; init; }
     string IdentityScheme { get; init; }
     long IssuedAt { get; init; }
     string Issuer { get; init; }
     string Jti { get; init; }
     string Purpose { get; init; }
-    IReadOnlyDictionary<string, object> RawClaims { get; init; }
-    string SpaceId { get; init; }
+    IReadOnlyDictionary<string, object?> RawClaims { get; init; }
+    string? SpaceId { get; init; }
     string Subject { get; init; }
     string UserId { get; init; }
     long VerifiedAt { get; init; }
-    string VerifiedName { get; init; }
+    string? VerifiedName { get; init; }
 
 namespace Ikon.Common.Core.CommandLineParser
   static class CommandLineParser
-    static Task<ParseResult<TGlobalOptions>> ParseAsync<TGlobalOptions>(string[] args, bool globalOptionsOnly = false)
+    static Task<ParseResult<TGlobalOptions>> ParseAsync<TGlobalOptions>(string[] args, bool globalOptionsOnly = false) where TGlobalOptions : new()
   sealed class OptionAttribute : Attribute
     ctor(string name, string description, bool required = false, string[]? synonyms = null)
     string Description { get; }
     string Name { get; }
     bool Required { get; set; }
-    string[] Synonyms { get; }
+    string[]? Synonyms { get; }
   sealed class ParseResult<TGlobalOptions>
     ctor(bool success, string? errorMessage, bool helpRequested, string? helpText, TGlobalOptions globalOptions, VerbInfo? verbInfo, bool unknownVerb = false)
-    string ErrorMessage { get; }
+    string? ErrorMessage { get; }
     TGlobalOptions GlobalOptions { get; }
     bool HelpRequested { get; }
-    string HelpText { get; }
+    string? HelpText { get; }
     bool Success { get; }
     bool UnknownVerb { get; }
-    VerbInfo VerbInfo { get; }
+    VerbInfo? VerbInfo { get; }
   sealed class PositionalOptionAttribute : Attribute
     ctor(int index, string name, string description, bool required = false)
     string Description { get; }
@@ -1350,17 +1398,19 @@ namespace Ikon.Common.Core.CommandLineParser
     string Description { get; }
   sealed class VerbAttribute : Attribute
     ctor(string verb, string description, string? category = null, bool loginNeeded = false, bool spaceTokenNeeded = false, bool developerOnly = false, string[]? synonyms = null)
-    string Category { get; }
+    string? Category { get; }
     string Description { get; }
     bool DeveloperOnly { get; }
     bool LoginNeeded { get; }
     bool SpaceTokenNeeded { get; }
-    string[] Synonyms { get; }
+    string[]? Synonyms { get; }
     string Verb { get; }
+  // Container for the verb cache, including a hash for validation.
   sealed class VerbCache
     ctor()
     string Hash { get; set; }
     List<VerbCacheEntry> Verbs { get; set; }
+  // Represents a single cached verb entry for serialization.
   sealed class VerbCacheEntry
     ctor()
     string AssemblyName { get; set; }
@@ -1371,73 +1421,101 @@ namespace Ikon.Common.Core.CommandLineParser
     string OptionsTypeAssemblyName { get; set; }
     string OptionsTypeFullName { get; set; }
     bool SpaceTokenNeeded { get; set; }
-    string[] Synonyms { get; set; }
+    string[]? Synonyms { get; set; }
     string TypeFullName { get; set; }
     string Verb { get; set; }
   sealed class VerbInfo
     ctor(string verb, bool loginNeeded, bool spaceTokenNeeded, object? options, Func<object?, CancellationToken, ValueTask> callback)
-    Func<object, CancellationToken, ValueTask> Callback { get; }
+    Func<object?, CancellationToken, ValueTask> Callback { get; }
     bool LoginNeeded { get; }
-    object Options { get; }
+    object? Options { get; }
     bool SpaceTokenNeeded { get; }
     string Verb { get; }
   static class VerbResolver
+    // Loads verb cache from a JSON file and populates the internal verb dictionary.
     static bool LoadVerbCache(string path)
+    // Writes the current verb cache to a JSON file.
     static void WriteVerbCache(string path, string hash)
 
 namespace Ikon.Common.Core.Email
+  // Sender or recipient entry parsed from an inbound email envelope.
   sealed class EmailAddress : IEquatable<EmailAddress>
+    // Sender or recipient entry parsed from an inbound email envelope.
     ctor(string Email, string? Name, string? Subaddress)
     string Email { get; init; }
-    string Name { get; init; }
-    string Subaddress { get; init; }
+    string? Name { get; init; }
+    string? Subaddress { get; init; }
+  // Represents a single attachment on an outgoing app email. Bytes is the raw binary content; the platform encodes it as base64 before sending it on the wire.
   sealed class EmailAttachment : IEquatable<EmailAttachment>
+    // Represents a single attachment on an outgoing app email. Bytes is the raw binary content; the platform encodes it as base64 before sending it on the wire.
     ctor(string Filename, string MimeType, byte[] Bytes)
     byte[] Bytes { get; init; }
     string Filename { get; init; }
     string MimeType { get; init; }
+  // A streaming attachment download. The caller owns the Content stream; dispose this object (e.g. await using) to release it.
   sealed class EmailAttachmentDownload : IAsyncDisposable
+    // Decrypted attachment bytes streamed from the platform.
     Stream Content { get; }
+    // The sender-supplied filename, sanitized by the platform.
     string Filename { get; }
+    // The attachment's MIME type, as recorded at ingest time.
     string MimeType { get; }
+    // The decrypted (plaintext) attachment size in bytes.
     long Size { get; }
     ValueTask DisposeAsync()
+  // A single SMTP header preserved on an inbound email.
   sealed class EmailHeader : IEquatable<EmailHeader>
+    // A single SMTP header preserved on an inbound email.
     ctor(string Name, string Value)
     string Name { get; init; }
     string Value { get; init; }
+  // Specification for a custom email sent by an app through the platform mailer. The platform enqueues the send for asynchronous delivery and returns once the request has been accepted; transient delivery failures are retried server-side.
   sealed class EmailSendRequest : IEquatable<EmailSendRequest>
+    // Specification for a custom email sent by an app through the platform mailer. The platform enqueues the send for asynchronous delivery and returns once the request has been accepted; transient delivery failures are retried server-side.
     ctor(string To, string Subject, string HtmlBody, string? TextBody = null, string? ReplyTo = null, IReadOnlyList<EmailAttachment>? Attachments = null, IReadOnlyDictionary<string, string>? Metadata = null)
-    IReadOnlyList<EmailAttachment> Attachments { get; init; }
+    // Optional list of binary attachments. Up to 10 per email.
+    IReadOnlyList<EmailAttachment>? Attachments { get; init; }
+    // Pre-rendered HTML body of the email.
     string HtmlBody { get; init; }
-    IReadOnlyDictionary<string, string> Metadata { get; init; }
-    string ReplyTo { get; init; }
+    // Optional string key/value pairs forwarded to the mail provider for tracking.
+    IReadOnlyDictionary<string, string>? Metadata { get; init; }
+    // Optional Reply-To address. The visible From address is set by the platform.
+    string? ReplyTo { get; init; }
+    // Email subject line.
     string Subject { get; init; }
-    string TextBody { get; init; }
+    // Optional plain-text fallback for clients that do not render HTML.
+    string? TextBody { get; init; }
+    // Recipient email address.
     string To { get; init; }
+  // Lightweight metadata for an inbound email's attachment — does not include the body bytes. Fetch the body via the email service's DownloadAttachmentAsync.
   sealed class InboundAttachmentInfo : IEquatable<InboundAttachmentInfo>
+    // Lightweight metadata for an inbound email's attachment — does not include the body bytes. Fetch the body via the email service's DownloadAttachmentAsync.
     ctor(string Id, string Filename, string MimeType, long Size)
     string Filename { get; init; }
     string Id { get; init; }
     string MimeType { get; init; }
     long Size { get; init; }
+  // Full inbound email with decrypted body and parsed envelope. Attachments expose metadata only; fetch each one via the email service's DownloadAttachmentAsync.
   sealed class InboundEmailDetail : IEquatable<InboundEmailDetail>
+    // Full inbound email with decrypted body and parsed envelope. Attachments expose metadata only; fetch each one via the email service's DownloadAttachmentAsync.
     ctor(string Id, string Recipient, string From, string Subject, string? BodyText, string? BodyHtml, IReadOnlyList<EmailAddress> To, IReadOnlyList<EmailAddress> Cc, string? ReplyTo, IReadOnlyList<EmailHeader> Headers, IReadOnlyList<InboundAttachmentInfo> Attachments, DateTimeOffset ReceivedAt, double? SpamScore, string? Tag)
     IReadOnlyList<InboundAttachmentInfo> Attachments { get; init; }
-    string BodyHtml { get; init; }
-    string BodyText { get; init; }
+    string? BodyHtml { get; init; }
+    string? BodyText { get; init; }
     IReadOnlyList<EmailAddress> Cc { get; init; }
     string From { get; init; }
     IReadOnlyList<EmailHeader> Headers { get; init; }
     string Id { get; init; }
     DateTimeOffset ReceivedAt { get; init; }
     string Recipient { get; init; }
-    string ReplyTo { get; init; }
+    string? ReplyTo { get; init; }
     double? SpamScore { get; init; }
     string Subject { get; init; }
-    string Tag { get; init; }
+    string? Tag { get; init; }
     IReadOnlyList<EmailAddress> To { get; init; }
+  // Inbox-listing entry. Subject is decrypted server-side; body and attachment bytes are not included here — call EmailService.GetMessageAsync for the full message.
   sealed class InboundEmailSummary : IEquatable<InboundEmailSummary>
+    // Inbox-listing entry. Subject is decrypted server-side; body and attachment bytes are not included here — call EmailService.GetMessageAsync for the full message.
     ctor(string Id, string Recipient, string From, string Subject, DateTimeOffset ReceivedAt, int AttachmentCount, double? SpamScore, string? Tag)
     int AttachmentCount { get; init; }
     string From { get; init; }
@@ -1446,52 +1524,89 @@ namespace Ikon.Common.Core.Email
     string Recipient { get; init; }
     double? SpamScore { get; init; }
     string Subject { get; init; }
-    string Tag { get; init; }
+    string? Tag { get; init; }
+  // One page of inbox results. NextCursor is null when there are no more pages.
   sealed class InboxPage : IEquatable<InboxPage>
+    // One page of inbox results. NextCursor is null when there are no more pages.
     ctor(IReadOnlyList<InboundEmailSummary> Items, string? NextCursor)
     IReadOnlyList<InboundEmailSummary> Items { get; init; }
-    string NextCursor { get; init; }
+    string? NextCursor { get; init; }
+  // Filter and pagination parameters for an inbox listing.
   sealed class InboxQuery : IEquatable<InboxQuery>
     ctor()
-    string Cursor { get; init; }
-    string From { get; init; }
+    // Opaque cursor returned by a previous NextCursor . null requests the first page.
+    string? Cursor { get; init; }
+    // Filter to messages sent from this address. Case-insensitive.
+    string? From { get; init; }
+    // Maximum number of messages to return for this page. The platform clamps to [1, 100]; values outside that range are silently adjusted. Defaults to 25.
     int Limit { get; init; }
-    string Recipient { get; init; }
+    // Filter to messages delivered to this recipient address. Case-insensitive.
+    string? Recipient { get; init; }
+    // Inclusive lower bound on the SMTP receive timestamp.
     DateTimeOffset? Since { get; init; }
+    // Inclusive upper bound on the SMTP receive timestamp.
     DateTimeOffset? Until { get; init; }
 
 namespace Ikon.Common.Core.Functions
+  // The type of callback a registered function uses.
   enum CallbackType
     Sync
     Async
     AsyncEnumerable
+  // Immutable representation of a function with metadata and optional callbacks. Consolidates FunctionInfo, RegisteredFunction, and KernelContext.Function into a single type.
   struct Function
+    // JSON deserialization constructor. Resolves ReturnType from ReturnTypeName string. Creates a function without callbacks (for remote/metadata-only use).
     ctor(Guid id, string name, FunctionParameter[] parameters, string returnTypeName, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, bool requiresInstance = false, string? version = null, bool webhook = false)
+    // Primary constructor for creating functions with callbacks.
     ctor(Guid id, string name, FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, Func<object?[], object?>? callback, Func<object?[], Task<object?>>? callbackAsync, Func<object?[], IAsyncEnumerable<object?>>? callbackAsyncEnumerable, MethodInfo? methodInfo = null, bool requiresInstance = false, PolicyDelegate? policy = null, string? version = null, bool webhook = false)
+    // The type of callback (Sync, Async, or AsyncEnumerable).
     CallbackType CallbackType { get; }
+    // The clientSessionId of the client who registered this function. Null means this is a local function (registered in this process).
     int? ClientSessionId { get; }
+    // Description of what the function does. Passed to LLM for tool description.
     string Description { get; }
+    // True if this function has a callback that can be invoked locally.
     bool HasCallback { get; }
+    // True if this function has a policy attached.
     bool HasPolicy { get; }
+    // Unique identifier for this function.
     Guid Id { get; }
+    // True if this function is local (registered in this process).
     bool IsLocal { get; }
+    // True if this function is remote (registered by another client).
     bool IsRemote { get; }
+    // If true, the LLM can only call this function once per generation pass.
     bool LlmCallOnlyOnce { get; }
+    // If true, the LLM can inline the function result directly without tool call overhead.
     bool LlmInlineResult { get; }
-    MethodInfo MethodInfo { get; }
+    // The MethodInfo for the underlying method. Exposed so external introspection (e.g. the startup auth-marker audit in Ikon.App) can read method-level attributes. Null for delegate-based registrations, constructors, or remote functions.
+    MethodInfo? MethodInfo { get; }
+    // The name of the function (used for lookup and LLM tool name).
     string Name { get; }
+    // The parameters of the function.
     FunctionParameter[] Parameters { get; }
-    PolicyDelegate Policy { get; }
+    // Optional policy delegate for evaluating whether this function can be called. If null, the function is allowed to execute without policy checks.
+    PolicyDelegate? Policy { get; }
+    // True if this function requires an instance to be invoked. When true and no callback is set, the function is metadata-only and can only be invoked with a provided InstanceId.
     bool RequiresInstance { get; }
+    // The return type of the function. Stored directly for performance. For async functions, this is the inner type (e.g., string for Task<string>). For async enumerable functions, this is the item type.
     Type ReturnType { get; }
+    // The full name of the return type. Computed from ReturnType for JSON serialization.
     string ReturnTypeName { get; }
+    // The version of the library that registered this function. Empty string means unversioned (legacy or latest).
     string Version { get; }
+    // Whether the function should be distributed to other clients.
     FunctionVisibility Visibility { get; }
+    // True if this function is exposed as a webhook HTTP endpoint. Set via Webhook .
     bool Webhook { get; }
-    object Call(object?[] args)
-    Task<object> CallAsync(object?[] args)
-    IAsyncEnumerable<object> CallAsyncEnumerable(object?[] args)
-    IEnumerable<object> CallEnumerable(object?[] args)
+    // Calls the function synchronously. Only valid for local sync functions.
+    object? Call(object?[] args)
+    // Calls the function asynchronously. Only valid for local async functions.
+    Task<object?> CallAsync(object?[] args)
+    // Calls the function as an async enumerable call. Only valid for local async enumerable functions.
+    IAsyncEnumerable<object?> CallAsyncEnumerable(object?[] args)
+    // Calls the function synchronously and returns an enumerable result. Only valid for local sync functions whose result implements IEnumerable.
+    IEnumerable<object?> CallEnumerable(object?[] args)
     static Function Create<TResult>(string name, string description, Func<TResult> function, PolicyDelegate? policy = null)
     static Function Create<T1, TResult>(string name, string description, Func<T1, TResult> function, PolicyDelegate? policy = null)
     static Function Create<T1, T2, TResult>(string name, string description, Func<T1, T2, TResult> function, PolicyDelegate? policy = null)
@@ -1513,6 +1628,7 @@ namespace Ikon.Common.Core.Functions
     static Function Create<TResult>(string name, string description, Func<IAsyncEnumerable<TResult>> function, PolicyDelegate? policy = null)
     static Function Create<T1, TResult>(string name, string description, Func<T1, IAsyncEnumerable<TResult>> function, PolicyDelegate? policy = null)
     static Function Create<T1, T2, TResult>(string name, string description, Func<T1, T2, IAsyncEnumerable<TResult>> function, PolicyDelegate? policy = null)
+    // Creates a Function definition from a delegate.
     static Function Register(Delegate function, string? name = null, FunctionAttribute? attribute = null, MethodInfo? methodInfo = null, PolicyDelegate? policy = null, Dictionary<string, string>? paramDescriptions = null)
     static Function Register<TResult>(Func<TResult> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
     static Function Register<T1, TResult>(Func<T1, TResult> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
@@ -1532,102 +1648,166 @@ namespace Ikon.Common.Core.Functions
     static Function Register<T1, TResult>(Func<T1, IAsyncEnumerable<TResult>> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
     static Function Register<T1, T2, TResult>(Func<T1, T2, IAsyncEnumerable<TResult>> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
     override string ToString()
+    // Creates a new Function with modified properties. Null parameters keep existing values. Use clearClientSessionId=true to explicitly set ClientSessionId to null. Use clearPolicy=true to explicitly set Policy to null.
     Function With(Guid? id = null, string? name = null, FunctionParameter[]? parameters = null, Type? returnType = null, string? description = null, FunctionVisibility? visibility = null, bool? llmInlineResult = null, bool? llmCallOnlyOnce = null, CallbackType? callbackType = null, int? clientSessionId = null, Func<object?[], object?>? callback = null, Func<object?[], Task<object?>>? callbackAsync = null, Func<object?[], IAsyncEnumerable<object?>>? callbackAsyncEnumerable = null, MethodInfo? methodInfo = null, bool? requiresInstance = null, PolicyDelegate? policy = null, bool clearClientSessionId = false, bool clearMethodInfo = false, bool clearPolicy = false, string? version = null, bool? webhook = null)
+    // Returns a new Function with the specified parameter's AllowedValues set. Pass null to clear an existing override and fall back to the type-based enum (or no enum at all). Use together with WithParamDescription to ship dynamic enum + dynamic doc per pass: rebuild the Function at the start of each pass, plumb the current allowed transitions through the parameter description and the allowed-values list, and re-add to EmergePass.Tools.
     Function WithAllowedValues(string paramName, IReadOnlyList<string>? allowedValues)
+    // Returns a new Function with the specified parameter's description updated.
     Function WithParamDescription(string paramName, string description)
+  // Marks a method as a registerable function for the FunctionRegistry. Used for auto-registration via RegisterFromInstance/RegisterFromType/RegisterFromAssembly.
   class FunctionAttribute : Attribute
     ctor()
     ctor(string description, bool llmInlineResult = false, bool llmCallOnlyOnce = false)
+    // Description of what the function does. Passed to LLM for tool description.
     string Description { get; set; }
+    // If true, the LLM can only call this function once per generation pass.
     bool LlmCallOnlyOnce { get; set; }
+    // If true, the LLM can inline the function result directly without tool call overhead.
     bool LlmInlineResult { get; set; }
-    string Name { get; set; }
+    // Override the function name. If null, the full type name plus method name is used.
+    string? Name { get; set; }
+    // Override the inherited TypeId property with JsonIgnore for serialization.
     object TypeId { get; }
+    // Whether the function should be distributed to other clients. If not set, defaults to Local for standalone functions, or inherits from [RegisterAll] for methods in a class with that attribute.
     FunctionVisibility Visibility { get; set; }
+    // Exposes this function as a webhook HTTP endpoint. The function must have exactly three parameters with these types and order: Dictionary<string, string> — request query parametersDictionary<string, string> — request headersstring — request body The return type must be string, Task<string>, void, or Task. String returns become the HTTP response body; void/Task returns produce an empty response body. The URL path segment is the function's registered Name (or its full type+method name if Name is not set). The webhook is callable at /w/{name} (cloud) or /webhook/{name} (local dev).
     bool Webhook { get; set; }
+  // Per-call ambient context exposed to the body of a function dispatched by FunctionRegistry . Set by the registry's inbound dispatch path before invoking the function and cleared after.
   static class FunctionCallContext
+    // The session id of the client that issued the current function call, or null when the call did not originate from a remote client (e.g. local in-process invocation).
     static int? CallerSessionId { get; }
+  // Metadata about a function parameter.
   struct FunctionParameter
+    // Primary constructor with Type directly.
     ctor(int index, string name, string description, Type type, bool hasDefaultValue, object? defaultValue, IReadOnlyList<string>? allowedValues = null)
+    // JSON deserialization constructor. Resolves Type from TypeName string.
     ctor(int index, string name, string description, string typeName, bool hasDefaultValue, object? defaultValue, IReadOnlyList<string>? allowedValues = null)
-    IReadOnlyList<string> AllowedValues { get; }
-    object DefaultValue { get; }
+    // Optional override for the JSON-schema enum field emitted to the LLM. When non-null, the schema uses these values instead of Enum.GetNames(Type). Lets callers narrow a static enum at registration time (e.g. "of these 7 enum members, only these 3 are valid right now") or attach an enum to a non-enum parameter type (e.g. a string field whose allowed values come from runtime state). Pair with Description rebuilds for dynamic per-call documentation.
+    IReadOnlyList<string>? AllowedValues { get; }
+    // The default value if HasDefaultValue is true.
+    object? DefaultValue { get; }
+    // Description of the parameter. Used by LLM for tool parameter descriptions.
     string Description { get; }
+    // Whether the parameter has a default value.
     bool HasDefaultValue { get; }
+    // The position of the parameter in the parameter list (0-based).
     int Index { get; }
+    // Whether the parameter type is a nullable value type (e.g. int?, bool?).
     bool IsNullableValueType { get; }
+    // The name of the parameter.
     string Name { get; }
+    // The CLR type of the parameter. Stored directly for performance.
     Type Type { get; }
+    // The full name of the parameter type. Computed from Type for JSON serialization. Nullable value types are unwrapped to their underlying type for remote schema compatibility.
     string TypeName { get; }
     override string ToString()
+  // Central registry for functions that can be called locally or remotely. Supports both local and shared (distributed) function scopes.
   class FunctionRegistry : AsyncLocalInstance<FunctionRegistry>, BuiltInApprovalHandlers.IApprovalProtocolBridge
     ctor()
-    Func<int, string> AuthSessionIdResolver { get; set; }
+    // Optional resolver that maps a caller session id to the auth session id. Returns null or empty for unauthenticated (guest) callers.
+    Func<int, string?>? AuthSessionIdResolver { get; set; }
+    // All registered functions grouped by name.
     IReadOnlyDictionary<string, IReadOnlyList<Function>> Functions { get; }
-    static Action RemoteCallExecutionStarting { get; set; }
-    Func<int, IReadOnlyCollection<string>> RolesResolver { get; set; }
-    Func<int, IReadOnlyList<IScopeKey>> ScopeResolver { get; set; }
-    Func<int, string> UserIdResolver { get; set; }
+    // Invoked at the start of a remote function call execution. Runs in the async context of the executing function, so subscribers can set AsyncLocal state.
+    static Action? RemoteCallExecutionStarting { get; set; }
+    // Optional resolver that maps a caller session id to the set of roles the caller holds. Wired by the host (e.g. Ikon.App.App) so that RequireRoleAttribute / RoleBasedPolicy can gate calls. Returns an empty/null collection for callers without any roles. The dispatcher copies the result into AdditionalContext under the key RolesContextKey .
+    Func<int, IReadOnlyCollection<string>?>? RolesResolver { get; set; }
+    // Optional resolver that maps a caller session id to the reactive scopes that should be active during the function body's execution — typically [ClientScope, UserScope] derived from the caller's Context . Wired by the host (e.g. Ikon.App.App) so that ClientReactive`1 and UserReactive`1 resolve naturally without the function body having to push scopes manually via FunctionCallContext.CallerSessionId + Use .
+    Func<int, IReadOnlyList<IScopeKey>>? ScopeResolver { get; set; }
+    // Optional resolver that maps a caller session id to the user id associated with that session. Wired by the host (e.g. Ikon.App.App) so that policy evaluation has access to the caller's identity. Returns null for unknown sessions or unauthenticated (guest) callers.
+    Func<int, string?>? UserIdResolver { get; set; }
     void AddFunction(Function function, FunctionVisibility? visibilityOverride = null)
+    // Hooks the registry to a protocol channel so that remote function calls and registrations are handled automatically.
     Task AttachProtocolAsync(IProtocolMessageChannel channel, int senderId)
     TResult Call<TResult>(string name, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
     Task<TResult> CallAsync<TResult>(string name, CancellationToken cancellationToken = null, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
     Task CallAsync(string name, CancellationToken cancellationToken = null, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
     IAsyncEnumerable<TItem> CallAsyncEnumerable<TItem>(string name, CancellationToken cancellationToken = null, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
     IEnumerable<TItem> CallEnumerable<TItem>(string name, object?[]? args = null)
+    // Removes all locally registered functions. Remote functions are preserved.
     void ClearLocalFunctions()
+    // Stops protocol handling and detaches the registry from the channel.
     void DetachProtocol()
+    // Disposes a remote instance.
     Task DisposeInstanceAsync(Guid instanceId, int? targetId = null)
+    // Gets all client session IDs that have registered a function with the given name.
     IReadOnlyCollection<int> GetClientSessionsWithFunction(string name)
+    // Gets the function with the given name. Throws if multiple functions with the same name are registered (use Call/CallAsync with targetId parameter instead).
     Function? GetFunction(string name)
+    // Gets the function with the given name, using argument types to resolve overloads.
     Function? GetFunction(string name, object?[] args)
+    // Gets the function with the given name, using protocol parameter type names to resolve overloads. Used by the protocol handler when receiving remote calls.
     Function? GetFunction(string name, IReadOnlyList<FunctionParameter> protocolParameters)
+    // Gets a local function with the given name and version, using protocol parameter type names to resolve overloads. If version is non-empty, tries exact version match first, then falls back to greatest version. If version is empty, selects the greatest versioned function or falls back to unversioned.
     Function? GetFunction(string name, IReadOnlyList<FunctionParameter> protocolParameters, string version)
+    // Gets a function with the given name from a specific client session.
     Function? GetFunction(string name, int clientSessionId)
+    // Gets all functions with the given name.
     IReadOnlyList<Function> GetFunctions(string name)
+    // Checks if a function with the given name exists.
     bool HasFunction(string name)
+    // Checks if a function with the given name exists for a specific client session.
     bool HasFunction(string name, int clientSessionId)
+    // Scans an assembly for types with [RegisterAll] or methods with [Function] attributes and registers them.
     void RegisterFromAssembly(Assembly assembly, FunctionVisibility? visibilityOverride = null, string? version = null)
+    // Scans an instance for [RegisterAll] attribute or methods with [Function] attribute and registers them.
     void RegisterFromInstance(object instance, FunctionVisibility? visibilityOverride = null, string? version = null)
     void RegisterFromType<T>(FunctionVisibility? visibilityOverride = null, string? version = null)
+    // Scans a type for [RegisterAll] attribute or methods with [Function] attribute and registers them. For instance methods, you need to use RegisterFromInstance instead.
     void RegisterFromType(Type type, FunctionVisibility? visibilityOverride = null, string? version = null)
+    // Registers a remote function (from another client via protocol).
     void RegisterRemoteFunction(Guid id, string name, FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int clientSessionId, bool requiresInstance = false)
     bool RemoveFunction(string name, FunctionVisibility visibility)
+    // Removes all local functions with the given name. Remote functions with the same name are preserved. Returns true if any functions were removed.
     bool RemoveFunction(string name)
+    // Removes all functions registered by a specific client session (when client disconnects).
     void RemoveFunctionsByClientSessionId(int clientSessionId)
+    // Sends registrations for all functions and processes pending registrations.
     Task StartProtocolAsync()
+    // Stops protocol handling but keeps the channel attached. Pending registrations are cleared.
     Task StopProtocolAsync()
     void SyncFunctionsFromGlobalState(GlobalState globalState)
+    // Tries to get a function with the given name.
     bool TryGetFunction(string name, out Function? function)
+    // Waits for a function with the given name to be registered.
     Task<bool> WaitForFunctionAsync(string functionName, TimeSpan timeout = null, CancellationToken ct = null)
-    event Action<ApprovalAuditEntry> ApprovalCompleted
-    event Action<Function> FunctionRegistered
-    event Action<string> FunctionUnregistered
-    event Action<PolicyEvaluationResult> PolicyEvaluated
+    // Fired when an approval flow completes (approved or rejected). Use this event for audit logging of approval decisions.
+    event Action<ApprovalAuditEntry>? ApprovalCompleted
+    // Fired when a function is registered.
+    event Action<Function>? FunctionRegistered
+    // Fired when a function is unregistered.
+    event Action<string>? FunctionUnregistered
+    // Fired when a policy is evaluated for a function call.
+    event Action<PolicyEvaluationResult>? PolicyEvaluated
   sealed class FunctionResultWithData<T>
     ctor(T value, byte[] data)
     byte[] Data { get; }
     T Value { get; }
   static class FunctionUtils
-    static ValueTuple<string, string> DecodeFunctionName(string encodedFunctionName)
+    static ValueTuple<string?, string> DecodeFunctionName(string encodedFunctionName)
     static string EncodeFunctionName(string? typeName, string functionName)
+  // Determines whether a function is advertised over the protocol so remote clients can call it. This is a dispatch-scope axis only — auth gating is a separate concern declared via policy attributes ([RequireLogin], [AllowAnonymous], [RequireRole], ...).
   enum FunctionVisibility
     Local
     External
+  // Marks a class for automatic registration of all public members (methods, properties, constructors). Used for auto-registration via RegisterFromInstance/RegisterFromType/RegisterFromAssembly. Function names are automatically generated using the full type name (e.g., Namespace.Class.MethodName). Individual members can use [Function] to override defaults.
   class RegisterAllAttribute : Attribute
     ctor()
+    // If true, the LLM can only call each function once per generation pass. Individual members can override this with [Function].
     bool LlmCallOnlyOnce { get; set; }
+    // If true, the LLM can inline function results directly without tool call overhead. Individual members can override this with [Function].
     bool LlmInlineResult { get; set; }
+    // Whether the functions should be distributed to other clients. Default is Local (not distributed).
     FunctionVisibility Visibility { get; set; }
   sealed class RemoteFunctionCallRequest
     ctor(string functionName)
     CancellationToken CancellationToken { get; set; }
     string FunctionName { get; }
     Guid? InstanceId { get; set; }
-    object[] Parameters { get; set; }
+    object?[]? Parameters { get; set; }
     bool PropagateScopes { get; set; }
     int? TargetId { get; set; }
-    string Version { get; set; }
+    string? Version { get; set; }
   sealed class RemoteFunctionCaller
     ctor(IProtocolMessageChannel protocolMessageChannel, int senderId = 0, TimeSpan? actionAckTimeout = null, TimeSpan? callTimeout = null, int? enumerationBufferCapacity = null)
     TResult Call<TResult>(RemoteFunctionCallRequest request)
@@ -1635,7 +1815,9 @@ namespace Ikon.Common.Core.Functions
     Task<TResult> CallAsync<TResult>(RemoteFunctionCallRequest request)
     Task CallAsync(RemoteFunctionCallRequest request)
     IAsyncEnumerable<TItem> CallAsyncEnumerable<TItem>(RemoteFunctionCallRequest request)
+    // Cancels all pending calls with a connection closed exception. Called when the underlying connection is lost.
     void CancelAllPendingCalls()
+    // Cancels pending calls targeting a specific client with a target-disconnected exception. Called when a target client leaves so callers fail fast instead of waiting for the ack timeout.
     void CancelPendingCallsForTarget(int targetId)
     static object CreateAsyncEnumerableParameter<T>(IAsyncEnumerable<T> source)
     static object CreateEnumerableParameter<T>(IEnumerable<T> source)
@@ -1645,61 +1827,108 @@ namespace Ikon.Common.Core.Functions
 
 namespace Ikon.Common.Core.Functions.Policy
   sealed class PolicyDecision.Allow : PolicyDecision
+  // Marks an External function as deliberately callable without authentication. Pure marker — does not inject a policy, only documents intent and silences the startup audit warning for External functions that have no auth policy attached.
   sealed class AllowAnonymousAttribute : Attribute
     ctor()
+  // Represents an audit log entry for an approval decision.
   sealed class ApprovalAuditEntry
+    // Creates a new approval audit entry.
     ctor(Guid approvalId, Guid callId, string functionName, int approverSessionId, string? approverUserId, bool approved, string? reason, string policyName, DateTimeOffset timestamp)
+    // The unique identifier for this approval request.
     Guid ApprovalId { get; }
+    // True if the approval was granted; false if rejected.
     bool Approved { get; }
+    // The session ID of the approver who responded to the request.
     int ApproverSessionId { get; }
-    string ApproverUserId { get; }
+    // The user ID of the approver, if available.
+    string? ApproverUserId { get; }
+    // The unique identifier for the function call that required approval.
     Guid CallId { get; }
+    // The name of the function that required approval.
     string FunctionName { get; }
+    // The name of the policy that required approval.
     string PolicyName { get; }
-    string Reason { get; }
+    // The reason for rejection, if rejected.
+    string? Reason { get; }
+    // The timestamp when the approval decision was made.
     DateTimeOffset Timestamp { get; }
+    // Creates an audit entry for an approved request.
     static ApprovalAuditEntry CreateApproved(Guid approvalId, Guid callId, string functionName, int approverSessionId, string? approverUserId, string policyName)
+    // Creates an audit entry for a rejected request.
     static ApprovalAuditEntry CreateRejected(Guid approvalId, Guid callId, string functionName, int approverSessionId, string? approverUserId, string? reason, string policyName)
+  // Context passed to approval handlers containing all information needed to process an approval request.
   sealed class ApprovalContext
+    // Public identifier for this approval request. Can be shared with callers to track which approval they're waiting for.
     Guid ApprovalId { get; }
+    // Hash of the secret token that must be echoed back by the approver. The raw token is only provided to the designated approver via protocol.
     string ApprovalTokenHash { get; }
-    object[] Args { get; }
+    // The arguments being passed to the function.
+    object?[] Args { get; }
+    // Hash of the serialized arguments, used for token binding.
     string ArgsHash { get; }
+    // The original policy call context.
     PolicyCallContext CallContext { get; }
+    // The session ID of the original caller.
     int CallerSessionId { get; }
+    // The time when this approval request expires.
     DateTimeOffset ExpiresAt { get; }
+    // The name of the function requiring approval.
     string FunctionName { get; }
+    // The reason why approval is required.
     string Reason { get; }
+    // The timeout in seconds for the approval request. Always at least PolicyDecision.MinExpirySeconds (30 seconds).
     int TimeoutSeconds { get; }
+    // Creates a new ApprovalContext with generated IDs and returns both the context and the raw token. The raw token should only be sent to the designated approver.
     static ValueTuple<ApprovalContext, Guid> Create(string functionName, string reason, object?[] args, PolicyCallContext callContext, int timeoutSeconds = 300)
+    // Checks if this approval request has expired.
     bool IsExpired()
+    // Validates that a provided token matches this context. Uses constant-time comparison of hashes to prevent timing attacks.
     bool ValidateToken(Guid providedToken)
+    // Validates that a provided token string matches this context.
     bool ValidateToken(string providedToken)
+  // Delegate type for approval handlers that process approval requests.
   delegate ApprovalHandlerDelegate
     Task<ApprovalResult> ApprovalHandlerDelegate(ApprovalContext context)
+  // The result of an approval request returned by approval handlers.
   struct ApprovalResult
+    // True if the request was approved.
     bool IsApproved { get; }
-    string RejectionReason { get; }
+    // The reason for rejection, if applicable.
+    string? RejectionReason { get; }
+    // Creates an approved result.
     static ApprovalResult Approved()
+    // Creates a rejected result with an optional reason.
     static ApprovalResult Rejected(string? reason = null)
     override string ToString()
+  // Specifies who should receive the approval request.
   enum ApproverType
     Caller
     SpecificClient
     SpecificUser
+  // Provides built-in approval handlers that send approval requests via protocol messages.
   static class BuiltInApprovalHandlers
+    // Default handler that sends the approval request to the original caller's session. This is used when no explicit handler is provided in PolicyDecision.NeedsApproval().
     static ApprovalHandlerDelegate AskCaller { get; }
+    // Creates a handler that sends the approval request to a specific client.
     static ApprovalHandlerDelegate AskClient(int clientSessionId)
+    // Creates a handler that sends the approval request to a specific user's active session(s).
     static ApprovalHandlerDelegate AskUser(string userId)
   sealed class PolicyDecision.Deny : PolicyDecision
-    string Code { get; }
+    string? Code { get; }
     string Reason { get; }
+  // Interface for function policies that can be evaluated before function execution.
   interface IFunctionPolicy
+    // The name of this policy (used for logging and error messages).
     string Name { get; }
+    // The priority of this policy. Lower values are evaluated first. Default priority is 100.
     int Priority { get; }
+    // Evaluates the policy for a function call.
     abstract ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
+  // Interface for checking usage limits before function execution.
   interface IUsageLimitChecker
+    // Checks if the call should be allowed based on usage limits.
     abstract ValueTask<UsageLimitCheckResult> CheckAsync(PolicyCallContext context, object?[] args)
+  // Denies a function call when the caller has no authenticated session.
   sealed class LoggedInPolicy : IFunctionPolicy
     ctor()
     string Name { get; }
@@ -1708,107 +1937,182 @@ namespace Ikon.Common.Core.Functions.Policy
     static string LoginRequiredCode
   sealed class PolicyDecision.NeedsApproval : PolicyDecision
     int ExpirySeconds { get; }
-    ApprovalHandlerDelegate Handler { get; }
+    ApprovalHandlerDelegate? Handler { get; }
     string Message { get; }
+  // A policy that maintains separate rate limits per caller session.
   sealed class PerSessionRateLimitPolicy : IFunctionPolicy
+    // Creates a new per-session rate limit policy.
     ctor(int limit, int windowSeconds, string? name = null, int priority = 50)
     string Name { get; }
     int Priority { get; }
     ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
+    // Creates a PolicyDelegate from this policy.
     PolicyDelegate ToDelegate()
+  // Helper methods for extracting typed arguments from policy evaluation arguments.
   static class PolicyArgs
+    // Checks if all required arguments are present at the specified indices.
     static bool HasAll(object?[] args, params int[] requiredIndices)
     static T Optional<T>(object?[] args, int index, T defaultValue = null)
     static T Required<T>(object?[] args, int index)
     static bool TryGet<T>(object?[] args, int index, out T value)
+  // Base class for policy attributes that can be applied to functions.
   abstract class PolicyAttribute : Attribute
+    // The priority of this policy. Lower values are evaluated first.
     int Priority { get; set; }
+    // Creates a policy instance from this attribute.
     abstract IFunctionPolicy CreatePolicy()
-  sealed class PolicyAttribute<TPolicy> : PolicyAttribute where TPolicy : new(), IFunctionPolicy
+  // Applies a custom policy class to the function.
+  sealed class PolicyAttribute<TPolicy> : PolicyAttribute where TPolicy : IFunctionPolicy, new()
     ctor()
     override IFunctionPolicy CreatePolicy()
+  // Rich context object for policy evaluation providing access to all relevant information about the function call being evaluated.
   sealed class PolicyCallContext
     ctor(Guid callId, string functionName, int callerSessionId, string? userId, string? tenantId, Guid? instanceId, bool isInternal, CancellationToken cancellationToken, string? authSessionId = null, DateTime? callTimestamp = null, IReadOnlyDictionary<string, object?>? additionalContext = null)
-    IReadOnlyDictionary<string, object> AdditionalContext { get; }
-    string AuthSessionId { get; }
+    // Additional context data that may have been provided with the call.
+    IReadOnlyDictionary<string, object?>? AdditionalContext { get; }
+    // The auth session ID of the caller, if available. Empty or null for unauthenticated (guest) callers.
+    string? AuthSessionId { get; }
+    // The unique identifier for this function call.
     Guid CallId { get; }
+    // The timestamp when the call was initiated.
     DateTime CallTimestamp { get; }
+    // The session ID of the caller.
     int CallerSessionId { get; }
+    // The cancellation token for this call.
     CancellationToken CancellationToken { get; }
+    // The name of the function being called.
     string FunctionName { get; }
+    // The instance ID if this is a call on a specific instance.
     Guid? InstanceId { get; }
+    // True if this call originated from the same process (internal call).
     bool IsInternal { get; }
-    string TenantId { get; }
-    string UserId { get; }
+    // The tenant ID, if available.
+    string? TenantId { get; }
+    // The user ID of the caller, if available.
+    string? UserId { get; }
+  // Provides utilities for composing multiple policies into a single policy.
   static class PolicyChain
+    // Creates a policy that requires all provided policies to allow. Policies are evaluated in priority order (lower priority = evaluated first). Evaluation stops at the first non-Allow decision.
     static IFunctionPolicy All(params IFunctionPolicy[] policies)
+    // Creates a PolicyDelegate that requires all provided policies to allow.
     static PolicyDelegate AllAsDelegate(params IFunctionPolicy[] policies)
+  // Represents a policy decision about whether a function call should be allowed. This is a discriminated union with three possible states: Allow, Deny, or NeedsApproval. Use pattern matching to handle the different cases.
   abstract class PolicyDecision
+    // Creates an Allow decision.
     static PolicyDecision Allowed()
+    // Creates a Deny decision with a reason and optional error code.
     static PolicyDecision Denied(string reason, string? code = null)
+    // Creates a RequireApproval decision with default expiry.
     static PolicyDecision RequireApproval(string message)
+    // Creates a RequireApproval decision with custom expiry.
     static PolicyDecision RequireApproval(string message, int expirySeconds)
+    // Creates a RequireApproval decision with a custom approval handler.
     static PolicyDecision RequireApproval(string message, ApprovalHandlerDelegate handler)
+    // Creates a RequireApproval decision with custom expiry and handler.
     static PolicyDecision RequireApproval(string message, int expirySeconds, ApprovalHandlerDelegate handler)
+    // Default expiry time for approval requests in seconds.
     static int DefaultExpirySeconds
+    // Minimum expiry time for approval requests in seconds.
     static int MinExpirySeconds
+  // Delegate type for policy evaluation.
   delegate PolicyDelegate
     ValueTask<PolicyDecision> PolicyDelegate(object?[] args, PolicyCallContext context)
+  // Contains the complete result of evaluating a function's policy.
   sealed class PolicyEvaluationResult
     ctor(PolicyDecision decision, string functionName, Guid callId, string? decidingPolicyName, TimeSpan evaluationDuration)
+    // The call ID of the function call that was evaluated.
     Guid CallId { get; }
-    string DecidingPolicyName { get; }
+    // The name of the policy that caused a Deny or RequireApproval decision. Null if the decision is Allow.
+    string? DecidingPolicyName { get; }
+    // The final policy decision.
     PolicyDecision Decision { get; }
+    // Time taken to evaluate the policy.
     TimeSpan EvaluationDuration { get; }
+    // The name of the function that was evaluated.
     string FunctionName { get; }
+    // True if the decision allows the function call to proceed.
     bool IsAllowed { get; }
+    // True if the decision denies the function call.
     bool IsDenied { get; }
+    // True if the decision requires approval before proceeding.
     bool RequiresApproval { get; }
+    // Creates an Allow result (used when no policy is attached to a function).
     static PolicyEvaluationResult Allowed(string functionName, Guid callId)
+    // Creates a Denied result.
     static PolicyEvaluationResult Denied(string functionName, Guid callId, string? reason, string policyName, TimeSpan evaluationDuration)
+    // Creates a Denied result with an error code.
     static PolicyEvaluationResult Denied(string functionName, Guid callId, string reason, string? code, string policyName, TimeSpan evaluationDuration)
+    // Creates a RequiresApproval result.
     static PolicyEvaluationResult NeedsApproval(PolicyDecision decision, string functionName, Guid callId, string policyName, TimeSpan evaluationDuration)
     override string ToString()
+  // Non-generic version of PolicyAttribute for use when generic attributes are not supported.
   sealed class PolicyTypeAttribute : PolicyAttribute
+    // Creates a new policy type attribute.
     ctor(Type policyType)
+    // The type of policy to create.
     Type PolicyType { get; }
     override IFunctionPolicy CreatePolicy()
+  // Applies a rate limit policy to the function.
   sealed class RateLimitAttribute : PolicyAttribute
+    // Creates a new rate limit attribute.
     ctor(int limit, int windowSeconds)
+    // Maximum number of calls allowed in the window.
     int Limit { get; }
+    // If true, rate limit is per-session. If false (default), it's global.
     bool PerSession { get; set; }
+    // The time window in seconds.
     int WindowSeconds { get; }
     override IFunctionPolicy CreatePolicy()
+  // A policy that limits the rate of function calls.
   sealed class RateLimitPolicy : IFunctionPolicy
+    // Creates a new rate limit policy.
     ctor(int limit, int windowSeconds, string? name = null, int priority = 50)
     string Name { get; }
     int Priority { get; }
     ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
+    // Creates a PolicyDelegate from this policy.
     PolicyDelegate ToDelegate()
+  // Requires approval before the function can execute.
   sealed class RequireApprovalAttribute : PolicyAttribute
+    // Creates a new require approval attribute.
     ctor()
+    // The type of approver to ask.
     ApproverType ApproverType { get; set; }
+    // The client session ID to ask for approval (only used when ApproverType is SpecificClient).
     int ClientSessionId { get; set; }
+    // The reason why approval is required.
     string Reason { get; set; }
-    string UserId { get; set; }
+    // The user ID to ask for approval (only used when ApproverType is SpecificUser).
+    string? UserId { get; set; }
     override IFunctionPolicy CreatePolicy()
+  // A policy that always requires approval before the function can execute.
   sealed class RequireApprovalPolicy : IFunctionPolicy
+    // Creates a new require approval policy that asks the caller for approval.
     ctor(string reason, string? name = null, int priority = 100)
+    // Creates a new require approval policy with a custom approval handler.
     ctor(string reason, ApprovalHandlerDelegate handler, string? name = null, int priority = 100)
     string Name { get; }
     int Priority { get; }
     ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
+    // Creates a new require approval policy that asks a specific client.
     static RequireApprovalPolicy ForClient(string reason, int clientSessionId, string? name = null, int priority = 100)
+    // Creates a new require approval policy that asks a specific user.
     static RequireApprovalPolicy ForUser(string reason, string userId, string? name = null, int priority = 100)
+    // Creates a PolicyDelegate from this policy.
     PolicyDelegate ToDelegate()
+  // Marks a function as requiring an authenticated user session.
   sealed class RequireLoginAttribute : PolicyAttribute
     ctor()
     override IFunctionPolicy CreatePolicy()
+  // Requires the caller to hold one (or all, when RequireAll is true) of the specified roles. Roles are sourced from PolicyCallContext.AdditionalContext["user_roles"], which the dispatcher populates via RolesResolver .
   sealed class RequireRoleAttribute : PolicyAttribute
     ctor(params string[] roles)
+    // When false (default), the caller passes if they hold ANY of the listed roles. When true, the caller must hold ALL listed roles.
     bool RequireAll { get; set; }
+    // The roles the caller must hold (any or all, see RequireAll ).
     string[] RequiredRoles { get; }
     override IFunctionPolicy CreatePolicy()
+  // Policy that denies the call unless the caller has the required role(s). Roles are read from PolicyCallContext.AdditionalContext["user_roles"].
   sealed class RoleBasedPolicy : IFunctionPolicy
     ctor(string[] required, bool requireAll, int priority)
     string Name { get; }
@@ -1816,21 +2120,33 @@ namespace Ikon.Common.Core.Functions.Policy
     ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
     static string MissingRoleCode
     static string RolesContextKey
+  // Applies a usage limit policy to the function.
   sealed class UsageLimitAttribute : PolicyAttribute
+    // Creates a new usage limit attribute with the specified checker type.
     ctor(Type checkerType)
+    // The type of usage limit checker to use. Must implement IUsageLimitChecker and have a parameterless constructor.
     Type CheckerType { get; }
     override IFunctionPolicy CreatePolicy()
+  // Result of a usage limit check.
   sealed class UsageLimitCheckResult
+    // Whether the call is allowed.
     bool Allowed { get; }
-    string DenyCode { get; }
-    string DenyReason { get; }
+    // The error code for denial (if not allowed).
+    string? DenyCode { get; }
+    // The reason for denial (if not allowed).
+    string? DenyReason { get; }
+    // Creates an allow result.
     static UsageLimitCheckResult Allow()
+    // Creates a deny result with the specified reason and code.
     static UsageLimitCheckResult Deny(string reason, string? code = "usage_limit_exceeded")
+  // A policy that checks for available credits/quota before execution.
   sealed class UsageLimitPolicy : IFunctionPolicy
+    // Creates a new usage limit policy with the specified checker.
     ctor(IUsageLimitChecker checker, string? name = null, int priority = 10)
     string Name { get; }
     int Priority { get; }
     ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
+    // Creates a PolicyDelegate from this policy.
     PolicyDelegate ToDelegate()
 
 namespace Ikon.Common.Core.Protocol
@@ -1972,13 +2288,13 @@ namespace Ikon.Common.Core.Protocol
   sealed class ActionCustomUserMessage : IProtocolMessagePayload
     ctor()
     ctor(int? opcode, string? typeName, string? mimeType, string? jsonPayload, byte[]? binaryPayload)
-    byte[] BinaryPayload { get; set; }
-    string JsonPayload { get; set; }
+    byte[]? BinaryPayload { get; set; }
+    string? JsonPayload { get; set; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
-    string MimeType { get; set; }
+    string? MimeType { get; set; }
     int? Opcode { get; set; }
-    string TypeName { get; set; }
+    string? TypeName { get; set; }
     static ActionCustomUserMessage ReadFromTeleport(ReadOnlySpan<byte> data)
     static ActionCustomUserMessage ReadFromTeleport(ReadOnlySpan<byte> data, ActionCustomUserMessage? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
@@ -2571,7 +2887,7 @@ namespace Ikon.Common.Core.Protocol
     bool ForceFullRebuild { get; set; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
-    string Target { get; set; }
+    string? Target { get; set; }
     static ActionTriggerGitPull ReadFromTeleport(ReadOnlySpan<byte> data)
     static ActionTriggerGitPull ReadFromTeleport(ReadOnlySpan<byte> data, ActionTriggerGitPull? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
@@ -2972,12 +3288,12 @@ namespace Ikon.Common.Core.Protocol
     int Channels { get; set; }
     AudioCodec Codec { get; set; }
     string CodecDetails { get; set; }
-    string CorrelationId { get; set; }
+    string? CorrelationId { get; set; }
     string Description { get; set; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     int SampleRate { get; set; }
-    List<AudioStreamBegin.AudioShapeSet> ShapeSets { get; set; }
+    List<AudioStreamBegin.AudioShapeSet>? ShapeSets { get; set; }
     string SourceType { get; set; }
     string StreamId { get; set; }
     static AudioStreamBegin ReadFromTeleport(ReadOnlySpan<byte> data)
@@ -3112,6 +3428,7 @@ namespace Ikon.Common.Core.Protocol
     ctor(ContextType contextType, UserType userType, PayloadType payloadType, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, int sessionId, bool isInternal, bool isReady, bool hasInput, string channelLocale, string embeddedSpaceId, string authSessionId, bool receiveAllMessages, ulong preciseJoinedAt, string userAgent, ClientType clientType, string uniqueSessionId, Dictionary<string, string> parameters, SdkType sdkType, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat)
     string AuthSessionId { get; set; }
     string ChannelLocale { get; set; }
+    // Alias for SessionId . The protocol surfaces this same int as ClientSessionId on event-args types like ClientJoinedEventArgs.ClientSessionId — code generated against the event-args shape naturally reaches for ctx.ClientSessionId after switching to the Context directly. Provide both names so the natural reach resolves without renaming.
     int ClientSessionId { get; }
     ClientType ClientType { get; set; }
     ContextType ContextType { get; set; }
@@ -3267,32 +3584,54 @@ namespace Ikon.Common.Core.Protocol
     static ActionFunctionRegister.FunctionRegisterParameter ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionRegister.FunctionRegisterParameter? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
+  // Shared state synchronized across all clients and the server, providing access to connected clients, registered functions, active media streams, and session metadata
   sealed class GlobalState : ILogInfo, IProtocolMessagePayload
     ctor()
     ctor(Dictionary<int, Context> clients, Dictionary<int, List<ActionFunctionRegister>> functions, Dictionary<string, GlobalState.UIStreamState> uiStreams, Dictionary<string, GlobalState.AudioStreamState> audioStreams, Dictionary<string, GlobalState.VideoStreamState> videoStreams, Dictionary<string, GlobalState.TrackingStreamState> trackingStreams, string spaceId, string channelId, string serverSessionId, string sessionHash, string channelUrl, string sessionChannelUrl, string firstUserId, string primaryUserId, string organisationName, string spaceName, string channelName, ServerRunType serverRunType, AppSourceType appSourceType, bool publicAccess, bool debugMode)
+    // Tells the source where the app is being run from
     AppSourceType AppSourceType { get; set; }
+    // Active audio streams indexed by stream ID
     Dictionary<string, GlobalState.AudioStreamState> AudioStreams { get; set; }
+    // Unique identifier for the channel within the space
     string ChannelId { get; set; }
+    // Display name of the channel
     string ChannelName { get; set; }
+    // URL for accessing the channel
     string ChannelUrl { get; set; }
+    // All connected clients indexed by their client session ID, containing client metadata such as user ID, device info, viewport dimensions, and locale
     Dictionary<int, Context> Clients { get; set; }
+    // Whether debug mode is enabled, providing additional logging and development features
     bool DebugMode { get; set; }
+    // User ID of the first human user who joined this session, dynamically reassigned when that user leaves
     string FirstUserId { get; set; }
+    // Registry of callable functions organized by client session ID
     Dictionary<int, List<ActionFunctionRegister>> Functions { get; set; }
     object LogInfo { get; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
+    // Display name of the organization
     string OrganisationName { get; set; }
+    // Static user ID of the session owner from server configuration, used for user-specific asset storage paths
     string PrimaryUserId { get; set; }
+    // Tells whether the app is being run through publicly accessible endpoints (in local development)
     bool PublicAccess { get; set; }
+    // Tells where the server is running from
     ServerRunType ServerRunType { get; set; }
+    // Unique identifier of the specific Ikon server instance handling this session
     string ServerSessionId { get; set; }
+    // Full URL with session identifier for direct access to current session
     string SessionChannelUrl { get; set; }
+    // Hash derived from the session identity parameters
     string SessionHash { get; set; }
+    // Unique identifier for the space where this session is running
     string SpaceId { get; set; }
+    // Display name of the space
     string SpaceName { get; set; }
+    // Active tracking streams indexed by stream ID
     Dictionary<string, GlobalState.TrackingStreamState> TrackingStreams { get; set; }
+    // Active UI streams indexed by stream ID
     Dictionary<string, GlobalState.UIStreamState> UIStreams { get; set; }
+    // Active video streams indexed by stream ID
     Dictionary<string, GlobalState.VideoStreamState> VideoStreams { get; set; }
     void AddAudioStream(GlobalState.AudioStreamState audioStreamState)
     void AddClient(Context clientContext)
@@ -3308,7 +3647,7 @@ namespace Ikon.Common.Core.Protocol
     int[] GetClientSessionIdsExcept(int[] clientSessionIds)
     int[] GetHumanClientSessionIds()
     int[] GetMachineClientSessionIds()
-    List<string> GetUserIds(IEnumerable<int> targetIds)
+    List<string>? GetUserIds(IEnumerable<int> targetIds)
     static GlobalState ReadFromTeleport(ReadOnlySpan<byte> data)
     static GlobalState ReadFromTeleport(ReadOnlySpan<byte> data, GlobalState? destination)
     void RemoveAudioStream(string streamId)
@@ -3732,7 +4071,7 @@ namespace Ikon.Common.Core.Protocol
   static class Opcodes
     static bool IsOpcodeInAnyGroup(Opcode opcode, Opcode groups)
   static class PayloadCompression
-    static ValueTuple<byte[], int> Compress(ReadOnlySpan<byte> data)
+    static ValueTuple<byte[]?, int> Compress(ReadOnlySpan<byte> data)
     static ValueTuple<byte[], int> Decompress(ReadOnlySpan<byte> compressedData, int estimatedSize = 0)
     static void ReturnBuffer(byte[]? buffer)
     static bool ShouldCompress(int payloadSize)
@@ -3763,10 +4102,11 @@ namespace Ikon.Common.Core.Protocol
     ReadOnlySpan<int> TargetIdsSpan { get; }
     int TrackId { get; }
     static ProtocolMessage Create(int senderId, IProtocolMessagePayload payload, PayloadType payloadType = Unknown, int trackId = 0, int sequenceId = 0, MessageFlag flags = None, IReadOnlyList<int>? targetIds = null, bool compress = false)
-    T GetPayload<T>()
+    T GetPayload<T>() where T : IProtocolMessagePayload
     IProtocolMessagePayload GetPayload()
     static ProtocolMessage ModifyMessage(ProtocolMessage message, int? senderId = null, int? trackId = null, int? sequenceId = null, MessageFlag? flags = null, IReadOnlyList<int>? targetIds = null)
     static ProtocolMessage ModifyPayload(IProtocolMessagePayload payload, ProtocolMessage message, PayloadType payloadType = Unknown)
+    // Register an app-local message type (an app's own Schema/*.tp type, opcode in GROUP_APP_LOCAL ) at runtime. Called from the generated type's static constructor — app-local types are compiled into the app assembly and are not visible to the platform's compile-time ProtocolMessage source generator.
     static void RegisterAppLocalMessageType(Type type, Opcode opcode, int version)
     override string ToString()
     static ProtocolMessage WithFlags(ProtocolMessage message, MessageFlag additionalFlags)
@@ -4551,7 +4891,7 @@ namespace Ikon.Common.Core.Protocol
   sealed class UIInit.UIInitModule
     ctor()
     ctor(string name, string? javascript)
-    string Javascript { get; set; }
+    string? Javascript { get; set; }
     string Name { get; set; }
     static UIInit.UIInitModule ReadFromTeleport(ReadOnlySpan<byte> data)
     static UIInit.UIInitModule ReadFromTeleport(ReadOnlySpan<byte> data, UIInit.UIInitModule? destination)
@@ -4981,7 +5321,7 @@ namespace Ikon.Common.Core.Protocol
     ctor(string streamId, string description, string sourceType, VideoCodec codec, string codecDetails, int width, int height, double framerate, string? correlationId)
     VideoCodec Codec { get; set; }
     string CodecDetails { get; set; }
-    string CorrelationId { get; set; }
+    string? CorrelationId { get; set; }
     string Description { get; set; }
     double Framerate { get; set; }
     int Height { get; set; }
@@ -5027,7 +5367,7 @@ namespace Ikon.Common.Core.Protocol
   sealed class WebRTCAudioSegment : IProtocolMessagePayload
     ctor()
     ctor(bool isStart, string? correlationId)
-    string CorrelationId { get; set; }
+    string? CorrelationId { get; set; }
     bool IsStart { get; set; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
@@ -5092,7 +5432,7 @@ namespace Ikon.Common.Core.Protocol
   sealed class WebRTCVideoCapture : IProtocolMessagePayload
     ctor()
     ctor(int senderIndex, string? correlationId)
-    string CorrelationId { get; set; }
+    string? CorrelationId { get; set; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     int SenderIndex { get; set; }
@@ -5102,11 +5442,14 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
 
 namespace Ikon.Common.Core.Reactive
+  // Factory methods for creating ClientReactive`1 with per-client initialization.
   static class ClientReactive
     static ClientReactive<T> Create<T>(Func<int, T> factory, string file = "", string member = "")
+  // Shorthand for ReactiveEffect<ClientScope>. Mirrors ClientReactive<T> as the per-client variant of Reactive<T>. Each connected client gets its own runner with independent cancel/queue, materialized on first dep change inside that client's scope.
   class ClientReactiveEffect : ReactiveEffect<ClientScope>
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
     ctor(Action body, params IReactive[] deps)
+  // A reactive variable with a separate value for each client session.
   class ClientReactive<T> : Reactive<T, ClientScope>
     ctor(T initialValue, string file = "", string member = "")
   sealed class ReactiveManager.Handle
@@ -5124,34 +5467,43 @@ namespace Ikon.Common.Core.Reactive
     IReadOnlyList<PersistedRegistration> GetPersistedRegistrations()
     void LoadHotReloadStates(Dictionary<string, StoredReactiveState> states)
     void Register(string stableId, IReactiveWithState reactive, PersistenceScope persistence, PersistenceBackend backend = Private, string? postgresDatabase = null)
+    // Look up a registered reactive by its stable id. Returns false if no reactive is registered under stableId or if the underlying reactive has been garbage-collected.
     bool TryGet(string stableId, out IReactiveWithState? reactive)
   interface IPersistedReactive : IReactiveWithState
     abstract void SetPublicUrl(string? url)
   interface IReactive
     long Version { get; }
-    event Action Changed
-    event Action<int> SessionChanged
+    // Fires whenever this reactive's value changes (in any scope, for scoped variants). Payload-free so a single subscription can be taken across heterogeneous reactives — handlers fetch the new value via .Value when they need it. Used by ReactiveEffect and other dependency-tracked consumers.
+    event Action? Changed
+    // Fires with the scope-derived session id whose Signal<T> value just changed. For unscoped reactives the id is always 0; for ClientReactive<T> it is the hash of ClientScope; for UserReactive<T> the hash of UserScope; etc. Lets external subscription routing fan out to only the clients whose scope matches the changed signal.
+    event Action<int>? SessionChanged
   interface IReactiveWithState
+    // Hash-derived session id that this reactive's .Value would resolve to under the currently-active ReactiveScope . Used by the subscription service to key per-scope subscriber routing. Default implementation returns 0 — override on per-scope reactives.
     int CurrentScopeSessionId { get; }
     string StableId { get; }
     abstract StoredReactiveState CaptureState()
+    // Read this reactive's value for the currently-active scope, serialize to JSON, and trigger per-scope initialization if needed. Default implementation returns the session-0 value from CaptureState .
     virtual string ReadCurrentValueAsJson()
     abstract void RestoreState(StoredReactiveState state)
+  // Factory methods for creating MountReactive`1 with per-mount initialization.
   static class MountReactive
     static MountReactive<T> Create<T>(Func<string, T> factory, string file = "", string member = "")
+  // A reactive variable with a separate value for each Parallax mount in the active render iteration.
   class MountReactive<T> : Reactive<T, MountScope>
     ctor(T initialValue, string file = "", string member = "")
   sealed class PersistedRegistration
     ctor(string stableId, IReactiveWithState reactive, PersistenceScope persistence, PersistenceBackend backend, string? postgresDatabase)
     PersistenceBackend Backend { get; }
     PersistenceScope Persistence { get; }
-    string PostgresDatabase { get; }
+    string? PostgresDatabase { get; }
     IReactiveWithState Reactive { get; }
     string StableId { get; }
+  // Selects the backing store for a persistent reactive.
   enum PersistenceBackend
     Private
     Public
     Postgres
+  // Identifies where a reactive's value is persisted in cloud storage and how it is keyed.
   enum PersistenceScope
     None
     Global
@@ -5160,8 +5512,11 @@ namespace Ikon.Common.Core.Reactive
   static class Reactive
     static void Run<T>(Reactive<T> reactiveValue, Func<Task<T>> action, Action<Exception>? onError = null, CancellationToken token = null)
     static void Run<T>(Reactive<T> reactiveValue, Func<CancellationToken, Task<T>> action, Action<Exception>? onError = null, CancellationToken token = null)
+  // Convenience helpers on Reactive`1 for the busy-flag pattern that every async handler uses. Without these, the standard shape is verbose and easy to break: _busy.Value = true; try { await SlowThingAsync(); } finally { _busy.Value = false; } Forgetting finally leaves the flag stuck on if the call throws. AsToken collapses the shape to: using var _ = _busy.AsToken(); await SlowThingAsync(); — the flag flips to true on entry, the IDisposable returns it to false on dispose (including the catch-and-rethrow path of using).
   static class ReactiveBoolExtensions
+    // Set the flag to true and return an IDisposable that returns it to false on dispose. Idempotent — disposing twice is safe (the second dispose is a no-op).
     static IDisposable AsToken(Reactive<bool> reactive)
+  // Mutation helpers for Reactive`1 wrapping a collection. They mutate the underlying instance AND fire NotifyUpdate in one call so callers can write _items.Add(x) instead of the two-step _items.Value.Add(x); _items.NotifyUpdate();. Why these exist on a Reactive wrapping a mutable collection: the reference-equality check at the Value setter doesn't trigger when the underlying list is mutated in-place. Forgetting NotifyUpdate is the dominant "UI doesn't update after Add/Remove" bug class. These helpers make the right thing the easy thing. Reassignment (_items.Value = [.. _items.Value, x]) still works and stays the right form when callers want immutable-style updates; these helpers are the in-place alternative for the common case.
   static class ReactiveCollectionExtensions
     static void Add<T>(Reactive<List<T>> reactive, T item)
     static bool Add<T>(Reactive<HashSet<T>> reactive, T item)
@@ -5177,10 +5532,14 @@ namespace Ikon.Common.Core.Reactive
     static int RemoveAll<T>(Reactive<List<T>> reactive, Predicate<T> match)
     static void RemoveAt<T>(Reactive<List<T>> reactive, int index)
     static void Set<TKey, TValue>(Reactive<Dictionary<TKey, TValue>> reactive, TKey key, TValue value)
+  // Side-effect primitive that runs on tracked IReactive dependency changes. Mirrors the shape of Reactive`1 / Reactive`2 : this class is the unscoped (global) variant; ReactiveEffect`1 binds to a single scope type; further generic variants (forthcoming) compose multiple scopes the same way Reactive<T, TScope1, TScope2> does.
   class ReactiveEffect : IDisposable
+    // Create an effect with an async body. The token cancels when a dep changes mid-run; respect it for clean cancellation.
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
+    // Create an effect with a sync body.
     ctor(Action body, params IReactive[] deps)
     void Dispose()
+  // Side-effect primitive bound to a single scope type. Mirrors Reactive<T, TScope>: each instance of TScope gets its own per-scope effect runner with independent cancel/queue state, materialized lazily on first dep change in that scope. Unlike the global ReactiveEffect , this variant does NOT fire eagerly at construction — there's no scope active yet. The first dep change observed inside a scope of type TScope instantiates that scope's runner and fires the body for the first time. For "fire when scope first opens regardless of deps" lifecycle hooks (e.g. preload data on client connect), use the host app's existing scope-creation events directly.
   class ReactiveEffect<TScope> : IDisposable where TScope : struct, IScopeKey
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
     ctor(Action body, params IReactive[] deps)
@@ -5197,48 +5556,62 @@ namespace Ikon.Common.Core.Reactive
     Task ReactiveAsync(Func<ReactiveManager.Handle, Task> callback)
     void StopTrackingAll()
     Task UpdateAsync()
-    event EventHandler<Guid> Deleted
-    event EventHandler ReactiveObjectUpdated
-    event EventHandler<Guid> Updating
+    event EventHandler<Guid>? Deleted
+    event EventHandler? ReactiveObjectUpdated
+    event EventHandler<Guid>? Updating
+  // App-scoped lookup mapping a reactive's source-code member name (the C# field or property declared on the App class) to its StableId . Built by reflection at App startup; consumed by the Ikon.Reactive.GetStableIdByName framework function so frontends can subscribe by member name instead of needing a per-app helper RPC to fetch the hashed id.
   static class ReactiveNameIndex
+    // Drop every registered mapping. Used by hot-reload to clear stale entries from the previous App instance before the next instance re-indexes.
     static void Clear()
+    // Register a reactive member-name → stableId mapping. Idempotent; re-registering the same name with the same stableId is a no-op.
     static void Register(string memberName, string stableId)
+    // Look up a stableId by reactive member name. Returns false when the name was not indexed at startup (e.g. reactive declared in a helper class outside the App).
     static bool TryGet(string memberName, out string stableId)
+  // A general-purpose scope stack that supports multiple overlapping scope types (Client, User, Tenant, etc.), each tracked independently. This is a static wrapper around a shared ScopeStack instance for the reactive system. Scope changes are automatically mirrored to Log.Instance for logging purposes.
   static class ReactiveScope
     static int ClientId { get; }
     static int? ClientIdOrNull { get; }
     static IList<IScopeKey> Current { get; }
     static string MountId { get; }
-    static string MountIdOrNull { get; }
+    static string? MountIdOrNull { get; }
     static string UserId { get; }
-    static string UserIdOrNull { get; }
+    static string? UserIdOrNull { get; }
     static void Add(IScopeKey scope)
-    static TScope Get<TScope>()
+    static TScope Get<TScope>() where TScope : struct, IScopeKey
     static IScopeKey GetByName(string name)
-    static TScope? TryGet<TScope>()
-    static bool TryGet<TScope>(out TScope scope)
-    static IScopeKey TryGetByName(string name)
+    static TScope? TryGet<TScope>() where TScope : struct, IScopeKey
+    static bool TryGet<TScope>(out TScope scope) where TScope : struct, IScopeKey
+    static IScopeKey? TryGetByName(string name)
     static IDisposable Use(IScopeKey scope)
     static IDisposable Use(params IScopeKey[] scopes)
   static class ReactiveScopeRestorer
-    static IDisposable Activate(IReadOnlyList<IScopeKey> scopes)
+    static IDisposable? Activate(IReadOnlyList<IScopeKey> scopes)
     static IScopeKey[] CaptureCurrent()
     static IScopeKey[] CopyInRestorableOrder(IList<IScopeKey> scopes)
+  // Bridges Reactive`1 change notifications to remote clients over the existing function-call wire. Exposes three framework-shipped shared functions — Ikon.Reactive.Subscribe, Ikon.Reactive.Unsubscribe, and Ikon.Reactive.Update — so any FunctionRegistry -connected client can observe a server-side reactive value without registering a Parallax UI tree.
   sealed class ReactiveSubscriptionService : AsyncLocalInstance<ReactiveSubscriptionService>
     ctor()
-    Func<int, IReadOnlyList<IScopeKey>> ScopeResolver { get; set; }
+    // Optional resolver: given a calling session id, returns the scopes that should be active during Subscribe/Unsubscribe so per-scope reactives resolve to the caller's natural session/user. Typically wired in app startup as sid => { var ctx = app.GlobalState.GetClientContext(sid); return [new ClientScope(ctx), new UserScope(ctx)]; }. When unset, the service falls back to [new ClientScope(sessionId)] only — ClientReactive`1 works, UserReactive`1 throws.
+    Func<int, IReadOnlyList<IScopeKey>>? ScopeResolver { get; set; }
+    // Wires this service's framework functions into the given registry. Call once during app/server startup, after the registry has its protocol channel attached.
     void AttachTo(FunctionRegistry registry)
+    // Resolves a reactive's StableId by the C# field or property name on the App class. Used by the JS-side useReactive(client, name, ...) hook so frontends don't need a per-app helper RPC just to learn the stable id.
     string GetStableIdByName(string memberName)
+    // Drop all subscriptions belonging to a session — call when a client disconnects to release subscriber-state without waiting for explicit unsubscribes.
     void RemoveSession(int sessionId)
+    // Subscribe the calling session to changes on the reactive identified by stableId . Returns the current value as JSON. The caller receives subsequent updates via Ikon.Reactive.Update calls routed only to subscribers whose scope hash matches the changed signal.
     string Subscribe(string stableId, string mountId)
+    // Unsubscribe the calling session from a reactive. Idempotent; calling for an unsubscribed reactive is a no-op. The mountId must match the value passed to Subscribe so the same scope hash is computed for symmetric removal.
     void Unsubscribe(string stableId, string mountId)
     static string GetStableIdByNameFunctionName
     static string SubscribeFunctionName
     static string UnsubscribeFunctionName
     static string UpdateFunctionName
+  // A reactive variable that automatically triggers UI updates when its value changes.
   class Reactive<T> : IReactive, IReactiveWithState
     ctor(UseDefault _ = null, string file = "", string member = "")
     ctor(T initialValue, string file = "", string member = "")
+    // Hash-derived session id that Value would resolve to under the currently-active ReactiveScope . Throws if a required scope is missing — same conditions as accessing Value . External subscribers use this to key their subscription routing.
     int CurrentScopeSessionId { get; }
     T Peek { get; }
     string StableId { get; }
@@ -5246,13 +5619,15 @@ namespace Ikon.Common.Core.Reactive
     long Version { get; }
     StoredReactiveState CaptureState()
     void NotifyUpdate()
+    // Read this reactive's value for the currently-active scope and serialize it to JSON. Triggers per-scope initialization if no signal exists yet — the returned JSON is the initial value the consumer should observe.
     string ReadCurrentValueAsJson()
     void RestoreState(StoredReactiveState state)
     override string ToString()
-    event Action Changed
-    event Action<int> SessionChanged
-    event Action<T> ValueChanged
-    event Func<T, Task> ValueChangedAsync
+    event Action? Changed
+    event Action<int>? SessionChanged
+    event Action<T>? ValueChanged
+    event Func<T, Task>? ValueChangedAsync
+  // A reactive variable scoped to a specific scope type, providing isolated values per scope instance.
   class Reactive<T, TScope> : Reactive<T> where TScope : IScopeKey
     ctor(T initialValue, string file = "", string member = "")
     ctor(Func<T> initialValue, string file = "", string member = "")
@@ -5262,10 +5637,10 @@ namespace Ikon.Common.Core.Reactive
     T Value { get; set; }
     long Version { get; }
     void NotifyUpdate()
-    event Action Changed
-    event Action<int> SessionChanged
-    event Action<T> ValueChanged
-    event Func<T, Task> ValueChangedAsync
+    event Action? Changed
+    event Action<int>? SessionChanged
+    event Action<T>? ValueChanged
+    event Func<T, Task>? ValueChangedAsync
   class StoredReactiveState
     ctor()
     ctor(string typeName, string memberName, int ordinal, Dictionary<int, string> sessionValues)
@@ -5274,28 +5649,37 @@ namespace Ikon.Common.Core.Reactive
     Dictionary<int, string> SessionValues { get; set; }
     string TypeName { get; set; }
   struct UseDefault
+  // Shorthand for ReactiveEffect<UserScope>. Mirrors UserReactive<T> as the per-user variant of Reactive<T>. Each distinct user gets its own runner; the same user across multiple sessions shares one runner.
   class UserReactiveEffect : ReactiveEffect<UserScope>
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
     ctor(Action body, params IReactive[] deps)
+  // A reactive variable with a separate value for each user, shared across their client sessions.
   class UserReactive<T> : Reactive<T, UserScope>
     ctor(T initialValue, string file = "", string member = "")
     ctor(Func<string, T> initialValue, string file = "", string member = "")
 
 namespace Ikon.Common.Core.Reflection
+  // Reflection helpers for Task / ValueTask result types. Two pieces: a compile-time-style type unwrap for schema generation ( UnwrapResultType ), and a runtime await-and-extract for invocation sites that get an object? back from MethodInfo.Invoke ( AwaitAndGetResultAsync ).
   static class TaskTypeUnwrap
-    static ValueTask<object> AwaitAndGetResultAsync(object? raw)
+    // Take whatever MethodInfo.Invoke handed back and produce its observable result. Awaits Task , Task`1 , ValueTask , ValueTask`1 ; returns null for void-shaped awaitables; passes non-task values straight through. Used by dispatchers that hand off to user code reflectively and need a uniform object? back regardless of whether the method was sync, Task, or ValueTask.
+    static ValueTask<object?> AwaitAndGetResultAsync(object? raw)
+    // Map a method's declared return type to the type the method actually produces: Task/ValueTask → Object (void-equivalent — there is no result), Task<T>/ValueTask<T> → T, anything else → as-is. Schema generators feed the result of this through the type → JSON-schema pipeline so async methods produce sensible outputSchema entries.
     static Type UnwrapResultType(Type declaredReturnType)
 
 namespace Ikon.Common.Core.Scope
+  // Scope for backend token context, transports the backend token of the caller.
   struct BackendTokenScope : IScopeKey
+    // Scope for backend token context, transports the backend token of the caller.
     ctor(string token)
     string Id { get; }
     string Name { get; }
+  // Scope for client session context, providing unique identity for each connected client.
   struct ClientScope : IScopeKey
     ctor(int sessionId)
     ctor(Context context)
     int Id { get; }
     string Name { get; }
+  // Scope with a user-specified name and ID, enabling dynamic scoping without needing new struct types.
   struct CustomScope : IScopeKey
     ctor(string name, string id)
     string Id { get; }
@@ -5303,44 +5687,55 @@ namespace Ikon.Common.Core.Scope
   interface IScopeKey
     object Id { get; }
     string Name { get; }
+  // Identifies the Parallax render target ("mount") an app is currently producing UI for. An app may declare multiple mounts via Mounts ; each ( ClientScope , MountScope ) pair gets its own per-render UI tree and an independent stream on the wire. Default mount id is "ikon-ui" — the value every app emits today on its single stream.
   struct MountScope : IScopeKey
     ctor(string mountId)
     string Id { get; }
     string Name { get; }
+    // The mount id every Ikon app emits today on its single Parallax stream. Apps that don't override IAppBase.Mounts render under this id.
     static string DefaultMountId
+  // Scope for grouping a single logical operation (e.g., LLM generation, image generation).
   struct OperationScope : IScopeKey
     ctor()
+    // Scope for grouping a single logical operation (e.g., LLM generation, image generation).
     ctor(Guid id)
     Guid Id { get; }
     string Name { get; }
+  // Scope for application run context, typically set at program startup in Program.cs. Used to group all log events and operations within a single application run.
   struct RunScope : IScopeKey
     ctor()
+    // Scope for application run context, typically set at program startup in Program.cs. Used to group all log events and operations within a single application run.
     ctor(Guid id)
     Guid Id { get; }
     string Name { get; }
   class ScopeRestorer
     ctor(ScopeStack scopeStack)
-    IDisposable Activate(IReadOnlyList<IScopeKey> scopes)
+    IDisposable? Activate(IReadOnlyList<IScopeKey> scopes)
     IScopeKey[] CaptureCurrent()
     static IScopeKey[] CopyInRestorableOrder(IList<IScopeKey> scopes)
+  // Serializes and deserializes scopes for function call propagation.
   static class ScopeSerializer
+    // Captures current scopes for inclusion in a function call. Excludes RunScope since each process has its own run context.
     static List<ActionFunctionCall.ScopeEntry> CaptureForFunctionCall()
     static IScopeKey[] Deserialize(IReadOnlyList<ActionFunctionCall.ScopeEntry> entries)
   class ScopeStack
     ctor()
     IList<IScopeKey> Current { get; }
     void Add(IScopeKey scope)
-    TScope Get<TScope>()
+    TScope Get<TScope>() where TScope : struct, IScopeKey
     IScopeKey GetByName(string name)
-    TScope? TryGet<TScope>()
-    bool TryGet<TScope>(out TScope scope)
-    IScopeKey TryGetByName(string name)
+    TScope? TryGet<TScope>() where TScope : struct, IScopeKey
+    bool TryGet<TScope>(out TScope scope) where TScope : struct, IScopeKey
+    IScopeKey? TryGetByName(string name)
     IDisposable Use(IScopeKey scope)
     IDisposable UseScopes(params IScopeKey[] scopes)
+  // Scope for tenant/customer context, an arbitrary user-specified ID for scoping AI app logic.
   struct TenantScope : IScopeKey
+    // Scope for tenant/customer context, an arbitrary user-specified ID for scoping AI app logic.
     ctor(string tenantId)
     string Id { get; }
     string Name { get; }
+  // Scope for end user identity context, providing unique identity for each user.
   struct UserScope : IScopeKey
     ctor(string userId)
     ctor(Context context)
@@ -5355,28 +5750,30 @@ namespace Ikon.Common.Core.Signing
     string MimeType { get; init; }
   sealed class SignatureOrderRequest : IEquatable<SignatureOrderRequest>
     ctor(string Purpose, IReadOnlyList<SignatureDocument> Documents, SignatureSigner Signer, string? CostAttributionKey = null, string? Title = null, string? ClientReturnUrl = null)
-    string ClientReturnUrl { get; init; }
-    string CostAttributionKey { get; init; }
+    string? ClientReturnUrl { get; init; }
+    string? CostAttributionKey { get; init; }
     IReadOnlyList<SignatureDocument> Documents { get; init; }
     string Purpose { get; init; }
     SignatureSigner Signer { get; init; }
-    string Title { get; init; }
+    string? Title { get; init; }
   enum SignaturePolicy
     PkiSigning
     EidHub
   sealed class SignatureSigner : IEquatable<SignatureSigner>
     ctor(SignaturePolicy Policy, string? Vendor = null, IReadOnlyList<string>? IdpNames = null, IReadOnlyList<string>? RequestedAttributes = null)
-    IReadOnlyList<string> IdpNames { get; init; }
+    IReadOnlyList<string>? IdpNames { get; init; }
     SignaturePolicy Policy { get; init; }
-    IReadOnlyList<string> RequestedAttributes { get; init; }
-    string Vendor { get; init; }
+    IReadOnlyList<string>? RequestedAttributes { get; init; }
+    string? Vendor { get; init; }
+  // Represents a successfully signed document returned by the platform signing service. The platform downloads the result from the upstream signing vendor, hashes it, and hands the signed bytes plus evidence metadata to the requesting app. Apps should persist Bytes as the system of record — the platform retention is short.
   sealed class SignedDocument : IEquatable<SignedDocument>
+    // Represents a successfully signed document returned by the platform signing service. The platform downloads the result from the upstream signing vendor, hashes it, and hands the signed bytes plus evidence metadata to the requesting app. Apps should persist Bytes as the system of record — the platform retention is short.
     ctor(string OrderId, byte[] Bytes, string MimeType, DateTimeOffset SignedAt, string SignedDocumentHash, string IdentityScheme, string? SignerNameHash, string? EvidenceLevel)
     byte[] Bytes { get; init; }
-    string EvidenceLevel { get; init; }
+    string? EvidenceLevel { get; init; }
     string IdentityScheme { get; init; }
     string MimeType { get; init; }
     string OrderId { get; init; }
     DateTimeOffset SignedAt { get; init; }
     string SignedDocumentHash { get; init; }
-    string SignerNameHash { get; init; }
+    string? SignerNameHash { get; init; }
