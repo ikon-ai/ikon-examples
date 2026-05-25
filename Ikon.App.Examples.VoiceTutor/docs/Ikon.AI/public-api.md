@@ -7,38 +7,50 @@ namespace Ikon.AI
     Escalate
     Obfuscate
     Delay
+  // The pending AI operation presented to the hook. Operation discriminates surface ("ai_call", "tool", "ingest"); Subject is the thing being acted on (model name, tool name, corpus name); Args are call-specific parameters; Ctx carries host-supplied identity / mission / runtime context (mission_id, agent_id, thread_id, user, tenant, time, etc.).
   sealed class GovernanceCall : IEquatable<GovernanceCall>
+    // The pending AI operation presented to the hook. Operation discriminates surface ("ai_call", "tool", "ingest"); Subject is the thing being acted on (model name, tool name, corpus name); Args are call-specific parameters; Ctx carries host-supplied identity / mission / runtime context (mission_id, agent_id, thread_id, user, tenant, time, etc.).
     ctor(string Operation, string Subject, IReadOnlyDictionary<string, object?> Args, IReadOnlyDictionary<string, object?> Ctx)
-    IReadOnlyDictionary<string, object> Args { get; init; }
-    IReadOnlyDictionary<string, object> Ctx { get; init; }
+    IReadOnlyDictionary<string, object?> Args { get; init; }
+    IReadOnlyDictionary<string, object?> Ctx { get; init; }
     string Operation { get; init; }
     string Subject { get; init; }
+  // What happened after the operation ran (or didn't). Hooks use this in AfterAsync to close out the audit record.
   sealed class GovernanceCallResult : IEquatable<GovernanceCallResult>
+    // What happened after the operation ran (or didn't). Hooks use this in AfterAsync to close out the audit record.
     ctor(bool Failed, string Outcome, string? ErrorMessage = null)
-    string ErrorMessage { get; init; }
+    string? ErrorMessage { get; init; }
     bool Failed { get; init; }
     string Outcome { get; init; }
+  // Shared invocation wrapper used by every transport that gates a call through GovernanceScope . Builds the standard Before / Deny / Escalate / invoke / After flow once so HTTP, MCP, and any future transport stay symmetric — the only thing each transport supplies is the GovernanceCall shape and the inner invocation. With no hook active the wrap is a pass-through.
   static class GovernanceInvoker
     static Task<T> RunAsync<T>(GovernanceCall call, Func<Task<T>> invoke, CancellationToken ct = null)
+  // What the hook decided. The host must honour Action : Allow → invoke the operationDeny → throw GovernanceDeniedException Escalate → suspend / route to Target Obfuscate → apply the named transformDelay → wait the named duration then proceed DecisionId is the audit identifier the host can attach to any subsequent telemetry tied to this operation.
   sealed class GovernanceOutcome : IEquatable<GovernanceOutcome>
+    // What the hook decided. The host must honour Action : Allow → invoke the operationDeny → throw GovernanceDeniedException Escalate → suspend / route to Target Obfuscate → apply the named transformDelay → wait the named duration then proceed DecisionId is the audit identifier the host can attach to any subsequent telemetry tied to this operation.
     ctor(GovernanceAction Action, string DecisionId, string RuleId, string PolicyId, string Reason, string? Target = null)
     GovernanceAction Action { get; init; }
     string DecisionId { get; init; }
     string PolicyId { get; init; }
     string Reason { get; init; }
     string RuleId { get; init; }
-    string Target { get; init; }
+    string? Target { get; init; }
+  // AsyncLocal scope carrying the active IGovernanceHook for the duration of an AI-touched operation. Host code wraps work in using var _ = GovernanceScope.Use(hook);; downstream Ikon AI primitives read Current and apply the hook if present. The scope crosses await boundaries naturally; it does NOT cross Task.Run or manually-started threads. Capture the hook into a local before any fork if you need to.
   static class GovernanceScope
-    static IGovernanceHook Current { get; }
+    static IGovernanceHook? Current { get; }
     static IDisposable Use(IGovernanceHook hook)
+  // Single hook surface called by every AI-touched primitive in the Ikon platform — LLM calls (Emerge.Run<T>), agent tool dispatch (Ikon.Agent2), data ingest steps — before they act. One contract, three surfaces. Host code activates a hook by entering a GovernanceScope ; downstream primitives read Current and consult the hook if it is set. The default — no scope active — is a no-op pass-through and the AI primitives behave exactly as they do without governance.
   interface IGovernanceHook
     abstract Task AfterAsync(GovernanceCall call, GovernanceCallResult result, CancellationToken ct)
     abstract Task<GovernanceOutcome> BeforeAsync(GovernanceCall call, CancellationToken ct)
+  // Central configuration for SDK connection to the Ikon.AI function host. Uses BackendConfig mode (IkonBackend.Instance token) for authentication. Inherits from AsyncLocalInstance to support proper async local flow in tests and apps.
   class IkonAIConnection : AsyncLocalInstance<IkonAIConnection>
     ctor()
-    IkonClientConfig ConfigOverride { get; set; }
+    IkonClientConfig? ConfigOverride { get; set; }
     Task ForceReconnectAsync(CancellationToken ct = null)
+    // Gets or creates an IkonClient connected to the Ikon.AI function host. The client is cached per instance to avoid connection overhead on each call. If the client is reconnecting, waits for reconnection to complete.
     Task<IkonClient> GetOrCreateClientAsync(CancellationToken ct = null)
+    // Pre-establishes the connection to the host app so that subsequent function calls do not incur connection setup latency.
     Task WarmupAsync(CancellationToken ct = null)
     static string ChannelKey
     static string DevelopmentSpaceId
@@ -63,6 +75,7 @@ namespace Ikon.AI
     VideoGenerator
     WebScraper
     WebSearcher
+  // JSON converter factory that handles deserialization of legacy model enum formats. Supports both the current enum names (e.g., "OpenAI3Small") and legacy canonical names (e.g., "OpenAI_3Small").
   class ModelEnumConverterFactory : JsonConverterFactory
     ctor()
     override bool CanConvert(Type typeToConvert)
@@ -85,6 +98,7 @@ namespace Ikon.AI
   static class ModelRegionSelector
     static void SetPriorityList(ModelRegionPriorityKey key, IReadOnlyList<ModelRegion> priorities)
     static bool TryGetPriorityList(ModelRegionPriorityKey key, out IReadOnlyList<ModelRegion> priorities)
+  // Default no-op hook. Allows every call, records nothing. Lets primitives treat the hook contract as non-nullable downstream.
   sealed class NullGovernanceHook : IGovernanceHook
     ctor()
     Task AfterAsync(GovernanceCall call, GovernanceCallResult result, CancellationToken ct)
@@ -137,12 +151,12 @@ namespace Ikon.AI.Chat
     KernelContext CreateKernelContext()
     ValueTask DisposeAsync()
     IAsyncEnumerable<StreamingResult> GenerateAsync(IEnumerable<ValueTuple<string, object?>>? parameters = null, IEnumerable<KernelContext>? contexts = null, CancellationToken cancellationToken = null)
-    Task<T> GenerateObjectAsync<T>(IEnumerable<ValueTuple<string, object?>>? parameters = null, IEnumerable<KernelContext>? contexts = null, CancellationToken cancellationToken = null)
+    Task<T> GenerateObjectAsync<T>(IEnumerable<ValueTuple<string, object?>>? parameters = null, IEnumerable<KernelContext>? contexts = null, CancellationToken cancellationToken = null) where T : new()
     Task<string> GenerateStringAsync(IEnumerable<ValueTuple<string, object?>>? parameters = null, IEnumerable<KernelContext>? contexts = null, CancellationToken cancellationToken = null)
     T GetState<T>(string key)
     void SetState(string key, object? value)
     void StopProcessing()
-    event EventHandler<string> RenderedShader
+    event EventHandler<string>? RenderedShader
 
 namespace Ikon.AI.Classification
   sealed class ClassificationDetail
@@ -225,33 +239,34 @@ namespace Ikon.AI.Database
     override void Open()
   class DatabaseConnection.Config
     ctor()
-    string EnvVarPrefix { get; set; }
-    DatabaseConnection.SpaceSecret SpaceSecret { get; set; }
+    string? EnvVarPrefix { get; set; }
+    DatabaseConnection.SpaceSecret? SpaceSecret { get; set; }
   class DatabaseInfoExtractor.Config
     ctor()
-    List<string> ColumnExcludeRegex { get; set; }
+    List<string>? ColumnExcludeRegex { get; set; }
     Dictionary<string, string> ColumnExtraInfo { get; set; }
     bool IncludeEmptyColumns { get; set; }
     int JsonSampleLengthLimit { get; set; }
     int JsonSampleRowLimit { get; set; }
     int NonTextSampleRowLimit { get; set; }
-    List<string> Schemas { get; set; }
-    List<string> TableExcludeRegex { get; set; }
+    List<string>? Schemas { get; set; }
+    List<string>? TableExcludeRegex { get; set; }
     Dictionary<string, string> TableExtraInfo { get; set; }
-    List<string> TableIncludeRegex { get; set; }
+    List<string>? TableIncludeRegex { get; set; }
     int TextSampleLengthLimit { get; set; }
     int TextSampleRowLimit { get; set; }
   class DatabaseColumnInfo
     ctor()
     string ColumnName { get; set; }
     string DataType { get; set; }
-    string Description { get; set; }
-    string ExtraInfo { get; set; }
-    string ForeignKeyColumnName { get; set; }
-    string ForeignKeyTableName { get; set; }
+    string? Description { get; set; }
+    string? ExtraInfo { get; set; }
+    string? ForeignKeyColumnName { get; set; }
+    string? ForeignKeyTableName { get; set; }
     bool? IsForeignKey { get; set; }
     bool? IsPrimaryKey { get; set; }
-    List<string> Values { get; set; }
+    List<string>? Values { get; set; }
+  // Creates database connections. Prefer the typed factory methods ( Trino , Postgres , Sqlite , BigQuery ) for app code — host, port, and catalog are not secrets, only the password is. Pass that password from app.Secrets: DatabaseConnection.Trino(host: "trino.example.com", port: 443, catalog: "hive", user: "ikon", password: app.Secrets["TRINO_PASSWORD"]) CreateAsync remains for shared pipelines that read all of host/port/user/password/etc. from environment variables or space secrets.
   class DatabaseConnection
     ctor()
     string BigQueryDataset { get; set; }
@@ -266,8 +281,8 @@ namespace Ikon.AI.Database
   class DatabaseInfo
     ctor()
     DatabaseType DatabaseType { get; set; }
-    List<string> ExampleQuestions { get; set; }
-    string SqlCteCommand { get; set; }
+    List<string>? ExampleQuestions { get; set; }
+    string? SqlCteCommand { get; set; }
     List<DatabaseTableInfo> Tables { get; set; }
   class DatabaseInfoExtractor
     ctor(DatabaseConnection databaseConnection)
@@ -278,8 +293,8 @@ namespace Ikon.AI.Database
   class DatabaseTableInfo
     ctor()
     List<DatabaseColumnInfo> Columns { get; set; }
-    string Description { get; set; }
-    string ExtraInfo { get; set; }
+    string? Description { get; set; }
+    string? ExtraInfo { get; set; }
     string TableName { get; set; }
   enum DatabaseType
     Unknown
@@ -353,11 +368,17 @@ namespace Ikon.AI.Embeddings
     float Distance { get; }
     int Index { get; }
   static class VectorMath
+    // Calculates the element-wise average embedding from a list of embeddings. Each embedding must be a float array of the same length.
     static float[] CalculateAverageEmbedding(IList<float[]> embeddings)
+    // Calculates the cosine similarity between two vectors.
     static float CalculateCosineSimilarity(ReadOnlySpan<float> vectorA, ReadOnlySpan<float> vectorB)
+    // Calculates the dot product of two vectors.
     static float CalculateDotProduct(ReadOnlySpan<float> vectorA, ReadOnlySpan<float> vectorB)
+    // Calculates the Euclidean distance between two vectors.
     static float CalculateEuclideanDistance(ReadOnlySpan<float> vectorA, ReadOnlySpan<float> vectorB)
+    // For each embedding in the list, finds the k nearest neighbors (using Euclidean distance).
     static List<List<VectorMath.Neighbor>> CalculateKNearestNeighbors(IList<float[]> embeddings, int k)
+    // Calculates the magnitude (L2 norm) of a vector.
     static float GetMagnitude(ReadOnlySpan<float> vector)
 
 namespace Ikon.AI.FileConversion
@@ -378,10 +399,10 @@ namespace Ikon.AI.FileConversion
   sealed class FileConverterConfig
     ctor()
     AssetUri? AssetUri { get; set; }
-    byte[] Data { get; set; }
+    byte[]? Data { get; set; }
     string FileName { get; set; }
     TimeSpan Timeout { get; set; }
-    string Url { get; set; }
+    string? Url { get; set; }
   enum FileConverterModel
     ConvertApi
   static class FileConverterModelExtensions
@@ -400,7 +421,8 @@ namespace Ikon.AI.ImageGeneration
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(ImageGeneratorModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
-    static Task<ImageGeneratorResult> GenerateAsync(string prompt, ImageGeneratorModel model = Gemini25FlashImage, CancellationToken cancellationToken = null)
+    // One-shot image generation. The verbose form using var generator = new ImageGenerator(ImageGeneratorModel.Gemini25FlashImage); var results = await generator.GenerateImageAsync(new ImageGeneratorConfig { Prompt = prompt }); var image = results.FirstOrDefault(); becomes var image = await ImageGenerator.GenerateAsync(prompt); Defaults to Gemini25FlashImage (cheap+fast). Override the model via the second parameter when the task warrants. Returns null if the model produces no results — caller should null-check before using .Data / .MimeType. Reach for the constructor + GenerateImageAsync when you need batch generation, custom width/height, an ImageBackground override, input images, or any other ImageGeneratorConfig field beyond the prompt.
+    static Task<ImageGeneratorResult?> GenerateAsync(string prompt, ImageGeneratorModel model = Gemini25FlashImage, CancellationToken cancellationToken = null)
     Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = null)
     static ImageGeneratorCapabilities GetCapabilities(ImageGeneratorModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ImageGeneratorModel model)
@@ -542,15 +564,15 @@ namespace Ikon.AI.Kernel
     string CallId { get; }
     Function Function { get; }
     string Hash { get; }
-    object[] Parameters { get; }
+    object?[] Parameters { get; }
     string ParametersJson { get; }
     string ReasoningContent { get; }
     string ThoughtSignature { get; }
   class FunctionResult
     ctor(object? result = null, string? modelMessagePrefix = null, string? modelMessageSuffix = null)
-    string ModelMessagePrefix { get; set; }
-    string ModelMessageSuffix { get; set; }
-    object Result { get; set; }
+    string? ModelMessagePrefix { get; set; }
+    string? ModelMessageSuffix { get; set; }
+    object? Result { get; set; }
   struct FunctionResultPart : IMessagePart
     ctor(FunctionCall functionCall, StreamingResult[] streamingResults, object result)
     FunctionCall FunctionCall { get; }
@@ -580,23 +602,28 @@ namespace Ikon.AI.Kernel
     static JsonNode DeepSerialize(object? obj)
     static T GenerateExampleInstance<T>()
     static string GenerateExampleJson<T>()
+  // Generates JSON Schema definitions from .NET types. To satisfy the OpenAI spec, every object schema’s "required" array must exactly equal the keys in "properties", and every object schema must have a "type": "object" key. Properties that are allowed to be null are marked according to the target dialect: the 2020-12 dialect expands "type" into a ["X", "null"] union, while the OpenAPI 3.0 dialect adds a sibling "nullable": true.
   static class JsonSchemaGenerator
     static ExpandoObject GenerateJsonSchemaExpandoObject<T>(SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
+    // Generate the schema as a JsonNode tree rather than a serialised string. Handles primitives (string, int, bool, ...), enums, arrays, dictionaries, and complex types — i.e. valid as a root for any callable shape, not just records. Useful when the caller wants to embed the schema into a larger JSON structure without the round-trip of string→parse.
     static JsonNode GenerateSchemaNode(Type type, string? description = null, SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
     static string GenerateSchemaString<T>(SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
+    // Non-generic overload for callers that have a Type at runtime (reflection, dynamic dispatch, MCP tool-schema generation). Same semantics as the generic version.
     static string GenerateSchemaString(Type type, SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
   struct KernelContext : IEquatable<KernelContext>
     ctor()
     ctor(KernelContext? baseContext = null, ImmutableList<Instruction>? instructions = null, ImmutableList<MessageBlock>? messages = null, ImmutableDictionary<string, Function>? functions = null, TimeSpan? timeout = null, double? temperature = null, int? maxOutputTokens = null, ReasoningEffort? reasoningEffort = null, int? reasoningTokenBudget = null, bool? useStreaming = null, bool? useJson = null, bool? useCitations = null, bool? useUserNames = null, bool? useAudioOutput = null, string? audioOutputVoiceId = null, bool? useCaching = null, bool? disableFunctionCalling = null, bool? discardTextOutputWithFunctionCalls = null, bool? logFullRequest = null, bool? logFullResponse = null, object? jsonSchema = null, string? gbnfGrammar = null, string? toolPlan = null)
     string AudioOutputVoiceId { get; init; }
+    // Alias for Empty . Some generated code reaches for `Default` first (common shadcn / .NET pattern).
     static KernelContext Default { get; }
     bool DisableFunctionCalling { get; init; }
     bool DiscardTextOutputWithFunctionCalls { get; init; }
+    // A fresh, blank `KernelContext` — equivalent to `new KernelContext()` or `default`. Provided as a named constant for code generated against frameworks that expect an `.Empty` / `.Default` affordance on context-like types.
     static KernelContext Empty { get; }
     ImmutableDictionary<string, Function> Functions { get; init; }
     string GbnfGrammar { get; init; }
     ImmutableList<Instruction> Instructions { get; init; }
-    object JsonSchema { get; init; }
+    object? JsonSchema { get; init; }
     bool LogFullRequest { get; init; }
     bool LogFullResponse { get; init; }
     int MaxOutputTokens { get; init; }
@@ -627,7 +654,7 @@ namespace Ikon.AI.Kernel
     ctor(MessageBlockRole role, string message, string? userName = null)
     IMessagePart[] Parts { get; }
     MessageBlockRole Role { get; }
-    string UserName { get; }
+    string? UserName { get; }
     static MessageBlock? CreateFromObjects(IReadOnlyList<object?> inputs, MessageBlockRole role)
     override string ToString()
   enum MessageBlockRole
@@ -670,6 +697,7 @@ namespace Ikon.AI.Kernel
     Low
     Medium
     High
+  // Selects which JSON-schema dialect the generator emits. All Ikon-side schema shapes (primitives, arrays, dictionaries, polymorphism) are expressible in both dialects; the two differ in how they encode nullability and how strictly they police unknown keywords.
   enum SchemaDialect
     JsonSchema202012
     OpenApi30
@@ -677,10 +705,10 @@ namespace Ikon.AI.Kernel
     ctor(object value, string sourceName, string? valueTypeName = null)
     string SourceName { get; }
     object Value { get; }
-    string ValueTypeName { get; }
+    string? ValueTypeName { get; }
   class Tag
     ctor(string name, string content, Dictionary<string, string>? attributes = null)
-    Dictionary<string, string> Attributes { get; }
+    Dictionary<string, string>? Attributes { get; }
     string Content { get; }
     string Name { get; }
   struct TextPart : IMessagePart
@@ -690,6 +718,7 @@ namespace Ikon.AI.Kernel
   class TokenUsage
     ctor(int inputTokens, int cachedInputTokens, int cacheCreationInputTokens, int outputTokens)
     int CacheCreationInputTokens { get; }
+    // Subset of InputTokens served from the provider's prompt cache (Anthropic cache_read_input_tokens, OpenAI cached_tokens, Bedrock CacheReadInputTokens). Always included in InputTokens; this is the cache-attributable portion.
     int CachedInputTokens { get; }
     int InputTokens { get; }
     int OutputTokens { get; }
@@ -698,7 +727,7 @@ namespace Ikon.AI.Kernel
     string Text { get; }
   struct VideoAssetPart : IMessagePart
     ctor(AssetUri uri, string? mimeType = null)
-    string MimeType { get; }
+    string? MimeType { get; }
     MessagePartType Type { get; }
     AssetUri Uri { get; }
   struct VideoPart : IMessagePart
@@ -834,6 +863,7 @@ namespace Ikon.AI.LLM
     NovaMicro
     Nova2Lite
   static class LLMModelExtensions
+    // Maximum input-context window for the model, in tokens (e.g. 200_000 for Claude 4.x base, 1_000_000 for the 1M-context tier). Returns 0 when the model can't be resolved — callers should treat 0 as "unknown" and skip utilization computation rather than dividing by zero.
     static int ContextWindowSize(LLMModel model)
     static string DisplayName(LLMModel model)
 
@@ -842,8 +872,8 @@ namespace Ikon.AI.Legacy
     ctor()
     Context CurrentUserClientContext { get; }
     string CurrentUserLocale { get; }
-    string DefaultModelName { get; set; }
-    string DefaultSecondaryModelName { get; set; }
+    string? DefaultModelName { get; set; }
+    string? DefaultSecondaryModelName { get; set; }
     string DefaultUserLocale { get; set; }
     string DefaultUserName { get; set; }
     KernelContext KernelContext { get; }
@@ -874,7 +904,7 @@ namespace Ikon.AI.Legacy
     Action<string> RenderedShader
     Func<Task> Retry
     Func<Task> Start
-    Func<Dictionary<string, object>, Task> StateUpdate
+    Func<Dictionary<string, object?>, Task> StateUpdate
   class MindConfig
     ctor()
     int ActivityIntervalMs
@@ -918,12 +948,12 @@ namespace Ikon.AI.OCR
   sealed class OCRConfig
     ctor()
     AssetUri? AssetUri { get; set; }
-    byte[] Data { get; set; }
+    byte[]? Data { get; set; }
     DocumentType DocumentType { get; set; }
     bool IncludeWords { get; set; }
-    string Pages { get; set; }
+    string? Pages { get; set; }
     TimeSpan Timeout { get; set; }
-    string Url { get; set; }
+    string? Url { get; set; }
   enum OCRModel
     AzureDocumentIntelligence
     MistralOCR
@@ -1064,11 +1094,11 @@ namespace Ikon.AI.Retrieving
     ValueTask DisposeAsync()
     Task<ContentLink[]> Expand(ContentLink[] links)
     Task<ContentLink[]> Expand(ContentLink link)
-    Task<Content> GetContent(ContentLink link)
-    Retriever.ContentMetadata GetContentMetadata(string metadataId)
+    Task<Content?> GetContent(ContentLink link)
+    Retriever.ContentMetadata? GetContentMetadata(string metadataId)
     Task<string> GetContents(string query, Retriever.GetContentsOptions options)
     Task<string> GetContents2(string query, Retriever.GetContentsOptions2 options)
-    ContentLink Ignore(ContentLink link, string detail)
+    ContentLink? Ignore(ContentLink link, string detail)
     Task InitializeAsync(string dataDirectory, EmbeddingModel embeddingModel = OpenAI3Small)
     Task InitializeAsync(IReadOnlyList<AssetUri> assetUris, EmbeddingModel embeddingModel = OpenAI3Small)
     ContentLink[] Prefer(ContentLink link, string detail)
@@ -1088,10 +1118,10 @@ namespace Ikon.AI.Shader
     ScriptableStringValue BeforePass { get; set; }
     ScriptableStringValue BeforeShader { get; set; }
     Dictionary<string, ScriptableStringValue> Listeners
-  class FunctionDetailsDictionaryConverter<T> : JsonConverter where T : new(), IFunctionDetails
+  class FunctionDetailsDictionaryConverter<T> : JsonConverter where T : IFunctionDetails, new()
     ctor()
     override bool CanConvert(Type objectType)
-    override object ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+    override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
     override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
   class History
     ctor()
@@ -1104,9 +1134,9 @@ namespace Ikon.AI.Shader
     abstract void AddFunction(string name, KernelContext context, Function function)
     abstract bool ContainsKey(string key)
     abstract IEnumerable<string> GetKeys()
-    abstract object GetValue(string key)
+    abstract object? GetValue(string key)
     abstract string GetValueAsString(string key)
-    abstract void Register<T>()
+    abstract void Register<T>() where T : class
     abstract void SetValue(string key, object? value)
   interface IScriptEngine
     abstract IScriptContext CreateContext()
@@ -1116,27 +1146,27 @@ namespace Ikon.AI.Shader
   class ShaderCache.ImplicitShader
     ctor(AssetUri? shaderUri, string callerFilePath, ShaderCache outer)
     IAsyncEnumerable<StreamingResult> GenerateAsync(List<KernelContext>? contexts = null, ShaderInvocationContext? invocationContext = null, Func<KernelContext, Task<KernelContext>>? preprocessContext = null, CancellationToken cancellationToken = null, params ValueTuple<string, object?>[] parameters)
-    Task<T> GenerateObjectAsync<T>(List<KernelContext>? contexts = null, ShaderInvocationContext? invocationContext = null, CancellationToken cancellationToken = null, params ValueTuple<string, object?>[] parameters)
-    Task<T> GenerateObjectAsync<T>(List<KernelContext>? contexts = null, CancellationToken cancellationToken = null, params ValueTuple<string, object?>[] parameters)
-    Task<T> GenerateObjectAsync<T>(string? cacheKey = null, List<KernelContext>? contexts = null, CancellationToken cancellationToken = null, params ValueTuple<string, object?>[] parameters)
-    Task<T> GenerateObjectAsync<T>(List<KernelContext>? contexts = null, ShaderInvocationContext? invocationContext = null, Func<KernelContext, Task<KernelContext>>? preprocessContext = null, CancellationToken cancellationToken = null, params ValueTuple<string, object?>[] parameters)
-    Task<T> GenerateObjectAsync<T>(List<KernelContext>? contexts = null, Func<KernelContext, Task<KernelContext>>? preprocessContext = null, CancellationToken cancellationToken = null, params ValueTuple<string, object?>[] parameters)
-    Task<T> GenerateObjectAsync<T>(string? cacheKey = null, List<KernelContext>? contexts = null, Func<KernelContext, Task<KernelContext>>? preprocessContext = null, CancellationToken cancellationToken = null, params ValueTuple<string, object?>[] parameters)
+    Task<T> GenerateObjectAsync<T>(List<KernelContext>? contexts = null, ShaderInvocationContext? invocationContext = null, CancellationToken cancellationToken = null, params ValueTuple<string, object?>[] parameters) where T : new()
+    Task<T> GenerateObjectAsync<T>(List<KernelContext>? contexts = null, CancellationToken cancellationToken = null, params ValueTuple<string, object?>[] parameters) where T : new()
+    Task<T> GenerateObjectAsync<T>(string? cacheKey = null, List<KernelContext>? contexts = null, CancellationToken cancellationToken = null, params ValueTuple<string, object?>[] parameters) where T : new()
+    Task<T> GenerateObjectAsync<T>(List<KernelContext>? contexts = null, ShaderInvocationContext? invocationContext = null, Func<KernelContext, Task<KernelContext>>? preprocessContext = null, CancellationToken cancellationToken = null, params ValueTuple<string, object?>[] parameters) where T : new()
+    Task<T> GenerateObjectAsync<T>(List<KernelContext>? contexts = null, Func<KernelContext, Task<KernelContext>>? preprocessContext = null, CancellationToken cancellationToken = null, params ValueTuple<string, object?>[] parameters) where T : new()
+    Task<T> GenerateObjectAsync<T>(string? cacheKey = null, List<KernelContext>? contexts = null, Func<KernelContext, Task<KernelContext>>? preprocessContext = null, CancellationToken cancellationToken = null, params ValueTuple<string, object?>[] parameters) where T : new()
     Task<string> GenerateStringAsync(List<KernelContext>? contexts = null, ShaderInvocationContext? invocationContext = null, CancellationToken cancellationToken = null, params ValueTuple<string, object?>[] parameters)
     Task<string> GenerateStringAsync(List<KernelContext>? contexts = null, ShaderInvocationContext? invocationContext = null, Func<KernelContext, Task<KernelContext>>? preprocessContext = null, CancellationToken cancellationToken = null, params ValueTuple<string, object?>[] parameters)
     Task<Shader> GetShaderAsync()
   class Intent
     ctor()
-    History History { get; set; }
+    History? History { get; set; }
     string Id { get; set; }
-    Dictionary<string, object> Input { get; set; }
-    Misc Misc { get; set; }
-    Model Model { get; set; }
+    Dictionary<string, object?>? Input { get; set; }
+    Misc? Misc { get; set; }
+    Model? Model { get; set; }
     List<Pass> Passes { get; set; }
     ScriptableValue<bool> Select { get; set; }
   class JTokenConverter
     ctor()
-    static object ConvertJTokenToObject(JToken? token)
+    static object? ConvertJTokenToObject(JToken? token)
   class Misc
     ctor()
     ScriptableStringValue CitationInsertionCommand { get; set; }
@@ -1154,7 +1184,7 @@ namespace Ikon.AI.Shader
     ScriptableValue<bool> DiscardTextOutputWithFunctionCalls { get; set; }
     ScriptableValue<bool> ForceCitations { get; set; }
     ScriptableStringValue GbnfGrammar { get; set; }
-    ExpandoObject JsonSchema { get; set; }
+    ExpandoObject? JsonSchema { get; set; }
     ScriptableStringValue JsonSchemaString { get; set; }
     ScriptableValue<bool> LogFullRequest { get; set; }
     ScriptableValue<bool> LogRenderedShader { get; set; }
@@ -1176,14 +1206,14 @@ namespace Ikon.AI.Shader
     ScriptableValue<bool> UseUserNames { get; set; }
   class ModelFunctionDetails : IFunctionDetails
     ctor()
-    ScriptableStringValue Call { get; set; }
-    ScriptableValue<bool> CallOnlyOnce { get; set; }
+    ScriptableStringValue? Call { get; set; }
+    ScriptableValue<bool>? CallOnlyOnce { get; set; }
     ScriptableStringValue Description { get; set; }
-    ScriptableValue<bool> InlineCall { get; set; }
+    ScriptableValue<bool>? InlineCall { get; set; }
     Dictionary<string, ParameterDetails> Parameters { get; set; }
     ScriptableStringValue Process { get; set; }
     ScriptableValue<bool> Select { get; set; }
-    ScriptableStringValue Use { get; set; }
+    ScriptableStringValue? Use { get; set; }
   class Output
     ctor()
     ScriptableStringValue AfterPass { get; set; }
@@ -1192,21 +1222,21 @@ namespace Ikon.AI.Shader
     ScriptableStringValue BeforeShader { get; set; }
   class ParameterDetails
     ctor()
-    object DefaultValue { get; set; }
-    ScriptableStringValue Description { get; set; }
-    ScriptableValue<bool> HasDefaultValue { get; set; }
-    ScriptableStringValue Type { get; set; }
-    ScriptableStringValue Use { get; set; }
+    object? DefaultValue { get; set; }
+    ScriptableStringValue? Description { get; set; }
+    ScriptableValue<bool>? HasDefaultValue { get; set; }
+    ScriptableStringValue? Type { get; set; }
+    ScriptableStringValue? Use { get; set; }
   class Pass
     ctor()
     Actions Actions { get; set; }
     ScriptableStringValue Command { get; set; }
     ScriptableStringValue Context { get; set; }
-    History History { get; set; }
+    History? History { get; set; }
     string Id { get; set; }
-    Dictionary<string, object> Input { get; set; }
-    Misc Misc { get; set; }
-    Model Model { get; set; }
+    Dictionary<string, object?>? Input { get; set; }
+    Misc? Misc { get; set; }
+    Model? Model { get; set; }
     Dictionary<string, ModelFunctionDetails> ModelFunctions { get; set; }
     Output Output { get; set; }
     ScriptableValue<bool> Select { get; set; }
@@ -1214,48 +1244,48 @@ namespace Ikon.AI.Shader
   class ScriptableStringDictionaryConverter : JsonConverter
     ctor()
     override bool CanConvert(Type objectType)
-    override object ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+    override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
     override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
   class ScriptableStringValue
     ctor(string? value = "")
     bool IsScript { get; }
-    string Value { get; }
-    Task<string> GetValueAsync(Func<string, Task<string>> renderer)
+    string? Value { get; }
+    Task<string?> GetValueAsync(Func<string, Task<string>> renderer)
   class ScriptableStringValueConverter : JsonConverter
     ctor()
     override bool CanConvert(Type objectType)
-    override object ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+    override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
     override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
   class ScriptableValueConverter : JsonConverter
     ctor()
     override bool CanConvert(Type objectType)
-    override object ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+    override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
     override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
   class ScriptableValue<T> where T : struct
     ctor(T value)
     ctor(string script)
-    string Script { get; }
+    string? Script { get; }
     T? Value { get; }
     Task<T> GetValueAsync(Func<string, Task<string>> renderer)
   class Shader
     ctor(string shaderConfigAsJsonString, bool enableRenderedShaderLogging = false)
-    Dictionary<string, object> Input { get; }
+    Dictionary<string, object?> Input { get; }
     static string Escape(string? text)
     IAsyncEnumerable<StreamingResult> GenerateAsync(KernelContext? context = null, List<KernelContext>? externalContexts = null, Dictionary<string, object?>? state = null, ShaderInvocationContext? invocationContext = null, ExpandoObject? implicitJsonSchema = null, string? implicitJsonExample = null, IdMapper? idMapper = null, string modelUserName = "", string modelMessagePrefix = "", string modelMessageSuffix = "", int iteration = 0, Func<Dictionary<string, object?>, Task>? stateUpdateCallback = null, Func<KernelContext, Task<KernelContext>>? preprocessContext = null, CancellationToken cancellationToken = null)
-    Task<T> GenerateObjectAsync<T>(KernelContext? context = null, List<KernelContext>? externalContexts = null, Dictionary<string, object?>? state = null, ShaderInvocationContext? invocationContext = null, Func<Dictionary<string, object?>, Task>? stateUpdateCallback = null, JsonSerializerOptions? jsonSerializerOptions = null, Func<KernelContext, Task<KernelContext>>? preprocessContext = null, CancellationToken cancellationToken = null)
+    Task<T> GenerateObjectAsync<T>(KernelContext? context = null, List<KernelContext>? externalContexts = null, Dictionary<string, object?>? state = null, ShaderInvocationContext? invocationContext = null, Func<Dictionary<string, object?>, Task>? stateUpdateCallback = null, JsonSerializerOptions? jsonSerializerOptions = null, Func<KernelContext, Task<KernelContext>>? preprocessContext = null, CancellationToken cancellationToken = null) where T : new()
     Task<string> GenerateStringAsync(KernelContext? context = null, List<KernelContext>? externalContexts = null, Dictionary<string, object?>? state = null, ShaderInvocationContext? invocationContext = null, Func<Dictionary<string, object?>, Task>? stateUpdateCallback = null, Func<KernelContext, Task<KernelContext>>? preprocessContext = null, CancellationToken cancellationToken = null)
     void SetActiveState<T>(string key, T value)
     static string Unescape(string? text)
-    event EventHandler<string> RenderedShader
+    event EventHandler<string>? RenderedShader
   class ShaderCache : AsyncLocalInstance<ShaderCache>
     ctor()
-    string DefaultSpaceId { get; set; }
+    string? DefaultSpaceId { get; set; }
     ShaderCache.ImplicitShader GetImplicitShader(string callerFilePath = "")
   class ShaderConfig
     ctor()
     static object Default { get; }
     History History { get; set; }
-    Dictionary<string, object> Input { get; set; }
+    Dictionary<string, object?> Input { get; set; }
     List<Intent> Intents { get; set; }
     ScriptableValue<int> MaxLogLineLength { get; set; }
     ScriptableValue<int> MaxLogSectionLineCount { get; set; }
@@ -1281,7 +1311,7 @@ namespace Ikon.AI.Shader
     string Role { get; set; }
   class Transform
     ctor()
-    Dictionary<string, object> Config { get; set; }
+    Dictionary<string, object?> Config { get; set; }
     ScriptableStringValue Name { get; set; }
     ScriptableValue<bool> ProcessInput { get; set; }
     ScriptableValue<bool> ProcessOutput { get; set; }
@@ -1689,12 +1719,12 @@ namespace Ikon.AI.VideoEnhancement
   sealed class VideoEnhancerConfig
     ctor()
     int? EndFrame { get; set; }
-    string MimeType { get; set; }
+    string? MimeType { get; set; }
     int? StartFrame { get; set; }
     int? TargetFps { get; set; }
     TimeSpan Timeout { get; set; }
-    byte[] VideoData { get; set; }
-    string VideoUrl { get; set; }
+    byte[]? VideoData { get; set; }
+    string? VideoUrl { get; set; }
     static VideoEnhancerConfig ReadFromTeleport(ReadOnlySpan<byte> data)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
@@ -1731,9 +1761,9 @@ namespace Ikon.AI.VideoGeneration
     bool SupportsTextToVideo { get; }
   sealed class VideoGeneratorConfig.InputImage
     ctor()
-    byte[] Data { get; set; }
-    string MimeType { get; set; }
-    string Url { get; set; }
+    byte[]? Data { get; set; }
+    string? MimeType { get; set; }
+    string? Url { get; set; }
     static VideoGeneratorConfig.InputImage ReadFromTeleport(ReadOnlySpan<byte> data)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
@@ -1780,8 +1810,8 @@ namespace Ikon.AI.VideoGeneration
     bool? GenerateAudio { get; set; }
     List<VideoGeneratorConfig.InputImage> InputImages { get; set; }
     int Length { get; set; }
-    string NegativePrompt { get; set; }
-    string Prompt { get; set; }
+    string? NegativePrompt { get; set; }
+    string? Prompt { get; set; }
     VideoGeneratorResolution Resolution { get; set; }
     int? Seed { get; set; }
     TimeSpan Timeout { get; set; }
