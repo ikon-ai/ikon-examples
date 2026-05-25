@@ -62,12 +62,12 @@ namespace Ikon.AI.VideoEnhancement
   sealed class VideoEnhancerConfig
     ctor()
     int? EndFrame { get; set; }
-    string MimeType { get; set; }
+    string? MimeType { get; set; }
     int? StartFrame { get; set; }
     int? TargetFps { get; set; }
     TimeSpan Timeout { get; set; }
-    byte[] VideoData { get; set; }
-    string VideoUrl { get; set; }
+    byte[]? VideoData { get; set; }
+    string? VideoUrl { get; set; }
     static VideoEnhancerConfig ReadFromTeleport(ReadOnlySpan<byte> data)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
@@ -104,9 +104,9 @@ namespace Ikon.AI.VideoGeneration
     bool SupportsTextToVideo { get; }
   sealed class VideoGeneratorConfig.InputImage
     ctor()
-    byte[] Data { get; set; }
-    string MimeType { get; set; }
-    string Url { get; set; }
+    byte[]? Data { get; set; }
+    string? MimeType { get; set; }
+    string? Url { get; set; }
     static VideoGeneratorConfig.InputImage ReadFromTeleport(ReadOnlySpan<byte> data)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
@@ -153,8 +153,8 @@ namespace Ikon.AI.VideoGeneration
     bool? GenerateAudio { get; set; }
     List<VideoGeneratorConfig.InputImage> InputImages { get; set; }
     int Length { get; set; }
-    string NegativePrompt { get; set; }
-    string Prompt { get; set; }
+    string? NegativePrompt { get; set; }
+    string? Prompt { get; set; }
     VideoGeneratorResolution Resolution { get; set; }
     int? Seed { get; set; }
     TimeSpan Timeout { get; set; }
