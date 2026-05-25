@@ -17,7 +17,7 @@ namespace Ikon.Teleport
     ctor(string name)
     ctor(uint explicitId)
     uint? ExplicitId { get; }
-    string Name { get; }
+    string? Name { get; }
   static class TeleportHasher
     static uint ComputeFieldId(string fieldName)
   sealed class TeleportIgnoreAttribute : Attribute
@@ -30,7 +30,7 @@ namespace Ikon.Teleport
   sealed class TeleportJsonMirrorOptions
     ctor()
     bool Indented { get; set; }
-    TeleportJsonIrDocument Schema { get; set; }
+    TeleportJsonIrDocument? Schema { get; set; }
   delegate TeleportSerializer.TeleportReadDelegate<T>
     T TeleportReadDelegate`1<T>(ReadOnlySpan<byte> data)
   sealed class TeleportSerializedBuffer : IDisposable
