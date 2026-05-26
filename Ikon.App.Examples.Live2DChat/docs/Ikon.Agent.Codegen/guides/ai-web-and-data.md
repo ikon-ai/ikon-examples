@@ -149,11 +149,17 @@ namespace Ikon.AI.Embeddings
     float Distance { get; }
     int Index { get; }
   static class VectorMath
+    // Calculates the element-wise average embedding from a list of embeddings. Each embedding must be a float array of the same length.
     static float[] CalculateAverageEmbedding(IList<float[]> embeddings)
+    // Calculates the cosine similarity between two vectors.
     static float CalculateCosineSimilarity(ReadOnlySpan<float> vectorA, ReadOnlySpan<float> vectorB)
+    // Calculates the dot product of two vectors.
     static float CalculateDotProduct(ReadOnlySpan<float> vectorA, ReadOnlySpan<float> vectorB)
+    // Calculates the Euclidean distance between two vectors.
     static float CalculateEuclideanDistance(ReadOnlySpan<float> vectorA, ReadOnlySpan<float> vectorB)
+    // For each embedding in the list, finds the k nearest neighbors (using Euclidean distance).
     static List<List<VectorMath.Neighbor>> CalculateKNearestNeighbors(IList<float[]> embeddings, int k)
+    // Calculates the magnitude (L2 norm) of a vector.
     static float GetMagnitude(ReadOnlySpan<float> vector)
 
 namespace Ikon.AI.FileConversion
@@ -174,10 +180,10 @@ namespace Ikon.AI.FileConversion
   sealed class FileConverterConfig
     ctor()
     AssetUri? AssetUri { get; set; }
-    byte[] Data { get; set; }
+    byte[]? Data { get; set; }
     string FileName { get; set; }
     TimeSpan Timeout { get; set; }
-    string Url { get; set; }
+    string? Url { get; set; }
   enum FileConverterModel
     ConvertApi
   static class FileConverterModelExtensions
@@ -206,12 +212,12 @@ namespace Ikon.AI.OCR
   sealed class OCRConfig
     ctor()
     AssetUri? AssetUri { get; set; }
-    byte[] Data { get; set; }
+    byte[]? Data { get; set; }
     DocumentType DocumentType { get; set; }
     bool IncludeWords { get; set; }
-    string Pages { get; set; }
+    string? Pages { get; set; }
     TimeSpan Timeout { get; set; }
-    string Url { get; set; }
+    string? Url { get; set; }
   enum OCRModel
     AzureDocumentIntelligence
     MistralOCR
@@ -347,11 +353,11 @@ namespace Ikon.AI.Retrieving
     ValueTask DisposeAsync()
     Task<ContentLink[]> Expand(ContentLink[] links)
     Task<ContentLink[]> Expand(ContentLink link)
-    Task<Content> GetContent(ContentLink link)
-    Retriever.ContentMetadata GetContentMetadata(string metadataId)
+    Task<Content?> GetContent(ContentLink link)
+    Retriever.ContentMetadata? GetContentMetadata(string metadataId)
     Task<string> GetContents(string query, Retriever.GetContentsOptions options)
     Task<string> GetContents2(string query, Retriever.GetContentsOptions2 options)
-    ContentLink Ignore(ContentLink link, string detail)
+    ContentLink? Ignore(ContentLink link, string detail)
     Task InitializeAsync(string dataDirectory, EmbeddingModel embeddingModel = OpenAI3Small)
     Task InitializeAsync(IReadOnlyList<AssetUri> assetUris, EmbeddingModel embeddingModel = OpenAI3Small)
     ContentLink[] Prefer(ContentLink link, string detail)
