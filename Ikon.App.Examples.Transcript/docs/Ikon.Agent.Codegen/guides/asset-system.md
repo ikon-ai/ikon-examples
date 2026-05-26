@@ -87,38 +87,39 @@ await Asset.Instance.DeleteAsync(uri);
 namespace Ikon.Common.Core.Assets
   sealed class Asset : AsyncLocalInstance<Asset>, IAsyncDisposable
     ctor()
-    IkonBackend Backend { get; set; }
+    IkonBackend? Backend { get; set; }
     Task AddStorageAsync(AssetClass assetClass, IStorage storage, bool startInBackground = false)
     Task DeleteAsync(AssetUri assetUri)
     ValueTask DisposeAsync()
     Task<bool> ExistsAsync(AssetUri assetUri)
-    Task<T> GetAsync<T>(AssetUri assetUri)
+    Task<T> GetAsync<T>(AssetUri assetUri) where T : class
     Task<byte[]> GetBytesAsync(AssetUri assetUri)
     Task<AssetContent<byte[]>> GetBytesWithMetadataAsync(AssetUri assetUri)
     Task<AssetMetadata> GetMetadataAsync(AssetUri assetUri)
-    Task<IAsyncDisposable> GetOrUpdateWithMetadataAsync<T>(AssetUri assetUri, Func<AssetEventArgs, AssetContent<T>?, Task> onAsset, Func<AssetEventArgs, Task>? onAssetNotFound = null)
-    Task<IAsyncDisposable> GetOrUpdateWithMetadataAsync<T>(AssetUri assetUri, Action<AssetEventArgs, AssetContent<T>?> onAsset, Func<AssetEventArgs, Task>? onAssetNotFound = null)
+    Task<IAsyncDisposable> GetOrUpdateWithMetadataAsync<T>(AssetUri assetUri, Func<AssetEventArgs, AssetContent<T>?, Task> onAsset, Func<AssetEventArgs, Task>? onAssetNotFound = null) where T : class
+    Task<IAsyncDisposable> GetOrUpdateWithMetadataAsync<T>(AssetUri assetUri, Action<AssetEventArgs, AssetContent<T>?> onAsset, Func<AssetEventArgs, Task>? onAssetNotFound = null) where T : class
     Task<AssetContent<Stream>> GetReadStreamAsync(AssetUri assetUri)
     Task<string> GetTextAsync(AssetUri assetUri, Encoding? encoding = null)
     Task<AssetContent<string>> GetTextWithMetadataAsync(AssetUri assetUri, Encoding? encoding = null)
-    Task<AssetContent<T>> GetWithMetadataAsync<T>(AssetUri assetUri)
+    Task<AssetContent<T>> GetWithMetadataAsync<T>(AssetUri assetUri) where T : class
     Task<Stream> GetWriteStreamAsync(AssetUri assetUri, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
     Task<IReadOnlyList<AssetListingEntry>> ListAsync(AssetQuery query, CancellationToken cancellationToken = null)
     Task<IReadOnlyList<AssetUri>> ListAsync(AssetClass assetClass, string? prefix = null, CancellationToken cancellationToken = null)
     Task<IReadOnlyList<AssetUri>> ListAsync(AssetUri folderUri, CancellationToken cancellationToken = null)
     Task NotifyUpdateAsync(AssetUri assetUri)
-    Task SetAsync<T>(AssetUri assetUri, T asset, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
+    Task SetAsync<T>(AssetUri assetUri, T asset, AssetMetadata? metadata = null, CancellationToken cancellationToken = null) where T : class
     Task SetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
     Task SetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
-    Task<T> TryGetAsync<T>(AssetUri assetUri)
-    Task<byte[]> TryGetBytesAsync(AssetUri assetUri)
-    Task<AssetContent<byte[]>> TryGetBytesWithMetadataAsync(AssetUri assetUri)
+    Task<T> TryGetAsync<T>(AssetUri assetUri) where T : class
+    Task<byte[]?> TryGetBytesAsync(AssetUri assetUri)
+    Task<AssetContent<byte[]>?> TryGetBytesWithMetadataAsync(AssetUri assetUri)
     Task<AssetMetadata?> TryGetMetadataAsync(AssetUri assetUri)
-    Task<string> TryGetTextAsync(AssetUri assetUri, Encoding? encoding = null)
-    Task<AssetContent<string>> TryGetTextWithMetadataAsync(AssetUri assetUri, Encoding? encoding = null)
-    Task<AssetContent<T>> TryGetWithMetadataAsync<T>(AssetUri assetUri)
+    Task<string?> TryGetTextAsync(AssetUri assetUri, Encoding? encoding = null)
+    Task<AssetContent<string>?> TryGetTextWithMetadataAsync(AssetUri assetUri, Encoding? encoding = null)
+    Task<AssetContent<T>?> TryGetWithMetadataAsync<T>(AssetUri assetUri) where T : class
     Task<AssetWriteResult> TrySetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
     Task<AssetWriteResult> TrySetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
+  // Asset class determines which storage backend is used to store/retrieve the asset.
   enum AssetClass
     LocalFile
     EmbeddedFile
@@ -142,33 +143,33 @@ namespace Ikon.Common.Core.Assets
   struct AssetMetadata
     ctor(string? mimeType = null, long? size = null, DateTime? lastModified = null, string? url = null, bool? urlIsTemporal = null, string[]? tags = null, string? internalPath = null, string? storageId = null, string? nativeUri = null, bool? isAppServed = null, DateTime? expiresAt = null)
     DateTime? ExpiresAt { get; }
-    string InternalPath { get; }
+    string? InternalPath { get; }
     bool? IsAppServed { get; }
     DateTime? LastModified { get; }
-    string MimeType { get; }
-    string NativeUri { get; }
+    string? MimeType { get; }
+    string? NativeUri { get; }
     long? Size { get; }
-    string StorageId { get; }
-    string[] Tags { get; }
-    string Url { get; }
+    string? StorageId { get; }
+    string[]? Tags { get; }
+    string? Url { get; }
     bool? UrlIsTemporal { get; }
   sealed class AssetQuery
     ctor(AssetClass assetClass)
     ctor(AssetUri folderUri)
-    string ChannelId { get; set; }
+    string? ChannelId { get; set; }
     AssetClass Class { get; }
-    string ContinuationToken { get; set; }
-    string EffectiveChannelId { get; }
-    string EffectiveFolderPrefix { get; }
-    string EffectiveSpaceId { get; }
-    string EffectiveUserId { get; }
-    string FolderPrefix { get; set; }
+    string? ContinuationToken { get; set; }
+    string? EffectiveChannelId { get; }
+    string? EffectiveFolderPrefix { get; }
+    string? EffectiveSpaceId { get; }
+    string? EffectiveUserId { get; }
+    string? FolderPrefix { get; set; }
     AssetUri? FolderUri { get; set; }
     int? Limit { get; set; }
-    string NextContinuationToken { get; set; }
-    string SpaceId { get; set; }
-    string[] Tags { get; set; }
-    string UserId { get; set; }
+    string? NextContinuationToken { get; set; }
+    string? SpaceId { get; set; }
+    string[]? Tags { get; set; }
+    string? UserId { get; set; }
     AssetQuery Clone()
   enum AssetStatus
     None
@@ -176,17 +177,18 @@ namespace Ikon.Common.Core.Assets
     Exists
     Changed
     Deleted
+  // AssetUris are used to store and retrieve data on the Ikon platform. Use the asset class to select the storage backend. Space ID, User ID, and Channel ID are optional identifiers to scope the asset. Path is the location of the asset within the storage backend. It may include subdirectories and/or a file name. Query is optional and is not used for now. Example asset URIs: assets://space/12345/user/67890/channel/12345/cloud-file/images/photos/pic1.jpg assets://cloud-json/config/settings.json assets://space/12345/local-file/documents/report.pdf assets://embedded-file/logo.png
   struct AssetUri : IEquatable<AssetUri>
     ctor(string uriString)
     ctor(AssetClass assetClass, string? path = null, string? spaceId = null, string? userId = null, string? channelId = null, string? query = null)
-    string ChannelId { get; }
+    string? ChannelId { get; }
     AssetClass Class { get; }
     string FileName { get; }
     string Path { get; }
-    string Query { get; }
+    string? Query { get; }
     static string Scheme { get; }
-    string SpaceId { get; }
-    string UserId { get; }
+    string? SpaceId { get; }
+    string? UserId { get; }
     static AssetUri FromFilesystemPath(string relativePathToRoot, AssetClass defaultAssetClass = LocalFile)
     static bool IsValid(string uriString)
     static string ToFilesystemPath(AssetUri assetUri)

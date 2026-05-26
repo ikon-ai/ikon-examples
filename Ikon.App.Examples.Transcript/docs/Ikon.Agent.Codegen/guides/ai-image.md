@@ -32,7 +32,8 @@ namespace Ikon.AI.ImageGeneration
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(ImageGeneratorModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
-    static Task<ImageGeneratorResult> GenerateAsync(string prompt, ImageGeneratorModel model = Gemini25FlashImage, CancellationToken cancellationToken = null)
+    // One-shot image generation. The verbose form using var generator = new ImageGenerator(ImageGeneratorModel.Gemini25FlashImage); var results = await generator.GenerateImageAsync(new ImageGeneratorConfig { Prompt = prompt }); var image = results.FirstOrDefault(); becomes var image = await ImageGenerator.GenerateAsync(prompt); Defaults to Gemini25FlashImage (cheap+fast). Override the model via the second parameter when the task warrants. Returns null if the model produces no results — caller should null-check before using .Data / .MimeType. Reach for the constructor + GenerateImageAsync when you need batch generation, custom width/height, an ImageBackground override, input images, or any other ImageGeneratorConfig field beyond the prompt.
+    static Task<ImageGeneratorResult?> GenerateAsync(string prompt, ImageGeneratorModel model = Gemini25FlashImage, CancellationToken cancellationToken = null)
     Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = null)
     static ImageGeneratorCapabilities GetCapabilities(ImageGeneratorModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ImageGeneratorModel model)
