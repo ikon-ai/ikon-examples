@@ -122,17 +122,17 @@ namespace Ikon.AI.Emergence
   sealed class AgentScope<T> : EmergeScope<T>
     ctor()
     int Index { get; }
-    string Role { get; set; }
+    string? Role { get; set; }
     int? Seed { get; set; }
   sealed class BestOfOptions<T> : EmergeScope<T>
     ctor()
-    Func<T, ScoreBreakdown, string> BuildCriticFeedback { get; set; }
-    Action<CandidateScope<T>> CandidateConfig { get; set; }
+    Func<T, ScoreBreakdown?, string>? BuildCriticFeedback { get; set; }
+    Action<CandidateScope<T>>? CandidateConfig { get; set; }
     int Count { get; set; }
     bool CriticMustImprove { get; set; }
     EmergeScope<T> CriticScope { get; }
     bool EnableCritic { get; set; }
-    Func<T, EmergenceTrace, double> Score { get; set; }
+    Func<T, EmergenceTrace, double>? Score { get; set; }
     void Candidate(Action<CandidateScope<T>> configure)
     void Critic(Action<EmergeScope<T>> configure)
   sealed class CandidateScope<T> : EmergeScope<T>
@@ -147,16 +147,20 @@ namespace Ikon.AI.Emergence
   sealed class DebateThenJudgeOptions<T> : EmergeScope<T>
     ctor()
     int DebateRounds { get; set; }
-    Action<AgentScope<T>> DebaterConfig { get; set; }
+    Action<AgentScope<T>>? DebaterConfig { get; set; }
     int Debaters { get; set; }
     EmergeScope<T> JudgeScope { get; }
     void Debater(Action<AgentScope<T>> configure)
     void Judge(Action<EmergeScope<T>> configure)
   static class Emerge
+    // One-shot LLM completion that returns the result string. The verbose form var (reply, _) = await Emerge.Run<string>( LLMModel.Claude45Haiku, new KernelContext(), pass => pass.Command = command).FinalAsync(ct); becomes var reply = await Emerge.AskAsync(command, ct); Uses Claude45Haiku by default — cheap+fast, the right choice for short transformations (chatbot replies, reformat-as-X, classify, summarize). Override the model via the other overload when the task warrants a stronger tier. Reach for the full Run``1 when you need tools, multi-iteration agentic loops, a populated KernelContext , or fine pass tuning.
     static Task<string> AskAsync(string command, CancellationToken ct = null)
+    // Like AskAsync but with an explicit model override.
     static Task<string> AskAsync(string command, LLMModel model, CancellationToken ct = null)
-    static Task<T> AskAsync<T>(string command, CancellationToken ct = null)
-    static Task<T> AskAsync<T>(string command, LLMModel model, CancellationToken ct = null)
+    // One-shot LLM completion that returns the result string. The verbose form var (reply, _) = await Emerge.Run<string>( LLMModel.Claude45Haiku, new KernelContext(), pass => pass.Command = command).FinalAsync(ct); becomes var reply = await Emerge.AskAsync(command, ct); Uses Claude45Haiku by default — cheap+fast, the right choice for short transformations (chatbot replies, reformat-as-X, classify, summarize). Override the model via the other overload when the task warrants a stronger tier. Reach for the full Run``1 when you need tools, multi-iteration agentic loops, a populated KernelContext , or fine pass tuning.
+    static Task<T> AskAsync<T>(string command, CancellationToken ct = null) where T : class
+    // Like AskAsync but with an explicit model override.
+    static Task<T> AskAsync<T>(string command, LLMModel model, CancellationToken ct = null) where T : class
     static IAsyncEnumerable<EmergeEvent<T>> BestOf<T>(LLMModel model, KernelContext context, Action<BestOfOptions<T>> configure, CancellationToken ct = null)
     static IAsyncEnumerable<EmergeEvent<T>> BestOf<T>(LLMModel model, KernelContext context, Action<BestOfOptions<T>> configure, ILLM llm, CancellationToken ct = null)
     static IAsyncEnumerable<EmergeEvent<T>> DebateThenJudge<T>(LLMModel model, KernelContext context, Action<DebateThenJudgeOptions<T>> configure, CancellationToken ct = null)
@@ -189,15 +193,16 @@ namespace Ikon.AI.Emergence
     static IAsyncEnumerable<EmergeEvent<T>> TreeOfThought<T>(LLMModel model, KernelContext context, Action<TreeOfThoughtOptions<T>> configure, ILLM llm, CancellationToken ct = null)
     static IAsyncEnumerable<EmergeEvent<T>> TreeSearch<T>(LLMModel model, KernelContext context, Action<TreeSearchOptions<T>> configure, CancellationToken ct = null)
     static IAsyncEnumerable<EmergeEvent<T>> TreeSearch<T>(LLMModel model, KernelContext context, Action<TreeSearchOptions<T>> configure, ILLM llm, CancellationToken ct = null)
+  // Marker type for chat-mode Emerge.Run where no structured output is needed. Replaces app-specific empty classes like NanobotResponse, AgentLoopResponse, etc.
   sealed class EmergeChat
     ctor()
   sealed class EmergeEventCallbacks<T>
     ctor()
-    Action<T, EmergenceTrace> OnCompleted { get; set; }
-    Action<string> OnStopped { get; set; }
-    Action<string> OnText { get; set; }
-    Action<FunctionCall> OnToolCallPlanned { get; set; }
-    Action<FunctionCall, object> OnToolCallResult { get; set; }
+    Action<T, EmergenceTrace>? OnCompleted { get; set; }
+    Action<string?>? OnStopped { get; set; }
+    Action<string>? OnText { get; set; }
+    Action<FunctionCall>? OnToolCallPlanned { get; set; }
+    Action<FunctionCall, object>? OnToolCallResult { get; set; }
   static class EmergeEventExtensions
     static IAsyncEnumerable<RunnerEvent> AsRunnerEvents<T>(IAsyncEnumerable<EmergeEvent<T>> events, CancellationToken ct = null)
     static Task<string> DispatchEventsAsync<T>(IAsyncEnumerable<EmergeEvent<T>> events, EmergeEventCallbacks<T> callbacks, CancellationToken ct = null)
@@ -231,7 +236,7 @@ namespace Ikon.AI.Emergence
   sealed class EmergePass<T>
     ctor()
     bool CaseInsensitiveJson { get; set; }
-    string Command { get; set; }
+    string? Command { get; set; }
     KernelContext Context { get; }
     bool HasFunctionResults { get; }
     bool HasNewFunctionResults { get; }
@@ -249,11 +254,11 @@ namespace Ikon.AI.Emergence
     bool? OptimizeContext { get; set; }
     ReasoningEffort? ReasoningEffort { get; set; }
     int? ReasoningTokenBudget { get; set; }
-    IReadOnlyList<ModelRegion> Regions { get; set; }
+    IReadOnlyList<ModelRegion>? Regions { get; set; }
     TimeSpan? RetryDelay { get; set; }
     int? SkipLastNMessages { get; set; }
-    string StopReason { get; }
-    string SystemPrompt { get; set; }
+    string? StopReason { get; }
+    string? SystemPrompt { get; set; }
     double? Temperature { get; set; }
     TimeSpan? Timeout { get; set; }
     IList<Function> Tools { get; }
@@ -264,12 +269,12 @@ namespace Ikon.AI.Emergence
     void UseLastMessages(int count, int skipLast = 0)
   class EmergeResult
     ctor(object? result = null)
-    object Result { get; }
+    object? Result { get; }
     bool SkipReprocessing { get; init; }
   sealed class EmergeScope : EmergeScopeBase
     ctor()
   abstract class EmergeScopeBase
-    string Command { get; set; }
+    string? Command { get; set; }
     bool? IncludeJsonExample { get; set; }
     int? MaxIterations { get; set; }
     int? MaxOutputTokens { get; set; }
@@ -280,10 +285,10 @@ namespace Ikon.AI.Emergence
     bool? OptimizeContext { get; set; }
     ReasoningEffort? ReasoningEffort { get; set; }
     int? ReasoningTokenBudget { get; set; }
-    IReadOnlyList<ModelRegion> Regions { get; set; }
+    IReadOnlyList<ModelRegion>? Regions { get; set; }
     TimeSpan? RetryDelay { get; set; }
     int? SkipLastNMessages { get; set; }
-    string SystemPrompt { get; set; }
+    string? SystemPrompt { get; set; }
     double? Temperature { get; set; }
     TimeSpan? Timeout { get; set; }
     IList<Function> Tools { get; }
@@ -309,17 +314,19 @@ namespace Ikon.AI.Emergence
     long CacheCreationInputTokens { get; set; }
     long CachedInputTokens { get; set; }
     string CallId { get; init; }
+    // Resolved context-window size for this call's model, or 0 when the model can't be resolved.
     int ContextWindowSize { get; init; }
+    // Fraction of the model's context window currently consumed by input tokens (0.0–1.0). Returns 0 when context window is unknown. Read by the agent runtime to decide when to surface a budget-extension prompt or self-compact.
     double ContextWindowUtilization { get; }
     TimeSpan? Duration { get; set; }
-    string Error { get; set; }
+    string? Error { get; set; }
     long InputTokens { get; set; }
     string Model { get; init; }
     long OutputTokens { get; set; }
     string Pattern { get; init; }
     string ResultType { get; init; }
     DateTime StartedAt { get; init; }
-    string StopReason { get; set; }
+    string? StopReason { get; set; }
     bool? Success { get; set; }
     Dictionary<string, string> Tags { get; init; }
   static class EmergenceMonitor
@@ -328,6 +335,7 @@ namespace Ikon.AI.Emergence
     static void ClearObservers()
     static void RemoveObserver(IEmergenceObserver observer)
     static void SetSoleObserver(IEmergenceObserver observer)
+    // Sets tags that will be attached to any EmergenceCallInfo created within this async scope. Returns a disposable that clears the tags when disposed.
     static IDisposable WithTags(Dictionary<string, string> tags)
   class EmergenceMonitorState : IEmergenceObserver
     ctor()
@@ -336,7 +344,7 @@ namespace Ikon.AI.Emergence
     void OnCallCompleted(EmergenceCallInfo call)
     void OnCallStarted(EmergenceCallInfo call)
     void OnEvent(EmergenceCallInfo call, EmergenceObserverEvent evt)
-    event Action Changed
+    event Action? Changed
   abstract class EmergenceObserverEvent : IEquatable<EmergenceObserverEvent>
   enum EmergenceStatus
     Completed
@@ -348,8 +356,8 @@ namespace Ikon.AI.Emergence
     long CacheCreationInputTokens { get; init; }
     long CachedInputTokens { get; init; }
     TimeSpan Duration { get; init; }
-    Exception Error { get; init; }
-    string FinishReason { get; init; }
+    Exception? Error { get; init; }
+    string? FinishReason { get; init; }
     long InputTokens { get; init; }
     bool IsTruncated { get; }
     int Iterations { get; init; }
@@ -360,14 +368,14 @@ namespace Ikon.AI.Emergence
     ctor()
     int MaxParallel { get; set; }
     EmergeScope<T> MergerScope { get; }
-    Action<AgentScope<T>> SolverConfig { get; set; }
+    Action<AgentScope<T>>? SolverConfig { get; set; }
     int SolverCount { get; set; }
     void Merger(Action<EmergeScope<T>> configure)
     void Solver(Action<AgentScope<T>> configure)
   sealed class ExecutionPlan
     ctor()
     List<PlanStep> Steps { get; set; }
-    string Summary { get; set; }
+    string? Summary { get; set; }
   class FoundSection
     ctor()
     string Content { get; set; }
@@ -385,31 +393,36 @@ namespace Ikon.AI.Emergence
     static bool HasFunctionResults(KernelContext ctx)
   sealed class MapReduceOptions<TChunk, TResult> : EmergeScope<TResult>
     ctor()
-    IReadOnlyList<object> Chunks { get; set; }
-    object Input { get; set; }
+    IReadOnlyList<object>? Chunks { get; set; }
+    object? Input { get; set; }
     EmergeScope<TChunk> MapScope { get; }
     int MaxParallel { get; set; }
     EmergeScope<TResult> ReduceScope { get; }
-    Func<object, IEnumerable<object>> Split { get; set; }
+    Func<object, IEnumerable<object>>? Split { get; set; }
     void Map(Action<EmergeScope<TChunk>> configure)
     void Reduce(Action<EmergeScope<TResult>> configure)
+  // MCP (Model Context Protocol) client using Streamable HTTP transport. Connects to an MCP server, discovers tools, and proxies tool calls.
   sealed class McpClient : IDisposable
     ctor(string endpoint, Dictionary<string, string>? headers = null)
     IReadOnlyList<McpTool> Tools { get; }
+    // Calls an MCP tool by name with the given JSON arguments.
     Task<string> CallToolAsync(string name, JsonElement arguments, CancellationToken ct = null)
+    // Calls an MCP tool and returns both content and pagination cursor. Pass a cursor from a previous response to fetch the next page.
     Task<McpToolResult> CallToolRawAsync(string name, JsonElement arguments, CancellationToken ct = null, string? cursor = null)
+    // Initializes the MCP session and discovers available tools.
     Task ConnectAsync(CancellationToken ct = null)
     void Dispose()
+    // Converts discovered MCP tools into Ikon Function objects that can be added to an EmergePass.
     Function[] ToFunctions()
   class McpTool : IEquatable<McpTool>
     ctor(string Name, string? Description, JsonElement? InputSchema)
-    string Description { get; init; }
+    string? Description { get; init; }
     JsonElement? InputSchema { get; init; }
     string Name { get; init; }
   class McpToolResult : IEquatable<McpToolResult>
     ctor(string Content, string? NextCursor)
     string Content { get; init; }
-    string NextCursor { get; init; }
+    string? NextCursor { get; init; }
   sealed class ModelText<T> : EmergeEvent<T>, IEquatable<ModelText<T>>
     ctor(string Text)
     string Text { get; init; }
@@ -433,7 +446,7 @@ namespace Ikon.AI.Emergence
     string Name { get; init; }
   sealed class ObserverStoppedEvent : EmergenceObserverEvent, IEquatable<ObserverStoppedEvent>
     ctor(string? Reason)
-    string Reason { get; init; }
+    string? Reason { get; init; }
   sealed class ObserverTextEvent : EmergenceObserverEvent, IEquatable<ObserverTextEvent>
     ctor(string Text)
     string Text { get; init; }
@@ -455,14 +468,14 @@ namespace Ikon.AI.Emergence
     string ResultSummary { get; init; }
   sealed class ParallelBestOfOptions<T> : EmergeScope<T>
     ctor()
-    Func<T, ScoreBreakdown, string> BuildCriticFeedback { get; set; }
-    Action<CandidateScope<T>> CandidateConfig { get; set; }
+    Func<T, ScoreBreakdown?, string>? BuildCriticFeedback { get; set; }
+    Action<CandidateScope<T>>? CandidateConfig { get; set; }
     int Count { get; set; }
     bool CriticMustImprove { get; set; }
     EmergeScope<T> CriticScope { get; }
     bool EnableCritic { get; set; }
     int MaxParallel { get; set; }
-    Func<T, EmergenceTrace, double> Score { get; set; }
+    Func<T, EmergenceTrace, double>? Score { get; set; }
     void Candidate(Action<CandidateScope<T>> configure)
     void Critic(Action<EmergeScope<T>> configure)
   sealed class PlanAndExecuteOptions<T> : EmergeScope<T>
@@ -482,7 +495,7 @@ namespace Ikon.AI.Emergence
     ctor()
     string Description { get; set; }
     bool RequiresTool { get; set; }
-    string ToolName { get; set; }
+    string? ToolName { get; set; }
   sealed class Progress<T> : EmergeEvent<T>, IEquatable<Progress<T>>
     ctor(string Message)
     string Message { get; init; }
@@ -491,7 +504,7 @@ namespace Ikon.AI.Emergence
     EmergeScope<T> InitialScope { get; }
     int MaxRefinements { get; set; }
     EmergeScope<T> RefinementScope { get; }
-    Func<T, EmergenceTrace, Task<bool>> ShouldContinue { get; set; }
+    Func<T, EmergenceTrace, Task<bool>>? ShouldContinue { get; set; }
     void Initial(Action<EmergeScope<T>> configure)
     void Refinement(Action<EmergeScope<T>> configure)
   sealed class Retry<T> : EmergeEvent<T>, IEquatable<Retry<T>>
@@ -508,13 +521,13 @@ namespace Ikon.AI.Emergence
     bool SuggestPlanRevision { get; set; }
   sealed class Route
     ctor()
-    Action<EmergeScopeBase> Configure { get; set; }
+    Action<EmergeScopeBase>? Configure { get; set; }
     string Description { get; set; }
     LLMModel? Model { get; set; }
     string Name { get; set; }
   sealed class RouterDecision
     ctor()
-    string Reasoning { get; set; }
+    string? Reasoning { get; set; }
     string SelectedRoute { get; set; }
   sealed class RouterOptions<T> : EmergeScope<T>
     ctor()
@@ -545,7 +558,7 @@ namespace Ikon.AI.Emergence
     ctor()
     IReadOnlyList<ScoreMetric> Metrics { get; init; }
     double TotalScore { get; init; }
-    ScoreMetric Weakest { get; init; }
+    ScoreMetric? Weakest { get; init; }
     string FormatBreakdown()
   sealed class ScoreBreakdownBuilder<T>
     ctor()
@@ -560,9 +573,9 @@ namespace Ikon.AI.Emergence
   sealed class SelfConsistencyOptions<T> : EmergeScope<T>
     ctor()
     int MaxParallel { get; set; }
-    Action<CandidateScope<T>> SampleConfig { get; set; }
+    Action<CandidateScope<T>>? SampleConfig { get; set; }
     int Samples { get; set; }
-    Func<IReadOnlyList<T>, T> SelectMajority { get; set; }
+    Func<IReadOnlyList<T>, T>? SelectMajority { get; set; }
     void Sample(Action<CandidateScope<T>> configure)
   sealed class SolverCriticVerifierOptions<T> : EmergeScope<T>
     ctor()
@@ -579,11 +592,11 @@ namespace Ikon.AI.Emergence
   sealed class Stopped<T> : EmergeEvent<T>, IEquatable<Stopped<T>>
     ctor(KernelContext Context, string? Reason)
     KernelContext Context { get; init; }
-    string Reason { get; init; }
+    string? Reason { get; init; }
   sealed class SwarmAgent<T>
     ctor()
     List<string> DependsOn { get; set; }
-    string Id { get; set; }
+    string? Id { get; set; }
     string Role { get; set; }
     EmergeScope<T> Scope { get; }
   sealed class SwarmOptions<T> : EmergeScope<T>
@@ -592,17 +605,17 @@ namespace Ikon.AI.Emergence
     EmergeScope<T> CoordinatorScope { get; }
     int MaxParallel { get; set; }
     int MaxRounds { get; set; }
-    Func<IReadOnlyList<T>, T> Merge { get; set; }
+    Func<IReadOnlyList<T>, T>? Merge { get; set; }
     void AddAgent(string role, Action<EmergeScope<T>> configure)
     void Coordinator(Action<EmergeScope<T>> configure)
   sealed class TaskGraphOptions<T> : EmergeScope<T>
     ctor()
     bool EnableParallelReview { get; set; }
     int MaxParallel { get; set; }
-    Func<string, Task> OnHumanFeedback { get; set; }
-    Action<PlanRevision> OnPlanRevised { get; set; }
-    Action<ReviewFeedback> OnReviewCompleted { get; set; }
-    Action<TaskNode, object> OnTaskCompleted { get; set; }
+    Func<string, Task>? OnHumanFeedback { get; set; }
+    Action<PlanRevision>? OnPlanRevised { get; set; }
+    Action<ReviewFeedback>? OnReviewCompleted { get; set; }
+    Action<TaskNode, object?>? OnTaskCompleted { get; set; }
     EmergeScope<PlanRevision> PlanReviserScope { get; }
     int ReviewIntervalTasks { get; set; }
     EmergeScope<ReviewFeedback> ReviewerScope { get; }
@@ -619,20 +632,20 @@ namespace Ikon.AI.Emergence
     List<string> BlockedBy { get; set; }
     List<string> Blocks { get; set; }
     string Description { get; set; }
-    string Error { get; set; }
+    string? Error { get; set; }
     string Id { get; set; }
-    string Owner { get; set; }
-    object Result { get; set; }
+    string? Owner { get; set; }
+    object? Result { get; set; }
     string Status { get; set; }
   sealed class TestRefineFeedback
     ctor()
     bool Continue { get; set; }
-    string Feedback { get; set; }
-    ScoreBreakdown Score { get; set; }
+    string? Feedback { get; set; }
+    ScoreBreakdown? Score { get; set; }
   sealed class TestRefineOptions<T> : EmergeScope<T>
     ctor()
-    Func<T, int, Task> Apply { get; set; }
-    Func<T, int, Task<TestRefineFeedback>> Evaluate { get; set; }
+    Func<T, int, Task>? Apply { get; set; }
+    Func<T, int, Task<TestRefineFeedback>>? Evaluate { get; set; }
     EmergeScope<T> InitialScope { get; }
     int MaxIterations { get; set; }
     EmergeScope<T> RefinementScope { get; }
@@ -642,8 +655,8 @@ namespace Ikon.AI.Emergence
     ctor()
     List<ThoughtNode<T>> Children { get; }
     int Depth { get; set; }
-    ThoughtNode<T> Parent { get; set; }
-    string Reasoning { get; set; }
+    ThoughtNode<T>? Parent { get; set; }
+    string? Reasoning { get; set; }
     double Score { get; set; }
     T Value { get; set; }
   sealed class TokenUpdate<T> : EmergeEvent<T>, IEquatable<TokenUpdate<T>>
@@ -664,7 +677,7 @@ namespace Ikon.AI.Emergence
     ctor()
     int BeamWidth { get; set; }
     int BranchingFactor { get; set; }
-    Func<T, EmergenceTrace, double> Evaluate { get; set; }
+    Func<T, EmergenceTrace, double>? Evaluate { get; set; }
     EmergeScope<T> EvaluatorScope { get; }
     int MaxDepth { get; set; }
     EmergeScope<T> ThoughtScope { get; }
@@ -672,7 +685,7 @@ namespace Ikon.AI.Emergence
     void Thought(Action<EmergeScope<T>> configure)
   sealed class TreeSearchOptions<T> : EmergeScope<T>
     ctor()
-    TreeIndex Index { get; set; }
+    TreeIndex? Index { get; set; }
     int MaxResults { get; set; }
     int MaxSteps { get; set; }
     EmergeScope<NavigationDecision> NavigatorScope { get; }
@@ -694,9 +707,13 @@ namespace Ikon.AI.Emergence.Structured
     ctor(string PlainText, IReadOnlyList<StructuredTagParser.ParsedBlock> Blocks)
     IReadOnlyList<StructuredTagParser.ParsedBlock> Blocks { get; init; }
     string PlainText { get; init; }
+  // Generic parser for structured XML-style tags in LLM responses. Handles case mismatches, partial tags, and various formatting variations.
   static class StructuredTagParser
-    static string GetTagContent(string content, string tagName)
+    // Extract the content of a specific tag (first occurrence)
+    static string? GetTagContent(string content, string tagName)
+    // Check if content contains a specific tag
     static bool HasTag(string content, string tagName)
+    // Parse content and extract structured blocks for the specified tag names
     static StructuredTagParser.ParsedResponse Parse(string content, params string[] tagNames)
 
 namespace Ikon.AI.Emergence.Tree
@@ -716,7 +733,7 @@ namespace Ikon.AI.Emergence.Tree
     TreeNode Root { get; set; }
     static IAsyncEnumerable<EmergeEvent<TreeIndex>> BuildAsync(LLMModel model, string content, TreeIndexOptions? options = null, CancellationToken ct = null)
     static IAsyncEnumerable<EmergeEvent<TreeIndex>> BuildAsync(LLMModel model, IContentReader reader, TreeIndexOptions? options = null, CancellationToken ct = null)
-    TreeNode FindById(string id)
+    TreeNode? FindById(string id)
     void RebuildIndex()
     string ToTableOfContents(int maxDepth = -1)
     IEnumerable<TreeNode> Traverse()
@@ -733,7 +750,7 @@ namespace Ikon.AI.Emergence.Tree
     int Depth { get; }
     string Id { get; set; }
     int? Page { get; set; }
-    TreeNode Parent { get; }
+    TreeNode? Parent { get; }
     string Summary { get; set; }
     string Title { get; set; }
     void AddChild(TreeNode child)

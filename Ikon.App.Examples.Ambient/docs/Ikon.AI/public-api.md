@@ -1881,11 +1881,29 @@ namespace Ikon.AI.WebScraping
     static Cookie ReadFromTeleport(ReadOnlySpan<byte> data)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
+  sealed class DownloadFileConfig
+    ctor()
+    string CountryCode { get; set; }
+    TimeSpan Timeout { get; set; }
+    string Url { get; set; }
+    static DownloadFileConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class DownloadFileResult
+    ctor()
+    byte[] Data { get; init; }
+    string MimeType { get; init; }
+    string Url { get; init; }
+    static DownloadFileResult ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   interface IWebScraper : IDisposable, IWebScraperInfo
+    abstract Task<DownloadFileResult> DownloadFileAsync(DownloadFileConfig config, CancellationToken cancellationToken = null)
     abstract Task<List<PageResult>> ScrapeMultiplePagesAsync(MultiPageScrapeConfig config, CancellationToken cancellationToken = null)
     abstract Task<PageResult> ScrapeSinglePageAsync(SinglePageScrapeConfig config, CancellationToken cancellationToken = null)
     abstract Task<ScreenshotResult> TakeScreenshotAsync(ScreenshotConfig config, CancellationToken cancellationToken = null)
   interface IWebScraperInfo
+    bool SupportsFileDownload { get; }
     bool SupportsMultiPageScraping { get; }
     bool SupportsScreenshotting { get; }
     bool SupportsSinglePageScraping { get; }
@@ -1921,7 +1939,6 @@ namespace Ikon.AI.WebScraping
     bool UseSitemapOnly { get; set; }
     bool UseStreaming { get; set; }
     TimeSpan WaitAfter { get; set; }
-    WebScraperModel WebScraperModel { get; set; }
     static MultiPageScrapeConfig ReadFromTeleport(ReadOnlySpan<byte> data)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
@@ -1980,7 +1997,6 @@ namespace Ikon.AI.WebScraping
     bool UseCaptchaSolver { get; set; }
     bool UseReadability { get; set; }
     TimeSpan WaitAfter { get; set; }
-    WebScraperModel WebScraperModel { get; set; }
     static SinglePageScrapeConfig ReadFromTeleport(ReadOnlySpan<byte> data)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
@@ -1989,10 +2005,12 @@ namespace Ikon.AI.WebScraping
     ctor(WebScraperModel model, bool useLocalCache = false)
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = false)
     ctor(WebScraperModel model, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = false)
+    bool SupportsFileDownload { get; }
     bool SupportsMultiPageScraping { get; }
     bool SupportsScreenshotting { get; }
     bool SupportsSinglePageScraping { get; }
     void Dispose()
+    Task<DownloadFileResult> DownloadFileAsync(DownloadFileConfig config, CancellationToken cancellationToken = null)
     static WebScraperCapabilities GetCapabilities(WebScraperModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(WebScraperModel model)
     Task<List<PageResult>> ScrapeMultiplePagesAsync(MultiPageScrapeConfig config, CancellationToken cancellationToken = null)
@@ -2000,6 +2018,7 @@ namespace Ikon.AI.WebScraping
     Task<ScreenshotResult> TakeScreenshotAsync(ScreenshotConfig config, CancellationToken cancellationToken = null)
   sealed class WebScraperCapabilities : IWebScraperInfo
     ctor()
+    bool SupportsFileDownload { get; init; }
     bool SupportsMultiPageScraping { get; init; }
     bool SupportsScreenshotting { get; init; }
     bool SupportsSinglePageScraping { get; init; }
