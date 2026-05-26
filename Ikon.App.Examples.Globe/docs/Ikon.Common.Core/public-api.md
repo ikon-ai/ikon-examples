@@ -1125,7 +1125,6 @@ namespace Ikon.Common.Core
   class IkonBackend.SpaceEventRow
     ctor()
     string EventName { get; set; }
-    string Message { get; set; }
     JsonElement? Parameters { get; set; }
     string? SessionId { get; set; }
     string Time { get; set; }

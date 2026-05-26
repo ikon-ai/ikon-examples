@@ -14,38 +14,50 @@ namespace Ikon.AI
     Escalate
     Obfuscate
     Delay
+  // The pending AI operation presented to the hook. Operation discriminates surface ("ai_call", "tool", "ingest"); Subject is the thing being acted on (model name, tool name, corpus name); Args are call-specific parameters; Ctx carries host-supplied identity / mission / runtime context (mission_id, agent_id, thread_id, user, tenant, time, etc.).
   sealed class GovernanceCall : IEquatable<GovernanceCall>
+    // The pending AI operation presented to the hook. Operation discriminates surface ("ai_call", "tool", "ingest"); Subject is the thing being acted on (model name, tool name, corpus name); Args are call-specific parameters; Ctx carries host-supplied identity / mission / runtime context (mission_id, agent_id, thread_id, user, tenant, time, etc.).
     ctor(string Operation, string Subject, IReadOnlyDictionary<string, object?> Args, IReadOnlyDictionary<string, object?> Ctx)
-    IReadOnlyDictionary<string, object> Args { get; init; }
-    IReadOnlyDictionary<string, object> Ctx { get; init; }
+    IReadOnlyDictionary<string, object?> Args { get; init; }
+    IReadOnlyDictionary<string, object?> Ctx { get; init; }
     string Operation { get; init; }
     string Subject { get; init; }
+  // What happened after the operation ran (or didn't). Hooks use this in AfterAsync to close out the audit record.
   sealed class GovernanceCallResult : IEquatable<GovernanceCallResult>
+    // What happened after the operation ran (or didn't). Hooks use this in AfterAsync to close out the audit record.
     ctor(bool Failed, string Outcome, string? ErrorMessage = null)
-    string ErrorMessage { get; init; }
+    string? ErrorMessage { get; init; }
     bool Failed { get; init; }
     string Outcome { get; init; }
+  // Shared invocation wrapper used by every transport that gates a call through GovernanceScope . Builds the standard Before / Deny / Escalate / invoke / After flow once so HTTP, MCP, and any future transport stay symmetric — the only thing each transport supplies is the GovernanceCall shape and the inner invocation. With no hook active the wrap is a pass-through.
   static class GovernanceInvoker
     static Task<T> RunAsync<T>(GovernanceCall call, Func<Task<T>> invoke, CancellationToken ct = null)
+  // What the hook decided. The host must honour Action : Allow → invoke the operationDeny → throw GovernanceDeniedException Escalate → suspend / route to Target Obfuscate → apply the named transformDelay → wait the named duration then proceed DecisionId is the audit identifier the host can attach to any subsequent telemetry tied to this operation.
   sealed class GovernanceOutcome : IEquatable<GovernanceOutcome>
+    // What the hook decided. The host must honour Action : Allow → invoke the operationDeny → throw GovernanceDeniedException Escalate → suspend / route to Target Obfuscate → apply the named transformDelay → wait the named duration then proceed DecisionId is the audit identifier the host can attach to any subsequent telemetry tied to this operation.
     ctor(GovernanceAction Action, string DecisionId, string RuleId, string PolicyId, string Reason, string? Target = null)
     GovernanceAction Action { get; init; }
     string DecisionId { get; init; }
     string PolicyId { get; init; }
     string Reason { get; init; }
     string RuleId { get; init; }
-    string Target { get; init; }
+    string? Target { get; init; }
+  // AsyncLocal scope carrying the active IGovernanceHook for the duration of an AI-touched operation. Host code wraps work in using var _ = GovernanceScope.Use(hook);; downstream Ikon AI primitives read Current and apply the hook if present. The scope crosses await boundaries naturally; it does NOT cross Task.Run or manually-started threads. Capture the hook into a local before any fork if you need to.
   static class GovernanceScope
-    static IGovernanceHook Current { get; }
+    static IGovernanceHook? Current { get; }
     static IDisposable Use(IGovernanceHook hook)
+  // Single hook surface called by every AI-touched primitive in the Ikon platform — LLM calls (Emerge.Run<T>), agent tool dispatch (Ikon.Agent2), data ingest steps — before they act. One contract, three surfaces. Host code activates a hook by entering a GovernanceScope ; downstream primitives read Current and consult the hook if it is set. The default — no scope active — is a no-op pass-through and the AI primitives behave exactly as they do without governance.
   interface IGovernanceHook
     abstract Task AfterAsync(GovernanceCall call, GovernanceCallResult result, CancellationToken ct)
     abstract Task<GovernanceOutcome> BeforeAsync(GovernanceCall call, CancellationToken ct)
+  // Central configuration for SDK connection to the Ikon.AI function host. Uses BackendConfig mode (IkonBackend.Instance token) for authentication. Inherits from AsyncLocalInstance to support proper async local flow in tests and apps.
   class IkonAIConnection : AsyncLocalInstance<IkonAIConnection>
     ctor()
-    IkonClientConfig ConfigOverride { get; set; }
+    IkonClientConfig? ConfigOverride { get; set; }
     Task ForceReconnectAsync(CancellationToken ct = null)
+    // Gets or creates an IkonClient connected to the Ikon.AI function host. The client is cached per instance to avoid connection overhead on each call. If the client is reconnecting, waits for reconnection to complete.
     Task<IkonClient> GetOrCreateClientAsync(CancellationToken ct = null)
+    // Pre-establishes the connection to the host app so that subsequent function calls do not incur connection setup latency.
     Task WarmupAsync(CancellationToken ct = null)
     static string ChannelKey
     static string DevelopmentSpaceId
@@ -70,6 +82,7 @@ namespace Ikon.AI
     VideoGenerator
     WebScraper
     WebSearcher
+  // JSON converter factory that handles deserialization of legacy model enum formats. Supports both the current enum names (e.g., "OpenAI3Small") and legacy canonical names (e.g., "OpenAI_3Small").
   class ModelEnumConverterFactory : JsonConverterFactory
     ctor()
     override bool CanConvert(Type typeToConvert)
@@ -92,6 +105,7 @@ namespace Ikon.AI
   static class ModelRegionSelector
     static void SetPriorityList(ModelRegionPriorityKey key, IReadOnlyList<ModelRegion> priorities)
     static bool TryGetPriorityList(ModelRegionPriorityKey key, out IReadOnlyList<ModelRegion> priorities)
+  // Default no-op hook. Allows every call, records nothing. Lets primitives treat the hook contract as non-nullable downstream.
   sealed class NullGovernanceHook : IGovernanceHook
     ctor()
     Task AfterAsync(GovernanceCall call, GovernanceCallResult result, CancellationToken ct)
@@ -179,15 +193,15 @@ namespace Ikon.AI.Kernel
     string CallId { get; }
     Function Function { get; }
     string Hash { get; }
-    object[] Parameters { get; }
+    object?[] Parameters { get; }
     string ParametersJson { get; }
     string ReasoningContent { get; }
     string ThoughtSignature { get; }
   class FunctionResult
     ctor(object? result = null, string? modelMessagePrefix = null, string? modelMessageSuffix = null)
-    string ModelMessagePrefix { get; set; }
-    string ModelMessageSuffix { get; set; }
-    object Result { get; set; }
+    string? ModelMessagePrefix { get; set; }
+    string? ModelMessageSuffix { get; set; }
+    object? Result { get; set; }
   struct FunctionResultPart : IMessagePart
     ctor(FunctionCall functionCall, StreamingResult[] streamingResults, object result)
     FunctionCall FunctionCall { get; }
@@ -217,23 +231,28 @@ namespace Ikon.AI.Kernel
     static JsonNode DeepSerialize(object? obj)
     static T GenerateExampleInstance<T>()
     static string GenerateExampleJson<T>()
+  // Generates JSON Schema definitions from .NET types. To satisfy the OpenAI spec, every object schema’s "required" array must exactly equal the keys in "properties", and every object schema must have a "type": "object" key. Properties that are allowed to be null are marked according to the target dialect: the 2020-12 dialect expands "type" into a ["X", "null"] union, while the OpenAPI 3.0 dialect adds a sibling "nullable": true.
   static class JsonSchemaGenerator
     static ExpandoObject GenerateJsonSchemaExpandoObject<T>(SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
+    // Generate the schema as a JsonNode tree rather than a serialised string. Handles primitives (string, int, bool, ...), enums, arrays, dictionaries, and complex types — i.e. valid as a root for any callable shape, not just records. Useful when the caller wants to embed the schema into a larger JSON structure without the round-trip of string→parse.
     static JsonNode GenerateSchemaNode(Type type, string? description = null, SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
     static string GenerateSchemaString<T>(SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
+    // Non-generic overload for callers that have a Type at runtime (reflection, dynamic dispatch, MCP tool-schema generation). Same semantics as the generic version.
     static string GenerateSchemaString(Type type, SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
   struct KernelContext : IEquatable<KernelContext>
     ctor()
     ctor(KernelContext? baseContext = null, ImmutableList<Instruction>? instructions = null, ImmutableList<MessageBlock>? messages = null, ImmutableDictionary<string, Function>? functions = null, TimeSpan? timeout = null, double? temperature = null, int? maxOutputTokens = null, ReasoningEffort? reasoningEffort = null, int? reasoningTokenBudget = null, bool? useStreaming = null, bool? useJson = null, bool? useCitations = null, bool? useUserNames = null, bool? useAudioOutput = null, string? audioOutputVoiceId = null, bool? useCaching = null, bool? disableFunctionCalling = null, bool? discardTextOutputWithFunctionCalls = null, bool? logFullRequest = null, bool? logFullResponse = null, object? jsonSchema = null, string? gbnfGrammar = null, string? toolPlan = null)
     string AudioOutputVoiceId { get; init; }
+    // Alias for Empty . Some generated code reaches for `Default` first (common shadcn / .NET pattern).
     static KernelContext Default { get; }
     bool DisableFunctionCalling { get; init; }
     bool DiscardTextOutputWithFunctionCalls { get; init; }
+    // A fresh, blank `KernelContext` — equivalent to `new KernelContext()` or `default`. Provided as a named constant for code generated against frameworks that expect an `.Empty` / `.Default` affordance on context-like types.
     static KernelContext Empty { get; }
     ImmutableDictionary<string, Function> Functions { get; init; }
     string GbnfGrammar { get; init; }
     ImmutableList<Instruction> Instructions { get; init; }
-    object JsonSchema { get; init; }
+    object? JsonSchema { get; init; }
     bool LogFullRequest { get; init; }
     bool LogFullResponse { get; init; }
     int MaxOutputTokens { get; init; }
@@ -264,7 +283,7 @@ namespace Ikon.AI.Kernel
     ctor(MessageBlockRole role, string message, string? userName = null)
     IMessagePart[] Parts { get; }
     MessageBlockRole Role { get; }
-    string UserName { get; }
+    string? UserName { get; }
     static MessageBlock? CreateFromObjects(IReadOnlyList<object?> inputs, MessageBlockRole role)
     override string ToString()
   enum MessageBlockRole
@@ -307,6 +326,7 @@ namespace Ikon.AI.Kernel
     Low
     Medium
     High
+  // Selects which JSON-schema dialect the generator emits. All Ikon-side schema shapes (primitives, arrays, dictionaries, polymorphism) are expressible in both dialects; the two differ in how they encode nullability and how strictly they police unknown keywords.
   enum SchemaDialect
     JsonSchema202012
     OpenApi30
@@ -314,10 +334,10 @@ namespace Ikon.AI.Kernel
     ctor(object value, string sourceName, string? valueTypeName = null)
     string SourceName { get; }
     object Value { get; }
-    string ValueTypeName { get; }
+    string? ValueTypeName { get; }
   class Tag
     ctor(string name, string content, Dictionary<string, string>? attributes = null)
-    Dictionary<string, string> Attributes { get; }
+    Dictionary<string, string>? Attributes { get; }
     string Content { get; }
     string Name { get; }
   struct TextPart : IMessagePart
@@ -327,6 +347,7 @@ namespace Ikon.AI.Kernel
   class TokenUsage
     ctor(int inputTokens, int cachedInputTokens, int cacheCreationInputTokens, int outputTokens)
     int CacheCreationInputTokens { get; }
+    // Subset of InputTokens served from the provider's prompt cache (Anthropic cache_read_input_tokens, OpenAI cached_tokens, Bedrock CacheReadInputTokens). Always included in InputTokens; this is the cache-attributable portion.
     int CachedInputTokens { get; }
     int InputTokens { get; }
     int OutputTokens { get; }
@@ -335,7 +356,7 @@ namespace Ikon.AI.Kernel
     string Text { get; }
   struct VideoAssetPart : IMessagePart
     ctor(AssetUri uri, string? mimeType = null)
-    string MimeType { get; }
+    string? MimeType { get; }
     MessagePartType Type { get; }
     AssetUri Uri { get; }
   struct VideoPart : IMessagePart
@@ -471,5 +492,6 @@ namespace Ikon.AI.LLM
     NovaMicro
     Nova2Lite
   static class LLMModelExtensions
+    // Maximum input-context window for the model, in tokens (e.g. 200_000 for Claude 4.x base, 1_000_000 for the 1M-context tier). Returns 0 when the model can't be resolved — callers should treat 0 as "unknown" and skip utilization computation rather than dividing by zero.
     static int ContextWindowSize(LLMModel model)
     static string DisplayName(LLMModel model)

@@ -2522,11 +2522,29 @@ namespace Ikon.AI.WebScraping
     static Cookie ReadFromTeleport(ReadOnlySpan<byte> data)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
+  sealed class DownloadFileConfig
+    ctor()
+    string CountryCode { get; set; }
+    TimeSpan Timeout { get; set; }
+    string Url { get; set; }
+    static DownloadFileConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class DownloadFileResult
+    ctor()
+    byte[] Data { get; init; }
+    string MimeType { get; init; }
+    string Url { get; init; }
+    static DownloadFileResult ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   interface IWebScraper : IDisposable, IWebScraperInfo
+    abstract Task<DownloadFileResult> DownloadFileAsync(DownloadFileConfig config, CancellationToken cancellationToken = null)
     abstract Task<List<PageResult>> ScrapeMultiplePagesAsync(MultiPageScrapeConfig config, CancellationToken cancellationToken = null)
     abstract Task<PageResult> ScrapeSinglePageAsync(SinglePageScrapeConfig config, CancellationToken cancellationToken = null)
     abstract Task<ScreenshotResult> TakeScreenshotAsync(ScreenshotConfig config, CancellationToken cancellationToken = null)
   interface IWebScraperInfo
+    bool SupportsFileDownload { get; }
     bool SupportsMultiPageScraping { get; }
     bool SupportsScreenshotting { get; }
     bool SupportsSinglePageScraping { get; }
@@ -2562,7 +2580,6 @@ namespace Ikon.AI.WebScraping
     bool UseSitemapOnly { get; set; }
     bool UseStreaming { get; set; }
     TimeSpan WaitAfter { get; set; }
-    WebScraperModel WebScraperModel { get; set; }
     static MultiPageScrapeConfig ReadFromTeleport(ReadOnlySpan<byte> data)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
@@ -2621,7 +2638,6 @@ namespace Ikon.AI.WebScraping
     bool UseCaptchaSolver { get; set; }
     bool UseReadability { get; set; }
     TimeSpan WaitAfter { get; set; }
-    WebScraperModel WebScraperModel { get; set; }
     static SinglePageScrapeConfig ReadFromTeleport(ReadOnlySpan<byte> data)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
@@ -2630,10 +2646,12 @@ namespace Ikon.AI.WebScraping
     ctor(WebScraperModel model, bool useLocalCache = false)
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = false)
     ctor(WebScraperModel model, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = false)
+    bool SupportsFileDownload { get; }
     bool SupportsMultiPageScraping { get; }
     bool SupportsScreenshotting { get; }
     bool SupportsSinglePageScraping { get; }
     void Dispose()
+    Task<DownloadFileResult> DownloadFileAsync(DownloadFileConfig config, CancellationToken cancellationToken = null)
     static WebScraperCapabilities GetCapabilities(WebScraperModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(WebScraperModel model)
     Task<List<PageResult>> ScrapeMultiplePagesAsync(MultiPageScrapeConfig config, CancellationToken cancellationToken = null)
@@ -2641,6 +2659,7 @@ namespace Ikon.AI.WebScraping
     Task<ScreenshotResult> TakeScreenshotAsync(ScreenshotConfig config, CancellationToken cancellationToken = null)
   sealed class WebScraperCapabilities : IWebScraperInfo
     ctor()
+    bool SupportsFileDownload { get; init; }
     bool SupportsMultiPageScraping { get; init; }
     bool SupportsScreenshotting { get; init; }
     bool SupportsSinglePageScraping { get; init; }
@@ -2810,7 +2829,9 @@ namespace Ikon.Parallax
   class UIView
     // The default icon library name used when no library is specified on an icon component.
     string DefaultIconLibrary { get; }
-    // Adds a child node with the given type and props to the current view.
+    // Adds a child node with the given type and props. Non-null-value overload — `IReadOnlyDictionary<string, object>?`, matching the shape every typed component takes (the natural `Dictionary<string, object>` a model builds). Pairs with the nullable-value overload below; callers bind whichever matches their dictionary, so neither needs a nullability cast or suppression.
+    void AddNode(string type, IReadOnlyDictionary<string, object>? props = null, List<UIViewNode>? children = null, string? key = null, string[]? style = null, string? styleId = null, string file = "", int line = 0)
+    // Adds a child node with the given type and props. Nullable-value overload — `Dictionary<string, object?>`, the raw node primitive's natural shape: prop dictionaries that legitimately carry null values (optional map/chart/media config, action ids that may be absent). A distinct concrete type from the interface overload above, so a `Dictionary<string, object?>` binds here with no nullability warning and null values flow through unchanged. (Overloads can't differ by the `object`/`object?` annotation alone — they must differ by type.)
     void AddNode(string type, Dictionary<string, object?> props, List<UIViewNode>? children = null, string? key = null, string[]? style = null, string? styleId = null, string file = "", int line = 0)
     string? CreateAction<T>(Func<ActionArgs<T>, Task>? callback)
     // Registers binary data as a payload and returns a reference string for use as an image src.
@@ -3397,7 +3418,7 @@ namespace Ikon.Parallax.Components.Standard
     // Month-grid date selector. Renders a single month with day cells. Dates are ISO yyyy-MM-dd strings.
     static void Calendar(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? month = null, string? defaultMonth = null, string? minDate = null, string? maxDate = null, IReadOnlyList<string>? disabledDates = null, WeekStart weekStart = Monday, string? locale = null, bool? disabled = null, string[]? headerStyle = null, string[]? weekdayStyle = null, string[]? dayStyle = null, string[]? daySelectedStyle = null, string[]? dayTodayStyle = null, string[]? dayOutsideStyle = null, string[]? dayDisabledStyle = null, string[]? navButtonStyle = null, string[]? titleStyle = null, string[]? gridStyle = null, string[]? rowStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onMonthChange = null, string file = "", int line = 0)
     // Button that opens a popover containing a Calendar .
-    static void DatePicker(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, string? format = null, string? minDate = null, string? maxDate = null, IReadOnlyList<string>? disabledDates = null, WeekStart weekStart = Monday, bool? disabled = null, bool? open = null, bool? defaultOpen = null, Side side = Bottom, Align align = Start, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? calendarStyle = null, string[]? headerStyle = null, string[]? weekdayStyle = null, string[]? dayStyle = null, string[]? daySelectedStyle = null, string[]? dayTodayStyle = null, string[]? dayOutsideStyle = null, string[]? dayDisabledStyle = null, string[]? navButtonStyle = null, string[]? titleStyle = null, string[]? gridStyle = null, string[]? rowStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool?, Task>? onOpenChange = null, string file = "", int line = 0)
+    static void DatePicker(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, string? format = null, string? minDate = null, string? maxDate = null, IReadOnlyList<string>? disabledDates = null, WeekStart weekStart = Monday, bool? disabled = null, bool? open = null, bool? defaultOpen = null, Side side = Bottom, Align align = Start, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? calendarStyle = null, string[]? headerStyle = null, string[]? weekdayStyle = null, string[]? dayStyle = null, string[]? daySelectedStyle = null, string[]? dayTodayStyle = null, string[]? dayOutsideStyle = null, string[]? dayDisabledStyle = null, string[]? navButtonStyle = null, string[]? titleStyle = null, string[]? gridStyle = null, string[]? rowStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool?, Task>? onOpenChange = null, string? label = null, string file = "", int line = 0)
   // Which physical camera to prefer when starting the capture. Maps to the W3C MediaStream facingMode constraint and is treated as an "ideal" hint — the browser falls back to whatever camera is available if the requested side does not exist (e.g. desktops without a rear camera).
   enum CameraFacing
     User
@@ -3808,11 +3829,11 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for input components (TextField, TextArea, OTP, Password).
   static class InputExtensions
     // One-time password input field.
-    static void OtpField(UIView view, string[]? style = null, string? value = null, int? maxLength = null, bool autoSubmit = false, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<Task>? onAutoSubmit = null, Action<UIView>? content = null, string file = "", int line = 0)
+    static void OtpField(UIView view, string[]? style = null, string? value = null, int? maxLength = null, bool autoSubmit = false, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<Task>? onAutoSubmit = null, Action<UIView>? content = null, string? label = null, string file = "", int line = 0)
     // Individual input slot for OTP.
     static void OtpFieldInput(UIView view, string[]? style = null, int index = 0, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // Password input with visibility toggle.
-    static void PasswordToggleField(UIView view, string[]? style = null, bool? visible = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onVisibilityChange = null, Action<UIView>? content = null, string file = "", int line = 0)
+    static void PasswordToggleField(UIView view, string[]? style = null, bool? visible = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onVisibilityChange = null, Action<UIView>? content = null, string? label = null, string file = "", int line = 0)
     // Icon that changes based on visibility state.
     static void PasswordToggleFieldIcon(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? visibleIcon = null, Action<UIView>? hiddenIcon = null, string file = "", int line = 0)
     // The password input element.
@@ -4125,7 +4146,7 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for Select components.
   static class SelectExtensions
     // Select dropdown component that auto-renders the full structure with trigger button, dropdown content, and items. Use either options (flat list) or groups (grouped items) - not both.
-    static void Select(UIView view, string[]? style = null, IReadOnlyList<SelectOption>? options = null, IReadOnlyList<SelectOptionGroup>? groups = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, bool? required = null, bool? open = null, string? name = null, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? itemStyle = null, string[]? itemIndicatorStyle = null, string? indicatorIconName = "check", string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool?, Task>? onOpenChange = null, string file = "", int line = 0)
+    static void Select(UIView view, string[]? style = null, IReadOnlyList<SelectOption>? options = null, IReadOnlyList<SelectOptionGroup>? groups = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, bool? required = null, bool? open = null, string? name = null, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? itemStyle = null, string[]? itemIndicatorStyle = null, string? indicatorIconName = "check", string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool?, Task>? onOpenChange = null, string? label = null, string file = "", int line = 0)
   // Represents a selectable option in a Select component.
   sealed class SelectOption : IEquatable<SelectOption>
     // Represents a selectable option in a Select component.
@@ -4746,6 +4767,7 @@ namespace Ikon.Parallax.Themes.Ikon
     static string Spinner
     static string SpinnerLg
     static string SpinnerSm
+    static string Xl
     static string Xs
   static class FileUpload.Icon
     static string Base
