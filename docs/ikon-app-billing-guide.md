@@ -87,15 +87,49 @@ ikon app secret set BILLING_PROVIDER ikon-connect
 ikon app secret set IKON_BACKEND_BILLING_URL https://backend.ikonai.live   # optional — ambient if unset
 ikon app secret set STRIPE_PUBLISHABLE_KEY pk_live_<ikon-platform-publishable-key>
 
-# byok
+# byok — secret key (sk_) or restricted key (rk_); see "API key types" below
 ikon app secret set BILLING_PROVIDER byok
-ikon app secret set STRIPE_API_KEY sk_test_...
+ikon app secret set STRIPE_API_KEY rk_test_...
 ikon app secret set STRIPE_PUBLISHABLE_KEY pk_test_...
 ikon app secret set STRIPE_WEBHOOK_SECRET whsec_...
 ikon app secret set STRIPE_CONNECT_WEBHOOK_SECRET whsec_...    # if using marketplace
 ```
 
 `BillingService` is constructed from these at boot — restart after changing `BILLING_PROVIDER`.
+
+### Regional restrictions
+
+Stripe applies country-specific rules that aren't checked client-side — the library surfaces them as plain 400s. Worth knowing:
+
+| Country / region | Restriction | Library behaviour |
+|---|---|---|
+| **Brazil ↔ Brazil** | Platforms registered in BR cannot collect `application_fee_*` from BR connected accounts. Affects `application_fee_amount` and `application_fee_percent`. | Stripe returns 400 on the charge call. No client-side check; document this for apps deploying in BR. |
+| **India (RBI mandate)** | Recurring card payments require a one-time customer mandate via SetupIntent with `payment_method_options.card.mandate_options` set. Plain subscription create on IN cards may fail. | App must drive the SetupIntent + mandate flow before creating the subscription. Library exposes `CreateSetupIntentAsync` but does not auto-attach mandate options — passing them in metadata is on the app. |
+| **Japan** | Three-letter currency code constraints + installment plans gated. JCB cards may require the `cartes_bancaires_payments` capability not the default `card_payments`. | Capability set is per-app — request `jcb_payments` in `BillingAccountCapabilities.Merchant` for JP connected accounts. |
+| **EU / UK SCA** | Strong Customer Authentication triggers a `requires_action` PI status on cards needing 3DS. | Returned in `BillingPaymentIntent.Status`; app drives the `next_action.use_stripe_sdk` flow via Stripe.js on the client. Not a library failure. |
+| **Korea / Cartes Bancaires / etc.** | Local payment-method capabilities need explicit enablement on the connected account. | Add to `BillingAccountCapabilities.Merchant` at account create time. |
+
+See <https://docs.stripe.com/connect/saas/tasks/app-fees.md> + <https://docs.stripe.com/india-recurring-payments.md> for the Brazil and India cases. None of these are blockers for the default Ikon SaaS posture (EU/US card payments), but apps deploying regionally hit them.
+
+### API key types
+
+The library accepts both Stripe key flavours for `STRIPE_API_KEY` and treats them identically. Restricted keys are recommended for new deployments.
+
+| Prefix | Type | Permissions | Recommended |
+|---|---|---|---|
+| `sk_live_…` / `sk_test_…` | Secret key | Full account access | Legacy / fastest setup |
+| `rk_live_…` / `rk_test_…` | Restricted key | Per-resource scopes (least privilege) | ✓ |
+
+**Recommended restricted-key permission set.** Create the key in [Dashboard → Developers → API Keys → "Create restricted key"](https://dashboard.stripe.com/apikeys/create) with these scopes:
+
+- **Core**: Customers (Write), Products (Write), Prices (Write), Subscriptions (Write), Checkout Sessions (Write), Payment Links (Write), Payment Intents (Write), Setup Intents (Write), Payment Methods (Read), Customer Portal (Write), Refunds (Write), Coupons (Write), Promotion Codes (Write), Credit Notes (Write), Invoices (Write), Tax IDs (Write).
+- **Connect** (only if the app uses marketplace flows): Accounts (Write), Account Links (Write), Account Sessions (Write), Transfers (Write).
+- **Optional**: Apple Pay Domains (Write — if the app verifies Apple Pay), Webhook Endpoints (Read — if the app reads its own webhook registrations).
+- **Leave at None**: Files, Radar, Issuing, Treasury, anything else the app doesn't use.
+
+Apps that don't use Connect or a particular feature can leave those rows at None — the library's calls degrade with a `403` you'll catch in dev.
+
+If a key is exposed, [roll it immediately](https://dashboard.stripe.com/apikeys) and review request logs. The restricted-key blast radius is the scope you assigned, not the whole account — one more reason to prefer `rk_…`.
 
 ## How the flow works
 
@@ -156,7 +190,7 @@ One Ikon org can run many apps, each with its own billing. Each app stays isolat
    └────────────┘  └───────────────────────────────────────┘
 ```
 
-- **`ikon-connect` mode**: each app gets its own Stripe Connect **Express** connected account. Catalog, customers, subscriptions, payouts all scoped per-app. The app's connected-account id persists in a per-app `CloudJson` asset (`<app-name>/billing/connect-account-id.json`) via `AssetBillingConnectAccountStore`.
+- **`ikon-connect` mode**: each app gets its own Stripe Connect connected account created via Accounts v2 (`POST /v2/core/accounts`) with the Express dashboard preset and platform-as-responsible (`fees_collector=application`, `losses_collector=application`). Catalog, customers, subscriptions, payouts all scoped per-app. The app's connected-account id persists in a per-app `CloudJson` asset (`<app-name>/billing/connect-account-id.json`) via `AssetBillingConnectAccountStore`.
 - **BYOK mode**: each app gets its own `STRIPE_API_KEY`. Total isolation — separate Stripe accounts entirely.
 
 There is no path for one app to see another app's customers, charges, or subscriptions. Isolation is enforced server-side at the Stripe-account boundary.
@@ -174,37 +208,44 @@ The "Open Stripe dashboard" button mints a one-time `CreateLoginLinkAsync` URL i
 
 Catalog stays **platform-managed**: the Ikon app calls `BillingService.CreateProductAsync` / `CreatePriceAsync` with the `Stripe-Account` header injected — products land on the connected account but only the app creates them. The account holder cannot self-edit pricing via Stripe; they go through the app's admin UI (see [Admin surface → Catalog](#admin-surface)).
 
-### Connect account types
+### Connect account configuration (Accounts v2)
 
-Stripe offers three connected-account types **for Connect mode**. Trade-off: more platform control = more eng work + less account-holder Stripe access.
+Stripe v2 replaced the legacy `type: "standard" | "express" | "custom"` account labels with **three independent axes** — describe a connected account in terms of these instead of the old labels (per [stripe-best-practices/connect](https://docs.stripe.com/connect/accounts-v2.md)):
 
-| Type | Onboarding | Account dashboard | Platform control | Used by ikon-connect |
-|---|---|---|---|---|
-| **Standard** | Stripe-hosted, full Stripe ToS | Full Stripe dashboard | Minimal — account holder owns relationship | no |
-| **Express** | Stripe-hosted Express onboarding (lighter KYC UX) | Express dashboard — balance/payouts/payments only, no catalog | Platform owns catalog, webhooks, pricing UX | **yes (default)** |
-| **Custom** | Platform-built UI · no Stripe branding | None — platform builds entire UX | Maximum | no |
+1. **Dashboard access** (`dashboard`) — `full` (account holder gets the full Stripe Dashboard, equivalent to legacy Standard), `express` (limited dashboard — balance/payouts/payments only, no catalog UI — equivalent to legacy Express), or `none` (platform builds the entire UI, equivalent to legacy Custom).
+2. **Responsibilities** (`defaults.responsibilities`) — `fees_collector` ∈ {`stripe`, `application`} and `losses_collector` ∈ {`stripe`, `application`}. Controls who pays Stripe fees and who covers negative balances. **Ikon platform mode locks both to `application`** (platform pays fees + losses) when `dashboard: "express"`; Stripe enforces this constraint.
+3. **Capabilities** (`configuration.merchant/customer/recipient.capabilities`) — fine-grained per-feature flags (`card_payments`, `automatic_indirect_tax`, `stripe_balance.stripe_transfers`, etc.). Each capability transitions independently through `active` / `pending` / `inactive` / `restricted`.
 
-Switching ikon-connect from Express to Standard: change `connect.CreateExpressAccountAsync(...)` → equivalent Standard call (Stripe API param `type=standard`), accept that connected users can self-edit catalog in their Stripe Dashboard (may diverge from app's product list), update onboarding redirect URLs. Custom requires building full onboarding + dashboard UI; rarely worth it.
+Ikon-connect default configuration:
 
-### BYOK is *not* Standard Connect
+| Axis | Value | Why |
+|---|---|---|
+| `dashboard` | `express` | Lighter KYC UX, platform owns catalog/UX |
+| `fees_collector` | `application` | Platform pays Stripe fees (Express requirement) |
+| `losses_collector` | `application` | Platform takes risk on connected account (Express requirement) |
+| `configuration.merchant.capabilities.card_payments` | requested | Minimum capability for charging |
 
-Common confusion. BYOK and Standard Connect look similar (account holder has full Stripe dashboard) but are unrelated:
+Apps can pass a `BillingCreateAccountRequest` to `CreateConnectedAccountAsync` to override any axis (e.g. `Dashboard = Full` for self-serve SaaS where the account holder wants the full Stripe Dashboard). The library validates incompatible combinations at construction time (`losses_collector=application` requires `fees_collector=application`; `dashboard=express` requires both responsibilities to be `application`).
 
-| | BYOK | Standard Connect | Express Connect |
+### BYOK is *not* Connect
+
+Common confusion. BYOK and a connected account configured with `dashboard: "full"` look similar (account holder has full Stripe dashboard) but are unrelated:
+
+| | BYOK | Connect, `dashboard: "full"` | Connect, `dashboard: "express"` |
 |---|---|---|---|
 | Connect involved? | no | yes | yes |
 | Account holder's Stripe dashboard | full | full | Express-only (limited) |
-| Platform application fee | no — direct charges | yes | yes |
-| `Stripe-Account` header on API calls | no | yes | yes |
-| Setup | app's own `STRIPE_API_KEY` | platform key + `ConnectedAccountId` | platform key + `ConnectedAccountId` (proxied via Ikon backend) |
-| Stripe fees | Stripe fees only | Stripe fees + platform fee | Stripe fees + platform fee |
+| Platform application fee | no — direct charges to app's own account | yes | yes |
+| `Stripe-Account` header on API calls | no | yes (direct charges) | yes (direct charges) |
+| Setup | app's own `STRIPE_API_KEY` (rk_ recommended) | platform key + `ConnectedAccountId` | platform key + `ConnectedAccountId` (proxied via Ikon backend) |
+| Stripe fees | Stripe fees only | Stripe fees + platform application fee | Stripe fees + platform application fee |
 
 Mental model:
 - **BYOK** = "I have my own Stripe account, leave me alone." Zero Connect.
-- **Standard Connect** = "I have a Stripe account, but I'm playing in someone else's marketplace and they take a cut."
-- **Express Connect** = same as Standard but Stripe hides complexity; platform manages catalog/UX.
+- **Connect, full dashboard** = "I have a Stripe account, but I'm playing in someone else's marketplace and they take a cut. I keep my own Dashboard."
+- **Connect, express dashboard** = same as above but Stripe hides complexity; platform manages catalog/UX. Default for ikon-connect.
 
-No clean migration BYOK → Standard Connect — different `BillingProvider`, different secrets, customers/subs don't transfer across accounts. Pick the right mode at app design time.
+No clean migration BYOK → Connect — different `BillingProvider`, different secrets, customers/subs don't transfer across accounts. Pick the right mode at app design time.
 
 ## How users are identified
 
@@ -347,6 +388,8 @@ Delivery → verification → adapter dispatch:
 | `BillingEventType` | Stripe event(s) |
 |--------------------|-----------------|
 | `CheckoutCompleted` | `checkout.session.completed` |
+| `CheckoutAsyncPaymentSucceeded` | `checkout.session.async_payment_succeeded` (fulfil here for async PMs) |
+| `CheckoutAsyncPaymentFailed` | `checkout.session.async_payment_failed` |
 | `InvoicePaid` | `invoice.paid`, `invoice.payment_succeeded` |
 | `InvoicePaymentFailed` | `invoice.payment_failed` |
 | `InvoiceFinalized` | `invoice.finalized` |
@@ -354,6 +397,7 @@ Delivery → verification → adapter dispatch:
 | `SubscriptionUpdated` | `customer.subscription.created`, `customer.subscription.updated` |
 | `SubscriptionDeleted` | `customer.subscription.deleted` |
 | `SubscriptionTrialWillEnd` | `customer.subscription.trial_will_end` |
+| `SubscriptionScheduleUpdated` | `subscription_schedule.*` (created / updated / canceled / released / expiring / completed) |
 | `ChargeRefunded` | `charge.refunded` |
 | `ChargeDisputed` | `charge.dispute.created` |
 | `ChargeDisputeClosed` | `charge.dispute.closed` |
@@ -361,7 +405,62 @@ Delivery → verification → adapter dispatch:
 | `PaymentMethodAttached` | `payment_method.attached` |
 | `CreditNoteCreated` | `credit_note.created` |
 | `CreditNoteVoided` | `credit_note.voided` |
+| `ConnectAccountUpdated` | `v2.core.account.updated`, `v2.core.account.created` (also legacy `account.updated`, flagged `IsLegacyEventName: true`) |
+| `ConnectAccountRequirementsUpdated` | `v2.core.account[requirements].updated` (gate "billing ready" UI on this) |
+| `ConnectAccountCapabilityUpdated` | `v2.core.account_capability.updated` (per-capability transitions: active / pending / inactive / restricted) |
+| `ConnectOAuthAuthorized` | `account.application.authorized` |
+| `ConnectOAuthDeauthorized` | `account.application.deauthorized` |
+| `PayoutCreated` / `PayoutUpdated` / `PayoutPaid` / `PayoutFailed` | `payout.created` / `payout.updated` / `payout.paid` / `payout.failed` |
 | `Unknown` | anything else (raw payload on `BillingEvent.RawPayload`) |
+
+### Snapshot vs thin payloads (v2)
+
+Stripe ships every event in one of two shapes. The library reads both:
+
+| | Snapshot (v1-style) | Thin (v2) |
+|---|---|---|
+| `object` field on root | (e.g. `checkout.session`) | `"v2.core.event"` |
+| Payload size | full object snapshot embedded in `data.object` | minimal — only `related_object.{id, type, url}` |
+| Library populates | `CustomerId`, `SubscriptionId`, `Status`, period fields, etc. directly | `RelatedObjectId`, `RelatedObjectType`, `RelatedObjectUrl` (app fetches the full object if needed) |
+| `BillingEvent.IsThinEvent` | `false` | `true` |
+| Schema drift | snapshot follows the version pinned at endpoint create time | always current — Stripe re-fetches on read |
+
+Choose at registration time via `BillingWebhookPayloadShape`:
+
+```csharp
+await billing.CreateWebhookEndpointAsync(
+    url: "https://app/wh",
+    enabledEvents: new[] { "v2.core.account.updated", "checkout.session.completed" },
+    payloadShape: BillingWebhookPayloadShape.Thin);   // default = Snapshot
+```
+
+For thin events, dispatch:
+
+```csharp
+public async Task ApplyEventAsync(BillingEvent evt, CancellationToken ct)
+{
+    if (evt.IsThinEvent && evt.RelatedObjectUrl is not null)
+    {
+        var json = await _connect.FetchRelatedObjectAsync(evt.RelatedObjectUrl, ct);
+        // parse the full object yourself — Stripe returns the current state
+    }
+    else
+    {
+        // snapshot path: read evt.CustomerId / evt.SubscriptionId / evt.CurrentPeriod* etc.
+    }
+}
+```
+
+Snapshot is the default — keep it unless you specifically want thin payloads (smaller deliveries, no version drift). The library's typed fields (`CustomerId`, `SubscriptionId`, etc.) are populated only on snapshot events; thin-event consumers must do the follow-up GET.
+
+### Ping a registered endpoint
+
+Stripe ships a diagnostic ping. Call after registering to verify the HTTP plumbing + signature secret without waiting for a real event:
+
+```csharp
+await billing.PingWebhookEndpointAsync(endpointId);
+// → Stripe POSTs a synthetic v2.core.event_destination.ping event to the registered URL
+```
 
 ## Subscription state machine
 
@@ -516,14 +615,81 @@ Seven admin primitives, all programmatic (no one-size-fits-all component). Live 
 ### Catalog (products + prices + payment links)
 
 ```csharp
-var productId = await _billing.CreateProductAsync(new BillingProductInfo { Name = "Pro", Description = "Pro tier" });
+var productId = await _billing.CreateProductAsync(new BillingProductInfo {
+    Name = "Pro",
+    Description = "Pro tier",
+    MarketingFeatures = ["Unlimited workshops", "Priority support"],
+    Metadata = new Dictionary<string, string> { ["app_id"] = "my-app" },
+});
 var priceId   = await _billing.CreatePriceAsync(new BillingPriceInfo {
-    ProductId = productId, UnitAmountMinor = 1900, Currency = "eur", RecurringInterval = "month" });
+    ProductId = productId, UnitAmountMinor = 1900, Currency = "eur",
+    RecurringInterval = "month", LookupKey = "pro-monthly" });
 
 var link = await _billing.CreatePaymentLinkAsync([BillingLineItem.ForPrice(priceId)], allowPromotionCodes: true);
 ```
 
-For declarative code-first catalogs, use `BillingCatalogSync.SyncFromCatalogClassAsync(typeof(Plans))` — see [Code-bootstrap catalog](#code-bootstrap-catalog).
+`MarketingFeatures` populates Stripe's `marketing_features` array (visible on Stripe-hosted pricing tables, adaptive Checkout UIs; max 15 entries × 80 chars). `LookupKey` gives the price a stable handle independent of the opaque `price_…` id — required for the catalog-projection pattern below.
+
+### Catalog: push vs pull
+
+The library supports both directions of catalog management. Pick per app — most apps use both.
+
+**Push (`BillingCatalogSync`)** — code is source of truth. App declares plans in a static class, library ensures Stripe matches at startup. Use for deploy-time provisioning where pricing is owned by engineering.
+
+```csharp
+public static class Plans
+{
+    public static readonly BillingPlanSpec Pro = new(
+        AppPlanId: "pro",
+        ProductName: "Pro",
+        Description: "Pro tier",
+        UnitAmountMinor: 1900,
+        Currency: "eur",
+        RecurringInterval: "month");
+}
+
+var sync = new BillingCatalogSync(_billing);
+var map = await sync.SyncFromCatalogClassAsync(typeof(Plans));
+// map["pro"] -> "price_xyz..."  (use in adapter's GetPlanAsync)
+```
+
+**Pull (`BillingCatalogProjector`)** — Stripe is source of truth. Library lists active products + prices, filters to the app's slice, returns a `BillingPlanCatalog`. Use when operators tweak prices via Stripe Dashboard or apps create plans dynamically at runtime. Mirrors whatever's there, including products this app instance didn't create.
+
+```csharp
+var projector = new BillingCatalogProjector(_billing);
+var catalog = await projector.ProjectAsync(
+    productFilter: p => p.Metadata?["app_id"] == "my-app");
+
+// catalog.Plans          → IReadOnlyList<BillingPlanProjection> for PricingTable
+// catalog.PlanIdToPriceId → "pro-monthly" → "price_xyz..." (adapter lookup)
+```
+
+`PlanId` defaults to the price's `LookupKey` when set, otherwise the Stripe price id. Stamp `LookupKey` on every price you intend to surface in `PricingTable` so the id stays stable across re-creates.
+
+**Refresh strategy** — cache the projection in `Reactive<BillingPlanCatalog?>` and refresh on:
+1. App startup (once after `BillingService` is constructed)
+2. Admin actions that create/archive products (eager refresh after `CreateProductAsync` / `UpdateProductAsync(active: false)`)
+3. Stripe webhooks: `BillingEventType.ProductUpdated` and `BillingEventType.PriceUpdated` fire when products or prices change in Stripe Dashboard — invalidate the cache on these
+
+```csharp
+public Task ApplyEventAsync(BillingEvent evt, CancellationToken ct)
+{
+    if (evt.Type is BillingEventType.ProductUpdated or BillingEventType.PriceUpdated)
+    {
+        _ = RefreshCatalogAsync();
+    }
+    // … other handling
+}
+```
+
+**When to use which**:
+
+| Scenario | Pattern |
+|---|---|
+| Plans live in code, infrequent changes | Push only |
+| Operators tweak prices via Stripe Dashboard | Pull only |
+| Code seeds defaults, operators tune later | Push at deploy + Pull at runtime + webhook invalidation |
+| Multi-tenant: each tenant has own plan catalog | Pull with per-tenant `metadata` filter |
 
 ### Customers
 
@@ -650,10 +816,21 @@ var billing = new BillingService(new BillingOptions
 ### Embedded Connect onboarding
 
 ```csharp
-var acctId = await connect.CreateExpressAccountAsync(ownerEmail, "FI");
+var acctId = await connect.CreateConnectedAccountAsync(new BillingCreateAccountRequest
+{
+    ContactEmail = ownerEmail,
+    Dashboard = BillingAccountDashboard.Express,
+    Identity = new BillingAccountIdentity { Country = "fi", EntityType = BillingEntityType.Company },
+    Capabilities = new BillingAccountCapabilities { Merchant = new[] { "card_payments" } },
+    Responsibilities = new BillingAccountResponsibilities(
+        BillingFeesCollector.Application,
+        BillingLossesCollector.Application),
+});
 var session = await connect.CreateAccountSessionAsync(new BillingAccountSessionRequest
 {
-    ConnectedAccountId = acctId, AccountOnboarding = true, NotificationBanner = true,
+    ConnectedAccountId = acctId,
+    AccountOnboarding = true,
+    NotificationBanner = true,
 });
 
 view.ConnectOnboardingFrame(session.ClientSecret, pubKey);
@@ -661,6 +838,41 @@ view.ConnectOnboardingFrame(session.ClientSecret, pubKey);
 var acct = await connect.RetrieveAccountAsync(acctId);
 if (acct.ChargesEnabled && acct.PayoutsEnabled) { /* unlock billing flows */ }
 ```
+
+`CreateConnectedAccountAsync` posts to `POST /v2/core/accounts` (Accounts v2). The legacy `CreateExpressAccountAsync` shim still works and forwards to the v2 path with Express+Application/Application responsibilities, but it's `[Obsolete]` and will be removed in the next major release — migrate when convenient.
+
+### Async payment methods — fulfilment timing
+
+If an app enables async-pull payment methods (Alipay, BECS, Boleto, iDEAL, OXXO, SEPA Debit), Checkout fires events in a different order than card payments:
+
+| Event | Fires when | Money status |
+|---|---|---|
+| `checkout.session.completed` | Customer finishes the checkout UI | **Pending** for async methods |
+| `checkout.session.async_payment_succeeded` | Bank/wallet settles the pull | **Settled** |
+| `checkout.session.async_payment_failed` | Bank/wallet rejects the pull | **Failed** |
+
+**Rule:** for async methods, **fulfil on `async_payment_succeeded`, not `completed`**. Fulfilling on `completed` for async means you ship goods before the money lands — irrecoverable if `async_payment_failed` arrives later.
+
+```csharp
+public Task ApplyEventAsync(BillingEvent evt, CancellationToken ct) => evt.Type switch
+{
+    BillingEventType.CheckoutCompleted              => MarkPendingAsync(evt, ct),    // record intent
+    BillingEventType.CheckoutAsyncPaymentSucceeded  => FulfilOrderAsync(evt, ct),    // ship here
+    BillingEventType.CheckoutAsyncPaymentFailed     => NotifyCustomerAsync(evt, ct),
+    _ => Task.CompletedTask,
+};
+```
+
+For **card** payments `completed` and `async_payment_succeeded` collapse into the single `completed` event — your adapter must idempotently handle both code paths landing for the same `appCustomerKey` (dedupe on `evt.EventId`).
+
+### v2 wire-format gotchas
+
+When debugging Connect calls against the v2 API, three things bite:
+
+- **Indexed include syntax.** v2 endpoints reject bare `include[]=foo&include[]=bar` with `parameter_invalid_empty`. Use indexed brackets: `include[0]=foo&include[1]=bar`. The library handles this — apps wiring their own retrieve calls must follow the same shape.
+- **`embedded` is now `embedded_page`.** Stripe renamed the Checkout `ui_mode` value. The library emits `embedded_page` for embedded checkout — apps building their own session payload must update.
+- **Capability status path is nested.** `ChargesEnabled` is derived from `configuration.merchant.capabilities.<cap>.status == "active"`. The legacy top-level `charges_enabled` / `payouts_enabled` booleans do NOT exist on v2 account objects. `BillingConnectAccount` exposes the derived booleans so apps don't have to read the raw structure.
+- **`collection_options` only on `/v1/account_links`.** Onboarding-link redirects accept `collection_options[fields]` + `[future_requirements]` (used via `BillingOnboardingStrategy`). The embedded `account_onboarding` component does NOT accept these — it inherits from the account's onboarding config.
 
 Identity verification + bank-account linking pop a Stripe-controlled popup window (non-overridable for security). Everything else stays inline.
 
@@ -671,9 +883,25 @@ Register a second endpoint with `connect: true`:
 ```csharp
 var endpoint = await connect.CreateConnectWebhookEndpointAsync(
     url: $"{appOrigin}/ikon/webhook/stripe-connect",
-    enabledEvents: ["account.updated", "capability.updated", "invoice.paid", "customer.subscription.updated"]);
+    enabledEvents: [
+        // Accounts v2 family (recommended)
+        "v2.core.account.updated",
+        "v2.core.account[requirements].updated",
+        "v2.core.account_capability.updated",
+        // Billing + checkout (unchanged)
+        "invoice.paid",
+        "customer.subscription.updated",
+        "checkout.session.completed",
+        "checkout.session.async_payment_succeeded",
+        "checkout.session.async_payment_failed",
+        // Payouts
+        "payout.paid",
+        "payout.failed",
+    ]);
 // endpoint.Secret → STRIPE_CONNECT_WEBHOOK_SECRET
 ```
+
+The library still parses the legacy `account.updated` event for one transition release — apps that haven't migrated their Stripe Dashboard webhook registrations yet will continue to receive events, but the resulting `BillingEvent` will have `IsLegacyEventName = true` (log it / migrate when you see it). Legacy will be dropped in the next major.
 
 Connect events have a top-level `account` field. The validation app's `StripeWebhook` inspects this to route to the right `BillingService` instance.
 
@@ -758,7 +986,7 @@ public sealed class MyCreditStore : IBillingCreditStore
 | Webhook `Verified=false` | Wrong signing secret, body mutated by middleware, or wrong endpoint type | Endpoints come in pairs — Account secret ≠ Connect secret. Verify which secret matches which endpoint. |
 | Webhook `Verified=true, AdapterError=<msg>` | Adapter threw (DB transient, deserialization, etc.) | Return 500 to let Stripe retry, or 200 + log + manual replay (`ListEventIdsAsync` + `RetrieveEventAsync` + `adapter.ApplyEventAsync`). |
 | Checkout in Connect mode fails before onboarding done | `acct.ChargesEnabled == false` | Gate the end-user surface on charges_enabled; complete KYC first. |
-| Customer Portal 400 `No such customer portal configuration` | New Express account, portal disabled | Call `CreatePortalConfigurationAsync` post-onboarding, or surface a "configure portal" CTA. |
+| Customer Portal 400 `No such customer portal configuration` | New connected account, portal disabled | Call `CreatePortalConfigurationAsync` post-onboarding, or surface a "configure portal" CTA. |
 | `requires_action` payment intent | 3DS / SCA prompt | Listen for `PaymentActionRequired` event; open invoice's `HostedInvoiceUrl`. |
 | Subscription stuck `past_due` | Retries exhausted | Show top-of-app banner with Customer Portal link to update card; downgrade access on `SubscriptionDeleted`. |
 
@@ -787,7 +1015,7 @@ Every public POST method on `BillingService` and `BillingConnectService` accepts
 | `CreatePaymentIntentAsync` | `pi-{orderId}` |
 | `CreateSetupIntentAsync` | `si-{customerId}-{purpose}` |
 | `RefundAsync` | `refund-{chargeId}` (required by signature) |
-| `CreateExpressAccountAsync` | `acct-{orgId}` |
+| `CreateConnectedAccountAsync` | `acct-{orgId}` |
 | `CreateConnectWebhookEndpointAsync` | `webhook-{environment}` |
 
 `BillingCatalogSync` passes deterministic keys for its product / price creates automatically.
@@ -901,8 +1129,8 @@ ikon app secret set BILLING_PROVIDER ikon-connect     # or byok / disabled
 ikon app secret set IKON_BACKEND_BILLING_URL https://backend.ikonai.live   # optional — ambient if unset
 ikon app secret set STRIPE_PUBLISHABLE_KEY pk_live_<platform-publishable-key>
 
-# byok mode
-ikon app secret set STRIPE_API_KEY sk_test_...
+# byok mode — restricted key (rk_…) recommended over secret key (sk_…); the library accepts both
+ikon app secret set STRIPE_API_KEY rk_test_...
 ikon app secret set STRIPE_PUBLISHABLE_KEY pk_test_...
 ikon app secret set STRIPE_WEBHOOK_SECRET whsec_...
 ikon app secret set STRIPE_CONNECT_WEBHOOK_SECRET whsec_...    # marketplace only
