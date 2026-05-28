@@ -930,12 +930,17 @@ namespace Ikon.AI.Legacy
 namespace Ikon.AI.OCR
   enum DocumentType
     General
-  interface IOCR : IDisposable
+  interface IOCR : IDisposable, IOCRInfo
     abstract Task<OCRResult> AnalyzeDocumentAsync(OCRConfig config, CancellationToken cancellationToken = null)
-  sealed class OCR : IDisposable, IOCR
+    abstract IAsyncEnumerable<OCRResult> AnalyzeDocumentStreamingAsync(OCRConfig config, CancellationToken cancellationToken = null)
+  interface IOCRInfo
+    int MaxPagesSupported { get; }
+  sealed class OCR : IDisposable, IOCR, IOCRInfo
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(OCRModel model, IReadOnlyList<ModelRegion>? regions = null)
+    int MaxPagesSupported { get; }
     Task<OCRResult> AnalyzeDocumentAsync(OCRConfig config, CancellationToken cancellationToken = null)
+    IAsyncEnumerable<OCRResult> AnalyzeDocumentStreamingAsync(OCRConfig config, CancellationToken cancellationToken = null)
     void Dispose()
     static OCRCapabilities GetCapabilities(OCRModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(OCRModel model)
@@ -943,8 +948,9 @@ namespace Ikon.AI.OCR
     ctor()
     int PageNumber { get; init; }
     List<float> Polygon { get; init; }
-  sealed class OCRCapabilities
+  sealed class OCRCapabilities : IOCRInfo
     ctor()
+    int MaxPagesSupported { get; init; }
   sealed class OCRConfig
     ctor()
     AssetUri? AssetUri { get; set; }
