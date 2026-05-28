@@ -1571,12 +1571,17 @@ namespace Ikon.AI.Legacy
 namespace Ikon.AI.OCR
   enum DocumentType
     General
-  interface IOCR : IDisposable
+  interface IOCR : IDisposable, IOCRInfo
     abstract Task<OCRResult> AnalyzeDocumentAsync(OCRConfig config, CancellationToken cancellationToken = null)
-  sealed class OCR : IDisposable, IOCR
+    abstract IAsyncEnumerable<OCRResult> AnalyzeDocumentStreamingAsync(OCRConfig config, CancellationToken cancellationToken = null)
+  interface IOCRInfo
+    int MaxPagesSupported { get; }
+  sealed class OCR : IDisposable, IOCR, IOCRInfo
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(OCRModel model, IReadOnlyList<ModelRegion>? regions = null)
+    int MaxPagesSupported { get; }
     Task<OCRResult> AnalyzeDocumentAsync(OCRConfig config, CancellationToken cancellationToken = null)
+    IAsyncEnumerable<OCRResult> AnalyzeDocumentStreamingAsync(OCRConfig config, CancellationToken cancellationToken = null)
     void Dispose()
     static OCRCapabilities GetCapabilities(OCRModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(OCRModel model)
@@ -1584,8 +1589,9 @@ namespace Ikon.AI.OCR
     ctor()
     int PageNumber { get; init; }
     List<float> Polygon { get; init; }
-  sealed class OCRCapabilities
+  sealed class OCRCapabilities : IOCRInfo
     ctor()
+    int MaxPagesSupported { get; init; }
   sealed class OCRConfig
     ctor()
     AssetUri? AssetUri { get; set; }
@@ -2821,18 +2827,20 @@ namespace Ikon.Parallax
     bool EnableProfiling { get; set; }
     // When true, caches subtrees with unchanged reactive dependencies to skip redundant re-renders.
     bool EnableSubtreeCaching { get; set; }
+    // Assigns a CSS block to a single client (e.g. a per-tenant theme overlay). Subsequent calls for the same client replace the previous assignment and queue a delete for the prior styleId on that client. Other clients are unaffected.
+    string AddClientCss(int clientId, string css)
     // Adds a global CSS block that is sent to all connected clients. Idempotent: identical CSS returns the same style ID.
     string AddGlobalCss(string css)
+    // Drops the per-client CSS assignment for the given client. Use on disconnect.
+    void RemoveClientCss(int clientId)
     // Defines the root UI view tree. Call this in a reactive context to re-render when dependencies change.
     void Root(string[]? style = null, Action<UIView>? content = null, string? styleId = null)
   // Represents a UI view scope for building the component tree. Extension methods on this type provide the component API (e.g. Text, Button, Input).
   class UIView
     // The default icon library name used when no library is specified on an icon component.
     string DefaultIconLibrary { get; }
-    // Adds a child node with the given type and props. Non-null-value overload — `IReadOnlyDictionary<string, object>?`, matching the shape every typed component takes (the natural `Dictionary<string, object>` a model builds). Pairs with the nullable-value overload below; callers bind whichever matches their dictionary, so neither needs a nullability cast or suppression.
-    void AddNode(string type, IReadOnlyDictionary<string, object>? props = null, List<UIViewNode>? children = null, string? key = null, string[]? style = null, string? styleId = null, string file = "", int line = 0)
-    // Adds a child node with the given type and props. Nullable-value overload — `Dictionary<string, object?>`, the raw node primitive's natural shape: prop dictionaries that legitimately carry null values (optional map/chart/media config, action ids that may be absent). A distinct concrete type from the interface overload above, so a `Dictionary<string, object?>` binds here with no nullability warning and null values flow through unchanged. (Overloads can't differ by the `object`/`object?` annotation alone — they must differ by type.)
-    void AddNode(string type, Dictionary<string, object?> props, List<UIViewNode>? children = null, string? key = null, string[]? style = null, string? styleId = null, string file = "", int line = 0)
+    // Adds a child node with the given type and props. The props parameter is the non-generic IDictionary on purpose: it's the ONLY type that cleanly accepts BOTH a `Dictionary<string, object>` (the natural non-null shape a model builds) AND a `Dictionary<string, object?>` (props that carry null values) with no nullability warning and no suppression. A generic `Dictionary<string, object?>` param warns CS8620 on the non-null form (identity-modulo-nullability), and no PAIR of generic overloads works either — nullability annotations are erased for overload resolution, so two such overloads are CS0111 (same signature) or CS0121 (ambiguous).
+    void AddNode(string type, IDictionary? props = null, List<UIViewNode>? children = null, string? key = null, string[]? style = null, string? styleId = null, string file = "", int line = 0)
     string? CreateAction<T>(Func<ActionArgs<T>, Task>? callback)
     // Registers binary data as a payload and returns a reference string for use as an image src.
     string RegisterPayload(byte[] data, string mimeType)
@@ -7012,13 +7020,11 @@ namespace Ikon.App
   sealed class HttpEndpointAttribute : Attribute
     // Marks a method on an app or cell as a typed HTTP endpoint. The framework discovers these at startup, registers a route on the platform's HTTP host, dispatches inbound requests through the configured auth cell, materializes a typed SessionIdentity record + body, invokes the method, and serializes the return value to the response.
     ctor(string method, string path)
-    // When true, the path mounts at the host root regardless of the app's configured prefix. Use for OAuth callbacks and well-known URIs (/.well-known/openid-configuration etc.).
-    bool Absolute { get; init; }
     // Pre-filter cell type. The dispatcher resolves this cell, finds its method whose signature is (HttpRequest) → Task<AuthOutcome>, and runs it before this endpoint's handler. A non-null AuthOutcome.Reject short-circuits the request; otherwise AuthOutcome.Claims merge into the target SessionIdentity. No interface, no marker — just a cell with a method shape the dispatcher recognizes (validated at startup).
     Type? Auth { get; init; }
     // HTTP verb (GET / POST / PUT / DELETE / PATCH).
     string Method { get; }
-    // Path relative to the app's mount point. Route params use {name} syntax.
+    // External path under the space domain. The platform unification (S5 of the inbound-unification plan) is moving paths to absolute form: a leading-slash path is the full URL after {space}.ikonai.app, with no platform-imposed prefix prepended. Route params use {name} syntax; parameter names that match fields of the owner's SessionIdentity record are bound into the identity dict (case-insensitive) by the gateway funnel, so identity follows REST resource hierarchy: [HttpEndpoint("POST", "/labs/{workspace}/increment")] binds workspace to SessionIdentity.Workspace. Reserved external paths the developer must NOT declare: /.well-known/* (RFC) and the back-compat aliases /w/*, /p/*, /ikon/*, /s/*, /rooms/*. Everything else is the app's namespace. Legacy non-slash form ("bump", "value" — relative to the cell's auto-derived mount point) is still accepted; the default-derivation rule (S5e) converts it to an absolute path at registration time.
     string Path { get; }
   // Serializable view of an inbound HTTP request — what an authentication or other pre-filter cell inspects. The dispatcher constructs one of these per inbound request and passes it to whichever pre-filter the endpoint declares ( Auth ).
   sealed class HttpRequest : IEquatable<HttpRequest>
@@ -7432,13 +7438,43 @@ namespace Ikon.App.Billing
     Task ClearAsync(CancellationToken cancellationToken = null)
     Task<string?> GetAsync(CancellationToken cancellationToken = null)
     Task SetAsync(string connectedAccountId, CancellationToken cancellationToken = null)
+  // Capability-request payload split by configuration block. Each list element is a capability name as documented at (e.g. "card_payments", "ach_debit_payments", "automatic_indirect_tax", "stripe_balance.stripe_transfers"). The library emits each as {"requested": true} under the relevant configuration block.
+  sealed class BillingAccountCapabilities : IEquatable<BillingAccountCapabilities>
+    ctor()
+    // Capabilities placed under configuration.customer.capabilities. Typically automatic_indirect_tax.
+    IReadOnlyList<string> Customer { get; init; }
+    // Default capability set for a SaaS app accepting card payments: a single card_payments capability under the merchant configuration. Apps add more capabilities by passing a constructed instance.
+    static BillingAccountCapabilities DefaultCardPayments { get; }
+    // Capabilities placed under configuration.merchant.capabilities. Card and bank-debit payment methods.
+    IReadOnlyList<string> Merchant { get; init; }
+    // Capabilities placed under configuration.recipient.capabilities. Typically stripe_balance.stripe_transfers.
+    IReadOnlyList<string> Recipient { get; init; }
+  // Dashboard access level granted to the connected account. Maps to the top-level dashboard property on Accounts v2 (/v2/core/accounts).
+  enum BillingAccountDashboard
+    Default
+    Full
+    Express
+    None
+  // Identity block on the v2 connected account (identity). Apps may pre-fill these values for up-front onboarding, or leave them null for Stripe to collect during the hosted onboarding flow.
+  sealed class BillingAccountIdentity : IEquatable<BillingAccountIdentity>
+    ctor()
+    // ISO 3166-1 alpha-2 country code (e.g. "us", "fi").
+    string? Country { get; init; }
+    BillingEntityType EntityType { get; init; }
+    // Registered legal name (identity.business_details.registered_name). Only used when EntityType is a business form.
+    string? RegisteredName { get; init; }
+  // Liability and fee-collection model for the connected account. Once set at account-create time the values are immutable, per .
+  sealed class BillingAccountResponsibilities : IEquatable<BillingAccountResponsibilities>
+    // Liability and fee-collection model for the connected account. Once set at account-create time the values are immutable, per .
+    ctor(BillingFeesCollector FeesCollector, BillingLossesCollector LossesCollector)
+    BillingFeesCollector FeesCollector { get; init; }
+    BillingLossesCollector LossesCollector { get; init; }
   // Result of CreateAccountSessionAsync .
   sealed class BillingAccountSession : IEquatable<BillingAccountSession>
     // Result of CreateAccountSessionAsync .
     ctor(string ClientSecret, DateTimeOffset ExpiresAt)
     string ClientSecret { get; init; }
     DateTimeOffset ExpiresAt { get; init; }
-  // Request shape for CreateAccountSessionAsync . Toggle the components your app needs; Stripe rejects sessions with no enabled components.
   sealed class BillingAccountSessionRequest : IEquatable<BillingAccountSessionRequest>
     // Mount account management (update bank, business details, KYC).
     bool AccountManagement { get; init; }
@@ -7450,12 +7486,18 @@ namespace Ikon.App.Billing
     string ConnectedAccountId { get; init; }
     // Disable the "Manage at Stripe" link inside account management. Useful when you embed everything inline.
     bool DisableStripeUserAuth { get; init; }
+    // Single dispute response component (disputes). Embedded UI for the dispute-response workflow on a specific dispute id.
+    bool Disputes { get; init; }
+    // List of disputes on the connected account (disputes_list). Embedded UI that surfaces every open dispute with response actions.
+    bool DisputesList { get; init; }
     // Tax documents (1099 in US, similar elsewhere).
     bool Documents { get; init; }
     // Allow account holder to add/edit external bank accounts. Default true.
     bool ExternalAccountCollection { get; init; }
     // Stripe-issued action items (verify ID, etc.).
     bool NotificationBanner { get; init; }
+    // Per-payment details component (payment_details). Embedded UI for inspecting a single payment, with refund + dispute actions. Use alongside Payments when the app exposes a "drill into a payment" surface.
+    bool PaymentDetails { get; init; }
     // Payments list with refund / dispute / capture features enabled.
     bool Payments { get; init; }
     // Allow capturing manual-capture payments inside the embedded payments component.
@@ -7473,6 +7515,11 @@ namespace Ikon.App.Billing
   static class BillingAppHelpers
     static BillingOptions AutoDetectFromApp(IAppBase app, string defaultAppId = "app")
     static string? GetSecretOrEnv(IAppBase app, string key)
+  // Pulls the live product + price catalog from Stripe and projects it into a per-app catalog ( BillingPlanCatalog ) that pricing-table UIs can render and adapters can resolve plan ids against. Push vs pull. BillingCatalogSync goes the other direction — app declares plans in code and the library makes Stripe match. Use Sync when pricing lives in code (deploy-time provisioning); use BillingCatalogProjector when Stripe (or an admin UI on top of Stripe) is the source of truth and the app needs to mirror whatever's there.Apps that need both — e.g. seed defaults from code and let operators add more via Stripe Dashboard — call Sync once at startup, then ProjectAsync at runtime / on webhook events.
+  sealed class BillingCatalogProjector
+    ctor(BillingService billing)
+    // List active Stripe products + their recurring prices, filter to the app's slice, and project each (product, default-price) pair to a BillingPlanProjection .
+    Task<BillingPlanCatalog> ProjectAsync(Func<BillingProduct, bool>? productFilter = null, Func<BillingPrice, bool>? priceFilter = null, CancellationToken cancellationToken = null)
   // Idempotent provisioning of a Stripe product+price catalog from an app-defined plan list. Apps declare plans in code (or config); this service makes sure each plan has a matching Stripe product + price, reusing existing rows by name and exact (amount, currency, interval) match. Returns a BillingPlanCatalogMap mapping app-side plan ids to Stripe price ids that adapters use in GetPlanAsync . Run once at app startup (it's network-bound but idempotent and short), or persist the map after first sync to skip the API hop on warm boots. Stripe is the source of truth for the price ids — they differ per account, so the map must be re-resolved per environment.
   sealed class BillingCatalogSync
     ctor(BillingService billing)
@@ -7532,10 +7579,13 @@ namespace Ikon.App.Billing
   // Result of RetrieveAccountAsync . Use ChargesEnabled + PayoutsEnabled as the gate for unlocking billing flows in your app.
   sealed class BillingConnectAccount : IEquatable<BillingConnectAccount>
     // Result of RetrieveAccountAsync . Use ChargesEnabled + PayoutsEnabled as the gate for unlocking billing flows in your app.
-    ctor(string Id, bool DetailsSubmitted, bool ChargesEnabled, bool PayoutsEnabled, IReadOnlyList<string> RequirementsCurrentlyDue, IReadOnlyList<string> RequirementsEventuallyDue, string? RequirementsDisabledReason, string? Country = null)
+    ctor(string Id, bool DetailsSubmitted, bool ChargesEnabled, bool PayoutsEnabled, IReadOnlyList<string> RequirementsCurrentlyDue, IReadOnlyList<string> RequirementsEventuallyDue, string? RequirementsDisabledReason, string? Country = null, IReadOnlyDictionary<string, string>? CapabilityStatuses = null, string? EntityType = null, string? Dashboard = null)
+    IReadOnlyDictionary<string, string>? CapabilityStatuses { get; init; }
     bool ChargesEnabled { get; init; }
     string? Country { get; init; }
+    string? Dashboard { get; init; }
     bool DetailsSubmitted { get; init; }
+    string? EntityType { get; init; }
     string Id { get; init; }
     bool PayoutsEnabled { get; init; }
     IReadOnlyList<string> RequirementsCurrentlyDue { get; init; }
@@ -7554,13 +7604,15 @@ namespace Ikon.App.Billing
     // Create an Account Session for embedded Connect components. The returned ClientSecret is short-lived (expires at ExpiresAt ) and is handed to Stripe's loadConnectAndInitialize on the frontend so embedded components (account onboarding, account management, payouts, balances, etc.) can mount inline in your app instead of redirecting to Stripe.
     Task<BillingAccountSession> CreateAccountSessionAsync(BillingAccountSessionRequest request, string? idempotencyKey = null, CancellationToken cancellationToken = null)
     // Create a platform webhook endpoint that receives events from every connected account (one endpoint serves all). Use this instead of CreateWebhookEndpointAsync for the platform-managed Connect mode.
-    Task<BillingWebhookEndpoint> CreateConnectWebhookEndpointAsync(string url, IEnumerable<string> enabledEvents, string? description = null, string? idempotencyKey = null, CancellationToken cancellationToken = null)
-    // Create a Stripe Connect express account for a creator. Express is the recommended type for marketplace platforms — Stripe hosts the dashboard and KYC.
-    Task<string> CreateExpressAccountAsync(string email, string country, IReadOnlyDictionary<string, string>? metadata = null, string? idempotencyKey = null, IEnumerable<string>? requestedCapabilities = null, CancellationToken cancellationToken = null)
+    Task<BillingWebhookEndpoint> CreateConnectWebhookEndpointAsync(string url, IEnumerable<string> enabledEvents, string? description = null, string? idempotencyKey = null, BillingWebhookPayloadShape payloadShape = Snapshot, CancellationToken cancellationToken = null)
+    // Create a connected account via Accounts v2 (POST /v2/core/accounts). Apps configure dashboard access, capabilities, and the liability / fee-collection model via request ; the Ikon-locked defaults match the SaaS posture in (full dashboard, Stripe collects fees, Stripe takes loss responsibility, card_payments capability).
+    Task<string> CreateConnectedAccountAsync(BillingCreateAccountRequest request, string? idempotencyKey = null, CancellationToken cancellationToken = null)
     // Create a login link to the connected account's Stripe Express Dashboard. Only works after onboarding completed.
     Task<string> CreateLoginLinkAsync(string connectedAccountId, string? idempotencyKey = null, CancellationToken cancellationToken = null)
-    // Create an account link to send the creator through Stripe's onboarding flow. The returned URL is single-use and short-lived.
-    Task<string> CreateOnboardingLinkAsync(string connectedAccountId, string refreshUrl, string returnUrl, string? idempotencyKey = null, CancellationToken cancellationToken = null)
+    // Create an account link to send the creator through Stripe's hosted onboarding flow. The returned URL is single-use and short-lived.
+    Task<string> CreateOnboardingLinkAsync(string connectedAccountId, string refreshUrl, string returnUrl, BillingOnboardingStrategy strategy = UpFront, string? idempotencyKey = null, CancellationToken cancellationToken = null)
+    // Fetch the current state of the object a v2 thin event refers to. Thin events (object: "v2.core.event") omit the embedded object snapshot — apps that need the object's current state call this with the event's RelatedObjectUrl (or any other Stripe API path) and parse the returned JSON.
+    Task<string> FetchRelatedObjectAsync(string apiPath, CancellationToken cancellationToken = null)
     // Retrieve a connected account to inspect onboarding and capability status. After Embedded Onboarding's onExit fires, call this to confirm ChargesEnabled / PayoutsEnabled before unlocking billing flows in your app.
     Task<BillingConnectAccount> RetrieveAccountAsync(string connectedAccountId, CancellationToken cancellationToken = null)
     // Transfer funds from the platform balance to a connected account.
@@ -7582,6 +7634,29 @@ namespace Ikon.App.Billing
     string? Name { get; init; }
     decimal? PercentOff { get; init; }
     DateTimeOffset? RedeemBy { get; init; }
+  // Create-request shape for POST /v2/core/accounts. Build via the record-with syntax to override individual properties; the defaults map to the Ikon-recommended SaaS posture (full dashboard, Stripe takes liability, card-payments only).
+  sealed class BillingCreateAccountRequest : IEquatable<BillingCreateAccountRequest>
+    ctor()
+    // Capability requests split per configuration block.
+    BillingAccountCapabilities Capabilities { get; init; }
+    // Primary contact email for the connected account (contact_email).
+    string? ContactEmail { get; init; }
+    // Dashboard access level (dashboard).
+    BillingAccountDashboard Dashboard { get; init; }
+    // 3-letter ISO currency code for defaults.currency (e.g. "usd", "eur").
+    string DefaultCurrency { get; init; }
+    // Descriptive name shown in Stripe Dashboard (display_name).
+    string? DisplayName { get; init; }
+    // Optional identity block (identity).
+    BillingAccountIdentity? Identity { get; init; }
+    // Response-inclusion list (include). Values default to the four blocks the library reads from the response. Apps that need additional blocks (e.g. defaults, future_requirements) override this.
+    IReadOnlyList<string> Include { get; init; }
+    // IETF locale list (defaults.locales). Default ["en-US"].
+    IReadOnlyList<string> Locales { get; init; }
+    // Free-form metadata stored on the account (metadata).
+    IReadOnlyDictionary<string, string>? Metadata { get; init; }
+    // Liability + fee-collection model (defaults.responsibilities). Default = Stripe collects fees AND takes loss responsibility.
+    BillingAccountResponsibilities Responsibilities { get; init; }
   // Result of issuing a credit note.
   sealed class BillingCreditNote : IEquatable<BillingCreditNote>
     // Result of issuing a credit note.
@@ -7661,10 +7736,17 @@ namespace Ikon.App.Billing
     bool UnlockGranted { get; init; }
     // Timestamp parsed from the metadata stamp. Null when not held.
     DateTimeOffset? UnlockGrantedAt { get; init; }
+  // Top-level entity type on the connected account (identity.entity_type).
+  enum BillingEntityType
+    Unknown
+    Company
+    Individual
+    NonProfit
+    GovernmentEntity
   // Typed billing event surfaced by HandleWebhookAsync . Apps switch on Type and read the relevant fields. Unknown event types are surfaced as Unknown with the raw payload preserved for the app to inspect.
   sealed class BillingEvent : IEquatable<BillingEvent>
     // Typed billing event surfaced by HandleWebhookAsync . Apps switch on Type and read the relevant fields. Unknown event types are surfaced as Unknown with the raw payload preserved for the app to inspect.
-    ctor(string EventId, BillingEventType Type, string? CustomerId, string? SubscriptionId, string? ClientReferenceId, string? PlanId, string? Status, DateTimeOffset? CurrentPeriodStart, DateTimeOffset? CurrentPeriodEnd, long? AmountPaid, string? Currency, JsonElement RawPayload)
+    ctor(string EventId, BillingEventType Type, string? CustomerId, string? SubscriptionId, string? ClientReferenceId, string? PlanId, string? Status, DateTimeOffset? CurrentPeriodStart, DateTimeOffset? CurrentPeriodEnd, long? AmountPaid, string? Currency, JsonElement RawPayload, string RawEventName = "", bool IsLegacyEventName = false, bool IsThinEvent = false, string? RelatedObjectId = null, string? RelatedObjectType = null, string? RelatedObjectUrl = null)
     // Amount paid in minor units (cents), when relevant.
     long? AmountPaid { get; init; }
     // The client_reference_id set when creating checkout, when present. Apps use this to map the event back to their own entity.
@@ -7679,10 +7761,22 @@ namespace Ikon.App.Billing
     string? CustomerId { get; init; }
     // Stripe event id (evt_...). Use for idempotency.
     string EventId { get; init; }
+    // True when RawEventName is a v1 alias that will be dropped in the next major (e.g. "account.updated" superseded by "v2.core.account.updated"). Apps can warn / migrate registrations on the strength of this flag.
+    bool IsLegacyEventName { get; init; }
+    // True when the payload is a v2 thin event (object: "v2.core.event"). Thin events omit the embedded object snapshot; apps must fetch the underlying object via RelatedObjectUrl if they need its current state. False for the legacy v1 snapshot shape with data.object.
+    bool IsThinEvent { get; init; }
     // Plan id from session metadata, when present.
     string? PlanId { get; init; }
+    // Original Stripe event name as received ("v2.core.account.updated", "checkout.session.completed", …). Useful for debugging and for legacy-event detection.
+    string RawEventName { get; init; }
     // Raw Stripe event JSON for app-side escape hatches.
     JsonElement RawPayload { get; init; }
+    // Id of the object the thin event refers to (from related_object.id). Populated only when IsThinEvent is true.
+    string? RelatedObjectId { get; init; }
+    // Type of the related object (e.g. "v2.core.account"). Populated only when IsThinEvent is true.
+    string? RelatedObjectType { get; init; }
+    // Stripe API path that returns the current state of the related object (e.g. "/v2/core/accounts/acct_…"). Populated only when IsThinEvent is true. Apps that need the full object call HTTP GET on this path.
+    string? RelatedObjectUrl { get; init; }
     // Subscription status when relevant (active, past_due, canceled, ...).
     string? Status { get; init; }
     // Stripe subscription id, when present.
@@ -7692,6 +7786,8 @@ namespace Ikon.App.Billing
   enum BillingEventType
     Unknown
     CheckoutCompleted
+    CheckoutAsyncPaymentSucceeded
+    CheckoutAsyncPaymentFailed
     InvoicePaid
     InvoicePaymentFailed
     InvoiceFinalized
@@ -7706,6 +7802,23 @@ namespace Ikon.App.Billing
     CreditNoteCreated
     CreditNoteVoided
     SubscriptionTrialWillEnd
+    ConnectAccountUpdated
+    ConnectAccountRequirementsUpdated
+    ConnectAccountCapabilityUpdated
+    PayoutCreated
+    PayoutUpdated
+    PayoutPaid
+    PayoutFailed
+    ConnectOAuthAuthorized
+    ConnectOAuthDeauthorized
+    SubscriptionScheduleUpdated
+    ProductUpdated
+    PriceUpdated
+  // Who collects payment fees for direct charges (defaults.responsibilities.fees_collector).
+  enum BillingFeesCollector
+    Default
+    Stripe
+    Application
   // Hosted Stripe invoice — for B2B net-30 flows where the customer pays via an emailed link rather than going through Checkout.
   sealed class BillingInvoice : IEquatable<BillingInvoice>
     // Hosted Stripe invoice — for B2B net-30 flows where the customer pays via an emailed link rather than going through Checkout.
@@ -7741,15 +7854,24 @@ namespace Ikon.App.Billing
     long Quantity { get; init; }
     static BillingLineItem Dynamic(long amountMinor, string currency, string productName, long quantity = 1)
     static BillingLineItem ForPrice(string priceId, long quantity = 1)
+  // Who is responsible for connected-account negative balances (defaults.responsibilities.losses_collector).
+  enum BillingLossesCollector
+    Default
+    Stripe
+    Application
   enum BillingMode
     Subscription
     OneTime
+  // Request shape for CreateAccountSessionAsync . Toggle the components your app needs; Stripe rejects sessions with no enabled components.
+  enum BillingOnboardingStrategy
+    UpFront
+    Incremental
   // Options needed by BillingService . Apps load secrets from their own configuration source (Ikon secrets, environment variables, vault) and pass them in here. The library never reads configuration directly.
   sealed class BillingOptions : IEquatable<BillingOptions>
     ctor()
-    // Stripe secret API key (starts with sk_test_ or sk_live_). Required for Byok ; unused for IkonConnect (Ikon backend holds the platform key).
+    // Stripe API key. Accepts both unrestricted secret keys (sk_test_ / sk_live_) and restricted keys (rk_test_ / rk_live_); the library treats them identically. Restricted keys are recommended for least-privilege deployments — see the billing guide for the suggested permission set. Required for Byok ; unused for IkonConnect (Ikon backend holds the platform key).
     string ApiKey { get; init; }
-    // Stripe API version to pin (sent as Stripe-Version header). Null = account default.
+    // Stripe API version to pin (sent as Stripe-Version header). Defaults to 2026-04-22.dahlia — the version this library is tested against, which is required for Accounts v2 (/v2/core/accounts) and Billing v2 event payloads. Set to null to fall back to the connected account's default version (only do this if you must interoperate with code that depends on an older payload shape).
     string? ApiVersion { get; init; }
     // Enable Stripe automatic tax calculation on Checkout sessions. Requires Tax to be configured in the Stripe Dashboard.
     bool AutomaticTax { get; init; }
@@ -7765,11 +7887,15 @@ namespace Ikon.App.Billing
     string? DefaultPortalReturnUrl { get; init; }
     // Default success URL used when a checkout call does not specify one.
     string? DefaultSuccessUrl { get; init; }
+    // Per-call payment-method exclusion list (e.g. ["affirm", "afterpay_clearpay"]). Stripe shows every dynamically-enabled method except the listed ones. Use when an app wants code-managed control over async methods without maintaining a dashboard configuration. Mutually exclusive with PaymentMethodConfigurationId . Apple Pay / Google Pay / Link cannot be excluded per-call — manage those at dashboard level.
+    IReadOnlyList<string>? ExcludedPaymentMethodTypes { get; init; }
     string? IkonAppId { get; init; }
     string? IkonBackendUrl { get; init; }
     string? IkonWebhookSecret { get; init; }
     // Maximum number of retry attempts on transient failures (HTTP 429 / 5xx / network faults). 0 disables retries.
     int MaxRetryAttempts { get; init; }
+    // Stripe Dashboard-managed Payment Method Configuration id (pmc_…). When set, the library passes payment_method_configuration on every Checkout / PaymentIntent / SetupIntent create call so the app shows exactly the methods enabled in the configuration. Preferred over ExcludedPaymentMethodTypes for stable per-app surfaces. Mutually exclusive with ExcludedPaymentMethodTypes .
+    string? PaymentMethodConfigurationId { get; init; }
     // Optional platform application fee in minor units applied to every one-time charge (Checkout in payment mode) when ConnectedAccountId is set. 0 disables.
     long? PlatformApplicationFeeAmountMinor { get; init; }
     // Optional platform application fee percent applied to every recurring charge (subscriptions / Checkout in subscription mode) when ConnectedAccountId is set. 0 disables. Range 0-100.
@@ -7820,6 +7946,12 @@ namespace Ikon.App.Billing
     string Id { get; init; }
     // Stripe type (card, sepa_debit, etc.).
     string Type { get; init; }
+  // Cached catalog projection returned by ProjectAsync . PlanIdToPriceId is the lookup adapters use in GetPlanAsync ; Plans is the list apps surface to end users in pricing tables.
+  sealed class BillingPlanCatalog : IEquatable<BillingPlanCatalog>
+    // Cached catalog projection returned by ProjectAsync . PlanIdToPriceId is the lookup adapters use in GetPlanAsync ; Plans is the list apps surface to end users in pricing tables.
+    ctor(IReadOnlyList<BillingPlanProjection> Plans, IReadOnlyDictionary<string, string> PlanIdToPriceId)
+    IReadOnlyDictionary<string, string> PlanIdToPriceId { get; init; }
+    IReadOnlyList<BillingPlanProjection> Plans { get; init; }
   // App-plan-id → Stripe-price-id map produced by SyncAsync . Cache this in the app (memory or DB) and have your GetPlanAsync look up the price id from it.
   sealed class BillingPlanCatalogMap
     // App plan ids in the map.
@@ -7851,6 +7983,30 @@ namespace Ikon.App.Billing
     static BillingPlanDescriptor Subscription(string planId, string stripePriceId, int trialPeriodDays = 0, bool allowPromotionCodes = false, long quantity = 1, string? meteredPriceId = null, IReadOnlyDictionary<string, string>? metadata = null)
     // Named factory for a one-time unlock plan. The customer pays once and the entitlement is permanent (apps stamp customer metadata unlock_{planId} from ApplyEventAsync when the checkout completes; GetEntitlementAsync reads it back).
     static BillingPlanDescriptor Unlock(string planId, string stripePriceId, long quantity = 1, IReadOnlyDictionary<string, string>? metadata = null)
+  // Joined snapshot of a Stripe product + its active default price, projected for app-side display. Returned by ProjectAsync ; apps map this to their own view-model (e.g. BillingPlanView).
+  sealed class BillingPlanProjection : IEquatable<BillingPlanProjection>
+    // Joined snapshot of a Stripe product + its active default price, projected for app-side display. Returned by ProjectAsync ; apps map this to their own view-model (e.g. BillingPlanView).
+    ctor(string PlanId, string ProductId, string ProductName, string? ProductDescription, string StripePriceId, long UnitAmountMinor, string Currency, string? RecurringInterval, IReadOnlyList<string>? MarketingFeatures, IReadOnlyDictionary<string, string>? ProductMetadata)
+    // ISO 4217 lowercase.
+    string Currency { get; init; }
+    // Feature bullets defined on the product.
+    IReadOnlyList<string>? MarketingFeatures { get; init; }
+    // Stable identifier used by GetPlanAsync . Defaults to the price LookupKey when set, otherwise the Stripe price id.
+    string PlanId { get; init; }
+    // Free-text description from Stripe.
+    string? ProductDescription { get; init; }
+    // Stripe product id (prod_...).
+    string ProductId { get; init; }
+    // Free-form metadata stamped on the product. Useful for app filters (app_id, tenant_id, ...).
+    IReadOnlyDictionary<string, string>? ProductMetadata { get; init; }
+    // Stripe product name.
+    string ProductName { get; init; }
+    // Billing interval (month, year, ...). Null for one-time prices.
+    string? RecurringInterval { get; init; }
+    // Stripe price id (price_...).
+    string StripePriceId { get; init; }
+    // Price in minor units (cents).
+    long UnitAmountMinor { get; init; }
   // One row in an app's plan catalog. Apps declare these in code (or load from config) and hand the list to SyncAsync .
   sealed class BillingPlanSpec : IEquatable<BillingPlanSpec>
     // One row in an app's plan catalog. Apps declare these in code (or load from config) and hand the list to SyncAsync .
@@ -7927,10 +8083,12 @@ namespace Ikon.App.Billing
   // Slim view of a Stripe product.
   sealed class BillingProduct : IEquatable<BillingProduct>
     // Slim view of a Stripe product.
-    ctor(string Id, string Name, bool Active, string? Description)
+    ctor(string Id, string Name, bool Active, string? Description, IReadOnlyList<string>? MarketingFeatures = null, IReadOnlyDictionary<string, string>? Metadata = null)
     bool Active { get; init; }
     string? Description { get; init; }
     string Id { get; init; }
+    IReadOnlyList<string>? MarketingFeatures { get; init; }
+    IReadOnlyDictionary<string, string>? Metadata { get; init; }
     string Name { get; init; }
   // Definition of a Stripe product. Use with CreateProductAsync .
   sealed class BillingProductInfo : IEquatable<BillingProductInfo>
@@ -7938,6 +8096,8 @@ namespace Ikon.App.Billing
     string? Description { get; init; }
     string? Id { get; init; }
     IReadOnlyList<string>? Images { get; init; }
+    // Marketing-feature bullets shown on Stripe-hosted Pricing Tables and adaptive Checkout UIs (e.g. "Unlimited workshops", "Priority support"). Stripe caps each entry at 80 characters and the array at 15 entries. Maps to the v1 marketing_features array on the Product object.
+    IReadOnlyList<string>? MarketingFeatures { get; init; }
     IReadOnlyDictionary<string, string>? Metadata { get; init; }
     string Name { get; init; }
     string? StatementDescriptor { get; init; }
@@ -7997,7 +8157,7 @@ namespace Ikon.App.Billing
     // Create a Stripe Payment Link — a shareable hosted-checkout URL for a fixed line item. Useful for "pay link" flows in chat, email, QR codes.
     Task<BillingPaymentLink> CreatePaymentLinkAsync(IEnumerable<BillingLineItem> lines, IReadOnlyDictionary<string, string>? metadata = null, bool allowPromotionCodes = false, string? idempotencyKey = null, CancellationToken cancellationToken = null)
     // Create a Customer Portal session so the customer can manage their subscription.
-    Task<BillingPortalResult> CreatePortalAsync(string stripeCustomerId, string? returnUrl = null, CancellationToken cancellationToken = null)
+    Task<BillingPortalResult> CreatePortalAsync(string stripeCustomerId, string? returnUrl = null, string? configurationId = null, string? onBehalfOf = null, string? idempotencyKey = null, CancellationToken cancellationToken = null)
     // Create a Customer Portal configuration. Apps that want to control which self-serve features the portal exposes (cancel, update payment method, view invoices, etc.) call this once and reuse the returned id when opening portal sessions via CreatePortalAsync .
     Task<string> CreatePortalConfigurationAsync(BillingPortalConfigurationInfo info, string? idempotencyKey = null, CancellationToken cancellationToken = null)
     // Create a Stripe price (one-time or recurring) attached to a product.
@@ -8010,13 +8170,13 @@ namespace Ikon.App.Billing
     Task<BillingSetupIntent> CreateSetupIntentAsync(string stripeCustomerId, string usage = "off_session", string? idempotencyKey = null, CancellationToken cancellationToken = null)
     // Create a Stripe subscription schedule with multiple phases — useful for discounted intro phases that transition to standard pricing, or annual commitments built from a sequence of monthly phases.
     Task<string> CreateSubscriptionScheduleAsync(string stripeCustomerId, IEnumerable<BillingSubscriptionPhase> phases, DateTimeOffset? startDate = null, string? idempotencyKey = null, CancellationToken cancellationToken = null)
-    // Mint a one-time hosted checkout for a tip / voluntary payment. Confers no entitlement — apps record the transaction for attribution / reporting and (optionally) ack it in the UI. Wraps CreateCartCheckoutAsync with a dynamic line item; metadata is stamped with tip_amount_minor for downstream reporting.
+    // Create a one-time hosted checkout for a tip / voluntary payment. Confers no entitlement — apps record the transaction for attribution / reporting and (optionally) ack it in the UI. Wraps CreateCartCheckoutAsync with a dynamic line item; metadata is stamped with tip_amount_minor for downstream reporting.
     Task<BillingCheckoutResult> CreateTipCheckoutAsync(long amountMinor, string currency, string? title = null, string? message = null, string? appCustomerKey = null, string? idempotencyKey = null, CancellationToken cancellationToken = null)
     // Register a webhook endpoint with Stripe programmatically. The returned Secret is the signing secret — store it securely; Stripe will not return it again on subsequent reads.
-    Task<BillingWebhookEndpoint> CreateWebhookEndpointAsync(string url, IEnumerable<string> enabledEvents, string? description = null, string? idempotencyKey = null, CancellationToken cancellationToken = null)
+    Task<BillingWebhookEndpoint> CreateWebhookEndpointAsync(string url, IEnumerable<string> enabledEvents, string? description = null, string? idempotencyKey = null, BillingWebhookPayloadShape payloadShape = Snapshot, CancellationToken cancellationToken = null)
     // Delete a tax id from a customer.
     Task DeleteCustomerTaxIdAsync(string stripeCustomerId, string taxIdId, CancellationToken cancellationToken = null)
-    // Delete a webhook endpoint by id.
+    // Delete a webhook endpoint by id. Uses the v2 DELETE /v2/core/event_destinations/{id} verb.
     Task DeleteWebhookEndpointAsync(string webhookEndpointId, CancellationToken cancellationToken = null)
     // Detach a saved payment method from its customer.
     Task DetachPaymentMethodAsync(string paymentMethodId, CancellationToken cancellationToken = null)
@@ -8055,10 +8215,12 @@ namespace Ikon.App.Billing
     Task<BillingCheckoutOffer> OfferCheckoutAsync(string planId, string appCustomerKey, string? email = null, BillingDestination? destination = null, string? idempotencyKey = null, CancellationToken cancellationToken = null)
     // Pause collection on a subscription. The subscription remains active for access purposes; Stripe just stops creating invoices until resumed.
     Task PauseSubscriptionAsync(string subscriptionId, string behavior = "void", CancellationToken cancellationToken = null)
+    // Send a test ping to a registered webhook endpoint (POST /v2/core/event_destinations/{id}/ping). Stripe delivers a synthetic v2.core.event_destination.ping event to verify the endpoint's HTTP plumbing + signature verification before going live.
+    Task PingWebhookEndpointAsync(string webhookEndpointId, CancellationToken cancellationToken = null)
     // Preview a customer's upcoming invoice. Use to show "your next bill" before committing a plan change, seat-count change, or coupon.
     Task<BillingUpcomingInvoice> PreviewUpcomingInvoiceAsync(string stripeCustomerId, string? subscriptionId = null, string? newPriceId = null, long? newQuantity = null, string? couponId = null, CancellationToken cancellationToken = null)
     // Refund a charge or payment intent, in full or partially. Use a stable idempotencyKey (typically the app's refund record id).
-    Task RefundAsync(string paymentIntentId, long? amountMinor, string? reason, string idempotencyKey, CancellationToken cancellationToken = null)
+    Task RefundAsync(string paymentIntentId, long? amountMinor, string? reason, string idempotencyKey, bool refundApplicationFee = false, bool reverseTransfer = false, CancellationToken cancellationToken = null)
     // Register an Apple Pay domain so the domain can host Apple Pay buttons.
     Task<string> RegisterApplePayDomainAsync(string domainName, string? idempotencyKey = null, CancellationToken cancellationToken = null)
     // Report a meter event for metered usage billing. Apps call this whenever a billable usage unit is consumed.
@@ -8081,7 +8243,7 @@ namespace Ikon.App.Billing
     // Update mutable fields on an existing price. Stripe prices are immutable in their amount/currency/recurring shape, but active, nickname and metadata can change. Use active = false to archive an old price after migrating subscribers off it.
     Task UpdatePriceAsync(string priceId, bool? active = null, string? nickname = null, IReadOnlyDictionary<string, string>? metadata = null, CancellationToken cancellationToken = null)
     // Update mutable fields on an existing product. Use active = false to archive a product (and its prices) when retiring a plan.
-    Task UpdateProductAsync(string productId, bool? active = null, string? name = null, string? description = null, IReadOnlyDictionary<string, string>? metadata = null, CancellationToken cancellationToken = null)
+    Task UpdateProductAsync(string productId, bool? active = null, string? name = null, string? description = null, IReadOnlyList<string>? marketingFeatures = null, IReadOnlyDictionary<string, string>? metadata = null, CancellationToken cancellationToken = null)
     // Update the quantity of a subscription item — typically used for seat-based billing where a customer adds or removes editor seats mid-cycle.
     Task UpdateSubscriptionItemQuantityAsync(string subscriptionItemId, long quantity, bool prorate = true, CancellationToken cancellationToken = null)
     // Swap the price on a subscription item (e.g. migrate an existing subscriber to a new price after a plan change, since Stripe prices are immutable). Stripe prorates by default — pass prorate = false for clean cycle boundaries. Typical flow after a plan-price bump: // 1. Sync catalog → new price id under same lookup_key var map = await catalogSync.SyncAsync(plans); // 2. Migrate active subscribers foreach (var sub in await billing.ListSubscriptionsAsync(status: "active")) { await billing.UpdateSubscriptionPriceAsync(sub.ItemIds[0], map.GetPriceId("pro")); }
@@ -8101,7 +8263,7 @@ namespace Ikon.App.Billing
   // Slim view of a Stripe subscription. Returned by ListSubscriptionsAsync .
   sealed class BillingSubscription : IEquatable<BillingSubscription>
     // Slim view of a Stripe subscription. Returned by ListSubscriptionsAsync .
-    ctor(string Id, string CustomerId, string Status, DateTimeOffset? CurrentPeriodStart, DateTimeOffset? CurrentPeriodEnd, bool CancelAtPeriodEnd, string? DefaultPaymentMethodId, string? LatestInvoiceId, IReadOnlyList<string> ItemIds)
+    ctor(string Id, string CustomerId, string Status, DateTimeOffset? CurrentPeriodStart, DateTimeOffset? CurrentPeriodEnd, bool CancelAtPeriodEnd, string? DefaultPaymentMethodId, string? LatestInvoiceId, IReadOnlyList<string> ItemIds, string? FirstPriceId = null, string? FirstProductId = null)
     // True when subscription is scheduled to cancel at period end.
     bool CancelAtPeriodEnd { get; init; }
     // Current billing period end.
@@ -8112,6 +8274,10 @@ namespace Ikon.App.Billing
     string CustomerId { get; init; }
     // Saved payment method used for renewals.
     string? DefaultPaymentMethodId { get; init; }
+    // Stripe price id (price_…) of the first item, when present. Use to resolve the plan via the catalog (reverse lookup against PlanIdToPriceId ).
+    string? FirstPriceId { get; init; }
+    // Stripe product id (prod_…) of the first item's price, when present. Use to resolve the plan name when prices are expanded server-side.
+    string? FirstProductId { get; init; }
     // Subscription id (sub_...).
     string Id { get; init; }
     // Subscription item ids — pass to UpdateSubscriptionItemQuantityAsync .
@@ -8185,6 +8351,10 @@ namespace Ikon.App.Billing
   sealed class BillingWebhookFunctionHost
     ctor(BillingService billing)
     Task<string> StripeWebhook(Dictionary<string, string> queryParams, Dictionary<string, string> headers, string body)
+  // Payload shape requested when registering a v2 event destination (POST /v2/core/event_destinations) — Stripe ships every event in one of these two shapes.
+  enum BillingWebhookPayloadShape
+    Snapshot
+    Thin
   // Outcome of HandleWebhookAsync . Surfaces signature verification status without throwing — apps return HTTP 200 either way to avoid Stripe retry storms, but log unverified deliveries.
   sealed class BillingWebhookResult : IEquatable<BillingWebhookResult>
     // Outcome of HandleWebhookAsync . Surfaces signature verification status without throwing — apps return HTTP 200 either way to avoid Stripe retry storms, but log unverified deliveries.
@@ -8337,6 +8507,16 @@ namespace Ikon.App.Client
     TClientParameters Parameters { get; }
 
 namespace Ikon.App.Http
+  // Per-request context for an HttpEndpointAttribute handler currently executing. AsyncLocal so handler code (and anything it calls) can read the request's resolved identity without threading the dict through every method signature. Relationship to other "context" concepts on the platform: SessionIdentity (the typed app/cell record): the routing / instance-partition key. Always present — it's what was used to address the channel-instance this handler runs in. Stable across the cell instance's lifetime.Context (Ikon protocol Context for WS clients): the live client *connection* — sessionId, deviceId, AuthSessionId, UserId from the connect-token. Absent for webhook/MCP dispatches because there is no live client connection.HttpCallContext.Current (this) and McpCallContext .Current: the *request-scoped overlay* that exposes the per-call resolved identity for handler code to read. Set by the wrapper before the handler runs, cleared after. The point is that handlers reading "who is this call for?" get a non-empty answer on webhook/MCP-dispatched calls, where the connection-level Context.UserId would be empty. The handler's SessionIdentity record (resolved by CellHost.ResolveByCellTypeName before this context is set) and HttpCallContext.Current.SessionIdentity carry the same information in different shapes: the former is typed and tied to the cell's lifetime; the latter is the raw wire dict tied to the call's lifetime.
+  sealed class HttpCallContext : IEquatable<HttpCallContext>
+    // Per-request context for an HttpEndpointAttribute handler currently executing. AsyncLocal so handler code (and anything it calls) can read the request's resolved identity without threading the dict through every method signature. Relationship to other "context" concepts on the platform: SessionIdentity (the typed app/cell record): the routing / instance-partition key. Always present — it's what was used to address the channel-instance this handler runs in. Stable across the cell instance's lifetime.Context (Ikon protocol Context for WS clients): the live client *connection* — sessionId, deviceId, AuthSessionId, UserId from the connect-token. Absent for webhook/MCP dispatches because there is no live client connection.HttpCallContext.Current (this) and McpCallContext .Current: the *request-scoped overlay* that exposes the per-call resolved identity for handler code to read. Set by the wrapper before the handler runs, cleared after. The point is that handlers reading "who is this call for?" get a non-empty answer on webhook/MCP-dispatched calls, where the connection-level Context.UserId would be empty. The handler's SessionIdentity record (resolved by CellHost.ResolveByCellTypeName before this context is set) and HttpCallContext.Current.SessionIdentity carry the same information in different shapes: the former is typed and tied to the cell's lifetime; the latter is the raw wire dict tied to the call's lifetime.
+    ctor(IReadOnlyDictionary<string, string>? SessionIdentity = null, CancellationToken CancellationToken = null)
+    CancellationToken CancellationToken { get; init; }
+    static HttpCallContext? Current { get; }
+    IReadOnlyDictionary<string, string>? SessionIdentity { get; init; }
+    // Convenience accessor for the conventional userid field of the request's SessionIdentity. Returns null when no HttpCallContext is current or when the identity dict has no userid key (e.g. an anonymous webhook with no identity-bearing fields). Case-insensitive lookup — the same dict is built by the backend funnel from `?userid=` query params, OAuth claims, and signed `_st` tokens.
+    string? UserId { get; }
+    static IDisposable Use(HttpCallContext context)
   // Bridges in-process HTTP cell-method dispatch through the active GovernanceScope hook. With no hook active this is a pass-through; with one set, the invocation flows through RunAsync``1 with the structural {CellType}.{Method} subject id so the same Mission gates HTTP and MCP symmetrically.
   static class HttpDispatchGovernance
     static Task<object?> InvokeAsync(MethodInfo handler, Type ownerType, IReadOnlyDictionary<string, object?> args, Func<Task<object?>> invoke, CancellationToken ct = null)
@@ -8356,8 +8536,7 @@ namespace Ikon.App.Http
   // Metadata for a single HttpEndpointAttribute -annotated method discovered at startup. Carries everything the dispatcher needs at request time: the HTTP method, path template, auth handler type, the reflected MethodInfo , and the owner Type (an app class or a [Cell] class).
   sealed class HttpEndpointInfo : IEquatable<HttpEndpointInfo>
     // Metadata for a single HttpEndpointAttribute -annotated method discovered at startup. Carries everything the dispatcher needs at request time: the HTTP method, path template, auth handler type, the reflected MethodInfo , and the owner Type (an app class or a [Cell] class).
-    ctor(string Method, string Path, Type? Auth, bool Absolute, MethodInfo Handler, Type OwnerType)
-    bool Absolute { get; init; }
+    ctor(string Method, string Path, Type? Auth, MethodInfo Handler, Type OwnerType)
     Type? Auth { get; init; }
     MethodInfo Handler { get; init; }
     string Method { get; init; }
@@ -8456,6 +8635,8 @@ namespace Ikon.App.Mcp
     static McpCallContext? Current { get; }
     Func<ProgressUpdate, Task>? OnProgress { get; init; }
     IReadOnlyDictionary<string, string>? SessionIdentityFields { get; init; }
+    // Convenience accessor for the conventional userid field of the request's SessionIdentity. Returns null when no McpCallContext is current or when claims carried no userid. Mirror of UserId — same semantics across both request-scoped contexts.
+    string? UserId { get; }
     static IDisposable Use(McpCallContext context)
   sealed class McpCapabilities : IEquatable<McpCapabilities>
     ctor(McpToolsCapability? Tools = null, McpResourcesCapability? Resources = null)
