@@ -87,18 +87,20 @@ namespace Ikon.Parallax
     bool EnableProfiling { get; set; }
     // When true, caches subtrees with unchanged reactive dependencies to skip redundant re-renders.
     bool EnableSubtreeCaching { get; set; }
+    // Assigns a CSS block to a single client (e.g. a per-tenant theme overlay). Subsequent calls for the same client replace the previous assignment and queue a delete for the prior styleId on that client. Other clients are unaffected.
+    string AddClientCss(int clientId, string css)
     // Adds a global CSS block that is sent to all connected clients. Idempotent: identical CSS returns the same style ID.
     string AddGlobalCss(string css)
+    // Drops the per-client CSS assignment for the given client. Use on disconnect.
+    void RemoveClientCss(int clientId)
     // Defines the root UI view tree. Call this in a reactive context to re-render when dependencies change.
     void Root(string[]? style = null, Action<UIView>? content = null, string? styleId = null)
   // Represents a UI view scope for building the component tree. Extension methods on this type provide the component API (e.g. Text, Button, Input).
   class UIView
     // The default icon library name used when no library is specified on an icon component.
     string DefaultIconLibrary { get; }
-    // Adds a child node with the given type and props. Non-null-value overload — `IReadOnlyDictionary<string, object>?`, matching the shape every typed component takes (the natural `Dictionary<string, object>` a model builds). Pairs with the nullable-value overload below; callers bind whichever matches their dictionary, so neither needs a nullability cast or suppression.
-    void AddNode(string type, IReadOnlyDictionary<string, object>? props = null, List<UIViewNode>? children = null, string? key = null, string[]? style = null, string? styleId = null, string file = "", int line = 0)
-    // Adds a child node with the given type and props. Nullable-value overload — `Dictionary<string, object?>`, the raw node primitive's natural shape: prop dictionaries that legitimately carry null values (optional map/chart/media config, action ids that may be absent). A distinct concrete type from the interface overload above, so a `Dictionary<string, object?>` binds here with no nullability warning and null values flow through unchanged. (Overloads can't differ by the `object`/`object?` annotation alone — they must differ by type.)
-    void AddNode(string type, Dictionary<string, object?> props, List<UIViewNode>? children = null, string? key = null, string[]? style = null, string? styleId = null, string file = "", int line = 0)
+    // Adds a child node with the given type and props. The props parameter is the non-generic IDictionary on purpose: it's the ONLY type that cleanly accepts BOTH a `Dictionary<string, object>` (the natural non-null shape a model builds) AND a `Dictionary<string, object?>` (props that carry null values) with no nullability warning and no suppression. A generic `Dictionary<string, object?>` param warns CS8620 on the non-null form (identity-modulo-nullability), and no PAIR of generic overloads works either — nullability annotations are erased for overload resolution, so two such overloads are CS0111 (same signature) or CS0121 (ambiguous).
+    void AddNode(string type, IDictionary? props = null, List<UIViewNode>? children = null, string? key = null, string[]? style = null, string? styleId = null, string file = "", int line = 0)
     string? CreateAction<T>(Func<ActionArgs<T>, Task>? callback)
     // Registers binary data as a payload and returns a reference string for use as an image src.
     string RegisterPayload(byte[] data, string mimeType)
