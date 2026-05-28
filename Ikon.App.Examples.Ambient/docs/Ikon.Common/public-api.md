@@ -1062,6 +1062,12 @@ namespace Ikon.Common
     ctor(int size = 32)
     void AddValue(double value)
     double GetAverage()
+  // Convention for converting a developer-declared [HttpEndpoint] path into the absolute external path under the space domain ({space}.ikonai.app{path}). Developers can write either absolute paths ("/billing/stripe", "/labs/{workspace}/increment") or the legacy relative form ("bump", "value" — what the cell-host's AppEndpointHost served under /{CellType}/{Method} before the inbound-unification plan landed). Relative names are auto-derived so the same endpoint flows through the same gateway path under both forms: On the app class: "bump" → /bumpOn a [Cell] LabCell: "bump" → /lab-cell/bump Used by both HttpEndpointWrapperRegistration (runtime, so BuildWebhookUrl emits the right PublicUrl) and AppBundleHandler.DiscoverWebhooks (build-time, so the bundle manifest carries the derived path through to the gateway's routing trie). One source of truth for the derivation keeps the two from drifting.
+  static class PathConvention
+    // Derive the absolute external path for an HTTP endpoint declared on ownerTypeName . Absolute paths (starting with '/') are returned unchanged. Empty / relative paths are kebab-cased and assembled under the cell-type prefix (or directly on the app class).
+    static string DeriveAbsolutePath(string declaredPath, string ownerTypeName, bool isAppClass, string fallbackMethodName)
+    // Convert a PascalCase / camelCase identifier to lowercase-kebab. "LabCell" → "lab-cell", "GetOrders" → "get-orders", "ID" → "id". Non-identifier characters (already-hyphens, underscores, slashes) pass through unchanged so a developer who wrote "my-path" gets "my-path" back.
+    static string ToKebabCase(string s)
   class AppBundleConfig.Pipeline
     ctor()
     string? Description { get; set; }
@@ -1092,6 +1098,29 @@ namespace Ikon.Common
     Task SendMessageAsync(ProtocolMessage message)
     Task StartReceiveAsync()
     void Stop()
+  // Captures whether the running ikon tool (or hosted ikon-server) has a platform-dotnet checkout it can build against, and exposes the flags every downstream build step needs: the -p:IkonRoot=... MSBuild arg for dotnet, and the VITE_IS_IKON_INTERNAL / VITE_IKON_PLATFORM_TYPESCRIPT_PATH env vars for vite.
+  sealed class PlatformContext : IEquatable<PlatformContext>
+    // Captures whether the running ikon tool (or hosted ikon-server) has a platform-dotnet checkout it can build against, and exposes the flags every downstream build step needs: the -p:IkonRoot=... MSBuild arg for dotnet, and the VITE_IS_IKON_INTERNAL / VITE_IKON_PLATFORM_TYPESCRIPT_PATH env vars for vite.
+    ctor(string? DotnetRoot)
+    // MSBuild argument to splice into a dotnet build/restore/run/publish command line. Returns -p:IkonRoot="..." when internal, empty string when external.
+    string DotnetMSBuildArg { get; }
+    string? DotnetRoot { get; init; }
+    bool IsIkonInternal { get; }
+    string? RepoRoot { get; }
+    string? TypescriptRoot { get; }
+    // Stamps VITE_IS_IKON_INTERNAL and, when internal, VITE_IKON_PLATFORM_TYPESCRIPT_PATH onto an env dictionary before invoking npm/vite. Mutates and returns env for fluent use.
+    IDictionary<string, string?> ApplyViteEnv(IDictionary<string, string?> env)
+    static PlatformContext External
+  // Probe primitives for locating the platform-dotnet directory. Compose them into a PlatformContext ; each probe returns null when it doesn't match so they chain cleanly with the null-coalescing operator.
+  static class PlatformDetect
+    // Reads [assembly: AssemblyMetadata("IkonRoot", ...)] baked in at .NET build time via the -p:IkonRoot=... arg. Used by hosted code (e.g. ViteServerHandler) to recover the platform location after the app DLL has been copied out of the repo tree.
+    static string? FromAssemblyMetadata(Assembly assembly)
+    // Shortcut for FromDirectory(AppContext.BaseDirectory). Matches when the ikon tool binary itself lives inside the platform repo (typical for in-repo artifacts/bin/IkonTool/... builds).
+    static string? FromBaseDirectory()
+    // Walks upward from directory looking for ikon-platform.slnx. See FindIkonPlatformDotnetRoot for the includeSibling semantics.
+    static string? FromDirectory(string? directory, bool includeSibling = false)
+    // Resolves the --platform-dir argument. Returns null when input is null or blank. Throws UserException when the path is set but doesn't contain ikon-platform.slnx at either the root or under platform-dotnet/.
+    static string? FromExplicit(string? explicitPlatformDir)
   // A combined polymorphic converter that supports both single instances of TBase and collections of TBase. When reading, it searches for the "Type" property (in any order) to determine the concrete type. When writing, it writes a dictionary that always includes "Type" (as the first entry).
   class PolymorphicConverter<TBase> : JsonConverter<object> where TBase : class
     ctor()
@@ -1221,6 +1250,7 @@ namespace Ikon.Common
     ctor()
     bool AutoRegistered { get; set; }
     string Name { get; set; }
+    string? Path { get; set; }
   class AppBundleConfig.Workflow
     ctor()
     PipelineExecutionMode ExecutionMode { get; set; }
