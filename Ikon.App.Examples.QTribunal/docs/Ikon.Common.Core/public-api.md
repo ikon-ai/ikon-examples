@@ -366,6 +366,8 @@ namespace Ikon.Common.Core
     static bool IsEnabled()
   static class DiagnosticUtils
     static string BuildMemoryInfo()
+    // The process memory figure to compare against the container/cgroup limit. On Linux under a finite cgroup memory limit (cloud, Docker --memory) this is the cgroup working set — memory.current minus readily-reclaimable file cache (inactive_file). That is the number the kernel keeps under memory.max and OOM-kills on, and it matches what docker stats shows, so it is directly comparable to e.g. the 512 MB limit. WorkingSet64 (VmRSS) over-reports here because it counts shared file-backed pages that are not all charged to the cgroup; PrivateMemorySize64 on Linux is VmData (reserved virtual address space) and is wildly inflated. Falls back to WorkingSet64 on Windows or when no finite cgroup memory limit is set (where there is nothing to compare against anyway).
+    static long GetProcessMemoryUsedBytes()
   class ReactiveGlobalState.DictionaryComparer<TKey, TValue> : IEqualityComparer<Dictionary<TKey, TValue>>
     ctor()
     bool Equals(Dictionary<TKey, TValue>? x, Dictionary<TKey, TValue>? y)
@@ -516,7 +518,7 @@ namespace Ikon.Common.Core
     Task<List<IkonBackend.SpaceCostRow>> GetCostsAsync(string spaceId, string startDate, string endDate, string? category = null, string? eventName = null, IReadOnlyList<IkonBackend.SpaceCostScopeFilter>? scopes = null)
     Task<IkonBackend.User> GetCurrentUserAsync()
     Task<List<IkonBackend.CustomField>> GetCustomFieldsAsync(string spaceId, int maxResults = 1000)
-    Task<IkonBackend.DatabaseConnectionResponse> GetDatabaseConnectionAsync(string databaseId)
+    Task<IkonBackend.DatabaseConnectionResponse> GetDatabaseConnectionAsync(string databaseId, string? via = null)
     Task<List<IkonBackend.Database>> GetDatabasesForSpaceAsync(string spaceId, int maxResults = 20)
     Task<IkonBackend.Folder> GetFolderByPathAsync(string spaceId, string path)
     Task<List<IkonBackend.Folder>> GetFoldersAsync(string spaceId, string path, int maxResults = 1000)
@@ -831,6 +833,8 @@ namespace Ikon.Common.Core
     static string ToPascalCase(string input)
     static string ToSlug(string input, int maxLength)
     static string ToSnakeCase(string input)
+  static class NodeVersionGate
+    static Task EnsureCompatibleAsync(CancellationToken cancellationToken = null)
   class IkonBackend.Organisation
     ctor()
     string Id { get; set; }
@@ -1665,11 +1669,13 @@ namespace Ikon.Common.Core.Functions
     bool LlmInlineResult { get; set; }
     // Override the function name. If null, the full type name plus method name is used.
     string? Name { get; set; }
+    // Optional absolute external path the webhook is exposed at (e.g. "/billing/stripe") — the full URL after {space}.ikonai.app. When set, overrides the default /w/{name} derivation that Webhook would otherwise produce. Has no effect unless Webhook is true. Reserved external paths the developer must NOT declare here: /.well-known/* (RFC) and the back-compat aliases /w/*, /p/*, /ikon/*, /s/*, /rooms/*.
+    string? Path { get; set; }
     // Override the inherited TypeId property with JsonIgnore for serialization.
     object TypeId { get; }
     // Whether the function should be distributed to other clients. If not set, defaults to Local for standalone functions, or inherits from [RegisterAll] for methods in a class with that attribute.
     FunctionVisibility Visibility { get; set; }
-    // Exposes this function as a webhook HTTP endpoint. The function must have exactly three parameters with these types and order: Dictionary<string, string> — request query parametersDictionary<string, string> — request headersstring — request body The return type must be string, Task<string>, void, or Task. String returns become the HTTP response body; void/Task returns produce an empty response body. The URL path segment is the function's registered Name (or its full type+method name if Name is not set). The webhook is callable at /w/{name} (cloud) or /webhook/{name} (local dev).
+    // Exposes this function as a webhook HTTP endpoint. The function must have exactly three parameters with these types and order: Dictionary<string, string> — request query parametersDictionary<string, string> — request headersstring — request body The return type must be string, Task<string>, void, or Task. String returns become the HTTP response body; void/Task returns produce an empty response body. By default the URL path is derived from the function's Name as /w/{name} (cloud) or /webhook/{name} (local dev); set Path to declare an explicit external path instead (e.g. "/billing/stripe").
     bool Webhook { get; set; }
   // Per-call ambient context exposed to the body of a function dispatched by FunctionRegistry . Set by the registry's inbound dispatch path before invoking the function and cleared after.
   static class FunctionCallContext
@@ -1823,6 +1829,13 @@ namespace Ikon.Common.Core.Functions
     static FunctionParameter CreateParameter<T>(T value)
     static FunctionParameter CreateParameter(Type type, object? value)
     Task DisposeInstanceAsync(Guid instanceId, int? targetId = null)
+  // Records which path the version-aware function lookup took. Surfaced in failure events so the analytics tool can distinguish "no match at all" from "fell back from the requested version".
+  enum VersionResolution
+    None
+    Exact
+    Greatest
+    Unversioned
+    Other
 
 namespace Ikon.Common.Core.Functions.Policy
   sealed class PolicyDecision.Allow : PolicyDecision
@@ -4313,7 +4326,7 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class ServerInit : IProtocolMessagePayload
     ctor()
-    ctor(string ikonBackendUrl, string ikonBackendToken, string spaceId, string channelId, List<ServerInit.ServerPluginInit> plugins, string primaryUserId, string channelInstanceId, string channelUrl, List<ServerInit.ServerExtensionInit> extensions, Dictionary<string, string> dynamicConfigObsolete, string organisationName, string spaceName, string channelName, string dynamicConfigJsonContent, string spaceGitRepositoryUrl, string sessionId, string legacyChannelCode, bool disableLegacyDefaultExtensions, Dictionary<string, string> sessionIdentity, List<ServerInit.ServerInitEndpointRequest> endpointRequests, int frontendPort, AppSourceType appSourceType, bool debugMode, List<ServerInit.ServerInitDatabaseConnectionInfo> databaseConnectionInfos, string runTarget)
+    ctor(string ikonBackendUrl, string ikonBackendToken, string spaceId, string channelId, List<ServerInit.ServerPluginInit> plugins, string primaryUserId, string channelInstanceId, string channelUrl, List<ServerInit.ServerExtensionInit> extensions, Dictionary<string, string> dynamicConfigObsolete, string organisationName, string spaceName, string channelName, string dynamicConfigJsonContent, string spaceGitRepositoryUrl, string sessionId, string legacyChannelCode, bool disableLegacyDefaultExtensions, Dictionary<string, string> sessionIdentity, List<ServerInit.ServerInitEndpointRequest> endpointRequests, int frontendPort, AppSourceType appSourceType, bool debugMode, List<ServerInit.ServerInitDatabaseConnectionInfo> databaseConnectionInfos, string runTarget, string webhookSessionToken)
     AppSourceType AppSourceType { get; set; }
     string ChannelId { get; set; }
     string ChannelInstanceId { get; set; }
@@ -4341,6 +4354,7 @@ namespace Ikon.Common.Core.Protocol
     string SpaceGitRepositoryUrl { get; set; }
     string SpaceId { get; set; }
     string SpaceName { get; set; }
+    string WebhookSessionToken { get; set; }
     static ServerInit ReadFromTeleport(ReadOnlySpan<byte> data)
     static ServerInit ReadFromTeleport(ReadOnlySpan<byte> data, ServerInit? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
