@@ -3315,40 +3315,20 @@ namespace Ikon.Parallax.Components.Standard
     string Status { get; init; }
   // Composed Parallax components for billing UIs — pricing tables, checkout actions, customer-portal entry points, payment-method and invoice lists, and subscription status. Pair with BillingService for end-to-end flows. All components are pure compositions of existing primitives (Box / Text / Button / Icon / Column / Row), so they participate in the standard theming, motion, and validation rules just like the rest of the Parallax surface.
   static class BillingExtensions
-    // Dual-mode billing-management entry point. BYOK mode (default): renders a button that invokes onOpenPortal , expected to call BillingService.CreatePortalAsync, and redirects to the returned Stripe-hosted Customer Portal URL.Connect mode: pass a non-empty connectAccountSessionClientSecret and the component renders an embedded ConnectAccountManagementFrame instead — Stripe doesn't expose a hosted Customer Portal for connected accounts, so the embedded management surface is the only equivalent.
-    static void BillingPortalButton(UIView view, Func<Task<string?>>? onOpenPortal = null, string? connectAccountSessionClientSecret = null, string? publishableKey = null, string? text = null, string[]? style = null, bool? disabled = null, string? icon = "settings", string? key = null, string file = "", int line = 0)
+    // Renders a button that opens the Stripe-hosted Customer Portal in a new tab. The onOpenPortal handler is expected to call BillingService.CreatePortalAsync and return the portal url. Returning null suppresses the redirect.
+    static void BillingPortalButton(UIView view, Func<Task<string?>>? onOpenPortal = null, string? text = null, string[]? style = null, bool? disabled = null, string? icon = "settings", string? key = null, string file = "", int line = 0)
     // Vertical list of charge / receipt rows. Each row shows formatted amount, status, optional refund button (when onRefund is supplied and the charge is paid + non-refunded), and a "Receipt" link when present.
     static void ChargeList(UIView view, IReadOnlyList<BillingChargeView> charges, Func<string, Task>? onRefund = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
-    // Button that initiates a redirect-to-Stripe checkout. The onCheckout handler is expected to call BillingService.CreateCheckoutAsync(...) and return the session url; the component then redirects the current client via ClientFunctions.SetUrlAsync. Returning null from the handler disables the redirect (e.g. for guest validation).
+    // Button that initiates a redirect-to-Stripe checkout. The onCheckout handler is expected to call BillingService.CreateCheckoutAsync(...) and return the session url; the component then opens the url in a new tab via ClientFunctions.OpenExternalUrlAsync. Returning null from the handler disables the redirect (e.g. for guest validation).
     static void CheckoutButton(UIView view, Func<Task<string?>> onCheckout, string? text = null, string[]? style = null, bool? disabled = null, string? icon = "credit-card", string? key = null, string file = "", int line = 0)
-    // Mount Stripe Connect Embedded "Account Management" inline. Lets the connected-account holder update bank account, business details and KYC info after onboarding. Server enables the account_management component on the account session.
-    static void ConnectAccountManagementFrame(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
-    // Mount Stripe Connect Embedded "Balances" inline. Shows available and pending balance per currency. Server enables the balances component on the account session.
-    static void ConnectBalancesFrame(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
-    // Mount Stripe Connect Embedded "Documents" inline. Shows tax-form documents for the connected account.
-    static void ConnectDocumentsFrame(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
-    // Mount Stripe Connect Embedded "Notification Banner" inline. Surfaces Stripe-issued action items (e.g. "verify your ID"). Server enables the notification_banner component on the account session. Renders compactly (no min-height by default).
-    static void ConnectNotificationBanner(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? key = null, string file = "", int line = 0)
-    // Mount Stripe Connect Embedded "Account Onboarding" inline. Server supplies an account_sessions client secret with the account_onboarding component enabled. Frontend resolver loads Stripe Connect.js and mounts <ConnectAccountOnboarding> inside the host node.
-    static void ConnectOnboardingFrame(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
-    // Mount Stripe Connect Embedded "Payments" inline. Lists charges with refund / dispute / capture controls. Server enables the payments component on the account session.
-    static void ConnectPaymentsFrame(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
-    // Mount Stripe Connect Embedded "Payouts" inline. Lists payouts and (when enabled) lets the holder edit payout schedule. Server enables the payouts component on the account session.
-    static void ConnectPayoutsFrame(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
-    // Mount point for Stripe's Embedded Checkout. Renders a host element with data-stripe-client-secret that the frontend's EmbeddedCheckoutProvider mounts into. Pass the ClientSecret obtained from BillingService.CreateEmbeddedCheckoutAsync. When clientSecret is null/empty (e.g. the user hasn't picked a plan yet) the component renders a placeholder so callers can drop it into a layout unconditionally.
-    static void EmbeddedCheckoutFrame(UIView view, string? clientSecret, string? publishableKey = null, string? connectedAccountId = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
     // Vertical list of past invoices. Each row links to the hosted invoice url when present, and to the PDF when present.
     static void InvoiceList(UIView view, IReadOnlyList<BillingInvoiceView> invoices, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
-    // Mount Stripe Elements bound to a PaymentIntent for confirming a one-shot payment (e.g., capturing a saved card, completing a manual capture flow). Frontend resolver mounts <PaymentElement /> inside <Elements> and confirms via stripe.confirmPayment. Symmetric to SetupIntentFrame — that one saves a card without charging; this one charges (possibly using a saved card on file).
-    static void PaymentIntentFrame(UIView view, string? clientSecret, string? publishableKey = null, string? returnUrl = null, string? connectedAccountId = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
-    // Vertical list of saved payment methods. Each row shows brand, last four, and expiry. Optional onDetach renders a remove action.
-    static void PaymentMethodList(UIView view, IReadOnlyList<BillingPaymentMethodView> methods, Func<string, Task>? onDetach = null, Func<Task>? onAddCard = null, string? setupIntentClientSecret = null, string? publishableKey = null, string? connectedAccountId = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
+    // Vertical list of saved payment methods. Each row shows brand, last four, and expiry. Optional onDetach renders a remove action. Optional onAddCard renders a button at the bottom; typical handler creates a Stripe Checkout Session in setup mode and redirects.
+    static void PaymentMethodList(UIView view, IReadOnlyList<BillingPaymentMethodView> methods, Func<string, Task>? onDetach = null, Func<Task>? onAddCard = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
     // Single pricing plan card with name, price, optional badge, feature bullet list and CTA. Use directly when laying plans out by hand, or via PricingTable for the common grid case.
     static void PlanCard(UIView view, BillingPlanView plan, Func<string, Task>? onSelect = null, string[]? style = null, string? key = null, string file = "", int line = 0)
     // Render a grid of pricing plan cards. Each card invokes onSelect with the plan's id when the CTA is pressed. The card whose Highlighted is true gets the brand-emphasis treatment (one card max).
     static void PricingTable(UIView view, IReadOnlyList<BillingPlanView> plans, Func<string, Task>? onSelect = null, string[]? style = null, int? columns = null, string? key = null, string file = "", int line = 0)
-    // Mount Stripe Elements bound to a SetupIntent for saving a card without an immediate charge. Frontend resolver mounts <PaymentElement /> inside <Elements> and confirms via stripe.confirmSetup. The SetupIntent's payment_method is auto-attached to the customer it was created for; refresh PaymentMethodList afterwards.
-    static void SetupIntentFrame(UIView view, string? clientSecret, string? publishableKey = null, string? returnUrl = null, string? connectedAccountId = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
     // Renders a vertical list of SubscriptionStatus cards, one per subscription. Pass the same callback set you'd pass to a single SubscriptionStatus ; each callback receives the subscription id of the row that fired it.
     static void SubscriptionList(UIView view, IReadOnlyList<BillingSubscription> subscriptions, Func<BillingSubscription, BillingSubscriptionView>? projector = null, Func<string, Task>? onResume = null, Func<string, Task>? onCancel = null, Func<string, Task>? onCancelImmediate = null, Func<string, Task>? onPause = null, Func<string, Task>? onResumeFromPause = null, Action<UIView, BillingSubscription>? footer = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
     // Compact subscription status card showing plan name, status pill and renewal/expiry date. Slot a BillingPortalButton in the footer to give the user a manage entry point.
@@ -3367,28 +3347,6 @@ namespace Ikon.Parallax.Components.Standard
     string Id { get; init; }
     string? PdfUrl { get; init; }
     string Status { get; init; }
-  // Parallax node-type strings emitted by BillingExtensions for the Stripe-embedded surfaces. The frontend resolver in @ikonai/sdk-react-ui-billing matches against these exact strings — they form a cross-language contract. If a constant value changes here, update the matching constant in platform-typescript/sdk/sdk-react-ui-billing/src/node-types.ts.
-  static class BillingNodeTypes
-    // Node type for Stripe Connect Account Management ( ConnectAccountManagementFrame ).
-    static string ConnectAccountManagement
-    // Node type for Stripe Connect Balances ( ConnectBalancesFrame ).
-    static string ConnectBalances
-    // Node type for Stripe Connect Documents ( ConnectDocumentsFrame ).
-    static string ConnectDocuments
-    // Node type for Stripe Connect Notification Banner ( ConnectNotificationBanner ).
-    static string ConnectNotificationBanner
-    // Node type for Stripe Connect Account Onboarding ( ConnectOnboardingFrame ).
-    static string ConnectOnboarding
-    // Node type for Stripe Connect Payments ( ConnectPaymentsFrame ).
-    static string ConnectPayments
-    // Node type for Stripe Connect Payouts ( ConnectPayoutsFrame ).
-    static string ConnectPayouts
-    // Node type for Stripe Embedded Checkout ( EmbeddedCheckoutFrame ).
-    static string EmbeddedCheckout
-    // Node type for Stripe Elements PaymentElement bound to a PaymentIntent ( PaymentIntentFrame ).
-    static string PaymentIntent
-    // Node type for Stripe Elements PaymentElement bound to a SetupIntent ( SetupIntentFrame ).
-    static string SetupIntent
   // One saved card / payment method.
   sealed class BillingPaymentMethodView : IEquatable<BillingPaymentMethodView>
     // One saved card / payment method.
@@ -7438,80 +7396,6 @@ namespace Ikon.App.Billing
     Task ClearAsync(CancellationToken cancellationToken = null)
     Task<string?> GetAsync(CancellationToken cancellationToken = null)
     Task SetAsync(string connectedAccountId, CancellationToken cancellationToken = null)
-  // Capability-request payload split by configuration block. Each list element is a capability name as documented at (e.g. "card_payments", "ach_debit_payments", "automatic_indirect_tax", "stripe_balance.stripe_transfers"). The library emits each as {"requested": true} under the relevant configuration block.
-  sealed class BillingAccountCapabilities : IEquatable<BillingAccountCapabilities>
-    ctor()
-    // Capabilities placed under configuration.customer.capabilities. Typically automatic_indirect_tax.
-    IReadOnlyList<string> Customer { get; init; }
-    // Default capability set for a SaaS app accepting card payments: a single card_payments capability under the merchant configuration. Apps add more capabilities by passing a constructed instance.
-    static BillingAccountCapabilities DefaultCardPayments { get; }
-    // Capabilities placed under configuration.merchant.capabilities. Card and bank-debit payment methods.
-    IReadOnlyList<string> Merchant { get; init; }
-    // Capabilities placed under configuration.recipient.capabilities. Typically stripe_balance.stripe_transfers.
-    IReadOnlyList<string> Recipient { get; init; }
-  // Dashboard access level granted to the connected account. Maps to the top-level dashboard property on Accounts v2 (/v2/core/accounts).
-  enum BillingAccountDashboard
-    Default
-    Full
-    Express
-    None
-  // Identity block on the v2 connected account (identity). Apps may pre-fill these values for up-front onboarding, or leave them null for Stripe to collect during the hosted onboarding flow.
-  sealed class BillingAccountIdentity : IEquatable<BillingAccountIdentity>
-    ctor()
-    // ISO 3166-1 alpha-2 country code (e.g. "us", "fi").
-    string? Country { get; init; }
-    BillingEntityType EntityType { get; init; }
-    // Registered legal name (identity.business_details.registered_name). Only used when EntityType is a business form.
-    string? RegisteredName { get; init; }
-  // Liability and fee-collection model for the connected account. Once set at account-create time the values are immutable, per .
-  sealed class BillingAccountResponsibilities : IEquatable<BillingAccountResponsibilities>
-    // Liability and fee-collection model for the connected account. Once set at account-create time the values are immutable, per .
-    ctor(BillingFeesCollector FeesCollector, BillingLossesCollector LossesCollector)
-    BillingFeesCollector FeesCollector { get; init; }
-    BillingLossesCollector LossesCollector { get; init; }
-  // Result of CreateAccountSessionAsync .
-  sealed class BillingAccountSession : IEquatable<BillingAccountSession>
-    // Result of CreateAccountSessionAsync .
-    ctor(string ClientSecret, DateTimeOffset ExpiresAt)
-    string ClientSecret { get; init; }
-    DateTimeOffset ExpiresAt { get; init; }
-  sealed class BillingAccountSessionRequest : IEquatable<BillingAccountSessionRequest>
-    // Mount account management (update bank, business details, KYC).
-    bool AccountManagement { get; init; }
-    // Mount Stripe-hosted account onboarding inline.
-    bool AccountOnboarding { get; init; }
-    // Balance overview (available / pending).
-    bool Balances { get; init; }
-    // Connected account id (acct_...) the session is scoped to.
-    string ConnectedAccountId { get; init; }
-    // Disable the "Manage at Stripe" link inside account management. Useful when you embed everything inline.
-    bool DisableStripeUserAuth { get; init; }
-    // Single dispute response component (disputes). Embedded UI for the dispute-response workflow on a specific dispute id.
-    bool Disputes { get; init; }
-    // List of disputes on the connected account (disputes_list). Embedded UI that surfaces every open dispute with response actions.
-    bool DisputesList { get; init; }
-    // Tax documents (1099 in US, similar elsewhere).
-    bool Documents { get; init; }
-    // Allow account holder to add/edit external bank accounts. Default true.
-    bool ExternalAccountCollection { get; init; }
-    // Stripe-issued action items (verify ID, etc.).
-    bool NotificationBanner { get; init; }
-    // Per-payment details component (payment_details). Embedded UI for inspecting a single payment, with refund + dispute actions. Use alongside Payments when the app exposes a "drill into a payment" surface.
-    bool PaymentDetails { get; init; }
-    // Payments list with refund / dispute / capture features enabled.
-    bool Payments { get; init; }
-    // Allow capturing manual-capture payments inside the embedded payments component.
-    bool PaymentsCapturePayments { get; init; }
-    // Allow dispute response inside the embedded payments component.
-    bool PaymentsDisputeManagement { get; init; }
-    // Allow refund actions inside the embedded payments component.
-    bool PaymentsRefundManagement { get; init; }
-    // Payouts list + schedule editor.
-    bool Payouts { get; init; }
-    // Allow the holder to edit the payout schedule inline.
-    bool PayoutsEditPayoutSchedule { get; init; }
-    // Show standard payouts in the embedded payouts component.
-    bool PayoutsStandardPayouts { get; init; }
   static class BillingAppHelpers
     static BillingOptions AutoDetectFromApp(IAppBase app, string defaultAppId = "app")
     static string? GetSecretOrEnv(IAppBase app, string key)
@@ -7576,9 +7460,9 @@ namespace Ikon.App.Billing
     ctor(string SessionId, string Url)
     string SessionId { get; init; }
     string Url { get; init; }
-  // Result of RetrieveAccountAsync . Use ChargesEnabled + PayoutsEnabled as the gate for unlocking billing flows in your app.
+  // Result of RetrieveAccountAsync .
   sealed class BillingConnectAccount : IEquatable<BillingConnectAccount>
-    // Result of RetrieveAccountAsync . Use ChargesEnabled + PayoutsEnabled as the gate for unlocking billing flows in your app.
+    // Result of RetrieveAccountAsync .
     ctor(string Id, bool DetailsSubmitted, bool ChargesEnabled, bool PayoutsEnabled, IReadOnlyList<string> RequirementsCurrentlyDue, IReadOnlyList<string> RequirementsEventuallyDue, string? RequirementsDisabledReason, string? Country = null, IReadOnlyDictionary<string, string>? CapabilityStatuses = null, string? EntityType = null, string? Dashboard = null)
     IReadOnlyDictionary<string, string>? CapabilityStatuses { get; init; }
     bool ChargesEnabled { get; init; }
@@ -7591,32 +7475,17 @@ namespace Ikon.App.Billing
     IReadOnlyList<string> RequirementsCurrentlyDue { get; init; }
     string? RequirementsDisabledReason { get; init; }
     IReadOnlyList<string> RequirementsEventuallyDue { get; init; }
-  sealed class BillingConnectFunctionHost
-    ctor(BillingConnectService connect, Func<string?> connectedAccountIdGetter, Func<BillingConnectAccount, Task>? onStatusRefresh = null)
-    Task<string> FetchConnectManagementSecretAsync()
-    Task<string> FetchConnectOnboardingSecretAsync()
-    Task OnConnectOnboardingExitAsync()
-  // Stripe Connect helpers for marketplace apps where end-creators receive a share of payments. Apps create connected accounts, send creators through Stripe's hosted onboarding flow, then route checkouts to those accounts via BillingDestination on CreateCheckoutAsync or CreateCartCheckoutAsync .
+  // Read-only inspector for Stripe Connect accounts and platform-Connect webhook destinations. In the redirect-only / Stripe-managed posture the platform backend is the sole driver of write operations on connected accounts (create, onboarding-link mint, status refresh). This client-side service exposes: retrieve a connected account's live state, fetch a v2 thin-event related object, and create the platform's Connect webhook endpoint (one per app).
   sealed class BillingConnectService
     ctor(BillingOptions options)
-    // Most recently constructed BillingConnectService instance observable from the current execution flow. Same ambient-lookup pattern as Current — see that property for the full AsyncLocal`1 rationale.
+    // Most recently constructed BillingConnectService instance observable from the current execution flow.
     static BillingConnectService Current { get; }
-    // Create an Account Session for embedded Connect components. The returned ClientSecret is short-lived (expires at ExpiresAt ) and is handed to Stripe's loadConnectAndInitialize on the frontend so embedded components (account onboarding, account management, payouts, balances, etc.) can mount inline in your app instead of redirecting to Stripe.
-    Task<BillingAccountSession> CreateAccountSessionAsync(BillingAccountSessionRequest request, string? idempotencyKey = null, CancellationToken cancellationToken = null)
-    // Create a platform webhook endpoint that receives events from every connected account (one endpoint serves all). Use this instead of CreateWebhookEndpointAsync for the platform-managed Connect mode.
+    // Create a platform webhook endpoint that receives events from every connected account (one endpoint serves all).
     Task<BillingWebhookEndpoint> CreateConnectWebhookEndpointAsync(string url, IEnumerable<string> enabledEvents, string? description = null, string? idempotencyKey = null, BillingWebhookPayloadShape payloadShape = Snapshot, CancellationToken cancellationToken = null)
-    // Create a connected account via Accounts v2 (POST /v2/core/accounts). Apps configure dashboard access, capabilities, and the liability / fee-collection model via request ; the Ikon-locked defaults match the SaaS posture in (full dashboard, Stripe collects fees, Stripe takes loss responsibility, card_payments capability).
-    Task<string> CreateConnectedAccountAsync(BillingCreateAccountRequest request, string? idempotencyKey = null, CancellationToken cancellationToken = null)
-    // Create a login link to the connected account's Stripe Express Dashboard. Only works after onboarding completed.
-    Task<string> CreateLoginLinkAsync(string connectedAccountId, string? idempotencyKey = null, CancellationToken cancellationToken = null)
-    // Create an account link to send the creator through Stripe's hosted onboarding flow. The returned URL is single-use and short-lived.
-    Task<string> CreateOnboardingLinkAsync(string connectedAccountId, string refreshUrl, string returnUrl, BillingOnboardingStrategy strategy = UpFront, string? idempotencyKey = null, CancellationToken cancellationToken = null)
-    // Fetch the current state of the object a v2 thin event refers to. Thin events (object: "v2.core.event") omit the embedded object snapshot — apps that need the object's current state call this with the event's RelatedObjectUrl (or any other Stripe API path) and parse the returned JSON.
+    // Fetch the current state of the object a v2 thin event refers to.
     Task<string> FetchRelatedObjectAsync(string apiPath, CancellationToken cancellationToken = null)
-    // Retrieve a connected account to inspect onboarding and capability status. After Embedded Onboarding's onExit fires, call this to confirm ChargesEnabled / PayoutsEnabled before unlocking billing flows in your app.
+    // Retrieve a connected account to inspect onboarding and capability status.
     Task<BillingConnectAccount> RetrieveAccountAsync(string connectedAccountId, CancellationToken cancellationToken = null)
-    // Transfer funds from the platform balance to a connected account.
-    Task<string> TransferAsync(string connectedAccountId, long amountMinor, string currency, string idempotencyKey, CancellationToken cancellationToken = null)
   enum BillingCouponDuration
     Once
     Forever
@@ -7634,29 +7503,6 @@ namespace Ikon.App.Billing
     string? Name { get; init; }
     decimal? PercentOff { get; init; }
     DateTimeOffset? RedeemBy { get; init; }
-  // Create-request shape for POST /v2/core/accounts. Build via the record-with syntax to override individual properties; the defaults map to the Ikon-recommended SaaS posture (full dashboard, Stripe takes liability, card-payments only).
-  sealed class BillingCreateAccountRequest : IEquatable<BillingCreateAccountRequest>
-    ctor()
-    // Capability requests split per configuration block.
-    BillingAccountCapabilities Capabilities { get; init; }
-    // Primary contact email for the connected account (contact_email).
-    string? ContactEmail { get; init; }
-    // Dashboard access level (dashboard).
-    BillingAccountDashboard Dashboard { get; init; }
-    // 3-letter ISO currency code for defaults.currency (e.g. "usd", "eur").
-    string DefaultCurrency { get; init; }
-    // Descriptive name shown in Stripe Dashboard (display_name).
-    string? DisplayName { get; init; }
-    // Optional identity block (identity).
-    BillingAccountIdentity? Identity { get; init; }
-    // Response-inclusion list (include). Values default to the four blocks the library reads from the response. Apps that need additional blocks (e.g. defaults, future_requirements) override this.
-    IReadOnlyList<string> Include { get; init; }
-    // IETF locale list (defaults.locales). Default ["en-US"].
-    IReadOnlyList<string> Locales { get; init; }
-    // Free-form metadata stored on the account (metadata).
-    IReadOnlyDictionary<string, string>? Metadata { get; init; }
-    // Liability + fee-collection model (defaults.responsibilities). Default = Stripe collects fees AND takes loss responsibility.
-    BillingAccountResponsibilities Responsibilities { get; init; }
   // Result of issuing a credit note.
   sealed class BillingCreditNote : IEquatable<BillingCreditNote>
     // Result of issuing a credit note.
@@ -7706,14 +7552,6 @@ namespace Ikon.App.Billing
     long? ApplicationFeeAmountMinor { get; init; }
     decimal? ApplicationFeePercent { get; init; }
     string ConnectedAccountId { get; init; }
-  // Result of creating an embedded Stripe Checkout session. Pass ClientSecret to Stripe.js / the embedded React component on the frontend to mount the checkout in-app.
-  sealed class BillingEmbeddedCheckout : IEquatable<BillingEmbeddedCheckout>
-    // Result of creating an embedded Stripe Checkout session. Pass ClientSecret to Stripe.js / the embedded React component on the frontend to mount the checkout in-app.
-    ctor(string SessionId, string ClientSecret)
-    // Client secret used by the frontend embed.
-    string ClientSecret { get; init; }
-    // Checkout session id (cs_...).
-    string SessionId { get; init; }
   // One-stop "does this customer have access to this plan" snapshot. Composed by GetEntitlementAsync from Stripe subscription state, customer metadata, and an optional app-side credit store. Apps read this single record instead of orchestrating three Stripe roundtrips themselves.
   sealed class BillingEntitlement : IEquatable<BillingEntitlement>
     // One-stop "does this customer have access to this plan" snapshot. Composed by GetEntitlementAsync from Stripe subscription state, customer metadata, and an optional app-side credit store. Apps read this single record instead of orchestrating three Stripe roundtrips themselves.
@@ -7736,13 +7574,6 @@ namespace Ikon.App.Billing
     bool UnlockGranted { get; init; }
     // Timestamp parsed from the metadata stamp. Null when not held.
     DateTimeOffset? UnlockGrantedAt { get; init; }
-  // Top-level entity type on the connected account (identity.entity_type).
-  enum BillingEntityType
-    Unknown
-    Company
-    Individual
-    NonProfit
-    GovernmentEntity
   // Typed billing event surfaced by HandleWebhookAsync . Apps switch on Type and read the relevant fields. Unknown event types are surfaced as Unknown with the raw payload preserved for the app to inspect.
   sealed class BillingEvent : IEquatable<BillingEvent>
     // Typed billing event surfaced by HandleWebhookAsync . Apps switch on Type and read the relevant fields. Unknown event types are surfaced as Unknown with the raw payload preserved for the app to inspect.
@@ -7814,11 +7645,6 @@ namespace Ikon.App.Billing
     SubscriptionScheduleUpdated
     ProductUpdated
     PriceUpdated
-  // Who collects payment fees for direct charges (defaults.responsibilities.fees_collector).
-  enum BillingFeesCollector
-    Default
-    Stripe
-    Application
   // Hosted Stripe invoice — for B2B net-30 flows where the customer pays via an emailed link rather than going through Checkout.
   sealed class BillingInvoice : IEquatable<BillingInvoice>
     // Hosted Stripe invoice — for B2B net-30 flows where the customer pays via an emailed link rather than going through Checkout.
@@ -7854,18 +7680,9 @@ namespace Ikon.App.Billing
     long Quantity { get; init; }
     static BillingLineItem Dynamic(long amountMinor, string currency, string productName, long quantity = 1)
     static BillingLineItem ForPrice(string priceId, long quantity = 1)
-  // Who is responsible for connected-account negative balances (defaults.responsibilities.losses_collector).
-  enum BillingLossesCollector
-    Default
-    Stripe
-    Application
   enum BillingMode
     Subscription
     OneTime
-  // Request shape for CreateAccountSessionAsync . Toggle the components your app needs; Stripe rejects sessions with no enabled components.
-  enum BillingOnboardingStrategy
-    UpFront
-    Incremental
   // Options needed by BillingService . Apps load secrets from their own configuration source (Ikon secrets, environment variables, vault) and pass them in here. The library never reads configuration directly.
   sealed class BillingOptions : IEquatable<BillingOptions>
     ctor()
@@ -8106,7 +7923,7 @@ namespace Ikon.App.Billing
     Disabled
     Byok
     IkonConnect
-  // Declares the function requires the current customer to hold an active subscription for planId . Resolves via the ambient Current instance and reads the customer from UserId . The policy is webhook-driven, not polling-driven: on missing entitlement it DENIES with a stable code (billing_subscription_required), and the app's UI catches it and opens checkout via CreateCheckoutAsync or CreateEmbeddedCheckoutAsync . Stripe's webhook then flips the entitlement and the user retries.
+  // Declares the function requires the current customer to hold an active subscription for planId . Resolves via the ambient Current instance and reads the customer from UserId . The policy is webhook-driven, not polling-driven: on missing entitlement it DENIES with a stable code (billing_subscription_required), and the app's UI catches it and opens checkout via CreateCheckoutAsync . Stripe's webhook then flips the entitlement and the user retries.
   sealed class BillingRequireSubscriptionAttribute : PolicyAttribute
     ctor(string planId)
     // App-side plan id the subscription is keyed to.
@@ -8148,8 +7965,6 @@ namespace Ikon.App.Billing
     Task<string> CreateCustomerAsync(BillingCustomerInfo info, string? idempotencyKey = null, CancellationToken cancellationToken = null)
     // Attach a tax id (VAT, GST, etc.) to an existing customer.
     Task<BillingTaxId> CreateCustomerTaxIdAsync(string stripeCustomerId, string type, string value, string? idempotencyKey = null, CancellationToken cancellationToken = null)
-    // Create an embedded Checkout session — same as CreateCheckoutAsync but returns a ClientSecret for mounting the checkout inside the app instead of redirecting to a hosted page. Apps pass the secret to Stripe.js / the embedded React component.
-    Task<BillingEmbeddedCheckout> CreateEmbeddedCheckoutAsync(string planId, string? appCustomerKey, string? email, string returnUrl, BillingDestination? destination = null, string? idempotencyKey = null, CancellationToken cancellationToken = null)
     // Create, finalize, and (optionally) send a hosted Stripe invoice. Used for B2B net-30 flows: the customer receives a payable invoice URL by email and pays without a Checkout session.
     Task<BillingInvoice> CreateHostedInvoiceAsync(string stripeCustomerId, IEnumerable<BillingLineItem> lines, int daysUntilDue, bool autoSend = true, IReadOnlyDictionary<string, string>? metadata = null, string? idempotencyKey = null, CancellationToken cancellationToken = null)
     // Create a Stripe payment intent — the building block for custom in-app payment flows that don't use Checkout. Apps pass the returned ClientSecret to Stripe.js / Elements on the frontend.
@@ -8166,8 +7981,6 @@ namespace Ikon.App.Billing
     Task<string> CreateProductAsync(BillingProductInfo info, string? idempotencyKey = null, CancellationToken cancellationToken = null)
     // Create a promotion code attached to a Stripe coupon. Apps create promotion codes for marketing campaigns, partner deals, etc. The couponId must already exist in Stripe (managed in the Dashboard or via Stripe API or CreateCouponAsync ).
     Task<string> CreatePromotionCodeAsync(string couponId, string code, DateTimeOffset? expiresAt = null, long? maxRedemptions = null, string? restrictedToCustomerId = null, string? idempotencyKey = null, CancellationToken cancellationToken = null)
-    // Create a Setup Intent — a placeholder for capturing a payment method without charging. Apps use this for "save card on file" or trial-to-paid transitions where the user authorizes a card during the trial.
-    Task<BillingSetupIntent> CreateSetupIntentAsync(string stripeCustomerId, string usage = "off_session", string? idempotencyKey = null, CancellationToken cancellationToken = null)
     // Create a Stripe subscription schedule with multiple phases — useful for discounted intro phases that transition to standard pricing, or annual commitments built from a sequence of monthly phases.
     Task<string> CreateSubscriptionScheduleAsync(string stripeCustomerId, IEnumerable<BillingSubscriptionPhase> phases, DateTimeOffset? startDate = null, string? idempotencyKey = null, CancellationToken cancellationToken = null)
     // Create a one-time hosted checkout for a tip / voluntary payment. Confers no entitlement — apps record the transaction for attribution / reporting and (optionally) ack it in the UI. Wraps CreateCartCheckoutAsync with a dynamic line item; metadata is stamped with tip_amount_minor for downstream reporting.
@@ -8252,14 +8065,6 @@ namespace Ikon.App.Billing
     Task UpdateSubscriptionScheduleAsync(string scheduleId, IEnumerable<BillingSubscriptionPhase> phases, CancellationToken cancellationToken = null)
     // Void a previously issued credit note.
     Task VoidCreditNoteAsync(string creditNoteId, CancellationToken cancellationToken = null)
-  // Result of creating a Stripe Setup Intent. Used to capture a payment method without charging (e.g. card-on-file before a trial converts to paid).
-  sealed class BillingSetupIntent : IEquatable<BillingSetupIntent>
-    // Result of creating a Stripe Setup Intent. Used to capture a payment method without charging (e.g. card-on-file before a trial converts to paid).
-    ctor(string Id, string ClientSecret)
-    // Client secret to be passed to Stripe.js for confirmation.
-    string ClientSecret { get; init; }
-    // Setup intent id (seti_...).
-    string Id { get; init; }
   // Slim view of a Stripe subscription. Returned by ListSubscriptionsAsync .
   sealed class BillingSubscription : IEquatable<BillingSubscription>
     // Slim view of a Stripe subscription. Returned by ListSubscriptionsAsync .
