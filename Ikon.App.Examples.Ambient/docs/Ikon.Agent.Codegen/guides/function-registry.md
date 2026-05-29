@@ -198,11 +198,13 @@ namespace Ikon.Common.Core.Functions
     bool LlmInlineResult { get; set; }
     // Override the function name. If null, the full type name plus method name is used.
     string? Name { get; set; }
+    // Optional absolute external path the webhook is exposed at (e.g. "/billing/stripe") — the full URL after {space}.ikonai.app. When set, overrides the default /w/{name} derivation that Webhook would otherwise produce. Has no effect unless Webhook is true. Reserved external paths the developer must NOT declare here: /.well-known/* (RFC) and the back-compat aliases /w/*, /p/*, /ikon/*, /s/*, /rooms/*.
+    string? Path { get; set; }
     // Override the inherited TypeId property with JsonIgnore for serialization.
     object TypeId { get; }
     // Whether the function should be distributed to other clients. If not set, defaults to Local for standalone functions, or inherits from [RegisterAll] for methods in a class with that attribute.
     FunctionVisibility Visibility { get; set; }
-    // Exposes this function as a webhook HTTP endpoint. The function must have exactly three parameters with these types and order: Dictionary<string, string> — request query parametersDictionary<string, string> — request headersstring — request body The return type must be string, Task<string>, void, or Task. String returns become the HTTP response body; void/Task returns produce an empty response body. The URL path segment is the function's registered Name (or its full type+method name if Name is not set). The webhook is callable at /w/{name} (cloud) or /webhook/{name} (local dev).
+    // Exposes this function as a webhook HTTP endpoint. The function must have exactly three parameters with these types and order: Dictionary<string, string> — request query parametersDictionary<string, string> — request headersstring — request body The return type must be string, Task<string>, void, or Task. String returns become the HTTP response body; void/Task returns produce an empty response body. By default the URL path is derived from the function's Name as /w/{name} (cloud) or /webhook/{name} (local dev); set Path to declare an explicit external path instead (e.g. "/billing/stripe").
     bool Webhook { get; set; }
   // Per-call ambient context exposed to the body of a function dispatched by FunctionRegistry . Set by the registry's inbound dispatch path before invoking the function and cleared after.
   static class FunctionCallContext
@@ -356,3 +358,10 @@ namespace Ikon.Common.Core.Functions
     static FunctionParameter CreateParameter<T>(T value)
     static FunctionParameter CreateParameter(Type type, object? value)
     Task DisposeInstanceAsync(Guid instanceId, int? targetId = null)
+  // Records which path the version-aware function lookup took. Surfaced in failure events so the analytics tool can distinguish "no match at all" from "fell back from the requested version".
+  enum VersionResolution
+    None
+    Exact
+    Greatest
+    Unversioned
+    Other
