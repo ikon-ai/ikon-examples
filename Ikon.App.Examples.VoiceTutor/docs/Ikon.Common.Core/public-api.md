@@ -14,6 +14,27 @@ namespace Ikon.Common.Core
   class IkonBackend.ApiKeyResponse
     ctor()
     string Token { get; set; }
+  class IkonBackend.AppBillingConnectAccountRequest
+    ctor()
+    string ContactEmail { get; set; }
+    string? Country { get; set; }
+    string? DefaultCurrency { get; set; }
+    string? DisplayName { get; set; }
+    string? RefreshUrl { get; set; }
+    string? ReturnUrl { get; set; }
+  class IkonBackend.AppBillingConnectAccountResult
+    ctor()
+    string ConnectedAccountId { get; set; }
+    string DashboardUrl { get; set; }
+    string KycUrl { get; set; }
+  class IkonBackend.AppBillingConnectStatusResult
+    ctor()
+    bool ChargesEnabled { get; set; }
+    string? ConnectedAccountId { get; set; }
+    string? DashboardUrl { get; set; }
+    bool DetailsSubmitted { get; set; }
+    bool PayoutsEnabled { get; set; }
+    List<string> RequirementsCurrentlyDue { get; set; }
   class IkonBackend.AppBillingInitResult
     ctor()
     string? BackendUrl { get; set; }
@@ -469,6 +490,7 @@ namespace Ikon.Common.Core
     Task CancelSignatureOrderAsync(string orderId)
     Task CompleteItemSignedUploadAsync(string uri, string path, string? sha256 = null)
     Task<IkonBackend.ConnectChannelInstanceResponse> ConnectChannelInstanceAsync(IkonBackend.ConnectChannelInstanceRequest request)
+    Task<IkonBackend.AppBillingConnectAccountResult> CreateAppBillingConnectAccountAsync(string spaceId, IkonBackend.AppBillingConnectAccountRequest request)
     Task<IkonBackend.AppBundle> CreateAppBundleAsync(string spaceId, string version, string itemId, IkonBackend.AppBundleState? state = null)
     Task CreateAuditEventAsync(string eventName, string spaceId, string userId, string? entityType = null, string? entityId = null, string? ip = null)
     Task<IkonBackend.Channel> CreateChannelAsync(string spaceId, string name, string type, bool isPrivate)
@@ -500,6 +522,7 @@ namespace Ikon.Common.Core
     Task<List<IkonBackend.Profile>> FindProfilesAsync(string spaceId, Dictionary<string, string> filters, int maxResults = 1000)
     Task<List<IkonBackend.Translation>> GetAllTranslationsAsync(string spaceId, int maxResults = 1000)
     Task<Dictionary<string, string>> GetApiKeysAsync(bool all = false)
+    Task<IkonBackend.AppBillingConnectStatusResult> GetAppBillingConnectStatusAsync(string spaceId)
     Task<IkonBackend.AppBundle> GetAppBundleAsync(string id)
     Task<List<IkonBackend.AppBundle>> GetAppBundlesAsync(string spaceId, IkonBackend.AppBundleState? state = null, int maxResults = 1000)
     Task<IkonBackend.CursorResponse<IkonBackend.SpaceEventRow>> GetAppEventsAsync(string spaceId, int days, int limit, string? cursor = null)
@@ -1559,9 +1582,9 @@ namespace Ikon.Common.Core.Functions
   // Immutable representation of a function with metadata and optional callbacks. Consolidates FunctionInfo, RegisteredFunction, and KernelContext.Function into a single type.
   struct Function
     // JSON deserialization constructor. Resolves ReturnType from ReturnTypeName string. Creates a function without callbacks (for remote/metadata-only use).
-    ctor(Guid id, string name, FunctionParameter[] parameters, string returnTypeName, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, bool requiresInstance = false, string? version = null, bool webhook = false)
+    ctor(Guid id, string name, FunctionParameter[] parameters, string returnTypeName, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, bool requiresInstance = false, string? version = null, bool webhook = false, string? webhookPath = null)
     // Primary constructor for creating functions with callbacks.
-    ctor(Guid id, string name, FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, Func<object?[], object?>? callback, Func<object?[], Task<object?>>? callbackAsync, Func<object?[], IAsyncEnumerable<object?>>? callbackAsyncEnumerable, MethodInfo? methodInfo = null, bool requiresInstance = false, PolicyDelegate? policy = null, string? version = null, bool webhook = false)
+    ctor(Guid id, string name, FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, Func<object?[], object?>? callback, Func<object?[], Task<object?>>? callbackAsync, Func<object?[], IAsyncEnumerable<object?>>? callbackAsyncEnumerable, MethodInfo? methodInfo = null, bool requiresInstance = false, PolicyDelegate? policy = null, string? version = null, bool webhook = false, string? webhookPath = null)
     // The type of callback (Sync, Async, or AsyncEnumerable).
     CallbackType CallbackType { get; }
     // The clientSessionId of the client who registered this function. Null means this is a local function (registered in this process).
@@ -1602,6 +1625,8 @@ namespace Ikon.Common.Core.Functions
     FunctionVisibility Visibility { get; }
     // True if this function is exposed as a webhook HTTP endpoint. Set via Webhook .
     bool Webhook { get; }
+    // External path declared on this webhook function, when one was set — either as [Function(Webhook=true, Path="/billing/stripe")] or as the absolute path stamped onto an [HttpEndpoint] wrapper at registration time. Empty when the function is not a webhook, or when the legacy /ikon/webhook/{Name} shape should be used. App -side URL builders read this directly — going via MethodInfo + FunctionAttribute reflection only works for real user methods and silently returns null for delegate-wrapped registrations.
+    string WebhookPath { get; }
     // Calls the function synchronously. Only valid for local sync functions.
     object? Call(object?[] args)
     // Calls the function asynchronously. Only valid for local async functions.
@@ -1652,7 +1677,7 @@ namespace Ikon.Common.Core.Functions
     static Function Register<T1, T2, TResult>(Func<T1, T2, IAsyncEnumerable<TResult>> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
     override string ToString()
     // Creates a new Function with modified properties. Null parameters keep existing values. Use clearClientSessionId=true to explicitly set ClientSessionId to null. Use clearPolicy=true to explicitly set Policy to null.
-    Function With(Guid? id = null, string? name = null, FunctionParameter[]? parameters = null, Type? returnType = null, string? description = null, FunctionVisibility? visibility = null, bool? llmInlineResult = null, bool? llmCallOnlyOnce = null, CallbackType? callbackType = null, int? clientSessionId = null, Func<object?[], object?>? callback = null, Func<object?[], Task<object?>>? callbackAsync = null, Func<object?[], IAsyncEnumerable<object?>>? callbackAsyncEnumerable = null, MethodInfo? methodInfo = null, bool? requiresInstance = null, PolicyDelegate? policy = null, bool clearClientSessionId = false, bool clearMethodInfo = false, bool clearPolicy = false, string? version = null, bool? webhook = null)
+    Function With(Guid? id = null, string? name = null, FunctionParameter[]? parameters = null, Type? returnType = null, string? description = null, FunctionVisibility? visibility = null, bool? llmInlineResult = null, bool? llmCallOnlyOnce = null, CallbackType? callbackType = null, int? clientSessionId = null, Func<object?[], object?>? callback = null, Func<object?[], Task<object?>>? callbackAsync = null, Func<object?[], IAsyncEnumerable<object?>>? callbackAsyncEnumerable = null, MethodInfo? methodInfo = null, bool? requiresInstance = null, PolicyDelegate? policy = null, bool clearClientSessionId = false, bool clearMethodInfo = false, bool clearPolicy = false, string? version = null, bool? webhook = null, string? webhookPath = null)
     // Returns a new Function with the specified parameter's AllowedValues set. Pass null to clear an existing override and fall back to the type-based enum (or no enum at all). Use together with WithParamDescription to ship dynamic enum + dynamic doc per pass: rebuild the Function at the start of each pass, plumb the current allowed transitions through the parameter description and the allowed-values list, and re-add to EmergePass.Tools.
     Function WithAllowedValues(string paramName, IReadOnlyList<string>? allowedValues)
     // Returns a new Function with the specified parameter's description updated.
