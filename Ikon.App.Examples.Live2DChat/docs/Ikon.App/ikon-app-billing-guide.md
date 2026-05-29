@@ -1,6 +1,6 @@
 # Ikon.App.Billing Guide
 
-Stripe-backed billing for Ikon apps — checkout, subscriptions, refunds, embedded payments, marketplace splits — without owning a payments backend. The library handles the Stripe surface; your app keeps owning *what* it sells and *who* it sells to.
+Stripe-backed billing for Ikon apps — checkout, subscriptions, refunds, marketplace splits — without owning a payments backend. The library handles the Stripe surface; your app keeps owning *what* it sells and *who* it sells to. Customer-facing payment flows redirect to Stripe-hosted pages (Checkout, Customer Portal, KYC, dashboard) — no Stripe.js, no embedded iframes.
 
 ## TL;DR — what you wire
 
@@ -54,9 +54,6 @@ That's the whole surface. Webhooks land at a `[Function(Webhook = true)]` you fo
 ```bash
 # Pick a mode (ikon-connect = zero-config, byok = your own Stripe account)
 ikon app secret set BILLING_PROVIDER ikon-connect
-
-# Frontend Stripe.js needs the publishable key in both modes
-ikon app secret set STRIPE_PUBLISHABLE_KEY pk_test_...
 ```
 
 `ikon-connect` is the default — apps onboard as a Stripe Connect sub-account under Ikon's platform Stripe account. No extra setup. See [Billing provider modes](#billing-provider-modes) for the BYOK variant.
@@ -85,12 +82,10 @@ Apps pick transport via the `BILLING_PROVIDER` secret. `BillingAppHelpers.AutoDe
 # ikon-connect (default)
 ikon app secret set BILLING_PROVIDER ikon-connect
 ikon app secret set IKON_BACKEND_BILLING_URL https://backend.ikonai.live   # optional — ambient if unset
-ikon app secret set STRIPE_PUBLISHABLE_KEY pk_live_<ikon-platform-publishable-key>
 
 # byok — secret key (sk_) or restricted key (rk_); see "API key types" below
 ikon app secret set BILLING_PROVIDER byok
 ikon app secret set STRIPE_API_KEY rk_test_...
-ikon app secret set STRIPE_PUBLISHABLE_KEY pk_test_...
 ikon app secret set STRIPE_WEBHOOK_SECRET whsec_...
 ikon app secret set STRIPE_CONNECT_WEBHOOK_SECRET whsec_...    # if using marketplace
 ```
@@ -104,9 +99,9 @@ Stripe applies country-specific rules that aren't checked client-side — the li
 | Country / region | Restriction | Library behaviour |
 |---|---|---|
 | **Brazil ↔ Brazil** | Platforms registered in BR cannot collect `application_fee_*` from BR connected accounts. Affects `application_fee_amount` and `application_fee_percent`. | Stripe returns 400 on the charge call. No client-side check; document this for apps deploying in BR. |
-| **India (RBI mandate)** | Recurring card payments require a one-time customer mandate via SetupIntent with `payment_method_options.card.mandate_options` set. Plain subscription create on IN cards may fail. | App must drive the SetupIntent + mandate flow before creating the subscription. Library exposes `CreateSetupIntentAsync` but does not auto-attach mandate options — passing them in metadata is on the app. |
+| **India (RBI mandate)** | Recurring card payments require a one-time customer mandate. Plain subscription create on IN cards may fail. | Drive the mandate via Stripe-hosted Checkout in `setup` mode before creating the subscription; the library has no inline SetupIntent surface. |
 | **Japan** | Three-letter currency code constraints + installment plans gated. JCB cards may require the `cartes_bancaires_payments` capability not the default `card_payments`. | Capability set is per-app — request `jcb_payments` in `BillingAccountCapabilities.Merchant` for JP connected accounts. |
-| **EU / UK SCA** | Strong Customer Authentication triggers a `requires_action` PI status on cards needing 3DS. | Returned in `BillingPaymentIntent.Status`; app drives the `next_action.use_stripe_sdk` flow via Stripe.js on the client. Not a library failure. |
+| **EU / UK SCA** | Strong Customer Authentication triggers a `requires_action` PI status on cards needing 3DS. | Inside Stripe-hosted Checkout / Customer Portal the 3DS challenge is handled by Stripe automatically. Programmatic off-session charges (`CreatePaymentIntentAsync` with `confirm: true`) that hit `requires_action` must be retried via a fresh on-session Checkout session. |
 | **Korea / Cartes Bancaires / etc.** | Local payment-method capabilities need explicit enablement on the connected account. | Add to `BillingAccountCapabilities.Merchant` at account create time. |
 
 See <https://docs.stripe.com/connect/saas/tasks/app-fees.md> + <https://docs.stripe.com/india-recurring-payments.md> for the Brazil and India cases. None of these are blockers for the default Ikon SaaS posture (EU/US card payments), but apps deploying regionally hit them.
@@ -122,7 +117,7 @@ The library accepts both Stripe key flavours for `STRIPE_API_KEY` and treats the
 
 **Recommended restricted-key permission set.** Create the key in [Dashboard → Developers → API Keys → "Create restricted key"](https://dashboard.stripe.com/apikeys/create) with these scopes:
 
-- **Core**: Customers (Write), Products (Write), Prices (Write), Subscriptions (Write), Checkout Sessions (Write), Payment Links (Write), Payment Intents (Write), Setup Intents (Write), Payment Methods (Read), Customer Portal (Write), Refunds (Write), Coupons (Write), Promotion Codes (Write), Credit Notes (Write), Invoices (Write), Tax IDs (Write).
+- **Core**: Customers (Write), Products (Write), Prices (Write), Subscriptions (Write), Checkout Sessions (Write), Payment Links (Write), Payment Intents (Write), Payment Methods (Read), Customer Portal (Write), Refunds (Write), Coupons (Write), Promotion Codes (Write), Credit Notes (Write), Invoices (Write), Tax IDs (Write).
 - **Connect** (only if the app uses marketplace flows): Accounts (Write), Account Links (Write), Account Sessions (Write), Transfers (Write).
 - **Optional**: Apple Pay Domains (Write — if the app verifies Apple Pay), Webhook Endpoints (Read — if the app reads its own webhook registrations).
 - **Leave at None**: Files, Radar, Issuing, Treasury, anything else the app doesn't use.
@@ -190,42 +185,44 @@ One Ikon org can run many apps, each with its own billing. Each app stays isolat
    └────────────┘  └───────────────────────────────────────┘
 ```
 
-- **`ikon-connect` mode**: each app gets its own Stripe Connect connected account created via Accounts v2 (`POST /v2/core/accounts`) with the Express dashboard preset and platform-as-responsible (`fees_collector=application`, `losses_collector=application`). Catalog, customers, subscriptions, payouts all scoped per-app. The app's connected-account id persists in a per-app `CloudJson` asset (`<app-name>/billing/connect-account-id.json`) via `AssetBillingConnectAccountStore`.
+- **`ikon-connect` mode**: each app gets its own Stripe Connect connected account created via Accounts v2 (`POST /v2/core/accounts`) in the Stripe-managed posture (`dashboard=full`, `defaults.responsibilities.fees_collector=stripe`, `defaults.responsibilities.losses_collector=stripe`). Stripe handles KYC, processing fees, loss liability, and the full merchant dashboard at `https://dashboard.stripe.com/`. The Ikon platform backend owns the create call + the v2 AccountLinks redirect; apps do not drive Stripe write operations themselves. The tenant↔account binding lives on `acct.metadata.ikon_app_id` (Stripe metadata = source of truth).
 - **BYOK mode**: each app gets its own `STRIPE_API_KEY`. Total isolation — separate Stripe accounts entirely.
 
 There is no path for one app to see another app's customers, charges, or subscriptions. Isolation is enforced server-side at the Stripe-account boundary.
 
-### What the Express dashboard exposes (ikon-connect mode)
+### What the full Stripe Dashboard exposes (ikon-connect mode)
 
-The "Open Stripe dashboard" button mints a one-time `CreateLoginLinkAsync` URL into the connected account's **Express** dashboard. Express is intentionally locked-down:
+Once KYC completes, the merchant logs into `https://dashboard.stripe.com/{acct_id}` with the email used at onboarding. The full Stripe Dashboard exposes everything Stripe offers:
 
-| Express dashboard shows | Express dashboard does NOT show |
-|---|---|
-| Balance · payouts · payout schedule | Product catalog · prices |
-| Payments (charges) list | Webhooks · API keys |
-| Account settings (business info · bank · identity) | Coupons · promo codes |
-| Tax forms (US 1099-K) | Customers list |
+| Full dashboard surfaces |
+|---|
+| Product catalog · prices · promotion codes · coupons |
+| Customers · subscriptions · invoices · payment methods |
+| Payments (charges) list · disputes · refunds |
+| Balance · payouts · payout schedule · bank accounts |
+| Webhooks · API keys · tax settings |
+| Account settings (business info · identity · branding) |
 
-Catalog stays **platform-managed**: the Ikon app calls `BillingService.CreateProductAsync` / `CreatePriceAsync` with the `Stripe-Account` header injected — products land on the connected account but only the app creates them. The account holder cannot self-edit pricing via Stripe; they go through the app's admin UI (see [Admin surface → Catalog](#admin-surface)).
+All admin operations are driven by the merchant in their own Stripe Dashboard — the Ikon platform proxy rejects admin mutations (`POST/DELETE` on `/v1/products`, `/v1/prices`, `/v1/coupons`, `/v1/promotion_codes`, `/v1/tax_ids`, `/v1/credit_notes`, `/v1/webhook_endpoints`, `/v1/payment_links`, `/v1/apple_pay/domains`) with 403. Customer-facing payment operations (`/v1/checkout/sessions`, `/v1/payment_intents`, `/v1/subscriptions`, `/v1/invoices`, `/v1/payment_methods`, `/v1/charges`) plus all `/v2/*` and read-only `GET /v1/*` remain allowed.
 
 ### Connect account configuration (Accounts v2)
 
-Stripe v2 replaced the legacy `type: "standard" | "express" | "custom"` account labels with **three independent axes** — describe a connected account in terms of these instead of the old labels (per [stripe-best-practices/connect](https://docs.stripe.com/connect/accounts-v2.md)):
+Stripe v2 replaced the legacy `type: "standard" | "express" | "custom"` account labels with **three independent axes**:
 
-1. **Dashboard access** (`dashboard`) — `full` (account holder gets the full Stripe Dashboard, equivalent to legacy Standard), `express` (limited dashboard — balance/payouts/payments only, no catalog UI — equivalent to legacy Express), or `none` (platform builds the entire UI, equivalent to legacy Custom).
-2. **Responsibilities** (`defaults.responsibilities`) — `fees_collector` ∈ {`stripe`, `application`} and `losses_collector` ∈ {`stripe`, `application`}. Controls who pays Stripe fees and who covers negative balances. **Ikon platform mode locks both to `application`** (platform pays fees + losses) when `dashboard: "express"`; Stripe enforces this constraint.
-3. **Capabilities** (`configuration.merchant/customer/recipient.capabilities`) — fine-grained per-feature flags (`card_payments`, `automatic_indirect_tax`, `stripe_balance.stripe_transfers`, etc.). Each capability transitions independently through `active` / `pending` / `inactive` / `restricted`.
+1. **Dashboard access** (`dashboard`) — `full` (account holder gets the full Stripe Dashboard), `express` (limited dashboard — balance/payouts/payments only, no catalog UI), or `none` (platform builds the entire UI).
+2. **Responsibilities** (`defaults.responsibilities`) — `fees_collector` ∈ {`stripe`, `application`} and `losses_collector` ∈ {`stripe`, `application`}. Controls who pays Stripe fees and who covers negative balances.
+3. **Capabilities** (`configuration.merchant/customer/recipient.capabilities`) — fine-grained per-feature flags (`card_payments`, `automatic_indirect_tax`, etc.). Each capability transitions through `active` / `pending` / `inactive` / `restricted`.
 
-Ikon-connect default configuration:
+Ikon-connect locked configuration (set at create time by the platform backend, immutable post-create):
 
 | Axis | Value | Why |
 |---|---|---|
-| `dashboard` | `express` | Lighter KYC UX, platform owns catalog/UX |
-| `fees_collector` | `application` | Platform pays Stripe fees (Express requirement) |
-| `losses_collector` | `application` | Platform takes risk on connected account (Express requirement) |
+| `dashboard` | `full` | Stripe owns merchant UX; merchant logs into `dashboard.stripe.com` directly |
+| `defaults.responsibilities.fees_collector` | `stripe` | Stripe collects processing fees from the connected account |
+| `defaults.responsibilities.losses_collector` | `stripe` | Stripe absorbs negative balances; platform avoids liability |
 | `configuration.merchant.capabilities.card_payments` | requested | Minimum capability for charging |
 
-Apps can pass a `BillingCreateAccountRequest` to `CreateConnectedAccountAsync` to override any axis (e.g. `Dashboard = Full` for self-serve SaaS where the account holder wants the full Stripe Dashboard). The library validates incompatible combinations at construction time (`losses_collector=application` requires `fees_collector=application`; `dashboard=express` requires both responsibilities to be `application`).
+Platform revenue model: with `fees_collector=stripe`, the platform still earns via per-transaction application fees (`application_fee_amount` on Checkout/PaymentIntent, `application_fee_percent` on Subscription). Set the per-app rate via `BillingOptions.PlatformApplicationFeePercent` (default 5%). Stripe routes the application fee to the platform balance on capture, separate from the processing fees the connected account pays.
 
 ### BYOK is *not* Connect
 
@@ -242,8 +239,8 @@ Common confusion. BYOK and a connected account configured with `dashboard: "full
 
 Mental model:
 - **BYOK** = "I have my own Stripe account, leave me alone." Zero Connect.
-- **Connect, full dashboard** = "I have a Stripe account, but I'm playing in someone else's marketplace and they take a cut. I keep my own Dashboard."
-- **Connect, express dashboard** = same as above but Stripe hides complexity; platform manages catalog/UX. Default for ikon-connect.
+- **Connect, full dashboard** = "I have a Stripe account, but I'm playing in someone else's marketplace and they take a cut. I keep my own Dashboard." Default for ikon-connect.
+- **Connect, express dashboard** = same as above but Stripe hides complexity; platform manages catalog/UX. Not used by ikon-connect.
 
 No clean migration BYOK → Connect — different `BillingProvider`, different secrets, customers/subs don't transfer across accounts. Pick the right mode at app design time.
 
@@ -324,8 +321,8 @@ public async Task<string> ResolveStripeCustomerIdAsync(string appCustomerKey, st
 
 | Method | When called | App responsibility |
 |--------|-------------|--------------------|
-| `GetPlanAsync(planId, ct)` | Inside `CreateCheckoutAsync` / `OfferCheckoutAsync` / `CreateEmbeddedCheckoutAsync` | Resolve app plan id → `BillingPlanDescriptor` (Stripe price id, mode, optional metered price id, metadata) |
-| `ResolveStripeCustomerIdAsync(appCustomerKey, email, ct)` | Same call sites + setup intents | Return existing Stripe customer id or create one and persist the mapping |
+| `GetPlanAsync(planId, ct)` | Inside `CreateCheckoutAsync` / `OfferCheckoutAsync` | Resolve app plan id → `BillingPlanDescriptor` (Stripe price id, mode, optional metered price id, metadata) |
+| `ResolveStripeCustomerIdAsync(appCustomerKey, email, ct)` | Same call sites | Return existing Stripe customer id or create one and persist the mapping |
 | `ApplyEventAsync(BillingEvent, ct)` | After webhook signature verification | Update app DB; dedupe on `BillingEvent.EventId` |
 
 The library never reads or writes the app DB itself. Returning `null` from `GetPlanAsync` causes the caller to throw `BillingException(unknown plan)`.
@@ -528,36 +525,23 @@ await ClientFunctions.SetUrlAsync(session.Url);
 
 Use `view.CheckoutButton(onCheckout, text)` for one-shot CTAs — handler returns the URL, component redirects.
 
-### Buy — embedded Checkout
-
-Stays inline; no redirect.
+### Buy — tips and one-shot payments
 
 ```csharp
-var embed = await _billing.CreateEmbeddedCheckoutAsync(
-    planId: "pro", appCustomerKey: userId, email: userEmail,
-    returnUrl: $"{appOrigin}/billing/done?session={{CHECKOUT_SESSION_ID}}");
-
-_clientSecret.Value = embed.ClientSecret;
-// In UI:
-view.EmbeddedCheckoutFrame(clientSecret: _clientSecret.Value, publishableKey: pubKey);
-```
-
-### Buy — tips, one-shot payments, save-card-on-file
-
-```csharp
-// Dynamic-amount one-shot
+// Dynamic-amount one-shot — opens hosted Stripe Checkout in a new tab
 var tip = await _billing.CreateTipCheckoutAsync(amountMinor: 500, currency: "eur", title: "Thanks!");
+await ClientFunctions.OpenExternalUrlAsync(tip.Url);
 
-// Custom in-app payment form (deferred capture, marketplace escrow)
-var pi = await _billing.CreatePaymentIntentAsync(amountMinor: 10000, currency: "eur", stripeCustomerId: cid);
-view.PaymentIntentFrame(clientSecret: pi.ClientSecret, publishableKey: pubKey);
-
-// Save a card without charging (trial → paid, future off-session)
-var setup = await _billing.CreateSetupIntentAsync(cid);
-view.SetupIntentFrame(clientSecret: setup.ClientSecret, publishableKey: pubKey);
+// Off-session capture against a saved card (marketplace escrow, scheduled charges)
+var pi = await _billing.CreatePaymentIntentAsync(
+    amountMinor: 10000, currency: "eur", stripeCustomerId: cid,
+    paymentMethodId: savedPmId, confirm: true);
+// pi.Status ∈ { "succeeded", "requires_action", "requires_payment_method" }
 ```
 
 `view.TipPresetGrid(presetsMinor, currencySymbol, onTip)` renders preset amounts.
+
+To **save a new card without charging**, open a Stripe Checkout session in `setup` mode (Stripe-hosted page) and let the webhook (`setup_intent.succeeded` → `BillingEventType.SetupIntentSucceeded`) fire when the customer completes it. There is no inline card-entry surface.
 
 ### Manage (subscriptions, portal, upcoming invoice)
 
@@ -575,7 +559,7 @@ var preview = await _billing.PreviewUpcomingInvoiceAsync(cid, subscriptionId: su
 view.UpcomingInvoicePreview(preview);
 ```
 
-Stripe-hosted Customer Portal (BYOK only — Connect mode uses the embedded `ConnectAccountManagementFrame`):
+Stripe-hosted Customer Portal — opens in a new tab. In Connect mode the same Portal works against the connected account when `onBehalfOf: connectedAccountId` is passed to `CreatePortalAsync`; the merchant separately has the full Stripe Dashboard at `https://dashboard.stripe.com/{acct_id}` for admin-level account management.
 
 ```csharp
 view.BillingPortalButton(onOpenPortal: async () =>
@@ -597,11 +581,10 @@ view.PaymentMethodList(
     onDetach: pmId => _billing.DetachPaymentMethodAsync(pmId),
     onAddCard: async () =>
     {
-        var setup = await _billing.CreateSetupIntentAsync(cid);
-        _setupIntentClientSecret.Value = setup.ClientSecret;   // mounts SetupIntentFrame inline
-    },
-    setupIntentClientSecret: _setupIntentClientSecret.Value,
-    publishableKey: pubKey);
+        // Customer Portal handles add-card via Stripe-hosted UI — opens in a new tab
+        var portal = await _billing.CreatePortalAsync(stripeCustomerId: cid);
+        await ClientFunctions.OpenExternalUrlAsync(portal.Url);
+    });
 
 view.InvoiceList(invoices);
 view.ChargeList(charges,
@@ -768,25 +751,7 @@ var charges  = await _billing.ListChargesAsync(stripeCustomerId: cid, limit: 50)
 var invoices = await _billing.ListInvoicesAsync(stripeCustomerId: cid, status: "paid");
 ```
 
-Connect admin surfaces (embedded — no redirect to stripe.com):
-
-```csharp
-var session = await _connect.CreateAccountSessionAsync(new BillingAccountSessionRequest
-{
-    ConnectedAccountId = acctId,
-    AccountManagement = true, Balances = true, Payouts = true,
-    Payments = true, NotificationBanner = true, Documents = true,
-});
-// Frontend:
-view.ConnectAccountManagementFrame(session.ClientSecret, pubKey);
-view.ConnectBalancesFrame(session.ClientSecret, pubKey);
-view.ConnectPayoutsFrame(session.ClientSecret, pubKey);
-view.ConnectPaymentsFrame(session.ClientSecret, pubKey);
-view.ConnectNotificationBanner(session.ClientSecret, pubKey);
-view.ConnectDocumentsFrame(session.ClientSecret, pubKey);     // US only
-```
-
-Account session secrets expire ~30 min. The frontend resolver round-trips back to the server (`FetchConnectManagementSecret` `[Function]`) for a fresh secret on each call — see [Frontend wiring](#frontend-wiring).
+Connect admin lives in the merchant's full Stripe Dashboard at `https://dashboard.stripe.com/{acct_id}`. Apps that want a one-click entry surface fetch the dashboard URL from the platform backend status endpoint (or call `BillingConnectService.RetrieveAccountAsync`) and open it in a new tab via `ClientFunctions.OpenExternalUrlAsync`.
 
 ## Marketplace + Stripe Connect
 
@@ -813,33 +778,28 @@ var billing = new BillingService(new BillingOptions
 
 `BillingDestination` and `ConnectedAccountId` are mutually exclusive.
 
-### Embedded Connect onboarding
+### Redirect-only Connect onboarding (ikon-connect mode)
+
+Embedded Connect components (account session + Connect.js) are no longer used. The platform backend creates the v2 connected account in the Stripe-managed posture and mints a Stripe-hosted KYC URL; the merchant opens that URL in a new tab, completes KYC, and returns. Apps then read live capability state via the platform backend's status endpoint or directly via `BillingConnectService.RetrieveAccountAsync`.
+
+```bash
+# Provision the connected account + KYC URL
+ikon app billing init                     # default mode = ikon-connect
+ikon app billing init --open-browser      # also auto-open the KYC link
+
+# After KYC, confirm and get the Stripe dashboard URL
+ikon app billing status
+```
+
+The platform backend uses Stripe v2 throughout — `stripe.v2.core.accounts.create` (with `dashboard=full`, `defaults.responsibilities.fees_collector=stripe`, `defaults.responsibilities.losses_collector=stripe`) and `stripe.v2.core.accountLinks.create` for the KYC redirect. The connected account is bound to the Ikon tenant via `acct.metadata.ikon_app_id`.
 
 ```csharp
-var acctId = await connect.CreateConnectedAccountAsync(new BillingCreateAccountRequest
-{
-    ContactEmail = ownerEmail,
-    Dashboard = BillingAccountDashboard.Express,
-    Identity = new BillingAccountIdentity { Country = "fi", EntityType = BillingEntityType.Company },
-    Capabilities = new BillingAccountCapabilities { Merchant = new[] { "card_payments" } },
-    Responsibilities = new BillingAccountResponsibilities(
-        BillingFeesCollector.Application,
-        BillingLossesCollector.Application),
-});
-var session = await connect.CreateAccountSessionAsync(new BillingAccountSessionRequest
-{
-    ConnectedAccountId = acctId,
-    AccountOnboarding = true,
-    NotificationBanner = true,
-});
-
-view.ConnectOnboardingFrame(session.ClientSecret, pubKey);
-// After onExit:
-var acct = await connect.RetrieveAccountAsync(acctId);
+// App-side: read the live state of an existing connected account
+var acct = await BillingConnectService.Current.RetrieveAccountAsync(acctId);
 if (acct.ChargesEnabled && acct.PayoutsEnabled) { /* unlock billing flows */ }
 ```
 
-`CreateConnectedAccountAsync` posts to `POST /v2/core/accounts` (Accounts v2). The legacy `CreateExpressAccountAsync` shim still works and forwards to the v2 path with Express+Application/Application responsibilities, but it's `[Obsolete]` and will be removed in the next major release — migrate when convenient.
+**Stripe-managed posture trade-off.** With `fees_collector=stripe` + `losses_collector=stripe` Stripe handles processing fees and loss liability. The platform still earns via `application_fee_amount` / `application_fee_percent` set per Checkout session, PaymentIntent, or Subscription (5% default via `BillingOptions.PlatformApplicationFeePercent`). Per €100 charge with 5% app fee + 2.9%+€0.30 Stripe fee, customer pays €100, Stripe deducts €3.20 from the connected account, €5.00 transfers to the platform balance, connected account nets €91.80.
 
 ### Async payment methods — fulfilment timing
 
@@ -870,11 +830,7 @@ For **card** payments `completed` and `async_payment_succeeded` collapse into th
 When debugging Connect calls against the v2 API, three things bite:
 
 - **Indexed include syntax.** v2 endpoints reject bare `include[]=foo&include[]=bar` with `parameter_invalid_empty`. Use indexed brackets: `include[0]=foo&include[1]=bar`. The library handles this — apps wiring their own retrieve calls must follow the same shape.
-- **`embedded` is now `embedded_page`.** Stripe renamed the Checkout `ui_mode` value. The library emits `embedded_page` for embedded checkout — apps building their own session payload must update.
 - **Capability status path is nested.** `ChargesEnabled` is derived from `configuration.merchant.capabilities.<cap>.status == "active"`. The legacy top-level `charges_enabled` / `payouts_enabled` booleans do NOT exist on v2 account objects. `BillingConnectAccount` exposes the derived booleans so apps don't have to read the raw structure.
-- **`collection_options` only on `/v1/account_links`.** Onboarding-link redirects accept `collection_options[fields]` + `[future_requirements]` (used via `BillingOnboardingStrategy`). The embedded `account_onboarding` component does NOT accept these — it inherits from the account's onboarding config.
-
-Identity verification + bank-account linking pop a Stripe-controlled popup window (non-overridable for security). Everything else stays inline.
 
 ### Connect webhooks
 
@@ -1011,9 +967,8 @@ Every public POST method on `BillingService` and `BillingConnectService` accepts
 | `CreateCustomerAsync` | `customer-{appCustomerKey}` |
 | `CreateProductAsync` | `product-{stableName}` (used by `BillingCatalogSync`) |
 | `CreatePriceAsync` | `price-{lookupKey}-{amountMinor}-{currency}-{interval}` |
-| `CreateCheckoutAsync` / `CreateEmbeddedCheckoutAsync` | `checkout-{planId}-{userId}-{minute}` |
+| `CreateCheckoutAsync` | `checkout-{planId}-{userId}-{minute}` |
 | `CreatePaymentIntentAsync` | `pi-{orderId}` |
-| `CreateSetupIntentAsync` | `si-{customerId}-{purpose}` |
 | `RefundAsync` | `refund-{chargeId}` (required by signature) |
 | `CreateConnectedAccountAsync` | `acct-{orgId}` |
 | `CreateConnectWebhookEndpointAsync` | `webhook-{environment}` |
@@ -1046,47 +1001,17 @@ new BillingOptions
 
 ## Frontend wiring
 
-The Parallax billing components emit custom node types resolved by `@ikonai/sdk-react-ui-billing`. One module registration covers all 8 billing node types.
+The Parallax billing components (`PricingTable`, `PlanCard`, `CheckoutButton`, `TipPresetGrid`, `BillingPortalButton`, `PaymentMethodList`, `ChargeList`, `InvoiceList`, `UpcomingInvoicePreview`, `SubscriptionStatus`, `SubscriptionList`) are pure compositions of native `view.*` primitives — Box / Text / Button / Icon / Column / Row. They display Stripe data and route clicks through callbacks; they ship with `Ikon.Parallax`, no extra frontend package is needed.
 
-```bash
-npm install @ikonai/sdk-react-ui-billing \
-  @stripe/connect-js @stripe/react-connect-js \
-  @stripe/stripe-js @stripe/react-stripe-js
-```
+| Flow | UX |
+|---|---|
+| Hosted Checkout (`CreateCheckoutAsync` + `ClientFunctions.OpenExternalUrlAsync`) | New-tab redirect |
+| Customer Portal (`CreatePortalAsync` + `OpenExternalUrlAsync`) | New-tab redirect |
+| KYC onboarding (ikon-connect) | New-tab redirect to Stripe-hosted KYC URL from `ikon app billing init` |
+| Stripe Dashboard (ikon-connect, post-KYC) | New-tab redirect to `https://dashboard.stripe.com/{acct_id}` |
+| `CreatePaymentLinkAsync` | External shareable URL — chat / email / QR distribution |
 
-```tsx
-// frontend-node/src/app.tsx
-import { registerBillingModule } from '@ikonai/sdk-react-ui-billing';
-
-useIkonApp({
-  modules: [registerStandardUiModule, registerBillingModule, /* … */],
-});
-```
-
-Connect-mode resolvers need three `[Function(Visibility = Shared)]` exports on the app's main class so the frontend can refresh expired account-session secrets:
-
-```csharp
-[Function(Name = "FetchConnectOnboardingSecret", Visibility = FunctionVisibility.Shared)]
-public Task<string> FetchConnectOnboardingSecretAsync() { ... }
-
-[Function(Name = "FetchConnectManagementSecret", Visibility = FunctionVisibility.Shared)]
-public Task<string> FetchConnectManagementSecretAsync() { ... }
-
-[Function(Name = "OnConnectOnboardingExit", Visibility = FunctionVisibility.Shared)]
-public Task OnConnectOnboardingExitAsync() { ... }
-```
-
-The validation app's `Validation.Billing.Bootstrap.cs` has the reference implementation — mint a fresh `BillingAccountSession` per call.
-
-### Embedded vs hosted
-
-| Flow | Default | Notes |
-|---|---|---|
-| `EmbeddedCheckoutFrame` | Inline iframe | Pair with `CreateEmbeddedCheckoutAsync`. |
-| `ConnectOnboardingFrame` + the 6 Connect surfaces | Inline iframe | Identity/bank linking pops a Stripe-controlled popup (non-overridable). |
-| Hosted Checkout (`CreateCheckoutAsync` + `ClientFunctions.SetUrlAsync`) | Same-tab redirect | By Stripe design. Prefer embedded for in-app. |
-| Customer Portal (BYOK) | Same-tab redirect | No embedded equivalent in BYOK. In Connect mode use `ConnectAccountManagementFrame`. |
-| `CreatePaymentLinkAsync` | External shareable URL | By design — for chat/email/QR distribution. |
+No Stripe.js, no embedded iframes, no per-app frontend dependency on `@stripe/*` packages.
 
 ## Testing
 
@@ -1111,29 +1036,31 @@ Connect onboarding KYC shortcuts (test mode only, `sk_test_…`):
 
 - **Forgetting the second webhook endpoint.** Connect events go to a separate URL with a separate signing secret. Without `STRIPE_CONNECT_WEBHOOK_SECRET`, Connect events deliver but fail signature verification silently.
 - **Calling end-user flows before `acct.ChargesEnabled = true`.** Onboarding incomplete = no payments. Gate the end-user UI on the connected-account state.
-- **Holding `ConfigService` / secret reads on hot paths.** Read once into a private readonly field at construction. `BillingService` already does this; if you read `STRIPE_PUBLISHABLE_KEY` ad-hoc in handlers, cache it.
+- **Holding `ConfigService` / secret reads on hot paths.** Read once into a private readonly field at construction. `BillingService` already does this; cache app-side secret reads in app fields.
 - **Mutating Stripe prices.** Prices are immutable — bumping amounts creates a new price. Migrate active subscribers via `UpdateSubscriptionPriceAsync`.
 - **Using random idempotency keys.** A random GUID per attempt defeats the point. Derive keys from stable app state (orderId, customerKey, refund target).
 - **Returning 500 from the webhook function on adapter errors you can't replay.** Stripe retries every 5xx for ~3 days. If the adapter bug is fixed, return 200 and replay manually via `ListEventIdsAsync` + `RetrieveEventAsync`.
 - **Trusting `Message` strings to branch on errors.** Branch on `ex.ErrorCode` / `ex.DeclineCode` — message text drifts.
-- **Mixing live + test keys across an app's secrets.** A `pk_live_*` publishable key with an `sk_test_*` API key fails opaquely. Use one mode (`test` or `live`) consistently.
+- **Mixing live + test keys across an app's secrets.** A `sk_live_*` API key with an `sk_test_*` webhook secret fails opaquely. Use one mode (`test` or `live`) consistently.
 - **Persisting subscription state from API reads.** Stripe is the source of truth; cache only what the adapter projects via `ApplyEventAsync`.
 
 ## CLI reference
 
 ```bash
-# Pick the transport (default ikon-connect)
-ikon app secret set BILLING_PROVIDER ikon-connect     # or byok / disabled
+# Default: ikon-connect mode. Provisions per-tenant secrets, creates a v2
+# connected account in the Stripe-managed posture, and prints the KYC URL.
+ikon app billing init
+ikon app billing init --contact-email merchant@example.com --display-name "Acme" --country FI
+ikon app billing init --open-browser            # also open the KYC URL in the default browser
 
-# ikon-connect mode
-ikon app secret set IKON_BACKEND_BILLING_URL https://backend.ikonai.live   # optional — ambient if unset
-ikon app secret set STRIPE_PUBLISHABLE_KEY pk_live_<platform-publishable-key>
+# BYOK mode — customer brings own Stripe account (prompts for keys).
+ikon app billing init --mode byok               # or shorthand: --byok
 
-# byok mode — restricted key (rk_…) recommended over secret key (sk_…); the library accepts both
-ikon app secret set STRIPE_API_KEY rk_test_...
-ikon app secret set STRIPE_PUBLISHABLE_KEY pk_test_...
-ikon app secret set STRIPE_WEBHOOK_SECRET whsec_...
-ikon app secret set STRIPE_CONNECT_WEBHOOK_SECRET whsec_...    # marketplace only
+# Disable — clear all billing secrets, deactivate the surface.
+ikon app billing init --disable
+
+# After completing KYC at the printed URL, confirm + get the dashboard URL.
+ikon app billing status
 
 # Stripe CLI for local webhook testing
 stripe listen --forward-to https://localhost:9443/ikon/webhook/stripe
