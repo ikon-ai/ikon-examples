@@ -1582,9 +1582,9 @@ namespace Ikon.Common.Core.Functions
   // Immutable representation of a function with metadata and optional callbacks. Consolidates FunctionInfo, RegisteredFunction, and KernelContext.Function into a single type.
   struct Function
     // JSON deserialization constructor. Resolves ReturnType from ReturnTypeName string. Creates a function without callbacks (for remote/metadata-only use).
-    ctor(Guid id, string name, FunctionParameter[] parameters, string returnTypeName, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, bool requiresInstance = false, string? version = null, bool webhook = false, string? webhookPath = null)
+    ctor(Guid id, string name, FunctionParameter[] parameters, string returnTypeName, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, bool requiresInstance = false, string? version = null, bool webhook = false, string? webhookPath = null, bool typedHttpEnvelope = false)
     // Primary constructor for creating functions with callbacks.
-    ctor(Guid id, string name, FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, Func<object?[], object?>? callback, Func<object?[], Task<object?>>? callbackAsync, Func<object?[], IAsyncEnumerable<object?>>? callbackAsyncEnumerable, MethodInfo? methodInfo = null, bool requiresInstance = false, PolicyDelegate? policy = null, string? version = null, bool webhook = false, string? webhookPath = null)
+    ctor(Guid id, string name, FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, Func<object?[], object?>? callback, Func<object?[], Task<object?>>? callbackAsync, Func<object?[], IAsyncEnumerable<object?>>? callbackAsyncEnumerable, MethodInfo? methodInfo = null, bool requiresInstance = false, PolicyDelegate? policy = null, string? version = null, bool webhook = false, string? webhookPath = null, bool typedHttpEnvelope = false)
     // The type of callback (Sync, Async, or AsyncEnumerable).
     CallbackType CallbackType { get; }
     // The clientSessionId of the client who registered this function. Null means this is a local function (registered in this process).
@@ -1619,6 +1619,8 @@ namespace Ikon.Common.Core.Functions
     Type ReturnType { get; }
     // The full name of the return type. Computed from ReturnType for JSON serialization.
     string ReturnTypeName { get; }
+    // True when this webhook function is a typed [HttpEndpoint]/[Rest] wrapper whose result is a JSON HttpEndpointEnvelope the webhook dispatcher unpacks into a real HTTP response. False for legacy [Function(Webhook=true)] functions (plain-string body). Lets typed endpoints carry clean {Type}_{Method} names instead of a marker prefix. Set via TypedHttpEnvelope .
+    bool TypedHttpEnvelope { get; }
     // The version of the library that registered this function. Empty string means unversioned (legacy or latest).
     string Version { get; }
     // Whether the function should be distributed to other clients.
@@ -1677,7 +1679,7 @@ namespace Ikon.Common.Core.Functions
     static Function Register<T1, T2, TResult>(Func<T1, T2, IAsyncEnumerable<TResult>> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
     override string ToString()
     // Creates a new Function with modified properties. Null parameters keep existing values. Use clearClientSessionId=true to explicitly set ClientSessionId to null. Use clearPolicy=true to explicitly set Policy to null.
-    Function With(Guid? id = null, string? name = null, FunctionParameter[]? parameters = null, Type? returnType = null, string? description = null, FunctionVisibility? visibility = null, bool? llmInlineResult = null, bool? llmCallOnlyOnce = null, CallbackType? callbackType = null, int? clientSessionId = null, Func<object?[], object?>? callback = null, Func<object?[], Task<object?>>? callbackAsync = null, Func<object?[], IAsyncEnumerable<object?>>? callbackAsyncEnumerable = null, MethodInfo? methodInfo = null, bool? requiresInstance = null, PolicyDelegate? policy = null, bool clearClientSessionId = false, bool clearMethodInfo = false, bool clearPolicy = false, string? version = null, bool? webhook = null, string? webhookPath = null)
+    Function With(Guid? id = null, string? name = null, FunctionParameter[]? parameters = null, Type? returnType = null, string? description = null, FunctionVisibility? visibility = null, bool? llmInlineResult = null, bool? llmCallOnlyOnce = null, CallbackType? callbackType = null, int? clientSessionId = null, Func<object?[], object?>? callback = null, Func<object?[], Task<object?>>? callbackAsync = null, Func<object?[], IAsyncEnumerable<object?>>? callbackAsyncEnumerable = null, MethodInfo? methodInfo = null, bool? requiresInstance = null, PolicyDelegate? policy = null, bool clearClientSessionId = false, bool clearMethodInfo = false, bool clearPolicy = false, string? version = null, bool? webhook = null, string? webhookPath = null, bool? typedHttpEnvelope = null)
     // Returns a new Function with the specified parameter's AllowedValues set. Pass null to clear an existing override and fall back to the type-based enum (or no enum at all). Use together with WithParamDescription to ship dynamic enum + dynamic doc per pass: rebuild the Function at the start of each pass, plumb the current allowed transitions through the parameter description and the allowed-values list, and re-add to EmergePass.Tools.
     Function WithAllowedValues(string paramName, IReadOnlyList<string>? allowedValues)
     // Returns a new Function with the specified parameter's description updated.
@@ -1698,6 +1700,8 @@ namespace Ikon.Common.Core.Functions
     string? Path { get; set; }
     // Override the inherited TypeId property with JsonIgnore for serialization.
     object TypeId { get; }
+    // Marks the function as a typed [HttpEndpoint]/[Rest] wrapper whose app-shell result is a JSON-serialized HttpEndpointEnvelope (status + body + content-type), as opposed to a legacy [Function(Webhook=true)] whose result is a plain string body. The webhook dispatcher reads this to decide whether to unpack the envelope — so typed endpoints can use the same clean {Type}_{Method} naming as everything else instead of a marker prefix in the name. Has no effect unless Webhook is true.
+    bool TypedHttpEnvelope { get; set; }
     // Whether the function should be distributed to other clients. If not set, defaults to Local for standalone functions, or inherits from [RegisterAll] for methods in a class with that attribute.
     FunctionVisibility Visibility { get; set; }
     // Exposes this function as a webhook HTTP endpoint. The function must have exactly three parameters with these types and order: Dictionary<string, string> — request query parametersDictionary<string, string> — request headersstring — request body The return type must be string, Task<string>, void, or Task. String returns become the HTTP response body; void/Task returns produce an empty response body. By default the URL path is derived from the function's Name as /w/{name} (cloud) or /webhook/{name} (local dev); set Path to declare an explicit external path instead (e.g. "/billing/stripe").
