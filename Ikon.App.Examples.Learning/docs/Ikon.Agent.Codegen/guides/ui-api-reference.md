@@ -583,40 +583,20 @@ namespace Ikon.Parallax.Components.Standard
     string Status { get; init; }
   // Composed Parallax components for billing UIs — pricing tables, checkout actions, customer-portal entry points, payment-method and invoice lists, and subscription status. Pair with BillingService for end-to-end flows. All components are pure compositions of existing primitives (Box / Text / Button / Icon / Column / Row), so they participate in the standard theming, motion, and validation rules just like the rest of the Parallax surface.
   static class BillingExtensions
-    // Dual-mode billing-management entry point. BYOK mode (default): renders a button that invokes onOpenPortal , expected to call BillingService.CreatePortalAsync, and redirects to the returned Stripe-hosted Customer Portal URL.Connect mode: pass a non-empty connectAccountSessionClientSecret and the component renders an embedded ConnectAccountManagementFrame instead — Stripe doesn't expose a hosted Customer Portal for connected accounts, so the embedded management surface is the only equivalent.
-    static void BillingPortalButton(UIView view, Func<Task<string?>>? onOpenPortal = null, string? connectAccountSessionClientSecret = null, string? publishableKey = null, string? text = null, string[]? style = null, bool? disabled = null, string? icon = "settings", string? key = null, string file = "", int line = 0)
+    // Renders a button that opens the Stripe-hosted Customer Portal in a new tab. The onOpenPortal handler is expected to call BillingService.CreatePortalAsync and return the portal url. Returning null suppresses the redirect.
+    static void BillingPortalButton(UIView view, Func<Task<string?>>? onOpenPortal = null, string? text = null, string[]? style = null, bool? disabled = null, string? icon = "settings", string? key = null, string file = "", int line = 0)
     // Vertical list of charge / receipt rows. Each row shows formatted amount, status, optional refund button (when onRefund is supplied and the charge is paid + non-refunded), and a "Receipt" link when present.
     static void ChargeList(UIView view, IReadOnlyList<BillingChargeView> charges, Func<string, Task>? onRefund = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
-    // Button that initiates a redirect-to-Stripe checkout. The onCheckout handler is expected to call BillingService.CreateCheckoutAsync(...) and return the session url; the component then redirects the current client via ClientFunctions.SetUrlAsync. Returning null from the handler disables the redirect (e.g. for guest validation).
+    // Button that initiates a redirect-to-Stripe checkout. The onCheckout handler is expected to call BillingService.CreateCheckoutAsync(...) and return the session url; the component then opens the url in a new tab via ClientFunctions.OpenExternalUrlAsync. Returning null from the handler disables the redirect (e.g. for guest validation).
     static void CheckoutButton(UIView view, Func<Task<string?>> onCheckout, string? text = null, string[]? style = null, bool? disabled = null, string? icon = "credit-card", string? key = null, string file = "", int line = 0)
-    // Mount Stripe Connect Embedded "Account Management" inline. Lets the connected-account holder update bank account, business details and KYC info after onboarding. Server enables the account_management component on the account session.
-    static void ConnectAccountManagementFrame(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
-    // Mount Stripe Connect Embedded "Balances" inline. Shows available and pending balance per currency. Server enables the balances component on the account session.
-    static void ConnectBalancesFrame(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
-    // Mount Stripe Connect Embedded "Documents" inline. Shows tax-form documents for the connected account.
-    static void ConnectDocumentsFrame(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
-    // Mount Stripe Connect Embedded "Notification Banner" inline. Surfaces Stripe-issued action items (e.g. "verify your ID"). Server enables the notification_banner component on the account session. Renders compactly (no min-height by default).
-    static void ConnectNotificationBanner(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? key = null, string file = "", int line = 0)
-    // Mount Stripe Connect Embedded "Account Onboarding" inline. Server supplies an account_sessions client secret with the account_onboarding component enabled. Frontend resolver loads Stripe Connect.js and mounts <ConnectAccountOnboarding> inside the host node.
-    static void ConnectOnboardingFrame(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
-    // Mount Stripe Connect Embedded "Payments" inline. Lists charges with refund / dispute / capture controls. Server enables the payments component on the account session.
-    static void ConnectPaymentsFrame(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
-    // Mount Stripe Connect Embedded "Payouts" inline. Lists payouts and (when enabled) lets the holder edit payout schedule. Server enables the payouts component on the account session.
-    static void ConnectPayoutsFrame(UIView view, string? accountSessionClientSecret, string? publishableKey = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
-    // Mount point for Stripe's Embedded Checkout. Renders a host element with data-stripe-client-secret that the frontend's EmbeddedCheckoutProvider mounts into. Pass the ClientSecret obtained from BillingService.CreateEmbeddedCheckoutAsync. When clientSecret is null/empty (e.g. the user hasn't picked a plan yet) the component renders a placeholder so callers can drop it into a layout unconditionally.
-    static void EmbeddedCheckoutFrame(UIView view, string? clientSecret, string? publishableKey = null, string? connectedAccountId = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
     // Vertical list of past invoices. Each row links to the hosted invoice url when present, and to the PDF when present.
     static void InvoiceList(UIView view, IReadOnlyList<BillingInvoiceView> invoices, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
-    // Mount Stripe Elements bound to a PaymentIntent for confirming a one-shot payment (e.g., capturing a saved card, completing a manual capture flow). Frontend resolver mounts <PaymentElement /> inside <Elements> and confirms via stripe.confirmPayment. Symmetric to SetupIntentFrame — that one saves a card without charging; this one charges (possibly using a saved card on file).
-    static void PaymentIntentFrame(UIView view, string? clientSecret, string? publishableKey = null, string? returnUrl = null, string? connectedAccountId = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
-    // Vertical list of saved payment methods. Each row shows brand, last four, and expiry. Optional onDetach renders a remove action.
-    static void PaymentMethodList(UIView view, IReadOnlyList<BillingPaymentMethodView> methods, Func<string, Task>? onDetach = null, Func<Task>? onAddCard = null, string? setupIntentClientSecret = null, string? publishableKey = null, string? connectedAccountId = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
+    // Vertical list of saved payment methods. Each row shows brand, last four, and expiry. Optional onDetach renders a remove action. Optional onAddCard renders a button at the bottom; typical handler creates a Stripe Checkout Session in setup mode and redirects.
+    static void PaymentMethodList(UIView view, IReadOnlyList<BillingPaymentMethodView> methods, Func<string, Task>? onDetach = null, Func<Task>? onAddCard = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
     // Single pricing plan card with name, price, optional badge, feature bullet list and CTA. Use directly when laying plans out by hand, or via PricingTable for the common grid case.
     static void PlanCard(UIView view, BillingPlanView plan, Func<string, Task>? onSelect = null, string[]? style = null, string? key = null, string file = "", int line = 0)
     // Render a grid of pricing plan cards. Each card invokes onSelect with the plan's id when the CTA is pressed. The card whose Highlighted is true gets the brand-emphasis treatment (one card max).
     static void PricingTable(UIView view, IReadOnlyList<BillingPlanView> plans, Func<string, Task>? onSelect = null, string[]? style = null, int? columns = null, string? key = null, string file = "", int line = 0)
-    // Mount Stripe Elements bound to a SetupIntent for saving a card without an immediate charge. Frontend resolver mounts <PaymentElement /> inside <Elements> and confirms via stripe.confirmSetup. The SetupIntent's payment_method is auto-attached to the customer it was created for; refresh PaymentMethodList afterwards.
-    static void SetupIntentFrame(UIView view, string? clientSecret, string? publishableKey = null, string? returnUrl = null, string? connectedAccountId = null, string[]? style = null, string? minHeightClass = null, string? key = null, string file = "", int line = 0)
     // Renders a vertical list of SubscriptionStatus cards, one per subscription. Pass the same callback set you'd pass to a single SubscriptionStatus ; each callback receives the subscription id of the row that fired it.
     static void SubscriptionList(UIView view, IReadOnlyList<BillingSubscription> subscriptions, Func<BillingSubscription, BillingSubscriptionView>? projector = null, Func<string, Task>? onResume = null, Func<string, Task>? onCancel = null, Func<string, Task>? onCancelImmediate = null, Func<string, Task>? onPause = null, Func<string, Task>? onResumeFromPause = null, Action<UIView, BillingSubscription>? footer = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
     // Compact subscription status card showing plan name, status pill and renewal/expiry date. Slot a BillingPortalButton in the footer to give the user a manage entry point.
@@ -635,28 +615,6 @@ namespace Ikon.Parallax.Components.Standard
     string Id { get; init; }
     string? PdfUrl { get; init; }
     string Status { get; init; }
-  // Parallax node-type strings emitted by BillingExtensions for the Stripe-embedded surfaces. The frontend resolver in @ikonai/sdk-react-ui-billing matches against these exact strings — they form a cross-language contract. If a constant value changes here, update the matching constant in platform-typescript/sdk/sdk-react-ui-billing/src/node-types.ts.
-  static class BillingNodeTypes
-    // Node type for Stripe Connect Account Management ( ConnectAccountManagementFrame ).
-    static string ConnectAccountManagement
-    // Node type for Stripe Connect Balances ( ConnectBalancesFrame ).
-    static string ConnectBalances
-    // Node type for Stripe Connect Documents ( ConnectDocumentsFrame ).
-    static string ConnectDocuments
-    // Node type for Stripe Connect Notification Banner ( ConnectNotificationBanner ).
-    static string ConnectNotificationBanner
-    // Node type for Stripe Connect Account Onboarding ( ConnectOnboardingFrame ).
-    static string ConnectOnboarding
-    // Node type for Stripe Connect Payments ( ConnectPaymentsFrame ).
-    static string ConnectPayments
-    // Node type for Stripe Connect Payouts ( ConnectPayoutsFrame ).
-    static string ConnectPayouts
-    // Node type for Stripe Embedded Checkout ( EmbeddedCheckoutFrame ).
-    static string EmbeddedCheckout
-    // Node type for Stripe Elements PaymentElement bound to a PaymentIntent ( PaymentIntentFrame ).
-    static string PaymentIntent
-    // Node type for Stripe Elements PaymentElement bound to a SetupIntent ( SetupIntentFrame ).
-    static string SetupIntent
   // One saved card / payment method.
   sealed class BillingPaymentMethodView : IEquatable<BillingPaymentMethodView>
     // One saved card / payment method.
