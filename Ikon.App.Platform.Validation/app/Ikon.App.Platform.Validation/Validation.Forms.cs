@@ -236,7 +236,7 @@ public partial class Validation
                     view.FormField(["space-y-2"], name: "email", content: view =>
                     {
                         view.FormLabel([FormField.Label], content: v => v.Text(text: "Email (required)"));
-                        view.FormControl([Input.Default], props: new Dictionary<string, object?>
+                        view.FormControl([Input.Default], props: new Dictionary<string, object>
                         {
                             ["placeholder"] = "Enter your email",
                             ["type"] = "email",
@@ -251,7 +251,7 @@ public partial class Validation
                     view.FormField(["space-y-2"], name: "username", content: view =>
                     {
                         view.FormLabel([FormField.Label], content: v => v.Text(text: "Username (3-20 chars)"));
-                        view.FormControl([Input.Default], props: new Dictionary<string, object?>
+                        view.FormControl([Input.Default], props: new Dictionary<string, object>
                         {
                             ["placeholder"] = "Enter username",
                             ["required"] = true,
@@ -269,7 +269,7 @@ public partial class Validation
                     view.FormField(["space-y-2"], name: "age", content: view =>
                     {
                         view.FormLabel([FormField.Label], content: v => v.Text(text: "Age (18-120)"));
-                        view.FormControl([Input.Default], props: new Dictionary<string, object?>
+                        view.FormControl([Input.Default], props: new Dictionary<string, object>
                         {
                             ["placeholder"] = "18-120",
                             ["type"] = "number",

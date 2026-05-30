@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime;
 using System.Runtime.InteropServices;
 
 public partial class Validation
@@ -16,7 +17,7 @@ public partial class Validation
     {
         _ = _memoryAllocationVersion.Value;
         bool allocating = _memoryAllocating.Value;
-        double processMemoryMb = Process.GetCurrentProcess().PrivateMemorySize64 / 1024.0 / 1024.0;
+        double processMemoryMb = DiagnosticUtils.GetProcessMemoryUsedBytes() / 1024.0 / 1024.0;
         double managedMemoryMb = GC.GetTotalMemory(false) / 1024.0 / 1024.0;
         double unmanagedAllocatedMb = _memoryUnmanagedBytes / 1024.0 / 1024.0;
         double managedAllocatedMb = _memoryManagedAllocations.Sum(a => a.Length) / 1024.0 / 1024.0;
@@ -29,7 +30,8 @@ public partial class Validation
                 {
                     view.Text([Text.H2], "Memory Info");
                     view.Button([Button.GhostMd, Button.Icon],
-                        onClick: async () => _memoryAllocationVersion.Value++,
+                        disabled: allocating,
+                        onClick: ForceFullGcAsync,
                         content: v => v.Icon([Icon.Default], name: "refresh-cw"));
                 });
                 view.Text([Text.Body], $"Configured limit: {app.MaxMemoryLimitMb} MB");
@@ -91,7 +93,19 @@ public partial class Validation
         {
             await Task.Run(() =>
             {
+                // The .NET GC pre-commits LOH segments with demand-zero pages and skips
+                // the redundant memset on huge allocations (trusting the OS zero
+                // guarantee). Without touching the pages, the array exists in the heap
+                // accounting but isn't backed by physical RAM and doesn't show up in
+                // RSS / cgroup pressure. Touch one byte per 4 KB page to force commit.
                 var data = GC.AllocateUninitializedArray<byte>(mb * 1024 * 1024);
+                const int pageSize = 4096;
+
+                for (int offset = 0; offset < data.Length; offset += pageSize)
+                {
+                    data[offset] = 0;
+                }
+
                 _memoryManagedAllocations.Add(data);
             });
         }
@@ -120,6 +134,17 @@ public partial class Validation
             {
                 long bytes = (long)mb * 1024 * 1024;
                 var ptr = Marshal.AllocHGlobal((nint)bytes);
+
+                // Linux malloc only reserves address space; physical pages aren't
+                // committed until first write. Touch one byte per 4 KB page so the
+                // allocation shows up in RSS and actually exercises the cgroup limit.
+                const int pageSize = 4096;
+
+                for (long offset = 0; offset < bytes; offset += pageSize)
+                {
+                    Marshal.WriteByte(ptr + (nint)offset, 0);
+                }
+
                 _memoryUnmanagedAllocations.Add(ptr);
                 _memoryUnmanagedBytes += bytes;
             });
@@ -132,6 +157,27 @@ public partial class Validation
 
         _memoryAllocating.Value = false;
         _memoryAllocationVersion.Value++;
+    }
+
+    private async Task ForceFullGcAsync()
+    {
+        _memoryAllocating.Value = true;
+
+        try
+        {
+            await Task.Run(() =>
+            {
+                GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+                GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
+                GC.WaitForPendingFinalizers();
+                GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
+            });
+        }
+        finally
+        {
+            _memoryAllocating.Value = false;
+            _memoryAllocationVersion.Value++;
+        }
     }
 
     private async Task FreeAllMemoryAsync()

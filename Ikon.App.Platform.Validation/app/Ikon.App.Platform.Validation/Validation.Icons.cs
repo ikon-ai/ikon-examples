@@ -285,6 +285,7 @@ public partial class Validation
         ("alert-triangle", "triangle-alert"), ("more-vertical", "ellipsis-vertical"),
         ("more-horizontal", "ellipsis"), ("check-circle", "circle-check"),
         ("x-circle", "circle-x"), ("plus-circle", "circle-plus"),
+        ("x-octagon", "octagon-x"), ("x-square", "square-x"),
         ("minus-circle", "circle-minus"), ("help-circle", "circle-help"),
         ("alert-circle", "circle-alert"), ("unlock", "lock-open"),
         ("bar-chart", "chart-bar"), ("pie-chart", "chart-pie"), ("line-chart", "chart-line"),

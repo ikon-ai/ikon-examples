@@ -758,6 +758,15 @@ public partial class Validation
                 view.Text([Text.Caption, "mb-4"], "Horizontal slider with arrows + indicator dots");
                 view.Column([Layout.Column.Md], content: view =>
                 {
+                    view.Row(["items-center gap-3 flex-wrap"], content: row =>
+                    {
+                        row.Switch([Switch.Root],
+                            isChecked: _carouselLoop.Value,
+                            onCheckedChange: async v => _carouselLoop.Value = v,
+                            content: s => s.SwitchThumb([Switch.Thumb]));
+                        row.Text([Text.Body], $"loop: {(_carouselLoop.Value ? "true" : "false")}");
+                    });
+
                     view.Carousel(
                         rootStyle: [Carousel.Root, "h-56 rounded-lg"],
                         viewportStyle: [Carousel.Viewport],
@@ -766,7 +775,7 @@ public partial class Validation
                         indicatorsStyle: [Carousel.Indicators],
                         indicatorStyle: [Carousel.Indicator],
                         indicatorActiveStyle: [Carousel.IndicatorActive],
-                        loop: true,
+                        loop: _carouselLoop.Value,
                         index: _carouselIndex.Value,
                         onIndexChange: async i => _carouselIndex.Value = (int)i,
                         slides:
@@ -777,6 +786,61 @@ public partial class Validation
                             new CarouselSlideItem(v => v.Box(["h-full w-full flex items-center justify-center bg-info-solid/10 text-info-primary text-3xl font-semibold"], content: vv => vv.Text(text: "Slide 4"))),
                         ]);
                     view.Text([Text.Caption], $"Active slide: {_carouselIndex.Value + 1}");
+                });
+            });
+
+            // Carousel - multi-item per page
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "Carousel - Multi-item");
+                view.Text([Text.Caption, "mb-4"], "Responsive: 1 item < 480px · 2 items < 768px · 3 items < 1024px · 4 items ≥ 1024px. Resize the window to see breakpoints kick in.");
+                view.Column([Layout.Column.Md], content: view =>
+                {
+                    var tileColors = new[]
+                    {
+                        "bg-brand-secondary text-brand-primary",
+                        "bg-success-primary text-success-primary",
+                        "bg-warning-primary text-warning-primary",
+                        "bg-info-solid/10 text-info-primary",
+                        "bg-error-primary text-error-primary",
+                        "bg-quaternary text-primary",
+                        "bg-brand-secondary text-brand-primary",
+                        "bg-success-primary text-success-primary",
+                    };
+
+                    view.Row(["items-center gap-3 flex-wrap"], content: row =>
+                    {
+                        row.Switch([Switch.Root],
+                            isChecked: _multiCarouselLoop.Value,
+                            onCheckedChange: async v => _multiCarouselLoop.Value = v,
+                            content: s => s.SwitchThumb([Switch.Thumb]));
+                        row.Text([Text.Body], $"loop: {(_multiCarouselLoop.Value ? "true" : "false")}");
+                    });
+
+                    view.Carousel(
+                        rootStyle: [Carousel.Root, "h-40 rounded-lg"],
+                        viewportStyle: [Carousel.Viewport],
+                        previousStyle: [Carousel.Previous],
+                        nextStyle: [Carousel.Next],
+                        indicatorsStyle: [Carousel.Indicators],
+                        indicatorStyle: [Carousel.Indicator],
+                        indicatorActiveStyle: [Carousel.IndicatorActive],
+                        loop: _multiCarouselLoop.Value,
+                        slidesPerView: 1,
+                        slidesPerGroup: 1,
+                        slideGapPx: 12,
+                        breakpoints:
+                        [
+                            new CarouselBreakpoint(MinWidth: 480, SlidesPerView: 2),
+                            new CarouselBreakpoint(MinWidth: 768, SlidesPerView: 3),
+                            new CarouselBreakpoint(MinWidth: 1024, SlidesPerView: 4),
+                        ],
+                        index: _multiCarouselIndex.Value,
+                        onIndexChange: async i => _multiCarouselIndex.Value = (int)i,
+                        slides: tileColors.Select((cls, i) => new CarouselSlideItem(v =>
+                            v.Box([$"h-full w-full flex items-center justify-center rounded-md text-2xl font-semibold {cls}"],
+                                content: vv => vv.Text(text: $"Item {i + 1}")))).ToList());
+                    view.Text([Text.Caption], $"Leading slide index: {_multiCarouselIndex.Value + 1} of 8");
                 });
             });
 

@@ -23,9 +23,10 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         "charts",
         "files", "assets", "actions",
         "video", "audio", "rive", "shadertoy",
-        "ikon-ai",
+        "ikon-ai", "mcp", "app-cells",
         "virtualization", "drawing", "resizable-split",
-        "profiling", "memory", "identity", "functions"
+        "profiling", "memory", "identity", "functions",
+        "billing", "email"
     ];
 
     // Input states
@@ -294,6 +295,9 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
     // Carousel state
     private readonly Reactive<int> _carouselIndex = new(0);
+    private readonly Reactive<bool> _carouselLoop = new(true);
+    private readonly Reactive<int> _multiCarouselIndex = new(0);
+    private readonly Reactive<bool> _multiCarouselLoop = new(true);
 
     // Feed scroller state
     private readonly Reactive<int> _feedActiveIndex = new(0);
@@ -334,11 +338,15 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     public async Task Main()
     {
         FunctionRegistry.Instance.RegisterFromType(typeof(ValidationFunctions));
+        FunctionRegistry.Instance.RegisterFromInstance(this);
+
+        _ = InitBillingAsync();
 
         await StartAudioGeneratorAsync();
         SetupAudioMetricsTracking();
         SetupVideoInputHandlers();
         SetupAudioInputHandlers();
+        await StartMcpAsync();
 
         app.Navigation.PathChangedAsync += async args =>
         {
@@ -429,12 +437,16 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             new TabItem("rive", "Rive", RenderRiveSection),
                             new TabItem("shadertoy", "Shadertoy", RenderShadertoySection),
                             new TabItem("ikon-ai", "Ikon.AI Library", RenderIkonAISection, ForceMount: true),
+                            new TabItem("mcp", "MCP", RenderMcpSection),
+                            new TabItem("app-cells", "App/Cells", RenderLabSection),
                             new TabItem("virtualization", "Virtualization", RenderVirtualizationSection),
                             new TabItem("drawing", "Drawing", RenderDrawingSection),
                             new TabItem("profiling", "Profiling", RenderProfilingSection),
                             new TabItem("memory", "Memory", RenderMemorySection),
                             new TabItem("identity", "Identity", RenderIdentitySection),
                             new TabItem("functions", "Functions", RenderFunctionsSection),
+                            new TabItem("billing", "Billing", RenderBillingSection),
+                            new TabItem("email", "Email", RenderEmailSection),
                         ]);
                 });
             });

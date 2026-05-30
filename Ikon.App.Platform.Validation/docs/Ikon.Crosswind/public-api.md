@@ -27,18 +27,18 @@ namespace Ikon.Crosswind
     double? TopLeft { get; init; }
     double? TopRight { get; init; }
     static BorderRadiusToken All(double value)
-    BorderRadiusToken MergeOver(BorderRadiusToken other)
+    BorderRadiusToken MergeOver(BorderRadiusToken? other)
   sealed class BorderSideToken : IEquatable<BorderSideToken>
-    ctor(double? Width, ColorToken Color)
-    ColorToken Color { get; init; }
+    ctor(double? Width, ColorToken? Color)
+    ColorToken? Color { get; init; }
     double? Width { get; init; }
-    BorderSideToken MergeOver(BorderSideToken other)
+    BorderSideToken MergeOver(BorderSideToken? other)
   sealed class BorderToken : IEquatable<BorderToken>
-    ctor(BorderSideToken Left, BorderSideToken Top, BorderSideToken Right, BorderSideToken Bottom)
-    BorderSideToken Bottom { get; init; }
-    BorderSideToken Left { get; init; }
-    BorderSideToken Right { get; init; }
-    BorderSideToken Top { get; init; }
+    ctor(BorderSideToken? Left, BorderSideToken? Top, BorderSideToken? Right, BorderSideToken? Bottom)
+    BorderSideToken? Bottom { get; init; }
+    BorderSideToken? Left { get; init; }
+    BorderSideToken? Right { get; init; }
+    BorderSideToken? Top { get; init; }
     static BorderToken All(BorderSideToken side)
   sealed class CanvasDesignTokenDocument
     ctor()
@@ -51,7 +51,7 @@ namespace Ikon.Crosswind
     Dictionary<string, CanvasTokenValue<string>> Radii { get; init; }
     CanvasSemanticColorTokens SemanticColors { get; init; }
     CanvasTypographyTokens Typography { get; init; }
-    string Version { get; init; }
+    string? Version { get; init; }
     void Validate()
   static class CanvasDesignTokenLoader
     static CanvasDesignTokenDocument Load(Stream stream)
@@ -79,14 +79,14 @@ namespace Ikon.Crosswind
     void Validate()
   sealed class CanvasTokenValue<T>
     ctor()
-    string Description { get; init; }
+    string? Description { get; init; }
     T Value { get; init; }
   sealed class CanvasTypographyScale
     ctor()
-    string Description { get; init; }
-    string FontFamily { get; init; }
+    string? Description { get; init; }
+    string? FontFamily { get; init; }
     string FontSize { get; init; }
-    string LetterSpacing { get; init; }
+    string? LetterSpacing { get; init; }
     string LineHeight { get; init; }
     void Validate(string tokenName)
   sealed class CanvasTypographyTokens
@@ -97,10 +97,10 @@ namespace Ikon.Crosswind
     Dictionary<string, CanvasTypographyScale> Text { get; init; }
     void Validate()
   sealed class ColorToken : IEquatable<ColorToken>
-    ctor(string Ref, string Raw, double? Alpha)
+    ctor(string? Ref, string? Raw, double? Alpha)
     double? Alpha { get; init; }
-    string Raw { get; init; }
-    string Ref { get; init; }
+    string? Raw { get; init; }
+    string? Ref { get; init; }
     static ColorToken Literal(string raw, double? alpha = null)
     static ColorToken ThemeRef(string token, double? alpha = null)
   class CompileResult : IEquatable<CompileResult>
@@ -109,25 +109,26 @@ namespace Ikon.Crosswind
     List<MotionBindingMetadata> MotionBindings { get; init; }
     List<CssRule> Rules { get; init; }
   sealed class CompiledStyle : IEquatable<CompiledStyle>
-    ctor(string Css, IReadOnlyList<MotionBindingMetadata> MotionBindings, FlutterStyleTokens Flutter = null)
+    ctor(string Css, IReadOnlyList<MotionBindingMetadata> MotionBindings, FlutterStyleTokens? Flutter = null)
     string Css { get; init; }
-    FlutterStyleTokens Flutter { get; init; }
+    FlutterStyleTokens? Flutter { get; init; }
     IReadOnlyList<MotionBindingMetadata> MotionBindings { get; init; }
   class ContainerVariant : IEquatable<ContainerVariant>
-    ctor(string Name, string Query, string Breakpoint)
-    string Breakpoint { get; init; }
-    string Name { get; init; }
-    string Query { get; init; }
+    ctor(string? Name, string? Query, string? Breakpoint)
+    string? Breakpoint { get; init; }
+    string? Name { get; init; }
+    string? Query { get; init; }
     bool WantsBreakpoint { get; }
     ContainerVariant WithBreakpoint(string breakpoint)
   static class CssEmitter
+    // Emits compact CSS text from compiled rules.
     static string Emit(CompileResult result)
   static class CssProcessor
     static string GetCss(string tailwindDeclaration, string classId)
     static CompiledStyle GetStyle(string tailwindDeclaration, string classId)
   class CssRule : IEquatable<CssRule>
-    ctor(string AtRule, string Selector, Dictionary<string, string> Decls)
-    string AtRule { get; init; }
+    ctor(string? AtRule, string Selector, Dictionary<string, string> Decls)
+    string? AtRule { get; init; }
     Dictionary<string, string> Decls { get; init; }
     string Selector { get; init; }
   enum CursorToken
@@ -150,7 +151,7 @@ namespace Ikon.Crosswind
     double? Right { get; init; }
     double? Top { get; init; }
     static EdgeInsetsToken All(double value)
-    EdgeInsetsToken MergeOver(EdgeInsetsToken other)
+    EdgeInsetsToken MergeOver(EdgeInsetsToken? other)
     static EdgeInsetsToken Symmetric(double? horizontal, double? vertical)
   enum FlexAlignToken
     Start
@@ -179,56 +180,56 @@ namespace Ikon.Crosswind
     FlexJustifyToken? JustifyContent { get; init; }
     double? RowGap { get; init; }
     bool? Wrap { get; init; }
-    FlexToken MergeOver(FlexToken other)
+    FlexToken MergeOver(FlexToken? other)
   static class FlutterStyleResolver
     static FlutterStyleTokens Resolve(string tailwindDeclaration)
   sealed class FlutterStyleTokens : IEquatable<FlutterStyleTokens>
-    ctor(EdgeInsetsToken Padding, EdgeInsetsToken Margin, ColorToken BackgroundColor, BorderToken Border, BorderRadiusToken BorderRadius, SizeToken Size, TextStyleToken Text, FlexToken Flex, double? Opacity, IReadOnlyList<ShadowToken> Shadow, OverflowToken? Overflow, TransformToken Transform, PositionToken Position, GradientToken Gradient, MotionToken Motion, bool? Hidden, bool? Visible, CursorToken? Cursor, double? AspectRatio, int? ZIndex)
+    ctor(EdgeInsetsToken? Padding, EdgeInsetsToken? Margin, ColorToken? BackgroundColor, BorderToken? Border, BorderRadiusToken? BorderRadius, SizeToken? Size, TextStyleToken? Text, FlexToken? Flex, double? Opacity, IReadOnlyList<ShadowToken>? Shadow, OverflowToken? Overflow, TransformToken? Transform, PositionToken? Position, GradientToken? Gradient, MotionToken? Motion, bool? Hidden, bool? Visible, CursorToken? Cursor, double? AspectRatio, int? ZIndex)
     double? AspectRatio { get; init; }
-    ColorToken BackgroundColor { get; init; }
-    BorderToken Border { get; init; }
-    BorderRadiusToken BorderRadius { get; init; }
+    ColorToken? BackgroundColor { get; init; }
+    BorderToken? Border { get; init; }
+    BorderRadiusToken? BorderRadius { get; init; }
     CursorToken? Cursor { get; init; }
     static FlutterStyleTokens Empty { get; }
-    FlexToken Flex { get; init; }
-    GradientToken Gradient { get; init; }
+    FlexToken? Flex { get; init; }
+    GradientToken? Gradient { get; init; }
     bool? Hidden { get; init; }
     bool IsEmpty { get; }
-    EdgeInsetsToken Margin { get; init; }
-    MotionToken Motion { get; init; }
+    EdgeInsetsToken? Margin { get; init; }
+    MotionToken? Motion { get; init; }
     double? Opacity { get; init; }
     OverflowToken? Overflow { get; init; }
-    EdgeInsetsToken Padding { get; init; }
-    PositionToken Position { get; init; }
-    IReadOnlyList<ShadowToken> Shadow { get; init; }
-    SizeToken Size { get; init; }
-    TextStyleToken Text { get; init; }
-    TransformToken Transform { get; init; }
+    EdgeInsetsToken? Padding { get; init; }
+    PositionToken? Position { get; init; }
+    IReadOnlyList<ShadowToken>? Shadow { get; init; }
+    SizeToken? Size { get; init; }
+    TextStyleToken? Text { get; init; }
+    TransformToken? Transform { get; init; }
     bool? Visible { get; init; }
     int? ZIndex { get; init; }
   sealed class GradientToken : IEquatable<GradientToken>
-    ctor(string Direction, ColorToken From, ColorToken Via, ColorToken To)
+    ctor(string Direction, ColorToken? From, ColorToken? Via, ColorToken? To)
     string Direction { get; init; }
-    ColorToken From { get; init; }
-    ColorToken To { get; init; }
-    ColorToken Via { get; init; }
+    ColorToken? From { get; init; }
+    ColorToken? To { get; init; }
+    ColorToken? Via { get; init; }
   sealed class MotionBindingMetadata : IEquatable<MotionBindingMetadata>
-    ctor(string Source, string Min, string Max, string Clamp, bool Reverse, string Ease, string Map, string TargetId)
-    string Clamp { get; init; }
-    string Ease { get; init; }
-    string Map { get; init; }
-    string Max { get; init; }
-    string Min { get; init; }
+    ctor(string Source, string? Min, string? Max, string? Clamp, bool Reverse, string? Ease, string? Map, string? TargetId)
+    string? Clamp { get; init; }
+    string? Ease { get; init; }
+    string? Map { get; init; }
+    string? Max { get; init; }
+    string? Min { get; init; }
     bool Reverse { get; init; }
     string Source { get; init; }
-    string TargetId { get; init; }
+    string? TargetId { get; init; }
   sealed class MotionToken : IEquatable<MotionToken>
-    ctor(string Type, double? Duration, string Ease, double? Delay, string IterationMode)
+    ctor(string? Type, double? Duration, string? Ease, double? Delay, string? IterationMode)
     double? Delay { get; init; }
     double? Duration { get; init; }
-    string Ease { get; init; }
-    string IterationMode { get; init; }
-    string Type { get; init; }
+    string? Ease { get; init; }
+    string? IterationMode { get; init; }
+    string? Type { get; init; }
   enum OverflowToken
     Visible
     Hidden
@@ -255,8 +256,8 @@ namespace Ikon.Crosswind
     static string GroupClassSelector { get; set; }
     static string PeerClassSelector { get; set; }
     static ThemeSelectorStrategy ThemeStrategy { get; set; }
-    static string Compose(string baseSelector, IReadOnlyList<string> variants, string track, ContainerVariant container = null)
-    static ValueTuple<string, string> ComposeTemplate(IReadOnlyList<string> variants, string track, ContainerVariant container = null)
+    static string Compose(string baseSelector, IReadOnlyList<string> variants, string? track, ContainerVariant? container = null)
+    static ValueTuple<string?, string> ComposeTemplate(IReadOnlyList<string> variants, string? track, ContainerVariant? container = null)
   sealed class ShadowToken : IEquatable<ShadowToken>
     ctor(double OffsetX, double OffsetY, double BlurRadius, double SpreadRadius, ColorToken Color)
     double BlurRadius { get; init; }
@@ -272,7 +273,7 @@ namespace Ikon.Crosswind
     double? MinHeight { get; init; }
     double? MinWidth { get; init; }
     double? Width { get; init; }
-    SizeToken MergeOver(SizeToken other)
+    SizeToken MergeOver(SizeToken? other)
   static class TW
     static string FormatLength(ArgValue a)
     static string FractionToPercent(string frac)
@@ -286,7 +287,7 @@ namespace Ikon.Crosswind
     static string ResolveRadius(string tokenOrLength)
     static string ResolveShadow(string token)
     static string ResolveTextAlign(string token)
-    static ValueTuple<string, string> ResolveTextSize(string tokenOrLength)
+    static ValueTuple<string, string?> ResolveTextSize(string tokenOrLength)
     static string SpacingTokenToLength(string token)
     static string UnitToSuffix(Unit u)
   enum TailwindColorContext
@@ -297,13 +298,14 @@ namespace Ikon.Crosswind
     Border
   sealed class TailwindColorDefinitions
     ctor()
-    ctor(IReadOnlyDictionary<string, string> background, IReadOnlyDictionary<string, string> foreground, IReadOnlyDictionary<string, string> text, IReadOnlyDictionary<string, string> border)
+    ctor(IReadOnlyDictionary<string, string>? background, IReadOnlyDictionary<string, string>? foreground, IReadOnlyDictionary<string, string>? text, IReadOnlyDictionary<string, string>? border)
     IReadOnlyDictionary<string, string> Background { get; init; }
     IReadOnlyDictionary<string, string> Border { get; init; }
     IReadOnlyDictionary<string, string> Foreground { get; init; }
     IReadOnlyDictionary<string, string> Text { get; init; }
     void Validate()
   static class TailwindCompiler
+    // Compiles a class list into CSS rules scoped to a base selector. Use when you want real CSS (supports :hover, @media, group-hover, dark, etc).
     static CompileResult CompileRules(string baseSelector, string classAttr)
   static class TailwindCssBaseline
     static string AdditionalCss { get; }
@@ -321,22 +323,23 @@ namespace Ikon.Crosswind
     static bool IsFontFamilyToken(string name)
     static bool IsFontWeightToken(string name)
     static void MergeDefinitions(TailwindStyleDefinitions definitions)
-    static void SetDefinitions(TailwindStyleDefinitions definitions)
+    static void SetDefinitions(TailwindStyleDefinitions? definitions)
     static bool TryResolve(string name, TailwindColorContext context, out string value)
     static bool TryResolveFontFamily(string name, out string value)
     static bool TryResolveFontWeight(string name, out string value)
   static class TailwindDedup
+    // Last-one-wins de-duplication by (Variants, Track, Utility).
     static List<TailwindDescription> Deduplicate(List<TailwindDescription> classes)
   class TailwindDescription : IEquatable<TailwindDescription>
-    ctor(List<string> Variants, string Track, string Utility, List<ArgValue> Args, bool Important, bool Negative, ContainerVariant Container = null, bool HasBracketArg = false, bool IsArbitraryProperty = false)
+    ctor(List<string> Variants, string? Track, string Utility, List<ArgValue> Args, bool Important, bool Negative, ContainerVariant? Container = null, bool HasBracketArg = false, bool IsArbitraryProperty = false)
     List<ArgValue> Args { get; init; }
-    ContainerVariant Container { get; init; }
+    ContainerVariant? Container { get; init; }
     bool HasBracketArg { get; init; }
     bool Important { get; init; }
     bool IsArbitraryProperty { get; init; }
     bool Negative { get; init; }
-    string Track { get; init; }
-    string TrackKey { get; }
+    string? Track { get; init; }
+    string? TrackKey { get; }
     string Utility { get; init; }
     List<string> Variants { get; init; }
   sealed class TailwindDesignTokenResult
@@ -346,13 +349,13 @@ namespace Ikon.Crosswind
     TailwindThemeDefinition Theme { get; }
   sealed class TailwindFontDefinitions
     ctor()
-    ctor(IReadOnlyDictionary<string, string> family, IReadOnlyDictionary<string, string> weight)
+    ctor(IReadOnlyDictionary<string, string>? family, IReadOnlyDictionary<string, string>? weight)
     IReadOnlyDictionary<string, string> Family { get; init; }
     IReadOnlyDictionary<string, string> Weight { get; init; }
     void Validate()
   sealed class TailwindFontSize
-    ctor(string size, string lineHeight, string letterSpacing)
-    string LetterSpacing { get; }
+    ctor(string size, string lineHeight, string? letterSpacing)
+    string? LetterSpacing { get; }
     string LineHeight { get; }
     string Size { get; }
   static class TailwindNormalizer
@@ -360,7 +363,7 @@ namespace Ikon.Crosswind
   static class TailwindParser
     static List<TailwindDescription> ParseManyRaw(string inputLine)
     static TailwindDescription ParseRaw(string input)
-    static ValueTuple<List<string>, string, ContainerVariant> SplitVariants(List<string> variants)
+    static ValueTuple<List<string>, string?, ContainerVariant?> SplitVariants(List<string> variants)
   static class TailwindStyleDefinitionLoader
     static Task<TailwindStyleDefinitions> Load(AssetUri assetUri)
     static TailwindStyleDefinitions LoadFromCss(string css)
@@ -369,7 +372,7 @@ namespace Ikon.Crosswind
     static TailwindStyleDefinitions LoadFromStream(Stream stream)
   sealed class TailwindStyleDefinitions
     ctor()
-    ctor(TailwindColorDefinitions colors, TailwindFontDefinitions fonts = null)
+    ctor(TailwindColorDefinitions colors, TailwindFontDefinitions? fonts = null)
     TailwindColorDefinitions Colors { get; init; }
     TailwindFontDefinitions Fonts { get; init; }
     void Validate()
@@ -402,11 +405,11 @@ namespace Ikon.Crosswind
     Ellipsis
     Fade
   sealed class TextStyleToken : IEquatable<TextStyleToken>
-    ctor(double? FontSize, int? FontWeight, ColorToken Color, string FontFamily, double? LineHeight, double? LetterSpacing, TextAlignToken? Align, TextDecorationToken? Decoration, TextOverflowToken? TextOverflow, int? MaxLines, bool? Italic, TextTransformToken? TextTransform, WhiteSpaceToken? WhiteSpace)
+    ctor(double? FontSize, int? FontWeight, ColorToken? Color, string? FontFamily, double? LineHeight, double? LetterSpacing, TextAlignToken? Align, TextDecorationToken? Decoration, TextOverflowToken? TextOverflow, int? MaxLines, bool? Italic, TextTransformToken? TextTransform, WhiteSpaceToken? WhiteSpace)
     TextAlignToken? Align { get; init; }
-    ColorToken Color { get; init; }
+    ColorToken? Color { get; init; }
     TextDecorationToken? Decoration { get; init; }
-    string FontFamily { get; init; }
+    string? FontFamily { get; init; }
     double? FontSize { get; init; }
     int? FontWeight { get; init; }
     bool? Italic { get; init; }
@@ -416,14 +419,14 @@ namespace Ikon.Crosswind
     TextOverflowToken? TextOverflow { get; init; }
     TextTransformToken? TextTransform { get; init; }
     WhiteSpaceToken? WhiteSpace { get; init; }
-    TextStyleToken MergeOver(TextStyleToken other)
+    TextStyleToken MergeOver(TextStyleToken? other)
   enum TextTransformToken
     None
     Uppercase
     Lowercase
     Capitalize
   static class ThemeEmitter
-    static string Emit(IDictionary<string, string> vars, string themeName = null)
+    static string Emit(IDictionary<string, string> vars, string? themeName = null)
   enum ThemeSelectorStrategy
     Attribute
     Class
@@ -431,9 +434,11 @@ namespace Ikon.Crosswind
     static TailwindDesignTokenResult Convert(CanvasDesignTokenDocument document)
   static class ThemeVars
     static bool VariableFallbacksEnabled { get; set; }
-    static string Var(string name, string fallback = null)
+    static string Var(string name, string? fallback = null)
   static class TransformCombiner
+    // Merges transform utilities by (Variants, Track) into a single "transform" utility. Call after TailwindDedup.Deduplicate.
     static List<TailwindDescription> Combine(List<TailwindDescription> classes)
+    // Composes transform utilities for motion context, outputting individual CSS variables instead of a monolithic transform property. This allows independent animation tracks to blend without overriding each other.
     static Dictionary<string, string> ComposeForMotion(List<TailwindDescription> classes)
   sealed class TransformToken : IEquatable<TransformToken>
     ctor(double? Rotate, double? ScaleX, double? ScaleY, double? TranslateX, double? TranslateY, double? SkewX, double? SkewY)

@@ -19,9 +19,6 @@ Methods = ["google"]
 DomainAllowlist = []
 
 # Target information for deployment (automatically configured with 'ikon app config')
-[Email]
-Enabled = false
-SenderDomain = ""
 [Target]
 OrganisationId = ""
 SpaceId = ""

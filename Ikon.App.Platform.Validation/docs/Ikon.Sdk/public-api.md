@@ -9,13 +9,13 @@ namespace Ikon.Sdk
     // Backend environment. Defaults to Production.
     BackendType BackendType { get; set; }
     // Optional channel key (slug) for spaces with multiple channels. If not provided, connects to the first available channel.
-    string ChannelKey { get; set; }
+    string? ChannelKey { get; set; }
     // Client type for this connection. Default: DesktopApp
     ClientType ClientType { get; set; }
     // External user identifier - an arbitrary string to identify the user. This does not need to be an internal Ikon user ID. The backend will create/map an internal user for this external ID.
     string ExternalUserId { get; set; }
     // Optional session ID for targeting precomputed sessions.
-    string SessionId { get; set; }
+    string? SessionId { get; set; }
     // Space ID (MongoDB ObjectId from portal).
     string SpaceId { get; set; }
     // User type for this connection. Default: Human
@@ -72,13 +72,13 @@ namespace Ikon.Sdk
   class BackendConfig
     ctor()
     // Optional channel key (slug) for spaces with multiple channels. If not provided, connects to the first available channel.
-    string ChannelKey { get; set; }
+    string? ChannelKey { get; set; }
     // Client type for this connection. Default: DesktopApp
     ClientType ClientType { get; set; }
     // External user identifier - an arbitrary string to identify the user. This does not need to be an internal Ikon user ID. The backend will create/map an internal user for this external ID.
     string ExternalUserId { get; set; }
     // Optional session ID for targeting precomputed sessions.
-    string SessionId { get; set; }
+    string? SessionId { get; set; }
     // Space ID (MongoDB ObjectId from portal).
     string SpaceId { get; set; }
     // User type for this connection. Default: Human
@@ -113,15 +113,15 @@ namespace Ikon.Sdk
     // Creates a new IkonClient with the specified configuration. Each IkonClient instance gets its own FunctionRegistry, enabling multiple SDK connections to run independently without conflicts (e.g., when running SDK inside an Ikon app).
     ctor(IkonClientConfig config)
     // Client context from the server. Available after connection is established.
-    Context ClientContext { get; }
+    Context? ClientContext { get; }
     // Configuration used to create this client.
     IkonClientConfig Config { get; }
     // Default encoder options for audio output
-    AudioEncoderOptions DefaultEncoderOptions { get; set; }
+    AudioEncoderOptions? DefaultEncoderOptions { get; set; }
     // Function registry for this client instance. Each IkonClient has its own isolated FunctionRegistry, allowing multiple SDK connections to run independently (e.g., when running SDK inside an Ikon app, or multiple SDK clients).
     FunctionRegistry FunctionRegistry { get; }
     // Global state from the server. Available after connection is established.
-    GlobalState GlobalState { get; }
+    GlobalState? GlobalState { get; }
     // Current connection state.
     ConnectionState State { get; }
     // Connect to the Ikon server.
@@ -131,14 +131,14 @@ namespace Ikon.Sdk
     // Disposes the client and releases all resources.
     ValueTask DisposeAsync()
     // Sends audio data to the server.
-    ValueTask SendAudioAsync(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string streamId = null, TimeSpan totalDuration = null, AudioEncoderOptions encoderOptions = null, IReadOnlyList<int> targetIds = null)
+    ValueTask SendAudioAsync(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string? streamId = null, TimeSpan totalDuration = null, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null)
     // Send a protocol message to the server.
     ValueTask SendMessageAsync(ProtocolMessage message)
-    ValueTask SendMessageAsync<T>(T payload)
+    ValueTask SendMessageAsync<T>(T payload) where T : IProtocolMessagePayload
     // Signal that the client is ready. Should be called after initialization in the ReadyAsync event handler.
     Task SignalReadyAsync()
     // Wait for a specific client to connect and become ready.
-    Task<bool> WaitForClientAsync(string productId = null, string userId = null, TimeSpan timeout = null)
+    Task<bool> WaitForClientAsync(string? productId = null, string? userId = null, TimeSpan timeout = null)
     // Event raised when an incoming audio frame is received and decoded
     event AsyncEventHandler<AudioInputFrameEventArgs> AudioInputFrameAsync
     // Event raised when an incoming audio stream begins
@@ -146,32 +146,32 @@ namespace Ikon.Sdk
     // Event raised when an incoming audio stream ends
     event AsyncEventHandler<AudioInputStreamEndEventArgs> AudioInputStreamEndAsync
     // Event triggered after disconnection.
-    event AsyncEventHandler<EventArgs> DisconnectedAsync
+    event AsyncEventHandler<EventArgs>? DisconnectedAsync
     // Event triggered when an error occurs.
-    event AsyncEventHandler<IkonClient.ErrorEventArgs> ErrorOccurredAsync
+    event AsyncEventHandler<IkonClient.ErrorEventArgs>? ErrorOccurredAsync
     // Event triggered when a protocol message is received.
-    event AsyncEventHandler<MessageEventArgs> MessageReceivedAsync
+    event AsyncEventHandler<MessageEventArgs>? MessageReceivedAsync
     // Event triggered when connection is fully established and ready. Called before SignalReadyAsync() should be called.
-    event AsyncEventHandler<EventArgs> ReadyAsync
+    event AsyncEventHandler<EventArgs>? ReadyAsync
     // Event triggered when connection state changes.
-    event AsyncEventHandler<IkonClient.ConnectionStateEventArgs> StateChangedAsync
+    event AsyncEventHandler<IkonClient.ConnectionStateEventArgs>? StateChangedAsync
     // Event triggered when server is stopping. Messages can still be sent in this handler.
-    event AsyncEventHandler<EventArgs> StoppingAsync
+    event AsyncEventHandler<EventArgs>? StoppingAsync
   // Configuration for IkonClient. Exactly one of Local, ApiKey, or Backend must be provided.
   class IkonClientConfig
     ctor()
     // API key authentication for programmatic access. Use this for libraries, scripts, plugins that need to connect to cloud channels.
-    ApiKeyConfig ApiKey { get; set; }
+    ApiKeyConfig? ApiKey { get; set; }
     // Backend authentication using existing IkonBackend login. Use this for internal Ikon C# applications that have already logged in via CLI.
-    BackendConfig Backend { get; set; }
+    BackendConfig? Backend { get; set; }
     // Description for this client. Default: "Ikon SDK C#"
     string Description { get; set; }
     // Device ID for the connection. If not provided, a random one will be generated.
-    string DeviceId { get; set; }
+    string? DeviceId { get; set; }
     // Installation ID.
-    string InstallId { get; set; }
+    string? InstallId { get; set; }
     // Local server configuration for development mode. Use this when connecting to a local Ikon server.
-    LocalConfig Local { get; set; }
+    LocalConfig? Local { get; set; }
     // User locale (e.g., "en-US"). Default: "en-US"
     string Locale { get; set; }
     // Opcode groups to receive from server. Default: All groups
@@ -179,17 +179,17 @@ namespace Ikon.Sdk
     // Opcode groups to send to server. Default: All groups
     Opcode OpcodeGroupsToServer { get; set; }
     // Client parameters passed to the server.
-    Dictionary<string, string> Parameters { get; set; }
+    Dictionary<string, string>? Parameters { get; set; }
     // Payload type for protocol messages. Default: Teleport
     PayloadType PayloadType { get; set; }
     // Product identifier.
-    string ProductId { get; set; }
+    string? ProductId { get; set; }
     // Timeout configuration.
     TimeoutConfig Timeouts { get; set; }
     // User agent string.
-    string UserAgent { get; set; }
+    string? UserAgent { get; set; }
     // Version identifier.
-    string VersionId { get; set; }
+    string? VersionId { get; set; }
     // Validates the configuration.
     void Validate()
   // Configuration for local development mode. Connects directly to a local Ikon server.
@@ -200,13 +200,20 @@ namespace Ikon.Sdk
     // HTTPS port of the local Ikon server. Example: 8443
     int HttpsPort { get; set; }
     // User ID for the connection. Falls back to "local" if not provided (with a warning).
-    string UserId { get; set; }
+    string? UserId { get; set; }
   // Event arguments for protocol messages.
   class MessageEventArgs : EventArgs
     // Event arguments for protocol messages.
     ctor(ProtocolMessage message)
     // The protocol message.
     ProtocolMessage Message { get; }
+  // Subscribes local callbacks to a server-side Reactive`1 over the existing function-call wire. The current value is fetched on first subscribe and pushed by the server on every change — no polling.
+  sealed class ReactiveRegistry
+    // Create a registry over an IkonClient 's function registry. Registers the reactive-update handler immediately; call Detach on teardown.
+    ctor(FunctionRegistry functionRegistry)
+    // Drop all subscriptions and unregister the update handler. Intended for client teardown — does not notify the server per key (the server's per-session subscription map is cleaned up when the session disconnects).
+    void Detach()
+    Task<IAsyncDisposable> SubscribeAsync<T>(string stableId, Action<T> callback, string mountId = "", CancellationToken cancellationToken = null)
   // Timeout configuration for the SDK.
   class TimeoutConfig
     ctor()
