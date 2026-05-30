@@ -16,12 +16,12 @@ private bool _commandProcessorStarted;
 
 public async Task Main()
 {
-    app.OnStopping(async () =>
+    app.StoppingAsync += async _ =>
     {
         await _appCts.CancelAsync();
         _commandQueue.Writer.TryComplete();
         _appCts.Dispose();
-    });
+    };
     // ... UI setup
 }
 
