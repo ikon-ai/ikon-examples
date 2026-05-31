@@ -313,6 +313,8 @@ namespace Ikon.Common.Core.Functions
     Task<bool> WaitForFunctionAsync(string functionName, TimeSpan timeout = null, CancellationToken ct = null)
     // Fired when an approval flow completes (approved or rejected). Use this event for audit logging of approval decisions.
     event Action<ApprovalAuditEntry>? ApprovalCompleted
+    // Fired when all of a client session's functions are removed because it disconnected ( RemoveFunctionsByClientSessionId ). Lets services that track per-session state — e.g. ReactiveSubscriptionService's subscriber set — release it promptly instead of discovering the dead session only when a later push fails.
+    event Action<int>? ClientSessionRemoved
     // Fired when a function is registered.
     event Action<Function>? FunctionRegistered
     // Fired when a function is unregistered.

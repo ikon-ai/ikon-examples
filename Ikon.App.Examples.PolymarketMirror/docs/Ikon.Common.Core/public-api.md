@@ -1105,6 +1105,27 @@ namespace Ikon.Common.Core
     T Value { get; }
   enum SensitivityPolicy
     Default
+  // High performance FIFO queue for value-type arrays, like ArrayQueue`1 but with an O(1) amortized dequeue. The live elements are held contiguously at a sliding offset: dequeuing advances a head index instead of shifting every remaining element down to the front. The backing array is only compacted (live data slid back to index 0) when a later enqueue needs contiguous tail space, so a fill-then-drain cycle moves each element at most once. This matters for audio: draining a large buffer one small frame at a time — e.g. the speech mixer pulling 20 ms frames out of a multi-second TTS clip — is O(N) overall here, versus O(N^2) with the shift-on-every-dequeue ArrayQueue`1 . The public surface mirrors ArrayQueue`1 ; Span and the indexer address the live region (index 0 is the oldest element), so callers see identical logical behaviour.
+  class SlidingArrayQueue<T> where T : struct
+    ctor(int maxCapacity)
+    ctor(int maxCapacity, int initialCapacity)
+    int Capacity { get; }
+    int Count { get; }
+    int FreeCount { get; }
+    T Item { get; }
+    int MaxCapacity { get; }
+    Span<T> Span { get; }
+    void Clear()
+    void Dequeue(Span<T> target, int skipCount, int count)
+    void Dequeue(Span<T> target, int count)
+    void DequeueMemory(int count)
+    void Enqueue(ReadOnlySpan<T> source, int count)
+    void Enqueue(ReadOnlySpan<T> source)
+    void EnqueueMemory(int count)
+    Memory<T> GetDequeueMemory(int skipCount, int count)
+    Memory<T> GetEnqueueMemory(int count)
+    // Releases excess buffer capacity, shrinking the backing array to fit the current content and resetting the head offset. Useful in long-lived queues that have hit a transient peak and now want to return memory (in particular Large Object Heap memory) to the GC.
+    void TrimExcess()
   class IkonBackend.Space
     ctor()
     string Domain { get; set; }
@@ -1807,6 +1828,8 @@ namespace Ikon.Common.Core.Functions
     Task<bool> WaitForFunctionAsync(string functionName, TimeSpan timeout = null, CancellationToken ct = null)
     // Fired when an approval flow completes (approved or rejected). Use this event for audit logging of approval decisions.
     event Action<ApprovalAuditEntry>? ApprovalCompleted
+    // Fired when all of a client session's functions are removed because it disconnected ( RemoveFunctionsByClientSessionId ). Lets services that track per-session state — e.g. ReactiveSubscriptionService's subscriber set — release it promptly instead of discovering the dead session only when a later push fails.
+    event Action<int>? ClientSessionRemoved
     // Fired when a function is registered.
     event Action<Function>? FunctionRegistered
     // Fired when a function is unregistered.
