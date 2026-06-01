@@ -348,7 +348,7 @@ await File.WriteAllBytesAsync("thunder.wav", result.AudioData);
 ```csharp
 using Ikon.AI.WebScraping;
 
-var scraper = new WebScraper(WebScraperModel.Jina, useLocalCache: true);
+var scraper = new WebScraper(WebScraperModel.Jina);
 
 var page = await scraper.ScrapeSinglePageAsync(new SinglePageScrapeConfig
 {
