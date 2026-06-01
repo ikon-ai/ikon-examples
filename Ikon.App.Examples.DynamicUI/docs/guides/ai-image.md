@@ -78,7 +78,6 @@ namespace Ikon.AI.ImageGeneration
     Flux1Fill
     Flux1KontextPro
     Flux1KontextMax
-    Flux1KreaDev
     Flux2Dev
     Flux2Flex
     Flux2Pro
