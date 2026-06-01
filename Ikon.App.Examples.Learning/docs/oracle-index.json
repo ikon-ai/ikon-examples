@@ -335,7 +335,7 @@
         "ImageGeneratorConfig"
       ],
       "file": "docs/guides/ai-image.md",
-      "sizeBytes": 4824,
+      "sizeBytes": 4807,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -357,7 +357,7 @@
         "SoundEffectGenerator"
       ],
       "file": "docs/guides/ai-speech-and-audio.md",
-      "sizeBytes": 19890,
+      "sizeBytes": 19330,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -407,7 +407,7 @@
         "EmbeddingGenerator"
       ],
       "file": "docs/guides/ai-web-and-data.md",
-      "sizeBytes": 25803,
+      "sizeBytes": 25691,
       "alsoInclude": [
         "emergence"
       ]
@@ -445,7 +445,7 @@
         "filter"
       ],
       "file": "docs/guides/audio-video.md",
-      "sizeBytes": 45155,
+      "sizeBytes": 45355,
       "alsoInclude": []
     },
     {
