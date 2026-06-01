@@ -671,7 +671,7 @@ public partial class Validation
         {
             var model = Enum.Parse<WebScraperModel>(_webScraperModel.Value);
             var outputFormat = Enum.Parse<WebScraperOutputFormat>(_webScraperOutputFormat.Value);
-            var scraper = new WebScraper(model, useLocalCache: true);
+            var scraper = new WebScraper(model);
 
             var page = await scraper.ScrapeSinglePageAsync(new SinglePageScrapeConfig
             {
