@@ -513,10 +513,10 @@ namespace Ikon.AI.WebScraping
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class WebScraper : IDisposable, IWebScraper, IWebScraperInfo
-    ctor(string modelName, bool useLocalCache = false)
-    ctor(WebScraperModel model, bool useLocalCache = false)
-    ctor(string modelName, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = false)
-    ctor(WebScraperModel model, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = false)
+    ctor(string modelName)
+    ctor(WebScraperModel model)
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions)
+    ctor(WebScraperModel model, IReadOnlyList<ModelRegion>? regions)
     bool SupportsFileDownload { get; }
     bool SupportsMultiPageScraping { get; }
     bool SupportsScreenshotting { get; }

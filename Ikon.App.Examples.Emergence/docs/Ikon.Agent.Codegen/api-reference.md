@@ -1108,7 +1108,6 @@ namespace Ikon.AI.ImageGeneration
     Flux1Fill
     Flux1KontextPro
     Flux1KontextMax
-    Flux1KreaDev
     Flux2Dev
     Flux2Flex
     Flux2Pro
@@ -1983,10 +1982,10 @@ namespace Ikon.AI.SoundEffectGeneration
     string ContentType { get; init; }
     double DurationSeconds { get; init; }
   sealed class SoundEffectGenerator : IDisposable, ISoundEffectGenerator, ISoundEffectGeneratorInfo
-    ctor(string modelName, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
-    ctor(SoundEffectGeneratorModel model, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
-    ctor(string modelName, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
-    ctor(SoundEffectGeneratorModel model, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
+    ctor(string modelName)
+    ctor(SoundEffectGeneratorModel model)
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions)
+    ctor(SoundEffectGeneratorModel model, IReadOnlyList<ModelRegion>? regions)
     int ChannelCount { get; }
     int SampleRate { get; }
     bool SupportsLooping { get; }
@@ -2026,10 +2025,10 @@ namespace Ikon.AI.SpeechGeneration
     IReadOnlyList<string> VoiceIds { get; }
     abstract IAsyncEnumerable<AudioContainer> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = null)
   sealed class SpeechGenerator : IDisposable, ISpeechGenerator
-    ctor(string modelName, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
-    ctor(SpeechGeneratorModel model, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
-    ctor(string modelName, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
-    ctor(SpeechGeneratorModel model, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
+    ctor(string modelName)
+    ctor(SpeechGeneratorModel model)
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions)
+    ctor(SpeechGeneratorModel model, IReadOnlyList<ModelRegion>? regions)
     int ChannelCount { get; }
     int SampleRate { get; }
     IReadOnlyList<string> VoiceIds { get; }
@@ -2648,10 +2647,10 @@ namespace Ikon.AI.WebScraping
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class WebScraper : IDisposable, IWebScraper, IWebScraperInfo
-    ctor(string modelName, bool useLocalCache = false)
-    ctor(WebScraperModel model, bool useLocalCache = false)
-    ctor(string modelName, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = false)
-    ctor(WebScraperModel model, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = false)
+    ctor(string modelName)
+    ctor(WebScraperModel model)
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions)
+    ctor(WebScraperModel model, IReadOnlyList<ModelRegion>? regions)
     bool SupportsFileDownload { get; }
     bool SupportsMultiPageScraping { get; }
     bool SupportsScreenshotting { get; }
@@ -8848,7 +8847,7 @@ namespace Ikon.Resonance
     FadeMode FadeMode { get; set; }
     // Duration of fade-out when speech ends or is interrupted (in milliseconds).
     double FadeOutMs { get; set; }
-    // Maximum buffer size in milliseconds for incoming speech samples. This is an upper bound only; the queue grows from a small initial size on demand. Keep this generous enough to absorb production-faster-than-playback bursts (typical for non-streaming TTS) but tight enough that a runaway producer can't consume excessive memory.
+    // Maximum buffer size in milliseconds for incoming speech samples. This is an upper bound only; the queue grows from a small initial size on demand. Keep this generous enough to absorb production-faster-than-playback bursts (typical for non-streaming TTS) but tight enough that a runaway producer can't consume excessive memory. Samples added beyond this bound are dropped (with a throttled warning) rather than throwing; the backing buffer is released once the event drains, so this only caps the transient in-flight footprint.
     double MaxBufferSizeMs { get; set; }
     // Maximum padding duration in milliseconds for effect tails. Prevents infinite padding if effects never fully decay.
     double MaxPaddingTimeMs { get; set; }
