@@ -9,11 +9,11 @@ view.Button([Button.PrimaryMd, "mt-2 w-fit self-center"], label: "Submit");
 view.Box([Card.Default, "p-6 mb-4"], content: view => { ... });
 ```
 
-### Theme Constants & UI Guidelines
+### Theme Token Shortcuts (optional)
 
-**Always use theme constants from `IkonTheme.cs` instead of raw Tailwind utilities.** Never use raw hex colors, Tailwind palette classes (`text-purple-500`, `bg-blue-100`), or hardcoded spacing/shadows/radius values when a theme constant exists.
+The `Ikon.Parallax.Theming` namespace ships pre-composed token classes that bundle tested defaults — a Crosswind/Tailwind utility string per role/size combo, built from **semantic theme-aware classes** so they auto-flip with light/dark mode and respond to `IkonTheme` overrides. They're **opt-in shortcuts**, not a requirement: any place a token constant would go, you can pass a raw Crosswind utility string instead.
 
-Key categories:
+The full catalog:
 
 - **Text**: `Text.Display`, `Text.H1`–`Text.H4`, `Text.Body`, `Text.BodyStrong`, `Text.Label`, `Text.Caption`, `Text.Muted`, `Text.Small`, `Text.Code`, `Text.Link`
 - **Button**: `Button.SolidSm/Md/Lg`, `Button.PrimarySm/Md/Lg`, `Button.NeutralSm/Md/Lg`, `Button.OutlineSm/Md/Lg`, `Button.GhostSm/Md/Lg`, `Button.ErrorSm/Md/Lg`, `Button.SuccessSm/Md/Lg`, `Button.WarningSm/Md/Lg`, `Button.InfoSm/Md/Lg`, `Button.LinkSm/Md/Lg`, `Button.Icon`
@@ -23,7 +23,7 @@ Key categories:
 - **Container**: `Container.Xs` through `Container.Xl7`, `Container.Full`, `Container.Prose`, `Container.Screen`
 - **Input**: `Input.Default`, `Input.DefaultSm`, `Input.DefaultLg`, `Input.Ghost`, `Input.Invalid`
 - **Badge**: `Badge.GreySm/Md/Lg`, `Badge.BrandSm/Md/Lg`, `Badge.ErrorSm/Md/Lg`, `Badge.SuccessSm/Md/Lg`, `Badge.WarningSm/Md/Lg`, `Badge.InfoSm/Md/Lg`, `Badge.OutlineGrey/Brand/Error/Success/Warning/Info`
-- **Icon**: `Icon.Default`, `Icon.Size.Xs/Sm/Md/Lg`, `Icon.Spinner`, `Icon.SpinnerSm`, `Icon.SpinnerLg`
+- **Icon**: `Icon.Default`, `Icon.Xs/Sm/Md/Lg`, `Icon.Spinner`, `Icon.SpinnerSm`, `Icon.SpinnerLg`
 - **Nav**: `NavigationMenu.*` (Root, List, Trigger, Content, Link, Indicator)
 - **Data**: `DataTable.*`, `Progress.*`, `Skeleton.*`, `Media.*`
 - **State**: `State.Focusable`, `State.Disabled`, `State.Pressable`, `State.Loading`, `State.Selected`, `State.Invalid`, `State.Readonly`
@@ -36,7 +36,14 @@ Key categories:
 - **Split**: `ResizableSplit.Root/Handle/HandleVertical`
 - **Other**: `Tabs.*`, `Slider.*`, `Select.*`, `RadioGroup.*`, `Checkbox.*`, `Switch.*`, `Alert.*`, `Separator.*`, `Avatar.*`
 
-Use semantic color tokens (`text-primary`, `bg-card`, `border-secondary`) — never raw hex values. Follow the 60-30-10 rule: 60% `bg-background`, 30% `bg-card`/`bg-secondary`, 10% brand accents.
+**Default to semantic theme-aware classes** — `text-primary`, `text-foreground`, `text-muted-foreground`, `bg-background`, `bg-card`, `bg-muted`, `bg-brand-solid`, `border-primary`, `border-secondary`, etc. They map through CSS variables that the platform baseline defines for both light and dark modes, so:
+
+- Switching `data-theme="dark"` (or the user's OS preference flipping) re-paints the UI automatically. No code change, no style-array revisit.
+- Per-app brand changes from the `IkonTheme` indexer (`["bg-brand-solid"] = "violet-500"`, etc.) propagate to every site that uses the semantic class.
+
+**Hardcoded Tailwind palette classes** (`bg-amber-400`, `text-blue-600`) and **raw hex** (`#F5A524`) are valid and sometimes the right call — a fixed-brand marketing surface, a decorative gradient, a specific look that shouldn't follow the theme. They just **bypass the theming system**, which means if you later add light/dark switching or repaint the brand, every fixed-color site has to be refactored by hand. Mixing them with `Button.GhostMd`/`Button.OutlineMd` on a manually-dark background without setting the theme is the classic footgun — those buttons use `text-primary`, which stays dark in light mode and renders invisible.
+
+The 60-30-10 rule (60% `bg-background`, 30% `bg-card`/`bg-secondary`, 10% brand accents) is a starting balance, not a constraint.
 
 ### Theme Customization
 
@@ -97,34 +104,9 @@ Per-token Tailwind overrides also work — the renderer dispatches by key shape:
 
 The renderer dispatches by key shape: Tailwind palette step → `--color-{name}-{step}`; `rounded-*` → `--radius-*`; `shadow-*` → `--shadow-*`; `font-*` → `--font-*`; `ease-*` → `--ease-*`. Anything else falls through as `--{key}: {value}` (with smart sniff so Tailwind tokens used as values still resolve).
 
-`new IkonTheme { ... }` is the **only** configurable surface. **`Theming.Apply(...)`, `Theming.Custom(...)`, `Theme.Custom(...)` were retired** — they were the older factory-style APIs. There is also no auto-fan-out and no auto-contrast: setting `["primary"]` does not also set `["bg-brand-solid"]`, and setting `["background"]` does not auto-pick `["text-primary"]`. Spell out each var. Do not invent `.GradientBrand` / `.BorderColor` / `.PrimaryColor` / `.SurfaceColor` either; they never existed. For Tailwind-style gradients, use the utility classes (`bg-gradient-to-br from-{color} to-{color}`) directly on components.
+`new IkonTheme { ... }` is the **only** configurable surface. There is no auto-fan-out and no auto-contrast: setting `["primary"]` does not also set `["bg-brand-solid"]`, and setting `["background"]` does not auto-pick `["text-primary"]`. Spell out each var. Do not invent `.GradientBrand` / `.BorderColor` / `.PrimaryColor` / `.SurfaceColor` either; they never existed. For Tailwind-style gradients, use the utility classes (`bg-gradient-to-br from-{color} to-{color}`) directly on components.
 
-For deeper customization (full color scales, every radius/shadow token, dark-mode shadows, font fallbacks):
-
-Edit `IkonTheme.cs` to customize the app's visual identity. The top of the CSS section contains the customizable values — colors, radius, shadows, and fonts. Everything below (semantic token mappings, dark mode overrides, C# style tokens) is infrastructure that rarely needs changing.
-
-**Colors** — Six color scales, each with 12 steps (25–950). To change a color, replace all 12 hex values for that scale. Generate scales using OKLCH: keep the seed color's hue and chroma, vary lightness across the steps (97% for step 25 down to 15% for step 950), reduce chroma at extremes.
-
-| Scale | Purpose |
-|-------|---------|
-| `--brand-*` | Primary accent — buttons, links, active states |
-| `--neutral-*` | Backgrounds, borders, text — 60% of the UI |
-| `--error-*` | Error states, destructive actions |
-| `--success-*` | Success states, confirmations |
-| `--warning-*` | Warning states, caution |
-| `--info-*` | Informational elements |
-
-**Radius** — Change only `--radius-base`. All other radius tokens derive from it. Sharp (0.25rem) → modern (0.5rem) → friendly (0.75rem) → playful (1rem).
-
-**Shadows** — Light and dark mode shadow definitions. Adjust opacity values for lighter/heavier shadows.
-
-**Fonts** — Four tokens + matching `@import` URLs. `--font-display` for headings, `--font-body` for UI text, `--font-serif` for editorial, `--font-mono` for code. Always keep fallback stacks.
-
-**Style tokens** — The C# static classes (`Button`, `Card`, `Text`, `Layout`, etc.) compose Crosswind utility classes into reusable constants. Use these in style arrays: `[Button.PrimaryMd, "mt-4"]`. You can also write Crosswind classes inline or create custom token variables for app-specific patterns. Using the built-in tokens is not mandatory but ensures visual consistency.
-
-**Generating from an image** — Extract: dominant accent color → brand scale, background tone → neutral scale, corner radius, heading/body font styles. Cross-check that all dimensions reinforce the same aesthetic. Apply in a single pass.
-
-**Aesthetic guidance** — Tint neutrals toward the brand hue. Use OKLCH for perceptually uniform scales. Pair a distinctive display font with a readable body font. Choose radius that matches the emotional tone. Avoid pure black/white, generic AI defaults (neon accents, gradient text), and overused fonts (Inter, Roboto) for display.
+**The platform `IkonTheme` is the only configurable surface — there is no local `IkonTheme.cs` to edit.** The baseline CSS (color scales, radius/shadow tokens, dark-mode overrides, font fallbacks) lives in the platform `Ikon.Parallax.Theming` assembly and is fixed; per-app brand changes go through the indexer above. For an app-specific palette, set the indexer entries you care about — the rest inherit the platform baseline. To re-skin a Tailwind palette step app-wide, set the indexer key for that step (e.g. `["amber-400"] = "#F5A524"`); to swap the brand scale, set the brand-cluster CSS vars (`primary`, `bg-brand-solid`, `text-brand`, `border-brand`, `primary-foreground`). To generate a palette from an image, extract the dominant accent → brand vars, background tone → background var, corner radius → `radius-base`, font choices → `font-heading` / `font-body`.
 
 ### Motion Syntax
 

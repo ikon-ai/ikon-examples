@@ -3,7 +3,6 @@ using Ikon.Common.Core.Reactive;
 using Ikon.Common.Core.Scope;
 using Ikon.Parallax;
 using Ikon.Parallax.Components.Standard;
-using Ikon.Parallax.Themes.Ikon;
 using Ikon.Server;
 using System;
 using System.Collections.Generic;
