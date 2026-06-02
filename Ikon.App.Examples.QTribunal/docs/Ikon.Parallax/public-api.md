@@ -8,12 +8,6 @@ namespace Ikon.Parallax
     Context ClientContext
     // The deserialized action payload.
     T Value
-  // Per-app theme configuration. Composes the platform's Ikon CSS baseline with per-token CSS-variable overrides addressed by name. One uniform syntax: an indexer keyed by CSS variable name (without the leading --) or by Tailwind utility token. The renderer dispatches by key shape: Tailwind palette step (amber-400) → --color-amber-400rounded-{rung} → --radius-{rung}shadow-{rung} → --shadow-{rung}font-{role} → --font-{role}ease-{kind} → --ease-{kind}Anything else → --{key} (free CSS variable) Values are Crosswind / Tailwind class names (resolved via CrosswindResolver ) or raw CSS values (hex, rem, family stacks, gradients) — the resolver passes raw values through. Example: private UI UI { get; } = new(app, new IkonTheme { // Brand commitment — set the semantic vars that components consume. ["primary"] = "amber-400", ["bg-brand-solid"] = "amber-400", ["bg-brand-solid-hover"] = "amber-400", ["text-brand"] = "amber-400", ["border-brand"] = "amber-400", ["primary-foreground"] = "#0A0A0A", // pick contrast yourself // Background + foreground. ["background"] = "zinc-950", ["text-primary"] = "amber-50", ["text-foreground"] = "amber-50", // Surfaces. ["card"] = "zinc-900", ["popover"] = "zinc-900", // Type + shape. ["font-heading"] = "Crimson Pro", ["font-body"] = "Inter", ["radius-base"] = "rounded-lg", // Motion. ["motion-duration-base"] = "200ms", ["ease-default"] = "ease-out", // Per-token Tailwind palette / radius / shadow overrides. ["amber-400"] = "#F5A524", ["rounded-lg"] = "1.25rem", ["shadow-lg"] = "0 8px 16px rgba(0,0,0,.18)", // Bespoke decorative tokens. ["hero-glow"] = "radial-gradient(circle, #F5A52488, transparent 70%)", DarkMode = new IkonTheme { ["background"] = "zinc-50", ["text-primary"] = "zinc-950", }, }); The indexer is the only configurable surface — there are no magic property fan-outs and no auto-derived contrast text. What you write IS what lands in the override block.
-  sealed class IkonTheme : ITheme
-    ctor()
-    // Paired dark-mode theme. Pass another IkonTheme ; its overrides are emitted under [data-theme="dark"], .dark, and prefers-color-scheme: dark.
-    IkonTheme? DarkMode { get; init; }
-    string Item { get; set; }
   // Accumulates profiling samples over multiple render passes, providing aggregate statistics (avg, min, max, p95, p99).
   sealed class ProfileHistory
     // Creates a new history buffer that retains the last maxSamples render sessions.
@@ -1509,14 +1503,10 @@ namespace Ikon.Parallax.Components.Standard
     Monday
 
 namespace Ikon.Parallax.Themes
-  // Defines a UI theme providing base CSS and a default icon library.
-  interface ITheme
-    // Global CSS injected into the client as the theme baseline.
-    string Css { get; }
-    // The default icon library name (e.g. "lucide") used when no library is specified on an icon component.
-    string DefaultIconLibrary { get; }
+  // Legacy alias for ITheme . Apps scaffolded before the refactor still ship a local `Theme : ITheme` with `global using Ikon.Parallax.Themes;` — this keeps that resolve to a real interface whose contract matches the new one. New code should reference ITheme directly.
+  interface ITheme : ITheme
 
-namespace Ikon.Parallax.Themes.Ikon
+namespace Ikon.Parallax.Theming
   static class Accessibility
     static string RequiredLabel(string baseLabel)
     static string NotScreenReaderOnly
@@ -1825,22 +1815,6 @@ namespace Ikon.Parallax.Themes.Ikon
     static string CellMuted
     static string Default
     static string Header
-  // Resolves a Crosswind class name (color step, radius rung, font role, motion duration / easing) to the underlying CSS value the IkonTheme variables expect. Hex / rem / family-stack passthrough — values that don't look like Crosswind tokens are returned as-is so users can mix in raw hex when they need a custom palette.
-  static class CrosswindResolver
-    // True when a Tailwind palette token represents a "light" step (50-500 inclusive). Used by CssRenderer to pick the auto-derived primary-foreground (dark text on light brand vs. white text on dark brand). Returns null when we can't infer (raw hex, non-palette tokens) — caller falls back to luminance computation.
-    static bool? IsLightPaletteStep(string token)
-    // True when the token is a recognized Tailwind palette step (e.g. "amber-400", "zinc-950"). Used by CssRenderer to dispatch indexer overrides to the right CSS-variable target.
-    static bool IsTailwindPaletteToken(string token)
-    // Resolve a color token (e.g. "amber-400", "zinc-950") to a CSS color expression referencing the corresponding Tailwind palette CSS variable shipped by TailwindCssBaseline. Raw colors (hex, oklch, hsl, rgb, named) pass through unchanged.
-    static string ResolveColor(string token)
-    // Resolve a motion duration token (e.g. "duration-150", "150ms", "0.2s") to a CSS duration literal.
-    static string ResolveDuration(string token)
-    // Resolve an easing token (e.g. "ease-out", "linear") to a CSS easing value. Cubic-bezier expressions and raw keywords pass through unchanged.
-    static string ResolveEasing(string token)
-    // Resolve a font-family token (e.g. "font-sans", "font-serif", or a literal family name) to a quoted CSS font-family stack. Custom family names get a sensible system fallback chain.
-    static string ResolveFontFamily(string token)
-    // Resolve a radius token (e.g. "rounded-lg", "rounded-2xl") to its rem value. Raw rem / px values pass through unchanged.
-    static string ResolveRadius(string token)
   static class DataTable
     static string Cell
     static string DataCell
@@ -1985,6 +1959,12 @@ namespace Ikon.Parallax.Themes.Ikon
   static class HoverCard
     static string Content
     static string Default
+  // Defines a UI theme providing base CSS and a default icon library.
+  interface ITheme
+    // Global CSS injected into the client as the theme baseline.
+    string Css { get; }
+    // The default icon library name (e.g. "lucide") used when no library is specified on an icon component.
+    string DefaultIconLibrary { get; }
   static class Icon
     static string Default
     static string Lg
@@ -2006,6 +1986,12 @@ namespace Ikon.Parallax.Themes.Ikon
     static string Lg
     static string Md
     static string Sm
+  // Per-app theme configuration. Composes the platform's Ikon CSS baseline with per-token CSS-variable overrides addressed by name. One uniform syntax: an indexer keyed by CSS variable name (without the leading --) or by Tailwind utility token. The renderer dispatches by key shape: Tailwind palette step (amber-400) → --color-amber-400rounded-{rung} → --radius-{rung}shadow-{rung} → --shadow-{rung}font-{role} → --font-{role}ease-{kind} → --ease-{kind}Anything else → --{key} (free CSS variable) Values are Crosswind / Tailwind class names (resolved via CrosswindResolver ) or raw CSS values (hex, rem, family stacks, gradients) — the resolver passes raw values through. Example: private UI UI { get; } = new(app, new IkonTheme { // Brand commitment — set the semantic vars that components consume. ["primary"] = "amber-400", ["bg-brand-solid"] = "amber-400", ["bg-brand-solid-hover"] = "amber-400", ["text-brand"] = "amber-400", ["border-brand"] = "amber-400", ["primary-foreground"] = "#0A0A0A", // pick contrast yourself // Background + foreground. ["background"] = "zinc-950", ["text-primary"] = "amber-50", ["text-foreground"] = "amber-50", // Surfaces. ["card"] = "zinc-900", ["popover"] = "zinc-900", // Type + shape. ["font-heading"] = "Crimson Pro", ["font-body"] = "Inter", ["radius-base"] = "rounded-lg", // Motion. ["motion-duration-base"] = "200ms", ["ease-default"] = "ease-out", // Per-token Tailwind palette / radius / shadow overrides. ["amber-400"] = "#F5A524", ["rounded-lg"] = "1.25rem", ["shadow-lg"] = "0 8px 16px rgba(0,0,0,.18)", // Bespoke decorative tokens. ["hero-glow"] = "radial-gradient(circle, #F5A52488, transparent 70%)", DarkMode = new IkonTheme { ["background"] = "zinc-50", ["text-primary"] = "zinc-950", }, }); The indexer is the only configurable surface — there are no magic property fan-outs and no auto-derived contrast text. What you write IS what lands in the override block.
+  sealed class IkonTheme : ITheme
+    ctor()
+    // Paired dark-mode theme. Pass another IkonTheme ; its overrides are emitted under [data-theme="dark"], .dark, and prefers-color-scheme: dark.
+    IkonTheme? DarkMode { get; init; }
+    string Item { get; set; }
   static class ImageCard
     static string Caption
     static string Image
@@ -2148,10 +2134,7 @@ namespace Ikon.Parallax.Themes.Ikon
   static class Page
     static string Base
     static string Default
-    // Backwards-compatible alias for the tri-color decorative overlay. New code should prefer Showcase for clarity.
-    static string Gradient
     static string Plain
-    static string Showcase
   static class Pagination
     static string Active
     static string Disabled
@@ -2436,19 +2419,11 @@ namespace Ikon.Parallax.Themes.Ikon
     static string DefaultLg
     static string DefaultSm
     static string Invalid
+  // Legacy alias for the non-configurable default theme — equivalent to new IkonTheme() with no overrides. Apps scaffolded against the older platform shape used new Theme() to get the baseline; the indexer-driven IkonTheme is the new API and should be used in new code.
   sealed class Theme : ITheme
     ctor()
     string Css { get; }
     string DefaultIconLibrary { get; }
-  // One named override on an app's theme: a role + Crosswind value, or a free-form custom CSS variable. The codegen Styling Oracle emits a list of these; the CSS renderer walks them.
-  sealed class ThemeIntent : IEquatable<ThemeIntent>
-    // One named override on an app's theme: a role + Crosswind value, or a free-form custom CSS variable. The codegen Styling Oracle emits a list of these; the CSS renderer walks them.
-    ctor(string Role, string Value, string? CustomName = null)
-    string? CustomName { get; init; }
-    string Role { get; init; }
-    string Value { get; init; }
-    // Theme roles recognized by the renderer. Anything else passes through as a custom variable (in which case CustomName must be set and matches the variable name without the leading --).
-    static IReadOnlyList<string> Roles
   static class TimePicker
     static string Column
     static string ColumnSeparator

@@ -49,7 +49,7 @@ Styling uses Crosswind, a Tailwind-compatible utility class system. Styles are d
 
 - Standard Tailwind utility classes (`flex`, `gap-4`, `bg-white`, etc.)
 - Extended motion and animation classes
-- Built-in theme style constants (via `Ikon.Parallax.Themes.Default`)
+- Built-in theme style constants (via `Ikon.Parallax.Theming`)
 
 ```csharp
 private const string ButtonStyle =
@@ -66,7 +66,7 @@ Create a `UI` instance with the app host and call `Root` to define the UI tree:
 
 ```csharp
 using Ikon.Parallax;
-using Ikon.Parallax.Themes.Default;
+using Ikon.Parallax.Theming;
 
 [App]
 public class MyApp(IApp<SessionIdentity, ClientParams> app)
@@ -313,7 +313,7 @@ public static class AppStyles
 The library includes a built-in `Default` theme that provides a complete style system:
 
 ```csharp
-using Ikon.Parallax.Themes.Default;
+using Ikon.Parallax.Theming;
 
 // Use theme style constants
 view.Button(style: [Button.PrimaryMd], label: "Submit");

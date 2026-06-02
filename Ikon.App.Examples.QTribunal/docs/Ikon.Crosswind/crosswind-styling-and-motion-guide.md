@@ -82,17 +82,34 @@ public static class AppStyles
 }
 ```
 
-### Built-in Themes
+### Three styling layers, all valid in the same style array
 
-Ikon provides built-in themes with organized style constants:
+Crosswind supports three ways to style a component. They compose freely in the same array — the right choice depends on whether you want the surface to follow the active theme (light/dark mode, per-app brand overrides) or not.
+
+**1. Semantic theme-aware classes** (the default). `bg-card`, `text-primary`, `text-muted-foreground`, `bg-background`, `bg-brand-solid`, `border-secondary`, etc. resolve through CSS variables that the platform baseline defines for both light and dark modes and that `IkonTheme` overrides target. Switching `data-theme="dark"` re-paints the UI automatically; a per-app brand re-skin propagates to every semantic site — no style-array refactor needed.
 
 ```csharp
-using Ikon.Parallax.Themes.Default;
+view.Box(style: ["rounded-2xl bg-card border border-secondary p-6 text-primary"], content: view => { ... });
+```
+
+**2. `Ikon.Parallax.Theming` token shortcuts**. Pre-composed bundles of layer 1 — Crosswind utility strings packaged into named constants per role/size. Use them as ergonomic shortcuts when their defaults fit; ignore them when you want a different look. They follow the theme because they're built from semantic classes.
+
+```csharp
+using Ikon.Parallax.Theming;
 
 view.Button(style: [Button.PrimaryMd], label: "Submit");
 view.TextField(style: [Input.Default], defaultValue: "");
-view.Box(style: [Card.Default], content: view => { });
+view.Box(style: [Card.Default], content: view => { ... });
 ```
+
+**3. Hardcoded Tailwind palette classes and raw hex**. `bg-amber-400`, `text-zinc-950`, `bg-[#F5A524]`, `text-[#0A0A0A]`. Use these when you specifically want a look that **shouldn't** change with the theme — a fixed-brand marketing surface, a decorative gradient, an illustration backdrop. They bypass the theming system, so the trade-off is concrete: if you later add light/dark switching or a brand re-skin, every fixed-color site needs to be revisited by hand.
+
+```csharp
+view.Button(style: ["px-4 py-2 bg-amber-400 text-zinc-950 rounded-md hover:bg-amber-500 transition-colors"], label: "Submit");
+view.Box(style: ["rounded-2xl bg-zinc-900 border border-zinc-800 p-6 shadow-lg"], content: view => { ... });
+```
+
+The three layers compose freely (`[Button.PrimaryMd, "mt-4 self-center", "bg-[#F5A524]"]`) — pick whichever shape best matches what you're building, but default to layer 1 for surfaces that should follow the theme.
 
 ### Theme Activation
 
