@@ -102,10 +102,10 @@ namespace Ikon.AI.SoundEffectGeneration
     string ContentType { get; init; }
     double DurationSeconds { get; init; }
   sealed class SoundEffectGenerator : IDisposable, ISoundEffectGenerator, ISoundEffectGeneratorInfo
-    ctor(string modelName, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
-    ctor(SoundEffectGeneratorModel model, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
-    ctor(string modelName, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
-    ctor(SoundEffectGeneratorModel model, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
+    ctor(string modelName)
+    ctor(SoundEffectGeneratorModel model)
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions)
+    ctor(SoundEffectGeneratorModel model, IReadOnlyList<ModelRegion>? regions)
     int ChannelCount { get; }
     int SampleRate { get; }
     bool SupportsLooping { get; }
@@ -145,10 +145,10 @@ namespace Ikon.AI.SpeechGeneration
     IReadOnlyList<string> VoiceIds { get; }
     abstract IAsyncEnumerable<AudioContainer> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = null)
   sealed class SpeechGenerator : IDisposable, ISpeechGenerator
-    ctor(string modelName, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
-    ctor(SpeechGeneratorModel model, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
-    ctor(string modelName, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
-    ctor(SpeechGeneratorModel model, IReadOnlyList<ModelRegion>? regions, bool useLocalCache = true, TimeSpan? localCacheExpirationTime = null)
+    ctor(string modelName)
+    ctor(SpeechGeneratorModel model)
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions)
+    ctor(SpeechGeneratorModel model, IReadOnlyList<ModelRegion>? regions)
     int ChannelCount { get; }
     int SampleRate { get; }
     IReadOnlyList<string> VoiceIds { get; }
