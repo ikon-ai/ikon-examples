@@ -14,7 +14,7 @@ global using Ikon.Common.Core.Scope;
 global using Ikon.Common.Core;
 global using Ikon.Common;
 global using Ikon.Parallax.Components.Standard;
-global using Ikon.Parallax.Themes.Ikon;
+global using Ikon.Parallax.Theming;
 global using Ikon.Parallax;
 global using Ikon.Pipeline.Items;
 global using Ikon.Pipeline;
