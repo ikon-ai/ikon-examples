@@ -10,7 +10,7 @@ Text-to-speech with `new SpeechGenerator(model)`, speech-to-text with `new Speec
 
 ```csharp
 // Generate speech and stream to clients
-using var speechGenerator = new SpeechGenerator(SpeechGeneratorModel.ElevenTurbo25);
+using var speechGenerator = new SpeechGenerator(SpeechGeneratorModel.ElevenFlash25);
 await foreach (var audio in speechGenerator.GenerateSpeechAsync(new SpeechGeneratorConfig { Text = "Hello world" }))
 {
     Audio.SendSpeech(audio);  // Audio is an app service property
