@@ -28,7 +28,7 @@ Ikon AI Apps target the **latest C#** (C# 13 on .NET 10). Use modern idioms; avo
 ### Common syntax mistakes (these all appear as compile errors)
 
 - **Dictionary literals**: C# uses `[key] = value`, NOT JSON's `key: value`.
-  - Wrong: `new Dictionary<string,string> { "k": "v" }` → `CS1003 + CS1525 + CS1026` stacked at the colon.
+  - Wrong: `new Dictionary<string,string> { "k": "v" }` → a `CS1002` / `CS1513` syntax error at the colon.
   - Right: `new Dictionary<string,string> { ["k"] = "v" }`.
   - Same applies to any `IDictionary<,>` initializer (Reactive<Dictionary<...>>, route maps, etc.).
 
@@ -39,7 +39,7 @@ Ikon AI Apps target the **latest C#** (C# 13 on .NET 10). Use modern idioms; avo
 
 - **Async lambda shape**: `view.Button(onClick: async () => ...)` is parameterless; `view.TextField(onSubmit: async value => ...)` takes the submitted value. Mixing them produces `CS8917` ("delegate type could not be inferred").
 
-- **Explicit `using` for Ikon namespaces**: GlobalUsings already imports them. Adding `using Ikon.X;` produces `CS0234`. Just write the type name.
+- **Explicit `using` for Ikon namespaces**: GlobalUsings already imports them, so a per-file `using` is redundant (harmless but unnecessary) — just write the type name. Only a made-up namespace that doesn't exist (e.g. `using Ikon.NotReal;`) produces `CS0234`.
 
 - **Null-forgiving on framework calls**: don't `!` your way past `CS8602` (possibly null reference) on `.Value` of `Reactive<T>` — those are non-nullable by contract. If you see this warning on Ikon types, you're holding it wrong.
 
@@ -50,8 +50,8 @@ The codebase is intentionally NOT layered, NOT DDD-onion, NOT IUnitOfWork-around
 - **No factory factories.** A `Func<IFoo>` parameter beats `IFooFactory.Create()`.
 - **No "I" prefix on every type.** Interfaces only when there is a real second implementation today, not "for testing" speculation.
 - **No abstract base classes for one concrete class.** Just write the class.
-- **No `IUnitOfWork`, `IRepository<T>`, `IService` ceremony.** Talk to the platform's storage APIs directly (`Asset`, `app.Database`, `PersistentReactive<T>`).
-- **No DI container.** The app is wired via primary constructor parameters and `app.Services` from the platform. Don't pull in Microsoft.Extensions.DependencyInjection.
+- **No `IUnitOfWork`, `IRepository<T>`, `IService` ceremony.** Talk to the platform's storage APIs directly (`Asset`, `app.Databases`, `PersistentReactive<T>`).
+- **No DI container.** The app is wired via primary constructor parameters. Don't pull in Microsoft.Extensions.DependencyInjection.
 - **No "Manager / Helper / Service / Provider" naming when a verb works.** `RoomScheduler` not `RoomManagementService`.
 - **No mock-heavy testing.** Tests run against real implementations or the platform's in-memory variants. Mocks are a smell, not a strategy.
 - **No `try { ... } catch (Exception) { }` swallow blocks.** Either handle the specific exception, log it, or let it bubble.

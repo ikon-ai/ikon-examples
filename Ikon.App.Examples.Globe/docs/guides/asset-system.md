@@ -58,7 +58,7 @@ Read with metadata, carry `LastModified` forward into writes to prevent blind ov
 ```csharp
 var content = await Asset.Instance.GetTextWithMetadataAsync(uri);
 // ... modify content.Content ...
-var result = await Asset.Instance.TrySetTextAsync(uri, modified, new AssetMetadata(lastModified: content.Metadata.LastModified));
+var result = await Asset.Instance.TrySetTextAsync(uri, modified, new AssetMetadata(lastModified: content.MetaData?.LastModified));
 if (result.IsConflict) { /* re-read and retry */ }
 ```
 
