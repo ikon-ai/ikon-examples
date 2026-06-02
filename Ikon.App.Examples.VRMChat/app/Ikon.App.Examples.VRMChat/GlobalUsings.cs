@@ -10,7 +10,7 @@ global using Ikon.Common.Core.Reactive;
 global using Ikon.Common.Core.Scope;
 global using Ikon.Common.Core;
 global using Ikon.Common;
-global using Ikon.Parallax.Themes.Ikon;
+global using Ikon.Parallax.Theming;
 global using Ikon.Parallax;
 global using Ikon.Resonance.Analysis;
 global using Ikon.Resonance.Effects;

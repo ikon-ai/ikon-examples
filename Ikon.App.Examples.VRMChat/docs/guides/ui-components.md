@@ -2,7 +2,7 @@
 
 ## UI Components
 
-All UI components are called as methods on `UIView` (the `view` parameter in content lambdas). Never reference the `UIView` type directly — just use the `view` parameter provided by content lambdas. There is no `IView` interface. Style is always the first parameter, using an array of theme constants and/or Crosswind classes.
+All UI components are called as methods on `UIView` (the `view` parameter in content lambdas). Never reference the `UIView` type directly — just use the `view` parameter provided by content lambdas. (`IView` exists only as a global alias for `UIView` for helper-method signatures; there is no separate `IView` interface.) Style is always the first parameter, using an array of theme constants and/or Crosswind classes.
 
 ### Layout
 
