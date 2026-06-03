@@ -33,13 +33,13 @@ var (result, context, trace) = await Emerge.Run<MyType>(model, ctx, pass => { ..
 |-------|-------------|
 | `ModelText<T>` | Streaming text chunk from the model |
 | `ToolCallPlanned<T>` | Tool call detected (contains `FunctionCall`) |
-| `ToolCallResult<T>` | Tool execution completed (contains `FunctionCall`, `StreamingResult[]`, result) |
+| `ToolCallResult<T>` | Tool execution completed (contains `Call`, `StreamingResults`, `Result`) |
 | `Stage<T>` | Pattern stage boundary (e.g., "Solver", "Critic") |
 | `Progress<T>` | Progress message |
 | `Retry<T>` | Retry attempt (contains `Reason`, `AttemptNumber`, `MaxAttempts`) |
-| `TokenUpdate<T>` | Token usage update (contains `InputTokens`, `OutputTokens`) |
+| `TokenUpdate<T>` | Token usage update (contains `InputTokens`, `CachedInputTokens`, `CacheCreationInputTokens`, `OutputTokens`) |
 | `Completed<T>` | Final result with `Result`, `Context`, and `Trace` |
-| `Stopped<T>` | Execution stopped (budget exceeded, user stop, etc.) with optional `Reason` |
+| `Stopped<T>` | Execution stopped (budget exceeded, user stop, etc.) with `Context` and optional `Reason` |
 
 ### Typed JSON Output
 
@@ -96,6 +96,32 @@ Patterns handle context in two ways:
 ---
 
 ## Patterns
+
+### AskAsync — One-Shot Shortcut
+
+The simplest entry point: a one-shot LLM call with no `KernelContext`, no tools, no streaming. Defaults to `LLMModel.Claude45Haiku` — cheap and fast for short transformations (chatbot replies, reformat-as-X, classify, summarize). Reach for `Run<T>` when you need tools, multi-iteration loops, a populated context, or pass tuning.
+
+```csharp
+// String response
+string reply = await Emerge.AskAsync("Summarize this in one sentence: ...");
+
+// Structured response (T must be a reference type)
+public class Classification
+{
+    public string Category { get; set; } = "";
+    public float Confidence { get; set; }
+}
+
+Classification result = await Emerge.AskAsync<Classification>(
+    "Classify this support ticket: \"My laptop won't turn on\"");
+
+// Explicit model override
+string reply = await Emerge.AskAsync("Hard reasoning question", LLMModel.Claude45Sonnet);
+```
+
+The structured overload throws `InvalidOperationException` if the model returns nothing or invalid JSON.
+
+---
 
 ### Run — Single Agent Loop
 
@@ -823,6 +849,8 @@ Returned with `Completed<T>` events:
 | `Iterations` | `int` | Number of LLM iterations |
 | `ToolCalls` | `int` | Number of tool calls made |
 | `InputTokens` | `long` | Total input tokens consumed |
+| `CachedInputTokens` | `long` | Input tokens served from prompt cache |
+| `CacheCreationInputTokens` | `long` | Input tokens written into prompt cache |
 | `OutputTokens` | `long` | Total output tokens generated |
 | `Duration` | `TimeSpan` | Total wall time |
 | `ToolCallHistory` | `IReadOnlyList<FunctionCall>` | Full tool call history |

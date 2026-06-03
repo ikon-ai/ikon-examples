@@ -2,7 +2,7 @@
 
 ## C# Language Primer
 
-Ikon AI Apps target the **latest C#** (C# 13 on .NET 10). Use modern idioms; avoid enterprise patterns and unnecessary abstractions. The Coder agent should write code that looks like a 2025 senior engineer's natural style, not 2010 layered-architecture C#.
+Ikon AI Apps target the **latest C#** (C# 14 on .NET 10). Use modern idioms; avoid enterprise patterns and unnecessary abstractions. The Coder agent should write code that looks like a 2025 senior engineer's natural style, not 2010 layered-architecture C#.
 
 ### Use these modern constructs
 
@@ -50,7 +50,7 @@ The codebase is intentionally NOT layered, NOT DDD-onion, NOT IUnitOfWork-around
 - **No factory factories.** A `Func<IFoo>` parameter beats `IFooFactory.Create()`.
 - **No "I" prefix on every type.** Interfaces only when there is a real second implementation today, not "for testing" speculation.
 - **No abstract base classes for one concrete class.** Just write the class.
-- **No `IUnitOfWork`, `IRepository<T>`, `IService` ceremony.** Talk to the platform's storage APIs directly (`Asset`, `app.Databases`, `PersistentReactive<T>`).
+- **No `IUnitOfWork`, `IRepository<T>`, `IService` ceremony.** Talk to the platform's storage APIs directly (`Asset.Instance`, `AppDatabaseConnection.Create(app, "name")`, `PersistentReactive<T>`).
 - **No DI container.** The app is wired via primary constructor parameters. Don't pull in Microsoft.Extensions.DependencyInjection.
 - **No "Manager / Helper / Service / Provider" naming when a verb works.** `RoomScheduler` not `RoomManagementService`.
 - **No mock-heavy testing.** Tests run against real implementations or the platform's in-memory variants. Mocks are a smell, not a strategy.
@@ -60,4 +60,4 @@ The codebase is intentionally NOT layered, NOT DDD-onion, NOT IUnitOfWork-around
 
 ### When in doubt
 
-Pick the option a reader of *new* C# code would write today. If the option you're considering would have looked normal in C# 7, but feels heavy in C# 13 — the C# 13 form is correct.
+Pick the option a reader of *new* C# code would write today. If the option you're considering would have looked normal in C# 7, but feels heavy in C# 14 — the C# 14 form is correct.
