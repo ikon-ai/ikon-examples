@@ -24,7 +24,7 @@ const app = useIkonApp({
   webRtc: true,           // Enable WebRTC for audio/video transport (default: true)
   backgroundAudio: false, // Allow audio playback when tab is in background (default: false)
   websocket: undefined,   // Force WebSocket transport (default: auto-detected)
-  webtransport: undefined,// Force WebTransport transport (default: auto-detected)
+  webtransport: undefined,// Opt into WebTransport (default: off — WebSocket is used unless this is true)
   proxy: undefined,       // Force proxy mode (default: auto-detected)
   authConfig: undefined,  // Override auth config (default: from window.__IKON_AUTH_CONFIG__)
   timeouts: undefined,    // Connection timeout configuration (see Connection Lifecycle)
@@ -35,7 +35,7 @@ const app = useIkonApp({
 - `audio` / `video` — Enable or disable audio and video playback from the C# app. Enabled by default
 - `webRtc` — Use WebRTC transport for audio/video instead of the default SDK-managed pipeline
 - `backgroundAudio` — Allow audio to continue playing when the browser tab is not focused, on both desktop and mobile
-- `websocket` / `webtransport` / `proxy` — Force a specific transport. By default the SDK auto-selects: WebTransport → WebSocket → proxy variants
+- `websocket` / `webtransport` / `proxy` — Force a specific transport. By default the SDK uses WebSocket (then proxy variants); WebTransport is off by default and must be explicitly enabled
 - `authConfig` — Override the auto-detected auth configuration. By default read from `window.__IKON_AUTH_CONFIG__` which is injected at build time from `ikon-config.toml`
 - `timeouts` — Override connection timeout defaults (see Connection Lifecycle)
 
@@ -74,16 +74,16 @@ const app = useIkonApp({
 
 ### Connection Lifecycle
 
-Connection states: `idle` → `connecting` → `connectingSlow` → `connected`, with `reconnecting` on temporary disconnection and `offline` / `offlineError` as terminal states.
+Connection states: `connecting` → `connected`, with `reconnecting` on temporary disconnection and `offline` as the terminal state. (The slow-connection signal is surfaced as the `isConnectingSlow` boolean, not a separate state; `idle`, `connectingSlow`, and `offlineError` remain in the `ConnectionState` type for back-compat but are no longer emitted.)
 
 **Timeline:**
 1. **0–5s:** `connecting` state (show blank or nothing)
-2. **5s threshold:** transitions to `connectingSlow` (show a loading indicator)
-3. **180s timeout:** if still not connected, transitions to `offline` or `offlineError`
+2. **5s threshold:** `isConnectingSlow` becomes true (show a loading indicator); the state stays `connecting`
+3. **180s timeout:** if still not connected, transitions to `offline`
 4. **On disconnect:** enters `reconnecting` state — attempt 1 is immediate, attempt 2 after 2s delay. After 2 failed attempts, falls back to full re-authentication
-5. **Stability:** after 15s of stable connection, the reconnect counter resets
+5. **Stability:** after 5s of stable connection, the reconnect counter resets
 
-**Transport selection:** The SDK auto-selects the best transport: WebTransport → WebSocket → proxy variants. Override with the `websocket`, `webtransport`, or `proxy` options on `useIkonApp`, or with query parameters.
+**Transport selection:** By default the SDK uses WebSocket (then proxy variants). WebTransport is off by default (found unreliable on poor networks) and must be opted into via `webtransport: true` on `useIkonApp` or the `?ikon-webtransport=true` query parameter. Override the transport with the `websocket`, `webtransport`, or `proxy` options on `useIkonApp`, or with query parameters.
 
 **Keepalive:** The server sends periodic keepalive messages. The SDK monitors these with a 15s timeout — if no keepalive is received, the connection is considered lost.
 
@@ -91,7 +91,7 @@ Connection states: `idle` → `connecting` → `connectingSlow` → `connected`,
 
 | Option | Default | Description |
 |---|---|---|
-| `slowConnectionThresholdMs` | 5000 | Time before `connectingSlow` state |
+| `slowConnectionThresholdMs` | 5000 | Time before the slow-connection signal (`isConnectingSlow`) |
 | `connectionTimeoutMs` | 180000 | Max time to establish connection |
 | `keepaliveTimeoutMs` | 15000 | Max gap between keepalive messages |
 | `reconnectBackoffMs` | 2000 | Delay between reconnect attempts |
