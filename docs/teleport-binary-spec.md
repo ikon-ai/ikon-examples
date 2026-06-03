@@ -329,7 +329,7 @@ Readers must validate bounds, enforce max lengths and depth, and reject malforme
 - Readers: use span/slice cursors, no virtual calls on hot paths.
 - Avoid per-field allocations; decode strings lazily.
 - Keep migration logic local; avoid global schema registries.
-- Limit per-object field count ≤ 4 294 967 295 (varuint bound).
+- Object field counts are unbounded by the format itself; readers loop until the closing `0xA2` marker (subject only to the enclosing length field, which is a varuint capped at 4 294 967 295 bytes).
 - Encode every varuint canonically (no redundant high-bit continuation).
 - Provide bulk writers (e.g., WriteSpan<T>, WriteStruct<T>) for blittable data paths.
 - Reject any non-zero low-nibble flags for forward-compat safety.

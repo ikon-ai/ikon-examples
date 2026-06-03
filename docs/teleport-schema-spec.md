@@ -114,9 +114,10 @@ csharp     = "Example.Namespace"  # C#
 typescript = "Example.Namespace"  # TypeScript
 cpp        = "Example.Namespace"  # C++
 dart       = "Example.Namespace"  # Dart
+rust       = "example_namespace"  # Rust
 ```
 
-The `[namespaces]` table is optional and may contain only the `csharp`, `typescript`, `cpp`, and `dart` keys. Set any of those entries to an empty string to suppress the namespace for that specific target while keeping it for the others.
+The `[namespaces]` table is optional and may contain only the `csharp`, `typescript`, `cpp`, `dart`, and `rust` keys. Set any of those entries to an empty string to suppress the namespace for that specific target while keeping it for the others.
 
 ### Allowed Field Type Forms
 
@@ -230,7 +231,9 @@ rename = { from = "UserName", to = "Name" }
 remove = "ObsoleteFlag"
 ```
 
-These are compiled into version-aware deserializers that automatically migrate older Teleport data streams.
+These are intended to compile into version-aware deserializers that automatically migrate older Teleport data streams.
+
+> Status: `[[transforms]]` is reserved by the schema parser but the current code generators do not yet emit migration logic from it. Plan migrations manually in user code until this lands.
 
 ---
 
@@ -245,6 +248,8 @@ Channels.max   = 8
 ```
 
 Used for static validation during compilation or generated code, never serialized.
+
+> Status: `[constraints]` is reserved by the schema parser but the current code generators do not yet emit validation logic from it. Enforce bounds in user code until this lands.
 
 ---
 
@@ -302,6 +307,8 @@ ikon teleport generate --input ./messages/*.tp --type csharp --output ./generate
 ikon teleport generate --input ./schemas/cache.tp --type cpp --output ./generated
 ```
 
+The `ikon teleport generate` verb accepts `--type` values `csharp`, `typescript`, `cpp`, and `json-ir`. For Ikon AI apps, `ikon app teleport build` compiles every `Schema/*.tp` file in the current app and emits C# for the host plus whichever frontend SDKs the app carries (TypeScript for `frontend-node/`, Dart for `frontend-flutter/`, Rust for `frontend-rust/`, C++ for `frontend-cpp/`).
+
 ### Language Targets
 
 | Language    | Output Type            |
@@ -310,6 +317,7 @@ ikon teleport generate --input ./schemas/cache.tp --type cpp --output ./generate
 | TypeScript  | `interface`            |
 | C++         | `struct`               |
 | Dart        | `class`                |
+| Rust        | `pub struct`           |
 
 ---
 

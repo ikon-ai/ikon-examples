@@ -110,27 +110,25 @@ const client = new IkonClient({
 
 ### Connection States
 
-The client tracks its connection state via the `connectionState` property:
+The client tracks its connection state via the `connectionState` property. Live states currently emitted by the runtime:
 
 | State | Description |
 |-------|-------------|
-| `idle` | Initial state, not connected |
 | `waitingForExternalConnectUrl` | Waiting for external connect URL (used in preview mode) |
 | `connecting` | Authentication and connection in progress |
-| `connectingSlow` | Still connecting, taking longer than expected (>5s) |
 | `connected` | Fully connected and ready |
 | `reconnecting` | Lost connection, attempting automatic reconnect |
-| `offline` | Disconnected (timeout, server stopped, user-initiated) |
-| `offlineError` | Disconnected due to SDK internal error |
+| `offline` | Disconnected (timeout, server stopped, user-initiated). When the disconnect carried an error, the message is available on `client.lastError` |
+
+The `ConnectionState` union also includes deprecated states (`idle`, `connectingSlow`, `offlineError`) so existing string-equality checks keep type-checking, but the runtime no longer transitions into them.
 
 Helper functions are available for common state checks:
 
 ```typescript
-import { isConnecting, isConnected, isOffline, isError } from '@ikonai/sdk';
+import { isConnecting, isConnected, isOffline } from '@ikonai/sdk';
 
-// Check state categories
 if (isConnecting(client.connectionState)) {
-  // waitingForExternalConnectUrl, connecting, connectingSlow, or reconnecting
+  // waitingForExternalConnectUrl, connecting, or reconnecting
 }
 
 if (isConnected(client.connectionState)) {
@@ -138,11 +136,7 @@ if (isConnected(client.connectionState)) {
 }
 
 if (isOffline(client.connectionState)) {
-  // idle, offline, or offlineError
-}
-
-if (isError(client.connectionState)) {
-  // offlineError - check client.lastError for details
+  // offline (read client.lastError for the optional error message)
 }
 ```
 
@@ -199,8 +193,8 @@ console.log(client.globalState);
 // Disconnect
 client.disconnect();
 
-// Access the last error (when in offlineError state)
-if (isError(client.connectionState)) {
+// Access the last error (carried alongside `offline` when a disconnect had an error)
+if (client.lastError) {
   console.error(client.lastError);
 }
 
@@ -457,7 +451,7 @@ const client = new IkonClient({
     performance: { preferWebCodecs: true },
   },
   webRtc: {
-    enabled: true,  // Enable WebRTC for audio/video transport
+    enabled: true,  // WebRTC for audio/video transport (enabled by default)
   },
   mediaSession: {
     title: 'My App Audio',
@@ -470,12 +464,12 @@ Media pipelines automatically process audio and video protocol messages.
 
 ### WebRTC
 
-The SDK supports WebRTC for audio and video transport. Enable it in the configuration:
+The SDK supports WebRTC for audio and video transport. It is enabled by default and can be turned off in the configuration:
 
 ```typescript
 const client = new IkonClient({
   // ... authentication config ...
-  webRtc: { enabled: true },
+  webRtc: { enabled: false },  // disable WebRTC; default is true
 });
 
 // Check if WebRTC is active (false if both audio and video are disabled)
@@ -700,6 +694,7 @@ The SDK provides typed errors for different failure scenarios:
 | `AuthenticationError` | Authentication failed (invalid credentials, unauthorized) |
 | `TransportError` | Transport-level failure (WebSocket error) |
 | `KeepaliveTimeoutError` | No keepalive received within timeout period |
+| `AuthRejectedError` | Server closed the transport immediately after handshake (e.g. cached auth ticket expired) |
 | `MaxRetriesExceededError` | Maximum reconnection attempts exhausted |
 | `ProvisioningTimeoutError` | Cloud channel provisioning timed out |
 | `ChannelNotFoundError` | Channel with specified key not found |
@@ -730,7 +725,7 @@ const client = new IkonClient({
 |------|-------------|
 | `IkonClient` | Main client class for connecting to Ikon servers |
 | `IkonClientConfig` | Configuration for the client |
-| `ConnectionState` | Union type: `idle`, `waitingForExternalConnectUrl`, `connecting`, `connectingSlow`, `connected`, `reconnecting`, `offline`, `offlineError` |
+| `ConnectionState` | Union type. Live states: `waitingForExternalConnectUrl`, `connecting`, `connected`, `reconnecting`, `offline`. Deprecated members kept in the union: `idle`, `connectingSlow`, `offlineError` |
 | `ProtocolMessage` | Raw protocol message (Uint8Array) |
 | `GlobalState` | Server state received after connection |
 
@@ -757,7 +752,6 @@ const client = new IkonClient({
 | `FunctionHandler` | Handler callback type |
 | `ValueDescriptor` | Type descriptor for parameters/returns |
 | `FunctionResultWithData` | Result type with binary data attachment |
-| `RemoteFunction` | Remote function metadata (name, parameters, client session) |
 | `FunctionCallError` | Error from remote function call with `remoteErrorType` and `remoteStackTrace` |
 
 ### UI Types (sdk-ui)
@@ -791,6 +785,7 @@ const client = new IkonClient({
 | `AuthenticationError` | Authentication failure |
 | `TransportError` | Transport-level failure |
 | `KeepaliveTimeoutError` | Keepalive timeout |
+| `AuthRejectedError` | Server closed transport immediately after handshake (auth-rejection signal) |
 | `MaxRetriesExceededError` | Max retries exceeded |
 | `ProvisioningTimeoutError` | Provisioning timeout |
 | `ChannelNotFoundError` | Channel not found |
@@ -805,8 +800,8 @@ const client = new IkonClient({
 |----------|-------------|
 | `isConnecting(state)` | Returns true if waitingForExternalConnectUrl, connecting, connectingSlow, or reconnecting |
 | `isConnected(state)` | Returns true if connected |
-| `isOffline(state)` | Returns true if idle, offline, or offlineError |
-| `isError(state)` | Returns true if offlineError |
+| `isOffline(state)` | Returns true if offline or offlineError |
+| `isError(state)` | Deprecated. Returns true if offlineError (no longer emitted) — read `client.lastError` instead |
 | `readOpcode(message)` | Extract opcode from protocol message |
 | `readProtocolMessageHeaders(message)` | Extract headers from protocol message |
 | `isWebTransportSupported()` | Check WebTransport browser support |

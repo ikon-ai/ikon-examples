@@ -5,7 +5,7 @@ Server-initiated eID-backed document signing for Ikon apps. Drive a Signicat sig
 ## TL;DR — what you wire
 
 ```csharp
-// In an app method that has the signer's clientSessionId
+// In an app method that has the signer's client session id (int)
 var pdfBytes = File.ReadAllBytes("contract.pdf");
 
 var request = new SignatureOrderRequest(
@@ -18,7 +18,7 @@ var request = new SignatureOrderRequest(
     Title: "Sign your contract",
     CostAttributionKey: "case-1234");
 
-SignedDocument signed = await app.CreateSignatureOrderAsync(clientSessionId, request, ct);
+SignedDocument signed = await app.CreateSignatureOrderAsync(signerClientSessionId, request, ct);
 
 // signed.Bytes — long-term-validation PAdES bytes (persist as system of record)
 // signed.SignedAt, signed.SignedDocumentHash, signed.IdentityScheme, signed.EvidenceLevel
@@ -125,7 +125,7 @@ For most "user signs a document" flows, `EidHub` is the right policy. `PkiSignin
 
 ## Cost attribution
 
-`CostAttributionKey` (optional) is an opaque app-defined label that the backend records on the order. Use it to correlate signing cost back to a domain entity (case ID, transaction ID, customer ID) for billing. See [Ikon Mint Guide](ikon-mint-guide.md) for the broader monetization model.
+`CostAttributionKey` (optional) is an opaque app-defined label that the backend records on the order. Use it to correlate signing cost back to a domain entity (case ID, transaction ID, customer ID) for billing. See [Ikon.App Billing Guide](ikon-app-billing-guide.md) for the broader monetization model.
 
 ## Field reference
 
@@ -138,6 +138,7 @@ For most "user signs a document" flows, `EidHub` is the right policy. `PkiSignin
 | `Signer` | yes | One `SignatureSigner(Policy, Vendor?, IdpNames?, RequestedAttributes?)`. Multi-signer is not supported in this iteration. |
 | `CostAttributionKey` | no | Opaque correlation key for billing. |
 | `Title` | no | Display title for the signing ceremony (Signicat UI). Defaults to `Signature {Purpose}`. |
+| `ClientReturnUrl` | no | URL Signicat redirects the recipient back to after the ceremony. Defaults to the platform's `/signatures/redirect-landing` landing page. |
 
 ### `SignedDocument` (returned to app)
 
@@ -163,7 +164,7 @@ The helper throws on every terminal failure:
 ```csharp
 try
 {
-    var signed = await app.CreateSignatureOrderAsync(clientSessionId, request, ct);
+    var signed = await app.CreateSignatureOrderAsync(signerClientSessionId, request, ct);
     // success path
 }
 catch (TimeoutException)
@@ -187,5 +188,5 @@ catch (InvalidOperationException ex) when (ex.Message.Contains("failed"))
 ## Related
 
 - [Asset System Developer Guide](asset-system-developer-guide.md) — how to persist `signed.Bytes` in app storage.
-- [Ikon Mint Guide](ikon-mint-guide.md) — cost attribution and monetization context.
+- [Ikon.App Billing Guide](ikon-app-billing-guide.md) — cost attribution and monetization context.
 - See `tasks/signicat-integration.md` for the full design rationale of the platform-level signature service.

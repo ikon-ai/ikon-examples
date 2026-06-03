@@ -179,12 +179,19 @@ client.Disconnect();
 // Access the client configuration
 const IkonClientConfig& config = client.GetConfig();
 
-// Access the global state (available after connection)
+// Access the global state (available after connection).
+// The returned pointer aliases the plugin's live GlobalState, which the
+// network thread can replace at any time. Only safe to read from the
+// receive/network thread; otherwise use SnapshotGlobalState() for a copy.
 const GlobalState* state = client.GetGlobalState();
 if (state)
 {
     // Use global state...
 }
+
+// Thread-safe snapshot of the current GlobalState (returns std::nullopt
+// if the client is not connected).
+std::optional<GlobalState> snapshot = client.SnapshotGlobalState();
 ```
 
 ## Sending Messages

@@ -19,7 +19,7 @@ C# App (unchanged)
   └─────────┘
 ```
 
-The server sends the same component tree to all clients. Web clients receive CSS styles; Flutter clients receive typed tokens (EdgeInsets, Color, BorderRadius, etc.) resolved from the same Tailwind utility classes. The `StyleFormat` capability is negotiated at connect time.
+The server sends the same component tree to all clients. Web clients receive CSS styles; Flutter clients receive typed tokens (EdgeInsets, Color, BorderRadius, etc.) resolved from the same Crosswind utility classes. The `StyleFormat` capability is negotiated at connect time.
 
 ## Quick Start
 
@@ -272,6 +272,16 @@ registry.register('my-custom-widget', (node, style, children, context) {
 IkonParallaxView(uiCore: uiCore, client: client, registry: registry)
 ```
 
+## Multi-mount apps
+
+Apps that declare multiple Parallax sub-trees via `IAppBase.Mounts` can be selectively embedded by passing the `mount:` argument:
+
+```dart
+IkonParallaxView(uiCore: uiCore, client: client, mount: 'aiCanvas')
+```
+
+When `mount` is `null`, the most recently updated tree is rendered (single-mount apps). The lower-level streams API is available on `IkonUiCore`: `streams`, `streamFor(category)`, `streamForMount(id)`, `streamsByCategory(category)`, plus `onStreamUpdate` / `onStreamEnded` listeners.
+
 ## Client Functions
 
 The server can call functions registered on the Flutter client:
@@ -287,12 +297,17 @@ client.functionRegistry.register(
 ```
 
 Built-in Flutter functions (called automatically by the server):
+- `ikon.client.getTheme` / `setTheme` — theme (placeholder; managed by the host app's `ThemeData`)
 - `ikon.client.getLanguage` — device locale
 - `ikon.client.getTimezone` — device timezone
 - `ikon.client.getViewport` — viewport dimensions
 - `ikon.client.getVisibility` — app lifecycle state
 - `ikon.client.vibrate` — haptic feedback
 - `ikon.client.keepScreenAwake` — wakelock
+- `ikon.client.scrollTo` — scroll (handled by the Parallax view)
+- `ikon.client.getUrl` / `setUrl` — URL placeholders
+- `ikon.client.getLocation` — geolocation (via `geolocator`)
+- `ikon.client.captureImage` — system camera (via `ImagePicker`)
 
 ## File Upload
 
@@ -318,14 +333,19 @@ await capture.start(sampleRate: 48000);
 await capture.feedPcmFrame(pcmData);
 await capture.stop();
 
+// Audio playback requires AudioDecoder + AudioOutput implementations
+final playback = IkonAudioPlayback(client: client, decoder: myDecoder, output: myOutput);
+
 // WebRTC requires an RtcPeerAdapter implementation (e.g., flutter_webrtc)
 final webrtc = IkonWebRtc(client: client, peer: myRtcAdapter);
 await webrtc.startCamera();
 ```
 
+`IkonMediaManager` aggregates audio capture, playback, WebRTC, and `IkonShare` (web share / clipboard) and can be passed to `IkonParallaxView(mediaManager: ...)`.
+
 ## Supported Crosswind Styles
 
-The Flutter SDK resolves ~100 Tailwind/Crosswind utilities to native Flutter types:
+The Flutter SDK resolves ~100 Crosswind utilities to native Flutter types:
 
 **Layout:** padding, margin, width/height/min/max, flex (direction/wrap/gap/align/justify), overflow, aspect ratio, position (absolute/relative), z-index
 
