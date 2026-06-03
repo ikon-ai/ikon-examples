@@ -357,7 +357,7 @@ public class MyFunctions
         return $"Hello, {name}!";
     }
 
-    [Function(Description = "Calculates sum", Visibility = FunctionVisibility.Shared)]
+    [Function(Description = "Calculates sum", Visibility = FunctionVisibility.External)]
     public async Task<int> AddAsync(int a, int b)
     {
         return a + b;
@@ -406,29 +406,29 @@ client.FunctionRegistry.AddFunction(
     Function.Register(
         (string query) => SearchDatabase(query),
         "Search",
-        new FunctionAttribute { Description = "Searches the database", Visibility = FunctionVisibility.Shared }
+        new FunctionAttribute { Description = "Searches the database", Visibility = FunctionVisibility.External }
     )
 );
 ```
 
 ### Function Visibility
 
-Functions can be either local or shared:
+Functions can be either local or external:
 
-- **Local** (default): Only available within this process
-- **Shared**: Distributed to the server and accessible by other connected clients
+- **Local** (default): Function is not advertised. Only callable within this process.
+- **External**: Function is advertised over the protocol; remote clients can call it.
 
 ```csharp
 // Local - only available in this process (default)
 [Function(Visibility = FunctionVisibility.Local)]
 public string LocalOnly() => "local";
 
-// Shared - distributed to server and other clients
-[Function(Visibility = FunctionVisibility.Shared)]
+// External - advertised over the protocol and callable by other clients
+[Function(Visibility = FunctionVisibility.External)]
 public string SharedWithAll() => "shared";
 
 // Override visibility at registration time
-client.FunctionRegistry.RegisterFromInstance(myFuncs, FunctionVisibility.Shared);
+client.FunctionRegistry.RegisterFromInstance(myFuncs, FunctionVisibility.External);
 ```
 
 ### Discovering Functions
@@ -487,7 +487,7 @@ await foreach (var item in client.FunctionRegistry.CallAsyncEnumerable<int>("Cou
 client.FunctionRegistry.RemoveFunction("MyFunc");
 
 // Remove a function with specific visibility
-client.FunctionRegistry.RemoveFunction("MyFunc", FunctionVisibility.Shared);
+client.FunctionRegistry.RemoveFunction("MyFunc", FunctionVisibility.External);
 
 // Clear all local functions
 client.FunctionRegistry.ClearLocalFunctions();
@@ -599,7 +599,7 @@ var config = new IkonClientConfig
 | `Function` | Immutable function metadata and callback |
 | `FunctionAttribute` | Attribute for marking methods as registerable functions |
 | `RegisterAllAttribute` | Class-level attribute to auto-register all public members as functions |
-| `FunctionVisibility` | Enum: `Local`, `Shared` |
+| `FunctionVisibility` | Enum: `Local`, `External` |
 | `FunctionParameter` | Parameter metadata (name, type, default value) |
 
 ### Event Types
