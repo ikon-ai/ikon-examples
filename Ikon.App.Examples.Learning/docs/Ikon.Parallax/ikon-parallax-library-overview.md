@@ -47,7 +47,7 @@ private readonly Reactive<string, UserScope> _userPreference = new("");
 
 Styling uses Crosswind, a Tailwind-compatible utility class system. Styles are defined as string constants and support:
 
-- Standard Tailwind utility classes (`flex`, `gap-4`, `bg-white`, etc.)
+- Standard Crosswind utility classes (`flex`, `gap-4`, `bg-white`, etc.)
 - Extended motion and animation classes
 - Built-in theme style constants (via `Ikon.Parallax.Theming`)
 
@@ -310,7 +310,7 @@ public static class AppStyles
 }
 ```
 
-The library includes a built-in `Default` theme that provides a complete style system:
+The library ships a set of theme style constants under `Ikon.Parallax.Theming` (e.g. `Button`, `Input`, `Card`, `Text`, `Layout`, `Page`) that compose Crosswind utility classes into ready-to-use named styles:
 
 ```csharp
 using Ikon.Parallax.Theming;
