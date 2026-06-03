@@ -2,7 +2,7 @@
 
 ## AI Image Generation
 
-Generate AI images with `new ImageGenerator(model)` and `GenerateImageAsync(config)`. Supports Gemini, DALL-E, Flux models. Returns image bytes and mime type.
+Generate AI images with `new ImageGenerator(model)` and `GenerateImageAsync(config)`. Supports Gemini, GPT Image, Flux models. Returns image bytes and mime type.
 
 > **Always pass `ImageGeneratorConfig`, not a raw string.** The `Prompt` goes inside the config object.
 > `imageGenerator.GenerateImageAsync("prompt")` will NOT compile — use `new ImageGeneratorConfig { Prompt = "..." }`.
