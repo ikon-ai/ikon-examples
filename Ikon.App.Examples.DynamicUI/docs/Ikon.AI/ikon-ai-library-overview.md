@@ -536,12 +536,12 @@ When the target model runs on Google Vertex (current Gemini models) and the asse
 
 ## Chat
 
-`Ikon.AI.Chat` provides abstractions for orchestrating multi-turn assistant conversations, including channel routing and history policies.
+`Ikon.AI.Chat.BasicChat` orchestrates multi-turn assistant conversations on top of a shader, with built-in message history (capped by `MaxHistoryLength`), cancellation, and a `RenderedShader` event for inspecting the rendered prompt.
 
 ## Retrieving
 
-`Ikon.AI.Retrieving` includes connectors, caches, and vector store helpers for retrieval-augmented generation flows.
+`Ikon.AI.Retrieving.Retriever` provides retrieval-augmented generation primitives — vector-database-backed semantic search over indexed content, keyword extraction, an asset cache, and a set of built-in functions (`builtin.search`, `builtin.get_contents`, filter/sort helpers) that can be wired directly into a `KernelContext`.
 
 ## Database
 
-`Ikon.AI.Database` offers persistence helpers for metadata, embeddings, and job tracking across AI workflows.
+`Ikon.AI.Database` connects to SQL databases (PostgreSQL, SQLite, BigQuery, Trino) and extracts schema metadata for text-to-SQL workflows. Use the typed factory methods on `DatabaseConnection` (`Trino`, `Postgres`, `Sqlite`, `BigQuery`) to open connections, and `DatabaseInfoExtractor` to discover tables and columns.
