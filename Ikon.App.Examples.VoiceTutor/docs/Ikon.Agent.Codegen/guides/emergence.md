@@ -49,17 +49,15 @@ var (result, context) = await Emerge.Run<AnalysisResult>(LLMModel.Claude46Sonnet
 To build a chatbot that remembers context, reuse the `KernelContext` returned from previous `Emerge.Run` calls:
 
 ```csharp
-var context = new KernelContext();
-
-// First user message
-var (result1, context) = await Emerge.Run<ChatResponse>(LLMModel.Claude46Sonnet, context, pass =>
+// First user message — start with a fresh KernelContext
+var (result1, context) = await Emerge.Run<ChatResponse>(LLMModel.Claude46Sonnet, new KernelContext(), pass =>
 {
     pass.SystemPrompt = "You are a friendly assistant.";
     pass.Command = userMessage;
 }).FinalAsync();
 
-// Second message — context carries the full conversation history automatically
-var (result2, context) = await Emerge.Run<ChatResponse>(LLMModel.Claude46Sonnet, context, pass =>
+// Second message — pass the returned context so it carries the full conversation history automatically
+var (result2, context2) = await Emerge.Run<ChatResponse>(LLMModel.Claude46Sonnet, context, pass =>
 {
     pass.Command = nextUserMessage;
 }).FinalAsync();
