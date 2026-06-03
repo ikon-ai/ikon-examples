@@ -209,7 +209,7 @@ When in doubt, prefer the canonical name. These are the recurring wrong names th
 | `Audio.SpeakAsync(text)` | `Audio.SendSpeech(audio)` | Only `SendSpeech` exists. The `audio` argument is an `AudioContainer` from `SpeechGenerator.GenerateSpeechAsync`. |
 | `Audio.Speech` (property) | `new SpeechGenerator(...)` then `Audio.SendSpeech(...)` | No `Speech` property on `Audio`. The full chain is `var gen = new SpeechGenerator(model); await foreach (var chunk in gen.GenerateSpeechAsync(cfg)) Audio.SendSpeech(chunk);`. |
 | `app.PlayAudioAsync(bytes, mime)` | `ClientFunctions.PlaySoundAsync(bytes, mime)` | Audio routes live on the static `ClientFunctions`, not `IApp`. |
-| `Button.Primary` / `Button.Ghost` / `Button.Secondary` | `Button.PrimaryMd` / `Button.GhostMd` / `Button.SecondaryMd` (or `Button.Default`) | All theme constants are size-suffixed. |
+| `Button.Sm` / `Button.Md` / `Button.Lg` (bare size) | `Button.PrimarySm` / `Button.PrimaryMd` / `Button.PrimaryLg` (or another variant) | Bare size constants don't exist on Button — pick a variant + size. `Button.Primary` / `Button.Secondary` / `Button.Ghost` / `Button.Default` do exist as Md-sized aliases. |
 | `Layout.Container` | `Layout.Page` | Doesn't exist. |
 | `Icon.Size.Sm` | `Icon.Sm` | Flattened — no `.Size` segment. |
 | `IView` (parameter type) | `IView` or `UIView` (both work) | `IView` is a global alias for `UIView` (in `GlobalUsings.cs`); there is no separate `IView` interface, but the alias makes `IView` resolve to `UIView`. |

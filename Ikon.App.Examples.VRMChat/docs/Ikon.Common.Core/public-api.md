@@ -14,33 +14,6 @@ namespace Ikon.Common.Core
   class IkonBackend.ApiKeyResponse
     ctor()
     string Token { get; set; }
-  class IkonBackend.AppBillingConnectAccountRequest
-    ctor()
-    string ContactEmail { get; set; }
-    string? Country { get; set; }
-    string? DefaultCurrency { get; set; }
-    string? DisplayName { get; set; }
-    string? RefreshUrl { get; set; }
-    string? ReturnUrl { get; set; }
-  class IkonBackend.AppBillingConnectAccountResult
-    ctor()
-    string ConnectedAccountId { get; set; }
-    string DashboardUrl { get; set; }
-    string KycUrl { get; set; }
-  class IkonBackend.AppBillingConnectStatusResult
-    ctor()
-    bool ChargesEnabled { get; set; }
-    string? ConnectedAccountId { get; set; }
-    string? DashboardUrl { get; set; }
-    bool DetailsSubmitted { get; set; }
-    bool PayoutsEnabled { get; set; }
-    List<string> RequirementsCurrentlyDue { get; set; }
-  class IkonBackend.AppBillingInitResult
-    ctor()
-    string? BackendUrl { get; set; }
-    string Mode { get; set; }
-    string? PublishableKey { get; set; }
-    string? WebhookSecret { get; set; }
   class IkonBackend.AppBundle
     ctor()
     List<IkonBackend.AppBundleWarning>? ActivationErrors { get; set; }
@@ -64,6 +37,34 @@ namespace Ikon.Common.Core
     ctor()
     string Code { get; set; }
     string Message { get; set; }
+  class IkonBackend.AppPaymentsInitResult
+    ctor()
+    string? BackendUrl { get; set; }
+    string Mode { get; set; }
+    string? PublishableKey { get; set; }
+    string? WebhookSecret { get; set; }
+  class IkonBackend.AppPaymentsMerchantRequest
+    ctor()
+    string ContactEmail { get; set; }
+    string? Country { get; set; }
+    string? DefaultCurrency { get; set; }
+    string? DisplayName { get; set; }
+    string? RefreshUrl { get; set; }
+    string? ReturnUrl { get; set; }
+  class IkonBackend.AppPaymentsMerchantResult
+    ctor()
+    string DashboardUrl { get; set; }
+    string KycUrl { get; set; }
+    string MerchantId { get; set; }
+  class IkonBackend.AppPaymentsStatusResult
+    ctor()
+    bool ChargesEnabled { get; set; }
+    string? DashboardUrl { get; set; }
+    bool DetailsSubmitted { get; set; }
+    string? MerchantId { get; set; }
+    bool PayoutsEnabled { get; set; }
+    string? Provider { get; set; }
+    List<string> RequirementsCurrentlyDue { get; set; }
   class IkonBackend.ApplyAppBundleConfigResponse
     ctor()
     List<IkonBackend.AppBundleWarning> Warnings { get; set; }
@@ -490,8 +491,8 @@ namespace Ikon.Common.Core
     Task CancelSignatureOrderAsync(string orderId)
     Task CompleteItemSignedUploadAsync(string uri, string path, string? sha256 = null)
     Task<IkonBackend.ConnectChannelInstanceResponse> ConnectChannelInstanceAsync(IkonBackend.ConnectChannelInstanceRequest request)
-    Task<IkonBackend.AppBillingConnectAccountResult> CreateAppBillingConnectAccountAsync(string spaceId, IkonBackend.AppBillingConnectAccountRequest request)
     Task<IkonBackend.AppBundle> CreateAppBundleAsync(string spaceId, string version, string itemId, IkonBackend.AppBundleState? state = null)
+    Task<IkonBackend.AppPaymentsMerchantResult> CreateAppPaymentsMerchantAsync(string spaceId, IkonBackend.AppPaymentsMerchantRequest request)
     Task CreateAuditEventAsync(string eventName, string spaceId, string userId, string? entityType = null, string? entityId = null, string? ip = null)
     Task<IkonBackend.Channel> CreateChannelAsync(string spaceId, string name, string type, bool isPrivate)
     Task<IkonBackend.ConnectTokenResponse> CreateChannelConnectTokenAsync(IkonBackend.ConnectTokenRequest request)
@@ -522,10 +523,10 @@ namespace Ikon.Common.Core
     Task<List<IkonBackend.Profile>> FindProfilesAsync(string spaceId, Dictionary<string, string> filters, int maxResults = 1000)
     Task<List<IkonBackend.Translation>> GetAllTranslationsAsync(string spaceId, int maxResults = 1000)
     Task<Dictionary<string, string>> GetApiKeysAsync(bool all = false)
-    Task<IkonBackend.AppBillingConnectStatusResult> GetAppBillingConnectStatusAsync(string spaceId)
     Task<IkonBackend.AppBundle> GetAppBundleAsync(string id)
     Task<List<IkonBackend.AppBundle>> GetAppBundlesAsync(string spaceId, IkonBackend.AppBundleState? state = null, int maxResults = 1000)
     Task<IkonBackend.CursorResponse<IkonBackend.SpaceEventRow>> GetAppEventsAsync(string spaceId, int days, int limit, string? cursor = null)
+    Task<IkonBackend.AppPaymentsStatusResult> GetAppPaymentsStatusAsync(string spaceId)
     Task<IkonBackend.ChannelInstanceSession> GetAppSessionAsync(string sessionId)
     Task<IkonBackend.IkonLogQueryResult> GetAppSessionLogsAsync(string sessionId, int? level = null, string? cursor = null, int limit = 200)
     Task<IkonBackend.CursorResponse<IkonBackend.ChannelInstanceSession>> GetAppSessionsAsync(string spaceId, string? cursor = null, int limit = 50, string? searchId = null)
@@ -582,7 +583,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.User> GetUserAsync(string id)
     Task<List<IkonBackend.User>> GetUsersAsync(string query, int limit = 20)
     bool HasCapability(string capability)
-    Task<IkonBackend.AppBillingInitResult> InitAppBillingAsync(string spaceId, string mode = "ikon-connect")
+    Task<IkonBackend.AppPaymentsInitResult> InitAppPaymentsAsync(string spaceId, string mode = "ikon-connect")
     Task<bool> IsSpaceDomainAvailableAsync(string domain)
     Task<IkonBackend.ItemListResponse> ListItemsAsync(IkonBackend.ItemListRequest request)
     bool Login(ValueTuple<string, string>? fromCommandLine = null, ValueTuple<string, string>? fromConfig = null, bool logSource = true, bool mustLogin = true)
