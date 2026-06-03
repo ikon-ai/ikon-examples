@@ -105,8 +105,11 @@ Below is a clean, exhaustive list of Tailwind CSS v4.x utility families, organiz
 
   * **Directional gradients**: `bg-linear-to-{t|tr|r|br|b|bl|l|tl}` (aliases `bg-gradient-to-*` remain documented/used)
   * **Angles**: `bg-linear-{angle}` (e.g. `bg-linear-45`)
-  * **Color stops**: `from-{color}`, `via-{color}`, `to-{color}` (+ `via-none`).
+  * **Radial gradients**: `bg-radial` (default `ellipse at center`) or `bg-radial-[shape_at_position]`
+  * **Conic gradients**: `bg-conic` (default `from 0deg`), `bg-conic-{angle}` (e.g. `bg-conic-45`), or `bg-conic-[from_<angle>_<position>]`
+  * **Color stops**: `from-{color}`, `via-{color}`, `to-{color}` (+ `via-none`). Stops also accept positions (`from-50%`, `via-70%`, `to-100%`).
   * **Custom images**: `bg-[url('...')]`, etc.
+  * **Background image standalone**: `bg-image-{none|[<image>]}` and `bg-position-{...}` / `bg-size-{...}` for setting only the respective sub-properties.
 * **Background color**: `bg-{color}`
 
 ## 7) Borders (incl. Outline)
@@ -114,7 +117,13 @@ Below is a clean, exhaustive list of Tailwind CSS v4.x utility families, organiz
 * **Border width**: `border-{value}`, `border-x|y|t|r|b|l|s|e-{value}` (+ `divide-x|y-{value}` for sibling dividers; supports reverse modifiers).
 * **Border color/style**: `border-{color}`, `border-{solid|dashed|dotted|double|hidden|none}`
 * **Border radius**: `rounded`, `rounded-{none|sm|md|lg|xl|2xl|3xl|full}`, edge/corner variants `rounded-{t|r|b|l|s|e}-{...}`, `rounded-{tl|tr|br|bl|ss|se|es|ee}-{...}`
-* **Outline**: `outline-*` family (`outline-{[length]|[style]|none|hidden}`, `outline-{color}`, `outline-offset-{length}`) — v4 has dedicated width/color/style/offset utilities.
+* **Outline**: `outline-*` family — dedicated width/color/style/offset utilities in v4.
+  * Width: `outline-{n}` or `outline-[{length}]`, also `outline-width-{...}`
+  * Style: `outline-{solid|dashed|dotted|double|none|hidden}`, also `outline-style-{...}`. **Bare `outline` does not set `outline-style: solid`** — Tailwind's `outline-style: solid` only lands when you write `outline-solid` (or another explicit style). On its own `outline` only sets `outline-width`, so the outline will be invisible until a style is added.
+  * Color: `outline-{color}`, also `outline-color-{...}`
+  * Offset: `outline-offset-{n}` or `outline-offset-[{length}]`
+  * Shorthand reset: `outline-none` and `outline-hidden` both emit `outline: 2px solid transparent; outline-offset: 2px;` (transparent outline retained for forced-colors / a11y).
+  * Arbitrary full shorthand: `outline-[2px_dashed_red]` → `outline: 2px dashed red`.
 
 ## 8) Effects (shadows, rings, blend, opacity)
 
@@ -145,24 +154,33 @@ Below is a clean, exhaustive list of Tailwind CSS v4.x utility families, organiz
 
 * **Transition**: `transition` (all), `transition-none`, `transition-{property}`
 * **Timing**: `duration-{ms}`, `ease-{linear|in|out|in-out|[cubic-bezier]}`, `delay-{ms}`
-* **Behavior**: `transition-behavior-{normal|allow-discrete}` (added in v4.1)
+* **Behavior**: `transition-behavior-{normal|allow-discrete}` (added in v4.1). The shorthand `transition-behavior-discrete` is also accepted and maps to `allow-discrete`.
 * **Animation**: `animate-{spin|ping|pulse|bounce|none|[custom]}`
+* **`tailwindcss-animate` enter/exit primitives**: `animate-in` / `animate-out` bind the built-in `enter` / `exit` keyframes; layer shorthands set `--tw-enter-*` / `--tw-exit-*` CSS vars the keyframe consumes:
+  * Fade: `fade-in-{n}`, `fade-out-{n}` (0–100 → opacity 0.0–1.0)
+  * Zoom: `zoom-in-{n}`, `zoom-out-{n}` (0–100 → scale 0.0–1.0)
+  * Spin: `spin-in-{deg}`, `spin-out-{deg}` (rotation, defaults to 30deg)
+  * Slide: `slide-in-from-{top|bottom|left|right}{-n}?`, `slide-out-to-{top|bottom|left|right}{-n}?` (spacing scale or `%`)
 
 ## 12) Transforms
 
 * **Transform (composite/toggle)**: `transform`, `transform-none`
+* **Transform style / GPU promotion**: `transform-3d` (preserve-3d), `transform-flat`, `transform-gpu`, `transform-cpu`
+* **Transform box**: `transform-box-{border|content|fill|stroke|view}`
 * **Individual transforms**:
-  `scale-{n}`, `scale-x-{n}`, `scale-y-{n}`;
-  `rotate-{deg}`, `rotate-x-{deg}`, `rotate-y-{deg}`;
+  `scale-{n}`, `scale-x-{n}`, `scale-y-{n}`, `scale-z-{n}`;
+  `rotate-{deg}`, `rotate-x-{deg}`, `rotate-y-{deg}`, `rotate-z-{deg}`;
   `translate-{value}`, `translate-x-{value}`, `translate-y-{value}`, `translate-z-{value}`, `-translate-{value}`, `-translate-x-{value}`, `-translate-y-{value}`;
   `skew-x-{deg}`, `skew-y-{deg}`;
   **Transform origin**: `origin-{center|top|top-right|...}`
+* **Perspective**: `perspective-{none|near|normal|midrange|distant|[length]}`, `perspective-origin-{center|top|top-left|...}`
+* **Backface visibility**: `backface-{visible|hidden}`
 
 ## 13) Interactivity
 
 * **Accent & caret**: `accent-{color}`, `caret-{color}`
 * **Appearance**: `appearance-{none|auto}`
-* **Color scheme**: `color-scheme-{light|dark|only-light|only-dark|normal}`
+* **Color scheme**: `color-scheme-{light|dark|only-light|only-dark|normal}` (alias `scheme-{...}`)
 * **Field sizing**: `field-sizing-{content|fixed}`
 * **Pointer & cursor**: `pointer-events-{none|auto}`, `cursor-{pointer|wait|text|move|help|not-allowed|...}`
 * **Resize**: `resize`, `resize-{x|y|none}`
