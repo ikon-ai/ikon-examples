@@ -45,7 +45,7 @@ A **class token** may be preceded by zero or more prefixes in this order:
   * Attribute/state forms: `aria-<name>[-<value>]`, `data-<name>[-<value>]`, `lang-[<tag>]`, `has-[<selector>]`.
   * Theme scoping: `theme-<name>` (if theme variants are enabled).
 * **Track prefix:** any identifier **not** matching a reserved variant. Tracks may refer to:
-  * Responsive/media contexts: `sm`, `md`, `lg`, `xl`, `2xl`, `print`, `portrait`, `landscape`, `motion-reduce`, `motion-safe`, `pointer-hover`, `pointer-none`, `any-pointer-hover`, `any-pointer-none`, `contrast-more`, `contrast-less`.
+  * Responsive/media contexts: `sm`, `md`, `lg`, `xl`, `2xl`, `print`, `portrait`, `landscape`, `motion-reduce`, `motion-safe`, `pointer-hover`, `pointer-none`, `pointer-coarse`, `pointer-fine`, `any-pointer-hover`, `any-pointer-none`, `any-pointer-coarse`, `any-pointer-fine`, `contrast-more`, `contrast-less`.
   * Container queries: `min-<breakpoint>` / `max-<breakpoint>` (Tailwind breakpoint tokens) and `supports-[<condition>]` (underscores → spaces; appends `: var(--tw)` if missing a colon).
   * Color/direction scopes: `dark`, `light`, `rtl`, `ltr`.
   * Custom parent selectors: anything else (e.g., `.prose`, `#panel`, `[data-mode=hero]`).
@@ -76,7 +76,7 @@ motion-[ <step>( , <step> )* ]
 * **Time:** either **percent** (`0..100` as integer or decimal without `%`) **or** **duration** (`<number>ms|s`).
   **Rule:** all steps in one block MUST use the same time basis (percent **or** duration).
 * **Step utilities:** one or more **utility tokens**, separated by spaces.
-  A utility token is any Tailwind-like utility (e.g., `opacity-0`, `scale-105`, `-translate-x-1`) **or** a property with arbitrary value `name-[value]`.
+  A utility token is any Crosswind utility (e.g., `opacity-0`, `scale-105`, `-translate-x-1`) **or** a property with arbitrary value `name-[value]`.
 
 Examples:
 
@@ -130,6 +130,8 @@ All may be prefixed by variants and/or a track.
 * `motion-per-paragraph` (boolean flag)
 * `motion-per-children` (boolean flag)
 * `motion-priority-<int>` or `motion-priority-[<int>]` (track precedence hint; syntax only)
+* `motion-promote` (boolean flag; force `will-change` emission for the track even when the auto rule would skip it for a one-shot animation)
+* `motion-no-promote` (boolean flag; skip `will-change` emission for the track even when the auto rule would promote it — opt-out for plentiful elements where the GPU-layer cost outweighs the start-up smoothness)
 
 Examples:
 
@@ -442,6 +444,7 @@ identifier-or-bracket ::= identifier | bracket-value
 fill-mode      ::= "none" | "forwards" | "backwards" | "both"
 
 motion-flag    ::= "motion-loop" | "motion-once" | "motion-ping-pong"
+                 | "motion-promote" | "motion-no-promote"
                  | per-element-flag
                  | "motion-per-paragraph"
                  | "motion-per-children"
@@ -644,7 +647,7 @@ lead:motion-[0:opacity-0,100:opacity-100] lead:motion-timeline-[--hero] lead:mot
 
 ## 9) Reserved Words
 
-`motion`, `sfx`, `sound`, `motion-track`, `motion-duration`, `motion-rate`, `motion-ease`, `motion-delay`, `motion-track-delay`, `motion-letter-delay`, `motion-stagger`, `motion-fill`, `motion-loop`, `motion-once`, `motion-ping-pong`, `motion-per-letter`, `motion-per-letter-loop`, `motion-per-letter-ping-pong`, `motion-per-letter-reverse`, `motion-per-letter-reverse-loop`, `motion-per-word`, `motion-per-word-loop`, `motion-per-word-ping-pong`, `motion-per-word-reverse`, `motion-per-word-reverse-loop`, `motion-per-line`, `motion-per-line-loop`, `motion-per-line-ping-pong`, `motion-per-line-reverse`, `motion-per-line-reverse-loop`, `motion-per-paragraph`, `motion-per-children`, `motion-priority`, `motion-timeline`, `motion-composition`, `motion-play-state`, `motion-range`, `motion-range-start`, `motion-range-end`, `scroll-timeline`, `motion-bind`, `motion-bind-ease`, `motion-bind-reverse`, `motion-map`, `volume`, `pitch`, `pan`, `reverb`, `filter` and all **variant** names in §4.
+`motion`, `sfx`, `sound`, `motion-track`, `motion-duration`, `motion-rate`, `motion-ease`, `motion-delay`, `motion-track-delay`, `motion-letter-delay`, `motion-stagger`, `motion-fill`, `motion-loop`, `motion-once`, `motion-ping-pong`, `motion-per-letter`, `motion-per-letter-loop`, `motion-per-letter-ping-pong`, `motion-per-letter-reverse`, `motion-per-letter-reverse-loop`, `motion-per-word`, `motion-per-word-loop`, `motion-per-word-ping-pong`, `motion-per-word-reverse`, `motion-per-word-reverse-loop`, `motion-per-line`, `motion-per-line-loop`, `motion-per-line-ping-pong`, `motion-per-line-reverse`, `motion-per-line-reverse-loop`, `motion-per-paragraph`, `motion-per-children`, `motion-priority`, `motion-promote`, `motion-no-promote`, `motion-timeline`, `motion-composition`, `motion-play-state`, `motion-range`, `motion-range-start`, `motion-range-end`, `scroll-timeline`, `motion-bind`, `motion-bind-ease`, `motion-bind-reverse`, `motion-map`, `volume`, `pitch`, `pan`, `reverb`, `filter` and all **variant** names in §4.
 
 ---
 
