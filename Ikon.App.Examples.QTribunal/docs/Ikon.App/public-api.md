@@ -487,6 +487,15 @@ namespace Ikon.App
     Task<InboundEmailDetail> GetMessageAsync(string id, CancellationToken ct = null)
     // Sends a custom HTML email through the platform mailer. The platform sets the visible From address; pass ReplyTo to direct replies elsewhere. The send is enqueued for asynchronous delivery — a successful return means the platform has accepted the request, not that the recipient has received the message. Transient delivery failures are retried server-side. The total payload size (subject, body, attachments, metadata) is capped at roughly 10 MB.
     Task SendAsync(EmailSendRequest request, CancellationToken ct = null)
+  // Information about an HTTP endpoint exposed by the app — an [HttpEndpoint]/[McpTool] surface. Returned by Endpoints for developer convenience.
+  sealed class EndpointInfo
+    ctor()
+    // The cell type for a substrate-cell endpoint (empty for app + AppProcess-cell endpoints). When non-empty, the gateway cell-routes the request to that cell's partitioned instance, keyed by the cell's IdentityFields in the URL; empty means the endpoint resolves to the app instance.
+    string CellType { get; set; }
+    // The endpoint's registry name — {Owner}_{Method} for typed endpoints (or the explicit FunctionAttribute.Name override). The backend resolves this name when routing.
+    string FunctionName { get; set; }
+    // The full, ready-to-use public URL for this endpoint under the space domain ({space}.ikonai.app/api/{path}), with the session-identity query and the signed ikon-session-token prefilled. The backend resolves the token and routes to this instance — cold-starting it in the cloud, or reverse-proxying to a registered local run.
+    string PublicUrl { get; set; }
   sealed class FileUploadCallbackSet
     ctor()
     Func<FileUploadChunkArgs, Task>? OnChunkReceived
@@ -556,15 +565,16 @@ namespace Ikon.App
     ctor(bool accepted, string? assetUri = null)
     bool Accepted { get; set; }
     string? AssetUri { get; set; }
-  // Marks a method on an app or cell as a typed HTTP endpoint. The framework discovers these at startup, registers a route on the platform's HTTP host, dispatches inbound requests through the configured auth cell, materializes a typed SessionIdentity record + body, invokes the method, and serializes the return value to the response.
+  // Marks a method on an app or cell as a typed HTTP endpoint. The framework discovers these at startup, mounts a route on the owner's AppEndpointHost, dispatches inbound requests through the configured auth cell, materializes a typed body (and optional request-context parameter), invokes the method, and serializes the return value to the response.
   class HttpEndpointAttribute : Attribute
-    // Marks a method on an app or cell as a typed HTTP endpoint. The framework discovers these at startup, registers a route on the platform's HTTP host, dispatches inbound requests through the configured auth cell, materializes a typed SessionIdentity record + body, invokes the method, and serializes the return value to the response.
-    ctor(string method, string path)
+    // Declares a POST endpoint at path — the common case.
+    ctor(string path)
+    ctor(Verb verb, string path)
     // Pre-filter cell type. The dispatcher resolves this cell, finds its method whose signature is (HttpRequest) → Task<AuthOutcome>, and runs it before this endpoint's handler. A non-null AuthOutcome.Reject short-circuits the request; otherwise AuthOutcome.Claims merge into the target SessionIdentity. No interface, no marker — just a cell with a method shape the dispatcher recognizes (validated at startup).
     Type? Auth { get; init; }
     // HTTP verb (GET / POST / PUT / DELETE / PATCH).
     string Method { get; }
-    // External path under the space domain. The platform unification (S5 of the inbound-unification plan) is moving paths to absolute form: a leading-slash path is the full URL after {space}.ikonai.app, with no platform-imposed prefix prepended. Route params use {name} syntax; parameter names that match fields of the owner's SessionIdentity record are bound into the identity dict (case-insensitive) by the gateway funnel, so identity follows REST resource hierarchy: [HttpEndpoint("POST", "/labs/{workspace}/increment")] binds workspace to SessionIdentity.Workspace. Reserved external paths the developer must NOT declare: /.well-known/* (RFC) and the back-compat aliases /w/*, /p/*, /ikon/*, /s/*, /rooms/*. Everything else is the app's namespace. Legacy non-slash form ("bump", "value" — relative to the cell's auto-derived mount point) is still accepted; the default-derivation rule (S5e) converts it to an absolute path at registration time.
+    // External path under the space domain. Paths are absolute: a leading-slash path is the full URL after {space}.ikonai.app/api, with no further platform-imposed prefix. Route params use {name} syntax; parameter names that match fields of the owner's SessionIdentity record are bound into the identity dict (case-insensitive) by the gateway funnel, so identity follows REST resource hierarchy: [HttpEndpoint(Verb.Post, "/labs/{workspace}/increment")] binds workspace to SessionIdentity.Workspace. Reserved external paths the developer must NOT declare: /.well-known/* (RFC); the /ikon/* subtree (claimed for current and future platform use) and /api are the platform's. The relative (non-slash) form ("bump") is relative to the owner's auto-derived mount point and is resolved to an absolute path at registration time.
     string Path { get; }
   // Serializable view of an inbound HTTP request — what an authentication or other pre-filter cell inspects. The dispatcher constructs one of these per inbound request and passes it to whichever pre-filter the endpoint declares ( Auth ).
   sealed class HttpRequest : IEquatable<HttpRequest>
@@ -603,6 +613,8 @@ namespace Ikon.App
     IReadOnlyList<DatabaseConnectionInfo> Databases { get; }
     // Gets the email service for this app — sending custom emails through the platform mailer and reading inbound emails delivered to this app's space. Requires the Email feature to be enabled on the app's organisation/space; calls against a non-entitled space throw FeatureNotEnabledException .
     EmailService Email { get; }
+    // Gets the HTTP endpoints ([HttpEndpoint]/[McpTool] surfaces) exposed by this app instance, including ready-to-use public URLs with the current session identity and signed token prefilled. The list is built once before Main() runs, from the endpoints declared on the app class and on loaded [Cell] types.
+    IReadOnlyList<EndpointInfo> Endpoints { get; }
     // Gets the platform-wide shared state from the server containing clients, streams, and space/channel info.
     GlobalState GlobalState { get; }
     // Gets the configured maximum memory limit in megabytes for this server instance.
@@ -617,8 +629,6 @@ namespace Ikon.App
     ReactiveRoot ReactiveRoot { get; }
     // Gets the secrets (tokens, API keys, passwords) configured for this app. Values are fetched from the Ikon backend once at app startup and exposed synchronously; changes made via ikon app secret set while the app is running only take effect after a restart.
     Secrets Secrets { get; }
-    // Gets the webhook function info for this app instance, including ready-to-use public URLs with the current session identity values prefilled as query parameters. The list is built once before Main() runs and is then refreshed automatically whenever a webhook-marked function is registered with the FunctionRegistry.
-    IReadOnlyList<WebhookInfo> Webhooks { get; }
     // Creates a platform-managed eID-backed PAdES signature order for the supplied document(s). The platform navigates the signer's browser to the signing-ceremony URL through the existing client UI surface, awaits the asynchronous packaging completion, and resolves the returned task with the signed PDF and evidence metadata. The returned bytes are the long-term-validation PAdES PDF when the chosen scheme produces it; apps should persist them as the system of record because the platform's session retention is short.
     abstract Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = null)
     // Dynamically requests a raw TCP/TLS/UDP endpoint. Returns a RelayEndpoint whose LocalPort a listener should bind to; the endpoint is reachable from the internet at {PublicHost}:{PublicPort}. Dispose the returned endpoint to release it. For HTTP/HTTPS endpoints use AppEndpointHost .
@@ -681,6 +691,25 @@ namespace Ikon.App
     TClientParameters Parameters { get; }
   // Marker interface for custom profile attribute classes. Implement this interface on classes that define custom profile attributes.
   interface IProfileAttributes
+  // Marks a method on a cell as an MCP-exposed resource — read-only data addressed by a URI. The framework reflects the method's parameters into a URI template, registers the method on an Ikon.Mcp.McpHost, and routes incoming MCP resources/read requests against the matching URI.
+  sealed class McpResourceAttribute : Attribute
+    // Marks a method on a cell as an MCP-exposed resource — read-only data addressed by a URI. The framework reflects the method's parameters into a URI template, registers the method on an Ikon.Mcp.McpHost, and routes incoming MCP resources/read requests against the matching URI.
+    ctor(string uriTemplate)
+    // Description shown to MCP clients so the agent (or user, via the client UI) can decide when to fetch the resource. Empty values pass through verbatim.
+    string Description { get; init; }
+    // MIME type advertised to clients. Defaults to text/plain for string returns and application/octet-stream for binary; override here to be more specific (text/markdown, application/json, image/png, etc.).
+    string MimeType { get; init; }
+    // Display name shown to MCP clients. Defaults to the method name when null or empty.
+    string? Name { get; init; }
+    // URI or URI template (RFC-6570 Level 1: {name} placeholders only). Required. Placeholder names must match the cell method's parameter names exactly. The scheme is author-chosen — common conventions are file:///, {cellname}://, or domain-specific scheme like order://, policy://.
+    string UriTemplate { get; }
+  // Marks a method on an app or cell as an MCP endpoint (an MCP-exposed tool). The framework discovers these at startup, reflects the method's parameters into a JSON Schema, registers the method on an Ikon.Mcp.McpHost, and routes incoming MCP tools/call requests to it. The owner's MCP endpoint is served at /{Type}/mcp.
+  class McpToolAttribute : Attribute
+    ctor()
+    // Description shown to MCP clients so the agent's LLM can decide when to invoke the tool. Empty values pass through verbatim — there is no XML-summary fallback today.
+    string Description { get; init; }
+    // MCP-wire tool name presented to clients in tools/list. Defaults to the method name when null or empty. The governance subject id is always the structural "{Type}.{Method}" regardless of this property, so the same Mission rules gate both HTTP and MCP invocations even when the MCP wire name differs.
+    string? Name { get; init; }
   // Event arguments for the MessageReceivedAsync event.
   class MessageReceivedEventArgs : EventArgs
     // Event arguments for the MessageReceivedAsync event.
@@ -777,10 +806,6 @@ namespace Ikon.App
     // Gets the reactive manager that coordinates all reactive objects in the app.
     ReactiveManager ReactiveManager { get; }
     Task RunAsync(Func<Task> render, Func<Context, bool>? filter = null)
-  // Declares a typed HTTP (REST) endpoint at an app-declared path under the space domain ({space}.ikonai.app/api/<path>) — local dev serves the same path. This is the role-named canonical HTTP surface: [Rest(Verb.Post, "/billing/stripe")]. It is the modern replacement for HttpEndpointAttribute (still accepted) and for [Function(Webhook = true)].
-  sealed class RestAttribute : HttpEndpointAttribute
-    // Declares a typed HTTP (REST) endpoint at an app-declared path under the space domain ({space}.ikonai.app/api/<path>) — local dev serves the same path. This is the role-named canonical HTTP surface: [Rest(Verb.Post, "/billing/stripe")]. It is the modern replacement for HttpEndpointAttribute (still accepted) and for [Function(Webhook = true)].
-    ctor(Verb verb, string path)
   // Event arguments raised when speech has been recognized from a captured audio stream.
   sealed class SpeechRecognizedEventArgs : EventArgs
     // Event arguments raised when speech has been recognized from a captured audio stream.
@@ -813,7 +838,7 @@ namespace Ikon.App
     User
     Moderator
     Admin
-  // HTTP verb for RestAttribute . A typed enum (rather than a string) so the verb is compile-checked and so codegen emits a familiar Verb.Post idiom instead of a stringly-typed (and easily mistyped) literal.
+  // HTTP verb for HttpEndpointAttribute . A typed enum (rather than a string) so the verb is compile-checked and codegen emits a familiar Verb.Post idiom instead of a stringly-typed (and easily mistyped) literal.
   enum Verb
     Get
     Post
@@ -919,15 +944,6 @@ namespace Ikon.App
     string StreamId { get; init; }
     int TrackId { get; init; }
     int Width { get; init; }
-  // Information about a webhook function exposed by the app. Returned by Webhooks for developer convenience.
-  sealed class WebhookInfo
-    ctor()
-    // The cell type (or empty string for app-shell-hosted webhooks). When non-empty, the webhook is routed to a specific cell instance keyed by the SessionIdentity values in the URL query. Empty preserves the legacy app-shell dispatch path.
-    string CellType { get; set; }
-    // The function name as registered in the FunctionRegistry. Either the explicit FunctionAttribute.Name override or the auto-generated TypeFullName.MethodName. This is also the value used as the path segment in PublicUrl .
-    string FunctionName { get; set; }
-    // The full public URL for this webhook with session identity values prefilled as query parameters. In cloud mode this is a /ikon/webhook/{functionName} URL (legacy) or /ikon/webhook/{cellType}/{functionName} (when CellType is set). In local dev this is a /webhook/{...} URL on the server's public tunnel.
-    string PublicUrl { get; set; }
   // A thin wrapper that holds the user’s configuration. This wrapper derives from BasePluginConfig so that it can be used internally by BasePlugin. Plugin developers only see the wrapped TConfig.
   class WrapperConfig<TConfig> : BasePluginConfig
     ctor()
@@ -1025,70 +1041,48 @@ namespace Ikon.App.Cells
     // Register an externally-constructed instance (typically the running App<TSessionIdentity, TClientParameters> plugin) as a singleton cell. The host treats it like any other [Cell] for discovery + dispatch — its public methods show up in CellTypes , HttpEndpointDiscovery, McpToolDiscovery, and McpResourceDiscovery; ResolveByCellTypeName and Resolve``1 return the registered instance directly. The host does NOT construct, evict, or dispose singletons — lifecycle stays with the external owner.
     void RegisterSingleton(object instance)
     TInterface Resolve<TInterface>(object sessionIdentity) where TInterface : class
-    // Resolve (or spawn) a cell instance by the cell type's simple name and a SessionIdentity field dict (typically the URL query params from an inbound webhook). The host constructs the SessionIdentity record from the dict by matching the record's primary-constructor parameter names; missing nullable/default-valued fields use null/their default; missing required fields throw. Returns the cell instance as Object — callers cast to the wire interface they expect or use reflection to invoke methods.
+    // Resolve (or spawn) a cell instance by the cell type's simple name and a SessionIdentity field dict (typically the URL query params from an inbound endpoint). The host constructs the SessionIdentity record from the dict by matching the record's primary-constructor parameter names; missing nullable/default-valued fields use null/their default; missing required fields throw. Returns the cell instance as Object — callers cast to the wire interface they expect or use reflection to invoke methods.
     object ResolveByCellTypeName(string cellTypeName, IReadOnlyDictionary<string, string> sessionIdentityFields)
     // Look up the registered [Cell] concrete type whose wire-interface mapping matches iface . Returns the same type that Resolve``1 would dispatch to. Used by Cells.Connect<TInterface> to consult the cell's CellAttribute (e.g. for ProcessScope ) before deciding between local resolution and substrate-proxy routing.
     bool TryGetCellTypeForInterface(Type iface, out Type cellType)
-    // Raised when a NEW cell type appears in the host after construction — specifically when RegisterSingleton registers an instance whose type wasn't already known. Higher layers (IkonServer) that snapshot the topology at build time — e.g. the discovered MCP-tool host and typed-HTTP-endpoint list — subscribe to rebuild those snapshots. This is load-bearing for app-level [McpTool]: the user's [App] instance is registered lazily on first client join (via HttpEndpointWrapperRegistration.RegisterAll), long after the host's initial discovery walk.
+    // Raised when a NEW cell type appears in the host after construction — specifically when RegisterSingleton registers an instance whose type wasn't already known. Higher layers (IkonServer) that snapshot the topology at build time — e.g. the discovered MCP-tool host and typed-HTTP-endpoint list — subscribe to rebuild those snapshots. This is load-bearing for app-level [McpTool]: the user's [App] instance is registered lazily on first client join (via HttpEndpointRouting.EnsureCellHost), long after the host's initial discovery walk.
     event Action? TopologyChanged
-  // The wire-name conventions for cell members. Both the substrate-cell proxy (the caller) and the cell-host's webhook-wrapper registration (the producer) build these names; keeping the format in one place stops the two sides from drifting apart.
+  // The wire-name conventions for cell members. Both the substrate-cell proxy (the caller) and the cell-host's endpoint-wrapper registration (the producer) build these names; keeping the format in one place stops the two sides from drifting apart.
   static class CellNaming
-    // The webhook function name for a cell's [HttpEndpoint] method: {CellType}_{Method}. The cloud's webhook ingress accepts a single path segment after /w/, so the cell-typed {Type}/{Method} shape is flattened to an underscore.
+    // The endpoint registry name for a cell's [HttpEndpoint] method: {CellType}_{Method}. The manifest carries this flat name as the endpoint's Name; the backend derives the upstream route /{Owner}/{Method} from it.
     static string EndpointFunctionName(Type cellType, string methodName)
     // The SDK function name for a cell's [Function] method: {CellType.FullName}.{Method}. Matches how FunctionRegistry.RegisterFromInstance names instance methods, so a substrate-cell proxy can call them over its SDK connection to the cell-host.
     static string SdkFunctionName(Type cellType, string methodName)
-    // The SDK function name a cell-host exposes to advertise the base URL of its AppEndpointHost — the relay tunnel serving the cell's [HttpEndpoint] + [McpTool] routes. A SubstrateCellProxy calls it over the cell-host SDK connection to learn where to POST [HttpEndpoint] requests directly, instead of going through the cloud webhook gateway. Producer (the cell-host startup path) and consumer (SubstrateCellProxy) must agree on this name.
+    // The SDK function name a cell-host exposes to advertise the base URL of its AppEndpointHost — the relay tunnel serving the cell's [HttpEndpoint] + [McpTool] routes. A SubstrateCellProxy calls it over the cell-host SDK connection to learn where to POST [HttpEndpoint] requests directly, instead of going through the cloud endpoint gateway. Producer (the cell-host startup path) and consumer (SubstrateCellProxy) must agree on this name.
     static string CellEndpointBaseUrlFunctionName
   // Where a CellAttribute -decorated type's instances live.
   enum CellProcessScope
     AppProcess
     Substrate
-  // Static accessor for the process-wide CellHost plus the wiring substrate-cell proxies need: the webhook-URL resolver (for [HttpEndpoint] methods) and the cell-client factory (for [Function] methods and Reactive<T> state, which ride a standard IkonClient SDK connection to the cell-host).
+  // Static accessor for the process-wide CellHost plus the wiring substrate-cell proxies need: the endpoint-URL resolver (for [HttpEndpoint] methods) and the cell-client factory (for [Function] methods and Reactive<T> state, which ride a standard IkonClient SDK connection to the cell-host).
   static class Cells
     // The currently installed process-wide cell host, or null if none has been installed yet. Use this when you want to reuse the shared host with a graceful fallback. For fail-fast access prefer Connect``1 .
     static CellHost? Current { get; }
     static TInterface Connect<TInterface>(object sessionIdentity) where TInterface : class
     // Dispose every live cell-host connection. Call on app shutdown. Idempotent.
     static ValueTask DisposeAsync()
-    // Install the process-wide cell host. Replaces any previous host (last-call-wins) so tests can swap freely. Also clears the webhook-URL resolver and the cell-client factory, and drops the connection registry — apps re-register the resolver/factory after each Initialize. Production calls Initialize once at startup, so this only matters in tests that re-run Initialize between scenarios.
+    // Install the process-wide cell host. Replaces any previous host (last-call-wins) so tests can swap freely. Also clears the endpoint-URL resolver and the cell-client factory, and drops the connection registry — apps re-register the resolver/factory after each Initialize. Production calls Initialize once at startup, so this only matters in tests that re-run Initialize between scenarios.
     static void Initialize(CellHost host)
     // Register the factory that opens a standard-SDK IkonClient connection to a substrate cell-host. Called by the app host at startup — the app process has the backend context (space id, login) the factory needs. SubstrateCellProxy`1 uses it for [Function]-marked methods and Reactive<T> members; without it, those throw a clear error while [HttpEndpoint] methods still work.
     static void SetCellClientFactory(Func<CellConnectRequest, Task<IkonClient>> factory)
-    // Register the function that maps a webhook function name (e.g. "LabCell_IncrementHttp") to its public URL. Called by the app host at startup so SubstrateCellProxy`1 can dispatch a substrate cell's [HttpEndpoint] methods over stateless HTTP. Methods the resolver returns no URL for fall through to the SDK connection.
-    static void SetWebhookUrlResolver(Func<string, string?> resolver)
+    // Register the function that maps a endpoint function name (e.g. "LabCell_IncrementHttp") to its public URL. Called by the app host at startup so SubstrateCellProxy`1 can dispatch a substrate cell's [HttpEndpoint] methods over stateless HTTP. Methods the resolver returns no URL for fall through to the SDK connection.
+    static void SetEndpointUrlResolver(Func<string, string?> resolver)
     // Reserved key in an SDK connection's parameters that names the substrate cell type to route to. The cell's SessionIdentity-record fields ride alongside it. MUST stay in sync with the cloud's CELL_TYPE_PARAM in cell-routing.ts — that's what ChannelInstanceService.create keys on to provision a cell-host channel-instance.
     static string CellTypeParam
   // Framework handle injected into a cell's primary constructor. Exposes the SessionIdentity the cell was instantiated for; future revisions add lifetime, config, etc.
   interface ICell<TSessionIdentity>
     // The SessionIdentity record value this cell instance is keyed by.
     TSessionIdentity Identity { get; }
-  // Declares a method as an MCP tool — the role-named canonical form of McpToolAttribute (still accepted). [Mcp(Description = "…")]. The framework reflects the signature into a JSON Schema, registers it on the cell-host's MCP server (served at the conventional /mcp mount), and routes tools/call requests to it.
-  sealed class McpAttribute : McpToolAttribute
-    ctor()
-  // Marks a method on a cell as an MCP-exposed resource — read-only data addressed by a URI. The framework reflects the method's parameters into a URI template, registers the method on an Ikon.Mcp.McpHost, and routes incoming MCP resources/read requests against the matching URI.
-  sealed class McpResourceAttribute : Attribute
-    // Marks a method on a cell as an MCP-exposed resource — read-only data addressed by a URI. The framework reflects the method's parameters into a URI template, registers the method on an Ikon.Mcp.McpHost, and routes incoming MCP resources/read requests against the matching URI.
-    ctor(string uriTemplate)
-    // Description shown to MCP clients so the agent (or user, via the client UI) can decide when to fetch the resource. Empty values pass through verbatim.
-    string Description { get; init; }
-    // MIME type advertised to clients. Defaults to text/plain for string returns and application/octet-stream for binary; override here to be more specific (text/markdown, application/json, image/png, etc.).
-    string MimeType { get; init; }
-    // Display name shown to MCP clients. Defaults to the method name when null or empty.
-    string? Name { get; init; }
-    // URI or URI template (RFC-6570 Level 1: {name} placeholders only). Required. Placeholder names must match the cell method's parameter names exactly. The scheme is author-chosen — common conventions are file:///, {cellname}://, or domain-specific scheme like order://, policy://.
-    string UriTemplate { get; }
-  // Marks a method on a cell as an MCP-exposed tool. The framework discovers these at startup, reflects the method's parameters into a JSON Schema, registers the method on an Ikon.Mcp.McpHost, and routes incoming MCP tools/call requests to it.
-  class McpToolAttribute : Attribute
-    ctor()
-    // Description shown to MCP clients so the agent's LLM can decide when to invoke the tool. Empty values pass through verbatim — there is no XML-summary fallback today.
-    string Description { get; init; }
-    // MCP-wire tool name presented to clients in tools/list. Defaults to the method name when null or empty. The governance subject id is always the structural "{CellType}.{Method}" regardless of this property, so the same Mission rules gate both HTTP and MCP invocations even when the MCP wire name differs.
-    string? Name { get; init; }
-  // Runtime DispatchProxy for a [Cell(ProcessScope = Substrate)] cell type. App processes call the cell as if it were local; the proxy hides the network hop and picks a transport per member: [HttpEndpoint] methods — dispatched as stateless HTTP POST. The target is the cell-host's own IkonClient -discovered endpoint base URL when available, falling back to the cloud webhook-gateway URL otherwise.other methods — dispatched over a standard IkonClient SDK connection to the cell-host (the cell must expose them via [Function] / [RegisterAll] so they are callable on the wire).Reactive<T> members — return a cached local read-only mirror fed by an SDK subscription; reads and Changed events work locally, mutations flow through cell methods. The SDK connection is opened lazily on first need. Even a cell reached only through [HttpEndpoint] methods opens one once, to discover the cell-host's endpoint base URL.
+  // Runtime DispatchProxy for a [Cell(ProcessScope = Substrate)] cell type. App processes call the cell as if it were local; the proxy hides the network hop and picks a transport per member: [HttpEndpoint] methods — dispatched as stateless HTTP POST. The target is the cell-host's own IkonClient -discovered endpoint base URL when available, falling back to the cloud endpoint-gateway URL otherwise.other methods — dispatched over a standard IkonClient SDK connection to the cell-host (the cell must expose them via [Function] / [RegisterAll] so they are callable on the wire).Reactive<T> members — return a cached local read-only mirror fed by an SDK subscription; reads and Changed events work locally, mutations flow through cell methods. The SDK connection is opened lazily on first need. Even a cell reached only through [HttpEndpoint] methods opens one once, to discover the cell-host's endpoint base URL.
   class SubstrateCellProxy<TInterface> : DispatchProxy where TInterface : class
     ctor()
     // Build a proxy implementing TInterface for the given substrate cell.
-    static TInterface Create(Type cellType, object sessionIdentity, Func<string, string?> webhookUrlResolver)
+    static TInterface Create(Type cellType, object sessionIdentity, Func<string, string?> endpointUrlResolver)
 
 namespace Ikon.App.Client
   // Thread-safe implementation of IClientCollection`1 that synchronizes with GlobalState .
@@ -1105,36 +1099,29 @@ namespace Ikon.App.Client
     TClientParameters Parameters { get; }
 
 namespace Ikon.App.Http
-  // Per-request context for an HttpEndpointAttribute handler currently executing. AsyncLocal so handler code (and anything it calls) can read the request's resolved identity without threading the dict through every method signature. Relationship to other "context" concepts on the platform: SessionIdentity (the typed app/cell record): the routing / instance-partition key. Always present — it's what was used to address the channel-instance this handler runs in. Stable across the cell instance's lifetime.Context (Ikon protocol Context for WS clients): the live client *connection* — sessionId, deviceId, AuthSessionId, UserId from the connect-token. Absent for webhook/MCP dispatches because there is no live client connection.HttpCallContext.Current (this) and McpCallContext .Current: the *request-scoped overlay* that exposes the per-call resolved identity for handler code to read. Set by the wrapper before the handler runs, cleared after. The point is that handlers reading "who is this call for?" get a non-empty answer on webhook/MCP-dispatched calls, where the connection-level Context.UserId would be empty. The handler's SessionIdentity record (resolved by CellHost.ResolveByCellTypeName before this context is set) and HttpCallContext.Current.SessionIdentity carry the same information in different shapes: the former is typed and tied to the cell's lifetime; the latter is the raw wire dict tied to the call's lifetime. Headers and RawBody are the UNTRUSTED request inputs, exposed so a handler can do its own logic inline (e.g. verify a Stripe-Signature against the raw body) without a separate auth cell. They must never feed identity resolution — the target instance is already chosen from trusted sources (signed _st token / OAuth claims / platform-controlled path+query) before the handler runs, so reading a header cannot retarget the call.
+  // Per-request context for an HttpEndpointAttribute handler currently executing. AsyncLocal so handler code (and anything it calls) can read the request's resolved identity without threading the dict through every method signature. Relationship to other "context" concepts on the platform: SessionIdentity (the typed app/cell record): the routing / instance-partition key. Always present — it's what was used to address the channel-instance this handler runs in. Stable across the cell instance's lifetime.Context (Ikon protocol Context for WS clients): the live client *connection* — sessionId, deviceId, AuthSessionId, UserId from the connect-token. Absent for endpoint/MCP dispatches because there is no live client connection.HttpCallContext.Current (this) and McpCallContext .Current: the *request-scoped overlay* that exposes the per-call resolved identity for handler code to read. Set by the wrapper before the handler runs, cleared after. The point is that handlers reading "who is this call for?" get a non-empty answer on endpoint/MCP-dispatched calls, where the connection-level Context.UserId would be empty. The handler's SessionIdentity record (resolved by CellHost.ResolveByCellTypeName before this context is set) and HttpCallContext.Current.SessionIdentity carry the same information in different shapes: the former is typed and tied to the cell's lifetime; the latter is the raw wire dict tied to the call's lifetime. Headers and RawBody are the UNTRUSTED request inputs, exposed so a handler can do its own logic inline (e.g. verify a Stripe-Signature against the raw body) without a separate auth cell. They must never feed identity resolution — the target instance is already chosen from trusted sources (signed ikon-session-token / OAuth claims / platform-controlled path+query) before the handler runs, so reading a header cannot retarget the call.
   sealed class HttpCallContext : IEquatable<HttpCallContext>
-    // Per-request context for an HttpEndpointAttribute handler currently executing. AsyncLocal so handler code (and anything it calls) can read the request's resolved identity without threading the dict through every method signature. Relationship to other "context" concepts on the platform: SessionIdentity (the typed app/cell record): the routing / instance-partition key. Always present — it's what was used to address the channel-instance this handler runs in. Stable across the cell instance's lifetime.Context (Ikon protocol Context for WS clients): the live client *connection* — sessionId, deviceId, AuthSessionId, UserId from the connect-token. Absent for webhook/MCP dispatches because there is no live client connection.HttpCallContext.Current (this) and McpCallContext .Current: the *request-scoped overlay* that exposes the per-call resolved identity for handler code to read. Set by the wrapper before the handler runs, cleared after. The point is that handlers reading "who is this call for?" get a non-empty answer on webhook/MCP-dispatched calls, where the connection-level Context.UserId would be empty. The handler's SessionIdentity record (resolved by CellHost.ResolveByCellTypeName before this context is set) and HttpCallContext.Current.SessionIdentity carry the same information in different shapes: the former is typed and tied to the cell's lifetime; the latter is the raw wire dict tied to the call's lifetime. Headers and RawBody are the UNTRUSTED request inputs, exposed so a handler can do its own logic inline (e.g. verify a Stripe-Signature against the raw body) without a separate auth cell. They must never feed identity resolution — the target instance is already chosen from trusted sources (signed _st token / OAuth claims / platform-controlled path+query) before the handler runs, so reading a header cannot retarget the call.
+    // Per-request context for an HttpEndpointAttribute handler currently executing. AsyncLocal so handler code (and anything it calls) can read the request's resolved identity without threading the dict through every method signature. Relationship to other "context" concepts on the platform: SessionIdentity (the typed app/cell record): the routing / instance-partition key. Always present — it's what was used to address the channel-instance this handler runs in. Stable across the cell instance's lifetime.Context (Ikon protocol Context for WS clients): the live client *connection* — sessionId, deviceId, AuthSessionId, UserId from the connect-token. Absent for endpoint/MCP dispatches because there is no live client connection.HttpCallContext.Current (this) and McpCallContext .Current: the *request-scoped overlay* that exposes the per-call resolved identity for handler code to read. Set by the wrapper before the handler runs, cleared after. The point is that handlers reading "who is this call for?" get a non-empty answer on endpoint/MCP-dispatched calls, where the connection-level Context.UserId would be empty. The handler's SessionIdentity record (resolved by CellHost.ResolveByCellTypeName before this context is set) and HttpCallContext.Current.SessionIdentity carry the same information in different shapes: the former is typed and tied to the cell's lifetime; the latter is the raw wire dict tied to the call's lifetime. Headers and RawBody are the UNTRUSTED request inputs, exposed so a handler can do its own logic inline (e.g. verify a Stripe-Signature against the raw body) without a separate auth cell. They must never feed identity resolution — the target instance is already chosen from trusted sources (signed ikon-session-token / OAuth claims / platform-controlled path+query) before the handler runs, so reading a header cannot retarget the call.
     ctor(IReadOnlyDictionary<string, string>? SessionIdentity = null, CancellationToken CancellationToken = null, IReadOnlyDictionary<string, string>? Headers = null, string? RawBody = null)
     CancellationToken CancellationToken { get; init; }
     static HttpCallContext? Current { get; }
     IReadOnlyDictionary<string, string>? Headers { get; init; }
     string? RawBody { get; init; }
     IReadOnlyDictionary<string, string>? SessionIdentity { get; init; }
-    // Convenience accessor for the conventional userid field of the request's SessionIdentity. Returns null when no HttpCallContext is current or when the identity dict has no userid key (e.g. an anonymous webhook with no identity-bearing fields). Case-insensitive lookup — the same dict is built by the backend funnel from `?userid=` query params, OAuth claims, and signed `_st` tokens.
+    // Convenience accessor for the conventional userid field of the request's SessionIdentity. Returns null when no HttpCallContext is current or when the identity dict has no userid key (e.g. an anonymous endpoint with no identity-bearing fields). Case-insensitive lookup — the same dict is built by the backend funnel from `?userid=` query params, OAuth claims, and signed `ikon-session-token` tokens.
     string? UserId { get; }
-    // Case-insensitive lookup of a request header. UNTRUSTED request input — read it for handler logic (e.g. webhook signature verification), NEVER to derive the SessionIdentity. Identity is resolved upstream before the handler runs and is the only thing that picks the target instance; headers cannot move it. Returns null when the header is absent. The accessor is case-insensitive because HTTP header names are, and the two dispatch paths build the header dictionary with different comparers.
+    // Case-insensitive lookup of a request header. UNTRUSTED request input — read it for handler logic (e.g. endpoint signature verification), NEVER to derive the SessionIdentity. Identity is resolved upstream before the handler runs and is the only thing that picks the target instance; headers cannot move it. Returns null when the header is absent. The accessor is case-insensitive because HTTP header names are, and the two dispatch paths build the header dictionary with different comparers.
     string? Header(string name)
     static IDisposable Use(HttpCallContext context)
   // Bridges in-process HTTP cell-method dispatch through the active GovernanceScope hook. With no hook active this is a pass-through; with one set, the invocation flows through RunAsync``1 with the structural {CellType}.{Method} subject id so the same Mission gates HTTP and MCP symmetrically.
   static class HttpDispatchGovernance
     static Task<object?> InvokeAsync(MethodInfo handler, Type ownerType, IReadOnlyDictionary<string, object?> args, Func<Task<object?>> invoke, CancellationToken ct = null)
-  // Reflective discovery of the typed HTTP surface on a given type: every RestAttribute / HttpEndpointAttribute method, plus every McpToolAttribute method — [Mcp] is sugar for a POST at the method's own path, so it's discovered and dispatched as an ordinary endpoint with no separate transport or /mcp aggregator. Used at startup by the framework to enumerate the surface of an app class and of every cell type.
+  // Reflective discovery of the typed HTTP surface on a given type: every HttpEndpointAttribute method. McpToolAttribute methods are NOT surfaced here — MCP tools are served only through the MCP JSON-RPC transport mounted at /{Type}/mcp (which binds named arguments and so handles tools of any arity). Used at startup by the framework to enumerate the surface of an app class and of every cell type.
   static class HttpEndpointDiscovery
-    // Discover every typed HTTP endpoint on ownerType . Methods inherited from base classes are included; static methods and non-public methods are skipped (endpoints must be invokable on a specific instance). An [Mcp]/[McpTool] method with no explicit [HttpEndpoint] is surfaced as a POST whose path derives from the method name.
+    // Discover every typed HTTP endpoint on ownerType . Methods inherited from base classes are included; static methods and non-public methods are skipped (endpoints must be invokable on a specific instance). Requires an explicit [HttpEndpoint].
     static IReadOnlyList<HttpEndpointInfo> ForType(Type ownerType)
     // Discover endpoints across every type in types . Convenience overload for the startup path that has already filtered an assembly's loaded types down to apps and cells.
     static IReadOnlyList<HttpEndpointInfo> ForTypes(IEnumerable<Type> types)
-  // Transport envelope serialized by the app-side wrapper, deserialized by IkonServer back into an HttpDispatchResult. Public because the JSON contract crosses the protocol boundary, but the type itself is internal-style — no apps reference it directly.
-  sealed class HttpEndpointEnvelope : IEquatable<HttpEndpointEnvelope>
-    // Transport envelope serialized by the app-side wrapper, deserialized by IkonServer back into an HttpDispatchResult. Public because the JSON contract crosses the protocol boundary, but the type itself is internal-style — no apps reference it directly.
-    ctor(int StatusCode, string? Body, string ContentType)
-    string? Body { get; init; }
-    string ContentType { get; init; }
-    int StatusCode { get; init; }
   // Metadata for a single HttpEndpointAttribute -annotated method discovered at startup. Carries everything the dispatcher needs at request time: the HTTP method, path template, auth handler type, the reflected MethodInfo , and the owner Type (an app class or a [Cell] class).
   sealed class HttpEndpointInfo : IEquatable<HttpEndpointInfo>
     // Metadata for a single HttpEndpointAttribute -annotated method discovered at startup. Carries everything the dispatcher needs at request time: the HTTP method, path template, auth handler type, the reflected MethodInfo , and the owner Type (an app class or a [Cell] class).
@@ -2180,9 +2167,6 @@ namespace Ikon.App.Payments
     string Status { get; init; }
     // URL Stripe posts events to.
     string Url { get; init; }
-  sealed class PaymentsWebhookFunctionHost
-    ctor(PaymentsService payments)
-    Task<string> StripeWebhook(Dictionary<string, string> queryParams, Dictionary<string, string> headers, string body)
   // Payload shape requested when registering a v2 event destination (POST /v2/core/event_destinations) — Stripe ships every event in one of these two shapes.
   enum PaymentsWebhookPayloadShape
     Snapshot

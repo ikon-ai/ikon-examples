@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 326277,
+      "sizeBytes": 323941,
       "alsoInclude": []
     },
     {
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 176578,
+      "sizeBytes": 176744,
       "alsoInclude": []
     },
     {
@@ -554,7 +554,7 @@
         "callable functions"
       ],
       "file": "docs/guides/function-registry.md",
-      "sizeBytes": 33462,
+      "sizeBytes": 30542,
       "alsoInclude": []
     },
     {
