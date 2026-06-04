@@ -37,7 +37,7 @@ private UI UI { get; } = new(app, new IkonTheme
     ["motion-duration-base"] = "200ms",
     ["ease-default"]         = "ease-out",
 
-    // Per-token Tailwind overrides (optional).
+    // Per-token palette overrides (optional).
     ["amber-400"]  = "#F5A524",
     ["rounded-lg"] = "1.25rem",
     ["shadow-lg"]  = "0 8px 16px rgba(0,0,0,.18)",
@@ -57,7 +57,7 @@ Every entry is one CSS variable. The renderer dispatches by **key shape**:
 
 | Key shape | Emits | Value resolver |
 |---|---|---|
-| Tailwind palette step (`amber-400`, `zinc-950`) | `--color-{key}` | `ResolveColor` |
+| Color palette step (`amber-400`, `zinc-950`) | `--color-{key}` | `ResolveColor` |
 | `rounded-{rung}` | `--radius-{rung}` | `ResolveRadius` |
 | `shadow-{rung}` | `--shadow-{rung}` | (raw passthrough) |
 | `font-{role}` | `--font-{role}` | `ResolveFontFamily` |
@@ -81,7 +81,7 @@ There's no:
 - **Named init properties.** No `Brand = "amber-400"`. Every override is an indexer entry.
 - **Fan-out from one role to many CSS vars.** Setting `["primary"]` does not also set `["bg-brand-solid"]`. You spell out each var you want themed.
 - **Auto-contrast.** Setting `["background"] = "zinc-950"` does not auto-pick a light text color. You set `["text-primary"]` explicitly.
-- **Magic value resolution beyond Tailwind tokens.** `["radius-base"] = "rounded-2xl"` works (Tailwind token resolved); `["radius-base"] = "fluffy"` would emit literal `--radius-base: fluffy` which is invalid CSS.
+- **Magic value resolution beyond Crosswind tokens.** `["radius-base"] = "rounded-2xl"` works (Crosswind token resolved); `["radius-base"] = "fluffy"` would emit literal `--radius-base: fluffy` which is invalid CSS.
 
 This is by design. The cost is verbosity — committing a brand takes ~10-15 entries. The benefit is that there's nothing hidden: what you write is what lands in the CSS.
 
@@ -144,7 +144,7 @@ The platform CSS consumes these variables. Set the ones you want to override; th
 | `ease-default` | default easing |
 | `motion-easing-default` | alias |
 
-### Tailwind palette overrides (re-skin a step app-wide)
+### Color palette overrides (re-skin a step app-wide)
 
 ```csharp
 ["amber-400"] = "#F5A524",
@@ -174,9 +174,9 @@ Emit as `--hero-glow: …` and `--scanline-overlay: …`. Reference inline via `
 
 Every value is one of:
 
-- **Tailwind palette token** — `<palette>-<step>` where palette is one of `red`, `orange`, `amber`, `yellow`, `lime`, `green`, `emerald`, `teal`, `cyan`, `sky`, `blue`, `indigo`, `violet`, `purple`, `fuchsia`, `pink`, `rose`, `slate`, `gray`, `zinc`, `neutral`, `stone` and step is one of `50`, `100`, `200`, `300`, `400`, `500`, `600`, `700`, `800`, `900`, `950`. Examples: `amber-400`, `zinc-950`, `rose-600`.
-- **Tailwind radius rung** — `rounded-none`, `rounded-xs`, `rounded-sm`, `rounded`, `rounded-md`, `rounded-lg`, `rounded-xl`, `rounded-2xl`, `rounded-3xl`, `rounded-4xl`, `rounded-full`. Resolves to a rem value.
-- **Tailwind font role** — `font-sans`, `font-serif`, `font-mono`, `font-display`, `font-heading`, `font-body`. Resolves to a `var(--font-*)` ref.
+- **Color palette token** — `<palette>-<step>` where palette is one of `red`, `orange`, `amber`, `yellow`, `lime`, `green`, `emerald`, `teal`, `cyan`, `sky`, `blue`, `indigo`, `violet`, `purple`, `fuchsia`, `pink`, `rose`, `slate`, `gray`, `zinc`, `neutral`, `stone` and step is one of `50`, `100`, `200`, `300`, `400`, `500`, `600`, `700`, `800`, `900`, `950`. Examples: `amber-400`, `zinc-950`, `rose-600`.
+- **Radius rung** — `rounded-none`, `rounded-xs`, `rounded-sm`, `rounded`, `rounded-md`, `rounded-lg`, `rounded-xl`, `rounded-2xl`, `rounded-3xl`, `rounded-4xl`, `rounded-full`. Resolves to a rem value.
+- **Font role** — `font-sans`, `font-serif`, `font-mono`, `font-display`, `font-heading`, `font-body`. Resolves to a `var(--font-*)` ref.
 - **Easing keyword** — `linear`, `ease`, `ease-in`, `ease-out`, `ease-in-out`. Resolves to cubic-bezier.
 - **Raw CSS** — hex (`#F5A524`), rgb / rgba (`rgb(255 165 0)`), hsl / hsla, oklch / oklab, named colors (`black`, `white`, `transparent`, `currentColor`), rems (`0.5rem`, `1.25rem`), pixels (`16px`), durations (`150ms`, `0.2s`), gradients (`radial-gradient(...)`, `linear-gradient(...)`), or any other CSS expression. Pass-through unchanged.
 - **Literal font family name** — `Crimson Pro`, `Inter`, `JetBrains Mono`. Wraps in a quoted family stack with system fallbacks.
@@ -477,7 +477,7 @@ The renderer emits the dark block under `[data-theme="dark"]`, `.dark`, and `@me
 
 ## Inline component styling
 
-Once your theme is committed, components consume it via standard Tailwind utilities:
+Once your theme is committed, components consume it via standard Crosswind utilities:
 
 ```csharp
 // Brand button — picks up your `primary` and `primary-foreground`.
@@ -494,7 +494,7 @@ view.Text(["text-2xl font-bold text-brand-primary"], "Section Title");
 view.Box(["absolute inset-0 -z-10 bg-[var(--hero-glow)] pointer-events-none"]);
 ```
 
-The full Tailwind palette (`bg-amber-400`, `text-zinc-50`, etc.) and motion DSL (`motion-[0:opacity-0,100:opacity-100]`) are also available. See [Crosswind Styling and Motion Guide](crosswind-styling-and-motion-guide.md) for the full utility reference.
+The full color palette (`bg-amber-400`, `text-zinc-50`, etc.) and motion DSL (`motion-[0:opacity-0,100:opacity-100]`) are also available. See [Crosswind Styling and Motion Guide](crosswind-styling-and-motion-guide.md) for the full utility reference.
 
 ## Common pitfalls
 
