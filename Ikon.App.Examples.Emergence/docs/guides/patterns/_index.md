@@ -97,8 +97,10 @@
 
 ## Visualization
 
+> For pie / bar / line charts use the first-class components — see the **charts** guide (`view.PieChart`, `view.BarChart`, `view.LineChart`). The list pattern below is only a tiny inline sparkline.
+
 - `kpi-card-grid` — responsive 2/4-col grid of headline-number cards.
-- `bar-chart-from-list` — 24-bucket histogram from list.
+- `bar-chart-from-list` — tiny inline bar SPARKLINE from a list (no axes/legend); for a real bar chart use `view.BarChart` (charts guide).
 - `score-bar-meter` — 0-10 bar with red/amber/emerald threshold coloring.
 - `dialog-stat-card-grid` — detail modal with conditional-color stat tiles.
 - `tactical-map-markers` — TacticalMap with derived markers/paths.
