@@ -15,12 +15,13 @@ namespace Ikon.Common
     ctor()
     AppBundleConfig.ActivationConfig Activation { get; set; }
     AppBundleConfig.AuthConfig Auth { get; set; }
-    // Per-cell entry points discovered in the bundle. The cloud uses this list to: (a) recognise URLs of the form /api/{CellType}/{path} and route them to a cell-instance (provisioned the same way an app-instance is, just with AppInitializationArgs.RunTarget = "{CellType}" instead of null); (b) hash the request's identity query params against the cell's IdentityFields to find-or-create the right channel-instance for that cell identity. Empty for apps without cells, or for cells whose ProcessScope is AppProcess (in-process — no separate cell-instance needed). See docs/private/cell-substrate-and-unified-http.md.
+    // Per-cell entry points discovered in the bundle. The cloud uses this list to: (a) recognise URLs of the form /api/{CellType}/{path} and route them to a cell-instance (provisioned the same way an app-instance is, just with AppInitializationArgs.RunTarget = "{CellType}" instead of null); (b) hash the request's identity query params against the cell's IdentityFields to find-or-create the right channel-instance for that cell identity. Empty for apps without cells, or for cells whose ProcessScope is AppProcess (in-process — no separate cell-instance needed). See docs/private/endpoint-and-cell-architecture.md.
     List<AppBundleConfig.CellEntry> Cells { get; set; }
     string ChannelId { get; set; }
     string CreatedAt { get; set; }
     List<AppBundleConfig.DatabaseEntry> Databases { get; set; }
     List<AppBundleConfig.EmailTemplate> EmailTemplates { get; set; }
+    List<AppBundleConfig.EndpointDescriptor> Endpoints { get; set; }
     string Hash { get; set; }
     string Name { get; set; }
     string OrganisationId { get; set; }
@@ -28,7 +29,6 @@ namespace Ikon.Common
     List<string> SessionIdentityKeys { get; set; }
     string SpaceId { get; set; }
     string Version { get; set; }
-    List<AppBundleConfig.WebhookFunction> Webhooks { get; set; }
     static string ConfigFileName
   class AppBundleConfigLegacy
     ctor()
@@ -171,6 +171,14 @@ namespace Ikon.Common
     string Name { get; set; }
     string Path { get; set; }
     string Subject { get; set; }
+  class AppBundleConfig.EndpointDescriptor
+    ctor()
+    bool AutoRegistered { get; set; }
+    bool IsMcpTool { get; set; }
+    string Name { get; set; }
+    string Owner { get; set; }
+    string OwnerKind { get; set; }
+    string? Path { get; set; }
   enum EndpointProtocol
     Tcp
     Tls
@@ -1062,7 +1070,7 @@ namespace Ikon.Common
     ctor(int size = 32)
     void AddValue(double value)
     double GetAverage()
-  // Convention for converting a developer-declared [HttpEndpoint] path into the absolute external path under the space domain ({space}.ikonai.app{path}). Developers can write either absolute paths ("/billing/stripe", "/labs/{workspace}/increment") or the legacy relative form ("bump", "value" — what the cell-host's AppEndpointHost served under /{CellType}/{Method} before the inbound-unification plan landed). Relative names are auto-derived so the same endpoint flows through the same gateway path under both forms: On the app class: "bump" → /bumpOn a [Cell] LabCell: "bump" → /lab-cell/bump Used by both HttpEndpointWrapperRegistration (runtime, so BuildEndpointUrl emits the right PublicUrl) and AppBundleHandler.DiscoverEndpoints (build-time, so the bundle manifest carries the derived path through to the gateway's routing trie). One source of truth for the derivation keeps the two from drifting.
+  // Convention for converting a developer-declared [HttpEndpoint] path into the absolute external path under the space domain ({space}.ikonai.app{path}). Developers can write either absolute paths ("/billing/stripe", "/labs/{workspace}/increment") or the legacy relative form ("bump", "value" — what the cell-host's AppEndpointHost served under /{CellType}/{Method} before the inbound-unification plan landed). Relative names are auto-derived so the same endpoint flows through the same gateway path under both forms: On the app class: "bump" → /bumpOn a [Cell] LabCell: "bump" → /lab-cell/bump Used by both App.BuildEndpointsAsync (runtime, so BuildEndpointUrl emits the right PublicUrl) and AppBundleHandler.DiscoverEndpoints (build-time, so the bundle manifest carries the derived path through to the gateway's routing trie). One source of truth for the derivation keeps the two from drifting.
   static class PathConvention
     // Derive the absolute external path for an HTTP endpoint declared on ownerTypeName . Absolute paths (starting with '/') are returned unchanged. Empty / relative paths are kebab-cased and assembled under the cell-type prefix (or directly on the app class).
     static string DeriveAbsolutePath(string declaredPath, string ownerTypeName, bool isAppClass, string fallbackMethodName)
@@ -1246,11 +1254,6 @@ namespace Ikon.Common
     double Average
     double Maximum
     double Minimum
-  class AppBundleConfig.WebhookFunction
-    ctor()
-    bool AutoRegistered { get; set; }
-    string Name { get; set; }
-    string? Path { get; set; }
   class AppBundleConfig.Workflow
     ctor()
     PipelineExecutionMode ExecutionMode { get; set; }
