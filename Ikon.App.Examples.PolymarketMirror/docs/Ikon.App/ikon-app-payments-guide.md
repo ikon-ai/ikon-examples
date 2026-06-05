@@ -1,35 +1,12 @@
 # Ikon.App.Payments Guide
 
-Stripe-backed payments for Ikon apps — checkout, subscriptions, refunds, marketplace splits — without owning a payments backend. The library handles the Stripe surface; your app keeps owning _what_ it sells and _who_ it sells to. Customer-facing payment flows redirect to Stripe-hosted pages (Checkout, Customer Portal, KYC, dashboard) — no Stripe.js, no embedded iframes.
+Payments for Ikon apps — checkout, subscriptions, refunds — without owning a payments backend. In `ikon-connect` mode the **Ikon backend owns the normalized payment store**, ingests provider webhooks, drives the provider, and **pushes normalized events to your app**. Your app drives checkout and reacts to events over a protocol-message channel — there is no webhook endpoint to wire. Customer-facing flows redirect to provider-hosted pages (Checkout, Customer Portal, KYC) — no Stripe.js, no embedded iframes.
 
 ## TL;DR — what you wire
 
 ```csharp
-// 1. Implement IPaymentsAppAdapter — three callbacks
-public sealed class MyAppPaymentsAdapter(MyApp app) : IPaymentsAppAdapter
-{
-    public Task<PaymentsPlanDescriptor?> GetPlanAsync(string planId, CancellationToken ct)
-        => Task.FromResult<PaymentsPlanDescriptor?>(planId switch
-        {
-            "pro"  => PaymentsPlanDescriptor.Subscription(planId, "price_pro_monthly"),
-            "team" => PaymentsPlanDescriptor.Subscription(planId, "price_team_monthly"),
-            _      => null,
-        });
-
-    public async Task<string> ResolveStripeCustomerIdAsync(string appCustomerKey, string? email, CancellationToken ct)
-    {
-        if (app.Db.TryGetCustomer(appCustomerKey, out var cid)) return cid;
-        var newId = await app.Payments.CreateCustomerAsync(new PaymentsCustomerInfo { Email = email });
-        app.Db.PersistCustomer(appCustomerKey, newId);
-        return newId;
-    }
-
-    public Task ApplyEventAsync(PaymentsEvent evt, CancellationToken ct)
-        => app.Db.ApplyPaymentsEvent(evt);    // dedupe on evt.EventId
-}
-
-// 2. Construct the service once at startup
-var options = PaymentsAppHelpers.AutoDetectFromApp(app, defaultAppId: "my-app") with
+// 1. Construct the service once at startup (ikon-connect = zero-config).
+var options = PaymentsAppHelpers.AutoDetectFromApp(app, defaultSpaceId: "my-app") with
 {
     DefaultSuccessUrl = "https://my-app.ikonai.app/payments/success",
     DefaultCancelUrl  = "https://my-app.ikonai.app/payments/cancel",
@@ -39,34 +16,44 @@ if (options.Provider == PaymentsProvider.Disabled) { /* show CTA, return */ }
 
 _payments = new PaymentsService(options, new MyAppPaymentsAdapter(this));
 
-// 3. Drive checkout from app code
-var session = await _payments.CreateCheckoutAsync(
+// 2. React to normalized events the backend pushes — no webhook endpoint to wire.
+_payments.PaymentReceived += async evt =>
+{
+    // evt.Type = order_paid | subscription_renewed | subscription_canceled | order_refunded | …
+    // evt.PayloadJson = normalized projection. Apply to your app (idempotent on evt.EventId).
+    await MyApp.OnPaymentAsync(evt);
+};
+
+// 3. Drive checkout — backend RPC: the backend creates the session and owns the resulting state.
+var resultJson = await _payments.CreateBackendCheckoutAsync(
     planId: "pro",
     appCustomerKey: currentUserId,
-    email: currentUserEmail);
-await ClientFunctions.SetUrlAsync(session.Url);
+    email: currentUserEmail,
+    successUrl: "https://my-app.ikonai.app/payments/success",
+    cancelUrl:  "https://my-app.ikonai.app/payments/cancel");
+// resultJson => { "url": "...", "sessionId": "..." } — redirect the user to "url".
 ```
 
-That's the whole surface. Webhooks land at a `[Function(Webhook = true)]` you forward to `_payments.HandleWebhookAsync` — see [Webhook lifecycle](#webhook-lifecycle).
+That's the whole surface in `ikon-connect`: drive actions with the `…Backend…` RPC methods (`CreateBackendCheckoutAsync`, `GetBackendEntitlementAsync`, `CreateBackendOrderAsync`, `RefundBackendOrderAsync`, `CancelBackendSubscriptionAsync`, `GetBackendCatalogAsync`, `GetBackendCapabilitiesAsync`), and react to backend pushes via `PaymentReceived`. The raw `IPaymentsProvider` methods (`CreateCheckoutAsync`, …) remain as an escape hatch over the provider proxy for flows the normalized surface doesn't cover. **BYOK** apps talk to Stripe directly and still verify their own Stripe webhook via `_payments.HandleWebhookAsync` — see [Receiving payment events](#receiving-payment-events).
 
 ## Naming note
 
-The library, CLI verb (`ikon app payments`), C# namespace (`Ikon.App.Payments`), backend lib (`app-payments`), and REST routes (`/apps/:space/payments/*`) all use **payments**. The per-app **secret names keep the `BILLING_*` prefix** — `BILLING_PROVIDER`, `IKON_BACKEND_BILLING_URL`, `IKON_WEBHOOK_SECRET` — for backward compatibility with apps that already set them. Don't be thrown by the mismatch: secrets say `BILLING_`, everything else says `payments`. (The separate `ikon billing` verb and `libs/billing` are a _different_ system — the platform's own org-level Canvas/AI usage credits, unrelated to what your app charges its end users.)
+The library, CLI verb (`ikon app payments`), C# namespace (`Ikon.App.Payments`), backend lib (`app-payments`), and REST routes (`/apps/:space/payments/*`) all use **payments**. The `BILLING_PROVIDER` / `IKON_BACKEND_BILLING_URL` secret names keep the `BILLING_*` prefix for backward compatibility. Don't be thrown by the mismatch: a couple of secrets say `BILLING_`, everything else says `payments`. (The separate `ikon billing` verb and `libs/billing` are a _different_ system — the platform's own org-level Canvas/AI usage credits, unrelated to what your app charges its end users.)
 
 ## Provider model
 
 The whole payments surface runs behind an **`IPaymentsProvider`** abstraction so the same app API can target more than one payment platform. This mirrors how `Ikon.AI` abstracts LLM providers (a neutral interface + per-provider implementations + capability flags). The seam is at the **operation level** (`CreateCheckoutAsync`, `ListSubscriptionsAsync`, `RefundAsync`, …) returning neutral `Payments*` DTOs — _not_ at the HTTP transport level, because provider APIs differ fundamentally (Stripe form-encoded `/v1/`; Worldpay JSON + HATEOAS; Vipps JSON + OAuth-token + MSN + wallet redirect). A shared "post a Stripe form to a path" transport can't express them all.
 
-- **C# (`Ikon.App.Payments`)**: `PaymentsService` is a thin façade over the active `IPaymentsProvider`, chosen from `PaymentsOptions.Provider`. `StripePaymentsProvider` holds the BYOK-vs-ikon-connect transport choice internally (that's a Stripe-internal detail, orthogonal to provider selection). The app API and `Payments*` DTOs are identical regardless of provider.
+- **C# (`Ikon.App.Payments`)**: `PaymentsService` is a thin façade over the active `IPaymentsProvider`, chosen from `PaymentsOptions.Provider`. Both `ikon-connect` and `byok` reach Stripe through the backend proxy transport — the difference is only the credential the backend uses (platform key + `Stripe-Account` vs. the app's own key forwarded per-request), a Stripe-internal detail orthogonal to provider selection. The app API and `Payments*` DTOs are identical regardless of mode.
 - **Backend (`app-payments` lib)**: `PaymentsProviderFactory` selects the provider for merchant provisioning + webhook routing per space; the binding stores which provider owns each merchant.
 
-| Provider            | Status | Notes                                                                                                                                                                                                                                 |
-| ------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Stripe**          | Full   | The only fully implemented provider. Everything else in this guide is Stripe.                                                                                                                                                         |
-| **Worldpay**        | Stub   | Capabilities declared; operations throw `PaymentsNotSupportedException`. A future PR fills in the real Worldpay Access calls (JSON + HATEOAS `_links`, Onboarding API, stored-credential recurring) without changing the abstraction. |
-| **Vipps MobilePay** | Stub   | Capabilities declared; operations throw. Future impl maps to ePayment (wallet redirect) + Recurring API (agreement + charges) + token/MSN auth.                                                                                       |
+| Provider            | Status | Notes                                                                                                                                                                                                                                                                                             |
+| ------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Stripe**          | Full   | Primary provider. Most of this guide is Stripe.                                                                                                                                                                                                                                                   |
+| **Vipps MobilePay** | Hidden | Fully implemented backend-side (token manager, ePayment, recurring agreement + scheduler-driven charges, PSP merchant onboarding, per-MSN webhooks) but **not registered in the selectable provider list** until partner credentials + go-live. Re-add it to `PaymentsProviderFactory` to enable. |
+| **Worldpay**        | Stub   | Capabilities declared; operations throw. A future PR fills in the real Worldpay Access calls without changing the abstraction.                                                                                                                                                                    |
 
-Operations a provider doesn't support throw `PaymentsNotSupportedException`. Apps that target multiple providers branch on **`PaymentsService.GetCapabilities()`** first — e.g. `SupportsNativeSubscriptions` (Stripe/PayPal yes; Worldpay/Vipps no), `SupportsCatalog` (Vipps has no products/prices), `SupportsHostedCheckout`, `SupportsProgrammaticOnboarding`. The C# `PaymentsProvider` enum (`Disabled` / `Byok` / `IkonConnect` / `Worldpay` / `Vipps`) selects the provider; `Worldpay`/`Vipps` resolve to throwing stubs until implemented.
+Operations a provider doesn't support throw `PaymentsNotSupportedException`, and backend RPC returns `not_supported` (the C# client raises the same exception). Apps that target multiple providers branch on **`PaymentsService.GetCapabilities()`** / `GetBackendCapabilitiesAsync()` first — e.g. native auto-billing (Stripe yes; Vipps no — the backend schedules charges), catalog (Vipps has none), hosted checkout, programmatic onboarding. The backend never silently degrades a money-moving operation: it either executes, transparently provides the required integration (e.g. the Vipps recurring scheduler), or fails with `not_supported`.
 
 ## What you do once per app
 
@@ -79,23 +66,23 @@ ikon app secret set BILLING_PROVIDER ikon-connect
 
 ## Mental model
 
-| Layer                                  | What it owns                                                                                                                                                                  |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Stripe**                             | Source of truth for money — customers, subscriptions, invoices, refunds, payouts. The library never duplicates Stripe state.                                                  |
-| **Ikon backend** (`ikon-connect` only) | Proxies Stripe API calls; attaches `Stripe-Account` per app; routes the connected-account onboarding + payout pipeline. Transparent to the app.                               |
-| **`Ikon.App.Payments`**                | The C# façade. Builds checkout sessions, manages subscriptions, verifies webhooks, normalizes events into `PaymentsEvent`. Stateless — no DB writes.                          |
-| **Your app + `IPaymentsAppAdapter`**   | Owns plan catalog, customer mapping (`appCustomerKey` → Stripe `cus_…`), entitlement persistence, idempotency on event ids. The library calls back via three adapter methods. |
+| Layer                             | What it owns                                                                                                                                                                                                        |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Provider** (Stripe / Vipps)     | Moves the money. Stripe is the source of truth for Stripe-native objects; Vipps has no auto-billing (the backend schedules charges).                                                                                |
+| **Ikon backend** (`ikon-connect`) | Owns the **normalized payment store**, ingests provider webhooks, drives the provider (with `Stripe-Account` / MSN), and pushes normalized events to the running app. Source of truth for entitlement.              |
+| **`Ikon.App.Payments`**           | The C# façade + protocol-message client. Sends RPC, receives + verifies pushes, exposes capabilities. Stateless (optional local entitlement cache only).                                                            |
+| **Your app**                      | Maps its own users to `appCustomerKey`, drives checkout via the RPC methods, gates features on `PaymentReceived` / `GetBackendEntitlementAsync`. It does **not** persist payment state or handle provider webhooks. |
 
-The library is provider-neutral on the public surface (`Payments*` types) so a non-Stripe backend can be added later without breaking apps.
+The public surface is provider-neutral, and the backend normalizes every provider into one model — so adding a provider doesn't change app code.
 
 ## Payments provider modes
 
 Apps pick transport via the `BILLING_PROVIDER` secret. `PaymentsAppHelpers.AutoDetectFromApp(app)` resolves it once at startup.
 
-| Mode                           | Selector                                 | When to use                                                                                                                | Customer setup                                                                                                                   | Fee                                                         |
-| ------------------------------ | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| **`ikon-connect`** _(default)_ | `BILLING_PROVIDER=ikon-connect` or unset | Default. Customer becomes a connected sub-account on Ikon's Stripe Connect platform. Ikon handles webhooks, dispatch, KYC. | Configure `IKON_BACKEND_BILLING_URL` (defaults to ambient). No Ikon-issued token — the app's standard backend session is reused. | Ikon takes 5% (configurable); Stripe processing fees on top |
-| **`byok`**                     | `BILLING_PROVIDER=byok`                  | Customer wants full Stripe control, lower fees, or operates where Ikon Connect can't.                                      | Customer creates own Stripe account, sets `STRIPE_API_KEY`, registers own webhooks.                                              | Standard Stripe fees only                                   |
+| Mode                           | Selector                                 | When to use                                                                                                                                                                | Customer setup                                                                                                                                                                                                                                                     | Fee                                                                                      |
+| ------------------------------ | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| **`ikon-connect`** _(default)_ | `BILLING_PROVIDER=ikon-connect` or unset | Default. Customer becomes a connected sub-account on Ikon's Stripe Connect platform. Ikon ingests provider webhooks, normalizes + delivers events to the app, handles KYC. | Configure `IKON_BACKEND_BILLING_URL` (defaults to ambient). No Ikon-issued token — the app's standard backend session authorizes the `/payments/*` REST calls.                                                                                                     | Ikon takes 5% (configurable) via Stripe `application_fee`; Stripe processing fees on top |
+| **`byok`**                     | `BILLING_PROVIDER=byok`                  | Customer wants full Stripe control, lower fees, or operates where Ikon Connect can't.                                                                                      | Customer creates own Stripe account, sets `STRIPE_API_KEY` (forwarded per-request to the backend proxy, never stored) + `STRIPE_WEBHOOK_SECRET`; the app verifies its own Stripe webhook and forwards the event to the backend, which normalizes + pushes it back. | Standard Stripe fees only                                                                |
 
 ```bash
 # ikon-connect (default)
@@ -149,60 +136,17 @@ If a key is exposed, [roll it immediately](https://dashboard.stripe.com/apikeys)
 
 ### BYOK mode
 
-```
-┌────────────┐  CreateCheckoutAsync       ┌────────────┐
-│ Ikon app   │ ─────────────────────────► │PaymentsSvc  │
-│  server    │                            │            │
-│            │  Adapter.GetPlanAsync ◄─── │            │
-│            │  Adapter.ResolveCust  ◄─── │            │
-│            │                            │            │
-│            │                            │  POST      │
-│            │                            │  /sessions │
-│            │                            │  + sk_test │ ────► Stripe
-│            │  session.Url               │            │
-│            │ ◄───────────────────────── │            │
-│            │
-│            │  ClientFunctions.SetUrlAsync ─► browser ─► Stripe-hosted checkout
-└────────────┘
-```
+BYOK still routes through the Ikon backend — the backend is the proxy. When your app calls `CreateCheckoutAsync` (and the other provider ops), the request goes to the backend with your app's own Stripe key on the `X-Ikon-Byok-Key` header; the backend calls _your_ Stripe account with it (no `Stripe-Account`), using the key in-memory for that one call and never storing it. The backend returns the Stripe-hosted checkout URL, which the app hands to the browser via `ClientFunctions.SetUrlAsync`. Routing through the backend keeps the single normalization implementation backend-side, exactly like ikon-connect.
 
 ### ikon-connect mode
 
-```
-┌────────────┐  CreateCheckoutAsync       ┌────────────┐    ┌──────────────┐
-│ Ikon app   │ ─────────────────────────► │PaymentsSvc  │ ──►│ Ikon backend │
-│  server    │                            │            │    │  (proxy)     │
-│            │                            │            │    │              │
-│            │                            │            │    │  attaches    │
-│            │                            │            │    │  Stripe-     │
-│            │                            │            │    │  Account hdr │
-│            │                            │            │    │              │ ───► Stripe
-│            │  session.Url               │            │ ◄──│              │
-│            │ ◄───────────────────────── │            │    └──────────────┘
-└────────────┘
-```
+The app code is identical in both modes — only the constructor's `PaymentsOptions` differs.
 
-The app code is identical in both modes — only the constructor's `PaymentsOptions` differs. The proxy injection in ikon-connect happens inside `PaymentsService`.
+There are two app→backend paths. The **primary** one is the backend-command surface: `CreateBackendCheckoutAsync` calls a space-token'd `/payments/*` REST route, the backend drives the provider (attaching `Stripe-Account` for the connected account) and owns the resulting normalized state, and normalized events come back as `PaymentReceived` (delivered as the `Ikon.Payments.Event` function call — no route to mount). The **escape hatch** is the raw-provider proxy (`CreateCheckoutAsync` and the other `IPaymentsProvider` ops), which `PaymentsService` routes through the backend proxy for provider-specific operations the normalized commands don't cover.
 
 ## Multi-app topology
 
-One Ikon org can run many apps, each with its own billing. Each app stays isolated by construction.
-
-```
-                   ┌───────────────────────────────────────┐
-                   │  Acme org                              │
-                   │                                        │
-   ┌────────────┐  │   ┌──────────┐  ┌──────────┐  ┌────┐  │
-   │ Stripe     │  │   │ App A    │  │ App B    │  │ …  │  │
-   │ (Ikon's    │  │   │ payments │  │ payments │  │    │  │
-   │  Connect   │  │   └────┬─────┘  └────┬─────┘  └────┘  │
-   │  platform) │  │        │             │                │
-   │            │  │        ▼             ▼                │
-   │  acct_A    │ ◄┼────────┘             │                │
-   │  acct_B    │ ◄┼──────────────────────┘                │
-   │  acct_…    │  │                                       │
-   └────────────┘  └───────────────────────────────────────┘
-```
+One Ikon org can run many apps, each with its own billing. Each app stays isolated by construction — every app (space) maps to its own connected account (`acct_…`) under Ikon's single Stripe Connect platform.
 
 - **`ikon-connect` mode**: each app gets its own Stripe Connect connected account created via Accounts v2 (`POST /v2/core/accounts`) in the Stripe-managed posture (`dashboard=full`, `defaults.responsibilities.fees_collector=stripe`, `defaults.responsibilities.losses_collector=stripe`). Stripe handles KYC, processing fees, loss liability, and the full merchant dashboard at `https://dashboard.stripe.com/`. The Ikon platform backend owns the create call + the v2 AccountLinks redirect; apps do not drive Stripe write operations themselves. The space↔account binding lives on `acct.metadata.ikon_space` (Stripe metadata = source of truth).
 - **BYOK mode**: each app gets its own `STRIPE_API_KEY`. Total isolation — separate Stripe accounts entirely.
@@ -337,70 +281,56 @@ public async Task<string> ResolveStripeCustomerIdAsync(string appCustomerKey, st
 
 ## Adapter contract
 
-`IPaymentsAppAdapter` has three methods. The library calls them; the app owns persistence.
+`IPaymentsAppAdapter` drives the **raw-provider / BYOK** path (the `CreateCheckoutAsync`-style provider methods + the BYOK `HandleWebhookAsync` webhook). It is **not** exercised by the backend-centric RPC + push surface — there the backend owns the catalog, the customer mapping, and event delivery (`PaymentReceived`).
 
-| Method                                                    | When called                                         | App responsibility                                                                                          |
-| --------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `GetPlanAsync(planId, ct)`                                | Inside `CreateCheckoutAsync` / `OfferCheckoutAsync` | Resolve app plan id → `PaymentsPlanDescriptor` (Stripe price id, mode, optional metered price id, metadata) |
-| `ResolveStripeCustomerIdAsync(appCustomerKey, email, ct)` | Same call sites                                     | Return existing Stripe customer id or create one and persist the mapping                                    |
-| `ApplyEventAsync(PaymentsEvent, ct)`                      | After webhook signature verification                | Update app DB; dedupe on `PaymentsEvent.EventId`                                                            |
+| Method                                                    | When called                                                      | App responsibility                                             |
+| --------------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------- |
+| `GetPlanAsync(planId, ct)`                                | Inside `CreateCheckoutAsync` / `OfferCheckoutAsync` (proxy/BYOK) | Resolve app plan id → `PaymentsPlanDescriptor`                 |
+| `ResolveStripeCustomerIdAsync(appCustomerKey, email, ct)` | Same call sites                                                  | Return / create + persist the Stripe customer id               |
+| `ApplyEventAsync(PaymentsEvent, ct)`                      | After `HandleWebhookAsync` verifies a **BYOK** Stripe webhook    | Apply the event to your app; dedupe on `PaymentsEvent.EventId` |
 
-The library never reads or writes the app DB itself. Returning `null` from `GetPlanAsync` causes the caller to throw `PaymentsException(unknown plan)`.
+On the ikon-connect normalized path the adapter is effectively a no-op (the backend pushes events via `PaymentReceived` and owns catalog + customer mapping) — a minimal stub is fine. `ApplyEventAsync` fires only for BYOK apps, after `HandleWebhookAsync` verifies their own Stripe webhook — and even there it's optional: the verified event is also forwarded to the backend, which normalizes it and emits `PaymentReceived`, so a BYOK app can use the same push handler as ikon-connect. The removed piece is the old _ikon-connect forwarded-webhook_ path (`HandleIkonWebhookAsync` + `IKON_WEBHOOK_SECRET`), now replaced by the push channel.
 
-`AutoDetectFromApp` + `AssetStripeMerchantStore` exist so apps don't need to hand-roll provider auto-detect and Connect-account-id persistence — both are zero-config defaults.
+## Receiving payment events
 
-## Webhook lifecycle
+### ikon-connect (default) — backend push, nothing to wire
 
-Wire two `[Function(Webhook = true)]` endpoints. Stripe issues a separate signing secret per endpoint type — **Account** events go to the platform endpoint, **Connect** events (per-connected-account) to the Connect endpoint.
+Provider webhooks terminate at the **Ikon backend**. The backend verifies them, normalizes them into a provider-agnostic shape, persists state, and delivers the normalized event to your running app by invoking a framework-registered `Ikon.Payments.Event` function over ikon's existing protocol-message channel (the same primitive behind reactive updates). The framework de-duplicates on `EventId` and raises `PaymentReceived` — there is no route to mount and nothing to verify. You register and verify nothing.
 
 ```csharp
-[Function(Webhook = true, Name = "stripe")]
-public async Task<string> StripeWebhook(
-    Dictionary<string, string> queryParams,
-    Dictionary<string, string> headers,
-    string body)
+_payments.PaymentReceived += async evt =>
+{
+    switch (evt.Type)
+    {
+        case "order_paid":            /* fulfil the purchase */ break;
+        case "subscription_renewed":  /* extend access */ break;
+        case "subscription_canceled": /* revoke access */ break;
+        case "order_refunded":        /* reverse */ break;
+    }
+    await MyApp.ApplyAsync(evt);   // keep it idempotent on evt.EventId
+};
+```
+
+`PaymentsPushEvent` fields: `EventId`, `Space`, `Provider`, `Type`, `OccurredAt`, `Sequence` (per-space monotonic), `PayloadJson` (the normalized projection — subscription / payment / refund / entitlement). Normalized `Type` values: `order_authorized`, `order_paid`, `order_refunded`, `order_canceled`, `order_expired`, `order_failed`, `subscription_activated`, `subscription_updated`, `subscription_renewed`, `subscription_renewal_failed`, `subscription_canceled`, `catalog_updated`. If the app is offline when an event happens, the backend delivers it on reconnect (durable pending log + backfill), in `Sequence` order — so de-dup on `EventId` and ignore stale sequences.
+
+### byok — verify your own Stripe webhook, then it's forwarded to the backend
+
+In BYOK the customer's Stripe account posts webhooks to _your_ app (you own the account and its webhook secret, which never leaves the app). Wire a `[Function(Webhook = true)]` and forward to `HandleWebhookAsync`. After verifying the signature, the library forwards the verified raw event to the Ikon backend (`POST /payments/provider-event`), which runs the same normalizer and delivers the result back as a `PaymentReceived` event — so a BYOK app can drive its UI from the normalized `PaymentsPushEvent` just like ikon-connect, and `ApplyEventAsync` becomes an optional local hook:
+
+```csharp
+[Rest("/stripe")]
+public async Task<HttpResult> StripeWebhook(Ikon.App.HttpRequest req)
 {
     headers.TryGetValue("Stripe-Signature", out var signature);
-    var result = await _payments.HandleWebhookAsync(signature, body);
+    var result = await _payments.HandleWebhookAsync(signature, body);   // verify + parse → PaymentsEvent
     if (!result.Verified) Log.Instance.Warning($"Unverified: {result.Reason}");
-    return """{"received":true}""";
-}
-
-[Function(Webhook = true, Name = "stripe-connect")]
-public async Task<string> StripeConnectWebhook(
-    Dictionary<string, string> queryParams,
-    Dictionary<string, string> headers,
-    string body)
-{
-    headers.TryGetValue("Stripe-Signature", out var signature);
-    var result = await _paymentsViaConnect.HandleWebhookAsync(signature, body);
-    return """{"received":true}""";
+    return HttpResult.Ok(new { received = true });
 }
 ```
 
-Delivery → verification → adapter dispatch:
+`HandleWebhookAsync` returns `PaymentsWebhookResult { Verified, Reason }` and yields a `PaymentsEvent`. It never throws on a _signature_ failure, but if the verified event fails to forward to the backend it returns `Verified=false` with a `Reason` — so return the result's status to Stripe (non-2xx on `Verified=false`) and let Stripe retry, rather than always 200. Register the function URL in the Stripe Dashboard. The event-type tables below describe this **BYOK `PaymentsEvent`** model — both the local `ApplyEventAsync` hook and the backend normalizer consume it; the backend then emits the normalized `PaymentsPushEvent` to your `PaymentReceived` handler.
 
-```
-   Stripe                 [Function]               PaymentsService          IPaymentsAppAdapter
-   ──────                 ──────────               ──────────────          ──────────────────
-   POST signed body ────► StripeWebhook  ────────► HandleWebhookAsync
-                                                   │
-                                                   ├── verify signature
-                                                   │
-                                                   ├── parse → PaymentsEvent
-                                                   │
-                                                   └── invoke ──────────► ApplyEventAsync(evt)
-                                                                          (dedupe on evt.EventId)
-                          return {received:true}
-                          (ALWAYS 200, even on
-                           verify/adapter failure)
-```
-
-`HandleWebhookAsync` returns `PaymentsWebhookResult { Verified, Reason, AdapterError }`. It never throws — return 200 either way to avoid Stripe retry storms. The library logs unverified events but does not invoke the adapter for them.
-
-**Webhook URL**: register the function's public URL in the Stripe Dashboard. The validation app's Admin tab → Webhook configuration card surfaces the live URL.
-
-### Event types
+### Event types (BYOK `PaymentsEvent`)
 
 | `PaymentsEventType`                                               | Stripe event(s)                                                                                                         |
 | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -451,20 +381,17 @@ await payments.CreateWebhookEndpointAsync(
     payloadShape: PaymentsWebhookPayloadShape.Thin);   // default = Snapshot
 ```
 
-For thin events, dispatch:
+For thin events, after `HandleWebhookAsync` yields the `PaymentsEvent`, fetch the full object yourself:
 
 ```csharp
-public async Task ApplyEventAsync(PaymentsEvent evt, CancellationToken ct)
+if (result.Event is { IsThinEvent: true, RelatedObjectUrl: { } url })
 {
-    if (evt.IsThinEvent && evt.RelatedObjectUrl is not null)
-    {
-        var json = await _connect.FetchRelatedObjectAsync(evt.RelatedObjectUrl, ct);
-        // parse the full object yourself — Stripe returns the current state
-    }
-    else
-    {
-        // snapshot path: read evt.CustomerId / evt.SubscriptionId / evt.CurrentPeriod* etc.
-    }
+    var json = await _payments.FetchRelatedObjectAsync(url, ct);
+    // parse the full object — Stripe returns the current state
+}
+else
+{
+    // snapshot path: read result.Event.CustomerId / SubscriptionId / CurrentPeriod* etc.
 }
 ```
 
@@ -673,17 +600,17 @@ var catalog = await projector.ProjectAsync(
 
 1. App startup (once after `PaymentsService` is constructed)
 2. Admin actions that create/archive products (eager refresh after `CreateProductAsync` / `UpdateProductAsync(active: false)`)
-3. Stripe webhooks: `PaymentsEventType.ProductUpdated` and `PaymentsEventType.PriceUpdated` fire when products or prices change in Stripe Dashboard — invalidate the cache on these
+3. Push events: the backend emits `catalog_updated` when products or prices change (including Stripe Dashboard edits) — invalidate the cache on these
 
 ```csharp
-public Task ApplyEventAsync(PaymentsEvent evt, CancellationToken ct)
+_payments.PaymentReceived += evt =>
 {
-    if (evt.Type is PaymentsEventType.ProductUpdated or PaymentsEventType.PriceUpdated)
+    if (evt.Type == "catalog_updated")
     {
         _ = RefreshCatalogAsync();
     }
-    // … other handling
-}
+    return Task.CompletedTask;
+};
 ```
 
 **When to use which**:
@@ -750,9 +677,11 @@ Stripe prices are immutable — bumping €19 → €25 creates a new price. Mig
 ### Webhook operations
 
 ```csharp
-// Self-provision endpoints (alternative to Stripe Dashboard)
+// Self-provision endpoints (alternative to Stripe Dashboard). Use the [Rest]'s tokenized
+// PublicUrl (the /api surface requires the signed ikon-session-token it carries) — don't hand-build it.
+var stripeUrl = app.Endpoints.First(e => e.PublicUrl.Contains("/api/stripe")).PublicUrl;
 var ep = await _payments.CreateWebhookEndpointAsync(
-    url: $"{appOrigin}/ikon/webhook/stripe",
+    url: stripeUrl,
     enabledEvents: ["invoice.paid", "customer.subscription.updated"]);
 // Persist ep.Secret immediately — Stripe returns it only on creation.
 
@@ -761,7 +690,7 @@ var since = DateTimeOffset.UtcNow.AddHours(-24);
 foreach (var id in await _payments.ListEventIdsAsync(createdAfter: since, limit: 100))
 {
     var evt = await _payments.RetrieveEventAsync(id);
-    await _adapter.ApplyEventAsync(evt, ct);
+    await MyApp.HandlePaymentsEventAsync(evt);   // your handler — idempotent on evt.EventId
 }
 ```
 
@@ -834,17 +763,18 @@ If an app enables async-pull payment methods (Alipay, BECS, Boleto, iDEAL, OXXO,
 
 **Rule:** for async methods, **fulfil on `async_payment_succeeded`, not `completed`**. Fulfilling on `completed` for async means you ship goods before the money lands — irrecoverable if `async_payment_failed` arrives later.
 
+In **ikon-connect**, the backend applies this rule for you — it emits the normalized `order_paid` push only once the payment is actually captured (including async success), so your handler is simply:
+
 ```csharp
-public Task ApplyEventAsync(PaymentsEvent evt, CancellationToken ct) => evt.Type switch
+_payments.PaymentReceived += evt => evt.Type switch
 {
-    PaymentsEventType.CheckoutCompleted              => MarkPendingAsync(evt, ct),    // record intent
-    PaymentsEventType.CheckoutAsyncPaymentSucceeded  => FulfilOrderAsync(evt, ct),    // ship here
-    PaymentsEventType.CheckoutAsyncPaymentFailed     => NotifyCustomerAsync(evt, ct),
+    "order_paid"   => FulfilOrderAsync(evt),    // captured (sync or async) — safe to ship
+    "order_failed" => NotifyCustomerAsync(evt),
     _ => Task.CompletedTask,
 };
 ```
 
-For **card** payments `completed` and `async_payment_succeeded` collapse into the single `completed` event — your adapter must idempotently handle both code paths landing for the same `appCustomerKey` (dedupe on `evt.EventId`).
+In **BYOK**, you apply the rule yourself in your `HandleWebhookAsync` handler using the `CheckoutAsyncPaymentSucceeded` / `…Failed` `PaymentsEvent` types above. Either way, dedupe on the event id.
 
 ### v2 wire-format gotchas
 
@@ -855,11 +785,14 @@ When debugging Connect calls against the v2 API, three things bite:
 
 ### Connect webhooks
 
-Register a second endpoint with `connect: true`:
+This applies to **BYOK marketplace** apps that own their Stripe account. In **ikon-connect**, apps do not register Connect webhooks at all — provider webhooks land on the Ikon backend and arrive as `PaymentReceived` pushes.
+
+Register an endpoint with `connect: true`:
 
 ```csharp
+var connectUrl = app.Endpoints.First(e => e.PublicUrl.Contains("/api/stripe-connect")).PublicUrl;
 var endpoint = await connect.CreateConnectWebhookEndpointAsync(
-    url: $"{appOrigin}/ikon/webhook/stripe-connect",
+    url: connectUrl,
     enabledEvents: [
         // Accounts v2 family (recommended)
         "v2.core.account.updated",
@@ -880,7 +813,7 @@ var endpoint = await connect.CreateConnectWebhookEndpointAsync(
 
 The library still parses the legacy `account.updated` event for one transition release — apps that haven't migrated their Stripe Dashboard webhook registrations yet will continue to receive events, but the resulting `PaymentsEvent` will have `IsLegacyEventName = true` (log it / migrate when you see it). Legacy will be dropped in the next major.
 
-Connect events have a top-level `account` field. The validation app's `StripeWebhook` inspects this to route to the right `PaymentsService` instance.
+Connect events have a top-level `account` field a BYOK app can inspect to route to the right `PaymentsService` instance. (ikon-connect apps don't do this — the backend resolves the space from the account and pushes the normalized event.)
 
 ## Code-bootstrap catalog
 
@@ -932,10 +865,10 @@ public Task<Image> HighDef(string prompt) { /* gated on one-time unlock */ }
 public Task<Image> Standard(string prompt) { /* deducts 1 credit on entry */ }
 ```
 
-| Attribute                       | Deny code when missing          | Other deny codes                                             |
-| ------------------------------- | ------------------------------- | ------------------------------------------------------------ |
+| Attribute                       | Deny code when missing           | Other deny codes                                               |
+| ------------------------------- | -------------------------------- | -------------------------------------------------------------- |
 | `[PaymentsRequireSubscription]` | `payments_subscription_required` | `payments_no_user`, `payments_not_initialized`                 |
-| `[PaymentsRequireUnlock]`       | `payments_unlock_required`       | same                                                         |
+| `[PaymentsRequireUnlock]`       | `payments_unlock_required`       | same                                                           |
 | `[PaymentsChargeCredits]`       | `payments_credits_insufficient`  | `payments_no_credit_store`, `payments_credits_deduction_error` |
 
 Policies are webhook-driven, **not** polling-driven. They gate + signal — the app's UI catches the deny code, calls `OfferCheckoutAsync`, and waits for the webhook to flip entitlement.
@@ -955,12 +888,12 @@ public sealed class MyCreditStore : IPaymentsCreditStore
 
 | Symptom                                                     | Cause                                                                    | App fix                                                                                                                                |
 | ----------------------------------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `PaymentsConfigurationException` at construction            | Missing required option (`ApiKey` in BYOK, `Space` in ikon-connect)  | Check secrets; restart after `BILLING_PROVIDER` change.                                                                                |
+| `PaymentsConfigurationException` at construction            | Missing required option (`ApiKey` in BYOK, `Space` in ikon-connect)      | Check secrets; restart after `BILLING_PROVIDER` change.                                                                                |
 | `PaymentsApiException` `card_declined`                      | Stripe declined the card                                                 | Read `ex.DeclineCode`; surface specific message (`insufficient_funds`, `expired_card`, …).                                             |
 | `PaymentsApiException` `resource_missing`                   | Object id doesn't exist (deleted product, archived price, bogus `cus_…`) | Refresh listings; treat as a 404 in your UI.                                                                                           |
 | `PaymentsApiException` `parameter_invalid_integer` / 400    | Bad payload — amount ≤ 0, qty 0, malformed URL                           | Validate input client-side before the call.                                                                                            |
 | `PaymentsException("unknown plan")`                         | Adapter returned `null` from `GetPlanAsync`                              | Adapter must map the planId to a price id; check catalog sync ran.                                                                     |
-| Webhook `Verified=false`                                    | Wrong signing secret, body mutated by middleware, or wrong endpoint type | Endpoints come in pairs — Account secret ≠ Connect secret. Verify which secret matches which endpoint.                                 |
+| Webhook `Verified=false` (BYOK)                             | Wrong signing secret or body mutated by middleware                       | Verify `STRIPE_WEBHOOK_SECRET` matches the endpoint registered in your Stripe Dashboard.                                               |
 | Webhook `Verified=true, AdapterError=<msg>`                 | Adapter threw (DB transient, deserialization, etc.)                      | Return 500 to let Stripe retry, or 200 + log + manual replay (`ListEventIdsAsync` + `RetrieveEventAsync` + `adapter.ApplyEventAsync`). |
 | Checkout in Connect mode fails before onboarding done       | `acct.ChargesEnabled == false`                                           | Gate the end-user surface on charges_enabled; complete KYC first.                                                                      |
 | Customer Portal 400 `No such customer portal configuration` | New connected account, portal disabled                                   | Call `CreatePortalConfigurationAsync` post-onboarding, or surface a "configure portal" CTA.                                            |
@@ -996,15 +929,15 @@ Every public POST method on `PaymentsService` and `StripeMerchantService` accept
 
 `PaymentsCatalogSync` passes deterministic keys for its product / price creates automatically.
 
-Webhook deliveries dedupe on `PaymentsEvent.EventId`:
+Push deliveries carry a stable `EventId`. The framework already de-dups on it before invoking `PaymentReceived`; still apply idempotently, since at-least-once replay can redeliver after a restart:
 
 ```csharp
-public async Task ApplyEventAsync(PaymentsEvent evt, CancellationToken ct)
+_payments.PaymentReceived += async evt =>
 {
     if (await _seenEvents.HasAsync(evt.EventId)) return;
-    await ApplyToDb(evt);
+    await ApplyAsync(evt);
     await _seenEvents.RecordAsync(evt.EventId);
-}
+};
 ```
 
 ## Retries and timeouts
@@ -1037,7 +970,7 @@ No Stripe.js, no embedded iframes, no per-app frontend dependency on `@stripe/*`
 ## Testing
 
 ```bash
-stripe listen --forward-to https://localhost:9443/ikon/webhook/stripe
+stripe listen --forward-to https://localhost:9443/api/stripe
 stripe trigger checkout.session.completed
 stripe trigger invoice.payment_failed
 ```
@@ -1080,7 +1013,7 @@ Developers who only have production-backend access can still iterate against a s
 - **Returning 500 from the webhook function on adapter errors you can't replay.** Stripe retries every 5xx for ~3 days. If the adapter bug is fixed, return 200 and replay manually via `ListEventIdsAsync` + `RetrieveEventAsync`.
 - **Trusting `Message` strings to branch on errors.** Branch on `ex.ErrorCode` / `ex.DeclineCode` — message text drifts.
 - **Mixing live + test keys across an app's secrets.** A `sk_live_*` API key with an `sk_test_*` webhook secret fails opaquely. Use one mode (`test` or `live`) consistently.
-- **Persisting subscription state from API reads.** Stripe is the source of truth; cache only what the adapter projects via `ApplyEventAsync`.
+- **Persisting subscription state from API reads.** The Ikon backend is the source of truth in both modes (it normalizes events and pushes them); cache only what your `PaymentReceived` handler projects. In BYOK the optional `ApplyEventAsync` local hook sees the raw event too, but the authoritative normalized state still comes from the backend push.
 
 ## CLI reference
 
@@ -1101,7 +1034,7 @@ ikon app payments init --disable
 ikon app payments status
 
 # Stripe CLI for local webhook testing
-stripe listen --forward-to https://localhost:9443/ikon/webhook/stripe
+stripe listen --forward-to https://localhost:9443/api/stripe
 stripe trigger checkout.session.completed
 ```
 
