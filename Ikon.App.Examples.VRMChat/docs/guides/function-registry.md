@@ -72,9 +72,9 @@ var result = FunctionRegistry.Instance.Call<int>("Add", [2, 3]);
 var result = await FunctionRegistry.Instance.CallAsync<string>("Greet", args: ["World"]);
 ```
 
-### Webhook Functions
+### Exposing a function over HTTP
 
-A `[Function]` method on the App class can be marked with `Webhook = true` to expose it as a public HTTP endpoint at `/ikon/webhook/{name}` (cloud) or `/webhook/{name}` (local dev). The signature must be `(Dictionary<string, string> queryParams, Dictionary<string, string> headers, string body)` with a `string`/`Task<string>`/`void`/`Task` return type. See the **Webhook Functions** section under **Endpoints** for details.
+To expose a method as a public HTTP endpoint (a REST route or a third-party webhook), mark it `[Rest("/path")]` rather than `[Function]` — it is served under `https://{space}.ikonai.app/api/{path}`. (`[Function]` is for SDK/in-app calls and LLM tools, not inbound HTTP.) See the **HTTP endpoints & MCP tools** section under **Endpoints & Webhooks** for the handler-binding rules and URL details.
 
 ---
 

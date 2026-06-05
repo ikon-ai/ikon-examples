@@ -42,7 +42,6 @@ namespace Ikon.Common.Core
     string? BackendUrl { get; set; }
     string Mode { get; set; }
     string? PublishableKey { get; set; }
-    string? WebhookSecret { get; set; }
   class IkonBackend.AppPaymentsMerchantRequest
     ctor()
     string ContactEmail { get; set; }
@@ -466,6 +465,7 @@ namespace Ikon.Common.Core
     abstract IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[]? opcodes = null)
     abstract ValueTask SendMessageAsync(ProtocolMessage message)
     abstract ValueTask SendMessageAsync(IProtocolMessagePayload payload)
+  // Runtime app-payments commands a running Ikon app issues to the backend. These hit the space-token-guarded /payments/* routes (space resolved from the app's backend session token), mirroring the signature-order REST surface. The backend drives the payment provider and owns normalized state; results return over REST, and provider events are delivered back to the app as the Ikon.Payments.Event function call.
   class IkonBackend : AsyncLocalInstance<IkonBackend>
     ctor()
     IReadOnlyList<string> Capabilities { get; }
@@ -488,6 +488,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.AppBundle> ActivateAppBundleAsync(string id)
     Task<IkonBackend.ApplyAppBundleConfigResponse> ApplyAppBundleConfigAsync(object config)
     Task<string> AuthenticateSpaceTokenAsync(string spaceId, string externalUserId)
+    Task<string> CancelPaymentsSubscriptionAsync(string subscriptionId, bool immediate = false, string? idempotencyKey = null, CancellationToken cancellationToken = null)
     Task CancelSignatureOrderAsync(string orderId)
     Task CompleteItemSignedUploadAsync(string uri, string path, string? sha256 = null)
     Task<IkonBackend.ConnectChannelInstanceResponse> ConnectChannelInstanceAsync(IkonBackend.ConnectChannelInstanceRequest request)
@@ -500,6 +501,8 @@ namespace Ikon.Common.Core
     Task<IkonBackend.ChannelInstanceLaunchToken> CreateChannelInstanceLaunchTokenAsync(string id, int? httpsPort = null, int? httpPort = null, int? tcpPort = null, int? tlsPort = null)
     Task CreateChatMessageAsync(string channelInstanceId, string userId, string text, string createdAt)
     Task<IkonBackend.Organisation> CreateOrganisationAsync(string name)
+    Task<string> CreatePaymentsCheckoutAsync(string planId, string appCustomerKey, string? email = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, CancellationToken cancellationToken = null)
+    Task<string> CreatePaymentsOrderAsync(long amountMinor, string currency, string appCustomerKey, string? description = null, string? idempotencyKey = null, CancellationToken cancellationToken = null)
     Task<IkonBackend.Pipeline> CreatePipelineAsync(object form)
     Task<IkonBackend.Plugin> CreatePluginAsync(IkonBackend.Plugin plugin)
     Task CreateProfileLeadAsync(string profileId, string source)
@@ -518,6 +521,8 @@ namespace Ikon.Common.Core
     Task DeleteProfileFileAsync(string profileId, string assetId)
     Task DeleteSpaceApiKeyAsync(string id)
     Task DeleteSpaceSecretAsync(string id)
+    // Local-dev parity: drop this process's externally-managed registration on shutdown so the backend stops reverse-proxying {space}.ikonai.app/api/... to a relay tunnel that is no longer listening. localInstanceId is the id the register call returned. Best-effort and idempotent.
+    Task DeregisterLocalInstanceAsync(string spaceId, string channelId, string localInstanceId)
     static IkonBackend.EnvironmentType DetermineEnvironment(string url)
     Task<HttpResponseMessage> DownloadInboundEmailAttachmentAsync(string emailId, string attachmentId)
     Task<List<IkonBackend.Profile>> FindProfilesAsync(string spaceId, Dictionary<string, string> filters, int maxResults = 1000)
@@ -557,6 +562,9 @@ namespace Ikon.Common.Core
     Task<IkonBackend.Profile> GetOrCreateCurrentProfileAsync(string spaceId)
     Task<IkonBackend.Organisation> GetOrganisationAsync(string id)
     Task<List<IkonBackend.Organisation>> GetOrganisationsAsync(int maxResults = 1000)
+    Task<string> GetPaymentsCapabilitiesAsync(CancellationToken cancellationToken = null)
+    Task<string> GetPaymentsCatalogAsync(CancellationToken cancellationToken = null)
+    Task<string> GetPaymentsEntitlementAsync(string featureKey, string appCustomerKey, CancellationToken cancellationToken = null)
     Task<IkonBackend.Pipeline> GetPipelineAsync(string id)
     Task<IkonBackend.Pipeline?> GetPipelineByTypeNameAsync(string spaceId, string typeName)
     Task<List<IkonBackend.Pipeline>> GetPipelinesAsync(string spaceId, int maxResults = 1000)
@@ -583,13 +591,15 @@ namespace Ikon.Common.Core
     Task<IkonBackend.User> GetUserAsync(string id)
     Task<List<IkonBackend.User>> GetUsersAsync(string query, int limit = 20)
     bool HasCapability(string capability)
+    Task IngestPaymentsProviderEventAsync(string providerEventJson, CancellationToken cancellationToken = null)
     Task<IkonBackend.AppPaymentsInitResult> InitAppPaymentsAsync(string spaceId, string mode = "ikon-connect")
     Task<bool> IsSpaceDomainAvailableAsync(string domain)
     Task<IkonBackend.ItemListResponse> ListItemsAsync(IkonBackend.ItemListRequest request)
     bool Login(ValueTuple<string, string>? fromCommandLine = null, ValueTuple<string, string>? fromConfig = null, bool logSource = true, bool mustLogin = true)
     static IkonBackend.LoginInfo? ReadLoginConfig()
     Task<IkonBackend.CampaignRedeemResult> RedeemCampaignAsync(string code, string organisationId)
-    // Local-dev parity: register this locally-run process as an externally-managed instance so the backend reverse-proxies {space}.ikonai.app/api/... to this machine's relay tunnel instead of provisioning a cloud instance. Returns the session token to bake into endpoint URLs.
+    Task<string> RefundPaymentsOrderAsync(string orderId, long? amountMinor = null, string? reason = null, string? idempotencyKey = null, CancellationToken cancellationToken = null)
+    // Local-dev parity: register this locally-run process as an externally-managed instance so the backend reverse-proxies {space}.ikonai.app/api/... to this machine's relay tunnel instead of provisioning a cloud instance. The backend mints a per-registration id (returned as LocalInstanceId ) that distinguishes this instance from other local runs sharing the same identity. Returns the session token to bake into URLs.
     Task<IkonBackend.RegisterLocalInstanceResponse> RegisterLocalInstanceAsync(string spaceId, string channelId, Dictionary<string, string> sessionIdentity, string relayEndpointPublicUrl)
     Task<string> RequestAccessTokenAsync(string apiKey, string spaceId, string externalUserId)
     Task<IkonBackend.ChannelInstance> RequestChannelAsync(IkonBackend.RequestChannelRequest request)
@@ -1041,6 +1051,7 @@ namespace Ikon.Common.Core
     byte[]? TryReassemble(ReadOnlySpan<byte> datagram)
   class IkonBackend.RegisterLocalInstanceResponse
     ctor()
+    string LocalInstanceId { get; set; }
     string SessionToken { get; set; }
     string SpacePublicUrl { get; set; }
   class IkonBackend.RelayServerConfigResponse
