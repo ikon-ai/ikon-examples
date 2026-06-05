@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 323941,
+      "sizeBytes": 327100,
       "alsoInclude": []
     },
     {
@@ -499,6 +499,10 @@
         "webhooks",
         "HTTP",
         "HTTPS",
+        "REST",
+        "MCP",
+        "McpTool",
+        "HttpEndpoint",
         "WebSocket",
         "TCP",
         "TLS",
@@ -509,7 +513,7 @@
         "function"
       ],
       "file": "docs/guides/endpoints-webhooks.md",
-      "sizeBytes": 39514,
+      "sizeBytes": 38454,
       "alsoInclude": []
     },
     {
@@ -554,7 +558,7 @@
         "callable functions"
       ],
       "file": "docs/guides/function-registry.md",
-      "sizeBytes": 30542,
+      "sizeBytes": 30527,
       "alsoInclude": []
     },
     {

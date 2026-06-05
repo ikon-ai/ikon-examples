@@ -2,44 +2,34 @@
 
 ## Endpoints & Webhooks
 
-Two separate mechanisms for exposing your AI app to the public internet. They solve different problems — pick the one that fits.
+Your app's inbound HTTP lives under one public surface: `https://{space}.ikonai.app/api/...`. There are two ways to put something there — pick by what you need.
 
-### Endpoints
+### Declarative endpoints — `[Rest]` and `[Mcp]` (the common case)
 
-Endpoints are public host:port tunnels to the running AI app instance. Create them at runtime via `new AppEndpointHost(app)` (for HTTP/HTTPS) or `app.RequestEndpointAsync` (for raw TCP/TLS/UDP). The platform allocates a public hostname and forwards traffic to a local port inside your app. Your app code is then responsible for binding to that local port and serving whatever it wants — HTTP, HTTPS, WebSockets, raw TCP, TLS, UDP, etc.
+Mark a method on your `[App]` class (or any `[Cell]` type) and the platform routes a **stable** public URL to it. This is how you build a REST API, expose tools to an LLM/agent, and **receive third-party webhooks** (Stripe/GitHub/Slack) — those are just `[Rest]`s; there is no separate "webhook" attribute.
 
-Key properties:
-- **Protocol-agnostic.** Endpoints carry any TCP/UDP-based protocol, not just HTTP. You write the listener.
-- **Only active while the app is running.** When the app stops, the endpoint disappears. There is no traffic queue and no way for an inbound request to start your app.
-- **Public URL changes on every restart.** In both local dev and cloud, restarting the app gets you a fresh public hostname. Endpoints are not suitable for use cases where the URL must be stable (e.g. registering it once in a third-party dashboard).
-- **No config file entry needed.** Endpoints are allocated dynamically at runtime — no `ikon-config.toml` declaration and no deploy-time registration.
-- **Convenience class for HTTP:** `AppEndpointHost` wraps Kestrel and gives you `MapGet`/`MapPost`/`MapWebSocket` so you don't have to set up a listener manually.
+- **Stable URL** — `https://{space}.ikonai.app/api/{path}`, unchanged across restarts and redeploys, so you register it once with an external service.
+- **Can cold-start the app** — a request to an idle app provisions an instance on demand (~2-3 s with a warm pool), waits for it, then delivers the call. Make handlers idempotent (services retry on timeouts).
+- **No config entry** — discovered at deploy time; `ikon app deploy` prints each URL, and `app.Endpoints` exposes them at runtime.
 
-### Webhooks
+### Manual endpoint hosts — `AppEndpointHost` / `RequestEndpointAsync` (custom servers)
 
-Webhooks are static, name-based HTTP entry points that route incoming requests to a `[Function(Webhook = true)]` method on your App class. The platform owns the URL, the routing, and the AI app lifecycle.
-
-Key properties:
-- **Stable public URL in cloud deployments.** The cloud URL is `https://{space}.ikonai.app/ikon/webhook/{functionName}` and does not change across restarts or redeploys, so you can register it once with Stripe/GitHub/Slack/etc.
-- **In local dev the URL is NOT stable** — it uses the same public tunnel as endpoints, so it changes every time you restart the app with `--public-access`. Useful for testing real webhook traffic against your local app.
-- **Webhooks will start the app if it is not running.** A webhook hit causes the platform to provision an AI app instance on demand (~2-3 s with warm pool), wait for it to become ready, and then deliver the function call. Endpoints cannot do this.
-- **Always HTTP.** No TCP/UDP/WebSocket — webhooks are specifically for "external service POSTs JSON, function processes it, returns response".
+When `[Rest]` can't express it — a WebSocket server, a raw TCP/TLS/UDP listener, or an HTTP server you wire yourself — open a host at runtime and own the listener. These get a public relay URL that **changes on every restart** and **cannot cold-start** the app (traffic flows only while it's running).
 
 ### When to use which
 
 | Use case | Use |
 |---|---|
-| Stripe / GitHub / Slack webhooks (need stable URL, app may be idle) | **Webhook function** |
-| Custom REST API with multiple routes, auth, file uploads | **AppEndpointHost** |
-| WebSocket server for a custom client | **AppEndpointHost** (`MapWebSocket`) |
-| Game server / TCP / UDP / DTLS | **AppEndpointHost** + raw listener on the local port |
-| Single "process this event" function | **Webhook function** |
+| REST API, third-party webhook (Stripe/GitHub/Slack), needs a stable URL / app may be idle | **`[Rest]`** |
+| Expose a tool to an LLM / agent | **`[Mcp]`** |
+| WebSocket server for a custom client | **`AppEndpointHost`** (`MapWebSocket`) |
+| Game server / raw TCP / UDP / DTLS, or a custom HTTP server you wire yourself | **`AppEndpointHost` / `RequestEndpointAsync`** |
 
 ---
 
-## Endpoints
+## Manual endpoint hosts (raw / WebSocket / custom servers)
 
-Endpoints are requested at runtime from your app code. No `ikon-config.toml` entry is needed.
+Requested at runtime from your app code — no `ikon-config.toml` entry needed. The public URL changes on every restart and **cannot** cold-start the app; for a stable, cold-startable URL use `[Rest]` (see below). Use these only when you need a protocol `[Rest]` can't express.
 
 ### Creating and Starting an HTTP/HTTPS Endpoint
 
@@ -110,74 +100,67 @@ app.OnStopping(async () =>
 
 ---
 
-## Webhooks
+## HTTP endpoints & MCP tools
 
-Mark any method with `[Function(Webhook = true)]` to expose it as a public HTTP endpoint. No `ikon-config.toml` entry is needed — webhook functions are discovered at deploy time and the deploy step prints the public URL for each one.
-
-### Defining a webhook function
-
-The method signature must be:
-- Exactly three parameters: `(Dictionary<string, string> queryParams, Dictionary<string, string> headers, string body)`.
-- Return `string`, `Task<string>`, `void`, or `Task`. String returns become the HTTP response body; void/Task returns produce an empty 200.
-
-Webhook functions defined directly on the **App class** (the class with the `[App]` attribute) are registered automatically. Webhook functions defined on **other classes** still get discovered at deploy time and get a public URL, but they will only respond to incoming calls once they are actually registered with the FunctionRegistry through the normal function registration mechanism. The deploy console marks these with `(needs manual registration)`.
+Declare these on your `[App]` class (or any `[Cell]` type). They're discovered at deploy time and routed under `https://{space}.ikonai.app/api/...` — no `ikon-config.toml` entry needed.
 
 ```csharp
 [App]
 public class MyApp(IApp<SessionIdentity, ClientParams> app)
 {
-    [Function(Webhook = true, Name = "stripe", Description = "Stripe payment events")]
-    public async Task<string> HandleStripe(
-        Dictionary<string, string> queryParams,
-        Dictionary<string, string> headers,
-        string body)
+    public record SessionIdentity(string UserId);
+
+    // POST by default. The JSON body binds to your typed parameter. The binder is lenient — missing
+    // fields default, unknown fields are ignored, and bad input returns a 4xx (it never throws a 500).
+    [Rest("/sum")]
+    public HttpResult Sum(SumRequest req) => HttpResult.Ok(new { sum = req.A + req.B });
+
+    // Explicit verb, no body. Return a value (→ JSON), a string (→ text/plain), or an HttpResult.
+    [Rest(Verb.Get, "/health")]
+    public string Health() => "ok";
+
+    // A third-party webhook is a normal [Rest]. Read the signature header + raw body from the
+    // injected Ikon.App.HttpRequest and verify it yourself — the platform does NOT authenticate the URL.
+    [Rest("/stripe")]
+    public async Task<HttpResult> Stripe(Ikon.App.HttpRequest req)
     {
-        var signature = headers["Stripe-Signature"];
-        // Verify the signature against the body using your Stripe webhook secret...
-
-        var stripeEvent = JsonSerializer.Deserialize<StripeEvent>(body);
-        // Process the event...
-
-        return "ok"; // becomes the HTTP response body
+        if (!VerifyStripe(req.Headers["Stripe-Signature"], req.Body)) return HttpResult.Unauthorized();
+        // ... process req.Body ...
+        return HttpResult.Ok();   // return 200 even on a skip to avoid the provider's retry storm
     }
 
-    public async Task Main()
-    {
-        // app.Webhooks contains the live webhook URLs - log them or display in your UI
-        foreach (var webhook in app.Webhooks)
-        {
-            Log.Instance.Info($"Webhook: POST {webhook.PublicUrl}");
-        }
-    }
+    // An MCP tool, callable by an LLM / agent. Its JSON Schema is reflected from the signature.
+    [Mcp(Name = "add_numbers", Description = "Adds two integers")]
+    public int AddNumbers(int a, int b) => a + b;
 }
+
+public record SumRequest(int A, int B);
 ```
 
-### URL format
+### `[Rest]`
 
-- **Cloud (stable):** `POST https://{space}.ikonai.app/ikon/webhook/{functionName}?userid=...&orgId=...`
-- **Local dev (changes per restart):** `POST {server-public-tunnel}/webhook/{functionName}` — uses the same public tunnel the IkonServer exposes when run with `--public-access`. You can configure this URL in Stripe/GitHub/etc. dashboards while testing locally; just remember to update it when you restart the app.
+- Both args are optional: a `Verb` (`Get`/`Post`/`Put`/`Delete`/`Patch`, **defaults to POST**) and a path. Omit the path and it's **derived from the method name** (kebab-cased): `[Rest]` on `GetInventory` serves `/api/get-inventory`. Override it with `[Rest("/p")]`, `[Rest(Verb.Get)]`, or `[Rest(Verb.Get, "/p")]`.
+- The handler binds **one optional typed body** (a JSON record/object, or a raw `string` for the unparsed body) plus any **host-injected context params** — `Ikon.App.HttpRequest` (method/path/query/headers/body), `HttpCallContext`, `CancellationToken` — in any order. Zero non-injected params = no body.
+- `Auth = typeof(SomeAuthCell)` runs an auth cell as a pre-filter. Return a value (serialized to JSON), a `string` (text), or an `HttpResult` (`Ok`/`BadRequest`/`Unauthorized`/`NotFound`/…).
 
-The path segment `{functionName}` is the function's registered name — either the explicit `[Function(Name = "...")]` override or the auto-generated `TypeFullName.MethodName`. Use a `Name` override to keep URLs short and clean.
+### `[Mcp]`
 
-After deployment, webhook URLs are printed by `ikon app deploy`. At runtime they are available via `app.Webhooks`.
+Exposes the method as an MCP tool for LLM/agent tool-use, reachable two ways:
+- **The JSON-RPC multiplexer** — all of an owner's tools share **one** endpoint at `https://{space}.ikonai.app/api/{Owner}/mcp` (`tools/list`/`tools/call`); the input/output JSON Schema is reflected from the C# signature.
+- **A per-tool POST endpoint** — each tool is ALSO at its own URL (derived from the method name, or `[Mcp(Path = "/custom")]` to override), with the request body bound the same way `tools/call` binds its arguments. So `[Mcp] int Add(int a, int b)` is callable as `POST /api/add {"a":1,"b":2}` → `3`, not just via JSON-RPC.
 
-### Query params, session identity, and per-user routing
+Pair with `[McpResource]` for resources. (A method with both `[Rest]` and `[Mcp]` uses the `[Rest]` route for its direct HTTP surface; the tool still appears in the multiplexer.)
 
-If your `SessionIdentity` includes `UserId` (or any other custom field), webhook callers must include those values as query params on the URL so the platform can route to the correct app instance. Example for `SessionIdentity { UserId, OrganizationId }`:
+### Public URLs, identity & routing
 
+`app.Endpoints` lists every endpoint with a ready-to-use `PublicUrl` that **already has the signing token (and this session's identity) baked in**. Hand that exact URL to the external service — do **not** append `?userid=` or hand-build the URL.
+
+```csharp
+foreach (var endpoint in app.Endpoints)
+    Log.Instance.Info($"{endpoint.PublicUrl}");
 ```
-https://myapp.ikonai.app/ikon/webhook/stripe?userid=u1&organizationid=org5
-```
 
-The query params are also passed verbatim to the function via the `queryParams` argument, so the function can read them too. URLs surfaced via `app.Webhooks` already have the current session identity prefilled — give that URL to the external service when you register the webhook for that user.
-
-### Authentication
-
-There is no API key. Webhook endpoints are unauthenticated at the platform level — best practice for webhooks is for the **function itself** to verify the request, e.g. validating Stripe's `Stripe-Signature` HMAC against the request body using a shared signing secret. Read the relevant header from the `headers` argument inside your function.
-
-### Cold start and provisioning
-
-If no AI app instance is running for the matching session identity when a webhook arrives, the platform provisions one and waits for it to become ready (~2-3 s with warm pool, longer on cold start) before delivering the function call. Plan your function to be idempotent in case the external service retries on timeouts.
+The URL carries a signed `ikon-session-token` that tells the platform which app instance the request belongs to and authorizes the cold-start. There is no platform-level API key on the URL — authenticate inside the handler when it matters (e.g. verify a provider's signature header).
 
 ---
 
