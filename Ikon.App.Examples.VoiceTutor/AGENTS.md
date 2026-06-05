@@ -127,7 +127,7 @@ Detailed API docs are available in `docs/guides/`. Each guide covers a specific 
 - **ai-advanced** (`docs/guides/ai-advanced.md`): database AI, vector store, AI policy, storage
 - **audio-video** (`docs/guides/audio-video.md`): audio, video, capture, speech, stream, effects, reverb, delay, mixer, synthesizer, oscillator, filter
 - **asset-system** (`docs/guides/asset-system.md`): asset, cloud file, local file, cloud json, storage, metadata, URI, optimistic concurrency
-- **endpoints-webhooks** (`docs/guides/endpoints-webhooks.md`): endpoints, webhooks, HTTP, HTTPS, WebSocket, TCP, TLS, UDP, public URL, tunneling, AppEndpointHost, function
+- **endpoints-webhooks** (`docs/guides/endpoints-webhooks.md`): endpoints, webhooks, HTTP, HTTPS, REST, MCP, McpTool, HttpEndpoint, WebSocket, TCP, TLS, UDP, public URL, tunneling, AppEndpointHost, function
 - **databases** (`docs/guides/databases.md`): databases, PostgreSQL, SQL, db, AppDatabaseConnection
 - **secrets** (`docs/guides/secrets.md`): secrets, tokens, API keys, credentials, passwords, app.Secrets, ikon app secret
 - **function-registry** (`docs/guides/function-registry.md`): function registry, registration, attribute, visibility, LLM tools, callable functions
