@@ -26,6 +26,8 @@ namespace Ikon.Common
     string Name { get; set; }
     string OrganisationId { get; set; }
     List<AppBundleConfig.Pipeline> Pipelines { get; set; }
+    // The app's optional /router/ edge unit — sandboxed TypeScript that the gateway runs before (and without) provisioning the app server to authorize, resolve principal identity, and gate abuse. The tool only records presence + entry point; the backend bundles the source and extracts the exported policy names at activation. See docs/private/endpoint-orthogonal-authorization-design.md.
+    AppBundleConfig.RouterConfig Router { get; set; }
     List<string> SessionIdentityKeys { get; set; }
     string SpaceId { get; set; }
     string Version { get; set; }
@@ -128,10 +130,11 @@ namespace Ikon.Common
     string TypeName { get; set; }
   class AppBundleConfig.CellHttpEndpoint
     ctor()
-    string AuthCellName { get; set; }
+    string Auth { get; set; }
     string HttpMethod { get; set; }
     string MethodName { get; set; }
     string Path { get; set; }
+    List<AppBundleConfig.EndpointPathParam> PathParams { get; set; }
   class AppBundleConfig.CellIdentityField
     ctor()
     bool HasDefault { get; set; }
@@ -174,12 +177,19 @@ namespace Ikon.Common
     string Subject { get; set; }
   class AppBundleConfig.EndpointDescriptor
     ctor()
+    string Auth { get; set; }
     bool AutoRegistered { get; set; }
     bool IsMcpTool { get; set; }
+    string Kind { get; set; }
     string Name { get; set; }
     string Owner { get; set; }
     string OwnerKind { get; set; }
     string? Path { get; set; }
+    List<AppBundleConfig.EndpointPathParam> PathParams { get; set; }
+  class AppBundleConfig.EndpointPathParam
+    ctor()
+    bool IsIdentity { get; set; }
+    string Name { get; set; }
   enum EndpointProtocol
     Tcp
     Tls
@@ -1071,10 +1081,14 @@ namespace Ikon.Common
     ctor(int size = 32)
     void AddValue(double value)
     double GetAverage()
-  // Convention for converting a developer-declared [Rest] path into the absolute external path under the space domain ({space}.ikonai.app{path}). Developers can write either absolute paths ("/billing/stripe", "/labs/{workspace}/increment") or the legacy relative form ("bump", "value" — what the cell-host's AppEndpointHost served under /{CellType}/{Method} before the inbound-unification plan landed). Relative names are auto-derived so the same endpoint flows through the same gateway path under both forms: On the app class: "bump" → /bumpOn a [Cell] LabCell: "bump" → /lab-cell/bump Used by both App.BuildEndpointsAsync (runtime, so BuildEndpointUrl emits the right PublicUrl) and AppBundleHandler.DiscoverEndpoints (build-time, so the bundle manifest carries the derived path through to the gateway's routing trie). One source of truth for the derivation keeps the two from drifting.
+  // Convention for converting a developer-declared [HttpGet]/[HttpPost] path into the absolute external path under the space domain ({space}.ikonai.app{path}). Developers can write either absolute paths ("/billing/stripe", "/labs/{workspace}/increment") or the legacy relative form ("bump", "value" — what the cell-host's AppEndpointHost served under /{CellType}/{Method} before the inbound-unification plan landed). Relative names are auto-derived so the same endpoint flows through the same gateway path under both forms: On the app class: "bump" → /bumpOn a [Cell] LabCell: "bump" → /lab-cell/bump Used by both App.BuildEndpointsAsync (runtime, so BuildEndpointUrl emits the right PublicUrl) and AppBundleHandler.DiscoverEndpoints (build-time, so the bundle manifest carries the derived path through to the gateway's routing trie). One source of truth for the derivation keeps the two from drifting.
   static class PathConvention
     // Derive the absolute external path for an HTTP endpoint declared on ownerTypeName . Absolute paths (starting with '/') are returned unchanged. Empty / relative paths are kebab-cased and assembled under the cell-type prefix (or directly on the app class).
     static string DeriveAbsolutePath(string declaredPath, string ownerTypeName, bool isAppClass, string fallbackMethodName)
+    // Derive the absolute external path for an owner's MCP JSON-RPC multiplexer: /mcp on the app class, /{kebab-owner}/mcp on a cell. The multiplexer path is fixed — it is never relocated by a tool's declared path. A [Mcp(path)] override adjusts only that single tool's own directly-callable endpoint (see DeriveAbsolutePath ), not the shared multiplexer.
+    static string DeriveMcpPath(string ownerTypeName, bool isAppClass)
+    // Extract the {name} placeholder names from a path template, in order. "/labs/{workspace}/x" → ["workspace"]. Shared by runtime and build-time discovery so the identity/param split of a path can't drift between them.
+    static IReadOnlyList<string> ExtractPathParams(string path)
     // Convert a PascalCase / camelCase identifier to lowercase-kebab. "LabCell" → "lab-cell", "GetOrders" → "get-orders", "ID" → "id". Non-identifier characters (already-hyphens, underscores, slashes) pass through unchanged so a developer who wrote "my-path" gets "my-path" back.
     static string ToKebabCase(string s)
   class AppBundleConfig.Pipeline
@@ -1198,6 +1212,11 @@ namespace Ikon.Common
     static Task<T> RunAsync<T>(Func<Task<T>> func, List<Type>? retryableExceptions = null, int retries = 5, Func<Exception, Task>? onRetry = null, Func<Exception, Task>? onFailure = null, bool useExponentialBackoff = true, string? description = null, string callerMemberName = "", string callerFilePath = "")
     static Task RunAsync(List<Type>? retryableExceptions, int retries, Func<Task> func, string callerMemberName = "", string callerFilePath = "")
     static Task RunAsync(Func<Task> func, List<Type>? retryableExceptions = null, int retries = 5, Func<Exception, Task>? onRetry = null, Func<Exception, Task>? onFailure = null, bool useExponentialBackoff = true, string? description = null, string callerMemberName = "", string callerFilePath = "")
+  class AppBundleConfig.RouterConfig
+    ctor()
+    string EntryPoint { get; set; }
+    List<string> PolicyNames { get; set; }
+    bool Present { get; set; }
   class AppProjectConfigLegacy.Target : ITomlMetadataProvider
     ctor()
     string ChannelId { get; set; }
