@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 327100,
+      "sizeBytes": 326536,
       "alsoInclude": []
     },
     {
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 176744,
+      "sizeBytes": 177939,
       "alsoInclude": []
     },
     {
@@ -281,7 +281,7 @@
         "transitions"
       ],
       "file": "docs/guides/tailwind-reference.md",
-      "sizeBytes": 93971,
+      "sizeBytes": 94132,
       "alsoInclude": []
     },
     {
@@ -501,8 +501,10 @@
         "HTTPS",
         "REST",
         "MCP",
-        "McpTool",
-        "HttpEndpoint",
+        "HttpGet",
+        "HttpPost",
+        "HttpPut",
+        "Mcp",
         "WebSocket",
         "TCP",
         "TLS",
@@ -513,7 +515,7 @@
         "function"
       ],
       "file": "docs/guides/endpoints-webhooks.md",
-      "sizeBytes": 38454,
+      "sizeBytes": 38684,
       "alsoInclude": []
     },
     {
@@ -558,7 +560,7 @@
         "callable functions"
       ],
       "file": "docs/guides/function-registry.md",
-      "sizeBytes": 30527,
+      "sizeBytes": 30531,
       "alsoInclude": []
     },
     {
