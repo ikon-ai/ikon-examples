@@ -1,183 +1,202 @@
-# Endpoints & Webhooks
+# Endpoints (REST, MCP, webhooks)
 
-## Endpoints & Webhooks
+Expose your AI app to the public internet by **declaring endpoints with attributes** on your `[App]`
+class or any `[Cell]` type. There is one inbound surface — `https://{space}.ikonai.app/api/{path}` — and
+the platform owns the URL, the routing, and the app lifecycle (a request cold-starts an idle app).
 
-Two separate mechanisms for exposing your AI app to the public internet. They solve different problems — pick the one that fits.
+```csharp
+[App]
+public class MyApp(IApp<SessionIdentity, ClientParameters> app)
+{
+    public record SessionIdentity(string UserId);
+    public record ClientParameters();
 
-### Endpoints
+    [HttpPost("/inventory")]                 // POST https://{space}.ikonai.app/api/inventory
+    public async Task<Inventory> GetInventory() => await LoadAsync();
 
-Endpoints are public host:port tunnels to the running AI app instance. Create them at runtime via `new AppEndpointHost(app)` (for HTTP/HTTPS) or `app.RequestEndpointAsync` (for raw TCP/TLS/UDP). The platform allocates a public hostname and forwards traffic to a local port inside your app. Your app code is then responsible for binding to that local port and serving whatever it wants — HTTP, HTTPS, WebSockets, raw TCP, TLS, UDP, etc.
+    [HttpGet("/health")]                     // GET — verb is the attribute, no Verb enum
+    public string Health() => "ok";
 
-Key properties:
-- **Protocol-agnostic.** Endpoints carry any TCP/UDP-based protocol, not just HTTP. You write the listener.
-- **Only active while the app is running.** When the app stops, the endpoint disappears. There is no traffic queue and no way for an inbound request to start your app.
-- **Public URL changes on every restart.** In both local dev and cloud, restarting the app gets you a fresh public hostname. Endpoints are not suitable for use cases where the URL must be stable (e.g. registering it once in a third-party dashboard).
-- **No config file entry needed.** Endpoints are allocated dynamically at runtime — no `ikon-config.toml` declaration and no deploy-time registration.
-- **Convenience class for HTTP:** `AppEndpointHost` wraps Kestrel and gives you `MapGet`/`MapPost`/`MapWebSocket` so you don't have to set up a listener manually.
+    [Mcp(Description = "Add two integers")]  // an MCP tool an LLM/agent can call
+    public int AddNumbers(int a, int b) => a + b;
+}
+```
 
-### Webhooks
+The attributes:
+- **`[HttpGet]` / `[HttpPost]` / `[HttpPut]` / `[HttpDelete]` / `[HttpPatch]`** — a typed REST endpoint.
+  The verb is the attribute name (no `Verb` enum); the single constructor arg is the path.
+- **`[Mcp]`** — an MCP tool. All of a class's MCP tools are served by one JSON-RPC multiplexer at
+  `/{owner}/mcp` (override with `[Mcp("/custom/path")]`); the JSON Schema is reflected from the signature.
+- **`[Function]`** — an SDK/WebSocket function (real-time, in-session), not a public HTTP endpoint.
+- **`[Tcp]` / `[Udp]`** — raw instance-bound sockets (see below).
 
-Webhooks are static, name-based HTTP entry points that route incoming requests to a `[Function(Webhook = true)]` method on your App class. The platform owns the URL, the routing, and the AI app lifecycle.
+A **third-party webhook (Stripe/GitHub/Slack) is just an `[HttpPost]`** — verify the signature inside the
+handler from the injected request context. There is no separate "webhook" attribute. The cloud URL is
+stable across restarts/redeploys and cold-starts the app on the first hit.
 
-Key properties:
-- **Stable public URL in cloud deployments.** The cloud URL is `https://{space}.ikonai.app/ikon/webhook/{functionName}` and does not change across restarts or redeploys, so you can register it once with Stripe/GitHub/Slack/etc.
-- **In local dev the URL is NOT stable** — it uses the same public tunnel as endpoints, so it changes every time you restart the app with `--public-access`. Useful for testing real webhook traffic against your local app.
-- **Webhooks will start the app if it is not running.** A webhook hit causes the platform to provision an AI app instance on demand (~2-3 s with warm pool), wait for it to become ready, and then deliver the function call. Endpoints cannot do this.
-- **Always HTTP.** No TCP/UDP/WebSocket — webhooks are specifically for "external service POSTs JSON, function processes it, returns response".
+> There is no `ikon-config.toml` entry for endpoints — they're discovered at deploy time. At runtime
+> `app.Endpoints` lists every endpoint with a ready-to-use `PublicUrl`.
 
 ### When to use which
 
 | Use case | Use |
 |---|---|
-| Stripe / GitHub / Slack webhooks (need stable URL, app may be idle) | **Webhook function** |
-| Custom REST API with multiple routes, auth, file uploads | **AppEndpointHost** |
-| WebSocket server for a custom client | **AppEndpointHost** (`MapWebSocket`) |
-| Game server / TCP / UDP / DTLS | **AppEndpointHost** + raw listener on the local port |
-| Single "process this event" function | **Webhook function** |
+| REST API (one or many routes), Stripe/GitHub/Slack webhooks | **`[HttpGet]`/`[HttpPost]`/…** |
+| A tool an LLM/agent calls | **`[Mcp]`** |
+| Real-time in-session call from a connected client | **`[Function]`** |
+| Game server / raw TCP / UDP / DTLS | **`[Tcp]` / `[Udp]`** (or imperative `AppEndpointHost` + a raw listener) |
+| WebSocket server / fully custom Kestrel routing | imperative **`AppEndpointHost`** (escape hatch) |
 
 ---
 
-## Endpoints
+## Declaring REST endpoints
 
-Endpoints are requested at runtime from your app code. No `ikon-config.toml` entry is needed.
-
-### Creating and Starting an HTTP/HTTPS Endpoint
+Decorate a method with a verb attribute. The path is the single constructor argument; the verb is the
+attribute (`[HttpGet]` / `[HttpPost]` / `[HttpPut]` / `[HttpDelete]` / `[HttpPatch]`).
 
 ```csharp
-var endpoint = new AppEndpointHost(app);
+public record CreateOrder(string Sku, int Qty);
 
-// Write the response via ctx.Response.Body (a Stream). NOT ctx.Response.WriteAsync(string)
-// — that ASP.NET Core extension (Microsoft.AspNetCore.Http) is not in scope in a
-// generated app and produces CS1061. Write UTF-8 bytes to the body stream.
-endpoint.MapGet("/health", async ctx =>
+[HttpPost("/orders")]
+public async Task<HttpResult> Create(CreateOrder req)        // typed JSON body bound automatically
 {
-    ctx.Response.ContentType = "text/plain";
-    await ctx.Response.Body.WriteAsync(System.Text.Encoding.UTF8.GetBytes("OK"));
-});
+    var order = await PlaceAsync(req.Sku, req.Qty);
+    return HttpResult.Ok(order);                              // serialized to JSON; or just return the object
+}
 
-endpoint.MapPost("/data", async ctx =>
-{
-    using var reader = new StreamReader(ctx.Request.Body);
-    var body = await reader.ReadToEndAsync();
-    ctx.Response.ContentType = "application/json";
-    await ctx.Response.Body.WriteAsync(System.Text.Encoding.UTF8.GetBytes("{\"received\": true}"));
-});
-
-endpoint.MapWebSocket("/ws", async (ctx, webSocket) =>
-{
-    var buffer = new byte[4096];
-    while (webSocket.State == WebSocketState.Open)
-    {
-        var result = await webSocket.ReceiveAsync(buffer, CancellationToken.None);
-        if (result.MessageType == WebSocketMessageType.Close) { break; }
-        await webSocket.SendAsync(buffer.AsMemory(0, result.Count), result.MessageType, true, CancellationToken.None);
-    }
-});
-
-await endpoint.StartAsync();
+[HttpGet("/orders")]
+public async Task<Order[]> List() => await LoadAllAsync();
 ```
 
-Pass `secure: false` for plain HTTP (the default is HTTPS with TLS terminated at the relay).
+**Parameter binding.** A handler binds **at most one typed body parameter** (the JSON body deserialized
+to your type, or a raw `string`) plus any **host-injected context parameters in any order**:
+`Ikon.App.HttpRequest` (method/path/query/headers/body), `HttpCallContext` (resolved identity + raw
+inputs, also readable via `HttpCallContext.Current`), and `CancellationToken`. The typed C# signature is
+the contract — there's no schema to write. The JSON binder is lenient (missing fields default, unknown
+fields ignored, case-insensitive) and never 500s on bad input — it returns a 4xx.
 
-### Raw TCP/TLS/UDP Endpoints
+**Return value.** Return your object (serialized to JSON), a `string`, an `HttpResult`
+(`HttpResult.Ok(x)`, `HttpResult.NotFound(msg)`, `HttpResult.BadRequest(msg)`, `HttpResult.Text(...)`),
+or `Task`/`void` for an empty 200.
 
-`AppEndpointHost` only supports HTTP/HTTPS. For raw TCP/TLS/UDP, request an endpoint directly and bind your own listener:
+**Third-party webhooks (Stripe/GitHub/Slack) are just `[HttpPost]`** — there is no `[Function(Webhook=…)]`
+anymore. Verify the signature inside the handler from the injected request:
 
 ```csharp
-await using var endpoint = await app.RequestEndpointAsync(EndpointProtocol.Udp);
-var udp = new UdpClient(endpoint.LocalPort);
-Log.Instance.Info($"Game server listening at udp://{endpoint.PublicHost}:{endpoint.PublicPort}");
-// `await using` above releases the endpoint when it goes out of scope.
+[HttpPost("/billing/stripe")]
+public async Task<HttpResult> Stripe(Ikon.App.HttpRequest req)
+{
+    var signature = req.Headers.GetValueOrDefault("Stripe-Signature") ?? "";
+    // verify signature against req.Body with your signing secret, then process...
+    return HttpResult.Ok(new { received = true });
+}
+
+public record SumRequest(int A, int B);
 ```
 
-Valid raw protocols: `EndpointProtocol.Tcp`, `Tls`, `Udp`. `Tls` enables TLS termination at the relay (your listener sees plaintext on the local port). For HTTP/HTTPS use `AppEndpointHost` with `secure: true` (default) or `secure: false`.
+The cloud URL is stable across restarts/redeploys, and a hit cold-starts the app if it's idle (~2-3 s
+warm). Make webhook handlers idempotent — senders retry on timeouts.
 
-### Properties
+### Authorization
 
-- `endpoint.PublicUrl` - The public URL assigned by the platform (use this to share with external services). **Changes on every app restart.**
-- `endpoint.LocalPort` - The local port the endpoint is listening on.
+Authorization is a **`/router/` edge policy** named by the endpoint's `Auth` string. The gateway runs it
+*before* (and without) provisioning the app, so unauthorized traffic is rejected cheaply.
 
-### Cleanup
-
-Dispose endpoints when the app stops:
+- `Auth = "public"` — anonymous (gated only by anti-abuse).
+- `Auth = "session-token"` (the default when unset) — requires the signed routing token.
+- `Auth = "my-policy"` — a policy you define in the app's `/router/index.ts`.
 
 ```csharp
-app.OnStopping(async () =>
-{
-    await endpoint.DisposeAsync();
-});
+[HttpGet("/listings", Auth = "public")]          // anonymous
+[HttpPost("/orders", Auth = "partner-oauth")]    // a /router/ policy (Auth is a STRING, never typeof)
+```
+```ts
+// router/index.ts — evaluated at the gateway edge. Helpers are ambient; secrets referenced by name.
+export const policies = {
+  "partner-oauth": oauth({ issuer: "https://auth.partner.com", audience: "ikon-app" }),
+  "stripe-hook":   hmac({ header: "Stripe-Signature", secret: secret("stripe-webhook") }),
+  "internal":      apiKey({ keys: secret("api-keys") }),
+};
 ```
 
----
+Built-in helpers: `oauth` / `hmac` / `apiKey` / `ipAllow` / `sessionToken`. For a raw webhook you can also
+verify the signature inside the handler (the body + headers are available, as shown above).
 
-## Webhooks
+## MCP tools
 
-Mark any method with `[Function(Webhook = true)]` to expose it as a public HTTP endpoint. No `ikon-config.toml` entry is needed — webhook functions are discovered at deploy time and the deploy step prints the public URL for each one.
-
-### Defining a webhook function
-
-The method signature must be:
-- Exactly three parameters: `(Dictionary<string, string> queryParams, Dictionary<string, string> headers, string body)`.
-- Return `string`, `Task<string>`, `void`, or `Task`. String returns become the HTTP response body; void/Task returns produce an empty 200.
-
-Webhook functions defined directly on the **App class** (the class with the `[App]` attribute) are registered automatically. Webhook functions defined on **other classes** still get discovered at deploy time and get a public URL, but they will only respond to incoming calls once they are actually registered with the FunctionRegistry through the normal function registration mechanism. The deploy console marks these with `(needs manual registration)`.
+`[Mcp]` exposes a method as an MCP tool for LLMs/agents. All of a class's tools share one JSON-RPC
+multiplexer (default path `/{owner}/mcp`; override with `[Mcp("/agent/mcp")]`). The input schema is
+reflected from the parameters — annotate them with `[Description]` for the model.
 
 ```csharp
-[App]
-public class MyApp(IApp<SessionIdentity, ClientParams> app)
+[Mcp(Description = "Research a topic and return a structured brief")]
+public async Task<Brief> Research([Description("The topic")] string topic, int depth = 2) => …;
+```
+
+MCP tools are reachable **only** through the multiplexer (a JSON-RPC `tools/call`), never as per-tool
+HTTP POSTs. A method may carry both `[HttpPost]` and `[Mcp]` to expose the same logic on both surfaces.
+
+## Identity from the URL path
+
+A `{segment}` placeholder whose name matches a field of the owner's `SessionIdentity` binds into the
+routing identity, so one endpoint definition serves many keyed instances (rooms, workspaces, tenants):
+
+```csharp
+[Cell]
+public class Room(ICell<Room.SessionIdentity> ctx)
 {
-    [Function(Webhook = true, Name = "stripe", Description = "Stripe payment events")]
-    public async Task<string> HandleStripe(
-        Dictionary<string, string> queryParams,
-        Dictionary<string, string> headers,
-        string body)
-    {
-        var signature = headers["Stripe-Signature"];
-        // Verify the signature against the body using your Stripe webhook secret...
+    public record SessionIdentity(string RoomId);
+    public Reactive<List<string>> Posts { get; } = new([]);
 
-        var stripeEvent = JsonSerializer.Deserialize<StripeEvent>(body);
-        // Process the event...
-
-        return "ok"; // becomes the HTTP response body
-    }
-
-    public async Task Main()
-    {
-        // app.Webhooks contains the live webhook URLs - log them or display in your UI
-        foreach (var webhook in app.Webhooks)
-        {
-            Log.Instance.Info($"Webhook: POST {webhook.PublicUrl}");
-        }
-    }
+    // /api/rooms/{roomId}/post — RoomId comes from the URL (the extrinsic resource the caller names).
+    [HttpPost("/rooms/{roomId}/post", Auth = "public")]
+    public void Post(string text) => Posts.Add(text);
 }
 ```
 
-### URL format
+The URL names *which resource* you want (**extrinsic** identity). It can never assert *who you are* —
+intrinsic fields (`UserId`, `OrganizationId`) come only from the `Auth` policy's authenticated principal,
+never the URL. The emitted `PublicUrl` for a templated endpoint is a template; substitute the value
+before calling (`url.Replace("{roomId}", id)`). For an `AppProcess` cell the segment is resolved
+in-process; for a `Substrate` cell it selects (and cold-starts) that cell-host partition.
 
-- **Cloud (stable):** `POST https://{space}.ikonai.app/ikon/webhook/{functionName}?userid=...&orgId=...`
-- **Local dev (changes per restart):** `POST {server-public-tunnel}/webhook/{functionName}` — uses the same public tunnel the IkonServer exposes when run with `--public-access`. You can configure this URL in Stripe/GitHub/etc. dashboards while testing locally; just remember to update it when you restart the app.
+**Abuse is handled by the platform**, so you don't annotate it on the endpoint: cold-starts are
+rate-limited **per principal** (varying `{roomId}` can't multiply spin-ups — it's the same caller) and
+capped per (space, cell-type). For a stable external URL that carries no header auth — a webhook
+registered with a provider, a one-off share/download link — mint a **signed-URL capability**: a
+per-resource, HMAC-bound, revocable URL that's verified at the edge before any cold-start.
 
-The path segment `{functionName}` is the function's registered name — either the explicit `[Function(Name = "...")]` override or the auto-generated `TypeFullName.MethodName`. Use a `Name` override to keep URLs short and clean.
+## Reading the live URLs
 
-After deployment, webhook URLs are printed by `ikon app deploy`. At runtime they are available via `app.Webhooks`.
+`app.Endpoints` lists every declared endpoint with its `FunctionName` (`{Owner}_{Method}`, or
+`{Owner}_mcp`) and a ready-to-use `PublicUrl`:
 
-### Query params, session identity, and per-user routing
-
-If your `SessionIdentity` includes `UserId` (or any other custom field), webhook callers must include those values as query params on the URL so the platform can route to the correct app instance. Example for `SessionIdentity { UserId, OrganizationId }`:
-
+```csharp
+foreach (var e in app.Endpoints)
+    Log.Instance.Info($"{e.FunctionName}: {e.PublicUrl}");
 ```
-https://myapp.ikonai.app/ikon/webhook/stripe?userid=u1&organizationid=org5
+
+## Raw TCP / UDP, WebSockets, and custom Kestrel (escape hatch)
+
+`[HttpGet]`/`[HttpPost]`/`[Mcp]` cover HTTP + MCP. For anything else, drop to the imperative
+`AppEndpointHost` (HTTP/WebSocket with full `HttpContext` control) or `app.RequestEndpointAsync` (raw
+TCP/TLS/UDP). These allocate a public `host:port` at runtime whose URL **changes on every app restart**.
+
+```csharp
+// WebSocket / custom routing:
+var host = new AppEndpointHost(app);
+host.MapWebSocket("/ws", async (ctx, ws) => { /* … */ });
+await host.StartAsync();
+
+// Raw UDP/TCP game server:
+await using var endpoint = await app.RequestEndpointAsync(EndpointProtocol.Udp);
+var udp = new UdpClient(endpoint.LocalPort);
+Log.Instance.Info($"udp://{endpoint.PublicHost}:{endpoint.PublicPort}");
 ```
 
-The query params are also passed verbatim to the function via the `queryParams` argument, so the function can read them too. URLs surfaced via `app.Webhooks` already have the current session identity prefilled — give that URL to the external service when you register the webhook for that user.
-
-### Authentication
-
-There is no API key. Webhook endpoints are unauthenticated at the platform level — best practice for webhooks is for the **function itself** to verify the request, e.g. validating Stripe's `Stripe-Signature` HMAC against the request body using a shared signing secret. Read the relevant header from the `headers` argument inside your function.
-
-### Cold start and provisioning
-
-If no AI app instance is running for the matching session identity when a webhook arrives, the platform provisions one and waits for it to become ready (~2-3 s with warm pool, longer on cold start) before delivering the function call. Plan your function to be idempotent in case the external service retries on timeouts.
+Valid raw protocols: `EndpointProtocol.Tcp`, `Tls`, `Udp`. Dispose endpoints in `app.OnStopping(...)`.
+(`[Tcp]`/`[Udp]` attributes are the declarative form of this — instance-bound, identity pinned at
+allocation — and are being brought up incrementally.)
 
 ---
 

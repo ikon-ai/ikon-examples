@@ -2542,6 +2542,52 @@ namespace Ikon.Parallax.Theming
     static string Images
     static string Wrapper
 
+namespace Ikon.Parallax.Theming.Flutter
+  static class FlutterTokens.Badge
+    static string Brand
+    static string Neutral
+  static class FlutterTokens.Button
+    static string Danger
+    static string Ghost
+    static string Icon
+    static string Neutral
+    static string Outline
+    static string Primary
+  static class FlutterTokens.Divider
+    static string Horizontal
+    static string Line
+  static class FlutterTokens
+  static class FlutterTokens.Icon
+    static string Default
+    static string Lg
+    static string Md
+    static string Sm
+    static string Xs
+  static class FlutterTokens.Input
+    static string Area
+    static string Default
+  static class FlutterTokens.Layout
+    static string Center
+    static string Column
+    static string Row
+    static string RowWrap
+    static string Screen
+  static class FlutterTokens.Surface
+    static string Card
+    static string Panel
+    static string Screen
+  static class FlutterTokens.Text
+    static string Body
+    static string BodyStrong
+    static string Caption
+    static string H1
+    static string H2
+    static string H3
+    static string Hero
+    static string Label
+    static string Link
+    static string Muted
+
 
 ---
 
