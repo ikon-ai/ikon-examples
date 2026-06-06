@@ -184,7 +184,7 @@ namespace Ikon.Crosswind
   static class FlutterStyleResolver
     static FlutterStyleTokens Resolve(string tailwindDeclaration)
   sealed class FlutterStyleTokens : IEquatable<FlutterStyleTokens>
-    ctor(EdgeInsetsToken? Padding, EdgeInsetsToken? Margin, ColorToken? BackgroundColor, BorderToken? Border, BorderRadiusToken? BorderRadius, SizeToken? Size, TextStyleToken? Text, FlexToken? Flex, double? Opacity, IReadOnlyList<ShadowToken>? Shadow, OverflowToken? Overflow, TransformToken? Transform, PositionToken? Position, GradientToken? Gradient, MotionToken? Motion, bool? Hidden, bool? Visible, CursorToken? Cursor, double? AspectRatio, int? ZIndex)
+    ctor(EdgeInsetsToken? Padding, EdgeInsetsToken? Margin, ColorToken? BackgroundColor, BorderToken? Border, BorderRadiusToken? BorderRadius, SizeToken? Size, TextStyleToken? Text, FlexToken? Flex, double? Opacity, IReadOnlyList<ShadowToken>? Shadow, OverflowToken? Overflow, TransformToken? Transform, PositionToken? Position, GradientToken? Gradient, MotionToken? Motion, bool? Hidden, bool? Visible, CursorToken? Cursor, double? AspectRatio, int? ZIndex, int? GridColumns = null, bool? Pulse = null, bool? Spin = null)
     double? AspectRatio { get; init; }
     ColorToken? BackgroundColor { get; init; }
     BorderToken? Border { get; init; }
@@ -193,6 +193,7 @@ namespace Ikon.Crosswind
     static FlutterStyleTokens Empty { get; }
     FlexToken? Flex { get; init; }
     GradientToken? Gradient { get; init; }
+    int? GridColumns { get; init; }
     bool? Hidden { get; init; }
     bool IsEmpty { get; }
     EdgeInsetsToken? Margin { get; init; }
@@ -201,8 +202,10 @@ namespace Ikon.Crosswind
     OverflowToken? Overflow { get; init; }
     EdgeInsetsToken? Padding { get; init; }
     PositionToken? Position { get; init; }
+    bool? Pulse { get; init; }
     IReadOnlyList<ShadowToken>? Shadow { get; init; }
     SizeToken? Size { get; init; }
+    bool? Spin { get; init; }
     TextStyleToken? Text { get; init; }
     TransformToken? Transform { get; init; }
     bool? Visible { get; init; }
