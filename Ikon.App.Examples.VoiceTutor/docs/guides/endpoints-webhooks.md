@@ -4,9 +4,9 @@
 
 Your app's inbound HTTP lives under one public surface: `https://{space}.ikonai.app/api/...`. There are two ways to put something there — pick by what you need.
 
-### Declarative endpoints — `[Rest]` and `[Mcp]` (the common case)
+### Declarative endpoints — `[HttpGet]`/`[HttpPost]` and `[Mcp]` (the common case)
 
-Mark a method on your `[App]` class (or any `[Cell]` type) and the platform routes a **stable** public URL to it. This is how you build a REST API, expose tools to an LLM/agent, and **receive third-party webhooks** (Stripe/GitHub/Slack) — those are just `[Rest]`s; there is no separate "webhook" attribute.
+Mark a method on your `[App]` class (or any `[Cell]` type) and the platform routes a **stable** public URL to it. This is how you build a REST API, expose tools to an LLM/agent, and **receive third-party webhooks** (Stripe/GitHub/Slack) — those are just `[HttpGet]`/`[HttpPost]`s; there is no separate "webhook" attribute.
 
 - **Stable URL** — `https://{space}.ikonai.app/api/{path}`, unchanged across restarts and redeploys, so you register it once with an external service.
 - **Can cold-start the app** — a request to an idle app provisions an instance on demand (~2-3 s with a warm pool), waits for it, then delivers the call. Make handlers idempotent (services retry on timeouts).
@@ -14,13 +14,13 @@ Mark a method on your `[App]` class (or any `[Cell]` type) and the platform rout
 
 ### Manual endpoint hosts — `AppEndpointHost` / `RequestEndpointAsync` (custom servers)
 
-When `[Rest]` can't express it — a WebSocket server, a raw TCP/TLS/UDP listener, or an HTTP server you wire yourself — open a host at runtime and own the listener. These get a public relay URL that **changes on every restart** and **cannot cold-start** the app (traffic flows only while it's running).
+When `[HttpGet]`/`[HttpPost]` can't express it — a WebSocket server, a raw TCP/TLS/UDP listener, or an HTTP server you wire yourself — open a host at runtime and own the listener. These get a public relay URL that **changes on every restart** and **cannot cold-start** the app (traffic flows only while it's running).
 
 ### When to use which
 
 | Use case | Use |
 |---|---|
-| REST API, third-party webhook (Stripe/GitHub/Slack), needs a stable URL / app may be idle | **`[Rest]`** |
+| REST API, third-party webhook (Stripe/GitHub/Slack), needs a stable URL / app may be idle | **`[HttpGet]`/`[HttpPost]`** |
 | Expose a tool to an LLM / agent | **`[Mcp]`** |
 | WebSocket server for a custom client | **`AppEndpointHost`** (`MapWebSocket`) |
 | Game server / raw TCP / UDP / DTLS, or a custom HTTP server you wire yourself | **`AppEndpointHost` / `RequestEndpointAsync`** |
@@ -29,7 +29,7 @@ When `[Rest]` can't express it — a WebSocket server, a raw TCP/TLS/UDP listene
 
 ## Manual endpoint hosts (raw / WebSocket / custom servers)
 
-Requested at runtime from your app code — no `ikon-config.toml` entry needed. The public URL changes on every restart and **cannot** cold-start the app; for a stable, cold-startable URL use `[Rest]` (see below). Use these only when you need a protocol `[Rest]` can't express.
+Requested at runtime from your app code — no `ikon-config.toml` entry needed. The public URL changes on every restart and **cannot** cold-start the app; for a stable, cold-startable URL use `[HttpGet]`/`[HttpPost]` (see below). Use these only when you need a protocol `[HttpGet]`/`[HttpPost]` can't express.
 
 ### Creating and Starting an HTTP/HTTPS Endpoint
 
@@ -112,16 +112,16 @@ public class MyApp(IApp<SessionIdentity, ClientParams> app)
 
     // POST by default. The JSON body binds to your typed parameter. The binder is lenient — missing
     // fields default, unknown fields are ignored, and bad input returns a 4xx (it never throws a 500).
-    [Rest("/sum")]
+    [HttpPost("/sum")]
     public HttpResult Sum(SumRequest req) => HttpResult.Ok(new { sum = req.A + req.B });
 
     // Explicit verb, no body. Return a value (→ JSON), a string (→ text/plain), or an HttpResult.
-    [Rest(Verb.Get, "/health")]
+    [HttpGet("/health")]
     public string Health() => "ok";
 
-    // A third-party webhook is a normal [Rest]. Read the signature header + raw body from the
+    // A third-party webhook is a normal [HttpPost]. Read the signature header + raw body from the
     // injected Ikon.App.HttpRequest and verify it yourself — the platform does NOT authenticate the URL.
-    [Rest("/stripe")]
+    [HttpPost("/stripe")]
     public async Task<HttpResult> Stripe(Ikon.App.HttpRequest req)
     {
         if (!VerifyStripe(req.Headers["Stripe-Signature"], req.Body)) return HttpResult.Unauthorized();
@@ -137,11 +137,11 @@ public class MyApp(IApp<SessionIdentity, ClientParams> app)
 public record SumRequest(int A, int B);
 ```
 
-### `[Rest]`
+### `[HttpGet]` / `[HttpPost]` / `[HttpPut]` / `[HttpDelete]` / `[HttpPatch]`
 
-- Both args are optional: a `Verb` (`Get`/`Post`/`Put`/`Delete`/`Patch`, **defaults to POST**) and a path. Omit the path and it's **derived from the method name** (kebab-cased): `[Rest]` on `GetInventory` serves `/api/get-inventory`. Override it with `[Rest("/p")]`, `[Rest(Verb.Get)]`, or `[Rest(Verb.Get, "/p")]`.
+- The verb is the **attribute name** (there is no `Verb` enum); the single constructor arg is the path: `[HttpPost("/p")]`, `[HttpGet("/p")]`.
 - The handler binds **one optional typed body** (a JSON record/object, or a raw `string` for the unparsed body) plus any **host-injected context params** — `Ikon.App.HttpRequest` (method/path/query/headers/body), `HttpCallContext`, `CancellationToken` — in any order. Zero non-injected params = no body.
-- `Auth = typeof(SomeAuthCell)` runs an auth cell as a pre-filter. Return a value (serialized to JSON), a `string` (text), or an `HttpResult` (`Ok`/`BadRequest`/`Unauthorized`/`NotFound`/…).
+- `Auth = "policy-name"` names a `/router/` edge policy that authorizes the request before it reaches the handler (`"public"` = anonymous, `"session-token"` = the signed token, the default when unset; any other name resolves in the app's `/router/index.ts`). `Auth` is a **string**, never `typeof(...)`. Return a value (serialized to JSON), a `string` (text), or an `HttpResult` (`Ok`/`BadRequest`/`Unauthorized`/`NotFound`/…).
 
 ### `[Mcp]`
 
