@@ -1,202 +1,166 @@
-# Endpoints (REST, MCP, webhooks)
+# Endpoints & Webhooks
 
-Expose your AI app to the public internet by **declaring endpoints with attributes** on your `[App]`
-class or any `[Cell]` type. There is one inbound surface — `https://{space}.ikonai.app/api/{path}` — and
-the platform owns the URL, the routing, and the app lifecycle (a request cold-starts an idle app).
+## Endpoints & Webhooks
 
-```csharp
-[App]
-public class MyApp(IApp<SessionIdentity, ClientParameters> app)
-{
-    public record SessionIdentity(string UserId);
-    public record ClientParameters();
+Your app's inbound HTTP lives under one public surface: `https://{space}.ikonai.app/api/...`. There are two ways to put something there — pick by what you need.
 
-    [HttpPost("/inventory")]                 // POST https://{space}.ikonai.app/api/inventory
-    public async Task<Inventory> GetInventory() => await LoadAsync();
+### Declarative endpoints — `[HttpGet]`/`[HttpPost]` and `[Mcp]` (the common case)
 
-    [HttpGet("/health")]                     // GET — verb is the attribute, no Verb enum
-    public string Health() => "ok";
+Mark a method on your `[App]` class (or any `[Cell]` type) and the platform routes a **stable** public URL to it. This is how you build a REST API, expose tools to an LLM/agent, and **receive third-party webhooks** (Stripe/GitHub/Slack) — those are just `[HttpGet]`/`[HttpPost]`s; there is no separate "webhook" attribute.
 
-    [Mcp(Description = "Add two integers")]  // an MCP tool an LLM/agent can call
-    public int AddNumbers(int a, int b) => a + b;
-}
-```
+- **Stable URL** — `https://{space}.ikonai.app/api/{path}`, unchanged across restarts and redeploys, so you register it once with an external service.
+- **Can cold-start the app** — a request to an idle app provisions an instance on demand (~2-3 s with a warm pool), waits for it, then delivers the call. Make handlers idempotent (services retry on timeouts).
+- **No config entry** — discovered at deploy time; `ikon app deploy` prints each URL, and `app.Endpoints` exposes them at runtime.
 
-The attributes:
-- **`[HttpGet]` / `[HttpPost]` / `[HttpPut]` / `[HttpDelete]` / `[HttpPatch]`** — a typed REST endpoint.
-  The verb is the attribute name (no `Verb` enum); the single constructor arg is the path.
-- **`[Mcp]`** — an MCP tool. All of a class's MCP tools are served by one JSON-RPC multiplexer at
-  `/{owner}/mcp` (override with `[Mcp("/custom/path")]`); the JSON Schema is reflected from the signature.
-- **`[Function]`** — an SDK/WebSocket function (real-time, in-session), not a public HTTP endpoint.
-- **`[Tcp]` / `[Udp]`** — raw instance-bound sockets (see below).
+### Manual endpoint hosts — `AppEndpointHost` / `RequestEndpointAsync` (custom servers)
 
-A **third-party webhook (Stripe/GitHub/Slack) is just an `[HttpPost]`** — verify the signature inside the
-handler from the injected request context. There is no separate "webhook" attribute. The cloud URL is
-stable across restarts/redeploys and cold-starts the app on the first hit.
-
-> There is no `ikon-config.toml` entry for endpoints — they're discovered at deploy time. At runtime
-> `app.Endpoints` lists every endpoint with a ready-to-use `PublicUrl`.
+When `[HttpGet]`/`[HttpPost]` can't express it — a WebSocket server, a raw TCP/TLS/UDP listener, or an HTTP server you wire yourself — open a host at runtime and own the listener. These get a public relay URL that **changes on every restart** and **cannot cold-start** the app (traffic flows only while it's running).
 
 ### When to use which
 
 | Use case | Use |
 |---|---|
-| REST API (one or many routes), Stripe/GitHub/Slack webhooks | **`[HttpGet]`/`[HttpPost]`/…** |
-| A tool an LLM/agent calls | **`[Mcp]`** |
-| Real-time in-session call from a connected client | **`[Function]`** |
-| Game server / raw TCP / UDP / DTLS | **`[Tcp]` / `[Udp]`** (or imperative `AppEndpointHost` + a raw listener) |
-| WebSocket server / fully custom Kestrel routing | imperative **`AppEndpointHost`** (escape hatch) |
+| REST API, third-party webhook (Stripe/GitHub/Slack), needs a stable URL / app may be idle | **`[HttpGet]`/`[HttpPost]`** |
+| Expose a tool to an LLM / agent | **`[Mcp]`** |
+| WebSocket server for a custom client | **`AppEndpointHost`** (`MapWebSocket`) |
+| Game server / raw TCP / UDP / DTLS, or a custom HTTP server you wire yourself | **`AppEndpointHost` / `RequestEndpointAsync`** |
 
 ---
 
-## Declaring REST endpoints
+## Manual endpoint hosts (raw / WebSocket / custom servers)
 
-Decorate a method with a verb attribute. The path is the single constructor argument; the verb is the
-attribute (`[HttpGet]` / `[HttpPost]` / `[HttpPut]` / `[HttpDelete]` / `[HttpPatch]`).
+Requested at runtime from your app code — no `ikon-config.toml` entry needed. The public URL changes on every restart and **cannot** cold-start the app; for a stable, cold-startable URL use `[HttpGet]`/`[HttpPost]` (see below). Use these only when you need a protocol `[HttpGet]`/`[HttpPost]` can't express.
+
+### Creating and Starting an HTTP/HTTPS Endpoint
 
 ```csharp
-public record CreateOrder(string Sku, int Qty);
+var endpoint = new AppEndpointHost(app);
 
-[HttpPost("/orders")]
-public async Task<HttpResult> Create(CreateOrder req)        // typed JSON body bound automatically
+// Write the response via ctx.Response.Body (a Stream). NOT ctx.Response.WriteAsync(string)
+// — that ASP.NET Core extension (Microsoft.AspNetCore.Http) is not in scope in a
+// generated app and produces CS1061. Write UTF-8 bytes to the body stream.
+endpoint.MapGet("/health", async ctx =>
 {
-    var order = await PlaceAsync(req.Sku, req.Qty);
-    return HttpResult.Ok(order);                              // serialized to JSON; or just return the object
-}
+    ctx.Response.ContentType = "text/plain";
+    await ctx.Response.Body.WriteAsync(System.Text.Encoding.UTF8.GetBytes("OK"));
+});
 
-[HttpGet("/orders")]
-public async Task<Order[]> List() => await LoadAllAsync();
+endpoint.MapPost("/data", async ctx =>
+{
+    using var reader = new StreamReader(ctx.Request.Body);
+    var body = await reader.ReadToEndAsync();
+    ctx.Response.ContentType = "application/json";
+    await ctx.Response.Body.WriteAsync(System.Text.Encoding.UTF8.GetBytes("{\"received\": true}"));
+});
+
+endpoint.MapWebSocket("/ws", async (ctx, webSocket) =>
+{
+    var buffer = new byte[4096];
+    while (webSocket.State == WebSocketState.Open)
+    {
+        var result = await webSocket.ReceiveAsync(buffer, CancellationToken.None);
+        if (result.MessageType == WebSocketMessageType.Close) { break; }
+        await webSocket.SendAsync(buffer.AsMemory(0, result.Count), result.MessageType, true, CancellationToken.None);
+    }
+});
+
+await endpoint.StartAsync();
 ```
 
-**Parameter binding.** A handler binds **at most one typed body parameter** (the JSON body deserialized
-to your type, or a raw `string`) plus any **host-injected context parameters in any order**:
-`Ikon.App.HttpRequest` (method/path/query/headers/body), `HttpCallContext` (resolved identity + raw
-inputs, also readable via `HttpCallContext.Current`), and `CancellationToken`. The typed C# signature is
-the contract — there's no schema to write. The JSON binder is lenient (missing fields default, unknown
-fields ignored, case-insensitive) and never 500s on bad input — it returns a 4xx.
+Pass `secure: false` for plain HTTP (the default is HTTPS with TLS terminated at the relay).
 
-**Return value.** Return your object (serialized to JSON), a `string`, an `HttpResult`
-(`HttpResult.Ok(x)`, `HttpResult.NotFound(msg)`, `HttpResult.BadRequest(msg)`, `HttpResult.Text(...)`),
-or `Task`/`void` for an empty 200.
+### Raw TCP/TLS/UDP Endpoints
 
-**Third-party webhooks (Stripe/GitHub/Slack) are just `[HttpPost]`** — there is no `[Function(Webhook=…)]`
-anymore. Verify the signature inside the handler from the injected request:
+`AppEndpointHost` only supports HTTP/HTTPS. For raw TCP/TLS/UDP, request an endpoint directly and bind your own listener:
 
 ```csharp
-[HttpPost("/billing/stripe")]
-public async Task<HttpResult> Stripe(Ikon.App.HttpRequest req)
+await using var endpoint = await app.RequestEndpointAsync(EndpointProtocol.Udp);
+var udp = new UdpClient(endpoint.LocalPort);
+Log.Instance.Info($"Game server listening at udp://{endpoint.PublicHost}:{endpoint.PublicPort}");
+// `await using` above releases the endpoint when it goes out of scope.
+```
+
+Valid raw protocols: `EndpointProtocol.Tcp`, `Tls`, `Udp`. `Tls` enables TLS termination at the relay (your listener sees plaintext on the local port). For HTTP/HTTPS use `AppEndpointHost` with `secure: true` (default) or `secure: false`.
+
+### Properties
+
+- `endpoint.PublicUrl` - The public URL assigned by the platform (use this to share with external services). **Changes on every app restart.**
+- `endpoint.LocalPort` - The local port the endpoint is listening on.
+
+### Cleanup
+
+Dispose endpoints when the app stops:
+
+```csharp
+app.OnStopping(async () =>
 {
-    var signature = req.Headers.GetValueOrDefault("Stripe-Signature") ?? "";
-    // verify signature against req.Body with your signing secret, then process...
-    return HttpResult.Ok(new { received = true });
+    await endpoint.DisposeAsync();
+});
+```
+
+---
+
+## HTTP endpoints & MCP tools
+
+Declare these on your `[App]` class (or any `[Cell]` type). They're discovered at deploy time and routed under `https://{space}.ikonai.app/api/...` — no `ikon-config.toml` entry needed.
+
+```csharp
+[App]
+public class MyApp(IApp<SessionIdentity, ClientParams> app)
+{
+    public record SessionIdentity(string UserId);
+
+    // POST by default. The JSON body binds to your typed parameter. The binder is lenient — missing
+    // fields default, unknown fields are ignored, and bad input returns a 4xx (it never throws a 500).
+    [HttpPost("/sum")]
+    public HttpResult Sum(SumRequest req) => HttpResult.Ok(new { sum = req.A + req.B });
+
+    // Explicit verb, no body. Return a value (→ JSON), a string (→ text/plain), or an HttpResult.
+    [HttpGet("/health")]
+    public string Health() => "ok";
+
+    // A third-party webhook is a normal [HttpPost]. Read the signature header + raw body from the
+    // injected Ikon.App.HttpRequest and verify it yourself — the platform does NOT authenticate the URL.
+    [HttpPost("/stripe")]
+    public async Task<HttpResult> Stripe(Ikon.App.HttpRequest req)
+    {
+        if (!VerifyStripe(req.Headers["Stripe-Signature"], req.Body)) return HttpResult.Unauthorized();
+        // ... process req.Body ...
+        return HttpResult.Ok();   // return 200 even on a skip to avoid the provider's retry storm
+    }
+
+    // An MCP tool, callable by an LLM / agent. Its JSON Schema is reflected from the signature.
+    [Mcp(Name = "add_numbers", Description = "Adds two integers")]
+    public int AddNumbers(int a, int b) => a + b;
 }
 
 public record SumRequest(int A, int B);
 ```
 
-The cloud URL is stable across restarts/redeploys, and a hit cold-starts the app if it's idle (~2-3 s
-warm). Make webhook handlers idempotent — senders retry on timeouts.
+### `[HttpGet]` / `[HttpPost]` / `[HttpPut]` / `[HttpDelete]` / `[HttpPatch]`
 
-### Authorization
+- The verb is the **attribute name** (there is no `Verb` enum); the single constructor arg is the path: `[HttpPost("/p")]`, `[HttpGet("/p")]`.
+- The handler binds **one optional typed body** (a JSON record/object, or a raw `string` for the unparsed body) plus any **host-injected context params** — `Ikon.App.HttpRequest` (method/path/query/headers/body), `HttpCallContext`, `CancellationToken` — in any order. Zero non-injected params = no body.
+- `Auth = "policy-name"` names a `/router/` edge policy that authorizes the request before it reaches the handler (`"public"` = anonymous, `"session-token"` = the signed token, the default when unset; any other name resolves in the app's `/router/index.ts`). `Auth` is a **string**, never `typeof(...)`. Return a value (serialized to JSON), a `string` (text), or an `HttpResult` (`Ok`/`BadRequest`/`Unauthorized`/`NotFound`/…).
 
-Authorization is a **`/router/` edge policy** named by the endpoint's `Auth` string. The gateway runs it
-*before* (and without) provisioning the app, so unauthorized traffic is rejected cheaply.
+### `[Mcp]`
 
-- `Auth = "public"` — anonymous (gated only by anti-abuse).
-- `Auth = "session-token"` (the default when unset) — requires the signed routing token.
-- `Auth = "my-policy"` — a policy you define in the app's `/router/index.ts`.
+Exposes the method as an MCP tool for LLM/agent tool-use, reachable two ways:
+- **The JSON-RPC multiplexer** — all of an owner's tools share **one** endpoint at `https://{space}.ikonai.app/api/{Owner}/mcp` (`tools/list`/`tools/call`); the input/output JSON Schema is reflected from the C# signature.
+- **A per-tool POST endpoint** — each tool is ALSO at its own URL (derived from the method name, or `[Mcp(Path = "/custom")]` to override), with the request body bound the same way `tools/call` binds its arguments. So `[Mcp] int Add(int a, int b)` is callable as `POST /api/add {"a":1,"b":2}` → `3`, not just via JSON-RPC.
 
-```csharp
-[HttpGet("/listings", Auth = "public")]          // anonymous
-[HttpPost("/orders", Auth = "partner-oauth")]    // a /router/ policy (Auth is a STRING, never typeof)
-```
-```ts
-// router/index.ts — evaluated at the gateway edge. Helpers are ambient; secrets referenced by name.
-export const policies = {
-  "partner-oauth": oauth({ issuer: "https://auth.partner.com", audience: "ikon-app" }),
-  "stripe-hook":   hmac({ header: "Stripe-Signature", secret: secret("stripe-webhook") }),
-  "internal":      apiKey({ keys: secret("api-keys") }),
-};
-```
+Pair with `[McpResource]` for resources. (A method with both `[Rest]` and `[Mcp]` uses the `[Rest]` route for its direct HTTP surface; the tool still appears in the multiplexer.)
 
-Built-in helpers: `oauth` / `hmac` / `apiKey` / `ipAllow` / `sessionToken`. For a raw webhook you can also
-verify the signature inside the handler (the body + headers are available, as shown above).
+### Public URLs, identity & routing
 
-## MCP tools
-
-`[Mcp]` exposes a method as an MCP tool for LLMs/agents. All of a class's tools share one JSON-RPC
-multiplexer (default path `/{owner}/mcp`; override with `[Mcp("/agent/mcp")]`). The input schema is
-reflected from the parameters — annotate them with `[Description]` for the model.
+`app.Endpoints` lists every endpoint with a ready-to-use `PublicUrl` that **already has the signing token (and this session's identity) baked in**. Hand that exact URL to the external service — do **not** append `?userid=` or hand-build the URL.
 
 ```csharp
-[Mcp(Description = "Research a topic and return a structured brief")]
-public async Task<Brief> Research([Description("The topic")] string topic, int depth = 2) => …;
+foreach (var endpoint in app.Endpoints)
+    Log.Instance.Info($"{endpoint.PublicUrl}");
 ```
 
-MCP tools are reachable **only** through the multiplexer (a JSON-RPC `tools/call`), never as per-tool
-HTTP POSTs. A method may carry both `[HttpPost]` and `[Mcp]` to expose the same logic on both surfaces.
-
-## Identity from the URL path
-
-A `{segment}` placeholder whose name matches a field of the owner's `SessionIdentity` binds into the
-routing identity, so one endpoint definition serves many keyed instances (rooms, workspaces, tenants):
-
-```csharp
-[Cell]
-public class Room(ICell<Room.SessionIdentity> ctx)
-{
-    public record SessionIdentity(string RoomId);
-    public Reactive<List<string>> Posts { get; } = new([]);
-
-    // /api/rooms/{roomId}/post — RoomId comes from the URL (the extrinsic resource the caller names).
-    [HttpPost("/rooms/{roomId}/post", Auth = "public")]
-    public void Post(string text) => Posts.Add(text);
-}
-```
-
-The URL names *which resource* you want (**extrinsic** identity). It can never assert *who you are* —
-intrinsic fields (`UserId`, `OrganizationId`) come only from the `Auth` policy's authenticated principal,
-never the URL. The emitted `PublicUrl` for a templated endpoint is a template; substitute the value
-before calling (`url.Replace("{roomId}", id)`). For an `AppProcess` cell the segment is resolved
-in-process; for a `Substrate` cell it selects (and cold-starts) that cell-host partition.
-
-**Abuse is handled by the platform**, so you don't annotate it on the endpoint: cold-starts are
-rate-limited **per principal** (varying `{roomId}` can't multiply spin-ups — it's the same caller) and
-capped per (space, cell-type). For a stable external URL that carries no header auth — a webhook
-registered with a provider, a one-off share/download link — mint a **signed-URL capability**: a
-per-resource, HMAC-bound, revocable URL that's verified at the edge before any cold-start.
-
-## Reading the live URLs
-
-`app.Endpoints` lists every declared endpoint with its `FunctionName` (`{Owner}_{Method}`, or
-`{Owner}_mcp`) and a ready-to-use `PublicUrl`:
-
-```csharp
-foreach (var e in app.Endpoints)
-    Log.Instance.Info($"{e.FunctionName}: {e.PublicUrl}");
-```
-
-## Raw TCP / UDP, WebSockets, and custom Kestrel (escape hatch)
-
-`[HttpGet]`/`[HttpPost]`/`[Mcp]` cover HTTP + MCP. For anything else, drop to the imperative
-`AppEndpointHost` (HTTP/WebSocket with full `HttpContext` control) or `app.RequestEndpointAsync` (raw
-TCP/TLS/UDP). These allocate a public `host:port` at runtime whose URL **changes on every app restart**.
-
-```csharp
-// WebSocket / custom routing:
-var host = new AppEndpointHost(app);
-host.MapWebSocket("/ws", async (ctx, ws) => { /* … */ });
-await host.StartAsync();
-
-// Raw UDP/TCP game server:
-await using var endpoint = await app.RequestEndpointAsync(EndpointProtocol.Udp);
-var udp = new UdpClient(endpoint.LocalPort);
-Log.Instance.Info($"udp://{endpoint.PublicHost}:{endpoint.PublicPort}");
-```
-
-Valid raw protocols: `EndpointProtocol.Tcp`, `Tls`, `Udp`. Dispose endpoints in `app.OnStopping(...)`.
-(`[Tcp]`/`[Udp]` attributes are the declarative form of this — instance-bound, identity pinned at
-allocation — and are being brought up incrementally.)
+The URL carries a signed `ikon-session-token` that tells the platform which app instance the request belongs to and authorizes the cold-start. There is no platform-level API key on the URL — authenticate inside the handler when it matters (e.g. verify a provider's signature header).
 
 ---
 
