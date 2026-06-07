@@ -72,7 +72,9 @@ namespace Ikon.AI
     Embeddings
     FileConverter
     ImageGenerator
+    ImageSegmenter
     LLM
+    MeshGenerator
     OCR
     Reranker
     SoundEffectGenerator
@@ -125,12 +127,14 @@ namespace Ikon.AI
     DeepInfra
     Deepgram
     ElevenLabs
+    Fal
     Fireworks
     Google
     Groq
     Hyperbolic
     Ikon
     Jina
+    Meshy
     Mistral
     OpenAI
     OpenRouter
@@ -457,12 +461,14 @@ namespace Ikon.AI.LLM
     Claude46Opus
     Claude46Sonnet
     Claude47Opus
+    Claude48Opus
     Gemini25Flash
     Gemini25FlashLite
     Gemini25Pro
     Gemini3Flash
     Gemini31Pro
     Gemini31FlashLite
+    Gemini35Flash
     Grok43
     Grok420Reasoning
     Grok420NonReasoning

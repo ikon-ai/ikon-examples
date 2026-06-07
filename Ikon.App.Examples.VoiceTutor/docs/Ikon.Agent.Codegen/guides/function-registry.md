@@ -74,7 +74,7 @@ var result = await FunctionRegistry.Instance.CallAsync<string>("Greet", args: ["
 
 ### Exposing a function over HTTP
 
-To expose a method as a public HTTP endpoint (a REST route or a third-party webhook), mark it `[Rest("/path")]` rather than `[Function]` — it is served under `https://{space}.ikonai.app/api/{path}`. (`[Function]` is for SDK/in-app calls and LLM tools, not inbound HTTP.) See the **HTTP endpoints & MCP tools** section under **Endpoints & Webhooks** for the handler-binding rules and URL details.
+To expose a method as a public HTTP endpoint (a REST route or a third-party webhook), mark it `[HttpPost("/path")]` rather than `[Function]` — it is served under `https://{space}.ikonai.app/api/{path}`. (`[Function]` is for SDK/in-app calls and LLM tools, not inbound HTTP.) See the **HTTP endpoints & MCP tools** section under **Endpoints & Webhooks** for the handler-binding rules and URL details.
 
 ---
 
