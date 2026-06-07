@@ -217,6 +217,52 @@ using SixLabors.ImageSharp.Image image = await SixLabors.ImageSharp.Image.LoadAs
 await image.SaveAsPngAsync("santa.png");
 ```
 
+## ImageSegmentation
+
+`Ikon.AI.ImageSegmentation.ImageSegmenter` segments objects from images using text, point, or box prompts (Segment Anything models). The result contains one mask image per detected object, along with confidence scores and normalized bounding boxes.
+
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+
+```csharp
+using Ikon.AI.ImageSegmentation;
+
+using var segmenter = new ImageSegmenter(ImageSegmenterModel.Sam3);
+
+var result = await segmenter.SegmentImageAsync(new ImageSegmenterConfig
+{
+    Image = new ImageSegmenterConfig.InputImage { Url = "https://example.com/photo.png" },
+    Prompt = "person",
+    ReturnMultipleMasks = true
+});
+
+foreach (var segment in result.Segments)
+{
+    Log.Instance.Info($"Found segment with score {segment.Score}, mask is {segment.Mask.Data.Length} bytes");
+}
+
+await File.WriteAllBytesAsync("mask.png", result.Segments[0].Mask.Data);
+```
+
+## MeshGeneration
+
+`Ikon.AI.MeshGeneration.MeshGenerator` creates textured 3D meshes from a text prompt (no input images), a single image, or 2-4 images of the same object. The result contains URLs for the generated model in multiple formats (GLB, FBX, OBJ, USDZ). The URLs are signed and expire roughly three days after generation, so download the files promptly.
+
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+
+```csharp
+using Ikon.AI.MeshGeneration;
+
+using var meshGenerator = new MeshGenerator(MeshGeneratorModel.Meshy6);
+
+var result = await meshGenerator.GenerateMeshAsync(new MeshGeneratorConfig
+{
+    Prompt = "A small wooden treasure chest with brass fittings",
+    TargetPolycount = 20000
+});
+
+Log.Instance.Info($"GLB URL: {result.GlbUrl}");
+```
+
 ## VideoGeneration
 
 `Ikon.AI.VideoGeneration.VideoGenerator` renders video clips with configurable length, resolution, and aspect ratio.
