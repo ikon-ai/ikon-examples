@@ -346,7 +346,7 @@
         "AI connection"
       ],
       "file": "docs/guides/ai-models.md",
-      "sizeBytes": 24625,
+      "sizeBytes": 24715,
       "alsoInclude": []
     },
     {
@@ -433,7 +433,7 @@
         "EmbeddingGenerator"
       ],
       "file": "docs/guides/ai-web-and-data.md",
-      "sizeBytes": 25691,
+      "sizeBytes": 25841,
       "alsoInclude": [
         "emergence"
       ]
