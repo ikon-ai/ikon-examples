@@ -33,7 +33,7 @@ private static ScriptOptions CreateScriptOptions() => ScriptOptions.Default
     .AddReferences(/* DynamicUI, Reactive<>, UIView, etc. */)
     .AddImports("System", "System.Linq", "System.Threading.Tasks",
         "Ikon.Common.Core.Reactive", "Ikon.Parallax",
-        "Ikon.Parallax.Components.Standard", "Ikon.Parallax.Theming");
+        "Ikon.Parallax.Components.Standard", "Ikon.Parallax.Themes.Ikon");
 
 private (bool Success, string? Error) ExecuteCodeSync(string code, UIView uiView)
 {
