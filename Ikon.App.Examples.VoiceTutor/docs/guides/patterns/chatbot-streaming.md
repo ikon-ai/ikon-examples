@@ -10,10 +10,13 @@ Any single-LLM-conversation app — assistant, tutor, support bot, advisor, jour
 
 ```csharp
 public sealed record ChatMessage(string Role, string Text);
+public sealed record ChatReply(string Reply);
 
 private readonly Reactive<List<ChatMessage>> _transcript = new([]);
 private readonly Reactive<string> _draft = new("");
 private readonly Reactive<bool> _busy = new(false);
+private readonly Reactive<string> _streaming = new("");
+private KernelContext _ctx = new();
 
 private async Task SendAsync()
 {
@@ -22,18 +25,39 @@ private async Task SendAsync()
 
     _transcript.Value = [.. _transcript.Value, new ChatMessage("You", text)];
     _draft.Value = "";
+    _streaming.Value = "";
     using var _ = _busy.AsToken();
 
     try
     {
-        var transcript = string.Join("\n", _transcript.Value.Select(m => $"{m.Role}: {m.Text}"));
-        var reply = await Emerge.AskAsync(
-            $"Conversation so far:\n{transcript}\n\nReply concisely as Assistant.");
-        _transcript.Value = [.. _transcript.Value, new ChatMessage("Assistant", reply)];
+        // Streaming: iterate Emerge.Run's event stream. Each ModelText<T>
+        // event is the next token chunk — append to _streaming so the UI
+        // re-renders token-by-token. Completed<T> fires once with the
+        // final typed result + the new KernelContext for the next turn.
+        var sb = new System.Text.StringBuilder();
+        await foreach (var ev in Emerge.Run<ChatReply>(LLMModel.Claude46Sonnet, _ctx, pass =>
+        {
+            pass.SystemPrompt = "You are a helpful assistant. Reply concisely.";
+            pass.Command = $"User said: {text}\n\nReturn JSON:\n{pass.JsonSchema}";
+        }))
+        {
+            if (ev is ModelText<ChatReply> token)
+            {
+                sb.Append(token.Text);
+                _streaming.Value = sb.ToString();
+            }
+            else if (ev is Completed<ChatReply> done)
+            {
+                _ctx = done.Context;
+                _transcript.Value = [.. _transcript.Value, new ChatMessage("Assistant", done.Result.Reply)];
+                _streaming.Value = "";
+            }
+        }
     }
     catch (Exception ex)
     {
         _transcript.Value = [.. _transcript.Value, new ChatMessage("System", $"Error: {ex.Message}")];
+        _streaming.Value = "";
     }
 }
 
@@ -47,6 +71,14 @@ view.ScrollArea(rootStyle: ["flex-1 min-h-0"], viewportStyle: ["p-4"], content: 
             var isUser = msg.Role == "You";
             view.Box([isUser ? "self-end bg-primary" : "self-start bg-surface", "rounded-lg p-3 max-w-[80%]"], content: v =>
                 v.Text(text: msg.Text));
+        }
+        // In-flight streaming bubble: reading _streaming.Value here
+        // registers a dependency, so this re-renders on every ModelText
+        // event. Empties when Completed fires above.
+        if (!string.IsNullOrEmpty(_streaming.Value))
+        {
+            view.Box(["self-start bg-surface rounded-lg p-3 max-w-[80%] opacity-80"], content: v =>
+                v.Text(text: _streaming.Value));
         }
     });
 });
@@ -67,7 +99,7 @@ view.Row(["p-4 gap-2 border-t"], content: view =>
 - `_busy` gates Send (button disabled, label changes). The label-change is the loading state — no spinner needed for sub-2s replies; for longer ones add a Skeleton row.
 - **Do NOT bind `_busy` to TextField's `disabled` prop** — the framework re-mounts the input on disabled flips and drops keyboard focus mid-typing. Gate the action via the Button + the early-return in `SendAsync`; let the user keep typing the next message while the AI is replying.
 - Pass the **full transcript** to the LLM, not just the last user message.
-- `Emerge.AskAsync(command)` is the one-shot shortcut (Claude45Haiku default) — use it for short transformations like a chat reply. Reach for the full `Emerge.Run<T>(model, ctx, pass => …).FinalAsync()` only when you need tools, multi-iteration agentic loops, or fine-grained pass control.
+- **Streaming uses `Emerge.Run<T>(model, ctx, pass => …)` with `await foreach`** — observe `ModelText<T>` for live token chunks and `Completed<T>` for the final typed result + next-turn `KernelContext`. `Emerge.AskAsync(command)` is a one-shot shortcut that does NOT stream — only reach for it when the brief explicitly does not need streaming.
 - Empty / whitespace input is a no-op.
 - Wrap the LLM call in try/catch; surface the failure as a System message (visible) instead of swallowing.
 - ScrollArea with `flex-1 min-h-0` keeps the input pinned to the bottom and scrolls only the message list.
