@@ -123,15 +123,21 @@ namespace Ikon.AI.Embeddings
     OpenAI3Large
     CohereEmbed4
     MistralEmbed
+    CodestralEmbed
     GeminiEmbedding1
     GoogleTextEmbedding5
     GoogleTextMultilingualEmbedding2
     JinaEmbeddings3
     JinaEmbeddings4
+    JinaEmbeddings5TextSmall
+    JinaEmbeddings5TextNano
+    JinaEmbeddings5OmniSmall
+    JinaEmbeddings5OmniNano
     Voyage35
     Voyage35Lite
     Voyage4
     Voyage4Lite
+    Voyage4Large
   static class EmbeddingModelExtensions
     static string DisplayName(EmbeddingModel model)
   enum EmbeddingType
