@@ -1,15 +1,11 @@
 <!-- mined-from: Sentinel -->
-# Tiny inline bar sparkline (from a list)
+# Bar Chart From List — Time-bucketed activity histogram
 
-> **For real charts, use the first-class components — not this pattern.** Ikon.Parallax ships `view.PieChart`, `view.BarChart`, and `view.LineChart` (themed, interactive, with axes, legends, and tooltips). For any "show a pie / bar / line chart of this data" requirement — dashboards, analytics, breakdowns by category — use those (see the **Charts** guide). Do not hand-roll charts with `view.Box`, `conic-gradient`, or inline width styles.
->
-> This pattern is ONLY a tiny **sparkline-style** bar strip drawn from `view.Box` divs, for when a full chart would be overkill.
-
-A discrete bar sparkline drawn from `view.Box` divs. Aggregate a list into N buckets (24 hours, 7 days), find the max, then for each bucket pick a tailwind height class (`h-px / h-3 / h-5 / h-7 / h-10`) and a tint. Fits in a small card next to KPIs and updates the moment the underlying reactive list changes.
+A discrete bar chart drawn entirely from `view.Box` divs — no SVG, no chart library. Aggregate a list into N time buckets (24 hours, 7 days), find the max, then for each bucket pick a tailwind height class (`h-px / h-3 / h-5 / h-7 / h-10`) and a severity-tinted color class. Fits in a small card next to KPIs and updates the moment the underlying reactive list changes.
 
 ## When to use
 
-Only for sparkline-class strips: a glanceable mini-bar next to other content (hourly event counts, daily attempts, weekly volume), with a small bar count (≤30) and no axes, legend, or tooltips. For a real bar chart — or any pie or line chart — use `view.BarChart` / `view.PieChart` / `view.LineChart` instead.
+When you want a sparkline-class chart without pulling in a charting library: hourly event counts, daily attempts, weekly volume. Best when the bar count is small (≤30) and you can decide bucket height with a `switch` on coarse ratios. For higher resolution or interactive tooltips, reach for an SVG-based component.
 
 ## Snippet
 
