@@ -243,6 +243,25 @@ foreach (var segment in result.Segments)
 await File.WriteAllBytesAsync("mask.png", result.Segments[0].Mask.Data);
 ```
 
+## DepthEstimation
+
+`Ikon.AI.DepthEstimation.DepthEstimator` produces a monocular depth map from a single input image. The result is one depth-map image (closer surfaces brighter, farther surfaces darker). Useful for 3D reconstruction, parallax/relighting effects, compositing, and depth-conditioned image generation.
+
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps). Depth Anything V2 is the fast default; Marigold is diffusion-based and higher quality but slower; MiDaS is a lightweight classic.
+
+```csharp
+using Ikon.AI.DepthEstimation;
+
+using var depthEstimator = new DepthEstimator(DepthEstimatorModel.DepthAnythingV2);
+
+var result = await depthEstimator.EstimateDepthAsync(new DepthEstimatorConfig
+{
+    Image = new DepthEstimatorConfig.InputImage { Url = "https://example.com/photo.png" }
+});
+
+await File.WriteAllBytesAsync("depth.png", result.Depth.Data);
+```
+
 ## MeshGeneration
 
 `Ikon.AI.MeshGeneration.MeshGenerator` creates textured 3D meshes from a text prompt (no input images), a single image, or 2-4 images of the same object. The result contains URLs for the generated model in multiple formats (GLB, FBX, OBJ, USDZ). The URLs are signed and expire roughly three days after generation, so download the files promptly.
