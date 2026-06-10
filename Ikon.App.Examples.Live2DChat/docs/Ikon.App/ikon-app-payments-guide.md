@@ -336,7 +336,7 @@ public async Task<HttpResult> StripeConnectWebhook(Ikon.App.HttpRequest req)
 
 `HandleWebhookAsync` returns `PaymentsWebhookResult { Verified, Reason, AdapterError }`. It never throws — return 200 either way to avoid Stripe retry storms. The library logs unverified events but does not invoke the adapter for them.
 
-**Webhook URL**: register the endpoint's public URL — `https://{space}.ikonai.app/api/stripe` — in the Stripe Dashboard. Use the **tokenized** URL from `app.Endpoints` (`app.Endpoints.First(e => e.PublicUrl.Contains("/api/stripe")).PublicUrl`), not a hand-built one: the `/api` surface requires the signed `ikon-session-token` that `PublicUrl` already carries. The validation app's Admin tab → Webhook configuration card surfaces the live URL.
+**Webhook URL**: register the endpoint's public URL — `https://{space}.ikonai.app/api/stripe` — in the Stripe Dashboard. **Mint** the URL with `app.MintUrlAsync(nameof(Stripe))` and register that (not the bare `PublicUrl` from `app.Endpoints`, and not a hand-built one): the minted URL carries a signed `ikon-grant` that addresses your app instance (and authorizes the cold-start). Minting is idempotent, so the registered URL stays stable across restarts. The validation app's Admin tab → Webhook configuration card surfaces the live URL.
 
 ### Event types
 
@@ -685,9 +685,9 @@ Stripe prices are immutable — bumping €19 → €25 creates a new price. Mig
 ### Webhook operations
 
 ```csharp
-// Self-provision endpoints (alternative to Stripe Dashboard). Use the [HttpPost]'s tokenized
-// PublicUrl (the /api surface requires the signed ikon-session-token it carries) — don't hand-build it.
-var stripeUrl = app.Endpoints.First(e => e.PublicUrl.Contains("/api/stripe")).PublicUrl;
+// Self-provision endpoints (alternative to Stripe Dashboard). Mint the [HttpPost]'s URL — the minted
+// URL carries the signed ikon-grant that addresses this app instance — don't hand-build it.
+var stripeUrl = (await app.MintUrlAsync(nameof(Stripe))).Url;
 var ep = await _payments.CreateWebhookEndpointAsync(
     url: stripeUrl,
     enabledEvents: ["invoice.paid", "customer.subscription.updated"]);

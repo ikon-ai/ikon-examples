@@ -10,7 +10,7 @@ Mark a method on your `[App]` class (or any `[Cell]` type) and the platform rout
 
 - **Stable URL** — `https://{space}.ikonai.app/api/{path}`, unchanged across restarts and redeploys, so you register it once with an external service.
 - **Can cold-start the app** — a request to an idle app provisions an instance on demand (~2-3 s with a warm pool), waits for it, then delivers the call. Make handlers idempotent (services retry on timeouts).
-- **No config entry** — discovered at deploy time; `ikon app deploy` prints each URL, and `app.Endpoints` exposes them at runtime.
+- **No config entry** — discovered at deploy time; `app.Endpoints` exposes them at runtime. Their `PublicUrl` is a *bare* address; call `app.MintUrlAsync` to get a working, identity-bound URL to hand out (see below).
 
 ### Manual endpoint hosts — `AppEndpointHost` / `RequestEndpointAsync` (custom servers)
 
@@ -141,7 +141,7 @@ public record SumRequest(int A, int B);
 
 - The verb is the **attribute name** (there is no `Verb` enum); the single constructor arg is the path: `[HttpPost("/p")]`, `[HttpGet("/p")]`.
 - The handler binds **one optional typed body** (a JSON record/object, or a raw `string` for the unparsed body) plus any **host-injected context params** — `Ikon.App.HttpRequest` (method/path/query/headers/body), `HttpCallContext`, `CancellationToken` — in any order. Zero non-injected params = no body.
-- `Auth = "policy-name"` names a `/router/` edge policy that authorizes the request before it reaches the handler (`"public"` = anonymous, `"session-token"` = the signed token, the default when unset; any other name resolves in the app's `/router/index.ts`). `Auth` is a **string**, never `typeof(...)`. Return a value (serialized to JSON), a `string` (text), or an `HttpResult` (`Ok`/`BadRequest`/`Unauthorized`/`NotFound`/…).
+- **Authorization** is declared on the attribute and evaluated at the gateway *before* the handler runs (a denial returns 401/403). Two ways: `Auth` takes the `EndpointAuth` enum — `Grant` (**the default**: the URL must carry a valid signed grant from `MintUrl`), `Public` (anonymous), or `Deny` (always rejected); and `AuthPolicy = "name"` names a custom `/router/` edge policy — an `apiKey` / `hmac` / `ipAllow` helper you define in `router/index.ts` (`AuthPolicy` wins when both are set). On a policy endpoint a grant in the URL is **address-only** (it picks the instance); the policy is what authorizes. Return a value (→ JSON), a `string` (→ text), or an `HttpResult` (`Ok`/`BadRequest`/`Unauthorized`/`NotFound`/…).
 
 ### `[Mcp]`
 
@@ -151,16 +151,24 @@ Exposes the method as an MCP tool for LLM/agent tool-use, reachable two ways:
 
 Pair with `[McpResource]` for resources. (A method with both `[Rest]` and `[Mcp]` uses the `[Rest]` route for its direct HTTP surface; the tool still appears in the multiplexer.)
 
-### Public URLs, identity & routing
+### Public URLs, identity & minting
 
-`app.Endpoints` lists every endpoint with a ready-to-use `PublicUrl` that **already has the signing token (and this session's identity) baked in**. Hand that exact URL to the external service — do **not** append `?userid=` or hand-build the URL.
+`app.Endpoints` lists every endpoint, but each `PublicUrl` is a **bare** address (`{space}.ikonai.app/api/...`) with no grant. A `Public` endpoint is callable as-is; for a `grant` (default) or policy endpoint, **mint** a working, identity-bound URL — minting is the single way to get a callable URL, and it's required for local-dev too:
 
 ```csharp
-foreach (var endpoint in app.Endpoints)
-    Log.Instance.Info($"{endpoint.PublicUrl}");
+// Pin a resource identity into a signed grant in the URL:
+MintedUrl minted = await app.MintUrlAsync(nameof(GetDocument), new { DocumentId = "doc-42" });
+string url = minted.Url;   // https://{space}.ikonai.app/api/...?ikon-grant=...
+
+// Omit the identity to pin THIS instance's own identity (the URL routes back here):
+MintedUrl self = await app.MintUrlAsync(nameof(Sum));
+
+// Batch several endpoints under one identity in a single backend round-trip:
+IReadOnlyDictionary<string, MintedUrl> urls = await app.MintUrlsAsync(
+    new[] { nameof(GetDoc), nameof(UpdateDoc) }, new { DocumentId = "doc-42" });
 ```
 
-The URL carries a signed `ikon-session-token` that tells the platform which app instance the request belongs to and authorizes the cold-start. There is no platform-level API key on the URL — authenticate inside the handler when it matters (e.g. verify a provider's signature header).
+Hand the minted URL (not the bare `PublicUrl`, and never a hand-built one) to the external service. A pinned field that matches a `{placeholder}` in the path is substituted into the URL; fields you omit stay open for the caller to fill. The grant is **non-expiring by default** — retire it with `app.RevokeUrlAsync(minted.GrantId)`, or pass `expiresIn:` for a self-destructing link. Minting is **idempotent** for stable (non-expiring) URLs, so re-minting on every restart returns the same URL — a registered webhook keeps working across restarts. On a `grant` endpoint the grant authorizes the request and the cold-start; on an `apiKey`/`hmac`/`ipAllow` policy endpoint it only addresses the instance and the caller authenticates with their own credential.
 
 ---
 
