@@ -162,6 +162,35 @@ namespace Ikon.Common.Core
     Func<Task> JoinedAsync
     Func<ProtocolMessage, ValueTask> MessageReceivedAsync
     Func<Task> StoppingAsync
+  class IkonBackend.BillingProduct
+    ctor()
+    bool ComingSoon { get; set; }
+    bool Deprecated { get; set; }
+    List<string> Features { get; set; }
+    string Id { get; set; }
+    IkonBackend.BillingProductMetadata Metadata { get; set; }
+    bool MostPopular { get; set; }
+    string Name { get; set; }
+    Dictionary<string, IkonBackend.BillingProductPrice> Prices { get; set; }
+    string Slug { get; set; }
+    string? Tagline { get; set; }
+  class IkonBackend.BillingProductMetadata
+    ctor()
+    int? Credits { get; set; }
+    int? MonthlyCredits { get; set; }
+    string PlanType { get; set; }
+    string? Tier { get; set; }
+  class IkonBackend.BillingProductPrice
+    ctor()
+    double Amount { get; set; }
+    string Currency { get; set; }
+    string Description { get; set; }
+    string Id { get; set; }
+    string Interval { get; set; }
+    string LookupKey { get; set; }
+  class IkonBackend.BillingRedirectResult
+    ctor()
+    string RedirectUrl { get; set; }
   class IkonBackend.BillingStatusResult
     ctor()
     bool CancelAtPeriodEnd { get; set; }
@@ -486,6 +515,7 @@ namespace Ikon.Common.Core
     string UserAgent { get; set; }
     string UserId { get; }
     Task<IkonBackend.AppBundle> ActivateAppBundleAsync(string id)
+    Task<IkonBackend.Organisation> AddOrganisationUserAsync(string organisationId, string email)
     Task<IkonBackend.ApplyAppBundleConfigResponse> ApplyAppBundleConfigAsync(object config)
     Task<string> AuthenticateSpaceTokenAsync(string spaceId, string externalUserId)
     Task<string> CancelPaymentsSubscriptionAsync(string subscriptionId, bool immediate = false, string? idempotencyKey = null, CancellationToken cancellationToken = null)
@@ -495,6 +525,9 @@ namespace Ikon.Common.Core
     Task<IkonBackend.AppBundle> CreateAppBundleAsync(string spaceId, string version, string itemId, IkonBackend.AppBundleState? state = null)
     Task<IkonBackend.AppPaymentsMerchantResult> CreateAppPaymentsMerchantAsync(string spaceId, IkonBackend.AppPaymentsMerchantRequest request)
     Task CreateAuditEventAsync(string eventName, string spaceId, string userId, string? entityType = null, string? entityId = null, string? ip = null)
+    Task<IkonBackend.BillingRedirectResult> CreateBillingCustomerPortalAsync(string organisationId, string returnUrl)
+    Task<IkonBackend.BillingRedirectResult> CreateBillingPaymentAsync(string organisationId, string productId, string lookupKey, string successUrl, string cancelUrl, int? quantity = null)
+    Task<IkonBackend.BillingRedirectResult> CreateBillingSubscriptionAsync(string organisationId, string productId, string lookupKey, string successUrl, string cancelUrl)
     Task<IkonBackend.Channel> CreateChannelAsync(string spaceId, string name, string type, bool isPrivate)
     Task<IkonBackend.ConnectTokenResponse> CreateChannelConnectTokenAsync(IkonBackend.ConnectTokenRequest request)
     Task<IkonBackend.ChannelInstance> CreateChannelInstanceAsync(string channelId, string mode)
@@ -520,6 +553,7 @@ namespace Ikon.Common.Core
     Task DeletePluginAsync(string id)
     Task DeleteProfileFileAsync(string profileId, string assetId)
     Task DeleteSpaceApiKeyAsync(string id)
+    Task DeleteSpaceAsync(string id)
     Task DeleteSpaceSecretAsync(string id)
     // Local-dev parity: drop this process's externally-managed registration on shutdown so the backend stops reverse-proxying {space}.ikonai.app/api/... to a relay tunnel that is no longer listening. localInstanceId is the id the register call returned. Best-effort and idempotent.
     Task DeregisterLocalInstanceAsync(string spaceId, string channelId, string localInstanceId)
@@ -536,6 +570,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.IkonLogQueryResult> GetAppSessionLogsAsync(string sessionId, int? level = null, string? cursor = null, int limit = 200)
     Task<IkonBackend.CursorResponse<IkonBackend.ChannelInstanceSession>> GetAppSessionsAsync(string spaceId, string? cursor = null, int limit = 50, string? searchId = null)
     Task<string> GetAssetSignedUrlAsync(string assetId)
+    Task<List<IkonBackend.BillingProduct>> GetBillingProductsAsync()
     Task<IkonBackend.BillingStatusResult> GetBillingStatusAsync(string organisationId)
     Task<IkonBackend.Channel> GetChannelAsync(string id)
     Task<IkonBackend.ChannelInstance> GetChannelInstanceAsync(string id)
@@ -596,16 +631,22 @@ namespace Ikon.Common.Core
     Task<bool> IsSpaceDomainAvailableAsync(string domain)
     Task<IkonBackend.ItemListResponse> ListItemsAsync(IkonBackend.ItemListRequest request)
     bool Login(ValueTuple<string, string>? fromCommandLine = null, ValueTuple<string, string>? fromConfig = null, bool logSource = true, bool mustLogin = true)
+    Task<List<IkonBackend.MintEndpointGrantResult>> MintEndpointGrantsAsync(IEnumerable<IkonBackend.MintEndpointGrantRequest> grants)
     static IkonBackend.LoginInfo? ReadLoginConfig()
     Task<IkonBackend.CampaignRedeemResult> RedeemCampaignAsync(string code, string organisationId)
     Task<string> RefundPaymentsOrderAsync(string orderId, long? amountMinor = null, string? reason = null, string? idempotencyKey = null, CancellationToken cancellationToken = null)
-    // Local-dev parity: register this locally-run process as an externally-managed instance so the backend reverse-proxies {space}.ikonai.app/api/... to this machine's relay tunnel instead of provisioning a cloud instance. The backend mints a per-registration id (returned as LocalInstanceId ) that distinguishes this instance from other local runs sharing the same identity. Returns the session token to bake into URLs.
+    // Local-dev parity: register this locally-run process as an externally-managed instance so the backend reverse-proxies {space}.ikonai.app/api/... to this machine's relay tunnel instead of provisioning a cloud instance. The backend mints a per-registration id (returned as LocalInstanceId ) that distinguishes this instance from other local runs sharing the same identity. Returns that id, which the host passes into MintUrl so its minted endpoint URLs carry the li claim and route to this process.
     Task<IkonBackend.RegisterLocalInstanceResponse> RegisterLocalInstanceAsync(string spaceId, string channelId, Dictionary<string, string> sessionIdentity, string relayEndpointPublicUrl)
+    Task<IkonBackend.Organisation> RemoveOrganisationUserAsync(string organisationId, string userId)
     Task<string> RequestAccessTokenAsync(string apiKey, string spaceId, string externalUserId)
     Task<IkonBackend.ChannelInstance> RequestChannelAsync(IkonBackend.RequestChannelRequest request)
     Task<StepUpStartResponse> RequestStepUpStartAsync(StepUpStartRequest request)
     void ResetCounters()
     Task ResetProfileAsync(string profileId)
+    // Revoke a single endpoint grant by its id (denylisted edge-side).
+    Task RevokeEndpointGrantAsync(string grantId)
+    // Revoke every endpoint grant minted under a shared group tag.
+    Task RevokeEndpointGrantGroupAsync(string group)
     Task SendEmailAsync(SendEmailDto request)
     void SendMessage(ProtocolMessage message)
     Task SetStorageAsync(string spaceId, string entity, string entityId, Dictionary<string, object> values)
@@ -861,6 +902,20 @@ namespace Ikon.Common.Core
     string? IkonBackendEnvironment
     string? IkonBackendToken
     string? IkonBackendUrl
+  class IkonBackend.MintEndpointGrantRequest
+    ctor()
+    string EndpointName { get; set; }
+    int? ExpiresInSeconds { get; set; }
+    string? Group { get; set; }
+    string? LocalInstanceId { get; set; }
+    string? RunTarget { get; set; }
+    Dictionary<string, string> SessionIdentity { get; set; }
+  class IkonBackend.MintEndpointGrantResult
+    ctor()
+    string EndpointName { get; set; }
+    long? ExpiresAt { get; set; }
+    string Grant { get; set; }
+    string GrantId { get; set; }
   // Provides optimized utility methods for converting strings between different naming conventions.
   static class NameConversions
     static string ToCamelCase(string input)
@@ -1052,7 +1107,6 @@ namespace Ikon.Common.Core
   class IkonBackend.RegisterLocalInstanceResponse
     ctor()
     string LocalInstanceId { get; set; }
-    string SessionToken { get; set; }
     string SpacePublicUrl { get; set; }
   class IkonBackend.RelayServerConfigResponse
     ctor()
@@ -3438,6 +3492,14 @@ namespace Ikon.Common.Core.Protocol
     static BackgroundWorkActive ReadFromTeleport(ReadOnlySpan<byte> data, BackgroundWorkActive? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
+  sealed class ClientDisconnecting : IProtocolMessagePayload
+    ctor()
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    static ClientDisconnecting ReadFromTeleport(ReadOnlySpan<byte> data)
+    static ClientDisconnecting ReadFromTeleport(ReadOnlySpan<byte> data, ClientDisconnecting? destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class ClientReady : IProtocolMessagePayload
     ctor()
     Opcode MessageOpcode { get; }
@@ -3495,7 +3557,7 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class Context : IProtocolMessagePayload
     ctor()
-    ctor(ContextType contextType, UserType userType, PayloadType payloadType, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, int sessionId, bool isInternal, bool isReady, bool hasInput, string channelLocale, string embeddedSpaceId, string authSessionId, bool receiveAllMessages, ulong preciseJoinedAt, string userAgent, ClientType clientType, string uniqueSessionId, Dictionary<string, string> parameters, SdkType sdkType, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat)
+    ctor(ContextType contextType, UserType userType, PayloadType payloadType, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, int sessionId, bool isInternal, bool isReady, bool hasInput, string channelLocale, string embeddedSpaceId, string authSessionId, bool receiveAllMessages, ulong preciseJoinedAt, string userAgent, ClientType clientType, string uniqueSessionId, Dictionary<string, string> parameters, SdkType sdkType, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat, bool isSoftDisconnected, ulong softDisconnectAt)
     string AuthSessionId { get; set; }
     string ChannelLocale { get; set; }
     // Alias for SessionId . The protocol surfaces this same int as ClientSessionId on event-args types like ClientJoinedEventArgs.ClientSessionId — code generated against the event-args shape naturally reaches for ctx.ClientSessionId after switching to the Context directly. Provide both names so the natural reach resolves without renaming.
@@ -3510,6 +3572,7 @@ namespace Ikon.Common.Core.Protocol
     string InstallId { get; set; }
     bool IsInternal { get; set; }
     bool IsReady { get; set; }
+    bool IsSoftDisconnected { get; set; }
     bool IsTouchDevice { get; set; }
     string Locale { get; set; }
     Opcode MessageOpcode { get; }
@@ -3521,6 +3584,7 @@ namespace Ikon.Common.Core.Protocol
     bool ReceiveAllMessages { get; set; }
     SdkType SdkType { get; set; }
     int SessionId { get; set; }
+    ulong SoftDisconnectAt { get; set; }
     StyleFormat StyleFormat { get; set; }
     string Theme { get; set; }
     string Timezone { get; set; }
@@ -3727,6 +3791,8 @@ namespace Ikon.Common.Core.Protocol
     void RemoveUIStream(string streamId)
     void RemoveVideoStream(string streamId)
     void SetReady(int clientSessionId)
+    void SetReconnected(int clientSessionId)
+    void SetSoftDisconnected(int clientSessionId, ulong softDisconnectAt)
     override string ToString()
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
@@ -3811,16 +3877,6 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     static OnClientLeft ReadFromTeleport(ReadOnlySpan<byte> data)
     static OnClientLeft ReadFromTeleport(ReadOnlySpan<byte> data, OnClientLeft? destination)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
-  sealed class OnClientLeftAfterGracePeriod : IProtocolMessagePayload
-    ctor()
-    ctor(Context clientContext)
-    Context ClientContext { get; set; }
-    Opcode MessageOpcode { get; }
-    int MessageVersion { get; }
-    static OnClientLeftAfterGracePeriod ReadFromTeleport(ReadOnlySpan<byte> data)
-    static OnClientLeftAfterGracePeriod ReadFromTeleport(ReadOnlySpan<byte> data, OnClientLeftAfterGracePeriod? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class OnClientReady : IProtocolMessagePayload
@@ -3959,7 +4015,7 @@ namespace Ikon.Common.Core.Protocol
     CORE_SERVER_INIT2
     CORE_UPDATE_CLIENT_CONTEXT
     CORE_BACKGROUND_WORK_ACTIVE
-    CORE_ON_CLIENT_LEFT_AFTER_GRACE_PERIOD
+    CORE_CLIENT_DISCONNECTING
     CORE_WEBRTC_OFFER
     CORE_WEBRTC_ANSWER
     CORE_WEBRTC_ICE_CANDIDATE
@@ -4384,7 +4440,7 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class ServerInit : IProtocolMessagePayload
     ctor()
-    ctor(string ikonBackendUrl, string ikonBackendToken, string spaceId, string channelId, List<ServerInit.ServerPluginInit> plugins, string primaryUserId, string channelInstanceId, string channelUrl, List<ServerInit.ServerExtensionInit> extensions, Dictionary<string, string> dynamicConfigObsolete, string organisationName, string spaceName, string channelName, string dynamicConfigJsonContent, string spaceGitRepositoryUrl, string sessionId, string legacyChannelCode, bool disableLegacyDefaultExtensions, Dictionary<string, string> sessionIdentity, List<ServerInit.ServerInitEndpointRequest> endpointRequests, int frontendPort, AppSourceType appSourceType, bool debugMode, List<ServerInit.ServerInitDatabaseConnectionInfo> databaseConnectionInfos, string runTarget, string endpointSessionToken)
+    ctor(string ikonBackendUrl, string ikonBackendToken, string spaceId, string channelId, List<ServerInit.ServerPluginInit> plugins, string primaryUserId, string channelInstanceId, string channelUrl, List<ServerInit.ServerExtensionInit> extensions, Dictionary<string, string> dynamicConfigObsolete, string organisationName, string spaceName, string channelName, string dynamicConfigJsonContent, string spaceGitRepositoryUrl, string sessionId, string legacyChannelCode, bool disableLegacyDefaultExtensions, Dictionary<string, string> sessionIdentity, List<ServerInit.ServerInitEndpointRequest> endpointRequests, int frontendPort, AppSourceType appSourceType, bool debugMode, List<ServerInit.ServerInitDatabaseConnectionInfo> databaseConnectionInfos, string runTarget)
     AppSourceType AppSourceType { get; set; }
     string ChannelId { get; set; }
     string ChannelInstanceId { get; set; }
@@ -4396,7 +4452,6 @@ namespace Ikon.Common.Core.Protocol
     string DynamicConfigJsonContent { get; set; }
     Dictionary<string, string> DynamicConfigObsolete { get; set; }
     List<ServerInit.ServerInitEndpointRequest> EndpointRequests { get; set; }
-    string EndpointSessionToken { get; set; }
     List<ServerInit.ServerExtensionInit> Extensions { get; set; }
     int FrontendPort { get; set; }
     string IkonBackendToken { get; set; }
