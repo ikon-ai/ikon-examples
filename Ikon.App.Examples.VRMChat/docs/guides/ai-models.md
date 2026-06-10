@@ -69,6 +69,7 @@ namespace Ikon.AI
     bool ForceRemote { get; set; }
   enum ModelCategory
     Classifier
+    DepthEstimator
     Embeddings
     FileConverter
     ImageGenerator
