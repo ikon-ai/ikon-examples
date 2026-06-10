@@ -62,6 +62,7 @@ namespace Ikon.AI
     bool ForceRemote { get; set; }
   enum ModelCategory
     Classifier
+    DepthEstimator
     Embeddings
     FileConverter
     ImageGenerator
@@ -312,6 +313,55 @@ namespace Ikon.AI.Database
     string SpaceId { get; set; }
   static class SqlValidator
     static void ValidateReadOnly(string sql, HashSet<string> allowedTables)
+
+namespace Ikon.AI.DepthEstimation
+  sealed class DepthEstimator : IDepthEstimator, IDisposable
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
+    ctor(DepthEstimatorModel model, IReadOnlyList<ModelRegion>? regions = null)
+    void Dispose()
+    Task<DepthEstimatorResult> EstimateDepthAsync(DepthEstimatorConfig config, CancellationToken cancellationToken = null)
+    static IReadOnlyList<ModelRegion> GetSupportedRegions(DepthEstimatorModel model)
+  sealed class DepthEstimatorConfig
+    ctor()
+    int? EnsembleSize { get; set; }
+    DepthEstimatorConfig.InputImage Image { get; set; }
+    int? NumInferenceSteps { get; set; }
+    int? ProcessingResolution { get; set; }
+    TimeSpan Timeout { get; set; }
+    static DepthEstimatorConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  enum DepthEstimatorModel
+    DepthAnythingV2
+    Marigold
+    Midas
+  static class DepthEstimatorModelExtensions
+    static string DisplayName(DepthEstimatorModel model)
+  sealed class DepthEstimatorResult
+    ctor()
+    DepthEstimatorResult.OutputImage Depth { get; set; }
+    static DepthEstimatorResult ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  interface IDepthEstimator : IDisposable
+    abstract Task<DepthEstimatorResult> EstimateDepthAsync(DepthEstimatorConfig config, CancellationToken cancellationToken = null)
+  sealed class DepthEstimatorConfig.InputImage
+    ctor()
+    byte[]? Data { get; set; }
+    string? MimeType { get; set; }
+    string? Url { get; set; }
+    static DepthEstimatorConfig.InputImage ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class DepthEstimatorResult.OutputImage
+    ctor()
+    byte[] Data { get; set; }
+    int Height { get; set; }
+    string MimeType { get; set; }
+    int Width { get; set; }
+    static DepthEstimatorResult.OutputImage ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
 
 namespace Ikon.AI.Embeddings
   enum EmbeddingEncoding
