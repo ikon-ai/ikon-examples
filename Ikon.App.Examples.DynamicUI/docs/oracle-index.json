@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 326536,
+      "sizeBytes": 329679,
       "alsoInclude": []
     },
     {
@@ -346,7 +346,7 @@
         "AI connection"
       ],
       "file": "docs/guides/ai-models.md",
-      "sizeBytes": 24715,
+      "sizeBytes": 24734,
       "alsoInclude": []
     },
     {
@@ -515,7 +515,7 @@
         "function"
       ],
       "file": "docs/guides/endpoints-webhooks.md",
-      "sizeBytes": 38684,
+      "sizeBytes": 40155,
       "alsoInclude": []
     },
     {
