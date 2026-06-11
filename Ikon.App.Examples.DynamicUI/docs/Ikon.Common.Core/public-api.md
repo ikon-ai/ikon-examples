@@ -201,6 +201,16 @@ namespace Ikon.Common.Core
     double SubscriptionRemaining { get; set; }
     string? SubscriptionStatus { get; set; }
     double TotalRemaining { get; set; }
+  class IkonBackend.BillingTransaction
+    ctor()
+    long? AmountMinor { get; set; }
+    string? CreatedAt { get; set; }
+    double Credits { get; set; }
+    string? Currency { get; set; }
+    string? HostedInvoiceUrl { get; set; }
+    string Id { get; set; }
+    string? InvoiceNumber { get; set; }
+    string Type { get; set; }
   class IkonBackend.CampaignRedeemResult
     ctor()
     string CampaignName { get; set; }
@@ -572,6 +582,7 @@ namespace Ikon.Common.Core
     Task<string> GetAssetSignedUrlAsync(string assetId)
     Task<List<IkonBackend.BillingProduct>> GetBillingProductsAsync()
     Task<IkonBackend.BillingStatusResult> GetBillingStatusAsync(string organisationId)
+    Task<List<IkonBackend.BillingTransaction>> GetBillingTransactionsAsync(string organisationId, int maxResults = 100)
     Task<IkonBackend.Channel> GetChannelAsync(string id)
     Task<IkonBackend.ChannelInstance> GetChannelInstanceAsync(string id)
     Task<List<IkonBackend.ChannelInstance>> GetChannelInstancesAsync(string? spaceId = null, string? userId = null, string scope = "all", int maxResults = 1000)
@@ -3516,7 +3527,7 @@ namespace Ikon.Common.Core.Protocol
     DesktopApp
   sealed class ConnectToken : IProtocolMessagePayload
     ctor()
-    ctor(string serverSessionId, ContextType contextType, UserType userType, PayloadType payloadType, bool isInternal, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, Opcode opcodeGroupsFromServer, Opcode opcodeGroupsToServer, int protocolVersion, bool hasInput, string channelLocale, string embeddedSpaceId, string authSessionId, bool receiveAllMessages, string userAgent, ClientType clientType, Dictionary<string, string> parameters, SdkType sdkType, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat)
+    ctor(string serverSessionId, ContextType contextType, UserType userType, PayloadType payloadType, bool isInternal, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, Opcode opcodeGroupsFromServer, Opcode opcodeGroupsToServer, int protocolVersion, bool hasInput, string channelLocale, string embeddedSpaceId, string authSessionId, bool receiveAllMessages, string userAgent, ClientType clientType, Dictionary<string, string> parameters, SdkType sdkType, int sdkCapability, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat)
     string AuthSessionId { get; set; }
     string ChannelLocale { get; set; }
     ClientType ClientType { get; set; }
@@ -3539,6 +3550,8 @@ namespace Ikon.Common.Core.Protocol
     string ProductId { get; set; }
     int ProtocolVersion { get; set; }
     bool ReceiveAllMessages { get; set; }
+    // Opaque, monotonically-increasing capability level advertised by the connecting SDK (companion to SdkType). 0 = legacy/unknown. Threaded SDK connect-request -> backend -> ConnectToken -> ikon server -> client Context.
+    int SdkCapability { get; set; }
     SdkType SdkType { get; set; }
     string ServerSessionId { get; set; }
     StyleFormat StyleFormat { get; set; }
@@ -3557,7 +3570,7 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class Context : IProtocolMessagePayload
     ctor()
-    ctor(ContextType contextType, UserType userType, PayloadType payloadType, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, int sessionId, bool isInternal, bool isReady, bool hasInput, string channelLocale, string embeddedSpaceId, string authSessionId, bool receiveAllMessages, ulong preciseJoinedAt, string userAgent, ClientType clientType, string uniqueSessionId, Dictionary<string, string> parameters, SdkType sdkType, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat, bool isSoftDisconnected, ulong softDisconnectAt)
+    ctor(ContextType contextType, UserType userType, PayloadType payloadType, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, int sessionId, bool isInternal, bool isReady, bool hasInput, string channelLocale, string embeddedSpaceId, string authSessionId, bool receiveAllMessages, ulong preciseJoinedAt, string userAgent, ClientType clientType, string uniqueSessionId, Dictionary<string, string> parameters, SdkType sdkType, int sdkCapability, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat, bool isSoftDisconnected, ulong softDisconnectAt)
     string AuthSessionId { get; set; }
     string ChannelLocale { get; set; }
     // Alias for SessionId . The protocol surfaces this same int as ClientSessionId on event-args types like ClientJoinedEventArgs.ClientSessionId — code generated against the event-args shape naturally reaches for ctx.ClientSessionId after switching to the Context directly. Provide both names so the natural reach resolves without renaming.
@@ -3582,6 +3595,8 @@ namespace Ikon.Common.Core.Protocol
     ulong PreciseJoinedAt { get; set; }
     string ProductId { get; set; }
     bool ReceiveAllMessages { get; set; }
+    // Opaque, monotonically-increasing capability level advertised by the connecting SDK (companion to SdkType). 0 = legacy/unknown. Copied from ConnectToken.SdkCapability when the server builds the client Context.
+    int SdkCapability { get; set; }
     SdkType SdkType { get; set; }
     int SessionId { get; set; }
     ulong SoftDisconnectAt { get; set; }
@@ -4421,6 +4436,12 @@ namespace Ikon.Common.Core.Protocol
     static ActionFunctionCall.ScopeEntry ReadFromTeleport(ReadOnlySpan<byte> data, ActionFunctionCall.ScopeEntry? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
+  // Capability levels advertised by a connecting SDK via SdkCapability (companion to SdkType ). Opaque and monotonically increasing — bump when adding a capability the ikon server must detect per connected client. 0 means a legacy client that predates capability negotiation.
+  static class SdkCapabilities
+    // The highest capability level this build supports; advertised by first-party SDKs and the server itself.
+    static int Current
+    // Client understands server functions delivered out-of-band (a targeted ACTION_FUNCTION_REGISTER_BATCH on join) rather than embedded in GlobalState.Functions. When any connected client advertises less than this, the server falls back to populating GlobalState.Functions for the whole session.
+    static int FunctionRegistryOutsideGlobalState
   enum SdkType
     Unknown
     DotNet
