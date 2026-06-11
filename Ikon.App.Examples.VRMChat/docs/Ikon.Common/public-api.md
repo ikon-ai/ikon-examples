@@ -69,20 +69,14 @@ namespace Ikon.Common
     static IEnumerable<string> EnumerateCsprojFiles(string rootDirectory, int maxDepth = 3)
     static AppProjectUtils.AppDiscoveryResult FindAppTypeInAssembly(string dllPath)
     static string FindBestProjectFilePath(string targetDirectory)
-    // Finds the platform-dotnet directory by searching for ikon-platform.slnx. At each ancestor of the start directory, checks two containment candidates: 1. current/ikon-platform.slnx (current is platform-dotnet itself) 2. current/platform-dotnet/ikon-platform.slnx (current is the repo root) With includeSibling = true, also checks a third candidate: 3. current/ikon-platform/platform-dotnet/ikon-platform.slnx (current is a parent of a sibling ikon-platform/ checkout) Sibling matching is opt-in because it answers a different question — "is there a platform-dotnet anywhere nearby?" rather than "is startDirectory inside platform-dotnet?". Callers that decide whether to mutate the platform repo (e.g. add a new app to ikon-platform.slnx) must keep it off; the codegen lookup for external apps with a sibling checkout opts in.
-    static string? FindIkonPlatformDotnetRoot(string startDirectory, bool includeSibling = false)
-    // Finds the ikon-platform repo root (the parent of platform-dotnet).
-    static string? FindIkonPlatformRepoRoot(string startDirectory)
-    // Finds the ikon-platform.slnx file path by searching in the start directory and parent directories.
-    static string? FindIkonPlatformSlnx(string startDirectory)
+    // Generates (or removes) pubspec_overrides.yaml in the frontend-flutter directory so the app resolves ikon_sdk from the local platform-dart/ikon_sdk source while the ikon-platform repo is available, and from the published pub.dev package otherwise. The Dart analog of the C# -p:IkonRoot arg and GenerateTsconfigPathsJsonAsync : uses the shared Resolve ladder, so a locally-built ikon tool resolves the repo even for an app created far from it. Safe to call on every Flutter operation.
+    static Task GenerateFlutterPubspecOverridesAsync(string flutterDirectory)
     // Generates tsconfig.paths.json in the frontend-node directory with appropriate TypeScript paths. Auto-detects internal/external mode based on whether the directory is inside ikon-platform. Internal mode: generates paths pointing to monorepo source files for IDE support. External mode: generates empty paths (uses node_modules).
     static Task GenerateTsconfigPathsJsonAsync(string frontendNodeDirectory)
     static AppProjectVariables GetAppProjectVars(string? targetDirectory)
     static string GetAssemblyNameFromCsproj(string csprojPath)
     static Type[] GetTypesSafely(Assembly assembly)
     static bool HasIkonAppAttribute(Type type)
-    // Returns true if the given directory is inside the ikon-platform monorepo.
-    static bool IsInsideIkonPlatform(string directory)
     static bool IsLegacyConfig(string tomlContent)
     static AppProjectConfig MigrateFromLegacy(string tomlContent, IkonBackend.EnvironmentType environment)
     static int ScoreProjectFile(string csprojPath)
@@ -1125,25 +1119,30 @@ namespace Ikon.Common
   sealed class PlatformContext : IEquatable<PlatformContext>
     // Captures whether the running ikon tool (or hosted ikon-server) has a platform-dotnet checkout it can build against, and exposes the flags every downstream build step needs: the -p:IkonRoot=... MSBuild arg for dotnet, and the VITE_IS_IKON_INTERNAL / VITE_IKON_PLATFORM_TYPESCRIPT_PATH env vars for vite.
     ctor(string? DotnetRoot)
-    // MSBuild argument to splice into a dotnet build/restore/run/publish command line. Returns -p:IkonRoot="..." when internal, empty string when external.
-    string DotnetMSBuildArg { get; }
     string? DotnetRoot { get; init; }
     bool IsIkonInternal { get; }
     string? RepoRoot { get; }
+    string? SlnxPath { get; }
     string? TypescriptRoot { get; }
-    // Stamps VITE_IS_IKON_INTERNAL and, when internal, VITE_IKON_PLATFORM_TYPESCRIPT_PATH onto an env dictionary before invoking npm/vite. Mutates and returns env for fluent use.
-    IDictionary<string, string?> ApplyViteEnv(IDictionary<string, string?> env)
+    // Returns the first of candidates that is internal, else External .
+    static PlatformContext FirstAvailable(params PlatformContext[] candidates)
+    // Reads [assembly: AssemblyMetadata("IkonRoot", ...)] baked in at .NET build time via the -p:IkonRoot=... arg — lets hosted code (e.g. ViteServerHandler) recover the platform location after the app DLL has been copied out of the repo tree. Returns External when absent or the path no longer exists.
+    static PlatformContext FromAssemblyMetadata(Assembly assembly)
+    // Probes the running tool binary's own location ( BaseDirectory ) — matches when the tool lives inside the platform repo (the in-repo artifacts/bin/IkonTool/... case).
+    static PlatformContext FromBaseDirectory()
+    // Walks upward from directory looking for the platform-dotnet directory (the one containing ikon-platform.slnx). At each ancestor it checks current/ikon-platform.slnx (current is platform-dotnet) and current/platform-dotnet/ikon-platform.slnx (current is the repo root). With includeSibling it also checks current/ikon-platform/platform-dotnet/ (a sibling checkout). Sibling matching is opt-in because it answers "is there a platform-dotnet nearby?" rather than "is directory inside platform-dotnet?" — callers that mutate the platform repo (e.g. add an app to the slnx) must keep it off. Returns External when not found.
+    static PlatformContext FromDirectory(string? directory, bool includeSibling = false)
+    // Resolves the --platform-dir argument. Returns External when input is null or blank; throws UserException when set but not containing ikon-platform.slnx.
+    static PlatformContext FromExplicit(string? explicitPlatformDir)
+    // The standard probe ladder: an explicit --platform-dir, then workingDirectory (defaulting to the current directory, including a sibling ikon-platform checkout), then the running tool's own location — so a locally-built ikon tool resolves the repo even for an app created far away. Returns External when nothing matches.
+    static PlatformContext Resolve(string? explicitPlatformDir = null, string? workingDirectory = null)
     static PlatformContext External
-  // Probe primitives for locating the platform-dotnet directory. Compose them into a PlatformContext ; each probe returns null when it doesn't match so they chain cleanly with the null-coalescing operator.
-  static class PlatformDetect
-    // Reads [assembly: AssemblyMetadata("IkonRoot", ...)] baked in at .NET build time via the -p:IkonRoot=... arg. Used by hosted code (e.g. ViteServerHandler) to recover the platform location after the app DLL has been copied out of the repo tree.
-    static string? FromAssemblyMetadata(Assembly assembly)
-    // Shortcut for FromDirectory(AppContext.BaseDirectory). Matches when the ikon tool binary itself lives inside the platform repo (typical for in-repo artifacts/bin/IkonTool/... builds).
-    static string? FromBaseDirectory()
-    // Walks upward from directory looking for ikon-platform.slnx. See FindIkonPlatformDotnetRoot for the includeSibling semantics.
-    static string? FromDirectory(string? directory, bool includeSibling = false)
-    // Resolves the --platform-dir argument. Returns null when input is null or blank. Throws UserException when the path is set but doesn't contain ikon-platform.slnx at either the root or under platform-dotnet/.
-    static string? FromExplicit(string? explicitPlatformDir)
+  // Translates a PlatformContext (a pure detection result) into the tool-specific build inputs that pass the platform location to dotnet and to the SDK frontend's vite config. Kept off PlatformContext itself so the context doesn't carry dotnet/vite implementation detail.
+  static class PlatformContextBuildExtensions
+    // Stamps VITE_IS_IKON_INTERNAL and, when internal, VITE_IKON_PLATFORM_TYPESCRIPT_PATH onto an env dictionary before invoking npm/vite — the SDK frontend's vite config reads these to alias @ikonai/* to local monorepo source. Mutates and returns env for fluent use.
+    static IDictionary<string, string?> ApplyViteEnv(PlatformContext platform, IDictionary<string, string?> env)
+    // MSBuild argument to splice into a dotnet build/restore/run/publish command line: -p:IkonRoot="..." when internal, empty string when external.
+    static string IkonRootMSBuildArg(PlatformContext platform)
   // A combined polymorphic converter that supports both single instances of TBase and collections of TBase. When reading, it searches for the "Type" property (in any order) to determine the concrete type. When writing, it writes a dictionary that always includes "Type" (as the first entry).
   class PolymorphicConverter<TBase> : JsonConverter<object> where TBase : class
     ctor()
