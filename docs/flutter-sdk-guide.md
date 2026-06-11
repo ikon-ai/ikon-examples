@@ -51,8 +51,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  ikon_sdk:
-    path: ../../../platform-dart/ikon_sdk
+  ikon_sdk: ^1.0.0
 ```
 
 ### 3. lib/main.dart
