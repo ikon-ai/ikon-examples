@@ -168,6 +168,8 @@ IReadOnlyDictionary<string, MintedUrl> urls = await app.MintUrlsAsync(
     new[] { nameof(GetDoc), nameof(UpdateDoc) }, new { DocumentId = "doc-42" });
 ```
 
+You identify the endpoint to mint by its **handler method** — `nameof(GetDocument)` (or the full `{Owner}_{Method}` registry name when the bare name is ambiguous), **not** by its URL path. Use `nameof` so a rename stays in sync. You never pass the path: an endpoint's path is often *derived* from the method name (and may be templated), so the path is what minting **returns** to you, built from that handler's `PublicUrl`.
+
 Hand the minted URL (not the bare `PublicUrl`, and never a hand-built one) to the external service. A pinned field that matches a `{placeholder}` in the path is substituted into the URL; fields you omit stay open for the caller to fill. The grant is **non-expiring by default** — retire it with `app.RevokeUrlAsync(minted.GrantId)`, or pass `expiresIn:` for a self-destructing link. Minting is **idempotent** for stable (non-expiring) URLs, so re-minting on every restart returns the same URL — a registered webhook keeps working across restarts. On a `grant` endpoint the grant authorizes the request and the cold-start; on an `apiKey`/`hmac`/`ipAllow` policy endpoint it only addresses the instance and the caller authenticates with their own credential.
 
 ---
