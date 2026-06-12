@@ -261,6 +261,8 @@ namespace Ikon.Common.Core.Reactive
     void Reactive(Action<ReactiveManager.Handle> callback)
     Task ReactiveAsync(Func<ReactiveManager.Handle, Task> callback)
     void StopTrackingAll()
+    // Detach the current execution flow from any in-progress reactive callback so that reactive reads and writes made here are treated as ordinary access instead of being attributed to — or, for writes, swallowed by the re-entrancy guard of — the enclosing callback. This is needed when background work (a Run , a continuation, a timer) is started from INSIDE a reactive callback, e.g. a UI render that, while rendering, kicks off a fire-and-forget task to resolve an image and then bumps a reactive to re-render once it arrives. ExecutionContext flows the callback's async-local into that task, so without detaching the bump is misclassified as happening "within a reactive callback", dropped, and the UI never refreshes. Unlike SuppressFlow , this leaves every other ambient value (reactive scopes, async-local singletons) intact, so code inside still resolves the session's services correctly. Wrap the detached work in a using block (or hold the returned handle for the lifetime of the background task) and the original tracking is restored on dispose.
+    static IDisposable SuppressCallbackTracking()
     Task UpdateAsync()
     event EventHandler<Guid>? Deleted
     event EventHandler? ReactiveObjectUpdated
