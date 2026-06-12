@@ -1361,7 +1361,7 @@ namespace Ikon.Common.Git
     Task<bool> AbortMergeAsync(CancellationToken ct = null)
     // Abort an in-progress rebase.
     Task<bool> AbortRebaseAsync(CancellationToken ct = null)
-    // Add a remote.
+    // Add a remote. Credentials are stripped from the URL.
     Task AddRemoteAsync(string name, string url, CancellationToken ct = null)
     // Checkout an existing branch.
     Task CheckoutAsync(string branchOrRef, CancellationToken ct = null)
@@ -1375,6 +1375,8 @@ namespace Ikon.Common.Git
     Task<GitCommit> CommitAsync(string message, CancellationToken ct = null)
     // Commit staged changes with custom author.
     Task<GitCommit> CommitAsync(string message, string authorName, string authorEmail, bool allowEmpty = false, CancellationToken ct = null)
+    // Build per-invocation environment variables that authenticate git HTTP(S) operations. Uses git's environment config mechanism (git 2.31+) to inject an Authorization header, appending to any GIT_CONFIG_COUNT entries already present in the process environment.
+    static Dictionary<string, string?> CreateAuthEnvironment(GitCredentials credentials)
     // Create and checkout a new branch.
     Task CreateBranchAsync(string name, string? startPoint = null, CancellationToken ct = null)
     // Create a tag.
@@ -1383,12 +1385,12 @@ namespace Ikon.Common.Git
     Task DeleteTagAsync(string name, CancellationToken ct = null)
     // Discard all uncommitted changes.
     Task DiscardChangesAsync(CancellationToken ct = null)
+    // Rewrite the remote URL to its credential-free form.
+    Task EnsureCleanRemoteUrlAsync(string name = "origin", CancellationToken ct = null)
     // Escape a commit message for shell.
     static string EscapeMessage(string message)
     // Fetch from remote.
     Task FetchAsync(bool includeTags = false, CancellationToken ct = null)
-    // Construct an authenticated URL.
-    static string GetAuthenticatedUrl(string url, GitCredentials credentials)
     // Get all branches.
     Task<List<GitBranch>> GetBranchesAsync(CancellationToken ct = null)
     // Get a local git config value.
@@ -1403,6 +1405,8 @@ namespace Ikon.Common.Git
     Task<string?> GetHeadShaAsync(bool shortSha = false, CancellationToken ct = null)
     // Get commit history.
     Task<List<GitCommit>> GetHistoryAsync(int limit = 20, string? fromRef = null, CancellationToken ct = null)
+    // Get remote URL exactly as stored in .git/config, including any embedded credentials.
+    Task<string?> GetRawRemoteUrlAsync(string name = "origin", CancellationToken ct = null)
     // Get remote URL (without credentials).
     Task<string?> GetRemoteUrlAsync(string name = "origin", CancellationToken ct = null)
     // Get the current repository status.
@@ -1445,7 +1449,7 @@ namespace Ikon.Common.Git
     Task<GitSyncResult> SaveAsync(string message, CancellationToken ct = null)
     // Set a local git config value.
     Task SetConfigAsync(string key, string value, CancellationToken ct = null)
-    // Set remote URL.
+    // Set remote URL. Credentials are stripped from the URL.
     Task SetRemoteUrlAsync(string name, string url, CancellationToken ct = null)
     // Set up tracking for a branch.
     Task SetUpstreamAsync(string remoteBranch, CancellationToken ct = null)

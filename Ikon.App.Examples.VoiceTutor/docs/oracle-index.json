@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 330463,
+      "sizeBytes": 332658,
       "alsoInclude": []
     },
     {
@@ -100,7 +100,7 @@
         "value mutation"
       ],
       "file": "docs/guides/reactive-state.md",
-      "sizeBytes": 31420,
+      "sizeBytes": 32532,
       "alsoInclude": [
         "app-structure",
         "ui-components"
@@ -560,7 +560,7 @@
         "callable functions"
       ],
       "file": "docs/guides/function-registry.md",
-      "sizeBytes": 30531,
+      "sizeBytes": 30626,
       "alsoInclude": []
     },
     {
