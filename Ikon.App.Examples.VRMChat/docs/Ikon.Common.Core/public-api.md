@@ -135,6 +135,7 @@ namespace Ikon.Common.Core
     string UserId
   abstract class BasePlugin<TPlugin, TConfig> : ILogInfo, IPlugin, IProtocolMessageChannel where TConfig : BasePluginConfig, new()
     Context ClientContext { get; }
+    ClientInitialization? ClientInitializationData { get; }
     string ConnectTokenJson { get; }
     Dictionary<string, object> DynamicConfig { get; }
     GlobalState GlobalState { get; }
@@ -519,6 +520,7 @@ namespace Ikon.Common.Core
     string OrganisationId { get; }
     string SpaceId { get; }
     string Token { get; set; }
+    DateTimeOffset TokenExpiryDate { get; }
     int TotalSentMessageByteCount { get; }
     int TotalSentMessageCount { get; }
     string Url { get; set; }
@@ -607,6 +609,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.LocalIkonServerTokenResponse> GetLocalIkonServerTokenAsync(string spaceId)
     Task<IkonBackend.Profile> GetOrCreateCurrentProfileAsync(string spaceId)
     Task<IkonBackend.Organisation> GetOrganisationAsync(string id)
+    Task<List<IkonBackend.OrganisationInvitation>> GetOrganisationInvitationsAsync(string organisationId, int maxResults = 100)
     Task<List<IkonBackend.Organisation>> GetOrganisationsAsync(int maxResults = 1000)
     Task<string> GetPaymentsCapabilitiesAsync(CancellationToken cancellationToken = null)
     Task<string> GetPaymentsCatalogAsync(CancellationToken cancellationToken = null)
@@ -648,6 +651,7 @@ namespace Ikon.Common.Core
     Task<string> RefundPaymentsOrderAsync(string orderId, long? amountMinor = null, string? reason = null, string? idempotencyKey = null, CancellationToken cancellationToken = null)
     // Local-dev parity: register this locally-run process as an externally-managed instance so the backend reverse-proxies {space}.ikonai.app/api/... to this machine's relay tunnel instead of provisioning a cloud instance. The backend mints a per-registration id (returned as LocalInstanceId ) that distinguishes this instance from other local runs sharing the same identity. Returns that id, which the host passes into MintUrl so its minted endpoint URLs carry the li claim and route to this process.
     Task<IkonBackend.RegisterLocalInstanceResponse> RegisterLocalInstanceAsync(string spaceId, string channelId, Dictionary<string, string> sessionIdentity, string relayEndpointPublicUrl)
+    Task RemoveOrganisationInvitationAsync(string organisationId, string invitationId)
     Task<IkonBackend.Organisation> RemoveOrganisationUserAsync(string organisationId, string userId)
     Task<string> RequestAccessTokenAsync(string apiKey, string spaceId, string externalUserId)
     Task<IkonBackend.ChannelInstance> RequestChannelAsync(IkonBackend.RequestChannelRequest request)
@@ -942,6 +946,12 @@ namespace Ikon.Common.Core
     string Id { get; set; }
     string Name { get; set; }
     List<IkonBackend.OrganisationUser> Users { get; set; }
+  class IkonBackend.OrganisationInvitation
+    ctor()
+    string? CreatedAt { get; set; }
+    string Email { get; set; }
+    string Id { get; set; }
+    string Role { get; set; }
   class IkonBackend.OrganisationUser
     ctor()
     string Role { get; set; }
@@ -1881,6 +1891,7 @@ namespace Ikon.Common.Core.Functions
     void RegisterFromType<T>(FunctionVisibility? visibilityOverride = null, string? version = null)
     // Scans a type for [RegisterAll] attribute or methods with [Function] attribute and registers them. For instance methods, you need to use RegisterFromInstance instead.
     void RegisterFromType(Type type, FunctionVisibility? visibilityOverride = null, string? version = null)
+    void RegisterFunctionsFromClientInitialization(ClientInitialization? clientInitialization)
     // Registers a remote function (from another client via protocol).
     void RegisterRemoteFunction(Guid id, string name, FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int clientSessionId, bool requiresInstance = false)
     bool RemoveFunction(string name, FunctionVisibility visibility)
@@ -3328,6 +3339,18 @@ namespace Ikon.Common.Core.Protocol
     static AnalyticsUsages.AnalyticsUsagesItem ReadFromTeleport(ReadOnlySpan<byte> data, AnalyticsUsages.AnalyticsUsagesItem? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
+  sealed class AppConfig : IProtocolMessagePayload
+    ctor()
+    ctor(int maxClients, bool disableWebRtc, bool disableUdp)
+    bool DisableUdp { get; set; }
+    bool DisableWebRtc { get; set; }
+    int MaxClients { get; set; }
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    static AppConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    static AppConfig ReadFromTeleport(ReadOnlySpan<byte> data, AppConfig? destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   enum AppSourceType
     Bundle
     GitSource
@@ -3456,16 +3479,18 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class AuthResponse : IProtocolMessagePayload
     ctor()
-    ctor(Context clientContext, Context serverContext, string certHash, List<Entrypoint> entrypoints, Dictionary<string, bool> featureFlags, string spaceId, string channelId, string channelInstanceId, string primaryUserId, string serverSessionId)
+    ctor(Context clientContext, Context serverContext, string certHash, List<Entrypoint> entrypoints, Dictionary<string, bool> featureFlags, string spaceId, string channelId, string channelInstanceId, string primaryUserId, string serverSessionId, int keepaliveTimeoutMs, int serverCapability)
     string CertHash { get; set; }
     string ChannelId { get; set; }
     string ChannelInstanceId { get; set; }
     Context ClientContext { get; set; }
     List<Entrypoint> Entrypoints { get; set; }
     Dictionary<string, bool> FeatureFlags { get; set; }
+    int KeepaliveTimeoutMs { get; set; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     string PrimaryUserId { get; set; }
+    int ServerCapability { get; set; }
     Context ServerContext { get; set; }
     string ServerSessionId { get; set; }
     string SpaceId { get; set; }
@@ -3509,6 +3534,37 @@ namespace Ikon.Common.Core.Protocol
     int MessageVersion { get; }
     static ClientDisconnecting ReadFromTeleport(ReadOnlySpan<byte> data)
     static ClientDisconnecting ReadFromTeleport(ReadOnlySpan<byte> data, ClientDisconnecting? destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class ClientInitialization : IProtocolMessagePayload
+    ctor()
+    ctor(Dictionary<int, List<ActionFunctionRegister>> functions)
+    Dictionary<int, List<ActionFunctionRegister>> Functions { get; set; }
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    static ClientInitialization ReadFromTeleport(ReadOnlySpan<byte> data)
+    static ClientInitialization ReadFromTeleport(ReadOnlySpan<byte> data, ClientInitialization? destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class ClientLifecycleBatch : IProtocolMessagePayload
+    ctor()
+    ctor(List<ClientLifecycleEvent> events)
+    List<ClientLifecycleEvent> Events { get; set; }
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    static ClientLifecycleBatch ReadFromTeleport(ReadOnlySpan<byte> data)
+    static ClientLifecycleBatch ReadFromTeleport(ReadOnlySpan<byte> data, ClientLifecycleBatch? destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class ClientLifecycleEvent : IProtocolMessagePayload
+    ctor()
+    ctor(int eventOpcode, Context clientContext)
+    Context ClientContext { get; set; }
+    int EventOpcode { get; set; }
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    static ClientLifecycleEvent ReadFromTeleport(ReadOnlySpan<byte> data)
+    static ClientLifecycleEvent ReadFromTeleport(ReadOnlySpan<byte> data, ClientLifecycleEvent? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ClientReady : IProtocolMessagePayload
@@ -4049,6 +4105,9 @@ namespace Ikon.Common.Core.Protocol
     CORE_RELAY_TUNNEL_ADDED
     CORE_RELAY_REMOVE_TUNNEL
     CORE_IKON_SERVER_ENDPOINT_HOST_INFO
+    CORE_CLIENT_INITIALIZATION
+    CORE_CLIENT_LIFECYCLE_BATCH
+    CORE_APP_CONFIG
     GROUP_KEEPALIVE
     KEEPALIVE_REQUEST
     KEEPALIVE_RESPONSE
@@ -4438,10 +4497,16 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   // Capability levels advertised by a connecting SDK via SdkCapability (companion to SdkType ). Opaque and monotonically increasing — bump when adding a capability the ikon server must detect per connected client. 0 means a legacy client that predates capability negotiation.
   static class SdkCapabilities
+    // Client handles the CORE_CLIENT_INITIALIZATION message — the server/app function registry the server sends out-of-band right after the joining client's GlobalState — and registers those functions during connect. When any connected client advertises less than this, the server keeps the function registry embedded in GlobalState.Functions for the whole session so the older client can still learn server functions. This is a distinct level from FunctionRegistryOutsideGlobalState because the ClientInitialization message was introduced after it: clients advertising only levels 1-3 cannot parse it and would silently receive no functions if the server stripped them from GlobalState.
+    static int ClientInitializationMessage
+    // Client understands the batched CORE_CLIENT_LIFECYCLE_BATCH message (client joined/ready/left and user joined/left events coalesced into one payload) and unpacks it into the individual events. When all connected external clients advertise at least this, the server coalesces and debounces those broadcasts to external clients instead of one fan-out message per event; otherwise it falls back to per-event broadcasts. Internal (localhost) clients always receive the events immediately, unbatched.
+    static int ClientLifecycleBatching
     // The highest capability level this build supports; advertised by first-party SDKs and the server itself.
     static int Current
-    // Client understands server functions delivered out-of-band (a targeted ACTION_FUNCTION_REGISTER_BATCH on join) rather than embedded in GlobalState.Functions. When any connected client advertises less than this, the server falls back to populating GlobalState.Functions for the whole session.
+    // Client understands server functions delivered out-of-band (the original targeted ACTION_FUNCTION_REGISTER_BATCH on join) rather than embedded in GlobalState.Functions. Superseded by ClientInitializationMessage : the out-of-band delivery is now the CORE_CLIENT_INITIALIZATION message, which a level-1 client does NOT understand. Do not gate the functions-out-of-GlobalState decision on this level — it is too low and matches clients that predate the ClientInitialization message.
     static int FunctionRegistryOutsideGlobalState
+    // Client honors the keepalive watchdog timeout communicated by the server in AuthResponse.KeepaliveTimeoutMs instead of hard-coding it. When all connected clients advertise at least this, the server may stretch its keepalive send interval well beyond the legacy client's fixed watchdog; otherwise it stays within the legacy-safe cap.
+    static int KeepaliveTimeoutNegotiation
   enum SdkType
     Unknown
     DotNet
@@ -4449,6 +4514,12 @@ namespace Ikon.Common.Core.Protocol
     Cpp
     Dart
     Rust
+  // Capability levels advertised by the ikon server to a connecting client via AuthResponse.ServerCapability (companion to the client's Context.SdkCapability). Opaque and monotonically increasing — bump when adding a server behavior a client must detect to alter its connect handling. 0 means a legacy server that predates capability negotiation.
+  static class ServerCapabilities
+    // Server sends a ClientInitialization message immediately after the joining client's GlobalState, carrying the server/app function registry out-of-band. A client that sees at least this waits for that message during connect (so server functions are registered before the connect call returns) instead of expecting functions embedded in GlobalState.
+    static int ClientInitializationMessage
+    // The highest capability level this server build supports; advertised in AuthResponse.
+    static int Current
   sealed class ServerInit.ServerExtensionInit
     ctor()
     ctor(bool enabled, string typeName, string configJsonContent)
@@ -5702,6 +5773,8 @@ namespace Ikon.Common.Core.Reactive
     void Reactive(Action<ReactiveManager.Handle> callback)
     Task ReactiveAsync(Func<ReactiveManager.Handle, Task> callback)
     void StopTrackingAll()
+    // Detach the current execution flow from any in-progress reactive callback so that reactive reads and writes made here are treated as ordinary access instead of being attributed to — or, for writes, swallowed by the re-entrancy guard of — the enclosing callback. This is needed when background work (a Run , a continuation, a timer) is started from INSIDE a reactive callback, e.g. a UI render that, while rendering, kicks off a fire-and-forget task to resolve an image and then bumps a reactive to re-render once it arrives. ExecutionContext flows the callback's async-local into that task, so without detaching the bump is misclassified as happening "within a reactive callback", dropped, and the UI never refreshes. Unlike SuppressFlow , this leaves every other ambient value (reactive scopes, async-local singletons) intact, so code inside still resolves the session's services correctly. Wrap the detached work in a using block (or hold the returned handle for the lifetime of the background task) and the original tracking is restored on dispose.
+    static IDisposable SuppressCallbackTracking()
     Task UpdateAsync()
     event EventHandler<Guid>? Deleted
     event EventHandler? ReactiveObjectUpdated
