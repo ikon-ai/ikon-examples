@@ -283,6 +283,7 @@ namespace Ikon.Common.Core.Functions
     void RegisterFromType<T>(FunctionVisibility? visibilityOverride = null, string? version = null)
     // Scans a type for [RegisterAll] attribute or methods with [Function] attribute and registers them. For instance methods, you need to use RegisterFromInstance instead.
     void RegisterFromType(Type type, FunctionVisibility? visibilityOverride = null, string? version = null)
+    void RegisterFunctionsFromClientInitialization(ClientInitialization? clientInitialization)
     // Registers a remote function (from another client via protocol).
     void RegisterRemoteFunction(Guid id, string name, FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int clientSessionId, bool requiresInstance = false)
     bool RemoveFunction(string name, FunctionVisibility visibility)
