@@ -653,6 +653,8 @@ namespace Ikon.App
     IReadOnlyList<EndpointInfo> Endpoints { get; }
     // Gets the platform-wide shared state from the server containing clients, streams, and space/channel info.
     GlobalState GlobalState { get; }
+    // The maximum number of clients this app instance accepts. Initialized to the server's memory-derived limit (computed from the instance's memory budget), so reading it tells you the default ceiling for this instance. You may set it lower to cap the instance below that default, or higher if you know your app's per-client cost is small enough to support more — once the app sets a value it fully overrides the memory-derived default. Once the limit is reached the server rejects further connections. Changes take effect immediately; the new limit is sent to the server.
+    int MaxClients { get; set; }
     // Gets the configured maximum memory limit in megabytes for this server instance.
     int MaxMemoryLimitMb { get; }
     // The Parallax mounts this app renders. Each mount produces an independent UI stream addressable from a host UI as <ParallaxView mount="..." />. Defaults to a single mount named "ikon-ui" — the wire-identical shape of every Ikon app today. Apps with multiple panels or mixed Parallax/external regions can replace the value with a longer list at any time; the render loop reacts and emits UIStreamBegin/UIStreamEnd for additions and removals.
@@ -665,6 +667,10 @@ namespace Ikon.App
     ReactiveRoot ReactiveRoot { get; }
     // Gets the secrets (tokens, API keys, passwords) configured for this app. Values are fetched from the Ikon backend once at app startup and exposed synchronously; changes made via ikon app secret set while the app is running only take effect after a restart.
     Secrets Secrets { get; }
+    // Whether this app instance offers the raw UDP / UDP-DTLS transports to connecting clients. Enabled by default. Set to false to disable them. Like WebRtcEnabled this takes effect for clients that connect after it is set (the transports are no longer advertised); already-connected clients are unaffected until they reconnect.
+    bool UdpEnabled { get; set; }
+    // Whether this app instance offers WebRTC transport to connecting clients. Enabled by default. Set to false (e.g. in Main) to disable WebRTC for apps that don't use audio/video or low-latency data — WebRTC peer setup (ICE candidate gathering, DTLS) is a notable per-client memory and allocation cost. Takes effect for clients that connect after it is set: the server stops advertising WebRTC and ignores WebRTC signaling, so no per-client peer state is created. Already-connected clients keep their channels until they reconnect.
+    bool WebRtcEnabled { get; set; }
     // Creates a platform-managed eID-backed PAdES signature order for the supplied document(s). The platform navigates the signer's browser to the signing-ceremony URL through the existing client UI surface, awaits the asynchronous packaging completion, and resolves the returned task with the signed PDF and evidence metadata. The returned bytes are the long-term-validation PAdES PDF when the chosen scheme produces it; apps should persist them as the system of record because the platform's session retention is short.
     abstract Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = null)
     // Mint a working, identity-bound URL for one endpoint — the single way to get a callable URL for a grant (default) or policy endpoint. You identify the endpoint by its HANDLER (the method name, e.g. nameof(GetDocument)), NOT by its URL path — the path is often derived from the method name (and may be templated), so the path is what minting RETURNS, not what you pass in. The returned URL is the endpoint's PublicUrl with any pinned {placeholder} path segments substituted and a signed ?ikon-grant= appended. identity (an anonymous object, e.g. new { DocumentId = "doc-42" }, or a string dictionary) PINS those identity fields into the grant; fields you omit stay open {captures} for the caller to fill. Omitting identity entirely ( null ) pins THIS instance's own session identity, so the URL routes back to this app instance — the common case. Grants are non-expiring by default — pass expiresIn only for an ephemeral link, and an optional group to revoke a batch together via RevokeGroupAsync . Re-minting the same stable (non-expiring) URL returns an identical URL, so it survives restarts.
@@ -3771,7 +3777,7 @@ namespace Ikon.Common.Git
     Task<bool> AbortMergeAsync(CancellationToken ct = null)
     // Abort an in-progress rebase.
     Task<bool> AbortRebaseAsync(CancellationToken ct = null)
-    // Add a remote.
+    // Add a remote. Credentials are stripped from the URL.
     Task AddRemoteAsync(string name, string url, CancellationToken ct = null)
     // Checkout an existing branch.
     Task CheckoutAsync(string branchOrRef, CancellationToken ct = null)
@@ -3785,6 +3791,8 @@ namespace Ikon.Common.Git
     Task<GitCommit> CommitAsync(string message, CancellationToken ct = null)
     // Commit staged changes with custom author.
     Task<GitCommit> CommitAsync(string message, string authorName, string authorEmail, bool allowEmpty = false, CancellationToken ct = null)
+    // Build per-invocation environment variables that authenticate git HTTP(S) operations. Uses git's environment config mechanism (git 2.31+) to inject an Authorization header, appending to any GIT_CONFIG_COUNT entries already present in the process environment.
+    static Dictionary<string, string?> CreateAuthEnvironment(GitCredentials credentials)
     // Create and checkout a new branch.
     Task CreateBranchAsync(string name, string? startPoint = null, CancellationToken ct = null)
     // Create a tag.
@@ -3793,12 +3801,12 @@ namespace Ikon.Common.Git
     Task DeleteTagAsync(string name, CancellationToken ct = null)
     // Discard all uncommitted changes.
     Task DiscardChangesAsync(CancellationToken ct = null)
+    // Rewrite the remote URL to its credential-free form.
+    Task EnsureCleanRemoteUrlAsync(string name = "origin", CancellationToken ct = null)
     // Escape a commit message for shell.
     static string EscapeMessage(string message)
     // Fetch from remote.
     Task FetchAsync(bool includeTags = false, CancellationToken ct = null)
-    // Construct an authenticated URL.
-    static string GetAuthenticatedUrl(string url, GitCredentials credentials)
     // Get all branches.
     Task<List<GitBranch>> GetBranchesAsync(CancellationToken ct = null)
     // Get a local git config value.
@@ -3813,6 +3821,8 @@ namespace Ikon.Common.Git
     Task<string?> GetHeadShaAsync(bool shortSha = false, CancellationToken ct = null)
     // Get commit history.
     Task<List<GitCommit>> GetHistoryAsync(int limit = 20, string? fromRef = null, CancellationToken ct = null)
+    // Get remote URL exactly as stored in .git/config, including any embedded credentials.
+    Task<string?> GetRawRemoteUrlAsync(string name = "origin", CancellationToken ct = null)
     // Get remote URL (without credentials).
     Task<string?> GetRemoteUrlAsync(string name = "origin", CancellationToken ct = null)
     // Get the current repository status.
@@ -3855,7 +3865,7 @@ namespace Ikon.Common.Git
     Task<GitSyncResult> SaveAsync(string message, CancellationToken ct = null)
     // Set a local git config value.
     Task SetConfigAsync(string key, string value, CancellationToken ct = null)
-    // Set remote URL.
+    // Set remote URL. Credentials are stripped from the URL.
     Task SetRemoteUrlAsync(string name, string url, CancellationToken ct = null)
     // Set up tracking for a branch.
     Task SetUpstreamAsync(string remoteBranch, CancellationToken ct = null)
