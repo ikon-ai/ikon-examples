@@ -111,6 +111,7 @@ namespace Ikon.Common.Core
   class AsyncLocalInstance<T> where T : new()
     ctor()
     static T Instance { get; }
+    static void DisableAsyncLocalInstance()
     static void EnableAndInitAsyncLocalInstance()
     static void SetAsyncLocalInstance(T value)
   class BasePluginConfig
