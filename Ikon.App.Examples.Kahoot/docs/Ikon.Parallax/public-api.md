@@ -1401,7 +1401,7 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for WebGL shader components.
   static class ShadertoyExtensions
     // Shadertoy-compatible WebGL fragment shader canvas.
-    static void ShadertoyCanvas(UIView view, string[]? style = null, string? shaderSource = null, int? fps = null, IReadOnlyDictionary<string, ShaderUniform>? uniforms = null, bool? enableMouse = null, int? width = null, int? height = null, string? styleId = null, string? key = null, string file = "", int line = 0)
+    static void ShadertoyCanvas(UIView view, string[]? style = null, string? shaderSource = null, int? fps = null, IReadOnlyDictionary<string, ShaderUniform>? uniforms = null, IReadOnlyList<string>? channels = null, bool? enableMouse = null, int? width = null, int? height = null, string? styleId = null, string? key = null, string file = "", int line = 0)
   // Options for the Web Share API action.
   sealed class ShareActionOptions : ActionOptions, IEquatable<ShareActionOptions>
     ctor()
