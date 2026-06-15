@@ -118,6 +118,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
+      // Downlevel syntax so the bundle parses on older smart-TV browsers (e.g. legacy Tizen).
+      target: 'es2019',
       chunkSizeWarningLimit: '1mb',
       minify: 'terser',
       terserOptions: {
