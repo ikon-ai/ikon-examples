@@ -68,6 +68,8 @@ namespace Ikon.Teleport.CodeGen
     bool TryGetExplicit(string key, out string? value)
   sealed class TeleportParserOptions
     ctor()
+    // When set, a root message that omits an explicit opcode uses this value instead of erroring. Used by the app-local compiler to auto-assign each message a unique opcode in the GROUP_APP_LOCAL range, so app schema authors never hand-write opcodes (and can never collide with system opcodes). Null for the platform protocol, where opcodes are explicit and required.
+    uint? AutoAppLocalOpcode { get; init; }
     static TeleportParserOptions Default { get; }
     bool StrictOpcodeParsing { get; init; }
   sealed class TeleportTypeScriptGeneratorOptions
