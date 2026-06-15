@@ -24,7 +24,7 @@
         "invite link"
       ],
       "file": "docs/guides/app-structure.md",
-      "sizeBytes": 18445,
+      "sizeBytes": 18644,
       "alsoInclude": []
     },
     {
@@ -65,7 +65,7 @@
         "CS0234"
       ],
       "file": "docs/guides/csharp-primer.md",
-      "sizeBytes": 5685,
+      "sizeBytes": 5771,
       "alsoInclude": []
     },
     {
