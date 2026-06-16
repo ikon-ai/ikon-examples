@@ -6695,6 +6695,8 @@ namespace Ikon.App
     ctor(IAppBase app, bool secure = true, TimeSpan? webSocketKeepAliveInterval = null, string stablePortName = "")
     // The local port Kestrel binds to. Available after StartAsync completes.
     int LocalPort { get; }
+    // Invoked once per inbound HTTP/WebSocket request before it is routed. Used to mark external activity (e.g. reset the server's idle timer) so an endpoint-served instance isn't reaped while it is serving traffic. Null = no hook.
+    Action? OnRequest { get; set; }
     // The public URL for this endpoint. Available after StartAsync completes.
     string PublicUrl { get; }
     // Stops the host, releases the relay tunnel, and releases all resources.
@@ -7130,6 +7132,14 @@ namespace Ikon.App
   static class Constants
     static string DarkTheme
     static string LightTheme
+  // Marks a method to run on a cron schedule. Unlike HttpMethodAttribute / [Mcp], a cron job is not externally addressable — it has no path and no edge authorization. The platform discovers [Cron] methods at build time, records each in the app bundle manifest, and the backend schedules them; when a tick fires the app is run under the global (empty) session identity and the target function is invoked through the FunctionRegistry.
+  sealed class CronAttribute : Attribute
+    // Declares a cron job that runs on schedule .
+    ctor(string schedule)
+    // Optional registry-name override. When null or empty the function is registered (and triggered) under its full member name "{Type.FullName}.{Method}".
+    string? Name { get; init; }
+    // The cron expression that schedules this method (standard 5/6-field cron syntax, e.g. "0 * * * *" for hourly). Evaluated by the backend scheduler.
+    string Schedule { get; }
   // Platform email surface for an Ikon app — sending custom emails through the platform mailer and reading inbound emails delivered to the app's space. Accessed via app.Email. All operations require the app's organisation/space to have the Email feature enabled; calls against a non-entitled space throw FeatureNotEnabledException .
   sealed class EmailService
     // Removes an inbound email and frees its attachment storage. Idempotent — deleting a missing message succeeds silently.
@@ -7757,6 +7767,17 @@ namespace Ikon.App.Client
     // Implementation of IClient`1 representing a connected client with typed parameters.
     ctor(TClientParameters parameters)
     TClientParameters Parameters { get; }
+
+namespace Ikon.App.Cron
+  // Per-invocation context for a CronAttribute handler currently executing. A cron handler may optionally accept one of these (and/or a CancellationToken ) to learn when and why it fired; a parameterless handler is equally valid. AsyncLocal so handler code (and anything it calls) can read it without threading it through every method signature.
+  sealed class CronContext : IEquatable<CronContext>
+    // Per-invocation context for a CronAttribute handler currently executing. A cron handler may optionally accept one of these (and/or a CancellationToken ) to learn when and why it fired; a parameterless handler is equally valid. AsyncLocal so handler code (and anything it calls) can read it without threading it through every method signature.
+    ctor(DateTime FireTimeUtc, string Schedule)
+    // The cron context for the invocation currently running on this async flow, or null.
+    static CronContext? Current { get; }
+    DateTime FireTimeUtc { get; init; }
+    string Schedule { get; init; }
+    static IDisposable Use(CronContext context)
 
 namespace Ikon.App.Http
   // Per-request context for an HttpMethodAttribute handler currently executing. AsyncLocal so handler code (and anything it calls) can read the request's resolved identity without threading the dict through every method signature. Relationship to other "context" concepts on the platform: SessionIdentity (the typed app/cell record): the routing / instance-partition key. Always present — it's what was used to address the channel-instance this handler runs in. Stable across the cell instance's lifetime.Context (Ikon protocol Context for WS clients): the live client *connection* — sessionId, deviceId, AuthSessionId, UserId from the connect-token. Absent for endpoint/MCP dispatches because there is no live client connection.HttpCallContext.Current (this) and McpCallContext .Current: the *request-scoped overlay* that exposes the per-call resolved identity for handler code to read. Set by the wrapper before the handler runs, cleared after. The point is that handlers reading "who is this call for?" get a non-empty answer on endpoint/MCP-dispatched calls, where the connection-level Context.UserId would be empty. The handler's SessionIdentity record (resolved by CellHost.ResolveByCellTypeName before this context is set) and HttpCallContext.Current.SessionIdentity carry the same information in different shapes: the former is typed and tied to the cell's lifetime; the latter is the raw wire dict tied to the call's lifetime. Headers and RawBody are the UNTRUSTED request inputs, exposed so a handler can do its own logic inline (e.g. verify a Stripe-Signature against the raw body) without a separate auth cell. They must never feed identity resolution — the target instance is already chosen from trusted sources (a signed ikon-grant / policy claims / platform-controlled path+query) before the handler runs, so reading a header cannot retarget the call.

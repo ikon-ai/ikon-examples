@@ -77,8 +77,8 @@
   border-radius: 8px;
   font-size: 0.875rem;
   font-weight: 500;
-  margin-bottom: 1.5rem;
   width: 100%;
+  box-sizing: border-box;
   text-align: center;
 }
 
@@ -166,6 +166,44 @@
 
 .ikon-auth-email-input::placeholder {
   color: var(--ikon-auth-text-secondary);
+}
+
+.ikon-auth-code-input {
+  padding: 14px 16px;
+  border: 1px solid var(--ikon-auth-input-border);
+  border-radius: 8px;
+  background: var(--ikon-auth-input-bg);
+  color: var(--ikon-auth-text-primary);
+  transition: border-color 0.2s;
+  font-family: 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.35em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.ikon-auth-code-input:focus {
+  outline: none;
+  border-color: var(--ikon-auth-input-focus-border);
+}
+
+.ikon-auth-code-input::placeholder {
+  color: var(--ikon-auth-text-secondary);
+  font-weight: 400;
+  letter-spacing: normal;
+}
+
+.ikon-auth-email-code-hint {
+  margin: 0 0 0.25rem;
+  font-size: 0.875rem;
+  color: var(--ikon-auth-text-secondary);
+  text-align: center;
+}
+
+.ikon-auth-email-code-hint strong {
+  color: var(--ikon-auth-text-primary);
+  font-weight: 500;
 }
 
 .ikon-auth-email-button {
