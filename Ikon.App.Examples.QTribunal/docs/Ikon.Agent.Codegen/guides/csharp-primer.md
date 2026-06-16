@@ -12,7 +12,7 @@ Ikon AI Apps target the **latest C#** (C# 14 on .NET 10). Use modern idioms; avo
 - **Raw string literals**: `var prompt = """..."""` (triple-quote) for multiline strings; `var json = $$"""...{{x}}..."""` for templated multiline. NO `\n` escape soup.
 - **Pattern matching**: `if (msg is ChatMessage cm) { ... }`, `var label = state switch { Loading => "...", Error e => $"!{e.Message}", _ => "ok" };` — prefer this over chains of `if/else if (x is …)`.
 - **File-scoped namespaces**: `namespace Foo;` at the top, no nested braces.
-- **Top-level statements**: `return await App.Run(args);` at the very top of the app file. No `class Program { static void Main() { ... } }`.
+- **Top-level statements**: `return await App.Run(args);` is the first *statement* in the app file — after any `using` directives (usings must precede it, or you get CS1529). No `class Program { static void Main() { ... } }`.
 - **Target-typed `new()`**: `Dictionary<string, int> map = new();` — drop the right-hand `Dictionary<string,int>` repetition.
 - **`required` properties** instead of constructor parameters when there are many: `public required string Name { get; init; }`.
 
