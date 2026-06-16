@@ -115,7 +115,7 @@ For `ScrollArea` showing live-updating content (chat, logs, streaming), add poli
 
 Key elements:
 
-- `return await App.Run(args);` - Required entry point at the top of the file
+- `return await App.Run(args);` - Required entry point; it is the first *statement* in the file, but any `using` directives must appear ABOVE it (a `using` placed after it is CS1529). Prefer putting shared namespaces in `GlobalUsings.cs` so the app file needs no local usings.
 - `[App]` attribute - Mandatory, must appear exactly once. Marks the class whose `Main()` method will be executed. Do NOT explicitly implement `: IApp<>` — the `[App]` attribute handles interface implementation via source generation
 - `IApp<SessionIdentity, ClientParameters> app` - Must specify types for SessionIdentity and ClientParameters. Passed as a primary constructor parameter, not implemented as an interface
 - `private UI UI { get; } = new(app, new IkonTheme());` - Initialize UI with app and theme. For brand customization, use the indexer: `new IkonTheme { ["primary"] = "amber-400", ["background"] = "zinc-950" }` — every entry is one CSS-variable override expressed in Crosswind tokens. **Never redefine `IkonTheme` as a class in your app source** — it is provided by `Ikon.Parallax.Theming` and auto-imported via `global using`.
