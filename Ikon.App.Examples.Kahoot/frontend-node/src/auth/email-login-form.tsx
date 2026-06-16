@@ -1,97 +1,136 @@
-import { deriveAuthUrl } from '@ikonai/sdk';
-import type { AuthConfig } from '@ikonai/sdk-react-ui';
+import { type AuthConfig, useAuth } from '@ikonai/sdk-react-ui';
 import { type FormEvent, useState } from 'react';
 import { useI18n } from '../i18n/i18n';
+import { formatAuthError } from './auth-guard';
 
-type EmailStatus = 'idle' | 'sending' | 'sent' | 'error';
+type Step = 'email' | 'code';
+type Status = 'idle' | 'sending' | 'verifying';
+
+function extractErrorMessage(err: unknown): string | null {
+  if (err instanceof Error && err.message) {
+    return formatAuthError(err.message);
+  }
+
+  if (typeof err === 'string' && err) {
+    return formatAuthError(err);
+  }
+
+  return null;
+}
 
 interface EmailLoginFormProps {
   config: AuthConfig;
+  onAttempt?: () => void;
 }
 
-export function EmailLoginForm({ config }: EmailLoginFormProps) {
+export function EmailLoginForm({ config, onAttempt }: EmailLoginFormProps) {
   const { t } = useI18n();
+  const { requestEmailCode, submitEmailCode } = useAuth();
+
   const [email, setEmail] = useState('');
-  const [status, setStatus] = useState<EmailStatus>('idle');
+  const [code, setCode] = useState('');
+  const [step, setStep] = useState<Step>('email');
+  const [status, setStatus] = useState<Status>('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSendCode = async (e: FormEvent) => {
     e.preventDefault();
+    const trimmed = email.trim();
 
-    if (!email.trim()) {
+    if (!trimmed) {
       setErrorMessage(t('auth.email.error.empty'));
-      setStatus('error');
       return;
     }
-
     if (!config.spaceId) {
       setErrorMessage(t('auth.email.error.noSpaceId'));
-      setStatus('error');
       return;
     }
 
     setStatus('sending');
     setErrorMessage('');
+    onAttempt?.();
 
     try {
-      const returnUrl = window.location.origin + window.location.pathname;
-      const authUrl = deriveAuthUrl(config.authUrl);
-      const response = await fetch(`${authUrl}/email/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email.trim(),
-          space: config.spaceId,
-          return: returnUrl,
-        }),
-      });
-
-      if (response.ok) {
-        setStatus('sent');
-      } else {
-        const errorText = await response.text().catch(() => t('auth.email.error.sendFailed'));
-        setErrorMessage(errorText);
-        setStatus('error');
-      }
+      await requestEmailCode(trimmed);
+      setEmail(trimmed);
+      setCode('');
+      setStep('code');
     } catch (err) {
-      const message = err instanceof Error ? err.message : t('auth.email.error.sendFailed');
-      setErrorMessage(message);
-      setStatus('error');
+      setErrorMessage(extractErrorMessage(err) ?? t('auth.email.error.sendFailed'));
+    } finally {
+      setStatus('idle');
     }
   };
 
-  if (status === 'sent') {
+  const handleSubmitCode = async (e: FormEvent) => {
+    e.preventDefault();
+    const trimmed = code.trim();
+    if (!trimmed) {
+      setErrorMessage(t('auth.email.error.codeEmpty'));
+      return;
+    }
+
+    setStatus('verifying');
+    setErrorMessage('');
+    onAttempt?.();
+
+    try {
+      await submitEmailCode(email, trimmed);
+    } catch (err) {
+      setErrorMessage(extractErrorMessage(err) ?? t('auth.email.error.verifyFailed'));
+    } finally {
+      setStatus('idle');
+    }
+  };
+
+  const backToEmail = () => {
+    setStep('email');
+    setCode('');
+    setErrorMessage('');
+  };
+
+  if (step === 'code') {
     return (
-      <div className="ikon-auth-email-sent">
-        <div className="ikon-auth-email-sent-icon">
-          <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor">
-            <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
-          </svg>
-        </div>
-        <p className="ikon-auth-email-sent-title">{t('auth.email.sent.title')}</p>
-        <p className="ikon-auth-email-sent-message">
+      <form className="ikon-auth-email-form" onSubmit={handleSubmitCode}>
+        {errorMessage && <div className="ikon-auth-error">{errorMessage}</div>}
+        <p className="ikon-auth-email-code-hint">
           {t('auth.email.sent.message')} <strong>{email}</strong>
         </p>
-        <button
-          type="button"
-          className="ikon-auth-email-resend"
-          onClick={() => {
-            setStatus('idle');
-            setEmail('');
-          }}
-        >
-          {t('auth.email.useDifferent')}
+        <input
+          type="text"
+          value={code}
+          onChange={(event) => setCode(event.target.value.toUpperCase())}
+          placeholder={t('auth.email.code.placeholder')}
+          className="ikon-auth-code-input"
+          disabled={status === 'verifying'}
+          autoComplete="one-time-code"
+          inputMode="text"
+          autoFocus
+        />
+        <button type="submit" className="ikon-auth-email-button" disabled={status === 'verifying'}>
+          {status === 'verifying' ? (
+            <>
+              <span className="ikon-auth-email-spinner" />
+              {t('auth.email.code.submitting')}
+            </>
+          ) : (
+            t('auth.email.code.submit')
+          )}
         </button>
-      </div>
+        <button type="button" className="ikon-auth-email-resend" onClick={backToEmail} disabled={status === 'verifying'}>
+          {t('auth.email.code.back')}
+        </button>
+      </form>
     );
   }
 
   return (
-    <form className="ikon-auth-email-form" onSubmit={handleSubmit}>
+    <form className="ikon-auth-email-form" onSubmit={handleSendCode}>
+      {errorMessage && <div className="ikon-auth-error">{errorMessage}</div>}
       <input
         type="email"
         value={email}
-        onChange={(e) => setEmail(e.target.value)}
+        onChange={(event) => setEmail(event.target.value)}
         placeholder={t('auth.email.placeholder')}
         className="ikon-auth-email-input"
         disabled={status === 'sending'}
@@ -107,7 +146,6 @@ export function EmailLoginForm({ config }: EmailLoginFormProps) {
           t('auth.email.submit')
         )}
       </button>
-      {status === 'error' && errorMessage && <p className="ikon-auth-email-error">{errorMessage}</p>}
     </form>
   );
 }
