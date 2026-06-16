@@ -19,6 +19,7 @@ namespace Ikon.Common
     List<AppBundleConfig.CellEntry> Cells { get; set; }
     string ChannelId { get; set; }
     string CreatedAt { get; set; }
+    List<AppBundleConfig.CronJobDescriptor> CronJobs { get; set; }
     List<AppBundleConfig.DatabaseEntry> Databases { get; set; }
     List<AppBundleConfig.EmailTemplate> EmailTemplates { get; set; }
     List<AppBundleConfig.EndpointDescriptor> Endpoints { get; set; }
@@ -148,6 +149,12 @@ namespace Ikon.Common
     string SpkiHash { get; }
   static class CertificateStore
     static CertificateStore.Certificate GetCertificate(string host, X509Certificate2? rootCert = null, bool disableDotnetDevCerts = false)
+  class AppBundleConfig.CronJobDescriptor
+    ctor()
+    string Name { get; set; }
+    string Owner { get; set; }
+    string OwnerKind { get; set; }
+    string Schedule { get; set; }
   sealed class DatabaseConnectionInfo
     ctor()
     string ConnectionString { get; set; }

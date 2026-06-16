@@ -1,13 +1,31 @@
-import type { ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { useAuth, useAuthGuard, type AuthConfig, type LoginMethod } from '@ikonai/sdk-react-ui';
 import { useI18n } from '../i18n/i18n';
 import './auth.css';
 import { EmailLoginForm } from './email-login-form';
-import { LoginButton } from './login-button';
+import { LoginButton, RegisterPasskeyButton } from './login-button';
+
+type ErrorScope = 'primary' | 'passkey' | 'email' | 'guest';
 
 export interface AuthGuardProps {
   children: ReactNode;
   config: AuthConfig;
+}
+
+export function formatAuthError(error: string): string {
+  const trimmed = error.trim();
+
+  try {
+    const parsed = JSON.parse(trimmed) as { message?: unknown };
+
+    if (typeof parsed.message === 'string' && parsed.message.length > 0) {
+      return parsed.message;
+    }
+  } catch {
+    /* not JSON */
+  }
+
+  return trimmed;
 }
 
 export function AuthGuard({ children, config }: AuthGuardProps) {
@@ -15,13 +33,19 @@ export function AuthGuard({ children, config }: AuthGuardProps) {
     config,
     guestUrlParam: 'guest',
   });
+  const [errorScope, setErrorScope] = useState<ErrorScope | null>(null);
+  const initialCheckDone = useRef(false);
 
-  if (isCheckingAuth) {
+  if (!isCheckingAuth) {
+    initialCheckDone.current = true;
+  }
+
+  if (isCheckingAuth && !initialCheckDone.current) {
     return null;
   }
 
   if (!shouldRenderChildren) {
-    return <AuthScreen config={config} />;
+    return <AuthScreen config={config} errorScope={errorScope} setErrorScope={setErrorScope} />;
   }
 
   return <>{children}</>;
@@ -29,15 +53,25 @@ export function AuthGuard({ children, config }: AuthGuardProps) {
 
 interface AuthScreenProps {
   config: AuthConfig;
+  errorScope: ErrorScope | null;
+  setErrorScope: (scope: ErrorScope) => void;
 }
 
-function AuthScreen({ config }: AuthScreenProps) {
+function AuthScreen({ config, errorScope, setErrorScope }: AuthScreenProps) {
   const { t } = useI18n();
   const { state } = useAuth();
 
-  const oauthMethods = config.methods.filter((m): m is Exclude<LoginMethod, 'email' | 'guest'> => m !== 'email' && m !== 'guest');
+  const primaryMethods = config.methods.filter(
+    (m): m is Exclude<LoginMethod, 'email' | 'guest' | 'passkey'> => m !== 'email' && m !== 'guest' && m !== 'passkey',
+  );
+  const hasPasskey = config.methods.includes('passkey');
   const hasEmail = config.methods.includes('email');
   const hasGuest = config.methods.includes('guest');
+
+  const errorFor = (scope: ErrorScope) =>
+    state.error && errorScope === scope ? (
+      <div className="ikon-auth-error">{formatAuthError(state.error)}</div>
+    ) : null;
 
   return (
     <main className="ikon-auth-screen">
@@ -48,29 +82,55 @@ function AuthScreen({ config }: AuthScreenProps) {
         <h1 className="ikon-auth-title">{t('auth.welcome.title')}</h1>
         <p className="ikon-auth-subtitle">{t('auth.welcome.subtitle')}</p>
 
-        {state.error && <div className="ikon-auth-error">{state.error}</div>}
+        {errorFor('primary')}
 
         <div className="ikon-auth-buttons">
-          {oauthMethods.map((method) => (
-            <LoginButton key={method} provider={method} disabled={state.isLoading} />
+          {primaryMethods.map((method) => (
+            <LoginButton
+              key={method}
+              provider={method}
+              disabled={state.isLoading}
+              onAttempt={() => setErrorScope('primary')}
+            />
           ))}
         </div>
 
-        {hasEmail && oauthMethods.length > 0 && (
+        {hasPasskey && primaryMethods.length > 0 && (
           <div className="ikon-auth-divider">
             <span>{t('auth.divider')}</span>
           </div>
         )}
 
-        {hasEmail && <EmailLoginForm config={config} />}
+        {hasPasskey && (
+          <>
+            {errorFor('passkey')}
+            <div className="ikon-auth-buttons">
+              <LoginButton provider="passkey" disabled={state.isLoading} onAttempt={() => setErrorScope('passkey')} />
+              <RegisterPasskeyButton disabled={state.isLoading} onAttempt={() => setErrorScope('passkey')} />
+            </div>
+          </>
+        )}
 
-        {hasGuest && (oauthMethods.length > 0 || hasEmail) && (
+        {hasEmail && (primaryMethods.length > 0 || hasPasskey) && (
           <div className="ikon-auth-divider">
             <span>{t('auth.divider')}</span>
           </div>
         )}
 
-        {hasGuest && <LoginButton provider="guest" disabled={state.isLoading} />}
+        {hasEmail && <EmailLoginForm config={config} onAttempt={() => setErrorScope('email')} />}
+
+        {hasGuest && (primaryMethods.length > 0 || hasPasskey || hasEmail) && (
+          <div className="ikon-auth-divider">
+            <span>{t('auth.divider')}</span>
+          </div>
+        )}
+
+        {hasGuest && (
+          <>
+            {errorFor('guest')}
+            <LoginButton provider="guest" disabled={state.isLoading} onAttempt={() => setErrorScope('guest')} />
+          </>
+        )}
       </section>
     </main>
   );

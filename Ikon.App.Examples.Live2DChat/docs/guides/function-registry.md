@@ -276,6 +276,8 @@ namespace Ikon.Common.Core.Functions
     bool HasFunction(string name)
     // Checks if a function with the given name exists for a specific client session.
     bool HasFunction(string name, int clientSessionId)
+    // Invoke an already-resolved local function with a pre-built positional argument array, bypassing the argument-type resolution that CallAsync performs. The args must already line up with the function's parameter list — used by callers that inject host-supplied parameters (e.g. a cron trigger building the array from MethodInfo to inject a context object). Returns the result, if any.
+    Task<object?> InvokeLocalAsync(Function function, object?[] args)
     // Scans an assembly for types with [RegisterAll] or methods with [Function] attributes and registers them.
     void RegisterFromAssembly(Assembly assembly, FunctionVisibility? visibilityOverride = null, string? version = null)
     // Scans an instance for [RegisterAll] attribute or methods with [Function] attribute and registers them.
@@ -283,6 +285,8 @@ namespace Ikon.Common.Core.Functions
     void RegisterFromType<T>(FunctionVisibility? visibilityOverride = null, string? version = null)
     // Scans a type for [RegisterAll] attribute or methods with [Function] attribute and registers them. For instance methods, you need to use RegisterFromInstance instead.
     void RegisterFromType(Type type, FunctionVisibility? visibilityOverride = null, string? version = null)
+    // Registers a single method as a function unless one is already registered under the same name. Used by the app layer to register [Cron] methods, which are registrable like [Function] even when they carry no [Function] attribute. Idempotent: a method already registered (e.g. because it also carries [Function] under the same name) is left untouched. When name is null or empty the full member name ("{Type.FullName}.{Method}") is used.
+    void RegisterFunctionMethod(object instance, MethodInfo method, string? name = null, FunctionVisibility visibility = Local)
     void RegisterFunctionsFromClientInitialization(ClientInitialization? clientInitialization)
     // Registers a remote function (from another client via protocol).
     void RegisterRemoteFunction(Guid id, string name, FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int clientSessionId, bool requiresInstance = false)
