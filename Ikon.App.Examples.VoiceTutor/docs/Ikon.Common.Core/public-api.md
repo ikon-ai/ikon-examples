@@ -1885,6 +1885,8 @@ namespace Ikon.Common.Core.Functions
     bool HasFunction(string name)
     // Checks if a function with the given name exists for a specific client session.
     bool HasFunction(string name, int clientSessionId)
+    // Invoke an already-resolved local function with a pre-built positional argument array, bypassing the argument-type resolution that CallAsync performs. The args must already line up with the function's parameter list — used by callers that inject host-supplied parameters (e.g. a cron trigger building the array from MethodInfo to inject a context object). Returns the result, if any.
+    Task<object?> InvokeLocalAsync(Function function, object?[] args)
     // Scans an assembly for types with [RegisterAll] or methods with [Function] attributes and registers them.
     void RegisterFromAssembly(Assembly assembly, FunctionVisibility? visibilityOverride = null, string? version = null)
     // Scans an instance for [RegisterAll] attribute or methods with [Function] attribute and registers them.
@@ -1892,6 +1894,8 @@ namespace Ikon.Common.Core.Functions
     void RegisterFromType<T>(FunctionVisibility? visibilityOverride = null, string? version = null)
     // Scans a type for [RegisterAll] attribute or methods with [Function] attribute and registers them. For instance methods, you need to use RegisterFromInstance instead.
     void RegisterFromType(Type type, FunctionVisibility? visibilityOverride = null, string? version = null)
+    // Registers a single method as a function unless one is already registered under the same name. Used by the app layer to register [Cron] methods, which are registrable like [Function] even when they carry no [Function] attribute. Idempotent: a method already registered (e.g. because it also carries [Function] under the same name) is left untouched. When name is null or empty the full member name ("{Type.FullName}.{Method}") is used.
+    void RegisterFunctionMethod(object instance, MethodInfo method, string? name = null, FunctionVisibility visibility = Local)
     void RegisterFunctionsFromClientInitialization(ClientInitialization? clientInitialization)
     // Registers a remote function (from another client via protocol).
     void RegisterRemoteFunction(Guid id, string name, FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int clientSessionId, bool requiresInstance = false)
@@ -3028,6 +3032,18 @@ namespace Ikon.Common.Core.Protocol
     static ActionTextOutputDeltaFull ReadFromTeleport(ReadOnlySpan<byte> data, ActionTextOutputDeltaFull? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
+  sealed class ActionTriggerCron : IProtocolMessagePayload
+    ctor()
+    ctor(string functionName, string schedule, string fireTimeUtc)
+    string FireTimeUtc { get; set; }
+    string FunctionName { get; set; }
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    string Schedule { get; set; }
+    static ActionTriggerCron ReadFromTeleport(ReadOnlySpan<byte> data)
+    static ActionTriggerCron ReadFromTeleport(ReadOnlySpan<byte> data, ActionTriggerCron? destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class ActionTriggerGitPull : IProtocolMessagePayload
     ctor()
     ctor(bool forceFullRebuild, string? target)
@@ -3584,7 +3600,7 @@ namespace Ikon.Common.Core.Protocol
     DesktopApp
   sealed class ConnectToken : IProtocolMessagePayload
     ctor()
-    ctor(string serverSessionId, ContextType contextType, UserType userType, PayloadType payloadType, bool isInternal, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, Opcode opcodeGroupsFromServer, Opcode opcodeGroupsToServer, int protocolVersion, bool hasInput, string channelLocale, string embeddedSpaceId, string authSessionId, bool receiveAllMessages, string userAgent, ClientType clientType, Dictionary<string, string> parameters, SdkType sdkType, int sdkCapability, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat)
+    ctor(string serverSessionId, ContextType contextType, UserType userType, PayloadType payloadType, bool isInternal, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, Opcode opcodeGroupsFromServer, Opcode opcodeGroupsToServer, int protocolVersion, bool hasInput, string channelLocale, string embeddedSpaceId, string authSessionId, bool receiveAllMessages, string userAgent, ClientType clientType, Dictionary<string, string> parameters, SdkType sdkType, int sdkCapability, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat, bool supportsCompression)
     string AuthSessionId { get; set; }
     string ChannelLocale { get; set; }
     ClientType ClientType { get; set; }
@@ -3612,6 +3628,7 @@ namespace Ikon.Common.Core.Protocol
     SdkType SdkType { get; set; }
     string ServerSessionId { get; set; }
     StyleFormat StyleFormat { get; set; }
+    bool SupportsCompression { get; set; }
     string Theme { get; set; }
     string Timezone { get; set; }
     string UserAgent { get; set; }
@@ -3627,7 +3644,7 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class Context : IProtocolMessagePayload
     ctor()
-    ctor(ContextType contextType, UserType userType, PayloadType payloadType, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, int sessionId, bool isInternal, bool isReady, bool hasInput, string channelLocale, string embeddedSpaceId, string authSessionId, bool receiveAllMessages, ulong preciseJoinedAt, string userAgent, ClientType clientType, string uniqueSessionId, Dictionary<string, string> parameters, SdkType sdkType, int sdkCapability, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat, bool isSoftDisconnected, ulong softDisconnectAt)
+    ctor(ContextType contextType, UserType userType, PayloadType payloadType, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, int sessionId, bool isInternal, bool isReady, bool hasInput, string channelLocale, string embeddedSpaceId, string authSessionId, bool receiveAllMessages, ulong preciseJoinedAt, string userAgent, ClientType clientType, string uniqueSessionId, Dictionary<string, string> parameters, SdkType sdkType, int sdkCapability, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat, bool supportsCompression, bool isSoftDisconnected, ulong softDisconnectAt)
     string AuthSessionId { get; set; }
     string ChannelLocale { get; set; }
     // Alias for SessionId . The protocol surfaces this same int as ClientSessionId on event-args types like ClientJoinedEventArgs.ClientSessionId — code generated against the event-args shape naturally reaches for ctx.ClientSessionId after switching to the Context directly. Provide both names so the natural reach resolves without renaming.
@@ -3658,6 +3675,7 @@ namespace Ikon.Common.Core.Protocol
     int SessionId { get; set; }
     ulong SoftDisconnectAt { get; set; }
     StyleFormat StyleFormat { get; set; }
+    bool SupportsCompression { get; set; }
     string Theme { get; set; }
     string Timezone { get; set; }
     string UniqueSessionId { get; set; }
@@ -4087,6 +4105,7 @@ namespace Ikon.Common.Core.Protocol
     CORE_SERVER_INIT2
     CORE_UPDATE_CLIENT_CONTEXT
     CORE_BACKGROUND_WORK_ACTIVE
+    CORE_RESET_IDLE
     CORE_CLIENT_DISCONNECTING
     CORE_WEBRTC_OFFER
     CORE_WEBRTC_ANSWER
@@ -4203,6 +4222,7 @@ namespace Ikon.Common.Core.Protocol
     ACTION_FILE_UPLOAD_COMPLETE2
     ACTION_FUNCTION_ENUMERATION_ITEM_BATCH
     ACTION_CALL_ACK
+    ACTION_TRIGGER_CRON
     GROUP_UI
     UI_STREAM_BEGIN
     UI_STREAM_END
@@ -4459,6 +4479,16 @@ namespace Ikon.Common.Core.Protocol
     static RequestIdrVideoFrame ReadFromTeleport(ReadOnlySpan<byte> data, RequestIdrVideoFrame? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
+  sealed class ResetIdle : IProtocolMessagePayload
+    ctor()
+    ctor(string? reason)
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    string? Reason { get; set; }
+    static ResetIdle ReadFromTeleport(ReadOnlySpan<byte> data)
+    static ResetIdle ReadFromTeleport(ReadOnlySpan<byte> data, ResetIdle? destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class SceneArray : IProtocolMessagePayload
     ctor()
     ctor(int serializerType, string type, string subId, int elementOffset, int elementCount, int byteOffset, int typeSize, int strideSize, byte[] byteArray)
@@ -4533,12 +4563,13 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class ServerInit : IProtocolMessagePayload
     ctor()
-    ctor(string ikonBackendUrl, string ikonBackendToken, string spaceId, string channelId, List<ServerInit.ServerPluginInit> plugins, string primaryUserId, string channelInstanceId, string channelUrl, List<ServerInit.ServerExtensionInit> extensions, Dictionary<string, string> dynamicConfigObsolete, string organisationName, string spaceName, string channelName, string dynamicConfigJsonContent, string spaceGitRepositoryUrl, string sessionId, string legacyChannelCode, bool disableLegacyDefaultExtensions, Dictionary<string, string> sessionIdentity, List<ServerInit.ServerInitEndpointRequest> endpointRequests, int frontendPort, AppSourceType appSourceType, bool debugMode, List<ServerInit.ServerInitDatabaseConnectionInfo> databaseConnectionInfos, string runTarget)
+    ctor(string ikonBackendUrl, string ikonBackendToken, string spaceId, string channelId, List<ServerInit.ServerPluginInit> plugins, string primaryUserId, string channelInstanceId, string channelUrl, List<ServerInit.ServerExtensionInit> extensions, Dictionary<string, string> dynamicConfigObsolete, string organisationName, string spaceName, string channelName, string dynamicConfigJsonContent, string spaceGitRepositoryUrl, string sessionId, string legacyChannelCode, bool disableLegacyDefaultExtensions, Dictionary<string, string> sessionIdentity, List<ServerInit.ServerInitEndpointRequest> endpointRequests, int frontendPort, AppSourceType appSourceType, bool debugMode, List<ServerInit.ServerInitDatabaseConnectionInfo> databaseConnectionInfos, string runTarget, string cronTriggerFunction)
     AppSourceType AppSourceType { get; set; }
     string ChannelId { get; set; }
     string ChannelInstanceId { get; set; }
     string ChannelName { get; set; }
     string ChannelUrl { get; set; }
+    string CronTriggerFunction { get; set; }
     List<ServerInit.ServerInitDatabaseConnectionInfo> DatabaseConnectionInfos { get; set; }
     bool DebugMode { get; set; }
     bool DisableLegacyDefaultExtensions { get; set; }
