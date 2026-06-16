@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 332658,
+      "sizeBytes": 335178,
       "alsoInclude": []
     },
     {
@@ -560,7 +560,7 @@
         "callable functions"
       ],
       "file": "docs/guides/function-registry.md",
-      "sizeBytes": 30626,
+      "sizeBytes": 31658,
       "alsoInclude": []
     },
     {

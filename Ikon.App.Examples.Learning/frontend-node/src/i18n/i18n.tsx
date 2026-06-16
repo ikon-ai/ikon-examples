@@ -7,6 +7,8 @@ export interface Translations {
   'connection.reconnecting': string;
   'connection.offline.title': string;
   'connection.offline.message': string;
+  'connection.serverFull.title': string;
+  'connection.serverFull.message': string;
 
   // Auth screen
   'auth.welcome.title': string;
@@ -17,16 +19,26 @@ export interface Translations {
   'auth.email.placeholder': string;
   'auth.email.submit': string;
   'auth.email.submitting': string;
-  'auth.email.sent.title': string;
   'auth.email.sent.message': string;
-  'auth.email.useDifferent': string;
+  'auth.email.code.placeholder': string;
+  'auth.email.code.submit': string;
+  'auth.email.code.submitting': string;
+  'auth.email.code.back': string;
   'auth.email.error.empty': string;
   'auth.email.error.noSpaceId': string;
   'auth.email.error.sendFailed': string;
+  'auth.email.error.codeEmpty': string;
+  'auth.email.error.verifyFailed': string;
+
+  // Access denied
+  'connection.accessDenied.title': string;
+  'connection.accessDenied.message': string;
+  'connection.accessDenied.backToLogin': string;
 
   // Login buttons
   'auth.button.guest': string;
   'auth.button.provider': string;
+  'auth.button.registerPasskey': string;
 }
 
 export type TranslationKey = keyof Translations;
