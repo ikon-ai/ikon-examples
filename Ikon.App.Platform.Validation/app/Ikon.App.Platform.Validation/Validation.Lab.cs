@@ -41,6 +41,12 @@ public partial class Validation
     private readonly Reactive<string?> _globalMcpResult = new(null);
     private readonly Reactive<bool> _globalMcpInvoking = new(false);
 
+    // The grant-protected REST surface: the minted URL (with its decoded grant shown in the diagnostics)
+    // and the last invocation result.
+    private readonly Reactive<string?> _labGrantUrl = new(null);
+    private readonly Reactive<string?> _labGrantResult = new(null);
+    private readonly Reactive<bool> _labGrantInvoking = new(false);
+
     // Last error from a substrate-cell SDK call (the IncrementAsync / ResetAsync buttons on the
     // global cell pane). Rendered as a status pill so a failed substrate call surfaces cleanly
     // instead of bubbling up and breaking the UI.
@@ -58,7 +64,7 @@ public partial class Validation
 
         try
         {
-            var webhook = app.Webhooks.FirstOrDefault(w => w.FunctionName == "LabCell_IncrementHttp");
+            var webhook = app.Endpoints.FirstOrDefault(w => w.FunctionName == "LabCell_IncrementHttp");
 
             if (webhook is null || string.IsNullOrEmpty(webhook.PublicUrl))
             {
@@ -66,13 +72,10 @@ public partial class Validation
                 return;
             }
 
-            // The platform's BuildEndpointUrl prefills the app's SessionIdentity into the query;
-            // the cell's identity (Workspace) is orthogonal, so we append it as an extra param.
-            // The cloud gateway reverse-proxies this to the cell-host's relay URL (an internal
-            // upstream — no client-visible redirect) once the cell-host has advertised it.
-            var url = webhook.PublicUrl;
-            url += url.Contains('?') ? "&" : "?";
-            url += $"Workspace={Uri.EscapeDataString(_labWorkspace.Value)}";
+            // The endpoint path carries the Workspace identity as a {workspace} segment, so the emitted
+            // PublicUrl is a template — substitute the selected workspace into it. The gateway captures
+            // that segment as the cell's identity and reverse-proxies to the cell-host's relay URL.
+            var url = webhook.PublicUrl.Replace("{workspace}", Uri.EscapeDataString(_labWorkspace.Value));
 
             using var response = await s_labHttp.PostAsJsonAsync(url, new LabIncrementRequest(1));
             var body = await response.Content.ReadAsStringAsync();
@@ -88,41 +91,118 @@ public partial class Validation
         }
     }
 
-    private async Task InvokeLabMcpAsync()
+    // Mint a working, grant-bearing URL for the grant-protected endpoint, pinning the selected Workspace
+    // (substituted into the {workspace} path segment). Minting round-trips to the backend (which holds the
+    // per-space grant secret) and is idempotent for these stable grants, so re-minting returns the same URL.
+    private async Task<string?> EnsureLabGrantUrlAsync()
     {
-        if (_labMcpInvoking.Value)
+        try
+        {
+            var minted = await app.MintUrlAsync("LabCell_IncrementSecureHttp", new { Workspace = _labWorkspace.Value });
+            _labGrantUrl.Value = minted.Url;
+            return minted.Url;
+        }
+        catch (Exception ex)
+        {
+            _labGrantResult.Value = $"Mint failed: {ex.Message}";
+            return null;
+        }
+    }
+
+    private async Task InvokeLabGrantRestAsync()
+    {
+        if (_labGrantInvoking.Value)
         {
             return;
         }
 
-        _labMcpInvoking.Value = true;
-        _labMcpResult.Value = null;
+        _labGrantInvoking.Value = true;
+        _labGrantResult.Value = null;
 
         try
         {
-            if (ResolveCellMcpUrl("LabCell_IncrementMcp") is not { } url)
+            // Mint (or re-mint for the current workspace) the grant URL, then call it. The bare PublicUrl
+            // would 401 — possession of the minted ?ikon-grant= is what authorizes this endpoint.
+            var url = await EnsureLabGrantUrlAsync();
+
+            if (url is null)
             {
-                _labMcpResult.Value = "(LabCell MCP endpoint not registered yet — cloud deployment required)";
                 return;
             }
 
-            // Same /api/{cell}/{method} POST as the [Rest] card. The `delta` parameter has a default,
-            // so an empty body increments by 1 (a bare scalar body is rejected by the gateway's
-            // strict JSON parser). Append Workspace so this targets the same keyed instance shown above.
-            url += url.Contains('?') ? "&" : "?";
-            url += $"Workspace={Uri.EscapeDataString(_labWorkspace.Value)}";
-
-            using var response = await s_labHttp.PostAsync(url, null);
+            using var response = await s_labHttp.PostAsJsonAsync(url, new LabIncrementRequest(1));
             var body = await response.Content.ReadAsStringAsync();
-            _labMcpResult.Value = $"{(int)response.StatusCode} {response.StatusCode}\n\n{PrettyOrRaw(body)}";
+            _labGrantResult.Value = $"{(int)response.StatusCode} {response.StatusCode}\n\n{PrettyOrRaw(body)}";
         }
         catch (Exception ex)
         {
-            _labMcpResult.Value = $"Error: {ex.Message}";
+            _labGrantResult.Value = $"Error: {ex.Message}";
         }
         finally
         {
-            _labMcpInvoking.Value = false;
+            _labGrantInvoking.Value = false;
+        }
+    }
+
+    private Task InvokeLabMcpAsync()
+        // Workspace identity rides the query (this AppProcess cell resolves it in-process); the tool
+        // name is the C# method name, IncrementMcp.
+        => InvokeMcpToolHttpAsync("LabCell_mcp", "IncrementMcp", _labWorkspace.Value, _labMcpResult, _labMcpInvoking);
+
+    /// <summary>
+    /// POST a JSON-RPC <c>tools/call</c> to a cell's MCP multiplexer endpoint (<c>{Cell}_mcp</c>, served
+    /// at the cell's <c>/mcp</c> path). MCP tools are reachable ONLY through this multiplexer — never as
+    /// per-tool HTTP POSTs — so the body is a single JSON-RPC request naming the tool. When
+    /// <paramref name="workspace"/> is non-null it's appended as the cell's identity query so the call
+    /// targets the same keyed instance the REST card uses.
+    /// </summary>
+    private async Task InvokeMcpToolHttpAsync(string mcpEndpointName, string toolName, string? workspace, Reactive<string?> result, Reactive<bool> invoking)
+    {
+        if (invoking.Value)
+        {
+            return;
+        }
+
+        invoking.Value = true;
+        result.Value = null;
+
+        try
+        {
+            var endpoint = app.Endpoints.FirstOrDefault(w => w.FunctionName == mcpEndpointName);
+
+            if (endpoint is null || string.IsNullOrEmpty(endpoint.PublicUrl))
+            {
+                result.Value = $"({mcpEndpointName} not registered yet — cloud deployment required)";
+                return;
+            }
+
+            var url = endpoint.PublicUrl;
+
+            if (workspace is not null)
+            {
+                url += url.Contains('?') ? "&" : "?";
+                url += $"Workspace={Uri.EscapeDataString(workspace)}";
+            }
+
+            var rpc = new
+            {
+                jsonrpc = "2.0",
+                id = 1,
+                method = "tools/call",
+                @params = new { name = toolName, arguments = new { delta = 1 } },
+            };
+
+            using var response = await s_labHttp.PostAsJsonAsync(url, rpc);
+            var body = await response.Content.ReadAsStringAsync();
+            result.Value = $"{(int)response.StatusCode} {response.StatusCode}\n\n{PrettyOrRaw(body)}";
+        }
+        catch (Exception ex)
+        {
+            result.Value = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            invoking.Value = false;
         }
     }
 
@@ -138,7 +218,7 @@ public partial class Validation
 
         try
         {
-            var webhook = app.Webhooks.FirstOrDefault(w => w.FunctionName == "GlobalLabCell_IncrementHttp");
+            var webhook = app.Endpoints.FirstOrDefault(w => w.FunctionName == "GlobalLabCell_IncrementHttp");
 
             if (webhook is null || string.IsNullOrEmpty(webhook.PublicUrl))
             {
@@ -160,39 +240,10 @@ public partial class Validation
         }
     }
 
-    private async Task InvokeGlobalMcpAsync()
-    {
-        if (_globalMcpInvoking.Value)
-        {
-            return;
-        }
-
-        _globalMcpInvoking.Value = true;
-        _globalMcpResult.Value = null;
-
-        try
-        {
-            if (ResolveCellMcpUrl("GlobalLabCell_IncrementMcp") is not { } url)
-            {
-                _globalMcpResult.Value = "(GlobalLabCell MCP endpoint not registered yet — cloud deployment required)";
-                return;
-            }
-
-            // Same /api/{cell}/{method} POST as the [Rest] card; empty body → delta defaults to 1
-            // (a bare scalar body is rejected by the gateway's strict JSON parser).
-            using var response = await s_labHttp.PostAsync(url, null);
-            var body = await response.Content.ReadAsStringAsync();
-            _globalMcpResult.Value = $"{(int)response.StatusCode} {response.StatusCode}\n\n{PrettyOrRaw(body)}";
-        }
-        catch (Exception ex)
-        {
-            _globalMcpResult.Value = $"Error: {ex.Message}";
-        }
-        finally
-        {
-            _globalMcpInvoking.Value = false;
-        }
-    }
+    private Task InvokeGlobalMcpAsync()
+        // The global cell has no per-call identity, so no Workspace query — the tool name is the [Mcp]
+        // Name override, IncrementGlobalMcp.
+        => InvokeMcpToolHttpAsync("GlobalLabCell_mcp", "IncrementGlobalMcp", workspace: null, _globalMcpResult, _globalMcpInvoking);
 
     // Fire-and-forget a substrate-cell SDK command (Increment / Reset on the global cell). The
     // result lands on the Counter mirror via the cell-host subscription, so the UI handler must NOT
@@ -255,18 +306,31 @@ public partial class Validation
             History.Add($"[{DateTime.UtcNow:HH:mm:ss}] +{delta} → {Counter.Value} ({Identity.Workspace})");
         }
 
-        // Surface 1: REST — the webhook gateway routes this to the cell instance based on the
-        // query-derived SessionIdentity. With a declared path it lands at /api/{cell}/{method};
-        // absent one it falls back to the legacy /ikon/webhook/{Type}_{Method} default. Either way
-        // the gateway reverse-proxies to the cell-host's relay URL — no client-visible redirect.
-        [Rest(Verb.Post, "increment", Auth = typeof(AnonymousAuth))]
+        // Surface 1: REST — the Workspace identity comes from the URL PATH
+        // (/lab/{workspace}/increment). For this AppProcess cell the gateway forwards the captured
+        // segment and the in-process CellHost keys the instance on it. Authorization is the "public"
+        // /router/ edge policy (anonymous, gated by anti-abuse).
+        [HttpPost("/lab/{workspace}/increment", Auth = EndpointAuth.Public)]
         public HttpResult IncrementHttp(LabIncrementRequest req)
         {
             Increment(req.Delta);
             return HttpResult.Ok(Snapshot());
         }
 
-        // Surface 2: MCP — auto-derived input + output schema from the C# signature.
+        // Surface 1b: REST behind a GRANT. Same path-captured Workspace identity, but Auth = Grant means
+        // the URL must carry a signed ?ikon-grant= minted by app.MintUrl — possession authorizes the call
+        // (and the cold-start). The bare PublicUrl alone 401s; mint a working URL first. Minting pins the
+        // Workspace into the grant and substitutes it into the {workspace} segment.
+        [HttpPost("/lab/{workspace}/increment-secure", Auth = EndpointAuth.Grant)]
+        public HttpResult IncrementSecureHttp(LabIncrementRequest req)
+        {
+            Increment(req.Delta);
+            return HttpResult.Ok(Snapshot());
+        }
+
+        // Surface 2: MCP — auto-derived input + output schema from the C# signature. Served through the
+        // cell's one JSON-RPC multiplexer (/lab-cell/mcp), not a per-tool POST; the Workspace identity
+        // rides the request query just like REST.
         [Mcp(Description = "Increment the Lab counter for the supplied workspace identity")]
         public LabSnapshot IncrementMcp([Description("How much to add")] int delta = 1)
         {
@@ -277,7 +341,7 @@ public partial class Validation
         // The Stripe pattern as a plain REST endpoint: read an untrusted request header inline (here
         // a stand-in signature) — no separate auth cell — while the instance stays keyed by the
         // upstream-resolved Workspace identity. Reading the header can't retarget the call.
-        [Rest(Verb.Post, "echo-signature", Auth = typeof(AnonymousAuth))]
+        [HttpPost("echo-signature", Auth = EndpointAuth.Public)]
         public HttpResult EchoSignature()
             => HttpResult.Ok(new LabSignatureEcho(HttpCallContext.Current?.Header("X-Demo-Signature") ?? "(none)", Identity.Workspace));
 
@@ -317,8 +381,8 @@ public partial class Validation
         public Reactive<int> Counter { get; } = new(0);
         public Reactive<List<string>> History { get; } = new([]);
 
-        // Internal mutation core — every surface (SDK [Function], REST [HttpEndpoint], MCP
-        // [McpTool]) routes through here so they all mutate the same Reactive<T> fields.
+        // Internal mutation core — every surface (SDK [Function], REST [Rest], MCP [Mcp]) routes
+        // through here so they all mutate the same Reactive<T> fields.
         private void IncrementCore(int delta)
         {
             Counter.Value += delta;
@@ -342,7 +406,7 @@ public partial class Validation
             return Task.CompletedTask;
         }
 
-        [Rest(Verb.Post, "increment", Auth = typeof(AnonymousAuth))]
+        [HttpPost("increment", Auth = EndpointAuth.Public)]
         public HttpResult IncrementHttp(LabIncrementRequest req)
         {
             IncrementCore(req.Delta);

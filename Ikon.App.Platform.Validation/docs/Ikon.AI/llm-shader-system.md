@@ -164,7 +164,7 @@ Comments (`//`) explain the purpose of each property.
           Actions: {
             Listeners: {
               // executed when a streaming result of given type is produced
-              // common keys: "FunctionCall", "Citation", "OutputAudioTranscript", "OutputAudioId", "Reasoning", "String"
+              // common keys: "FunctionCall", "Citation", "OutputAudioTranscript", "OutputAudioId", "ReasoningBlock", "String"
               SomeTypeName: "{{ other_function1(Input) }}"
             },
             BeforeShader: "{{ other_function1(123) }}",
@@ -363,7 +363,7 @@ Executed in template context – perfect for side effects.
 
 - BeforeShader / AfterShader: Run once before/after the whole shader (AfterShader runs after the model message is assembled).
 - BeforePass / AfterPass: Run before/after the selected Pass (every iteration).
-- Listeners: Dictionary "<StreamingResultType> → script". Runs whenever that result type is produced during generation – Input contains the value. Common types include `String`, `FunctionCall`, `Citation`, `OutputAudioTranscript`, `OutputAudioId`, `Reasoning`, `ToolPlan`, and `ClassificationResult`. Note: `FinalTextResponse` and `FinalModelMessage` are emitted after the generation loop and cannot be observed by Listeners.
+- Listeners: Dictionary "<StreamingResultType> → script". Runs whenever that result type is produced during generation – Input contains the value. Common types include `String`, `FunctionCall`, `Citation`, `OutputAudioTranscript`, `OutputAudioId`, `ReasoningBlock`, `ToolPlan`, and `ClassificationResult`. Note: `FinalTextResponse` and `FinalModelMessage` are emitted after the generation loop and cannot be observed by Listeners.
 
 #### Output
 

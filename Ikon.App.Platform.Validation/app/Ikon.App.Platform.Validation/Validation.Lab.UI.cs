@@ -107,6 +107,7 @@ public partial class Validation
 
             view.Text([Text.Caption, "mt-4"], "External surfaces (same Increment method, different transports):");
             RenderKeyedRestSurface(view);
+            RenderKeyedGrantSurface(view);
             RenderKeyedMcpSurface(view);
         });
     }
@@ -134,7 +135,7 @@ public partial class Validation
                 "Counter / History are local mirrors fed by an SDK subscription to the cell-host; " +
                 "IncrementAsync / ResetAsync dispatch over the SDK connection. The proxy discovers " +
                 "the cell-host's AppEndpointHost relay URL on first call and POSTs [Rest] endpoints " +
-                "there directly. See docs/private/cell-substrate-and-unified-http.md.");
+                "there directly. See docs/private/endpoint-and-cell-architecture.md.");
 
             if (cell is null)
             {
@@ -200,15 +201,15 @@ public partial class Validation
 
     private void RenderKeyedRestSurface(UIView view)
     {
-        var webhook = app.Webhooks.FirstOrDefault(w => w.FunctionName == "LabCell_IncrementHttp");
+        var webhook = app.Endpoints.FirstOrDefault(w => w.FunctionName == "LabCell_IncrementHttp");
         string? resolvedUrl = webhook is null || string.IsNullOrEmpty(webhook.PublicUrl)
             ? null
-            : webhook.PublicUrl + (webhook.PublicUrl.Contains('?') ? "&" : "?") + $"Workspace={_labWorkspace.Value}";
+            : webhook.PublicUrl.Replace("{workspace}", _labWorkspace.Value);
 
         view.Box(["border border-secondary rounded-lg p-4 mb-3"], content: view =>
         {
-            view.Text([Text.BodyStrong], "[Rest] LabCell.IncrementHttp");
-            view.Text([Text.Caption], """POST { "Delta": <int> } via the cloud webhook gateway — Auth: AnonymousAuth — Body: LabSnapshot""");
+            view.Text([Text.BodyStrong], "[HttpPost] LabCell.IncrementHttp");
+            view.Text([Text.Caption], """POST { "Delta": <int> } to /api/lab/{workspace}/increment — Workspace identity comes from the URL path — Auth: public — Body: LabSnapshot""");
             RenderUrlDiagnostics(view, resolvedUrl, isRelay: false);
 
             view.Row([Layout.Row.Md, "items-center mt-3"], content: view =>
@@ -233,21 +234,59 @@ public partial class Validation
         });
     }
 
+    private void RenderKeyedGrantSurface(UIView view)
+    {
+        view.Box(["border border-secondary rounded-lg p-4 mb-3"], content: view =>
+        {
+            view.Text([Text.BodyStrong], "[HttpPost · grant] LabCell.IncrementSecureHttp");
+            view.Text([Text.Caption], """The same surface behind Auth = Grant: the bare /api/lab/{workspace}/increment-secure 401s. Mint a URL with app.MintUrl — it pins the Workspace and embeds a signed ?ikon-grant= (decoded below).""");
+
+            view.Row([Layout.Row.Md, "items-center mt-3"], content: view =>
+            {
+                view.Button([Button.OutlineMd], label: "Mint grant URL", onClick: async () => { await EnsureLabGrantUrlAsync(); });
+
+                view.Button([Button.PrimaryMd],
+                    label: _labGrantInvoking.Value ? "Sending…" : "Mint + POST { Delta: 1 }",
+                    disabled: _labGrantInvoking.Value,
+                    onClick: InvokeLabGrantRestAsync);
+
+                if (_labGrantInvoking.Value)
+                {
+                    view.Box([Icon.Spinner]);
+                }
+            });
+
+            if (_labGrantUrl.Value is { } grantUrl)
+            {
+                view.Text([Text.Caption, "mt-3"], "Minted URL — its grant decoded:");
+                RenderUrlDiagnostics(view, grantUrl, isRelay: false);
+            }
+
+            if (_labGrantResult.Value is { } grantResult)
+            {
+                view.Text([Text.Caption, "mt-3"], "Response:");
+                view.Box(["bg-surface rounded p-3 mt-1 max-h-64 overflow-auto"], content: v =>
+                    v.Text([Text.Caption, "font-mono whitespace-pre"], grantResult));
+            }
+        });
+    }
+
     private void RenderKeyedMcpSurface(UIView view)
     {
-        var url = ResolveCellMcpUrl("LabCell_IncrementMcp");
+        var mcpEndpoint = app.Endpoints.FirstOrDefault(w => w.FunctionName == "LabCell_mcp");
+        var url = string.IsNullOrEmpty(mcpEndpoint?.PublicUrl) ? null : mcpEndpoint.PublicUrl;
 
         view.Box(["border border-secondary rounded-lg p-4"], content: view =>
         {
             view.Text([Text.BodyStrong], "[Mcp] LabCell.IncrementMcp");
-            view.Text([Text.Caption], "A plain POST at the method's own path — [Mcp] is sugar for [Rest(Post)] with an auto-derived schema");
+            view.Text([Text.Caption], "Served through the cell's ONE JSON-RPC multiplexer (/api/lab-cell/mcp) — not a per-tool POST. Invoke with a tools/call request naming the tool.");
 
             if (url is not null)
             {
                 RenderUrlDiagnostics(view, url, isRelay: false);
                 view.Text([Text.Caption, "mt-1"],
-                    "Same path scheme as the [Rest] endpoint above — /api/{cell}/{method}. Pass Workspace " +
-                    "in the query to target a keyed instance, just like the REST call.");
+                    "All of the cell's [Mcp] tools share this one endpoint. Workspace rides the query to " +
+                    "target a keyed instance, same as the REST call.");
 
                 view.Row([Layout.Row.Md, "items-center mt-3"], content: view =>
                 {
@@ -280,7 +319,7 @@ public partial class Validation
 
     private void RenderGlobalRestSurface(UIView view)
     {
-        var webhook = app.Webhooks.FirstOrDefault(w => w.FunctionName == "GlobalLabCell_IncrementHttp");
+        var webhook = app.Endpoints.FirstOrDefault(w => w.FunctionName == "GlobalLabCell_IncrementHttp");
         string? resolvedUrl = webhook is null || string.IsNullOrEmpty(webhook.PublicUrl)
             ? null
             : webhook.PublicUrl;
@@ -315,12 +354,13 @@ public partial class Validation
 
     private void RenderGlobalMcpSurface(UIView view)
     {
-        var url = ResolveCellMcpUrl("GlobalLabCell_IncrementMcp");
+        var mcpEndpoint = app.Endpoints.FirstOrDefault(w => w.FunctionName == "GlobalLabCell_mcp");
+        var url = string.IsNullOrEmpty(mcpEndpoint?.PublicUrl) ? null : mcpEndpoint.PublicUrl;
 
         view.Box(["border border-secondary rounded-lg p-4"], content: view =>
         {
             view.Text([Text.BodyStrong], "[Mcp] GlobalLabCell.IncrementMcp");
-            view.Text([Text.Caption], "A plain POST at the method's own path — reverse-proxied to the same cell-host instance as the [Rest] endpoint");
+            view.Text([Text.Caption], "The cell's JSON-RPC multiplexer — reverse-proxied to the same cell-host instance as the [Rest] endpoint. Tool name: IncrementGlobalMcp.");
 
             if (url is not null)
             {

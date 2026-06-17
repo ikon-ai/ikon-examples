@@ -115,10 +115,10 @@ For `ScrollArea` showing live-updating content (chat, logs, streaming), add poli
 
 Key elements:
 
-- `return await App.Run(args);` - Required entry point at the top of the file
+- `return await App.Run(args);` - Required entry point; it is the first *statement* in the file, but any `using` directives must appear ABOVE it (a `using` placed after it is CS1529). Prefer putting shared namespaces in `GlobalUsings.cs` so the app file needs no local usings.
 - `[App]` attribute - Mandatory, must appear exactly once. Marks the class whose `Main()` method will be executed. Do NOT explicitly implement `: IApp<>` — the `[App]` attribute handles interface implementation via source generation
 - `IApp<SessionIdentity, ClientParameters> app` - Must specify types for SessionIdentity and ClientParameters. Passed as a primary constructor parameter, not implemented as an interface
-- `private UI UI { get; } = new(app, new IkonTheme());` - Initialize UI with app and theme. For brand customization, use the indexer: `new IkonTheme { ["primary"] = "amber-400", ["background"] = "zinc-950" }` — every entry is one CSS-variable override expressed in Crosswind tokens. **Never redefine `IkonTheme` or `Theme` as a class in your app source** — both are provided by `Ikon.Parallax` and auto-imported via `global using`.
+- `private UI UI { get; } = new(app, new IkonTheme());` - Initialize UI with app and theme. For brand customization, use the indexer: `new IkonTheme { ["primary"] = "amber-400", ["background"] = "zinc-950" }` — every entry is one CSS-variable override expressed in Crosswind tokens. **Never redefine `IkonTheme` as a class in your app source** — it is provided by `Ikon.Parallax.Theming` and auto-imported via `global using`.
 - `Reactive<T>` - Reactive state that triggers UI updates when changed
 - `public async Task Main()` - App entry point. Declares UI shape and returns quickly. All work code goes in callbacks
 
@@ -156,7 +156,7 @@ global using Ikon.Common.Core.Scope;
 global using Ikon.Common.Core;
 global using Ikon.Common;
 global using Ikon.Parallax.Components.Standard;
-global using Ikon.Parallax.Themes.Ikon;
+global using Ikon.Parallax.Theming;
 global using Ikon.Parallax;
 global using Ikon.Server;
 ```
@@ -209,10 +209,10 @@ When in doubt, prefer the canonical name. These are the recurring wrong names th
 | `Audio.SpeakAsync(text)` | `Audio.SendSpeech(audio)` | Only `SendSpeech` exists. The `audio` argument is an `AudioContainer` from `SpeechGenerator.GenerateSpeechAsync`. |
 | `Audio.Speech` (property) | `new SpeechGenerator(...)` then `Audio.SendSpeech(...)` | No `Speech` property on `Audio`. The full chain is `var gen = new SpeechGenerator(model); await foreach (var chunk in gen.GenerateSpeechAsync(cfg)) Audio.SendSpeech(chunk);`. |
 | `app.PlayAudioAsync(bytes, mime)` | `ClientFunctions.PlaySoundAsync(bytes, mime)` | Audio routes live on the static `ClientFunctions`, not `IApp`. |
-| `Button.Primary` / `Button.Ghost` / `Button.Secondary` | `Button.PrimaryMd` / `Button.GhostMd` / `Button.SecondaryMd` (or `Button.Default`) | All theme constants are size-suffixed. |
+| `Button.Sm` / `Button.Md` / `Button.Lg` (bare size) | `Button.PrimarySm` / `Button.PrimaryMd` / `Button.PrimaryLg` (or another variant) | Bare size constants don't exist on Button — pick a variant + size. `Button.Primary` / `Button.Secondary` / `Button.Ghost` / `Button.Default` do exist as Md-sized aliases. |
 | `Layout.Container` | `Layout.Page` | Doesn't exist. |
 | `Icon.Size.Sm` | `Icon.Sm` | Flattened — no `.Size` segment. |
-| `IView` (parameter type) | `UIView` | `UIView` is a class, not an interface; there is no `IView`. |
+| `IView` (parameter type) | `IView` or `UIView` (both work) | `IView` is a global alias for `UIView` (in `GlobalUsings.cs`); there is no separate `IView` interface, but the alias makes `IView` resolve to `UIView`. |
 | `pass.User(...)` | `pass.Command = $"..."` | `Command` is a property. |
 | `EmergePass<T>.User` method | `pass.Command` / `pass.SystemPrompt` properties | All pass-config is property assignment. |
 | `Theme.Builder` | `new IkonTheme { ... }` | Builder pattern was removed entirely. |
@@ -247,7 +247,7 @@ app.OnStarting(async () =>
     {
         while (!clockCts.Token.IsCancellationRequested)
         {
-            ReactiveScope.Use(() => _now.Value = DateTime.Now);
+            _now.Value = DateTime.Now;
             await Task.Delay(1000, clockCts.Token);
         }
     }, clockCts.Token);
@@ -279,7 +279,7 @@ await app.Navigation.SetPathAsync(args.ClientSessionId, $"/{tab}", replace: true
 
 ### App Data and Public Folders
 
-- **`app/Data/` folder**: Files placed here are included in the app bundle. Available at runtime via `app.DataDirectory` for reading from the C# app
+- **`app/<ProjectName>/Data/` folder**: Files placed here are included in the app bundle. Available at runtime via `app.DataDirectory` for reading from the C# app
 - **`frontend-node/public/` folder**: Files placed here are included in the app bundle and served by the frontend. Accessible by the browser (e.g., for images, fonts, static assets)
 
 ### Other Host Services

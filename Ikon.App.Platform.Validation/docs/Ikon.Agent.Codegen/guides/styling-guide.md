@@ -90,23 +90,40 @@ public static class AppStyles
 }
 ```
 
-### Built-in Themes
+### Three styling layers, all valid in the same style array
 
-Ikon provides built-in themes with organized style constants:
+Crosswind supports three ways to style a component. They compose freely in the same array — the right choice depends on whether you want the surface to follow the active theme (light/dark mode, per-app brand overrides) or not.
+
+**1. Semantic theme-aware classes** (the default). `bg-card`, `text-primary`, `text-muted-foreground`, `bg-background`, `bg-brand-solid`, `border-secondary`, etc. resolve through CSS variables that the platform baseline defines for both light and dark modes and that `IkonTheme` overrides target. Switching `data-theme="dark"` re-paints the UI automatically; a per-app brand re-skin propagates to every semantic site — no style-array refactor needed.
 
 ```csharp
-using Ikon.Parallax.Themes.Default;
+view.Box(style: ["rounded-2xl bg-card border border-secondary p-6 text-primary"], content: view => { ... });
+```
+
+**2. `Ikon.Parallax.Theming` token shortcuts**. Pre-composed bundles of layer 1 — Crosswind utility strings packaged into named constants per role/size. Use them as ergonomic shortcuts when their defaults fit; ignore them when you want a different look. They follow the theme because they're built from semantic classes.
+
+```csharp
+using Ikon.Parallax.Theming;
 
 view.Button(style: [Button.PrimaryMd], label: "Submit");
 view.TextField(style: [Input.Default], defaultValue: "");
-view.Box(style: [Card.Default], content: view => { });
+view.Box(style: [Card.Default], content: view => { ... });
 ```
+
+**3. Hardcoded Crosswind palette classes and raw hex**. `bg-amber-400`, `text-zinc-950`, `bg-[#F5A524]`, `text-[#0A0A0A]`. Use these when you specifically want a look that **shouldn't** change with the theme — a fixed-brand marketing surface, a decorative gradient, an illustration backdrop. They bypass the theming system, so the trade-off is concrete: if you later add light/dark switching or a brand re-skin, every fixed-color site needs to be revisited by hand.
+
+```csharp
+view.Button(style: ["px-4 py-2 bg-amber-400 text-zinc-950 rounded-md hover:bg-amber-500 transition-colors"], label: "Submit");
+view.Box(style: ["rounded-2xl bg-zinc-900 border border-zinc-800 p-6 shadow-lg"], content: view => { ... });
+```
+
+The three layers compose freely (`[Button.PrimaryMd, "mt-4 self-center", "bg-[#F5A524]"]`) — pick whichever shape best matches what you're building, but default to layer 1 for surfaces that should follow the theme.
 
 ### Theme Activation
 
 The active theme determines what semantic tokens like `text-primary`, `bg-background`, `text-muted-foreground` resolve to. **If you don't set a theme explicitly, the runtime picks one from the browser's `prefers-color-scheme`, falling back to light.**
 
-This matters because Parallax button styles use semantic tokens. `Button.GhostMd`, `Button.OutlineMd`, `Button.NeutralMd` all set `text-primary`, which is dark in the light theme and light in the dark theme. If you build a custom dark UI with **fixed** Tailwind classes (`bg-slate-950`, `bg-zinc-900`, etc.) without setting the theme, ghost and outline buttons will render dark text on your dark background — invisible.
+This matters because Parallax button styles use semantic tokens. `Button.GhostMd`, `Button.OutlineMd`, `Button.NeutralMd` all set `text-primary`, which is dark in the light theme and light in the dark theme. If you build a custom dark UI with **fixed** Crosswind palette classes (`bg-slate-950`, `bg-zinc-900`, etc.) without setting the theme, ghost and outline buttons will render dark text on your dark background — invisible.
 
 Two ways to avoid this:
 
@@ -118,7 +135,7 @@ Two ways to avoid this:
        await ClientFunctions.SetThemeAsync(args.ClientSessionId, "dark");
    };
    ```
-   If you rewrite the app body and remove this boilerplate, you re-introduce the trap. Keep it in any app that uses fixed dark Tailwind classes for surfaces.
+   If you rewrite the app body and remove this boilerplate, you re-introduce the trap. Keep it in any app that uses fixed dark Crosswind palette classes for surfaces.
 
 The same applies in reverse for a fixed-light UI: don't strand `text-primary` on a fixed-white background while the theme is dark.
 
@@ -146,7 +163,7 @@ Crosswind supports the standard Tailwind utility classes:
 
 ### Variants
 
-Standard Tailwind variants are supported:
+Standard Crosswind variants are supported:
 
 ```csharp
 // Pseudo-classes
@@ -444,6 +461,24 @@ The following properties animate smoothly in `motion-[...]` keyframe animations:
 
 Crosswind auto-registers `@property` rules for filter functions, transform variables, and typed custom properties (colors, lengths, angles, numbers). This enables smooth CSS interpolation without manual setup.
 
+#### Caveat: `box-shadow` doesn't interpolate smoothly across keyframes
+
+Crosswind's `shadow-*` utilities feed into a composed `box-shadow` via the `--tw-shadow` custom property (registered with syntax `'*'` because shadow values are free-form). Custom properties with `'*'` syntax animate as **discrete swaps** at each keyframe — they do not interpolate, so a `motion-[0:shadow-sm,100:shadow-xl]` track snaps from `sm` to `xl` instead of fading. The same applies to `text-shadow-[...]` (also `'*'` syntax).
+
+For a smooth glow/halo effect, animate `scale` and `opacity` on a child layer (e.g. a transparent ring or radial-gradient overlay) instead of animating the shadow itself.
+
+#### Caveat: bare `outline` leaves `outline-style: none`
+
+In Tailwind v4 (and Crosswind), bare `outline` only sets `outline-width` — it does **not** set `outline-style: solid`. Because the default `outline-style` is `none`, the outline is invisible until you also specify a style. Always pair `outline` with `outline-solid` (or `outline-dashed`, `outline-dotted`, etc.) when you want it to render.
+
+```csharp
+// WRONG — outline-style stays `none`, nothing renders
+style: ["outline outline-2 outline-blue-500"]
+
+// CORRECT — explicit style
+style: ["outline outline-solid outline-2 outline-blue-500"]
+```
+
 ### Advanced Motion Utilities
 
 Crosswind supports CSS Animations Level 2 properties for scroll-driven animations, composition control, and playback management.
@@ -497,6 +532,19 @@ Control stagger ordering with a priority hint (0–999):
 ```csharp
 "motion-priority-0"     // default
 "motion-priority-100"   // higher priority staggers first
+```
+
+#### GPU Promotion (`will-change`)
+
+Crosswind auto-emits `will-change: <props>` for continuous motion tracks (loop / ping-pong / scroll-bound) so the first frame doesn't hitch while the browser promotes the element to its own GPU layer. Override the heuristic explicitly when needed:
+
+```csharp
+// Force promotion even for one-shot animations (e.g. a critical entry effect)
+"intro:motion-[0:opacity-0,100:opacity-100] intro:motion-once intro:motion-promote"
+
+// Suppress promotion for continuous animations on plentiful elements
+// (e.g. a looping pulse on hundreds of list items where GPU-layer cost dominates)
+"pulse:motion-[0:opacity-70,100:opacity-100] pulse:motion-loop pulse:motion-no-promote"
 ```
 
 ## Complete Example
@@ -802,4 +850,4 @@ Add subtle transitions for polished interactions:
 ## Related Documentation
 
 - [Crosswind Motion Spec](crosswind-motion-spec.md) — formal grammar and syntax specification for the motion language
-- [Crosswind Tailwind Spec](crosswind-tailwind-spec.md) — complete reference of all supported Tailwind utility classes
+- [Crosswind Tailwind Spec](crosswind-tailwind-spec.md) — complete reference of all supported Crosswind utility classes

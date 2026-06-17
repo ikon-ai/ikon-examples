@@ -6,8 +6,25 @@ public partial class Validation
     private readonly Reactive<int> _profilingUpdatesPerSecond = new(30);
     private readonly Reactive<long> _profilingCounter = new(0);
     private readonly Reactive<string> _profilingSummary = new("");
+    private readonly Reactive<bool> _profilingSkipExpensiveTabs = new(false);
+    private readonly Reactive<bool> _profilingSubtreeCaching = new(true);
 
     private CancellationTokenSource? _profilingCts;
+
+    // Wraps a heavy tab's content so it can be skipped while profiling, isolating that
+    // tab's per-frame render cost. All tabs render server-side on every frame, so skipping
+    // the expensive ones (Memory's live process/GC introspection, Payments, Charts, Icons,
+    // Ikon.AI) is the cleanest way to measure their contribution to render time.
+    private Action<UIView> ProfilingSkippable(Action<UIView> render) => view =>
+    {
+        if (_profilingSkipExpensiveTabs.Value)
+        {
+            view.Text([Text.Caption], "(skipped while profiling — uncheck \"Skip expensive tabs\" to render)");
+            return;
+        }
+
+        render(view);
+    };
 
     private void RenderProfilingSection(UIView view)
     {
@@ -56,6 +73,28 @@ public partial class Validation
                         }
 
                         view.Button([Button.OutlineMd], label: "Reset Stats", onClick: ResetProfilingStatsAsync);
+                    });
+
+                    view.Row([Layout.Row.Md, "items-center"], content: view =>
+                    {
+                        view.Checkbox([Checkbox.Root],
+                            isChecked: _profilingSkipExpensiveTabs.Value,
+                            onCheckedChange: async v => _profilingSkipExpensiveTabs.Value = v,
+                            content: view => view.CheckboxIndicator([Checkbox.Indicator], content: v => v.Icon(name: "check")));
+                        view.Text([Text.Body], "Skip expensive tabs (Memory, Payments, Charts, Icons, Ikon.AI)");
+                    });
+
+                    view.Row([Layout.Row.Md, "items-center"], content: view =>
+                    {
+                        view.Checkbox([Checkbox.Root],
+                            isChecked: _profilingSubtreeCaching.Value,
+                            onCheckedChange: async v =>
+                            {
+                                _profilingSubtreeCaching.Value = v;
+                                UI.EnableSubtreeCaching = v;
+                            },
+                            content: view => view.CheckboxIndicator([Checkbox.Indicator], content: v => v.Icon(name: "check")));
+                        view.Text([Text.Body], "Subtree caching");
                     });
                 });
             });
@@ -152,6 +191,7 @@ public partial class Validation
             return;
         }
 
+        UI.EnableProfiling = true;
         Profiler.EnableHistory(1000);
         Profiler.ResumeHistory();
         _profilingRunning.Value = true;
@@ -167,6 +207,7 @@ public partial class Validation
         _profilingCts?.Cancel();
         _profilingCts = null;
         _profilingRunning.Value = false;
+        UI.EnableProfiling = false;
     }
 
     private async Task ResetProfilingStatsAsync()

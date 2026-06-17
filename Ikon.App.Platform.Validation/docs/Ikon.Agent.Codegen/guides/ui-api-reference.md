@@ -16,12 +16,6 @@ namespace Ikon.Parallax
     Context ClientContext
     // The deserialized action payload.
     T Value
-  // Per-app theme configuration. Composes the platform's Ikon CSS baseline with per-token CSS-variable overrides addressed by name. One uniform syntax: an indexer keyed by CSS variable name (without the leading --) or by Tailwind utility token. The renderer dispatches by key shape: Tailwind palette step (amber-400) → --color-amber-400rounded-{rung} → --radius-{rung}shadow-{rung} → --shadow-{rung}font-{role} → --font-{role}ease-{kind} → --ease-{kind}Anything else → --{key} (free CSS variable) Values are Crosswind / Tailwind class names (resolved via CrosswindResolver ) or raw CSS values (hex, rem, family stacks, gradients) — the resolver passes raw values through. Example: private UI UI { get; } = new(app, new IkonTheme { // Brand commitment — set the semantic vars that components consume. ["primary"] = "amber-400", ["bg-brand-solid"] = "amber-400", ["bg-brand-solid-hover"] = "amber-400", ["text-brand"] = "amber-400", ["border-brand"] = "amber-400", ["primary-foreground"] = "#0A0A0A", // pick contrast yourself // Background + foreground. ["background"] = "zinc-950", ["text-primary"] = "amber-50", ["text-foreground"] = "amber-50", // Surfaces. ["card"] = "zinc-900", ["popover"] = "zinc-900", // Type + shape. ["font-heading"] = "Crimson Pro", ["font-body"] = "Inter", ["radius-base"] = "rounded-lg", // Motion. ["motion-duration-base"] = "200ms", ["ease-default"] = "ease-out", // Per-token Tailwind palette / radius / shadow overrides. ["amber-400"] = "#F5A524", ["rounded-lg"] = "1.25rem", ["shadow-lg"] = "0 8px 16px rgba(0,0,0,.18)", // Bespoke decorative tokens. ["hero-glow"] = "radial-gradient(circle, #F5A52488, transparent 70%)", DarkMode = new IkonTheme { ["background"] = "zinc-50", ["text-primary"] = "zinc-950", }, }); The indexer is the only configurable surface — there are no magic property fan-outs and no auto-derived contrast text. What you write IS what lands in the override block.
-  sealed class IkonTheme : ITheme
-    ctor()
-    // Paired dark-mode theme. Pass another IkonTheme ; its overrides are emitted under [data-theme="dark"], .dark, and prefers-color-scheme: dark.
-    IkonTheme? DarkMode { get; init; }
-    string Item { get; set; }
   // Accumulates profiling samples over multiple render passes, providing aggregate statistics (avg, min, max, p95, p99).
   sealed class ProfileHistory
     // Creates a new history buffer that retains the last maxSamples render sessions.
@@ -225,11 +219,11 @@ namespace Ikon.Parallax.Components.Charts
   // Extension methods for rendering interactive chart components (bar, line, pie).
   static class ChartExtensions
     // Renders an interactive bar chart with configurable grouping, layout, axes, and theming.
-    static void BarChart(UIView view, string[]? style = null, IEnumerable<Dictionary<string, object>>? data = null, IEnumerable<string>? keys = null, string? indexBy = null, BarGroupMode? groupMode = null, BarLayout? layout = null, ScaleType? valueScale = null, ScaleType? indexScale = null, bool? reverse = null, double? minValue = null, double? maxValue = null, double? padding = null, double? innerPadding = null, ChartMargin? margin = null, AxisConfig? axisTop = null, AxisConfig? axisRight = null, AxisConfig? axisBottom = null, AxisConfig? axisLeft = null, bool? enableGridX = null, bool? enableGridY = null, bool? enableLabel = null, int? labelSkipWidth = null, int? labelSkipHeight = null, string? labelTextColor = null, IEnumerable<LegendConfig>? legends = null, IEnumerable<string>? colors = null, ChartColorScheme? colorScheme = null, ChartTheme? theme = null, string? borderColor = null, double? borderRadius = null, double? borderWidth = null, bool? isInteractive = null, Func<ChartClickArgs, Task>? onClick = null, string? styleId = null, string? key = null, string file = "", int line = 0)
+    static void BarChart(UIView view, string[]? style = null, IEnumerable<Dictionary<string, object>>? data = null, IEnumerable<string>? keys = null, string? indexBy = null, BarGroupMode? groupMode = null, BarLayout? layout = null, ScaleType? valueScale = null, ScaleType? indexScale = null, bool? reverse = null, double? minValue = null, double? maxValue = null, double? padding = null, double? innerPadding = null, ChartMargin? margin = null, AxisConfig? axisTop = null, AxisConfig? axisRight = null, AxisConfig? axisBottom = null, AxisConfig? axisLeft = null, bool? enableGridX = null, bool? enableGridY = null, bool? enableLabel = null, int? labelSkipWidth = null, int? labelSkipHeight = null, string? labelTextColor = null, IEnumerable<LegendConfig>? legends = null, IEnumerable<string>? colors = null, ChartColorScheme? colorScheme = null, ChartTheme? theme = null, string? borderColor = null, double? borderRadius = null, double? borderWidth = null, string? valueFormat = null, bool? isInteractive = null, Func<ChartClickArgs, Task>? onClick = null, string? styleId = null, string? key = null, string file = "", int line = 0)
     // Renders an interactive line chart with configurable curves, points, areas, and crosshairs.
-    static void LineChart(UIView view, string[]? style = null, IEnumerable<LineChartSeries>? data = null, ScaleType? xScaleType = null, ScaleType? yScaleType = null, double? xScaleMin = null, double? xScaleMax = null, double? yScaleMin = null, double? yScaleMax = null, bool? yScaleStacked = null, ChartMargin? margin = null, AxisConfig? axisTop = null, AxisConfig? axisRight = null, AxisConfig? axisBottom = null, AxisConfig? axisLeft = null, bool? enableGridX = null, bool? enableGridY = null, bool? enablePoints = null, int? pointSize = null, string? pointColor = null, string? pointBorderColor = null, int? pointBorderWidth = null, bool? enableArea = null, double? areaOpacity = null, double? areaBaselineValue = null, bool? enableCrosshair = null, CrosshairType? crosshairType = null, LineCurve? curve = null, IEnumerable<LegendConfig>? legends = null, IEnumerable<string>? colors = null, ChartColorScheme? colorScheme = null, ChartTheme? theme = null, double? lineWidth = null, bool? isInteractive = null, bool? useMesh = null, string? gradientFromColor = null, string? gradientToColor = null, IEnumerable<double>? gridXValues = null, IEnumerable<double>? gridYValues = null, Func<ChartClickArgs, Task>? onClick = null, string? styleId = null, string? key = null, string file = "", int line = 0)
+    static void LineChart(UIView view, string[]? style = null, IEnumerable<LineChartSeries>? data = null, ScaleType? xScaleType = null, ScaleType? yScaleType = null, double? xScaleMin = null, double? xScaleMax = null, double? yScaleMin = null, double? yScaleMax = null, bool? yScaleStacked = null, ChartMargin? margin = null, AxisConfig? axisTop = null, AxisConfig? axisRight = null, AxisConfig? axisBottom = null, AxisConfig? axisLeft = null, bool? enableGridX = null, bool? enableGridY = null, bool? enablePoints = null, int? pointSize = null, string? pointColor = null, string? pointBorderColor = null, int? pointBorderWidth = null, bool? enableArea = null, double? areaOpacity = null, double? areaBaselineValue = null, bool? enableCrosshair = null, CrosshairType? crosshairType = null, LineCurve? curve = null, IEnumerable<LegendConfig>? legends = null, IEnumerable<string>? colors = null, ChartColorScheme? colorScheme = null, ChartTheme? theme = null, double? lineWidth = null, bool? isInteractive = null, bool? useMesh = null, bool? enableSlices = null, string? xFormat = null, string? yFormat = null, string? gradientFromColor = null, string? gradientToColor = null, IEnumerable<double>? gridXValues = null, IEnumerable<double>? gridYValues = null, Func<ChartClickArgs, Task>? onClick = null, string? styleId = null, string? key = null, string file = "", int line = 0)
     // Renders an interactive pie/donut chart with configurable arc labels, link labels, and legends.
-    static void PieChart(UIView view, string[]? style = null, IEnumerable<PieChartDatum>? data = null, double? innerRadius = null, double? padAngle = null, double? cornerRadius = null, double? startAngle = null, double? endAngle = null, bool? sortByValue = null, ChartMargin? margin = null, bool? enableArcLabels = null, string? arcLabelsTextColor = null, double? arcLabelsSkipAngle = null, bool? enableArcLinkLabels = null, string? arcLinkLabelsTextColor = null, double? arcLinkLabelsSkipAngle = null, double? arcLinkLabelsThickness = null, string? arcLinkLabelsColor = null, double? activeOuterRadiusOffset = null, IEnumerable<LegendConfig>? legends = null, IEnumerable<string>? colors = null, ChartColorScheme? colorScheme = null, ChartTheme? theme = null, string? borderColor = null, double? borderWidth = null, bool? isInteractive = null, Func<ChartClickArgs, Task>? onClick = null, string? styleId = null, string? key = null, string file = "", int line = 0)
+    static void PieChart(UIView view, string[]? style = null, IEnumerable<PieChartDatum>? data = null, double? innerRadius = null, double? padAngle = null, double? cornerRadius = null, double? startAngle = null, double? endAngle = null, bool? sortByValue = null, ChartMargin? margin = null, bool? enableArcLabels = null, string? arcLabelsTextColor = null, double? arcLabelsSkipAngle = null, bool? enableArcLinkLabels = null, string? arcLinkLabelsTextColor = null, double? arcLinkLabelsSkipAngle = null, double? arcLinkLabelsThickness = null, string? arcLinkLabelsColor = null, double? activeOuterRadiusOffset = null, IEnumerable<LegendConfig>? legends = null, IEnumerable<string>? colors = null, ChartColorScheme? colorScheme = null, ChartTheme? theme = null, string? borderColor = null, double? borderWidth = null, string? valueFormat = null, bool? arcLabelAsPercentage = null, bool? isInteractive = null, Func<ChartClickArgs, Task>? onClick = null, string? styleId = null, string? key = null, string file = "", int line = 0)
   // Styling for chart grid lines.
   class ChartGridStyle : IEquatable<ChartGridStyle>
     ctor()
@@ -568,85 +562,6 @@ namespace Ikon.Parallax.Components.Standard
     Start
     Center
     End
-  // One row in the charges list.
-  sealed class BillingChargeView : IEquatable<BillingChargeView>
-    // One row in the charges list.
-    ctor(string Id, string AmountLabel, string Status, DateTimeOffset Created, bool Paid, bool Refunded, string? PaymentIntentId, string? ReceiptUrl, string? Description = null)
-    string AmountLabel { get; init; }
-    DateTimeOffset Created { get; init; }
-    string? Description { get; init; }
-    string Id { get; init; }
-    bool Paid { get; init; }
-    string? PaymentIntentId { get; init; }
-    string? ReceiptUrl { get; init; }
-    bool Refunded { get; init; }
-    string Status { get; init; }
-  // Composed Parallax components for billing UIs — pricing tables, checkout actions, customer-portal entry points, payment-method and invoice lists, and subscription status. Pair with BillingService for end-to-end flows. All components are pure compositions of existing primitives (Box / Text / Button / Icon / Column / Row), so they participate in the standard theming, motion, and validation rules just like the rest of the Parallax surface.
-  static class BillingExtensions
-    // Renders a button that opens the Stripe-hosted Customer Portal in a new tab. The onOpenPortal handler is expected to call BillingService.CreatePortalAsync and return the portal url. Returning null suppresses the redirect.
-    static void BillingPortalButton(UIView view, Func<Task<string?>>? onOpenPortal = null, string? text = null, string[]? style = null, bool? disabled = null, string? icon = "settings", string? key = null, string file = "", int line = 0)
-    // Vertical list of charge / receipt rows. Each row shows formatted amount, status, optional refund button (when onRefund is supplied and the charge is paid + non-refunded), and a "Receipt" link when present.
-    static void ChargeList(UIView view, IReadOnlyList<BillingChargeView> charges, Func<string, Task>? onRefund = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
-    // Button that initiates a redirect-to-Stripe checkout. The onCheckout handler is expected to call BillingService.CreateCheckoutAsync(...) and return the session url; the component then opens the url in a new tab via ClientFunctions.OpenExternalUrlAsync. Returning null from the handler disables the redirect (e.g. for guest validation).
-    static void CheckoutButton(UIView view, Func<Task<string?>> onCheckout, string? text = null, string[]? style = null, bool? disabled = null, string? icon = "credit-card", string? key = null, string file = "", int line = 0)
-    // Vertical list of past invoices. Each row links to the hosted invoice url when present, and to the PDF when present.
-    static void InvoiceList(UIView view, IReadOnlyList<BillingInvoiceView> invoices, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
-    // Vertical list of saved payment methods. Each row shows brand, last four, and expiry. Optional onDetach renders a remove action. Optional onAddCard renders a button at the bottom; typical handler creates a Stripe Checkout Session in setup mode and redirects.
-    static void PaymentMethodList(UIView view, IReadOnlyList<BillingPaymentMethodView> methods, Func<string, Task>? onDetach = null, Func<Task>? onAddCard = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
-    // Single pricing plan card with name, price, optional badge, feature bullet list and CTA. Use directly when laying plans out by hand, or via PricingTable for the common grid case.
-    static void PlanCard(UIView view, BillingPlanView plan, Func<string, Task>? onSelect = null, string[]? style = null, string? key = null, string file = "", int line = 0)
-    // Render a grid of pricing plan cards. Each card invokes onSelect with the plan's id when the CTA is pressed. The card whose Highlighted is true gets the brand-emphasis treatment (one card max).
-    static void PricingTable(UIView view, IReadOnlyList<BillingPlanView> plans, Func<string, Task>? onSelect = null, string[]? style = null, int? columns = null, string? key = null, string file = "", int line = 0)
-    // Renders a vertical list of SubscriptionStatus cards, one per subscription. Pass the same callback set you'd pass to a single SubscriptionStatus ; each callback receives the subscription id of the row that fired it.
-    static void SubscriptionList(UIView view, IReadOnlyList<BillingSubscription> subscriptions, Func<BillingSubscription, BillingSubscriptionView>? projector = null, Func<string, Task>? onResume = null, Func<string, Task>? onCancel = null, Func<string, Task>? onCancelImmediate = null, Func<string, Task>? onPause = null, Func<string, Task>? onResumeFromPause = null, Action<UIView, BillingSubscription>? footer = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
-    // Compact subscription status card showing plan name, status pill and renewal/expiry date. Slot a BillingPortalButton in the footer to give the user a manage entry point.
-    static void SubscriptionStatus(UIView view, BillingSubscriptionView subscription, string[]? style = null, Action<UIView>? footer = null, Func<Task>? onResume = null, Func<Task>? onCancel = null, Func<Task>? onCancelImmediate = null, Func<Task>? onPause = null, Func<Task>? onResumeFromPause = null, string? key = null, string file = "", int line = 0)
-    // Grid of one-tap tip preset amounts. Each preset renders as a rounded button showing the currency-formatted amount; clicking invokes onTip with the chosen minor-unit amount. App handler typically passes the amount to BillingService.CreateTipCheckoutAsync and redirects.
-    static void TipPresetGrid(UIView view, IReadOnlyList<long> presetsMinor, string currencySymbol, Func<long, Task> onTip, string[]? style = null, string? key = null, string file = "", int line = 0)
-    // Display-only preview card for the next-billing-cycle invoice. Pair with BillingService.PreviewUpcomingInvoiceAsync: call before committing a plan change so the user sees "next bill = €X · €Y proration".
-    static void UpcomingInvoicePreview(UIView view, BillingUpcomingInvoice preview, string[]? style = null, string? key = null, string file = "", int line = 0)
-  // One row in the invoice / receipt list.
-  sealed class BillingInvoiceView : IEquatable<BillingInvoiceView>
-    // One row in the invoice / receipt list.
-    ctor(string Id, DateTimeOffset Date, string AmountLabel, string Status, string? HostedUrl = null, string? PdfUrl = null)
-    string AmountLabel { get; init; }
-    DateTimeOffset Date { get; init; }
-    string? HostedUrl { get; init; }
-    string Id { get; init; }
-    string? PdfUrl { get; init; }
-    string Status { get; init; }
-  // One saved card / payment method.
-  sealed class BillingPaymentMethodView : IEquatable<BillingPaymentMethodView>
-    // One saved card / payment method.
-    ctor(string Id, string Brand, string Last4, int ExpMonth, int ExpYear, bool IsDefault = false)
-    string Brand { get; init; }
-    int ExpMonth { get; init; }
-    int ExpYear { get; init; }
-    string Id { get; init; }
-    bool IsDefault { get; init; }
-    string Last4 { get; init; }
-  // View-model records for the Parallax billing components. They are intentionally lightweight and decoupled from the Stripe-shaped Billing records so the components can be driven from any source — a live BillingService , a fake in-memory list, or static catalog data.
-  sealed class BillingPlanView : IEquatable<BillingPlanView>
-    // View-model records for the Parallax billing components. They are intentionally lightweight and decoupled from the Stripe-shaped Billing records so the components can be driven from any source — a live BillingService , a fake in-memory list, or static catalog data.
-    ctor(string PlanId, string Name, string PriceLabel, string? IntervalLabel = null, IReadOnlyList<string>? Features = null, string? Badge = null, string? CtaLabel = null, bool Highlighted = false, bool Disabled = false)
-    string? Badge { get; init; }
-    string? CtaLabel { get; init; }
-    bool Disabled { get; init; }
-    IReadOnlyList<string>? Features { get; init; }
-    bool Highlighted { get; init; }
-    string? IntervalLabel { get; init; }
-    string Name { get; init; }
-    string PlanId { get; init; }
-    string PriceLabel { get; init; }
-  // Subscription header / status card model.
-  sealed class BillingSubscriptionView : IEquatable<BillingSubscriptionView>
-    // Subscription header / status card model.
-    ctor(string PlanName, string Status, DateTimeOffset? CurrentPeriodEnd = null, bool CancelAtPeriodEnd = false, string? PriceLabel = null)
-    bool CancelAtPeriodEnd { get; init; }
-    DateTimeOffset? CurrentPeriodEnd { get; init; }
-    string PlanName { get; init; }
-    string? PriceLabel { get; init; }
-    string Status { get; init; }
   // Extension methods for Calendar and DatePicker components.
   static class CalendarExtensions
     // Month-grid date selector. Renders a single month with day cells. Dates are ISO yyyy-MM-dd strings.
@@ -1297,6 +1212,85 @@ namespace Ikon.Parallax.Components.Standard
   // Bounded-cursor primitive on top of ClientReactive`1 . Slices an in-memory list, returns the slice + bound actions (Prev/Next/JumpTo/First/Last) the caller binds to whatever UI fits. Holds zero rendering opinion — no tab bars, no default control rows, no opinionated layout. Most Ikon apps don't need pagination at all (live feeds, autoscroll, virtualization handle the common cases via Reactive<List<T>> + ScrollArea(autoScroll: true)). Use this when you have a static list large enough to warrant explicit page navigation. For DB-backed pagination (load only the current page from a backend), drive ClientReactive`1 directly and observe its value in your data-loading code — same per-client semantics, no special helper needed.
   static class PaginationExtensions
     static Page<T> Paginate<T>(UIView view, IReadOnlyList<T> items, ClientReactive<int> page, int pageSize = 20)
+  // One row in the charges list.
+  sealed class PaymentsChargeView : IEquatable<PaymentsChargeView>
+    // One row in the charges list.
+    ctor(string Id, string AmountLabel, string Status, DateTimeOffset Created, bool Paid, bool Refunded, string? PaymentIntentId, string? ReceiptUrl, string? Description = null)
+    string AmountLabel { get; init; }
+    DateTimeOffset Created { get; init; }
+    string? Description { get; init; }
+    string Id { get; init; }
+    bool Paid { get; init; }
+    string? PaymentIntentId { get; init; }
+    string? ReceiptUrl { get; init; }
+    bool Refunded { get; init; }
+    string Status { get; init; }
+  // Composed Parallax components for billing UIs — pricing tables, checkout actions, customer-portal entry points, payment-method and invoice lists, and subscription status. Pair with PaymentsService for end-to-end flows. All components are pure compositions of existing primitives (Box / Text / Button / Icon / Column / Row), so they participate in the standard theming, motion, and validation rules just like the rest of the Parallax surface.
+  static class PaymentsExtensions
+    // Vertical list of charge / receipt rows. Each row shows formatted amount, status, optional refund button (when onRefund is supplied and the charge is paid + non-refunded), and a "Receipt" link when present.
+    static void ChargeList(UIView view, IReadOnlyList<PaymentsChargeView> charges, Func<string, Task>? onRefund = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
+    // Button that initiates a redirect-to-Stripe checkout. The onCheckout handler is expected to call PaymentsService.CreateCheckoutAsync(...) and return the session url; the component then opens the url in a new tab via ClientFunctions.OpenExternalUrlAsync. Returning null from the handler disables the redirect (e.g. for guest validation).
+    static void CheckoutButton(UIView view, Func<Task<string?>> onCheckout, string? text = null, string[]? style = null, bool? disabled = null, string? icon = "credit-card", string? key = null, string file = "", int line = 0)
+    // Vertical list of past invoices. Each row links to the hosted invoice url when present, and to the PDF when present.
+    static void InvoiceList(UIView view, IReadOnlyList<PaymentsInvoiceView> invoices, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
+    // Vertical list of saved payment methods. Each row shows brand, last four, and expiry. Optional onDetach renders a remove action. Optional onAddCard renders a button at the bottom; typical handler creates a Stripe Checkout Session in setup mode and redirects.
+    static void PaymentMethodList(UIView view, IReadOnlyList<PaymentsPaymentMethodView> methods, Func<string, Task>? onDetach = null, Func<Task>? onAddCard = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
+    // Renders a button that opens the Stripe-hosted Customer Portal in a new tab. The onOpenPortal handler is expected to call PaymentsService.CreatePortalAsync and return the portal url. Returning null suppresses the redirect.
+    static void PaymentsPortalButton(UIView view, Func<Task<string?>>? onOpenPortal = null, string? text = null, string[]? style = null, bool? disabled = null, string? icon = "settings", string? key = null, string file = "", int line = 0)
+    // Single pricing plan card with name, price, optional badge, feature bullet list and CTA. Use directly when laying plans out by hand, or via PricingTable for the common grid case.
+    static void PlanCard(UIView view, PaymentsPlanView plan, Func<string, Task>? onSelect = null, string[]? style = null, string? key = null, string file = "", int line = 0)
+    // Render a grid of pricing plan cards. Each card invokes onSelect with the plan's id when the CTA is pressed. The card whose Highlighted is true gets the brand-emphasis treatment (one card max).
+    static void PricingTable(UIView view, IReadOnlyList<PaymentsPlanView> plans, Func<string, Task>? onSelect = null, string[]? style = null, int? columns = null, string? key = null, string file = "", int line = 0)
+    // Renders a vertical list of SubscriptionStatus cards, one per subscription. Pass the same callback set you'd pass to a single SubscriptionStatus ; each callback receives the subscription id of the row that fired it.
+    static void SubscriptionList(UIView view, IReadOnlyList<PaymentsSubscription> subscriptions, Func<PaymentsSubscription, PaymentsSubscriptionView>? projector = null, Func<string, Task>? onResume = null, Func<string, Task>? onCancel = null, Func<string, Task>? onCancelImmediate = null, Func<string, Task>? onPause = null, Func<string, Task>? onResumeFromPause = null, Action<UIView, PaymentsSubscription>? footer = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
+    // Compact subscription status card showing plan name, status pill and renewal/expiry date. Slot a PaymentsPortalButton in the footer to give the user a manage entry point.
+    static void SubscriptionStatus(UIView view, PaymentsSubscriptionView subscription, string[]? style = null, Action<UIView>? footer = null, Func<Task>? onResume = null, Func<Task>? onCancel = null, Func<Task>? onCancelImmediate = null, Func<Task>? onPause = null, Func<Task>? onResumeFromPause = null, string? key = null, string file = "", int line = 0)
+    // Grid of one-tap tip preset amounts. Each preset renders as a rounded button showing the currency-formatted amount; clicking invokes onTip with the chosen minor-unit amount. App handler typically passes the amount to PaymentsService.CreateTipCheckoutAsync and redirects.
+    static void TipPresetGrid(UIView view, IReadOnlyList<long> presetsMinor, string currencySymbol, Func<long, Task> onTip, string[]? style = null, string? key = null, string file = "", int line = 0)
+    // Display-only preview card for the next-billing-cycle invoice. Pair with PaymentsService.PreviewUpcomingInvoiceAsync: call before committing a plan change so the user sees "next bill = €X · €Y proration".
+    static void UpcomingInvoicePreview(UIView view, PaymentsUpcomingInvoice preview, string[]? style = null, string? key = null, string file = "", int line = 0)
+  // One row in the invoice / receipt list.
+  sealed class PaymentsInvoiceView : IEquatable<PaymentsInvoiceView>
+    // One row in the invoice / receipt list.
+    ctor(string Id, DateTimeOffset Date, string AmountLabel, string Status, string? HostedUrl = null, string? PdfUrl = null)
+    string AmountLabel { get; init; }
+    DateTimeOffset Date { get; init; }
+    string? HostedUrl { get; init; }
+    string Id { get; init; }
+    string? PdfUrl { get; init; }
+    string Status { get; init; }
+  // One saved card / payment method.
+  sealed class PaymentsPaymentMethodView : IEquatable<PaymentsPaymentMethodView>
+    // One saved card / payment method.
+    ctor(string Id, string Brand, string Last4, int ExpMonth, int ExpYear, bool IsDefault = false)
+    string Brand { get; init; }
+    int ExpMonth { get; init; }
+    int ExpYear { get; init; }
+    string Id { get; init; }
+    bool IsDefault { get; init; }
+    string Last4 { get; init; }
+  // View-model records for the Parallax billing components. They are intentionally lightweight and decoupled from the Stripe-shaped Payments records so the components can be driven from any source — a live PaymentsService , a fake in-memory list, or static catalog data.
+  sealed class PaymentsPlanView : IEquatable<PaymentsPlanView>
+    // View-model records for the Parallax billing components. They are intentionally lightweight and decoupled from the Stripe-shaped Payments records so the components can be driven from any source — a live PaymentsService , a fake in-memory list, or static catalog data.
+    ctor(string PlanId, string Name, string PriceLabel, string? IntervalLabel = null, IReadOnlyList<string>? Features = null, string? Badge = null, string? CtaLabel = null, bool Highlighted = false, bool Disabled = false)
+    string? Badge { get; init; }
+    string? CtaLabel { get; init; }
+    bool Disabled { get; init; }
+    IReadOnlyList<string>? Features { get; init; }
+    bool Highlighted { get; init; }
+    string? IntervalLabel { get; init; }
+    string Name { get; init; }
+    string PlanId { get; init; }
+    string PriceLabel { get; init; }
+  // Subscription header / status card model.
+  sealed class PaymentsSubscriptionView : IEquatable<PaymentsSubscriptionView>
+    // Subscription header / status card model.
+    ctor(string PlanName, string Status, DateTimeOffset? CurrentPeriodEnd = null, bool CancelAtPeriodEnd = false, string? PriceLabel = null)
+    bool CancelAtPeriodEnd { get; init; }
+    DateTimeOffset? CurrentPeriodEnd { get; init; }
+    string PlanName { get; init; }
+    string? PriceLabel { get; init; }
+    string Status { get; init; }
   // Options for the Contact Picker API action.
   sealed class PickContactsActionOptions : ActionOptions, IEquatable<PickContactsActionOptions>
     ctor()
@@ -1415,7 +1409,7 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for WebGL shader components.
   static class ShadertoyExtensions
     // Shadertoy-compatible WebGL fragment shader canvas.
-    static void ShadertoyCanvas(UIView view, string[]? style = null, string? shaderSource = null, int? fps = null, IReadOnlyDictionary<string, ShaderUniform>? uniforms = null, bool? enableMouse = null, int? width = null, int? height = null, string? styleId = null, string? key = null, string file = "", int line = 0)
+    static void ShadertoyCanvas(UIView view, string[]? style = null, string? shaderSource = null, int? fps = null, IReadOnlyDictionary<string, ShaderUniform>? uniforms = null, IReadOnlyList<string>? channels = null, bool? enableMouse = null, int? width = null, int? height = null, string? styleId = null, string? key = null, string file = "", int line = 0)
   // Options for the Web Share API action.
   sealed class ShareActionOptions : ActionOptions, IEquatable<ShareActionOptions>
     ctor()
@@ -1517,14 +1511,10 @@ namespace Ikon.Parallax.Components.Standard
     Monday
 
 namespace Ikon.Parallax.Themes
-  // Defines a UI theme providing base CSS and a default icon library.
-  interface ITheme
-    // Global CSS injected into the client as the theme baseline.
-    string Css { get; }
-    // The default icon library name (e.g. "lucide") used when no library is specified on an icon component.
-    string DefaultIconLibrary { get; }
+  // Legacy alias for ITheme . Apps scaffolded before the refactor still ship a local `Theme : ITheme` with `global using Ikon.Parallax.Themes;` — this keeps that resolve to a real interface whose contract matches the new one. New code should reference ITheme directly.
+  interface ITheme : ITheme
 
-namespace Ikon.Parallax.Themes.Ikon
+namespace Ikon.Parallax.Theming
   static class Accessibility
     static string RequiredLabel(string baseLabel)
     static string NotScreenReaderOnly
@@ -1833,22 +1823,6 @@ namespace Ikon.Parallax.Themes.Ikon
     static string CellMuted
     static string Default
     static string Header
-  // Resolves a Crosswind class name (color step, radius rung, font role, motion duration / easing) to the underlying CSS value the IkonTheme variables expect. Hex / rem / family-stack passthrough — values that don't look like Crosswind tokens are returned as-is so users can mix in raw hex when they need a custom palette.
-  static class CrosswindResolver
-    // True when a Tailwind palette token represents a "light" step (50-500 inclusive). Used by CssRenderer to pick the auto-derived primary-foreground (dark text on light brand vs. white text on dark brand). Returns null when we can't infer (raw hex, non-palette tokens) — caller falls back to luminance computation.
-    static bool? IsLightPaletteStep(string token)
-    // True when the token is a recognized Tailwind palette step (e.g. "amber-400", "zinc-950"). Used by CssRenderer to dispatch indexer overrides to the right CSS-variable target.
-    static bool IsTailwindPaletteToken(string token)
-    // Resolve a color token (e.g. "amber-400", "zinc-950") to a CSS color expression referencing the corresponding Tailwind palette CSS variable shipped by TailwindCssBaseline. Raw colors (hex, oklch, hsl, rgb, named) pass through unchanged.
-    static string ResolveColor(string token)
-    // Resolve a motion duration token (e.g. "duration-150", "150ms", "0.2s") to a CSS duration literal.
-    static string ResolveDuration(string token)
-    // Resolve an easing token (e.g. "ease-out", "linear") to a CSS easing value. Cubic-bezier expressions and raw keywords pass through unchanged.
-    static string ResolveEasing(string token)
-    // Resolve a font-family token (e.g. "font-sans", "font-serif", or a literal family name) to a quoted CSS font-family stack. Custom family names get a sensible system fallback chain.
-    static string ResolveFontFamily(string token)
-    // Resolve a radius token (e.g. "rounded-lg", "rounded-2xl") to its rem value. Raw rem / px values pass through unchanged.
-    static string ResolveRadius(string token)
   static class DataTable
     static string Cell
     static string DataCell
@@ -1993,6 +1967,12 @@ namespace Ikon.Parallax.Themes.Ikon
   static class HoverCard
     static string Content
     static string Default
+  // Defines a UI theme providing base CSS and a default icon library.
+  interface ITheme
+    // Global CSS injected into the client as the theme baseline.
+    string Css { get; }
+    // The default icon library name (e.g. "lucide") used when no library is specified on an icon component.
+    string DefaultIconLibrary { get; }
   static class Icon
     static string Default
     static string Lg
@@ -2014,6 +1994,12 @@ namespace Ikon.Parallax.Themes.Ikon
     static string Lg
     static string Md
     static string Sm
+  // Per-app theme configuration. Composes the platform's Ikon CSS baseline with per-token CSS-variable overrides addressed by name. One uniform syntax: an indexer keyed by CSS variable name (without the leading --) or by Tailwind utility token. The renderer dispatches by key shape: Tailwind palette step (amber-400) → --color-amber-400rounded-{rung} → --radius-{rung}shadow-{rung} → --shadow-{rung}font-{role} → --font-{role}ease-{kind} → --ease-{kind}Anything else → --{key} (free CSS variable) Values are Crosswind / Tailwind class names (resolved via CrosswindResolver ) or raw CSS values (hex, rem, family stacks, gradients) — the resolver passes raw values through. Example: private UI UI { get; } = new(app, new IkonTheme { // Brand commitment — set the semantic vars that components consume. ["primary"] = "amber-400", ["bg-brand-solid"] = "amber-400", ["bg-brand-solid-hover"] = "amber-400", ["text-brand"] = "amber-400", ["border-brand"] = "amber-400", ["primary-foreground"] = "#0A0A0A", // pick contrast yourself // Background + foreground. ["background"] = "zinc-950", ["text-primary"] = "amber-50", ["text-foreground"] = "amber-50", // Surfaces. ["card"] = "zinc-900", ["popover"] = "zinc-900", // Type + shape. ["font-heading"] = "Crimson Pro", ["font-body"] = "Inter", ["radius-base"] = "rounded-lg", // Motion. ["motion-duration-base"] = "200ms", ["ease-default"] = "ease-out", // Per-token Tailwind palette / radius / shadow overrides. ["amber-400"] = "#F5A524", ["rounded-lg"] = "1.25rem", ["shadow-lg"] = "0 8px 16px rgba(0,0,0,.18)", // Bespoke decorative tokens. ["hero-glow"] = "radial-gradient(circle, #F5A52488, transparent 70%)", DarkMode = new IkonTheme { ["background"] = "zinc-50", ["text-primary"] = "zinc-950", }, }); The indexer is the only configurable surface — there are no magic property fan-outs and no auto-derived contrast text. What you write IS what lands in the override block.
+  sealed class IkonTheme : ITheme
+    ctor()
+    // Paired dark-mode theme. Pass another IkonTheme ; its overrides are emitted under [data-theme="dark"], .dark, and prefers-color-scheme: dark.
+    IkonTheme? DarkMode { get; init; }
+    string Item { get; set; }
   static class ImageCard
     static string Caption
     static string Image
@@ -2156,10 +2142,7 @@ namespace Ikon.Parallax.Themes.Ikon
   static class Page
     static string Base
     static string Default
-    // Backwards-compatible alias for the tri-color decorative overlay. New code should prefer Showcase for clarity.
-    static string Gradient
     static string Plain
-    static string Showcase
   static class Pagination
     static string Active
     static string Disabled
@@ -2444,19 +2427,11 @@ namespace Ikon.Parallax.Themes.Ikon
     static string DefaultLg
     static string DefaultSm
     static string Invalid
+  // Legacy alias for the non-configurable default theme — equivalent to new IkonTheme() with no overrides. Apps scaffolded against the older platform shape used new Theme() to get the baseline; the indexer-driven IkonTheme is the new API and should be used in new code.
   sealed class Theme : ITheme
     ctor()
     string Css { get; }
     string DefaultIconLibrary { get; }
-  // One named override on an app's theme: a role + Crosswind value, or a free-form custom CSS variable. The codegen Styling Oracle emits a list of these; the CSS renderer walks them.
-  sealed class ThemeIntent : IEquatable<ThemeIntent>
-    // One named override on an app's theme: a role + Crosswind value, or a free-form custom CSS variable. The codegen Styling Oracle emits a list of these; the CSS renderer walks them.
-    ctor(string Role, string Value, string? CustomName = null)
-    string? CustomName { get; init; }
-    string Role { get; init; }
-    string Value { get; init; }
-    // Theme roles recognized by the renderer. Anything else passes through as a custom variable (in which case CustomName must be set and matches the variable name without the leading --).
-    static IReadOnlyList<string> Roles
   static class TimePicker
     static string Column
     static string ColumnSeparator
@@ -2567,6 +2542,52 @@ namespace Ikon.Parallax.Themes.Ikon
     static string Images
     static string Wrapper
 
+namespace Ikon.Parallax.Theming.Flutter
+  static class FlutterTokens.Badge
+    static string Brand
+    static string Neutral
+  static class FlutterTokens.Button
+    static string Danger
+    static string Ghost
+    static string Icon
+    static string Neutral
+    static string Outline
+    static string Primary
+  static class FlutterTokens.Divider
+    static string Horizontal
+    static string Line
+  static class FlutterTokens
+  static class FlutterTokens.Icon
+    static string Default
+    static string Lg
+    static string Md
+    static string Sm
+    static string Xs
+  static class FlutterTokens.Input
+    static string Area
+    static string Default
+  static class FlutterTokens.Layout
+    static string Center
+    static string Column
+    static string Row
+    static string RowWrap
+    static string Screen
+  static class FlutterTokens.Surface
+    static string Card
+    static string Panel
+    static string Screen
+  static class FlutterTokens.Text
+    static string Body
+    static string BodyStrong
+    static string Caption
+    static string H1
+    static string H2
+    static string H3
+    static string Hero
+    static string Label
+    static string Link
+    static string Muted
+
 
 ---
 
@@ -2619,9 +2640,9 @@ private readonly Reactive<string, UserScope> _userPreference = new("");
 
 Styling uses Crosswind, a Tailwind-compatible utility class system. Styles are defined as string constants and support:
 
-- Standard Tailwind utility classes (`flex`, `gap-4`, `bg-white`, etc.)
+- Standard Crosswind utility classes (`flex`, `gap-4`, `bg-white`, etc.)
 - Extended motion and animation classes
-- Built-in theme style constants (via `Ikon.Parallax.Themes.Default`)
+- Built-in theme style constants (via `Ikon.Parallax.Theming`)
 
 ```csharp
 private const string ButtonStyle =
@@ -2638,7 +2659,7 @@ Create a `UI` instance with the app host and call `Root` to define the UI tree:
 
 ```csharp
 using Ikon.Parallax;
-using Ikon.Parallax.Themes.Default;
+using Ikon.Parallax.Theming;
 
 [App]
 public class MyApp(IApp<SessionIdentity, ClientParams> app)
@@ -2882,10 +2903,10 @@ public static class AppStyles
 }
 ```
 
-The library includes a built-in `Default` theme that provides a complete style system:
+The library ships a set of theme style constants under `Ikon.Parallax.Theming` (e.g. `Button`, `Input`, `Card`, `Text`, `Layout`, `Page`) that compose Crosswind utility classes into ready-to-use named styles:
 
 ```csharp
-using Ikon.Parallax.Themes.Default;
+using Ikon.Parallax.Theming;
 
 // Use theme style constants
 view.Button(style: [Button.PrimaryMd], label: "Submit");

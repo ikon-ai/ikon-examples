@@ -10,7 +10,7 @@ using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
 public partial class Validation
 {
     // ── Tool surface ─────────────────────────────────────────────────────────
-    // [McpTool] methods on the App class are discovered automatically — the
+    // [Mcp] methods on the App class are discovered automatically — the
     // running Validation instance is registered as a singleton in CellHost
     // by IkonServer's plugin bootstrap, so McpToolDiscovery walks it like
     // any other cell type.
@@ -21,7 +21,7 @@ public partial class Validation
         [Description("Follow-up questions worth pursuing")] string[] OpenQuestions,
         [Description("0.0–1.0 confidence in the brief's accuracy")] double Confidence);
 
-    [McpTool(Description = "Research a topic and return a structured brief using Emergence")]
+    [Mcp(Description = "Research a topic and return a structured brief using Emergence")]
     public async Task<TopicBrief> Research(
         [Description("The topic to research")] string topic,
         [Description("Depth: 1=quick, 3=thorough")] int depth = 2)
@@ -43,7 +43,7 @@ public partial class Validation
         return brief;
     }
 
-    [McpTool(Description = "Echo back a string (sanity-check tool)")]
+    [Mcp(Description = "Echo back a string (sanity-check tool)")]
     public string McpEcho([Description("Text to echo")] string text) => $"echo: {text}";
 
     // ── MCP host + public endpoint lifecycle ─────────────────────────────────
@@ -66,7 +66,7 @@ public partial class Validation
 
             _mcpHost = new McpHost(serverName: "validation-mcp", serverVersion: "1.0.0");
 
-            // Walk this app's [McpTool] methods + the Lab cells' tools so they share this app's
+            // Walk this app's [Mcp] methods + the Lab cells' tools so they share this app's
             // MCP surface (the platform's IkonServer.BuildMcpHost handles cellHost.CellTypes
             // globally, but the App/Cells tab calls the Validation app's endpoint here).
             var infos = McpToolDiscovery.ForType(typeof(Validation))
@@ -95,20 +95,11 @@ public partial class Validation
     }
 
     // The /api/mcp URL shares the REST host; derive its authority from any registered
-    // [Rest]/[HttpEndpoint] webhook PublicUrl so it tracks local-vs-cloud without hardcoding a host.
+    // [Rest]/[Rest] webhook PublicUrl so it tracks local-vs-cloud without hardcoding a host.
     private string? ResolveApiMcpUrl()
     {
-        var rest = app.Webhooks.FirstOrDefault(w => !string.IsNullOrEmpty(w.PublicUrl))?.PublicUrl;
+        var rest = app.Endpoints.FirstOrDefault(w => !string.IsNullOrEmpty(w.PublicUrl))?.PublicUrl;
         return rest is null ? null : new Uri(rest).GetLeftPart(UriPartial.Authority) + "/api/mcp";
-    }
-
-    // A cell's MCP rides the SAME per-cell path as its REST endpoints — /api/{cell}/mcp, the
-    // PublicUrl minted for the auto-registered {Cell}_mcp endpoint. The app-root /api/mcp is NOT
-    // an app-declared path, so it 404s at the cloud gateway; the cell-scoped path is the real one.
-    private string? ResolveCellMcpUrl(string mcpFunctionName)
-    {
-        var wh = app.Webhooks.FirstOrDefault(w => w.FunctionName == mcpFunctionName);
-        return string.IsNullOrEmpty(wh?.PublicUrl) ? null : wh.PublicUrl;
     }
 
     private async Task InvokeMcpToolAsync()

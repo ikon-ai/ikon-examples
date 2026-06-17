@@ -62,10 +62,13 @@ namespace Ikon.AI
     bool ForceRemote { get; set; }
   enum ModelCategory
     Classifier
+    DepthEstimator
     Embeddings
     FileConverter
     ImageGenerator
+    ImageSegmenter
     LLM
+    MeshGenerator
     OCR
     Reranker
     SoundEffectGenerator
@@ -118,12 +121,14 @@ namespace Ikon.AI
     DeepInfra
     Deepgram
     ElevenLabs
+    Fal
     Fireworks
     Google
     Groq
     Hyperbolic
     Ikon
     Jina
+    Meshy
     Mistral
     OpenAI
     OpenRouter
@@ -309,6 +314,55 @@ namespace Ikon.AI.Database
   static class SqlValidator
     static void ValidateReadOnly(string sql, HashSet<string> allowedTables)
 
+namespace Ikon.AI.DepthEstimation
+  sealed class DepthEstimator : IDepthEstimator, IDisposable
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
+    ctor(DepthEstimatorModel model, IReadOnlyList<ModelRegion>? regions = null)
+    void Dispose()
+    Task<DepthEstimatorResult> EstimateDepthAsync(DepthEstimatorConfig config, CancellationToken cancellationToken = null)
+    static IReadOnlyList<ModelRegion> GetSupportedRegions(DepthEstimatorModel model)
+  sealed class DepthEstimatorConfig
+    ctor()
+    int? EnsembleSize { get; set; }
+    DepthEstimatorConfig.InputImage Image { get; set; }
+    int? NumInferenceSteps { get; set; }
+    int? ProcessingResolution { get; set; }
+    TimeSpan Timeout { get; set; }
+    static DepthEstimatorConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  enum DepthEstimatorModel
+    DepthAnythingV2
+    Marigold
+    Midas
+  static class DepthEstimatorModelExtensions
+    static string DisplayName(DepthEstimatorModel model)
+  sealed class DepthEstimatorResult
+    ctor()
+    DepthEstimatorResult.OutputImage Depth { get; set; }
+    static DepthEstimatorResult ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  interface IDepthEstimator : IDisposable
+    abstract Task<DepthEstimatorResult> EstimateDepthAsync(DepthEstimatorConfig config, CancellationToken cancellationToken = null)
+  sealed class DepthEstimatorConfig.InputImage
+    ctor()
+    byte[]? Data { get; set; }
+    string? MimeType { get; set; }
+    string? Url { get; set; }
+    static DepthEstimatorConfig.InputImage ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class DepthEstimatorResult.OutputImage
+    ctor()
+    byte[] Data { get; set; }
+    int Height { get; set; }
+    string MimeType { get; set; }
+    int Width { get; set; }
+    static DepthEstimatorResult.OutputImage ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+
 namespace Ikon.AI.Embeddings
   enum EmbeddingEncoding
     Base64
@@ -342,15 +396,21 @@ namespace Ikon.AI.Embeddings
     OpenAI3Large
     CohereEmbed4
     MistralEmbed
+    CodestralEmbed
     GeminiEmbedding1
     GoogleTextEmbedding5
     GoogleTextMultilingualEmbedding2
     JinaEmbeddings3
     JinaEmbeddings4
+    JinaEmbeddings5TextSmall
+    JinaEmbeddings5TextNano
+    JinaEmbeddings5OmniSmall
+    JinaEmbeddings5OmniNano
     Voyage35
     Voyage35Lite
     Voyage4
     Voyage4Lite
+    Voyage4Large
   static class EmbeddingModelExtensions
     static string DisplayName(EmbeddingModel model)
   enum EmbeddingType
@@ -512,6 +572,84 @@ namespace Ikon.AI.ImageGeneration
     Level4
     Level5
     Level6
+
+namespace Ikon.AI.ImageSegmentation
+  sealed class ImageSegmenterConfig.BoxPrompt
+    ctor()
+    int? ObjectId { get; set; }
+    double XMax { get; set; }
+    double XMin { get; set; }
+    double YMax { get; set; }
+    double YMin { get; set; }
+    static ImageSegmenterConfig.BoxPrompt ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  interface IImageSegmenter : IDisposable
+    abstract Task<ImageSegmenterResult> SegmentImageAsync(ImageSegmenterConfig config, CancellationToken cancellationToken = null)
+  sealed class ImageSegmenter : IDisposable, IImageSegmenter
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
+    ctor(ImageSegmenterModel model, IReadOnlyList<ModelRegion>? regions = null)
+    void Dispose()
+    static IReadOnlyList<ModelRegion> GetSupportedRegions(ImageSegmenterModel model)
+    Task<ImageSegmenterResult> SegmentImageAsync(ImageSegmenterConfig config, CancellationToken cancellationToken = null)
+  sealed class ImageSegmenterConfig
+    ctor()
+    List<ImageSegmenterConfig.BoxPrompt> BoxPrompts { get; set; }
+    ImageSegmenterConfig.InputImage Image { get; set; }
+    int MaxMasks { get; set; }
+    List<ImageSegmenterConfig.PointPrompt> PointPrompts { get; set; }
+    string? Prompt { get; set; }
+    bool ReturnMultipleMasks { get; set; }
+    TimeSpan Timeout { get; set; }
+    static ImageSegmenterConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  enum ImageSegmenterModel
+    Sam3
+    Sam31
+  static class ImageSegmenterModelExtensions
+    static string DisplayName(ImageSegmenterModel model)
+  sealed class ImageSegmenterResult
+    ctor()
+    ImageSegmenterResult.OutputImage? Preview { get; set; }
+    List<ImageSegmenterResult.Segment> Segments { get; set; }
+    static ImageSegmenterResult ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class ImageSegmenterConfig.InputImage
+    ctor()
+    byte[]? Data { get; set; }
+    string? MimeType { get; set; }
+    string? Url { get; set; }
+    static ImageSegmenterConfig.InputImage ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class ImageSegmenterResult.OutputImage
+    ctor()
+    byte[] Data { get; set; }
+    int Height { get; set; }
+    string MimeType { get; set; }
+    int Width { get; set; }
+    static ImageSegmenterResult.OutputImage ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class ImageSegmenterConfig.PointPrompt
+    ctor()
+    bool IsBackground { get; set; }
+    int? ObjectId { get; set; }
+    double X { get; set; }
+    double Y { get; set; }
+    static ImageSegmenterConfig.PointPrompt ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class ImageSegmenterResult.Segment
+    ctor()
+    List<double> Box { get; set; }
+    ImageSegmenterResult.OutputImage Mask { get; set; }
+    double? Score { get; set; }
+    static ImageSegmenterResult.Segment ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
 
 namespace Ikon.AI.Kernel
   sealed class AsyncEnumerableExtensions.<G>$CA58BA95B4ED5DE0AC5F384160329049
@@ -827,12 +965,14 @@ namespace Ikon.AI.LLM
     Claude46Opus
     Claude46Sonnet
     Claude47Opus
+    Claude48Opus
     Gemini25Flash
     Gemini25FlashLite
     Gemini25Pro
     Gemini3Flash
     Gemini31Pro
     Gemini31FlashLite
+    Gemini35Flash
     Grok43
     Grok420Reasoning
     Grok420NonReasoning
@@ -925,6 +1065,82 @@ namespace Ikon.AI.Legacy
     ctor()
     string ErrorMessage
     bool IsSuccess
+
+namespace Ikon.AI.MeshGeneration
+  interface IMeshGenerator : IDisposable, IMeshGeneratorInfo
+    abstract Task<MeshGeneratorResult> GenerateMeshAsync(MeshGeneratorConfig config, CancellationToken cancellationToken = null)
+  interface IMeshGeneratorInfo
+    int MaxInputImages { get; }
+    bool SupportsImageToMesh { get; }
+    bool SupportsLowPoly { get; }
+    bool SupportsPbr { get; }
+    bool SupportsTextToMesh { get; }
+  sealed class MeshGeneratorConfig.InputImage
+    ctor()
+    byte[]? Data { get; set; }
+    string? MimeType { get; set; }
+    string? Url { get; set; }
+    static MeshGeneratorConfig.InputImage ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class MeshGenerator : IDisposable, IMeshGenerator, IMeshGeneratorInfo
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
+    ctor(MeshGeneratorModel model, IReadOnlyList<ModelRegion>? regions = null)
+    int MaxInputImages { get; }
+    bool SupportsImageToMesh { get; }
+    bool SupportsLowPoly { get; }
+    bool SupportsPbr { get; }
+    bool SupportsTextToMesh { get; }
+    void Dispose()
+    Task<MeshGeneratorResult> GenerateMeshAsync(MeshGeneratorConfig config, CancellationToken cancellationToken = null)
+    static MeshGeneratorCapabilities GetCapabilities(MeshGeneratorModel model)
+    static IReadOnlyList<ModelRegion> GetSupportedRegions(MeshGeneratorModel model)
+  sealed class MeshGeneratorCapabilities : IMeshGeneratorInfo
+    ctor()
+    int MaxInputImages { get; init; }
+    bool SupportsImageToMesh { get; init; }
+    bool SupportsLowPoly { get; init; }
+    bool SupportsPbr { get; init; }
+    bool SupportsTextToMesh { get; init; }
+  sealed class MeshGeneratorConfig
+    ctor()
+    bool EnablePbr { get; set; }
+    List<MeshGeneratorConfig.InputImage> InputImages { get; set; }
+    MeshGeneratorMeshStyle MeshStyle { get; set; }
+    string? Prompt { get; set; }
+    bool Remesh { get; set; }
+    int TargetPolycount { get; set; }
+    bool Texture { get; set; }
+    string? TexturePrompt { get; set; }
+    TimeSpan Timeout { get; set; }
+    MeshGeneratorTopology Topology { get; set; }
+    static MeshGeneratorConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  enum MeshGeneratorMeshStyle
+    Standard
+    LowPoly
+  enum MeshGeneratorModel
+    Meshy5
+    Meshy6
+  static class MeshGeneratorModelExtensions
+    static string DisplayName(MeshGeneratorModel model)
+  // Result of a mesh generation. The URLs are signed and expire roughly three days after generation, so download the model files promptly.
+  sealed class MeshGeneratorResult
+    ctor()
+    DateTimeOffset? ExpiresAt { get; set; }
+    string? FbxUrl { get; set; }
+    string? GlbUrl { get; set; }
+    string? MtlUrl { get; set; }
+    string? ObjUrl { get; set; }
+    string? ThumbnailUrl { get; set; }
+    string? UsdzUrl { get; set; }
+    static MeshGeneratorResult ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  enum MeshGeneratorTopology
+    Triangle
+    Quad
 
 namespace Ikon.AI.OCR
   enum DocumentType

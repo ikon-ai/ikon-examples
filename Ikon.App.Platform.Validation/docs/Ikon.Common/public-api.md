@@ -15,20 +15,23 @@ namespace Ikon.Common
     ctor()
     AppBundleConfig.ActivationConfig Activation { get; set; }
     AppBundleConfig.AuthConfig Auth { get; set; }
-    // Per-cell entry points discovered in the bundle. The cloud uses this list to: (a) recognise URLs of the form /api/{CellType}/{path} and route them to a cell-instance (provisioned the same way an app-instance is, just with AppInitializationArgs.RunTarget = "{CellType}" instead of null); (b) hash the request's identity query params against the cell's IdentityFields to find-or-create the right channel-instance for that cell identity. Empty for apps without cells, or for cells whose ProcessScope is AppProcess (in-process — no separate cell-instance needed). See docs/private/cell-substrate-and-unified-http.md.
+    // Per-cell entry points discovered in the bundle. The cloud uses this list to: (a) recognise URLs of the form /api/{CellType}/{path} and route them to a cell-instance (provisioned the same way an app-instance is, just with AppInitializationArgs.RunTarget = "{CellType}" instead of null); (b) hash the request's identity query params against the cell's IdentityFields to find-or-create the right channel-instance for that cell identity. Empty for apps without cells, or for cells whose ProcessScope is AppProcess (in-process — no separate cell-instance needed). See docs/private/endpoint-and-cell-architecture.md.
     List<AppBundleConfig.CellEntry> Cells { get; set; }
     string ChannelId { get; set; }
     string CreatedAt { get; set; }
+    List<AppBundleConfig.CronJobDescriptor> CronJobs { get; set; }
     List<AppBundleConfig.DatabaseEntry> Databases { get; set; }
     List<AppBundleConfig.EmailTemplate> EmailTemplates { get; set; }
+    List<AppBundleConfig.EndpointDescriptor> Endpoints { get; set; }
     string Hash { get; set; }
     string Name { get; set; }
     string OrganisationId { get; set; }
     List<AppBundleConfig.Pipeline> Pipelines { get; set; }
+    // The app's optional /router/ edge unit — sandboxed TypeScript that the gateway runs before (and without) provisioning the app server to authorize, resolve principal identity, and gate abuse. The tool only records presence + entry point; the backend bundles the source and extracts the exported policy names at activation. See docs/private/endpoint-orthogonal-authorization-design.md.
+    AppBundleConfig.RouterConfig Router { get; set; }
     List<string> SessionIdentityKeys { get; set; }
     string SpaceId { get; set; }
     string Version { get; set; }
-    List<AppBundleConfig.WebhookFunction> Webhooks { get; set; }
     static string ConfigFileName
   class AppBundleConfigLegacy
     ctor()
@@ -67,20 +70,14 @@ namespace Ikon.Common
     static IEnumerable<string> EnumerateCsprojFiles(string rootDirectory, int maxDepth = 3)
     static AppProjectUtils.AppDiscoveryResult FindAppTypeInAssembly(string dllPath)
     static string FindBestProjectFilePath(string targetDirectory)
-    // Finds the platform-dotnet directory by searching for ikon-platform.slnx. At each ancestor of the start directory, checks two containment candidates: 1. current/ikon-platform.slnx (current is platform-dotnet itself) 2. current/platform-dotnet/ikon-platform.slnx (current is the repo root) With includeSibling = true, also checks a third candidate: 3. current/ikon-platform/platform-dotnet/ikon-platform.slnx (current is a parent of a sibling ikon-platform/ checkout) Sibling matching is opt-in because it answers a different question — "is there a platform-dotnet anywhere nearby?" rather than "is startDirectory inside platform-dotnet?". Callers that decide whether to mutate the platform repo (e.g. add a new app to ikon-platform.slnx) must keep it off; the codegen lookup for external apps with a sibling checkout opts in.
-    static string? FindIkonPlatformDotnetRoot(string startDirectory, bool includeSibling = false)
-    // Finds the ikon-platform repo root (the parent of platform-dotnet).
-    static string? FindIkonPlatformRepoRoot(string startDirectory)
-    // Finds the ikon-platform.slnx file path by searching in the start directory and parent directories.
-    static string? FindIkonPlatformSlnx(string startDirectory)
+    // Generates (or removes) pubspec_overrides.yaml in the frontend-flutter directory so the app resolves ikon_sdk from the local platform-dart/ikon_sdk source while the ikon-platform repo is available, and from the published pub.dev package otherwise. The Dart analog of the C# -p:IkonRoot arg and GenerateTsconfigPathsJsonAsync : uses the shared Resolve ladder, so a locally-built ikon tool resolves the repo even for an app created far from it. Safe to call on every Flutter operation.
+    static Task GenerateFlutterPubspecOverridesAsync(string flutterDirectory)
     // Generates tsconfig.paths.json in the frontend-node directory with appropriate TypeScript paths. Auto-detects internal/external mode based on whether the directory is inside ikon-platform. Internal mode: generates paths pointing to monorepo source files for IDE support. External mode: generates empty paths (uses node_modules).
     static Task GenerateTsconfigPathsJsonAsync(string frontendNodeDirectory)
     static AppProjectVariables GetAppProjectVars(string? targetDirectory)
     static string GetAssemblyNameFromCsproj(string csprojPath)
     static Type[] GetTypesSafely(Assembly assembly)
     static bool HasIkonAppAttribute(Type type)
-    // Returns true if the given directory is inside the ikon-platform monorepo.
-    static bool IsInsideIkonPlatform(string directory)
     static bool IsLegacyConfig(string tomlContent)
     static AppProjectConfig MigrateFromLegacy(string tomlContent, IkonBackend.EnvironmentType environment)
     static int ScoreProjectFile(string csprojPath)
@@ -90,6 +87,7 @@ namespace Ikon.Common
     string ConfigFilePath { get; init; }
     string CsProjectFilePath { get; init; }
     string CsProjectName { get; init; }
+    string FrontendFlutterDirectory { get; init; }
     string FrontendNodeDirectory { get; init; }
     string GitRootDirectory { get; init; }
     string ProjectDirectory { get; init; }
@@ -127,10 +125,11 @@ namespace Ikon.Common
     string TypeName { get; set; }
   class AppBundleConfig.CellHttpEndpoint
     ctor()
-    string AuthCellName { get; set; }
+    string Auth { get; set; }
     string HttpMethod { get; set; }
     string MethodName { get; set; }
     string Path { get; set; }
+    List<AppBundleConfig.EndpointPathParam> PathParams { get; set; }
   class AppBundleConfig.CellIdentityField
     ctor()
     bool HasDefault { get; set; }
@@ -150,6 +149,12 @@ namespace Ikon.Common
     string SpkiHash { get; }
   static class CertificateStore
     static CertificateStore.Certificate GetCertificate(string host, X509Certificate2? rootCert = null, bool disableDotnetDevCerts = false)
+  class AppBundleConfig.CronJobDescriptor
+    ctor()
+    string Name { get; set; }
+    string Owner { get; set; }
+    string OwnerKind { get; set; }
+    string Schedule { get; set; }
   sealed class DatabaseConnectionInfo
     ctor()
     string ConnectionString { get; set; }
@@ -171,6 +176,21 @@ namespace Ikon.Common
     string Name { get; set; }
     string Path { get; set; }
     string Subject { get; set; }
+  class AppBundleConfig.EndpointDescriptor
+    ctor()
+    string Auth { get; set; }
+    bool AutoRegistered { get; set; }
+    bool IsMcpTool { get; set; }
+    string Kind { get; set; }
+    string Name { get; set; }
+    string Owner { get; set; }
+    string OwnerKind { get; set; }
+    string? Path { get; set; }
+    List<AppBundleConfig.EndpointPathParam> PathParams { get; set; }
+  class AppBundleConfig.EndpointPathParam
+    ctor()
+    bool IsIdentity { get; set; }
+    string Name { get; set; }
   enum EndpointProtocol
     Tcp
     Tls
@@ -1062,10 +1082,14 @@ namespace Ikon.Common
     ctor(int size = 32)
     void AddValue(double value)
     double GetAverage()
-  // Convention for converting a developer-declared [HttpEndpoint] path into the absolute external path under the space domain ({space}.ikonai.app{path}). Developers can write either absolute paths ("/billing/stripe", "/labs/{workspace}/increment") or the legacy relative form ("bump", "value" — what the cell-host's AppEndpointHost served under /{CellType}/{Method} before the inbound-unification plan landed). Relative names are auto-derived so the same endpoint flows through the same gateway path under both forms: On the app class: "bump" → /bumpOn a [Cell] LabCell: "bump" → /lab-cell/bump Used by both HttpEndpointWrapperRegistration (runtime, so BuildEndpointUrl emits the right PublicUrl) and AppBundleHandler.DiscoverEndpoints (build-time, so the bundle manifest carries the derived path through to the gateway's routing trie). One source of truth for the derivation keeps the two from drifting.
+  // Convention for converting a developer-declared [HttpGet]/[HttpPost] path into the absolute external path under the space domain ({space}.ikonai.app{path}). Developers can write either absolute paths ("/billing/stripe", "/labs/{workspace}/increment") or the legacy relative form ("bump", "value" — what the cell-host's AppEndpointHost served under /{CellType}/{Method} before the inbound-unification plan landed). Relative names are auto-derived so the same endpoint flows through the same gateway path under both forms: On the app class: "bump" → /bumpOn a [Cell] LabCell: "bump" → /lab-cell/bump Used by both App.BuildEndpointsAsync (runtime, so BuildEndpointUrl emits the right PublicUrl) and AppBundleHandler.DiscoverEndpoints (build-time, so the bundle manifest carries the derived path through to the gateway's routing trie). One source of truth for the derivation keeps the two from drifting.
   static class PathConvention
     // Derive the absolute external path for an HTTP endpoint declared on ownerTypeName . Absolute paths (starting with '/') are returned unchanged. Empty / relative paths are kebab-cased and assembled under the cell-type prefix (or directly on the app class).
     static string DeriveAbsolutePath(string declaredPath, string ownerTypeName, bool isAppClass, string fallbackMethodName)
+    // Derive the absolute external path for an owner's MCP JSON-RPC multiplexer: /mcp on the app class, /{kebab-owner}/mcp on a cell. The multiplexer path is fixed — it is never relocated by a tool's declared path. A [Mcp(path)] override adjusts only that single tool's own directly-callable endpoint (see DeriveAbsolutePath ), not the shared multiplexer.
+    static string DeriveMcpPath(string ownerTypeName, bool isAppClass)
+    // Extract the {name} placeholder names from a path template, in order. "/labs/{workspace}/x" → ["workspace"]. Shared by runtime and build-time discovery so the identity/param split of a path can't drift between them.
+    static IReadOnlyList<string> ExtractPathParams(string path)
     // Convert a PascalCase / camelCase identifier to lowercase-kebab. "LabCell" → "lab-cell", "GetOrders" → "get-orders", "ID" → "id". Non-identifier characters (already-hyphens, underscores, slashes) pass through unchanged so a developer who wrote "my-path" gets "my-path" back.
     static string ToKebabCase(string s)
   class AppBundleConfig.Pipeline
@@ -1102,25 +1126,30 @@ namespace Ikon.Common
   sealed class PlatformContext : IEquatable<PlatformContext>
     // Captures whether the running ikon tool (or hosted ikon-server) has a platform-dotnet checkout it can build against, and exposes the flags every downstream build step needs: the -p:IkonRoot=... MSBuild arg for dotnet, and the VITE_IS_IKON_INTERNAL / VITE_IKON_PLATFORM_TYPESCRIPT_PATH env vars for vite.
     ctor(string? DotnetRoot)
-    // MSBuild argument to splice into a dotnet build/restore/run/publish command line. Returns -p:IkonRoot="..." when internal, empty string when external.
-    string DotnetMSBuildArg { get; }
     string? DotnetRoot { get; init; }
     bool IsIkonInternal { get; }
     string? RepoRoot { get; }
+    string? SlnxPath { get; }
     string? TypescriptRoot { get; }
-    // Stamps VITE_IS_IKON_INTERNAL and, when internal, VITE_IKON_PLATFORM_TYPESCRIPT_PATH onto an env dictionary before invoking npm/vite. Mutates and returns env for fluent use.
-    IDictionary<string, string?> ApplyViteEnv(IDictionary<string, string?> env)
+    // Returns the first of candidates that is internal, else External .
+    static PlatformContext FirstAvailable(params PlatformContext[] candidates)
+    // Reads [assembly: AssemblyMetadata("IkonRoot", ...)] baked in at .NET build time via the -p:IkonRoot=... arg — lets hosted code (e.g. ViteServerHandler) recover the platform location after the app DLL has been copied out of the repo tree. Returns External when absent or the path no longer exists.
+    static PlatformContext FromAssemblyMetadata(Assembly assembly)
+    // Probes the running tool binary's own location ( BaseDirectory ) — matches when the tool lives inside the platform repo (the in-repo artifacts/bin/IkonTool/... case).
+    static PlatformContext FromBaseDirectory()
+    // Walks upward from directory looking for the platform-dotnet directory (the one containing ikon-platform.slnx). At each ancestor it checks current/ikon-platform.slnx (current is platform-dotnet) and current/platform-dotnet/ikon-platform.slnx (current is the repo root). With includeSibling it also checks current/ikon-platform/platform-dotnet/ (a sibling checkout). Sibling matching is opt-in because it answers "is there a platform-dotnet nearby?" rather than "is directory inside platform-dotnet?" — callers that mutate the platform repo (e.g. add an app to the slnx) must keep it off. Returns External when not found.
+    static PlatformContext FromDirectory(string? directory, bool includeSibling = false)
+    // Resolves the --platform-dir argument. Returns External when input is null or blank; throws UserException when set but not containing ikon-platform.slnx.
+    static PlatformContext FromExplicit(string? explicitPlatformDir)
+    // The standard probe ladder: an explicit --platform-dir, then workingDirectory (defaulting to the current directory, including a sibling ikon-platform checkout), then the running tool's own location — so a locally-built ikon tool resolves the repo even for an app created far away. Returns External when nothing matches.
+    static PlatformContext Resolve(string? explicitPlatformDir = null, string? workingDirectory = null)
     static PlatformContext External
-  // Probe primitives for locating the platform-dotnet directory. Compose them into a PlatformContext ; each probe returns null when it doesn't match so they chain cleanly with the null-coalescing operator.
-  static class PlatformDetect
-    // Reads [assembly: AssemblyMetadata("IkonRoot", ...)] baked in at .NET build time via the -p:IkonRoot=... arg. Used by hosted code (e.g. ViteServerHandler) to recover the platform location after the app DLL has been copied out of the repo tree.
-    static string? FromAssemblyMetadata(Assembly assembly)
-    // Shortcut for FromDirectory(AppContext.BaseDirectory). Matches when the ikon tool binary itself lives inside the platform repo (typical for in-repo artifacts/bin/IkonTool/... builds).
-    static string? FromBaseDirectory()
-    // Walks upward from directory looking for ikon-platform.slnx. See FindIkonPlatformDotnetRoot for the includeSibling semantics.
-    static string? FromDirectory(string? directory, bool includeSibling = false)
-    // Resolves the --platform-dir argument. Returns null when input is null or blank. Throws UserException when the path is set but doesn't contain ikon-platform.slnx at either the root or under platform-dotnet/.
-    static string? FromExplicit(string? explicitPlatformDir)
+  // Translates a PlatformContext (a pure detection result) into the tool-specific build inputs that pass the platform location to dotnet and to the SDK frontend's vite config. Kept off PlatformContext itself so the context doesn't carry dotnet/vite implementation detail.
+  static class PlatformContextBuildExtensions
+    // Stamps VITE_IS_IKON_INTERNAL and, when internal, VITE_IKON_PLATFORM_TYPESCRIPT_PATH onto an env dictionary before invoking npm/vite — the SDK frontend's vite config reads these to alias @ikonai/* to local monorepo source. Mutates and returns env for fluent use.
+    static IDictionary<string, string?> ApplyViteEnv(PlatformContext platform, IDictionary<string, string?> env)
+    // MSBuild argument to splice into a dotnet build/restore/run/publish command line: -p:IkonRoot="..." when internal, empty string when external.
+    static string IkonRootMSBuildArg(PlatformContext platform)
   // A combined polymorphic converter that supports both single instances of TBase and collections of TBase. When reading, it searches for the "Type" property (in any order) to determine the concrete type. When writing, it writes a dictionary that always includes "Type" (as the first entry).
   class PolymorphicConverter<TBase> : JsonConverter<object> where TBase : class
     ctor()
@@ -1189,6 +1218,11 @@ namespace Ikon.Common
     static Task<T> RunAsync<T>(Func<Task<T>> func, List<Type>? retryableExceptions = null, int retries = 5, Func<Exception, Task>? onRetry = null, Func<Exception, Task>? onFailure = null, bool useExponentialBackoff = true, string? description = null, string callerMemberName = "", string callerFilePath = "")
     static Task RunAsync(List<Type>? retryableExceptions, int retries, Func<Task> func, string callerMemberName = "", string callerFilePath = "")
     static Task RunAsync(Func<Task> func, List<Type>? retryableExceptions = null, int retries = 5, Func<Exception, Task>? onRetry = null, Func<Exception, Task>? onFailure = null, bool useExponentialBackoff = true, string? description = null, string callerMemberName = "", string callerFilePath = "")
+  class AppBundleConfig.RouterConfig
+    ctor()
+    string EntryPoint { get; set; }
+    List<string> PolicyNames { get; set; }
+    bool Present { get; set; }
   class AppProjectConfigLegacy.Target : ITomlMetadataProvider
     ctor()
     string ChannelId { get; set; }
@@ -1246,11 +1280,6 @@ namespace Ikon.Common
     double Average
     double Maximum
     double Minimum
-  class AppBundleConfig.WebhookFunction
-    ctor()
-    bool AutoRegistered { get; set; }
-    string Name { get; set; }
-    string? Path { get; set; }
   class AppBundleConfig.Workflow
     ctor()
     PipelineExecutionMode ExecutionMode { get; set; }
@@ -1339,7 +1368,7 @@ namespace Ikon.Common.Git
     Task<bool> AbortMergeAsync(CancellationToken ct = null)
     // Abort an in-progress rebase.
     Task<bool> AbortRebaseAsync(CancellationToken ct = null)
-    // Add a remote.
+    // Add a remote. Credentials are stripped from the URL.
     Task AddRemoteAsync(string name, string url, CancellationToken ct = null)
     // Checkout an existing branch.
     Task CheckoutAsync(string branchOrRef, CancellationToken ct = null)
@@ -1353,6 +1382,8 @@ namespace Ikon.Common.Git
     Task<GitCommit> CommitAsync(string message, CancellationToken ct = null)
     // Commit staged changes with custom author.
     Task<GitCommit> CommitAsync(string message, string authorName, string authorEmail, bool allowEmpty = false, CancellationToken ct = null)
+    // Build per-invocation environment variables that authenticate git HTTP(S) operations. Uses git's environment config mechanism (git 2.31+) to inject an Authorization header, appending to any GIT_CONFIG_COUNT entries already present in the process environment.
+    static Dictionary<string, string?> CreateAuthEnvironment(GitCredentials credentials)
     // Create and checkout a new branch.
     Task CreateBranchAsync(string name, string? startPoint = null, CancellationToken ct = null)
     // Create a tag.
@@ -1361,12 +1392,12 @@ namespace Ikon.Common.Git
     Task DeleteTagAsync(string name, CancellationToken ct = null)
     // Discard all uncommitted changes.
     Task DiscardChangesAsync(CancellationToken ct = null)
+    // Rewrite the remote URL to its credential-free form.
+    Task EnsureCleanRemoteUrlAsync(string name = "origin", CancellationToken ct = null)
     // Escape a commit message for shell.
     static string EscapeMessage(string message)
     // Fetch from remote.
     Task FetchAsync(bool includeTags = false, CancellationToken ct = null)
-    // Construct an authenticated URL.
-    static string GetAuthenticatedUrl(string url, GitCredentials credentials)
     // Get all branches.
     Task<List<GitBranch>> GetBranchesAsync(CancellationToken ct = null)
     // Get a local git config value.
@@ -1381,6 +1412,8 @@ namespace Ikon.Common.Git
     Task<string?> GetHeadShaAsync(bool shortSha = false, CancellationToken ct = null)
     // Get commit history.
     Task<List<GitCommit>> GetHistoryAsync(int limit = 20, string? fromRef = null, CancellationToken ct = null)
+    // Get remote URL exactly as stored in .git/config, including any embedded credentials.
+    Task<string?> GetRawRemoteUrlAsync(string name = "origin", CancellationToken ct = null)
     // Get remote URL (without credentials).
     Task<string?> GetRemoteUrlAsync(string name = "origin", CancellationToken ct = null)
     // Get the current repository status.
@@ -1423,7 +1456,7 @@ namespace Ikon.Common.Git
     Task<GitSyncResult> SaveAsync(string message, CancellationToken ct = null)
     // Set a local git config value.
     Task SetConfigAsync(string key, string value, CancellationToken ct = null)
-    // Set remote URL.
+    // Set remote URL. Credentials are stripped from the URL.
     Task SetRemoteUrlAsync(string name, string url, CancellationToken ct = null)
     // Set up tracking for a branch.
     Task SetUpstreamAsync(string remoteBranch, CancellationToken ct = null)

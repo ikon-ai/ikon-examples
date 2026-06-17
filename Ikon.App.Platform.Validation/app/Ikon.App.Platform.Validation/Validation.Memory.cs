@@ -6,6 +6,8 @@ public partial class Validation
 {
     private readonly Reactive<string> _memoryAllocateMb = new("10");
     private readonly Reactive<int> _memoryAllocationVersion = new(0);
+    private readonly Reactive<int> _maxClientsVersion = new(0);
+    private readonly Reactive<string> _maxClientsOverride = new("");
     private readonly Reactive<bool> _memoryAllocating = new(false);
     private readonly Reactive<bool> _memoryErrorToastOpen = new(false);
     private readonly Reactive<string> _memoryErrorMessage = new("");
@@ -47,6 +49,28 @@ public partial class Validation
 
             view.Box([Card.Default, "p-6"], content: view =>
             {
+                _ = _maxClientsVersion.Value;
+                int connectedClients = app.ReactiveGlobalState.Clients.Value.Values.Count(context => !context.IsInternal);
+
+                view.Text([Text.H2, "mb-4"], "Client Limit");
+                view.Text([Text.Body], $"Max clients: {(app.MaxClients > 0 ? app.MaxClients.ToString() : "unlimited")}");
+                view.Text([Text.Body], $"Connected clients: {connectedClients}");
+
+                view.Row(["flex items-center gap-4 mt-4"], content: view =>
+                {
+                    view.Text([Text.Body], "Override max clients:");
+                    view.TextField([Input.Default, "w-32"], value: _maxClientsOverride.Value, type: "number",
+                        step: "1", min: "0", placeholder: app.MaxClients.ToString(),
+                        onValueChange: async v => _maxClientsOverride.Value = v ?? "");
+                    view.Button([Button.PrimaryMd], label: "Apply", onClick: ApplyMaxClientsOverrideAsync);
+                });
+
+                view.Text([Text.Caption, "mt-2"],
+                    "Set the limit to test connection rejection. 0 reverts to the server's memory-derived default; any other value (lower or higher) overrides it.");
+            });
+
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
                 view.Text([Text.H2, "mb-4"], "Memory Allocation Test");
                 view.Text([Text.Caption, "mb-4"], "Allocate memory to test memory warnings and container kills");
 
@@ -78,6 +102,17 @@ public partial class Validation
                 descriptionStyle: [Toast.Description],
                 closeStyle: [Toast.Close]);
         });
+    }
+
+    private async Task ApplyMaxClientsOverrideAsync()
+    {
+        if (int.TryParse(_maxClientsOverride.Value, out var maxClients) && maxClients >= 0)
+        {
+            app.MaxClients = maxClients;
+            _maxClientsVersion.Value++;
+        }
+
+        await Task.CompletedTask;
     }
 
     private async Task AllocateManagedMemoryAsync()

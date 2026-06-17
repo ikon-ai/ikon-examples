@@ -72,9 +72,9 @@ var result = FunctionRegistry.Instance.Call<int>("Add", [2, 3]);
 var result = await FunctionRegistry.Instance.CallAsync<string>("Greet", args: ["World"]);
 ```
 
-### Webhook Functions
+### Exposing a function over HTTP
 
-A `[Function]` method on the App class can be marked with `Webhook = true` to expose it as a public HTTP endpoint at `/ikon/webhook/{name}` (cloud) or `/webhook/{name}` (local dev). The signature must be `(Dictionary<string, string> queryParams, Dictionary<string, string> headers, string body)` with a `string`/`Task<string>`/`void`/`Task` return type. See the **Webhook Functions** section under **Endpoints** for details.
+To expose a method as a public HTTP endpoint (a REST route or a third-party webhook), mark it `[HttpPost("/path")]` rather than `[Function]` — it is served under `https://{space}.ikonai.app/api/{path}`. (`[Function]` is for SDK/in-app calls and LLM tools, not inbound HTTP.) See the **HTTP endpoints & MCP tools** section under **Endpoints & Webhooks** for the handler-binding rules and URL details.
 
 ---
 
@@ -88,9 +88,9 @@ namespace Ikon.Common.Core.Functions
   // Immutable representation of a function with metadata and optional callbacks. Consolidates FunctionInfo, RegisteredFunction, and KernelContext.Function into a single type.
   struct Function
     // JSON deserialization constructor. Resolves ReturnType from ReturnTypeName string. Creates a function without callbacks (for remote/metadata-only use).
-    ctor(Guid id, string name, FunctionParameter[] parameters, string returnTypeName, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, bool requiresInstance = false, string? version = null, bool webhook = false, string? webhookPath = null, bool typedHttpEnvelope = false)
+    ctor(Guid id, string name, FunctionParameter[] parameters, string returnTypeName, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, bool requiresInstance = false, string? version = null)
     // Primary constructor for creating functions with callbacks.
-    ctor(Guid id, string name, FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, Func<object?[], object?>? callback, Func<object?[], Task<object?>>? callbackAsync, Func<object?[], IAsyncEnumerable<object?>>? callbackAsyncEnumerable, MethodInfo? methodInfo = null, bool requiresInstance = false, PolicyDelegate? policy = null, string? version = null, bool webhook = false, string? webhookPath = null, bool typedHttpEnvelope = false)
+    ctor(Guid id, string name, FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, Func<object?[], object?>? callback, Func<object?[], Task<object?>>? callbackAsync, Func<object?[], IAsyncEnumerable<object?>>? callbackAsyncEnumerable, MethodInfo? methodInfo = null, bool requiresInstance = false, PolicyDelegate? policy = null, string? version = null)
     // The type of callback (Sync, Async, or AsyncEnumerable).
     CallbackType CallbackType { get; }
     // The clientSessionId of the client who registered this function. Null means this is a local function (registered in this process).
@@ -125,16 +125,10 @@ namespace Ikon.Common.Core.Functions
     Type ReturnType { get; }
     // The full name of the return type. Computed from ReturnType for JSON serialization.
     string ReturnTypeName { get; }
-    // True when this webhook function is a typed [HttpEndpoint]/[Rest] wrapper whose result is a JSON HttpEndpointEnvelope the webhook dispatcher unpacks into a real HTTP response. False for legacy [Function(Webhook=true)] functions (plain-string body). Lets typed endpoints carry clean {Type}_{Method} names instead of a marker prefix. Set via TypedHttpEnvelope .
-    bool TypedHttpEnvelope { get; }
     // The version of the library that registered this function. Empty string means unversioned (legacy or latest).
     string Version { get; }
     // Whether the function should be distributed to other clients.
     FunctionVisibility Visibility { get; }
-    // True if this function is exposed as a webhook HTTP endpoint. Set via Webhook .
-    bool Webhook { get; }
-    // External path declared on this webhook function, when one was set — either as [Function(Webhook=true, Path="/billing/stripe")] or as the absolute path stamped onto an [HttpEndpoint] wrapper at registration time. Empty when the function is not a webhook, or when the legacy /ikon/webhook/{Name} shape should be used. App -side URL builders read this directly — going via MethodInfo + FunctionAttribute reflection only works for real user methods and silently returns null for delegate-wrapped registrations.
-    string WebhookPath { get; }
     // Calls the function synchronously. Only valid for local sync functions.
     object? Call(object?[] args)
     // Calls the function asynchronously. Only valid for local async functions.
@@ -185,7 +179,7 @@ namespace Ikon.Common.Core.Functions
     static Function Register<T1, T2, TResult>(Func<T1, T2, IAsyncEnumerable<TResult>> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
     override string ToString()
     // Creates a new Function with modified properties. Null parameters keep existing values. Use clearClientSessionId=true to explicitly set ClientSessionId to null. Use clearPolicy=true to explicitly set Policy to null.
-    Function With(Guid? id = null, string? name = null, FunctionParameter[]? parameters = null, Type? returnType = null, string? description = null, FunctionVisibility? visibility = null, bool? llmInlineResult = null, bool? llmCallOnlyOnce = null, CallbackType? callbackType = null, int? clientSessionId = null, Func<object?[], object?>? callback = null, Func<object?[], Task<object?>>? callbackAsync = null, Func<object?[], IAsyncEnumerable<object?>>? callbackAsyncEnumerable = null, MethodInfo? methodInfo = null, bool? requiresInstance = null, PolicyDelegate? policy = null, bool clearClientSessionId = false, bool clearMethodInfo = false, bool clearPolicy = false, string? version = null, bool? webhook = null, string? webhookPath = null, bool? typedHttpEnvelope = null)
+    Function With(Guid? id = null, string? name = null, FunctionParameter[]? parameters = null, Type? returnType = null, string? description = null, FunctionVisibility? visibility = null, bool? llmInlineResult = null, bool? llmCallOnlyOnce = null, CallbackType? callbackType = null, int? clientSessionId = null, Func<object?[], object?>? callback = null, Func<object?[], Task<object?>>? callbackAsync = null, Func<object?[], IAsyncEnumerable<object?>>? callbackAsyncEnumerable = null, MethodInfo? methodInfo = null, bool? requiresInstance = null, PolicyDelegate? policy = null, bool clearClientSessionId = false, bool clearMethodInfo = false, bool clearPolicy = false, string? version = null)
     // Returns a new Function with the specified parameter's AllowedValues set. Pass null to clear an existing override and fall back to the type-based enum (or no enum at all). Use together with WithParamDescription to ship dynamic enum + dynamic doc per pass: rebuild the Function at the start of each pass, plumb the current allowed transitions through the parameter description and the allowed-values list, and re-add to EmergePass.Tools.
     Function WithAllowedValues(string paramName, IReadOnlyList<string>? allowedValues)
     // Returns a new Function with the specified parameter's description updated.
@@ -202,16 +196,10 @@ namespace Ikon.Common.Core.Functions
     bool LlmInlineResult { get; set; }
     // Override the function name. If null, the full type name plus method name is used.
     string? Name { get; set; }
-    // Optional absolute external path the webhook is exposed at (e.g. "/billing/stripe") — the full URL after {space}.ikonai.app. When set, overrides the default /w/{name} derivation that Webhook would otherwise produce. Has no effect unless Webhook is true. Reserved external paths the developer must NOT declare here: /.well-known/* (RFC) and the back-compat aliases /w/*, /p/*, /ikon/*, /s/*, /rooms/*.
-    string? Path { get; set; }
     // Override the inherited TypeId property with JsonIgnore for serialization.
     object TypeId { get; }
-    // Marks the function as a typed [HttpEndpoint]/[Rest] wrapper whose app-shell result is a JSON-serialized HttpEndpointEnvelope (status + body + content-type), as opposed to a legacy [Function(Webhook=true)] whose result is a plain string body. The webhook dispatcher reads this to decide whether to unpack the envelope — so typed endpoints can use the same clean {Type}_{Method} naming as everything else instead of a marker prefix in the name. Has no effect unless Webhook is true.
-    bool TypedHttpEnvelope { get; set; }
     // Whether the function should be distributed to other clients. If not set, defaults to Local for standalone functions, or inherits from [RegisterAll] for methods in a class with that attribute.
     FunctionVisibility Visibility { get; set; }
-    // Exposes this function as a webhook HTTP endpoint. The function must have exactly three parameters with these types and order: Dictionary<string, string> — request query parametersDictionary<string, string> — request headersstring — request body The return type must be string, Task<string>, void, or Task. String returns become the HTTP response body; void/Task returns produce an empty response body. By default the URL path is derived from the function's Name as /w/{name} (cloud) or /webhook/{name} (local dev); set Path to declare an explicit external path instead (e.g. "/billing/stripe").
-    bool Webhook { get; set; }
   // Per-call ambient context exposed to the body of a function dispatched by FunctionRegistry . Set by the registry's inbound dispatch path before invoking the function and cleared after.
   static class FunctionCallContext
     // The session id of the client that issued the current function call, or null when the call did not originate from a remote client (e.g. local in-process invocation).
@@ -288,6 +276,8 @@ namespace Ikon.Common.Core.Functions
     bool HasFunction(string name)
     // Checks if a function with the given name exists for a specific client session.
     bool HasFunction(string name, int clientSessionId)
+    // Invoke an already-resolved local function with a pre-built positional argument array, bypassing the argument-type resolution that CallAsync performs. The args must already line up with the function's parameter list — used by callers that inject host-supplied parameters (e.g. a cron trigger building the array from MethodInfo to inject a context object). Returns the result, if any.
+    Task<object?> InvokeLocalAsync(Function function, object?[] args)
     // Scans an assembly for types with [RegisterAll] or methods with [Function] attributes and registers them.
     void RegisterFromAssembly(Assembly assembly, FunctionVisibility? visibilityOverride = null, string? version = null)
     // Scans an instance for [RegisterAll] attribute or methods with [Function] attribute and registers them.
@@ -295,6 +285,9 @@ namespace Ikon.Common.Core.Functions
     void RegisterFromType<T>(FunctionVisibility? visibilityOverride = null, string? version = null)
     // Scans a type for [RegisterAll] attribute or methods with [Function] attribute and registers them. For instance methods, you need to use RegisterFromInstance instead.
     void RegisterFromType(Type type, FunctionVisibility? visibilityOverride = null, string? version = null)
+    // Registers a single method as a function unless one is already registered under the same name. Used by the app layer to register [Cron] methods, which are registrable like [Function] even when they carry no [Function] attribute. Idempotent: a method already registered (e.g. because it also carries [Function] under the same name) is left untouched. When name is null or empty the full member name ("{Type.FullName}.{Method}") is used.
+    void RegisterFunctionMethod(object instance, MethodInfo method, string? name = null, FunctionVisibility visibility = Local)
+    void RegisterFunctionsFromClientInitialization(ClientInitialization? clientInitialization)
     // Registers a remote function (from another client via protocol).
     void RegisterRemoteFunction(Guid id, string name, FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int clientSessionId, bool requiresInstance = false)
     bool RemoveFunction(string name, FunctionVisibility visibility)

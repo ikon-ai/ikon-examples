@@ -26,7 +26,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         "ikon-ai", "mcp", "app-cells",
         "virtualization", "drawing", "resizable-split",
         "profiling", "memory", "identity", "functions",
-        "billing", "email"
+        "payments", "email"
     ];
 
     // Input states
@@ -340,7 +340,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         FunctionRegistry.Instance.RegisterFromType(typeof(ValidationFunctions));
         FunctionRegistry.Instance.RegisterFromInstance(this);
 
-        _ = InitBillingAsync();
+        _ = InitPaymentsAsync();
 
         await StartAudioGeneratorAsync();
         SetupAudioMetricsTracking();
@@ -418,7 +418,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             new TabItem("buttons", "Buttons", RenderButtonsSection),
                             new TabItem("inputs", "Inputs", RenderInputsSection),
                             new TabItem("typography", "Typography", RenderTypographySection),
-                            new TabItem("icons", "Icons", RenderIconsSection, ForceMount: true),
+                            new TabItem("icons", "Icons", ProfilingSkippable(RenderIconsSection), ForceMount: true),
                             new TabItem("cards", "Cards", RenderCardsSection),
                             new TabItem("layout", "Layout", RenderLayoutSection),
                             new TabItem("forms", "Forms", RenderFormsSection),
@@ -428,7 +428,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             new TabItem("drag-drop", "Drag & Drop", RenderDragDropSection),
                             new TabItem("crosswind", "Crosswind", RenderCrosswindSection),
                             new TabItem("brand", "Brand", RenderBrandSection),
-                            new TabItem("charts", "Charts", RenderChartsSection),
+                            new TabItem("charts", "Charts", ProfilingSkippable(RenderChartsSection)),
                             new TabItem("files", "Files", RenderFilesSection),
                             new TabItem("assets", "Assets", RenderAssetsSection),
                             new TabItem("actions", "Actions", RenderActionsSection),
@@ -436,16 +436,16 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             new TabItem("audio", "Audio", RenderAudioSection),
                             new TabItem("rive", "Rive", RenderRiveSection),
                             new TabItem("shadertoy", "Shadertoy", RenderShadertoySection),
-                            new TabItem("ikon-ai", "Ikon.AI Library", RenderIkonAISection, ForceMount: true),
+                            new TabItem("ikon-ai", "Ikon.AI Library", ProfilingSkippable(RenderIkonAISection), ForceMount: true),
                             new TabItem("mcp", "MCP", RenderMcpSection),
                             new TabItem("app-cells", "App/Cells", RenderLabSection),
                             new TabItem("virtualization", "Virtualization", RenderVirtualizationSection),
                             new TabItem("drawing", "Drawing", RenderDrawingSection),
                             new TabItem("profiling", "Profiling", RenderProfilingSection),
-                            new TabItem("memory", "Memory", RenderMemorySection),
+                            new TabItem("memory", "Memory", ProfilingSkippable(RenderMemorySection)),
                             new TabItem("identity", "Identity", RenderIdentitySection),
                             new TabItem("functions", "Functions", RenderFunctionsSection),
-                            new TabItem("billing", "Billing", RenderBillingSection),
+                            new TabItem("payments", "Payments", ProfilingSkippable(RenderPaymentsSection)),
                             new TabItem("email", "Email", RenderEmailSection),
                         ]);
                 });

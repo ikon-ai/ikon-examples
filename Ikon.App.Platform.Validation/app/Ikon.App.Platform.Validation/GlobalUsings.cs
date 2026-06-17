@@ -44,6 +44,5 @@ global using Ikon.Resonance.Synth;
 global using Ikon.Resonance.Synth.Moog;
 global using Ikon.Resonance.Synth.Sequencer;
 global using Ikon.Server;
-
 global using Ikon.Parallax.Theming;
-global using Ikon.App.Billing;
+global using Ikon.App.Payments;

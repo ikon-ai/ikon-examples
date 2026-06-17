@@ -2,7 +2,7 @@
 
 ## C# Language Primer
 
-Ikon AI Apps target the **latest C#** (C# 13 on .NET 10). Use modern idioms; avoid enterprise patterns and unnecessary abstractions. The Coder agent should write code that looks like a 2025 senior engineer's natural style, not 2010 layered-architecture C#.
+Ikon AI Apps target the **latest C#** (C# 14 on .NET 10). Use modern idioms; avoid enterprise patterns and unnecessary abstractions. The Coder agent should write code that looks like a 2025 senior engineer's natural style, not 2010 layered-architecture C#.
 
 ### Use these modern constructs
 
@@ -12,7 +12,7 @@ Ikon AI Apps target the **latest C#** (C# 13 on .NET 10). Use modern idioms; avo
 - **Raw string literals**: `var prompt = """..."""` (triple-quote) for multiline strings; `var json = $$"""...{{x}}..."""` for templated multiline. NO `\n` escape soup.
 - **Pattern matching**: `if (msg is ChatMessage cm) { ... }`, `var label = state switch { Loading => "...", Error e => $"!{e.Message}", _ => "ok" };` — prefer this over chains of `if/else if (x is …)`.
 - **File-scoped namespaces**: `namespace Foo;` at the top, no nested braces.
-- **Top-level statements**: `return await App.Run(args);` at the very top of the app file. No `class Program { static void Main() { ... } }`.
+- **Top-level statements**: `return await App.Run(args);` is the first *statement* in the app file — after any `using` directives (usings must precede it, or you get CS1529). No `class Program { static void Main() { ... } }`.
 - **Target-typed `new()`**: `Dictionary<string, int> map = new();` — drop the right-hand `Dictionary<string,int>` repetition.
 - **`required` properties** instead of constructor parameters when there are many: `public required string Name { get; init; }`.
 
@@ -28,7 +28,7 @@ Ikon AI Apps target the **latest C#** (C# 13 on .NET 10). Use modern idioms; avo
 ### Common syntax mistakes (these all appear as compile errors)
 
 - **Dictionary literals**: C# uses `[key] = value`, NOT JSON's `key: value`.
-  - Wrong: `new Dictionary<string,string> { "k": "v" }` → `CS1003 + CS1525 + CS1026` stacked at the colon.
+  - Wrong: `new Dictionary<string,string> { "k": "v" }` → a `CS1002` / `CS1513` syntax error at the colon.
   - Right: `new Dictionary<string,string> { ["k"] = "v" }`.
   - Same applies to any `IDictionary<,>` initializer (Reactive<Dictionary<...>>, route maps, etc.).
 
@@ -39,7 +39,7 @@ Ikon AI Apps target the **latest C#** (C# 13 on .NET 10). Use modern idioms; avo
 
 - **Async lambda shape**: `view.Button(onClick: async () => ...)` is parameterless; `view.TextField(onSubmit: async value => ...)` takes the submitted value. Mixing them produces `CS8917` ("delegate type could not be inferred").
 
-- **Explicit `using` for Ikon namespaces**: GlobalUsings already imports them. Adding `using Ikon.X;` produces `CS0234`. Just write the type name.
+- **Explicit `using` for Ikon namespaces**: GlobalUsings already imports them, so a per-file `using` is redundant (harmless but unnecessary) — just write the type name. Only a made-up namespace that doesn't exist (e.g. `using Ikon.NotReal;`) produces `CS0234`.
 
 - **Null-forgiving on framework calls**: don't `!` your way past `CS8602` (possibly null reference) on `.Value` of `Reactive<T>` — those are non-nullable by contract. If you see this warning on Ikon types, you're holding it wrong.
 
@@ -50,8 +50,8 @@ The codebase is intentionally NOT layered, NOT DDD-onion, NOT IUnitOfWork-around
 - **No factory factories.** A `Func<IFoo>` parameter beats `IFooFactory.Create()`.
 - **No "I" prefix on every type.** Interfaces only when there is a real second implementation today, not "for testing" speculation.
 - **No abstract base classes for one concrete class.** Just write the class.
-- **No `IUnitOfWork`, `IRepository<T>`, `IService` ceremony.** Talk to the platform's storage APIs directly (`Asset`, `app.Database`, `PersistentReactive<T>`).
-- **No DI container.** The app is wired via primary constructor parameters and `app.Services` from the platform. Don't pull in Microsoft.Extensions.DependencyInjection.
+- **No `IUnitOfWork`, `IRepository<T>`, `IService` ceremony.** Talk to the platform's storage APIs directly (`Asset.Instance`, `AppDatabaseConnection.Create(app, "name")`, `PersistentReactive<T>`).
+- **No DI container.** The app is wired via primary constructor parameters. Don't pull in Microsoft.Extensions.DependencyInjection.
 - **No "Manager / Helper / Service / Provider" naming when a verb works.** `RoomScheduler` not `RoomManagementService`.
 - **No mock-heavy testing.** Tests run against real implementations or the platform's in-memory variants. Mocks are a smell, not a strategy.
 - **No `try { ... } catch (Exception) { }` swallow blocks.** Either handle the specific exception, log it, or let it bubble.
@@ -60,4 +60,4 @@ The codebase is intentionally NOT layered, NOT DDD-onion, NOT IUnitOfWork-around
 
 ### When in doubt
 
-Pick the option a reader of *new* C# code would write today. If the option you're considering would have looked normal in C# 7, but feels heavy in C# 13 — the C# 13 form is correct.
+Pick the option a reader of *new* C# code would write today. If the option you're considering would have looked normal in C# 7, but feels heavy in C# 14 — the C# 14 form is correct.

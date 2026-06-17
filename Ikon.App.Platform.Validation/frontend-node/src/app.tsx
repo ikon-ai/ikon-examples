@@ -1,6 +1,6 @@
 import './app.css';
 
-import { AuthProvider, ConnectionStateRenderer, IkonUiSurface, type Toast, useIkonApp, useLazyFont, useToasts } from '@ikonai/sdk-react-ui';
+import { AuthProvider, IkonApp, useAuthOptional, useIkonApp, useLazyFont } from '@ikonai/sdk-react-ui';
 import { registerStandardUiModule, registerLucideIconsModule } from '@ikonai/sdk-react-ui-standard';
 import { registerRiveModule } from '@ikonai/sdk-react-ui-rive';
 import { registerFunctionTesterModule } from './lib/function-tester/function-tester-module';
@@ -15,7 +15,7 @@ function App() {
       <I18nProvider translations={{ en }}>
         <AuthProvider config={authConfig}>
           <AuthGuard config={authConfig}>
-            <ConnectedApp />
+            <AuthorizedApp />
           </AuthGuard>
         </AuthProvider>
       </I18nProvider>
@@ -24,36 +24,24 @@ function App() {
 
   return (
     <I18nProvider translations={{ en }}>
-      <ConnectedApp />
+      <AuthorizedApp />
     </I18nProvider>
   );
 }
 
-function ConnectedApp() {
+function AuthorizedApp() {
   const loadFont = useLazyFont('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
-  const { toasts, dismissToast } = useToasts();
-
   const app = useIkonApp({
     modules: [registerStandardUiModule, registerLucideIconsModule, registerRiveModule, registerFunctionTesterModule],
-    webRtc: true,
-    backgroundAudio: true,
   });
 
   return (
-    <ConnectionStateRenderer
+    <IkonApp
       {...app}
-      renderIdle={() => null}
-      renderConnecting={() => null}
-      renderConnectingSlow={() => <ConnectingOverlay loadFont={loadFont} />}
-      renderConnected={({ stores, registry, client, onAction, isReconnecting }) => (
-        <>
-          {isReconnecting && <ReconnectingOverlay loadFont={loadFont} />}
-          {toasts.length > 0 && <ToastOverlay toasts={toasts} onDismiss={dismissToast} loadFont={loadFont} />}
-          <IkonUiSurface stores={stores} registry={registry} client={client} onAction={onAction} />
-        </>
-      )}
-      renderOffline={() => <OfflineScreen loadFont={loadFont} />}
-      renderError={(error) => <ErrorScreen error={error} loadFont={loadFont} />}
+      connectingOverlay={(isSlow) => (isSlow ? <ConnectingOverlay loadFont={loadFont} /> : null)}
+      reconnectingOverlay={<ReconnectingOverlay loadFont={loadFont} />}
+      offlineOverlay={(error) => <OfflineOverlay error={error} isServerFull={app.isServerFull} loadFont={loadFont} />}
+      accessDeniedScreen={(reason) => <AccessDeniedScreen reason={reason} loadFont={loadFont} />}
     />
   );
 }
@@ -84,49 +72,39 @@ function ReconnectingOverlay({ loadFont }: { loadFont: () => void }) {
   );
 }
 
-function ToastOverlay({ toasts, onDismiss, loadFont }: { toasts: Toast[]; onDismiss: (id: string) => void; loadFont: () => void }) {
+function OfflineOverlay({ error, isServerFull, loadFont }: { error: string | null; isServerFull: boolean; loadFont: () => void }) {
+  const { t } = useI18n();
   loadFont();
+
+  const scope = isServerFull ? 'serverFull' : 'offline';
   return (
-    <div className="ikon-toast-overlay">
-      {toasts.map((toast) => (
-        <div key={toast.id} className={`ikon-toast-overlay-chip ikon-toast-overlay-chip--${toast.level}`} onClick={() => onDismiss(toast.id)}>
-          <span className="ikon-toast-overlay-icon">{toast.level === 'error' ? '\u{1F6A8}' : '\u26a0\ufe0f'}</span>
-          <div className="ikon-toast-overlay-content">
-            <span className="ikon-toast-overlay-component">[{toast.component}]</span>
-            <span className="ikon-toast-overlay-message">{toast.message}</span>
-          </div>
-        </div>
-      ))}
+    <div className="ikon-offline-overlay">
+      <div className="ikon-offline-chip">
+        <span className="ikon-offline-title">{t(`connection.${scope}.title`)}</span>
+        <span className="ikon-offline-message">{t(`connection.${scope}.message`)}</span>
+        {!isServerFull && error && <span className="ikon-offline-error">{error}</span>}
+      </div>
     </div>
   );
 }
 
-function OfflineScreen({ loadFont }: { loadFont: () => void }) {
+function AccessDeniedScreen({ reason, loadFont }: { reason: string; loadFont: () => void }) {
   const { t } = useI18n();
+  const auth = useAuthOptional();
   loadFont();
   return (
     <main className="ikon-app">
       <div className="ikon-aurora-1" />
       <div className="ikon-aurora-2" />
       <section className="ikon-hero">
-        <h1>{t('connection.offline.title')}</h1>
-        <p className="ikon-info">{t('connection.offline.message')}</p>
-      </section>
-    </main>
-  );
-}
-
-function ErrorScreen({ error, loadFont }: { error: string | null; loadFont: () => void }) {
-  const { t } = useI18n();
-  loadFont();
-  return (
-    <main className="ikon-app">
-      <div className="ikon-aurora-1" />
-      <div className="ikon-aurora-2" />
-      <section className="ikon-hero">
-        <h1>{t('connection.offline.title')}</h1>
-        <p className="ikon-info">{t('connection.offline.message')}</p>
-        {error && <p className="ikon-error">{error}</p>}
+        <h1>{t('connection.accessDenied.title')}</h1>
+        <p className="ikon-info">{t('connection.accessDenied.message')}</p>
+        <p className="ikon-error">{reason}</p>
+        {auth && (
+          <button type="button" className="ikon-auth-email-button" onClick={auth.logout}>
+            {t('connection.accessDenied.backToLogin')}
+          </button>
+        )}
       </section>
     </main>
   );

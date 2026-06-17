@@ -10,7 +10,7 @@ public partial class Validation
                 view.Text([Text.H2, "mb-2"], "MCP Public Endpoint");
                 view.Text([Text.Caption, "mb-4"],
                     "Any MCP client (Claude Desktop, custom HTTP, etc.) can POST JSON-RPC to this URL. " +
-                    "Auto-derived from this app's [McpTool]-decorated methods.");
+                    "Auto-derived from this app's [Mcp]-decorated methods.");
 
                 if (_mcpStartError.Value is { } err)
                 {
