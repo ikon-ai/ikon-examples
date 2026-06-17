@@ -102,6 +102,7 @@
 - `kpi-card-grid` — responsive 2/4-col grid of headline-number cards.
 - `bar-chart-from-list` — tiny inline bar SPARKLINE from a list (no axes/legend); for a real bar chart use `view.BarChart` (charts guide).
 - `score-bar-meter` — 0-10 bar with red/amber/emerald threshold coloring.
+- `server-side-svg-visual` — custom SVG ring / gauge / arc / dial / donut / radial-orbital built as a C# string and shown with `view.Image`; single-quoted attributes avoid the C# quote-escaping spiral.
 - `dialog-stat-card-grid` — detail modal with conditional-color stat tiles.
 - `tactical-map-markers` — TacticalMap with derived markers/paths.
 - `map-layer-toggle-panel` — checkbox-driven map layer visibility.

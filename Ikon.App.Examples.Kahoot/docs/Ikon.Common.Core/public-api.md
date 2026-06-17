@@ -1461,6 +1461,11 @@ namespace Ikon.Common.Core.Assets
     static bool TryParse(string uriString, out AssetUri assetUri, out string? failureReason)
     static bool TryParse(string uriString, out AssetUri assetUri)
     AssetUri With(AssetClass? assetClass = null, string? path = null, string? spaceId = null, string? userId = null, string? channelId = null, string? query = null)
+  // Serializes AssetUri as its canonical URI string so it round-trips correctly. Without this, System.Text.Json cannot reconstruct the immutable get-only struct and falls back to default(AssetUri) on deserialization (losing the path, class, and scope identifiers).
+  sealed class AssetUriJsonConverter : JsonConverter<AssetUri>
+    ctor()
+    override AssetUri Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    override void Write(Utf8JsonWriter writer, AssetUri value, JsonSerializerOptions options)
   struct AssetWriteResult
     ctor(AssetWriteStatus status, AssetMetadata? metadata = null)
     bool IsConflict { get; }
