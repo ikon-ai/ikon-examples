@@ -3954,6 +3954,16 @@ namespace Ikon.Common.Core.Protocol
     SendToUser
     Compressed
     Unreliable
+  sealed class OnAppReady : IProtocolMessagePayload
+    ctor()
+    ctor(bool success)
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    bool Success { get; set; }
+    static OnAppReady ReadFromTeleport(ReadOnlySpan<byte> data)
+    static OnAppReady ReadFromTeleport(ReadOnlySpan<byte> data, OnAppReady? destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class OnClientJoined : IProtocolMessagePayload
     ctor()
     ctor(Context clientContext)
@@ -4112,6 +4122,7 @@ namespace Ikon.Common.Core.Protocol
     CORE_BACKGROUND_WORK_ACTIVE
     CORE_RESET_IDLE
     CORE_CLIENT_DISCONNECTING
+    CORE_ON_APP_READY
     CORE_WEBRTC_OFFER
     CORE_WEBRTC_ANSWER
     CORE_WEBRTC_ICE_CANDIDATE
@@ -4568,13 +4579,12 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class ServerInit : IProtocolMessagePayload
     ctor()
-    ctor(string ikonBackendUrl, string ikonBackendToken, string spaceId, string channelId, List<ServerInit.ServerPluginInit> plugins, string primaryUserId, string channelInstanceId, string channelUrl, List<ServerInit.ServerExtensionInit> extensions, Dictionary<string, string> dynamicConfigObsolete, string organisationName, string spaceName, string channelName, string dynamicConfigJsonContent, string spaceGitRepositoryUrl, string sessionId, string legacyChannelCode, bool disableLegacyDefaultExtensions, Dictionary<string, string> sessionIdentity, List<ServerInit.ServerInitEndpointRequest> endpointRequests, int frontendPort, AppSourceType appSourceType, bool debugMode, List<ServerInit.ServerInitDatabaseConnectionInfo> databaseConnectionInfos, string runTarget, string cronTriggerFunction)
+    ctor(string ikonBackendUrl, string ikonBackendToken, string spaceId, string channelId, List<ServerInit.ServerPluginInit> plugins, string primaryUserId, string channelInstanceId, string channelUrl, List<ServerInit.ServerExtensionInit> extensions, Dictionary<string, string> dynamicConfigObsolete, string organisationName, string spaceName, string channelName, string dynamicConfigJsonContent, string spaceGitRepositoryUrl, string sessionId, string legacyChannelCode, bool disableLegacyDefaultExtensions, Dictionary<string, string> sessionIdentity, List<ServerInit.ServerInitEndpointRequest> endpointRequests, int frontendPort, AppSourceType appSourceType, bool debugMode, List<ServerInit.ServerInitDatabaseConnectionInfo> databaseConnectionInfos, string runTarget)
     AppSourceType AppSourceType { get; set; }
     string ChannelId { get; set; }
     string ChannelInstanceId { get; set; }
     string ChannelName { get; set; }
     string ChannelUrl { get; set; }
-    string CronTriggerFunction { get; set; }
     List<ServerInit.ServerInitDatabaseConnectionInfo> DatabaseConnectionInfos { get; set; }
     bool DebugMode { get; set; }
     bool DisableLegacyDefaultExtensions { get; set; }
