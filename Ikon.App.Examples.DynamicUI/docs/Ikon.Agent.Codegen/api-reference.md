@@ -3497,7 +3497,6 @@ namespace Ikon.Parallax.Components.Standard
     PickContacts
     RequestFullscreen
     Share
-    ShowNotification
   // Base class for client-side action configuration.
   abstract class ActionOptions : IEquatable<ActionOptions>
   // Represents activation mode for Tabs.
@@ -4366,14 +4365,6 @@ namespace Ikon.Parallax.Components.Standard
     string? Title { get; init; }
     // URL to share.
     string? Url { get; init; }
-  // Options for showing a browser notification.
-  sealed class ShowNotificationActionOptions : ActionOptions, IEquatable<ShowNotificationActionOptions>
-    // Notification body text.
-    string? Body { get; init; }
-    // URL of the notification icon image.
-    string? Icon { get; init; }
-    // Notification title text.
-    string Title { get; init; }
   // Represents the side for positioning overlays.
   enum Side
     Top
@@ -5402,6 +5393,8 @@ namespace Ikon.Parallax.Theming
     static string DefaultLg
     static string DefaultMd
     static string DefaultSm
+    static string Group
+    static string GroupVertical
     static string IconDefault
     static string IconDefaultLg
     static string IconDefaultMd
@@ -5488,52 +5481,6 @@ namespace Ikon.Parallax.Theming
     static string DragOverlay
     static string Images
     static string Wrapper
-
-namespace Ikon.Parallax.Theming.Flutter
-  static class FlutterTokens.Badge
-    static string Brand
-    static string Neutral
-  static class FlutterTokens.Button
-    static string Danger
-    static string Ghost
-    static string Icon
-    static string Neutral
-    static string Outline
-    static string Primary
-  static class FlutterTokens.Divider
-    static string Horizontal
-    static string Line
-  static class FlutterTokens
-  static class FlutterTokens.Icon
-    static string Default
-    static string Lg
-    static string Md
-    static string Sm
-    static string Xs
-  static class FlutterTokens.Input
-    static string Area
-    static string Default
-  static class FlutterTokens.Layout
-    static string Center
-    static string Column
-    static string Row
-    static string RowWrap
-    static string Screen
-  static class FlutterTokens.Surface
-    static string Card
-    static string Panel
-    static string Screen
-  static class FlutterTokens.Text
-    static string Body
-    static string BodyStrong
-    static string Caption
-    static string H1
-    static string H2
-    static string H3
-    static string Hero
-    static string Label
-    static string Link
-    static string Muted
 
 # Ikon.Crosswind Public API
 
@@ -5928,6 +5875,14 @@ namespace Ikon.Crosswind
     IReadOnlyDictionary<string, TailwindFontSize> FontSize { get; }
     IReadOnlyDictionary<string, string> FontWeight { get; }
     IReadOnlyDictionary<string, string> ShadowPalette { get; }
+  // Target-scoping Crosswind variants. A class prefixed with flutter: applies only on the Flutter renderer, web: only on the web/CSS renderer, and an unprefixed class applies to both. This lets a single Crosswind class list carry per-target styling — e.g. ["px-3 py-2 rounded-md", "web:bg-background web:text-secondary", "flutter:bg-slate-900 flutter:text-slate-100"] — instead of maintaining a parallel token catalogue. Works with the variant-group syntax too: flutter:(bg-slate-900 text-slate-100) applies the marker to every grouped class. The marker is consumed by whichever renderer is active: the CSS compiler drops flutter: classes and strips the web: marker (emitting the class as base); the Flutter resolver drops web: classes and strips the flutter: marker.
+  static class TargetVariant
+    // True when variants contains the given target marker.
+    static bool Has(IReadOnlyList<string> variants, string target)
+    // Returns a copy of variants with the given target marker removed. The marker has been satisfied by the active renderer and must not become a CSS selector or block Flutter resolution. Returns the original reference unchanged when the marker is absent, to avoid an allocation on the common path.
+    static IReadOnlyList<string> Without(IReadOnlyList<string> variants, string target)
+    static string Flutter
+    static string Web
   enum TextAlignToken
     Start
     End
@@ -6890,6 +6845,9 @@ namespace Ikon.App
     // Gets the current network connection type on the client.
     static Task<string?> GetNetworkTypeAsync(int targetId, CancellationToken cancellationToken = null)
     static Task<string?> GetNetworkTypeAsync(CancellationToken cancellationToken = null)
+    // Reads the client's current notification permission state.
+    static Task<NotificationPermission> GetNotificationPermissionAsync(int targetId, CancellationToken cancellationToken = null)
+    static Task<NotificationPermission> GetNotificationPermissionAsync(CancellationToken cancellationToken = null)
     // Gets the currently selected UI theme from the client.
     static Task<string?> GetThemeAsync(int targetId, CancellationToken cancellationToken = null)
     static Task<string?> GetThemeAsync(CancellationToken cancellationToken = null)
@@ -6931,6 +6889,9 @@ namespace Ikon.App
     // Updates the browser URL without triggering a page reload.
     static Task<bool> SetUrlAsync(int targetId, string url, bool replace = false, bool preserveQueryParams = false, CancellationToken cancellationToken = null)
     static Task<bool> SetUrlAsync(string url, bool replace = false, bool preserveQueryParams = false, CancellationToken cancellationToken = null)
+    // Shows a notification on the client. The client requests notification permission lazily on the first send before displaying. Returns the client's resulting permission state.
+    static Task<NotificationPermission> ShowNotificationAsync(int targetId, NotificationContent content, CancellationToken cancellationToken = null)
+    static Task<NotificationPermission> ShowNotificationAsync(NotificationContent content, CancellationToken cancellationToken = null)
     // Starts audio capture on the client from the microphone.
     static Task<string> StartAudioCaptureAsync(int targetId, ClientAudioCaptureOptions? options = null, CancellationToken cancellationToken = null)
     static Task<string> StartAudioCaptureAsync(ClientAudioCaptureOptions? options = null, CancellationToken cancellationToken = null)
@@ -7320,6 +7281,8 @@ namespace Ikon.App
     Reactive<IReadOnlyList<string>> Mounts { get; }
     // Gets the navigation helper for managing URL paths and listening to URL changes.
     Navigation Navigation { get; }
+    // Gets the notification service for this app — shows user-facing notifications on connected clients (browser notifications on the web, OS notifications on Flutter native apps). Permission is requested on the client lazily, the first time a notification is actually sent.
+    NotificationService Notifications { get; }
     // Gets the reactive wrapper around GlobalState that provides change notifications.
     ReactiveGlobalState ReactiveGlobalState { get; }
     // Gets the reactive root that manages per-client reactive graphs and update cycles.
@@ -7398,6 +7361,8 @@ namespace Ikon.App
   interface IClient<TClientParameters>
     // Gets the typed parameters for this client.
     TClientParameters Parameters { get; }
+    // Gets the session id of this client — the same id used to index IClientCollection`1 and to target client-directed APIs.
+    int SessionId { get; }
   // Marker interface for custom profile attribute classes. Implement this interface on classes that define custom profile attributes.
   interface IProfileAttributes
   // Marks a method on an app or cell as an MCP tool. The framework discovers these at startup, reflects the method's parameters into a JSON Schema, registers the method on an Ikon.Mcp.McpHost, and routes incoming MCP tools/call requests to it.
@@ -7443,6 +7408,7 @@ namespace Ikon.App
     static string GetLocation
     static string GetMediaDevices
     static string GetNetworkType
+    static string GetNotificationPermission
     static string GetTheme
     static string GetTimezone
     static string GetUrl
@@ -7456,6 +7422,7 @@ namespace Ikon.App
     static string ScrollTo
     static string SetTheme
     static string SetUrl
+    static string ShowNotification
     static string StartAudioCapture
     static string StartVideoCapture
     static string StopCapture
@@ -7474,6 +7441,52 @@ namespace Ikon.App
     string Path { get; }
     string Url { get; }
     string UserId { get; }
+  // Per-client convenience for sending a notification straight to a connected client — await app.Clients[id].NotifyAsync("Title", "Body") — without going through SendToSessionAsync with an explicit session id.
+  static class NotificationClientExtensions
+    static Task<NotificationPermission> NotifyAsync<TClientParameters>(IClient<TClientParameters> client, NotificationContent content, CancellationToken ct = null)
+    static Task<NotificationPermission> NotifyAsync<TClientParameters>(IClient<TClientParameters> client, string title, string? body = null, CancellationToken ct = null)
+  // Content of a user-facing notification surfaced on the client device (browser notification on the web, OS notification on Flutter native apps).
+  sealed class NotificationContent : IEquatable<NotificationContent>
+    // Content of a user-facing notification surfaced on the client device (browser notification on the web, OS notification on Flutter native apps).
+    ctor(string Title, string? Body = null, string? IconUrl = null, string? Tag = null, string? LaunchUrl = null, string? Data = null)
+    // Optional body text shown below the title.
+    string? Body { get; init; }
+    // Optional opaque JSON payload the app receives back when the user taps the notification.
+    string? Data { get; init; }
+    // Optional URL of an icon image shown with the notification.
+    string? IconUrl { get; init; }
+    // Optional in-app path the client navigates to when the user taps the notification.
+    string? LaunchUrl { get; init; }
+    // Optional collapse key — a later notification with the same tag replaces an existing one instead of stacking.
+    string? Tag { get; init; }
+    // Notification title. Required.
+    string Title { get; init; }
+  // The notification permission state of a client, as reported by the browser / OS.
+  enum NotificationPermission
+    Default
+    Granted
+    Denied
+    Unsupported
+  // Outcome of sending a notification to a single client session.
+  sealed class NotificationSendResult : IEquatable<NotificationSendResult>
+    // Outcome of sending a notification to a single client session.
+    ctor(int SessionId, bool Delivered, NotificationPermission Permission)
+    // True when the client actually displayed the notification (permission granted).
+    bool Delivered { get; init; }
+    // The client's resulting permission state after the send attempt.
+    NotificationPermission Permission { get; init; }
+    // The target client session id.
+    int SessionId { get; init; }
+  // Platform notification surface for an Ikon app — shows user-facing notifications on connected clients. Accessed via app.Notifications. In this release notifications are delivered to clients that are currently connected (foreground). Permission is requested lazily on the client the first time a notification is actually sent, not when the app opens. Addressing by SendToUserAsync fans out to every connected session for that user; offline/cross-device push delivery is a future addition that reuses the same API surface.
+  sealed class NotificationService
+    // Shows a notification on all currently-connected client sessions. Returns one result per session.
+    Task<IReadOnlyList<NotificationSendResult>> BroadcastAsync(NotificationContent content, CancellationToken ct = null)
+    // Reads a client's current notification permission state without sending anything.
+    Task<NotificationPermission> GetPermissionAsync(int sessionId, CancellationToken ct = null)
+    // Shows a notification on a single connected client session. The client requests notification permission lazily (on this first send) before displaying. Returns the per-session delivery and permission outcome.
+    Task<NotificationSendResult> SendToSessionAsync(int sessionId, NotificationContent content, CancellationToken ct = null)
+    // Shows a notification on every currently-connected session belonging to userId (a user may be connected from several devices). Users with no connected session receive nothing in this release. Returns one result per targeted session.
+    Task<IReadOnlyList<NotificationSendResult>> SendToUserAsync(string userId, NotificationContent content, CancellationToken ct = null)
   // A reactive value persisted globally for the app within its space. Shared across all session identities and users; one value per app deployment.
   class PersistentReactive<T> : Reactive<T>, IPersistedReactive
     ctor(T initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null, string file = "", string member = "")
@@ -7696,7 +7709,7 @@ namespace Ikon.App.Cells
   sealed class CellHost : IAsyncDisposable
     // Construct a host that scans the supplied assemblies for CellAttribute -decorated types. When assemblies is null, scans every loaded assembly in the current AppDomain. Cells whose SessionIdentity record is parameterless (= global) are eager-spawned at construction so they are always-already-provisioned by the time a request lands.
     ctor(IEnumerable<Assembly>? assemblies = null)
-    // Every CellAttribute -decorated type the host discovered during construction. Read-only enumeration used by higher layers (e.g. typed-HTTP-endpoint discovery) that need to iterate cells without owning the directory.
+    // One canonical cell type per simple name — the exact set ResolveByCellTypeName dispatches to, and what every consumer that turns a cell into an externally-addressable surface iterates (typed-HTTP-endpoint discovery, MCP tool/resource discovery, the inbound path dispatcher). After a hot reload the same logical cell can linger in two AssemblyLoadContexts — the recompiled copy plus the not-yet-collected original — as two distinct Type identities sharing a FullName. The host keeps both internally for load-context-correct wire-interface mapping ( Resolve``1 ), but a surface must be discovered ONCE and bound to the type whose instance dispatch returns: otherwise a duplicate-name registration throws (MCP tools) or a handler built over the non-dispatched copy fails its invoke with a target-type mismatch. Keying on simple name collapses the duplicate to that single dispatchable type.
     IReadOnlyCollection<Type> CellTypes { get; }
     // Dispose every cell instance held by the host. Async disposal is preferred per BCL precedence; IDisposable is honored as a fallback. After disposal, Resolve``1 throws ObjectDisposedException .
     ValueTask DisposeAsync()
@@ -7736,8 +7749,10 @@ namespace Ikon.App.Cells
     static TInterface Connect<TInterface>(object sessionIdentity) where TInterface : class
     // Dispose every live cell-host connection. Call on app shutdown. Idempotent.
     static ValueTask DisposeAsync()
-    // Install the process-wide cell host. Replaces any previous host (last-call-wins) so tests can swap freely. Also clears the endpoint-URL resolver and the cell-client factory, and drops the connection registry — apps re-register the resolver/factory after each Initialize. Production calls Initialize once at startup, so this only matters in tests that re-run Initialize between scenarios.
+    // Install the process-wide cell host AND reset the app wiring: clears the endpoint-URL resolver and the cell-client factory, and drops the connection + proxy registries. Use this for a clean slate — tests re-run it between scenarios, and an app with no platform-installed host falls back to it. Production startup installs the host via InstallHost instead, which keeps the wiring the app already registered (see that method for why).
     static void Initialize(CellHost host)
+    // Swap the process-wide cell host WITHOUT touching the app-registered endpoint-URL resolver or cell-client factory. Drops the connection + proxy registries because they reference the previous host's cell instances (whose types may live in a now-unloaded AssemblyLoadContext).
+    static void InstallHost(CellHost host)
     // Register the factory that opens a standard-SDK IkonClient connection to a substrate cell-host. Called by the app host at startup — the app process has the backend context (space id, login) the factory needs. SubstrateCellProxy`1 uses it for [Function]-marked methods and Reactive<T> members; without it, those throw a clear error while [HttpGet]/[HttpPost] methods still work.
     static void SetCellClientFactory(Func<CellConnectRequest, Task<IkonClient>> factory)
     // Register the function that maps a endpoint function name (e.g. "LabCell_IncrementHttp") to its public URL. Called by the app host at startup so SubstrateCellProxy`1 can dispatch a substrate cell's [HttpGet]/[HttpPost] methods over stateless HTTP. Methods the resolver returns no URL for fall through to the SDK connection.
@@ -7765,8 +7780,9 @@ namespace Ikon.App.Client
   // Implementation of IClient`1 representing a connected client with typed parameters.
   class Client<TClientParameters> : IClient<TClientParameters>
     // Implementation of IClient`1 representing a connected client with typed parameters.
-    ctor(TClientParameters parameters)
+    ctor(int sessionId, TClientParameters parameters)
     TClientParameters Parameters { get; }
+    int SessionId { get; }
 
 namespace Ikon.App.Cron
   // Per-invocation context for a CronAttribute handler currently executing. A cron handler may optionally accept one of these (and/or a CancellationToken ) to learn when and why it fired; a parameterless handler is equally valid. AsyncLocal so handler code (and anything it calls) can read it without threading it through every method signature.
