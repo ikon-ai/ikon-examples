@@ -174,6 +174,48 @@ Standard Crosswind variants are supported:
 "group-hover:visible peer-focus:ring-2"
 ```
 
+### Variant Groups
+
+Apply one variant to several classes at once with the parenthesised group form
+`variant:(class class …)`. The variant is applied to every space-separated class inside,
+so you write the prefix once instead of repeating it:
+
+```csharp
+// These two are equivalent:
+"hover:bg-blue-600 hover:text-white hover:shadow-lg"
+"hover:(bg-blue-600 text-white shadow-lg)"
+```
+
+Groups nest — a class inside a group keeps any further variant of its own:
+
+```csharp
+"md:(flex gap-4 hover:bg-blue-600)"   // md: applies to all three; hover: also to the last
+```
+
+### Target Variants (web vs Flutter)
+
+The same C# UI renders to web (CSS) and to Flutter (native widgets). Most Crosswind
+classes resolve on both. When you need styling that applies to **only one** renderer,
+scope it with a target variant:
+
+- `web:` — applies only on the web/CSS renderer
+- `flutter:` — applies only on the Flutter renderer
+- unprefixed — applies to both
+
+```csharp
+// Shared layout, per-target colours. Use the group form so the target prefix is written once:
+["px-3 py-2 rounded-md",
+ "web:(bg-background text-secondary border border-input)",
+ "flutter:(bg-slate-900 text-slate-100 border border-slate-700)"]
+```
+
+A `web:` class emits no Flutter styling and a `flutter:` class emits no CSS. Reach for
+these where the renderers genuinely differ — e.g. browser-only effects (focus rings,
+`hover:`, `data-[state]`) that Flutter doesn't render, or concrete colours you want on
+Flutter instead of theme semantic colours. Unprefixed classes (including the theme's
+semantic colours like `bg-background`) already resolve on both, so most styling needs no
+target prefix at all.
+
 ### Arbitrary Values
 
 Use brackets for custom values:
