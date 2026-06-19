@@ -542,7 +542,6 @@ namespace Ikon.Parallax.Components.Standard
     PickContacts
     RequestFullscreen
     Share
-    ShowNotification
   // Base class for client-side action configuration.
   abstract class ActionOptions : IEquatable<ActionOptions>
   // Represents activation mode for Tabs.
@@ -1411,14 +1410,6 @@ namespace Ikon.Parallax.Components.Standard
     string? Title { get; init; }
     // URL to share.
     string? Url { get; init; }
-  // Options for showing a browser notification.
-  sealed class ShowNotificationActionOptions : ActionOptions, IEquatable<ShowNotificationActionOptions>
-    // Notification body text.
-    string? Body { get; init; }
-    // URL of the notification icon image.
-    string? Icon { get; init; }
-    // Notification title text.
-    string Title { get; init; }
   // Represents the side for positioning overlays.
   enum Side
     Top
@@ -2447,6 +2438,8 @@ namespace Ikon.Parallax.Theming
     static string DefaultLg
     static string DefaultMd
     static string DefaultSm
+    static string Group
+    static string GroupVertical
     static string IconDefault
     static string IconDefaultLg
     static string IconDefaultMd
@@ -2533,49 +2526,3 @@ namespace Ikon.Parallax.Theming
     static string DragOverlay
     static string Images
     static string Wrapper
-
-namespace Ikon.Parallax.Theming.Flutter
-  static class FlutterTokens.Badge
-    static string Brand
-    static string Neutral
-  static class FlutterTokens.Button
-    static string Danger
-    static string Ghost
-    static string Icon
-    static string Neutral
-    static string Outline
-    static string Primary
-  static class FlutterTokens.Divider
-    static string Horizontal
-    static string Line
-  static class FlutterTokens
-  static class FlutterTokens.Icon
-    static string Default
-    static string Lg
-    static string Md
-    static string Sm
-    static string Xs
-  static class FlutterTokens.Input
-    static string Area
-    static string Default
-  static class FlutterTokens.Layout
-    static string Center
-    static string Column
-    static string Row
-    static string RowWrap
-    static string Screen
-  static class FlutterTokens.Surface
-    static string Card
-    static string Panel
-    static string Screen
-  static class FlutterTokens.Text
-    static string Body
-    static string BodyStrong
-    static string Caption
-    static string H1
-    static string H2
-    static string H3
-    static string Hero
-    static string Label
-    static string Link
-    static string Muted
