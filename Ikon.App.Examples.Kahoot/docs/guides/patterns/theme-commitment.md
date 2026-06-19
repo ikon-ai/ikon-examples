@@ -1,10 +1,10 @@
 # Theme Commitment — `new IkonTheme { ... }` at the App declaration site
 
-When the brief declares a STYLING dimension (mood / palette / typography), the brand commitment lives at the App's UI declaration as a `new IkonTheme { ... }` object initializer — NOT in `IkonTheme.cs`'s Css raw-string. Each entry is one CSS variable, indexer-keyed: `["primary"] = "amber-400"`, `["background"] = "zinc-950"`, `["radius-base"] = "rounded-lg"`. Every component inherits.
+Every app commits a theme at the App's UI declaration as a `new IkonTheme { ... }` object initializer — NOT in `IkonTheme.cs`'s Css raw-string. Each entry is one CSS variable, indexer-keyed: `["primary"] = "amber-400"`, `["background"] = "zinc-950"`, `["radius-base"] = "rounded-lg"`. Every component inherits.
 
 ## When to use
 
-Any app whose plan has a STYLING section that names a mood, palette, or typography. If the plan says "fintech minimal" or "vintage editorial" or "retro arcade", the right artifact to edit is the App's UI field — paste a `new IkonTheme { ... }` initializer. No `IkonTheme.cs` edit needed.
+**Every app — always.** A committed theme is part of the commercial-grade UI bar (see the styling guide), not an opt-in for "design" briefs. Even a plain "todo app" or "poll" gets a `new IkonTheme { ... }`: the bare default `new Theme()` reads as unfinished. If the plan has a STYLING section naming a mood ("fintech minimal", "vintage editorial", "retro arcade"), honor it; if it doesn't, still pick a cohesive palette that fits the app's domain and commit it (plus a `DarkMode` block). The right artifact is always the App's UI field — paste a `new IkonTheme { ... }` initializer. No `IkonTheme.cs` edit needed.
 
 ## Snippet
 
@@ -16,6 +16,9 @@ private UI UI { get; } = new(app, new IkonTheme
     ["primary"]              = "amber-400",
     ["bg-brand-solid"]       = "amber-400",
     ["bg-brand-solid-hover"] = "amber-500",
+    ["bg-brand-button"]      = "amber-400",  // THE PRIMARY BUTTON's bg — a SEPARATE token from
+    ["bg-brand-button-hover"]= "amber-500",  // bg-brand-solid. Omit it and Button.PrimaryMd stays
+                                             // the default brand colour while the rest goes amber.
     ["text-brand"]           = "amber-400",
     ["border-brand"]         = "amber-400",
     ["primary-foreground"]   = "#0A0A0A",   // pick contrast yourself
@@ -174,7 +177,7 @@ new IkonTheme
 
 - **`IkonTheme` is a class in `Ikon.Parallax`. DO NOT redefine it.** It's auto-imported via `global using Ikon.Parallax;` in the scaffold's `GlobalUsings.cs`. The platform baseline (fonts, color ramps, radii, motion) is already inside `Ikon.Parallax.Theming.Theme` and inherited automatically — your indexer entries are *overrides* on top of that baseline, not a from-scratch CSS sheet. **Never write `class IkonTheme : ITheme` or `class Theme : ITheme` in the app's source tree** — that's the deleted pattern from before the indexer existed. If `new IkonTheme()` won't compile, the `global using Ikon.Parallax;` line is missing from `GlobalUsings.cs` — fix that, don't reimplement the class.
 - **Pass `new IkonTheme { ... }` to `UI`** when STYLING is in the plan. **Never `Theming.Apply(...)`, `Theming.Custom(...)`, or `Theme.Custom(...)`** — those factories were retired; the configurable surface is the `IkonTheme` class with `DarkMode` plus an indexer for every CSS variable.
-- **At minimum, the Oracle should set the brand cluster (`primary`, `bg-brand-solid`, `bg-brand-solid-hover`, `text-brand`, `border-brand`, `primary-foreground`), the page surfaces (`background`, `text-primary`, `card`), plus typography (`font-heading` / `font-body`) and shape (`radius-base`).** With these set, `Button.Default`, `Card.Default`, `Layout.Page` all render in the brand palette automatically.
+- **At minimum, the Oracle should set the brand cluster (`primary`, `bg-brand-solid`, `bg-brand-solid-hover`, `bg-brand-button`, `bg-brand-button-hover`, `text-brand`, `border-brand`, `primary-foreground`), the page surfaces (`background`, `text-primary`, `card`), plus typography (`font-heading` / `font-body`) and shape (`radius-base`).** With these set, `Button.Default`, `Card.Default`, `Layout.Page` all render in the brand palette automatically. **`bg-brand-button` / `bg-brand-button-hover` are easy to miss and load-bearing:** `Button.PrimaryMd` (the default primary button) draws its fill from `bg-brand-button`, NOT `bg-brand-solid`. Set only `bg-brand-solid` and your primary CTA keeps the platform-default brand colour while everything else re-skins — a glaring inconsistency (verified live: a sky-themed app shipped a purple "Add" button). Do the same in the `DarkMode` block. (Do NOT instead re-map the whole `brand-50…900` ramp to force it — that also recolours selects, labels, and other brand-derived surfaces in ways that don't compose; set the leaf button tokens.)
 - **For dark mode**, set `DarkMode = new IkonTheme { ... }` with the dark-theme overrides. The renderer emits `[data-theme="dark"]` / `.dark` / `prefers-color-scheme: dark` selectors.
 - **For non-Tailwind palettes**, pass raw hex (`["primary"] = "#ffd54f"`). The resolver passes raw values through unchanged.
 - **Pick contrast yourself.** There is no auto-derived `primary-foreground`. Light brand step (≤ 500) → `"#0A0A0A"`. Dark brand step (≥ 600) → `"#ffffff"`.
