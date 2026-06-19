@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 335178,
+      "sizeBytes": 342641,
       "alsoInclude": []
     },
     {
@@ -128,7 +128,7 @@
         "message bubbles"
       ],
       "file": "docs/guides/ui-components.md",
-      "sizeBytes": 14945,
+      "sizeBytes": 15333,
       "alsoInclude": [
         "app-structure"
       ]
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 177979,
+      "sizeBytes": 177565,
       "alsoInclude": []
     },
     {
@@ -238,7 +238,7 @@
         "scanline"
       ],
       "file": "docs/guides/styling-guide.md",
-      "sizeBytes": 33948,
+      "sizeBytes": 35614,
       "alsoInclude": [
         "styling-and-motion"
       ]
@@ -281,7 +281,7 @@
         "transitions"
       ],
       "file": "docs/guides/tailwind-reference.md",
-      "sizeBytes": 94132,
+      "sizeBytes": 95497,
       "alsoInclude": []
     },
     {
@@ -488,7 +488,7 @@
         "optimistic concurrency"
       ],
       "file": "docs/guides/asset-system.md",
-      "sizeBytes": 21509,
+      "sizeBytes": 22055,
       "alsoInclude": []
     },
     {
