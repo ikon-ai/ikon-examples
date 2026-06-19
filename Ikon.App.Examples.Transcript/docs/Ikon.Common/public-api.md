@@ -15,7 +15,7 @@ namespace Ikon.Common
     ctor()
     AppBundleConfig.ActivationConfig Activation { get; set; }
     AppBundleConfig.AuthConfig Auth { get; set; }
-    // Per-cell entry points discovered in the bundle. The cloud uses this list to: (a) recognise URLs of the form /api/{CellType}/{path} and route them to a cell-instance (provisioned the same way an app-instance is, just with AppInitializationArgs.RunTarget = "{CellType}" instead of null); (b) hash the request's identity query params against the cell's IdentityFields to find-or-create the right channel-instance for that cell identity. Empty for apps without cells, or for cells whose ProcessScope is AppProcess (in-process — no separate cell-instance needed). See docs/private/endpoint-and-cell-architecture.md.
+    // Per-cell entry points discovered in the bundle. The cloud uses this list to: (a) recognise URLs of the form /api/{CellType}/{path} and route them to a cell-instance (provisioned the same way an app-instance is, just with AppInitializationArgs.RunTarget = "{CellType}" instead of null); (b) hash the request's identity query params against the cell's IdentityFields to find-or-create the right channel-instance for that cell identity. Empty for apps without cells, or for cells whose ProcessScope is AppProcess (in-process — no separate cell-instance needed). See docs/private/endpoint-architecture.md.
     List<AppBundleConfig.CellEntry> Cells { get; set; }
     string ChannelId { get; set; }
     string CreatedAt { get; set; }
@@ -1181,17 +1181,23 @@ namespace Ikon.Common
     ctor(TimeSpan window, int rateLimit)
     int Rate { get; }
     bool Guard()
-  // Client-side agent for the in-house relay server. Establishes a single WebSocket to the relay, allocates endpoints on demand, and forwards incoming relay traffic to the matching local port.
+  // Client-side agent for the in-house relay server. Establishes a WebSocket to the relay, allocates endpoints on demand, and forwards incoming relay traffic to the matching local port. When the connection drops the agent reconnects with bounded exponential backoff and re-establishes its tunnels; DisposeAsync is the only thing that stops it permanently.
   sealed class RelayAgent : IAsyncDisposable
     // Creates a relay agent with explicit connection parameters. Used when the relay host/port/token are already known (e.g. IkonServer's --public-access path). When stableId is non-empty, the relay assigns a fixed port-range segment to this identity so the public ports stay stable across reconnects.
     ctor(string relayServerAddress, int relayServerPort, string relayAuthToken, string stableId = "")
     // Allocates an endpoint. localPort of 0 picks an available port from an internal pool. The returned RelayEndpoint is disposable; dispose it to release the endpoint. When stablePortName is non-empty (and this agent has a non-empty stableId), the relay assigns a deterministic public port for that name within this agent's segment, so the endpoint's public URL stays the same across reconnects and process restarts. Empty = ephemeral, as before.
     Task<RelayEndpoint> AddEndpointAsync(EndpointProtocol protocol, int localPort = 0, string stablePortName = "", CancellationToken cancellationToken = null)
-    // Connects to the relay server and authenticates. Called implicitly by AddEndpointAsync on first use; calling it explicitly is optional.
+    // Ensures the connection supervisor is running and waits for a live session. Called implicitly by AddEndpointAsync on first use; calling it explicitly is optional. The very first connection attempt surfaces its failure to the caller; once a session has been established the supervisor reconnects on its own and this call simply waits for the next live session.
     Task ConnectAsync(CancellationToken cancellationToken = null)
     // Creates a relay agent whose host/port/token are fetched from IkonBackend on first connect. Pass a non-empty stableId to opt into stable public-port assignments.
     static RelayAgent CreateFromIkonBackend(string stableId = "")
     ValueTask DisposeAsync()
+    // Raised after a reconnect re-establishes an endpoint on a different public address than before. The endpoint reference is unchanged; its PublicHost / PublicPort already reflect the new address.
+    event Action<RelayEndpoint>? EndpointRebound
+    // Raised when a new session goes live after a previous one was lost.
+    event Action? Reconnected
+    // Raised when a live session is lost and the agent has begun reconnecting.
+    event Action? Reconnecting
   // A relay endpoint. Exposes the locally bound port and the publicly reachable host/port. Dispose to release the endpoint and its local port reservation.
   sealed class RelayEndpoint : IAsyncDisposable
     int LocalPort { get; }
