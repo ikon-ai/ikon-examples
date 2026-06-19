@@ -21,6 +21,34 @@ C# App (unchanged)
 
 The server sends the same component tree to all clients. Web clients receive CSS styles; Flutter clients receive typed tokens (EdgeInsets, Color, BorderRadius, etc.) resolved from the same Crosswind utility classes. The `StyleFormat` capability is negotiated at connect time.
 
+## Styling: shared classes, per-target overrides
+
+You style Flutter exactly like the web — Crosswind utility classes in C#, resolved
+server-side to native Flutter tokens. Most classes resolve on both renderers, including
+the theme's semantic colours (`bg-background`, `text-secondary`, …), which Flutter
+resolves to concrete values. So the common case needs no Flutter-specific work.
+
+Some web-only styling has no Flutter equivalent and is dropped on Flutter today: focus
+rings, `hover:` / `focus:` / `data-[state]` variants, and arbitrary CSS (gradients,
+shadows). Flutter also currently renders the dark theme only.
+
+When you need styling that differs by renderer, scope it with the **target variants** —
+`flutter:` applies only on Flutter, `web:` only on the web/CSS renderer, and unprefixed
+applies to both. Use the variant-group form to scope many classes with one prefix:
+
+```csharp
+view.Box(
+    style: [
+        "px-3 py-2 rounded-md",                                  // shared
+        "web:(bg-background text-secondary border border-input)",// web only
+        "flutter:(bg-slate-900 text-slate-100 border border-slate-700)" // Flutter only
+    ],
+    content: ...);
+```
+
+See the **Crosswind Styling and Motion Guide** for the full variant and variant-group
+syntax.
+
 ## Quick Start
 
 ### 1. Create a Flutter frontend
