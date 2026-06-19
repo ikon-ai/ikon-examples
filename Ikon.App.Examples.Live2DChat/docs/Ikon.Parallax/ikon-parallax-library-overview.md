@@ -320,6 +320,26 @@ view.Button(style: [Button.PrimaryMd], label: "Submit");
 view.TextField(style: [Input.Default], value: _text.Value, onValueChange: async v => _text.Value = v);
 ```
 
+### Default styling and auto-composed indicators
+
+`style:` is optional. When it is omitted, interactive and input controls fall back to
+their default theme token, so the minimal call renders a complete, themed control:
+
+```csharp
+view.Checkbox(isChecked: _done.Value, onCheckedChange: async v => _done.Value = v);
+view.Switch(isChecked: _on.Value, onCheckedChange: async v => _on.Value = v);
+view.TextField(value: _text.Value, onValueChange: async v => _text.Value = v);
+view.Button(label: "Submit", onClick: async () => { });
+```
+
+Controls that have a visible inner part also compose it automatically when no `content:`
+is given — Checkbox gets its check indicator, Switch its thumb, Slider its track/range/
+thumb, Select its trigger and items. You only pass `content:` to customise the inner part
+(e.g. a different icon), and an explicit `style:` array always overrides the default. To
+render a checkbox with no check mark, opt out explicitly with `content: _ => { }`. Layout
+primitives (`Box`, `Row`, `Column`, `Grid`, `Stack`) stay unstyled by default — there
+"no style" is the normal usage.
+
 ## Per-Client UI with Scopes
 
 The reactive scope system enables different clients to see different UI:
