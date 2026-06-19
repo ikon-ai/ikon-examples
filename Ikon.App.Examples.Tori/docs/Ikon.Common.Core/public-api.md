@@ -573,6 +573,8 @@ namespace Ikon.Common.Core
     static IkonBackend.EnvironmentType DetermineEnvironment(string url)
     Task<HttpResponseMessage> DownloadInboundEmailAttachmentAsync(string emailId, string attachmentId)
     Task<List<IkonBackend.Profile>> FindProfilesAsync(string spaceId, Dictionary<string, string> filters, int maxResults = 1000)
+    // Returns an IkonBackend that authenticates with token while sharing the global instance's backend URL. Lets a process issue backend requests on behalf of a caller whose space-scoped token differs from its own — e.g. an RPC proxy resolving assets that live in the caller's space.
+    static IkonBackend ForToken(string token)
     Task<List<IkonBackend.Translation>> GetAllTranslationsAsync(string spaceId, int maxResults = 1000)
     Task<Dictionary<string, string>> GetApiKeysAsync(bool all = false)
     Task<IkonBackend.AppBundle> GetAppBundleAsync(string id)
@@ -1385,6 +1387,10 @@ namespace Ikon.Common.Core.Assets
     Task<AssetContent<T>?> TryGetWithMetadataAsync<T>(AssetUri assetUri) where T : class
     Task<AssetWriteResult> TrySetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
     Task<AssetWriteResult> TrySetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
+  // Ambient override for the IkonBackend that cloud asset storages resolve against. While a scope is active, asset reads and writes that fall back to the default backend use Current instead of Instance . Lets a process resolve a caller's assets with the caller's space-scoped token when it acts on behalf of another space (e.g. the LLM RPC proxy). The scope is never set automatically; callers opt in explicitly with Use .
+  static class AssetBackendScope
+    static IkonBackend? Current { get; }
+    static IDisposable Use(IkonBackend backend)
   // Asset class determines which storage backend is used to store/retrieve the asset.
   enum AssetClass
     LocalFile
@@ -4387,7 +4393,8 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class RelayAgentAuth : IProtocolMessagePayload
     ctor()
-    ctor(string authToken, string stableId)
+    ctor(string authToken, string stableId, string agentInstanceId)
+    string AgentInstanceId { get; set; }
     string AuthToken { get; set; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
