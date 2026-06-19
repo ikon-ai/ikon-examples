@@ -391,6 +391,14 @@ namespace Ikon.Crosswind
     IReadOnlyDictionary<string, TailwindFontSize> FontSize { get; }
     IReadOnlyDictionary<string, string> FontWeight { get; }
     IReadOnlyDictionary<string, string> ShadowPalette { get; }
+  // Target-scoping Crosswind variants. A class prefixed with flutter: applies only on the Flutter renderer, web: only on the web/CSS renderer, and an unprefixed class applies to both. This lets a single Crosswind class list carry per-target styling — e.g. ["px-3 py-2 rounded-md", "web:bg-background web:text-secondary", "flutter:bg-slate-900 flutter:text-slate-100"] — instead of maintaining a parallel token catalogue. Works with the variant-group syntax too: flutter:(bg-slate-900 text-slate-100) applies the marker to every grouped class. The marker is consumed by whichever renderer is active: the CSS compiler drops flutter: classes and strips the web: marker (emitting the class as base); the Flutter resolver drops web: classes and strips the flutter: marker.
+  static class TargetVariant
+    // True when variants contains the given target marker.
+    static bool Has(IReadOnlyList<string> variants, string target)
+    // Returns a copy of variants with the given target marker removed. The marker has been satisfied by the active renderer and must not become a CSS selector or block Flutter resolution. Returns the original reference unchanged when the marker is absent, to avoid an allocation on the common path.
+    static IReadOnlyList<string> Without(IReadOnlyList<string> variants, string target)
+    static string Flutter
+    static string Web
   enum TextAlignToken
     Start
     End
