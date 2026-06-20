@@ -33,11 +33,16 @@ namespace Ikon.Crosswind
     ColorToken? Color { get; init; }
     double? Width { get; init; }
     BorderSideToken MergeOver(BorderSideToken? other)
+  enum BorderStyleToken
+    Solid
+    Dashed
+    Dotted
   sealed class BorderToken : IEquatable<BorderToken>
-    ctor(BorderSideToken? Left, BorderSideToken? Top, BorderSideToken? Right, BorderSideToken? Bottom)
+    ctor(BorderSideToken? Left, BorderSideToken? Top, BorderSideToken? Right, BorderSideToken? Bottom, BorderStyleToken? Style = null)
     BorderSideToken? Bottom { get; init; }
     BorderSideToken? Left { get; init; }
     BorderSideToken? Right { get; init; }
+    BorderStyleToken? Style { get; init; }
     BorderSideToken? Top { get; init; }
     static BorderToken All(BorderSideToken side)
   sealed class CanvasDesignTokenDocument
@@ -172,19 +177,22 @@ namespace Ikon.Crosswind
     SpaceAround
     SpaceEvenly
   sealed class FlexToken : IEquatable<FlexToken>
-    ctor(FlexDirectionToken? Direction, FlexAlignToken? AlignItems, FlexJustifyToken? JustifyContent, double? Gap, double? RowGap, double? ColumnGap, bool? Wrap)
+    ctor(FlexDirectionToken? Direction, FlexAlignToken? AlignItems, FlexJustifyToken? JustifyContent, double? Gap, double? RowGap, double? ColumnGap, bool? Wrap, double? Grow = null, FlexAlignToken? AlignSelf = null, int? Order = null)
     FlexAlignToken? AlignItems { get; init; }
+    FlexAlignToken? AlignSelf { get; init; }
     double? ColumnGap { get; init; }
     FlexDirectionToken? Direction { get; init; }
     double? Gap { get; init; }
+    double? Grow { get; init; }
     FlexJustifyToken? JustifyContent { get; init; }
+    int? Order { get; init; }
     double? RowGap { get; init; }
     bool? Wrap { get; init; }
     FlexToken MergeOver(FlexToken? other)
   static class FlutterStyleResolver
     static FlutterStyleTokens Resolve(string tailwindDeclaration)
   sealed class FlutterStyleTokens : IEquatable<FlutterStyleTokens>
-    ctor(EdgeInsetsToken? Padding, EdgeInsetsToken? Margin, ColorToken? BackgroundColor, BorderToken? Border, BorderRadiusToken? BorderRadius, SizeToken? Size, TextStyleToken? Text, FlexToken? Flex, double? Opacity, IReadOnlyList<ShadowToken>? Shadow, OverflowToken? Overflow, TransformToken? Transform, PositionToken? Position, GradientToken? Gradient, MotionToken? Motion, bool? Hidden, bool? Visible, CursorToken? Cursor, double? AspectRatio, int? ZIndex, int? GridColumns = null, bool? Pulse = null, bool? Spin = null)
+    ctor(EdgeInsetsToken? Padding, EdgeInsetsToken? Margin, ColorToken? BackgroundColor, BorderToken? Border, BorderRadiusToken? BorderRadius, SizeToken? Size, TextStyleToken? Text, FlexToken? Flex, double? Opacity, IReadOnlyList<ShadowToken>? Shadow, OverflowToken? Overflow, TransformToken? Transform, PositionToken? Position, GradientToken? Gradient, MotionToken? Motion, bool? Hidden, bool? Visible, CursorToken? Cursor, double? AspectRatio, int? ZIndex, int? GridColumns = null, bool? Pulse = null, bool? Spin = null, ObjectFitToken? ObjectFit = null)
     double? AspectRatio { get; init; }
     ColorToken? BackgroundColor { get; init; }
     BorderToken? Border { get; init; }
@@ -198,6 +206,7 @@ namespace Ikon.Crosswind
     bool IsEmpty { get; }
     EdgeInsetsToken? Margin { get; init; }
     MotionToken? Motion { get; init; }
+    ObjectFitToken? ObjectFit { get; init; }
     double? Opacity { get; init; }
     OverflowToken? Overflow { get; init; }
     EdgeInsetsToken? Padding { get; init; }
@@ -233,6 +242,12 @@ namespace Ikon.Crosswind
     string? Ease { get; init; }
     string? IterationMode { get; init; }
     string? Type { get; init; }
+  enum ObjectFitToken
+    Contain
+    Cover
+    Fill
+    None
+    ScaleDown
   enum OverflowToken
     Visible
     Hidden
