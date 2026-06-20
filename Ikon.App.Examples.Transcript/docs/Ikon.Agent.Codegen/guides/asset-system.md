@@ -119,6 +119,10 @@ namespace Ikon.Common.Core.Assets
     Task<AssetContent<T>?> TryGetWithMetadataAsync<T>(AssetUri assetUri) where T : class
     Task<AssetWriteResult> TrySetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
     Task<AssetWriteResult> TrySetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
+  // Ambient override for the IkonBackend that cloud asset storages resolve against. While a scope is active, asset reads and writes that fall back to the default backend use Current instead of Instance . Lets a process resolve a caller's assets with the caller's space-scoped token when it acts on behalf of another space (e.g. the LLM RPC proxy). The scope is never set automatically; callers opt in explicitly with Use .
+  static class AssetBackendScope
+    static IkonBackend? Current { get; }
+    static IDisposable Use(IkonBackend backend)
   // Asset class determines which storage backend is used to store/retrieve the asset.
   enum AssetClass
     LocalFile

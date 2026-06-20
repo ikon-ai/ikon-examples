@@ -5517,11 +5517,16 @@ namespace Ikon.Crosswind
     ColorToken? Color { get; init; }
     double? Width { get; init; }
     BorderSideToken MergeOver(BorderSideToken? other)
+  enum BorderStyleToken
+    Solid
+    Dashed
+    Dotted
   sealed class BorderToken : IEquatable<BorderToken>
-    ctor(BorderSideToken? Left, BorderSideToken? Top, BorderSideToken? Right, BorderSideToken? Bottom)
+    ctor(BorderSideToken? Left, BorderSideToken? Top, BorderSideToken? Right, BorderSideToken? Bottom, BorderStyleToken? Style = null)
     BorderSideToken? Bottom { get; init; }
     BorderSideToken? Left { get; init; }
     BorderSideToken? Right { get; init; }
+    BorderStyleToken? Style { get; init; }
     BorderSideToken? Top { get; init; }
     static BorderToken All(BorderSideToken side)
   sealed class CanvasDesignTokenDocument
@@ -5656,19 +5661,22 @@ namespace Ikon.Crosswind
     SpaceAround
     SpaceEvenly
   sealed class FlexToken : IEquatable<FlexToken>
-    ctor(FlexDirectionToken? Direction, FlexAlignToken? AlignItems, FlexJustifyToken? JustifyContent, double? Gap, double? RowGap, double? ColumnGap, bool? Wrap)
+    ctor(FlexDirectionToken? Direction, FlexAlignToken? AlignItems, FlexJustifyToken? JustifyContent, double? Gap, double? RowGap, double? ColumnGap, bool? Wrap, double? Grow = null, FlexAlignToken? AlignSelf = null, int? Order = null)
     FlexAlignToken? AlignItems { get; init; }
+    FlexAlignToken? AlignSelf { get; init; }
     double? ColumnGap { get; init; }
     FlexDirectionToken? Direction { get; init; }
     double? Gap { get; init; }
+    double? Grow { get; init; }
     FlexJustifyToken? JustifyContent { get; init; }
+    int? Order { get; init; }
     double? RowGap { get; init; }
     bool? Wrap { get; init; }
     FlexToken MergeOver(FlexToken? other)
   static class FlutterStyleResolver
     static FlutterStyleTokens Resolve(string tailwindDeclaration)
   sealed class FlutterStyleTokens : IEquatable<FlutterStyleTokens>
-    ctor(EdgeInsetsToken? Padding, EdgeInsetsToken? Margin, ColorToken? BackgroundColor, BorderToken? Border, BorderRadiusToken? BorderRadius, SizeToken? Size, TextStyleToken? Text, FlexToken? Flex, double? Opacity, IReadOnlyList<ShadowToken>? Shadow, OverflowToken? Overflow, TransformToken? Transform, PositionToken? Position, GradientToken? Gradient, MotionToken? Motion, bool? Hidden, bool? Visible, CursorToken? Cursor, double? AspectRatio, int? ZIndex, int? GridColumns = null, bool? Pulse = null, bool? Spin = null)
+    ctor(EdgeInsetsToken? Padding, EdgeInsetsToken? Margin, ColorToken? BackgroundColor, BorderToken? Border, BorderRadiusToken? BorderRadius, SizeToken? Size, TextStyleToken? Text, FlexToken? Flex, double? Opacity, IReadOnlyList<ShadowToken>? Shadow, OverflowToken? Overflow, TransformToken? Transform, PositionToken? Position, GradientToken? Gradient, MotionToken? Motion, bool? Hidden, bool? Visible, CursorToken? Cursor, double? AspectRatio, int? ZIndex, int? GridColumns = null, bool? Pulse = null, bool? Spin = null, ObjectFitToken? ObjectFit = null)
     double? AspectRatio { get; init; }
     ColorToken? BackgroundColor { get; init; }
     BorderToken? Border { get; init; }
@@ -5682,6 +5690,7 @@ namespace Ikon.Crosswind
     bool IsEmpty { get; }
     EdgeInsetsToken? Margin { get; init; }
     MotionToken? Motion { get; init; }
+    ObjectFitToken? ObjectFit { get; init; }
     double? Opacity { get; init; }
     OverflowToken? Overflow { get; init; }
     EdgeInsetsToken? Padding { get; init; }
@@ -5717,6 +5726,12 @@ namespace Ikon.Crosswind
     string? Ease { get; init; }
     string? IterationMode { get; init; }
     string? Type { get; init; }
+  enum ObjectFitToken
+    Contain
+    Cover
+    Fill
+    None
+    ScaleDown
   enum OverflowToken
     Visible
     Hidden
@@ -6848,6 +6863,8 @@ namespace Ikon.App
     // Reads the client's current notification permission state.
     static Task<NotificationPermission> GetNotificationPermissionAsync(int targetId, CancellationToken cancellationToken = null)
     static Task<NotificationPermission> GetNotificationPermissionAsync(CancellationToken cancellationToken = null)
+    // Fetches the client's push subscription so the device can be registered for offline push. Returns null when the client has no subscription (push disabled, permission not granted, or the client cannot subscribe).
+    static Task<PushSubscriptionInfo?> GetPushSubscriptionAsync(int targetId, CancellationToken cancellationToken = null)
     // Gets the currently selected UI theme from the client.
     static Task<string?> GetThemeAsync(int targetId, CancellationToken cancellationToken = null)
     static Task<string?> GetThemeAsync(CancellationToken cancellationToken = null)
@@ -7409,6 +7426,7 @@ namespace Ikon.App
     static string GetMediaDevices
     static string GetNetworkType
     static string GetNotificationPermission
+    static string GetPushSubscription
     static string GetTheme
     static string GetTimezone
     static string GetUrl
@@ -7477,7 +7495,7 @@ namespace Ikon.App
     NotificationPermission Permission { get; init; }
     // The target client session id.
     int SessionId { get; init; }
-  // Platform notification surface for an Ikon app — shows user-facing notifications on connected clients. Accessed via app.Notifications. In this release notifications are delivered to clients that are currently connected (foreground). Permission is requested lazily on the client the first time a notification is actually sent, not when the app opens. Addressing by SendToUserAsync fans out to every connected session for that user; offline/cross-device push delivery is a future addition that reuses the same API surface.
+  // Platform notification surface for an Ikon app — shows user-facing notifications on connected clients. Accessed via app.Notifications. Connected clients receive the notification immediately (foreground). Permission is requested lazily on the client the first time a notification is actually sent, not when the app opens. SendToUserAsync fans out to every connected session for that user; if the user has no connected session it falls back to offline push through the backend (when push is configured). Offline push is server-orchestrated: when a foreground send is granted, the client's push subscription is fetched and registered with the backend. The backend only delivers when its push providers are configured — otherwise registration/send are no-ops, so this is inert until enabled.
   sealed class NotificationService
     // Shows a notification on all currently-connected client sessions. Returns one result per session.
     Task<IReadOnlyList<NotificationSendResult>> BroadcastAsync(NotificationContent content, CancellationToken ct = null)
@@ -7531,6 +7549,16 @@ namespace Ikon.App
     string? Name { get; set; }
     string? PhoneNumber { get; set; }
     string? PreferredName { get; set; }
+  // A client's push subscription, used to register the device for offline push. Web clients return Endpoint + P256dh + Auth ; Flutter clients return Token . Platform is "web" or "fcm".
+  sealed class PushSubscriptionInfo : IEquatable<PushSubscriptionInfo>
+    // A client's push subscription, used to register the device for offline push. Web clients return Endpoint + P256dh + Auth ; Flutter clients return Token . Platform is "web" or "fcm".
+    ctor(string Platform, string? Endpoint, string? Token, string? P256dh, string? Auth, string? DeviceId)
+    string? Auth { get; init; }
+    string? DeviceId { get; init; }
+    string? Endpoint { get; init; }
+    string? P256dh { get; init; }
+    string Platform { get; init; }
+    string? Token { get; init; }
   // Manages per-client reactive graphs and update cycles for an Ikon app. Automatically stops when the app's StoppingAsync event fires.
   class ReactiveRoot
     // Creates a new reactive root for the specified app host.
