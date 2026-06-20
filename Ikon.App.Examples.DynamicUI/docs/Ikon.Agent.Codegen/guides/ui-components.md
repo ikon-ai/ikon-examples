@@ -88,17 +88,17 @@ view.TextArea([Input.Default, "min-h-[100px]"], placeholder: "Type a message..."
 // (`_text.Value`) inside onSubmit: onValueChange is a separate round-trip and may not have landed when
 // onSubmit fires for a fast typist, so the reactive can be one keystroke behind.
 // Note: clearOnSubmit defaults to true when onSubmit is set. Pass clearOnSubmit: false to keep the value.
-view.Checkbox([Checkbox.Default], isChecked: _checked.Value,
-    onCheckedChange: async v => _checked.Value = v);
-view.Switch([Switch.Default], isChecked: _enabled.Value,
-    onCheckedChange: async v => _enabled.Value = v);
-view.Slider([Slider.Default], value: [_slider.Value], min: 0, max: 100, step: 1,
-    onValueChange: async values => _slider.Value = values[0],
-    content: view =>
-    {
-        view.SliderTrack([Slider.Track], content: view => { view.SliderRange([Slider.Range]); });
-        view.SliderThumb([Slider.Thumb]);
-    });
+// Checkbox / Switch / Slider / RadioGroup / Toggle auto-render their inner part (the
+// check mark, the switch thumb, the slider track+thumb, the radio dot) AND their default
+// styling — the bare call below is all you need; you do NOT have to compose a
+// CheckboxIndicator / SwitchThumb / SliderTrack child or pass a [*.Default] style.
+// Pass a content: lambda only to put CUSTOM content inside (e.g. a different icon), or a
+// style: array only to override the default look. To render a checkbox with no check mark
+// at all, opt out explicitly with content: _ => { }.
+view.Checkbox(isChecked: _checked.Value, onCheckedChange: async v => _checked.Value = v);
+view.Switch(isChecked: _enabled.Value, onCheckedChange: async v => _enabled.Value = v);
+view.Slider(value: [_slider.Value], min: 0, max: 100, step: 1,
+    onValueChange: async values => _slider.Value = values[0]);
 view.Select(value: _selected.Value, placeholder: "Choose...",
     onValueChange: async v => _selected.Value = v,
     options: [new SelectOption("a", "Option A"), new SelectOption("b", "Option B")]);
@@ -319,7 +319,7 @@ view.ActionButton([Button.PrimaryMd],
     content: v => { v.Icon([Icon.Default, "mr-2"], name: "clipboard-copy"); v.Text(text: "Copy"); });
 ```
 
-Available ActionKinds: `CaptureImage`, `CopyToClipboard`, `DownloadFile`, `ExitFullscreen`, `GetLocation`, `PickContacts`, `RequestFullscreen`, `Share`, `ShowNotification`
+Available ActionKinds: `CaptureImage`, `CopyToClipboard`, `DownloadFile`, `ExitFullscreen`, `GetLocation`, `PickContacts`, `RequestFullscreen`, `Share` (to show a notification use `app.Notifications`, not an ActionButton)
 
 CaptureButton starts audio/video capture from the client:
 
