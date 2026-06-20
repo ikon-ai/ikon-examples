@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 342641,
+      "sizeBytes": 344046,
       "alsoInclude": []
     },
     {
@@ -281,7 +281,7 @@
         "transitions"
       ],
       "file": "docs/guides/tailwind-reference.md",
-      "sizeBytes": 95497,
+      "sizeBytes": 95964,
       "alsoInclude": []
     },
     {

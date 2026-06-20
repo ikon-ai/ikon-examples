@@ -182,6 +182,48 @@ Standard Crosswind variants are supported:
 "group-hover:visible peer-focus:ring-2"
 ```
 
+### Variant Groups
+
+Apply one variant to several classes at once with the parenthesised group form
+`variant:(class class …)`. The variant is applied to every space-separated class inside,
+so you write the prefix once instead of repeating it:
+
+```csharp
+// These two are equivalent:
+"hover:bg-blue-600 hover:text-white hover:shadow-lg"
+"hover:(bg-blue-600 text-white shadow-lg)"
+```
+
+Groups nest — a class inside a group keeps any further variant of its own:
+
+```csharp
+"md:(flex gap-4 hover:bg-blue-600)"   // md: applies to all three; hover: also to the last
+```
+
+### Target Variants (web vs Flutter)
+
+The same C# UI renders to web (CSS) and to Flutter (native widgets). Most Crosswind
+classes resolve on both. When you need styling that applies to **only one** renderer,
+scope it with a target variant:
+
+- `web:` — applies only on the web/CSS renderer
+- `flutter:` — applies only on the Flutter renderer
+- unprefixed — applies to both
+
+```csharp
+// Shared layout, per-target colours. Use the group form so the target prefix is written once:
+["px-3 py-2 rounded-md",
+ "web:(bg-background text-secondary border border-input)",
+ "flutter:(bg-slate-900 text-slate-100 border border-slate-700)"]
+```
+
+A `web:` class emits no Flutter styling and a `flutter:` class emits no CSS. Reach for
+these where the renderers genuinely differ — e.g. browser-only effects (focus rings,
+`hover:`, `data-[state]`) that Flutter doesn't render, or concrete colours you want on
+Flutter instead of theme semantic colours. Unprefixed classes (including the theme's
+semantic colours like `bg-background`) already resolve on both, so most styling needs no
+target prefix at all.
+
 ### Arbitrary Values
 
 Use brackets for custom values:
@@ -733,30 +775,6 @@ view.Box(style: ["absolute inset-0 bg-black/50 z-40 md:hidden"], ...);
 ```
 
 Never hardcode sizes on content elements. Use responsive grids (`grid-cols-[repeat(auto-fill,minmax(220px,1fr))]`) for card layouts and `truncate` for text overflow instead of relying on fixed container widths.
-
-## The commercial-grade UI bar (apply to EVERY app, not just "styling" briefs)
-
-A generated app must look like a **shipped commercial product**, not a functional prototype. This is NOT optional and NOT gated on the brief mentioning design — a "todo app", a "poll", a "dashboard" all get the full treatment. The difference between "works" and "looks good" is almost entirely the items below. Before you consider the UI done, walk this checklist and fix every miss:
-
-1. **Commit a cohesive theme — always.** Every app sets `new IkonTheme { ... }` at the `UI` declaration with, at minimum, the brand cluster + surfaces + typography + radius (see the `theme-commitment` pattern). Never ship the bare default `new Theme()` — it reads as "unfinished". Pick a palette that fits the domain (calm blues for finance, warm earth for cooking, energetic for games); do not default to the generic slate-gray + blue/purple-gradient look. Set a `DarkMode` block too.
-
-2. **Use a real layout shell, not a lone centered column.** Even simple apps get structure: a **header** (app name/logo on the left, primary action/account on the right, `border-b border-secondary`, comfortable `h-14`/`h-16` height) and a **content region** with a max-width container (`max-w-5xl`/`max-w-6xl mx-auto`) and generous horizontal padding (`px-6`). A single `view.Column` centered with everything stacked is a prototype tell. List/collection apps use a responsive grid (`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4`).
-
-3. **Establish a typographic hierarchy.** At least three distinct tiers, visibly different in size AND weight: a page/section title (`text-2xl`/`text-3xl font-semibold tracking-tight`), body (`text-sm`/`text-base`), and a muted caption/label (`text-xs text-muted-foreground`, often `uppercase tracking-wide` for section labels). Flat same-size text everywhere is the #1 "AI-generated" tell.
-
-4. **Generous, consistent spacing (let it breathe).** Cards use `p-5`/`p-6`, sections separate with `gap-6`/`gap-8`, page has top/bottom breathing room (`py-8`+). Cramped `p-2`/`gap-1` everywhere reads as cheap. Pick ONE spacing rhythm and hold it. **A label and its value must never touch** — a stat/KPI like a "MONTHLY TOTAL" caption next to a "$0.00" figure needs a clear `gap`/structure (caption ABOVE the value in a `Column`, or a `Row` with `justify-between` + a real `gap`); rendering them as adjacent inline text produces "MONTHLY TOTAL$0.00" with no space, a classic unfinished tell.
-
-5. **Give surfaces depth.** Cards/panels get a background (`bg-card`), a hairline border or ring (`border border-secondary` or `ring-1 ring-black/5 dark:ring-white/10`), a consistent radius (`rounded-2xl`), and — for elevated/interactive surfaces — a soft shadow (`shadow-sm`, `shadow-lg`, or a tuned `shadow-[0_8px_30px_-12px_rgba(0,0,0,0.35)]`). Don't float bare text on the page background. **Use the SEMANTIC surface tokens (`bg-card`, `bg-background`, `bg-secondary`), NOT a hardcoded `bg-white`/`bg-slate-50` — and never put a fixed light surface in a dark-themed app.** This is the single most common contrast disaster: a `bg-white` card in a dark app keeps the theme's *light* `text-primary`, so every form label and value renders near-white-on-white and vanishes. `bg-card` flips with the theme so `text-primary` always contrasts. If you genuinely need a fixed-color surface, you MUST also set explicit contrasting text on it (`bg-white text-slate-900`) — don't rely on the theme tokens there. Same for inputs/selects: a `view.Select`/`view.TextField` must read clearly against its card (check the label AND the value/placeholder are legible).
-
-6. **Never ship an empty/loading/error void.** Every list/collection has a designed **empty state** (centered icon + headline + one-line description + a primary CTA, with `py-12`+ padding). Every async action shows a **loading state** (`view.Spinner()` + label, or skeletons). Every fallible action has an **error state** (a tinted alert: `bg-error/10 text-error border border-error/20 rounded-xl p-3`). A blank screen before data arrives is unacceptable.
-
-7. **Make interactions feel alive.** Every clickable surface has a hover state and a transition (`transition-colors`/`transition-all duration-200`, `hover:bg-secondary/60`, `hover:border-primary/40`). The primary CTA is visually dominant (filled brand color, larger). Use motion sparingly for entrances/feedback, not everywhere.
-
-8. **Sweat 2-3 signature details.** One or two refined touches lift the whole app: a subtle gradient or texture on the hero/header, avatar initials with a generated color, a status pill, an icon paired with each section label, a tasteful empty-state illustration. Pick the ones that fit; a couple of intentional details beat a wall of effects.
-
-**Prefer semantic theme tokens** (`bg-card`, `text-primary`, `text-muted-foreground`, `bg-brand-solid`, `border-secondary`) over hardcoded palette classes so the look follows the committed theme and dark mode. The snippet patterns below show techniques — adapt their *structure*, but swap their hardcoded `slate-*`/`blue-*` colors for your theme's semantic tokens unless you deliberately want a fixed, theme-independent surface.
-
-**Self-critique before finishing.** Look at the rendered result the way a user would and ask: would this pass for a real product? If it looks flat, gray, cramped, or empty-on-load, it fails the bar — iterate. (See the `screenshot-critique-loop` pattern for doing this against an actual screenshot.)
 
 ## Sophisticated UI Design Patterns
 
