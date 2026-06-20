@@ -236,6 +236,8 @@ namespace Ikon.App
     // Reads the client's current notification permission state.
     static Task<NotificationPermission> GetNotificationPermissionAsync(int targetId, CancellationToken cancellationToken = null)
     static Task<NotificationPermission> GetNotificationPermissionAsync(CancellationToken cancellationToken = null)
+    // Fetches the client's push subscription so the device can be registered for offline push. Returns null when the client has no subscription (push disabled, permission not granted, or the client cannot subscribe).
+    static Task<PushSubscriptionInfo?> GetPushSubscriptionAsync(int targetId, CancellationToken cancellationToken = null)
     // Gets the currently selected UI theme from the client.
     static Task<string?> GetThemeAsync(int targetId, CancellationToken cancellationToken = null)
     static Task<string?> GetThemeAsync(CancellationToken cancellationToken = null)
@@ -797,6 +799,7 @@ namespace Ikon.App
     static string GetMediaDevices
     static string GetNetworkType
     static string GetNotificationPermission
+    static string GetPushSubscription
     static string GetTheme
     static string GetTimezone
     static string GetUrl
@@ -865,7 +868,7 @@ namespace Ikon.App
     NotificationPermission Permission { get; init; }
     // The target client session id.
     int SessionId { get; init; }
-  // Platform notification surface for an Ikon app — shows user-facing notifications on connected clients. Accessed via app.Notifications. In this release notifications are delivered to clients that are currently connected (foreground). Permission is requested lazily on the client the first time a notification is actually sent, not when the app opens. Addressing by SendToUserAsync fans out to every connected session for that user; offline/cross-device push delivery is a future addition that reuses the same API surface.
+  // Platform notification surface for an Ikon app — shows user-facing notifications on connected clients. Accessed via app.Notifications. Connected clients receive the notification immediately (foreground). Permission is requested lazily on the client the first time a notification is actually sent, not when the app opens. SendToUserAsync fans out to every connected session for that user; if the user has no connected session it falls back to offline push through the backend (when push is configured). Offline push is server-orchestrated: when a foreground send is granted, the client's push subscription is fetched and registered with the backend. The backend only delivers when its push providers are configured — otherwise registration/send are no-ops, so this is inert until enabled.
   sealed class NotificationService
     // Shows a notification on all currently-connected client sessions. Returns one result per session.
     Task<IReadOnlyList<NotificationSendResult>> BroadcastAsync(NotificationContent content, CancellationToken ct = null)
@@ -919,6 +922,16 @@ namespace Ikon.App
     string? Name { get; set; }
     string? PhoneNumber { get; set; }
     string? PreferredName { get; set; }
+  // A client's push subscription, used to register the device for offline push. Web clients return Endpoint + P256dh + Auth ; Flutter clients return Token . Platform is "web" or "fcm".
+  sealed class PushSubscriptionInfo : IEquatable<PushSubscriptionInfo>
+    // A client's push subscription, used to register the device for offline push. Web clients return Endpoint + P256dh + Auth ; Flutter clients return Token . Platform is "web" or "fcm".
+    ctor(string Platform, string? Endpoint, string? Token, string? P256dh, string? Auth, string? DeviceId)
+    string? Auth { get; init; }
+    string? DeviceId { get; init; }
+    string? Endpoint { get; init; }
+    string? P256dh { get; init; }
+    string Platform { get; init; }
+    string? Token { get; init; }
   // Manages per-client reactive graphs and update cycles for an Ikon app. Automatically stops when the app's StoppingAsync event fires.
   class ReactiveRoot
     // Creates a new reactive root for the specified app host.
