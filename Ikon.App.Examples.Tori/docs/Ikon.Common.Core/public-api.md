@@ -654,8 +654,10 @@ namespace Ikon.Common.Core
     Task<string> RefundPaymentsOrderAsync(string orderId, long? amountMinor = null, string? reason = null, string? idempotencyKey = null, CancellationToken cancellationToken = null)
     // Local-dev parity: register this locally-run process as an externally-managed instance so the backend reverse-proxies {space}.ikonai.app/api/... to this machine's relay tunnel instead of provisioning a cloud instance. The backend mints a per-registration id (returned as LocalInstanceId ) that distinguishes this instance from other local runs sharing the same identity. Returns that id, which the host passes into MintUrl so its minted endpoint URLs carry the li claim and route to this process.
     Task<IkonBackend.RegisterLocalInstanceResponse> RegisterLocalInstanceAsync(string spaceId, string channelId, Dictionary<string, string> sessionIdentity, string relayEndpointPublicUrl)
+    Task RegisterPushSubscriptionAsync(RegisterPushSubscriptionDto request)
     Task RemoveOrganisationInvitationAsync(string organisationId, string invitationId)
     Task<IkonBackend.Organisation> RemoveOrganisationUserAsync(string organisationId, string userId)
+    Task RemovePushSubscriptionAsync(RemovePushSubscriptionDto request)
     Task<string> RequestAccessTokenAsync(string apiKey, string spaceId, string externalUserId)
     Task<IkonBackend.ChannelInstance> RequestChannelAsync(IkonBackend.RequestChannelRequest request)
     Task<StepUpStartResponse> RequestStepUpStartAsync(StepUpStartRequest request)
@@ -667,6 +669,7 @@ namespace Ikon.Common.Core
     Task RevokeEndpointGrantGroupAsync(string group)
     Task SendEmailAsync(SendEmailDto request)
     void SendMessage(ProtocolMessage message)
+    Task SendPushAsync(SendPushDto request)
     Task SetStorageAsync(string spaceId, string entity, string entityId, Dictionary<string, object> values)
     Task StopAsync()
     Task<IkonBackend.AppBundle> UpdateAppBundleAsync(string id, IkonBackend.AppBundleState state)
@@ -1132,6 +1135,16 @@ namespace Ikon.Common.Core
     ctor()
     string LocalInstanceId { get; set; }
     string SpacePublicUrl { get; set; }
+  sealed class RegisterPushSubscriptionDto
+    ctor()
+    string? Auth { get; set; }
+    string? Channel { get; set; }
+    string? DeviceId { get; set; }
+    string? Endpoint { get; set; }
+    string? P256dh { get; set; }
+    string Platform { get; set; }
+    string? Token { get; set; }
+    string User { get; set; }
   class IkonBackend.RelayServerConfigResponse
     ctor()
     string AuthToken { get; set; }
@@ -1145,6 +1158,9 @@ namespace Ikon.Common.Core
   class IkonBackend.ReleaseNoteVersionsResponse
     ctor()
     List<string> Results { get; set; }
+  sealed class RemovePushSubscriptionDto
+    ctor()
+    string EndpointOrToken { get; set; }
   class IkonBackend.RequestChannelRequest
     ctor()
     string? Hash { get; set; }
@@ -1194,6 +1210,16 @@ namespace Ikon.Common.Core
   sealed class SendEmailResponseDto
     ctor()
     bool Accepted { get; set; }
+  sealed class SendPushDto
+    ctor()
+    string? Body { get; set; }
+    string? Channel { get; set; }
+    string? Data { get; set; }
+    string? IconUrl { get; set; }
+    string? LaunchUrl { get; set; }
+    string? Tag { get; set; }
+    string Title { get; set; }
+    string User { get; set; }
   class Sensitive<T>
     ctor(T value, SensitivityPolicy sensitivityPolicy = Default)
     bool IsSensitive { get; }
