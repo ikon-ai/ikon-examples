@@ -7770,21 +7770,22 @@ namespace Ikon.App.Cells
   enum CellProcessScope
     AppProcess
     Substrate
-  // Static accessor for the process-wide CellHost plus the wiring substrate-cell proxies need: the endpoint-URL resolver (for [HttpGet]/[HttpPost] methods) and the cell-client factory (for [Function] methods and Reactive<T> state, which ride a standard IkonClient SDK connection to the cell-host).
-  static class Cells
+  // Per-server-scoped accessor (via AsyncLocalInstance`1 — use Cells.Instance) for that server's CellHost plus the wiring substrate-cell proxies need: the endpoint-URL resolver (for [HttpGet]/[HttpPost] methods) and the cell-client factory (for [Function] methods and Reactive<T> state, which ride a standard IkonClient SDK connection to the cell-host).
+  class Cells : AsyncLocalInstance<Cells>
+    ctor()
     // The currently installed process-wide cell host, or null if none has been installed yet. Use this when you want to reuse the shared host with a graceful fallback. For fail-fast access prefer Connect``1 .
-    static CellHost? Current { get; }
-    static TInterface Connect<TInterface>(object sessionIdentity) where TInterface : class
+    CellHost? Current { get; }
+    TInterface Connect<TInterface>(object sessionIdentity) where TInterface : class
     // Dispose every live cell-host connection. Call on app shutdown. Idempotent.
-    static ValueTask DisposeAsync()
+    ValueTask DisposeAsync()
     // Install the process-wide cell host AND reset the app wiring: clears the endpoint-URL resolver and the cell-client factory, and drops the connection + proxy registries. Use this for a clean slate — tests re-run it between scenarios, and an app with no platform-installed host falls back to it. Production startup installs the host via InstallHost instead, which keeps the wiring the app already registered (see that method for why).
-    static void Initialize(CellHost host)
+    void Initialize(CellHost host)
     // Swap the process-wide cell host WITHOUT touching the app-registered endpoint-URL resolver or cell-client factory. Drops the connection + proxy registries because they reference the previous host's cell instances (whose types may live in a now-unloaded AssemblyLoadContext).
-    static void InstallHost(CellHost host)
+    void InstallHost(CellHost host)
     // Register the factory that opens a standard-SDK IkonClient connection to a substrate cell-host. Called by the app host at startup — the app process has the backend context (space id, login) the factory needs. SubstrateCellProxy`1 uses it for [Function]-marked methods and Reactive<T> members; without it, those throw a clear error while [HttpGet]/[HttpPost] methods still work.
-    static void SetCellClientFactory(Func<CellConnectRequest, Task<IkonClient>> factory)
+    void SetCellClientFactory(Func<CellConnectRequest, Task<IkonClient>> factory)
     // Register the function that maps a endpoint function name (e.g. "LabCell_IncrementHttp") to its public URL. Called by the app host at startup so SubstrateCellProxy`1 can dispatch a substrate cell's [HttpGet]/[HttpPost] methods over stateless HTTP. Methods the resolver returns no URL for fall through to the SDK connection.
-    static void SetEndpointUrlResolver(Func<string, string?> resolver)
+    void SetEndpointUrlResolver(Func<string, string?> resolver)
     // Reserved key in an SDK connection's parameters that names the substrate cell type to route to. The cell's SessionIdentity-record fields ride alongside it. MUST stay in sync with the cloud's CELL_TYPE_PARAM in cell-routing.ts — that's what ChannelInstanceService.create keys on to provision a cell-host channel-instance.
     static string CellTypeParam
   // Framework handle injected into a cell's primary constructor. Exposes the SessionIdentity the cell was instantiated for; future revisions add lifetime, config, etc.
