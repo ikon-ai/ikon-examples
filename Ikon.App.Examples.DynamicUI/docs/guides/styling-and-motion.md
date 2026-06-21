@@ -45,6 +45,8 @@ The full catalog:
 
 The 60-30-10 rule (60% `bg-background`, 30% `bg-card`/`bg-secondary`, 10% brand accents) is a starting balance, not a constraint.
 
+**Coming from shadcn/Tailwind?** This theme uses the **Untitled-UI** vocabulary, where `primary`/`secondary` are emphasis **tiers**, not the brand: `bg-primary`/`bg-secondary` are neutral **surfaces**, `text-primary`/`text-secondary` are **body-text tiers**, and the brand lives in `bg-brand-solid` / `text-brand` / `border-brand`. So shadcn's `bg-primary` (a brand button) maps to Ikon's `bg-brand-solid`, `text-primary-foreground` → `text-primary-on-brand`, `bg-destructive` → `bg-error-solid`, `text-muted-foreground` → `text-tertiary`, generic `border` → `border-secondary`. Don't reach for a bare `bg-primary` expecting a brand colour — use the Ikon name (or `[Button.PrimaryMd]`).
+
 ### Theme Customization
 
 For per-app palette overrides without editing the base theme, use `new IkonTheme { ... }` at the top of your app file. **The only configurable surface is the indexer + `DarkMode` property** — there are no named init properties (no `Brand =`, no `Background =`). Every entry sets one CSS variable. Values are Crosswind/Tailwind class names (e.g. `amber-400`, `zinc-950`, `rounded-lg`, `150ms`, `ease-out`) or raw CSS (hex / rem / family stack / gradient). Set as few or as many as you need; unset CSS variables inherit the base theme.
