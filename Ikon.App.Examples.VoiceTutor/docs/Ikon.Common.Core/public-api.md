@@ -37,6 +37,25 @@ namespace Ikon.Common.Core
     ctor()
     string Code { get; set; }
     string Message { get; set; }
+  // Options for booting a target app via an IAppHost .
+  sealed class AppHostOptions : IEquatable<AppHostOptions>
+    // Options for booting a target app via an IAppHost .
+    ctor(bool NeedsFrontend = true, bool ForceRelay = false, string LogPrefix = "[Preview]", bool WatchForReload = true)
+    // Expose the app through the relay instead of a direct localhost URL — required when the viewer's browser can't reach this host's localhost (cloud run or --public-access).
+    bool ForceRelay { get; init; }
+    // Prefix prepended to the embedded server's log lines (before the timestamp) so its stdout is attributable when it interleaves with the host's. Defaults to [Preview] (the Studio live preview); the codegen smoke gate overrides it to [Sandbox].
+    string LogPrefix { get; init; }
+    // Start the app's Vite frontend and resolve a browsable URL. The Studio preview and the validator-driven smoke need it; a plain boot-check smoke does not (saves the node process).
+    bool NeedsFrontend { get; init; }
+    // Watch the built DLL and hot-reload the plugin in place when it changes. True for the live preview (iterative edits reload without restart). The codegen smoke MUST set this false: it is a cheap one-shot boot of the freshly-built DLL, not a live editing surface — a watcher there reloads on every Coder edit mid-run, and a reload racing the smoke's teardown throws "Cannot access a disposed object: CellHost", which gets misreported to the agent as an app crash and sends it into a phantom fix loop.
+    bool WatchForReload { get; init; }
+  // Outcome of StartAsync . Url is the browsable frontend URL when NeedsFrontend was set, else null.
+  struct AppHostResult : IEquatable<AppHostResult>
+    // Outcome of StartAsync . Url is the browsable frontend URL when NeedsFrontend was set, else null.
+    ctor(bool Ok, string? Url, string Message)
+    string Message { get; init; }
+    bool Ok { get; init; }
+    string? Url { get; init; }
   class IkonBackend.AppPaymentsInitResult
     ctor()
     string? BackendUrl { get; set; }
@@ -490,6 +509,21 @@ namespace Ikon.Common.Core
     static void MarkEnabled()
     static void MarkReloaded()
     static int LocalMemoryMarginMb
+  // Runs a built Ikon app and exposes its live URL — the one abstraction behind both the Studio preview and the codegen smoke gate, so they share a boot path and a single isolation switch. Two implementations: an in-process embedded server (default, shares the host's loaded DLLs — low memory) and a child dotnet run process (full isolation, the fallback). Defined in Ikon.Common.Core so the codegen pipeline (which does not reference the server host) can take it injected, while the host supplies the concrete implementation.
+  interface IAppHost : IAsyncDisposable
+    bool IsRunning { get; }
+    // App root of the currently-running app (null when stopped) — lets a caller tell which app a shared host is serving before reusing it.
+    string? RunningRoot { get; }
+    // The live URL of the running app (null when stopped).
+    string? Url { get; }
+    // Mints a signed connect URL ({serverUrl}/connect?token=…) for a browser client, in-process, using the running server's own secret — so the iframe can authenticate without the server exposing a public /connect-token minting oracle. Returns null when not running or when the host does not mint in-process (e.g. the child-process host, which keeps its own /connect-token).
+    abstract string? MintBrowserConnectUrl()
+    // Build-if-needed, start the app rooted at sandboxDir , and wait until it is ready (and, when NeedsFrontend , its frontend is up). Stops any app this host was previously running.
+    abstract Task<AppHostResult> StartAsync(string sandboxDir, AppHostOptions options, CancellationToken ct = null)
+    // Stop the running app and release its resources. Safe to call when nothing is running.
+    abstract Task StopAsync()
+    // Human-readable diagnostics (build status, frontend errors) for surfacing to the user.
+    event Action<string>? Diagnostic
   interface ILogInfo
     object LogInfo { get; }
   interface IPlugin : IProtocolMessageChannel
@@ -867,6 +901,8 @@ namespace Ikon.Common.Core
     LogFilter ConsoleWriterFilter
     LogFilter FileWriterFilter
     LogFilter Filter
+    // Optional prefix rendered at the very start of every console/file log line (before the timestamp). Because Log is an async-local instance, each isolated server scope (e.g. an embedded preview/sandbox server vs the host app) has its own instance and can carry its own prefix, making interleaved stdout from multiple in-process servers attributable at a glance.
+    string Prefix
     static bool RequireInitCall
     bool ShowAsyncFlow
     string TraceFilter
