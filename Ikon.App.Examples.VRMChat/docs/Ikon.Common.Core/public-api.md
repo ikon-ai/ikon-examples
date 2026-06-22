@@ -162,13 +162,17 @@ namespace Ikon.Common.Core
     bool IsAuthTicketSent { get; }
     bool IsConnected { get; }
     bool IsUdpConnected { get; }
+    AuthResponse? LastAuthResponse { get; }
     object LogInfo { get; }
     Reactive<Dictionary<string, object>> ReactiveDynamicConfig { get; }
     ReactiveGlobalState ReactiveGlobalState { get; }
     DateTime ServerInitTime { get; set; }
+    // True once the server has signalled an intentional shutdown (CORE_ON_SERVER_STOPPING). The SDK uses this to suppress automatic reconnect — reconnecting to a deliberately-stopped server would just re-provision a fresh instance.
+    bool ServerStopping { get; }
     Task ConnectAsync2(string connectUrl, CancellationToken ct = null)
     Task ConnectAsync2(string host, int port, bool useTls, CancellationToken ct = null)
     void OverrideConfigValues(string overrideConfigJson)
+    Task ReconnectWithAuthResponseAsync(AuthResponse cachedAuthResponse, CancellationToken ct = null)
     IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[]? opcodes = null)
     virtual ValueTask SendMessageAsync(ProtocolMessage message)
     ValueTask SendMessageAsync(IProtocolMessagePayload payload)
@@ -447,6 +451,10 @@ namespace Ikon.Common.Core
     static bool IsEnabled()
   static class DiagnosticUtils
     static string BuildMemoryInfo()
+    // The container/machine memory limit in bytes, or -1 when unknown/unlimited. Linux under a finite cgroup limit: memory.max (v2) / memory.limit_in_bytes (v1). Linux without a cgroup limit: /proc/meminfoMemTotal. Elsewhere: -1 (no meaningful ceiling to compare against). Pairs with GetMachineMemoryUsedBytes for a "used / limit" readout.
+    static long GetMachineMemoryLimitBytes()
+    // Total memory currently used by the WHOLE container/machine, in bytes — not just this process. This is the number to watch when the process spawns heavy children: Studio runs dotnet build and a Vite node server, and in a container every such process is charged to the same cgroup, so only a container-wide figure reflects what the kernel OOM-kills on. Linux under a finite cgroup limit (cloud, Docker --memory): the cgroup working set (memory.current minus inactive_file) — accurate, container-wide, matches docker stats. Linux without a finite cgroup limit (bare VM): /proc/meminfoMemTotal - MemAvailable — whole-machine used. Elsewhere (Windows): best effort, this process's working set, which is not meaningful as a machine total but keeps callers simple (the number does not matter off-container).
+    static long GetMachineMemoryUsedBytes()
     // The process memory figure to compare against the container/cgroup limit. On Linux under a finite cgroup memory limit (cloud, Docker --memory) this is the cgroup working set — memory.current minus readily-reclaimable file cache (inactive_file). That is the number the kernel keeps under memory.max and OOM-kills on, and it matches what docker stats shows, so it is directly comparable to e.g. the 512 MB limit. WorkingSet64 (VmRSS) over-reports here because it counts shared file-backed pages that are not all charged to the cgroup; PrivateMemorySize64 on Linux is VmData (reserved virtual address space) and is wildly inflated. Falls back to WorkingSet64 on Windows or when no finite cgroup memory limit is set (where there is nothing to compare against anyway).
     static long GetProcessMemoryUsedBytes()
   class ReactiveGlobalState.DictionaryComparer<TKey, TValue> : IEqualityComparer<Dictionary<TKey, TValue>>
@@ -530,10 +538,14 @@ namespace Ikon.Common.Core
     string ConnectTokenJson { get; }
     bool IsAuthTicketSent { get; }
     bool IsConnected { get; }
+    // The AuthResponse from the most recent successful connect (entrypoints + auth ticket + client session). Cache it to drive a later ReconnectWithAuthResponseAsync .
+    AuthResponse? LastAuthResponse { get; }
     DateTime ServerInitTime { get; set; }
     abstract Task ConnectAsync2(string connectUrl, CancellationToken ct = null)
     abstract Task ConnectAsync2(string host, int port, bool useTls, CancellationToken ct = null)
     abstract void OverrideConfigValues(string overrideConfigJson)
+    // Soft reconnect: reopen the transport reusing a previously-fetched AuthResponse (its entrypoints, auth ticket, and client session) WITHOUT re-fetching it via the /connect GET. Lets the server resume the same session within its disconnect grace. Use LastAuthResponse from the prior connection.
+    abstract Task ReconnectWithAuthResponseAsync(AuthResponse cachedAuthResponse, CancellationToken ct = null)
     abstract Task StopAsync()
   interface IProtocolMessageChannel
     Context ClientContext { get; }
@@ -1936,6 +1948,8 @@ namespace Ikon.Common.Core.Functions
     IEnumerable<TItem> CallEnumerable<TItem>(string name, object?[]? args = null)
     // Removes all locally registered functions. Remote functions are preserved.
     void ClearLocalFunctions()
+    // Removes every remote function, keeping only this registry's own local functions. Called on protocol detach (disconnect): remote functions were mirrored from the now-gone peer and are re-synced fresh from the peer's ClientInitialization/GlobalState on reconnect. Without this, reconnecting to a RESTARTED peer (new FunctionIds / new session id) leaves the pre-disconnect remote functions behind, so the same name ends up registered by two client sessions and a name-only call throws "Multiple remote clients (...) have registered function '...'". Local functions are preserved — the client re-advertises them to the peer via StartProtocolAsync.
+    void ClearRemoteFunctions()
     // Stops protocol handling and detaches the registry from the channel.
     void DetachProtocol()
     // Disposes a remote instance.
@@ -5812,6 +5826,8 @@ namespace Ikon.Common.Core.Reactive
     // Fires with the scope-derived session id whose Signal<T> value just changed. For unscoped reactives the id is always 0; for ClientReactive<T> it is the hash of ClientScope; for UserReactive<T> the hash of UserScope; etc. Lets external subscription routing fan out to only the clients whose scope matches the changed signal.
     event Action<int>? SessionChanged
   interface IReactiveWithState
+    // Whether this reactive's value is captured for hot-reload state preservation. Default true. Runtime-only caches that hold non-serializable or cyclic object graphs — and that rehydrate from their own backing store after a reload — opt out by returning false, so the hot-reload capture pass skips them instead of logging a (harmless) serialization warning every reload. Does not affect long-term persistence (which only ever touches non-None PersistenceScope s).
+    bool CaptureForHotReload { get; }
     // Hash-derived session id that this reactive's .Value would resolve to under the currently-active ReactiveScope . Used by the subscription service to key per-scope subscriber routing. Default implementation returns 0 — override on per-scope reactives.
     int CurrentScopeSessionId { get; }
     string StableId { get; }
@@ -5947,6 +5963,7 @@ namespace Ikon.Common.Core.Reactive
   class Reactive<T> : IReactive, IReactiveWithState
     ctor(UseDefault _ = null, string file = "", string member = "")
     ctor(T initialValue, string file = "", string member = "")
+    bool CaptureForHotReload { get; }
     // Hash-derived session id that Value would resolve to under the currently-active ReactiveScope . Throws if a required scope is missing — same conditions as accessing Value . External subscribers use this to key their subscription routing.
     int CurrentScopeSessionId { get; }
     T Peek { get; }
@@ -5954,6 +5971,8 @@ namespace Ikon.Common.Core.Reactive
     T Value { get; set; }
     long Version { get; }
     StoredReactiveState CaptureState()
+    // Opt this reactive out of hot-reload state capture. Use for runtime-only caches that hold non-serializable or cyclic object graphs and are rebuilt from their own backing store after a reload (e.g. orchestrator caches of live domain objects) — capturing them only fails noisily. Fluent: returns this so it can be chained onto a field initializer. Has no effect on long-term persistence, which only applies to non-None PersistenceScope s.
+    Reactive<T> ExcludeFromHotReloadCapture()
     void NotifyUpdate()
     // Read this reactive's value for the currently-active scope and serialize it to JSON. Triggers per-scope initialization if no signal exists yet — the returned JSON is the initial value the consumer should observe.
     string ReadCurrentValueAsJson()
