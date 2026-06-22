@@ -1,0 +1,5 @@
+package com.example.ikon_app_platform_validation
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()

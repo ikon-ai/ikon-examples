@@ -550,7 +550,6 @@ namespace Ikon.Parallax.Components.Standard
     PickContacts
     RequestFullscreen
     Share
-    ShowNotification
   // Base class for client-side action configuration.
   abstract class ActionOptions : IEquatable<ActionOptions>
   // Represents activation mode for Tabs.
@@ -1419,14 +1418,6 @@ namespace Ikon.Parallax.Components.Standard
     string? Title { get; init; }
     // URL to share.
     string? Url { get; init; }
-  // Options for showing a browser notification.
-  sealed class ShowNotificationActionOptions : ActionOptions, IEquatable<ShowNotificationActionOptions>
-    // Notification body text.
-    string? Body { get; init; }
-    // URL of the notification icon image.
-    string? Icon { get; init; }
-    // Notification title text.
-    string Title { get; init; }
   // Represents the side for positioning overlays.
   enum Side
     Top
@@ -2455,6 +2446,8 @@ namespace Ikon.Parallax.Theming
     static string DefaultLg
     static string DefaultMd
     static string DefaultSm
+    static string Group
+    static string GroupVertical
     static string IconDefault
     static string IconDefaultLg
     static string IconDefaultMd
@@ -2541,52 +2534,6 @@ namespace Ikon.Parallax.Theming
     static string DragOverlay
     static string Images
     static string Wrapper
-
-namespace Ikon.Parallax.Theming.Flutter
-  static class FlutterTokens.Badge
-    static string Brand
-    static string Neutral
-  static class FlutterTokens.Button
-    static string Danger
-    static string Ghost
-    static string Icon
-    static string Neutral
-    static string Outline
-    static string Primary
-  static class FlutterTokens.Divider
-    static string Horizontal
-    static string Line
-  static class FlutterTokens
-  static class FlutterTokens.Icon
-    static string Default
-    static string Lg
-    static string Md
-    static string Sm
-    static string Xs
-  static class FlutterTokens.Input
-    static string Area
-    static string Default
-  static class FlutterTokens.Layout
-    static string Center
-    static string Column
-    static string Row
-    static string RowWrap
-    static string Screen
-  static class FlutterTokens.Surface
-    static string Card
-    static string Panel
-    static string Screen
-  static class FlutterTokens.Text
-    static string Body
-    static string BodyStrong
-    static string Caption
-    static string H1
-    static string H2
-    static string H3
-    static string Hero
-    static string Label
-    static string Link
-    static string Muted
 
 
 ---
@@ -2912,6 +2859,26 @@ using Ikon.Parallax.Theming;
 view.Button(style: [Button.PrimaryMd], label: "Submit");
 view.TextField(style: [Input.Default], value: _text.Value, onValueChange: async v => _text.Value = v);
 ```
+
+### Default styling and auto-composed indicators
+
+`style:` is optional. When it is omitted, interactive and input controls fall back to
+their default theme token, so the minimal call renders a complete, themed control:
+
+```csharp
+view.Checkbox(isChecked: _done.Value, onCheckedChange: async v => _done.Value = v);
+view.Switch(isChecked: _on.Value, onCheckedChange: async v => _on.Value = v);
+view.TextField(value: _text.Value, onValueChange: async v => _text.Value = v);
+view.Button(label: "Submit", onClick: async () => { });
+```
+
+Controls that have a visible inner part also compose it automatically when no `content:`
+is given — Checkbox gets its check indicator, Switch its thumb, Slider its track/range/
+thumb, Select its trigger and items. You only pass `content:` to customise the inner part
+(e.g. a different icon), and an explicit `style:` array always overrides the default. To
+render a checkbox with no check mark, opt out explicitly with `content: _ => { }`. Layout
+primitives (`Box`, `Row`, `Column`, `Grid`, `Stack`) stay unstyled by default — there
+"no style" is the normal usage.
 
 ## Per-Client UI with Scopes
 

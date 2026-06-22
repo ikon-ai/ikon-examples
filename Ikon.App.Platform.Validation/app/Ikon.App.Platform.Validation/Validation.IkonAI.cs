@@ -274,6 +274,7 @@ public partial class Validation
             RenderSpeechRecognizerCard(view);
             RenderVideoEnhancerCard(view);
             RenderVideoGeneratorCard(view);
+            RenderVideoUnderstandingCard(view);
             RenderWebScraperCard(view);
             RenderWebSearcherCard(view);
         });

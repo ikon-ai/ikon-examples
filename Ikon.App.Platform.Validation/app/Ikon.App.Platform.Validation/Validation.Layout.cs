@@ -4,6 +4,62 @@ public partial class Validation
     {
         view.Column([Layout.Column.Lg], content: view =>
         {
+            // Crosswind -> Flutter style mapping checks
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "Crosswind to Flutter Mapping");
+                view.Text([Text.Caption, "mb-4"], "Validates object-fit, flex-1, space-y, align-self, and dashed/dotted borders on the Flutter renderer.");
+
+                view.Column([Layout.Column.Md], content: view =>
+                {
+                    view.Text([Text.BodyStrong], "object-fit (cover / contain / fill)");
+                    view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
+                    {
+                        foreach (var (fit, label) in new[] { ("object-cover", "cover"), ("object-contain", "contain"), ("object-fill", "fill") })
+                        {
+                            view.Column([Layout.Column.Xs, "items-center"], content: view =>
+                            {
+                                view.Image(["w-28 h-16 rounded-md border border-secondary", fit],
+                                    src: "https://picsum.photos/seed/objectfit/300/150", alt: label);
+                                view.Text([Text.Caption], label);
+                            });
+                        }
+                    });
+
+                    view.Text([Text.BodyStrong, "mt-4"], "flex-1 (children grow to fill the row)");
+                    view.Row([Layout.Row.Md], content: view =>
+                    {
+                        view.Box(["flex-1 bg-surface p-3 rounded-md border border-secondary"], content: v => v.Text([Text.Caption], "flex-1"));
+                        view.Box(["flex-1 bg-surface p-3 rounded-md border border-secondary"], content: v => v.Text([Text.Caption], "flex-1"));
+                        view.Box(["bg-surface p-3 rounded-md border border-secondary"], content: v => v.Text([Text.Caption], "auto width"));
+                    });
+
+                    view.Text([Text.BodyStrong, "mt-4"], "space-y-3 (gap between stacked children)");
+                    view.Box(["space-y-3 bg-surface p-3 rounded-md border border-secondary"], content: view =>
+                    {
+                        view.Box(["bg-card p-2 rounded"], content: v => v.Text([Text.Caption], "Item 1"));
+                        view.Box(["bg-card p-2 rounded"], content: v => v.Text([Text.Caption], "Item 2"));
+                        view.Box(["bg-card p-2 rounded"], content: v => v.Text([Text.Caption], "Item 3"));
+                    });
+
+                    view.Text([Text.BodyStrong, "mt-4"], "align-self (start / center / end in a row)");
+                    view.Row([Layout.Row.Md, "h-24 bg-surface p-2 rounded-md border border-secondary"], content: view =>
+                    {
+                        view.Box(["self-start bg-card p-2 rounded"], content: v => v.Text([Text.Caption], "start"));
+                        view.Box(["self-center bg-card p-2 rounded"], content: v => v.Text([Text.Caption], "center"));
+                        view.Box(["self-end bg-card p-2 rounded"], content: v => v.Text([Text.Caption], "end"));
+                    });
+
+                    view.Text([Text.BodyStrong, "mt-4"], "border-style (dashed / dotted / solid)");
+                    view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
+                    {
+                        view.Box(["border-2 border-dashed border-secondary rounded-md p-4"], content: v => v.Text([Text.Caption], "dashed"));
+                        view.Box(["border-2 border-dotted border-secondary rounded-md p-4"], content: v => v.Text([Text.Caption], "dotted"));
+                        view.Box(["border-2 border-solid border-secondary rounded-md p-4"], content: v => v.Text([Text.Caption], "solid"));
+                    });
+                });
+            });
+
             // Progress
             view.Box([Card.Default, "p-6"], content: view =>
             {

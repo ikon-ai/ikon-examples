@@ -55,7 +55,7 @@ public partial class Validation
 
         try
         {
-            cell = Cells.Connect<LabCell>(new LabCellIdentity(_labWorkspace.Value));
+            cell = Cells.Instance.Connect<LabCell>(new LabCellIdentity(_labWorkspace.Value));
         }
         catch (Exception ex)
         {
@@ -119,7 +119,7 @@ public partial class Validation
 
         try
         {
-            cell = Cells.Connect<IGlobalLabCell>(new GlobalLabCell.SessionIdentity());
+            cell = Cells.Instance.Connect<IGlobalLabCell>(new GlobalLabCell.SessionIdentity());
         }
         catch (Exception ex)
         {
@@ -135,7 +135,7 @@ public partial class Validation
                 "Counter / History are local mirrors fed by an SDK subscription to the cell-host; " +
                 "IncrementAsync / ResetAsync dispatch over the SDK connection. The proxy discovers " +
                 "the cell-host's AppEndpointHost relay URL on first call and POSTs [Rest] endpoints " +
-                "there directly. See docs/private/endpoint-and-cell-architecture.md.");
+                "there directly. See docs/private/endpoint-architecture.md.");
 
             if (cell is null)
             {

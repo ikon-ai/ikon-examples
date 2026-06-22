@@ -611,7 +611,13 @@ public partial class Validation
                     view.Text([Text.Caption], $"Status: {_textAreaSubmitStatus.Value}");
                 });
             });
+        });
+    }
 
+    private void RenderAdvancedInputsSection(UIView view)
+    {
+        view.Column([Layout.Column.Lg], content: view =>
+        {
             // Calendar
             view.Box([Card.Default, "p-6"], content: view =>
             {

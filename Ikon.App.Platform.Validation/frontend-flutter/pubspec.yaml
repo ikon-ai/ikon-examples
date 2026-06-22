@@ -1,0 +1,36 @@
+name: ikon_app_platform_validation
+description: Ikon AI App Flutter frontend
+
+environment:
+  sdk: ^3.3.0
+  flutter: '>=3.10.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  ikon_sdk: ^1.0.4
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lints: ^5.1.0
+  flutter_launcher_icons: ^0.14.1
+
+flutter:
+  uses-material-design: true
+
+# Generates the launcher icon / favicon from a single source image across
+# Android, iOS and web. `ikon app new` runs `dart run flutter_launcher_icons`
+# after scaffolding to apply the default Ikon mark. To rebrand, replace the
+# images under assets/launcher_icon/ and re-run that command.
+flutter_launcher_icons:
+  image_path: "assets/launcher_icon/ikon-icon.png"
+  android: true
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: "assets/launcher_icon/ikon-icon-foreground.png"
+  ios: true
+  remove_alpha_ios: true
+  background_color_ios: "#000000"
+  web:
+    generate: true
+    background_color: "#000000"
+    theme_color: "#000000"

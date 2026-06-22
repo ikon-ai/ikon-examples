@@ -133,45 +133,6 @@ public partial class Validation
                 });
             });
 
-            // Show Notification
-            view.Box([Card.Default, "p-6"], content: view =>
-            {
-                view.Text([Text.H2, "mb-4"], "Show Notification");
-                view.Text([Text.Caption, "mb-4"], "Displays a system notification");
-                view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
-                {
-                    view.ActionButton([Button.PrimaryMd],
-                        action: ActionKind.ShowNotification,
-                        options: new ShowNotificationActionOptions
-                        {
-                            Title = "Hello!",
-                            Body = "This is a notification message"
-                        },
-                        onActionComplete: async e =>
-                        {
-                            _clientFunctionResultText.Value = e.Success ? "Notification: Shown" : "Notification: Failed/Denied";
-                            _clientFunctionToastOpen.Value = true;
-                        },
-                        content: v =>
-                        {
-                            v.Icon([Icon.Default, "mr-2"], name: "bell");
-                            v.Text(text: "Show Notification");
-                        });
-
-                    view.ActionButton([Button.NeutralMd],
-                        action: ActionKind.ShowNotification,
-                        options: new ShowNotificationActionOptions
-                        {
-                            Title = "Title Only"
-                        },
-                        content: v =>
-                        {
-                            v.Icon([Icon.Default, "mr-2"], name: "bell-ring");
-                            v.Text(text: "Title Only");
-                        });
-                });
-            });
-
             // Get Location
             view.Box([Card.Default, "p-6"], content: view =>
             {

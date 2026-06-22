@@ -60,9 +60,9 @@ public partial class Validation
     {
         try
         {
-            var cellHost = Cells.Current
+            var cellHost = Cells.Instance.Current
                 ?? throw new InvalidOperationException(
-                    "Cells.Current is null — expected IkonServer to publish the process-wide CellHost before App.Main runs");
+                    "Cells.Instance.Current is null — expected IkonServer to publish the process-wide CellHost before App.Main runs");
 
             _mcpHost = new McpHost(serverName: "validation-mcp", serverVersion: "1.0.0");
 

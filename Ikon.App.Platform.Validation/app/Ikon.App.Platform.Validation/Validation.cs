@@ -13,15 +13,15 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
     // Tab state — per-client so concurrent sessions don't trample each other's
     // active tab via the shared-Reactive write path.
-    private readonly ClientReactive<string> _activeTab = new("buttons");
+    private readonly ClientReactive<string> _activeTab = new("typography");
 
     private static readonly HashSet<string> ValidTabs =
     [
-        "buttons", "inputs", "typography", "icons", "cards",
+        "buttons", "inputs", "advanced-inputs", "typography", "icons", "cards",
         "layout", "forms", "navigation", "nav-menu", "overlays", "drag-drop",
         "crosswind", "brand",
         "charts",
-        "files", "assets", "actions",
+        "files", "assets", "actions", "notifications",
         "video", "audio", "rive", "shadertoy",
         "ikon-ai", "mcp", "app-cells",
         "virtualization", "drawing", "resizable-split",
@@ -406,7 +406,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                         value: _activeTab.Value,
                         onValueChange: async value =>
                         {
-                            var tab = value ?? "buttons";
+                            var tab = value ?? "typography";
                             _activeTab.Value = tab;
                             await app.Navigation.SetPathAsync($"/{tab}");
                         },
@@ -415,23 +415,28 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                         triggerStyle: [Tabs.Trigger],
                         contentStyle: [Tabs.Content],
                         tabs: [
-                            new TabItem("buttons", "Buttons", RenderButtonsSection),
-                            new TabItem("inputs", "Inputs", RenderInputsSection),
+                            // Basic UI building blocks, ordered simple -> complex. The
+                            // Flutter-frontend audit walks these top-to-bottom.
                             new TabItem("typography", "Typography", RenderTypographySection),
                             new TabItem("icons", "Icons", ProfilingSkippable(RenderIconsSection), ForceMount: true),
+                            new TabItem("buttons", "Buttons", RenderButtonsSection),
+                            new TabItem("inputs", "Inputs", RenderInputsSection),
+                            new TabItem("forms", "Forms", RenderFormsSection),
                             new TabItem("cards", "Cards", RenderCardsSection),
                             new TabItem("layout", "Layout", RenderLayoutSection),
-                            new TabItem("forms", "Forms", RenderFormsSection),
+                            new TabItem("overlays", "Overlays", RenderOverlaysSection),
                             new TabItem("navigation", "Navigation", RenderNavigationSection),
                             new TabItem("nav-menu", "Nav Menu", RenderNavMenuSection),
-                            new TabItem("overlays", "Overlays", RenderOverlaysSection),
+                            new TabItem("advanced-inputs", "Advanced Inputs", RenderAdvancedInputsSection),
                             new TabItem("drag-drop", "Drag & Drop", RenderDragDropSection),
+                            // Specialized / feature areas.
                             new TabItem("crosswind", "Crosswind", RenderCrosswindSection),
                             new TabItem("brand", "Brand", RenderBrandSection),
                             new TabItem("charts", "Charts", ProfilingSkippable(RenderChartsSection)),
                             new TabItem("files", "Files", RenderFilesSection),
                             new TabItem("assets", "Assets", RenderAssetsSection),
                             new TabItem("actions", "Actions", RenderActionsSection),
+                            new TabItem("notifications", "Notifications", RenderNotificationsSection),
                             new TabItem("video", "Video", RenderVideoSection),
                             new TabItem("audio", "Audio", RenderAudioSection),
                             new TabItem("rive", "Rive", RenderRiveSection),

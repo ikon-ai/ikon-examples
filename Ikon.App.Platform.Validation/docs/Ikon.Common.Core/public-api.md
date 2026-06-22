@@ -37,6 +37,25 @@ namespace Ikon.Common.Core
     ctor()
     string Code { get; set; }
     string Message { get; set; }
+  // Options for booting a target app via an IAppHost .
+  sealed class AppHostOptions : IEquatable<AppHostOptions>
+    // Options for booting a target app via an IAppHost .
+    ctor(bool NeedsFrontend = true, bool ForceRelay = false, string LogPrefix = "[Preview]", bool WatchForReload = true)
+    // Expose the app through the relay instead of a direct localhost URL — required when the viewer's browser can't reach this host's localhost (cloud run or --public-access).
+    bool ForceRelay { get; init; }
+    // Prefix prepended to the embedded server's log lines (before the timestamp) so its stdout is attributable when it interleaves with the host's. Defaults to [Preview] (the Studio live preview); the codegen smoke gate overrides it to [Sandbox].
+    string LogPrefix { get; init; }
+    // Start the app's Vite frontend and resolve a browsable URL. The Studio preview and the validator-driven smoke need it; a plain boot-check smoke does not (saves the node process).
+    bool NeedsFrontend { get; init; }
+    // Watch the built DLL and hot-reload the plugin in place when it changes. True for the live preview (iterative edits reload without restart). The codegen smoke MUST set this false: it is a cheap one-shot boot of the freshly-built DLL, not a live editing surface — a watcher there reloads on every Coder edit mid-run, and a reload racing the smoke's teardown throws "Cannot access a disposed object: CellHost", which gets misreported to the agent as an app crash and sends it into a phantom fix loop.
+    bool WatchForReload { get; init; }
+  // Outcome of StartAsync . Url is the browsable frontend URL when NeedsFrontend was set, else null.
+  struct AppHostResult : IEquatable<AppHostResult>
+    // Outcome of StartAsync . Url is the browsable frontend URL when NeedsFrontend was set, else null.
+    ctor(bool Ok, string? Url, string Message)
+    string Message { get; init; }
+    bool Ok { get; init; }
+    string? Url { get; init; }
   class IkonBackend.AppPaymentsInitResult
     ctor()
     string? BackendUrl { get; set; }
@@ -143,13 +162,17 @@ namespace Ikon.Common.Core
     bool IsAuthTicketSent { get; }
     bool IsConnected { get; }
     bool IsUdpConnected { get; }
+    AuthResponse? LastAuthResponse { get; }
     object LogInfo { get; }
     Reactive<Dictionary<string, object>> ReactiveDynamicConfig { get; }
     ReactiveGlobalState ReactiveGlobalState { get; }
     DateTime ServerInitTime { get; set; }
+    // True once the server has signalled an intentional shutdown (CORE_ON_SERVER_STOPPING). The SDK uses this to suppress automatic reconnect — reconnecting to a deliberately-stopped server would just re-provision a fresh instance.
+    bool ServerStopping { get; }
     Task ConnectAsync2(string connectUrl, CancellationToken ct = null)
     Task ConnectAsync2(string host, int port, bool useTls, CancellationToken ct = null)
     void OverrideConfigValues(string overrideConfigJson)
+    Task ReconnectWithAuthResponseAsync(AuthResponse cachedAuthResponse, CancellationToken ct = null)
     IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[]? opcodes = null)
     virtual ValueTask SendMessageAsync(ProtocolMessage message)
     ValueTask SendMessageAsync(IProtocolMessagePayload payload)
@@ -428,6 +451,10 @@ namespace Ikon.Common.Core
     static bool IsEnabled()
   static class DiagnosticUtils
     static string BuildMemoryInfo()
+    // The container/machine memory limit in bytes, or -1 when unknown/unlimited. Linux under a finite cgroup limit: memory.max (v2) / memory.limit_in_bytes (v1). Linux without a cgroup limit: /proc/meminfoMemTotal. Elsewhere: -1 (no meaningful ceiling to compare against). Pairs with GetMachineMemoryUsedBytes for a "used / limit" readout.
+    static long GetMachineMemoryLimitBytes()
+    // Total memory currently used by the WHOLE container/machine, in bytes — not just this process. This is the number to watch when the process spawns heavy children: Studio runs dotnet build and a Vite node server, and in a container every such process is charged to the same cgroup, so only a container-wide figure reflects what the kernel OOM-kills on. Linux under a finite cgroup limit (cloud, Docker --memory): the cgroup working set (memory.current minus inactive_file) — accurate, container-wide, matches docker stats. Linux without a finite cgroup limit (bare VM): /proc/meminfoMemTotal - MemAvailable — whole-machine used. Elsewhere (Windows): best effort, this process's working set, which is not meaningful as a machine total but keeps callers simple (the number does not matter off-container).
+    static long GetMachineMemoryUsedBytes()
     // The process memory figure to compare against the container/cgroup limit. On Linux under a finite cgroup memory limit (cloud, Docker --memory) this is the cgroup working set — memory.current minus readily-reclaimable file cache (inactive_file). That is the number the kernel keeps under memory.max and OOM-kills on, and it matches what docker stats shows, so it is directly comparable to e.g. the 512 MB limit. WorkingSet64 (VmRSS) over-reports here because it counts shared file-backed pages that are not all charged to the cgroup; PrivateMemorySize64 on Linux is VmData (reserved virtual address space) and is wildly inflated. Falls back to WorkingSet64 on Windows or when no finite cgroup memory limit is set (where there is nothing to compare against anyway).
     static long GetProcessMemoryUsedBytes()
   class ReactiveGlobalState.DictionaryComparer<TKey, TValue> : IEqualityComparer<Dictionary<TKey, TValue>>
@@ -490,16 +517,35 @@ namespace Ikon.Common.Core
     static void MarkEnabled()
     static void MarkReloaded()
     static int LocalMemoryMarginMb
+  // Runs a built Ikon app and exposes its live URL — the one abstraction behind both the Studio preview and the codegen smoke gate, so they share a boot path and a single isolation switch. Two implementations: an in-process embedded server (default, shares the host's loaded DLLs — low memory) and a child dotnet run process (full isolation, the fallback). Defined in Ikon.Common.Core so the codegen pipeline (which does not reference the server host) can take it injected, while the host supplies the concrete implementation.
+  interface IAppHost : IAsyncDisposable
+    bool IsRunning { get; }
+    // App root of the currently-running app (null when stopped) — lets a caller tell which app a shared host is serving before reusing it.
+    string? RunningRoot { get; }
+    // The live URL of the running app (null when stopped).
+    string? Url { get; }
+    // Mints a signed connect URL ({serverUrl}/connect?token=…) for a browser client, in-process, using the running server's own secret — so the iframe can authenticate without the server exposing a public /connect-token minting oracle. Returns null when not running or when the host does not mint in-process (e.g. the child-process host, which keeps its own /connect-token).
+    abstract string? MintBrowserConnectUrl()
+    // Build-if-needed, start the app rooted at sandboxDir , and wait until it is ready (and, when NeedsFrontend , its frontend is up). Stops any app this host was previously running.
+    abstract Task<AppHostResult> StartAsync(string sandboxDir, AppHostOptions options, CancellationToken ct = null)
+    // Stop the running app and release its resources. Safe to call when nothing is running.
+    abstract Task StopAsync()
+    // Human-readable diagnostics (build status, frontend errors) for surfacing to the user.
+    event Action<string>? Diagnostic
   interface ILogInfo
     object LogInfo { get; }
   interface IPlugin : IProtocolMessageChannel
     string ConnectTokenJson { get; }
     bool IsAuthTicketSent { get; }
     bool IsConnected { get; }
+    // The AuthResponse from the most recent successful connect (entrypoints + auth ticket + client session). Cache it to drive a later ReconnectWithAuthResponseAsync .
+    AuthResponse? LastAuthResponse { get; }
     DateTime ServerInitTime { get; set; }
     abstract Task ConnectAsync2(string connectUrl, CancellationToken ct = null)
     abstract Task ConnectAsync2(string host, int port, bool useTls, CancellationToken ct = null)
     abstract void OverrideConfigValues(string overrideConfigJson)
+    // Soft reconnect: reopen the transport reusing a previously-fetched AuthResponse (its entrypoints, auth ticket, and client session) WITHOUT re-fetching it via the /connect GET. Lets the server resume the same session within its disconnect grace. Use LastAuthResponse from the prior connection.
+    abstract Task ReconnectWithAuthResponseAsync(AuthResponse cachedAuthResponse, CancellationToken ct = null)
     abstract Task StopAsync()
   interface IProtocolMessageChannel
     Context ClientContext { get; }
@@ -573,6 +619,8 @@ namespace Ikon.Common.Core
     static IkonBackend.EnvironmentType DetermineEnvironment(string url)
     Task<HttpResponseMessage> DownloadInboundEmailAttachmentAsync(string emailId, string attachmentId)
     Task<List<IkonBackend.Profile>> FindProfilesAsync(string spaceId, Dictionary<string, string> filters, int maxResults = 1000)
+    // Returns an IkonBackend that authenticates with token while sharing the global instance's backend URL. Lets a process issue backend requests on behalf of a caller whose space-scoped token differs from its own — e.g. an RPC proxy resolving assets that live in the caller's space.
+    static IkonBackend ForToken(string token)
     Task<List<IkonBackend.Translation>> GetAllTranslationsAsync(string spaceId, int maxResults = 1000)
     Task<Dictionary<string, string>> GetApiKeysAsync(bool all = false)
     Task<IkonBackend.AppBundle> GetAppBundleAsync(string id)
@@ -652,8 +700,10 @@ namespace Ikon.Common.Core
     Task<string> RefundPaymentsOrderAsync(string orderId, long? amountMinor = null, string? reason = null, string? idempotencyKey = null, CancellationToken cancellationToken = null)
     // Local-dev parity: register this locally-run process as an externally-managed instance so the backend reverse-proxies {space}.ikonai.app/api/... to this machine's relay tunnel instead of provisioning a cloud instance. The backend mints a per-registration id (returned as LocalInstanceId ) that distinguishes this instance from other local runs sharing the same identity. Returns that id, which the host passes into MintUrl so its minted endpoint URLs carry the li claim and route to this process.
     Task<IkonBackend.RegisterLocalInstanceResponse> RegisterLocalInstanceAsync(string spaceId, string channelId, Dictionary<string, string> sessionIdentity, string relayEndpointPublicUrl)
+    Task RegisterPushSubscriptionAsync(RegisterPushSubscriptionDto request)
     Task RemoveOrganisationInvitationAsync(string organisationId, string invitationId)
     Task<IkonBackend.Organisation> RemoveOrganisationUserAsync(string organisationId, string userId)
+    Task RemovePushSubscriptionAsync(RemovePushSubscriptionDto request)
     Task<string> RequestAccessTokenAsync(string apiKey, string spaceId, string externalUserId)
     Task<IkonBackend.ChannelInstance> RequestChannelAsync(IkonBackend.RequestChannelRequest request)
     Task<StepUpStartResponse> RequestStepUpStartAsync(StepUpStartRequest request)
@@ -665,6 +715,7 @@ namespace Ikon.Common.Core
     Task RevokeEndpointGrantGroupAsync(string group)
     Task SendEmailAsync(SendEmailDto request)
     void SendMessage(ProtocolMessage message)
+    Task SendPushAsync(SendPushDto request)
     Task SetStorageAsync(string spaceId, string entity, string entityId, Dictionary<string, object> values)
     Task StopAsync()
     Task<IkonBackend.AppBundle> UpdateAppBundleAsync(string id, IkonBackend.AppBundleState state)
@@ -862,6 +913,8 @@ namespace Ikon.Common.Core
     LogFilter ConsoleWriterFilter
     LogFilter FileWriterFilter
     LogFilter Filter
+    // Optional prefix rendered at the very start of every console/file log line (before the timestamp). Because Log is an async-local instance, each isolated server scope (e.g. an embedded preview/sandbox server vs the host app) has its own instance and can carry its own prefix, making interleaved stdout from multiple in-process servers attributable at a glance.
+    string Prefix
     static bool RequireInitCall
     bool ShowAsyncFlow
     string TraceFilter
@@ -1130,6 +1183,16 @@ namespace Ikon.Common.Core
     ctor()
     string LocalInstanceId { get; set; }
     string SpacePublicUrl { get; set; }
+  sealed class RegisterPushSubscriptionDto
+    ctor()
+    string? Auth { get; set; }
+    string? Channel { get; set; }
+    string? DeviceId { get; set; }
+    string? Endpoint { get; set; }
+    string? P256dh { get; set; }
+    string Platform { get; set; }
+    string? Token { get; set; }
+    string User { get; set; }
   class IkonBackend.RelayServerConfigResponse
     ctor()
     string AuthToken { get; set; }
@@ -1143,6 +1206,9 @@ namespace Ikon.Common.Core
   class IkonBackend.ReleaseNoteVersionsResponse
     ctor()
     List<string> Results { get; set; }
+  sealed class RemovePushSubscriptionDto
+    ctor()
+    string EndpointOrToken { get; set; }
   class IkonBackend.RequestChannelRequest
     ctor()
     string? Hash { get; set; }
@@ -1192,6 +1258,16 @@ namespace Ikon.Common.Core
   sealed class SendEmailResponseDto
     ctor()
     bool Accepted { get; set; }
+  sealed class SendPushDto
+    ctor()
+    string? Body { get; set; }
+    string? Channel { get; set; }
+    string? Data { get; set; }
+    string? IconUrl { get; set; }
+    string? LaunchUrl { get; set; }
+    string? Tag { get; set; }
+    string Title { get; set; }
+    string User { get; set; }
   class Sensitive<T>
     ctor(T value, SensitivityPolicy sensitivityPolicy = Default)
     bool IsSensitive { get; }
@@ -1385,6 +1461,10 @@ namespace Ikon.Common.Core.Assets
     Task<AssetContent<T>?> TryGetWithMetadataAsync<T>(AssetUri assetUri) where T : class
     Task<AssetWriteResult> TrySetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
     Task<AssetWriteResult> TrySetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
+  // Ambient override for the IkonBackend that cloud asset storages resolve against. While a scope is active, asset reads and writes that fall back to the default backend use Current instead of Instance . Lets a process resolve a caller's assets with the caller's space-scoped token when it acts on behalf of another space (e.g. the LLM RPC proxy). The scope is never set automatically; callers opt in explicitly with Use .
+  static class AssetBackendScope
+    static IkonBackend? Current { get; }
+    static IDisposable Use(IkonBackend backend)
   // Asset class determines which storage backend is used to store/retrieve the asset.
   enum AssetClass
     LocalFile
@@ -1868,6 +1948,8 @@ namespace Ikon.Common.Core.Functions
     IEnumerable<TItem> CallEnumerable<TItem>(string name, object?[]? args = null)
     // Removes all locally registered functions. Remote functions are preserved.
     void ClearLocalFunctions()
+    // Removes every remote function, keeping only this registry's own local functions. Called on protocol detach (disconnect): remote functions were mirrored from the now-gone peer and are re-synced fresh from the peer's ClientInitialization/GlobalState on reconnect. Without this, reconnecting to a RESTARTED peer (new FunctionIds / new session id) leaves the pre-disconnect remote functions behind, so the same name ends up registered by two client sessions and a name-only call throws "Multiple remote clients (...) have registered function '...'". Local functions are preserved — the client re-advertises them to the peer via StartProtocolAsync.
+    void ClearRemoteFunctions()
     // Stops protocol handling and detaches the registry from the channel.
     void DetachProtocol()
     // Disposes a remote instance.
@@ -4387,7 +4469,8 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class RelayAgentAuth : IProtocolMessagePayload
     ctor()
-    ctor(string authToken, string stableId)
+    ctor(string authToken, string stableId, string agentInstanceId)
+    string AgentInstanceId { get; set; }
     string AuthToken { get; set; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
@@ -5743,6 +5826,8 @@ namespace Ikon.Common.Core.Reactive
     // Fires with the scope-derived session id whose Signal<T> value just changed. For unscoped reactives the id is always 0; for ClientReactive<T> it is the hash of ClientScope; for UserReactive<T> the hash of UserScope; etc. Lets external subscription routing fan out to only the clients whose scope matches the changed signal.
     event Action<int>? SessionChanged
   interface IReactiveWithState
+    // Whether this reactive's value is captured for hot-reload state preservation. Default true. Runtime-only caches that hold non-serializable or cyclic object graphs — and that rehydrate from their own backing store after a reload — opt out by returning false, so the hot-reload capture pass skips them instead of logging a (harmless) serialization warning every reload. Does not affect long-term persistence (which only ever touches non-None PersistenceScope s).
+    bool CaptureForHotReload { get; }
     // Hash-derived session id that this reactive's .Value would resolve to under the currently-active ReactiveScope . Used by the subscription service to key per-scope subscriber routing. Default implementation returns 0 — override on per-scope reactives.
     int CurrentScopeSessionId { get; }
     string StableId { get; }
@@ -5878,6 +5963,7 @@ namespace Ikon.Common.Core.Reactive
   class Reactive<T> : IReactive, IReactiveWithState
     ctor(UseDefault _ = null, string file = "", string member = "")
     ctor(T initialValue, string file = "", string member = "")
+    bool CaptureForHotReload { get; }
     // Hash-derived session id that Value would resolve to under the currently-active ReactiveScope . Throws if a required scope is missing — same conditions as accessing Value . External subscribers use this to key their subscription routing.
     int CurrentScopeSessionId { get; }
     T Peek { get; }
@@ -5885,6 +5971,8 @@ namespace Ikon.Common.Core.Reactive
     T Value { get; set; }
     long Version { get; }
     StoredReactiveState CaptureState()
+    // Opt this reactive out of hot-reload state capture. Use for runtime-only caches that hold non-serializable or cyclic object graphs and are rebuilt from their own backing store after a reload (e.g. orchestrator caches of live domain objects) — capturing them only fails noisily. Fluent: returns this so it can be chained onto a field initializer. Has no effect on long-term persistence, which only applies to non-None PersistenceScope s.
+    Reactive<T> ExcludeFromHotReloadCapture()
     void NotifyUpdate()
     // Read this reactive's value for the currently-active scope and serialize it to JSON. Triggers per-scope initialization if no signal exists yet — the returned JSON is the initial value the consumer should observe.
     string ReadCurrentValueAsJson()
