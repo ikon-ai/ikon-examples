@@ -100,7 +100,7 @@
         "value mutation"
       ],
       "file": "docs/guides/reactive-state.md",
-      "sizeBytes": 32532,
+      "sizeBytes": 33570,
       "alsoInclude": [
         "app-structure",
         "ui-components"
@@ -560,7 +560,7 @@
         "callable functions"
       ],
       "file": "docs/guides/function-registry.md",
-      "sizeBytes": 31658,
+      "sizeBytes": 32343,
       "alsoInclude": []
     },
     {
