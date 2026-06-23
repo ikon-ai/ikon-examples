@@ -184,6 +184,8 @@ namespace Ikon.Common.Core.Reactive
     // Fires with the scope-derived session id whose Signal<T> value just changed. For unscoped reactives the id is always 0; for ClientReactive<T> it is the hash of ClientScope; for UserReactive<T> the hash of UserScope; etc. Lets external subscription routing fan out to only the clients whose scope matches the changed signal.
     event Action<int>? SessionChanged
   interface IReactiveWithState
+    // Whether this reactive's value is captured for hot-reload state preservation. Default true. Runtime-only caches that hold non-serializable or cyclic object graphs — and that rehydrate from their own backing store after a reload — opt out by returning false, so the hot-reload capture pass skips them instead of logging a (harmless) serialization warning every reload. Does not affect long-term persistence (which only ever touches non-None PersistenceScope s).
+    bool CaptureForHotReload { get; }
     // Hash-derived session id that this reactive's .Value would resolve to under the currently-active ReactiveScope . Used by the subscription service to key per-scope subscriber routing. Default implementation returns 0 — override on per-scope reactives.
     int CurrentScopeSessionId { get; }
     string StableId { get; }
@@ -319,6 +321,7 @@ namespace Ikon.Common.Core.Reactive
   class Reactive<T> : IReactive, IReactiveWithState
     ctor(UseDefault _ = null, string file = "", string member = "")
     ctor(T initialValue, string file = "", string member = "")
+    bool CaptureForHotReload { get; }
     // Hash-derived session id that Value would resolve to under the currently-active ReactiveScope . Throws if a required scope is missing — same conditions as accessing Value . External subscribers use this to key their subscription routing.
     int CurrentScopeSessionId { get; }
     T Peek { get; }
@@ -326,6 +329,8 @@ namespace Ikon.Common.Core.Reactive
     T Value { get; set; }
     long Version { get; }
     StoredReactiveState CaptureState()
+    // Opt this reactive out of hot-reload state capture. Use for runtime-only caches that hold non-serializable or cyclic object graphs and are rebuilt from their own backing store after a reload (e.g. orchestrator caches of live domain objects) — capturing them only fails noisily. Fluent: returns this so it can be chained onto a field initializer. Has no effect on long-term persistence, which only applies to non-None PersistenceScope s.
+    Reactive<T> ExcludeFromHotReloadCapture()
     void NotifyUpdate()
     // Read this reactive's value for the currently-active scope and serialize it to JSON. Triggers per-scope initialization if no signal exists yet — the returned JSON is the initial value the consumer should observe.
     string ReadCurrentValueAsJson()
