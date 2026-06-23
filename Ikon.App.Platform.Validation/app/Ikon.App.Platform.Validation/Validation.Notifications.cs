@@ -3,6 +3,7 @@ public partial class Validation
     private readonly ClientReactive<string> _notificationPermission = new("(unknown — click Check)");
     private readonly ClientReactive<string> _notificationStatus = new("(nothing sent yet)");
     private readonly Reactive<bool> _notificationToastOpen = new(false);
+    private readonly Reactive<string> _offlinePushLog = new("(no offline push scheduled yet)");
 
     private void RenderNotificationsSection(UIView view)
     {
@@ -86,19 +87,36 @@ public partial class Validation
                 });
             });
 
-            // Offline push (not implemented)
+            // Offline push
             view.Box([Card.Default, "p-6"], content: view =>
             {
-                view.Text([Text.H2, "mb-4"], "Offline push (not implemented)");
-                view.Text([Text.Caption, "mb-4"], "Delivered by the OS when the client is disconnected. Scaffolded but not wired — needs the backend push hub (VAPID / FCM / APNs). See docs/private/ikon-notifications-guide.md.");
+                view.Text([Text.H2, "mb-4"], "Offline push");
+                view.Text([Text.Caption, "mb-2"], "Delivered by the OS through the backend push hub when you have NO connected session. SendToUserAsync fans out to your connected sessions and falls back to offline push when you're disconnected — the same API covers web push (live) and mobile FCM (once a Firebase project is configured).");
+                view.Text([Text.Caption, "mb-4"], "Test it in two steps: grant permission so this device's push subscription registers (Step 1), then schedule a push and immediately close this tab (Step 2). The OS notification should arrive while the app is closed. Reopen to see the outcome below.");
+
+                view.Text([Text.Label, "mb-2"], "Step 1 — Enable push on this device");
+                view.Row([Layout.Row.Md, "flex-wrap mb-4"], content: view =>
+                {
+                    view.Button([Button.PrimaryMd], label: "Grant & register", icon: "bell-plus",
+                        onClick: async () => await NotifyOneAsync(() => app.Notifications.SendToSessionAsync(
+                            ReactiveScope.ClientId,
+                            new NotificationContent("Validation", "Push enabled — this device is now registered for offline push."))));
+                });
+
+                view.Text([Text.Label, "mb-2"], "Step 2 — Schedule a push, then close this tab");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.OutlineMd], label: "Web Push (service worker)", icon: "globe", disabled: true,
-                        onClick: async () => { });
+                    view.Button([Button.OutlineMd], label: "Push in 10s", icon: "clock",
+                        onClick: async () => await ScheduleOfflinePushAsync(10));
 
-                    view.Button([Button.OutlineMd], label: "Mobile push (FCM / APNs)", icon: "smartphone", disabled: true,
-                        onClick: async () => { });
+                    view.Button([Button.OutlineMd], label: "Push in 30s", icon: "clock",
+                        onClick: async () => await ScheduleOfflinePushAsync(30));
+
+                    view.Button([Button.OutlineMd], label: "Push in 60s", icon: "clock",
+                        onClick: async () => await ScheduleOfflinePushAsync(60));
                 });
+
+                view.Text([Text.Caption, "mt-4"], $"Last offline push: {_offlinePushLog.Value}");
             });
 
             // Last result
@@ -122,6 +140,44 @@ public partial class Validation
                 showClose: true,
                 closeStyle: [Toast.Close]);
         });
+    }
+
+    private Task ScheduleOfflinePushAsync(int delaySeconds)
+    {
+        var userId = app.GlobalState.Clients.TryGetValue(ReactiveScope.ClientId, out var ctx) ? ctx.UserId : "";
+
+        if (string.IsNullOrEmpty(userId))
+        {
+            _notificationStatus.Value = "No user id — this session is anonymous; offline push needs a signed-in user.";
+            _notificationToastOpen.Value = true;
+            return Task.CompletedTask;
+        }
+
+        _offlinePushLog.Value = $"Scheduled in {delaySeconds}s — close this tab now to test the offline path.";
+        _notificationStatus.Value = $"Push scheduled in {delaySeconds}s. Close this tab to receive it as an OS push.";
+        _notificationToastOpen.Value = true;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(delaySeconds));
+
+                var results = await app.Notifications.SendToUserAsync(
+                    userId,
+                    new NotificationContent("Validation", $"Offline push test — scheduled {delaySeconds}s ago.", LaunchUrl: "/notifications"));
+
+                _offlinePushLog.Value = results.Count == 0
+                    ? "Fired with no connected session — delivered via OFFLINE push through the backend."
+                    : $"Fired while {results.Count} session(s) still connected — delivered FOREGROUND (close the tab before it fires to test the offline path).";
+            }
+            catch (Exception ex)
+            {
+                _offlinePushLog.Value = $"Failed: {ex.Message}";
+            }
+        });
+
+        return Task.CompletedTask;
     }
 
     private async Task NotifyOneAsync(Func<Task<NotificationSendResult>> send)
