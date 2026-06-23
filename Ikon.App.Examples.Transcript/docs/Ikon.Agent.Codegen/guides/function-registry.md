@@ -254,6 +254,8 @@ namespace Ikon.Common.Core.Functions
     IEnumerable<TItem> CallEnumerable<TItem>(string name, object?[]? args = null)
     // Removes all locally registered functions. Remote functions are preserved.
     void ClearLocalFunctions()
+    // Removes every remote function, keeping only this registry's own local functions. Called on protocol detach (disconnect): remote functions were mirrored from the now-gone peer and are re-synced fresh from the peer's ClientInitialization/GlobalState on reconnect. Without this, reconnecting to a RESTARTED peer (new FunctionIds / new session id) leaves the pre-disconnect remote functions behind, so the same name ends up registered by two client sessions and a name-only call throws "Multiple remote clients (...) have registered function '...'". Local functions are preserved — the client re-advertises them to the peer via StartProtocolAsync.
+    void ClearRemoteFunctions()
     // Stops protocol handling and detaches the registry from the channel.
     void DetachProtocol()
     // Disposes a remote instance.
