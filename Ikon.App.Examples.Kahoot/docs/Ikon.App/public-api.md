@@ -868,7 +868,7 @@ namespace Ikon.App
     NotificationPermission Permission { get; init; }
     // The target client session id.
     int SessionId { get; init; }
-  // Platform notification surface for an Ikon app — shows user-facing notifications on connected clients. Accessed via app.Notifications. Connected clients receive the notification immediately (foreground). Permission is requested lazily on the client the first time a notification is actually sent, not when the app opens. SendToUserAsync fans out to every connected session for that user; if the user has no connected session it falls back to offline push through the backend (when push is configured). Offline push is server-orchestrated: when a foreground send is granted, the client's push subscription is fetched and registered with the backend. The backend only delivers when its push providers are configured — otherwise registration/send are no-ops, so this is inert until enabled.
+  // Platform notification surface for an Ikon app — shows user-facing notifications on connected clients. Accessed via app.Notifications. Connected clients receive the notification immediately (foreground). Permission is requested lazily on the client the first time a notification is actually sent, not when the app opens. SendToUserAsync fans out to every connected session for that user; if the user has no connected session it falls back to offline push (an OS notification) through the backend push hub. Offline push is server-orchestrated: when a foreground send is granted, the client's push subscription is fetched and registered with the backend, which then delivers via Web Push / FCM while the user is disconnected.
   sealed class NotificationService
     // Shows a notification on all currently-connected client sessions. Returns one result per session.
     Task<IReadOnlyList<NotificationSendResult>> BroadcastAsync(NotificationContent content, CancellationToken ct = null)
@@ -876,7 +876,7 @@ namespace Ikon.App
     Task<NotificationPermission> GetPermissionAsync(int sessionId, CancellationToken ct = null)
     // Shows a notification on a single connected client session. The client requests notification permission lazily (on this first send) before displaying. Returns the per-session delivery and permission outcome.
     Task<NotificationSendResult> SendToSessionAsync(int sessionId, NotificationContent content, CancellationToken ct = null)
-    // Shows a notification on every currently-connected session belonging to userId (a user may be connected from several devices). Users with no connected session receive nothing in this release. Returns one result per targeted session.
+    // Shows a notification on every currently-connected session belonging to userId (a user may be connected from several devices). When the user has no connected session, falls back to offline push — an OS notification delivered through the backend push hub. Returns one result per targeted session (empty when the user was offline and only push was attempted).
     Task<IReadOnlyList<NotificationSendResult>> SendToUserAsync(string userId, NotificationContent content, CancellationToken ct = null)
   // A reactive value persisted globally for the app within its space. Shared across all session identities and users; one value per app deployment.
   class PersistentReactive<T> : Reactive<T>, IPersistedReactive
