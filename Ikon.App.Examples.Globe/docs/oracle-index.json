@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 344087,
+      "sizeBytes": 344148,
       "alsoInclude": []
     },
     {
@@ -526,10 +526,16 @@
         "PostgreSQL",
         "SQL",
         "db",
-        "AppDatabaseConnection"
+        "AppDatabaseConnection",
+        "EF Core",
+        "Entity Framework",
+        "DbContext",
+        "migrations",
+        "ef-migrate",
+        "LINQ"
       ],
       "file": "docs/guides/databases.md",
-      "sizeBytes": 2953,
+      "sizeBytes": 5168,
       "alsoInclude": []
     },
     {
@@ -546,6 +552,30 @@
       ],
       "file": "docs/guides/secrets.md",
       "sizeBytes": 1975,
+      "alsoInclude": []
+    },
+    {
+      "id": "notifications",
+      "title": "Notifications",
+      "keywords": [
+        "notifications",
+        "push",
+        "push notification",
+        "app.Notifications",
+        "NotificationContent",
+        "SendToUserAsync",
+        "SendToSessionAsync",
+        "BroadcastAsync",
+        "NotifyAsync",
+        "permission",
+        "offline push",
+        "web push",
+        "FCM",
+        "alert",
+        "toast"
+      ],
+      "file": "docs/guides/notifications.md",
+      "sizeBytes": 3030,
       "alsoInclude": []
     },
     {
