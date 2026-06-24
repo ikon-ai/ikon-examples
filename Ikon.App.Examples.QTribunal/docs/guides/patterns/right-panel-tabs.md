@@ -3,7 +3,7 @@
 
 A right-edge panel that opens when `_rightPanelTab.Value != null`, shows tab buttons across the top (Files / Log / Oracle / Context), and renders different content per tab. Width is resizable by dragging a handle on the left edge; the percentage is persisted in a reactive. Closing the X clears the reactive and the panel collapses, leaving the main area to take the full width.
 
-> **Requires app-local code**: `view.ResizeHandle(...)` is a custom React component registered via `view.AddNode("custom.resize-handle", ...)`. To use this pattern verbatim, copy `Components/ResizeHandleExtensions.cs` and the matching `frontend-node/src/customNodes/ResizeHandle.tsx` from `Ikon.App.Threads`. Without those, the build fails with CS1061 on `view.ResizeHandle`. If you don't want the resize affordance, replace `view.ResizeHandle(...)` with a plain CSS-width Box and a fixed panel width.
+> **Default to a fixed-width panel.** The draggable resize affordance shown here (`view.ResizeHandle(...)`) is NOT a built-in component — it needs a custom `view.AddNode("custom.resize-handle", ...)` React component that you build yourself (see the custom-component wiring in the real-time multi-user pattern: a resolver + `registerModule` in `app.tsx` + the C# `AddNode` extension). There is no ready-made one to copy, and without it the build fails with CS1061 on `view.ResizeHandle`. Unless the resize handle is specifically required, replace `view.ResizeHandle(...)` with a plain CSS-width Box and a fixed panel width — that needs no app-local code.
 
 ## When to use
 
