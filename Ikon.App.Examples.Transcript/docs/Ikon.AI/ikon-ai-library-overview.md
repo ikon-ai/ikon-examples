@@ -212,9 +212,7 @@ var result = (await imageGenerator.GenerateImageAsync(new ImageGeneratorConfig
     Seed = 42
 })).First();
 
-using MemoryStream ms = new MemoryStream(result.Data);
-using SixLabors.ImageSharp.Image image = await SixLabors.ImageSharp.Image.LoadAsync(ms);
-await image.SaveAsPngAsync("santa.png");
+await File.WriteAllBytesAsync("santa.png", result.Data);
 ```
 
 ## ImageSegmentation

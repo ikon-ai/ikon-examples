@@ -40,10 +40,12 @@ namespace Ikon.Common.Core
   // Options for booting a target app via an IAppHost .
   sealed class AppHostOptions : IEquatable<AppHostOptions>
     // Options for booting a target app via an IAppHost .
-    ctor(bool NeedsFrontend = true, bool ForceRelay = false, string LogPrefix = "[Preview]", bool WatchForReload = true)
+    ctor(bool NeedsFrontend = true, bool ForceRelay = false, string LogPrefix = "Preview", bool WatchForReload = true, bool HostForwardsLogsToBackend = false)
     // Expose the app through the relay instead of a direct localhost URL — required when the viewer's browser can't reach this host's localhost (cloud run or --public-access).
     bool ForceRelay { get; init; }
-    // Prefix prepended to the embedded server's log lines (before the timestamp) so its stdout is attributable when it interleaves with the host's. Defaults to [Preview] (the Studio live preview); the codegen smoke gate overrides it to [Sandbox].
+    // Whether the HOST forwards its own logs to the backend (true in cloud, false for local runs — including --public-access). When true, the embedded server forwards its logs over the host's backend connection so they land under the host's session; when false it stays silent, mirroring the host's "no backend logs locally" behaviour. Decouples log forwarding from ForceRelay , which is about reachability, not log policy.
+    bool HostForwardsLogsToBackend { get; init; }
+    // Bare prefix token tagging the embedded server's log lines so they're attributable when they interleave with the host's (and, when forwarded, in the backend/portal). The renderers add the […] decoration. Defaults to Preview (the Studio live preview); the codegen smoke gate overrides it to Sandbox.
     string LogPrefix { get; init; }
     // Start the app's Vite frontend and resolve a browsable URL. The Studio preview and the validator-driven smoke need it; a plain boot-check smoke does not (saves the node process).
     bool NeedsFrontend { get; init; }
@@ -451,10 +453,10 @@ namespace Ikon.Common.Core
     static bool IsEnabled()
   static class DiagnosticUtils
     static string BuildMemoryInfo()
-    // The container/machine memory limit in bytes, or -1 when unknown/unlimited. Linux under a finite cgroup limit: memory.max (v2) / memory.limit_in_bytes (v1). Linux without a cgroup limit: /proc/meminfoMemTotal. Elsewhere: -1 (no meaningful ceiling to compare against). Pairs with GetMachineMemoryUsedBytes for a "used / limit" readout.
-    static long GetMachineMemoryLimitBytes()
-    // Total memory currently used by the WHOLE container/machine, in bytes — not just this process. This is the number to watch when the process spawns heavy children: Studio runs dotnet build and a Vite node server, and in a container every such process is charged to the same cgroup, so only a container-wide figure reflects what the kernel OOM-kills on. Linux under a finite cgroup limit (cloud, Docker --memory): the cgroup working set (memory.current minus inactive_file) — accurate, container-wide, matches docker stats. Linux without a finite cgroup limit (bare VM): /proc/meminfoMemTotal - MemAvailable — whole-machine used. Elsewhere (Windows): best effort, this process's working set, which is not meaningful as a machine total but keeps callers simple (the number does not matter off-container).
-    static long GetMachineMemoryUsedBytes()
+    // The container memory limit in bytes, or -1 when not under a finite cgroup limit (Windows, or a bare Linux VM — no container ceiling). Linux under a finite cgroup limit: memory.max (v2) / memory.limit_in_bytes (v1). Pairs with GetContainerMemoryUsedBytes for a "used / limit" readout.
+    static long GetContainerMemoryLimitBytes()
+    // Memory currently used by the WHOLE container, in bytes — the cgroup working set (memory.current minus the readily-reclaimable inactive_file). This charges every process in the container, including the child node/build processes the in-process app spawns, so it is what the kernel OOM-kills on and matches docker stats. Returns -1 when not under a finite cgroup limit (Windows, or a bare Linux VM) — there is no container, so callers treat it as 0. For this process alone, see GetProcessMemoryUsedBytes .
+    static long GetContainerMemoryUsedBytes()
     // The process memory figure to compare against the container/cgroup limit. On Linux under a finite cgroup memory limit (cloud, Docker --memory) this is the cgroup working set — memory.current minus readily-reclaimable file cache (inactive_file). That is the number the kernel keeps under memory.max and OOM-kills on, and it matches what docker stats shows, so it is directly comparable to e.g. the 512 MB limit. WorkingSet64 (VmRSS) over-reports here because it counts shared file-backed pages that are not all charged to the cgroup; PrivateMemorySize64 on Linux is VmData (reserved virtual address space) and is wildly inflated. Falls back to WorkingSet64 on Windows or when no finite cgroup memory limit is set (where there is nothing to compare against anyway).
     static long GetProcessMemoryUsedBytes()
   class ReactiveGlobalState.DictionaryComparer<TKey, TValue> : IEqualityComparer<Dictionary<TKey, TValue>>
@@ -510,6 +512,18 @@ namespace Ikon.Common.Core
   class HighPrecisionTimestamp : AsyncLocalInstance<HighPrecisionTimestamp>
     ctor()
     DateTime UtcNow { get; }
+  // Process-wide hints for running inside a memory-constrained host (e.g. a small cloud container that also hosts in-process app servers/previews). Set ONCE at startup by the host — Studio sets it when its ServerRunType is Cloud, and the ikon tool sets it from a CLI flag — and read by code that spawns memory-heavy child processes (NuGet restore, npm install, Vite) so it can cap peak usage. Default is unconstrained, so local dev and normal servers are completely unaffected (no slowdown).
+  static class HostMemoryMode
+    // When true, prefer lower PEAK memory over speed: otherwise-parallel prepare steps (NuGet restore + npm install + docs extraction) run serially so two heavy child processes don't run at once. Off by default — local dev keeps the faster parallel path.
+    static bool Constrained { get; set; }
+    // Node --max-old-space-size (MB) applied to spawned npm/Vite processes when > 0. Bounds V8 heap growth from C# without any container/Dockerfile change. 0 = leave Node's default.
+    static int NodeMaxOldSpaceMb { get; set; }
+    // The NODE_OPTIONS value to add to spawned Node processes, or null when unset.
+    static string? NodeOptions { get; }
+    // An environment override that appends the Node heap cap to any inherited NODE_OPTIONS, for spawning npm/Vite. Null when no cap is configured (local dev) so callers pass nothing.
+    static IDictionary<string, string?>? NodeProcessEnv()
+    // Runs op , serialized against other heavy spawns when Constrained is set — so two memory-heavy child processes (NuGet restore, npm install) never run at once in a tight container. When unconstrained (local dev) it runs immediately with no gating, preserving the faster parallel path.
+    static Task RunHeavyProcessAsync(Func<Task> op)
   static class HotReloadGate
     static TimeSpan CooldownDuration { get; set; }
     static bool IsEnabled { get; }
@@ -933,6 +947,7 @@ namespace Ikon.Common.Core
     string Message
     LogEvent.Parameter[] Parameters
     string Path
+    string Prefix
     int PreviousAsyncFlowId
     LogScopeEntry[] Scopes
     DateTime Time
@@ -942,7 +957,8 @@ namespace Ikon.Common.Core
   delegate Log.LogEventHandler
     void LogEventHandler(object sender, LogEvent logEvent)
   class LogEventSender
-    ctor()
+    // Creates a log-event sender. By default it forwards over the ambient (async-local) Instance . Pass an explicit backend to forward over a specific backend connection regardless of the ambient scope — used to route an embedded server's logs to the HOST's backend session (so preview/sandbox logs land under the host session) while the embedded server keeps its own backend for usages.
+    ctor(IkonBackend? backend = null)
     void Flush()
     Task InitializeAsync(bool sendLogs = true, bool sendEvents = true, bool sendUsages = true)
     void OnLogEvent(object sender, LogEvent logEvent)
@@ -4076,6 +4092,16 @@ namespace Ikon.Common.Core.Protocol
     static OnClientReady ReadFromTeleport(ReadOnlySpan<byte> data, OnClientReady? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
+  sealed class OnFrontendReloaded : IProtocolMessagePayload
+    ctor()
+    ctor(Context serverContext)
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    Context ServerContext { get; set; }
+    static OnFrontendReloaded ReadFromTeleport(ReadOnlySpan<byte> data)
+    static OnFrontendReloaded ReadFromTeleport(ReadOnlySpan<byte> data, OnFrontendReloaded? destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class OnHostedServerExit : IProtocolMessagePayload
     ctor()
     ctor(string serverSessionId, bool wasSuccessful)
@@ -4205,6 +4231,7 @@ namespace Ikon.Common.Core.Protocol
     CORE_RESET_IDLE
     CORE_CLIENT_DISCONNECTING
     CORE_ON_APP_READY
+    CORE_ON_FRONTEND_RELOADED
     CORE_WEBRTC_OFFER
     CORE_WEBRTC_ANSWER
     CORE_WEBRTC_ICE_CANDIDATE
