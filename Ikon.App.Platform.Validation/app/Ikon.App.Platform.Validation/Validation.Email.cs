@@ -110,6 +110,7 @@ public partial class Validation
                 view.Text([Text.Caption], "Send a test email and browse received messages through the platform mailer. Sending is restricted to @ikon.live and @ikonai.com recipients. Requires the Email feature to be enabled on this space.");
             });
 
+            RenderExternalLinkCard(view);
             RenderEmailSendCard(view);
             RenderEmailInboxCard(view);
 
@@ -117,6 +118,36 @@ public partial class Validation
             {
                 RenderEmailDetailCard(view);
             }
+        });
+    }
+
+    private void RenderExternalLinkCard(UIView view)
+    {
+        view.Box([Card.Default, "p-6 mb-6"], content: view =>
+        {
+            view.Text([Text.H3, "mb-2"], "External handler links");
+            view.Text([Text.Caption, "mb-4"], "These anchors hand off to an OS app (mail / phone). Tapping one fires the browser's page-unload events; the app must stay responsive after returning.");
+
+            view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
+            {
+                view.Link(
+                    [Button.OutlineMd],
+                    href: "mailto:test@ikon.live?subject=Validation%20test",
+                    content: v =>
+                    {
+                        v.Icon([Icon.Default, "mr-2"], name: "mail");
+                        v.Text(text: "Email test@ikon.live");
+                    });
+
+                view.Link(
+                    [Button.OutlineMd],
+                    href: "tel:+358401234567",
+                    content: v =>
+                    {
+                        v.Icon([Icon.Default, "mr-2"], name: "phone");
+                        v.Text(text: "Call +358 40 123 4567");
+                    });
+            });
         });
     }
 
