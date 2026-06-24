@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 344148,
+      "sizeBytes": 345046,
       "alsoInclude": []
     },
     {
@@ -633,7 +633,7 @@
         "pipeline guide"
       ],
       "file": "docs/guides/pipelines-reference.md",
-      "sizeBytes": 83685,
+      "sizeBytes": 83681,
       "alsoInclude": []
     },
     {
