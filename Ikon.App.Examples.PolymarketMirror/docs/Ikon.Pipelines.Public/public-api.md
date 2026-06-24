@@ -54,8 +54,8 @@ namespace Ikon.Pipelines.Public.Processors.Pdf
     int Index { get; }
     double Width { get; }
     abstract void CreateCopy(Stream output)
-    abstract ValueTuple<Rgba32[], byte[], int, int> GetPixels(int maxDimension)
-    abstract ValueTuple<Rgba32[], byte[], int, int> GetPixels(int width, int height, bool hasAlpha)
+    abstract ValueTuple<byte[], byte[], int, int> GetPixels(int maxDimension)
+    abstract ValueTuple<byte[], byte[], int, int> GetPixels(int width, int height, bool hasAlpha)
     abstract string GetText()
   static class PdfDocument
     static IPdfDocument Load(byte[] bytes, string? password = null)
