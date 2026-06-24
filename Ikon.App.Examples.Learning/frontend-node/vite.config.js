@@ -97,10 +97,6 @@ export default defineConfig(({ mode }) => {
       port: port,
       https: httpsConfig,
       strictPort: true,
-      headers: waitForExternalConnectUrl ? {
-        'Cross-Origin-Embedder-Policy': 'require-corp',
-        'Cross-Origin-Resource-Policy': 'cross-origin',
-      } : undefined,
       fs: {
         allow: fsAllow,
       },
@@ -118,15 +114,10 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
-      // Downlevel syntax so the bundle parses on older smart-TV browsers (e.g. legacy Tizen).
       target: 'es2019',
       chunkSizeWarningLimit: '1mb',
-      minify: 'terser',
-      terserOptions: {
-        compress: {
-          drop_debugger: true,
-        },
-      },
+      minify: 'esbuild',
+      reportCompressedSize: false,
     },
   };
 });
