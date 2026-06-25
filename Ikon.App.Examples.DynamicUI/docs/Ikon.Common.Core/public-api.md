@@ -516,10 +516,16 @@ namespace Ikon.Common.Core
   static class HostMemoryMode
     // When true, prefer lower PEAK memory over speed: otherwise-parallel prepare steps (NuGet restore + npm install + docs extraction) run serially so two heavy child processes don't run at once. Off by default — local dev keeps the faster parallel path.
     static bool Constrained { get; set; }
+    // Node --max-old-space-size (MB) for a TRANSIENT one-shot build (e.g. vite build) rather than a resident dev server. A full production bundle peaks well above a dev server's lazy transform (a JS-heap OOM at the resident cap is what fails the build), so it needs a higher cap than NodeMaxOldSpaceMb — but only briefly, since the process exits after the build. 0 = fall back to the resident cap.
+    static int NodeBuildMaxOldSpaceMb { get; set; }
+    // The NODE_OPTIONS value for a transient build process — the build cap when set, otherwise the resident cap. Null when neither is configured (local dev).
+    static string? NodeBuildOptions { get; }
     // Node --max-old-space-size (MB) applied to spawned npm/Vite processes when > 0. Bounds V8 heap growth from C# without any container/Dockerfile change. 0 = leave Node's default.
     static int NodeMaxOldSpaceMb { get; set; }
     // The NODE_OPTIONS value to add to spawned Node processes, or null when unset.
     static string? NodeOptions { get; }
+    // Like NodeProcessEnv but uses the larger transient-build cap (see NodeBuildMaxOldSpaceMb ). Use for one-shot builds, not resident servers.
+    static IDictionary<string, string?>? NodeBuildProcessEnv()
     // An environment override that appends the Node heap cap to any inherited NODE_OPTIONS, for spawning npm/Vite. Null when no cap is configured (local dev) so callers pass nothing.
     static IDictionary<string, string?>? NodeProcessEnv()
     // Runs op , serialized against other heavy spawns when Constrained is set — so two memory-heavy child processes (NuGet restore, npm install) never run at once in a tight container. When unconstrained (local dev) it runs immediately with no gating, preserving the faster parallel path.
