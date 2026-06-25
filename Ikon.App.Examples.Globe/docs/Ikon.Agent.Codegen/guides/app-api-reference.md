@@ -2763,6 +2763,9 @@ namespace Ikon.Common
     abstract void Delete(string hash)
     abstract List<string> DeleteOlderThan(TimeSpan timeSpan)
     abstract List<T>? Get(string hash)
+  // Force-loads the Ikon.* dependency closure of an assembly so a subsequent InitializeAll discovers every [AsyncLocalInstance] type. App libraries such as Ikon.Parallax (StyleRegistry) and Ikon.App.Cells (Cells) otherwise load lazily on first use — AFTER the one-time discovery scan — and their async-local types would be missed and fall back to a single process-wide singleton shared across every in-process server (host + each embedded preview/sandbox). This deliberately lives on its own type, NOT on AsyncLocalInstances : invoking a static member of AsyncLocalInstances triggers its static constructor, which runs the discovery scan. Calling the loader from there would scan BEFORE the closure finished loading, defeating the purpose. Callers must run this BEFORE the first AsyncLocalInstances access.
+  static class IkonAssemblyLoader
+    static void ForceLoadIkonClosure(Assembly root)
   sealed class IkonLoggerProvider : IDisposable, ILoggerProvider
     ctor()
     ILogger CreateLogger(string categoryName)

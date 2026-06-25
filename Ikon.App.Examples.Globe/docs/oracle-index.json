@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 345046,
+      "sizeBytes": 344284,
       "alsoInclude": []
     },
     {
@@ -655,7 +655,7 @@
         "emails folder"
       ],
       "file": "docs/guides/frontend-fundamentals.md",
-      "sizeBytes": 17934,
+      "sizeBytes": 18971,
       "alsoInclude": [
         "ui-components"
       ]
@@ -674,7 +674,7 @@
         "targets"
       ],
       "file": "docs/guides/config-and-cli.md",
-      "sizeBytes": 6985,
+      "sizeBytes": 7317,
       "alsoInclude": []
     }
   ]
