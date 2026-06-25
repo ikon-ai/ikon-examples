@@ -7348,10 +7348,6 @@ namespace Ikon.App
     static void OnStarting(IAppBase app, Func<Task> handler)
     // Subscribe to StoppingAsync with a zero-arg async handler.
     static void OnStopping(IAppBase app, Func<Task> handler)
-  // Legacy app host interface providing access to app configuration (appVersion=1).
-  interface IApp<TConfig> : IAppBase, IProtocolMessageChannel
-    // Gets the app configuration provided by the developer.
-    TConfig Config { get; }
   // App host interface providing typed session identity and client parameters.
   interface IApp<TSessionIdentity, TClientParameters> : IAppBase, IProtocolMessageChannel
     // Gets the typed parameters for the current client (determined by ReactiveScope). Must be called inside UI.Root() or a ReactiveScope context.
@@ -7697,12 +7693,6 @@ namespace Ikon.App
     string StreamId { get; init; }
     int TrackId { get; init; }
     int Width { get; init; }
-  // A thin wrapper that holds the user’s configuration. This wrapper derives from BasePluginConfig so that it can be used internally by BasePlugin. Plugin developers only see the wrapped TConfig.
-  class WrapperConfig<TConfig> : BasePluginConfig
-    ctor()
-    // A thin wrapper that holds the user’s configuration. This wrapper derives from BasePluginConfig so that it can be used internally by BasePlugin. Plugin developers only see the wrapped TConfig.
-    ctor(TConfig userConfig)
-    TConfig AppConfig { get; set; }
 
 namespace Ikon.App.Auth
   // OAuth resource-server configuration the platform reads to advertise the protected-resource discovery document (RFC 9728), so an MCP client knows which authorization server to obtain a bearer token from. Bearer-token validation itself would be an edge /router/ bearer policy evaluated at the gateway before provisioning — not an in-process cell — but no such policy is implemented yet (the fail-closed oauth helper was removed).
