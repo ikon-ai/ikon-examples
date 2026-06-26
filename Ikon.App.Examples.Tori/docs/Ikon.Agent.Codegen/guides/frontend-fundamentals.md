@@ -376,3 +376,12 @@ view.AddNode(
 ```
 
 Rule of thumb: if your custom component holds state the user can mutate (a code editor's text buffer, a video's playhead, a canvas-game's frame state), and the C# side can swap which underlying entity it represents, **always pass a `key:` keyed on that entity's ID.** Without this, switching entities will appear to do nothing — the old buffer stays put.
+
+### App icons & branding
+
+`branding/logo.svg` is the single source of truth for every app icon. It is a square SVG scaffolded into each new app — replace its contents with your own square design and run **`ikon app icons`** to regenerate the complete icon set across **all** frontends from it:
+
+- **frontend-node** — web favicons (`favicon.ico`, `favicon-16/32/192/512.png`, `apple-touch-icon.png`, `maskable-512.png`) and the PWA `manifest.webmanifest` icon entries.
+- **frontend-flutter** (when present) — Android launcher icons (mipmap + adaptive), the iOS `AppIcon.appiconset`, and the Flutter web icons.
+
+You don't hand-create or hand-place any of these PNGs — one square SVG drives them all. `ikon app icons` rewrites only the generated icon files and each manifest's `icons` array, so manual manifest edits (a custom PWA `name`/`short_name`, extra fields) are preserved across runs. The browser tab title is separate from the icons — it lives in `frontend-node/index.html` (`<title>` and `apple-mobile-web-app-title`).
