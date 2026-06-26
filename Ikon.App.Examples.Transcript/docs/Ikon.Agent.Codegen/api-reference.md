@@ -1426,6 +1426,12 @@ namespace Ikon.AI.Kernel
     IAsyncEnumerable<StreamingResult> ReturnFunctionCallAsync(string name, string parametersJson, string callId, string thoughtSignature = "", string reasoningContent = "")
     IAsyncEnumerable<StreamingResult> RunFunctionAsync(string functionName, object?[] parameters, CancellationToken cancellationToken = null)
     KernelContext WithFunctions(IEnumerable<Function>? functions, bool replaceExisting = false)
+  enum MediaResolution
+    Default
+    Low
+    Medium
+    High
+    UltraHigh
   struct MessageBlock
     ctor(MessageBlockRole role, IMessagePart[] parts, string? userName = null)
     ctor(MessageBlockRole role, IEnumerable<IMessagePart> parts, string? userName = null)
@@ -1504,18 +1510,21 @@ namespace Ikon.AI.Kernel
     ctor(string text)
     string Text { get; }
   struct VideoAssetPart : IMessagePart
-    ctor(AssetUri uri, string? mimeType = null)
+    ctor(AssetUri uri, string? mimeType = null, MediaResolution resolution = Default)
     string? MimeType { get; }
+    MediaResolution Resolution { get; }
     MessagePartType Type { get; }
     AssetUri Uri { get; }
   struct VideoPart : IMessagePart
-    ctor(byte[] content, string mimeType)
+    ctor(byte[] content, string mimeType, MediaResolution resolution = Default)
     byte[] Content { get; }
     string MimeType { get; }
+    MediaResolution Resolution { get; }
     MessagePartType Type { get; }
   struct VideoUrlPart : IMessagePart
-    ctor(string url, string mimeType)
+    ctor(string url, string mimeType, MediaResolution resolution = Default)
     string MimeType { get; }
+    MediaResolution Resolution { get; }
     MessagePartType Type { get; }
     string Url { get; }
 
