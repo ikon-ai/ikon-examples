@@ -52,6 +52,7 @@ Name = ""
 - `ikon app stop`: stop a running app instance
 - `ikon app info`: show running app instance info (URLs, PIDs)
 - `ikon app update`: update Ikon NuGet and NPM package references to the latest version
+- `ikon app icons`: regenerate every frontend's icon set from `branding/logo.svg` — web favicons + PWA manifest icons, and (when a Flutter frontend exists) the Android/iOS/web launcher icons. Only the generated icons and each manifest's `icons` array are rewritten; manual manifest edits (e.g. a custom PWA `name`) are preserved.
 - `ikon app teleport build`: compile this app's `Schema/*.tp` files into C# + configured SDKs (run after editing a `.tp` schema)
 - `ikon app release`: generate release notes and bump the app version (`--bump major|minor|patch`)
 - `ikon app pipeline run <PipelineName>`: build the app and run one of its pipelines from the CLI. Auto-resolves the DLL and uses the space ID from `ikon-config.toml`.
