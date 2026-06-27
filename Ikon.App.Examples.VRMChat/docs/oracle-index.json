@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 344284,
+      "sizeBytes": 250963,
       "alsoInclude": []
     },
     {
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 177565,
+      "sizeBytes": 170673,
       "alsoInclude": []
     },
     {
@@ -346,7 +346,7 @@
         "AI connection"
       ],
       "file": "docs/guides/ai-models.md",
-      "sizeBytes": 25045,
+      "sizeBytes": 25064,
       "alsoInclude": []
     },
     {
@@ -515,7 +515,7 @@
         "function"
       ],
       "file": "docs/guides/endpoints-webhooks.md",
-      "sizeBytes": 40582,
+      "sizeBytes": 40946,
       "alsoInclude": []
     },
     {
