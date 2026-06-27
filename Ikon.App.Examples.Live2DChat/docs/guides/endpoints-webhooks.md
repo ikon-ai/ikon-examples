@@ -340,6 +340,8 @@ namespace Ikon.Sdk
     ApiKeyConfig? ApiKey { get; set; }
     // Backend authentication using existing IkonBackend login. Use this for internal Ikon C# applications that have already logged in via CLI.
     BackendConfig? Backend { get; set; }
+    // How this connection identifies to the server. Default Plugin (a backend component — no UI, no per-connection ClientScope). Set to Native (or Browser ) to connect as a first-class PLAYER client — the server then gives it a per-connection ClientScope and streams UI, exactly like the web (TypeScript SDK) client.
+    ContextType ContextType { get; set; }
     // Description for this client. Default: "Ikon SDK C#"
     string Description { get; set; }
     // Device ID for the connection. If not provided, a random one will be generated.
