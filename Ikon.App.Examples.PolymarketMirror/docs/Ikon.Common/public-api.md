@@ -100,6 +100,7 @@ namespace Ikon.Common
   class AsyncLocalInstances
     void Capture(object owner, bool allowOverride = false)
     void InitializeAll()
+    void InitializeAll(IReadOnlyList<Type> explicitTypes)
     void Remove(object owner)
     void Restore(object owner)
     bool TryRestore(object owner)
