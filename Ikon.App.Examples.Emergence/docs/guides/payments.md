@@ -1,3 +1,11 @@
+# Payments
+
+## Payments
+
+Charge your app's end users — subscriptions, one-off payments, refunds — via `app.Payments`. The Ikon backend owns the provider (Stripe/Mollie) and pushes normalized events to your app; you only send commands and react, with no webhook to host. Enable once with `ikon app payments enable --provider stripe|mollie`, then use the surface below.
+
+---
+
 # Ikon.App.Payments Guide
 
 Charge your app's end users — subscriptions, one-off payments, refunds — without owning a payments
