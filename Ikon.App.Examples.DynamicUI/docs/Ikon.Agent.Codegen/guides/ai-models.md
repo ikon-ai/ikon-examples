@@ -76,6 +76,7 @@ namespace Ikon.AI
     ImageSegmenter
     LLM
     MeshGenerator
+    MusicGenerator
     OCR
     Reranker
     SoundEffectGenerator

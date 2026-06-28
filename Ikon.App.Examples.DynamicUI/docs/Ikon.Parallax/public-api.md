@@ -93,6 +93,8 @@ namespace Ikon.Parallax
   class UIView
     // The default icon library name used when no library is specified on an icon component.
     string DefaultIconLibrary { get; }
+    // True when this render is capturing the build-time boot snapshot (the client's Context.IsSnapshot is set). The snapshot is a public asset shown to everyone before the live UI connects, so gate per-user or sensitive content on this — typically via the SnapshotSkeleton / SnapshotHide / SnapshotOnly wrappers rather than reading this directly. Always false on the normal live render path.
+    bool IsSnapshot { get; }
     // Adds a child node with the given type and props. The props parameter is the non-generic IDictionary on purpose: it's the ONLY type that cleanly accepts BOTH a `Dictionary<string, object>` (the natural non-null shape a model builds) AND a `Dictionary<string, object?>` (props that carry null values) with no nullability warning and no suppression. A generic `Dictionary<string, object?>` param warns CS8620 on the non-null form (identity-modulo-nullability), and no PAIR of generic overloads works either — nullability annotations are erased for overload resolution, so two such overloads are CS0111 (same signature) or CS0121 (ambiguous).
     void AddNode(string type, IDictionary? props = null, List<UIViewNode>? children = null, string? key = null, string[]? style = null, string? styleId = null, string file = "", int line = 0)
     string? CreateAction<T>(Func<ActionArgs<T>, Task>? callback)
@@ -1356,6 +1358,30 @@ namespace Ikon.Parallax.Components.Standard
     Right
     Bottom
     Left
+  // Extension methods for the Skeleton component.
+  static class SkeletonExtensions
+    // Pulsing placeholder block for loading / not-yet-available content — the visual stand-in used while real content is pending, and the default fill for content redacted from the build-time boot snapshot (see SnapshotSkeleton). A typed convenience over the Skeleton.* theme tokens (a div with animate-pulse styling); size and shape via size / shape , or override freely through style .
+    static void Skeleton(UIView view, string[]? style = null, SkeletonShape shape = Rectangle, SkeletonSize size = Md, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
+  // Outline shape of a Skeleton placeholder.
+  enum SkeletonShape
+    Rectangle
+    Circle
+    Square
+  // Height preset for a Skeleton placeholder.
+  enum SkeletonSize
+    Xs
+    Sm
+    Md
+    Lg
+    Xl
+  // Wrappers for rendering a privacy-safe variant of the UI into the build-time boot snapshot. The boot snapshot is a public asset painted to everyone before the live connection, so any per-user or sensitive content in the initial UI would leak into it. These wrappers branch on IsSnapshot at build time, so the app keeps a single UI.Root definition (no scattered if (IsSnapshot)) instead of two separate UIs. On the normal live render path every wrapper is a single bool check plus the content the developer already wrote — no added cost, no per-node metadata, no effect on the diff/serialize hot path.
+  static class SnapshotExtensions
+    // Renders content live, but omits it entirely from the boot snapshot — use to keep a region out of the public snapshot without leaving a placeholder.
+    static void SnapshotHide(UIView view, Action<UIView> content)
+    // Renders content only in the boot snapshot, never live — use for snapshot-specific filler (e.g. a curated first-paint placeholder) that should disappear once the live UI takes over.
+    static void SnapshotOnly(UIView view, Action<UIView> content)
+    // Renders content live, but replaces it with a placeholder in the boot snapshot — use for content that is fine to show eventually but must not be baked into the public snapshot (names, avatars, per-session links). The snapshot shows placeholder if given, otherwise a default Skeleton .
+    static void SnapshotSkeleton(UIView view, Action<UIView> content, Action<UIView>? placeholder = null)
   // Represents sort strategy for @dnd-kit SortableContext.
   enum SortStrategy
     VerticalList
