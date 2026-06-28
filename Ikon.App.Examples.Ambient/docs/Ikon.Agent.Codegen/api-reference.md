@@ -3135,6 +3135,8 @@ namespace Ikon.Parallax
   class UIView
     // The default icon library name used when no library is specified on an icon component.
     string DefaultIconLibrary { get; }
+    // True when this render is capturing the build-time boot snapshot (the client's Context.IsSnapshot is set). The snapshot is a public asset shown to everyone before the live UI connects, so gate per-user or sensitive content on this — typically via the SnapshotSkeleton / SnapshotHide / SnapshotOnly wrappers rather than reading this directly. Always false on the normal live render path.
+    bool IsSnapshot { get; }
     // Adds a child node with the given type and props. The props parameter is the non-generic IDictionary on purpose: it's the ONLY type that cleanly accepts BOTH a `Dictionary<string, object>` (the natural non-null shape a model builds) AND a `Dictionary<string, object?>` (props that carry null values) with no nullability warning and no suppression. A generic `Dictionary<string, object?>` param warns CS8620 on the non-null form (identity-modulo-nullability), and no PAIR of generic overloads works either — nullability annotations are erased for overload resolution, so two such overloads are CS0111 (same signature) or CS0121 (ambiguous).
     void AddNode(string type, IDictionary? props = null, List<UIViewNode>? children = null, string? key = null, string[]? style = null, string? styleId = null, string file = "", int line = 0)
     string? CreateAction<T>(Func<ActionArgs<T>, Task>? callback)
@@ -4398,6 +4400,30 @@ namespace Ikon.Parallax.Components.Standard
     Right
     Bottom
     Left
+  // Extension methods for the Skeleton component.
+  static class SkeletonExtensions
+    // Pulsing placeholder block for loading / not-yet-available content — the visual stand-in used while real content is pending, and the default fill for content redacted from the build-time boot snapshot (see SnapshotSkeleton). A typed convenience over the Skeleton.* theme tokens (a div with animate-pulse styling); size and shape via size / shape , or override freely through style .
+    static void Skeleton(UIView view, string[]? style = null, SkeletonShape shape = Rectangle, SkeletonSize size = Md, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
+  // Outline shape of a Skeleton placeholder.
+  enum SkeletonShape
+    Rectangle
+    Circle
+    Square
+  // Height preset for a Skeleton placeholder.
+  enum SkeletonSize
+    Xs
+    Sm
+    Md
+    Lg
+    Xl
+  // Wrappers for rendering a privacy-safe variant of the UI into the build-time boot snapshot. The boot snapshot is a public asset painted to everyone before the live connection, so any per-user or sensitive content in the initial UI would leak into it. These wrappers branch on IsSnapshot at build time, so the app keeps a single UI.Root definition (no scattered if (IsSnapshot)) instead of two separate UIs. On the normal live render path every wrapper is a single bool check plus the content the developer already wrote — no added cost, no per-node metadata, no effect on the diff/serialize hot path.
+  static class SnapshotExtensions
+    // Renders content live, but omits it entirely from the boot snapshot — use to keep a region out of the public snapshot without leaving a placeholder.
+    static void SnapshotHide(UIView view, Action<UIView> content)
+    // Renders content only in the boot snapshot, never live — use for snapshot-specific filler (e.g. a curated first-paint placeholder) that should disappear once the live UI takes over.
+    static void SnapshotOnly(UIView view, Action<UIView> content)
+    // Renders content live, but replaces it with a placeholder in the boot snapshot — use for content that is fine to show eventually but must not be baked into the public snapshot (names, avatars, per-session links). The snapshot shows placeholder if given, otherwise a default Skeleton .
+    static void SnapshotSkeleton(UIView view, Action<UIView> content, Action<UIView>? placeholder = null)
   // Represents sort strategy for @dnd-kit SortableContext.
   enum SortStrategy
     VerticalList
@@ -8146,14 +8172,6 @@ namespace Ikon.App.Mcp
     JsonElement? OutputSchema { get; init; }
 
 namespace Ikon.App.Payments
-  // App-owned credit ledger contract. The library never persists credit balances itself — credits are an app concern (wallet table in app DB, KV store, etc.). Apps implement this interface and set it on CreditStore so the [PaymentsChargeCredits] policy can locate it. All methods are scoped by (appCustomerKey, sku). The caller supplies a stable idempotency key so apps can dedupe concurrent deductions on the same charge event (e.g. a replayed payment event).
-  interface IPaymentsCreditStore
-    // Atomically deduct credits from the customer's balance. Returns the new balance. Throws or returns negative balance when insufficient — implementations choose; the policy-attribute layer treats < 0 as denial. idempotencyKey dedupes replays.
-    abstract Task<int> DeductAsync(string appCustomerKey, string sku, int credits, string idempotencyKey, CancellationToken cancellationToken = null)
-    // Current balance for the given customer + SKU. Returns 0 when no row exists.
-    abstract Task<int> GetCreditsAsync(string appCustomerKey, string sku, CancellationToken cancellationToken = null)
-    // Atomically grant credits to the customer's balance. Returns the new balance. Call when a top-up payment completes. idempotencyKey dedupes replays (typically the EventId ).
-    abstract Task<int> GrantAsync(string appCustomerKey, string sku, int credits, string idempotencyKey, CancellationToken cancellationToken = null)
   // A single payment record (a one-off charge or a subscription renewal).
   sealed class Payment : IEquatable<Payment>
     // A single payment record (a one-off charge or a subscription renewal).
@@ -8166,16 +8184,14 @@ namespace Ikon.App.Payments
     string? Kind { get; init; }
     PaymentProvider? Provider { get; init; }
     string Status { get; init; }
-  // "Does this customer have access to this offer" snapshot. The [PaymentsRequireSubscription] / [PaymentsRequireUnlock] policies gate on it.
+  // "Does this customer have access to this offer" snapshot. The [PaymentsRequireSubscription] policy gates on it.
   sealed class PaymentEntitlement : IEquatable<PaymentEntitlement>
-    // "Does this customer have access to this offer" snapshot. The [PaymentsRequireSubscription] / [PaymentsRequireUnlock] policies gate on it.
-    ctor(string OfferId, bool SubscriptionActive, DateTimeOffset? SubscriptionEndsAt, string? SubscriptionStatus, bool UnlockGranted, int CreditsRemaining)
-    int CreditsRemaining { get; init; }
+    // "Does this customer have access to this offer" snapshot. The [PaymentsRequireSubscription] policy gates on it.
+    ctor(string OfferId, bool SubscriptionActive, DateTimeOffset? SubscriptionEndsAt, string? SubscriptionStatus)
     string OfferId { get; init; }
     bool SubscriptionActive { get; init; }
     DateTimeOffset? SubscriptionEndsAt { get; init; }
     string? SubscriptionStatus { get; init; }
-    bool UnlockGranted { get; init; }
   // A normalized payment event the backend pushes to the app.
   sealed class PaymentEvent : IEquatable<PaymentEvent>
     // A normalized payment event the backend pushes to the app.
@@ -8237,28 +8253,15 @@ namespace Ikon.App.Payments
     string? OfferId { get; init; }
     PaymentProvider? Provider { get; init; }
     string Status { get; init; }
-  // Declares the function deducts credits from the current customer's wallet for sku . Requires CreditStore wired on the ambient instance. Deduction happens inside the policy via DeductAsync with an idempotency key composed of the function name + caller id, so the same call evaluated twice (e.g. interrupted then retried) charges only once. Deny code: payments_credits_insufficient.
-  sealed class PaymentsChargeCreditsAttribute : PolicyAttribute
-    ctor(string sku, int credits = 1)
-    int Credits { get; }
-    string Sku { get; }
-    override IFunctionPolicy CreatePolicy()
-  // Declares the function requires the current customer to hold an active subscription for offerId . Resolves via the ambient Instance instance and reads the customer from UserId . The policy is webhook-driven, not polling-driven: on missing entitlement it DENIES with a stable code (payments_subscription_required), and the app's UI catches it and opens checkout via CreatePaymentLinkAsync . Stripe's webhook then flips the entitlement and the user retries.
+  // Declares the function requires the current customer to hold an active subscription for offerId . Resolves the customer from UserId and reads the entitlement from Instance . On missing entitlement it DENIES with a stable code (payments_subscription_required); the app's UI catches it and opens a payment link via CreatePaymentLinkAsync . The provider webhook then flips the entitlement and the user retries.
   sealed class PaymentsRequireSubscriptionAttribute : PolicyAttribute
     ctor(string offerId)
-    // App-side plan id the subscription is keyed to.
-    string OfferId { get; }
-    override IFunctionPolicy CreatePolicy()
-  // Declares the function requires the current customer to hold a one-time unlock for offerId . Reads UnlockGranted from the ambient Instance . Deny code: payments_unlock_required. App UI handles checkout offer + retry.
-  sealed class PaymentsRequireUnlockAttribute : PolicyAttribute
-    ctor(string offerId)
+    // Offer the subscription is keyed to.
     string OfferId { get; }
     override IFunctionPolicy CreatePolicy()
   // App-level entry point for payments, reached via app.Payments. The app picks a default PaymentProvider , creates payment links (for an offer or an ad-hoc amount), and reacts to PaymentEventReceived events. Every command accepts an optional per-call provider override. The app holds no payment state. One instance per app (an AsyncLocalInstance`1 singleton).
   sealed class PaymentsService : AsyncLocalInstance<PaymentsService>
     ctor()
-    // Optional app-supplied credit ledger. When set, the PaymentsChargeCreditsAttribute policy can locate it.
-    IPaymentsCreditStore? CreditStore { get; set; }
     // Default cancel URL used when a command does not specify one.
     string? DefaultCancelUrl { get; set; }
     // The provider used when a command does not specify one.
@@ -8276,7 +8279,6 @@ namespace Ikon.App.Payments
     Task<IReadOnlyList<PaymentOffer>> ListOffersAsync(CancellationToken cancellationToken = null)
     Task<IReadOnlyList<Payment>> ListPaymentsAsync(string appCustomerKey, CancellationToken cancellationToken = null)
     Task<IReadOnlyList<PaymentSubscription>> ListSubscriptionsAsync(string appCustomerKey, CancellationToken cancellationToken = null)
-    Task ReconcileAsync(CancellationToken cancellationToken = null)
     Task<PaymentRefund> RefundAsync(string paymentId, long? amountMinor = null, string? reason = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
     // Raised for each normalized payment event the backend pushes (paid, refunded, subscription renewed/canceled). Subscribing registers the receiver on first use.
     event Func<PaymentEvent, Task>? PaymentEventReceived

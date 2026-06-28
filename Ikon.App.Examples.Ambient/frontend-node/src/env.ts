@@ -10,6 +10,7 @@ declare const __IKON_AUTH_URL__: string | undefined;
 declare const __IKON_LOCAL_IKON_SERVER_ENABLED__: boolean | undefined;
 declare const __IKON_LOCAL_IKON_SERVER_HOST__: string | undefined;
 declare const __IKON_LOCAL_IKON_SERVER_PORT__: number | undefined;
+declare const __IKON_BOOT_SNAPSHOT_FILE__: string | undefined;
 
 declare global {
   interface Window {
@@ -25,6 +26,7 @@ declare global {
       host: string;
       port: number;
     };
+    __IKON_BOOT_SNAPSHOT_FILE__?: string;
   }
 }
 
@@ -66,5 +68,7 @@ window.__IKON_LOCAL_IKON_SERVER_CONFIG__ = {
   host: __IKON_LOCAL_IKON_SERVER_HOST__,
   port: __IKON_LOCAL_IKON_SERVER_PORT__,
 };
+
+window.__IKON_BOOT_SNAPSHOT_FILE__ = __IKON_BOOT_SNAPSHOT_FILE__ || '';
 
 export const authConfig = window.__IKON_AUTH_CONFIG__ as AuthConfig;

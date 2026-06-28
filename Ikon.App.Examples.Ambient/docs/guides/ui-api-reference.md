@@ -101,6 +101,8 @@ namespace Ikon.Parallax
   class UIView
     // The default icon library name used when no library is specified on an icon component.
     string DefaultIconLibrary { get; }
+    // True when this render is capturing the build-time boot snapshot (the client's Context.IsSnapshot is set). The snapshot is a public asset shown to everyone before the live UI connects, so gate per-user or sensitive content on this — typically via the SnapshotSkeleton / SnapshotHide / SnapshotOnly wrappers rather than reading this directly. Always false on the normal live render path.
+    bool IsSnapshot { get; }
     // Adds a child node with the given type and props. The props parameter is the non-generic IDictionary on purpose: it's the ONLY type that cleanly accepts BOTH a `Dictionary<string, object>` (the natural non-null shape a model builds) AND a `Dictionary<string, object?>` (props that carry null values) with no nullability warning and no suppression. A generic `Dictionary<string, object?>` param warns CS8620 on the non-null form (identity-modulo-nullability), and no PAIR of generic overloads works either — nullability annotations are erased for overload resolution, so two such overloads are CS0111 (same signature) or CS0121 (ambiguous).
     void AddNode(string type, IDictionary? props = null, List<UIViewNode>? children = null, string? key = null, string[]? style = null, string? styleId = null, string file = "", int line = 0)
     string? CreateAction<T>(Func<ActionArgs<T>, Task>? callback)
@@ -1364,6 +1366,30 @@ namespace Ikon.Parallax.Components.Standard
     Right
     Bottom
     Left
+  // Extension methods for the Skeleton component.
+  static class SkeletonExtensions
+    // Pulsing placeholder block for loading / not-yet-available content — the visual stand-in used while real content is pending, and the default fill for content redacted from the build-time boot snapshot (see SnapshotSkeleton). A typed convenience over the Skeleton.* theme tokens (a div with animate-pulse styling); size and shape via size / shape , or override freely through style .
+    static void Skeleton(UIView view, string[]? style = null, SkeletonShape shape = Rectangle, SkeletonSize size = Md, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
+  // Outline shape of a Skeleton placeholder.
+  enum SkeletonShape
+    Rectangle
+    Circle
+    Square
+  // Height preset for a Skeleton placeholder.
+  enum SkeletonSize
+    Xs
+    Sm
+    Md
+    Lg
+    Xl
+  // Wrappers for rendering a privacy-safe variant of the UI into the build-time boot snapshot. The boot snapshot is a public asset painted to everyone before the live connection, so any per-user or sensitive content in the initial UI would leak into it. These wrappers branch on IsSnapshot at build time, so the app keeps a single UI.Root definition (no scattered if (IsSnapshot)) instead of two separate UIs. On the normal live render path every wrapper is a single bool check plus the content the developer already wrote — no added cost, no per-node metadata, no effect on the diff/serialize hot path.
+  static class SnapshotExtensions
+    // Renders content live, but omits it entirely from the boot snapshot — use to keep a region out of the public snapshot without leaving a placeholder.
+    static void SnapshotHide(UIView view, Action<UIView> content)
+    // Renders content only in the boot snapshot, never live — use for snapshot-specific filler (e.g. a curated first-paint placeholder) that should disappear once the live UI takes over.
+    static void SnapshotOnly(UIView view, Action<UIView> content)
+    // Renders content live, but replaces it with a placeholder in the boot snapshot — use for content that is fine to show eventually but must not be baked into the public snapshot (names, avatars, per-session links). The snapshot shows placeholder if given, otherwise a default Skeleton .
+    static void SnapshotSkeleton(UIView view, Action<UIView> content, Action<UIView>? placeholder = null)
   // Represents sort strategy for @dnd-kit SortableContext.
   enum SortStrategy
     VerticalList
@@ -2843,6 +2869,47 @@ public async Task Main()
 
 Without scopes, all clients share the same value. With `ClientScope`, each client has an independent value. This is the "parallax" effect: the same UI code produces different views for different clients.
 
+## Boot Snapshot and Privacy
+
+The platform can capture an app's **initial UI at build time** and ship it as a static `boot-snapshot.json`, so the first paint appears instantly — before the WebSocket connects. Capture happens during `ikon app bundle/deploy --snapshot`: the server renders the app once for a synthetic snapshot client and serializes the resulting UI tree.
+
+Because that snapshot is a **public asset served to everyone**, anything in your initial UI — a signed-in user's name, a session link, private data — would be baked into it and shown to every visitor before the live UI loads. Parallax lets you render a privacy-safe variant for the snapshot **without forking `UI.Root` into two separate UIs**.
+
+During snapshot capture the flag `view.IsSnapshot` is `true` (it is always `false` on the normal live render). Three wrappers branch on it at build time, so you keep a single UI definition:
+
+```csharp
+// Live: real content. Snapshot: a Skeleton placeholder (or a custom one).
+view.SnapshotSkeleton(v => v.Text([Text.H2], user.Name));
+view.SnapshotSkeleton(
+    v => v.Image(["w-12 h-12 rounded-full"], src: user.PictureUrl),
+    placeholder: v => v.Skeleton(shape: SkeletonShape.Circle, size: SkeletonSize.Xl));
+
+// Live: real content. Snapshot: nothing.
+view.SnapshotHide(v => v.Button(label: "Sign out", onClick: SignOutAsync));
+
+// Live: nothing. Snapshot: snapshot-only filler.
+view.SnapshotOnly(v => v.Text([Text.Caption], "Loading your dashboard…"));
+```
+
+- **`SnapshotSkeleton(content, placeholder?)`** — renders `content` live and a placeholder in the snapshot. With no `placeholder`, a default `Skeleton` is used.
+- **`SnapshotHide(content)`** — renders `content` live and omits it from the snapshot.
+- **`SnapshotOnly(content)`** — renders `content` only in the snapshot (never live), for snapshot-specific filler.
+
+The **`Skeleton`** component is a pulsing placeholder block, sized and shaped via `SkeletonShape` / `SkeletonSize` (or any `style:`):
+
+```csharp
+view.Skeleton(["w-1/3"], size: SkeletonSize.Xl);
+view.Skeleton(shape: SkeletonShape.Circle, size: SkeletonSize.Lg);
+```
+
+**`Tabs` is snapshot-aware automatically:** in snapshot mode only the **active** tab's content panel is rendered, while **every** tab trigger still renders. The snapshot therefore contains just the active tab's content — yet the tab row is identical to the live UI, so nothing pops into place when the live UI takes over. Wrap individual sensitive elements inside the active tab with the wrappers above as needed.
+
+These wrappers are **zero-cost on the live path**: when `IsSnapshot` is `false` each is a single boolean check plus the content you already wrote — no per-element metadata, no effect on the diff/serialize hot path. The snapshot is a one-off build-time render, so it can afford to be slow. For finer control you can read the flag directly:
+
+```csharp
+if (view.IsSnapshot) { /* snapshot-only branch */ }
+```
+
 ## Architecture Summary
 
 1. **Server-side logic**: All UI logic, state, and event handlers run on the server
@@ -2851,3 +2918,4 @@ Without scopes, all clients share the same value. With `ClientScope`, each clien
 4. **Scoped state**: `Reactive<T, TScope>` enables per-client or per-user state
 5. **Lightweight clients**: Clients render the UI tree and forward events to the server
 6. **Crosswind styling**: Tailwind-compatible utility classes with motion extensions
+7. **Snapshot privacy**: `SnapshotSkeleton` / `SnapshotHide` / `SnapshotOnly` keep per-user content out of the public boot snapshot
