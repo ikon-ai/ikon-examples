@@ -8,6 +8,7 @@ global using Ikon.AI.FileConversion;
 global using Ikon.AI.ImageGeneration;
 global using Ikon.AI.Kernel;
 global using Ikon.AI.LLM;
+global using Ikon.AI.MusicGeneration;
 global using Ikon.AI.OCR;
 global using Ikon.AI.Reranking;
 global using Ikon.AI.SoundEffectGeneration;

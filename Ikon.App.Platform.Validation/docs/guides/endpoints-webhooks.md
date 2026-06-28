@@ -340,12 +340,16 @@ namespace Ikon.Sdk
     ApiKeyConfig? ApiKey { get; set; }
     // Backend authentication using existing IkonBackend login. Use this for internal Ikon C# applications that have already logged in via CLI.
     BackendConfig? Backend { get; set; }
+    // How this connection identifies to the server. Default Plugin (a backend component — no UI, no per-connection ClientScope). Set to Native (or Browser ) to connect as a first-class PLAYER client — the server then gives it a per-connection ClientScope and streams UI, exactly like the web (TypeScript SDK) client.
+    ContextType ContextType { get; set; }
     // Description for this client. Default: "Ikon SDK C#"
     string Description { get; set; }
     // Device ID for the connection. If not provided, a random one will be generated.
     string? DeviceId { get; set; }
     // Installation ID.
     string? InstallId { get; set; }
+    // Connect as the build-time boot-snapshot capture client, setting Context.IsSnapshot on the server so the app renders its privacy-safe snapshot variant (see the Parallax Snapshot* wrappers). Default false — only the snapshot-capture run sets this.
+    bool IsSnapshot { get; set; }
     // Local server configuration for development mode. Use this when connecting to a local Ikon server.
     LocalConfig? Local { get; set; }
     // User locale (e.g., "en-US"). Default: "en-US"

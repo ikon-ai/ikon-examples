@@ -155,6 +155,19 @@ public partial class Validation
     private readonly Reactive<double> _soundEffectPromptInfluence = new(0.3);
     private readonly Reactive<bool> _soundEffectLoop = new(false);
 
+    // MusicGenerator state
+    private readonly Reactive<string> _musicModel = new(nameof(MusicGeneratorModel.ElevenLabsMusicV2));
+    private readonly Reactive<string> _musicPrompt = new("An upbeat orchestral victory fanfare, bright and triumphant");
+    private readonly Reactive<double> _musicDuration = new(10.0);
+    private readonly Reactive<double> _musicStrength = new(0.9);
+    private readonly Reactive<bool> _musicProcessing = new(false);
+    private readonly Reactive<string?> _musicResult = new(null);
+    private readonly Reactive<string?> _musicError = new(null);
+    private readonly Reactive<string?> _musicDownloadUrl = new(null);
+    private byte[]? _musicInputAudioData;
+    private string? _musicInputAudioMimeType;
+    private readonly Reactive<string> _musicInputAudioName = new("");
+
     // VideoEnhancer state
     private readonly Reactive<string> _videoEnhancerModel = new("TensorPixFpsBoost");
     private readonly Reactive<string> _videoEnhancerVideoUrl = new("");
@@ -267,6 +280,7 @@ public partial class Validation
             RenderEmbeddingGeneratorCard(view);
             RenderFileConverterCard(view);
             RenderImageGeneratorCard(view);
+            RenderMusicGeneratorCard(view);
             RenderOCRCard(view);
             RenderRerankerCard(view);
             RenderSoundEffectGeneratorCard(view);
@@ -1129,6 +1143,263 @@ public partial class Validation
         {
             _imageGeneratorProcessing.Value = false;
         }
+    }
+
+    private void RenderMusicGeneratorCard(UIView view)
+    {
+        view.Box([Card.Default, "p-6 mb-6"], content: view =>
+        {
+            view.Text([Text.H3, "mb-2"], "Music Generator");
+            view.Text([Text.Caption, "mb-4"], "Generate music from a prompt, or re-style an existing clip (audio-to-audio) while preserving its melody and timing");
+
+            view.Column([Layout.Column.Md], content: view =>
+            {
+                view.Box([FormField.Root], content: view =>
+                {
+                    view.Text([FormField.Label], "Model");
+                    view.Select(
+                        value: _musicModel.Value,
+                        options: GetModelOptions<MusicGeneratorModel>(),
+                        onValueChange: async v => _musicModel.Value = v ?? _musicModel.Value);
+                });
+
+                view.Box([FormField.Root], content: view =>
+                {
+                    view.Text([FormField.Label], "Prompt");
+                    view.TextArea(
+                        [Textarea.Default],
+                        value: _musicPrompt.Value,
+                        onValueChange: async v => _musicPrompt.Value = v ?? "");
+                });
+
+                view.Row([Layout.Row.Md], content: view =>
+                {
+                    view.Box([FormField.Root, "flex-1"], content: view =>
+                    {
+                        var supportsDuration = TryGetMusicCapabilities(_musicModel.Value)?.SupportsDurationControl ?? true;
+
+                        view.Text([FormField.Label], "Duration (seconds)");
+                        view.TextField(
+                            [Input.Default],
+                            value: _musicDuration.Value.ToString("F0"),
+                            type: "number",
+                            disabled: !supportsDuration,
+                            onValueChange: async v =>
+                            {
+                                if (double.TryParse(v, out var num) && num > 0)
+                                {
+                                    _musicDuration.Value = num;
+                                }
+                            });
+
+                        if (!supportsDuration)
+                        {
+                            view.Text([Text.Caption, "mt-1"], "This model ignores duration — it produces a fixed-length clip, or follows the input clip's length.");
+                        }
+                    });
+
+                    view.Box([FormField.Root, "flex-1"], content: view =>
+                    {
+                        view.Text([FormField.Label], "Adherence (0-1, editing)");
+                        view.TextField(
+                            [Input.Default],
+                            value: _musicStrength.Value.ToString("F2"),
+                            type: "number",
+                            onValueChange: async v =>
+                            {
+                                if (double.TryParse(v, out var num) && num is >= 0 and <= 1)
+                                {
+                                    _musicStrength.Value = num;
+                                }
+                            });
+                    });
+                });
+
+                view.Box([FormField.Root], content: view =>
+                {
+                    view.Text([FormField.Label], "Input Audio (optional, for audio-to-audio editing)");
+
+                    view.FileUpload(
+                        [FileUpload.Zone.Base],
+                        accept: ["audio/*"],
+                        multiple: false,
+                        onUploadComplete: async args =>
+                        {
+                            if (args.LocalTempFilePath == null)
+                            {
+                                return;
+                            }
+
+                            _musicInputAudioData = await File.ReadAllBytesAsync(args.LocalTempFilePath);
+                            _musicInputAudioMimeType = args.MimeType;
+                            _musicInputAudioName.Value = args.FileName;
+                        },
+                        content: view =>
+                        {
+                            view.Column([Layout.Column.Center], content: view =>
+                            {
+                                view.Icon([Media.PlaceholderIcon], name: "music");
+                                view.Text([Text.Body], "Upload input clip");
+                            });
+                        });
+
+                    if (!string.IsNullOrEmpty(_musicInputAudioName.Value))
+                    {
+                        view.Row([Layout.Row.InlineCenter, "mt-2"], content: view =>
+                        {
+                            view.Text([Text.Caption], _musicInputAudioName.Value);
+                            view.Button(
+                                [Button.GhostMd, Button.Icon],
+                                onClick: async () =>
+                                {
+                                    _musicInputAudioData = null;
+                                    _musicInputAudioMimeType = null;
+                                    _musicInputAudioName.Value = "";
+                                },
+                                content: v => v.Icon([Icon.Default], name: "x"));
+                        });
+                    }
+                });
+
+                view.Row([Layout.Row.Md, "items-center"], content: view =>
+                {
+                    view.Button(
+                        [Button.PrimaryMd],
+                        label: "Generate Music",
+                        disabled: _musicProcessing.Value || string.IsNullOrWhiteSpace(_musicPrompt.Value),
+                        onClick: GenerateMusicAsync);
+
+                    if (_musicProcessing.Value)
+                    {
+                        view.Box([Icon.Spinner]);
+                    }
+
+                    if (!string.IsNullOrEmpty(_musicDownloadUrl.Value))
+                    {
+                        view.Button([Button.PrimaryMd],
+                            href: _musicDownloadUrl.Value,
+                            target: "_blank",
+                            content: v =>
+                            {
+                                v.Icon([Icon.Default, "mr-2"], name: "download");
+                                v.Text(text: "Open Audio");
+                            });
+                    }
+                });
+
+                if (!string.IsNullOrEmpty(_musicError.Value))
+                {
+                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    {
+                        view.Text([Alert.Description], _musicError.Value);
+                    });
+                }
+
+                if (!string.IsNullOrEmpty(_musicResult.Value))
+                {
+                    view.Box([Alert.Success, "mt-4"], content: view =>
+                    {
+                        view.Text([Alert.Title], "Music Generated");
+                        view.Text([Alert.Description], _musicResult.Value);
+                    });
+                }
+            });
+        });
+    }
+
+    private async Task GenerateMusicAsync()
+    {
+        _musicProcessing.Value = true;
+        _musicError.Value = null;
+        _musicResult.Value = null;
+        _musicDownloadUrl.Value = null;
+
+        try
+        {
+            var model = Enum.Parse<MusicGeneratorModel>(_musicModel.Value);
+            using var generator = new MusicGenerator(model);
+
+            var config = new MusicGeneratorConfig
+            {
+                Prompt = _musicPrompt.Value,
+                DurationSeconds = _musicDuration.Value
+            };
+
+            if (_musicInputAudioData != null && _musicInputAudioMimeType != null)
+            {
+                config.InputAudios.Add(new InputAudio
+                {
+                    Data = _musicInputAudioData,
+                    MimeType = _musicInputAudioMimeType,
+                    Strength = _musicStrength.Value
+                });
+            }
+
+            if (generator.SupportsStreaming)
+            {
+                await StreamMusicAsync(generator, config);
+                return;
+            }
+
+            var result = await generator.GenerateMusicFileAsync(config);
+
+            if (result.AudioData.Length == 0)
+            {
+                _musicError.Value = "The model returned no audio";
+                return;
+            }
+
+            var ext = result.ContentType switch
+            {
+                "audio/mpeg" => "mp3",
+                "audio/wav" or "audio/x-wav" => "wav",
+                "audio/ogg" => "ogg",
+                _ => "bin"
+            };
+
+            _musicResult.Value = $"Generated {result.DurationSeconds:F1}s of audio ({result.AudioData.Length} bytes, {result.ContentType})";
+            _musicDownloadUrl.Value = await UploadForDownloadAsync($"generated-music.{ext}", result.AudioData, result.ContentType);
+        }
+        catch (Exception ex)
+        {
+            _musicError.Value = ex.Message;
+        }
+        finally
+        {
+            _musicProcessing.Value = false;
+        }
+    }
+
+    private static MusicGeneratorCapabilities? TryGetMusicCapabilities(string modelName)
+    {
+        return Enum.TryParse<MusicGeneratorModel>(modelName, out var model)
+            ? MusicGenerator.GetCapabilities(model)
+            : null;
+    }
+
+    private async Task StreamMusicAsync(MusicGenerator generator, MusicGeneratorConfig config)
+    {
+        var samples = new List<float>();
+
+        await foreach (var audio in generator.GenerateMusicAsync(config))
+        {
+            Audio.SendSpeech(audio);
+            samples.AddRange(audio.Samples);
+        }
+
+        if (samples.Count == 0)
+        {
+            _musicError.Value = "The model returned no audio";
+            return;
+        }
+
+        var durationSeconds = (double)samples.Count / generator.SampleRate / generator.ChannelCount;
+
+        using var wav = new WavFile(generator.SampleRate, generator.ChannelCount, WavFile.SampleFormat.Float);
+        wav.AddSamples(samples.ToArray());
+
+        _musicResult.Value = $"Streamed {durationSeconds:F1}s of audio at {generator.SampleRate}Hz, {generator.ChannelCount}ch (played live)";
+        _musicDownloadUrl.Value = await UploadForDownloadAsync("generated-music.wav", wav.AsArray(), MimeTypes.AudioXWav);
     }
 
     private void RenderSpeechGeneratorCard(UIView view)

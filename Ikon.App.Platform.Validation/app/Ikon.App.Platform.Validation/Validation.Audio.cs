@@ -1,5 +1,7 @@
 public partial class Validation
 {
+    private static readonly TimeSpan SoundClipApproxDuration = TimeSpan.FromSeconds(5);
+
     private static readonly string[] EffectTypes =
     [
         "Delay",
@@ -546,7 +548,166 @@ public partial class Validation
                     showClose: true,
                     closeStyle: [Toast.Close]);
             });
+
+            // Interval Playback Test
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "Interval Playback Test");
+                view.Text([Text.Caption, "mb-4"], "Play audio for a while, go silent for a while, then repeat — verifies playback recovers after gaps");
+
+                view.Column([Layout.Column.Md], content: view =>
+                {
+                    view.Row([Layout.Row.InlineCenter, "mb-2"], content: view =>
+                    {
+                        view.Text([Text.BodyStrong, "w-32"], "Mode");
+                        view.Select(
+                            value: _intervalMode.Value,
+                            options:
+                            [
+                                new SelectOption("streaming", "Streaming (Moog Synth)"),
+                                new SelectOption("sound", "Sound Function (whoosh.mp3)")
+                            ],
+                            disabled: _intervalRunning.Value,
+                            onValueChange: async v => _intervalMode.Value = v);
+                    });
+
+                    view.Row([Layout.Row.Md, "flex-wrap items-end mb-2"], content: view =>
+                    {
+                        view.Column(["min-w-[160px]"], content: view =>
+                        {
+                            view.Text([Text.Caption, "mb-1"], "Play duration (sec)");
+                            view.TextField(
+                                [Input.Default, "w-32"],
+                                value: _intervalPlaySeconds.Value,
+                                type: "number",
+                                step: "1",
+                                min: "1",
+                                disabled: _intervalRunning.Value || _intervalMode.Value == "sound",
+                                onValueChange: async v => _intervalPlaySeconds.Value = v);
+                        });
+                        view.Column(["min-w-[160px]"], content: view =>
+                        {
+                            view.Text([Text.Caption, "mb-1"], "Wait duration (sec)");
+                            view.TextField(
+                                [Input.Default, "w-32"],
+                                value: _intervalWaitSeconds.Value,
+                                type: "number",
+                                step: "1",
+                                min: "1",
+                                disabled: _intervalRunning.Value,
+                                onValueChange: async v => _intervalWaitSeconds.Value = v);
+                        });
+                    });
+
+                    if (_intervalMode.Value == "sound")
+                    {
+                        view.Text([Text.Caption, "text-muted-foreground mb-2"], "Sound mode plays the whole whoosh.mp3 clip (~5s) each cycle — play duration is ignored");
+                    }
+
+                    view.Row([Layout.Row.InlineCenter, "mb-2"], content: view =>
+                    {
+                        view.Text([Text.BodyStrong, "w-32"], "Status");
+                        view.Text([Text.Body], _intervalStatus.Value);
+                    });
+
+                    view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
+                    {
+                        view.Button(
+                            [_intervalRunning.Value ? Button.OutlineMd : Button.PrimaryMd],
+                            label: "Start Interval Test",
+                            disabled: _intervalRunning.Value,
+                            onClick: async () => StartIntervalTest(ReactiveScope.ClientId));
+
+                        view.Button([Button.ErrorMd],
+                            label: "Stop Interval Test",
+                            disabled: !_intervalRunning.Value,
+                            onClick: async () => StopIntervalTest());
+                    });
+                });
+            });
         });
+    }
+
+    private void StartIntervalTest(int clientSessionId)
+    {
+        if (_intervalRunning.Value)
+        {
+            return;
+        }
+
+        var playSeconds = ParseIntervalSeconds(_intervalPlaySeconds.Value, 5);
+        var waitSeconds = ParseIntervalSeconds(_intervalWaitSeconds.Value, 60);
+        var mode = _intervalMode.Value;
+
+        _intervalCts = new CancellationTokenSource();
+        var token = _intervalCts.Token;
+        _intervalRunning.Value = true;
+
+        _ = Task.Run(() => RunIntervalLoopAsync(mode, clientSessionId, playSeconds, waitSeconds, token));
+    }
+
+    private void StopIntervalTest()
+    {
+        _intervalCts?.Cancel();
+    }
+
+    private async Task RunIntervalLoopAsync(string mode, int clientSessionId, double playSeconds, double waitSeconds, CancellationToken token)
+    {
+        var playDelay = TimeSpan.FromSeconds(playSeconds);
+        var waitDelay = TimeSpan.FromSeconds(waitSeconds);
+
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                if (mode == "streaming")
+                {
+                    var patch = Patches[0];
+                    var source = new MoogSynthSource(patch);
+                    var streamId = AudioGenerator.AddSource(source);
+                    _intervalStatus.Value = "Playing (streaming)";
+
+                    try
+                    {
+                        await Task.Delay(playDelay, token);
+                    }
+                    finally
+                    {
+                        AudioGenerator.RemoveSource(streamId);
+                    }
+                }
+                else
+                {
+                    var soundPath = Path.Combine(app.DataDirectory, "whoosh.mp3");
+                    var soundData = await File.ReadAllBytesAsync(soundPath, token);
+                    var playbackId = await ClientFunctions.PlaySoundAsync(clientSessionId, soundData, "audio/mpeg", volume: 1.0);
+                    _lastSoundPlaybackId.Value = playbackId ?? "(failed)";
+                    _intervalStatus.Value = "Playing (sound)";
+                    await Task.Delay(SoundClipApproxDuration, token);
+                }
+
+                _intervalStatus.Value = "Waiting";
+                await Task.Delay(waitDelay, token);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            _intervalRunning.Value = false;
+            _intervalStatus.Value = "(idle)";
+        }
+    }
+
+    private static double ParseIntervalSeconds(string value, double fallback)
+    {
+        if (double.TryParse(value, System.Globalization.CultureInfo.InvariantCulture, out var seconds) && seconds > 0)
+        {
+            return seconds;
+        }
+
+        return fallback;
     }
 
     private void RenderEffectParams(UIView view, EffectEntry entry, int index)

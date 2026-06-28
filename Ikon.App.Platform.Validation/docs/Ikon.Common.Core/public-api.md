@@ -69,6 +69,8 @@ namespace Ikon.Common.Core
     string? Country { get; set; }
     string? DefaultCurrency { get; set; }
     string? DisplayName { get; set; }
+    bool? IsDefault { get; set; }
+    string? Provider { get; set; }
     string? RefreshUrl { get; set; }
     string? ReturnUrl { get; set; }
   class IkonBackend.AppPaymentsMerchantResult
@@ -76,6 +78,9 @@ namespace Ikon.Common.Core
     string DashboardUrl { get; set; }
     string KycUrl { get; set; }
     string MerchantId { get; set; }
+  class IkonBackend.AppPaymentsRemoveResult
+    ctor()
+    bool Removed { get; set; }
   class IkonBackend.AppPaymentsStatusResult
     ctor()
     bool ChargesEnabled { get; set; }
@@ -572,7 +577,7 @@ namespace Ikon.Common.Core
     abstract IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[]? opcodes = null)
     abstract ValueTask SendMessageAsync(ProtocolMessage message)
     abstract ValueTask SendMessageAsync(IProtocolMessagePayload payload)
-  // Runtime app-payments commands a running Ikon app issues to the backend. These hit the space-token-guarded /payments/* routes (space resolved from the app's backend session token), mirroring the signature-order REST surface. The backend drives the payment provider and owns normalized state; results return over REST, and provider events are delivered back to the app as the Ikon.Payments.Event function call.
+  // Runtime app-payments transport. A running Ikon app issues these to the space-token-guarded /payments/* routes (space resolved from the app's backend session token). Each returns the raw JSON body; PaymentsService deserializes it into the typed payment records.
   class IkonBackend : AsyncLocalInstance<IkonBackend>
     ctor()
     IReadOnlyList<string> Capabilities { get; }
@@ -597,8 +602,8 @@ namespace Ikon.Common.Core
     Task<IkonBackend.Organisation> AddOrganisationUserAsync(string organisationId, string email)
     Task<IkonBackend.ApplyAppBundleConfigResponse> ApplyAppBundleConfigAsync(object config)
     Task<string> AuthenticateSpaceTokenAsync(string spaceId, string externalUserId)
-    Task<string> CancelPaymentsSubscriptionAsync(string subscriptionId, bool immediate = false, string? idempotencyKey = null, CancellationToken cancellationToken = null)
     Task CancelSignatureOrderAsync(string orderId)
+    Task CancelSubscriptionAsync(string subscriptionId, bool immediate = false, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = null)
     Task CompleteItemSignedUploadAsync(string uri, string path, string? sha256 = null)
     Task<IkonBackend.ConnectChannelInstanceResponse> ConnectChannelInstanceAsync(IkonBackend.ConnectChannelInstanceRequest request)
     Task<IkonBackend.AppBundle> CreateAppBundleAsync(string spaceId, string version, string itemId, IkonBackend.AppBundleState? state = null)
@@ -612,9 +617,9 @@ namespace Ikon.Common.Core
     Task<IkonBackend.ChannelInstance> CreateChannelInstanceAsync(string channelId, string mode)
     Task<IkonBackend.ChannelInstanceLaunchToken> CreateChannelInstanceLaunchTokenAsync(string id, int? httpsPort = null, int? httpPort = null, int? tcpPort = null, int? tlsPort = null)
     Task CreateChatMessageAsync(string channelInstanceId, string userId, string text, string createdAt)
+    Task<string> CreateOfferPaymentAsync(string offerId, string appCustomerKey, string? email = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = null)
     Task<IkonBackend.Organisation> CreateOrganisationAsync(string name)
-    Task<string> CreatePaymentsCheckoutAsync(string planId, string appCustomerKey, string? email = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, CancellationToken cancellationToken = null)
-    Task<string> CreatePaymentsOrderAsync(long amountMinor, string currency, string appCustomerKey, string? description = null, string? idempotencyKey = null, CancellationToken cancellationToken = null)
+    Task<string> CreatePaymentAsync(long amountMinor, string currency, string appCustomerKey, string? description = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = null)
     Task<IkonBackend.Pipeline> CreatePipelineAsync(object form)
     Task<IkonBackend.Plugin> CreatePluginAsync(IkonBackend.Plugin plugin)
     Task CreateProfileLeadAsync(string profileId, string source)
@@ -666,6 +671,7 @@ namespace Ikon.Common.Core
     Task<List<IkonBackend.CustomField>> GetCustomFieldsAsync(string spaceId, int maxResults = 1000)
     Task<IkonBackend.DatabaseConnectionResponse> GetDatabaseConnectionAsync(string databaseId, string? via = null)
     Task<List<IkonBackend.Database>> GetDatabasesForSpaceAsync(string spaceId, int maxResults = 20)
+    Task<string> GetEntitlementAsync(string offerId, string appCustomerKey, CancellationToken cancellationToken = null)
     Task<IkonBackend.Folder> GetFolderByPathAsync(string spaceId, string path)
     Task<List<IkonBackend.Folder>> GetFoldersAsync(string spaceId, string path, int maxResults = 1000)
     static IEnumerable<string> GetIkonDataDirectoryCandidates()
@@ -680,9 +686,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.Organisation> GetOrganisationAsync(string id)
     Task<List<IkonBackend.OrganisationInvitation>> GetOrganisationInvitationsAsync(string organisationId, int maxResults = 100)
     Task<List<IkonBackend.Organisation>> GetOrganisationsAsync(int maxResults = 1000)
-    Task<string> GetPaymentsCapabilitiesAsync(CancellationToken cancellationToken = null)
-    Task<string> GetPaymentsCatalogAsync(CancellationToken cancellationToken = null)
-    Task<string> GetPaymentsEntitlementAsync(string featureKey, string appCustomerKey, CancellationToken cancellationToken = null)
+    Task<string> GetPaymentsAsync(string appCustomerKey, CancellationToken cancellationToken = null)
     Task<IkonBackend.Pipeline> GetPipelineAsync(string id)
     Task<IkonBackend.Pipeline?> GetPipelineByTypeNameAsync(string spaceId, string typeName)
     Task<List<IkonBackend.Pipeline>> GetPipelinesAsync(string spaceId, int maxResults = 1000)
@@ -704,23 +708,26 @@ namespace Ikon.Common.Core
     Task<List<IkonBackend.Space>> GetSpacesAsync(string organisationId, string search, int maxResults = 100)
     Task<StepUpAssertionResponse> GetStepUpAssertionAsync(string challengeId, string userId)
     Task<T> GetStorageAsync<T>(string spaceId, string entity, string entityId, IEnumerable<string> keys) where T : new()
+    Task<string> GetSubscriptionsAsync(string appCustomerKey, CancellationToken cancellationToken = null)
     Task<IkonBackend.Translation> GetTranslationAsync(string spaceId, string text, string locale, string description)
     Task<IkonBackend.TurnServerCredentialsResponse?> GetTurnServerCredentialsAsync(int sessionId)
     Task<IkonBackend.User> GetUserAsync(string id)
     Task<List<IkonBackend.User>> GetUsersAsync(string query, int limit = 20)
     bool HasCapability(string capability)
     Task IngestPaymentsProviderEventAsync(string providerEventJson, CancellationToken cancellationToken = null)
-    Task<IkonBackend.AppPaymentsInitResult> InitAppPaymentsAsync(string spaceId, string mode = "ikon-connect")
+    Task<IkonBackend.AppPaymentsInitResult> InitAppPaymentsAsync(string spaceId, string mode = "ikon-connect", string provider = "stripe")
     Task<bool> IsSpaceDomainAvailableAsync(string domain)
     Task<IkonBackend.ItemListResponse> ListItemsAsync(IkonBackend.ItemListRequest request)
+    Task<string> ListOffersAsync(CancellationToken cancellationToken = null)
     bool Login(ValueTuple<string, string>? fromCommandLine = null, ValueTuple<string, string>? fromConfig = null, bool logSource = true, bool mustLogin = true)
     Task<List<IkonBackend.MintEndpointGrantResult>> MintEndpointGrantsAsync(IEnumerable<IkonBackend.MintEndpointGrantRequest> grants)
     static IkonBackend.LoginInfo? ReadLoginConfig()
     Task<IkonBackend.CampaignRedeemResult> RedeemCampaignAsync(string code, string organisationId)
-    Task<string> RefundPaymentsOrderAsync(string orderId, long? amountMinor = null, string? reason = null, string? idempotencyKey = null, CancellationToken cancellationToken = null)
+    Task<string> RefundPaymentAsync(string paymentId, long? amountMinor = null, string? reason = null, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = null)
     // Local-dev parity: register this locally-run process as an externally-managed instance so the backend reverse-proxies {space}.ikonai.app/api/... to this machine's relay tunnel instead of provisioning a cloud instance. The backend mints a per-registration id (returned as LocalInstanceId ) that distinguishes this instance from other local runs sharing the same identity. Returns that id, which the host passes into MintUrl so its minted endpoint URLs carry the li claim and route to this process.
     Task<IkonBackend.RegisterLocalInstanceResponse> RegisterLocalInstanceAsync(string spaceId, string channelId, Dictionary<string, string> sessionIdentity, string relayEndpointPublicUrl)
     Task RegisterPushSubscriptionAsync(RegisterPushSubscriptionDto request)
+    Task<IkonBackend.AppPaymentsRemoveResult> RemoveAppPaymentsMerchantAsync(string spaceId, string? provider = null)
     Task RemoveOrganisationInvitationAsync(string organisationId, string invitationId)
     Task<IkonBackend.Organisation> RemoveOrganisationUserAsync(string organisationId, string userId)
     Task RemovePushSubscriptionAsync(RemovePushSubscriptionDto request)
@@ -1075,7 +1082,9 @@ namespace Ikon.Common.Core
     string Type { get; set; }
     string TypeName { get; set; }
   class PluginAttribute : Attribute
-    ctor(string name, string productId, string description, int version, string guid, UserType userType, Opcode opcodeGroupsFromServer, Opcode opcodeGroupsToServer, bool receiveAllMessages, string[]? dependencies = null)
+    ctor(string name, string productId, string description, int version, string guid, UserType userType, Opcode opcodeGroupsFromServer, Opcode opcodeGroupsToServer, bool receiveAllMessages, string[]? dependencies = null, ContextType contextType = Plugin)
+    // How this connection identifies to the server: Plugin (default, server-side component, no UI/per-client scope) vs Browser/Native (a player CLIENT — gets a per-connection ClientScope + UI). Lets a non-web C# SDK client connect as a first-class player, not a backend plugin.
+    ContextType ContextType { get; }
     string[] Dependencies { get; }
     string Description { get; }
     string Guid { get; }
@@ -3709,7 +3718,7 @@ namespace Ikon.Common.Core.Protocol
     DesktopApp
   sealed class ConnectToken : IProtocolMessagePayload
     ctor()
-    ctor(string serverSessionId, ContextType contextType, UserType userType, PayloadType payloadType, bool isInternal, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, Opcode opcodeGroupsFromServer, Opcode opcodeGroupsToServer, int protocolVersion, bool hasInput, string channelLocale, string embeddedSpaceId, string authSessionId, bool receiveAllMessages, string userAgent, ClientType clientType, Dictionary<string, string> parameters, SdkType sdkType, int sdkCapability, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat, bool supportsCompression)
+    ctor(string serverSessionId, ContextType contextType, UserType userType, PayloadType payloadType, bool isInternal, bool isSnapshot, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, Opcode opcodeGroupsFromServer, Opcode opcodeGroupsToServer, int protocolVersion, bool hasInput, string channelLocale, string embeddedSpaceId, string authSessionId, bool receiveAllMessages, string userAgent, ClientType clientType, Dictionary<string, string> parameters, SdkType sdkType, int sdkCapability, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat, bool supportsCompression)
     string AuthSessionId { get; set; }
     string ChannelLocale { get; set; }
     ClientType ClientType { get; set; }
@@ -3721,6 +3730,8 @@ namespace Ikon.Common.Core.Protocol
     string InitialPath { get; set; }
     string InstallId { get; set; }
     bool IsInternal { get; set; }
+    // True for the build-time snapshot-capture client; copied into Context.IsSnapshot. Identifies the client whose initial UI is baked into boot-snapshot.json. Inert beyond identification in v1.
+    bool IsSnapshot { get; set; }
     bool IsTouchDevice { get; set; }
     string Locale { get; set; }
     Opcode MessageOpcode { get; }
@@ -3753,7 +3764,7 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class Context : IProtocolMessagePayload
     ctor()
-    ctor(ContextType contextType, UserType userType, PayloadType payloadType, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, int sessionId, bool isInternal, bool isReady, bool hasInput, string channelLocale, string embeddedSpaceId, string authSessionId, bool receiveAllMessages, ulong preciseJoinedAt, string userAgent, ClientType clientType, string uniqueSessionId, Dictionary<string, string> parameters, SdkType sdkType, int sdkCapability, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat, bool supportsCompression, bool isSoftDisconnected, ulong softDisconnectAt)
+    ctor(ContextType contextType, UserType userType, PayloadType payloadType, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, int sessionId, bool isInternal, bool isSnapshot, bool isReady, bool hasInput, string channelLocale, string embeddedSpaceId, string authSessionId, bool receiveAllMessages, ulong preciseJoinedAt, string userAgent, ClientType clientType, string uniqueSessionId, Dictionary<string, string> parameters, SdkType sdkType, int sdkCapability, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat, bool supportsCompression, bool isSoftDisconnected, ulong softDisconnectAt)
     string AuthSessionId { get; set; }
     string ChannelLocale { get; set; }
     // Alias for SessionId . The protocol surfaces this same int as ClientSessionId on event-args types like ClientJoinedEventArgs.ClientSessionId — code generated against the event-args shape naturally reaches for ctx.ClientSessionId after switching to the Context directly. Provide both names so the natural reach resolves without renaming.
@@ -3768,6 +3779,8 @@ namespace Ikon.Common.Core.Protocol
     string InstallId { get; set; }
     bool IsInternal { get; set; }
     bool IsReady { get; set; }
+    // Copied from ConnectToken.IsSnapshot — marks the build-time snapshot-capture client.
+    bool IsSnapshot { get; set; }
     bool IsSoftDisconnected { get; set; }
     bool IsTouchDevice { get; set; }
     string Locale { get; set; }
@@ -3805,6 +3818,7 @@ namespace Ikon.Common.Core.Protocol
     Server
     Plugin
     Browser
+    Native
   sealed class Coordinate2D : IProtocolMessagePayload
     ctor()
     ctor(float x, float y)

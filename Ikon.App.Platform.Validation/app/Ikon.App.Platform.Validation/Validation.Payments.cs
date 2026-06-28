@@ -1,1032 +1,314 @@
+using System;
 using System.Linq;
+using System.Threading;
 
 public partial class Validation
 {
+    private readonly Reactive<string> _payCustomer = new("demo-customer");
+    private readonly Reactive<string> _payProvider = new("stripe");
+    private readonly Reactive<string> _payOfferId = new("pro");
+    private readonly Reactive<string> _payAmount = new("500");
+    private readonly Reactive<string> _payCurrency = new("eur");
 
-    private readonly Reactive<string> _paymentsSeatQty = new("1");
+    private readonly Reactive<IReadOnlyList<PaymentOffer>> _payOffers = new([]);
+    private readonly Reactive<bool> _payOffersLoaded = new(false);
+    private readonly Reactive<IReadOnlyList<PaymentSubscription>> _paySubs = new([]);
+    private readonly Reactive<IReadOnlyList<Payment>> _payHistory = new([]);
+    private readonly Reactive<bool> _payCustomerLoaded = new(false);
 
-    private PaymentsService? ActivePayments => _payments;
+    private readonly Reactive<string> _payEntitlement = new("");
+    private readonly Reactive<string> _payGate = new("");
+    private readonly Reactive<string> _payStatus = new("");
+    private readonly Reactive<List<string>> _payEventLog = new([]);
 
-    private string? ActiveCustomerId => _paymentsDemoCustomerId;
+    private async Task InitPaymentsAsync()
+    {
+        app.Payments.DefaultProvider = PaymentProvider.Stripe;
+        app.Payments.DefaultSuccessUrl = "https://ikon.live/validation/paid";
+        app.Payments.DefaultCancelUrl = "https://ikon.live/validation/cancel";
+        app.Payments.PaymentEventReceived += OnPaymentEventAsync;
+        await Task.CompletedTask;
+    }
 
-    private string ActiveCustomerKey => PaymentsDemoCustomerKey;
-
-    private static readonly IReadOnlyList<PaymentsPlanView> ValidationPlans =
-    [
-        new(
-            PlanId: PlanIdPro,
-            Name: "Validation Pro",
-            PriceLabel: "€19",
-            IntervalLabel: "month",
-            Features: ["Sandbox plan", "Subscription mode", "Promotion codes allowed"],
-            Badge: "Sandbox",
-            Highlighted: true),
-        new(
-            PlanId: PlanIdTeam,
-            Name: "Validation Team",
-            PriceLabel: "€49",
-            IntervalLabel: "month",
-            Features: ["Sandbox plan", "Subscription mode", "Higher seat ceiling"]),
-    ];
+    private Task OnPaymentEventAsync(PaymentEvent evt)
+    {
+        var what = evt.Type switch
+        {
+            PaymentEventType.PaymentPaid => "A payment succeeded",
+            PaymentEventType.PaymentRefunded => "A payment was refunded",
+            PaymentEventType.SubscriptionRenewed => "A subscription renewed",
+            PaymentEventType.SubscriptionCanceled => "A subscription was canceled",
+            _ => "An event arrived",
+        };
+        LogPayments(what);
+        return Task.CompletedTask;
+    }
 
     private void RenderPaymentsSection(UIView view)
     {
-        view.Column([Layout.Column.Lg], content: view =>
+        view.Column([Layout.Column.Lg], content: col =>
         {
-            view.Box([Card.Default, "p-6"], content: hdr =>
+            col.Box([Card.Default, "p-6"], content: hdr =>
             {
-                hdr.Text([Text.H2, "mb-1"], "Payments");
-                hdr.Text([Text.BodySm, "text-tertiary mb-2"], "Live Stripe sandbox integration showing how an Ikon app wires Ikon.App.Payments on the v2 surface (Accounts v2 / Payments v2, API version 2026-04-22.dahlia).");
-                hdr.Text([Text.BodySm, "text-tertiary"], "Admin tab = catalog + customer + invoicing ops.");
-                hdr.Text([Text.BodySm, "text-tertiary mb-4"], "End-user tab = checkout + subscription self-service.");
-
-                if (!string.IsNullOrEmpty(_paymentsError.Value))
-                {
-                    hdr.Box(["mt-2 p-3 rounded-md bg-error/10 border border-error/30 text-error text-sm"], content: e => e.Text([], _paymentsError.Value!));
-                }
-                else if (!_paymentsReady.Value)
-                {
-                    hdr.Box(["mt-2 p-3 rounded-md bg-info/10 border border-info/30 text-info text-sm"], content: e => e.Text([], "Initializing Stripe sandbox …"));
-                }
+                hdr.Text([Text.H2, "mb-1"], text: "Payments");
+                hdr.Text([Text.BodySm, "text-tertiary"], text: "A walkthrough of everything app.Payments can do. Follow it top to bottom — the backend drives the provider and pushes events; your app just sends commands and reacts.");
             });
 
-            if (!_paymentsReady.Value)
+            // Who's paying ------------------------------------------------
+            col.Box([Card.Default, "p-6"], content: card =>
             {
-                return;
-            }
-
-            if (_paymentsProviderValue == PaymentsProvider.Disabled)
-            {
-                return;
-            }
-
-            RenderBusyAndReadinessBanner(view);
-
-            view.Box(["relative mt-2"], content: wrap =>
-            {
-                wrap.Tabs(
-                    value: _paymentsTab.Value,
-                    onValueChange: async v => { _paymentsTab.Value = string.IsNullOrEmpty(v) ? "end-user" : v; await Task.CompletedTask; },
-                    listStyle: [Tabs.List],
-                    triggerStyle: [Tabs.Trigger],
-                    contentStyle: [Tabs.Content],
-                    tabs:
-                    [
-                        new TabItem("admin", "Admin actions", view => RenderAdminTab(view)),
-                        new TabItem("end-user", "End-user actions", view => RenderEndUserTab(view)),
-                    ]);
-
-                wrap.Box(["absolute right-0 top-0"], content: slot =>
+                card.Text([Text.H3, "mb-1"], text: "Who's paying");
+                card.Text([Text.BodySm, "text-tertiary mb-3"], text: "Pick any stable id for the customer you're testing with. The provider defaults to your app's; switch it only if you've set up more than one.");
+                card.Row(["gap-3 flex-wrap items-end"], content: row =>
                 {
-                    slot.Button(
-                        style: [Button.OutlineSm, Button.IconLeft],
-                        text: "Refresh data", content: row => { row.Icon([Icon.Xs], name: "refresh-cw"); row.Text([], "Refresh data"); },
-                        onClick: async () =>
+                    row.TextField(bind: _payCustomer, label: "Customer", style: [Input.Default, "min-w-[200px]"]);
+                    row.Select(
+                        value: _payProvider.Value,
+                        options: [new SelectOption("stripe", "Stripe"), new SelectOption("mollie", "Mollie")],
+                        label: "Provider",
+                        onValueChange: async v =>
                         {
-                            await RefreshPaymentsDataAsync();
-                            _paymentsActionStatus.Value = "Refreshed customer data from Stripe.";
+                            _payProvider.Value = v;
+                            app.Payments.DefaultProvider = v == "mollie" ? PaymentProvider.Mollie : PaymentProvider.Stripe;
                         });
                 });
             });
 
-            RenderActionStatusSection(view);
-        });
-    }
-
-    private static string FormatPaymentsError(Exception ex)
-    {
-        var body = ex is PaymentsApiException api ? api.ResponseBody : null;
-        return string.IsNullOrEmpty(body) ? ex.Message : ex.Message + " · " + body;
-    }
-
-    /// <summary>
-    /// Resolve a human-readable plan name for a subscription by matching its
-    /// first item's price id against the projected catalog. Falls back to the
-    /// product id (or "Subscription" placeholder) when no catalog entry
-    /// matches — e.g. for subscriptions targeting products outside this app's
-    /// filter.
-    /// </summary>
-    private string ResolvePlanName(PaymentsSubscription sub)
-    {
-        var catalog = _planCatalog.Value;
-
-        if (catalog is not null && !string.IsNullOrEmpty(sub.FirstPriceId))
-        {
-            var match = catalog.Plans.FirstOrDefault(p => p.StripePriceId == sub.FirstPriceId);
-
-            if (match is not null)
+            // 1. What's for sale ------------------------------------------
+            col.Box([Card.Default, "p-6"], content: card =>
             {
-                return match.ProductName;
-            }
-        }
-
-        if (catalog is not null && !string.IsNullOrEmpty(sub.FirstProductId))
-        {
-            var match = catalog.Plans.FirstOrDefault(p => p.ProductId == sub.FirstProductId);
-
-            if (match is not null)
-            {
-                return match.ProductName;
-            }
-        }
-
-        return sub.FirstProductId ?? "Subscription";
-    }
-
-    /// <summary>
-    /// Canonical busy flag for the payments tab — drives single-flight
-    /// enforcement across every <see cref="GuardedButton"/>. Flipped via
-    /// <see cref="ReactiveBoolExtensions.AsToken"/> so the bool can never
-    /// get stuck on, even if the wrapped click body throws.
-    /// </summary>
-    private readonly Reactive<bool> _busy = new(false);
-
-    /// <summary>
-    /// Stable identifier of the click currently in flight (or null when
-    /// idle). Pairs with <see cref="_busy"/> so the UI can show <i>which</i>
-    /// button is running while the busy flag drives disable state.
-    /// </summary>
-    private readonly Reactive<string?> _busyActionName = new(null);
-
-    /// <summary>
-    /// Last error from a <see cref="RunActionAsync"/> call. Surfaced inline at
-    /// the top of the payments tab in red.
-    /// </summary>
-    private readonly Reactive<string?> _lastActionError = new(null);
-
-    /// <summary>
-    /// Wraps any click body with: busy-state tracking, try/catch with typed
-    /// error formatting, and single-flight enforcement. Every guarded button's
-    /// onClick goes through this so the UI consistently reflects async state.
-    /// </summary>
-    private async Task RunActionAsync(string actionId, string statusOk, Func<Task> body)
-    {
-        if (_busy.Value)
-        {
-            return;
-        }
-
-        _lastActionError.Value = null;
-        using var _ = _busy.AsToken();
-        _busyActionName.Value = actionId;
-
-        try
-        {
-            await body();
-            _paymentsActionStatus.Value = statusOk;
-        }
-        catch (Exception ex)
-        {
-            var msg = $"{actionId} → {FormatPaymentsError(ex)}";
-            _lastActionError.Value = msg;
-            _paymentsActionStatus.Value = msg;
-        }
-        finally
-        {
-            _busyActionName.Value = null;
-        }
-    }
-
-    /// <summary>
-    /// Render a single button whose click runs <paramref name="action"/> through
-    /// <see cref="RunActionAsync"/>. Disabled while ANY action is in flight (the
-    /// clicked one OR any other guarded button across the tab). Shows a spinner
-    /// in place of the label while busy.
-    /// </summary>
-    /// <param name="id">Stable identifier — also used as the busy-state key + the action-status prefix on error.</param>
-    /// <param name="label">Button label shown when idle.</param>
-    /// <param name="statusOk">Status banner shown after a successful run.</param>
-    /// <param name="action">The async work to perform on click.</param>
-    /// <param name="enabled">When false the button stays disabled regardless of busy state. Use for readiness gating.</param>
-    /// <param name="style">Optional override for button style array. Defaults to <see cref="Button.OutlineSm"/>.</param>
-    private void GuardedButton(
-        UIView view,
-        string id,
-        string label,
-        string statusOk,
-        Func<Task> action,
-        bool enabled = true,
-        string[]? style = null)
-    {
-        var anyBusy = _busy.Value;
-        var thisBusy = _busyActionName.Value == id;
-        var disabled = !enabled || anyBusy;
-        var displayLabel = thisBusy ? "Running …" : label;
-
-        view.Button(
-            style: style ?? [Button.OutlineSm],
-            label: displayLabel,
-            disabled: disabled,
-            onClick: async () => await RunActionAsync(id, statusOk, action));
-    }
-
-    /// <summary>True when the payments surface is wired and an <see cref="ActivePayments"/> is available for API calls.</summary>
-    private bool PaymentsReady => _paymentsReady.Value
-        && _paymentsProviderValue != PaymentsProvider.Disabled
-        && ActivePayments is not null;
-
-    /// <summary>Render the busy banner (when an action is in flight) + readiness gate explanation.</summary>
-    private void RenderBusyAndReadinessBanner(UIView view)
-    {
-        if (_busy.Value)
-        {
-            view.Row([Layout.Row.Sm, "items-center p-3 rounded-md bg-info/10 border border-info/30 text-info text-sm"], content: r =>
-            {
-                r.Spinner();
-                r.Text(["ml-2"], $"Running: {_busyActionName.Value ?? "action"} …");
-            });
-        }
-
-        if (!PaymentsReady)
-        {
-            view.Box(["mt-2 p-3 rounded-md bg-warning/10 border border-warning/30 text-warning text-sm"], content: b =>
-            {
-                if (_paymentsProviderValue == PaymentsProvider.IkonConnect
-                    && _connectAccount.Value is { ChargesEnabled: false })
+                card.Text([Text.H3, "mb-1"], text: "1 · What can I sell?");
+                card.Text([Text.BodySm, "text-tertiary mb-3"], text: "These are the offers you set up at your payment provider. Click one to take a payment for it — a recurring offer starts a subscription, a one-time offer is a single charge.");
+                card.Button([Button.OutlineMd, "mb-3"], label: "Load offers", onClick: () => RunPaymentsActionAsync(async () =>
                 {
-                    b.Text([], "Payments actions disabled — complete Stripe Connect onboarding first. Status: " +
-                        (_connectAccount.Value.RequirementsCurrentlyDue.Count > 0
-                            ? $"{_connectAccount.Value.RequirementsCurrentlyDue.Count} requirements pending"
-                            : "Awaiting capability activation"));
-                }
-                else
+                    _payOffers.Value = await app.Payments.ListOffersAsync();
+                    _payOffersLoaded.Value = true;
+                }));
+
+                if (_payOffersLoaded.Value && _payOffers.Value.Count == 0)
                 {
-                    b.Text([], "Payments not ready. See banner above.");
-                }
-            });
-        }
-    }
-
-    private void RenderActionStatusSection(UIView view)
-    {
-        if (_lastActionError.Value is { } err)
-        {
-            view.Box(["p-3 rounded-md bg-error/10 border border-error/30 text-error text-sm font-mono break-all"], content: s =>
-            {
-                s.Text([], err);
-            });
-            return;
-        }
-
-        if (string.IsNullOrEmpty(_paymentsActionStatus.Value))
-        {
-            return;
-        }
-
-        view.Box(["p-3 rounded-md bg-info/10 border border-info/30 text-info text-sm font-mono break-all"], content: s =>
-        {
-            s.Text([], _paymentsActionStatus.Value!);
-        });
-    }
-
-
-    private static readonly string[] SandboxKeyPrefixes = ["sk_test_", "rk_test_"];
-
-    private static bool IsSandboxKey(string apiKey)
-    {
-        foreach (var prefix in SandboxKeyPrefixes)
-        {
-            if (apiKey.StartsWith(prefix, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private const string PaymentsDemoCustomerKey = "validation-demo-customer";
-
-    private const string PlanIdPro = "validation-pro";
-    private const string PlanIdTeam = "validation-team";
-
-    private PaymentsService? _payments;
-    private PaymentsProvider _paymentsProviderValue = PaymentsProvider.IkonConnect;
-    private string? _paymentsDemoCustomerId;
-    private string? _paymentsProPriceId;
-    private string? _paymentsTeamPriceId;
-    private string? _paymentsProProductId;
-    private string? _paymentsTeamProductId;
-
-    private StripeMerchantService? _connect;
-
-    private readonly Reactive<bool> _paymentsReady = new(false);
-    private readonly Reactive<string?> _paymentsError = new(null);
-    private readonly Reactive<IReadOnlyList<string>> _paymentsEventLog = new([]);
-    private readonly Reactive<string?> _paymentsActionStatus = new(null);
-    private readonly Reactive<IReadOnlyList<PaymentsPaymentMethod>> _paymentsPaymentMethods = new([]);
-    private readonly Reactive<IReadOnlyList<PaymentsInvoiceSummary>> _paymentsInvoices = new([]);
-    private readonly Reactive<IReadOnlyList<PaymentsSubscription>> _paymentsSubscriptions = new([]);
-    private readonly Reactive<IReadOnlyList<PaymentsCharge>> _paymentsCharges = new([]);
-    private readonly Reactive<string?> _paymentsLastCheckoutUrl = new(null);
-
-    private readonly Reactive<PaymentsUpcomingInvoice?> _upcomingInvoice = new(null);
-
-    private readonly Reactive<IReadOnlyList<PaymentsProduct>> _adminListedProducts = new([]);
-    private readonly Reactive<IReadOnlyList<string>> _adminListedCustomers = new([]);
-    private readonly Reactive<IReadOnlyList<string>> _adminListedCoupons = new([]);
-    private readonly Reactive<IReadOnlyList<string>> _adminListedPromoCodes = new([]);
-    private readonly Reactive<IReadOnlyList<string>> _adminListedTaxIds = new([]);
-    private readonly Reactive<IReadOnlyList<string>> _adminListedCreditNotes = new([]);
-    private readonly Reactive<IReadOnlyList<string>> _adminListedWebhookEndpoints = new([]);
-    private readonly Reactive<IReadOnlyList<string>> _adminListedPaymentLinks = new([]);
-    private readonly Reactive<IReadOnlyList<string>> _adminListedApplePayDomains = new([]);
-    private readonly Reactive<IReadOnlyList<string>> _adminRecentEventIds = new([]);
-
-    private readonly ClientReactive<string> _paymentsTab = new("admin");
-
-    private readonly ClientReactive<string> _adminPlanName = new("");
-    private readonly ClientReactive<string> _adminPlanAmount = new("");
-    private readonly ClientReactive<string> _adminPlanCurrency = new("eur");
-    private readonly ClientReactive<string> _adminPlanInterval = new("month");
-    private readonly ClientReactive<string> _adminPlanFeatures = new("");
-    private readonly ClientReactive<string> _adminProductIdToArchive = new("");
-
-    private readonly ClientReactive<string> _adminCustomerEmail = new("");
-    private readonly ClientReactive<string> _adminCustomerName = new("");
-    private readonly ClientReactive<string> _adminCustomerIdToUpdate = new("");
-    private readonly ClientReactive<string> _adminTaxIdCustomer = new("");
-    private readonly ClientReactive<string> _adminTaxIdType = new("eu_vat");
-    private readonly ClientReactive<string> _adminTaxIdValue = new("");
-    private readonly ClientReactive<string> _adminTaxIdToDelete = new("");
-
-    private readonly ClientReactive<string> _adminCouponPercent = new("10");
-    private readonly ClientReactive<string> _adminPromoCouponId = new("");
-    private readonly ClientReactive<string> _adminPromoCode = new("");
-
-    private readonly ClientReactive<string> _adminCreditInvoiceId = new("");
-    private readonly ClientReactive<string> _adminCreditAmount = new("");
-    private readonly ClientReactive<string> _adminCreditNoteIdToVoid = new("");
-
-    private readonly ClientReactive<string> _adminWebhookUrl = new("");
-    private readonly ClientReactive<string> _adminWebhookIdToDelete = new("");
-
-    private readonly ClientReactive<string> _adminApplePayDomain = new("");
-    private readonly ClientReactive<string> _adminPaymentLinkPriceId = new("");
-
-    private readonly Reactive<PaymentsPlanCatalog?> _planCatalog = new(null);
-
-    private IReadOnlyList<PaymentsPlanView> ActivePlans()
-    {
-        var catalog = _planCatalog.Value;
-
-        if (catalog is null)
-        {
-            return Array.Empty<PaymentsPlanView>();
-        }
-
-        return catalog.Plans.Select(ToPlanView).ToList();
-    }
-
-    private static PaymentsPlanView ToPlanView(PaymentsPlanProjection p)
-    {
-        var priceLabel = FormatPlanPrice(p.UnitAmountMinor, p.Currency);
-        var highlighted = p.ProductMetadata is not null
-            && p.ProductMetadata.TryGetValue("highlighted", out var h)
-            && string.Equals(h, "true", StringComparison.OrdinalIgnoreCase);
-        var badge = p.ProductMetadata is not null && p.ProductMetadata.TryGetValue("badge", out var b) ? b : null;
-        var features = p.MarketingFeatures is { Count: > 0 } ? p.MarketingFeatures : null;
-
-        return new PaymentsPlanView(
-            PlanId: p.PlanId,
-            Name: p.ProductName,
-            PriceLabel: priceLabel,
-            IntervalLabel: p.RecurringInterval,
-            Features: features,
-            Badge: badge,
-            Highlighted: highlighted);
-    }
-
-    private static string FormatPlanPrice(long minor, string currency)
-    {
-        var c = currency?.ToLowerInvariant() ?? "eur";
-        var decimals = c switch
-        {
-            "bif" or "clp" or "djf" or "gnf" or "jpy" or "kmf" or "krw" or "mga"
-                or "pyg" or "rwf" or "ugx" or "vnd" or "vuv" or "xaf" or "xof" or "xpf" => 0,
-            "bhd" or "jod" or "kwd" or "omr" or "tnd" => 3,
-            _ => 2,
-        };
-        var divisor = (decimal)Math.Pow(10, decimals);
-        var major = minor / divisor;
-        return $"{major.ToString($"0.{new string('0', decimals)}", System.Globalization.CultureInfo.InvariantCulture)} {c.ToUpperInvariant()}";
-    }
-
-    private readonly Reactive<string?> _connectAccountId = new(null);
-    private readonly Reactive<StripeMerchantAccount?> _connectAccount = new(null);
-    private readonly Reactive<string?> _connectError = new(null);
-    private readonly Reactive<bool> _connectSettingUp = new(false);
-
-    private readonly Reactive<string?> _connectOnboardingUrl = new(null);
-    private readonly Reactive<string?> _connectDashboardUrl = new(null);
-
-    private static string ResolveSpace() =>
-        string.IsNullOrEmpty(IkonBackend.Instance.SpaceId) ? "validation" : IkonBackend.Instance.SpaceId;
-
-    private async Task InitPaymentsAsync()
-    {
-        try
-        {
-            var autoOpts = PaymentsAppHelpers.AutoDetectFromApp(app, defaultSpaceId: "validation");
-            _paymentsProviderValue = autoOpts.Provider;
-
-            if (_paymentsProviderValue == PaymentsProvider.Disabled)
-            {
-                _paymentsError.Value = "Payments not configured. Set BILLING_PROVIDER=byok (+ STRIPE_API_KEY) or BILLING_PROVIDER=ikon-connect (+ IKON_BACKEND_BILLING_URL). IkonConnect mode reuses the app's standard Ikon backend session token — no separate IKON_APP_TOKEN required.";
-                _paymentsReady.Value = true;
-                return;
-            }
-
-            if (_paymentsProviderValue == PaymentsProvider.Byok)
-            {
-                if (string.IsNullOrEmpty(autoOpts.ApiKey))
-                {
-                    _paymentsError.Value = "BYOK mode: STRIPE_API_KEY not set. Add via `ikon app secret set STRIPE_API_KEY sk_test_...` (or env var). Validation only runs against sandbox keys (sk_test_ or rk_test_).";
-                    return;
+                    card.Text([Text.BodySm, "text-tertiary"], text: "No offers found. Create one at your provider, then reload.");
                 }
 
-                if (!IsSandboxKey(autoOpts.ApiKey))
+                foreach (var offer in _payOffers.Value)
                 {
-                    _paymentsError.Value = "STRIPE_API_KEY is not a sandbox key. Validation refuses to run against live Stripe. Use a secret key (sk_test_...) or restricted key (rk_test_...).";
-                    return;
-                }
-            }
-            else
-            {
-                if (string.IsNullOrWhiteSpace(autoOpts.IkonBackendUrl))
-                {
-                    _paymentsError.Value = "IkonConnect mode: IKON_BACKEND_BILLING_URL not set and no ambient Ikon backend URL available. Add via `ikon app secret set IKON_BACKEND_BILLING_URL https://backend.ikonai.live` (or env var). To switch to BYOK mode, set BILLING_PROVIDER=byok.";
-                    return;
-                }
-
-                if (!IkonBackend.Instance.IsLoggedIn)
-                {
-                    _paymentsError.Value = "IkonConnect mode: no active Ikon backend session. Payments proxy reuses the standard Ikon backend token, but the app is not logged in.";
-                    return;
-                }
-            }
-
-            var opts = autoOpts with
-            {
-                DefaultSuccessUrl = "https://ikon.live/payments/success",
-                DefaultCancelUrl = "https://ikon.live/payments/cancel",
-                DefaultPortalReturnUrl = "https://ikon.live/payments/portal-return",
-            };
-
-            var adapter = new ValidationPaymentsAdapter(this);
-            _payments = new PaymentsService(opts, adapter);
-
-            _payments.PaymentReceived += OnValidationPaymentReceivedAsync;
-
-            await BootstrapCatalogAsync();
-            await RefreshCatalogAsync();
-            await RefreshPaymentsDataAsync();
-
-            _connect = new StripeMerchantService(opts);
-
-            await BootstrapConnectAsync();
-
-            _paymentsReady.Value = true;
-            Log.Instance.Info($"[payments] sandbox ready · provider={_paymentsProviderValue} · pro={_paymentsProPriceId} team={_paymentsTeamPriceId} customer={_paymentsDemoCustomerId}");
-        }
-        catch (Exception ex)
-        {
-            _paymentsError.Value = $"Payments init failed: {ex.Message}";
-            Log.Instance.Error($"[payments] init failed: {ex}");
-        }
-    }
-
-    private async Task BootstrapCatalogAsync()
-    {
-        var products = await _payments!.ListProductsAsync(activeOnly: true, limit: 100);
-        PaymentsProduct? pro = products.FirstOrDefault(p => p.Name == "Validation Pro");
-        PaymentsProduct? team = products.FirstOrDefault(p => p.Name == "Validation Team");
-
-        _paymentsProProductId = pro?.Id ?? await _payments.CreateProductAsync(new PaymentsProductInfo
-        {
-            Name = "Validation Pro",
-            Description = "Sandbox plan exercised by Ikon validation app — safe to delete.",
-            Metadata = new Dictionary<string, string> { ["validation"] = "true" },
-        });
-        _paymentsTeamProductId = team?.Id ?? await _payments.CreateProductAsync(new PaymentsProductInfo
-        {
-            Name = "Validation Team",
-            Description = "Sandbox plan exercised by Ikon validation app — safe to delete.",
-            Metadata = new Dictionary<string, string> { ["validation"] = "true" },
-        });
-
-        await BackfillValidationMetadataAsync(pro);
-        await BackfillValidationMetadataAsync(team);
-
-        _paymentsProPriceId = await EnsureRecurringPriceAsync(_paymentsProProductId, 1900, "eur", "month");
-        _paymentsTeamPriceId = await EnsureRecurringPriceAsync(_paymentsTeamProductId, 4900, "eur", "month");
-
-        _paymentsDemoCustomerId = await new ValidationPaymentsAdapter(this)
-            .ResolveStripeCustomerIdAsync(PaymentsDemoCustomerKey, "validation@ikon.live", CancellationToken.None);
-    }
-
-    private async Task<string> EnsureRecurringPriceAsync(string productId, long amountMinor, string currency, string interval)
-    {
-        var existing = await _payments!.ListPricesAsync(productId: productId, activeOnly: true, limit: 100);
-        var match = existing.FirstOrDefault(p =>
-            p.UnitAmountMinor == amountMinor &&
-            string.Equals(p.Currency, currency, StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(p.RecurringInterval, interval, StringComparison.OrdinalIgnoreCase));
-
-        if (match is not null)
-        {
-            return match.Id;
-        }
-
-        return await _payments.CreatePriceAsync(new PaymentsPriceInfo
-        {
-            ProductId = productId,
-            UnitAmountMinor = amountMinor,
-            Currency = currency,
-            RecurringInterval = interval,
-        });
-    }
-
-    private int _refreshInFlight;
-
-    private async Task RefreshCatalogAsync(PaymentsService? service = null)
-    {
-        service ??= _payments;
-
-        if (service is null)
-        {
-            return;
-        }
-
-        try
-        {
-            var projector = new PaymentsCatalogProjector(service);
-            var catalog = await projector.ProjectAsync(
-                productFilter: p => p.Metadata is not null
-                    && p.Metadata.TryGetValue("validation", out var v)
-                    && string.Equals(v, "true", StringComparison.OrdinalIgnoreCase));
-            _planCatalog.Value = catalog;
-        }
-        catch (Exception ex)
-        {
-            Ikon.Common.Core.Log.Instance.Warning($"[validation-payments] RefreshCatalogAsync failed: {ex.Message}");
-        }
-    }
-
-    private async Task BackfillValidationMetadataAsync(PaymentsProduct? product)
-    {
-        if (product is null)
-        {
-            return;
-        }
-
-        if (product.Metadata is not null
-            && product.Metadata.TryGetValue("validation", out var v)
-            && string.Equals(v, "true", StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        try
-        {
-            var merged = new Dictionary<string, string>(StringComparer.Ordinal)
-            {
-                ["validation"] = "true",
-            };
-
-            if (product.Metadata is not null)
-            {
-                foreach (var kv in product.Metadata)
-                {
-                    merged[kv.Key] = kv.Value;
-                }
-            }
-
-            await _payments!.UpdateProductAsync(product.Id, metadata: merged);
-        }
-        catch (Exception ex)
-        {
-            Ikon.Common.Core.Log.Instance.Warning($"[validation-payments] backfill validation metadata on {product.Id} failed: {ex.Message}");
-        }
-    }
-
-    private async Task RefreshPaymentsDataAsync()
-    {
-        if (Interlocked.CompareExchange(ref _refreshInFlight, 1, 0) != 0)
-        {
-            return;
-        }
-
-        try
-        {
-            var service = _payments;
-            var customerId = _paymentsDemoCustomerId;
-
-            if (service is null || string.IsNullOrEmpty(customerId))
-            {
-                return;
-            }
-
-            try
-            {
-                var subsTask = service.ListSubscriptionsAsync(stripeCustomerId: customerId, status: "all");
-                var pmsTask = service.ListPaymentMethodsAsync(customerId, type: "card");
-                var invTask = service.ListInvoicesAsync(stripeCustomerId: customerId, limit: 25);
-                var chargesTask = service.ListChargesAsync(stripeCustomerId: customerId, limit: 25);
-
-                await Task.WhenAll(subsTask, pmsTask, invTask, chargesTask);
-
-                _paymentsSubscriptions.Value = subsTask.Result;
-                _paymentsPaymentMethods.Value = pmsTask.Result;
-                _paymentsInvoices.Value = invTask.Result;
-                _paymentsCharges.Value = chargesTask.Result;
-            }
-            catch (Exception ex)
-            {
-                _paymentsActionStatus.Value = $"Refresh failed: {ex.Message}";
-                Log.Instance.Warning($"[payments] refresh failed: {ex.Message}");
-            }
-        }
-        finally
-        {
-            Interlocked.Exchange(ref _refreshInFlight, 0);
-        }
-    }
-
-    private PaymentsProvider AutoDetectProvider()
-    {
-        if (!string.IsNullOrEmpty(TryGetPaymentsSecret("STRIPE_API_KEY")))
-        {
-            return PaymentsProvider.Byok;
-        }
-
-        var hasPaymentsUrl = !string.IsNullOrEmpty(TryGetPaymentsSecret("IKON_BACKEND_BILLING_URL"))
-            || !string.IsNullOrEmpty(IkonBackend.Instance.Url);
-
-        if (hasPaymentsUrl && IkonBackend.Instance.IsLoggedIn)
-        {
-            return PaymentsProvider.IkonConnect;
-        }
-
-        return PaymentsProvider.Disabled;
-    }
-
-    private string? TryGetPaymentsSecret(string key)
-    {
-        try
-        {
-            if (app.Secrets.TryGet(key, out var v) && !string.IsNullOrEmpty(v))
-            {
-                return v;
-            }
-        }
-        catch
-        {
-        }
-
-        return Environment.GetEnvironmentVariable(key);
-    }
-
-    private string ResolvePaymentsWebhookUrl()
-    {
-        var hook = app.Endpoints.FirstOrDefault(w =>
-            string.Equals(w.FunctionName, "Validation_StripeWebhook", StringComparison.OrdinalIgnoreCase));
-        return hook?.PublicUrl ?? "(webhook URL unavailable — start the app to register endpoints)";
-    }
-
-    private string ResolveConnectWebhookUrl()
-    {
-        var hook = app.Endpoints.FirstOrDefault(w =>
-            string.Equals(w.FunctionName, "Validation_StripeConnectWebhook", StringComparison.OrdinalIgnoreCase));
-        return hook?.PublicUrl ?? "(webhook URL unavailable — start the app to register endpoints)";
-    }
-
-    [HttpPost("/billing/stripe")]
-    public async Task<string> StripeWebhook(Ikon.App.HttpRequest req)
-    {
-        var headers = req.Headers;
-        var body = req.Body;
-        if (_payments is null)
-        {
-            return """{"received":true,"reason":"payments not initialized"}""";
-        }
-
-        headers.TryGetValue("Stripe-Signature", out var signature);
-
-        var result = await _payments.HandleWebhookAsync(signature, body);
-
-        if (!result.Verified)
-        {
-            Log.Instance.Warning($"[payments] platform webhook unverified: {result.Reason}");
-        }
-        else if (result.AdapterError is not null)
-        {
-            Log.Instance.Warning($"[payments] platform webhook adapter error: {result.AdapterError}");
-        }
-        else if (result.BackendIngestError is not null)
-        {
-            Log.Instance.Warning($"[payments] platform webhook backend ingest error: {result.BackendIngestError}");
-        }
-
-        return """{"received":true}""";
-    }
-
-    [HttpPost("/billing/stripe-connect")]
-    public async Task<string> StripeConnectWebhook(Ikon.App.HttpRequest req)
-    {
-        var headers = req.Headers;
-        var body = req.Body;
-        if (_payments is null)
-        {
-            return """{"received":true,"reason":"payments not initialized"}""";
-        }
-
-        headers.TryGetValue("Stripe-Signature", out var signature);
-        var result = await _payments.HandleWebhookAsync(signature, body);
-
-        if (!result.Verified)
-        {
-            Log.Instance.Warning($"[payments] connect webhook unverified: {result.Reason}");
-        }
-        else if (result.AdapterError is not null)
-        {
-            Log.Instance.Warning($"[payments] connect webhook adapter error: {result.AdapterError}");
-        }
-        else if (result.BackendIngestError is not null)
-        {
-            Log.Instance.Warning($"[payments] connect webhook backend ingest error: {result.BackendIngestError}");
-        }
-
-        return """{"received":true}""";
-    }
-
-    private Task OnValidationPaymentReceivedAsync(PaymentsPushEvent evt)
-    {
-        LogPaymentsEvent($"push  {evt.Type}  provider={evt.Provider} seq={evt.Sequence} id={evt.EventId}");
-        return Task.CompletedTask;
-    }
-
-    private async Task RunBackendCheckoutAsync(string planId)
-    {
-        if (_payments is null)
-        {
-            return;
-        }
-
-        try
-        {
-            _paymentsActionStatus.Value = $"Backend RPC checkout ({planId})…";
-            var resultJson = await _payments.CreateBackendCheckoutAsync(
-                planId,
-                ActiveCustomerKey,
-                email: null,
-                successUrl: "https://ikon.live/payments/success",
-                cancelUrl: "https://ikon.live/payments/cancel");
-
-            LogPaymentsEvent($"rpc   create_checkout planId={planId} -> {resultJson}");
-
-            try
-            {
-                using var doc = System.Text.Json.JsonDocument.Parse(resultJson);
-                if (doc.RootElement.TryGetProperty("url", out var urlEl) && urlEl.ValueKind == System.Text.Json.JsonValueKind.String)
-                {
-                    _paymentsLastCheckoutUrl.Value = urlEl.GetString();
-                }
-            }
-            catch (System.Text.Json.JsonException)
-            {
-            }
-
-            _paymentsActionStatus.Value = $"Backend RPC checkout ({planId}) ok";
-        }
-        catch (PaymentsNotSupportedException ex)
-        {
-            _paymentsActionStatus.Value = $"Backend RPC checkout not supported: {ex.Message}";
-            LogPaymentsEvent($"rpc   create_checkout not_supported: {ex.Message}");
-        }
-        catch (Exception ex)
-        {
-            _paymentsActionStatus.Value = $"Backend RPC checkout failed: {ex.Message}";
-            LogPaymentsEvent($"rpc   create_checkout error: {ex.Message}");
-        }
-    }
-
-    private async Task RunBackendEntitlementAsync(string featureKey)
-    {
-        if (_payments is null)
-        {
-            return;
-        }
-
-        try
-        {
-            var resultJson = await _payments.GetBackendEntitlementAsync(featureKey, ActiveCustomerKey);
-            LogPaymentsEvent($"rpc   get_entitlement {featureKey} -> {resultJson}");
-            _paymentsActionStatus.Value = $"Backend entitlement ({featureKey}) read";
-        }
-        catch (Exception ex)
-        {
-            _paymentsActionStatus.Value = $"Backend entitlement failed: {ex.Message}";
-            LogPaymentsEvent($"rpc   get_entitlement error: {ex.Message}");
-        }
-    }
-
-    private readonly object _paymentsEventLogLock = new();
-
-    private void LogPaymentsEvent(string line)
-    {
-        lock (_paymentsEventLogLock)
-        {
-            var current = _paymentsEventLog.Value.ToList();
-            current.Insert(0, $"{DateTime.UtcNow:HH:mm:ss}  {line}");
-
-            if (current.Count > 50)
-            {
-                current.RemoveAt(current.Count - 1);
-            }
-
-            _paymentsEventLog.Value = current;
-        }
-    }
-
-    private sealed class ValidationPaymentsAdapter(Validation owner) : IPaymentsAppAdapter
-    {
-        public Task<PaymentsPlanDescriptor?> GetPlanAsync(string planId, CancellationToken cancellationToken)
-        {
-            PaymentsPlanDescriptor? descriptor = planId switch
-            {
-                PlanIdPro when owner._paymentsProPriceId is not null
-                    => new PaymentsPlanDescriptor(planId, owner._paymentsProPriceId, PaymentsMode.Subscription, AllowPromotionCodes: true),
-                PlanIdTeam when owner._paymentsTeamPriceId is not null
-                    => new PaymentsPlanDescriptor(planId, owner._paymentsTeamPriceId, PaymentsMode.Subscription, AllowPromotionCodes: true),
-                _ when owner._planCatalog.Value is { } catalog && catalog.PlanIdToPriceId.TryGetValue(planId, out var priceFromCatalog)
-                    => new PaymentsPlanDescriptor(planId, priceFromCatalog, PaymentsMode.Subscription, AllowPromotionCodes: true),
-                _ => null,
-            };
-
-            return Task.FromResult(descriptor);
-        }
-
-        public async Task<string> ResolveStripeCustomerIdAsync(string appCustomerKey, string? email, CancellationToken cancellationToken)
-        {
-            if (!string.IsNullOrEmpty(owner._paymentsDemoCustomerId))
-            {
-                return owner._paymentsDemoCustomerId;
-            }
-
-            var query = $"metadata['validation_customer_key']:'{appCustomerKey}'";
-            var existing = await owner._payments!.SearchCustomersAsync(query, limit: 1, cancellationToken);
-
-            if (existing.Count > 0)
-            {
-                owner._paymentsDemoCustomerId = existing[0];
-                return existing[0];
-            }
-
-            var id = await owner._payments!.CreateCustomerAsync(
-                new PaymentsCustomerInfo
-                {
-                    Email = email ?? "validation@ikon.live",
-                    Name = "Validation Demo",
-                    Metadata = new Dictionary<string, string>
+                    var offerId = offer.OfferId;
+                    card.Row([Card.Default, "p-3 mb-2 items-center justify-between"], key: $"offer-{offerId}", content: r =>
                     {
-                        ["validation_customer_key"] = appCustomerKey,
-                    },
-                },
-                idempotencyKey: $"customer-{appCustomerKey}",
-                cancellationToken: cancellationToken);
+                        r.Column([Layout.Column.Xs], content: c =>
+                        {
+                            c.Text([Text.Body, "font-medium"], text: offer.Name);
+                            c.Text([Text.Caption], text: $"{offerId} · {PriceLabel(offer)}");
+                        });
+                        r.Button([Button.PrimarySm], label: "Take payment", onClick: () => PayAsync(offerId));
+                    });
+                }
+            });
 
-            owner._paymentsDemoCustomerId = id;
-            return id;
-        }
-
-        public Task ApplyEventAsync(PaymentsEvent evt, CancellationToken cancellationToken)
-        {
-            owner.LogPaymentsEvent($"[event] {evt.Type} · {evt.EventId}{(evt.Status is null ? string.Empty : " · " + evt.Status)}");
-
-            _ = owner.RefreshPaymentsDataAsync();
-
-            if (evt.Type is PaymentsEventType.ProductUpdated or PaymentsEventType.PriceUpdated)
+            // 2. Custom amount --------------------------------------------
+            col.Box([Card.Default, "p-6"], content: card =>
             {
-                _ = owner.RefreshCatalogAsync();
-            }
-
-            return Task.CompletedTask;
-        }
-    }
-
-    private async Task BootstrapConnectAsync()
-    {
-        if (_paymentsProviderValue != PaymentsProvider.IkonConnect)
-        {
-            return;
-        }
-
-        await RefreshConnectStatusAsync();
-    }
-
-    public async Task<string?> EnableConnectAsync(string country = "FI")
-    {
-        if (_paymentsProviderValue != PaymentsProvider.IkonConnect)
-        {
-            _connectError.Value = "EnableConnect is only available in ikon-connect mode.";
-            return null;
-        }
-
-        if (!IkonBackend.Instance.IsLoggedIn)
-        {
-            _connectError.Value = "Connect enable requires an active Ikon backend session.";
-            return null;
-        }
-
-        try
-        {
-            _connectSettingUp.Value = true;
-
-            var result = await IkonBackend.Instance.CreateAppPaymentsMerchantAsync(
-                ResolveSpace(),
-                new IkonBackend.AppPaymentsMerchantRequest
+                card.Text([Text.H3, "mb-1"], text: "2 · Or charge a custom amount");
+                card.Text([Text.BodySm, "text-tertiary mb-3"], text: "For tips, donations, or anything not in your catalog.");
+                card.Row(["gap-3 flex-wrap items-end"], content: row =>
                 {
-                    ContactEmail = "validation-connect@ikon.live",
-                    DisplayName = "Ikon Validation",
-                    Country = country,
-                    DefaultCurrency = "eur",
+                    row.TextField(bind: _payAmount, label: "Amount (cents)", style: [Input.Default, "w-32"]);
+                    row.TextField(bind: _payCurrency, label: "Currency", style: [Input.Default, "w-24"]);
+                    row.Button([Button.OutlineMd], label: "Charge", onClick: () => RunPaymentsActionAsync(async () =>
+                    {
+                        if (!long.TryParse(_payAmount.Value, out var amount) || amount <= 0)
+                        {
+                            _payStatus.Value = "Enter a positive amount in cents.";
+                            return;
+                        }
+                        var link = await app.Payments.CreatePaymentLinkAsync(amount, _payCurrency.Value, _payCustomer.Value, description: "Validation charge");
+                        LogPayments($"Opened a payment page for {amount / 100.0:0.00} {_payCurrency.Value.ToUpperInvariant()}");
+                        await OpenLinkAsync(link);
+                    }));
                 });
+            });
 
-            _connectAccountId.Value = result.MerchantId;
-            _connectOnboardingUrl.Value = result.KycUrl;
-            _connectDashboardUrl.Value = result.DashboardUrl;
-            _connectError.Value = null;
+            // 3. What happened --------------------------------------------
+            col.Box([Card.Default, "p-6"], content: card =>
+            {
+                card.Text([Text.H3, "mb-1"], text: "3 · What just happened?");
+                card.Text([Text.BodySm, "text-tertiary mb-3"], text: "When a customer finishes paying, the backend pushes a normalized event to your app. No webhook to host. Complete a sandbox payment above to see one arrive.");
+                if (_payEventLog.Value.Count == 0)
+                {
+                    card.Text([Text.BodySm, "text-tertiary"], text: "Nothing yet.");
+                }
+                foreach (var line in _payEventLog.Value.Take(20))
+                {
+                    card.Text([Text.BodySm], text: $"• {line}");
+                }
+            });
 
-            await RefreshConnectStatusAsync();
+            // 4. Does this customer have access ---------------------------
+            col.Box([Card.Default, "p-6"], content: card =>
+            {
+                card.Text([Text.H3, "mb-1"], text: "4 · Can this customer use it?");
+                card.Text([Text.BodySm, "text-tertiary mb-3"], text: "Check whether the customer has an active subscription to an offer — this is the fast gate you read on every request.");
+                card.Row(["gap-3 flex-wrap items-end"], content: row =>
+                {
+                    row.TextField(bind: _payOfferId, label: "Offer", style: [Input.Default, "w-32"]);
+                    row.Button([Button.OutlineMd], label: "Check access", onClick: () => RunPaymentsActionAsync(async () =>
+                    {
+                        var e = await app.Payments.GetEntitlementAsync(_payOfferId.Value, _payCustomer.Value);
+                        _payEntitlement.Value = e.SubscriptionActive
+                            ? $"✓ Active subscription to '{_payOfferId.Value}'" + (e.SubscriptionEndsAt is { } d ? $" — renews {d:yyyy-MM-dd}" : "")
+                            : $"✗ No active subscription to '{_payOfferId.Value}'";
+                    }));
+                });
+                if (!string.IsNullOrEmpty(_payEntitlement.Value))
+                {
+                    card.Text([Text.Body, "mt-2"], text: _payEntitlement.Value);
+                }
+            });
 
-            return result.MerchantId;
-        }
-        catch (Exception ex)
+            // 5. The customer's stuff -------------------------------------
+            col.Box([Card.Default, "p-6"], content: card =>
+            {
+                card.Text([Text.H3, "mb-1"], text: "5 · This customer's subscriptions & payments");
+                card.Text([Text.BodySm, "text-tertiary mb-3"], text: "What you'd show on a billing page — with cancel and refund actions.");
+                card.Button([Button.OutlineMd, "mb-3"], label: "Load", onClick: () => RunPaymentsActionAsync(ReloadCustomerAsync));
+
+                if (_payCustomerLoaded.Value)
+                {
+                    card.Text([Text.Label, "mt-2 mb-1"], text: "Subscriptions");
+                    if (_paySubs.Value.Count == 0)
+                    {
+                        card.Text([Text.BodySm, "text-tertiary"], text: "None.");
+                    }
+                    foreach (var sub in _paySubs.Value)
+                    {
+                        var id = sub.Id;
+                        card.Row([Card.Default, "p-3 mb-2 items-center justify-between"], key: $"sub-{id}", content: r =>
+                        {
+                            r.Column([Layout.Column.Xs], content: c =>
+                            {
+                                c.Text([Text.Body, "font-medium"], text: sub.OfferId ?? id);
+                                c.Text([Text.Caption], text: $"{sub.Status}" + (sub.CurrentPeriodEnd is { } d ? $" · {(sub.CancelAtPeriodEnd ? "ends" : "renews")} {d:yyyy-MM-dd}" : ""));
+                            });
+                            r.Row([Layout.Row.Xs], content: actions =>
+                            {
+                                actions.Button([Button.GhostSm], label: "Cancel at period end", onClick: () => RunPaymentsActionAsync(async () =>
+                                {
+                                    await app.Payments.CancelSubscriptionAsync(id);
+                                    _payStatus.Value = "Canceled — stays active until the period ends.";
+                                    await ReloadCustomerAsync();
+                                }));
+                                actions.Button([Button.GhostSm], label: "Cancel now", onClick: () => RunPaymentsActionAsync(async () =>
+                                {
+                                    await app.Payments.CancelSubscriptionAsync(id, immediate: true);
+                                    _payStatus.Value = "Canceled immediately — access ends now.";
+                                    await ReloadCustomerAsync();
+                                }));
+                            });
+                        });
+                    }
+
+                    card.Text([Text.Label, "mt-3 mb-1"], text: "Payments");
+                    if (_payHistory.Value.Count == 0)
+                    {
+                        card.Text([Text.BodySm, "text-tertiary"], text: "None.");
+                    }
+                    foreach (var pay in _payHistory.Value)
+                    {
+                        var id = pay.Id;
+                        card.Row([Card.Default, "p-3 mb-2 items-center justify-between"], key: $"pay-{id}", content: r =>
+                        {
+                            r.Column([Layout.Column.Xs], content: c =>
+                            {
+                                c.Text([Text.Body, "font-medium"], text: $"{pay.AmountMinor / 100.0:0.00} {pay.Currency.ToUpperInvariant()}");
+                                c.Text([Text.Caption], text: $"{pay.Status}" + (pay.CreatedAt is { } d ? $" · {d:yyyy-MM-dd}" : ""));
+                            });
+                            r.Button([Button.GhostSm], label: "Refund", onClick: () => RunPaymentsActionAsync(async () =>
+                            {
+                                var refund = await app.Payments.RefundAsync(id);
+                                _payStatus.Value = $"Refund {refund.Status}.";
+                                await ReloadCustomerAsync();
+                            }));
+                        });
+                    }
+                }
+            });
+
+            // 6. Gate a feature -------------------------------------------
+            col.Box([Card.Default, "p-6"], content: card =>
+            {
+                card.Text([Text.H3, "mb-1"], text: "6 · Gate a feature on a subscription");
+                card.Text([Text.BodySm, "text-tertiary mb-3"], text: "Put [PaymentsRequireSubscription(\"pro\")] on a server function and the call is blocked unless the caller is subscribed. The button below evaluates that check for the customer above.");
+                card.Button([Button.OutlineMd], label: "Evaluate the gate", onClick: () => RunPaymentsActionAsync(async () =>
+                {
+                    var policy = new PaymentsRequireSubscriptionAttribute(_payOfferId.Value).CreatePolicy();
+                    var ctx = new PolicyCallContext(Guid.NewGuid(), "validation-demo", 0, _payCustomer.Value, null, null, true, CancellationToken.None);
+                    var decision = await policy.EvaluateAsync([], ctx);
+                    _payGate.Value = decision is PolicyDecision.Deny
+                        ? $"Blocked — the customer has no active '{_payOfferId.Value}' subscription."
+                        : "Allowed — the call would run.";
+                }));
+                if (!string.IsNullOrEmpty(_payGate.Value))
+                {
+                    card.Text([Text.Body, "mt-2"], text: _payGate.Value);
+                }
+            });
+
+            if (!string.IsNullOrEmpty(_payStatus.Value))
+            {
+                col.Text([Text.BodySm, "text-tertiary"], text: _payStatus.Value);
+            }
+        });
+    }
+
+    private Task PayAsync(string offerId) => RunPaymentsActionAsync(async () =>
+    {
+        var link = await app.Payments.CreatePaymentLinkAsync(offerId, _payCustomer.Value, "demo@ikon.live");
+        LogPayments($"Opened a payment page for '{offerId}'");
+        await OpenLinkAsync(link);
+    });
+
+    private async Task OpenLinkAsync(PaymentLink link)
+    {
+        if (!string.IsNullOrEmpty(link.Url))
         {
-            _connectError.Value = $"Connect enable failed: {ex.Message}";
-            Log.Instance.Warning($"[payments] connect enable failed: {ex.Message}");
-            return null;
+            await ClientFunctions.OpenExternalUrlAsync(link.Url);
         }
-        finally
+        else
         {
-            _connectSettingUp.Value = false;
+            _payStatus.Value = $"Payment created ({link.Reference}) but no redirect URL was returned.";
         }
     }
 
-    public async Task DisableConnectAsync()
+    private async Task ReloadCustomerAsync()
     {
-        _connectAccountId.Value = null;
-        _connectAccount.Value = null;
-        _connectOnboardingUrl.Value = null;
-        _connectDashboardUrl.Value = null;
-        _connectError.Value = null;
-        _lastRefreshStatusError = null;
-        await Task.CompletedTask;
+        _paySubs.Value = await app.Payments.ListSubscriptionsAsync(_payCustomer.Value);
+        _payHistory.Value = await app.Payments.ListPaymentsAsync(_payCustomer.Value);
+        _payCustomerLoaded.Value = true;
     }
 
-    public async Task RefreshConnectStatusAsync()
+    private static string PriceLabel(PaymentOffer offer)
     {
-        if (_paymentsProviderValue != PaymentsProvider.IkonConnect || !IkonBackend.Instance.IsLoggedIn)
+        var price = offer.Prices.FirstOrDefault();
+        if (price is null)
         {
-            return;
+            return "no price";
         }
+        var amount = $"{price.AmountMinor / 100.0:0.00} {price.Currency.ToUpperInvariant()}";
+        return price.Type == "recurring" ? $"{amount}/{price.Interval ?? "period"}" : amount;
+    }
 
+    private async Task RunPaymentsActionAsync(Func<Task> action)
+    {
         try
         {
-            var status = await IkonBackend.Instance.GetAppPaymentsStatusAsync(ResolveSpace());
-
-            if (string.IsNullOrEmpty(status.MerchantId))
-            {
-                _connectAccountId.Value = null;
-                _connectAccount.Value = null;
-                _connectDashboardUrl.Value = null;
-                _lastRefreshStatusError = null;
-                return;
-            }
-
-            _connectAccountId.Value = status.MerchantId;
-            _connectDashboardUrl.Value = status.DashboardUrl;
-
-            _connectAccount.Value = new StripeMerchantAccount(
-                Id: status.MerchantId!,
-                DetailsSubmitted: status.DetailsSubmitted,
-                ChargesEnabled: status.ChargesEnabled,
-                PayoutsEnabled: status.PayoutsEnabled,
-                RequirementsCurrentlyDue: status.RequirementsCurrentlyDue,
-                RequirementsEventuallyDue: Array.Empty<string>(),
-                RequirementsDisabledReason: null);
-
-            _lastRefreshStatusError = null;
+            await action();
         }
         catch (Exception ex)
         {
-            _lastRefreshStatusError = $"Refresh status failed: {ex.Message}";
-            _connectError.Value = _lastRefreshStatusError;
+            _payStatus.Value = $"Error: {ex.Message}";
+            LogPayments($"Error: {ex.Message}");
         }
     }
 
-    private string? _lastRefreshStatusError;
-
-    public bool LastRefreshStatusSucceeded => _lastRefreshStatusError is null;
+    private void LogPayments(string line) => _payEventLog.Insert(0, line);
 }

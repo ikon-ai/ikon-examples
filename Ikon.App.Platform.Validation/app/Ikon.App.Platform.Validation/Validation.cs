@@ -278,6 +278,14 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<bool> _soundToastOpen = new(false);
     private readonly Reactive<string> _soundToastMessage = new("");
 
+    // Interval playback test state
+    private readonly Reactive<string> _intervalMode = new("streaming");
+    private readonly Reactive<string> _intervalPlaySeconds = new("5");
+    private readonly Reactive<string> _intervalWaitSeconds = new("60");
+    private readonly Reactive<bool> _intervalRunning = new(false);
+    private readonly Reactive<string> _intervalStatus = new("(idle)");
+    private CancellationTokenSource? _intervalCts;
+
     // Keyboard listener state
     private readonly Reactive<string> _globalKeyDownEvent = new("(no event)");
     private readonly Reactive<string> _scopedKeyDownEvent = new("(no event)");
@@ -394,11 +402,20 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                     view.Row(["flex justify-between items-center mb-6"], content: view =>
                     {
                         view.Text([Text.Display], "Validation");
-                        var isDark = _currentTheme.Value == Constants.DarkTheme;
-                        var iconName = isDark ? "sun" : "moon";
-                        view.Button([Button.GhostMd, Button.Icon],
-                            onClick: ToggleThemeAsync,
-                            content: v => v.Icon([Icon.Default], name: iconName));
+
+                        // Snapshot-mode demos (visible with ?ikon-snapshot=true): this filler shows only
+                        // in the boot snapshot...
+                        view.SnapshotOnly(v => v.Text([Text.Caption], "Snapshot preview"));
+
+                        // ...and the interactive theme toggle is omitted from the static snapshot.
+                        view.SnapshotHide(v =>
+                        {
+                            var isDark = _currentTheme.Value == Constants.DarkTheme;
+                            var iconName = isDark ? "sun" : "moon";
+                            v.Button([Button.GhostMd, Button.Icon],
+                                onClick: ToggleThemeAsync,
+                                content: vv => vv.Icon([Icon.Default], name: iconName));
+                        });
                     });
 
                     // Main tabs
@@ -417,7 +434,9 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                         tabs: [
                             // Basic UI building blocks, ordered simple -> complex. The
                             // Flutter-frontend audit walks these top-to-bottom.
-                            new TabItem("typography", "Typography", RenderTypographySection),
+                            // Snapshot demo: the active tab's panel is the one Tabs keeps in the boot
+                            // snapshot, so wrap it in SnapshotSkeleton to render a placeholder there.
+                            new TabItem("typography", "Typography", v => v.SnapshotSkeleton(RenderTypographySection, RenderTypographySnapshotPlaceholder)),
                             new TabItem("icons", "Icons", ProfilingSkippable(RenderIconsSection), ForceMount: true),
                             new TabItem("buttons", "Buttons", RenderButtonsSection),
                             new TabItem("inputs", "Inputs", RenderInputsSection),
@@ -455,6 +474,19 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                         ]);
                 });
             });
+    }
+
+    // Stand-in shown in the public boot snapshot in place of the real Typography content. Demonstrates
+    // SnapshotSkeleton's custom-placeholder path and the Skeleton component at a few sizes.
+    private static void RenderTypographySnapshotPlaceholder(UIView view)
+    {
+        view.Column(["flex flex-col gap-3 max-w-2xl"], content: v =>
+        {
+            v.Skeleton(["w-1/3"], size: SkeletonSize.Xl);
+            v.Skeleton(["w-full"]);
+            v.Skeleton(["w-5/6"]);
+            v.Skeleton(["w-2/3"]);
+        });
     }
 
     private Task StartAudioGeneratorAsync()

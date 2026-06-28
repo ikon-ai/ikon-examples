@@ -69,6 +69,7 @@ namespace Ikon.AI
     ImageSegmenter
     LLM
     MeshGenerator
+    MusicGenerator
     OCR
     Reranker
     SoundEffectGenerator
@@ -785,6 +786,12 @@ namespace Ikon.AI.Kernel
     IAsyncEnumerable<StreamingResult> ReturnFunctionCallAsync(string name, string parametersJson, string callId, string thoughtSignature = "", string reasoningContent = "")
     IAsyncEnumerable<StreamingResult> RunFunctionAsync(string functionName, object?[] parameters, CancellationToken cancellationToken = null)
     KernelContext WithFunctions(IEnumerable<Function>? functions, bool replaceExisting = false)
+  enum MediaResolution
+    Default
+    Low
+    Medium
+    High
+    UltraHigh
   struct MessageBlock
     ctor(MessageBlockRole role, IMessagePart[] parts, string? userName = null)
     ctor(MessageBlockRole role, IEnumerable<IMessagePart> parts, string? userName = null)
@@ -863,18 +870,21 @@ namespace Ikon.AI.Kernel
     ctor(string text)
     string Text { get; }
   struct VideoAssetPart : IMessagePart
-    ctor(AssetUri uri, string? mimeType = null)
+    ctor(AssetUri uri, string? mimeType = null, MediaResolution resolution = Default)
     string? MimeType { get; }
+    MediaResolution Resolution { get; }
     MessagePartType Type { get; }
     AssetUri Uri { get; }
   struct VideoPart : IMessagePart
-    ctor(byte[] content, string mimeType)
+    ctor(byte[] content, string mimeType, MediaResolution resolution = Default)
     byte[] Content { get; }
     string MimeType { get; }
+    MediaResolution Resolution { get; }
     MessagePartType Type { get; }
   struct VideoUrlPart : IMessagePart
-    ctor(string url, string mimeType)
+    ctor(string url, string mimeType, MediaResolution resolution = Default)
     string MimeType { get; }
+    MediaResolution Resolution { get; }
     MessagePartType Type { get; }
     string Url { get; }
 
@@ -1141,6 +1151,83 @@ namespace Ikon.AI.MeshGeneration
   enum MeshGeneratorTopology
     Triangle
     Quad
+
+namespace Ikon.AI.MusicGeneration
+  interface IMusicGenerator : IDisposable, IMusicGeneratorInfo
+    // Channel count of the PCM samples produced by GenerateMusicAsync .
+    int ChannelCount { get; }
+    // Sample rate of the PCM samples produced by GenerateMusicAsync .
+    int SampleRate { get; }
+    // Streams the generated music as PCM AudioContainer chunks as they are produced. Only supported when SupportsStreaming is true; other models throw a MusicGeneratorException . Use GenerateMusicFileAsync for a buffered, encoded audio file instead.
+    abstract IAsyncEnumerable<AudioContainer> GenerateMusicAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = null)
+    // Generates the music and returns it as a single buffered, encoded audio file. Supported by all models, including those that cannot stream.
+    abstract Task<MusicGeneratorResult> GenerateMusicFileAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = null)
+  interface IMusicGeneratorInfo
+    // Whether DurationSeconds controls the length of the output. When false the model ignores it: it emits a fixed-length clip (e.g. Lyria 2 is always ~30s) or, for audio-to-audio editing, the output length follows the input clip.
+    bool SupportsDurationControl { get; }
+    bool SupportsEditing { get; }
+    // Whether the model can stream generated audio as it is produced via GenerateMusicAsync . Models without streaming support only expose the buffered GenerateMusicFileAsync result.
+    bool SupportsStreaming { get; }
+  // A reference clip fed into a prompt-driven music edit. The model preserves the timing and structure of this audio while the prompt re-styles it (timbre, instrumentation, mood). Mirrors the image-to-image InputImage shape used by the image generator.
+  sealed class InputAudio
+    ctor()
+    byte[] Data { get; set; }
+    // End of the region to edit, in seconds. null means to the end.
+    double? EndSeconds { get; set; }
+    string MimeType { get; set; }
+    // Start of the region to edit, in seconds. null means from the beginning.
+    double? StartSeconds { get; set; }
+    // How strongly the output should adhere to this reference, in [0, 1]. Higher keeps the original melody and timing closer. null defaults to strong adherence.
+    double? Strength { get; set; }
+    static InputAudio ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class MusicGenerator : IDisposable, IMusicGenerator, IMusicGeneratorInfo
+    ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
+    ctor(MusicGeneratorModel model, IReadOnlyList<ModelRegion>? regions = null)
+    int ChannelCount { get; }
+    int SampleRate { get; }
+    bool SupportsDurationControl { get; }
+    bool SupportsEditing { get; }
+    bool SupportsStreaming { get; }
+    void Dispose()
+    IAsyncEnumerable<AudioContainer> GenerateMusicAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = null)
+    Task<MusicGeneratorResult> GenerateMusicFileAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = null)
+    static MusicGeneratorCapabilities GetCapabilities(MusicGeneratorModel model)
+    static IReadOnlyList<ModelRegion> GetSupportedRegions(MusicGeneratorModel model)
+  sealed class MusicGeneratorCapabilities : IMusicGeneratorInfo
+    ctor()
+    bool SupportsDurationControl { get; init; }
+    bool SupportsEditing { get; init; }
+    bool SupportsStreaming { get; init; }
+  // Configuration for prompt-driven music generation and editing. With an empty InputAudios the model generates from the prompt alone. With one or more InputAudios it performs audio-to-audio editing: the prompt re-styles the reference clips while their timing and structure are preserved.
+  sealed class MusicGeneratorConfig
+    ctor()
+    // Target length in seconds (clamped to the model's supported range). When editing, set this to the source clip's length so the output keeps the original timing.
+    double? DurationSeconds { get; set; }
+    bool ForceInstrumental { get; set; }
+    List<InputAudio> InputAudios { get; set; }
+    string Prompt { get; set; }
+    int Seed { get; set; }
+    TimeSpan Timeout { get; set; }
+    static MusicGeneratorConfig ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  enum MusicGeneratorModel
+    ElevenLabsMusicV2
+    FalAceStep
+    FalStableAudio
+    FalLyria2
+  static class MusicGeneratorModelExtensions
+    static string DisplayName(MusicGeneratorModel model)
+  sealed class MusicGeneratorResult
+    ctor()
+    byte[] AudioData { get; set; }
+    string ContentType { get; set; }
+    double DurationSeconds { get; set; }
+    static MusicGeneratorResult ReadFromTeleport(ReadOnlySpan<byte> data)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
 
 namespace Ikon.AI.OCR
   enum DocumentType
