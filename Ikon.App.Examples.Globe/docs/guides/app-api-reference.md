@@ -1500,14 +1500,6 @@ namespace Ikon.App.Mcp
     JsonElement? OutputSchema { get; init; }
 
 namespace Ikon.App.Payments
-  // App-owned credit ledger contract. The library never persists credit balances itself — credits are an app concern (wallet table in app DB, KV store, etc.). Apps implement this interface and set it on CreditStore so the [PaymentsChargeCredits] policy can locate it. All methods are scoped by (appCustomerKey, sku). The caller supplies a stable idempotency key so apps can dedupe concurrent deductions on the same charge event (e.g. a replayed payment event).
-  interface IPaymentsCreditStore
-    // Atomically deduct credits from the customer's balance. Returns the new balance. Throws or returns negative balance when insufficient — implementations choose; the policy-attribute layer treats < 0 as denial. idempotencyKey dedupes replays.
-    abstract Task<int> DeductAsync(string appCustomerKey, string sku, int credits, string idempotencyKey, CancellationToken cancellationToken = null)
-    // Current balance for the given customer + SKU. Returns 0 when no row exists.
-    abstract Task<int> GetCreditsAsync(string appCustomerKey, string sku, CancellationToken cancellationToken = null)
-    // Atomically grant credits to the customer's balance. Returns the new balance. Call when a top-up payment completes. idempotencyKey dedupes replays (typically the EventId ).
-    abstract Task<int> GrantAsync(string appCustomerKey, string sku, int credits, string idempotencyKey, CancellationToken cancellationToken = null)
   // A single payment record (a one-off charge or a subscription renewal).
   sealed class Payment : IEquatable<Payment>
     // A single payment record (a one-off charge or a subscription renewal).
@@ -1520,16 +1512,14 @@ namespace Ikon.App.Payments
     string? Kind { get; init; }
     PaymentProvider? Provider { get; init; }
     string Status { get; init; }
-  // "Does this customer have access to this offer" snapshot. The [PaymentsRequireSubscription] / [PaymentsRequireUnlock] policies gate on it.
+  // "Does this customer have access to this offer" snapshot. The [PaymentsRequireSubscription] policy gates on it.
   sealed class PaymentEntitlement : IEquatable<PaymentEntitlement>
-    // "Does this customer have access to this offer" snapshot. The [PaymentsRequireSubscription] / [PaymentsRequireUnlock] policies gate on it.
-    ctor(string OfferId, bool SubscriptionActive, DateTimeOffset? SubscriptionEndsAt, string? SubscriptionStatus, bool UnlockGranted, int CreditsRemaining)
-    int CreditsRemaining { get; init; }
+    // "Does this customer have access to this offer" snapshot. The [PaymentsRequireSubscription] policy gates on it.
+    ctor(string OfferId, bool SubscriptionActive, DateTimeOffset? SubscriptionEndsAt, string? SubscriptionStatus)
     string OfferId { get; init; }
     bool SubscriptionActive { get; init; }
     DateTimeOffset? SubscriptionEndsAt { get; init; }
     string? SubscriptionStatus { get; init; }
-    bool UnlockGranted { get; init; }
   // A normalized payment event the backend pushes to the app.
   sealed class PaymentEvent : IEquatable<PaymentEvent>
     // A normalized payment event the backend pushes to the app.
@@ -1591,28 +1581,15 @@ namespace Ikon.App.Payments
     string? OfferId { get; init; }
     PaymentProvider? Provider { get; init; }
     string Status { get; init; }
-  // Declares the function deducts credits from the current customer's wallet for sku . Requires CreditStore wired on the ambient instance. Deduction happens inside the policy via DeductAsync with an idempotency key composed of the function name + caller id, so the same call evaluated twice (e.g. interrupted then retried) charges only once. Deny code: payments_credits_insufficient.
-  sealed class PaymentsChargeCreditsAttribute : PolicyAttribute
-    ctor(string sku, int credits = 1)
-    int Credits { get; }
-    string Sku { get; }
-    override IFunctionPolicy CreatePolicy()
-  // Declares the function requires the current customer to hold an active subscription for offerId . Resolves via the ambient Instance instance and reads the customer from UserId . The policy is webhook-driven, not polling-driven: on missing entitlement it DENIES with a stable code (payments_subscription_required), and the app's UI catches it and opens checkout via CreatePaymentLinkAsync . Stripe's webhook then flips the entitlement and the user retries.
+  // Declares the function requires the current customer to hold an active subscription for offerId . Resolves the customer from UserId and reads the entitlement from Instance . On missing entitlement it DENIES with a stable code (payments_subscription_required); the app's UI catches it and opens a payment link via CreatePaymentLinkAsync . The provider webhook then flips the entitlement and the user retries.
   sealed class PaymentsRequireSubscriptionAttribute : PolicyAttribute
     ctor(string offerId)
-    // App-side plan id the subscription is keyed to.
-    string OfferId { get; }
-    override IFunctionPolicy CreatePolicy()
-  // Declares the function requires the current customer to hold a one-time unlock for offerId . Reads UnlockGranted from the ambient Instance . Deny code: payments_unlock_required. App UI handles checkout offer + retry.
-  sealed class PaymentsRequireUnlockAttribute : PolicyAttribute
-    ctor(string offerId)
+    // Offer the subscription is keyed to.
     string OfferId { get; }
     override IFunctionPolicy CreatePolicy()
   // App-level entry point for payments, reached via app.Payments. The app picks a default PaymentProvider , creates payment links (for an offer or an ad-hoc amount), and reacts to PaymentEventReceived events. Every command accepts an optional per-call provider override. The app holds no payment state. One instance per app (an AsyncLocalInstance`1 singleton).
   sealed class PaymentsService : AsyncLocalInstance<PaymentsService>
     ctor()
-    // Optional app-supplied credit ledger. When set, the PaymentsChargeCreditsAttribute policy can locate it.
-    IPaymentsCreditStore? CreditStore { get; set; }
     // Default cancel URL used when a command does not specify one.
     string? DefaultCancelUrl { get; set; }
     // The provider used when a command does not specify one.
@@ -1630,7 +1607,6 @@ namespace Ikon.App.Payments
     Task<IReadOnlyList<PaymentOffer>> ListOffersAsync(CancellationToken cancellationToken = null)
     Task<IReadOnlyList<Payment>> ListPaymentsAsync(string appCustomerKey, CancellationToken cancellationToken = null)
     Task<IReadOnlyList<PaymentSubscription>> ListSubscriptionsAsync(string appCustomerKey, CancellationToken cancellationToken = null)
-    Task ReconcileAsync(CancellationToken cancellationToken = null)
     Task<PaymentRefund> RefundAsync(string paymentId, long? amountMinor = null, string? reason = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
     // Raised for each normalized payment event the backend pushes (paid, refunded, subscription renewed/canceled). Subscribing registers the receiver on first use.
     event Func<PaymentEvent, Task>? PaymentEventReceived
@@ -1710,8 +1686,8 @@ namespace Ikon.Common
     static IEnumerable<string> EnumerateCsprojFiles(string rootDirectory, int maxDepth = 3)
     static AppProjectUtils.AppDiscoveryResult FindAppTypeInAssembly(string dllPath)
     static string FindBestProjectFilePath(string targetDirectory)
-    // Generates (or removes) pubspec_overrides.yaml in the frontend-flutter directory so the app resolves ikon_sdk from the local platform-dart/ikon_sdk source while the ikon-platform repo is available, and from the published pub.dev package otherwise. The Dart analog of the C# -p:IkonRoot arg and GenerateTsconfigPathsJsonAsync : uses the shared Resolve ladder, so a locally-built ikon tool resolves the repo even for an app created far from it. Safe to call on every Flutter operation.
-    static Task GenerateFlutterPubspecOverridesAsync(string flutterDirectory)
+    // Generates (or removes) pubspec_overrides.yaml in the frontend-flutter directory so the app resolves ikon_sdk from the local platform-dart/ikon_sdk source while the ikon-platform repo is available, and from the published pub.dev package otherwise. The Dart analog of the C# -p:IkonRoot arg and GenerateTsconfigPathsJsonAsync . When platform is supplied (a context the CLI verb already resolved, honoring --platform-repo) it is used as-is; otherwise it falls back to the shared Resolve ladder, so a locally-built ikon tool still resolves the repo even for an app created far from it. Safe to call on every Flutter operation.
+    static Task GenerateFlutterPubspecOverridesAsync(string flutterDirectory, PlatformContext? platform = null)
     // Generates tsconfig.paths.json in the frontend-node directory with appropriate TypeScript paths. Auto-detects internal/external mode based on whether the directory is inside ikon-platform. Internal mode: generates paths pointing to monorepo source files for IDE support. External mode: generates empty paths (uses node_modules).
     static Task GenerateTsconfigPathsJsonAsync(string frontendNodeDirectory)
     static AppProjectVariables GetAppProjectVars(string? targetDirectory)
@@ -2783,10 +2759,10 @@ namespace Ikon.Common
     static PlatformContext FromBaseDirectory()
     // Walks upward from directory looking for the platform-dotnet directory (the one containing ikon-platform.slnx). At each ancestor it checks current/ikon-platform.slnx (current is platform-dotnet) and current/platform-dotnet/ikon-platform.slnx (current is the repo root). With includeSibling it also checks current/ikon-platform/platform-dotnet/ (a sibling checkout). Sibling matching is opt-in because it answers "is there a platform-dotnet nearby?" rather than "is directory inside platform-dotnet?" — callers that mutate the platform repo (e.g. add an app to the slnx) must keep it off. Returns External when not found.
     static PlatformContext FromDirectory(string? directory, bool includeSibling = false)
-    // Resolves the --platform-dir argument. Returns External when input is null or blank; throws UserException when set but not containing ikon-platform.slnx.
-    static PlatformContext FromExplicit(string? explicitPlatformDir)
-    // The standard probe ladder: an explicit --platform-dir, then workingDirectory (defaulting to the current directory, including a sibling ikon-platform checkout), then the running tool's own location — so a locally-built ikon tool resolves the repo even for an app created far away. Returns External when nothing matches.
-    static PlatformContext Resolve(string? explicitPlatformDir = null, string? workingDirectory = null)
+    // Resolves the --platform-repo argument. Accepts the ikon-platform repo root, any of its platform-* subdirectories (e.g. platform-dotnet, platform-typescript), or a nested path within them — all normalize up to the same platform-dotnet root via the upward walk. Returns External when input is null or blank; throws UserException when set but no ikon-platform.slnx can be found at or above it.
+    static PlatformContext FromExplicit(string? explicitPlatformRepo)
+    // The standard probe ladder: an explicit --platform-repo, then workingDirectory (defaulting to the current directory, including a sibling ikon-platform checkout), then the running tool's own location — so a locally-built ikon tool resolves the repo even for an app created far away. Returns External when nothing matches.
+    static PlatformContext Resolve(string? explicitPlatformRepo = null, string? workingDirectory = null)
     static PlatformContext External
   // Translates a PlatformContext (a pure detection result) into the tool-specific build inputs that pass the platform location to dotnet and to the SDK frontend's vite config. Kept off PlatformContext itself so the context doesn't carry dotnet/vite implementation detail.
   static class PlatformContextBuildExtensions

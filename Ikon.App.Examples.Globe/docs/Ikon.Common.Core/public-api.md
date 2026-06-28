@@ -722,7 +722,6 @@ namespace Ikon.Common.Core
     bool Login(ValueTuple<string, string>? fromCommandLine = null, ValueTuple<string, string>? fromConfig = null, bool logSource = true, bool mustLogin = true)
     Task<List<IkonBackend.MintEndpointGrantResult>> MintEndpointGrantsAsync(IEnumerable<IkonBackend.MintEndpointGrantRequest> grants)
     static IkonBackend.LoginInfo? ReadLoginConfig()
-    Task ReconcilePaymentsAsync(CancellationToken cancellationToken = null)
     Task<IkonBackend.CampaignRedeemResult> RedeemCampaignAsync(string code, string organisationId)
     Task<string> RefundPaymentAsync(string paymentId, long? amountMinor = null, string? reason = null, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = null)
     // Local-dev parity: register this locally-run process as an externally-managed instance so the backend reverse-proxies {space}.ikonai.app/api/... to this machine's relay tunnel instead of provisioning a cloud instance. The backend mints a per-registration id (returned as LocalInstanceId ) that distinguishes this instance from other local runs sharing the same identity. Returns that id, which the host passes into MintUrl so its minted endpoint URLs carry the li claim and route to this process.
@@ -3719,7 +3718,7 @@ namespace Ikon.Common.Core.Protocol
     DesktopApp
   sealed class ConnectToken : IProtocolMessagePayload
     ctor()
-    ctor(string serverSessionId, ContextType contextType, UserType userType, PayloadType payloadType, bool isInternal, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, Opcode opcodeGroupsFromServer, Opcode opcodeGroupsToServer, int protocolVersion, bool hasInput, string channelLocale, string embeddedSpaceId, string authSessionId, bool receiveAllMessages, string userAgent, ClientType clientType, Dictionary<string, string> parameters, SdkType sdkType, int sdkCapability, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat, bool supportsCompression)
+    ctor(string serverSessionId, ContextType contextType, UserType userType, PayloadType payloadType, bool isInternal, bool isSnapshot, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, Opcode opcodeGroupsFromServer, Opcode opcodeGroupsToServer, int protocolVersion, bool hasInput, string channelLocale, string embeddedSpaceId, string authSessionId, bool receiveAllMessages, string userAgent, ClientType clientType, Dictionary<string, string> parameters, SdkType sdkType, int sdkCapability, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat, bool supportsCompression)
     string AuthSessionId { get; set; }
     string ChannelLocale { get; set; }
     ClientType ClientType { get; set; }
@@ -3731,6 +3730,8 @@ namespace Ikon.Common.Core.Protocol
     string InitialPath { get; set; }
     string InstallId { get; set; }
     bool IsInternal { get; set; }
+    // True for the build-time snapshot-capture client; copied into Context.IsSnapshot. Identifies the client whose initial UI is baked into boot-snapshot.json. Inert beyond identification in v1.
+    bool IsSnapshot { get; set; }
     bool IsTouchDevice { get; set; }
     string Locale { get; set; }
     Opcode MessageOpcode { get; }
@@ -3763,7 +3764,7 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class Context : IProtocolMessagePayload
     ctor()
-    ctor(ContextType contextType, UserType userType, PayloadType payloadType, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, int sessionId, bool isInternal, bool isReady, bool hasInput, string channelLocale, string embeddedSpaceId, string authSessionId, bool receiveAllMessages, ulong preciseJoinedAt, string userAgent, ClientType clientType, string uniqueSessionId, Dictionary<string, string> parameters, SdkType sdkType, int sdkCapability, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat, bool supportsCompression, bool isSoftDisconnected, ulong softDisconnectAt)
+    ctor(ContextType contextType, UserType userType, PayloadType payloadType, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, int sessionId, bool isInternal, bool isSnapshot, bool isReady, bool hasInput, string channelLocale, string embeddedSpaceId, string authSessionId, bool receiveAllMessages, ulong preciseJoinedAt, string userAgent, ClientType clientType, string uniqueSessionId, Dictionary<string, string> parameters, SdkType sdkType, int sdkCapability, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat, bool supportsCompression, bool isSoftDisconnected, ulong softDisconnectAt)
     string AuthSessionId { get; set; }
     string ChannelLocale { get; set; }
     // Alias for SessionId . The protocol surfaces this same int as ClientSessionId on event-args types like ClientJoinedEventArgs.ClientSessionId — code generated against the event-args shape naturally reaches for ctx.ClientSessionId after switching to the Context directly. Provide both names so the natural reach resolves without renaming.
@@ -3778,6 +3779,8 @@ namespace Ikon.Common.Core.Protocol
     string InstallId { get; set; }
     bool IsInternal { get; set; }
     bool IsReady { get; set; }
+    // Copied from ConnectToken.IsSnapshot — marks the build-time snapshot-capture client.
+    bool IsSnapshot { get; set; }
     bool IsSoftDisconnected { get; set; }
     bool IsTouchDevice { get; set; }
     string Locale { get; set; }
