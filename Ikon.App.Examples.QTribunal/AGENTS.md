@@ -136,6 +136,7 @@ Detailed API docs are available in `docs/guides/`. Each guide covers a specific 
 - **endpoints-webhooks** (`docs/guides/endpoints-webhooks.md`): endpoints, webhooks, HTTP, HTTPS, REST, MCP, HttpGet, HttpPost, HttpPut, Mcp, WebSocket, TCP, TLS, UDP, public URL, tunneling, AppEndpointHost, function
 - **databases** (`docs/guides/databases.md`): databases, PostgreSQL, SQL, db, AppDatabaseConnection, EF Core, Entity Framework, DbContext, migrations, ef-migrate, LINQ
 - **secrets** (`docs/guides/secrets.md`): secrets, tokens, API keys, credentials, passwords, app.Secrets, ikon app secret
+- **payments** (`docs/guides/payments.md`): payments, charge end users, monetize, paywall, subscription, recurring, one-off payment, refund, Stripe, Mollie, app.Payments, CreatePaymentLinkAsync, ListOffersAsync, offers, GetEntitlementAsync, entitlement, PaymentsRequireSubscription, PaymentEventReceived, payment events, cancel subscription
 - **notifications** (`docs/guides/notifications.md`): notifications, push, push notification, app.Notifications, NotificationContent, SendToUserAsync, SendToSessionAsync, BroadcastAsync, NotifyAsync, permission, offline push, web push, FCM, alert, toast
 - **function-registry** (`docs/guides/function-registry.md`): function registry, registration, attribute, visibility, LLM tools, callable functions
 - **logging** (`docs/guides/logging.md`): log, logging, debug, warning, error, diagnostics

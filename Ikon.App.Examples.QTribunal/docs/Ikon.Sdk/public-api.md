@@ -172,6 +172,8 @@ namespace Ikon.Sdk
     string? DeviceId { get; set; }
     // Installation ID.
     string? InstallId { get; set; }
+    // Connect as the build-time boot-snapshot capture client, setting Context.IsSnapshot on the server so the app renders its privacy-safe snapshot variant (see the Parallax Snapshot* wrappers). Default false — only the snapshot-capture run sets this.
+    bool IsSnapshot { get; set; }
     // Local server configuration for development mode. Use this when connecting to a local Ikon server.
     LocalConfig? Local { get; set; }
     // User locale (e.g., "en-US"). Default: "en-US"
