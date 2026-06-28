@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 250963,
+      "sizeBytes": 248529,
       "alsoInclude": []
     },
     {
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 170673,
+      "sizeBytes": 176624,
       "alsoInclude": []
     },
     {
@@ -515,7 +515,7 @@
         "function"
       ],
       "file": "docs/guides/endpoints-webhooks.md",
-      "sizeBytes": 40946,
+      "sizeBytes": 41235,
       "alsoInclude": []
     },
     {
@@ -552,6 +552,35 @@
       ],
       "file": "docs/guides/secrets.md",
       "sizeBytes": 1975,
+      "alsoInclude": []
+    },
+    {
+      "id": "payments",
+      "title": "Payments",
+      "keywords": [
+        "payments",
+        "charge end users",
+        "monetize",
+        "paywall",
+        "subscription",
+        "recurring",
+        "one-off payment",
+        "refund",
+        "Stripe",
+        "Mollie",
+        "app.Payments",
+        "CreatePaymentLinkAsync",
+        "ListOffersAsync",
+        "offers",
+        "GetEntitlementAsync",
+        "entitlement",
+        "PaymentsRequireSubscription",
+        "PaymentEventReceived",
+        "payment events",
+        "cancel subscription"
+      ],
+      "file": "docs/guides/payments.md",
+      "sizeBytes": 7961,
       "alsoInclude": []
     },
     {
