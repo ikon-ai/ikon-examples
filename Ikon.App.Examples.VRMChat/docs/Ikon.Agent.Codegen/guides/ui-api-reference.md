@@ -1211,66 +1211,15 @@ namespace Ikon.Parallax.Components.Standard
   // Bounded-cursor primitive on top of ClientReactive`1 . Slices an in-memory list, returns the slice + bound actions (Prev/Next/JumpTo/First/Last) the caller binds to whatever UI fits. Holds zero rendering opinion — no tab bars, no default control rows, no opinionated layout. Most Ikon apps don't need pagination at all (live feeds, autoscroll, virtualization handle the common cases via Reactive<List<T>> + ScrollArea(autoScroll: true)). Use this when you have a static list large enough to warrant explicit page navigation. For DB-backed pagination (load only the current page from a backend), drive ClientReactive`1 directly and observe its value in your data-loading code — same per-client semantics, no special helper needed.
   static class PaginationExtensions
     static Page<T> Paginate<T>(UIView view, IReadOnlyList<T> items, ClientReactive<int> page, int pageSize = 20)
-  // One row in the charges list.
-  sealed class PaymentsChargeView : IEquatable<PaymentsChargeView>
-    // One row in the charges list.
-    ctor(string Id, string AmountLabel, string Status, DateTimeOffset Created, bool Paid, bool Refunded, string? PaymentIntentId, string? ReceiptUrl, string? Description = null)
-    string AmountLabel { get; init; }
-    DateTimeOffset Created { get; init; }
-    string? Description { get; init; }
-    string Id { get; init; }
-    bool Paid { get; init; }
-    string? PaymentIntentId { get; init; }
-    string? ReceiptUrl { get; init; }
-    bool Refunded { get; init; }
-    string Status { get; init; }
-  // Composed Parallax components for billing UIs — pricing tables, checkout actions, customer-portal entry points, payment-method and invoice lists, and subscription status. Pair with PaymentsService for end-to-end flows. All components are pure compositions of existing primitives (Box / Text / Button / Icon / Column / Row), so they participate in the standard theming, motion, and validation rules just like the rest of the Parallax surface.
+  // Composed Parallax pricing components. Pure compositions of existing primitives (Box / Text / Button / Icon / Column / Row), so they follow the standard theming, motion, and validation rules. Pair with PaymentsService for end-to-end flows.
   static class PaymentsExtensions
-    // Vertical list of charge / receipt rows. Each row shows formatted amount, status, optional refund button (when onRefund is supplied and the charge is paid + non-refunded), and a "Receipt" link when present.
-    static void ChargeList(UIView view, IReadOnlyList<PaymentsChargeView> charges, Func<string, Task>? onRefund = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
-    // Button that initiates a redirect-to-Stripe checkout. The onCheckout handler is expected to call PaymentsService.CreateCheckoutAsync(...) and return the session url; the component then opens the url in a new tab via ClientFunctions.OpenExternalUrlAsync. Returning null from the handler disables the redirect (e.g. for guest validation).
-    static void CheckoutButton(UIView view, Func<Task<string?>> onCheckout, string? text = null, string[]? style = null, bool? disabled = null, string? icon = "credit-card", string? key = null, string file = "", int line = 0)
-    // Vertical list of past invoices. Each row links to the hosted invoice url when present, and to the PDF when present.
-    static void InvoiceList(UIView view, IReadOnlyList<PaymentsInvoiceView> invoices, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
-    // Vertical list of saved payment methods. Each row shows brand, last four, and expiry. Optional onDetach renders a remove action. Optional onAddCard renders a button at the bottom; typical handler creates a Stripe Checkout Session in setup mode and redirects.
-    static void PaymentMethodList(UIView view, IReadOnlyList<PaymentsPaymentMethodView> methods, Func<string, Task>? onDetach = null, Func<Task>? onAddCard = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
-    // Renders a button that opens the Stripe-hosted Customer Portal in a new tab. The onOpenPortal handler is expected to call PaymentsService.CreatePortalAsync and return the portal url. Returning null suppresses the redirect.
-    static void PaymentsPortalButton(UIView view, Func<Task<string?>>? onOpenPortal = null, string? text = null, string[]? style = null, bool? disabled = null, string? icon = "settings", string? key = null, string file = "", int line = 0)
     // Single pricing plan card with name, price, optional badge, feature bullet list and CTA. Use directly when laying plans out by hand, or via PricingTable for the common grid case.
     static void PlanCard(UIView view, PaymentsPlanView plan, Func<string, Task>? onSelect = null, string[]? style = null, string? key = null, string file = "", int line = 0)
     // Render a grid of pricing plan cards. Each card invokes onSelect with the plan's id when the CTA is pressed. The card whose Highlighted is true gets the brand-emphasis treatment (one card max).
     static void PricingTable(UIView view, IReadOnlyList<PaymentsPlanView> plans, Func<string, Task>? onSelect = null, string[]? style = null, int? columns = null, string? key = null, string file = "", int line = 0)
-    // Renders a vertical list of SubscriptionStatus cards, one per subscription. Pass the same callback set you'd pass to a single SubscriptionStatus ; each callback receives the subscription id of the row that fired it.
-    static void SubscriptionList(UIView view, IReadOnlyList<PaymentsSubscription> subscriptions, Func<PaymentsSubscription, PaymentsSubscriptionView>? projector = null, Func<string, Task>? onResume = null, Func<string, Task>? onCancel = null, Func<string, Task>? onCancelImmediate = null, Func<string, Task>? onPause = null, Func<string, Task>? onResumeFromPause = null, Action<UIView, PaymentsSubscription>? footer = null, string[]? style = null, string? emptyText = null, string? key = null, string file = "", int line = 0)
-    // Compact subscription status card showing plan name, status pill and renewal/expiry date. Slot a PaymentsPortalButton in the footer to give the user a manage entry point.
-    static void SubscriptionStatus(UIView view, PaymentsSubscriptionView subscription, string[]? style = null, Action<UIView>? footer = null, Func<Task>? onResume = null, Func<Task>? onCancel = null, Func<Task>? onCancelImmediate = null, Func<Task>? onPause = null, Func<Task>? onResumeFromPause = null, string? key = null, string file = "", int line = 0)
-    // Grid of one-tap tip preset amounts. Each preset renders as a rounded button showing the currency-formatted amount; clicking invokes onTip with the chosen minor-unit amount. App handler typically passes the amount to PaymentsService.CreateTipCheckoutAsync and redirects.
-    static void TipPresetGrid(UIView view, IReadOnlyList<long> presetsMinor, string currencySymbol, Func<long, Task> onTip, string[]? style = null, string? key = null, string file = "", int line = 0)
-    // Display-only preview card for the next-billing-cycle invoice. Pair with PaymentsService.PreviewUpcomingInvoiceAsync: call before committing a plan change so the user sees "next bill = €X · €Y proration".
-    static void UpcomingInvoicePreview(UIView view, PaymentsUpcomingInvoice preview, string[]? style = null, string? key = null, string file = "", int line = 0)
-  // One row in the invoice / receipt list.
-  sealed class PaymentsInvoiceView : IEquatable<PaymentsInvoiceView>
-    // One row in the invoice / receipt list.
-    ctor(string Id, DateTimeOffset Date, string AmountLabel, string Status, string? HostedUrl = null, string? PdfUrl = null)
-    string AmountLabel { get; init; }
-    DateTimeOffset Date { get; init; }
-    string? HostedUrl { get; init; }
-    string Id { get; init; }
-    string? PdfUrl { get; init; }
-    string Status { get; init; }
-  // One saved card / payment method.
-  sealed class PaymentsPaymentMethodView : IEquatable<PaymentsPaymentMethodView>
-    // One saved card / payment method.
-    ctor(string Id, string Brand, string Last4, int ExpMonth, int ExpYear, bool IsDefault = false)
-    string Brand { get; init; }
-    int ExpMonth { get; init; }
-    int ExpYear { get; init; }
-    string Id { get; init; }
-    bool IsDefault { get; init; }
-    string Last4 { get; init; }
-  // View-model records for the Parallax billing components. They are intentionally lightweight and decoupled from the Stripe-shaped Payments records so the components can be driven from any source — a live PaymentsService , a fake in-memory list, or static catalog data.
+  // View-model for the Parallax pricing components. Intentionally lightweight so the components can be driven from any source — a live PaymentsService catalog, a fake in-memory list, or static data.
   sealed class PaymentsPlanView : IEquatable<PaymentsPlanView>
-    // View-model records for the Parallax billing components. They are intentionally lightweight and decoupled from the Stripe-shaped Payments records so the components can be driven from any source — a live PaymentsService , a fake in-memory list, or static catalog data.
+    // View-model for the Parallax pricing components. Intentionally lightweight so the components can be driven from any source — a live PaymentsService catalog, a fake in-memory list, or static data.
     ctor(string PlanId, string Name, string PriceLabel, string? IntervalLabel = null, IReadOnlyList<string>? Features = null, string? Badge = null, string? CtaLabel = null, bool Highlighted = false, bool Disabled = false)
     string? Badge { get; init; }
     string? CtaLabel { get; init; }
@@ -1281,15 +1230,6 @@ namespace Ikon.Parallax.Components.Standard
     string Name { get; init; }
     string PlanId { get; init; }
     string PriceLabel { get; init; }
-  // Subscription header / status card model.
-  sealed class PaymentsSubscriptionView : IEquatable<PaymentsSubscriptionView>
-    // Subscription header / status card model.
-    ctor(string PlanName, string Status, DateTimeOffset? CurrentPeriodEnd = null, bool CancelAtPeriodEnd = false, string? PriceLabel = null)
-    bool CancelAtPeriodEnd { get; init; }
-    DateTimeOffset? CurrentPeriodEnd { get; init; }
-    string PlanName { get; init; }
-    string? PriceLabel { get; init; }
-    string Status { get; init; }
   // Options for the Contact Picker API action.
   sealed class PickContactsActionOptions : ActionOptions, IEquatable<PickContactsActionOptions>
     ctor()
