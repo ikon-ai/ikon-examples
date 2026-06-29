@@ -11,9 +11,24 @@
     <IsIkonInternal Condition="'$(IkonRoot)' != ''">true</IsIkonInternal>
   </PropertyGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' != 'true'">
-    <PackageReference Include="Ikon.Parallax" Version="3.2.22" />
+    <PackageReference Include="Ikon.Parallax" Version="3.2.25" />
   </ItemGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' == 'true'">
     <ProjectReference Include="$(IkonRoot)\Ikon.Parallax\Ikon.Parallax.csproj" />
   </ItemGroup>
+  <Target Name="IkonAppTeleportBuildInternal" BeforeTargets="BeforeBuild" Condition="'$(IsIkonInternal)' == 'true' And Exists('$(MSBuildProjectDirectory)/../../schema')">
+    <MSBuild Projects="$(IkonRoot)/BuildUtil/BuildUtil.csproj" Targets="Build" Properties="Configuration=$(Configuration)" RemoveProperties="OutDir;OutputPath;PublishDir;BaseOutputPath;IntermediateOutputPath;BaseIntermediateOutputPath">
+      <Output TaskParameter="TargetOutputs" ItemName="_BuildUtilOutput" />
+    </MSBuild>
+    <Exec Command="dotnet &quot;@(_BuildUtilOutput)&quot; --generate-app-teleport --app-dir &quot;$(MSBuildProjectDirectory)/../..&quot;" />
+    <ItemGroup>
+      <Compile Include="$(MSBuildProjectDirectory)/Generated/**/*.cs" Exclude="@(Compile)" />
+    </ItemGroup>
+  </Target>
+  <Target Name="IkonAppTeleportBuildExternal" BeforeTargets="BeforeBuild" Condition="'$(IsIkonInternal)' != 'true' And Exists('$(MSBuildProjectDirectory)/../../schema')">
+    <Exec Command="ikon app teleport build --target-dir &quot;$(MSBuildProjectDirectory)/../..&quot;" EnvironmentVariables="CI=true" ContinueOnError="WarnAndContinue" />
+    <ItemGroup>
+      <Compile Include="$(MSBuildProjectDirectory)/Generated/**/*.cs" Exclude="@(Compile)" />
+    </ItemGroup>
+  </Target>
 </Project>
