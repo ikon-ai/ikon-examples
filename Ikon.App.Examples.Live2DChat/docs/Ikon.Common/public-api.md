@@ -54,6 +54,7 @@ namespace Ikon.Common
     ctor()
     AppProjectConfig.ActivationConfig Activation { get; set; }
     AppProjectConfig.AuthConfig Auth { get; set; }
+    AppProjectConfig.BootSnapshotConfig BootSnapshot { get; set; }
     List<string> Databases { get; set; }
     AppProjectConfig.TargetConfig Target { get; set; }
     static AppProjectConfig FromToml(string tomlContent)
@@ -115,6 +116,9 @@ namespace Ikon.Common
     List<string> DomainAllowlist { get; set; }
     bool Enabled { get; set; }
     List<string> Methods { get; set; }
+  class AppProjectConfig.BootSnapshotConfig : ITomlMetadataProvider
+    ctor()
+    bool Enabled { get; set; }
   class AppBundleConfig.CellEntry
     ctor()
     string DllName { get; set; }
@@ -227,7 +231,7 @@ namespace Ikon.Common
     event Func<AssetEventArgs, Task> AssetEventAsync
     event Func<object, FileScanner.FileEventArgs, Task>? FileEvent
   class GenericListCache<T> : IGenericListCache<T>
-    ctor()
+    ctor(TimeProvider? timeProvider = null)
     void Add(string hash, T item)
     void Clear()
     void Delete(string hash)

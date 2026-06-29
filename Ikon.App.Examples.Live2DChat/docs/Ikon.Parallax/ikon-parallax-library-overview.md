@@ -365,9 +365,14 @@ Without scopes, all clients share the same value. With `ClientScope`, each clien
 
 ## Boot Snapshot and Privacy
 
-The platform can capture an app's **initial UI at build time** and ship it as a static `boot-snapshot.json`, so the first paint appears instantly — before the WebSocket connects. Capture happens during `ikon app bundle/deploy --snapshot`: the server renders the app once for a synthetic snapshot client and serializes the resulting UI tree.
+The platform can capture an app's **initial UI at build time** and ship it as a static `boot-snapshot.json`, so the first paint appears instantly — before the WebSocket connects. Capture is **opt-in per app** via `ikon-config.toml`: enable the `[BootSnapshot]` section, then `ikon app bundle` / `ikon app deploy` renders the app once for a synthetic snapshot client and serializes the resulting UI tree.
 
-Because that snapshot is a **public asset served to everyone**, anything in your initial UI — a signed-in user's name, a session link, private data — would be baked into it and shown to every visitor before the live UI loads. Parallax lets you render a privacy-safe variant for the snapshot **without forking `UI.Root` into two separate UIs**.
+```toml
+[BootSnapshot]
+Enabled = true
+```
+
+Because that snapshot is a **public asset served to everyone**, anything in your initial UI — a signed-in user's name, a session link, private data — would be baked into it and shown to every visitor before the live UI loads. So **enabling boot snapshot almost always means you must specialize your initial UI for snapshot mode** to keep per-user and sensitive content out of the public first paint. Parallax lets you render a privacy-safe variant for the snapshot **without forking `UI.Root` into two separate UIs**.
 
 During snapshot capture the flag `view.IsSnapshot` is `true` (it is always `false` on the normal live render). Three wrappers branch on it at build time, so you keep a single UI definition:
 
@@ -403,6 +408,8 @@ These wrappers are **zero-cost on the live path**: when `IsSnapshot` is `false` 
 ```csharp
 if (view.IsSnapshot) { /* snapshot-only branch */ }
 ```
+
+**Preview the snapshot UI in a browser** by opening the running app with `?ikon-snapshot=true`. The SDK then connects as a snapshot client — the same `Context.IsSnapshot = true` render path the build-time capture uses — so the live page shows exactly what the boot snapshot bakes: `SnapshotSkeleton` content replaced by its placeholder, `SnapshotHide` elements gone, `SnapshotOnly` filler present, and only the active tab's panel rendered. It needs no rebuild and works against any running instance — a local `ikon app run` or a deployed URL — so you can iterate on the privacy-safe initial UI and confirm no per-user or sensitive content leaks into the public first paint.
 
 ## Architecture Summary
 

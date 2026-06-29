@@ -18,6 +18,13 @@ Methods = ["google"]
 # If non-empty, only allow users with email addresses from these domains to authenticate (e.g. ["mycompany.com"])
 DomainAllowlist = []
 
+# Boot snapshot: capture the app's initial UI at build/deploy time so the first paint appears
+# instantly. Off by default. The snapshot is a PUBLIC asset — if you enable it, specialize your
+# initial UI for snapshot mode (SnapshotSkeleton/SnapshotHide/SnapshotOnly) so no sensitive data
+# is baked in. See the Parallax library overview docs.
+[BootSnapshot]
+Enabled = false
+
 # Target information for deployment (automatically configured with 'ikon app config')
 [Target]
 OrganisationId = ""
