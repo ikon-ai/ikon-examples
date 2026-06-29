@@ -217,4 +217,3 @@ Below is a clean, exhaustive list of Tailwind CSS v4.x utility families, organiz
 * **Mask composite**: `mask-composite-{add|subtract|intersect|exclude}` — sets `mask-composite`
 
 > All mask utilities automatically emit both standard `mask-*` and vendor-prefixed `-webkit-mask-*` declarations for cross-browser compatibility.
-

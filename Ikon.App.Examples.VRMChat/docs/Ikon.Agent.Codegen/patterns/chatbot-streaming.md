@@ -84,7 +84,7 @@ view.ScrollArea(rootStyle: ["flex-1 min-h-0"], viewportStyle: ["p-4"], content: 
 });
 view.Row(["p-4 gap-2 border-t"], content: view =>
 {
-    view.TextField(["flex-1"], value: _draft.Value, placeholder: "Type a message…",
+    view.TextField([Input.Default, "flex-1"], value: _draft.Value, placeholder: "Type a message…",
         onValueChange: async v => _draft.Value = v,
         onSubmit: async _ => await SendAsync());
     view.Button(style: [Button.Default, _busy.Value ? "opacity-50" : ""],
