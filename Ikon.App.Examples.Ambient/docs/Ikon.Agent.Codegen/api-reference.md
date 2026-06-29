@@ -6742,7 +6742,7 @@ namespace Ikon.App
     Task StartAsync(CancellationToken cancellationToken = null)
     // Stops the endpoint host gracefully. Waits up to 5 seconds for pending requests to complete.
     Task StopAsync(CancellationToken cancellationToken = null)
-  // Typed app↔client custom-message helpers over the app-local Teleport channel. The payload types come from the app's own Schema/*.tp files (compiled by ikon app teleport build); each carries its own GROUP_APP_LOCAL opcode and is sent/received as a native type — no JSON marshalling. Delivery is server-controlled and explicit: SendMessageAsync``1 always takes the recipient client session IDs — there is no implicit broadcast to every client. Whether a type travels reliably or unreliably is declared on the .tp schema (unreliable = true), not here.
+  // Typed app↔client custom-message helpers over the app-local Teleport channel. The payload types come from the app's own schema/*.tp files (compiled by ikon app teleport build); each carries its own GROUP_APP_LOCAL opcode and is sent/received as a native type — no JSON marshalling. Delivery is server-controlled and explicit: SendMessageAsync``1 always takes the recipient client session IDs — there is no implicit broadcast to every client. Whether a type travels reliably or unreliably is declared on the .tp schema (unreliable = true), not here.
   static class AppMessaging
     static IDisposable OnMessage<T>(IProtocolMessageChannel app, Func<T, int, ValueTask> handler) where T : IProtocolMessagePayload, new()
     static ValueTask SendMessageAsync<T>(IProtocolMessageChannel app, T message, IReadOnlyList<int> targetIds) where T : IProtocolMessagePayload
