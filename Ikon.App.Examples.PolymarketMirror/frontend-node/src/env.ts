@@ -7,6 +7,8 @@ declare const __IKON_AUTH_METHODS__: LoginMethod[] | undefined;
 declare const __IKON_AUTH_SPACE_ID__: string | undefined;
 declare const __IKON_BACKEND_URL__: string | undefined;
 declare const __IKON_AUTH_URL__: string | undefined;
+declare const __IKON_DEV_LOGIN_TOKEN__: string | undefined;
+declare const __IKON_DEV_LOGIN_RUN_ID__: string | undefined;
 declare const __IKON_LOCAL_IKON_SERVER_ENABLED__: boolean | undefined;
 declare const __IKON_LOCAL_IKON_SERVER_HOST__: string | undefined;
 declare const __IKON_LOCAL_IKON_SERVER_PORT__: number | undefined;
@@ -20,6 +22,8 @@ declare global {
       spaceId: string;
       backendUrl?: string;
       authUrl?: string;
+      devLoginToken?: string;
+      devLoginRunId?: string;
     };
     __IKON_LOCAL_IKON_SERVER_CONFIG__?: {
       enabled: boolean;
@@ -61,6 +65,8 @@ window.__IKON_AUTH_CONFIG__ = {
   spaceId: __IKON_AUTH_SPACE_ID__,
   backendUrl: __IKON_BACKEND_URL__ || undefined,
   authUrl: __IKON_AUTH_URL__ || undefined,
+  devLoginToken: (typeof __IKON_DEV_LOGIN_TOKEN__ !== 'undefined' && __IKON_DEV_LOGIN_TOKEN__) || undefined,
+  devLoginRunId: (typeof __IKON_DEV_LOGIN_RUN_ID__ !== 'undefined' && __IKON_DEV_LOGIN_RUN_ID__) || undefined,
 };
 
 window.__IKON_LOCAL_IKON_SERVER_CONFIG__ = {

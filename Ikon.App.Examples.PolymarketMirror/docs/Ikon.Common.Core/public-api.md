@@ -4472,7 +4472,7 @@ namespace Ikon.Common.Core.Protocol
     IProtocolMessagePayload GetPayload()
     static ProtocolMessage ModifyMessage(ProtocolMessage message, int? senderId = null, int? trackId = null, int? sequenceId = null, MessageFlag? flags = null, IReadOnlyList<int>? targetIds = null)
     static ProtocolMessage ModifyPayload(IProtocolMessagePayload payload, ProtocolMessage message, PayloadType payloadType = Unknown)
-    // Register an app-local message type (an app's own Schema/*.tp type, opcode in GROUP_APP_LOCAL ) at runtime. Called from the generated type's static constructor — app-local types are compiled into the app assembly and are not visible to the platform's compile-time ProtocolMessage source generator.
+    // Register an app-local message type (an app's own schema/*.tp type, opcode in GROUP_APP_LOCAL ) at runtime. Called from the generated type's static constructor — app-local types are compiled into the app assembly and are not visible to the platform's compile-time ProtocolMessage source generator.
     static void RegisterAppLocalMessageType(Type type, Opcode opcode, int version)
     override string ToString()
     static ProtocolMessage WithFlags(ProtocolMessage message, MessageFlag additionalFlags)
