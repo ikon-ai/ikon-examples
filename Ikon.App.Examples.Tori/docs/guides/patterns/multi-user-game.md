@@ -8,15 +8,15 @@ Live trivia, multiplayer quiz, kahoot-style games, party quizzes, classroom quiz
 
 ## When NOT to use — real-time games need a custom .tp transport + local rendering
 
-This pattern (native `view.*` + `Reactive`) is for turn-based/low-frequency games. **For a real-time game where state changes many times per second — a snake game, agar-style arena, moving players, live cursors, anything with a per-frame game loop — do NOT drive the playfield through Parallax UI / `Reactive` state.** Streaming high-frequency state through the reactive UI diff is too slow and floods the channel; it will feel laggy. Instead, for the live playfield use the real-time multi-user transport: a custom **Teleport `.tp` message** (`unreliable = true` for drop-tolerant position/tick streams) sent via the SDK `appMessaging` helper, with a **custom canvas component that renders locally** (each client draws its own frames from the streamed state). The app server is the router (`app.OnMessage<T>` → `app.SendMessageAsync(payload, targets)`). Keep only the non-realtime chrome (lobby, scoreboard, controls) in native `view.*`. Reference app: **Ikon.App.Arena**. `guide("real-time multi-user custom .tp app — Schema/*.tp + appMessaging + custom canvas + server router")` before writing it.
+This pattern (native `view.*` + `Reactive`) is for turn-based/low-frequency games. **For a real-time game where state changes many times per second — a snake game, agar-style arena, moving players, live cursors, anything with a per-frame game loop — do NOT drive the playfield through Parallax UI / `Reactive` state.** Streaming high-frequency state through the reactive UI diff is too slow and floods the channel; it will feel laggy. Instead, for the live playfield use the real-time multi-user transport: a custom **Teleport `.tp` message** (`unreliable = true` for drop-tolerant position/tick streams) sent via the SDK `appMessaging` helper, with a **custom canvas component that renders locally** (each client draws its own frames from the streamed state). The app server is the router (`app.OnMessage<T>` → `app.SendMessageAsync(payload, targets)`). Keep only the non-realtime chrome (lobby, scoreboard, controls) in native `view.*`. Reference app: **Ikon.App.Arena**. `guide("real-time multi-user custom .tp app — schema/*.tp + appMessaging + custom canvas + server router")` before writing it.
 
-**The exact trap to avoid (it compiles and even runs, so nothing flags it): mounting a custom canvas but feeding it per-tick state through `view.AddNode` props sourced from a server `Reactive`.** A "custom `.tp` component" is NOT the same as a custom *component* — `.tp` is the Teleport MESSAGE PROTOCOL (a `Schema/<Name>.tp` type carried by `appMessaging` / `app.SendMessageAsync`), not the component file. Concretely:
+**The exact trap to avoid (it compiles and even runs, so nothing flags it): mounting a custom canvas but feeding it per-tick state through `view.AddNode` props sourced from a server `Reactive`.** A "custom `.tp` component" is NOT the same as a custom *component* — `.tp` is the Teleport MESSAGE PROTOCOL (a `schema/<Name>.tp` type carried by `appMessaging` / `app.SendMessageAsync`), not the component file. Concretely:
 - WRONG (the slow path): server holds `Reactive<GameState> _game`; the tick loop mutates it; `view.AddNode("custom.board", new(){ ["stateJson"] = JsonSerialize(_game.Value) })` pushes the whole state as a prop every tick. This routes per-frame game state through the Parallax UI-diff pipeline — exactly what kills performance. If your plan/code has `AddNode` props that change every tick, or a `Reactive` holding the live game state, you are on the slow path.
-- RIGHT: there is a `Schema/<Game>State.tp` message type. The server tick loop calls `await app.SendMessageAsync(state, app.Clients.Ids.ToList())` each tick; the canvas component subscribes with `appMessaging(client).on(StateType, s => render(s))` and renders on its own `<canvas>`; input goes back the same way (`appMessaging(client).send(InputType, dir)` → server `app.OnMessage<Input>`). `AddNode` mounts the canvas ONCE for layout/config — it is NOT the per-tick data channel.
+- RIGHT: there is a `schema/<Game>State.tp` message type. The server tick loop calls `await app.SendMessageAsync(state, app.Clients.Ids.ToList())` each tick; the canvas component subscribes with `appMessaging(client).on(StateType, s => render(s))` and renders on its own `<canvas>`; input goes back the same way (`appMessaging(client).send(InputType, dir)` → server `app.OnMessage<Input>`). `AddNode` mounts the canvas ONCE for layout/config — it is NOT the per-tick data channel.
 
-**EXACT `Schema/*.tp` file format — do NOT write an `opcode`; the compiler auto-assigns it.** Each `.tp` is a TOML-like file at the app root (`<appRoot>/Schema/<Name>.tp`), ONE message type per file. **Omit the `opcode` field entirely** — the app-local compiler assigns each message a unique opcode in the `GROUP_APP_LOCAL` range automatically (so it can never collide with a system opcode, and C#/TS always agree). Do NOT hand-write an `opcode` and NEVER write a string name like `opcode = "GAME_SNAPSHOT"` (older builds defaulted that to `0x00000000`, outside the app-local group, so the message never routed and the client's `appMessaging.on(...)` never fired — "Connecting…" forever, with nothing in the build catching it). The fields use a `type`, `version`, optional `unreliable`, optional `[namespaces]`, `[fields]`, and `[nested.X]` tables:
+**EXACT `schema/*.tp` file format — do NOT write an `opcode`; the compiler auto-assigns it.** Each `.tp` is a TOML-like file at the app root (`<appRoot>/schema/<Name>.tp`), ONE message type per file. **Omit the `opcode` field entirely** — the app-local compiler assigns each message a unique opcode in the `GROUP_APP_LOCAL` range automatically (so it can never collide with a system opcode, and C#/TS always agree). Do NOT hand-write an `opcode` and NEVER write a string name like `opcode = "GAME_SNAPSHOT"` (older builds defaulted that to `0x00000000`, outside the app-local group, so the message never routed and the client's `appMessaging.on(...)` never fired — "Connecting…" forever, with nothing in the build catching it). The fields use a `type`, `version`, optional `unreliable`, optional `[namespaces]`, `[fields]`, and `[nested.X]` tables:
 ```toml
-# Schema/GameSnapshot.tp — server → all clients, high-frequency tick state
+# schema/GameSnapshot.tp — server → all clients, high-frequency tick state
 type       = "GameSnapshot"
 version    = 1
 unreliable = true              # drop-tolerant: each tick carries the full state, so a lost datagram self-heals
@@ -45,7 +45,7 @@ X = "int32"
 Y = "int32"
 ```
 ```toml
-# Schema/SnakeInput.tp — client → server, player steering (also no opcode)
+# schema/SnakeInput.tp — client → server, player steering (also no opcode)
 type    = "SnakeInput"
 version = 1
 
@@ -56,7 +56,7 @@ The generated codec still exports `<NAME>_OPCODE` (the auto-assigned value) for 
 
 **EXACT server API shapes — copy these verbatim (codegen reliably hallucinates the arg counts here):**
 ```csharp
-// Schema/<Name>.tp lives at the APP ROOT (<appRoot>/Schema/GameState.tp); the build generates
+// schema/<Name>.tp lives at the APP ROOT (<appRoot>/schema/GameState.tp); the build generates
 // app/<App>/Generated/Protocol/GameState.cs and you reference the type directly — `GameState`, no using.
 
 // RECEIVE — OnMessage<T> takes ONE argument: the handler (payload, senderId). NO message-name string.
@@ -79,7 +79,7 @@ _ = Task.Run(async () =>
     }
 });
 ```
-Common build errors when these shapes are wrong: `CS1501 No overload for 'SendMessageAsync' takes 4 arguments` (you passed a name string / extra arg — pass only message + targets), `CS1501 No overload for 'OnMessage' takes 2 arguments` (you passed a name string — pass only the handler), `CS1955 BackgroundWork cannot be used like a method` (it's a property — use Task.Run), `CS0246 'GameState' not found` (the Schema/*.tp isn't at the app root, or you referenced it before the first build generated its .cs). Reference app: **Ikon.App.Arena**.
+Common build errors when these shapes are wrong: `CS1501 No overload for 'SendMessageAsync' takes 4 arguments` (you passed a name string / extra arg — pass only message + targets), `CS1501 No overload for 'OnMessage' takes 2 arguments` (you passed a name string — pass only the handler), `CS1955 BackgroundWork cannot be used like a method` (it's a property — use Task.Run), `CS0246 'GameState' not found` (the schema/*.tp isn't at the app root, or you referenced it before the first build generated its .cs). Reference app: **Ikon.App.Arena**.
 
 **FRONTEND REGISTRATION — the 4 parts that MUST all line up, or `AddNode` renders BLANK (nothing in the build flags it; this is the #1 reason a realtime app "builds" but shows nothing).** The C# `view.AddNode("<type>", props)` node type is a PLAIN name (e.g. `"viperboard"`, NOT a dotted `"app.board"`), and the SAME string must be matched by a resolver that is registered into the UI registry via a module added to `app.tsx`. Mirror Ikon.App.Arena exactly:
 ```tsx
