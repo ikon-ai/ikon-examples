@@ -18,20 +18,20 @@
     <IsIkonInternal Condition="'$(IkonRoot)' != ''">true</IsIkonInternal>
   </PropertyGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' != 'true'">
-    <PackageReference Include="Ikon.AI" Version="3.2.22" />
-    <PackageReference Include="Ikon.AI.Emergence" Version="3.2.22" />
-    <PackageReference Include="Ikon.App" Version="3.2.22" />
-    <PackageReference Include="Ikon.Common" Version="3.2.22" />
-    <PackageReference Include="Ikon.Common.Core" Version="3.2.22" />
-    <PackageReference Include="Ikon.Crosswind" Version="3.2.22" />
-    <PackageReference Include="Ikon.Parallax" Version="3.2.22" />
-    <PackageReference Include="Ikon.Pipeline" Version="3.2.22" />
-    <PackageReference Include="Ikon.Pipelines.Public" Version="3.2.22" />
-    <PackageReference Include="Ikon.Resonance" Version="3.2.22" />
-    <PackageReference Include="Ikon.Resonance.Core" Version="3.2.22" />
-    <PackageReference Include="Ikon.Server" Version="3.2.22" />
-    <PackageReference Include="Ikon.Teleport" Version="3.2.22" />
-    <PackageReference Include="Ikon.Sdk" Version="2.0.14" />
+    <PackageReference Include="Ikon.AI" Version="3.2.25" />
+    <PackageReference Include="Ikon.AI.Emergence" Version="3.2.25" />
+    <PackageReference Include="Ikon.App" Version="3.2.25" />
+    <PackageReference Include="Ikon.Common" Version="3.2.25" />
+    <PackageReference Include="Ikon.Common.Core" Version="3.2.25" />
+    <PackageReference Include="Ikon.Crosswind" Version="3.2.25" />
+    <PackageReference Include="Ikon.Parallax" Version="3.2.25" />
+    <PackageReference Include="Ikon.Pipeline" Version="3.2.25" />
+    <PackageReference Include="Ikon.Pipelines.Public" Version="3.2.25" />
+    <PackageReference Include="Ikon.Resonance" Version="3.2.25" />
+    <PackageReference Include="Ikon.Resonance.Core" Version="3.2.25" />
+    <PackageReference Include="Ikon.Server" Version="3.2.25" />
+    <PackageReference Include="Ikon.Teleport" Version="3.2.25" />
+    <PackageReference Include="Ikon.Sdk" Version="2.0.14.54" />
   </ItemGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' == 'true'">
     <ProjectReference Include="$(IkonRoot)\Ikon.AI\Ikon.AI.csproj" />
@@ -48,6 +48,32 @@
     <ProjectReference Include="$(IkonRoot)\Ikon.Server\Ikon.Server.csproj" />
     <ProjectReference Include="$(IkonRoot)\Ikon.Teleport\Ikon.Teleport.csproj" />
     <ProjectReference Include="$(IkonRoot)\Ikon.Sdk\Ikon.Sdk.csproj" />
+  </ItemGroup>
+  <Target Name="IkonAppTeleportBuildInternal" BeforeTargets="BeforeBuild" Condition="'$(IsIkonInternal)' == 'true' And Exists('$(MSBuildProjectDirectory)/../../schema')">
+    <MSBuild Projects="$(IkonRoot)/BuildUtil/BuildUtil.csproj" Targets="Build" Properties="Configuration=$(Configuration)" RemoveProperties="OutDir;OutputPath;PublishDir;BaseOutputPath;IntermediateOutputPath;BaseIntermediateOutputPath">
+      <Output TaskParameter="TargetOutputs" ItemName="_BuildUtilOutput" />
+    </MSBuild>
+    <Exec Command="dotnet &quot;@(_BuildUtilOutput)&quot; --generate-app-teleport --app-dir &quot;$(MSBuildProjectDirectory)/../..&quot;" />
+    <ItemGroup>
+      <Compile Include="$(MSBuildProjectDirectory)/Generated/**/*.cs" Exclude="@(Compile)" />
+    </ItemGroup>
+  </Target>
+  <Target Name="IkonAppTeleportBuildExternal" BeforeTargets="BeforeBuild" Condition="'$(IsIkonInternal)' != 'true' And Exists('$(MSBuildProjectDirectory)/../../schema')">
+    <Exec Command="ikon app teleport build --target-dir &quot;$(MSBuildProjectDirectory)/../..&quot;" EnvironmentVariables="CI=true" ContinueOnError="WarnAndContinue" />
+    <ItemGroup>
+      <Compile Include="$(MSBuildProjectDirectory)/Generated/**/*.cs" Exclude="@(Compile)" />
+    </ItemGroup>
+  </Target>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.3.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="5.3.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.2" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+    <PackageReference Include="Dapper" Version="2.1.66" />
   </ItemGroup>
   <Target Name="GenerateValidationAppPassword" BeforeTargets="CoreCompile">
     <WriteLinesToFile File="$(IntermediateOutputPath)ValidationAppPassword.g.cs" Overwrite="true" Lines="public static partial class BuildConstants { public const string ValidationAppPassword = &quot;$(ValidationAppPassword)&quot;%3B }" />

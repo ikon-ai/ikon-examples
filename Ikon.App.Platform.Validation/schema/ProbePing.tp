@@ -1,0 +1,21 @@
+type = "ProbePing"
+version = 1
+# App-local opcode omitted on purpose — the compiler auto-assigns one in the
+# GROUP_APP_LOCAL range (so it can never collide and C#/TS always agree). This is
+# the RELIABLE+ordered variant (no `unreliable` flag): every message is delivered.
+
+[namespaces]
+csharp = "Ikon.App.Platform.Validation.Protocol"
+typescript = ""
+
+# A diagnostic ping carried over the app-local Teleport channel, used by the
+# Validation "Custom Msgs" tab to exercise the custom-.tp surface in BOTH
+# directions (server->client stream and client->server send). Seq is monotonic
+# per (Origin, Mode) so the receiver can detect gaps (drops) and reordering;
+# SentAtMs lets the receiver compute one-way latency.
+[fields]
+Seq      = "int64"
+SentAtMs = "int64"
+Origin   = "string"
+Mode     = "string"
+Note     = "string"

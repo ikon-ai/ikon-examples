@@ -46,6 +46,11 @@ public partial class Validation
 
     private void RenderPaymentsSection(UIView view)
     {
+        if (RenderSectionLocked(view, "Payments"))
+        {
+            return;
+        }
+
         view.Column([Layout.Column.Lg], content: col =>
         {
             col.Box([Card.Default, "p-6"], content: hdr =>

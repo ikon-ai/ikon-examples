@@ -1,9 +1,10 @@
 public partial class Validation
 {
-    // Ikon.AI section access
-    private readonly Reactive<string> _ikonAIPassword = new("");
-    private readonly Reactive<bool> _ikonAIUnlocked = new(false);
-    private readonly Reactive<bool> _ikonAIPasswordError = new(false);
+    // Shared access gate for the password-protected sections (Ikon.AI, Payments, Database).
+    // One unlock covers them all.
+    private readonly Reactive<string> _sectionPassword = new("");
+    private readonly Reactive<bool> _sectionUnlocked = new(false);
+    private readonly Reactive<bool> _sectionPasswordError = new(false);
 
     // Chat model/region selection
     private readonly Reactive<string> _chatModel = new(nameof(LLMModel.Claude45Sonnet));
@@ -200,70 +201,85 @@ public partial class Validation
         return metadata.Url;
     }
 
-    private void RenderIkonAISection(UIView view)
+    // Gates a section behind the validation app password. Returns true when the lock screen was
+    // rendered — the caller should then return without drawing the real content. A single unlock is
+    // shared across every gated section. Local runs and builds without a configured password are
+    // never gated.
+    private bool RenderSectionLocked(UIView view, string title)
     {
-        if (!_ikonAIUnlocked.Value && app.GlobalState.ServerRunType != ServerRunType.Local
-            && !string.IsNullOrEmpty(BuildConstants.ValidationAppPassword))
+        if (_sectionUnlocked.Value || app.GlobalState.ServerRunType == ServerRunType.Local
+            || string.IsNullOrEmpty(BuildConstants.ValidationAppPassword))
         {
-            view.Column([Layout.Column.Lg], content: view =>
+            return false;
+        }
+
+        view.Column([Layout.Column.Lg], content: view =>
+        {
+            view.Box([Card.Default, "p-6 mb-6"], content: view =>
             {
-                view.Box([Card.Default, "p-6 mb-6"], content: view =>
+                view.Text([Text.H2, "mb-2"], title);
+                view.Text([Text.Caption, "mb-4"], $"Enter password to access the {title} section.");
+
+                view.Box([FormField.Root], content: view =>
                 {
-                    view.Text([Text.H2, "mb-2"], "Ikon.AI Library");
-                    view.Text([Text.Caption, "mb-4"], "Enter password to access the Ikon.AI Library section.");
-
-                    view.Box([FormField.Root], content: view =>
-                    {
-                        view.Text([FormField.Label], "Password");
-                        view.TextField(
-                            [Input.Default],
-                            value: _ikonAIPassword.Value,
-                            type: "password",
-                            onValueChange: async v =>
-                            {
-                                _ikonAIPassword.Value = v ?? "";
-                                _ikonAIPasswordError.Value = false;
-                            },
-                            onSubmit: async submitted =>
-                            {
-                                if (submitted == BuildConstants.ValidationAppPassword)
-                                {
-                                    _ikonAIUnlocked.Value = true;
-                                    _ikonAIPasswordError.Value = false;
-                                }
-                                else
-                                {
-                                    _ikonAIPasswordError.Value = true;
-                                }
-                            });
-                    });
-
-                    view.Button(
-                        [Button.PrimaryMd, "mt-4"],
-                        label: "Unlock",
-                        disabled: string.IsNullOrEmpty(_ikonAIPassword.Value),
-                        onClick: async () =>
+                    view.Text([FormField.Label], "Password");
+                    view.TextField(
+                        [Input.Default],
+                        value: _sectionPassword.Value,
+                        type: "password",
+                        onValueChange: async v =>
                         {
-                            if (_ikonAIPassword.Value == BuildConstants.ValidationAppPassword)
+                            _sectionPassword.Value = v ?? "";
+                            _sectionPasswordError.Value = false;
+                        },
+                        onSubmit: async submitted =>
+                        {
+                            if (submitted == BuildConstants.ValidationAppPassword)
                             {
-                                _ikonAIUnlocked.Value = true;
-                                _ikonAIPasswordError.Value = false;
+                                _sectionUnlocked.Value = true;
+                                _sectionPasswordError.Value = false;
                             }
                             else
                             {
-                                _ikonAIPasswordError.Value = true;
+                                _sectionPasswordError.Value = true;
                             }
                         });
-
-                    if (_ikonAIPasswordError.Value)
-                    {
-                        view.Box([Alert.Error, "mt-4"], content: view =>
-                        {
-                            view.Text([Alert.Description], "Incorrect password");
-                        });
-                    }
                 });
+
+                view.Button(
+                    [Button.PrimaryMd, "mt-4"],
+                    label: "Unlock",
+                    disabled: string.IsNullOrEmpty(_sectionPassword.Value),
+                    onClick: async () =>
+                    {
+                        if (_sectionPassword.Value == BuildConstants.ValidationAppPassword)
+                        {
+                            _sectionUnlocked.Value = true;
+                            _sectionPasswordError.Value = false;
+                        }
+                        else
+                        {
+                            _sectionPasswordError.Value = true;
+                        }
+                    });
+
+                if (_sectionPasswordError.Value)
+                {
+                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    {
+                        view.Text([Alert.Description], "Incorrect password");
+                    });
+                }
             });
+        });
+
+        return true;
+    }
+
+    private void RenderIkonAISection(UIView view)
+    {
+        if (RenderSectionLocked(view, "Ikon.AI Library"))
+        {
             return;
         }
 

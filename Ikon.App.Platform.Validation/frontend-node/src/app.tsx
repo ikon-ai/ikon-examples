@@ -4,6 +4,7 @@ import { AuthProvider, IkonApp, useAuthOptional, useIkonApp, useLazyFont } from 
 import { registerStandardUiModule, registerLucideIconsModule } from '@ikonai/sdk-react-ui-standard';
 import { registerRiveModule } from '@ikonai/sdk-react-ui-rive';
 import { registerFunctionTesterModule } from './lib/function-tester/function-tester-module';
+import { registerTpProbeModule } from './lib/tp-probe/tp-probe-module';
 import { AuthGuard } from './auth/auth-guard';
 import { authConfig } from './env';
 import { I18nProvider, useI18n } from './i18n/i18n';
@@ -32,7 +33,7 @@ function App() {
 function AuthorizedApp() {
   const loadFont = useLazyFont('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
   const app = useIkonApp({
-    modules: [registerStandardUiModule, registerLucideIconsModule, registerRiveModule, registerFunctionTesterModule],
+    modules: [registerStandardUiModule, registerLucideIconsModule, registerRiveModule, registerFunctionTesterModule, registerTpProbeModule],
   });
 
   return (

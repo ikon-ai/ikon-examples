@@ -26,7 +26,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         "ikon-ai", "mcp", "app-cells",
         "virtualization", "drawing", "resizable-split",
         "profiling", "memory", "identity", "functions",
-        "payments", "email"
+        "payments", "email", "custom-messages", "database"
     ];
 
     // Input states
@@ -354,7 +354,11 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         SetupAudioMetricsTracking();
         SetupVideoInputHandlers();
         SetupAudioInputHandlers();
+        SetupCustomMessageHandlers();
         await StartMcpAsync();
+
+        await InitDatabaseAsync();
+        app.OnStopping(ClearDatabaseAsync);
 
         app.Navigation.PathChangedAsync += async args =>
         {
@@ -471,6 +475,8 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             new TabItem("functions", "Functions", RenderFunctionsSection),
                             new TabItem("payments", "Payments", ProfilingSkippable(RenderPaymentsSection)),
                             new TabItem("email", "Email", RenderEmailSection),
+                            new TabItem("custom-messages", "Custom Msgs", RenderCustomMessagesSection),
+                            new TabItem("database", "Database", RenderDatabaseSection),
                         ]);
                 });
             });

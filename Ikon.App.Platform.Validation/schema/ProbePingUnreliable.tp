@@ -1,0 +1,20 @@
+type = "ProbePingUnreliable"
+version = 1
+# App-local opcode omitted — auto-assigned in the GROUP_APP_LOCAL range. This is
+# the UNRELIABLE variant: messages route over the low-latency unreliable channel
+# (WebRTC data channel / UDP), falling back to reliable when unavailable. Drops
+# and reordering are possible — the receiver's Seq tracking surfaces them.
+unreliable = true
+
+[namespaces]
+csharp = "Ikon.App.Platform.Validation.Protocol"
+typescript = ""
+
+# Identical shape to ProbePing (a distinct type is required because reliability
+# is a per-type schema flag, not a per-send option). See ProbePing.tp.
+[fields]
+Seq      = "int64"
+SentAtMs = "int64"
+Origin   = "string"
+Mode     = "string"
+Note     = "string"

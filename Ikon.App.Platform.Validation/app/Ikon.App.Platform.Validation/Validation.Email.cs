@@ -2,11 +2,6 @@ public partial class Validation
 {
     private static readonly string[] AllowedRecipientDomains = ["ikon.live", "ikonai.com"];
 
-    // Email section access — same password gate as the Ikon.AI section
-    private readonly Reactive<string> _emailPassword = new("");
-    private readonly Reactive<bool> _emailUnlocked = new(false);
-    private readonly Reactive<bool> _emailPasswordError = new(false);
-
     // Send state
     private readonly Reactive<string> _emailTo = new("");
     private readonly Reactive<string> _emailSubject = new("Validation test email");
@@ -37,68 +32,8 @@ public partial class Validation
 
     private void RenderEmailSection(UIView view)
     {
-        if (!_emailUnlocked.Value && app.GlobalState.ServerRunType != ServerRunType.Local
-            && !string.IsNullOrEmpty(BuildConstants.ValidationAppPassword))
+        if (RenderSectionLocked(view, "Email"))
         {
-            view.Column([Layout.Column.Lg], content: view =>
-            {
-                view.Box([Card.Default, "p-6 mb-6"], content: view =>
-                {
-                    view.Text([Text.H2, "mb-2"], "Email");
-                    view.Text([Text.Caption, "mb-4"], "Enter password to access the Email section.");
-
-                    view.Box([FormField.Root], content: view =>
-                    {
-                        view.Text([FormField.Label], "Password");
-                        view.TextField(
-                            [Input.Default],
-                            value: _emailPassword.Value,
-                            type: "password",
-                            onValueChange: async v =>
-                            {
-                                _emailPassword.Value = v ?? "";
-                                _emailPasswordError.Value = false;
-                            },
-                            onSubmit: async submitted =>
-                            {
-                                if (submitted == BuildConstants.ValidationAppPassword)
-                                {
-                                    _emailUnlocked.Value = true;
-                                    _emailPasswordError.Value = false;
-                                }
-                                else
-                                {
-                                    _emailPasswordError.Value = true;
-                                }
-                            });
-                    });
-
-                    view.Button(
-                        [Button.PrimaryMd, "mt-4"],
-                        label: "Unlock",
-                        disabled: string.IsNullOrEmpty(_emailPassword.Value),
-                        onClick: async () =>
-                        {
-                            if (_emailPassword.Value == BuildConstants.ValidationAppPassword)
-                            {
-                                _emailUnlocked.Value = true;
-                                _emailPasswordError.Value = false;
-                            }
-                            else
-                            {
-                                _emailPasswordError.Value = true;
-                            }
-                        });
-
-                    if (_emailPasswordError.Value)
-                    {
-                        view.Box([Alert.Error, "mt-4"], content: view =>
-                        {
-                            view.Text([Alert.Description], "Incorrect password");
-                        });
-                    }
-                });
-            });
             return;
         }
 
