@@ -70,7 +70,7 @@ namespace Ikon.App
     Task StartAsync(CancellationToken cancellationToken = null)
     // Stops the endpoint host gracefully. Waits up to 5 seconds for pending requests to complete.
     Task StopAsync(CancellationToken cancellationToken = null)
-  // Typed app↔client custom-message helpers over the app-local Teleport channel. The payload types come from the app's own Schema/*.tp files (compiled by ikon app teleport build); each carries its own GROUP_APP_LOCAL opcode and is sent/received as a native type — no JSON marshalling. Delivery is server-controlled and explicit: SendMessageAsync``1 always takes the recipient client session IDs — there is no implicit broadcast to every client. Whether a type travels reliably or unreliably is declared on the .tp schema (unreliable = true), not here.
+  // Typed app↔client custom-message helpers over the app-local Teleport channel. The payload types come from the app's own schema/*.tp files (compiled by ikon app teleport build); each carries its own GROUP_APP_LOCAL opcode and is sent/received as a native type — no JSON marshalling. Delivery is server-controlled and explicit: SendMessageAsync``1 always takes the recipient client session IDs — there is no implicit broadcast to every client. Whether a type travels reliably or unreliably is declared on the .tp schema (unreliable = true), not here.
   static class AppMessaging
     static IDisposable OnMessage<T>(IProtocolMessageChannel app, Func<T, int, ValueTask> handler) where T : IProtocolMessagePayload, new()
     static ValueTask SendMessageAsync<T>(IProtocolMessageChannel app, T message, IReadOnlyList<int> targetIds) where T : IProtocolMessagePayload
@@ -1512,9 +1512,9 @@ namespace Ikon.App.Payments
     string? Kind { get; init; }
     PaymentProvider? Provider { get; init; }
     string Status { get; init; }
-  // "Does this customer have access to this offer" snapshot. The [PaymentsRequireSubscription] / [PaymentsRequireUnlock] policies gate on it.
+  // "Does this customer have access to this offer" snapshot. The [PaymentsRequireSubscription] policy gates on it.
   sealed class PaymentEntitlement : IEquatable<PaymentEntitlement>
-    // "Does this customer have access to this offer" snapshot. The [PaymentsRequireSubscription] / [PaymentsRequireUnlock] policies gate on it.
+    // "Does this customer have access to this offer" snapshot. The [PaymentsRequireSubscription] policy gates on it.
     ctor(string OfferId, bool SubscriptionActive, DateTimeOffset? SubscriptionEndsAt, string? SubscriptionStatus)
     string OfferId { get; init; }
     bool SubscriptionActive { get; init; }
@@ -1670,6 +1670,7 @@ namespace Ikon.Common
     ctor()
     AppProjectConfig.ActivationConfig Activation { get; set; }
     AppProjectConfig.AuthConfig Auth { get; set; }
+    AppProjectConfig.BootSnapshotConfig BootSnapshot { get; set; }
     List<string> Databases { get; set; }
     AppProjectConfig.TargetConfig Target { get; set; }
     static AppProjectConfig FromToml(string tomlContent)
@@ -1686,8 +1687,8 @@ namespace Ikon.Common
     static IEnumerable<string> EnumerateCsprojFiles(string rootDirectory, int maxDepth = 3)
     static AppProjectUtils.AppDiscoveryResult FindAppTypeInAssembly(string dllPath)
     static string FindBestProjectFilePath(string targetDirectory)
-    // Generates (or removes) pubspec_overrides.yaml in the frontend-flutter directory so the app resolves ikon_sdk from the local platform-dart/ikon_sdk source while the ikon-platform repo is available, and from the published pub.dev package otherwise. The Dart analog of the C# -p:IkonRoot arg and GenerateTsconfigPathsJsonAsync : uses the shared Resolve ladder, so a locally-built ikon tool resolves the repo even for an app created far from it. Safe to call on every Flutter operation.
-    static Task GenerateFlutterPubspecOverridesAsync(string flutterDirectory)
+    // Generates (or removes) pubspec_overrides.yaml in the frontend-flutter directory so the app resolves ikon_sdk from the local platform-dart/ikon_sdk source while the ikon-platform repo is available, and from the published pub.dev package otherwise. The Dart analog of the C# -p:IkonRoot arg and GenerateTsconfigPathsJsonAsync . When platform is supplied (a context the CLI verb already resolved, honoring --platform-repo) it is used as-is; otherwise it falls back to the shared Resolve ladder, so a locally-built ikon tool still resolves the repo even for an app created far from it. Safe to call on every Flutter operation.
+    static Task GenerateFlutterPubspecOverridesAsync(string flutterDirectory, PlatformContext? platform = null)
     // Generates tsconfig.paths.json in the frontend-node directory with appropriate TypeScript paths. Auto-detects internal/external mode based on whether the directory is inside ikon-platform. Internal mode: generates paths pointing to monorepo source files for IDE support. External mode: generates empty paths (uses node_modules).
     static Task GenerateTsconfigPathsJsonAsync(string frontendNodeDirectory)
     static AppProjectVariables GetAppProjectVars(string? targetDirectory)
@@ -1731,6 +1732,9 @@ namespace Ikon.Common
     List<string> DomainAllowlist { get; set; }
     bool Enabled { get; set; }
     List<string> Methods { get; set; }
+  class AppProjectConfig.BootSnapshotConfig : ITomlMetadataProvider
+    ctor()
+    bool Enabled { get; set; }
   class AppBundleConfig.CellEntry
     ctor()
     string DllName { get; set; }
@@ -1843,7 +1847,7 @@ namespace Ikon.Common
     event Func<AssetEventArgs, Task> AssetEventAsync
     event Func<object, FileScanner.FileEventArgs, Task>? FileEvent
   class GenericListCache<T> : IGenericListCache<T>
-    ctor()
+    ctor(TimeProvider? timeProvider = null)
     void Add(string hash, T item)
     void Clear()
     void Delete(string hash)
@@ -2759,10 +2763,10 @@ namespace Ikon.Common
     static PlatformContext FromBaseDirectory()
     // Walks upward from directory looking for the platform-dotnet directory (the one containing ikon-platform.slnx). At each ancestor it checks current/ikon-platform.slnx (current is platform-dotnet) and current/platform-dotnet/ikon-platform.slnx (current is the repo root). With includeSibling it also checks current/ikon-platform/platform-dotnet/ (a sibling checkout). Sibling matching is opt-in because it answers "is there a platform-dotnet nearby?" rather than "is directory inside platform-dotnet?" — callers that mutate the platform repo (e.g. add an app to the slnx) must keep it off. Returns External when not found.
     static PlatformContext FromDirectory(string? directory, bool includeSibling = false)
-    // Resolves the --platform-dir argument. Returns External when input is null or blank; throws UserException when set but not containing ikon-platform.slnx.
-    static PlatformContext FromExplicit(string? explicitPlatformDir)
-    // The standard probe ladder: an explicit --platform-dir, then workingDirectory (defaulting to the current directory, including a sibling ikon-platform checkout), then the running tool's own location — so a locally-built ikon tool resolves the repo even for an app created far away. Returns External when nothing matches.
-    static PlatformContext Resolve(string? explicitPlatformDir = null, string? workingDirectory = null)
+    // Resolves the --platform-repo argument. Accepts the ikon-platform repo root, any of its platform-* subdirectories (e.g. platform-dotnet, platform-typescript), or a nested path within them — all normalize up to the same platform-dotnet root via the upward walk. Returns External when input is null or blank; throws UserException when set but no ikon-platform.slnx can be found at or above it.
+    static PlatformContext FromExplicit(string? explicitPlatformRepo)
+    // The standard probe ladder: an explicit --platform-repo, then workingDirectory (defaulting to the current directory, including a sibling ikon-platform checkout), then the running tool's own location — so a locally-built ikon tool resolves the repo even for an app created far away. Returns External when nothing matches.
+    static PlatformContext Resolve(string? explicitPlatformRepo = null, string? workingDirectory = null)
     static PlatformContext External
   // Translates a PlatformContext (a pure detection result) into the tool-specific build inputs that pass the platform location to dotnet and to the SDK frontend's vite config. Kept off PlatformContext itself so the context doesn't carry dotnet/vite implementation detail.
   static class PlatformContextBuildExtensions
