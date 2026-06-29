@@ -23,6 +23,8 @@ export default defineConfig(({ mode }) => {
   const authSpaceId = process.env.VITE_IKON_AUTH_SPACE_ID ?? env.VITE_IKON_AUTH_SPACE_ID ?? '';
   const backendUrl = process.env.VITE_IKON_BACKEND_URL || env.VITE_IKON_BACKEND_URL || '';
   const authUrl = process.env.VITE_IKON_AUTH_URL || env.VITE_IKON_AUTH_URL || '';
+  const devLoginToken = process.env.VITE_IKON_DEV_LOGIN_TOKEN || env.VITE_IKON_DEV_LOGIN_TOKEN || '';
+  const devLoginRunId = process.env.VITE_IKON_DEV_LOGIN_RUN_ID || env.VITE_IKON_DEV_LOGIN_RUN_ID || '';
   const waitForExternalConnectUrl = (process.env.VITE_WAIT_FOR_EXTERNAL_CONNECT_URL || env.VITE_WAIT_FOR_EXTERNAL_CONNECT_URL) === 'true';
   const localIkonServerEnabled = (process.env.VITE_LOCAL_IKON_SERVER_ENABLED || env.VITE_LOCAL_IKON_SERVER_ENABLED) === 'true';
   const localIkonServerHost = process.env.VITE_LOCAL_IKON_SERVER_HOST || env.VITE_LOCAL_IKON_SERVER_HOST || 'localhost';
@@ -93,6 +95,8 @@ export default defineConfig(({ mode }) => {
       __IKON_AUTH_SPACE_ID__: JSON.stringify(authSpaceId),
       __IKON_BACKEND_URL__: JSON.stringify(backendUrl),
       __IKON_AUTH_URL__: JSON.stringify(authUrl),
+      __IKON_DEV_LOGIN_TOKEN__: JSON.stringify(devLoginToken),
+      __IKON_DEV_LOGIN_RUN_ID__: JSON.stringify(devLoginRunId),
       __IKON_WAIT_FOR_EXTERNAL_CONNECT_URL__: JSON.stringify(waitForExternalConnectUrl),
       __IKON_LOCAL_IKON_SERVER_ENABLED__: JSON.stringify(localIkonServerEnabled),
       __IKON_LOCAL_IKON_SERVER_HOST__: JSON.stringify(localIkonServerHost),
