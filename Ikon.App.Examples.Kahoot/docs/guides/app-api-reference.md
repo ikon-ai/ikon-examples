@@ -1565,6 +1565,7 @@ namespace Ikon.App.Payments
   enum PaymentProvider
     Stripe
     Mollie
+    Surfboard
   // Result of a refund.
   sealed class PaymentRefund : IEquatable<PaymentRefund>
     // Result of a refund.
