@@ -1374,14 +1374,14 @@ namespace Ikon.Parallax.Components.Standard
     Md
     Lg
     Xl
-  // Wrappers for rendering a privacy-safe variant of the UI into the build-time boot snapshot. The boot snapshot is a public asset painted to everyone before the live connection, so any per-user or sensitive content in the initial UI would leak into it. These wrappers branch on IsSnapshot at build time, so the app keeps a single UI.Root definition (no scattered if (IsSnapshot)) instead of two separate UIs. On the normal live render path every wrapper is a single bool check plus the content the developer already wrote — no added cost, no per-node metadata, no effect on the diff/serialize hot path.
+  // Wrappers for controlling how the UI renders into the build-time boot snapshot. The boot snapshot is a public asset painted to everyone before the live connection, so by default the snapshot render replaces every content leaf with a skeleton (see SnapshotSkeletonizer ) — per-user content can never leak. These wrappers let the app override that default for specific regions, branching on IsSnapshot at build time so it keeps a single UI.Root definition instead of two separate UIs. On the normal live render path every wrapper is a single bool check plus the content the developer already wrote.
   static class SnapshotExtensions
-    // Renders content live, but omits it entirely from the boot snapshot — use to keep a region out of the public snapshot without leaving a placeholder.
+    // Renders content live, but omits it entirely from the boot snapshot — use to keep a region out of the public snapshot without leaving even a skeleton (e.g. interactive controls that are dead before the live connection).
     static void SnapshotHide(UIView view, Action<UIView> content)
-    // Renders content only in the boot snapshot, never live — use for snapshot-specific filler (e.g. a curated first-paint placeholder) that should disappear once the live UI takes over.
+    // Renders content only in the boot snapshot, never live — use for snapshot-specific filler (e.g. a curated first-paint placeholder) that should disappear once the live UI takes over. The filler is rendered as authored (not auto-skeletonized), since it is the developer's own snapshot stand-in.
     static void SnapshotOnly(UIView view, Action<UIView> content)
-    // Renders content live, but replaces it with a placeholder in the boot snapshot — use for content that is fine to show eventually but must not be baked into the public snapshot (names, avatars, per-session links). The snapshot shows placeholder if given, otherwise a default Skeleton .
-    static void SnapshotSkeleton(UIView view, Action<UIView> content, Action<UIView>? placeholder = null)
+    // Opts content out of automatic skeletonization: it renders as real content in the boot snapshot instead of being replaced with skeletons. Use only for content that is safe to bake into the public snapshot (logos, static chrome, marketing copy). The opt-out applies to the whole subtree — nested containers and leaves all render their real content. IsSnapshot stays true inside the region, so this means "show real content here", not "render as if live".
+    static void SnapshotReveal(UIView view, Action<UIView> content)
   // Represents sort strategy for @dnd-kit SortableContext.
   enum SortStrategy
     VerticalList
