@@ -19,9 +19,10 @@ Methods = ["google"]
 DomainAllowlist = []
 
 # Boot snapshot: capture the app's initial UI at build/deploy time so the first paint appears
-# instantly. Off by default. The snapshot is a PUBLIC asset — if you enable it, specialize your
-# initial UI for snapshot mode (SnapshotSkeleton/SnapshotHide/SnapshotOnly) so no sensitive data
-# is baked in. See the Parallax library overview docs.
+# instantly. Off by default. The snapshot is a PUBLIC asset, but it is privacy-safe by default —
+# every piece of content is automatically replaced with a skeleton, so no sensitive data is baked
+# in. Use SnapshotReveal to opt safe content (logos, static chrome) back in. See the Parallax
+# library overview docs.
 [BootSnapshot]
 Enabled = false
 
