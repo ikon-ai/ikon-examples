@@ -9,9 +9,9 @@ Charge your app's end users — subscriptions, one-off payments, refunds — via
 # Ikon.App.Payments Guide
 
 Charge your app's end users — subscriptions, one-off payments, refunds — without owning a payments
-backend. The **Ikon backend** owns the payment store, drives the provider (Stripe or Mollie, chosen at
-enable time), ingests provider webhooks, and **pushes normalized events to your app**. Your app sends
-commands and reacts to events: there is no webhook to host and no payment state to persist.
+backend. The **Ikon backend** owns the payment store, drives the provider (Stripe, Mollie, or Surfboard,
+chosen at enable time), ingests provider webhooks, and **pushes normalized events to your app**. Your app
+sends commands and reacts to events: there is no webhook to host and no payment state to persist.
 
 > This is *your app's* merchant revenue. It is separate from **platform billing** (`ikon billing` / the
 > Canvas AI-credit system that funds the platform) — different system, different money.
@@ -19,12 +19,12 @@ commands and reacts to events: there is no webhook to host and no payment state 
 ## Enable a provider (once per app)
 
 ```bash
-ikon app payments enable --provider stripe      # or: --provider mollie
+ikon app payments enable --provider stripe      # or: --provider mollie | --provider surfboard
 ikon app payments status                        # check onboarding / charges-enabled
 ```
 
 `enable` provisions a connected merchant under Ikon's platform account and prints a hosted onboarding link
-(Stripe KYC, or a Mollie OAuth grant). Open it to finish onboarding. Default mode is **ikon-connect**
+(Stripe KYC, a Mollie OAuth grant, or a Surfboard KYB form). Open it to finish onboarding. Default mode is **ikon-connect**
 (zero-config, Ikon-managed); `--default` picks the active provider when an app has more than one enabled;
 BYOK (`--mode byok`) is admin-only. There is no separate "enabled" flag — payments is on once a provider
 is configured.
@@ -118,26 +118,34 @@ the entitlement and the user retries.
 
 ## Providers
 
-| | Stripe | Mollie |
-|---|---|---|
-| Reach | Global | EU-centric |
-| Onboarding | hosted KYC (v2 Connect accounts) | hosted Client Links + OAuth |
+| | Stripe | Mollie | Surfboard |
+|---|---|---|---|
+| Reach | Global | EU-centric | Nordics (SE/DK/FI/NO) |
+| Onboarding | hosted KYC (v2 Connect accounts) | hosted Client Links + OAuth | hosted KYB (partner merchants) |
+| Subscriptions | native | native | backend-orchestrated (see below) |
 
-The app code and the methods above are identical for both. MobilePay/Vipps, iDEAL, Bancontact, etc. are
-available as ordinary payment methods inside whichever provider you enable — no extra integration.
+The app code and the methods above are identical for all three. MobilePay/Vipps, iDEAL, Bancontact, etc.
+are available as ordinary payment methods inside whichever provider you enable — no extra integration.
+
+Surfboard is a Nordic acquirer; enable it only for apps whose merchants are in SE/DK/FI/NO. It has no
+native subscription objects (it uses token-based merchant-initiated charges), so the **backend** owns the
+recurring schedule for Surfboard and bills each cycle itself. This is invisible to your app: you still
+create a recurring offer link and react to `SubscriptionRenewed` / `SubscriptionCanceled` exactly as with
+Stripe or Mollie.
 
 ## Modes
 
 - **ikon-connect** (default): the app onboards as a connected merchant under Ikon's platform account;
   Ikon takes a platform fee (see below). Zero setup.
 - **byok** (admin-only): the app uses its own provider account; no Ikon fee. `ikon app payments enable
-  --mode byok --provider stripe|mollie` stores the app's own key as a secret.
+  --mode byok --provider stripe|mollie|surfboard` stores the app's own key as a secret.
 
 ## Platform fee
 
 On the **ikon-connect** path Ikon takes a percentage cut of each payment (default **10%**), set per space
 by Ikon staff. byok takes no fee (the funds are in your own account). You do not set or see the fee from
-app code — the backend applies it.
+app code — the backend applies it via the provider's native split primitive (Stripe application fees,
+Mollie application fee, Surfboard Flow service-provider split), so the cut settles to Ikon automatically.
 
 ## Removing a provider
 
@@ -158,6 +166,6 @@ You only ever send commands and react to events — the backend does the rest:
 ```
 
 The backend holds the payment store, drives the provider, and turns each provider webhook into a single
-normalized `PaymentEvent` it pushes to your app. Stripe and Mollie behave differently underneath (signed
-vs. thin webhooks, KYC vs. OAuth onboarding), but your app code is identical for both — that's the point of
-the surface above.
+normalized `PaymentEvent` it pushes to your app. The providers behave differently underneath (signed vs.
+thin webhooks, KYC vs. OAuth vs. KYB onboarding, native vs. backend-orchestrated subscriptions), but your
+app code is identical for all of them — that's the point of the surface above.

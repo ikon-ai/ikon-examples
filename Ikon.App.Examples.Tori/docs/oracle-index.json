@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 248739,
+      "sizeBytes": 248753,
       "alsoInclude": []
     },
     {
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 177587,
+      "sizeBytes": 178422,
       "alsoInclude": []
     },
     {
@@ -346,7 +346,7 @@
         "AI connection"
       ],
       "file": "docs/guides/ai-models.md",
-      "sizeBytes": 25064,
+      "sizeBytes": 25577,
       "alsoInclude": []
     },
     {
@@ -580,7 +580,7 @@
         "cancel subscription"
       ],
       "file": "docs/guides/payments.md",
-      "sizeBytes": 7961,
+      "sizeBytes": 8844,
       "alsoInclude": []
     },
     {
