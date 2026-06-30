@@ -870,21 +870,30 @@ namespace Ikon.AI.Kernel
     ctor(string text)
     string Text { get; }
   struct VideoAssetPart : IMessagePart
-    ctor(AssetUri uri, string? mimeType = null, MediaResolution resolution = Default)
+    ctor(AssetUri uri, string? mimeType = null, MediaResolution resolution = Default, double? fps = null, TimeSpan? startOffset = null, TimeSpan? endOffset = null)
+    TimeSpan? EndOffset { get; }
+    double? Fps { get; }
     string? MimeType { get; }
     MediaResolution Resolution { get; }
+    TimeSpan? StartOffset { get; }
     MessagePartType Type { get; }
     AssetUri Uri { get; }
   struct VideoPart : IMessagePart
-    ctor(byte[] content, string mimeType, MediaResolution resolution = Default)
+    ctor(byte[] content, string mimeType, MediaResolution resolution = Default, double? fps = null, TimeSpan? startOffset = null, TimeSpan? endOffset = null)
     byte[] Content { get; }
+    TimeSpan? EndOffset { get; }
+    double? Fps { get; }
     string MimeType { get; }
     MediaResolution Resolution { get; }
+    TimeSpan? StartOffset { get; }
     MessagePartType Type { get; }
   struct VideoUrlPart : IMessagePart
-    ctor(string url, string mimeType, MediaResolution resolution = Default)
+    ctor(string url, string mimeType, MediaResolution resolution = Default, double? fps = null, TimeSpan? startOffset = null, TimeSpan? endOffset = null)
+    TimeSpan? EndOffset { get; }
+    double? Fps { get; }
     string MimeType { get; }
     MediaResolution Resolution { get; }
+    TimeSpan? StartOffset { get; }
     MessagePartType Type { get; }
     string Url { get; }
 
