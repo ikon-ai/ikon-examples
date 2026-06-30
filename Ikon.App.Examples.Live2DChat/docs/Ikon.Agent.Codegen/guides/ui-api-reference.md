@@ -2915,6 +2915,8 @@ These wrappers are **zero-cost on the live path**: when `IsSnapshot` is `false` 
 if (view.IsSnapshot) { /* snapshot-only branch */ }
 ```
 
+**Preview the snapshot UI in a browser** by opening the running app with `?ikon-snapshot=true`. The SDK then connects as a snapshot client — the same `Context.IsSnapshot = true` render path the build-time capture uses — so the live page shows exactly what the boot snapshot bakes: `SnapshotSkeleton` content replaced by its placeholder, `SnapshotHide` elements gone, `SnapshotOnly` filler present, and only the active tab's panel rendered. It needs no rebuild and works against any running instance — a local `ikon app run` or a deployed URL — so you can iterate on the privacy-safe initial UI and confirm no per-user or sensitive content leaks into the public first paint.
+
 ## Architecture Summary
 
 1. **Server-side logic**: All UI logic, state, and event handlers run on the server
