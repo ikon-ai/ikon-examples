@@ -67,7 +67,7 @@
     </ItemGroup>
   </Target>
   <ItemGroup>
-    <PackageReference Include="Stateless" Version="5.16.0" />
+    <PackageReference Include="Stateless" Version="5.20.1" />
   </ItemGroup>
   <ItemGroup>
     <None Include="../../ikon-config*.toml">
