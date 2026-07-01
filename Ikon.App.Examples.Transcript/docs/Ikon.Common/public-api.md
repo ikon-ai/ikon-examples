@@ -1266,12 +1266,6 @@ namespace Ikon.Common
     int Count { get; }
     void Enqueue(T item, long durationInMicroseconds)
     Task UpdateAsync(float deltaTime, Func<T, Task> process)
-  class Translator
-    ctor(string spaceId)
-    ctor(string spaceId, string locale)
-    Task InitializeAsync()
-    void SetLocale(string newLocale)
-    Task<string> TranslateAsync(string text, string description = "")
   class UsageTracker
     ctor()
     bool HasUsages { get; }

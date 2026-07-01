@@ -1382,14 +1382,14 @@ namespace Ikon.Parallax.Components.Standard
     Md
     Lg
     Xl
-  // Wrappers for rendering a privacy-safe variant of the UI into the build-time boot snapshot. The boot snapshot is a public asset painted to everyone before the live connection, so any per-user or sensitive content in the initial UI would leak into it. These wrappers branch on IsSnapshot at build time, so the app keeps a single UI.Root definition (no scattered if (IsSnapshot)) instead of two separate UIs. On the normal live render path every wrapper is a single bool check plus the content the developer already wrote — no added cost, no per-node metadata, no effect on the diff/serialize hot path.
+  // Wrappers for controlling how the UI renders into the build-time boot snapshot. The boot snapshot is a public asset painted to everyone before the live connection, so by default the snapshot render replaces every content leaf with a skeleton (see SnapshotSkeletonizer ) — per-user content can never leak. These wrappers let the app override that default for specific regions, branching on IsSnapshot at build time so it keeps a single UI.Root definition instead of two separate UIs. On the normal live render path every wrapper is a single bool check plus the content the developer already wrote.
   static class SnapshotExtensions
-    // Renders content live, but omits it entirely from the boot snapshot — use to keep a region out of the public snapshot without leaving a placeholder.
+    // Renders content live, but omits it entirely from the boot snapshot — use to keep a region out of the public snapshot without leaving even a skeleton (e.g. interactive controls that are dead before the live connection).
     static void SnapshotHide(UIView view, Action<UIView> content)
-    // Renders content only in the boot snapshot, never live — use for snapshot-specific filler (e.g. a curated first-paint placeholder) that should disappear once the live UI takes over.
+    // Renders content only in the boot snapshot, never live — use for snapshot-specific filler (e.g. a curated first-paint placeholder) that should disappear once the live UI takes over. The filler is rendered as authored (not auto-skeletonized), since it is the developer's own snapshot stand-in.
     static void SnapshotOnly(UIView view, Action<UIView> content)
-    // Renders content live, but replaces it with a placeholder in the boot snapshot — use for content that is fine to show eventually but must not be baked into the public snapshot (names, avatars, per-session links). The snapshot shows placeholder if given, otherwise a default Skeleton .
-    static void SnapshotSkeleton(UIView view, Action<UIView> content, Action<UIView>? placeholder = null)
+    // Opts content out of automatic skeletonization: it renders as real content in the boot snapshot instead of being replaced with skeletons. Use only for content that is safe to bake into the public snapshot (logos, static chrome, marketing copy). The opt-out applies to the whole subtree — nested containers and leaves all render their real content. IsSnapshot stays true inside the region, so this means "show real content here", not "render as if live".
+    static void SnapshotReveal(UIView view, Action<UIView> content)
   // Represents sort strategy for @dnd-kit SortableContext.
   enum SortStrategy
     VerticalList
@@ -2878,44 +2878,45 @@ The platform can capture an app's **initial UI at build time** and ship it as a 
 Enabled = true
 ```
 
-Because that snapshot is a **public asset served to everyone**, anything in your initial UI — a signed-in user's name, a session link, private data — would be baked into it and shown to every visitor before the live UI loads. So **enabling boot snapshot almost always means you must specialize your initial UI for snapshot mode** to keep per-user and sensitive content out of the public first paint. Parallax lets you render a privacy-safe variant for the snapshot **without forking `UI.Root` into two separate UIs**.
+Because that snapshot is a **public asset served to everyone**, anything in your initial UI — a signed-in user's name, a session link, private data — would otherwise be baked into it and shown to every visitor before the live UI loads. So the snapshot is **privacy-safe by default**: during capture, Parallax automatically **replaces every piece of content with a skeleton**. Each text, image, input, and control becomes a pulsing placeholder block while the layout shape (rows, columns, tabs, cards) is preserved — so the first paint looks like your app's skeleton screen and **no per-user content can leak**, with no work from you.
 
-During snapshot capture the flag `view.IsSnapshot` is `true` (it is always `false` on the normal live render). Three wrappers branch on it at build time, so you keep a single UI definition:
+During snapshot capture the flag `view.IsSnapshot` is `true` (it is always `false` on the normal live render). You only need to act when some content is **safe to show** in the public snapshot — your logo, static chrome, marketing copy — and you want it to appear for real instead of as a skeleton. Wrap it in `SnapshotReveal`:
 
 ```csharp
-// Live: real content. Snapshot: a Skeleton placeholder (or a custom one).
-view.SnapshotSkeleton(v => v.Text([Text.H2], user.Name));
-view.SnapshotSkeleton(
-    v => v.Image(["w-12 h-12 rounded-full"], src: user.PictureUrl),
-    placeholder: v => v.Skeleton(shape: SkeletonShape.Circle, size: SkeletonSize.Xl));
+// Live: real content. Snapshot: real content too (opted out of skeletonization).
+view.SnapshotReveal(v =>
+{
+    v.Image(["h-8"], src: "/logo.svg", alt: "Acme");
+    v.Text([Text.H1], "Welcome to Acme");
+});
 
-// Live: real content. Snapshot: nothing.
+// Live: real content. Snapshot: nothing (omit entirely — e.g. a control that is dead before connect).
 view.SnapshotHide(v => v.Button(label: "Sign out", onClick: SignOutAsync));
 
-// Live: nothing. Snapshot: snapshot-only filler.
+// Live: nothing. Snapshot: snapshot-only filler, rendered as authored (not skeletonized).
 view.SnapshotOnly(v => v.Text([Text.Caption], "Loading your dashboard…"));
 ```
 
-- **`SnapshotSkeleton(content, placeholder?)`** — renders `content` live and a placeholder in the snapshot. With no `placeholder`, a default `Skeleton` is used.
-- **`SnapshotHide(content)`** — renders `content` live and omits it from the snapshot.
-- **`SnapshotOnly(content)`** — renders `content` only in the snapshot (never live), for snapshot-specific filler.
+- **`SnapshotReveal(content)`** — opts `content` out of automatic skeletonization, so it renders for real in the snapshot. The opt-out covers the whole subtree (nested containers and leaves included). Use only for content you are certain is safe to make public.
+- **`SnapshotHide(content)`** — renders `content` live and omits it from the snapshot (not even a skeleton).
+- **`SnapshotOnly(content)`** — renders `content` only in the snapshot (never live), for snapshot-specific filler; it is shown as authored rather than skeletonized.
 
-The **`Skeleton`** component is a pulsing placeholder block, sized and shaped via `SkeletonShape` / `SkeletonSize` (or any `style:`):
+The **`Skeleton`** component is also available directly — a pulsing placeholder block, sized and shaped via `SkeletonShape` / `SkeletonSize` (or any `style:`) — for hand-built loading states anywhere in your UI:
 
 ```csharp
 view.Skeleton(["w-1/3"], size: SkeletonSize.Xl);
 view.Skeleton(shape: SkeletonShape.Circle, size: SkeletonSize.Lg);
 ```
 
-**`Tabs` is snapshot-aware automatically:** in snapshot mode only the **active** tab's content panel is rendered, while **every** tab trigger still renders. The snapshot therefore contains just the active tab's content — yet the tab row is identical to the live UI, so nothing pops into place when the live UI takes over. Wrap individual sensitive elements inside the active tab with the wrappers above as needed.
+**`Tabs` stays snapshot-aware automatically:** in snapshot mode only the **active** tab's content panel is rendered (its content skeletonized like everything else), while **every** tab trigger still renders. The snapshot therefore carries just the active tab — yet the tab row is identical to the live UI, so nothing pops into place when the live UI takes over.
 
-These wrappers are **zero-cost on the live path**: when `IsSnapshot` is `false` each is a single boolean check plus the content you already wrote — no per-element metadata, no effect on the diff/serialize hot path. The snapshot is a one-off build-time render, so it can afford to be slow. For finer control you can read the flag directly:
+Automatic skeletonization is a **one-off build-time render**, so it can afford to be thorough. On the **live path it is zero-cost**: the snapshot branch is gated on `IsSnapshot`, which is `false`, so it short-circuits on a single boolean read with no per-element metadata and no effect on the diff/serialize hot path. For finer control you can read the flag directly:
 
 ```csharp
 if (view.IsSnapshot) { /* snapshot-only branch */ }
 ```
 
-**Preview the snapshot UI in a browser** by opening the running app with `?ikon-snapshot=true`. The SDK then connects as a snapshot client — the same `Context.IsSnapshot = true` render path the build-time capture uses — so the live page shows exactly what the boot snapshot bakes: `SnapshotSkeleton` content replaced by its placeholder, `SnapshotHide` elements gone, `SnapshotOnly` filler present, and only the active tab's panel rendered. It needs no rebuild and works against any running instance — a local `ikon app run` or a deployed URL — so you can iterate on the privacy-safe initial UI and confirm no per-user or sensitive content leaks into the public first paint.
+**Preview the snapshot UI in a browser** by opening the running app with `?ikon-snapshot=true`. The SDK then connects as a snapshot client — the same `Context.IsSnapshot = true` render path the build-time capture uses — so the live page shows exactly what the boot snapshot bakes: every unrevealed element as a skeleton, `SnapshotReveal` regions showing real content, `SnapshotHide` elements gone, `SnapshotOnly` filler present, and only the active tab's panel rendered. It needs no rebuild and works against any running instance — a local `ikon app run` or a deployed URL — so you can confirm at a glance that no per-user or sensitive content leaks into the public first paint.
 
 ## Architecture Summary
 
@@ -2925,4 +2926,4 @@ if (view.IsSnapshot) { /* snapshot-only branch */ }
 4. **Scoped state**: `Reactive<T, TScope>` enables per-client or per-user state
 5. **Lightweight clients**: Clients render the UI tree and forward events to the server
 6. **Crosswind styling**: Tailwind-compatible utility classes with motion extensions
-7. **Snapshot privacy**: `SnapshotSkeleton` / `SnapshotHide` / `SnapshotOnly` keep per-user content out of the public boot snapshot
+7. **Snapshot privacy**: the boot snapshot is skeletonized by default; `SnapshotReveal` opts safe content back in, `SnapshotHide` / `SnapshotOnly` cover the rest
