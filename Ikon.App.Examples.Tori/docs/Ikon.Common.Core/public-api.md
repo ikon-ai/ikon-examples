@@ -4259,6 +4259,9 @@ namespace Ikon.Common.Core.Protocol
     CORE_WEBRTC_AUDIO_SEGMENT
     CORE_WEBRTC_TRACK_MAP
     CORE_WEBRTC_VIDEO_CAPTURE
+    CORE_WEBRTC_ICE_SERVERS_REQUEST
+    CORE_WEBRTC_ICE_SERVERS_RESPONSE
+    CORE_WEBRTC_CLOSE
     CORE_RELAY_AGENT_AUTH
     CORE_RELAY_AGENT_AUTH_RESULT
     CORE_RELAY_HEARTBEAT
@@ -5770,6 +5773,14 @@ namespace Ikon.Common.Core.Protocol
     static WebRTCAudioSegment ReadFromTeleport(ReadOnlySpan<byte> data, WebRTCAudioSegment? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
+  sealed class WebRTCClose : IProtocolMessagePayload
+    ctor()
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    static WebRTCClose ReadFromTeleport(ReadOnlySpan<byte> data)
+    static WebRTCClose ReadFromTeleport(ReadOnlySpan<byte> data, WebRTCClose? destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class WebRTCIceCandidate : IProtocolMessagePayload
     ctor()
     ctor(string candidate, string sdpMid, int sdpMLineIndex)
@@ -5780,6 +5791,24 @@ namespace Ikon.Common.Core.Protocol
     string SdpMid { get; set; }
     static WebRTCIceCandidate ReadFromTeleport(ReadOnlySpan<byte> data)
     static WebRTCIceCandidate ReadFromTeleport(ReadOnlySpan<byte> data, WebRTCIceCandidate? destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class WebRTCIceServersRequest : IProtocolMessagePayload
+    ctor()
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    static WebRTCIceServersRequest ReadFromTeleport(ReadOnlySpan<byte> data)
+    static WebRTCIceServersRequest ReadFromTeleport(ReadOnlySpan<byte> data, WebRTCIceServersRequest? destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
+  sealed class WebRTCIceServersResponse : IProtocolMessagePayload
+    ctor()
+    ctor(string iceServersJson)
+    string IceServersJson { get; set; }
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    static WebRTCIceServersResponse ReadFromTeleport(ReadOnlySpan<byte> data)
+    static WebRTCIceServersResponse ReadFromTeleport(ReadOnlySpan<byte> data, WebRTCIceServersResponse? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class WebRTCOffer : IProtocolMessagePayload
