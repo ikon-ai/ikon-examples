@@ -7094,7 +7094,7 @@ namespace Ikon.App
     // Check if user has a specific role by string name
     bool HasRole(string role)
     bool HasRole<TRole>(TRole role) where TRole : Enum
-  // Manages client profiles for an AI app. Automatically loads profiles when clients join and provides sync access to cached profile data.
+  // Manages client profiles for an AI app. Profiles are loaded and cached when clients join, and GetProfileAsync loads any uncached profile from the backend on demand.
   class ClientProfiles
     ctor(IAppBase app)
     // Add a role to a client
@@ -7107,9 +7107,11 @@ namespace Ikon.App
     Task<IReadOnlyList<ClientProfile>> FindProfilesAsync(Dictionary<string, string> filters, int maxResults = 1000)
     // Get all profiles in the space
     Task<IReadOnlyList<ClientProfile>> GetAllProfilesAsync(int maxResults = 1000)
-    TAttributes GetAttributes<TAttributes>(Context clientContext) where TAttributes : IProfileAttributes, new()
-    // Get profile for a connected client. Returns cached profile (guaranteed available after client joined).
-    ClientProfile GetProfile(Context clientContext)
+    Task<TAttributes> GetAttributesAsync<TAttributes>(Context clientContext) where TAttributes : IProfileAttributes, new()
+    // Get a client's profile, loading it from the backend on a cache miss and caching the result. Connected clients are normally already cached (their profile is loaded when they join), so this usually returns instantly and only hits the backend for an uncached user. Returns null when the context carries no UserId or the backend has no profile for it.
+    Task<ClientProfile?> GetProfileAsync(Context clientContext)
+    // Get a profile by userId, loading it from the backend on a cache miss.
+    Task<ClientProfile?> GetProfileAsync(string userId)
     // Check if client has a specific built-in role
     bool HasRole(Context clientContext, UserRole role)
     // Check if client has a specific role by string name
@@ -7142,10 +7144,6 @@ namespace Ikon.App
     Task SetRolesAsync(Context clientContext, IEnumerable<UserRole> roles)
     // Set roles for a client using string role names
     Task SetRolesAsync(Context clientContext, IEnumerable<string> roles)
-    // Try to get profile from cache. Returns null if not loaded.
-    ClientProfile? TryGetProfile(Context clientContext)
-    // Try to get profile from cache by userId. Returns null if not loaded.
-    ClientProfile? TryGetProfile(string userId)
     // Update profile fields using a typed ProfileData object
     Task UpdateAsync(Context clientContext, Action<ProfileData> update)
   enum ClientVideoCaptureCodec
