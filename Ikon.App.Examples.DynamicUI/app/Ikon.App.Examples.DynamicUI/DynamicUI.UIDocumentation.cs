@@ -12,7 +12,7 @@ public partial class DynamicUI
             - Ikon.Parallax
             - Ikon.Parallax.Components.Standard
             - Ikon.Parallax.Components.Charts
-            - Ikon.Parallax.Themes.Ikon
+            - Ikon.Parallax.Theming
             - Ikon.Common.Core.Reactive
 
             ## State Management
