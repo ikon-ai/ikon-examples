@@ -18,18 +18,41 @@ public partial class Emergence
 
     private void RenderBestOfSection(UIView view)
     {
+        view.Column([Layout.Column.Lg], content: view =>
+        {
+            view.Box([Card.Default, "p-4 mb-4"], content: view =>
+            {
+                view.Text([Text.H2, "mb-2"], "BestOf & Sampling Patterns");
+                view.Text([Text.Body, "text-muted-foreground"],
+                    "Generate multiple candidates and pick one: score-and-select (BestOf), parallelized score-and-select (ParallelBestOf), or majority voting (SelfConsistency).");
+            });
+
+            RenderExampleSelector(view, _selectedBestOfExample,
+                ("basic", "BestOf"),
+                ("parallel", "ParallelBestOf"),
+                ("selfconsistency", "SelfConsistency"));
+
+            switch (_selectedBestOfExample.Value)
+            {
+                case "basic":
+                    RenderBasicBestOfExample(view);
+                    break;
+                case "parallel":
+                    RenderParallelBestOfExample(view);
+                    break;
+                case "selfconsistency":
+                    RenderSelfConsistencyExample(view);
+                    break;
+            }
+        });
+    }
+
+    private void RenderBasicBestOfExample(UIView view)
+    {
         var state = GetOrCreateState("bestof-main");
 
         view.Column([Layout.Column.Lg], content: view =>
         {
-            // Pattern description
-            view.Box([Card.Default, "p-4 mb-4"], content: view =>
-            {
-                view.Text([Text.H2, "mb-2"], "BestOf Pattern");
-                view.Text([Text.Body, "text-muted-foreground"],
-                    "Generates multiple candidate responses with varying temperatures, scores each one, and returns the best. Great for creative tasks where you want diversity.");
-            });
-
             // Configuration panel
             view.Box([Card.Default, "p-6 mb-4"], content: view =>
             {

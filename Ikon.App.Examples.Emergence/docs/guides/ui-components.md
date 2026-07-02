@@ -81,7 +81,7 @@ view.Button([Button.GhostMd, Button.Icon], onClick: async () => { ... },
 view.TextField([Input.Default], placeholder: "Enter text", value: _text.Value,
     onValueChange: async v => _text.Value = v,
     onSubmit: async submitted => { await HandleSubmit(submitted); });  // Enter submits; input auto-clears after submit
-view.TextArea([Input.Default, "min-h-[100px]"], placeholder: "Type a message...", value: _text.Value,
+view.TextArea([Textarea.Default, "min-h-[100px]"], placeholder: "Type a message...", value: _text.Value,  // TextArea uses Textarea.Default, NOT Input.Default
     onValueChange: async v => _text.Value = v,
     onSubmit: async submitted => { await HandleSubmit(submitted); });  // Ctrl+Enter submits; input auto-clears after submit
 // IMPORTANT — onSubmit's parameter is the submitted value. Always use it. Do NOT re-read the bound reactive

@@ -438,7 +438,7 @@ public partial class Emergence
             if (_useCustomDocument.Value)
             {
                 view.TextArea(
-                    ["w-full h-32 font-mono text-xs"],
+                    [Textarea.Default, "w-full h-32 font-mono text-xs"],
                     value: _customDocument.Value,
                     placeholder: "Paste your markdown document here...\n\n# Title\n\n## Section 1\nContent...\n\n## Section 2\nMore content...",
                     onValueChange: async v => _customDocument.Value = v ?? "");

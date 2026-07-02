@@ -70,7 +70,7 @@ public partial class Emergence
                 view.Text([Text.H3, "mb-3"], "Choose Example");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    var examples = new[] { ("simple", "Simple Query"), ("research", "Research with Tools") };
+                    var examples = new[] { ("simple", "Simple Query"), ("research", "Research with Tools"), ("conversation", "Conversation (context reuse)") };
                     foreach (var (key, label) in examples)
                     {
                         var isSelected = _selectedRunExample.Value == key;
@@ -90,6 +90,9 @@ public partial class Emergence
                     break;
                 case "research":
                     RenderResearchExample(view);
+                    break;
+                case "conversation":
+                    RenderConversationExample(view);
                     break;
             }
         });

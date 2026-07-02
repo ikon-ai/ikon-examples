@@ -75,7 +75,7 @@ public partial class Emergence
                 {
                     view.Text([Text.H3, "mb-2"], "Input Content");
                     view.TextArea(
-                        [Input.Default, "h-[400px] font-mono text-sm"],
+                        [Textarea.Default, "h-[400px] font-mono text-sm"],
                         value: _tagsExampleContent.Value,
                         onValueChange: async value => _tagsExampleContent.Value = value ?? "");
                 });

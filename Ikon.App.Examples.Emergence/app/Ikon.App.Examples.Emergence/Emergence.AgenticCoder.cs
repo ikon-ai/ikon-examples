@@ -61,7 +61,7 @@ public partial class Emergence
                     {
                         view.Text([Text.Caption, "text-muted-foreground font-semibold"], "Coding Task");
                         view.TextArea(
-                            ["w-full h-24 font-mono text-sm"],
+                            [Textarea.Default, "w-full h-24 font-mono text-sm"],
                             value: _coderTask.Value,
                             placeholder: "Describe what you want the agent to build...",
                             onValueChange: async v => _coderTask.Value = v ?? "");

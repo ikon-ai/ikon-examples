@@ -13,7 +13,7 @@ public partial class Emergence(IApp<SessionIdentity, ClientParams> app)
     private UI UI { get; } = new(app, new Theme());
 
     // Tab state
-    private readonly Reactive<string> _activeTab = new("run");
+    private readonly Reactive<string> _activeTab = new("ask");
 
     // Per-example execution state - keyed by example ID
     private readonly Dictionary<string, ExampleState> _exampleStates = new();
@@ -61,10 +61,13 @@ public partial class Emergence(IApp<SessionIdentity, ClientParams> app)
                         triggerStyle: [Tabs.Trigger],
                         contentStyle: [Tabs.Content],
                         tabs: [
+                            new TabItem("ask", "Ask", RenderAskSection),
                             new TabItem("run", "Run<T>", RenderRunSection),
                             new TabItem("bestof", "BestOf", RenderBestOfSection),
                             new TabItem("mapreduce", "MapReduce", RenderMapReduceSection),
                             new TabItem("taskgraph", "TaskGraph", RenderTaskGraphSection),
+                            new TabItem("refine", "Refine", RenderRefineSection),
+                            new TabItem("orchestration", "Orchestration", RenderOrchestrationSection),
                             new TabItem("advanced", "Advanced", RenderAdvancedSection),
                             new TabItem("coder", "Agentic Coder", RenderAgenticCoderSection),
                             new TabItem("treesearch", "TreeSearch", RenderTreeSearchSection),

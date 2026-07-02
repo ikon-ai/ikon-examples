@@ -148,7 +148,7 @@ Who lives where and has which pet?
                             {
                                 view.Text([Text.Caption, "text-muted-foreground"], "Coding Task");
                                 view.TextArea(
-                                    ["w-full h-20 font-mono text-xs"],
+                                    [Textarea.Default, "w-full h-20 font-mono text-xs"],
                                     value: _codingTask.Value,
                                     placeholder: "Describe the coding task...",
                                     onValueChange: async v => _codingTask.Value = v ?? "");
@@ -456,7 +456,7 @@ Who lives where and has which pet?
                             {
                                 view.Text([Text.Caption, "text-muted-foreground"], "Logic Puzzle");
                                 view.TextArea(
-                                    ["w-full h-24 font-mono text-xs"],
+                                    [Textarea.Default, "w-full h-24 font-mono text-xs"],
                                     value: _puzzleText.Value,
                                     placeholder: "Enter a logic puzzle...",
                                     onValueChange: async v => _puzzleText.Value = v ?? "");

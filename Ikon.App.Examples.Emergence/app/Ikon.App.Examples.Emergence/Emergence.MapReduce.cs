@@ -150,7 +150,7 @@ Disappointed with the battery - doesn't last a full day for me.
                             {
                                 view.Text([Text.Caption, "text-muted-foreground"], "Document (separate sections with '---' or 'Chapter')");
                                 view.TextArea(
-                                    ["w-full h-32 font-mono text-xs"],
+                                    [Textarea.Default, "w-full h-32 font-mono text-xs"],
                                     value: _documentText.Value,
                                     placeholder: "Paste document text here...",
                                     onValueChange: async v => _documentText.Value = v ?? "");
@@ -305,7 +305,7 @@ Disappointed with the battery - doesn't last a full day for me.
                             {
                                 view.Text([Text.Caption, "text-muted-foreground"], "Reviews (separate with '---')");
                                 view.TextArea(
-                                    ["w-full h-32 font-mono text-xs"],
+                                    [Textarea.Default, "w-full h-32 font-mono text-xs"],
                                     value: _reviewsText.Value,
                                     placeholder: "Paste reviews here, separated by ---...",
                                     onValueChange: async v => _reviewsText.Value = v ?? "");
