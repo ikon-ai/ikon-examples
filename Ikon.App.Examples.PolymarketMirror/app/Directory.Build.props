@@ -1,5 +1,0 @@
-<Project>
-  <PropertyGroup>
-    <ArtifactsPath>$(MSBuildThisFileDirectory)..\build\app\artifacts</ArtifactsPath>
-  </PropertyGroup>
-</Project>
