@@ -757,18 +757,27 @@ public class AmbientApp
                 head.Text(["text-white/35 text-[10px] tracking-[0.32em] uppercase"], $"{entries.Count} scenes");
             });
 
-            section.Row(["gap-6 overflow-x-auto pb-4 -mx-2 px-2"], content: row =>
-            {
-                foreach (var (exp, idx) in entries)
+            section.ScrollArea(
+                scrollbars: ScrollAreaScrollbars.Horizontal,
+                type: ScrollAreaType.Hover,
+                rootStyle: ["w-full -mx-2"],
+                viewportStyle: ["px-2 py-4"],
+                scrollbarStyle: ["data-[orientation=horizontal]:h-1.5"],
+                content: scroll =>
                 {
-                    RenderSceneCard(row, exp, idx, thumbnails, idx == featuredIndex);
-                }
+                    scroll.Row(["gap-6 flex-nowrap"], content: row =>
+                    {
+                        foreach (var (exp, idx) in entries)
+                        {
+                            RenderSceneCard(row, exp, idx, thumbnails, idx == featuredIndex);
+                        }
 
-                if (title == "Atmospheres")
-                {
-                    RenderCreateCard(row);
-                }
-            });
+                        if (title == "Atmospheres")
+                        {
+                            RenderCreateCard(row);
+                        }
+                    });
+                });
         });
     }
 
