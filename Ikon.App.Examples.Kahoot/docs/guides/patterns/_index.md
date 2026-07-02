@@ -59,6 +59,7 @@
 - `multi-step-wizard` — wizard with sidebar + footer + step switch.
 - `wizard-sidebar-stepper` — numbered-circle stepper visual.
 - `ai-prefill-form-from-description` — LLM extracts structured fields from prose.
+- `multiline-text-input` — multi-line `view.TextArea` bound to state, with the correct `Textarea.Default` token.
 - `command-verb-input-with-hints` — verb parser + verb-prefill chip row.
 - `slider-with-live-label` — slider value interpolated into label.
 - `seat-grid-picker` — 2D button grid with state-color switch.

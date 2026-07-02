@@ -160,7 +160,7 @@ namespace Ikon.Common.Core
     int TcpSendBufferSize
     bool ThrowOnUdpConnectionFailure
     string UserId
-  abstract class BasePlugin<TPlugin, TConfig> : ILogInfo, IPlugin, IProtocolMessageChannel where TConfig : BasePluginConfig, new()
+  abstract class BasePlugin<TPlugin, TConfig> : ILogInfo, IMessageChannel, IPlugin, IProtocolMessageChannel where TConfig : BasePluginConfig, new()
     Context ClientContext { get; }
     ClientInitialization? ClientInitializationData { get; }
     string ConnectTokenJson { get; }
@@ -176,6 +176,7 @@ namespace Ikon.Common.Core
     DateTime ServerInitTime { get; set; }
     // True once the server has signalled an intentional shutdown (CORE_ON_SERVER_STOPPING). The SDK uses this to suppress automatic reconnect — reconnecting to a deliberately-stopped server would just re-provision a fresh instance.
     bool ServerStopping { get; }
+    int SessionId { get; }
     Task ConnectAsync2(string connectUrl, CancellationToken ct = null)
     Task ConnectAsync2(string host, int port, bool useTls, CancellationToken ct = null)
     void OverrideConfigValues(string overrideConfigJson)
@@ -559,7 +560,12 @@ namespace Ikon.Common.Core
     event Action<string>? Diagnostic
   interface ILogInfo
     object LogInfo { get; }
-  interface IPlugin : IProtocolMessageChannel
+  interface IMessageChannel
+    int SessionId { get; }
+    abstract IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[]? opcodes = null)
+    abstract ValueTask SendMessageAsync(ProtocolMessage message)
+    abstract ValueTask SendMessageAsync(IProtocolMessagePayload payload)
+  interface IPlugin : IMessageChannel, IProtocolMessageChannel
     string ConnectTokenJson { get; }
     bool IsAuthTicketSent { get; }
     bool IsConnected { get; }
@@ -572,11 +578,8 @@ namespace Ikon.Common.Core
     // Soft reconnect: reopen the transport reusing a previously-fetched AuthResponse (its entrypoints, auth ticket, and client session) WITHOUT re-fetching it via the /connect GET. Lets the server resume the same session within its disconnect grace. Use LastAuthResponse from the prior connection.
     abstract Task ReconnectWithAuthResponseAsync(AuthResponse cachedAuthResponse, CancellationToken ct = null)
     abstract Task StopAsync()
-  interface IProtocolMessageChannel
+  interface IProtocolMessageChannel : IMessageChannel
     Context ClientContext { get; }
-    abstract IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[]? opcodes = null)
-    abstract ValueTask SendMessageAsync(ProtocolMessage message)
-    abstract ValueTask SendMessageAsync(IProtocolMessagePayload payload)
   // Runtime app-payments transport. A running Ikon app issues these to the space-token-guarded /payments/* routes (space resolved from the app's backend session token). Each returns the raw JSON body; PaymentsService deserializes it into the typed payment records.
   class IkonBackend : AsyncLocalInstance<IkonBackend>
     ctor()
@@ -4712,18 +4715,19 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class ServerInit : IProtocolMessagePayload
     ctor()
-    ctor(string ikonBackendUrl, string ikonBackendToken, string spaceId, string channelId, List<ServerInit.ServerPluginInit> plugins, string primaryUserId, string channelInstanceId, string channelUrl, List<ServerInit.ServerExtensionInit> extensions, Dictionary<string, string> dynamicConfigObsolete, string organisationName, string spaceName, string channelName, string dynamicConfigJsonContent, string spaceGitRepositoryUrl, string sessionId, string legacyChannelCode, bool disableLegacyDefaultExtensions, Dictionary<string, string> sessionIdentity, List<ServerInit.ServerInitEndpointRequest> endpointRequests, int frontendPort, AppSourceType appSourceType, bool debugMode, List<ServerInit.ServerInitDatabaseConnectionInfo> databaseConnectionInfos, string runTarget)
+    ctor(string ikonBackendUrl, string ikonBackendToken, string spaceId, string channelId, List<ServerInit.ServerPluginInit> plugins, string primaryUserId, string channelInstanceId, string channelUrl, List<ServerInit.ServerExtensionInit> extensions, Dictionary<string, string> dynamicConfigObsolete, string organisationName, string spaceName, string channelName, string dynamicConfigJsonContent, string spaceGitRepositoryUrl, string sessionId, string legacyChannelCode, bool disableLegacyDefaultExtensions, Dictionary<string, string> sessionIdentity, int frontendPort, AppSourceType appSourceType, bool debugMode, List<ServerInit.ServerInitDatabaseConnectionInfo> databaseConnectionInfos, string runTarget, string connectTraceId)
     AppSourceType AppSourceType { get; set; }
     string ChannelId { get; set; }
     string ChannelInstanceId { get; set; }
     string ChannelName { get; set; }
     string ChannelUrl { get; set; }
+    // Correlation id of the client connect that triggered this warm prestart-swap (from the backend's /init handling). The server folds its CORE_SERVER_INIT boot timing into a single connect-latency event keyed by this id, so the warm-boot cost stitches with the other per-connect tiers.
+    string ConnectTraceId { get; set; }
     List<ServerInit.ServerInitDatabaseConnectionInfo> DatabaseConnectionInfos { get; set; }
     bool DebugMode { get; set; }
     bool DisableLegacyDefaultExtensions { get; set; }
     string DynamicConfigJsonContent { get; set; }
     Dictionary<string, string> DynamicConfigObsolete { get; set; }
-    List<ServerInit.ServerInitEndpointRequest> EndpointRequests { get; set; }
     List<ServerInit.ServerExtensionInit> Extensions { get; set; }
     int FrontendPort { get; set; }
     string IkonBackendToken { get; set; }
@@ -4763,15 +4767,6 @@ namespace Ikon.Common.Core.Protocol
     string Type { get; set; }
     static ServerInit.ServerInitDatabaseConnectionInfo ReadFromTeleport(ReadOnlySpan<byte> data)
     static ServerInit.ServerInitDatabaseConnectionInfo ReadFromTeleport(ReadOnlySpan<byte> data, ServerInit.ServerInitDatabaseConnectionInfo? destination)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
-  sealed class ServerInit.ServerInitEndpointRequest
-    ctor()
-    ctor(string descriptor, int localPort)
-    string Descriptor { get; set; }
-    int LocalPort { get; set; }
-    static ServerInit.ServerInitEndpointRequest ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ServerInit.ServerInitEndpointRequest ReadFromTeleport(ReadOnlySpan<byte> data, ServerInit.ServerInitEndpointRequest? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ServerInit.ServerPluginInit

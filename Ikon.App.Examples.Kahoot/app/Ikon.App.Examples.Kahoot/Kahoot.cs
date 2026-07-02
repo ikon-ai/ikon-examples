@@ -192,7 +192,8 @@ public partial class Kahoot(IApp<SessionIdentity, ClientParams> app)
 
     private string GetJoinUrl()
     {
-        return $"{app.ReactiveGlobalState.ChannelUrl.Value}?id={app.SessionIdentity.Id}";
+        var sessionId = app.Clients[ReactiveScope.ClientId]?.Parameters.Id ?? "";
+        return $"{app.ReactiveGlobalState.ChannelUrl.Value}?id={sessionId}";
     }
 
     private string GetCreateSessionUrl()
