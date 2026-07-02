@@ -1,0 +1,34 @@
+# Database configurations for allocating databases for the app (run 'ikon app config' to apply changes)
+# Assigned database connection info is available via app.Databases in the app. Use 'ikon app db' commands to manage databases.
+# Format: "name:type" - valid types: postgres
+# Examples: "mydb:postgres"
+Databases = []
+
+# Activation configuration for the app (app activation is separate from deployment)
+[Activation]
+# Whether to stop all active sessions of the app when a version of the app is activated
+StopSessions = true
+
+# Authentication configuration for the app frontend
+[Auth]
+# Whether the frontend requires authentication before connection to the app is established
+Enabled = false
+# Available methods: google, microsoft, email, guest
+Methods = ["google", "microsoft", "email", "guest"]
+# If non-empty, only allow users with email addresses from these domains to authenticate (e.g. ["mycompany.com"])
+DomainAllowlist = []
+
+# Boot snapshot: capture the app's initial UI at build/deploy time so the first paint appears
+# instantly. Off by default. The snapshot is a PUBLIC asset, but it is privacy-safe by default —
+# every piece of content is automatically replaced with a skeleton, so no sensitive data is baked
+# in. Use SnapshotReveal to opt safe content (logos, static chrome) back in. See the Parallax
+# library overview docs.
+[BootSnapshot]
+Enabled = false
+
+# Target information for deployment (automatically configured with 'ikon app config')
+[Target]
+OrganisationId = ""
+SpaceId = ""
+ChannelId = ""
+Name = ""
