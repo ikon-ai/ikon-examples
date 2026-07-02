@@ -34,7 +34,8 @@ app.Payments.DefaultCancelUrl  = "https://<your-app>/cancel";
 // 2. React to normalized events the backend pushes — no webhook to host.
 app.Payments.PaymentEventReceived += async evt =>
 {
-    // evt.Type = PaymentPaid | PaymentRefunded | SubscriptionRenewed | SubscriptionCanceled
+    // evt.Type = PaymentPaid | PaymentRefunded | SubscriptionActivated | SubscriptionUpdated |
+    //   SubscriptionRenewed | SubscriptionRenewalFailed | SubscriptionCanceled | … (null if unknown)
     // Deduped on evt.EventId; evt.Payload() is the normalized projection.
     await OnPaymentAsync(evt);
 };
@@ -69,11 +70,28 @@ id) — the backend maps it to the provider's customer.
 
 ## Offers
 
-Offers are an **Ikon-level catalog** (`offerId` → amount / currency / interval), not provider catalog
-objects. They are **provisioned at the provider** and synced in — there is no programmatic offer-creation
-API. Discover them with `ListOffersAsync()` (each `PaymentOffer` carries `Prices`, where a `recurring`
-price means subscribing and `one_time` means a single charge), and surface them with the Parallax
-`PricingTable` component.
+An offer is an **Ikon-level catalog entry** (`offerId` → one or more prices) that you create **at your
+provider** and that syncs into the app automatically. With Stripe:
+
+1. Open your merchant dashboard — `ikon app payments status` prints the URL (and reminds you of these steps).
+2. Create a **Product** with a **Price** (recurring for a subscription, one-time for a single charge).
+
+That's it — the Product and its Prices sync into the catalog automatically. The offer's `offerId` is chosen
+like this:
+
+- If you set the Price's **Lookup key** (a first-class Stripe field, portable test→live), that's the
+  `offerId` — recommended when you need a stable, human-meaningful id, e.g. for
+  `[PaymentsRequireSubscription("pro")]`.
+- Otherwise the offer syncs under its **Stripe product id**. That's fine for the "list plans → let the user
+  pick" flow: read `ListOffersAsync()` and pass the returned `OfferId` to `CreatePaymentLinkAsync` — no
+  hardcoding needed. (A product `metadata.app_plan_id` also works as the id, if you prefer.)
+
+Discover offers with `ListOffersAsync()` — each `PaymentOffer` carries `Prices` (`recurring` → subscription,
+`one_time` → single charge) — and surface them with the Parallax `PricingTable` component. Editing the
+Product/Price in the dashboard re-syncs the offer.
+
+> Programmatic offer creation (via the CLI or `app.Payments`) is planned but not available yet — for now
+> offers are created at the provider as above.
 
 ## Receiving events
 
