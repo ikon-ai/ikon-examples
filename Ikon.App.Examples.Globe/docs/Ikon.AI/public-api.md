@@ -520,6 +520,7 @@ namespace Ikon.AI.ImageGeneration
     Gemini25FlashImage
     Gemini3ProImage
     Gemini31FlashImage
+    Gemini31FlashLiteImage
     Flux1Dev
     Flux1Schnell
     Flux11Pro
@@ -985,6 +986,7 @@ namespace Ikon.AI.LLM
     Claude46Sonnet
     Claude47Opus
     Claude48Opus
+    Claude5Sonnet
     Gemini25Flash
     Gemini25FlashLite
     Gemini25Pro
@@ -1002,17 +1004,25 @@ namespace Ikon.AI.LLM
     MagistralMedium
     Codestral
     Devstral2
+    VoxtralSmall
     CommandR
     CommandA
     CommandAReasoning
+    CommandAPlus
+    CommandAVision
+    CommandR7B
     KimiK25
     KimiK26
     Qwen36
+    Qwen37
+    Qwen37Max
     GptOss120B
     Glm5
     Glm51
+    Glm52
     MiniMaxM25
     MiniMaxM27
+    MiniMaxM3
     DeepSeekV32
     DeepSeekV4Pro
     DeepSeekV4Flash
@@ -2140,6 +2150,7 @@ namespace Ikon.AI.VideoGeneration
     Hailuo23Fast
     Kling26
     Kling30
+    Kling30Omni
     KlingVideoO1
     LumaRay20
     LumaRay20Flash
@@ -2159,7 +2170,9 @@ namespace Ikon.AI.VideoGeneration
     ViduQ2Turbo
     ViduQ3Pro
     Wan26
+    Wan27
     GrokImagineVideo
+    GrokImagineVideo15
   static class VideoGeneratorModelExtensions
     static string DisplayName(VideoGeneratorModel model)
   enum VideoGeneratorResolution

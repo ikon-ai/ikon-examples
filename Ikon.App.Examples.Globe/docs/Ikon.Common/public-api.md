@@ -276,9 +276,10 @@ namespace Ikon.Common
   static class IkonTaskExtensions
     // Intentionally does not await the task. Exceptions are observed and sent to onException .
     static void RunParallel(Task task, Action<Exception>? onException = null)
-  sealed class InMemoryProtocolMessageChannel : IProtocolMessageChannel
+  sealed class InMemoryProtocolMessageChannel : IMessageChannel, IProtocolMessageChannel
     ctor()
     Context ClientContext { get; }
+    int SessionId { get; }
     static ValueTuple<InMemoryProtocolMessageChannel, InMemoryProtocolMessageChannel> CreateConnectedPair()
     IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[]? opcodes = null)
     ValueTask SendMessageAsync(ProtocolMessage message)
