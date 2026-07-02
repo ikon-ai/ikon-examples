@@ -1052,7 +1052,7 @@ const Live2DCanvasInner = memo(function Live2DCanvasInner(props: Live2DCanvasPro
             }
 
             // Get viseme data from SDK (already timed and interpolated)
-            const visemeData = clientRef.current?.media?.audio.getCurrentVisemeValues();
+            const visemeData = clientRef.current?.viseme?.getCurrentVisemeValues();
 
             // Target values to smooth toward
             let targetOpenY: number;
