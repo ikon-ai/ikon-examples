@@ -78,6 +78,21 @@ namespace Ikon.Common.Core
     string DashboardUrl { get; set; }
     string KycUrl { get; set; }
     string MerchantId { get; set; }
+  class IkonBackend.AppPaymentsOffer
+    ctor()
+    string Name { get; set; }
+    string OfferId { get; set; }
+    List<IkonBackend.AppPaymentsOfferPrice> Prices { get; set; }
+  class IkonBackend.AppPaymentsOfferPrice
+    ctor()
+    long AmountMinor { get; set; }
+    string Currency { get; set; }
+    string? Interval { get; set; }
+    int? IntervalCount { get; set; }
+    string Kind { get; set; }
+  class IkonBackend.AppPaymentsOffersResult
+    ctor()
+    List<IkonBackend.AppPaymentsOffer> Offers { get; set; }
   class IkonBackend.AppPaymentsRemoveResult
     ctor()
     bool Removed { get; set; }
@@ -611,6 +626,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.ConnectChannelInstanceResponse> ConnectChannelInstanceAsync(IkonBackend.ConnectChannelInstanceRequest request)
     Task<IkonBackend.AppBundle> CreateAppBundleAsync(string spaceId, string version, string itemId, IkonBackend.AppBundleState? state = null)
     Task<IkonBackend.AppPaymentsMerchantResult> CreateAppPaymentsMerchantAsync(string spaceId, IkonBackend.AppPaymentsMerchantRequest request)
+    Task<IkonBackend.AppPaymentsOffer> CreateAppPaymentsOfferAsync(string spaceId, object request)
     Task CreateAuditEventAsync(string eventName, string spaceId, string userId, string? entityType = null, string? entityId = null, string? ip = null)
     Task<IkonBackend.BillingRedirectResult> CreateBillingCustomerPortalAsync(string organisationId, string returnUrl)
     Task<IkonBackend.BillingRedirectResult> CreateBillingPaymentAsync(string organisationId, string productId, string lookupKey, string successUrl, string cancelUrl, int? quantity = null)
@@ -620,9 +636,10 @@ namespace Ikon.Common.Core
     Task<IkonBackend.ChannelInstance> CreateChannelInstanceAsync(string channelId, string mode)
     Task<IkonBackend.ChannelInstanceLaunchToken> CreateChannelInstanceLaunchTokenAsync(string id, int? httpsPort = null, int? httpPort = null, int? tcpPort = null, int? tlsPort = null)
     Task CreateChatMessageAsync(string channelInstanceId, string userId, string text, string createdAt)
-    Task<string> CreateOfferPaymentAsync(string offerId, string appCustomerKey, string? email = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = null)
+    Task<string> CreateOfferAsync(string offerId, string name, long amountMinor, string currency, string kind, string? interval = null, int? intervalCount = null, string? provider = null, CancellationToken cancellationToken = null)
+    Task<string> CreateOfferPaymentAsync(string offerId, string customerKey, string? email = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = null)
     Task<IkonBackend.Organisation> CreateOrganisationAsync(string name)
-    Task<string> CreatePaymentAsync(long amountMinor, string currency, string appCustomerKey, string? description = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = null)
+    Task<string> CreatePaymentAsync(long amountMinor, string currency, string customerKey, string? description = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = null)
     Task<IkonBackend.Pipeline> CreatePipelineAsync(object form)
     Task<IkonBackend.Plugin> CreatePluginAsync(IkonBackend.Plugin plugin)
     Task CreateProfileLeadAsync(string profileId, string source)
@@ -674,7 +691,7 @@ namespace Ikon.Common.Core
     Task<List<IkonBackend.CustomField>> GetCustomFieldsAsync(string spaceId, int maxResults = 1000)
     Task<IkonBackend.DatabaseConnectionResponse> GetDatabaseConnectionAsync(string databaseId, string? via = null)
     Task<List<IkonBackend.Database>> GetDatabasesForSpaceAsync(string spaceId, int maxResults = 20)
-    Task<string> GetEntitlementAsync(string offerId, string appCustomerKey, CancellationToken cancellationToken = null)
+    Task<string> GetEntitlementAsync(string offerId, string customerKey, CancellationToken cancellationToken = null)
     Task<IkonBackend.Folder> GetFolderByPathAsync(string spaceId, string path)
     Task<List<IkonBackend.Folder>> GetFoldersAsync(string spaceId, string path, int maxResults = 1000)
     static IEnumerable<string> GetIkonDataDirectoryCandidates()
@@ -689,7 +706,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.Organisation> GetOrganisationAsync(string id)
     Task<List<IkonBackend.OrganisationInvitation>> GetOrganisationInvitationsAsync(string organisationId, int maxResults = 100)
     Task<List<IkonBackend.Organisation>> GetOrganisationsAsync(int maxResults = 1000)
-    Task<string> GetPaymentsAsync(string appCustomerKey, CancellationToken cancellationToken = null)
+    Task<string> GetPaymentsAsync(string customerKey, CancellationToken cancellationToken = null)
     Task<IkonBackend.Pipeline> GetPipelineAsync(string id)
     Task<IkonBackend.Pipeline?> GetPipelineByTypeNameAsync(string spaceId, string typeName)
     Task<List<IkonBackend.Pipeline>> GetPipelinesAsync(string spaceId, int maxResults = 1000)
@@ -711,7 +728,7 @@ namespace Ikon.Common.Core
     Task<List<IkonBackend.Space>> GetSpacesAsync(string organisationId, string search, int maxResults = 100)
     Task<StepUpAssertionResponse> GetStepUpAssertionAsync(string challengeId, string userId)
     Task<T> GetStorageAsync<T>(string spaceId, string entity, string entityId, IEnumerable<string> keys) where T : new()
-    Task<string> GetSubscriptionsAsync(string appCustomerKey, CancellationToken cancellationToken = null)
+    Task<string> GetSubscriptionsAsync(string customerKey, CancellationToken cancellationToken = null)
     Task<IkonBackend.Translation> GetTranslationAsync(string spaceId, string text, string locale, string description)
     Task<IkonBackend.TurnServerCredentialsResponse?> GetTurnServerCredentialsAsync(int sessionId)
     Task<IkonBackend.User> GetUserAsync(string id)
@@ -720,6 +737,7 @@ namespace Ikon.Common.Core
     Task IngestPaymentsProviderEventAsync(string providerEventJson, CancellationToken cancellationToken = null)
     Task<IkonBackend.AppPaymentsInitResult> InitAppPaymentsAsync(string spaceId, string mode = "ikon-connect", string provider = "stripe")
     Task<bool> IsSpaceDomainAvailableAsync(string domain)
+    Task<IkonBackend.AppPaymentsOffersResult> ListAppPaymentsOffersAsync(string spaceId)
     Task<IkonBackend.ItemListResponse> ListItemsAsync(IkonBackend.ItemListRequest request)
     Task<string> ListOffersAsync(CancellationToken cancellationToken = null)
     bool Login(ValueTuple<string, string>? fromCommandLine = null, ValueTuple<string, string>? fromConfig = null, bool logSource = true, bool mustLogin = true)
@@ -731,6 +749,8 @@ namespace Ikon.Common.Core
     Task<IkonBackend.RegisterLocalInstanceResponse> RegisterLocalInstanceAsync(string spaceId, string channelId, Dictionary<string, string> sessionIdentity, string relayEndpointPublicUrl)
     Task RegisterPushSubscriptionAsync(RegisterPushSubscriptionDto request)
     Task<IkonBackend.AppPaymentsRemoveResult> RemoveAppPaymentsMerchantAsync(string spaceId, string? provider = null)
+    Task<IkonBackend.AppPaymentsRemoveResult> RemoveAppPaymentsOfferAsync(string spaceId, string offerId, string? provider = null)
+    Task<bool> RemoveOfferAsync(string offerId, string? provider = null, CancellationToken cancellationToken = null)
     Task RemoveOrganisationInvitationAsync(string organisationId, string invitationId)
     Task<IkonBackend.Organisation> RemoveOrganisationUserAsync(string organisationId, string userId)
     Task RemovePushSubscriptionAsync(RemovePushSubscriptionDto request)
@@ -1966,6 +1986,8 @@ namespace Ikon.Common.Core.Functions
     IReadOnlyDictionary<string, IReadOnlyList<Function>> Functions { get; }
     // Invoked at the start of a remote function call execution. Runs in the async context of the executing function, so subscribers can set AsyncLocal state.
     static Action? RemoteCallExecutionStarting { get; set; }
+    // When set, the dispatcher rejects any remote call whose restored scopes carry no BackendTokenScope with a space claim. Turned on by delegating proxy hosts (e.g. the Ikon.AI library) that make platform-key calls on behalf of a caller and must never execute for an unidentified caller. Off by default so ordinary RPC hosts are unaffected.
+    bool RequireVerifiedCallerSpace { get; set; }
     // Optional resolver that maps a caller session id to the set of roles the caller holds. Wired by the host (e.g. Ikon.App.App) so that RequireRoleAttribute / RoleBasedPolicy can gate calls. Returns an empty/null collection for callers without any roles. The dispatcher copies the result into AdditionalContext under the key RolesContextKey .
     Func<int, IReadOnlyCollection<string>?>? RolesResolver { get; set; }
     // Optional resolver that maps a caller session id to the reactive scopes that should be active during the function body's execution — typically [ClientScope, UserScope] derived from the caller's Context . Wired by the host (e.g. Ikon.App.App) so that ClientReactive`1 and UserReactive`1 resolve naturally without the function body having to push scopes manually via FunctionCallContext.CallerSessionId + Use .
