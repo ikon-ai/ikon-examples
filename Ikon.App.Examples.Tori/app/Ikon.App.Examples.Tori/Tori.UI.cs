@@ -73,7 +73,6 @@ public partial class Tori
                 contentStyle: [DropdownMenu.Content, "w-60 translate-y-4"],
                 trigger: v => v.Button(
                     [Button.PrimaryLg, "mt-4 gap-2 items-center"],
-                    onClick: async () => _newMeetMenuOpen.Value = !_newMeetMenuOpen.Value,
                     content: btn =>
                     {
                         btn.Icon([Icon.Default], name: "video");
@@ -1143,7 +1142,7 @@ public partial class Tori
             EchoCancellation = _audioEchoCancellation.Value,
             NoiseSuppression = _audioNoiseSuppression.Value,
             AutoGainControl = _audioAutoGainControl.Value,
-            TargetIds = [app.ClientContext.SessionId],
+            TargetIds = [app.SessionId],
             DeviceId = deviceId
         };
     }
@@ -1174,7 +1173,7 @@ public partial class Tori
             Framerate = framerate,
             Bitrate = bitrate,
             PreferredCodecs = [codec],
-            TargetIds = [app.ClientContext.SessionId],
+            TargetIds = [app.SessionId],
             DeviceId = deviceId
         };
     }
@@ -1190,7 +1189,7 @@ public partial class Tori
             Framerate = framerate,
             Bitrate = bitrate,
             PreferredCodecs = [codec],
-            TargetIds = [app.ClientContext.SessionId]
+            TargetIds = [app.SessionId]
         };
     }
 

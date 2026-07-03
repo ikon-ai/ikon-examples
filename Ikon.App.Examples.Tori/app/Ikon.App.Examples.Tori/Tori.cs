@@ -408,7 +408,7 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
                 if (_outputToInputTrack.TryGetValue(args.Message.TrackId, out var inputInfo))
                 {
                     await app.SendMessageAsync(ProtocolMessage.Create(
-                        app.ClientContext.SessionId,
+                        app.SessionId,
                         new RequestIdrVideoFrame(),
                         trackId: inputInfo.InputTrackId,
                         targetIds: [inputInfo.ClientSessionId]));

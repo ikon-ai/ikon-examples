@@ -24,7 +24,7 @@
         "invite link"
       ],
       "file": "docs/guides/app-structure.md",
-      "sizeBytes": 18644,
+      "sizeBytes": 18630,
       "alsoInclude": []
     },
     {
@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 248719,
+      "sizeBytes": 253883,
       "alsoInclude": []
     },
     {
@@ -128,7 +128,7 @@
         "message bubbles"
       ],
       "file": "docs/guides/ui-components.md",
-      "sizeBytes": 15333,
+      "sizeBytes": 15390,
       "alsoInclude": [
         "app-structure"
       ]
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 178422,
+      "sizeBytes": 176348,
       "alsoInclude": []
     },
     {
@@ -190,7 +190,7 @@
         "theme customization"
       ],
       "file": "docs/guides/styling-and-motion.md",
-      "sizeBytes": 13561,
+      "sizeBytes": 13803,
       "alsoInclude": [
         "ui-components",
         "app-structure",
@@ -346,7 +346,7 @@
         "AI connection"
       ],
       "file": "docs/guides/ai-models.md",
-      "sizeBytes": 25577,
+      "sizeBytes": 25728,
       "alsoInclude": []
     },
     {
@@ -361,7 +361,7 @@
         "ImageGeneratorConfig"
       ],
       "file": "docs/guides/ai-image.md",
-      "sizeBytes": 4810,
+      "sizeBytes": 4872,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -409,7 +409,7 @@
         "show a video"
       ],
       "file": "docs/guides/ai-video.md",
-      "sizeBytes": 7290,
+      "sizeBytes": 7339,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -574,13 +574,15 @@
         "offers",
         "GetEntitlementAsync",
         "entitlement",
-        "PaymentsRequireSubscription",
+        "PaymentsRequireEntitlement",
+        "CreateOfferAsync",
+        "create offer",
         "PaymentEventReceived",
         "payment events",
         "cancel subscription"
       ],
       "file": "docs/guides/payments.md",
-      "sizeBytes": 8844,
+      "sizeBytes": 13516,
       "alsoInclude": []
     },
     {
@@ -619,7 +621,7 @@
         "callable functions"
       ],
       "file": "docs/guides/function-registry.md",
-      "sizeBytes": 32343,
+      "sizeBytes": 32736,
       "alsoInclude": []
     },
     {
