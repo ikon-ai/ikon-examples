@@ -166,6 +166,7 @@ namespace Ikon.AI.VideoGeneration
     Hailuo23Fast
     Kling26
     Kling30
+    Kling30Omni
     KlingVideoO1
     LumaRay20
     LumaRay20Flash
@@ -185,7 +186,9 @@ namespace Ikon.AI.VideoGeneration
     ViduQ2Turbo
     ViduQ3Pro
     Wan26
+    Wan27
     GrokImagineVideo
+    GrokImagineVideo15
   static class VideoGeneratorModelExtensions
     static string DisplayName(VideoGeneratorModel model)
   enum VideoGeneratorResolution
