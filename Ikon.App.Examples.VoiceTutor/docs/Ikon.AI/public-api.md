@@ -494,6 +494,7 @@ namespace Ikon.AI.ImageGeneration
     ImageBackground Background { get; set; }
     int Count { get; set; }
     int Height { get; set; }
+    string ImageSize { get; set; }
     List<InputImage> InputImages { get; set; }
     string NegativePrompt { get; set; }
     string Prompt { get; set; }
@@ -1013,6 +1014,7 @@ namespace Ikon.AI.LLM
     CommandR7B
     KimiK25
     KimiK26
+    KimiK27Code
     Qwen36
     Qwen37
     Qwen37Max

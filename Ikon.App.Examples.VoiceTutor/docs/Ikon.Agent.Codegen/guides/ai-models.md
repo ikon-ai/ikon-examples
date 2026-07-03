@@ -482,6 +482,7 @@ namespace Ikon.AI.LLM
     Claude46Sonnet
     Claude47Opus
     Claude48Opus
+    Claude5Sonnet
     Gemini25Flash
     Gemini25FlashLite
     Gemini25Pro
@@ -499,17 +500,25 @@ namespace Ikon.AI.LLM
     MagistralMedium
     Codestral
     Devstral2
+    VoxtralSmall
     CommandR
     CommandA
     CommandAReasoning
+    CommandAPlus
+    CommandAVision
+    CommandR7B
     KimiK25
     KimiK26
     Qwen36
+    Qwen37
+    Qwen37Max
     GptOss120B
     Glm5
     Glm51
+    Glm52
     MiniMaxM25
     MiniMaxM27
+    MiniMaxM3
     DeepSeekV32
     DeepSeekV4Pro
     DeepSeekV4Flash

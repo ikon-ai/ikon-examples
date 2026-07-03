@@ -509,6 +509,7 @@ namespace Ikon.AI.LLM
     CommandR7B
     KimiK25
     KimiK26
+    KimiK27Code
     Qwen36
     Qwen37
     Qwen37Max
