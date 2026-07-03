@@ -21,7 +21,8 @@ The full catalog:
 - **Layout**: `Layout.Row.Xs/Sm/Md/Lg/Xl`, `Layout.Row.SpaceBetween`, `Layout.Column.Xs/Sm/Md/Lg/Xl`, `Layout.Grid.Cols2/Cols3/Cols4`, `Layout.Split.Root/Sidebar/Main/Detail`, `Layout.Page`, `Layout.Section`, `Layout.Center`, `Layout.Stretch`
 - **Page**: `Page.Default`, `Page.Plain`, `Page.Base`
 - **Container**: `Container.Xs` through `Container.Xl7`, `Container.Full`, `Container.Prose`, `Container.Screen`
-- **Input**: `Input.Default`, `Input.DefaultSm`, `Input.DefaultLg`, `Input.Ghost`, `Input.Invalid`
+- **Input** (single-line `view.TextField`): `Input.Default`, `Input.DefaultSm`, `Input.DefaultLg`, `Input.Ghost`, `Input.Invalid`
+- **Textarea** (multi-line `view.TextArea` — a SEPARATE token set; `Input.*` is single-line-height and wrong for a textarea): `Textarea.Default`, `Textarea.DefaultSm`, `Textarea.DefaultLg`, `Textarea.Invalid`
 - **Badge**: `Badge.GreySm/Md/Lg`, `Badge.BrandSm/Md/Lg`, `Badge.ErrorSm/Md/Lg`, `Badge.SuccessSm/Md/Lg`, `Badge.WarningSm/Md/Lg`, `Badge.InfoSm/Md/Lg`, `Badge.OutlineGrey/Brand/Error/Success/Warning/Info`
 - **Icon**: `Icon.Default`, `Icon.Xs/Sm/Md/Lg`, `Icon.Spinner`, `Icon.SpinnerSm`, `Icon.SpinnerLg`
 - **Nav**: `NavigationMenu.*` (Root, List, Trigger, Content, Link, Indicator)
