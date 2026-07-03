@@ -72,9 +72,9 @@ namespace Ikon.App
     Task StopAsync(CancellationToken cancellationToken = null)
   // Typed app↔client custom-message helpers over the app-local Teleport channel. The payload types come from the app's own schema/*.tp files (compiled by ikon app teleport build); each carries its own GROUP_APP_LOCAL opcode and is sent/received as a native type — no JSON marshalling. Delivery is server-controlled and explicit: SendMessageAsync``1 always takes the recipient client session IDs — there is no implicit broadcast to every client. Whether a type travels reliably or unreliably is declared on the .tp schema (unreliable = true), not here.
   static class AppMessaging
-    static IDisposable OnMessage<T>(IProtocolMessageChannel app, Func<T, int, ValueTask> handler) where T : IProtocolMessagePayload, new()
-    static ValueTask SendMessageAsync<T>(IProtocolMessageChannel app, T message, IReadOnlyList<int> targetIds) where T : IProtocolMessagePayload
-    static ValueTask SendMessageAsync<T>(IProtocolMessageChannel app, T message, int targetClientSessionId) where T : IProtocolMessagePayload
+    static IDisposable OnMessage<T>(IMessageChannel app, Func<T, int, ValueTask> handler) where T : IProtocolMessagePayload, new()
+    static ValueTask SendMessageAsync<T>(IMessageChannel app, T message, IReadOnlyList<int> targetIds) where T : IProtocolMessagePayload
+    static ValueTask SendMessageAsync<T>(IMessageChannel app, T message, int targetClientSessionId) where T : IProtocolMessagePayload
   // Delegate for async event handlers in the app lifecycle.
   delegate AsyncEventHandler<TEventArgs> where TEventArgs : EventArgs
     Task AsyncEventHandler`1<TEventArgs>(TEventArgs e)
@@ -656,9 +656,13 @@ namespace Ikon.App
     static HttpResult Text(string body, int statusCode = 200)
     static HttpResult Unauthorized(string? reason = null)
   // Base interface for Ikon app hosts providing access to shared state, reactive infrastructure, and lifecycle events.
-  interface IAppBase : IProtocolMessageChannel
+  interface IAppBase : IMessageChannel
     // Gets the background work tracker that prevents server idle shutdown while work is in progress.
     BackgroundWork BackgroundWork { get; }
+    // The Context of the client currently being served — the one rendering the UI or firing the current handler, resolved from the active reactive scope. null when no client is in scope (e.g. background work). Use this to identify the current client — never a plugin's own connection context. For the joining client's context use the ClientJoined event args instead.
+    Context? CurrentClientContext { get; }
+    // The user id of the client currently being served, or an empty string when no client is in scope. Always populated for a connected client — the real user id for authenticated users, a stable anonymous id otherwise. This is the correct source for a payment customer key, subscription gating, per-user state, etc.
+    string CurrentUserId { get; }
     // Gets the path to the Data directory for this app. Files placed in the Data folder of the app project can be accessed at runtime using this path. Note: in cloud, this directory is read-only and writing to it will throw an exception.
     string DataDirectory { get; }
     // Gets the database connection configurations for this app instance.
@@ -732,7 +736,7 @@ namespace Ikon.App
     // Subscribe to StoppingAsync with a zero-arg async handler.
     static void OnStopping(IAppBase app, Func<Task> handler)
   // App host interface providing typed session identity and client parameters.
-  interface IApp<TSessionIdentity, TClientParameters> : IAppBase, IProtocolMessageChannel
+  interface IApp<TSessionIdentity, TClientParameters> : IAppBase, IMessageChannel
     // Gets the typed parameters for the current client (determined by ReactiveScope). Must be called inside UI.Root() or a ReactiveScope context.
     TClientParameters ClientParameters { get; }
     // Gets the collection of connected clients with typed parameters. Automatically synced with GlobalState .
@@ -1532,10 +1536,18 @@ namespace Ikon.App.Payments
     JsonElement Payload()
   // The kind of a normalized PaymentEvent .
   enum PaymentEventType
+    PaymentAuthorized
     PaymentPaid
     PaymentRefunded
+    PaymentCanceled
+    PaymentExpired
+    PaymentFailed
+    SubscriptionActivated
+    SubscriptionUpdated
     SubscriptionRenewed
+    SubscriptionRenewalFailed
     SubscriptionCanceled
+    CatalogUpdated
   // A provider-hosted page the customer is redirected to in order to pay. Send them to Url .
   sealed class PaymentLink : IEquatable<PaymentLink>
     // A provider-hosted page the customer is redirected to in order to pay. Send them to Url .
@@ -1891,9 +1903,10 @@ namespace Ikon.Common
   static class IkonTaskExtensions
     // Intentionally does not await the task. Exceptions are observed and sent to onException .
     static void RunParallel(Task task, Action<Exception>? onException = null)
-  sealed class InMemoryProtocolMessageChannel : IProtocolMessageChannel
+  sealed class InMemoryProtocolMessageChannel : IMessageChannel, IProtocolMessageChannel
     ctor()
     Context ClientContext { get; }
+    int SessionId { get; }
     static ValueTuple<InMemoryProtocolMessageChannel, InMemoryProtocolMessageChannel> CreateConnectedPair()
     IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[]? opcodes = null)
     ValueTask SendMessageAsync(ProtocolMessage message)
