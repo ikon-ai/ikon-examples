@@ -70,6 +70,7 @@ namespace Ikon.AI.ImageGeneration
     Gemini25FlashImage
     Gemini3ProImage
     Gemini31FlashImage
+    Gemini31FlashLiteImage
     Flux1Dev
     Flux1Schnell
     Flux11Pro

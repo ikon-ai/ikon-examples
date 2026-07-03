@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 249670,
+      "sizeBytes": 253883,
       "alsoInclude": []
     },
     {
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 178422,
+      "sizeBytes": 176348,
       "alsoInclude": []
     },
     {
@@ -346,7 +346,7 @@
         "AI connection"
       ],
       "file": "docs/guides/ai-models.md",
-      "sizeBytes": 25712,
+      "sizeBytes": 25728,
       "alsoInclude": []
     },
     {
@@ -361,7 +361,7 @@
         "ImageGeneratorConfig"
       ],
       "file": "docs/guides/ai-image.md",
-      "sizeBytes": 4837,
+      "sizeBytes": 4872,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -574,13 +574,15 @@
         "offers",
         "GetEntitlementAsync",
         "entitlement",
-        "PaymentsRequireSubscription",
+        "PaymentsRequireEntitlement",
+        "CreateOfferAsync",
+        "create offer",
         "PaymentEventReceived",
         "payment events",
         "cancel subscription"
       ],
       "file": "docs/guides/payments.md",
-      "sizeBytes": 9986,
+      "sizeBytes": 13516,
       "alsoInclude": []
     },
     {
@@ -619,7 +621,7 @@
         "callable functions"
       ],
       "file": "docs/guides/function-registry.md",
-      "sizeBytes": 32343,
+      "sizeBytes": 32736,
       "alsoInclude": []
     },
     {
