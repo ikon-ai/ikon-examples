@@ -78,6 +78,21 @@ namespace Ikon.Common.Core
     string DashboardUrl { get; set; }
     string KycUrl { get; set; }
     string MerchantId { get; set; }
+  class IkonBackend.AppPaymentsOffer
+    ctor()
+    string Name { get; set; }
+    string OfferId { get; set; }
+    List<IkonBackend.AppPaymentsOfferPrice> Prices { get; set; }
+  class IkonBackend.AppPaymentsOfferPrice
+    ctor()
+    long AmountMinor { get; set; }
+    string Currency { get; set; }
+    string? Interval { get; set; }
+    int? IntervalCount { get; set; }
+    string Kind { get; set; }
+  class IkonBackend.AppPaymentsOffersResult
+    ctor()
+    List<IkonBackend.AppPaymentsOffer> Offers { get; set; }
   class IkonBackend.AppPaymentsRemoveResult
     ctor()
     bool Removed { get; set; }
@@ -160,7 +175,7 @@ namespace Ikon.Common.Core
     int TcpSendBufferSize
     bool ThrowOnUdpConnectionFailure
     string UserId
-  abstract class BasePlugin<TPlugin, TConfig> : ILogInfo, IPlugin, IProtocolMessageChannel where TConfig : BasePluginConfig, new()
+  abstract class BasePlugin<TPlugin, TConfig> : ILogInfo, IMessageChannel, IPlugin, IProtocolMessageChannel where TConfig : BasePluginConfig, new()
     Context ClientContext { get; }
     ClientInitialization? ClientInitializationData { get; }
     string ConnectTokenJson { get; }
@@ -176,6 +191,7 @@ namespace Ikon.Common.Core
     DateTime ServerInitTime { get; set; }
     // True once the server has signalled an intentional shutdown (CORE_ON_SERVER_STOPPING). The SDK uses this to suppress automatic reconnect — reconnecting to a deliberately-stopped server would just re-provision a fresh instance.
     bool ServerStopping { get; }
+    int SessionId { get; }
     Task ConnectAsync2(string connectUrl, CancellationToken ct = null)
     Task ConnectAsync2(string host, int port, bool useTls, CancellationToken ct = null)
     void OverrideConfigValues(string overrideConfigJson)
@@ -559,7 +575,12 @@ namespace Ikon.Common.Core
     event Action<string>? Diagnostic
   interface ILogInfo
     object LogInfo { get; }
-  interface IPlugin : IProtocolMessageChannel
+  interface IMessageChannel
+    int SessionId { get; }
+    abstract IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[]? opcodes = null)
+    abstract ValueTask SendMessageAsync(ProtocolMessage message)
+    abstract ValueTask SendMessageAsync(IProtocolMessagePayload payload)
+  interface IPlugin : IMessageChannel, IProtocolMessageChannel
     string ConnectTokenJson { get; }
     bool IsAuthTicketSent { get; }
     bool IsConnected { get; }
@@ -572,11 +593,8 @@ namespace Ikon.Common.Core
     // Soft reconnect: reopen the transport reusing a previously-fetched AuthResponse (its entrypoints, auth ticket, and client session) WITHOUT re-fetching it via the /connect GET. Lets the server resume the same session within its disconnect grace. Use LastAuthResponse from the prior connection.
     abstract Task ReconnectWithAuthResponseAsync(AuthResponse cachedAuthResponse, CancellationToken ct = null)
     abstract Task StopAsync()
-  interface IProtocolMessageChannel
+  interface IProtocolMessageChannel : IMessageChannel
     Context ClientContext { get; }
-    abstract IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[]? opcodes = null)
-    abstract ValueTask SendMessageAsync(ProtocolMessage message)
-    abstract ValueTask SendMessageAsync(IProtocolMessagePayload payload)
   // Runtime app-payments transport. A running Ikon app issues these to the space-token-guarded /payments/* routes (space resolved from the app's backend session token). Each returns the raw JSON body; PaymentsService deserializes it into the typed payment records.
   class IkonBackend : AsyncLocalInstance<IkonBackend>
     ctor()
@@ -608,6 +626,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.ConnectChannelInstanceResponse> ConnectChannelInstanceAsync(IkonBackend.ConnectChannelInstanceRequest request)
     Task<IkonBackend.AppBundle> CreateAppBundleAsync(string spaceId, string version, string itemId, IkonBackend.AppBundleState? state = null)
     Task<IkonBackend.AppPaymentsMerchantResult> CreateAppPaymentsMerchantAsync(string spaceId, IkonBackend.AppPaymentsMerchantRequest request)
+    Task<IkonBackend.AppPaymentsOffer> CreateAppPaymentsOfferAsync(string spaceId, object request)
     Task CreateAuditEventAsync(string eventName, string spaceId, string userId, string? entityType = null, string? entityId = null, string? ip = null)
     Task<IkonBackend.BillingRedirectResult> CreateBillingCustomerPortalAsync(string organisationId, string returnUrl)
     Task<IkonBackend.BillingRedirectResult> CreateBillingPaymentAsync(string organisationId, string productId, string lookupKey, string successUrl, string cancelUrl, int? quantity = null)
@@ -617,9 +636,10 @@ namespace Ikon.Common.Core
     Task<IkonBackend.ChannelInstance> CreateChannelInstanceAsync(string channelId, string mode)
     Task<IkonBackend.ChannelInstanceLaunchToken> CreateChannelInstanceLaunchTokenAsync(string id, int? httpsPort = null, int? httpPort = null, int? tcpPort = null, int? tlsPort = null)
     Task CreateChatMessageAsync(string channelInstanceId, string userId, string text, string createdAt)
-    Task<string> CreateOfferPaymentAsync(string offerId, string appCustomerKey, string? email = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = null)
+    Task<string> CreateOfferAsync(string offerId, string name, long amountMinor, string currency, string kind, string? interval = null, int? intervalCount = null, string? provider = null, CancellationToken cancellationToken = null)
+    Task<string> CreateOfferPaymentAsync(string offerId, string customerKey, string? email = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = null)
     Task<IkonBackend.Organisation> CreateOrganisationAsync(string name)
-    Task<string> CreatePaymentAsync(long amountMinor, string currency, string appCustomerKey, string? description = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = null)
+    Task<string> CreatePaymentAsync(long amountMinor, string currency, string customerKey, string? description = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = null)
     Task<IkonBackend.Pipeline> CreatePipelineAsync(object form)
     Task<IkonBackend.Plugin> CreatePluginAsync(IkonBackend.Plugin plugin)
     Task CreateProfileLeadAsync(string profileId, string source)
@@ -671,7 +691,7 @@ namespace Ikon.Common.Core
     Task<List<IkonBackend.CustomField>> GetCustomFieldsAsync(string spaceId, int maxResults = 1000)
     Task<IkonBackend.DatabaseConnectionResponse> GetDatabaseConnectionAsync(string databaseId, string? via = null)
     Task<List<IkonBackend.Database>> GetDatabasesForSpaceAsync(string spaceId, int maxResults = 20)
-    Task<string> GetEntitlementAsync(string offerId, string appCustomerKey, CancellationToken cancellationToken = null)
+    Task<string> GetEntitlementAsync(string offerId, string customerKey, CancellationToken cancellationToken = null)
     Task<IkonBackend.Folder> GetFolderByPathAsync(string spaceId, string path)
     Task<List<IkonBackend.Folder>> GetFoldersAsync(string spaceId, string path, int maxResults = 1000)
     static IEnumerable<string> GetIkonDataDirectoryCandidates()
@@ -686,7 +706,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.Organisation> GetOrganisationAsync(string id)
     Task<List<IkonBackend.OrganisationInvitation>> GetOrganisationInvitationsAsync(string organisationId, int maxResults = 100)
     Task<List<IkonBackend.Organisation>> GetOrganisationsAsync(int maxResults = 1000)
-    Task<string> GetPaymentsAsync(string appCustomerKey, CancellationToken cancellationToken = null)
+    Task<string> GetPaymentsAsync(string customerKey, CancellationToken cancellationToken = null)
     Task<IkonBackend.Pipeline> GetPipelineAsync(string id)
     Task<IkonBackend.Pipeline?> GetPipelineByTypeNameAsync(string spaceId, string typeName)
     Task<List<IkonBackend.Pipeline>> GetPipelinesAsync(string spaceId, int maxResults = 1000)
@@ -708,7 +728,7 @@ namespace Ikon.Common.Core
     Task<List<IkonBackend.Space>> GetSpacesAsync(string organisationId, string search, int maxResults = 100)
     Task<StepUpAssertionResponse> GetStepUpAssertionAsync(string challengeId, string userId)
     Task<T> GetStorageAsync<T>(string spaceId, string entity, string entityId, IEnumerable<string> keys) where T : new()
-    Task<string> GetSubscriptionsAsync(string appCustomerKey, CancellationToken cancellationToken = null)
+    Task<string> GetSubscriptionsAsync(string customerKey, CancellationToken cancellationToken = null)
     Task<IkonBackend.Translation> GetTranslationAsync(string spaceId, string text, string locale, string description)
     Task<IkonBackend.TurnServerCredentialsResponse?> GetTurnServerCredentialsAsync(int sessionId)
     Task<IkonBackend.User> GetUserAsync(string id)
@@ -717,6 +737,7 @@ namespace Ikon.Common.Core
     Task IngestPaymentsProviderEventAsync(string providerEventJson, CancellationToken cancellationToken = null)
     Task<IkonBackend.AppPaymentsInitResult> InitAppPaymentsAsync(string spaceId, string mode = "ikon-connect", string provider = "stripe")
     Task<bool> IsSpaceDomainAvailableAsync(string domain)
+    Task<IkonBackend.AppPaymentsOffersResult> ListAppPaymentsOffersAsync(string spaceId)
     Task<IkonBackend.ItemListResponse> ListItemsAsync(IkonBackend.ItemListRequest request)
     Task<string> ListOffersAsync(CancellationToken cancellationToken = null)
     bool Login(ValueTuple<string, string>? fromCommandLine = null, ValueTuple<string, string>? fromConfig = null, bool logSource = true, bool mustLogin = true)
@@ -728,6 +749,8 @@ namespace Ikon.Common.Core
     Task<IkonBackend.RegisterLocalInstanceResponse> RegisterLocalInstanceAsync(string spaceId, string channelId, Dictionary<string, string> sessionIdentity, string relayEndpointPublicUrl)
     Task RegisterPushSubscriptionAsync(RegisterPushSubscriptionDto request)
     Task<IkonBackend.AppPaymentsRemoveResult> RemoveAppPaymentsMerchantAsync(string spaceId, string? provider = null)
+    Task<IkonBackend.AppPaymentsRemoveResult> RemoveAppPaymentsOfferAsync(string spaceId, string offerId, string? provider = null)
+    Task<bool> RemoveOfferAsync(string offerId, string? provider = null, CancellationToken cancellationToken = null)
     Task RemoveOrganisationInvitationAsync(string organisationId, string invitationId)
     Task<IkonBackend.Organisation> RemoveOrganisationUserAsync(string organisationId, string userId)
     Task RemovePushSubscriptionAsync(RemovePushSubscriptionDto request)
@@ -1963,6 +1986,8 @@ namespace Ikon.Common.Core.Functions
     IReadOnlyDictionary<string, IReadOnlyList<Function>> Functions { get; }
     // Invoked at the start of a remote function call execution. Runs in the async context of the executing function, so subscribers can set AsyncLocal state.
     static Action? RemoteCallExecutionStarting { get; set; }
+    // When set, the dispatcher rejects any remote call whose restored scopes carry no BackendTokenScope with a space claim. Turned on by delegating proxy hosts (e.g. the Ikon.AI library) that make platform-key calls on behalf of a caller and must never execute for an unidentified caller. Off by default so ordinary RPC hosts are unaffected.
+    bool RequireVerifiedCallerSpace { get; set; }
     // Optional resolver that maps a caller session id to the set of roles the caller holds. Wired by the host (e.g. Ikon.App.App) so that RequireRoleAttribute / RoleBasedPolicy can gate calls. Returns an empty/null collection for callers without any roles. The dispatcher copies the result into AdditionalContext under the key RolesContextKey .
     Func<int, IReadOnlyCollection<string>?>? RolesResolver { get; set; }
     // Optional resolver that maps a caller session id to the reactive scopes that should be active during the function body's execution — typically [ClientScope, UserScope] derived from the caller's Context . Wired by the host (e.g. Ikon.App.App) so that ClientReactive`1 and UserReactive`1 resolve naturally without the function body having to push scopes manually via FunctionCallContext.CallerSessionId + Use .
@@ -4712,18 +4737,19 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
   sealed class ServerInit : IProtocolMessagePayload
     ctor()
-    ctor(string ikonBackendUrl, string ikonBackendToken, string spaceId, string channelId, List<ServerInit.ServerPluginInit> plugins, string primaryUserId, string channelInstanceId, string channelUrl, List<ServerInit.ServerExtensionInit> extensions, Dictionary<string, string> dynamicConfigObsolete, string organisationName, string spaceName, string channelName, string dynamicConfigJsonContent, string spaceGitRepositoryUrl, string sessionId, string legacyChannelCode, bool disableLegacyDefaultExtensions, Dictionary<string, string> sessionIdentity, List<ServerInit.ServerInitEndpointRequest> endpointRequests, int frontendPort, AppSourceType appSourceType, bool debugMode, List<ServerInit.ServerInitDatabaseConnectionInfo> databaseConnectionInfos, string runTarget)
+    ctor(string ikonBackendUrl, string ikonBackendToken, string spaceId, string channelId, List<ServerInit.ServerPluginInit> plugins, string primaryUserId, string channelInstanceId, string channelUrl, List<ServerInit.ServerExtensionInit> extensions, Dictionary<string, string> dynamicConfigObsolete, string organisationName, string spaceName, string channelName, string dynamicConfigJsonContent, string spaceGitRepositoryUrl, string sessionId, string legacyChannelCode, bool disableLegacyDefaultExtensions, Dictionary<string, string> sessionIdentity, int frontendPort, AppSourceType appSourceType, bool debugMode, List<ServerInit.ServerInitDatabaseConnectionInfo> databaseConnectionInfos, string runTarget, string connectTraceId)
     AppSourceType AppSourceType { get; set; }
     string ChannelId { get; set; }
     string ChannelInstanceId { get; set; }
     string ChannelName { get; set; }
     string ChannelUrl { get; set; }
+    // Correlation id of the client connect that triggered this warm prestart-swap (from the backend's /init handling). The server folds its CORE_SERVER_INIT boot timing into a single connect-latency event keyed by this id, so the warm-boot cost stitches with the other per-connect tiers.
+    string ConnectTraceId { get; set; }
     List<ServerInit.ServerInitDatabaseConnectionInfo> DatabaseConnectionInfos { get; set; }
     bool DebugMode { get; set; }
     bool DisableLegacyDefaultExtensions { get; set; }
     string DynamicConfigJsonContent { get; set; }
     Dictionary<string, string> DynamicConfigObsolete { get; set; }
-    List<ServerInit.ServerInitEndpointRequest> EndpointRequests { get; set; }
     List<ServerInit.ServerExtensionInit> Extensions { get; set; }
     int FrontendPort { get; set; }
     string IkonBackendToken { get; set; }
@@ -4763,15 +4789,6 @@ namespace Ikon.Common.Core.Protocol
     string Type { get; set; }
     static ServerInit.ServerInitDatabaseConnectionInfo ReadFromTeleport(ReadOnlySpan<byte> data)
     static ServerInit.ServerInitDatabaseConnectionInfo ReadFromTeleport(ReadOnlySpan<byte> data, ServerInit.ServerInitDatabaseConnectionInfo? destination)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
-  sealed class ServerInit.ServerInitEndpointRequest
-    ctor()
-    ctor(string descriptor, int localPort)
-    string Descriptor { get; set; }
-    int LocalPort { get; set; }
-    static ServerInit.ServerInitEndpointRequest ReadFromTeleport(ReadOnlySpan<byte> data)
-    static ServerInit.ServerInitEndpointRequest ReadFromTeleport(ReadOnlySpan<byte> data, ServerInit.ServerInitEndpointRequest? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
   sealed class ServerInit.ServerPluginInit

@@ -286,7 +286,7 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
     {
         try
         {
-            var uri = new AssetUri(AssetClass.CloudFile, "user_state", app.GlobalState.SpaceId, app.GlobalState.ChannelId, app.ClientContext.UserId);
+            var uri = new AssetUri(AssetClass.CloudFile, "user_state", app.GlobalState.SpaceId, app.GlobalState.ChannelId, app.CurrentUserId);
 
             if (await Asset.Instance.ExistsAsync(uri))
             {
@@ -311,7 +311,7 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
     {
         return new UserState
         {
-            UserId = app.ClientContext.UserId,
+            UserId = app.CurrentUserId,
             TargetLanguage = "Finnish",
             PreferredLanguage = "en-US",
             CurrentLanguageLevel = "A2.2",
@@ -392,7 +392,7 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
         try
         {
             _userState.Value.LastActivityDate = DateTime.UtcNow;
-            var uri = new AssetUri(AssetClass.CloudFile, "user_state", app.GlobalState.SpaceId, app.GlobalState.ChannelId, app.ClientContext.UserId);
+            var uri = new AssetUri(AssetClass.CloudFile, "user_state", app.GlobalState.SpaceId, app.GlobalState.ChannelId, app.CurrentUserId);
             await Asset.Instance.SetAsync(uri, _userState.Value);
         }
         catch (Exception ex)

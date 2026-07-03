@@ -366,7 +366,7 @@ await ClientFunctions.SetThemeAsync(targetId, "dark");
 
 ```csharp
 app.MessageReceivedAsync += async args => { /* args.Message.Opcode, args.Message.TrackId */ };
-await app.SendMessageAsync(ProtocolMessage.Create(app.ClientContext.SessionId, new RequestIdrVideoFrame(),
+await app.SendMessageAsync(ProtocolMessage.Create(app.SessionId, new RequestIdrVideoFrame(),
     trackId: trackId, targetIds: [clientSessionId]));
 ```
 
