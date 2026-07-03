@@ -329,7 +329,7 @@ public partial class Validation
                                 EchoCancellation = _audioEchoCancellation.Value,
                                 Bitrate = ParseBitrateKbps(_audioBitrate.Value),
                                 DeviceId = GetSelectedDeviceId(_selectedMicrophoneId.Value),
-                                TargetIds = [app.ClientContext.SessionId]
+                                TargetIds = [app.SessionId]
                             },
                             onCaptureStart: async e => _isAudioHoldRecording.Value = true,
                             onCaptureStop: async e => _isAudioHoldRecording.Value = false);
@@ -346,7 +346,7 @@ public partial class Validation
                                 EchoCancellation = _audioEchoCancellation.Value,
                                 Bitrate = ParseBitrateKbps(_audioBitrate.Value),
                                 DeviceId = GetSelectedDeviceId(_selectedMicrophoneId.Value),
-                                TargetIds = [app.ClientContext.SessionId]
+                                TargetIds = [app.SessionId]
                             },
                             onCaptureStart: async e => _isAudioHoldRecording.Value = true,
                             onCaptureStop: async e => _isAudioHoldRecording.Value = false,
@@ -364,7 +364,7 @@ public partial class Validation
                                 EchoCancellation = _audioEchoCancellation.Value,
                                 Bitrate = ParseBitrateKbps(_audioBitrate.Value),
                                 DeviceId = GetSelectedDeviceId(_selectedMicrophoneId.Value),
-                                TargetIds = [app.ClientContext.SessionId]
+                                TargetIds = [app.SessionId]
                             },
                             onCaptureStart: async e => _isAudioToggleRecording.Value = true,
                             onCaptureStop: async e => _isAudioToggleRecording.Value = false);
@@ -381,7 +381,7 @@ public partial class Validation
                                 EchoCancellation = _audioEchoCancellation.Value,
                                 Bitrate = ParseBitrateKbps(_audioBitrate.Value),
                                 DeviceId = GetSelectedDeviceId(_selectedMicrophoneId.Value),
-                                TargetIds = [app.ClientContext.SessionId]
+                                TargetIds = [app.SessionId]
                             },
                             onCaptureStart: async e => _isAudioToggleRecording.Value = true,
                             onCaptureStop: async e => _isAudioToggleRecording.Value = false,

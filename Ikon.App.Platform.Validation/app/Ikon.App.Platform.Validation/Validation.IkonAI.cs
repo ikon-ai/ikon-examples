@@ -1668,7 +1668,7 @@ public partial class Validation
                                 AutoGainControl = true,
                                 NoiseSuppression = true,
                                 EchoCancellation = true,
-                                TargetIds = [app.ClientContext.SessionId]
+                                TargetIds = [app.SessionId]
                             },
                             onCaptureStart: async e =>
                             {
@@ -1714,7 +1714,7 @@ public partial class Validation
                                 AutoGainControl = true,
                                 NoiseSuppression = true,
                                 EchoCancellation = true,
-                                TargetIds = [app.ClientContext.SessionId]
+                                TargetIds = [app.SessionId]
                             },
                             onCaptureStart: async e =>
                             {

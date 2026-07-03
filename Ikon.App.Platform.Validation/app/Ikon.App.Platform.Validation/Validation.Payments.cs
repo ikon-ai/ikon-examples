@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 
 public partial class Validation
@@ -24,8 +25,7 @@ public partial class Validation
     private async Task InitPaymentsAsync()
     {
         app.Payments.DefaultProvider = PaymentProvider.Stripe;
-        app.Payments.DefaultSuccessUrl = "https://ikon.live/validation/paid";
-        app.Payments.DefaultCancelUrl = "https://ikon.live/validation/cancel";
+        // Redirects default to this app's own URL — no need to set DefaultSuccessUrl/DefaultCancelUrl.
         app.Payments.PaymentEventReceived += OnPaymentEventAsync;
         await Task.CompletedTask;
     }
@@ -36,6 +36,8 @@ public partial class Validation
         {
             PaymentEventType.PaymentPaid => "A payment succeeded",
             PaymentEventType.PaymentRefunded => "A payment was refunded",
+            PaymentEventType.SubscriptionActivated => "A subscription activated",
+            PaymentEventType.SubscriptionUpdated => "A subscription was updated",
             PaymentEventType.SubscriptionRenewed => "A subscription renewed",
             PaymentEventType.SubscriptionCanceled => "A subscription was canceled",
             _ => "An event arrived",
@@ -83,12 +85,16 @@ public partial class Validation
             col.Box([Card.Default, "p-6"], content: card =>
             {
                 card.Text([Text.H3, "mb-1"], text: "1 · What can I sell?");
-                card.Text([Text.BodySm, "text-tertiary mb-3"], text: "These are the offers you set up at your payment provider. Click one to take a payment for it — a recurring offer starts a subscription, a one-time offer is a single charge.");
-                card.Button([Button.OutlineMd, "mb-3"], label: "Load offers", onClick: () => RunPaymentsActionAsync(async () =>
+                card.Text([Text.BodySm, "text-tertiary mb-3"], text: "Offers are your catalog — create them from code with CreateOfferAsync (no provider dashboard) or load ones already synced. Click an offer to take a payment: a recurring offer starts a subscription, a one-time offer is a single charge.");
+                card.Row([Layout.Row.Sm, "mb-3 flex-wrap"], content: btns =>
                 {
-                    _payOffers.Value = await app.Payments.ListOffersAsync();
-                    _payOffersLoaded.Value = true;
-                }));
+                    btns.Button([Button.PrimaryMd], label: "Create sample offers", onClick: () => RunPaymentsActionAsync(CreateSampleOffersAsync));
+                    btns.Button([Button.OutlineMd], label: "Load offers", onClick: () => RunPaymentsActionAsync(async () =>
+                    {
+                        _payOffers.Value = await app.Payments.ListOffersAsync();
+                        _payOffersLoaded.Value = true;
+                    }));
+                });
 
                 if (_payOffersLoaded.Value && _payOffers.Value.Count == 0)
                 {
@@ -152,22 +158,35 @@ public partial class Validation
             col.Box([Card.Default, "p-6"], content: card =>
             {
                 card.Text([Text.H3, "mb-1"], text: "4 · Can this customer use it?");
-                card.Text([Text.BodySm, "text-tertiary mb-3"], text: "Check whether the customer has an active subscription to an offer — this is the fast gate you read on every request.");
+                card.Text([Text.BodySm, "text-tertiary mb-3"], text: "GetEntitlementAsync is a backend call → access + Source (subscription | one-time). For gating UI, read IsEntitled synchronously in render (no backend call) — shown live below and it re-renders when access changes.");
                 card.Row(["gap-3 flex-wrap items-end"], content: row =>
                 {
                     row.TextField(bind: _payOfferId, label: "Offer", style: [Input.Default, "w-32"]);
                     row.Button([Button.OutlineMd], label: "Check access", onClick: () => RunPaymentsActionAsync(async () =>
                     {
                         var e = await app.Payments.GetEntitlementAsync(_payOfferId.Value, _payCustomer.Value);
-                        _payEntitlement.Value = e.SubscriptionActive
-                            ? $"✓ Active subscription to '{_payOfferId.Value}'" + (e.SubscriptionEndsAt is { } d ? $" — renews {d:yyyy-MM-dd}" : "")
-                            : $"✗ No active subscription to '{_payOfferId.Value}'";
+                        _payEntitlement.Value = e.Active
+                            ? $"✓ Access to '{_payOfferId.Value}' (via {e.Source})" + (e.ExpiresAt is { } d ? $" — until {d:yyyy-MM-dd}" : "")
+                            : $"✗ No access to '{_payOfferId.Value}'" + (e.ExpiresAt is { } x && x < DateTimeOffset.UtcNow ? $" — expired {x:yyyy-MM-dd}" : "");
                     }));
                 });
                 if (!string.IsNullOrEmpty(_payEntitlement.Value))
                 {
                     card.Text([Text.Body, "mt-2"], text: _payEntitlement.Value);
                 }
+
+                // Synchronous, cached gate — safe to read every render, re-renders on change.
+                var entitledNow = app.Payments.IsEntitled(_payOfferId.Value, _payCustomer.Value);
+                card.Text([Text.BodySm, entitledNow ? "text-success" : "text-tertiary", "mt-2 font-mono"],
+                    text: (entitledNow ? "✓" : "✗") + $" IsEntitled(\"{_payOfferId.Value}\")");
+
+                card.Text([Text.Label, "mt-4 mb-1"], text: "Test expiry");
+                card.Text([Text.BodySm, "text-tertiary mb-2"], text: "Grant this customer subscription access whose expiry is already past or a month away — a synthetic provider event run through the real webhook pipeline. Access past its expiry counts as inactive, so re-check above once the event lands.");
+                card.Row([Layout.Row.Sm, "flex-wrap"], content: btns =>
+                {
+                    btns.Button([Button.OutlineMd], label: "Grant expired access", onClick: () => RunPaymentsActionAsync(() => SimulateSubscriptionAccessAsync(expired: true)));
+                    btns.Button([Button.OutlineMd], label: "Grant active access", onClick: () => RunPaymentsActionAsync(() => SimulateSubscriptionAccessAsync(expired: false)));
+                });
             });
 
             // 5. The customer's stuff -------------------------------------
@@ -241,15 +260,15 @@ public partial class Validation
             // 6. Gate a feature -------------------------------------------
             col.Box([Card.Default, "p-6"], content: card =>
             {
-                card.Text([Text.H3, "mb-1"], text: "6 · Gate a feature on a subscription");
-                card.Text([Text.BodySm, "text-tertiary mb-3"], text: "Put [PaymentsRequireSubscription(\"pro\")] on a server function and the call is blocked unless the caller is subscribed. The button below evaluates that check for the customer above.");
+                card.Text([Text.H3, "mb-1"], text: "6 · Gate a feature on an entitlement");
+                card.Text([Text.BodySm, "text-tertiary mb-3"], text: "Put [PaymentsRequireEntitlement(\"pro\")] on a server function and the call is blocked unless the caller has access (via a subscription or a one-time purchase). The button below evaluates that check for the customer above.");
                 card.Button([Button.OutlineMd], label: "Evaluate the gate", onClick: () => RunPaymentsActionAsync(async () =>
                 {
-                    var policy = new PaymentsRequireSubscriptionAttribute(_payOfferId.Value).CreatePolicy();
+                    var policy = new PaymentsRequireEntitlementAttribute(_payOfferId.Value).CreatePolicy();
                     var ctx = new PolicyCallContext(Guid.NewGuid(), "validation-demo", 0, _payCustomer.Value, null, null, true, CancellationToken.None);
                     var decision = await policy.EvaluateAsync([], ctx);
                     _payGate.Value = decision is PolicyDecision.Deny
-                        ? $"Blocked — the customer has no active '{_payOfferId.Value}' subscription."
+                        ? $"Blocked — the customer has no active '{_payOfferId.Value}' entitlement."
                         : "Allowed — the call would run.";
                 }));
                 if (!string.IsNullOrEmpty(_payGate.Value))
@@ -271,6 +290,57 @@ public partial class Validation
         LogPayments($"Opened a payment page for '{offerId}'");
         await OpenLinkAsync(link);
     });
+
+    private async Task CreateSampleOffersAsync()
+    {
+        // Provision a catalog straight from code — no provider dashboard.
+        await app.Payments.CreateOfferAsync(new OfferSpec("validation_pro", "Validation Pro",
+            new OfferPriceSpec(999, "eur", PriceKind.Recurring, PriceInterval.Month)));
+        await app.Payments.CreateOfferAsync(new OfferSpec("validation_unlock", "Validation Unlock",
+            new OfferPriceSpec(500, "eur", PriceKind.OneTime)));
+        _payOffers.Value = await app.Payments.ListOffersAsync();
+        _payOffersLoaded.Value = true;
+        LogPayments("Created offers: validation_pro (subscription) + validation_unlock (one-time)");
+    }
+
+    // Feeds a synthetic Stripe subscription event through the real webhook pipeline
+    // (normalize → entitlement upsert → app push) so expiry handling can be exercised
+    // without waiting for a real billing period to lapse.
+    private async Task SimulateSubscriptionAccessAsync(bool expired)
+    {
+        var customer = _payCustomer.Value;
+        var offerId = _payOfferId.Value;
+        // The backend adds a two-day grace window on top of the period end, so an
+        // expired grant must sit further back than that.
+        var periodEnd = DateTimeOffset.UtcNow.AddDays(expired ? -3 : 30);
+        var providerEvent = new
+        {
+            id = $"evt_validation_expiry_{Guid.NewGuid():N}",
+            type = "customer.subscription.updated",
+            data = new
+            {
+                @object = new
+                {
+                    id = $"sub_validation_expiry_{customer}",
+                    status = "active",
+                    cancel_at_period_end = false,
+                    current_period_start = periodEnd.AddMonths(-1).ToUnixTimeSeconds(),
+                    current_period_end = periodEnd.ToUnixTimeSeconds(),
+                    metadata = new Dictionary<string, string>
+                    {
+                        ["app_customer_key"] = customer,
+                        ["feature_key"] = offerId,
+                    },
+                },
+            },
+        };
+        await IkonBackend.Instance.IngestPaymentsProviderEventAsync(JsonSerializer.Serialize(providerEvent));
+        _payEntitlement.Value = "";
+        _payStatus.Value = expired
+            ? $"Granted '{offerId}' access that has already expired — once the event lands, Check access should say no."
+            : $"Granted '{offerId}' access until {periodEnd:yyyy-MM-dd} — once the event lands, Check access should say yes.";
+        LogPayments(expired ? "Simulated an expired subscription grant" : "Simulated an active subscription grant");
+    }
 
     private async Task OpenLinkAsync(PaymentLink link)
     {
@@ -299,7 +369,8 @@ public partial class Validation
             return "no price";
         }
         var amount = $"{price.AmountMinor / 100.0:0.00} {price.Currency.ToUpperInvariant()}";
-        return price.Type == "recurring" ? $"{amount}/{price.Interval ?? "period"}" : amount;
+        var interval = price.Interval == PriceInterval.Unknown ? "period" : price.Interval.ToString().ToLowerInvariant();
+        return price.Kind == PriceKind.Recurring ? $"{amount}/{interval}" : amount;
     }
 
     private async Task RunPaymentsActionAsync(Func<Task> action)

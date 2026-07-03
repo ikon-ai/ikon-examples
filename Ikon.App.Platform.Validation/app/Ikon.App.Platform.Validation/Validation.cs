@@ -663,7 +663,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                     _ = Task.Run(async () =>
                     {
                         await Task.Delay(200);
-                        await app.SendMessageAsync(ProtocolMessage.Create(app.ClientContext.SessionId, new RequestIdrVideoFrame(),
+                        await app.SendMessageAsync(ProtocolMessage.Create(app.SessionId, new RequestIdrVideoFrame(),
                             trackId: echo.InputTrackId, targetIds: [args.ClientSessionId]));
                     });
                 }
@@ -708,7 +708,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
             if (_echoToInputTrack.TryGetValue(args.Message.TrackId, out var inputTrackId))
             {
-                await app.SendMessageAsync(ProtocolMessage.Create(app.ClientContext.SessionId, new RequestIdrVideoFrame(),
+                await app.SendMessageAsync(ProtocolMessage.Create(app.SessionId, new RequestIdrVideoFrame(),
                     trackId: inputTrackId, targetIds: [args.Message.SenderId]));
             }
         };

@@ -72,9 +72,9 @@ namespace Ikon.App
     Task StopAsync(CancellationToken cancellationToken = null)
   // Typed app↔client custom-message helpers over the app-local Teleport channel. The payload types come from the app's own schema/*.tp files (compiled by ikon app teleport build); each carries its own GROUP_APP_LOCAL opcode and is sent/received as a native type — no JSON marshalling. Delivery is server-controlled and explicit: SendMessageAsync``1 always takes the recipient client session IDs — there is no implicit broadcast to every client. Whether a type travels reliably or unreliably is declared on the .tp schema (unreliable = true), not here.
   static class AppMessaging
-    static IDisposable OnMessage<T>(IProtocolMessageChannel app, Func<T, int, ValueTask> handler) where T : IProtocolMessagePayload, new()
-    static ValueTask SendMessageAsync<T>(IProtocolMessageChannel app, T message, IReadOnlyList<int> targetIds) where T : IProtocolMessagePayload
-    static ValueTask SendMessageAsync<T>(IProtocolMessageChannel app, T message, int targetClientSessionId) where T : IProtocolMessagePayload
+    static IDisposable OnMessage<T>(IMessageChannel app, Func<T, int, ValueTask> handler) where T : IProtocolMessagePayload, new()
+    static ValueTask SendMessageAsync<T>(IMessageChannel app, T message, IReadOnlyList<int> targetIds) where T : IProtocolMessagePayload
+    static ValueTask SendMessageAsync<T>(IMessageChannel app, T message, int targetClientSessionId) where T : IProtocolMessagePayload
   // Delegate for async event handlers in the app lifecycle.
   delegate AsyncEventHandler<TEventArgs> where TEventArgs : EventArgs
     Task AsyncEventHandler`1<TEventArgs>(TEventArgs e)
@@ -656,9 +656,13 @@ namespace Ikon.App
     static HttpResult Text(string body, int statusCode = 200)
     static HttpResult Unauthorized(string? reason = null)
   // Base interface for Ikon app hosts providing access to shared state, reactive infrastructure, and lifecycle events.
-  interface IAppBase : IProtocolMessageChannel
+  interface IAppBase : IMessageChannel
     // Gets the background work tracker that prevents server idle shutdown while work is in progress.
     BackgroundWork BackgroundWork { get; }
+    // The Context of the client currently being served — the one rendering the UI or firing the current handler, resolved from the active reactive scope. null when no client is in scope (e.g. background work). Use this to identify the current client — never a plugin's own connection context. For the joining client's context use the ClientJoined event args instead.
+    Context? CurrentClientContext { get; }
+    // The user id of the client currently being served, or an empty string when no client is in scope. Always populated for a connected client — the real user id for authenticated users, a stable anonymous id otherwise. This is the correct source for a payment customer key, subscription gating, per-user state, etc.
+    string CurrentUserId { get; }
     // Gets the path to the Data directory for this app. Files placed in the Data folder of the app project can be accessed at runtime using this path. Note: in cloud, this directory is read-only and writing to it will throw an exception.
     string DataDirectory { get; }
     // Gets the database connection configurations for this app instance.
@@ -732,7 +736,7 @@ namespace Ikon.App
     // Subscribe to StoppingAsync with a zero-arg async handler.
     static void OnStopping(IAppBase app, Func<Task> handler)
   // App host interface providing typed session identity and client parameters.
-  interface IApp<TSessionIdentity, TClientParameters> : IAppBase, IProtocolMessageChannel
+  interface IApp<TSessionIdentity, TClientParameters> : IAppBase, IMessageChannel
     // Gets the typed parameters for the current client (determined by ReactiveScope). Must be called inside UI.Root() or a ReactiveScope context.
     TClientParameters ClientParameters { get; }
     // Gets the collection of connected clients with typed parameters. Automatically synced with GlobalState .
@@ -1498,26 +1502,47 @@ namespace Ikon.App.Mcp
     JsonElement? OutputSchema { get; init; }
 
 namespace Ikon.App.Payments
+  // How a PaymentEntitlement was obtained.
+  enum EntitlementSource
+    Unknown
+    Subscription
+    OneTime
+  // The price for a created offer. Omit Interval for a one-time offer.
+  sealed class OfferPriceSpec : IEquatable<OfferPriceSpec>
+    // The price for a created offer. Omit Interval for a one-time offer.
+    ctor(long AmountMinor, string Currency, PriceKind Kind, PriceInterval? Interval = null, int? IntervalCount = null)
+    long AmountMinor { get; init; }
+    string Currency { get; init; }
+    PriceInterval? Interval { get; init; }
+    int? IntervalCount { get; init; }
+    PriceKind Kind { get; init; }
+  // Defines an offer to create via CreateOfferAsync .
+  sealed class OfferSpec : IEquatable<OfferSpec>
+    // Defines an offer to create via CreateOfferAsync .
+    ctor(string OfferId, string Name, OfferPriceSpec Price)
+    string Name { get; init; }
+    string OfferId { get; init; }
+    OfferPriceSpec Price { get; init; }
   // A single payment record (a one-off charge or a subscription renewal).
   sealed class Payment : IEquatable<Payment>
     // A single payment record (a one-off charge or a subscription renewal).
-    ctor(string Id, PaymentProvider? Provider, string Status, string? Kind, long AmountMinor, string Currency, long AmountRefundedMinor, DateTimeOffset? CreatedAt)
+    ctor(string Id, PaymentProvider? Provider, PaymentStatus Status, PaymentKind Kind, long AmountMinor, string Currency, long AmountRefundedMinor, DateTimeOffset? CreatedAt)
     long AmountMinor { get; init; }
     long AmountRefundedMinor { get; init; }
     DateTimeOffset? CreatedAt { get; init; }
     string Currency { get; init; }
     string Id { get; init; }
-    string? Kind { get; init; }
+    PaymentKind Kind { get; init; }
     PaymentProvider? Provider { get; init; }
-    string Status { get; init; }
-  // "Does this customer have access to this offer" snapshot. The [PaymentsRequireSubscription] policy gates on it.
+    PaymentStatus Status { get; init; }
+  // A customer's access to an offer, whether from an active subscription or a one-time purchase. This is the access-control answer the [PaymentsRequireEntitlement] policy gates on. Subscription access carries ExpiresAt (period end plus a grace window) and reports inactive once it has passed; a one-time purchase has no expiry.
   sealed class PaymentEntitlement : IEquatable<PaymentEntitlement>
-    // "Does this customer have access to this offer" snapshot. The [PaymentsRequireSubscription] policy gates on it.
-    ctor(string OfferId, bool SubscriptionActive, DateTimeOffset? SubscriptionEndsAt, string? SubscriptionStatus)
+    // A customer's access to an offer, whether from an active subscription or a one-time purchase. This is the access-control answer the [PaymentsRequireEntitlement] policy gates on. Subscription access carries ExpiresAt (period end plus a grace window) and reports inactive once it has passed; a one-time purchase has no expiry.
+    ctor(string OfferId, bool Active, DateTimeOffset? ExpiresAt, EntitlementSource Source)
+    bool Active { get; init; }
+    DateTimeOffset? ExpiresAt { get; init; }
     string OfferId { get; init; }
-    bool SubscriptionActive { get; init; }
-    DateTimeOffset? SubscriptionEndsAt { get; init; }
-    string? SubscriptionStatus { get; init; }
+    EntitlementSource Source { get; init; }
   // A normalized payment event the backend pushes to the app.
   sealed class PaymentEvent : IEquatable<PaymentEvent>
     // A normalized payment event the backend pushes to the app.
@@ -1532,10 +1557,23 @@ namespace Ikon.App.Payments
     JsonElement Payload()
   // The kind of a normalized PaymentEvent .
   enum PaymentEventType
+    PaymentAuthorized
     PaymentPaid
     PaymentRefunded
+    PaymentCanceled
+    PaymentExpired
+    PaymentFailed
+    SubscriptionActivated
+    SubscriptionUpdated
     SubscriptionRenewed
+    SubscriptionRenewalFailed
     SubscriptionCanceled
+    CatalogUpdated
+  // What a Payment paid for — a one-off charge or a subscription charge.
+  enum PaymentKind
+    Unknown
+    OneTime
+    Subscription
   // A provider-hosted page the customer is redirected to in order to pay. Send them to Url .
   sealed class PaymentLink : IEquatable<PaymentLink>
     // A provider-hosted page the customer is redirected to in order to pay. Send them to Url .
@@ -1550,15 +1588,15 @@ namespace Ikon.App.Payments
     string Name { get; init; }
     string OfferId { get; init; }
     IReadOnlyList<PaymentPrice> Prices { get; init; }
-  // One price on an offer. Type is recurring or one_time.
+  // One price on an offer. Interval and IntervalCount are meaningful only when Kind is Recurring ; a one-time price reports Unknown .
   sealed class PaymentPrice : IEquatable<PaymentPrice>
-    // One price on an offer. Type is recurring or one_time.
-    ctor(long AmountMinor, string Currency, string Type, string? Interval, int? IntervalCount)
+    // One price on an offer. Interval and IntervalCount are meaningful only when Kind is Recurring ; a one-time price reports Unknown .
+    ctor(long AmountMinor, string Currency, PriceKind Kind, PriceInterval Interval, int? IntervalCount)
     long AmountMinor { get; init; }
     string Currency { get; init; }
-    string? Interval { get; init; }
+    PriceInterval Interval { get; init; }
     int? IntervalCount { get; init; }
-    string Type { get; init; }
+    PriceKind Kind { get; init; }
   // The payment provider that moves the money. An app picks a default provider on DefaultProvider and may override it per call.
   enum PaymentProvider
     Stripe
@@ -1567,23 +1605,30 @@ namespace Ikon.App.Payments
   // Result of a refund.
   sealed class PaymentRefund : IEquatable<PaymentRefund>
     // Result of a refund.
-    ctor(string Reference, string Status)
+    ctor(string Reference, RefundStatus Status)
     string Reference { get; init; }
-    string Status { get; init; }
+    RefundStatus Status { get; init; }
+  // The outcome of a Payment .
+  enum PaymentStatus
+    Unknown
+    Pending
+    Paid
+    Failed
+    Canceled
   // A customer's live subscription, created by paying for a recurring offer.
   sealed class PaymentSubscription : IEquatable<PaymentSubscription>
     // A customer's live subscription, created by paying for a recurring offer.
-    ctor(string Id, PaymentProvider? Provider, string Status, string? OfferId, DateTimeOffset? CurrentPeriodEnd, bool CancelAtPeriodEnd)
+    ctor(string Id, PaymentProvider? Provider, SubscriptionStatus Status, string? OfferId, DateTimeOffset? CurrentPeriodEnd, bool CancelAtPeriodEnd)
     bool CancelAtPeriodEnd { get; init; }
     DateTimeOffset? CurrentPeriodEnd { get; init; }
     string Id { get; init; }
     string? OfferId { get; init; }
     PaymentProvider? Provider { get; init; }
-    string Status { get; init; }
-  // Declares the function requires the current customer to hold an active subscription for offerId . Resolves the customer from UserId and reads the entitlement from Instance . On missing entitlement it DENIES with a stable code (payments_subscription_required); the app's UI catches it and opens a payment link via CreatePaymentLinkAsync . The provider webhook then flips the entitlement and the user retries.
-  sealed class PaymentsRequireSubscriptionAttribute : PolicyAttribute
+    SubscriptionStatus Status { get; init; }
+  // Declares the function requires the current customer to hold an active entitlement for offerId — access granted by an active subscription or a one-time purchase. Resolves the customer from UserId and reads the entitlement from Instance . On missing access it DENIES with a stable code (payments_entitlement_required); the app's UI catches it and opens a payment link via CreatePaymentLinkAsync . The provider webhook then flips the entitlement and the user retries.
+  sealed class PaymentsRequireEntitlementAttribute : PolicyAttribute
     ctor(string offerId)
-    // Offer the subscription is keyed to.
+    // Offer the entitlement is keyed to.
     string OfferId { get; }
     override IFunctionPolicy CreatePolicy()
   // App-level entry point for payments, reached via app.Payments. The app picks a default PaymentProvider , creates payment links (for an offer or an ad-hoc amount), and reacts to PaymentEventReceived events. Every command accepts an optional per-call provider override. The app holds no payment state. One instance per app (an AsyncLocalInstance`1 singleton).
@@ -1595,20 +1640,59 @@ namespace Ikon.App.Payments
     PaymentProvider DefaultProvider { get; set; }
     // Default success URL used when a command does not specify one.
     string? DefaultSuccessUrl { get; set; }
+    // Cancel a subscription at the period end (default) or right away with immediate . The entitlement lapses when the cancellation takes effect.
     Task CancelSubscriptionAsync(string subscriptionId, bool immediate = false, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
-    // Create a provider-hosted payment link for an offer. Recurring offers start a subscription.
-    Task<PaymentLink> CreatePaymentLinkAsync(string offerId, string appCustomerKey, string? email = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
-    // Create a provider-hosted payment link for an ad-hoc amount (tip, one-off charge).
-    Task<PaymentLink> CreatePaymentLinkAsync(long amountMinor, string currency, string appCustomerKey, string? description = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
-    // The customer's access snapshot for an offer. Used by the [PaymentsRequireSubscription] policies.
-    Task<PaymentEntitlement> GetEntitlementAsync(string offerId, string appCustomerKey, CancellationToken cancellationToken = null)
+    // Create (or update) an offer in the app's catalog so customers can pay for it by id. For Stripe this provisions a Product + Price; for providers without a catalog (Mollie, Surfboard) the offer is stored by the platform. Idempotent on OfferId .
+    Task<PaymentOffer> CreateOfferAsync(OfferSpec offer, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
+    // Create a provider-hosted payment link for an offer. Recurring offers start a subscription; paying grants an entitlement. customerKey defaults to the current user.
+    Task<PaymentLink> CreatePaymentLinkAsync(string offerId, string? customerKey = null, string? email = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
+    // Create a provider-hosted payment link for an ad-hoc amount (tip, one-off charge). Grants no entitlement — use an offer for that. customerKey defaults to the current user.
+    Task<PaymentLink> CreatePaymentLinkAsync(long amountMinor, string currency, string? customerKey = null, string? description = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
+    // The customer's access to an offer (a backend call). Used by the [PaymentsRequireEntitlement] policy. customerKey defaults to the current user. For gating UI, prefer the synchronous IsEntitled .
+    Task<PaymentEntitlement> GetEntitlementAsync(string offerId, string? customerKey = null, CancellationToken cancellationToken = null)
+    // Synchronous, cache-backed access check for gating UI — no backend call, safe to read every render. Reading it inside a UI lambda re-renders when the entitlement changes (after a purchase or a pushed event). customerKey defaults to the current user. The first read for an unseen offer returns false and warms the cache in the background, flipping to the real value on the next render.
+    bool IsEntitled(string offerId, string? customerKey = null)
     // The app's catalog of purchasable offers.
     Task<IReadOnlyList<PaymentOffer>> ListOffersAsync(CancellationToken cancellationToken = null)
-    Task<IReadOnlyList<Payment>> ListPaymentsAsync(string appCustomerKey, CancellationToken cancellationToken = null)
-    Task<IReadOnlyList<PaymentSubscription>> ListSubscriptionsAsync(string appCustomerKey, CancellationToken cancellationToken = null)
+    // The customer's payments. customerKey defaults to the current user.
+    Task<IReadOnlyList<Payment>> ListPaymentsAsync(string? customerKey = null, CancellationToken cancellationToken = null)
+    // The customer's subscriptions. customerKey defaults to the current user.
+    Task<IReadOnlyList<PaymentSubscription>> ListSubscriptionsAsync(string? customerKey = null, CancellationToken cancellationToken = null)
+    // Refund a payment, in full by default or partially via amountMinor . Refunding does not revoke an entitlement the payment granted.
     Task<PaymentRefund> RefundAsync(string paymentId, long? amountMinor = null, string? reason = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
+    // Remove an offer from the app's catalog (Stripe archives the Product/Price). Returns false if no such active offer existed.
+    Task<bool> RemoveOfferAsync(string offerId, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
     // Raised for each normalized payment event the backend pushes (paid, refunded, subscription renewed/canceled). Subscribing registers the receiver on first use.
     event Func<PaymentEvent, Task>? PaymentEventReceived
+  // The billing interval of a recurring price.
+  enum PriceInterval
+    Unknown
+    Day
+    Week
+    Month
+    Year
+  // Whether a price bills once or on a recurring interval.
+  enum PriceKind
+    Unknown
+    OneTime
+    Recurring
+  // The state of a PaymentRefund .
+  enum RefundStatus
+    Unknown
+    Pending
+    Succeeded
+    Failed
+  // The lifecycle state of a PaymentSubscription .
+  enum SubscriptionStatus
+    Unknown
+    Incomplete
+    IncompleteExpired
+    Trialing
+    Active
+    PastDue
+    Unpaid
+    Paused
+    Canceled
 
 
 ---
@@ -1891,9 +1975,10 @@ namespace Ikon.Common
   static class IkonTaskExtensions
     // Intentionally does not await the task. Exceptions are observed and sent to onException .
     static void RunParallel(Task task, Action<Exception>? onException = null)
-  sealed class InMemoryProtocolMessageChannel : IProtocolMessageChannel
+  sealed class InMemoryProtocolMessageChannel : IMessageChannel, IProtocolMessageChannel
     ctor()
     Context ClientContext { get; }
+    int SessionId { get; }
     static ValueTuple<InMemoryProtocolMessageChannel, InMemoryProtocolMessageChannel> CreateConnectedPair()
     IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[]? opcodes = null)
     ValueTask SendMessageAsync(ProtocolMessage message)

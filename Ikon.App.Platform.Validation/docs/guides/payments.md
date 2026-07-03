@@ -19,7 +19,7 @@ sends commands and reacts to events: there is no webhook to host and no payment 
 ## Enable a provider (once per app)
 
 ```bash
-ikon app payments enable --provider stripe      # or: --provider mollie | --provider surfboard
+ikon app payments enable --provider stripe      # Stripe is the generally-available provider
 ikon app payments status                        # check onboarding / charges-enabled
 ```
 
@@ -29,6 +29,9 @@ ikon app payments status                        # check onboarding / charges-ena
 BYOK (`--mode byok`) is admin-only. There is no separate "enabled" flag — payments is on once a provider
 is configured.
 
+> **Mollie and Surfboard are currently admin-only** (in preview) — regular apps enable **Stripe**. Your app
+> code is provider-neutral either way, so nothing changes when they become generally available.
+
 ## Wire it into your app
 
 `app.Payments` is the entry point — no construction needed.
@@ -36,20 +39,22 @@ is configured.
 ```csharp
 // 1. Pick a default provider once at startup. Override per call if you enable more than one.
 app.Payments.DefaultProvider = PaymentProvider.Stripe;
-app.Payments.DefaultSuccessUrl = "https://<your-app>/paid";
-app.Payments.DefaultCancelUrl  = "https://<your-app>/cancel";
+// Success/cancel redirects default to your app's own URL — the user returns to the app after paying.
+// Set DefaultSuccessUrl / DefaultCancelUrl only for a custom destination, e.g. app-URL + "/paid" and
+// "/cancel" routes where you render a confirmation (branch on the client's InitialPath in UI.Root).
 
 // 2. React to normalized events the backend pushes — no webhook to host.
 app.Payments.PaymentEventReceived += async evt =>
 {
-    // evt.Type = PaymentPaid | PaymentRefunded | SubscriptionRenewed | SubscriptionCanceled
+    // evt.Type = PaymentPaid | PaymentRefunded | SubscriptionActivated | SubscriptionUpdated |
+    //   SubscriptionRenewed | SubscriptionRenewalFailed | SubscriptionCanceled | … (null if unknown)
     // Deduped on evt.EventId; evt.Payload() is the normalized projection.
     await OnPaymentAsync(evt);
 };
 
 // 3. Take a payment, then redirect the user to the returned Url.
-var link = await app.Payments.CreatePaymentLinkAsync(
-    offerId: "pro", appCustomerKey: currentUserId, email: currentUserEmail);
+// customerKey defaults to the current user, so in a UI/event handler you just pass the offer id.
+var link = await app.Payments.CreatePaymentLinkAsync(offerId: "pro");
 await ClientFunctions.OpenExternalUrlAsync(link.Url);
 ```
 
@@ -63,25 +68,69 @@ without it the service's `DefaultProvider` is used.
 
 | Method | Does |
 |---|---|
-| `CreatePaymentLinkAsync(offerId, appCustomerKey, email?, …)` | A provider-hosted payment link for an offer — a recurring offer starts a subscription, a one-time offer is a single charge. Returns `PaymentLink` (`Url`, `Reference`, `Provider`). |
-| `CreatePaymentLinkAsync(amountMinor, currency, appCustomerKey, …)` | A payment link for an ad-hoc amount (tips, one-off charges). |
+| `CreateOfferAsync(offer, provider?)` | Create (or update) an offer customers can pay for by id → `PaymentOffer`. |
+| `RemoveOfferAsync(offerId, provider?)` | Remove an offer from the catalog → `bool` (`false` if no such offer existed). |
+| `CreatePaymentLinkAsync(offerId, customerKey?, email?, …)` | A provider-hosted payment link for an offer — a recurring offer starts a subscription, a one-time offer is a single charge. Returns `PaymentLink` (`Url`, `Reference`, `Provider`). |
+| `CreatePaymentLinkAsync(amountMinor, currency, customerKey?, …)` | A payment link for an ad-hoc amount (tips, one-off charges). Grants no entitlement — use an offer for that. |
 | `RefundAsync(paymentId, amountMinor?, reason?)` | Full or partial refund → `PaymentRefund`. |
 | `CancelSubscriptionAsync(subscriptionId, immediate?)` | Cancel now (`immediate: true`) or at period end (default). |
-| `GetEntitlementAsync(offerId, appCustomerKey)` | Does this customer have an active subscription to an offer? → `PaymentEntitlement`. |
-| `ListSubscriptionsAsync(appCustomerKey)` | The customer's subscriptions. |
-| `ListPaymentsAsync(appCustomerKey)` | The customer's payments. |
+| `IsEntitled(offerId, customerKey?)` | **Synchronous, no backend call** — the fast UI gate (see below). |
+| `GetEntitlementAsync(offerId, customerKey?)` | Does this customer have access to an offer? → `PaymentEntitlement` (`Active`, `ExpiresAt`, `Source`). Access past its `ExpiresAt` reports inactive. A backend call — for gating UI prefer `IsEntitled`. |
+| `ListSubscriptionsAsync(customerKey?)` | The customer's subscriptions. |
+| `ListPaymentsAsync(customerKey?)` | The customer's payments. |
 | `ListOffersAsync()` | The app's catalog of offers. |
 
-`appCustomerKey` is whatever stable id identifies the paying entity in your app (user id, org id, tenant
-id) — the backend maps it to the provider's customer.
+### `customerKey` — who is paying
+
+`customerKey` is your app's own stable id for the paying entity. **In almost every app that's your user
+id** — pass `app.CurrentUserId` (or your `SessionIdentity.UserId`). It only differs when you bill a
+non-user entity (an organization or tenant id for team plans). The backend maps it to the provider's
+own customer record; the same key ties together a customer's offers, subscriptions, payments, and
+entitlements.
+
+**You can usually omit it.** Every method that takes `customerKey` makes it optional and defaults to the
+**current user** whenever a client is in scope — a UI render, an `onClick`/`onSubmit`, or an
+`OnClientJoined` handler — so `CreatePaymentLinkAsync("pro")`, `GetEntitlementAsync("pro")`, and
+`ListSubscriptionsAsync()` all "just work" for the logged-in user. **Pass it explicitly** for another
+user/org, or when there is no current user in scope: a **background task**, or — importantly — the
+**`PaymentEventReceived` handler** (a server-side push, not tied to any client). Omitting it there throws a
+clear error telling you to supply it; the event's `Payload()` carries the customer it concerns.
+
+Statuses and kinds are typed enums (`PriceKind`,
+`SubscriptionStatus`, `PaymentStatus`, `PaymentKind`, `RefundStatus`, `EntitlementSource`), each with an
+`Unknown` fallback.
 
 ## Offers
 
-Offers are an **Ikon-level catalog** (`offerId` → amount / currency / interval), not provider catalog
-objects. They are **provisioned at the provider** and synced in — there is no programmatic offer-creation
-API. Discover them with `ListOffersAsync()` (each `PaymentOffer` carries `Prices`, where a `recurring`
-price means subscribing and `one_time` means a single charge), and surface them with the Parallax
-`PricingTable` component.
+An offer is an **Ikon-level catalog entry** (`offerId` → a price) that customers pay for by id. Create one
+from code or the CLI — no provider dashboard required — and it works the same across Stripe, Mollie, and
+Surfboard:
+
+```csharp
+await app.Payments.CreateOfferAsync(new OfferSpec("pro", "Pro",
+    new OfferPriceSpec(AmountMinor: 999, Currency: "eur", Kind: PriceKind.Recurring, Interval: PriceInterval.Month)));
+// one-time offer: new OfferPriceSpec(500, "eur", PriceKind.OneTime)
+```
+
+or
+
+```
+ikon app payments offer create --id pro --name Pro --amount 999 --currency eur --interval month
+ikon app payments offer list
+ikon app payments offer remove --id pro
+```
+
+For Stripe this provisions a Product + Price (`lookup_key = offerId`); for providers without a catalog
+(Mollie, Surfboard) the platform stores the offer definition. Either way you reference the offer by its
+`offerId` (e.g. `[PaymentsRequireEntitlement("pro")]`).
+
+Discover offers with `ListOffersAsync()` — each `PaymentOffer` carries `Prices` (`PriceKind.Recurring` →
+subscription, `PriceKind.OneTime` → single charge) — and render your own pricing UI from them, calling
+`CreatePaymentLinkAsync(offerId)` when the user picks a plan.
+
+> Already have Products/Prices in your Stripe dashboard? Those still sync into the catalog automatically —
+> set a Price **lookup key** (or product `metadata.app_plan_id`) to control the `offerId`; otherwise the
+> offer syncs under its Stripe product id.
 
 ## Receiving events
 
@@ -106,15 +155,41 @@ nudges and `GetEntitlementAsync` as the authority.
 
 ## Gating features
 
-Gate a server `[Function]` on an active subscription declaratively:
+Gate a server `[Function]` on an active entitlement declaratively:
 
 ```csharp
-[PaymentsRequireSubscription("pro")]   // deny code: payments_subscription_required
+[PaymentsRequireEntitlement("pro")]   // deny code: payments_entitlement_required
 ```
 
-The call is denied unless the caller holds an active subscription for the offer (resolved from the
-caller's id). Your UI catches the deny code and opens a payment link; the next `PaymentEventReceived` flips
-the entitlement and the user retries.
+The call is denied unless the caller holds an active entitlement for the offer (resolved from the caller's
+id) — access granted by an active subscription **or** a one-time purchase of that offer. Your UI catches the
+deny code and opens a payment link; the next `PaymentEventReceived` flips the entitlement and the user
+retries. `GetEntitlementAsync(offerId).Source` tells you whether the access came from a `Subscription` or a
+`OneTime` purchase.
+
+Subscription access is period-bound: each renewal refreshes `ExpiresAt` (the period end plus a grace
+window), and an entitlement past its `ExpiresAt` counts as inactive even if the final cancellation webhook
+never arrived. A **one-time purchase never expires** — it's a permanent unlock for that offer, with no
+`ExpiresAt`. Note that refunding a one-time payment does not revoke the entitlement it granted.
+
+### Gating the UI — `IsEntitled` (synchronous)
+
+Inside a UI render you can't `await`, and you must not make a backend call every frame. Use
+`app.Payments.IsEntitled(offerId)` — a **synchronous, cached, no-backend-call** check safe to read every
+render:
+
+```csharp
+if (app.Payments.IsEntitled("pro"))
+{
+    view.Text([Text.Body], "✨ Pro feature");
+}
+```
+
+Reading it inside a UI lambda registers a reactive dependency, so the subtree **re-renders automatically**
+when the entitlement changes — the moment a purchase's event lands, the gated content appears with no manual
+refresh. The first read for an offer the app hasn't seen returns `false` and warms the cache in the
+background, flipping to the real value on the next render. `customerKey` defaults to the current user, as
+everywhere else.
 
 ## Providers
 
