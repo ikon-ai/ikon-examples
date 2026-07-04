@@ -44,6 +44,7 @@ namespace Ikon.AI.ImageGeneration
     ImageBackground Background { get; set; }
     int Count { get; set; }
     int Height { get; set; }
+    string ImageSize { get; set; }
     List<InputImage> InputImages { get; set; }
     string NegativePrompt { get; set; }
     string Prompt { get; set; }
