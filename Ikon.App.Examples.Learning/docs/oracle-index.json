@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 176348,
+      "sizeBytes": 177322,
       "alsoInclude": []
     },
     {
@@ -705,7 +705,7 @@
         "targets"
       ],
       "file": "docs/guides/config-and-cli.md",
-      "sizeBytes": 7317,
+      "sizeBytes": 7464,
       "alsoInclude": []
     }
   ]
