@@ -37,8 +37,10 @@ Name = ""
 ### Project Management
 
 - `ikon app new <name>`: create a new Ikon AI app
-- `ikon app copy [source]`: copy an existing app into a new project with its own git, space, and database
-  - `--from <dir>`, `--name <name>`, `--target-dir <dir>`, `--organisation-id <id>` / `--new-org <name>`, `--domain <prefix>`, `--no-commit`
+- `ikon app copy [source]`: copy an app into a distributable package (zip/folder to hand out) or into a new platform app with its own git, space, and database
+  - `--to <zip|dir|platform>` (prompted when omitted), `--name <name>`, `--from <dir>`, `--no-update-libraries`, `--no-verify-build`
+  - distributable only: `--output <dir>`
+  - platform only: `--target-dir <dir>`, `--organisation-id <id>` / `--new-org <name>`, `--domain <prefix>`, `--no-commit`, `--no-local`
 - `ikon app load`: download an existing AI app from the cloud into a target directory (`--organisation-id`, `--space-id`, `--target-dir`)
 - `ikon app build`: build the app
 - `ikon app clean`: clean build artifacts
@@ -74,7 +76,6 @@ Name = ""
 - `ikon app deploy list`: list deployed app bundles
 - `ikon app deploy activate`: activate a specific app bundle (`--id <bundle-id>` or `--latest`; `--yes`)
 - `ikon app deploy delete`: delete an app bundle (`--id <bundle-id>` required; `--yes`)
-- `ikon app export`: export an app to a distributable zip-file or directory
 - `ikon app docs`: (re)generate app documentation under `docs/` and update `AGENTS.md`
 
 ### Database Management
