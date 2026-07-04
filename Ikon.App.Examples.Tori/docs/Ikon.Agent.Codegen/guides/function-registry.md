@@ -238,6 +238,8 @@ namespace Ikon.Common.Core.Functions
     IReadOnlyDictionary<string, IReadOnlyList<Function>> Functions { get; }
     // Invoked at the start of a remote function call execution. Runs in the async context of the executing function, so subscribers can set AsyncLocal state.
     static Action? RemoteCallExecutionStarting { get; set; }
+    // When set, the dispatcher rejects any remote call whose restored scopes carry no BackendTokenScope with a space claim. Turned on by delegating proxy hosts (e.g. the Ikon.AI library) that make platform-key calls on behalf of a caller and must never execute for an unidentified caller. Off by default so ordinary RPC hosts are unaffected.
+    bool RequireVerifiedCallerSpace { get; set; }
     // Optional resolver that maps a caller session id to the set of roles the caller holds. Wired by the host (e.g. Ikon.App.App) so that RequireRoleAttribute / RoleBasedPolicy can gate calls. Returns an empty/null collection for callers without any roles. The dispatcher copies the result into AdditionalContext under the key RolesContextKey .
     Func<int, IReadOnlyCollection<string>?>? RolesResolver { get; set; }
     // Optional resolver that maps a caller session id to the reactive scopes that should be active during the function body's execution — typically [ClientScope, UserScope] derived from the caller's Context . Wired by the host (e.g. Ikon.App.App) so that ClientReactive`1 and UserReactive`1 resolve naturally without the function body having to push scopes manually via FunctionCallContext.CallerSessionId + Use .
