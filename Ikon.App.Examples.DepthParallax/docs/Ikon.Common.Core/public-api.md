@@ -66,6 +66,7 @@ namespace Ikon.Common.Core
   class IkonBackend.AppPaymentsMerchantRequest
     ctor()
     string ContactEmail { get; set; }
+    string? CorporateId { get; set; }
     string? Country { get; set; }
     string? DefaultCurrency { get; set; }
     string? DisplayName { get; set; }
@@ -485,6 +486,10 @@ namespace Ikon.Common.Core
     bool Equals(Dictionary<TKey, TValue>? x, Dictionary<TKey, TValue>? y)
     int GetHashCode(Dictionary<TKey, TValue> obj)
     static ReactiveGlobalState.DictionaryComparer<TKey, TValue> Instance
+  static class EditorLauncher
+    static Task<string> EditAsync(string initialContent, string fileExtension, CancellationToken cancellationToken = null)
+    static string ResolveEditorCommand(Func<string, string?> getEnv, bool isWindows)
+    static string ResolveEditorCommand()
   enum IkonBackend.EnvironmentType
     Unknown
     Local
@@ -1652,6 +1657,8 @@ namespace Ikon.Common.Core.Auth
 namespace Ikon.Common.Core.CommandLineParser
   static class CommandLineParser
     static Task<ParseResult<TGlobalOptions>> ParseAsync<TGlobalOptions>(string[] args, bool globalOptionsOnly = false) where TGlobalOptions : new()
+    // Parse and invoke a verb IN-PROCESS — the same pipeline the CLI runs from the shell, minus the process boundary. This is the programmatic face of "the tool is a command-line parser over the tool API": verbs resolve from the assemblies loaded in the host process (the CLI itself, or any host that references a tool assembly such as IkonTool.Default), so there is no external binary to drift out of sync with the code that calls it. Login-requiring verbs authenticate from the saved login / environment exactly like the CLI; unlike the CLI there is never an interactive login prompt — an unauthenticated call fails with a clear message instead.
+    static Task<VerbRunResult> RunAsync(string[] args, CancellationToken cancellationToken = null)
   sealed class OptionAttribute : Attribute
     ctor(string name, string description, bool required = false, string[]? synonyms = null)
     string Description { get; }
@@ -1716,6 +1723,14 @@ namespace Ikon.Common.Core.CommandLineParser
     static bool LoadVerbCache(string path)
     // Writes the current verb cache to a JSON file.
     static void WriteVerbCache(string path, string hash)
+  // Outcome of an in-process verb invocation ( RunAsync ). Invoked separates "the verb ran and failed" from "the command line didn't parse" — callers that auto-append arguments retry a parse failure, but must never re-run an invoked verb.
+  sealed class VerbRunResult
+    // Outcome of an in-process verb invocation ( RunAsync ). Invoked separates "the verb ran and failed" from "the command line didn't parse" — callers that auto-append arguments retry a parse failure, but must never re-run an invoked verb.
+    ctor(bool success, bool invoked, string message)
+    // True when parsing succeeded and the verb callback actually ran (even if it then failed).
+    bool Invoked { get; }
+    string Message { get; }
+    bool Success { get; }
 
 namespace Ikon.Common.Core.Email
   // Sender or recipient entry parsed from an inbound email envelope.
