@@ -16,17 +16,24 @@
   <ItemGroup Condition="'$(IsIkonInternal)' == 'true'">
     <ProjectReference Include="$(IkonRoot)\Ikon.Parallax\Ikon.Parallax.csproj" />
   </ItemGroup>
-  <Target Name="IkonAppTeleportBuildInternal" BeforeTargets="BeforeBuild" Condition="'$(IsIkonInternal)' == 'true' And Exists('$(MSBuildProjectDirectory)/../../schema')">
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)/../../schema')">
+    <IkonTeleportSchemaFile Include="$(MSBuildProjectDirectory)/../../schema/**/*" />
+  </ItemGroup>
+  <Target Name="IkonAppTeleportBuildInternal" BeforeTargets="BeforeBuild" Condition="'$(IsIkonInternal)' == 'true' And Exists('$(MSBuildProjectDirectory)/../../schema')" Inputs="@(IkonTeleportSchemaFile);$(IkonRoot)/artifacts/bin/BuildUtil/$(Configuration.ToLowerInvariant())/build-util.dll" Outputs="$(IntermediateOutputPath)ikon-teleport.stamp">
     <MSBuild Projects="$(IkonRoot)/BuildUtil/BuildUtil.csproj" Targets="Build" Properties="Configuration=$(Configuration)" RemoveProperties="OutDir;OutputPath;PublishDir;BaseOutputPath;IntermediateOutputPath;BaseIntermediateOutputPath">
       <Output TaskParameter="TargetOutputs" ItemName="_BuildUtilOutput" />
     </MSBuild>
     <Exec Command="dotnet &quot;@(_BuildUtilOutput)&quot; --generate-app-teleport --app-dir &quot;$(MSBuildProjectDirectory)/../..&quot;" />
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <Touch Files="$(IntermediateOutputPath)ikon-teleport.stamp" AlwaysCreate="true" />
     <ItemGroup>
       <Compile Include="$(MSBuildProjectDirectory)/Generated/**/*.cs" Exclude="@(Compile)" />
     </ItemGroup>
   </Target>
-  <Target Name="IkonAppTeleportBuildExternal" BeforeTargets="BeforeBuild" Condition="'$(IsIkonInternal)' != 'true' And Exists('$(MSBuildProjectDirectory)/../../schema')">
+  <Target Name="IkonAppTeleportBuildExternal" BeforeTargets="BeforeBuild" Condition="'$(IsIkonInternal)' != 'true' And Exists('$(MSBuildProjectDirectory)/../../schema')" Inputs="@(IkonTeleportSchemaFile)" Outputs="$(IntermediateOutputPath)ikon-teleport.stamp">
     <Exec Command="ikon app teleport build --target-dir &quot;$(MSBuildProjectDirectory)/../..&quot;" EnvironmentVariables="CI=true" ContinueOnError="WarnAndContinue" />
+    <MakeDir Directories="$(IntermediateOutputPath)" Condition="'$(MSBuildLastTaskResult)' == 'true'" />
+    <Touch Files="$(IntermediateOutputPath)ikon-teleport.stamp" AlwaysCreate="true" Condition="'$(MSBuildLastTaskResult)' == 'true'" />
     <ItemGroup>
       <Compile Include="$(MSBuildProjectDirectory)/Generated/**/*.cs" Exclude="@(Compile)" />
     </ItemGroup>
