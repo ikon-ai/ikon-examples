@@ -451,30 +451,9 @@ new IkonTheme
 }
 ```
 
-## Choosing a theme strategy
-
-Not every app wants light/dark switching. Decide the strategy FIRST — it drives how you style every surface:
-
-- **Adaptive** (the default, `Mode = ThemeMode.Adaptive`) — light + dark palettes, the client preference switches between them. Right for productivity, content, and utility apps. **Discipline:** author BOTH palettes (base + `DarkMode`), and use theme-aware semantic classes (`bg-card`, `text-foreground`, `border-secondary`, `bg-brand-solid`) for every surface that must adapt. Hardcoded palette literals (`bg-violet-100`, `bg-slate-50`, `border-slate-200`) do NOT flip with the theme — on the other theme they become light chips glowing on dark cards, white strips on dark dialogs, and invisible outline buttons. The classic trouble spots: status pills/badges, dialog footers, hover tints, empty-state icons.
-- **Fixed** (`Mode = ThemeMode.Fixed`) — ONE committed scheme, no light/dark switching, ever. Right for games, atmospheric experiences, and brand-locked looks where a theme flip would break the art direction. Set `Mode = ThemeMode.Fixed` on the `IkonTheme` (no `DarkMode` block); the platform then emits your palette for both theme states, so a client-side flip changes nothing. Hardcoded palette classes and raw hex are first-class citizens here — just contrast-check the one scheme.
-
-```csharp
-// A committed single-scheme look — client theme toggles change nothing.
-new IkonTheme
-{
-    Mode             = ThemeMode.Fixed,
-    ["background"]   = "#0b0d17",
-    ["text-primary"] = "#e6e9ff",
-    ["primary"]      = "#7df9ff",
-    ["card"]         = "#141830",
-}
-```
-
-The client theme preference is per-browser (persisted per origin), so an adaptive app WILL be seen in both themes — never ship one you haven't checked in the other mode.
-
 ## Dark mode
 
-Set `DarkMode = new IkonTheme { ... }` to author light AND dark palettes in one block (adaptive strategy):
+Set `DarkMode = new IkonTheme { ... }` to author light AND dark palettes in one block:
 
 ```csharp
 new IkonTheme
