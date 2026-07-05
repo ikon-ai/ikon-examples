@@ -24,7 +24,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         "files", "assets", "actions", "notifications",
         "video", "audio", "rive", "shadertoy",
         "ikon-ai", "mcp", "app-cells",
-        "virtualization", "drawing", "resizable-split",
+        "virtualization", "drawing",
         "profiling", "memory", "identity", "functions",
         "payments", "email", "custom-messages", "database"
     ];

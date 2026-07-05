@@ -120,6 +120,14 @@
 - `playful-loading-text-rotator` — rotating waiting messages.
 - `relative-time-with-i18n-buckets` — bucketed "5 min ago" via T(key, args).
 
+## Theming & polish
+
+- `theme-commitment` — adaptive vs fixed scheme: the choice and its emission.
+- `status-pill` — theme-safe chips/badges/tags (the classic dark-mode defect class).
+- `depth-and-atmosphere` — card/panel depth recipes (tint step, soft shadow, brand-tinted shadow, accent gradient) instead of flat boxed-in borders.
+- `signature-moment` — one hero header + one designed celebration state + display-type scale jumps; the antidote to "typographic flatness" and forgettable apps.
+- `inline-icon-text` — Row-composed text + view.Icon for sentences that need a pictograph; the emoji-as-icon defect exists because an icon can't live inside a Text string.
+
 ## Modals & overlays
 
 - `destructive-confirm-dialog` — id-driven confirm modal.

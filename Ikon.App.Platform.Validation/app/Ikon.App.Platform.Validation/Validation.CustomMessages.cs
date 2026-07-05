@@ -86,27 +86,52 @@ public partial class Validation
     {
         long seq = 0;
         bool unreliable = mode == "unreliable";
+        bool sendTimedOut = false;
 
         try
         {
             while (!token.IsCancellationRequested)
             {
+                // The loop's only other exit is the Stop button, which a departed
+                // client can no longer press — without this check the stream runs
+                // forever against a dead session and holds the shared running flag.
+                // Soft-disconnect counts too: the grace period keeps the client
+                // listed for minutes, and a disconnected client cannot watch the
+                // stream anyway (it can restart one after reconnecting).
+                if (!app.GlobalState.Clients.TryGetValue(clientSessionId, out var clientContext)
+                    || clientContext.IsSoftDisconnected)
+                {
+                    Log.Instance.Info($"Custom-message stream target client {clientSessionId} disconnected — stopping stream");
+                    break;
+                }
+
                 seq++;
                 long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
                 // The two types differ only by their schema-level `unreliable` flag,
-                // which the generated codec bakes into the wire message.
-                if (unreliable)
-                {
-                    await app.SendMessageAsync(
+                // which the generated codec bakes into the wire message. The send is
+                // bounded because SendMessageAsync itself takes no token and the
+                // unreliable path has been observed to hang when the datagram channel
+                // stalls mid-stream — an unbounded await would wedge this loop past
+                // Stop and leave _tpStreamRunning stuck until the server restarts.
+                var send = unreliable
+                    ? app.SendMessageAsync(
                         new ProbePingUnreliable { Seq = seq, SentAtMs = now, Origin = "server", Mode = "unreliable", Note = "stream" },
-                        clientSessionId);
-                }
-                else
-                {
-                    await app.SendMessageAsync(
+                        clientSessionId)
+                    : app.SendMessageAsync(
                         new ProbePing { Seq = seq, SentAtMs = now, Origin = "server", Mode = "reliable", Note = "stream" },
                         clientSessionId);
+
+                try
+                {
+                    await send.AsTask().WaitAsync(TimeSpan.FromSeconds(5), token);
+                }
+                catch (TimeoutException)
+                {
+                    sendTimedOut = true;
+                    _tpStreamStatus.Value = $"send {seq} ({mode}) timed out — stopping stream";
+                    Log.Instance.Warning($"Custom-message stream send timed out: mode={mode} seq={seq} client={clientSessionId}");
+                    break;
                 }
 
                 _tpStreamStatus.Value = $"sent {seq} ({mode})";
@@ -119,7 +144,11 @@ public partial class Validation
         finally
         {
             _tpStreamRunning.Value = false;
-            _tpStreamStatus.Value = "(idle)";
+
+            if (!sendTimedOut)
+            {
+                _tpStreamStatus.Value = "(idle)";
+            }
         }
     }
 

@@ -475,6 +475,13 @@ public partial class Validation
                 });
             });
 
+            // Last result
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-2"], "Last result");
+                view.Text([Text.Caption], _clientFunctionResultText.Value);
+            });
+
             // Result Toast notification
             view.Toast(
                 viewportStyle: [Toast.ViewportBottomCenter],

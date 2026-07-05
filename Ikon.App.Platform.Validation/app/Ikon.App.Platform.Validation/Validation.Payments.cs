@@ -21,11 +21,15 @@ public partial class Validation
     private readonly Reactive<string> _payGate = new("");
     private readonly Reactive<string> _payStatus = new("");
     private readonly Reactive<List<string>> _payEventLog = new([]);
+    private readonly Reactive<PaymentReceipt?> _payReceipt = new((PaymentReceipt?)null);
 
     private async Task InitPaymentsAsync()
     {
-        app.Payments.DefaultProvider = PaymentProvider.Stripe;
+        // Default to Stripe; the selector below repins per request to test a
+        // multi-provider space. Leaving this null would fall back to the space's
+        // default merchant, which isn't necessarily the one you want to validate.
         // Redirects default to this app's own URL — no need to set DefaultSuccessUrl/DefaultCancelUrl.
+        app.Payments.DefaultProvider = PaymentProvider.Stripe;
         app.Payments.PaymentEventReceived += OnPaymentEventAsync;
         await Task.CompletedTask;
     }
@@ -71,12 +75,18 @@ public partial class Validation
                     row.TextField(bind: _payCustomer, label: "Customer", style: [Input.Default, "min-w-[200px]"]);
                     row.Select(
                         value: _payProvider.Value,
-                        options: [new SelectOption("stripe", "Stripe"), new SelectOption("mollie", "Mollie")],
+                        options: [new SelectOption("auto", "Auto (space default)"), new SelectOption("stripe", "Stripe"), new SelectOption("mollie", "Mollie"), new SelectOption("surfboard", "Surfboard")],
                         label: "Provider",
                         onValueChange: async v =>
                         {
                             _payProvider.Value = v;
-                            app.Payments.DefaultProvider = v == "mollie" ? PaymentProvider.Mollie : PaymentProvider.Stripe;
+                            app.Payments.DefaultProvider = v switch
+                            {
+                                "stripe" => PaymentProvider.Stripe,
+                                "mollie" => PaymentProvider.Mollie,
+                                "surfboard" => PaymentProvider.Surfboard,
+                                _ => null,
+                            };
                         });
                 });
             });
@@ -246,12 +256,16 @@ public partial class Validation
                                 c.Text([Text.Body, "font-medium"], text: $"{pay.AmountMinor / 100.0:0.00} {pay.Currency.ToUpperInvariant()}");
                                 c.Text([Text.Caption], text: $"{pay.Status}" + (pay.CreatedAt is { } d ? $" · {d:yyyy-MM-dd}" : ""));
                             });
-                            r.Button([Button.GhostSm], label: "Refund", onClick: () => RunPaymentsActionAsync(async () =>
+                            r.Row([Layout.Row.Xs], content: actions =>
                             {
-                                var refund = await app.Payments.RefundAsync(id);
-                                _payStatus.Value = $"Refund {refund.Status}.";
-                                await ReloadCustomerAsync();
-                            }));
+                                actions.Button([Button.GhostSm], label: "Receipt", onClick: () => RunPaymentsActionAsync(() => RequestReceiptAsync(id)));
+                                actions.Button([Button.GhostSm], label: "Refund", onClick: () => RunPaymentsActionAsync(async () =>
+                                {
+                                    var refund = await app.Payments.RefundAsync(id);
+                                    _payStatus.Value = $"Refund {refund.Status}.";
+                                    await ReloadCustomerAsync();
+                                }));
+                            });
                         });
                     }
                 }
@@ -281,7 +295,36 @@ public partial class Validation
             {
                 col.Text([Text.BodySm, "text-tertiary"], text: _payStatus.Value);
             }
+
+            if (_payReceipt.Value?.Pdf is { Length: > 0 } pdf)
+            {
+                col.ActionButton([Button.OutlineSm], action: ActionKind.DownloadFile,
+                    options: new DownloadFileActionOptions { Filename = "receipt.pdf", Data = pdf },
+                    content: v => v.Text([Text.BodySm], text: "Download receipt PDF"));
+            }
         });
+    }
+
+    private async Task RequestReceiptAsync(string paymentId)
+    {
+        _payReceipt.Value = null;
+        var receipt = await app.Payments.RequestReceiptAsync(paymentId);
+        LogPayments($"Requested a receipt for {paymentId}");
+
+        if (!string.IsNullOrEmpty(receipt.Url))
+        {
+            _payStatus.Value = "Receipt ready — opening the hosted receipt.";
+            await ClientFunctions.OpenExternalUrlAsync(receipt.Url);
+        }
+        else if (receipt.Pdf is { Length: > 0 })
+        {
+            _payReceipt.Value = receipt;
+            _payStatus.Value = $"Receipt PDF ready ({receipt.Pdf.Length} bytes) — use the download button below.";
+        }
+        else
+        {
+            _payStatus.Value = "No receipt is available for this payment.";
+        }
     }
 
     private Task PayAsync(string offerId) => RunPaymentsActionAsync(async () =>
@@ -313,10 +356,13 @@ public partial class Validation
         // The backend adds a two-day grace window on top of the period end, so an
         // expired grant must sit further back than that.
         var periodEnd = DateTimeOffset.UtcNow.AddDays(expired ? -3 : 30);
+        // The event is Stripe-shaped, so route it to the Stripe normalizer explicitly —
+        // the space merchant's provider (e.g. Surfboard) would silently drop it.
         var providerEvent = new
         {
             id = $"evt_validation_expiry_{Guid.NewGuid():N}",
             type = "customer.subscription.updated",
+            provider = "stripe",
             data = new
             {
                 @object = new
