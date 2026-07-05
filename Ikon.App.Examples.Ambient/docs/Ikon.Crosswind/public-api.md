@@ -146,9 +146,18 @@ namespace Ikon.Crosswind
     Crosshair
     Move
     None
+  // How `dark:` variants are emitted. Media: `@media (prefers-color-scheme: dark)` only. Class: scoped under DarkClassSelector only. Dual (default): both an app-theme rule scoped by `[data-theme="dark"]`/`.dark` and a system-preference fallback that applies only when no explicit theme is set.
   enum DarkModeStrategy
     Media
     Class
+    Dual
+  sealed class DimensionToken : IEquatable<DimensionToken>
+    ctor(double Value, string Unit)
+    string Unit { get; init; }
+    double Value { get; init; }
+    static string Percent
+    static string Vh
+    static string Vw
   sealed class EdgeInsetsToken : IEquatable<EdgeInsetsToken>
     ctor(double? Left, double? Top, double? Right, double? Bottom)
     double? Bottom { get; init; }
@@ -189,14 +198,20 @@ namespace Ikon.Crosswind
     double? RowGap { get; init; }
     bool? Wrap { get; init; }
     FlexToken MergeOver(FlexToken? other)
+  // Normalizes CSS colour literals to a 6-digit hex string plus a separate alpha so the Flutter client only ever has to parse "#rrggbb" (+ alpha field). Handles #hex (3/4/6/8 digits), rgb()/rgba(), hsl()/hsla(), and oklch() — the platform baseline palette is oklch, so without this conversion arbitrary palette colours silently vanish on Flutter.
+  static class FlutterColorNormalizer
+    static bool TryNormalize(string css, out string hex, out double? alpha)
   static class FlutterStyleResolver
+    // Optional app theme for native clients. When set, colour scales and semantic tokens resolve against the app's own theme (dark and light modes) instead of the hardcoded platform baseline snapshot. Explicit assignment (e.g. `FlutterThemeSource.FromDesignTokens(document)`) wins; otherwise the theme travels with the ambient custom-style scope the owning StyleRegistry pushes around each compile, so multi-app processes stay isolated.
+    static FlutterThemeSource? ThemeSource { get; set; }
     static FlutterStyleTokens Resolve(string tailwindDeclaration)
   sealed class FlutterStyleTokens : IEquatable<FlutterStyleTokens>
-    ctor(EdgeInsetsToken? Padding, EdgeInsetsToken? Margin, ColorToken? BackgroundColor, BorderToken? Border, BorderRadiusToken? BorderRadius, SizeToken? Size, TextStyleToken? Text, FlexToken? Flex, double? Opacity, IReadOnlyList<ShadowToken>? Shadow, OverflowToken? Overflow, TransformToken? Transform, PositionToken? Position, GradientToken? Gradient, MotionToken? Motion, bool? Hidden, bool? Visible, CursorToken? Cursor, double? AspectRatio, int? ZIndex, int? GridColumns = null, bool? Pulse = null, bool? Spin = null, ObjectFitToken? ObjectFit = null)
+    ctor(EdgeInsetsToken? Padding, EdgeInsetsToken? Margin, ColorToken? BackgroundColor, BorderToken? Border, BorderRadiusToken? BorderRadius, SizeToken? Size, TextStyleToken? Text, FlexToken? Flex, double? Opacity, IReadOnlyList<ShadowToken>? Shadow, OverflowToken? Overflow, TransformToken? Transform, PositionToken? Position, GradientToken? Gradient, MotionToken? Motion, bool? Hidden, bool? Visible, CursorToken? Cursor, double? AspectRatio, int? ZIndex, int? GridColumns = null, bool? Pulse = null, bool? Spin = null, ObjectFitToken? ObjectFit = null, FlutterStyleTokens? ThemeLight = null, IReadOnlyDictionary<string, FlutterStyleTokens>? Breakpoints = null)
     double? AspectRatio { get; init; }
     ColorToken? BackgroundColor { get; init; }
     BorderToken? Border { get; init; }
     BorderRadiusToken? BorderRadius { get; init; }
+    IReadOnlyDictionary<string, FlutterStyleTokens>? Breakpoints { get; init; }
     CursorToken? Cursor { get; init; }
     static FlutterStyleTokens Empty { get; }
     FlexToken? Flex { get; init; }
@@ -216,9 +231,17 @@ namespace Ikon.Crosswind
     SizeToken? Size { get; init; }
     bool? Spin { get; init; }
     TextStyleToken? Text { get; init; }
+    FlutterStyleTokens? ThemeLight { get; init; }
     TransformToken? Transform { get; init; }
     bool? Visible { get; init; }
     int? ZIndex { get; init; }
+  // Injectable theme data for the Flutter style resolver. When set (via ThemeSource ) the resolver resolves colour scales and semantic tokens against the app's own theme instead of the hardcoded platform baseline snapshot, so custom brand themes render correctly on native clients. Lookup values may be concrete colours ("#0c0e12", "oklch(...)"), scale references ("neutral-800"), or other semantic tokens ("text-secondary"); the resolver chases references and normalizes concrete colours to hex.
+  sealed class FlutterThemeSource
+    ctor(IReadOnlyDictionary<string, string> scaleHex, IReadOnlyDictionary<string, string> darkSemantic, IReadOnlyDictionary<string, string> lightSemantic)
+    IReadOnlyDictionary<string, string> DarkSemantic { get; }
+    IReadOnlyDictionary<string, string> LightSemantic { get; }
+    IReadOnlyDictionary<string, string> ScaleHex { get; }
+    static FlutterThemeSource FromDesignTokens(CanvasDesignTokenDocument document)
   sealed class GradientToken : IEquatable<GradientToken>
     ctor(string Direction, ColorToken? From, ColorToken? Via, ColorToken? To)
     string Direction { get; init; }
@@ -284,15 +307,23 @@ namespace Ikon.Crosswind
     double OffsetY { get; init; }
     double SpreadRadius { get; init; }
   sealed class SizeToken : IEquatable<SizeToken>
-    ctor(double? Width, double? Height, double? MinWidth, double? MinHeight, double? MaxWidth, double? MaxHeight)
+    ctor(double? Width, double? Height, double? MinWidth, double? MinHeight, double? MaxWidth, double? MaxHeight, DimensionToken? WidthDim = null, DimensionToken? HeightDim = null, DimensionToken? MinWidthDim = null, DimensionToken? MinHeightDim = null, DimensionToken? MaxWidthDim = null, DimensionToken? MaxHeightDim = null)
     double? Height { get; init; }
+    DimensionToken? HeightDim { get; init; }
     double? MaxHeight { get; init; }
+    DimensionToken? MaxHeightDim { get; init; }
     double? MaxWidth { get; init; }
+    DimensionToken? MaxWidthDim { get; init; }
     double? MinHeight { get; init; }
+    DimensionToken? MinHeightDim { get; init; }
     double? MinWidth { get; init; }
+    DimensionToken? MinWidthDim { get; init; }
     double? Width { get; init; }
+    DimensionToken? WidthDim { get; init; }
     SizeToken MergeOver(SizeToken? other)
   static class TW
+    // Index of the first '/' outside any bracket/paren nesting, or -1 when absent.
+    static int FindTopLevelSlash(string value)
     static string FormatLength(ArgValue a)
     static string FractionToPercent(string frac)
     static string MaybeNegate(bool negative, string val)
@@ -337,19 +368,37 @@ namespace Ikon.Crosswind
     IReadOnlyDictionary<string, string> Light { get; }
     string EmitDark()
     string EmitLight()
+  // Static facade the Crosswind compiler resolves custom aliases through. Lookups prefer the ambient scope (pushed by a StyleRegistry around each compile) and fall back to the process-wide scope, which the legacy static SetDefinitions/MergeDefinitions still write.
   static class TailwindCustomStyleRegistry
+    // Flutter theme data of the scope active for the current compile, preferring the ambient scope like the alias lookups do.
+    static FlutterThemeSource? CurrentFlutterTheme { get; }
     static bool IsFontFamilyToken(string name)
     static bool IsFontWeightToken(string name)
     static void MergeDefinitions(TailwindStyleDefinitions definitions)
+    // Makes the given scope the ambient alias source for the current async flow until the returned handle is disposed. Compilation call sites stay static, but each caller can pin its own scope for the duration of a compile.
+    static IDisposable PushScope(TailwindCustomStyleScope scope)
     static void SetDefinitions(TailwindStyleDefinitions? definitions)
     static bool TryResolve(string name, TailwindColorContext context, out string value)
     static bool TryResolveFontFamily(string name, out string value)
     static bool TryResolveFontWeight(string name, out string value)
+  // One isolated set of custom color and font alias definitions. Style compilation reads aliases through TailwindCustomStyleRegistry , which prefers the ambient scope pushed via PushScope and falls back to the process-wide scope, so several apps hosted in one process can each compile against their own theme without contaminating the others.
+  sealed class TailwindCustomStyleScope
+    ctor()
+    // Optional Flutter theme data derived from the same app theme as the alias definitions. The Flutter style resolver reads it through the ambient scope so each app in a shared process renders its own brand colors on native clients.
+    FlutterThemeSource? FlutterTheme { get; set; }
+    bool IsFontFamilyToken(string name)
+    bool IsFontWeightToken(string name)
+    // Merges definitions into this scope. Returns true when the merge added or changed at least one alias, so callers know whether previously compiled styles may now resolve differently and need recompilation.
+    bool MergeDefinitions(TailwindStyleDefinitions definitions)
+    void SetDefinitions(TailwindStyleDefinitions? definitions)
+    bool TryResolve(string name, TailwindColorContext context, out string value)
+    bool TryResolveFontFamily(string name, out string value)
+    bool TryResolveFontWeight(string name, out string value)
   static class TailwindDedup
     // Last-one-wins de-duplication by (Variants, Track, Utility).
     static List<TailwindDescription> Deduplicate(List<TailwindDescription> classes)
   class TailwindDescription : IEquatable<TailwindDescription>
-    ctor(List<string> Variants, string? Track, string Utility, List<ArgValue> Args, bool Important, bool Negative, ContainerVariant? Container = null, bool HasBracketArg = false, bool IsArbitraryProperty = false)
+    ctor(List<string> Variants, string? Track, string Utility, List<ArgValue> Args, bool Important, bool Negative, ContainerVariant? Container = null, bool HasBracketArg = false, bool IsArbitraryProperty = false, string? TypeHint = null)
     List<ArgValue> Args { get; init; }
     ContainerVariant? Container { get; init; }
     bool HasBracketArg { get; init; }
@@ -358,6 +407,7 @@ namespace Ikon.Crosswind
     bool Negative { get; init; }
     string? Track { get; init; }
     string? TrackKey { get; }
+    string? TypeHint { get; init; }
     string Utility { get; init; }
     List<string> Variants { get; init; }
   sealed class TailwindDesignTokenResult
@@ -431,7 +481,7 @@ namespace Ikon.Crosswind
     Ellipsis
     Fade
   sealed class TextStyleToken : IEquatable<TextStyleToken>
-    ctor(double? FontSize, int? FontWeight, ColorToken? Color, string? FontFamily, double? LineHeight, double? LetterSpacing, TextAlignToken? Align, TextDecorationToken? Decoration, TextOverflowToken? TextOverflow, int? MaxLines, bool? Italic, TextTransformToken? TextTransform, WhiteSpaceToken? WhiteSpace)
+    ctor(double? FontSize, int? FontWeight, ColorToken? Color, string? FontFamily, double? LineHeight, double? LetterSpacing, TextAlignToken? Align, TextDecorationToken? Decoration, TextOverflowToken? TextOverflow, int? MaxLines, bool? Italic, TextTransformToken? TextTransform, WhiteSpaceToken? WhiteSpace, double? LineHeightPx = null, double? LetterSpacingEm = null)
     TextAlignToken? Align { get; init; }
     ColorToken? Color { get; init; }
     TextDecorationToken? Decoration { get; init; }
@@ -440,7 +490,9 @@ namespace Ikon.Crosswind
     int? FontWeight { get; init; }
     bool? Italic { get; init; }
     double? LetterSpacing { get; init; }
+    double? LetterSpacingEm { get; init; }
     double? LineHeight { get; init; }
+    double? LineHeightPx { get; init; }
     int? MaxLines { get; init; }
     TextOverflowToken? TextOverflow { get; init; }
     TextTransformToken? TextTransform { get; init; }
@@ -613,6 +665,7 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> BgRightBottom(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> BgRightTop(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> BgScroll(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgShorthand(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> BgSize(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> BgTop(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> Block(TailwindDescription _)
@@ -794,6 +847,7 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> InsetInlineEnd(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> InsetInlineStart(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> InsetRing(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> InsetShadow(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> InsetX(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> InsetY(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> InterpolateSize(TailwindDescription cls)
@@ -820,11 +874,17 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> M(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> MaskClip(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> MaskComposite(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> MaskConic(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> MaskEdgeStop(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> MaskGradientStop(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> MaskImage(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> MaskLinear(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> MaskMode(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> MaskNoRepeat(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> MaskOrigin(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> MaskPosition(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> MaskRadial(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> MaskRadialAt(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> MaskRepeat(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> MaskRepeatRound(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> MaskRepeatSpace(TailwindDescription cls)
@@ -1024,6 +1084,7 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> Shrink(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> Shrink0(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> Size(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> Skew(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> SkewX(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> SkewY(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> SlashedZero(TailwindDescription _)
@@ -1099,7 +1160,9 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> TransformOrigin(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> Transition(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> TransitionBehavior(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> TransitionDiscrete(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> TransitionNone(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> TransitionNormal(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> Translate(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> TranslateX(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> TranslateY(TailwindDescription cls)
@@ -1123,6 +1186,9 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> Width(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> WillChange(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> WordSpacing(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> WrapAnywhere(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> WrapBreakWord(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> WrapNormal(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> WritingMode(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> ZIndex(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> Zoom(TailwindDescription cls)
