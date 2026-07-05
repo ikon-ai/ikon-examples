@@ -1236,7 +1236,6 @@ namespace Ikon.AI.MusicGeneration
     static uint TeleportVersion
   enum MusicGeneratorModel
     ElevenLabsMusicV2
-    FalAceStep
     FalStableAudio
     FalLyria2
   static class MusicGeneratorModelExtensions

@@ -29,8 +29,9 @@ is configured.
 `app.Payments` is the entry point — no construction needed.
 
 ```csharp
-// 1. Pick a default provider once at startup. Override per call if you enable more than one.
-app.Payments.DefaultProvider = PaymentProvider.Stripe;
+// 1. No provider setup needed — commands charge with the provider you enabled for the app.
+//    Pin a default ONLY if you enabled more than one and want to skip passing provider: each call:
+//    app.Payments.DefaultProvider = PaymentProvider.Stripe;   // optional; unset = the space's provider
 // Success/cancel redirects default to your app's own URL — the user returns to the app after paying.
 // Set DefaultSuccessUrl / DefaultCancelUrl only for a custom destination, e.g. app-URL + "/paid" and
 // "/cancel" routes where you render a confirmation (branch on the client's InitialPath in UI.Root).
@@ -56,7 +57,8 @@ That's the whole loop: send a command, redirect to the link, react to `PaymentEv
 
 All commands go to the backend, which runs them on the app's provider and returns a typed result —
 identical whether the provider is Stripe or Mollie. Every command takes an optional `provider:` override;
-without it the service's `DefaultProvider` is used.
+without it the backend charges with the provider you enabled for the app (or the `DefaultProvider` you
+pinned when more than one is enabled).
 
 | Method | Does |
 |---|---|
@@ -65,6 +67,7 @@ without it the service's `DefaultProvider` is used.
 | `CreatePaymentLinkAsync(offerId, customerKey?, email?, …)` | A provider-hosted payment link for an offer — a recurring offer starts a subscription, a one-time offer is a single charge. Returns `PaymentLink` (`Url`, `Reference`, `Provider`). |
 | `CreatePaymentLinkAsync(amountMinor, currency, customerKey?, …)` | A payment link for an ad-hoc amount (tips, one-off charges). Grants no entitlement — use an offer for that. |
 | `RefundAsync(paymentId, amountMinor?, reason?)` | Full or partial refund → `PaymentRefund`. |
+| `RequestReceiptAsync(paymentId, provider?)` | Fetch a receipt for a completed payment → `PaymentReceipt` (`Url` hosted receipt page; `Pdf` bytes when the provider offers a downloadable PDF, else `null`). |
 | `CancelSubscriptionAsync(subscriptionId, immediate?)` | Cancel now (`immediate: true`) or at period end (default). |
 | `IsEntitled(offerId, customerKey?)` | **Synchronous, no backend call** — the fast UI gate (see below). |
 | `GetEntitlementAsync(offerId, customerKey?)` | Does this customer have access to an offer? → `PaymentEntitlement` (`Active`, `ExpiresAt`, `Source`). Access past its `ExpiresAt` reports inactive. A backend call — for gating UI prefer `IsEntitled`. |
@@ -164,6 +167,10 @@ window), and an entitlement past its `ExpiresAt` counts as inactive even if the 
 never arrived. A **one-time purchase never expires** — it's a permanent unlock for that offer, with no
 `ExpiresAt`. Note that refunding a one-time payment does not revoke the entitlement it granted.
 
+Nothing on the platform stops a customer from paying for an offer they already hold — a re-purchase is a
+second charge (and, for a recurring offer, a second subscription). If re-buying shouldn't be allowed, gate
+your Buy button on `IsEntitled(offerId)` and hide or disable it when the customer is already entitled.
+
 ### Gating the UI — `IsEntitled` (synchronous)
 
 Inside a UI render you can't `await`, and you must not make a backend call every frame. Use
@@ -182,6 +189,30 @@ when the entitlement changes — the moment a purchase's event lands, the gated 
 refresh. The first read for an offer the app hasn't seen returns `false` and warms the cache in the
 background, flipping to the real value on the next render. `customerKey` defaults to the current user, as
 everywhere else.
+
+## Receipts
+
+Hand a customer a receipt for a completed payment with `RequestReceiptAsync(paymentId)` — the same
+`paymentId` you'd refund with:
+
+```csharp
+var receipt = await app.Payments.RequestReceiptAsync(paymentId);
+if (!string.IsNullOrEmpty(receipt.Url))
+{
+    await ClientFunctions.OpenExternalUrlAsync(receipt.Url);   // hosted receipt page
+}
+else if (receipt.Pdf is { Length: > 0 } pdf)
+{
+    // The provider returned downloadable bytes — offer them with a DownloadFile action.
+    view.ActionButton([Button.OutlineSm], action: ActionKind.DownloadFile,
+        options: new DownloadFileActionOptions { Filename = "receipt.pdf", Data = pdf },
+        content: v => v.Text([Text.BodySm], "Download receipt"));
+}
+```
+
+`PaymentReceipt.Url` is a provider-hosted receipt page (Stripe and Surfboard both return one); `Pdf` carries
+downloadable PDF bytes only when the provider exposes one (today a hosted URL is the norm, so `Pdf` is
+usually `null`). Return shape is uniform across providers.
 
 ## Providers
 
