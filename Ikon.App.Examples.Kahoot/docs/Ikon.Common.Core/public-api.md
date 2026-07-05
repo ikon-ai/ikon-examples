@@ -103,6 +103,7 @@ namespace Ikon.Common.Core
     string? DashboardUrl { get; set; }
     bool DetailsSubmitted { get; set; }
     string? MerchantId { get; set; }
+    string? OnboardingUrl { get; set; }
     bool PayoutsEnabled { get; set; }
     string? Provider { get; set; }
     List<string> RequirementsCurrentlyDue { get; set; }
@@ -663,6 +664,7 @@ namespace Ikon.Common.Core
     Task DeleteProfileFileAsync(string profileId, string assetId)
     Task DeleteSpaceApiKeyAsync(string id)
     Task DeleteSpaceAsync(string id)
+    Task DeleteSpaceImmediatelyAsync(string id)
     Task DeleteSpaceSecretAsync(string id)
     // Local-dev parity: drop this process's externally-managed registration on shutdown so the backend stops reverse-proxying {space}.ikonai.app/api/... to a relay tunnel that is no longer listening. localInstanceId is the id the register call returned. Best-effort and idempotent.
     Task DeregisterLocalInstanceAsync(string spaceId, string channelId, string localInstanceId)
@@ -761,6 +763,7 @@ namespace Ikon.Common.Core
     Task RemovePushSubscriptionAsync(RemovePushSubscriptionDto request)
     Task<string> RequestAccessTokenAsync(string apiKey, string spaceId, string externalUserId)
     Task<IkonBackend.ChannelInstance> RequestChannelAsync(IkonBackend.RequestChannelRequest request)
+    Task<string> RequestReceiptAsync(string paymentId, string? provider = null, CancellationToken cancellationToken = null)
     Task<StepUpStartResponse> RequestStepUpStartAsync(StepUpStartRequest request)
     void ResetCounters()
     Task ResetProfileAsync(string profileId)
@@ -1659,6 +1662,14 @@ namespace Ikon.Common.Core.CommandLineParser
     static Task<ParseResult<TGlobalOptions>> ParseAsync<TGlobalOptions>(string[] args, bool globalOptionsOnly = false) where TGlobalOptions : new()
     // Parse and invoke a verb IN-PROCESS — the same pipeline the CLI runs from the shell, minus the process boundary. This is the programmatic face of "the tool is a command-line parser over the tool API": verbs resolve from the assemblies loaded in the host process (the CLI itself, or any host that references a tool assembly such as IkonTool.Default), so there is no external binary to drift out of sync with the code that calls it. Login-requiring verbs authenticate from the saved login / environment exactly like the CLI; unlike the CLI there is never an interactive login prompt — an unauthenticated call fails with a clear message instead.
     static Task<VerbRunResult> RunAsync(string[] args, CancellationToken cancellationToken = null)
+  // Single source of truth for whether the CLI is running interactively. A command is interactive only when a human is at the keyboard: no CI marker, and neither stdin nor stdout is redirected. Setting CI=true forces non-interactive mode; and any redirected stream — a coding agent capturing output, a pipe, a script — is treated as non-interactive automatically, so the tool stays robust even when the caller forgets to set CI. Verbs must consult IsInteractive before prompting or rendering live/animated output, and fall back to flags (e.g. --yes) or plain output.
+  static class ConsoleInteractivity
+    // True when the CI environment variable is set to "true" or "1".
+    static bool IsCi { get; }
+    // True only when a human can be prompted: not CI, and neither stdin nor stdout is redirected. False in CI or whenever output/input is piped.
+    static bool IsInteractive { get; }
+    // Test hook: force a value, or pass null to restore auto-detection.
+    static void OverrideInteractive(bool? interactive)
   sealed class OptionAttribute : Attribute
     ctor(string name, string description, bool required = false, string[]? synonyms = null)
     string Description { get; }

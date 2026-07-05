@@ -37,11 +37,12 @@ Name = ""
 ### Project Management
 
 - `ikon app new <name>`: create a new Ikon AI app
-- `ikon app copy [source]`: copy an app into a distributable package (zip/folder to hand out) or into a new platform app with its own git, space, and database
-  - `--to <zip|dir|platform>` (prompted when omitted), `--name <name>`, `--from <dir>`, `--no-update-libraries`, `--no-verify-build`
+- `ikon app copy`: copy an app into a distributable package (zip/folder to hand out) or into a new platform app with its own git, space, and database
+  - `--from <dir>` (source app, defaults to the current directory), `--to <zip|dir|platform>` (prompted when omitted), `--name <name>`, `--no-update-libraries`, `--no-verify-build`
   - distributable only: `--output <dir>`
   - platform only: `--target-dir <dir>`, `--organisation-id <id>` / `--new-org <name>`, `--domain <prefix>`, `--no-commit`, `--no-local`
-- `ikon app load`: download an existing AI app from the cloud into a target directory (`--organisation-id`, `--space-id`, `--target-dir`)
+- `ikon app get`: download an existing AI app from the cloud into a target directory (`--organisation-id`, `--space-id`, `--target-dir`)
+- `ikon app delete`: delete the app's cloud space and all its cloud resources (databases, deployed bundles, channel). Local project files are kept. Schedules removal after a grace period by default; `--now` tears it down immediately. Requires `--yes` in non-interactive mode.
 - `ikon app build`: build the app
 - `ikon app clean`: clean build artifacts
 - `ikon app run`: run in local dev mode (starts both C# app and Vite frontend dev server)
@@ -52,7 +53,6 @@ Name = ""
   - `--debug`: enable debug mode
   - `--skip-npm-install`: skip npm install step
 - `ikon app stop`: stop a running app instance
-- `ikon app info`: show running app instance info (URLs, PIDs)
 - `ikon app update`: update Ikon NuGet and NPM package references to the latest version
 - `ikon app icons`: regenerate every frontend's icon set from `branding/logo.svg` — web favicons + PWA manifest icons, and (when a Flutter frontend exists) the Android/iOS/web launcher icons. Only the generated icons and each manifest's `icons` array are rewritten; manual manifest edits (e.g. a custom PWA `name`) are preserved.
 - `ikon app teleport build`: compile this app's `schema/*.tp` files into C# + configured SDKs (run after editing a `.tp` schema)
@@ -66,24 +66,25 @@ Name = ""
 ### Configuration & Deployment
 
 - `ikon app config`: configure the app for cloud deployment (organisation/space; `--add-database`, `--target <name>`)
-- `ikon app status`: check app configuration status
+- `ikon app status`: show the app's cloud bindings and running-instance info (URLs, PIDs; `--wait` polls until the app starts)
 - `ikon app target list`: list all configured targets
 - `ikon app secret set <key> [value]`: store/update a secret (token / API key); `--stdin` reads from stdin
 - `ikon app secret list`: list secret keys for this app (values are never shown)
 - `ikon app secret delete <key>`: delete a secret (`--yes` to skip prompt)
 - `ikon app bundle`: create the app bundle without deploying
 - `ikon app deploy`: create the app bundle and deploy it to the cloud
-- `ikon app deploy list`: list deployed app bundles
-- `ikon app deploy activate`: activate a specific app bundle (`--id <bundle-id>` or `--latest`; `--yes`)
-- `ikon app deploy delete`: delete an app bundle (`--id <bundle-id>` required; `--yes`)
+- `ikon app deploy list`: list deployed app bundles, newest first, with their IDs and state (`--state <state>` to filter, `--json` for machine-readable output)
+- `ikon app deploy show <id>`: show one bundle's full details (`--json`)
+- `ikon app deploy activate <id>`: activate a bundle by ID, or the newest with `--latest` (`--yes` to skip prompt)
+- `ikon app deploy delete <id>`: delete a bundle by ID (`--yes` to skip prompt)
 - `ikon app docs`: (re)generate app documentation under `docs/` and update `AGENTS.md`
 
 ### Database Management
 
 - `ikon app db list`: list databases provisioned for the current space
 - `ikon app db connection-string`: print the database connection string
-- `ikon app db reset`: empty the database — drops all data; the app recreates its schema on next start
-- `ikon app db remove`: remove a database from the current space (destructive; `--database <name>` if multiple)
+- `ikon app db reset`: empty the database — drops all data; the app recreates its schema on next start (`--yes` to skip prompt; required in non-interactive mode)
+- `ikon app db delete`: delete a database from the current space (destructive; `--database <name>` if multiple; `--yes` to skip prompt, required in non-interactive mode)
 - `ikon app db ef-migrate-add <name>` (EF Core apps only): create a new EF Core migration
 - `ikon app db ef-migrate-apply` (EF Core apps only): apply pending EF Core migrations
 - `ikon app db ef-migrate-list` (EF Core apps only): list EF Core migrations and their status
@@ -92,20 +93,20 @@ Name = ""
 ### Version Control
 
 - `ikon app save`: save all changes to version control
-- `ikon app sync`: download the latest version from version control
-- `ikon app changes`: show uncommitted changes
+- `ikon app pull`: download the latest version from version control
+- `ikon app diff`: show uncommitted changes
 - `ikon app compare`: compare current files with a saved version
-- `ikon app discard`: discard all uncommitted changes
+- `ikon app discard`: discard all uncommitted changes (`--yes` to skip prompt; required in non-interactive mode)
 - `ikon app history`: list saved versions
 - `ikon app label`: create or update a named label for the current version
-- `ikon app restore`: switch local files to a version
-- `ikon app promote`: make an older version the new latest in version control
+- `ikon app restore`: switch local files to a version (`--yes` to skip prompt; required in non-interactive mode)
+- `ikon app revert`: restore an older version as the new latest in version control (`--yes` to skip prompt; required in non-interactive mode)
 
 ### Testing
 
 - `ikon app test list`: list recorded Playwright tests
 - `ikon app test record <name>`: record a Playwright test for the app
-- `ikon app test play [name]`: play back recorded tests (`--all`, `--headless`)
+- `ikon app test play [name]`: play back recorded tests (`--all`, `--headed` to watch in a visible browser)
 
 ### Operations & Observability
 
