@@ -23,7 +23,8 @@ private static void RenderScoreBar(UIView view, string label, int score, int thr
         row.Text(["text-[10px] text-muted-foreground w-10 text-right"], text: label);
         row.Box(["flex-1 h-1.5 bg-muted rounded-full overflow-hidden"], content: bar =>
         {
-            bar.Box([$"h-full {color} rounded-full", $"w-[{widthPercent}%]"]);
+            bar.Box([$"h-full {color} rounded-full"],
+                props: new Dictionary<string, object> { ["style"] = $"width: {widthPercent}%" });
         });
         row.Text(["text-[10px] font-medium w-5 text-right",
             score == 0 ? "text-muted-foreground" : score >= threshold ? "text-emerald-400" : "text-foreground"],
@@ -60,7 +61,7 @@ view.Popover(trigger: triggerView =>
 
 ## Notes
 
-- The width is computed as a `w-[{percent}%]` arbitrary value — works because the surrounding box has a fixed flex height (`h-1.5`) and the inner box gets its width from this string.
+- The fill width is a RUNTIME-computed percent — the inline-style `props` form shown above and a string-interpolated class (`$"w-[{percent}%]"` in the style array) BOTH work (runtime-compiled server-side, verified end-to-end). The props form is used here because bars often compute colour + width together.
 - The threshold-2 amber band is the "almost passing" warning state — a useful affordance that tells the user "not yet, but close." Choose your band size based on the noise floor of the score.
 - A score of `0` is rendered as an em-dash `—` and a fully empty bar — distinguishes "no data yet" from "actually scored zero." Pair with `HasScores` on the score record so the parent decides whether to render the bars at all.
 - For >5 metrics, use a vertical sparkline list instead — at that count, three bars with labels become a wall of text.

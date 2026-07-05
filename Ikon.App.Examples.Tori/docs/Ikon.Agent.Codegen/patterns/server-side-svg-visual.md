@@ -10,6 +10,42 @@ For a circular progress **ring**, a **gauge/dial**, a **donut**, a radial/**orbi
 
 **Quote every SVG attribute with SINGLE quotes (`'`), and build with a `StringBuilder`.** SVG accepts single-quoted attributes, so your C# string literals never contain a `"` — which means **no `\"` escaping, no raw-string `$$"""` brace gymnastics, and none of the CS1003 / CS1525 / CS8997 cascades** that come from fighting double quotes inside interpolated strings. Format numbers with an explicit format (`:F1`) so culture never injects a comma.
 
+## Craft — depth, not outlines (the recurring audit nit)
+
+A bare outline + flat fill reads as wireframe; audits repeatedly flag generated SVGs as "lacking
+depth / glassy quality". Vector depth is FOUR cheap layered signals — use 2-3 of them:
+
+```csharp
+// In <defs>: gradients are the core depth tool. Single-quoted like everything else.
+sb.Append("<defs>");
+// (1) Vertical surface gradient — light falls from above.
+sb.Append("<linearGradient id='body' x1='0' y1='0' x2='0' y2='1'>");
+sb.Append("<stop offset='0' stop-color='#5b4636' stop-opacity='0.95'/>");
+sb.Append("<stop offset='1' stop-color='#2b211a' stop-opacity='0.98'/>");
+sb.Append("</linearGradient>");
+// (2) Specular highlight — a soft white radial, the "glassy" signal.
+sb.Append("<radialGradient id='spec' cx='0.35' cy='0.25' r='0.5'>");
+sb.Append("<stop offset='0' stop-color='#ffffff' stop-opacity='0.35'/>");
+sb.Append("<stop offset='1' stop-color='#ffffff' stop-opacity='0'/>");
+sb.Append("</radialGradient>");
+sb.Append("</defs>");
+
+// Body uses the gradient fill (not a flat color), thin rim stroke at LOW opacity.
+sb.Append($"<path d='{jarPath}' fill='url(#body)' stroke='#c8865a' stroke-opacity='0.5' stroke-width='2'/>");
+// Specular sheen ON TOP of the body, clipped to the same shape.
+sb.Append($"<path d='{jarPath}' fill='url(#spec)'/>");
+// (3) Vertical edge highlight — one thin light line near the left edge sells curvature.
+sb.Append($"<path d='M {leftEdgeX} {topY} Q {leftEdgeX - 4} {midY} {leftEdgeX} {bottomY}' stroke='#ffffff' stroke-opacity='0.25' stroke-width='3' fill='none'/>");
+// (4) Ground shadow — a soft ellipse under the object anchors it to the surface.
+sb.Append($"<ellipse cx='{cx}' cy='{bottomY + 8}' rx='{rx * 0.7:F0}' ry='7' fill='#000000' opacity='0.25'/>");
+```
+
+- Take gradient hues from the app's committed palette (two stops of the SAME hue, darker at the
+  bottom) — never introduce a new accent inside the SVG.
+- One specular highlight per vessel; two reads as plastic.
+- Skip filters (`feGaussianBlur` etc.) — gradient + opacity layering achieves the depth without
+  rasterization cost or renderer quirks.
+
 ## Snippet — circular progress ring (stroke-dasharray arc)
 
 ```csharp
