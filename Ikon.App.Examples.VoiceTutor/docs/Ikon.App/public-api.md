@@ -36,11 +36,13 @@ namespace Ikon.App
   sealed class AppEndpointHost : IAsyncDisposable
     // Creates a new HTTP/WebSocket endpoint host. The relay tunnel is not allocated until StartAsync is called.
     ctor(IAppBase app, bool secure = true, TimeSpan? webSocketKeepAliveInterval = null, string stablePortName = "")
+    // True once the relay tunnel is allocated and PublicUrl can be read. False before StartAsync , and after it when the relay was unreachable — the host then serves on LocalPort only and retries the allocation in the background; subscribe to PublicUrlAvailable to learn when the tunnel comes up.
+    bool HasPublicUrl { get; }
     // The local port Kestrel binds to. Available after StartAsync completes.
     int LocalPort { get; }
     // Invoked once per inbound HTTP/WebSocket request before it is routed. Used to mark external activity (e.g. reset the server's idle timer) so an endpoint-served instance isn't reaped while it is serving traffic. Null = no hook.
     Action? OnRequest { get; set; }
-    // The public URL for this endpoint. Available after StartAsync completes.
+    // The public URL for this endpoint. Available once the relay tunnel is allocated — normally when StartAsync completes; check HasPublicUrl when the relay may be down.
     string PublicUrl { get; }
     // Stops the host, releases the relay tunnel, and releases all resources.
     ValueTask DisposeAsync()
@@ -58,10 +60,12 @@ namespace Ikon.App
     void MapPut(string pattern, Func<HttpContext, Task> handler)
     // Registers a handler for WebSocket connections matching the specified route pattern. The socket is automatically closed and disposed after the handler completes.
     void MapWebSocket(string pattern, Func<HttpContext, WebSocket, Task> handler)
-    // Allocates the relay tunnel, starts Kestrel with the registered routes, and returns immediately while the host continues to run in the background.
+    // Allocates the relay tunnel, starts Kestrel with the registered routes, and returns immediately while the host continues to run in the background. When the relay tunnel cannot be allocated (relay not configured, backend unreachable), Kestrel still starts on a locally picked port and the tunnel allocation is retried in the background — local traffic keeps working, and PublicUrlAvailable fires once the tunnel comes up.
     Task StartAsync(CancellationToken cancellationToken = null)
     // Stops the endpoint host gracefully. Waits up to 5 seconds for pending requests to complete.
     Task StopAsync(CancellationToken cancellationToken = null)
+    // Raised with the public URL when the background retry allocates the relay tunnel after StartAsync completed without one. Not raised when the tunnel was allocated during StartAsync itself — read PublicUrl directly in that case.
+    event Action<string>? PublicUrlAvailable
   // Typed app↔client custom-message helpers over the app-local Teleport channel. The payload types come from the app's own schema/*.tp files (compiled by ikon app teleport build); each carries its own GROUP_APP_LOCAL opcode and is sent/received as a native type — no JSON marshalling. Delivery is server-controlled and explicit: SendMessageAsync``1 always takes the recipient client session IDs — there is no implicit broadcast to every client. Whether a type travels reliably or unreliably is declared on the .tp schema (unreliable = true), not here.
   static class AppMessaging
     static IDisposable OnMessage<T>(IMessageChannel app, Func<T, int, ValueTask> handler) where T : IProtocolMessagePayload, new()
@@ -696,7 +700,7 @@ namespace Ikon.App
     // Mint working URLs for several endpoints sharing one pinned identity, in a single backend round-trip. Returns a map keyed by the endpoints you passed. See MintUrlAsync .
     virtual Task<IReadOnlyDictionary<string, MintedUrl>> MintUrlsAsync(IEnumerable<string> endpoints, object? identity = null, TimeSpan? expiresIn = null, string? group = null, CancellationToken ct = null)
     // Dynamically requests a raw TCP/TLS/UDP endpoint. Returns a RelayEndpoint whose LocalPort a listener should bind to; the endpoint is reachable from the internet at {PublicHost}:{PublicPort}. Dispose the returned endpoint to release it. For HTTP/HTTPS endpoints use AppEndpointHost .
-    abstract Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", CancellationToken ct = null)
+    abstract Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", int localPort = 0, CancellationToken ct = null)
     // Requests a fresh strong-authentication step-up challenge for the current user. Navigates the client browser to the platform's configured identity provider through the existing client UI surface, waits for the user to complete the challenge, and returns the platform-signed step-up assertion JWT. Apps must verify the returned JWT (issuer, audience, signature, expiry) before trusting any of its claims — see AssertionVerifier .
     abstract Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string>? acrValues = null, string? clientReturnUrl = null, CancellationToken ct = null)
     // Revoke every URL minted under a shared group tag.
@@ -1182,6 +1186,226 @@ namespace Ikon.App.Client
     TClientParameters Parameters { get; }
     int SessionId { get; }
 
+namespace Ikon.App.Connectors
+  // Google Drive connector. Upload, download and list files with Google OAuth2 credentials. Raw — the agent skill lives in Ikon.Agent.Connectors.
+  sealed class Drive
+    ctor(GoogleCredentials credentials)
+    Task<Stream> DownloadAsync(string fileId, CancellationToken ct = null)
+    // Stream every file under a folder (or the whole drive), paging through the full result set. Pass an extra query clause such as "modifiedTime > '2024-01-01T00:00:00'" to bound a historical backfill by time.
+    IAsyncEnumerable<DriveFile> ListAllAsync(string? folderId = null, string? extraQuery = null, CancellationToken ct = null)
+    Task<IReadOnlyList<DriveFile>> ListAsync(string? folderId = null, int limit = 50, CancellationToken ct = null)
+    Task<DriveFile> UploadAsync(string name, string mimeType, Stream content, string? folderId = null, CancellationToken ct = null)
+  sealed class DriveFile : IEquatable<DriveFile>
+    ctor(string Id, string Name, string MimeType, long? Size, string? WebViewLink, DateTimeOffset? ModifiedTime = null)
+    string Id { get; init; }
+    string MimeType { get; init; }
+    DateTimeOffset? ModifiedTime { get; init; }
+    string Name { get; init; }
+    long? Size { get; init; }
+    string? WebViewLink { get; init; }
+  sealed class EmailSummary : IEquatable<EmailSummary>
+    ctor(string Id, string ThreadId, string From, string Subject, string Snippet, DateTimeOffset ReceivedAt)
+    string From { get; init; }
+    string Id { get; init; }
+    DateTimeOffset ReceivedAt { get; init; }
+    string Snippet { get; init; }
+    string Subject { get; init; }
+    string ThreadId { get; init; }
+  // Gmail connector. Send and list mail with Google OAuth2 credentials (refresh token). Raw — the agent skill lives in Ikon.Agent.Connectors.
+  sealed class Gmail
+    ctor(GoogleCredentials credentials)
+    // Fetch the full plain-text body of a message. Returns the text/plain part when present, falling back to the text extracted from the HTML part, then to an empty string.
+    Task<string> GetBodyAsync(string id, CancellationToken ct = null)
+    // Stream every message matching the query, paging through the whole result set. Use a query with date operators (e.g. "after:2024/01/01") to bound a historical backfill by time.
+    IAsyncEnumerable<EmailSummary> ListAllAsync(string? query = null, CancellationToken ct = null)
+    Task<IReadOnlyList<EmailSummary>> ListAsync(string? query = null, int limit = 20, CancellationToken ct = null)
+    Task<string> SendAsync(string to, string subject, string body, string? cc = null, CancellationToken ct = null)
+  static class GoogleAuth
+    static UserCredential CredentialFor(GoogleCredentials credentials, IEnumerable<string> scopes)
+    // True when ex is a PERMANENT OAuth failure (revoked/expired refresh token, bad client) that retrying won't fix — the account must be reconnected. Lets connectors stop and surface a distinct "reconnect required" state instead of hammering the token endpoint forever.
+    static bool IsAuthFailure(Exception ex)
+  // OAuth2 credentials for Google connectors. The refresh token is long-lived; the access token is obtained and refreshed automatically by the Google client library.
+  sealed class GoogleCredentials : IEquatable<GoogleCredentials>
+    // OAuth2 credentials for Google connectors. The refresh token is long-lived; the access token is obtained and refreshed automatically by the Google client library.
+    ctor(string ClientId, string ClientSecret, string RefreshToken)
+    string ClientId { get; init; }
+    string ClientSecret { get; init; }
+    string RefreshToken { get; init; }
+  // Slack messaging connector. Post and read messages with a bot token (xoxb-...). Raw — no agent coupling; the agent skill lives in Ikon.Agent.Connectors.
+  sealed class Slack
+    ctor(string botToken, HttpClient? http = null)
+    Task<IReadOnlyList<SlackMessage>> HistoryAsync(string channel, int limit = 20, CancellationToken ct = null)
+    Task<SlackMessage> PostAsync(string channel, string text, string? threadTs = null, CancellationToken ct = null)
+  sealed class SlackMessage : IEquatable<SlackMessage>
+    ctor(string Channel, string User, string Text, string Ts, string? ThreadTs = null)
+    string Channel { get; init; }
+    string Text { get; init; }
+    string? ThreadTs { get; init; }
+    string Ts { get; init; }
+    string User { get; init; }
+  // WhatsApp messaging connector (WhatsApp Business Cloud API via Meta Graph). Send with a system-user access token and the sender's phone number id. Raw — the agent skill lives in Ikon.Agent.Connectors.
+  sealed class WhatsApp
+    ctor(string accessToken, string phoneNumberId, HttpClient? http = null)
+    Task<string> SendAsync(string to, string text, CancellationToken ct = null)
+
+namespace Ikon.App.Connectors.Browser
+  // Raw browser-session tuning. Model/agent choices live in the agent layer.
+  sealed class BrowserOptions : IEquatable<BrowserOptions>
+    // Raw browser-session tuning. Model/agent choices live in the agent layer.
+    ctor(bool Headless = true)
+    bool Headless { get; init; }
+  // A long-lived Playwright page driven across many turns. Owns the browser lifecycle; resolves a WebTarget by mark, then accessibility role+name, then selector. Raw — no agent logic; the agent layer (Ikon.Agent.Browser) exposes these actions as tools.
+  sealed class BrowserSession : IAsyncDisposable
+    ctor()
+    // The last ~40 console messages / page errors / failed requests from the page — the page's own account of why it is in whatever state it is in. Diagnostic gold when a page that "should" render stays blank (auth failures, websocket errors, bundle errors).
+    IReadOnlyList<string> ConsoleTail { get; }
+    string CurrentUrl { get; }
+    ValueTask DisposeAsync()
+    // Evaluate a JavaScript function-expression (e.g. "() => { ...; return 'x'; }") on the current page and return its string result. For light page-state manipulation by non-agentic callers — e.g. the codegen visual gate flipping data-theme so it can screenshot both theme states of the same view.
+    Task<string?> EvaluateAsync(string script)
+    Task<ValueTuple<bool, string, string?>> ExecuteAsync(WebAction action)
+    Task<IReadOnlyList<MarkedElement>> MarkElementsAsync()
+    Task NavigateAsync(string url)
+    Task<byte[]> ScreenshotAsync()
+    // Screenshot as JPEG at the given quality — for callers that put the image into an LLM context, where a PNG's 3-5x larger payload rides along for every later turn.
+    Task<byte[]> ScreenshotJpegAsync(int quality = 70)
+    Task StartAsync(bool headless, CancellationToken ct = null)
+  sealed class WebAction.Click : WebAction, IEquatable<WebAction.Click>
+    ctor(WebTarget Target)
+    WebTarget Target { get; init; }
+  sealed class WebAction.Extract : WebAction, IEquatable<WebAction.Extract>
+    ctor(WebTarget Target, string OutputName)
+    string OutputName { get; init; }
+    WebTarget Target { get; init; }
+  sealed class WebAction.Fill : WebAction, IEquatable<WebAction.Fill>
+    ctor(WebTarget Target, string Text, bool Secret = false, string? InputName = null)
+    string? InputName { get; init; }
+    bool Secret { get; init; }
+    WebTarget Target { get; init; }
+    string Text { get; init; }
+  // An interactable element discovered on the page, tagged for this observation.
+  sealed class MarkedElement : IEquatable<MarkedElement>
+    // An interactable element discovered on the page, tagged for this observation.
+    ctor(int Mark, string Role, string Name, string Selector)
+    int Mark { get; init; }
+    string Name { get; init; }
+    string Role { get; init; }
+    string Selector { get; init; }
+  sealed class WebAction.Navigate : WebAction, IEquatable<WebAction.Navigate>
+    ctor(string Url)
+    string Url { get; init; }
+  sealed class WebAction.Press : WebAction, IEquatable<WebAction.Press>
+    ctor(string Key)
+    string Key { get; init; }
+  sealed class WebAction.Scroll : WebAction, IEquatable<WebAction.Scroll>
+    ctor(int Dx, int Dy)
+    int Dx { get; init; }
+    int Dy { get; init; }
+  // A single browser action. A tagged union so a flow serializes losslessly and replays exactly.
+  abstract class WebAction : IEquatable<WebAction>
+  // A distilled, replayable integration: ordered steps with parameterized input slots.
+  sealed class WebFlow : IEquatable<WebFlow>
+    // A distilled, replayable integration: ordered steps with parameterized input slots.
+    ctor(string Name, string Origin, IReadOnlyList<WebStep> Steps, IReadOnlyList<string> Inputs)
+    IReadOnlyList<string> Inputs { get; init; }
+    string Name { get; init; }
+    string Origin { get; init; }
+    IReadOnlyList<WebStep> Steps { get; init; }
+  // Turns a successful WebRun into a replayable WebFlow : keeps the steps that worked and parameterizes each filled field into a named input slot. Pure and deterministic.
+  static class WebFlowDistiller
+    static WebFlow Distill(WebRun run, string? name = null)
+  // Deterministically replays a distilled WebFlow on a browser session — no LLM — substituting input slots with supplied values.
+  static class WebFlowPlayer
+    static Task<WebReplay> ReplayAsync(BrowserSession session, WebFlow flow, IReadOnlyDictionary<string, string> inputs, CancellationToken ct = null)
+  enum WebOutcome
+    Succeeded
+    Failed
+    BudgetExhausted
+  // The result of replaying a WebFlow .
+  sealed class WebReplay : IEquatable<WebReplay>
+    // The result of replaying a WebFlow .
+    ctor(bool Ok, IReadOnlyDictionary<string, string> Outputs, bool Healed)
+    bool Healed { get; init; }
+    bool Ok { get; init; }
+    IReadOnlyDictionary<string, string> Outputs { get; init; }
+  // The result of an operate run: outcome, summary, the action trace, and any extracted outputs.
+  sealed class WebRun : IEquatable<WebRun>
+    // The result of an operate run: outcome, summary, the action trace, and any extracted outputs.
+    ctor(WebOutcome Outcome, string Summary, IReadOnlyList<WebStep> Steps, IReadOnlyDictionary<string, string> Outputs)
+    WebOutcome Outcome { get; init; }
+    IReadOnlyDictionary<string, string> Outputs { get; init; }
+    IReadOnlyList<WebStep> Steps { get; init; }
+    string Summary { get; init; }
+  // One executed action, the selector that actually resolved it, and whether it succeeded.
+  sealed class WebStep : IEquatable<WebStep>
+    // One executed action, the selector that actually resolved it, and whether it succeeded.
+    ctor(WebAction Action, string ResolvedSelector, bool Ok)
+    WebAction Action { get; init; }
+    bool Ok { get; init; }
+    string ResolvedSelector { get; init; }
+  // How to locate an element. Prefer accessibility role + name; fall back to a CSS/XPath selector or a perception mark id from the current observation.
+  sealed class WebTarget : IEquatable<WebTarget>
+    // How to locate an element. Prefer accessibility role + name; fall back to a CSS/XPath selector or a perception mark id from the current observation.
+    ctor(string? Role = null, string? Name = null, string? Selector = null, int? Mark = null)
+    int? Mark { get; init; }
+    string? Name { get; init; }
+    string? Role { get; init; }
+    string? Selector { get; init; }
+
+namespace Ikon.App.Connectors.Telephony
+  // Raw call tuning: the TTS voice, spoken language, and a hard duration cap. Model/agent choices live in the agent layer (Ikon.Agent.Telephony), not here.
+  sealed class CallOptions : IEquatable<CallOptions>
+    // Raw call tuning: the TTS voice, spoken language, and a hard duration cap. Model/agent choices live in the agent layer (Ikon.Agent.Telephony), not here.
+    ctor(string VoiceId = "", string Language = "en-US", TimeSpan? MaxDuration = null)
+    string Language { get; init; }
+    TimeSpan? MaxDuration { get; init; }
+    string VoiceId { get; init; }
+  enum CallOutcome
+    Completed
+    NoAnswer
+    Busy
+    Failed
+  sealed class CallResult : IEquatable<CallResult>
+    ctor(string Transcript, CallOutcome Outcome, TimeSpan Duration)
+    TimeSpan Duration { get; init; }
+    CallOutcome Outcome { get; init; }
+    string Transcript { get; init; }
+  // A completed caller utterance: its transcript plus the raw mu-law audio.
+  sealed class CallTurn : IEquatable<CallTurn>
+    // A completed caller utterance: its transcript plus the raw mu-law audio.
+    ctor(string Transcript, byte[] AudioMuLaw)
+    byte[] AudioMuLaw { get; init; }
+    string Transcript { get; init; }
+  // G.711 mu-law codec for telephony audio (8-bit, 8kHz), the encoding Twilio Media Streams uses on the wire. Converts between mu-law bytes and normalized float samples.
+  static class MuLawCodec
+    // Decodes mu-law bytes to float samples normalized to [-1.0, 1.0].
+    static float[] Decode(ReadOnlySpan<byte> muLaw)
+    // Encodes float samples (normalized to [-1.0, 1.0]) to mu-law bytes.
+    static byte[] Encode(ReadOnlySpan<float> samples)
+  // A live phone call — the real-time audio engine. Segments caller speech into turns ( Turns ), speaks replies ( SpeakAsync ), and hangs up. No agent logic: the brain is supplied by the consumer (Ikon.Agent.Connectors.Telephony binds a call to a subthread). Supports barge-in: sustained caller speech during a reply cancels TTS and flushes Twilio's buffer. Speech detection uses Silero VAD (falls back to an RMS gate if the model can't load).
+  sealed class PhoneCall : IAsyncDisposable
+    TimeSpan Duration { get; }
+    CallOutcome Outcome { get; }
+    ValueTask DisposeAsync()
+    Task HangupAsync()
+    // Speak a reply to the caller (TTS → 8kHz mu-law → Media Streams). Interruptible by barge-in; returns true if the caller barged in (so the consumer can stop voicing the rest of the reply).
+    Task<bool> SpeakAsync(string text, CancellationToken ct = null)
+    // Caller utterances as they complete, until the call ends.
+    IAsyncEnumerable<CallTurn> Turns(CancellationToken ct = null)
+  // Places outbound Twilio calls and hosts the Media Streams WebSocket. Each placed call yields a live PhoneCall once the audio stream connects. Raw — no agent logic; credentials come from app.Secrets.
+  sealed class Telephone : IAsyncDisposable
+    ctor(IAppBase app, TwilioCredentials credentials, CallOptions? options = null)
+    // Place a call to an E.164 number; resolves to the live call once audio connects.
+    Task<PhoneCall> CallAsync(string number, CancellationToken ct = null)
+    ValueTask DisposeAsync()
+  // Twilio credentials. Supplied from app.Secrets at construction; never hardcoded.
+  sealed class TwilioCredentials : IEquatable<TwilioCredentials>
+    // Twilio credentials. Supplied from app.Secrets at construction; never hardcoded.
+    ctor(string AccountSid, string AuthToken, string FromNumber)
+    string AccountSid { get; init; }
+    string AuthToken { get; init; }
+    string FromNumber { get; init; }
+
 namespace Ikon.App.Cron
   // Per-invocation context for a CronAttribute handler currently executing. A cron handler may optionally accept one of these (and/or a CancellationToken ) to learn when and why it fired; a parameterless handler is equally valid. AsyncLocal so handler code (and anything it calls) can read it without threading it through every method signature.
   sealed class CronContext : IEquatable<CronContext>
@@ -1589,11 +1813,18 @@ namespace Ikon.App.Payments
     PriceInterval Interval { get; init; }
     int? IntervalCount { get; init; }
     PriceKind Kind { get; init; }
-  // The payment provider that moves the money. An app picks a default provider on DefaultProvider and may override it per call.
+  // The payment provider that moves the money. A command uses the space's enabled provider unless it names one, either per call or by pinning DefaultProvider .
   enum PaymentProvider
     Stripe
     Mollie
     Surfboard
+  // A receipt for a completed payment. Url is a provider-hosted receipt page. Pdf holds downloadable PDF bytes only when the provider exposes one; today every provider (Stripe, Surfboard) returns a hosted URL only, so Pdf is null — the field is populated when a provider offers a PDF.
+  sealed class PaymentReceipt : IEquatable<PaymentReceipt>
+    // A receipt for a completed payment. Url is a provider-hosted receipt page. Pdf holds downloadable PDF bytes only when the provider exposes one; today every provider (Stripe, Surfboard) returns a hosted URL only, so Pdf is null — the field is populated when a provider offers a PDF.
+    ctor(string? Url, byte[]? Pdf, string? PdfContentType)
+    byte[]? Pdf { get; init; }
+    string? PdfContentType { get; init; }
+    string? Url { get; init; }
   // Result of a refund.
   sealed class PaymentRefund : IEquatable<PaymentRefund>
     // Result of a refund.
@@ -1623,13 +1854,13 @@ namespace Ikon.App.Payments
     // Offer the entitlement is keyed to.
     string OfferId { get; }
     override IFunctionPolicy CreatePolicy()
-  // App-level entry point for payments, reached via app.Payments. The app picks a default PaymentProvider , creates payment links (for an offer or an ad-hoc amount), and reacts to PaymentEventReceived events. Every command accepts an optional per-call provider override. The app holds no payment state. One instance per app (an AsyncLocalInstance`1 singleton).
+  // App-level entry point for payments, reached via app.Payments. The app creates payment links (for an offer or an ad-hoc amount) and reacts to PaymentEventReceived events. Every command accepts an optional per-call provider override; when none is given the backend uses the space's enabled provider. The app holds no payment state. One instance per app (an AsyncLocalInstance`1 singleton).
   sealed class PaymentsService : AsyncLocalInstance<PaymentsService>
     ctor()
     // Default cancel URL used when a command does not specify one.
     string? DefaultCancelUrl { get; set; }
-    // The provider used when a command does not specify one.
-    PaymentProvider DefaultProvider { get; set; }
+    // Optional provider to use when a command does not specify one. Left null by default: the SDK then sends no provider and the backend charges with the space's enabled (default) provider. Set this only to pin a specific provider for an app that has more than one enabled.
+    PaymentProvider? DefaultProvider { get; set; }
     // Default success URL used when a command does not specify one.
     string? DefaultSuccessUrl { get; set; }
     // Cancel a subscription at the period end (default) or right away with immediate . The entitlement lapses when the cancellation takes effect.
@@ -1654,6 +1885,8 @@ namespace Ikon.App.Payments
     Task<PaymentRefund> RefundAsync(string paymentId, long? amountMinor = null, string? reason = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
     // Remove an offer from the app's catalog (Stripe archives the Product/Price). Returns false if no such active offer existed.
     Task<bool> RemoveOfferAsync(string offerId, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
+    // Fetch a receipt for a completed payment. Url is a provider-hosted receipt page (present for Stripe and Surfboard). Pdf carries downloadable PDF bytes only when the provider offers one; today both providers return a hosted URL only, so it is null.
+    Task<PaymentReceipt> RequestReceiptAsync(string paymentId, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
     // Raised for each normalized payment event the backend pushes (paid, refunded, subscription renewed/canceled). Subscribing registers the receiver on first use.
     event Func<PaymentEvent, Task>? PaymentEventReceived
   // The billing interval of a recurring price.

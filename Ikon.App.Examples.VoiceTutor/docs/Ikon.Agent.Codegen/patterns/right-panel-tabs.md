@@ -28,7 +28,8 @@ view.Row(["flex-1 overflow-hidden"], content: view =>
         view.ResizeHandle(side: "right",
             onResized: async result => _rightPanelWidth.Value = Math.Clamp(result.Percent, 25, 75));
 
-        view.Column([$"w-[{_rightPanelWidth.Value}%] flex-shrink-0 h-full bg-card overflow-hidden border-l border-border"], content: view =>
+        view.Column(["flex-shrink-0 h-full bg-card overflow-hidden border-l border-border"],
+            props: new Dictionary<string, object> { ["style"] = $"width: {_rightPanelWidth.Value}%" }, content: view =>
         {
             RenderRightPanelTabs(view, thread);
             RenderRightPanelContent(view, thread);

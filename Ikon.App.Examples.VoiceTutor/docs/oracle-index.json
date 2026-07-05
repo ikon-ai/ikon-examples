@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 253883,
+      "sizeBytes": 271164,
       "alsoInclude": []
     },
     {
@@ -281,7 +281,7 @@
         "transitions"
       ],
       "file": "docs/guides/tailwind-reference.md",
-      "sizeBytes": 95964,
+      "sizeBytes": 102848,
       "alsoInclude": []
     },
     {
@@ -492,6 +492,34 @@
       "alsoInclude": []
     },
     {
+      "id": "media-analysis",
+      "title": "Media File Analysis (ffmpeg)",
+      "keywords": [
+        "ffmpeg",
+        "ffprobe",
+        "video analysis",
+        "audio analysis",
+        "media metadata",
+        "duration",
+        "codec",
+        "transcode",
+        "extract frames",
+        "extract audio",
+        "thumbnail",
+        "waveform",
+        "large file",
+        "video upload",
+        "audio upload",
+        "streaming analysis",
+        "media file",
+        "video file",
+        "audio file"
+      ],
+      "file": "docs/guides/media-analysis.md",
+      "sizeBytes": 24576,
+      "alsoInclude": []
+    },
+    {
       "id": "endpoints-webhooks",
       "title": "Endpoints \u0026 Webhooks",
       "keywords": [
@@ -582,7 +610,7 @@
         "cancel subscription"
       ],
       "file": "docs/guides/payments.md",
-      "sizeBytes": 13516,
+      "sizeBytes": 15282,
       "alsoInclude": []
     },
     {
@@ -705,7 +733,7 @@
         "targets"
       ],
       "file": "docs/guides/config-and-cli.md",
-      "sizeBytes": 7464,
+      "sizeBytes": 8297,
       "alsoInclude": []
     }
   ]
