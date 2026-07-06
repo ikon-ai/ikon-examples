@@ -69,7 +69,7 @@ public partial class Tori
             // New meeting dropdown
             col.Popover(
                 open: _newMeetMenuOpen.Value,
-                onOpenChange: async open => _newMeetMenuOpen.Value = open ?? false,
+                onOpenChange: async open => _newMeetMenuOpen.Value = open,
                 contentStyle: [DropdownMenu.Content, "w-60 translate-y-4"],
                 trigger: v => v.Button(
                     [Button.PrimaryLg, "mt-4 gap-2 items-center"],
@@ -130,7 +130,7 @@ public partial class Tori
 
         view.Dialog(
             open: _meetLinkDialogOpen.Value,
-            onOpenChange: async open => _meetLinkDialogOpen.Value = open ?? false,
+            onOpenChange: async open => _meetLinkDialogOpen.Value = open,
             overlayStyle: [AlertDialog.Overlay],
             contentStyle: [AlertDialog.Content, "max-w-md"],
             contentSlot: content =>
@@ -551,7 +551,7 @@ public partial class Tori
     {
         view.Dialog(
             open: _leaveConfirmDialogOpen.Value,
-            onOpenChange: async open => _leaveConfirmDialogOpen.Value = open ?? false,
+            onOpenChange: async open => _leaveConfirmDialogOpen.Value = open,
             overlayStyle: [AlertDialog.Overlay],
             contentStyle: [AlertDialog.Content, "max-w-sm"],
             contentSlot: content =>

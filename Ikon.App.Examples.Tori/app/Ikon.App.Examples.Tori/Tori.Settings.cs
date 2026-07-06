@@ -86,7 +86,7 @@ public partial class Tori
             open: _settingsOpen.Value,
             onOpenChange: async open =>
             {
-                _settingsOpen.Value = open ?? false;
+                _settingsOpen.Value = open;
 
                 if (open == true)
                 {
