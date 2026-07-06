@@ -40,9 +40,7 @@ public class MyApp(IApp<SessionIdentity, ClientParameters> app)
 
                 view.Row(["p-4 gap-2 flex-shrink-0"], content: view =>
                 {
-                    view.TextField([Input.Default, "flex-1"], placeholder: "Type a message...",
-                        value: _input.Value,
-                        onValueChange: async v => _input.Value = v,
+                    view.TextField(bind: _input, style: ["flex-1"], placeholder: "Type a message...",
                         onSubmit: async submitted =>
                         {
                             // Use the `submitted` parameter, NOT `_input.Value`. onValueChange is a separate

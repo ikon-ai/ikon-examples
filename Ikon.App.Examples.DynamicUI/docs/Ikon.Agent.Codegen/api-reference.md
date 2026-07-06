@@ -1349,6 +1349,13 @@ namespace Ikon.AI.Kernel
     string ParametersJson { get; }
     string ReasoningContent { get; }
     string ThoughtSignature { get; }
+  // Function/tool result carrying media alongside text. Providers that support media inside tool results (Anthropic tool_result image blocks) inline the media so the model actually SEES it; every other consumer degrades to ToString , which summarizes the media without dumping bytes.
+  sealed class FunctionMediaResult
+    // Function/tool result carrying media alongside text. Providers that support media inside tool results (Anthropic tool_result image blocks) inline the media so the model actually SEES it; every other consumer degrades to ToString , which summarizes the media without dumping bytes.
+    ctor(string text, params BinaryDataContainer[] media)
+    IReadOnlyList<BinaryDataContainer> Media { get; }
+    string Text { get; }
+    override string ToString()
   class FunctionResult
     ctor(object? result = null, string? modelMessagePrefix = null, string? modelMessageSuffix = null)
     string? ModelMessagePrefix { get; set; }
@@ -1589,6 +1596,8 @@ namespace Ikon.AI.LLM
     string InlineReasoningTagName { get; init; }
     SchemaDialect SchemaDialect { get; init; }
     bool SupportsGbnfGrammar { get; init; }
+    // True when the provider binding can inline images INSIDE tool results (Anthropic tool_result image blocks). Distinct from SupportsInputImages : a vision model whose tool results are JSON-only (e.g. Gemini functionResponse) sees images in messages but not in tool results.
+    bool SupportsImagesInToolResults { get; init; }
     bool SupportsInputAudio { get; init; }
     bool SupportsInputImages { get; init; }
     bool SupportsInputPdf { get; init; }
@@ -2670,6 +2679,8 @@ namespace Ikon.AI.Utils
   static class ImageUtils
     static byte[] ConvertAlphaMaskToBlackWhiteMask(byte[] maskData)
     static byte[] ConvertBlackWhiteMaskToAlphaMask(byte[] maskData)
+    // Re-encodes an image as JPEG with both dimensions capped at maxDimension (aspect preserved). Returns the original bytes untouched when the image already fits AND is at most maxBytes — small screenshots pass through without a decode cost. Intended for images going into LLM context, where anything above ~1568px is downscaled by the provider anyway and only costs tokens.
+    static ValueTuple<byte[], string, int, int> EncodeJpegCapped(byte[] source, string sourceMimeType, int maxDimension = 1568, int quality = 70, int maxBytes = 204800)
     static ValueTuple<int, int> GetImageDimensions(byte[] buffer)
     static byte[] InvertMask(byte[] maskData)
 
@@ -3144,7 +3155,7 @@ namespace Ikon.Parallax
     ctor(IAppBase app, ITheme theme)
     // When true, each render cycle logs timing breakdowns. See Profiler for history.
     bool EnableProfiling { get; set; }
-    // When true, caches subtrees with unchanged reactive dependencies to skip redundant re-renders.
+    // When true (the default), a re-render reuses the cached output of any subtree whose tracked reactive dependencies are unchanged, skipping re-execution of its content lambda — so an update costs O(changed subtree) rather than O(whole tree). Wire output is identical to the uncached path (proven by the differential oracle in Ikon.Parallax.Test); the only behavioural change is that a subtree reading NON-reactive data no longer refreshes until one of its reactive dependencies changes, which is the intended reactive contract. Set false to force a full re-render every cycle.
     bool EnableSubtreeCaching { get; set; }
     // Assigns a CSS block to a single client (e.g. a per-tenant theme overlay). Subsequent calls for the same client replace the previous assignment and queue a delete for the prior styleId on that client. Other clients are unaffected.
     string AddClientCss(int clientId, string css)
@@ -3615,17 +3626,42 @@ namespace Ikon.Parallax.Components.Standard
   enum ActivationMode
     Automatic
     Manual
+  // Inline alert banner composite over the theme's Alert token recipe.
+  static class AlertExtensions
+    // Inline alert banner — tone-tinted surface with an icon, title, optional description, and an optional dismiss button. The icon defaults per tone (success check, warning triangle, error alert, info circle). Caller styles merge on top of the tone's Theming.Alert token; include the literal "unstyled" class to opt out.
+    static void Alert(UIView view, string title, SemanticTone tone = Neutral, string[]? style = null, string? description = null, string? icon = null, bool showIcon = true, Func<Task>? onDismiss = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? iconStyle = null, string[]? dismissStyle = null, Action<UIView>? content = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
   // Represents alignment for overlay positioning.
   enum Align
     Start
     Center
     End
+  // Status pill composite over the theme's Badge token recipe. Replaces the hand-rolled inline-flex/rounded-full/px-2 pill pattern with a one-liner: view.Badge("Live", SemanticTone.Success).
+  static class BadgeExtensions
+    // Small status pill. With zero style args it renders the themed pill for the tone (Theming.Badge.*); caller styles merge on top of the base token, and the literal "unstyled" class opts out of the base entirely.
+    static void Badge(UIView view, string text, SemanticTone tone = Neutral, string[]? style = null, BadgeSize size = Md, bool outline = false, bool dot = false, string[]? dotStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
+  // Size of a Badge .
+  enum BadgeSize
+    Sm
+    Md
+    Lg
+  // Breadcrumb trail composite over the theme's Breadcrumb token recipe.
+  static class BreadcrumbExtensions
+    // Breadcrumb navigation trail. Items with an OnClick render as clickable links; the last item always renders as the non-clickable current page (with aria-current="page"). A chevron separator is placed between items.
+    static void Breadcrumb(UIView view, IReadOnlyList<BreadcrumbItem> items, string[]? style = null, string? separatorIcon = null, string[]? linkStyle = null, string[]? itemStyle = null, string[]? pageStyle = null, string[]? separatorStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
+  // One entry in a Breadcrumb trail.
+  sealed class BreadcrumbItem : IEquatable<BreadcrumbItem>
+    // One entry in a Breadcrumb trail.
+    ctor(string Label, Func<Task>? OnClick = null)
+    // Visible text of the crumb.
+    string Label { get; init; }
+    // Navigation callback. Ignored for the last item, which always renders as the non-clickable current page.
+    Func<Task>? OnClick { get; init; }
   // Extension methods for Calendar and DatePicker components.
   static class CalendarExtensions
     // Month-grid date selector. Renders a single month with day cells. Dates are ISO yyyy-MM-dd strings.
     static void Calendar(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? month = null, string? defaultMonth = null, string? minDate = null, string? maxDate = null, IReadOnlyList<string>? disabledDates = null, WeekStart weekStart = Monday, string? locale = null, bool? disabled = null, string[]? headerStyle = null, string[]? weekdayStyle = null, string[]? dayStyle = null, string[]? daySelectedStyle = null, string[]? dayTodayStyle = null, string[]? dayOutsideStyle = null, string[]? dayDisabledStyle = null, string[]? navButtonStyle = null, string[]? titleStyle = null, string[]? gridStyle = null, string[]? rowStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onMonthChange = null, string file = "", int line = 0)
     // Button that opens a popover containing a Calendar .
-    static void DatePicker(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, string? format = null, string? minDate = null, string? maxDate = null, IReadOnlyList<string>? disabledDates = null, WeekStart weekStart = Monday, bool? disabled = null, bool? open = null, bool? defaultOpen = null, Side side = Bottom, Align align = Start, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? calendarStyle = null, string[]? headerStyle = null, string[]? weekdayStyle = null, string[]? dayStyle = null, string[]? daySelectedStyle = null, string[]? dayTodayStyle = null, string[]? dayOutsideStyle = null, string[]? dayDisabledStyle = null, string[]? navButtonStyle = null, string[]? titleStyle = null, string[]? gridStyle = null, string[]? rowStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool?, Task>? onOpenChange = null, string? label = null, string file = "", int line = 0)
+    static void DatePicker(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, string? format = null, string? minDate = null, string? maxDate = null, IReadOnlyList<string>? disabledDates = null, WeekStart weekStart = Monday, bool? disabled = null, bool? open = null, bool? defaultOpen = null, Side side = Bottom, Align align = Start, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? calendarStyle = null, string[]? headerStyle = null, string[]? weekdayStyle = null, string[]? dayStyle = null, string[]? daySelectedStyle = null, string[]? dayTodayStyle = null, string[]? dayOutsideStyle = null, string[]? dayDisabledStyle = null, string[]? navButtonStyle = null, string[]? titleStyle = null, string[]? gridStyle = null, string[]? rowStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool, Task>? onOpenChange = null, string? label = null, string file = "", int line = 0)
   // Which physical camera to prefer when starting the capture. Maps to the W3C MediaStream facingMode constraint and is treated as an "ideal" hint — the browser falls back to whatever camera is available if the requested side does not exist (e.g. desktops without a rear camera).
   enum CameraFacing
     User
@@ -3656,6 +3692,16 @@ namespace Ikon.Parallax.Components.Standard
   enum CaptureImageMode
     Native
     Headless
+  // Card-family composites: Card, StatCard, and EmptyState. All are server-side compositions over the container/text primitives styled by the Theming.Card / Theming.StatCard / Theming.EmptyState token recipes — beautiful by default, every part overridable.
+  static class CardExtensions
+    // Surface container with optional header (title + description), body content, and footer, per the theme's Card recipe. With zero style args it renders the themed card (Theming.Card.Default; Theming.Card.Interactive when onClick is set). Caller styles merge on top of the base token; include the literal "unstyled" class to opt out of the base entirely.
+    static void Card(UIView view, string[]? style = null, string? title = null, string? description = null, Action<UIView>? header = null, Action<UIView>? content = null, Action<UIView>? footer = null, string[]? headerStyle = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? contentStyle = null, string[]? footerStyle = null, Func<Task>? onClick = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
+    // Card — positional (style, children) overload so view.Card([style], v => {...}) binds the lambda to the body instead of tripping on the title parameter.
+    static void Card(UIView view, string[]? style, Action<UIView> children, string file = "", int line = 0)
+    // Centered placeholder for empty lists/pages — optional icon, title, optional description, and an optional action row — per the theme's EmptyState recipe.
+    static void EmptyState(UIView view, string title, string[]? style = null, string? description = null, string? icon = null, Action<UIView>? action = null, string[]? iconWrapStyle = null, string[]? iconStyle = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? actionsStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
+    // Dashboard statistic card — label, large value, optional delta with trend arrow, and an optional icon box — per the theme's StatCard recipe.
+    static void StatCard(UIView view, string label, string value, string[]? style = null, string? delta = null, StatTrend trend = Flat, string? trendLabel = null, string? icon = null, SemanticTone iconTone = Neutral, string[]? labelStyle = null, string[]? valueStyle = null, string[]? trendStyle = null, string[]? iconBoxStyle = null, string[]? iconStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
   // Alignment of slides relative to the carousel viewport.
   enum CarouselAlign
     Start
@@ -3676,7 +3722,7 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for Carousel components.
   static class CarouselExtensions
     // Horizontal or vertical carousel with optional navigation arrows and indicator dots.
-    static void Carousel(UIView view, string[]? style = null, int? index = null, int? defaultIndex = null, Orientation orientation = Horizontal, CarouselAlign align = Start, bool? loop = null, int? autoPlayMs = null, int? slidesPerView = null, int? slidesPerGroup = null, int? slideGapPx = null, IEnumerable<CarouselBreakpoint>? breakpoints = null, IEnumerable<CarouselSlideItem>? slides = null, bool? showArrows = null, bool? showIndicators = null, string? previousLabel = null, string? nextLabel = null, string? previousIconName = null, string? nextIconName = null, string[]? rootStyle = null, string[]? viewportStyle = null, string[]? slideStyle = null, string[]? previousStyle = null, string[]? nextStyle = null, string[]? indicatorsStyle = null, string[]? indicatorStyle = null, string[]? indicatorActiveStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, Func<double, Task>? onIndexChange = null, string file = "", int line = 0)
+    static void Carousel(UIView view, string[]? style = null, int? index = null, int? defaultIndex = null, Orientation orientation = Horizontal, CarouselAlign align = Start, bool? loop = null, int? autoPlayMs = null, int? slidesPerView = null, int? slidesPerGroup = null, int? slideGapPx = null, IEnumerable<CarouselBreakpoint>? breakpoints = null, IEnumerable<CarouselSlideItem>? slides = null, bool? showArrows = null, bool? showIndicators = null, string? previousLabel = null, string? nextLabel = null, string? previousIconName = null, string? nextIconName = null, string[]? rootStyle = null, string[]? viewportStyle = null, string[]? slideStyle = null, string[]? previousStyle = null, string[]? nextStyle = null, string[]? indicatorsStyle = null, string[]? indicatorStyle = null, string[]? indicatorActiveStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, Func<int, Task>? onIndexChange = null, string file = "", int line = 0)
     // A single slide inside a Carousel . Use when rendering slides manually.
     static void Slide(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
   // Declarative slide definition for Carousel .
@@ -3690,7 +3736,7 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for the ChatLog primitive — the canonical chat-bubble layout shape: header + scrolling auto-scrolled body + composer. Wraps ScrollColumn with chat-friendly defaults so callers don't have to remember to set autoScroll: true.
   static class ChatLogExtensions
     // Renders a chat-style scrolling region: an optional pinned header (e.g. "Conversation"), a scrollable body that auto-scrolls to the bottom on change, and an optional pinned footer (typically the input row).
-    static void ChatLog(UIView view, int messageCount, string[]? style = null, Action<UIView>? header = null, Action<UIView>? footer = null, Action<UIView>? content = null, string? styleId = null, string? key = null, string file = "", int line = 0)
+    static void ChatLog(UIView view, string[]? style = null, int messageCount = 0, Action<UIView>? header = null, Action<UIView>? footer = null, Action<UIView>? content = null, string? styleId = null, string? key = null, string file = "", int line = 0)
   // Represents the checked state for checkbox-like components.
   enum CheckedState
     Unchecked
@@ -3714,7 +3760,7 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for ColorPicker components.
   static class ColorPickerExtensions
     // Swatch-triggered color picker with hue slider, saturation/lightness square, and hex input.
-    static void ColorPicker(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, ColorFormat format = Hex, bool? showAlpha = null, IReadOnlyList<string>? presets = null, bool? disabled = null, bool? open = null, bool? defaultOpen = null, Side side = Bottom, Align align = Start, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onValueCommit = null, Func<bool?, Task>? onOpenChange = null, string file = "", int line = 0)
+    static void ColorPicker(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, ColorFormat format = Hex, bool? showAlpha = null, IReadOnlyList<string>? presets = null, bool? disabled = null, bool? open = null, bool? defaultOpen = null, Side side = Bottom, Align align = Start, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onValueCommit = null, Func<bool, Task>? onOpenChange = null, string? label = null, string file = "", int line = 0)
   // Horizontal alignment for a content grid or data table column.
   enum ColumnAlign
     Left
@@ -3728,7 +3774,7 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for container components.
   static class ContainerExtensions
     // Generic container element.
-    static void Box(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<Task>? onClick = null, Action<UIView>? content = null, string file = "", int line = 0)
+    static void Box(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Delegate? onClick = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Box — positional (style, children) overload. Models reach for view.Box([style], v => {...}) with the lambda as the 2nd positional; without this overload it tries to bind to styleId (string?) and trips CS1660. The lambda parameter is named children (not content) so existing callers that use content: by name unambiguously match the original.
     static void Box(UIView view, string[]? style, Action<UIView> children, string file = "", int line = 0)
     // Container with vertical flexbox layout (flex-col).
@@ -3737,12 +3783,16 @@ namespace Ikon.Parallax.Components.Standard
     static void Column(UIView view, string[]? style, Action<UIView> children, string file = "", int line = 0)
     // Container with flexbox layout enabled.
     static void Flex(UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null, string file = "", int line = 0)
+    // Flex — positional (style, children) overload (see Box ).
+    static void Flex(UIView view, string[]? style, Action<UIView> children, string file = "", int line = 0)
     // Container with CSS grid layout enabled.
     static void Grid(UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Grid — positional (style, children) overload.
     static void Grid(UIView view, string[]? style, Action<UIView> children, string file = "", int line = 0)
     // Absolutely positioned layer within a Stack container.
     static void Layer(UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null, string file = "", int line = 0)
+    // Layer — positional (style, children) overload (see Box ).
+    static void Layer(UIView view, string[]? style, Action<UIView> children, string file = "", int line = 0)
     // Container with horizontal flexbox layout (flex-row).
     static void Row(UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Row — positional (style, children) overload (see Box ).
@@ -3751,6 +3801,8 @@ namespace Ikon.Parallax.Components.Standard
     static void Spinner(UIView view, string[]? style = null, SpinnerSize size = Md, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // Container for layering children on top of each other. Use with Layer components as children.
     static void Stack(UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null, string file = "", int line = 0)
+    // Stack — positional (style, children) overload (see Box ).
+    static void Stack(UIView view, string[]? style, Action<UIView> children, string file = "", int line = 0)
   // Defines a column in a content grid including optional header, width, flex, and alignment.
   class ContentGridColumn : IEquatable<ContentGridColumn>
     // Defines a column in a content grid including optional header, width, flex, and alignment.
@@ -3770,25 +3822,29 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for core UI components including buttons, toggles, text inputs, dialogs, and typography.
   static class CoreExtensions
     // Button that triggers a client-side action (e.g., clipboard, download). Supports both text mode and icon mode. In text mode (content is null or label is null), label is displayed as visible text. In icon mode (content and label are both provided), label becomes the accessible aria-label and content is displayed.
-    static void ActionButton(UIView view, string[]? style = null, ActionKind action = Unknown, string? label = null, ActionOptions? options = null, bool? disabled = null, string? className = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<ActionEvent, Task>? onActionComplete = null, Action<UIView>? content = null, string file = "", int line = 0)
+    static void ActionButton(UIView view, string[]? style = null, ActionKind action = Unknown, string? label = null, ActionOptions? options = null, bool? disabled = null, string? className = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<ActionEvent, Task>? onActionComplete = null, Action<UIView>? content = null, string? text = null, string file = "", int line = 0)
     // Clickable button that triggers an action. Supports both text mode and icon mode. In text mode (content is null), text is displayed as visible button text. In icon mode (content is provided), text becomes the accessible aria-label and content is displayed.
-    static void Button(UIView view, string[]? style = null, string? text = null, string? label = null, bool? disabled = null, string? href = null, string? type = null, string? target = null, string? rel = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Delegate? onClick = null, string? icon = null, string? iconPosition = null, Action<UIView>? content = null, string file = "", int line = 0)
+    static void Button(UIView view, string[]? style = null, string? text = null, string? label = null, bool? disabled = null, string? href = null, string? type = null, string? target = null, string? rel = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Delegate? onClick = null, string? icon = null, Align iconPosition = Start, Action<UIView>? content = null, string file = "", int line = 0)
     // Button — positional-text-first overload. Same rationale as the matching Text overload — avoids CS1744 when models write view.Button("Sign in", onClick: …). First parameter is named buttonText to avoid ambiguity with callers using Button(text: "...") by name.
-    static void Button(UIView view, string buttonText, string[]? style = null, string? label = null, bool? disabled = null, string? href = null, string? type = null, string? target = null, string? rel = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Delegate? onClick = null, string? icon = null, string? iconPosition = null, Action<UIView>? content = null, string file = "", int line = 0)
+    static void Button(UIView view, string buttonText, string[]? style = null, string? label = null, bool? disabled = null, string? href = null, string? type = null, string? target = null, string? rel = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Delegate? onClick = null, string? icon = null, Align iconPosition = Start, Action<UIView>? content = null, string file = "", int line = 0)
     // Semantic heading element for titles and section headers.
-    static void Heading(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
+    static void Heading(UIView view, string[]? style = null, string? text = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
+    // Heading — positional-text-first overload, same rationale as the matching Text overload: view.Heading("Settings", style: [Text.H2]) is the shape models reach for. Parameter is named headingText to avoid ambiguity with callers using text: by name.
+    static void Heading(UIView view, string headingText, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Renders an icon from an icon library.
     static void Icon(UIView view, string[]? style = null, string? name = null, string? library = null, string? className = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Inline anchor link — sugar for a `Button` styled like a hyperlink with an `href`. Mirrors HTML anchor semantics. By default opens in the same tab; pass target: "_blank" to open in a new tab (we automatically add `rel="noopener noreferrer"` for `_blank` if no other `rel` is provided). Generated code naturally reaches for `view.Link(text:, href:)`; this gives it the canonical shape rather than forcing every link into `view.Button(href:, …)`.
-    static void Link(UIView view, string[]? style = null, string? text = null, string? label = null, string? href = null, string? target = null, string? rel = null, Delegate? onClick = null, string? icon = null, string? iconPosition = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
+    static void Link(UIView view, string[]? style = null, string? text = null, string? label = null, string? href = null, string? target = null, string? rel = null, Delegate? onClick = null, string? icon = null, Align iconPosition = Start, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Renders markdown content with formatting support.
     static void Markdown(UIView view, string[]? style = null, string? content = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
+    // Markdown — positional-content-first overload: view.Markdown("# Hello"). Parameter is named markdownContent to avoid ambiguity with callers using content: by name.
+    static void Markdown(UIView view, string markdownContent, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // Text element for displaying content.
     static void Text(UIView view, string[]? style = null, string? text = null, string? href = null, string? target = null, string? rel = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Text element — positional-text-first overload. Models trained on shadcn / Radix / React conventions reach for view.Text("Hello", style: ["text-xl"]) rather than the view.Text(["text-xl"], "Hello") ordering. Without this overload, the positional string argument fails to bind to the original signature's first parameter (string[]? style), producing CS1744 / CS1503 — the most common compile error in the codegen benchmark. Parameter is named textContent (not text) to avoid ambiguity with existing callers that use Text(text: "...") by name.
     static void Text(UIView view, string textContent, string[]? style = null, string? href = null, string? target = null, string? rel = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Single toggle button.
-    static void Toggle(UIView view, string[]? style = null, bool? pressed = null, bool? defaultPressed = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onPressedChange = null, Action<UIView>? content = null, string file = "", int line = 0)
+    static void Toggle(UIView view, string[]? style = null, bool? pressed = null, bool? defaultPressed = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onPressedChange = null, Action<UIView>? content = null, string? label = null, string file = "", int line = 0)
     // Item within a toggle group.
     static void ToggleGroupItem(UIView view, string[]? style = null, string? value = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Toggle group with multiple selection.
@@ -3881,6 +3937,22 @@ namespace Ikon.Parallax.Components.Standard
   sealed class EscapeKeyDownArgs : IEquatable<EscapeKeyDownArgs>
     // Event args for escape key down events on overlays.
     ctor()
+  // Per-client expanded-node state for TreeView``1 — a reactive set of expanded node ids, so apps don't hand-roll revision counters or per-node booleans.
+  sealed class ExpandedSet
+    // Create the set, optionally pre-expanding the given node ids for every client.
+    ctor(params string[] expandedIds)
+    // Collapse every node for the calling client.
+    void Clear()
+    // Collapse the node for the calling client.
+    void Collapse(string id)
+    // Expand the node for the calling client.
+    void Expand(string id)
+    // Whether the node is expanded for the calling client (reactive read).
+    bool IsExpanded(string id)
+    // Set the node's expanded state for the calling client.
+    void Set(string id, bool expanded)
+    // Toggle the node's expanded state for the calling client.
+    void Toggle(string id)
   // Hint used by FeedSlide to preload the slide's primary media asset.
   enum FeedMediaKind
     None
@@ -3932,7 +4004,7 @@ namespace Ikon.Parallax.Components.Standard
     // File upload component with explicit upload area, button click, drag-drop, and paste support.
     static void FileUpload(UIView view, string[]? style = null, string[]? accept = null, bool? multiple = null, long? maxFileSize = null, bool? disabled = null, bool? allowPaste = null, string? capture = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<FileUploadPreStartArgs, Task<FileUploadPreStartResult>>? onUploadPreStart = null, Func<FileUploadStartArgs, Task<FileUploadStartResult>>? onUploadStart = null, Func<FileUploadProgressArgs, Task>? onUploadProgress = null, Func<FileUploadCompleteArgs, Task>? onUploadComplete = null, Func<FileUploadErrorArgs, Task>? onUploadError = null, Func<FileUploadChunkArgs, Task>? onChunkReceived = null, string[]? seedSelectionIds = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Wrapper component that adds file upload capability (drag-drop + paste) to any content. Children define the visual appearance.
-    static void FileUploadZone(UIView view, string[]? accept = null, bool? multiple = null, long? maxFileSize = null, bool? disabled = null, bool? allowPaste = null, Func<FileUploadPreStartArgs, Task<FileUploadPreStartResult>>? onUploadPreStart = null, Func<FileUploadStartArgs, Task<FileUploadStartResult>>? onUploadStart = null, Func<FileUploadProgressArgs, Task>? onUploadProgress = null, Func<FileUploadCompleteArgs, Task>? onUploadComplete = null, Func<FileUploadErrorArgs, Task>? onUploadError = null, Func<FileUploadChunkArgs, Task>? onChunkReceived = null, Func<bool, Task>? onDragActiveChange = null, Action<UIView>? content = null, string[]? zoneStyle = null, string[]? activeStyle = null, string? activeStyleId = null, string? styleId = null, string? key = null, string[]? seedSelectionIds = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
+    static void FileUploadZone(UIView view, string[]? style = null, bool? multiple = null, long? maxFileSize = null, bool? disabled = null, bool? allowPaste = null, string[]? accept = null, Func<FileUploadPreStartArgs, Task<FileUploadPreStartResult>>? onUploadPreStart = null, Func<FileUploadStartArgs, Task<FileUploadStartResult>>? onUploadStart = null, Func<FileUploadProgressArgs, Task>? onUploadProgress = null, Func<FileUploadCompleteArgs, Task>? onUploadComplete = null, Func<FileUploadErrorArgs, Task>? onUploadError = null, Func<FileUploadChunkArgs, Task>? onChunkReceived = null, Func<bool, Task>? onDragActiveChange = null, Action<UIView>? content = null, string[]? zoneStyle = null, string[]? activeStyle = null, string? activeStyleId = null, string? styleId = null, string? key = null, string[]? seedSelectionIds = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
   // Extension methods for focus hint management.
   static class FocusHintExtensions
     // Requests focus attention for a UI element, typically for accessibility announcements.
@@ -3959,10 +4031,10 @@ namespace Ikon.Parallax.Components.Standard
     Assertive
   // Extension methods for Form, Checkbox, RadioGroup, Switch, Slider, and Label components.
   static class FormExtensions
-    // Checkbox control with simple boolean state. For tri-state support (indeterminate), use the CheckedState overload.
-    static void Checkbox(UIView view, string[]? style = null, bool? isChecked = null, bool? defaultChecked = null, bool? required = null, bool? disabled = null, string? name = null, string? value = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onCheckedChange = null, Action<UIView>? content = null, string file = "", int line = 0)
-    // Checkbox control with tri-state support (checked, unchecked, indeterminate).
-    static void Checkbox(UIView view, string[]? style = null, CheckedState? checkedState = null, CheckedState? defaultCheckedState = null, bool? required = null, bool? disabled = null, string? name = null, string? value = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<CheckedState, Task>? onCheckedStateChange = null, Action<UIView>? content = null, string file = "", int line = 0)
+    // Checkbox control with simple boolean state. For tri-state support (indeterminate), use TriStateCheckbox .
+    static void Checkbox(UIView view, string[]? style = null, bool? isChecked = null, bool? defaultChecked = null, bool? required = null, bool? disabled = null, string? name = null, string? formValue = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onCheckedChange = null, Action<UIView>? content = null, string? label = null, string file = "", int line = 0)
+    // Two-way bind a Checkbox to a Reactive`1 in one call — reads bind.Value for the controlled state and writes it back on every toggle. Same shape as the TextField bind overload.
+    static void Checkbox(UIView view, Reactive<bool> bind, string[]? style = null, bool? required = null, bool? disabled = null, string? name = null, string? formValue = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onCheckedChange = null, Action<UIView>? content = null, string? label = null, string file = "", int line = 0)
     // Visual indicator for the checkbox state.
     static void CheckboxIndicator(UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Form container with validation support.
@@ -3980,13 +4052,19 @@ namespace Ikon.Parallax.Components.Standard
     // Accessible label for form controls.
     static void Label(UIView view, string[]? style = null, string? htmlFor = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Container for radio buttons.
-    static void RadioGroup(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, bool? required = null, bool? disabled = null, bool loop = true, Orientation orientation = Vertical, string? name = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null, string file = "", int line = 0)
+    static void RadioGroup(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, bool? required = null, bool? disabled = null, bool loop = true, Orientation orientation = Vertical, string? name = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null, string? label = null, string file = "", int line = 0)
+    // Two-way bind a RadioGroup to a Reactive`1 in one call — reads bind.Value for the selected value and writes it back on every selection. Same shape as the TextField bind overload.
+    static void RadioGroup(UIView view, Reactive<string> bind, string[]? style = null, bool? required = null, bool? disabled = null, bool loop = true, Orientation orientation = Vertical, string? name = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null, string? label = null, string file = "", int line = 0)
     // Visual indicator for the selected radio.
     static void RadioGroupIndicator(UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Individual radio button.
     static void RadioGroupItem(UIView view, string[]? style = null, string? value = null, bool? disabled = null, bool? required = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Range slider control.
-    static void Slider(UIView view, string[]? style = null, IReadOnlyList<double>? value = null, IReadOnlyList<double>? defaultValue = null, double? min = null, double? max = null, double? step = null, int? minStepsBetweenThumbs = null, Orientation orientation = Horizontal, bool? disabled = null, bool? inverted = null, string? name = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<IReadOnlyList<double>, Task>? onValueChange = null, Func<IReadOnlyList<double>, Task>? onValueCommit = null, Action<UIView>? content = null, string file = "", int line = 0)
+    static void Slider(UIView view, string[]? style = null, IReadOnlyList<double>? value = null, IReadOnlyList<double>? defaultValue = null, double? min = null, double? max = null, double? step = null, int? minStepsBetweenThumbs = null, Orientation orientation = Horizontal, bool? disabled = null, bool? inverted = null, string? name = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<IReadOnlyList<double>, Task>? onValueChange = null, Func<IReadOnlyList<double>, Task>? onValueCommit = null, Action<UIView>? content = null, string? label = null, string file = "", int line = 0)
+    // Single-thumb slider with a scalar value — the common case. Sugar over the list form so callers write Slider(value: 50, onValueChange: async v => …) without the one-element-list dance. Use the list form for multi-thumb ranges.
+    static void Slider(UIView view, double value, string[]? style = null, double? min = null, double? max = null, double? step = null, Orientation orientation = Horizontal, bool? disabled = null, bool? inverted = null, string? name = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<double, Task>? onValueChange = null, Func<double, Task>? onValueCommit = null, Action<UIView>? content = null, string? label = null, string file = "", int line = 0)
+    // Two-way bind a single-thumb Slider to a Reactive`1 in one call — reads bind.Value for the thumb position and writes it back as the user drags. Same shape as the TextField bind overload.
+    static void Slider(UIView view, Reactive<double> bind, string[]? style = null, double? min = null, double? max = null, double? step = null, Orientation orientation = Horizontal, bool? disabled = null, bool? inverted = null, string? name = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<double, Task>? onValueChange = null, Func<double, Task>? onValueCommit = null, Action<UIView>? content = null, string? label = null, string file = "", int line = 0)
     // Filled range portion of the slider.
     static void SliderRange(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // Draggable thumb on the slider.
@@ -3994,9 +4072,13 @@ namespace Ikon.Parallax.Components.Standard
     // Track for the slider.
     static void SliderTrack(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Toggle switch control.
-    static void Switch(UIView view, string[]? style = null, bool? isChecked = null, bool? defaultChecked = null, bool? required = null, bool? disabled = null, string? name = null, string? value = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onCheckedChange = null, Action<UIView>? content = null, string file = "", int line = 0)
+    static void Switch(UIView view, string[]? style = null, bool? isChecked = null, bool? defaultChecked = null, bool? required = null, bool? disabled = null, string? name = null, string? formValue = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onCheckedChange = null, Action<UIView>? content = null, string? label = null, string file = "", int line = 0)
+    // Two-way bind a Switch to a Reactive`1 in one call — reads bind.Value for the controlled state and writes it back on every toggle. Same shape as the TextField bind overload.
+    static void Switch(UIView view, Reactive<bool> bind, string[]? style = null, bool? required = null, bool? disabled = null, string? name = null, string? formValue = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onCheckedChange = null, Action<UIView>? content = null, string? label = null, string file = "", int line = 0)
     // The thumb that moves when the switch is toggled.
     static void SwitchThumb(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
+    // Checkbox control with tri-state support (checked, unchecked, indeterminate).
+    static void TriStateCheckbox(UIView view, string[]? style = null, CheckedState? checkedState = null, CheckedState? defaultCheckedState = null, bool? required = null, bool? disabled = null, string? name = null, string? formValue = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<CheckedState, Task>? onCheckedStateChange = null, Action<UIView>? content = null, string file = "", int line = 0)
   // Represents form validation message types matching browser constraint validation.
   enum FormMessageMatch
     ValueMissing
@@ -4030,7 +4112,7 @@ namespace Ikon.Parallax.Components.Standard
     // Image element for the avatar.
     static void AvatarImage(UIView view, string[]? style = null, string? src = null, string? alt = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<Task>? onLoadingStatusChange = null, string file = "", int line = 0)
     // Image element.
-    static void Image(UIView view, string[]? style = null, string? src = null, AssetUri? assetUri = null, string? alt = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<Task>? onClick = null, string file = "", int line = 0)
+    static void Image(UIView view, string[]? style = null, string? src = null, AssetUri? assetUri = null, string? alt = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Delegate? onClick = null, string file = "", int line = 0)
     // Image element with binary data payload.
     static void Image(UIView view, string[]? style = null, byte[]? data = null, string? mimeType = null, string? alt = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<Task>? onClick = null, string file = "", int line = 0)
   // Extension methods for input components (TextField, TextArea, OTP, Password).
@@ -4048,13 +4130,13 @@ namespace Ikon.Parallax.Components.Standard
     // Button to toggle password visibility.
     static void PasswordToggleFieldToggle(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Two-way bind a TextArea to a Reactive`1 in one call. Same shape as the TextField bind overload.
-    static void TextArea(UIView view, Reactive<string> bind, string[]? style = null, string? placeholder = null, bool? disabled = null, int? rows = null, bool? autoResize = null, int? maxRows = null, bool? submitOnEnter = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, Func<Context, Task>? onSubmitWithContext = null, bool? clearOnSubmit = null, Action<UIView>? content = null, bool? autoFocus = null, string? label = null, string file = "", int line = 0)
+    static void TextArea(UIView view, Reactive<string> bind, string[]? style = null, string? placeholder = null, bool? disabled = null, int? rows = null, bool? autoResize = null, int? maxRows = null, bool? submitOnEnter = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, Func<Context, Task>? onSubmitWithContext = null, bool? clearOnSubmit = null, Action<UIView>? content = null, bool? autoFocus = null, string? label = null, int? debounceMs = null, string file = "", int line = 0)
     // Multi-line text input area.
-    static void TextArea(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, int? rows = null, bool? autoResize = null, int? maxRows = null, bool? submitOnEnter = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, Func<Context, Task>? onSubmitWithContext = null, bool? clearOnSubmit = null, Action<UIView>? content = null, bool? autoFocus = null, string? label = null, string file = "", int line = 0)
+    static void TextArea(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, int? rows = null, bool? autoResize = null, int? maxRows = null, bool? submitOnEnter = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, Func<Context, Task>? onSubmitWithContext = null, bool? clearOnSubmit = null, Action<UIView>? content = null, bool? autoFocus = null, string? label = null, int? debounceMs = null, string file = "", int line = 0)
     // Two-way bind a TextField to a Reactive`1 in one call — reads bind.Value for the controlled value and writes bind.Value = v on every keystroke. Use this instead of pairing value: bind.Value with a manual onValueChange.
-    static void TextField(UIView view, Reactive<string> bind, string[]? style = null, string? placeholder = null, bool? disabled = null, string? type = null, string? step = null, string? min = null, string? max = null, bool? multiline = null, int? rows = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, bool? clearOnSubmit = null, Action<UIView>? content = null, bool? autoFocus = null, string? label = null, string file = "", int line = 0)
+    static void TextField(UIView view, Reactive<string> bind, string[]? style = null, string? placeholder = null, bool? disabled = null, string? type = null, string? step = null, string? min = null, string? max = null, bool? multiline = null, int? rows = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, bool? clearOnSubmit = null, Action<UIView>? content = null, bool? autoFocus = null, string? label = null, int? debounceMs = null, string file = "", int line = 0)
     // Single-line text input field.
-    static void TextField(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, string? type = null, string? step = null, string? min = null, string? max = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, bool? clearOnSubmit = null, Action<UIView>? content = null, bool? autoFocus = null, string? label = null, string file = "", int line = 0)
+    static void TextField(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, string? type = null, string? step = null, string? min = null, string? max = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, bool? clearOnSubmit = null, Action<UIView>? content = null, bool? autoFocus = null, string? label = null, int? debounceMs = null, string file = "", int line = 0)
   // Event args for interact outside events on overlays (combines pointer and focus).
   sealed class InteractOutsideArgs : IEquatable<InteractOutsideArgs>
     // Event args for interact outside events on overlays (combines pointer and focus).
@@ -4116,11 +4198,13 @@ namespace Ikon.Parallax.Components.Standard
     // Infinite scroll view that fires callbacks when user scrolls near the end.
     static void InfiniteScrollView(UIView view, string[]? style = null, int threshold = 200, int debounceMs = 100, bool loading = false, bool hasMore = true, ScrollDirection direction = Down, ScrollAreaScrollbars scrollbars = Vertical, Action<UIView>? loadingIndicator = null, Func<ScrollNearEndArgs, Task>? onNearEnd = null, Action<UIView>? content = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // Progress component that auto-renders the indicator with transform.
-    static void Progress(UIView view, string[]? style = null, double? value = null, double? max = null, string? variant = null, bool indeterminate = false, Func<double?, string>? getValueLabel = null, string[]? rootStyle = null, string[]? indicatorStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
+    static void Progress(UIView view, string[]? style = null, double? value = null, double? max = null, ProgressVariant variant = Default, bool indeterminate = false, Func<double?, string>? getValueLabel = null, string[]? rootStyle = null, string[]? indicatorStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // Resizable split panel with a drag handle between two panes. Resize is handled entirely on the client — only the final size is sent to the server via onResized .
     static void ResizableSplit(UIView view, Orientation orientation = Horizontal, double initialSize = 200, double minSize = 100, double maxSize = 500, bool reversed = false, Func<double, Task>? onResized = null, Action<UIView>? first = null, Action<UIView>? second = null, string[]? style = null, string[]? handleStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // ScrollArea component that auto-renders viewport and scrollbars.
     static void ScrollArea(UIView view, string[]? style = null, ScrollAreaScrollbars scrollbars = Vertical, ScrollAreaType type = Hover, int? scrollHideDelay = null, Dir dir = Ltr, bool autoScroll = false, string? autoScrollKey = null, Action<UIView>? content = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string[]? cornerStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
+    // ScrollArea — positional (style, children) overload (see Box ).
+    static void ScrollArea(UIView view, string[]? style, Action<UIView> children, string file = "", int line = 0)
     // Visual separator between content.
     static void Separator(UIView view, string[]? style = null, Orientation orientation = Horizontal, bool decorative = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
   // Event returned from a geolocation action with latitude/longitude coordinates.
@@ -4184,7 +4268,7 @@ namespace Ikon.Parallax.Components.Standard
     // Separator between menu items.
     static void MenubarSeparator(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // Submenu container.
-    static void MenubarSub(UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool?, Task>? onOpenChange = null, Action<UIView>? content = null, string file = "", int line = 0)
+    static void MenubarSub(UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Content for submenu.
     static void MenubarSubContent(UIView view, string[]? style = null, bool loop = true, Side side = Right, Align align = Start, double? sideOffset = null, double? alignOffset = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Trigger for submenu.
@@ -4210,7 +4294,7 @@ namespace Ikon.Parallax.Components.Standard
     // Toolbar container.
     static void Toolbar(UIView view, string[]? style = null, Orientation orientation = Horizontal, Dir dir = Ltr, bool loop = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Button in the toolbar.
-    static void ToolbarButton(UIView view, string[]? style = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<Task>? onClick = null, Action<UIView>? content = null, string file = "", int line = 0)
+    static void ToolbarButton(UIView view, string[]? style = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Delegate? onClick = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Link in the toolbar.
     static void ToolbarLink(UIView view, string[]? style = null, string? href = null, string? target = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Separator in the toolbar.
@@ -4228,17 +4312,17 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for overlay component child elements. For the main overlay components (Dialog, AlertDialog, Popover, Tooltip, HoverCard), use the simplified APIs in CoreExtensions.cs which handle Portal/Overlay management automatically.
   static class OverlayExtensions
     // Alert dialog that requires explicit user acknowledgment. Cannot be dismissed by clicking outside.
-    static void AlertDialog(UIView view, bool? open = null, bool? defaultOpen = null, string? title = null, string? description = null, string? cancelLabel = null, string? actionLabel = null, Func<Task>? onAction = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, string[]? overlayStyle = null, string? overlayStyleId = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? footerStyle = null, string[]? cancelStyle = null, string[]? actionStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool?, Task>? onOpenChange = null, Action<UIView>? content = null, string file = "", int line = 0)
+    static void AlertDialog(UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, string? title = null, string? description = null, string? cancelLabel = null, string? actionLabel = null, Func<Task>? onAction = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, string[]? overlayStyle = null, string? overlayStyleId = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? footerStyle = null, string[]? cancelStyle = null, string[]? actionStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null, Action<UIView>? content = null, string file = "", int line = 0)
     // Modal dialog window.
-    static void Dialog(UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, bool? modal = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? overlayStyle = null, string? overlayStyleId = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool?, Task>? onOpenChange = null, string? title = null, string? description = null, string file = "", int line = 0)
+    static void Dialog(UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, bool? modal = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? overlayStyle = null, string? overlayStyleId = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null, string? title = null, string? description = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? headerStyle = null, string file = "", int line = 0)
     // Rich content card that appears on hover with configurable delays.
-    static void HoverCard(UIView view, bool? open = null, bool? defaultOpen = null, int? openDelay = null, int? closeDelay = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool?, Task>? onOpenChange = null, string file = "", int line = 0)
+    static void HoverCard(UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, int? openDelay = null, int? closeDelay = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null, string file = "", int line = 0)
     // Floating content panel that appears next to a trigger element.
-    static void Popover(UIView view, bool? open = null, bool? defaultOpen = null, bool? modal = null, Side side = Bottom, Align align = Center, double? sideOffset = null, double? alignOffset = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool?, Task>? onOpenChange = null, string file = "", int line = 0)
+    static void Popover(UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, bool? modal = null, Side side = Bottom, Align align = Center, double? sideOffset = null, double? alignOffset = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null, string file = "", int line = 0)
     // Toast notification with built-in provider and viewport.
-    static void Toast(UIView view, ToastType type = Foreground, bool? open = null, bool? defaultOpen = null, int? durationMs = null, bool? forceMount = null, ToastSwipeDirection swipeDirection = Right, int? swipeThreshold = null, string? title = null, string? description = null, bool? showClose = null, string? closeLabel = null, Action<UIView>? content = null, string[]? toastStyle = null, string[]? viewportStyle = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? closeStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool?, Task>? onOpenChange = null, Func<Task>? onEscapeKeyDown = null, Func<Task>? onPause = null, Func<Task>? onResume = null, Func<ToastSwipeArgs, Task>? onSwipeStart = null, Func<ToastSwipeArgs, Task>? onSwipeMove = null, Func<ToastSwipeArgs, Task>? onSwipeEnd = null, Func<ToastSwipeArgs, Task>? onSwipeCancel = null, string file = "", int line = 0)
+    static void Toast(UIView view, string[]? style = null, ToastType type = Foreground, bool? open = null, bool? defaultOpen = null, int? durationMs = null, bool? forceMount = null, ToastSwipeDirection swipeDirection = Right, int? swipeThreshold = null, string? title = null, string? description = null, bool? showClose = null, string? closeLabel = null, Action<UIView>? content = null, string[]? toastStyle = null, string[]? viewportStyle = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? closeStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null, Func<Task>? onEscapeKeyDown = null, Func<Task>? onPause = null, Func<Task>? onResume = null, Func<ToastSwipeArgs, Task>? onSwipeStart = null, Func<ToastSwipeArgs, Task>? onSwipeMove = null, Func<ToastSwipeArgs, Task>? onSwipeEnd = null, Func<ToastSwipeArgs, Task>? onSwipeCancel = null, string file = "", int line = 0)
     // Brief informational message that appears on hover. Includes built-in provider.
-    static void Tooltip(UIView view, bool? open = null, bool? defaultOpen = null, double? delayDuration = null, double? skipDelayDuration = null, bool? disableHoverableContent = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool?, Task>? onOpenChange = null, string file = "", int line = 0)
+    static void Tooltip(UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, double? delayDuration = null, double? skipDelayDuration = null, bool? disableHoverableContent = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null, string file = "", int line = 0)
   // One page of items plus the controls needed to render prev/next buttons. Returned by Paginate``1 .
   sealed class Page<T> : IEquatable<Page<T>>
     // One page of items plus the controls needed to render prev/next buttons. Returned by Paginate``1 .
@@ -4280,6 +4364,12 @@ namespace Ikon.Parallax.Components.Standard
     // Event args for pointer down outside events on overlays.
     ctor(string? TargetId)
     string? TargetId { get; init; }
+  // Visual variant of the Progress indicator. Values mirror the Theming.Progress.Variant style tokens.
+  enum ProgressVariant
+    Default
+    Success
+    Warning
+    Error
   // Extension methods for QR code generation.
   static class QrCodeExtensions
     // QR code image. Generates a QR code server-side and renders it as an image.
@@ -4353,7 +4443,9 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for Select components.
   static class SelectExtensions
     // Select dropdown component that auto-renders the full structure with trigger button, dropdown content, and items. Use either options (flat list) or groups (grouped items) - not both.
-    static void Select(UIView view, string[]? style = null, IReadOnlyList<SelectOption>? options = null, IReadOnlyList<SelectOptionGroup>? groups = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, bool? required = null, bool? open = null, string? name = null, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? itemStyle = null, string[]? itemIndicatorStyle = null, string? indicatorIconName = "check", string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool?, Task>? onOpenChange = null, string? label = null, string file = "", int line = 0)
+    static void Select(UIView view, string[]? style = null, IReadOnlyList<SelectOption>? options = null, IReadOnlyList<SelectOptionGroup>? groups = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, bool? required = null, bool? open = null, string? name = null, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? itemStyle = null, string[]? itemIndicatorStyle = null, string? indicatorIconName = "check", string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool, Task>? onOpenChange = null, string? label = null, string file = "", int line = 0)
+    // Two-way bind a Select to a Reactive`1 in one call — reads bind.Value for the selected value and writes it back on every selection. Same shape as the TextField bind overload.
+    static void Select(UIView view, Reactive<string> bind, string[]? style = null, IReadOnlyList<SelectOption>? options = null, IReadOnlyList<SelectOptionGroup>? groups = null, string? placeholder = null, bool? disabled = null, bool? required = null, bool? open = null, string? name = null, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? itemStyle = null, string[]? itemIndicatorStyle = null, string? indicatorIconName = "check", string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool, Task>? onOpenChange = null, string? label = null, string file = "", int line = 0)
   // Represents a selectable option in a Select component.
   sealed class SelectOption : IEquatable<SelectOption>
     // Represents a selectable option in a Select component.
@@ -4367,6 +4459,14 @@ namespace Ikon.Parallax.Components.Standard
     ctor(string? Label, IReadOnlyList<SelectOption> Options)
     string? Label { get; init; }
     IReadOnlyList<SelectOption> Options { get; init; }
+  // Semantic tone shared by the app-chrome components (Badge, Alert, Toasts, StatCard icon box). Tones map to the theme's semantic color tokens, so they are correct in both light and dark mode.
+  enum SemanticTone
+    Neutral
+    Brand
+    Success
+    Warning
+    Error
+    Info
   // A typed uniform value to pass to a WebGL shader. Use the static factory methods to create instances.
   struct ShaderUniform
     // The GLSL type name (e.g. "float", "vec2", "vec3").
@@ -4398,6 +4498,12 @@ namespace Ikon.Parallax.Components.Standard
     string? Title { get; init; }
     // URL to share.
     string? Url { get; init; }
+  // Slide-over panel composites (Sheet, Drawer) built on the Dialog primitive. The dialog's portal + content styling is repositioned per side via the Theming.Sheet / Theming.Drawer token recipes, including Crosswind slide-in/out motion classes driven by the panel's data-state attribute.
+  static class SheetExtensions
+    // Bottom drawer on top of the Dialog primitive — mobile-style rounded panel with a drag handle, per the Theming.Drawer token recipe. Same open/close model as Sheet : in controlled mode pass onOpenChange to actually close.
+    static void Drawer(UIView view, bool? open = null, Func<bool, Task>? onOpenChange = null, string? title = null, string? description = null, Action<UIView>? trigger = null, Action<UIView>? content = null, Action<UIView>? footer = null, bool? defaultOpen = null, bool? modal = null, bool showHandle = true, string[]? style = null, string[]? overlayStyle = null, string[]? handleStyle = null, string[]? headerStyle = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? footerStyle = null, string? key = null, string file = "", int line = 0)
+    // Radix Dialog.Close element rendered by the standard web renderer — clicking it requests a close through the dialog's open-change flow.
+    static void Sheet(UIView view, bool? open = null, Func<bool, Task>? onOpenChange = null, Side side = Right, string? title = null, string? description = null, Action<UIView>? trigger = null, Action<UIView>? content = null, Action<UIView>? footer = null, bool? defaultOpen = null, bool? modal = null, bool showClose = true, string[]? style = null, string[]? overlayStyle = null, string[]? headerStyle = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? footerStyle = null, string[]? closeStyle = null, string? key = null, string file = "", int line = 0)
   // Represents the side for positioning overlays.
   enum Side
     Top
@@ -4446,6 +4552,11 @@ namespace Ikon.Parallax.Components.Standard
     Sm
     Md
     Lg
+  // Trend direction for a StatCard delta.
+  enum StatTrend
+    Flat
+    Up
+    Down
   // Represents sticky behavior for Select/DropdownMenu.
   enum Sticky
     Partial
@@ -4464,6 +4575,26 @@ namespace Ikon.Parallax.Components.Standard
     string Label { get; init; }
     // Unique identifier for the tab.
     string Value { get; init; }
+  // Lightweight semantic table composites — the styled middle ground between hand-rolled Grid/Row layouts and the payload-driven DataTable component. Uses CSS table display utilities, so columns align automatically without a shared grid template: view.Table(content: t => { t.TableHeader(content: h => h.TableRow(content: r => { r.TableHead("Name"); r.TableHead("Status"); })); t.TableBody(content: b => { foreach (var user in users) { b.TableRow(key: user.Id, striped: true, content: r => { r.TableCell(user.Name); r.TableCell(content: c => c.Badge(user.Status, SemanticTone.Success)); }); } }); });
+  static class TableExtensions
+    // Table container (CSS display: table). Compose with TableHeader , TableBody , TableRow , TableHead , and TableCell . Caller styles merge on top of the base token; include the literal "unstyled" class to opt out.
+    static void Table(UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
+    // Table — positional (style, children) overload.
+    static void Table(UIView view, string[]? style, Action<UIView> children, string file = "", int line = 0)
+    // Body row group (CSS display: table-row-group).
+    static void TableBody(UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null, string file = "", int line = 0)
+    // Data cell (CSS display: table-cell).
+    static void TableCell(UIView view, string[]? style = null, string? text = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
+    // TableCell — positional-text-first overload: r.TableCell(user.Name).
+    static void TableCell(UIView view, string text, string[]? style = null, string? key = null, Action<UIView>? content = null, string file = "", int line = 0)
+    // Header cell (CSS display: table-cell) with muted uppercase column-label styling.
+    static void TableHead(UIView view, string[]? style = null, string? text = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string file = "", int line = 0)
+    // TableHead — positional-text-first overload: r.TableHead("Name").
+    static void TableHead(UIView view, string text, string[]? style = null, string? key = null, Action<UIView>? content = null, string file = "", int line = 0)
+    // Header row group (CSS display: table-header-group). Put one TableRow of TableHead cells inside.
+    static void TableHeader(UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null, string file = "", int line = 0)
+    // Table row (CSS display: table-row) with a bottom border. Rows with onClick also get hover highlight + pointer cursor.
+    static void TableRow(UIView view, string[]? style = null, bool striped = false, Func<Task>? onClick = null, string? styleId = null, string? key = null, Action<UIView>? content = null, string file = "", int line = 0)
   // Extension methods for Tabs components.
   static class TabsExtensions
     // Container for Tabs components. Use the 'tabs' parameter to define tab content.
@@ -4476,7 +4607,21 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for TimePicker components.
   static class TimePickerExtensions
     // Picker for a time of day. Values are ISO-8601 HH:mm or HH:mm:ss strings.
-    static void TimePicker(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, HourFormat hourFormat = Hour24, TimeGranularity granularity = Minute, int? minuteStep = null, int? secondStep = null, bool? disabled = null, bool? open = null, bool? defaultOpen = null, Side side = Bottom, Align align = Start, string? placeholder = null, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? columnStyle = null, string[]? itemStyle = null, string[]? itemSelectedStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool?, Task>? onOpenChange = null, string file = "", int line = 0)
+    static void TimePicker(UIView view, string[]? style = null, string? value = null, string? defaultValue = null, HourFormat hourFormat = Hour24, TimeGranularity granularity = Minute, int? minuteStep = null, int? secondStep = null, bool? disabled = null, bool? open = null, bool? defaultOpen = null, Side side = Bottom, Align align = Start, string? placeholder = null, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? columnStyle = null, string[]? itemStyle = null, string[]? itemSelectedStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool, Task>? onOpenChange = null, string? label = null, string file = "", int line = 0)
+  // One notification held by a Toasts queue.
+  sealed class ToastItem : IEquatable<ToastItem>
+    // One notification held by a Toasts queue.
+    ctor(long Id, string Title, string? Description, SemanticTone SemanticTone, int DurationMs)
+    // Optional muted body text.
+    string? Description { get; init; }
+    // Milliseconds before the client auto-dismisses the toast.
+    int DurationMs { get; init; }
+    // Queue-unique identifier used to dismiss the toast.
+    long Id { get; init; }
+    // Semantic tone controlling the icon and its color.
+    SemanticTone SemanticTone { get; init; }
+    // Headline text.
+    string Title { get; init; }
   // Event args for toast swipe events.
   sealed class ToastSwipeArgs : IEquatable<ToastSwipeArgs>
     // Event args for toast swipe events.
@@ -4494,12 +4639,40 @@ namespace Ikon.Parallax.Components.Standard
   enum ToastType
     Foreground
     Background
+  // Imperative per-client toast queue so app code never owns notification state.
+  sealed class Toasts
+    ctor()
+    // Toasts currently visible for the calling client (reactive read).
+    IReadOnlyList<ToastItem> Items { get; }
+    // Remove all toasts from the calling client's queue.
+    void Clear()
+    // Remove one toast from the calling client's queue.
+    void Dismiss(long id)
+    // Enqueue an error toast.
+    long Error(string title, string? description = null, int durationMs = 5000)
+    // Enqueue an info toast.
+    long Info(string title, string? description = null, int durationMs = 5000)
+    // Enqueue a toast for the calling client.
+    long Show(string title, string? description = null, SemanticTone tone = Neutral, int durationMs = 5000)
+    // Enqueue a success toast.
+    long Success(string title, string? description = null, int durationMs = 5000)
+    // Enqueue a warning toast.
+    long Warning(string title, string? description = null, int durationMs = 5000)
+    // Default auto-dismiss duration in milliseconds.
+    static int DefaultDurationMs
+  // Host composite that renders a Toasts queue with the toast primitives.
+  static class ToastsExtensions
+    // Render the toast viewport for a Toasts queue. Mount exactly once in the root UI; every queued toast renders as a themed toast (tone icon, title, description, close button) that the client auto-dismisses after its duration. Both auto-dismiss and the close button report back and remove the item from the queue.
+    static void ToastHost(UIView view, Toasts toasts, string[]? viewportStyle = null, string[]? toastStyle = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? closeStyle = null, bool showClose = true, string file = "", int line = 0)
+  // Recursive tree composite over the Collapsible primitive, styled with the NavPanel/NavItem token recipes.
+  static class TreeViewExtensions
+    static void TreeView<T>(UIView view, IReadOnlyList<T> roots, Func<T, string> id, Func<T, string> label, Func<T, IReadOnlyList<T>?> children, ExpandedSet expanded, string[]? style = null, Func<T, Task>? onSelect = null, string? selectedId = null, Func<T, string?>? icon = null, string[]? itemStyle = null, string[]? selectedItemStyle = null, string[]? labelStyle = null, string[]? childrenStyle = null, string? styleId = null, string? key = null, string file = "", int line = 0)
   // Extension methods for the DOM-virtualized scroll containers VirtualList and VirtualGrid . Items outside the visible window plus an overscan buffer have their content children skipped at the React layer (the wrapper still occupies space via fixed dimensions), so DOM size scales with viewport, not itemCount.
   static class VirtualListExtensions
     // DOM-virtualized scrollable grid. Items are laid out in a fixed number of columns and rows outside the visible window are not mounted in the DOM.
-    static void VirtualGrid(UIView view, int itemCount, int columns, double rowHeight, Action<UIView, int> onRenderItem, int overscan = 2, int gap = 12, int? minItemWidthPx = null, int? maxColumns = null, double? aspectRatio = null, string? resetScrollKey = null, Func<double, Task>? onNearEnd = null, int nearEndThresholdRows = 2, string[]? style = null, string[]? itemStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
+    static void VirtualGrid(UIView view, int itemCount, int columns, double rowHeight, Action<UIView, int> onRenderItem, int overscan = 2, int gap = 12, int? minItemWidthPx = null, int? maxColumns = null, double? aspectRatio = null, string? resetScrollKey = null, Func<int, Task>? onNearEnd = null, int nearEndThresholdRows = 2, string[]? style = null, string[]? itemStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
     // DOM-virtualized vertical list with fixed item height. Renders only items inside the visible window plus an overscan buffer.
-    static void VirtualList(UIView view, int itemCount, double itemHeight, Action<UIView, int> onRenderItem, int overscan = 4, Func<double, Task>? onNearEnd = null, int nearEndThreshold = 5, string[]? style = null, string[]? itemStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
+    static void VirtualList(UIView view, int itemCount, double itemHeight, Action<UIView, int> onRenderItem, int overscan = 4, Func<int, Task>? onNearEnd = null, int nearEndThreshold = 5, string[]? style = null, string[]? itemStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, string file = "", int line = 0)
   // Day of the week used as the first column in the calendar grid.
   enum WeekStart
     Sunday
@@ -5795,6 +5968,19 @@ namespace Ikon.Crosswind
     ColorToken? From { get; init; }
     ColorToken? To { get; init; }
     ColorToken? Via { get; init; }
+  // The single source of truth for how transform axes map to the CSS individual transform properties (`translate`, `rotate`, `scale`) and to the residual `transform` var-chain. Both the static utility emission and the motion keyframe emission compose values through these helpers so the two paths can never disagree on axis semantics.
+  static class IndividualTransform
+    // Composes a `rotate` value: bare angle for Z rotation, `x/y <angle>` for an axis form.
+    static string Rotate(string? axis, string angle)
+    // Composes a `scale` value. Unlike `translate`, a single-value `scale: n` is UNIFORM (both axes), so the two-axis form is mandatory — an x-only scale must still emit `scale: x 1` or it would also scale the y axis.
+    static string Scale(string x, string y, string? z)
+    static string ScaleOfVars(bool includeZ)
+    // Composes a `translate` value. A single-value `translate: x` is x-only per spec, so an x-only animation may omit the other axes; passing z forces the three-axis form.
+    static string Translate(string x, string? y, string? z)
+    static string TranslateOfVars(bool includeZ)
+    static string GpuRotateSkewChain
+    // The transform components Tailwind v4 keeps in the `transform` property: X/Y/Z axis rotations and skews compose through empty-fallback vars while Z rotation, translation, and scale use their individual CSS properties.
+    static string RotateSkewChain
   sealed class MotionBindingMetadata : IEquatable<MotionBindingMetadata>
     ctor(string Source, string? Min, string? Max, string? Clamp, bool Reverse, string? Ease, string? Map, string? TargetId)
     string? Clamp { get; init; }
@@ -5838,6 +6024,7 @@ namespace Ikon.Crosswind
     Sticky
   static class SelectorComposer
     static IReadOnlyDictionary<string, string> BreakpointMap { get; }
+    static IReadOnlyDictionary<string, string> ContainerBreakpointMap { get; }
     static string DarkClassSelector { get; set; }
     static DarkModeStrategy DarkMode { get; set; }
     static bool EnableThemeVariant { get; set; }
@@ -5875,6 +6062,7 @@ namespace Ikon.Crosswind
     static string FractionToPercent(string frac)
     static string MaybeNegate(bool negative, string val)
     static string ResolveColor(string raw, TailwindColorContext context = Generic)
+    static string? ResolveContainerScale(string token)
     static string ResolveFontFamily(string token)
     static string ResolveFontWeight(string token)
     static string ResolveLetterSpacing(string tokenOrLength)
@@ -5907,6 +6095,12 @@ namespace Ikon.Crosswind
     static string AdditionalCss { get; }
     static IReadOnlyDictionary<string, string> DarkVariables { get; }
     static IReadOnlyDictionary<string, string> LightVariables { get; }
+    // The stock Tailwind colour palette parsed once from the authored baseline: every --color-{name}-{step} entry keyed as "{name}-{step}" → its OKLCH value. This is the single source the palette name/step views below derive from, so a token dropped from (or added to) the baseline can never silently disagree with them.
+    static IReadOnlyDictionary<string, string> PaletteColors { get; }
+    // Palette family names present in the baseline (red, …, stone), first-seen order.
+    static IReadOnlyList<string> PaletteNames { get; }
+    // Palette steps present in the baseline (50, …, 950), ascending.
+    static IReadOnlyList<string> PaletteSteps { get; }
     static string GetFullBaseline()
   sealed class TailwindCssVariables
     ctor(IDictionary<string, string> light, IDictionary<string, string> dark, string darkThemeName = "dark")
@@ -6061,8 +6255,6 @@ namespace Ikon.Crosswind
     static bool VariableFallbacksEnabled { get; set; }
     static string Var(string name, string? fallback = null)
   static class TransformCombiner
-    // Merges transform utilities by (Variants, Track) into a single "transform" utility. Call after TailwindDedup.Deduplicate.
-    static List<TailwindDescription> Combine(List<TailwindDescription> classes)
     // Composes transform utilities for motion context, outputting individual CSS variables instead of a monolithic transform property. This allows independent animation tracks to blend without overriding each other.
     static Dictionary<string, string> ComposeForMotion(List<TailwindDescription> classes)
   sealed class TransformToken : IEquatable<TransformToken>
@@ -6166,6 +6358,8 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> BgAuto(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> BgBlend(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> BgBottom(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgBottomLeft(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgBottomRight(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> BgCenter(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> BgClipBorder(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> BgClipContent(TailwindDescription _)
@@ -6175,14 +6369,14 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> BgContain(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> BgCover(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> BgFixed(TailwindDescription _)
-    static Dictionary<string, Dictionary<string, string>> BgGradientToB(TailwindDescription cls)
-    static Dictionary<string, Dictionary<string, string>> BgGradientToBl(TailwindDescription cls)
-    static Dictionary<string, Dictionary<string, string>> BgGradientToBr(TailwindDescription cls)
-    static Dictionary<string, Dictionary<string, string>> BgGradientToL(TailwindDescription cls)
-    static Dictionary<string, Dictionary<string, string>> BgGradientToR(TailwindDescription cls)
-    static Dictionary<string, Dictionary<string, string>> BgGradientToT(TailwindDescription cls)
-    static Dictionary<string, Dictionary<string, string>> BgGradientToTl(TailwindDescription cls)
-    static Dictionary<string, Dictionary<string, string>> BgGradientToTr(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> BgGradientToB(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgGradientToBl(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgGradientToBr(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgGradientToL(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgGradientToR(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgGradientToT(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgGradientToTl(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgGradientToTr(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> BgImage(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> BgLeft(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> BgLeftBottom(TailwindDescription _)
@@ -6215,6 +6409,8 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> BgShorthand(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> BgSize(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> BgTop(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgTopLeft(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgTopRight(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> Block(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> Blur(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> Border(TailwindDescription cls)
@@ -6334,6 +6530,7 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> FlexWrapReverse(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> Float(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> FlowRoot(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> Font(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> FontFamily(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> FontFeature(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> FontKerning(TailwindDescription cls)
@@ -6439,6 +6636,7 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> MaskRepeatY(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> MaskShorthand(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> MaskSize(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> MaskType(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> MathStyle(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> MaxHeight(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> MaxWidth(TailwindDescription cls)
@@ -6571,6 +6769,7 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> RingInset(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> RingOffset(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> Rotate(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> RotateNone(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> RotateX(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> RotateY(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> RotateZ(TailwindDescription cls)
@@ -6592,6 +6791,8 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> RubyPosition(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> Saturate(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> Scale(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> Scale3d(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> ScaleNone(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> ScaleX(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> ScaleY(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> ScaleZ(TailwindDescription cls)
@@ -6702,15 +6903,21 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> TouchPan(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> TouchPinch(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> Transform(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> TransformBorder(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> TransformBox(TailwindDescription cls)
-    static Dictionary<string, Dictionary<string, string>> TransformNone(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> TransformContent(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> TransformFill(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> TransformNone(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> TransformOrigin(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> TransformStroke(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> TransformView(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> Transition(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> TransitionBehavior(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> TransitionDiscrete(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> TransitionNone(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> TransitionNormal(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> Translate(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> TranslateNone(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> TranslateX(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> TranslateY(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> TranslateZ(TailwindDescription cls)
@@ -7959,23 +8166,6 @@ namespace Ikon.App.Connectors
     string Name { get; init; }
     long? Size { get; init; }
     string? WebViewLink { get; init; }
-  sealed class EmailSummary : IEquatable<EmailSummary>
-    ctor(string Id, string ThreadId, string From, string Subject, string Snippet, DateTimeOffset ReceivedAt)
-    string From { get; init; }
-    string Id { get; init; }
-    DateTimeOffset ReceivedAt { get; init; }
-    string Snippet { get; init; }
-    string Subject { get; init; }
-    string ThreadId { get; init; }
-  // Gmail connector. Send and list mail with Google OAuth2 credentials (refresh token). Raw — the agent skill lives in Ikon.Agent.Connectors.
-  sealed class Gmail
-    ctor(GoogleCredentials credentials)
-    // Fetch the full plain-text body of a message. Returns the text/plain part when present, falling back to the text extracted from the HTML part, then to an empty string.
-    Task<string> GetBodyAsync(string id, CancellationToken ct = null)
-    // Stream every message matching the query, paging through the whole result set. Use a query with date operators (e.g. "after:2024/01/01") to bound a historical backfill by time.
-    IAsyncEnumerable<EmailSummary> ListAllAsync(string? query = null, CancellationToken ct = null)
-    Task<IReadOnlyList<EmailSummary>> ListAsync(string? query = null, int limit = 20, CancellationToken ct = null)
-    Task<string> SendAsync(string to, string subject, string body, string? cc = null, CancellationToken ct = null)
   static class GoogleAuth
     static UserCredential CredentialFor(GoogleCredentials credentials, IEnumerable<string> scopes)
     // True when ex is a PERMANENT OAuth failure (revoked/expired refresh token, bad client) that retrying won't fix — the account must be reconnected. Lets connectors stop and surface a distinct "reconnect required" state instead of hammering the token endpoint forever.
@@ -8003,164 +8193,6 @@ namespace Ikon.App.Connectors
   sealed class WhatsApp
     ctor(string accessToken, string phoneNumberId, HttpClient? http = null)
     Task<string> SendAsync(string to, string text, CancellationToken ct = null)
-
-namespace Ikon.App.Connectors.Browser
-  // Raw browser-session tuning. Model/agent choices live in the agent layer.
-  sealed class BrowserOptions : IEquatable<BrowserOptions>
-    // Raw browser-session tuning. Model/agent choices live in the agent layer.
-    ctor(bool Headless = true)
-    bool Headless { get; init; }
-  // A long-lived Playwright page driven across many turns. Owns the browser lifecycle; resolves a WebTarget by mark, then accessibility role+name, then selector. Raw — no agent logic; the agent layer (Ikon.Agent.Browser) exposes these actions as tools.
-  sealed class BrowserSession : IAsyncDisposable
-    ctor()
-    // The last ~40 console messages / page errors / failed requests from the page — the page's own account of why it is in whatever state it is in. Diagnostic gold when a page that "should" render stays blank (auth failures, websocket errors, bundle errors).
-    IReadOnlyList<string> ConsoleTail { get; }
-    string CurrentUrl { get; }
-    ValueTask DisposeAsync()
-    // Evaluate a JavaScript function-expression (e.g. "() => { ...; return 'x'; }") on the current page and return its string result. For light page-state manipulation by non-agentic callers — e.g. the codegen visual gate flipping data-theme so it can screenshot both theme states of the same view.
-    Task<string?> EvaluateAsync(string script)
-    Task<ValueTuple<bool, string, string?>> ExecuteAsync(WebAction action)
-    Task<IReadOnlyList<MarkedElement>> MarkElementsAsync()
-    Task NavigateAsync(string url)
-    Task<byte[]> ScreenshotAsync()
-    // Screenshot as JPEG at the given quality — for callers that put the image into an LLM context, where a PNG's 3-5x larger payload rides along for every later turn.
-    Task<byte[]> ScreenshotJpegAsync(int quality = 70)
-    Task StartAsync(bool headless, CancellationToken ct = null)
-  sealed class WebAction.Click : WebAction, IEquatable<WebAction.Click>
-    ctor(WebTarget Target)
-    WebTarget Target { get; init; }
-  sealed class WebAction.Extract : WebAction, IEquatable<WebAction.Extract>
-    ctor(WebTarget Target, string OutputName)
-    string OutputName { get; init; }
-    WebTarget Target { get; init; }
-  sealed class WebAction.Fill : WebAction, IEquatable<WebAction.Fill>
-    ctor(WebTarget Target, string Text, bool Secret = false, string? InputName = null)
-    string? InputName { get; init; }
-    bool Secret { get; init; }
-    WebTarget Target { get; init; }
-    string Text { get; init; }
-  // An interactable element discovered on the page, tagged for this observation.
-  sealed class MarkedElement : IEquatable<MarkedElement>
-    // An interactable element discovered on the page, tagged for this observation.
-    ctor(int Mark, string Role, string Name, string Selector)
-    int Mark { get; init; }
-    string Name { get; init; }
-    string Role { get; init; }
-    string Selector { get; init; }
-  sealed class WebAction.Navigate : WebAction, IEquatable<WebAction.Navigate>
-    ctor(string Url)
-    string Url { get; init; }
-  sealed class WebAction.Press : WebAction, IEquatable<WebAction.Press>
-    ctor(string Key)
-    string Key { get; init; }
-  sealed class WebAction.Scroll : WebAction, IEquatable<WebAction.Scroll>
-    ctor(int Dx, int Dy)
-    int Dx { get; init; }
-    int Dy { get; init; }
-  // A single browser action. A tagged union so a flow serializes losslessly and replays exactly.
-  abstract class WebAction : IEquatable<WebAction>
-  // A distilled, replayable integration: ordered steps with parameterized input slots.
-  sealed class WebFlow : IEquatable<WebFlow>
-    // A distilled, replayable integration: ordered steps with parameterized input slots.
-    ctor(string Name, string Origin, IReadOnlyList<WebStep> Steps, IReadOnlyList<string> Inputs)
-    IReadOnlyList<string> Inputs { get; init; }
-    string Name { get; init; }
-    string Origin { get; init; }
-    IReadOnlyList<WebStep> Steps { get; init; }
-  // Turns a successful WebRun into a replayable WebFlow : keeps the steps that worked and parameterizes each filled field into a named input slot. Pure and deterministic.
-  static class WebFlowDistiller
-    static WebFlow Distill(WebRun run, string? name = null)
-  // Deterministically replays a distilled WebFlow on a browser session — no LLM — substituting input slots with supplied values.
-  static class WebFlowPlayer
-    static Task<WebReplay> ReplayAsync(BrowserSession session, WebFlow flow, IReadOnlyDictionary<string, string> inputs, CancellationToken ct = null)
-  enum WebOutcome
-    Succeeded
-    Failed
-    BudgetExhausted
-  // The result of replaying a WebFlow .
-  sealed class WebReplay : IEquatable<WebReplay>
-    // The result of replaying a WebFlow .
-    ctor(bool Ok, IReadOnlyDictionary<string, string> Outputs, bool Healed)
-    bool Healed { get; init; }
-    bool Ok { get; init; }
-    IReadOnlyDictionary<string, string> Outputs { get; init; }
-  // The result of an operate run: outcome, summary, the action trace, and any extracted outputs.
-  sealed class WebRun : IEquatable<WebRun>
-    // The result of an operate run: outcome, summary, the action trace, and any extracted outputs.
-    ctor(WebOutcome Outcome, string Summary, IReadOnlyList<WebStep> Steps, IReadOnlyDictionary<string, string> Outputs)
-    WebOutcome Outcome { get; init; }
-    IReadOnlyDictionary<string, string> Outputs { get; init; }
-    IReadOnlyList<WebStep> Steps { get; init; }
-    string Summary { get; init; }
-  // One executed action, the selector that actually resolved it, and whether it succeeded.
-  sealed class WebStep : IEquatable<WebStep>
-    // One executed action, the selector that actually resolved it, and whether it succeeded.
-    ctor(WebAction Action, string ResolvedSelector, bool Ok)
-    WebAction Action { get; init; }
-    bool Ok { get; init; }
-    string ResolvedSelector { get; init; }
-  // How to locate an element. Prefer accessibility role + name; fall back to a CSS/XPath selector or a perception mark id from the current observation.
-  sealed class WebTarget : IEquatable<WebTarget>
-    // How to locate an element. Prefer accessibility role + name; fall back to a CSS/XPath selector or a perception mark id from the current observation.
-    ctor(string? Role = null, string? Name = null, string? Selector = null, int? Mark = null)
-    int? Mark { get; init; }
-    string? Name { get; init; }
-    string? Role { get; init; }
-    string? Selector { get; init; }
-
-namespace Ikon.App.Connectors.Telephony
-  // Raw call tuning: the TTS voice, spoken language, and a hard duration cap. Model/agent choices live in the agent layer (Ikon.Agent.Telephony), not here.
-  sealed class CallOptions : IEquatable<CallOptions>
-    // Raw call tuning: the TTS voice, spoken language, and a hard duration cap. Model/agent choices live in the agent layer (Ikon.Agent.Telephony), not here.
-    ctor(string VoiceId = "", string Language = "en-US", TimeSpan? MaxDuration = null)
-    string Language { get; init; }
-    TimeSpan? MaxDuration { get; init; }
-    string VoiceId { get; init; }
-  enum CallOutcome
-    Completed
-    NoAnswer
-    Busy
-    Failed
-  sealed class CallResult : IEquatable<CallResult>
-    ctor(string Transcript, CallOutcome Outcome, TimeSpan Duration)
-    TimeSpan Duration { get; init; }
-    CallOutcome Outcome { get; init; }
-    string Transcript { get; init; }
-  // A completed caller utterance: its transcript plus the raw mu-law audio.
-  sealed class CallTurn : IEquatable<CallTurn>
-    // A completed caller utterance: its transcript plus the raw mu-law audio.
-    ctor(string Transcript, byte[] AudioMuLaw)
-    byte[] AudioMuLaw { get; init; }
-    string Transcript { get; init; }
-  // G.711 mu-law codec for telephony audio (8-bit, 8kHz), the encoding Twilio Media Streams uses on the wire. Converts between mu-law bytes and normalized float samples.
-  static class MuLawCodec
-    // Decodes mu-law bytes to float samples normalized to [-1.0, 1.0].
-    static float[] Decode(ReadOnlySpan<byte> muLaw)
-    // Encodes float samples (normalized to [-1.0, 1.0]) to mu-law bytes.
-    static byte[] Encode(ReadOnlySpan<float> samples)
-  // A live phone call — the real-time audio engine. Segments caller speech into turns ( Turns ), speaks replies ( SpeakAsync ), and hangs up. No agent logic: the brain is supplied by the consumer (Ikon.Agent.Connectors.Telephony binds a call to a subthread). Supports barge-in: sustained caller speech during a reply cancels TTS and flushes Twilio's buffer. Speech detection uses Silero VAD (falls back to an RMS gate if the model can't load).
-  sealed class PhoneCall : IAsyncDisposable
-    TimeSpan Duration { get; }
-    CallOutcome Outcome { get; }
-    ValueTask DisposeAsync()
-    Task HangupAsync()
-    // Speak a reply to the caller (TTS → 8kHz mu-law → Media Streams). Interruptible by barge-in; returns true if the caller barged in (so the consumer can stop voicing the rest of the reply).
-    Task<bool> SpeakAsync(string text, CancellationToken ct = null)
-    // Caller utterances as they complete, until the call ends.
-    IAsyncEnumerable<CallTurn> Turns(CancellationToken ct = null)
-  // Places outbound Twilio calls and hosts the Media Streams WebSocket. Each placed call yields a live PhoneCall once the audio stream connects. Raw — no agent logic; credentials come from app.Secrets.
-  sealed class Telephone : IAsyncDisposable
-    ctor(IAppBase app, TwilioCredentials credentials, CallOptions? options = null)
-    // Place a call to an E.164 number; resolves to the live call once audio connects.
-    Task<PhoneCall> CallAsync(string number, CancellationToken ct = null)
-    ValueTask DisposeAsync()
-  // Twilio credentials. Supplied from app.Secrets at construction; never hardcoded.
-  sealed class TwilioCredentials : IEquatable<TwilioCredentials>
-    // Twilio credentials. Supplied from app.Secrets at construction; never hardcoded.
-    ctor(string AccountSid, string AuthToken, string FromNumber)
-    string AccountSid { get; init; }
-    string AuthToken { get; init; }
-    string FromNumber { get; init; }
 
 namespace Ikon.App.Cron
   // Per-invocation context for a CronAttribute handler currently executing. A cron handler may optionally accept one of these (and/or a CancellationToken ) to learn when and why it fired; a parameterless handler is equally valid. AsyncLocal so handler code (and anything it calls) can read it without threading it through every method signature.
@@ -8581,6 +8613,12 @@ namespace Ikon.App.Payments
     byte[]? Pdf { get; init; }
     string? PdfContentType { get; init; }
     string? Url { get; init; }
+  // Result of a ReconcileAsync request. Enqueued counts the provider objects queued for re-processing; their effects arrive asynchronously as normal payment events.
+  sealed class PaymentReconcileResult : IEquatable<PaymentReconcileResult>
+    // Result of a ReconcileAsync request. Enqueued counts the provider objects queued for re-processing; their effects arrive asynchronously as normal payment events.
+    ctor(PaymentProvider? Provider, int Enqueued)
+    int Enqueued { get; init; }
+    PaymentProvider? Provider { get; init; }
   // Result of a refund.
   sealed class PaymentRefund : IEquatable<PaymentRefund>
     // Result of a refund.
@@ -8637,6 +8675,8 @@ namespace Ikon.App.Payments
     Task<IReadOnlyList<Payment>> ListPaymentsAsync(string? customerKey = null, CancellationToken cancellationToken = null)
     // The customer's subscriptions. customerKey defaults to the current user.
     Task<IReadOnlyList<PaymentSubscription>> ListSubscriptionsAsync(string? customerKey = null, CancellationToken cancellationToken = null)
+    // Ask the backend to re-pull live provider state — the recovery path when a provider webhook was missed or the app was offline when an event was pushed. Eventually consistent: the pulled objects flow through the normal pipeline and surface as ordinary PaymentEventReceived pushes and entitlement refreshes within seconds. With a reference (a payment link's checkout-session reference or a subscription id) only that object is pulled; otherwise the customer's recent objects; with neither and no current user in scope, the space's recent window.
+    Task<PaymentReconcileResult> ReconcileAsync(string? customerKey = null, string? reference = null, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
     // Refund a payment, in full by default or partially via amountMinor . Refunding does not revoke an entitlement the payment granted.
     Task<PaymentRefund> RefundAsync(string paymentId, long? amountMinor = null, string? reason = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
     // Remove an offer from the app's catalog (Stripe archives the Product/Price). Returns false if no such active offer existed.
@@ -8674,6 +8714,186 @@ namespace Ikon.App.Payments
     Unpaid
     Paused
     Canceled
+
+# Ikon.App.Extra Public API
+
+namespace Ikon.App.Connectors
+  sealed class EmailSummary : IEquatable<EmailSummary>
+    ctor(string Id, string ThreadId, string From, string Subject, string Snippet, DateTimeOffset ReceivedAt)
+    string From { get; init; }
+    string Id { get; init; }
+    DateTimeOffset ReceivedAt { get; init; }
+    string Snippet { get; init; }
+    string Subject { get; init; }
+    string ThreadId { get; init; }
+  // Gmail connector. Send and list mail with Google OAuth2 credentials (refresh token). Raw — the agent skill lives in Ikon.Agent.Connectors.
+  sealed class Gmail
+    ctor(GoogleCredentials credentials)
+    // Fetch the full plain-text body of a message. Returns the text/plain part when present, falling back to the text extracted from the HTML part, then to an empty string.
+    Task<string> GetBodyAsync(string id, CancellationToken ct = null)
+    // Stream every message matching the query, paging through the whole result set. Use a query with date operators (e.g. "after:2024/01/01") to bound a historical backfill by time.
+    IAsyncEnumerable<EmailSummary> ListAllAsync(string? query = null, CancellationToken ct = null)
+    Task<IReadOnlyList<EmailSummary>> ListAsync(string? query = null, int limit = 20, CancellationToken ct = null)
+    Task<string> SendAsync(string to, string subject, string body, string? cc = null, CancellationToken ct = null)
+
+namespace Ikon.App.Connectors.Browser
+  // Raw browser-session tuning. Model/agent choices live in the agent layer.
+  sealed class BrowserOptions : IEquatable<BrowserOptions>
+    // Raw browser-session tuning. Model/agent choices live in the agent layer.
+    ctor(bool Headless = true)
+    bool Headless { get; init; }
+  // A long-lived Playwright page driven across many turns. Owns the browser lifecycle; resolves a WebTarget by mark, then accessibility role+name, then selector. Raw — no agent logic; the agent layer (Ikon.Agent.Browser) exposes these actions as tools.
+  sealed class BrowserSession : IAsyncDisposable
+    ctor()
+    // The last ~40 console messages / page errors / failed requests from the page — the page's own account of why it is in whatever state it is in. Diagnostic gold when a page that "should" render stays blank (auth failures, websocket errors, bundle errors).
+    IReadOnlyList<string> ConsoleTail { get; }
+    string CurrentUrl { get; }
+    ValueTask DisposeAsync()
+    // Evaluate a JavaScript function-expression (e.g. "() => { ...; return 'x'; }") on the current page and return its string result. For light page-state manipulation by non-agentic callers — e.g. the codegen visual gate flipping data-theme so it can screenshot both theme states of the same view.
+    Task<string?> EvaluateAsync(string script)
+    Task<ValueTuple<bool, string, string?>> ExecuteAsync(WebAction action)
+    Task<IReadOnlyList<MarkedElement>> MarkElementsAsync()
+    Task NavigateAsync(string url)
+    Task<byte[]> ScreenshotAsync()
+    // Screenshot as JPEG at the given quality — for callers that put the image into an LLM context, where a PNG's 3-5x larger payload rides along for every later turn.
+    Task<byte[]> ScreenshotJpegAsync(int quality = 70)
+    Task StartAsync(bool headless, CancellationToken ct = null)
+  sealed class WebAction.Click : WebAction, IEquatable<WebAction.Click>
+    ctor(WebTarget Target)
+    WebTarget Target { get; init; }
+  sealed class WebAction.Extract : WebAction, IEquatable<WebAction.Extract>
+    ctor(WebTarget Target, string OutputName)
+    string OutputName { get; init; }
+    WebTarget Target { get; init; }
+  sealed class WebAction.Fill : WebAction, IEquatable<WebAction.Fill>
+    ctor(WebTarget Target, string Text, bool Secret = false, string? InputName = null)
+    string? InputName { get; init; }
+    bool Secret { get; init; }
+    WebTarget Target { get; init; }
+    string Text { get; init; }
+  // An interactable element discovered on the page, tagged for this observation.
+  sealed class MarkedElement : IEquatable<MarkedElement>
+    // An interactable element discovered on the page, tagged for this observation.
+    ctor(int Mark, string Role, string Name, string Selector)
+    int Mark { get; init; }
+    string Name { get; init; }
+    string Role { get; init; }
+    string Selector { get; init; }
+  sealed class WebAction.Navigate : WebAction, IEquatable<WebAction.Navigate>
+    ctor(string Url)
+    string Url { get; init; }
+  sealed class WebAction.Press : WebAction, IEquatable<WebAction.Press>
+    ctor(string Key)
+    string Key { get; init; }
+  sealed class WebAction.Scroll : WebAction, IEquatable<WebAction.Scroll>
+    ctor(int Dx, int Dy)
+    int Dx { get; init; }
+    int Dy { get; init; }
+  // A single browser action. A tagged union so a flow serializes losslessly and replays exactly.
+  abstract class WebAction : IEquatable<WebAction>
+  // A distilled, replayable integration: ordered steps with parameterized input slots.
+  sealed class WebFlow : IEquatable<WebFlow>
+    // A distilled, replayable integration: ordered steps with parameterized input slots.
+    ctor(string Name, string Origin, IReadOnlyList<WebStep> Steps, IReadOnlyList<string> Inputs)
+    IReadOnlyList<string> Inputs { get; init; }
+    string Name { get; init; }
+    string Origin { get; init; }
+    IReadOnlyList<WebStep> Steps { get; init; }
+  // Turns a successful WebRun into a replayable WebFlow : keeps the steps that worked and parameterizes each filled field into a named input slot. Pure and deterministic.
+  static class WebFlowDistiller
+    static WebFlow Distill(WebRun run, string? name = null)
+  // Deterministically replays a distilled WebFlow on a browser session — no LLM — substituting input slots with supplied values.
+  static class WebFlowPlayer
+    static Task<WebReplay> ReplayAsync(BrowserSession session, WebFlow flow, IReadOnlyDictionary<string, string> inputs, CancellationToken ct = null)
+  enum WebOutcome
+    Succeeded
+    Failed
+    BudgetExhausted
+  // The result of replaying a WebFlow .
+  sealed class WebReplay : IEquatable<WebReplay>
+    // The result of replaying a WebFlow .
+    ctor(bool Ok, IReadOnlyDictionary<string, string> Outputs, bool Healed)
+    bool Healed { get; init; }
+    bool Ok { get; init; }
+    IReadOnlyDictionary<string, string> Outputs { get; init; }
+  // The result of an operate run: outcome, summary, the action trace, and any extracted outputs. Looks counts visual inspections separately — they consume agent budget without appearing in the action trace, so budget analysis needs both numbers.
+  sealed class WebRun : IEquatable<WebRun>
+    // The result of an operate run: outcome, summary, the action trace, and any extracted outputs. Looks counts visual inspections separately — they consume agent budget without appearing in the action trace, so budget analysis needs both numbers.
+    ctor(WebOutcome Outcome, string Summary, IReadOnlyList<WebStep> Steps, IReadOnlyDictionary<string, string> Outputs, int Looks = 0)
+    int Looks { get; init; }
+    WebOutcome Outcome { get; init; }
+    IReadOnlyDictionary<string, string> Outputs { get; init; }
+    IReadOnlyList<WebStep> Steps { get; init; }
+    string Summary { get; init; }
+  // One executed action, the selector that actually resolved it, and whether it succeeded.
+  sealed class WebStep : IEquatable<WebStep>
+    // One executed action, the selector that actually resolved it, and whether it succeeded.
+    ctor(WebAction Action, string ResolvedSelector, bool Ok)
+    WebAction Action { get; init; }
+    bool Ok { get; init; }
+    string ResolvedSelector { get; init; }
+  // How to locate an element. Prefer accessibility role + name; fall back to a CSS/XPath selector or a perception mark id from the current observation.
+  sealed class WebTarget : IEquatable<WebTarget>
+    // How to locate an element. Prefer accessibility role + name; fall back to a CSS/XPath selector or a perception mark id from the current observation.
+    ctor(string? Role = null, string? Name = null, string? Selector = null, int? Mark = null)
+    int? Mark { get; init; }
+    string? Name { get; init; }
+    string? Role { get; init; }
+    string? Selector { get; init; }
+
+namespace Ikon.App.Connectors.Telephony
+  // Raw call tuning: the TTS voice, spoken language, and a hard duration cap. Model/agent choices live in the agent layer (Ikon.Agent.Telephony), not here.
+  sealed class CallOptions : IEquatable<CallOptions>
+    // Raw call tuning: the TTS voice, spoken language, and a hard duration cap. Model/agent choices live in the agent layer (Ikon.Agent.Telephony), not here.
+    ctor(string VoiceId = "", string Language = "en-US", TimeSpan? MaxDuration = null)
+    string Language { get; init; }
+    TimeSpan? MaxDuration { get; init; }
+    string VoiceId { get; init; }
+  enum CallOutcome
+    Completed
+    NoAnswer
+    Busy
+    Failed
+  sealed class CallResult : IEquatable<CallResult>
+    ctor(string Transcript, CallOutcome Outcome, TimeSpan Duration)
+    TimeSpan Duration { get; init; }
+    CallOutcome Outcome { get; init; }
+    string Transcript { get; init; }
+  // A completed caller utterance: its transcript plus the raw mu-law audio.
+  sealed class CallTurn : IEquatable<CallTurn>
+    // A completed caller utterance: its transcript plus the raw mu-law audio.
+    ctor(string Transcript, byte[] AudioMuLaw)
+    byte[] AudioMuLaw { get; init; }
+    string Transcript { get; init; }
+  // G.711 mu-law codec for telephony audio (8-bit, 8kHz), the encoding Twilio Media Streams uses on the wire. Converts between mu-law bytes and normalized float samples.
+  static class MuLawCodec
+    // Decodes mu-law bytes to float samples normalized to [-1.0, 1.0].
+    static float[] Decode(ReadOnlySpan<byte> muLaw)
+    // Encodes float samples (normalized to [-1.0, 1.0]) to mu-law bytes.
+    static byte[] Encode(ReadOnlySpan<float> samples)
+  // A live phone call — the real-time audio engine. Segments caller speech into turns ( Turns ), speaks replies ( SpeakAsync ), and hangs up. No agent logic: the brain is supplied by the consumer (Ikon.Agent.Connectors.Telephony binds a call to a subthread). Supports barge-in: sustained caller speech during a reply cancels TTS and flushes Twilio's buffer. Speech detection uses Silero VAD (falls back to an RMS gate if the model can't load).
+  sealed class PhoneCall : IAsyncDisposable
+    TimeSpan Duration { get; }
+    CallOutcome Outcome { get; }
+    ValueTask DisposeAsync()
+    Task HangupAsync()
+    // Speak a reply to the caller (TTS → 8kHz mu-law → Media Streams). Interruptible by barge-in; returns true if the caller barged in (so the consumer can stop voicing the rest of the reply).
+    Task<bool> SpeakAsync(string text, CancellationToken ct = null)
+    // Caller utterances as they complete, until the call ends.
+    IAsyncEnumerable<CallTurn> Turns(CancellationToken ct = null)
+  // Places outbound Twilio calls and hosts the Media Streams WebSocket. Each placed call yields a live PhoneCall once the audio stream connects. Raw — no agent logic; credentials come from app.Secrets.
+  sealed class Telephone : IAsyncDisposable
+    ctor(IAppBase app, TwilioCredentials credentials, CallOptions? options = null)
+    // Place a call to an E.164 number; resolves to the live call once audio connects.
+    Task<PhoneCall> CallAsync(string number, CancellationToken ct = null)
+    ValueTask DisposeAsync()
+  // Twilio credentials. Supplied from app.Secrets at construction; never hardcoded.
+  sealed class TwilioCredentials : IEquatable<TwilioCredentials>
+    // Twilio credentials. Supplied from app.Secrets at construction; never hardcoded.
+    ctor(string AccountSid, string AuthToken, string FromNumber)
+    string AccountSid { get; init; }
+    string AuthToken { get; init; }
+    string FromNumber { get; init; }
 
 # Ikon.Resonance Public API
 
