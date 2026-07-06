@@ -708,6 +708,13 @@ namespace Ikon.AI.Kernel
     string ParametersJson { get; }
     string ReasoningContent { get; }
     string ThoughtSignature { get; }
+  // Function/tool result carrying media alongside text. Providers that support media inside tool results (Anthropic tool_result image blocks) inline the media so the model actually SEES it; every other consumer degrades to ToString , which summarizes the media without dumping bytes.
+  sealed class FunctionMediaResult
+    // Function/tool result carrying media alongside text. Providers that support media inside tool results (Anthropic tool_result image blocks) inline the media so the model actually SEES it; every other consumer degrades to ToString , which summarizes the media without dumping bytes.
+    ctor(string text, params BinaryDataContainer[] media)
+    IReadOnlyList<BinaryDataContainer> Media { get; }
+    string Text { get; }
+    override string ToString()
   class FunctionResult
     ctor(object? result = null, string? modelMessagePrefix = null, string? modelMessageSuffix = null)
     string? ModelMessagePrefix { get; set; }
@@ -948,6 +955,8 @@ namespace Ikon.AI.LLM
     string InlineReasoningTagName { get; init; }
     SchemaDialect SchemaDialect { get; init; }
     bool SupportsGbnfGrammar { get; init; }
+    // True when the provider binding can inline images INSIDE tool results (Anthropic tool_result image blocks). Distinct from SupportsInputImages : a vision model whose tool results are JSON-only (e.g. Gemini functionResponse) sees images in messages but not in tool results.
+    bool SupportsImagesInToolResults { get; init; }
     bool SupportsInputAudio { get; init; }
     bool SupportsInputImages { get; init; }
     bool SupportsInputPdf { get; init; }
@@ -2029,6 +2038,8 @@ namespace Ikon.AI.Utils
   static class ImageUtils
     static byte[] ConvertAlphaMaskToBlackWhiteMask(byte[] maskData)
     static byte[] ConvertBlackWhiteMaskToAlphaMask(byte[] maskData)
+    // Re-encodes an image as JPEG with both dimensions capped at maxDimension (aspect preserved). Returns the original bytes untouched when the image already fits AND is at most maxBytes — small screenshots pass through without a decode cost. Intended for images going into LLM context, where anything above ~1568px is downscaled by the provider anyway and only costs tokens.
+    static ValueTuple<byte[], string, int, int> EncodeJpegCapped(byte[] source, string sourceMimeType, int maxDimension = 1568, int quality = 70, int maxBytes = 204800)
     static ValueTuple<int, int> GetImageDimensions(byte[] buffer)
     static byte[] InvertMask(byte[] maskData)
 

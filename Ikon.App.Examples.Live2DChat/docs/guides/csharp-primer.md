@@ -37,7 +37,7 @@ Ikon AI Apps target the **latest C#** (C# 14 on .NET 10). Use modern idioms; avo
   - Right (inline): `view.Box(cond ? ["a"] : ["b"], ...)` — the parameter type supplies inference.
   - Right (typed local): `string[] x = cond ? ["a"] : ["b"];`.
 
-- **Async lambda shape**: `view.Button(onClick: async () => ...)` is parameterless; `view.TextField(onSubmit: async value => ...)` takes the submitted value. Mixing them produces `CS8917` ("delegate type could not be inferred").
+- **Lambda shape per callback**: `view.Button(onClick: () => ...)` is parameterless (sync or async both fine); `view.TextField(onSubmit: async value => ...)` takes the submitted value and returns a Task. Giving `onSubmit` a parameterless lambda (or `onClick` a parameterized one) fails — `CS8917` ("delegate type could not be inferred") or an argument error.
 
 - **Explicit `using` for Ikon namespaces**: GlobalUsings already imports them, so a per-file `using` is redundant (harmless but unnecessary) — just write the type name. Only a made-up namespace that doesn't exist (e.g. `using Ikon.NotReal;`) produces `CS0234`.
 
