@@ -579,6 +579,8 @@ namespace Ikon.Common.Core
     abstract Task StopAsync()
     // Human-readable diagnostics (build status, frontend errors) for surfacing to the user.
     event Action<string>? Diagnostic
+    // Raised when the running app's browsable URL changed while it keeps running — e.g. the relay re-assigned the public endpoint after a reconnect. Url and connect URLs minted via MintBrowserConnectUrl already reflect the new address when this fires, so a viewer just re-points at the argument URL.
+    event Action<string>? UrlChanged
   interface ILogInfo
     object LogInfo { get; }
   interface IMessageChannel
@@ -750,6 +752,7 @@ namespace Ikon.Common.Core
     bool Login(ValueTuple<string, string>? fromCommandLine = null, ValueTuple<string, string>? fromConfig = null, bool logSource = true, bool mustLogin = true)
     Task<List<IkonBackend.MintEndpointGrantResult>> MintEndpointGrantsAsync(IEnumerable<IkonBackend.MintEndpointGrantRequest> grants)
     static IkonBackend.LoginInfo? ReadLoginConfig()
+    Task<string> ReconcilePaymentsAsync(string? customerKey = null, string? reference = null, string? provider = null, CancellationToken cancellationToken = null)
     Task<IkonBackend.CampaignRedeemResult> RedeemCampaignAsync(string code, string organisationId)
     Task<string> RefundPaymentAsync(string paymentId, long? amountMinor = null, string? reason = null, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = null)
     // Local-dev parity: register this locally-run process as an externally-managed instance so the backend reverse-proxies {space}.ikonai.app/api/... to this machine's relay tunnel instead of provisioning a cloud instance. The backend mints a per-registration id (returned as LocalInstanceId ) that distinguishes this instance from other local runs sharing the same identity. Returns that id, which the host passes into MintUrl so its minted endpoint URLs carry the li claim and route to this process.
@@ -1456,6 +1459,13 @@ namespace Ikon.Common.Core
   static class Toml
     static T From<T>(string toml) where T : class, new()
     static string To<T>(T obj) where T : class
+  // Locations of the developer toolchains that 'ikon install flutter' manages (Flutter SDK, Android SDK). Toolchains live outside IkonDataDirectory on purpose: the data directory holds small tool state (login, installed verb packages, certificates) and is wiped by 'ikon reset', while toolchains are multi-gigabyte installs that should survive a reset.
+  static class ToolchainPaths
+    static string AndroidSdkDirectory { get; }
+    static string FlutterBinDirectory { get; }
+    static string FlutterDirectory { get; }
+    static string FlutterExecutable { get; }
+    static string Root { get; }
   class IkonBackend.Translation
     ctor()
     string Text { get; set; }
@@ -1481,6 +1491,8 @@ namespace Ikon.Common.Core
     string Id { get; set; }
     string Name { get; set; }
   static class Utils
+    // Deletes a directory tree, clearing ReadOnly attributes along the way (git marks its pack files read-only, which makes a plain Directory.Delete fail with access denied). Continues past individual failures instead of stopping at the first one and returns the paths that could not be deleted; an empty list means the directory is completely gone.
+    static IReadOnlyList<string> DeleteDirectoryBestEffort(string path)
     static int FindAvailableTcpAndUdpPort(int startPort, HashSet<int>? usedPorts = null)
     static int FindAvailableUdpPortRange(int startPort, int count)
     static string GenerateDeviceId()
@@ -3097,6 +3109,18 @@ namespace Ikon.Common.Core.Protocol
     static ActionReloadProvider ReadFromTeleport(ReadOnlySpan<byte> data, ActionReloadProvider? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
+  sealed class ActionResult : IProtocolMessagePayload
+    ctor()
+    ctor(Guid callId, bool success, string errorMessage)
+    Guid CallId { get; set; }
+    string ErrorMessage { get; set; }
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    bool Success { get; set; }
+    static ActionResult ReadFromTeleport(ReadOnlySpan<byte> data)
+    static ActionResult ReadFromTeleport(ReadOnlySpan<byte> data, ActionResult? destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class ActionScrollToContainer : IProtocolMessagePayload
     ctor()
     ctor(string containerId)
@@ -4422,6 +4446,8 @@ namespace Ikon.Common.Core.Protocol
     ACTION_FUNCTION_ENUMERATION_ITEM_BATCH
     ACTION_CALL_ACK
     ACTION_TRIGGER_CRON
+    ACTION_RESULT
+    UI_RESYNC_REQUEST
     GROUP_UI
     UI_STREAM_BEGIN
     UI_STREAM_END
@@ -5483,6 +5509,16 @@ namespace Ikon.Common.Core.Protocol
     static UIQS ReadFromTeleport(ReadOnlySpan<byte> data, UIQS? destination)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
+  sealed class UIResyncRequest : IProtocolMessagePayload
+    ctor()
+    ctor(int trackId)
+    Opcode MessageOpcode { get; }
+    int MessageVersion { get; }
+    int TrackId { get; set; }
+    static UIResyncRequest ReadFromTeleport(ReadOnlySpan<byte> data)
+    static UIResyncRequest ReadFromTeleport(ReadOnlySpan<byte> data, UIResyncRequest? destination)
+    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+    static uint TeleportVersion
   sealed class UISectionBegin : IProtocolMessagePayload, IUIContainerElement
     ctor()
     ctor(int elementId, List<string> labels, string styleId, UISectionType type, int gap, string clickActionId, string pressStartActionId, string pressEndActionId, string pressChangeActionId, string pressUpActionId, string dragStartActionId, string dragEnterActionId, string dragLeaveActionId, string dragOverActionId, string dropActionId, string dragEndActionId)
@@ -6097,6 +6133,8 @@ namespace Ikon.Common.Core.Reactive
     string ReadCurrentValueAsJson()
     void RestoreState(StoredReactiveState state)
     override string ToString()
+    // Atomically read-modify-write the value for the currently-active scope. The transform runs under a per-scope lock, so concurrent mutations (e.g. appending to a shared list from parallel action handlers) serialize instead of racing — replacing the ad-hoc external locks that callers previously needed. Fires the change notification once. See Update .
+    void Update(Func<T, T> mutator)
     event Action? Changed
     event Action<int>? SessionChanged
     event Action<T>? ValueChanged
@@ -6111,6 +6149,8 @@ namespace Ikon.Common.Core.Reactive
     T Value { get; set; }
     long Version { get; }
     void NotifyUpdate()
+    // Atomically read-modify-write the value: mutator runs under a lock, so concurrent updates serialize and each sees the latest value — the read and the write cannot interleave. Fires the change notification exactly once. Unlike the setter this never skips on equality: a mutator that edits a mutable value in place and returns the same reference still notifies, which is the whole point of the primitive.
+    void Update(Func<T, T> mutator)
     event Action? Changed
     event Action<int>? SessionChanged
     event Action<T>? ValueChanged
