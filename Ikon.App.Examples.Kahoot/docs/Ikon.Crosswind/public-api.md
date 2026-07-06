@@ -248,6 +248,19 @@ namespace Ikon.Crosswind
     ColorToken? From { get; init; }
     ColorToken? To { get; init; }
     ColorToken? Via { get; init; }
+  // The single source of truth for how transform axes map to the CSS individual transform properties (`translate`, `rotate`, `scale`) and to the residual `transform` var-chain. Both the static utility emission and the motion keyframe emission compose values through these helpers so the two paths can never disagree on axis semantics.
+  static class IndividualTransform
+    // Composes a `rotate` value: bare angle for Z rotation, `x/y <angle>` for an axis form.
+    static string Rotate(string? axis, string angle)
+    // Composes a `scale` value. Unlike `translate`, a single-value `scale: n` is UNIFORM (both axes), so the two-axis form is mandatory — an x-only scale must still emit `scale: x 1` or it would also scale the y axis.
+    static string Scale(string x, string y, string? z)
+    static string ScaleOfVars(bool includeZ)
+    // Composes a `translate` value. A single-value `translate: x` is x-only per spec, so an x-only animation may omit the other axes; passing z forces the three-axis form.
+    static string Translate(string x, string? y, string? z)
+    static string TranslateOfVars(bool includeZ)
+    static string GpuRotateSkewChain
+    // The transform components Tailwind v4 keeps in the `transform` property: X/Y/Z axis rotations and skews compose through empty-fallback vars while Z rotation, translation, and scale use their individual CSS properties.
+    static string RotateSkewChain
   sealed class MotionBindingMetadata : IEquatable<MotionBindingMetadata>
     ctor(string Source, string? Min, string? Max, string? Clamp, bool Reverse, string? Ease, string? Map, string? TargetId)
     string? Clamp { get; init; }
@@ -291,6 +304,7 @@ namespace Ikon.Crosswind
     Sticky
   static class SelectorComposer
     static IReadOnlyDictionary<string, string> BreakpointMap { get; }
+    static IReadOnlyDictionary<string, string> ContainerBreakpointMap { get; }
     static string DarkClassSelector { get; set; }
     static DarkModeStrategy DarkMode { get; set; }
     static bool EnableThemeVariant { get; set; }
@@ -328,6 +342,7 @@ namespace Ikon.Crosswind
     static string FractionToPercent(string frac)
     static string MaybeNegate(bool negative, string val)
     static string ResolveColor(string raw, TailwindColorContext context = Generic)
+    static string? ResolveContainerScale(string token)
     static string ResolveFontFamily(string token)
     static string ResolveFontWeight(string token)
     static string ResolveLetterSpacing(string tokenOrLength)
@@ -360,6 +375,12 @@ namespace Ikon.Crosswind
     static string AdditionalCss { get; }
     static IReadOnlyDictionary<string, string> DarkVariables { get; }
     static IReadOnlyDictionary<string, string> LightVariables { get; }
+    // The stock Tailwind colour palette parsed once from the authored baseline: every --color-{name}-{step} entry keyed as "{name}-{step}" → its OKLCH value. This is the single source the palette name/step views below derive from, so a token dropped from (or added to) the baseline can never silently disagree with them.
+    static IReadOnlyDictionary<string, string> PaletteColors { get; }
+    // Palette family names present in the baseline (red, …, stone), first-seen order.
+    static IReadOnlyList<string> PaletteNames { get; }
+    // Palette steps present in the baseline (50, …, 950), ascending.
+    static IReadOnlyList<string> PaletteSteps { get; }
     static string GetFullBaseline()
   sealed class TailwindCssVariables
     ctor(IDictionary<string, string> light, IDictionary<string, string> dark, string darkThemeName = "dark")
@@ -514,8 +535,6 @@ namespace Ikon.Crosswind
     static bool VariableFallbacksEnabled { get; set; }
     static string Var(string name, string? fallback = null)
   static class TransformCombiner
-    // Merges transform utilities by (Variants, Track) into a single "transform" utility. Call after TailwindDedup.Deduplicate.
-    static List<TailwindDescription> Combine(List<TailwindDescription> classes)
     // Composes transform utilities for motion context, outputting individual CSS variables instead of a monolithic transform property. This allows independent animation tracks to blend without overriding each other.
     static Dictionary<string, string> ComposeForMotion(List<TailwindDescription> classes)
   sealed class TransformToken : IEquatable<TransformToken>
@@ -619,6 +638,8 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> BgAuto(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> BgBlend(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> BgBottom(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgBottomLeft(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgBottomRight(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> BgCenter(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> BgClipBorder(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> BgClipContent(TailwindDescription _)
@@ -628,14 +649,14 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> BgContain(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> BgCover(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> BgFixed(TailwindDescription _)
-    static Dictionary<string, Dictionary<string, string>> BgGradientToB(TailwindDescription cls)
-    static Dictionary<string, Dictionary<string, string>> BgGradientToBl(TailwindDescription cls)
-    static Dictionary<string, Dictionary<string, string>> BgGradientToBr(TailwindDescription cls)
-    static Dictionary<string, Dictionary<string, string>> BgGradientToL(TailwindDescription cls)
-    static Dictionary<string, Dictionary<string, string>> BgGradientToR(TailwindDescription cls)
-    static Dictionary<string, Dictionary<string, string>> BgGradientToT(TailwindDescription cls)
-    static Dictionary<string, Dictionary<string, string>> BgGradientToTl(TailwindDescription cls)
-    static Dictionary<string, Dictionary<string, string>> BgGradientToTr(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> BgGradientToB(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgGradientToBl(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgGradientToBr(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgGradientToL(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgGradientToR(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgGradientToT(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgGradientToTl(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgGradientToTr(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> BgImage(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> BgLeft(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> BgLeftBottom(TailwindDescription _)
@@ -668,6 +689,8 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> BgShorthand(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> BgSize(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> BgTop(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgTopLeft(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> BgTopRight(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> Block(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> Blur(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> Border(TailwindDescription cls)
@@ -787,6 +810,7 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> FlexWrapReverse(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> Float(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> FlowRoot(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> Font(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> FontFamily(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> FontFeature(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> FontKerning(TailwindDescription cls)
@@ -892,6 +916,7 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> MaskRepeatY(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> MaskShorthand(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> MaskSize(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> MaskType(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> MathStyle(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> MaxHeight(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> MaxWidth(TailwindDescription cls)
@@ -1024,6 +1049,7 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> RingInset(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> RingOffset(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> Rotate(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> RotateNone(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> RotateX(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> RotateY(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> RotateZ(TailwindDescription cls)
@@ -1045,6 +1071,8 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> RubyPosition(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> Saturate(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> Scale(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> Scale3d(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> ScaleNone(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> ScaleX(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> ScaleY(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> ScaleZ(TailwindDescription cls)
@@ -1155,15 +1183,21 @@ namespace Ikon.Crosswind
     static Dictionary<string, Dictionary<string, string>> TouchPan(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> TouchPinch(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> Transform(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> TransformBorder(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> TransformBox(TailwindDescription cls)
-    static Dictionary<string, Dictionary<string, string>> TransformNone(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> TransformContent(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> TransformFill(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> TransformNone(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> TransformOrigin(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> TransformStroke(TailwindDescription _)
+    static Dictionary<string, Dictionary<string, string>> TransformView(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> Transition(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> TransitionBehavior(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> TransitionDiscrete(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> TransitionNone(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> TransitionNormal(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> Translate(TailwindDescription cls)
+    static Dictionary<string, Dictionary<string, string>> TranslateNone(TailwindDescription _)
     static Dictionary<string, Dictionary<string, string>> TranslateX(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> TranslateY(TailwindDescription cls)
     static Dictionary<string, Dictionary<string, string>> TranslateZ(TailwindDescription cls)

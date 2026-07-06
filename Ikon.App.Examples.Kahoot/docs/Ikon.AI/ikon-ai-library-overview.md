@@ -408,6 +408,8 @@ await File.WriteAllBytesAsync("thunder.wav", result.AudioData);
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
+**Local browser-based models need Ikon.AI.Extra:** the LocalPuppeteer and LocalPlaywright implementations (and the Azure speech implementations elsewhere in the library) ship in the optional `Ikon.AI.Extra` package to keep the core library lean. Add a reference to `Ikon.AI.Extra` when your app runs those models with its own API credentials or local browsers; without it they resolve through the Ikon AI service as usual.
+
 ```csharp
 using Ikon.AI.WebScraping;
 
