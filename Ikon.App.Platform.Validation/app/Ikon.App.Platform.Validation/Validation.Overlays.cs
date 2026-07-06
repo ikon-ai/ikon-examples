@@ -12,7 +12,7 @@ public partial class Validation
 
                 view.Dialog(
                     open: _dialogOpen.Value,
-                    onOpenChange: async open => _dialogOpen.Value = open ?? false,
+                    onOpenChange: async open => _dialogOpen.Value = open,
                     overlayStyle: [Dialog.Overlay],
                     contentStyle: [Dialog.Content],
                     trigger: view => view.Button([Button.OutlineMd], label: "Open Dialog"),
@@ -40,7 +40,7 @@ public partial class Validation
 
                 view.AlertDialog(
                     open: _alertDialogOpen.Value,
-                    onOpenChange: async open => _alertDialogOpen.Value = open ?? false,
+                    onOpenChange: async open => _alertDialogOpen.Value = open,
                     overlayStyle: [AlertDialog.Overlay],
                     contentStyle: [AlertDialog.Content],
                     trigger: view => view.Button([Button.ErrorMd], label: "Delete Item"),
@@ -63,7 +63,7 @@ public partial class Validation
 
                 view.Popover(
                     open: _popoverOpen.Value,
-                    onOpenChange: async open => _popoverOpen.Value = open ?? false,
+                    onOpenChange: async open => _popoverOpen.Value = open,
                     contentStyle: [Popover.Content],
                     trigger: view => view.Button([Button.OutlineMd], label: "Open Popover"),
                     content: view =>
@@ -148,7 +148,7 @@ public partial class Validation
 
                 view.Toast(
                     open: _toastOpen.Value,
-                    onOpenChange: async open => _toastOpen.Value = open ?? false,
+                    onOpenChange: async open => _toastOpen.Value = open,
                     durationMs: 5000,
                     title: "Notification",
                     description: "Your action was completed successfully!",

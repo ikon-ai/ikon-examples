@@ -1402,11 +1402,11 @@ public partial class Validation
                     ], content: v =>
                     {
                         v.Box([
-                            "absolute inset-0 bg-black origin-left",
+                            "absolute inset-0 bg-black origin-left z-10",
                             "motion-[0:scale-x-100,5:scale-x-100_opacity-80,15:scale-x-[0.7]_opacity-100,25:scale-x-[0.4]_opacity-85,40:scale-x-0_opacity-100,70:scale-x-0_opacity-100,85:scale-x-[0.5]_opacity-90,100:scale-x-100]",
                             "motion-duration-3000ms motion-loop"
                         ]);
-                        v.Text(["text-white font-bold relative z-10"], "REVEALED");
+                        v.Text(["text-white font-bold"], "REVEALED");
                     });
                 });
 

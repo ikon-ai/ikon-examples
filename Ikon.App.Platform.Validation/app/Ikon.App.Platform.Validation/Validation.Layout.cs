@@ -1052,22 +1052,22 @@ public partial class Validation
                 view.Progress(value: _progressValue.Value, max: 100, rootStyle: [Progress.Root]);
 
                 view.Text([Text.Caption], "Success variant");
-                view.Progress(value: 80, max: 100, variant: Progress.Variant.Success, rootStyle: [Progress.Root]);
+                view.Progress(value: 80, max: 100, variant: ProgressVariant.Success, rootStyle: [Progress.Root]);
 
                 view.Text([Text.Caption], "Warning variant");
-                view.Progress(value: 50, max: 100, variant: Progress.Variant.Warning, rootStyle: [Progress.Root]);
+                view.Progress(value: 50, max: 100, variant: ProgressVariant.Warning, rootStyle: [Progress.Root]);
 
                 view.Text([Text.Caption], "Error variant");
-                view.Progress(value: 30, max: 100, variant: Progress.Variant.Error, rootStyle: [Progress.Root]);
+                view.Progress(value: 30, max: 100, variant: ProgressVariant.Error, rootStyle: [Progress.Root]);
 
                 view.Text([Text.Caption], "Indeterminate");
                 view.Progress(indeterminate: true, rootStyle: [Progress.Root]);
 
                 view.Text([Text.Caption], "Indeterminate with success variant");
-                view.Progress(indeterminate: true, variant: Progress.Variant.Success, rootStyle: [Progress.Root]);
+                view.Progress(indeterminate: true, variant: ProgressVariant.Success, rootStyle: [Progress.Root]);
 
                 view.Text([Text.Caption], "Custom size (Size.Sm)");
-                view.Progress(value: 70, max: 100, variant: Progress.Variant.Default, rootStyle: [Progress.Base, Progress.Size.Sm]);
+                view.Progress(value: 70, max: 100, variant: ProgressVariant.Default, rootStyle: [Progress.Base, Progress.Size.Sm]);
             });
         });
     }

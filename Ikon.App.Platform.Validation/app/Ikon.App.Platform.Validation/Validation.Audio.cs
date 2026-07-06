@@ -538,7 +538,7 @@ public partial class Validation
                 view.Toast(
                     viewportStyle: [Toast.ViewportBottomCenter],
                     open: _soundToastOpen.Value,
-                    onOpenChange: async open => _soundToastOpen.Value = open ?? false,
+                    onOpenChange: async open => _soundToastOpen.Value = open,
                     durationMs: 3000,
                     toastStyle: [Toast.Base],
                     title: "Sound",

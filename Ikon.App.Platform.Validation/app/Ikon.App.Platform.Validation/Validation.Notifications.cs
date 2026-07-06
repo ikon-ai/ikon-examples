@@ -130,7 +130,7 @@ public partial class Validation
             view.Toast(
                 viewportStyle: [Toast.ViewportBottomCenter],
                 open: _notificationToastOpen.Value,
-                onOpenChange: async open => _notificationToastOpen.Value = open ?? false,
+                onOpenChange: async open => _notificationToastOpen.Value = open,
                 durationMs: 3000,
                 toastStyle: [Toast.Base],
                 title: "Notification",

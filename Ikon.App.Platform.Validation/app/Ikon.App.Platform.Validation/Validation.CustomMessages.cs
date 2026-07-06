@@ -93,11 +93,10 @@ public partial class Validation
             while (!token.IsCancellationRequested)
             {
                 // The loop's only other exit is the Stop button, which a departed
-                // client can no longer press — without this check the stream runs
-                // forever against a dead session and holds the shared running flag.
-                // Soft-disconnect counts too: the grace period keeps the client
-                // listed for minutes, and a disconnected client cannot watch the
-                // stream anyway (it can restart one after reconnecting).
+                // client cannot press — without this check the stream runs forever
+                // against a dead session and holds the shared running flag.
+                // Soft-disconnect counts as departed: a disconnected client cannot
+                // watch the stream and can start a new one after reconnecting.
                 if (!app.GlobalState.Clients.TryGetValue(clientSessionId, out var clientContext)
                     || clientContext.IsSoftDisconnected)
                 {
@@ -110,10 +109,9 @@ public partial class Validation
 
                 // The two types differ only by their schema-level `unreliable` flag,
                 // which the generated codec bakes into the wire message. The send is
-                // bounded because SendMessageAsync itself takes no token and the
-                // unreliable path has been observed to hang when the datagram channel
-                // stalls mid-stream — an unbounded await would wedge this loop past
-                // Stop and leave _tpStreamRunning stuck until the server restarts.
+                // bounded because SendMessageAsync takes no token — an unbounded await
+                // that never completes would wedge this loop past Stop and leave
+                // _tpStreamRunning stuck until the server restarts.
                 var send = unreliable
                     ? app.SendMessageAsync(
                         new ProbePingUnreliable { Seq = seq, SentAtMs = now, Origin = "server", Mode = "unreliable", Note = "stream" },

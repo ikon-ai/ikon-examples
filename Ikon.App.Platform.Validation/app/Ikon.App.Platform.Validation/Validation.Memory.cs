@@ -91,7 +91,7 @@ public partial class Validation
 
             view.Toast(
                 open: _memoryErrorToastOpen.Value,
-                onOpenChange: async open => _memoryErrorToastOpen.Value = open ?? false,
+                onOpenChange: async open => _memoryErrorToastOpen.Value = open,
                 durationMs: 5000,
                 title: "Allocation Failed",
                 description: _memoryErrorMessage.Value,

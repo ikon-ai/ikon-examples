@@ -277,7 +277,7 @@ public partial class Validation
 
                     view.Row([Layout.Row.Sm], content: view =>
                     {
-                        view.Checkbox([Checkbox.Root],
+                        view.TriStateCheckbox([Checkbox.Root],
                             checkedState: CheckedState.Indeterminate,
                             content: view => view.CheckboxIndicator([Checkbox.Indicator], content: v => v.Icon(name: "minus")));
                         view.Label([Label.Base], content: v => v.Text(text: "Indeterminate"));

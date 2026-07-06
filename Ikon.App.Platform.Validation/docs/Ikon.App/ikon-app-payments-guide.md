@@ -21,6 +21,12 @@ ikon app payments status                        # check onboarding / charges-ena
 BYOK (`--mode byok`) is admin-only. There is no separate "enabled" flag — payments is on once a provider
 is configured.
 
+Onboarding links are **single-use and short-lived, and always use the newest one** — requesting a new link
+can invalidate older ones. If a link has gone stale (it bounces to an explanatory page instead of the
+provider's form), get a fresh one with `ikon app payments status`, or just re-run
+`ikon app payments enable` — while onboarding is unfinished it prints a fresh link instead of demanding
+`--force`.
+
 > **Mollie and Surfboard are currently admin-only** (in preview) — regular apps enable **Stripe**. Your app
 > code is provider-neutral either way, so nothing changes when they become generally available.
 
@@ -69,6 +75,7 @@ pinned when more than one is enabled).
 | `RefundAsync(paymentId, amountMinor?, reason?)` | Full or partial refund → `PaymentRefund`. |
 | `RequestReceiptAsync(paymentId, provider?)` | Fetch a receipt for a completed payment → `PaymentReceipt` (`Url` hosted receipt page; `Pdf` bytes when the provider offers a downloadable PDF, else `null`). |
 | `CancelSubscriptionAsync(subscriptionId, immediate?)` | Cancel now (`immediate: true`) or at period end (default). |
+| `ReconcileAsync(customerKey?, reference?)` | Re-pull live provider state (missed-webhook recovery) → `PaymentReconcileResult`. Eventually consistent — results arrive as normal payment events (see below). |
 | `IsEntitled(offerId, customerKey?)` | **Synchronous, no backend call** — the fast UI gate (see below). |
 | `GetEntitlementAsync(offerId, customerKey?)` | Does this customer have access to an offer? → `PaymentEntitlement` (`Active`, `ExpiresAt`, `Source`). Access past its `ExpiresAt` reports inactive. A backend call — for gating UI prefer `IsEntitled`. |
 | `ListSubscriptionsAsync(customerKey?)` | The customer's subscriptions. |
@@ -144,9 +151,25 @@ app.Payments.PaymentEventReceived += evt => evt.Type switch
 };
 ```
 
-Webhooks are not the source of truth: if a delivery is ever missed, the backend reconciles provider state
-automatically, and your app re-reads entitlement on startup — so you can treat events as best-effort
-nudges and `GetEntitlementAsync` as the authority.
+Webhooks are not the source of truth — three recovery paths keep the backend's payment store correct when
+a delivery is missed or the app is offline when an event is pushed:
+
+1. **Checkout return** — a Stripe payer's success redirect hops through the backend, which verifies the
+   session and re-ingests it before forwarding the payer to your app. The common "user paid and came back
+   but the webhook got lost" case heals itself with no code on your side.
+2. **Periodic sweep** — the backend re-pulls subscriptions whose stored period end has passed without a
+   renewal or cancellation event landing.
+3. **`app.Payments.ReconcileAsync(customerKey?, reference?)`** — on-demand re-pull for anything else. Pass
+   a `PaymentLink.Reference` (checkout session) or a subscription id to pull one object, a `customerKey`
+   for that customer's recent objects, or nothing (outside a client scope) for the space's recent window.
+   It is eventually consistent: the pulled objects flow through the normal pipeline and surface as ordinary
+   `PaymentEventReceived` pushes and entitlement refreshes within seconds — the return value only reports
+   how many objects were queued.
+
+Because a reconciled copy and a late-arriving webhook copy of the same business event carry different
+`EventId`s, write event handlers to be idempotent (fulfilling the same payment twice must be harmless).
+The stored state converges either way, so treat events as best-effort nudges and `GetEntitlementAsync`
+as the authority.
 
 ## Gating features
 

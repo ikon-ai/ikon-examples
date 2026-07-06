@@ -486,7 +486,7 @@ public partial class Validation
             view.Toast(
                 viewportStyle: [Toast.ViewportBottomCenter],
                 open: _clientFunctionToastOpen.Value,
-                onOpenChange: async open => _clientFunctionToastOpen.Value = open ?? false,
+                onOpenChange: async open => _clientFunctionToastOpen.Value = open,
                 durationMs: 3000,
                 toastStyle: [Toast.Base],
                 title: "Result",
