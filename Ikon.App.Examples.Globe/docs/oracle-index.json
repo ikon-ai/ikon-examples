@@ -24,7 +24,7 @@
         "invite link"
       ],
       "file": "docs/guides/app-structure.md",
-      "sizeBytes": 18630,
+      "sizeBytes": 18523,
       "alsoInclude": []
     },
     {
@@ -65,7 +65,7 @@
         "CS0234"
       ],
       "file": "docs/guides/csharp-primer.md",
-      "sizeBytes": 5771,
+      "sizeBytes": 5903,
       "alsoInclude": []
     },
     {
@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 271164,
+      "sizeBytes": 261079,
       "alsoInclude": []
     },
     {
@@ -100,7 +100,7 @@
         "value mutation"
       ],
       "file": "docs/guides/reactive-state.md",
-      "sizeBytes": 33570,
+      "sizeBytes": 34312,
       "alsoInclude": [
         "app-structure",
         "ui-components"
@@ -128,7 +128,7 @@
         "message bubbles"
       ],
       "file": "docs/guides/ui-components.md",
-      "sizeBytes": 15390,
+      "sizeBytes": 14926,
       "alsoInclude": [
         "app-structure"
       ]
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 177322,
+      "sizeBytes": 198989,
       "alsoInclude": []
     },
     {
@@ -238,7 +238,7 @@
         "scanline"
       ],
       "file": "docs/guides/styling-guide.md",
-      "sizeBytes": 35614,
+      "sizeBytes": 36567,
       "alsoInclude": [
         "styling-and-motion"
       ]
@@ -281,7 +281,7 @@
         "transitions"
       ],
       "file": "docs/guides/tailwind-reference.md",
-      "sizeBytes": 102848,
+      "sizeBytes": 106237,
       "alsoInclude": []
     },
     {
@@ -346,7 +346,7 @@
         "AI connection"
       ],
       "file": "docs/guides/ai-models.md",
-      "sizeBytes": 25728,
+      "sizeBytes": 26833,
       "alsoInclude": []
     },
     {
@@ -610,7 +610,7 @@
         "cancel subscription"
       ],
       "file": "docs/guides/payments.md",
-      "sizeBytes": 15282,
+      "sizeBytes": 17153,
       "alsoInclude": []
     },
     {
