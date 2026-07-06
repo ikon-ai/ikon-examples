@@ -119,6 +119,18 @@ view.Box(style: ["rounded-2xl bg-zinc-900 border border-zinc-800 p-6 shadow-lg"]
 
 The three layers compose freely (`[Button.PrimaryMd, "mt-4 self-center", "bg-[#F5A524]"]`) — pick whichever shape best matches what you're building, but default to layer 1 for surfaces that should follow the theme.
 
+## Hover only applies on devices that can hover
+
+`hover:` (and `group-hover:`, `peer-hover:`, `in-hover:`, `has-hover:`) rules are emitted inside `@media (hover: hover)`, so they apply only on devices with a real pointer — on touch-only devices they never fire (this is what prevents "sticky hover", where a tapped element stays in its hover state). Design accordingly:
+
+- Hover styles are an *enhancement*, never the only path to something. A control revealed purely by hover (`opacity-0 group-hover:opacity-100`) is invisible on phones and tablets.
+- For reveal patterns, pair the hover rule with a touch-visible fallback: `pointer-coarse:opacity-100` keeps the control always visible on touch devices, or use `focus-within:opacity-100` so tapping reveals it.
+
+```csharp
+// Nav arrows: hover-revealed on desktop, always visible on touch
+view.Box(style: ["opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 transition-opacity"], ...);
+```
+
 ### Theme Activation
 
 The active theme determines what semantic tokens like `text-primary`, `bg-background`, `text-muted-foreground` resolve to. **If you don't set a theme explicitly, the runtime picks one from the browser's `prefers-color-scheme`, falling back to light.**

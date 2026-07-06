@@ -117,9 +117,7 @@ public async Task Main()
             // Each client has their own input
             view.Row(["p-4 gap-2 flex-shrink-0"], content: view =>
             {
-                view.TextField([Input.Default, "flex-1"],
-                    value: _input.Value,
-                    onValueChange: async v => _input.Value = v,
+                view.TextField(bind: _input, style: ["flex-1"],
                     onSubmit: async submitted =>
                     {
                         _messages.Value.Add(submitted);
@@ -336,6 +334,8 @@ namespace Ikon.Common.Core.Reactive
     string ReadCurrentValueAsJson()
     void RestoreState(StoredReactiveState state)
     override string ToString()
+    // Atomically read-modify-write the value for the currently-active scope. The transform runs under a per-scope lock, so concurrent mutations (e.g. appending to a shared list from parallel action handlers) serialize instead of racing — replacing the ad-hoc external locks that callers previously needed. Fires the change notification once. See Update .
+    void Update(Func<T, T> mutator)
     event Action? Changed
     event Action<int>? SessionChanged
     event Action<T>? ValueChanged
@@ -350,6 +350,8 @@ namespace Ikon.Common.Core.Reactive
     T Value { get; set; }
     long Version { get; }
     void NotifyUpdate()
+    // Atomically read-modify-write the value: mutator runs under a lock, so concurrent updates serialize and each sees the latest value — the read and the write cannot interleave. Fires the change notification exactly once. Unlike the setter this never skips on equality: a mutator that edits a mutable value in place and returns the same reference still notifies, which is the whole point of the primitive.
+    void Update(Func<T, T> mutator)
     event Action? Changed
     event Action<int>? SessionChanged
     event Action<T>? ValueChanged
