@@ -94,10 +94,7 @@ namespace Ikon.Common.Core
   class IkonBackend.AppPaymentsOffersResult
     ctor()
     List<IkonBackend.AppPaymentsOffer> Offers { get; set; }
-  class IkonBackend.AppPaymentsRemoveResult
-    ctor()
-    bool Removed { get; set; }
-  class IkonBackend.AppPaymentsStatusResult
+  class IkonBackend.AppPaymentsProviderStatus
     ctor()
     bool ChargesEnabled { get; set; }
     string? DashboardUrl { get; set; }
@@ -107,6 +104,12 @@ namespace Ikon.Common.Core
     bool PayoutsEnabled { get; set; }
     string? Provider { get; set; }
     List<string> RequirementsCurrentlyDue { get; set; }
+  class IkonBackend.AppPaymentsRemoveResult
+    ctor()
+    bool Removed { get; set; }
+  class IkonBackend.AppPaymentsStatusResult : IkonBackend.AppPaymentsProviderStatus
+    ctor()
+    List<IkonBackend.AppPaymentsProviderStatus> Providers { get; set; }
   class IkonBackend.ApplyAppBundleConfigResponse
     ctor()
     List<IkonBackend.AppBundleWarning> Warnings { get; set; }
