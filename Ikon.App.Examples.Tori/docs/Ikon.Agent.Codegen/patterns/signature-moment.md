@@ -42,7 +42,9 @@ view.Column(["items-center gap-1"], content: v =>
 ///    conditional — no animation framework needed for the moment to land.
 if (_completedToday.Value == _steps.Value.Count && _steps.Value.Count > 0)
 {
-    view.Column(["items-center gap-3 rounded-2xl p-8 bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-orange-500/25"], content: v =>
+    // Gradient stops come from the app's COMMITTED palette (this app's brand is amber/orange —
+    // substitute YOUR brand scale; a violet app celebrates in violet, not in this example's hues).
+    view.Column(["items-center gap-3 rounded-2xl p-8 bg-gradient-to-br from-brand-400 to-brand-600 shadow-lg shadow-brand-500/25"], content: v =>
     {
         v.Icon(["size-10 text-white"], icon: "sunrise");
         v.Text(["text-3xl font-bold tracking-tight text-white"], text: "Morning complete");
