@@ -43,6 +43,7 @@
 
 ## Lists & collections
 
+- `hover-reveal-actions` — secondary row actions revealed on hover with `hidden group-hover:flex` (layout-collapsing; `opacity-0` reserves dead height).
 - `shared-list-ai-cleanup` — collection + AI transform button.
 - `kanban-multi-column` — multi-column board with Move buttons.
 - `dynamic-input-list` — variable-length input list with add/remove.
@@ -102,6 +103,7 @@
 
 - `kpi-card-grid` — responsive 2/4-col grid of headline-number cards.
 - `bar-chart-from-list` — tiny inline bar SPARKLINE from a list (no axes/legend); for a real bar chart use `view.BarChart` (charts guide).
+- `themed-weekly-progress` — weekly/periodic progress chart in the app's BRAND accent with full period structure (empty days as muted track marks, never a lone bar in a void).
 - `score-bar-meter` — 0-10 bar with red/amber/emerald threshold coloring.
 - `server-side-svg-visual` — custom SVG ring / gauge / arc / dial / donut / radial-orbital built as a C# string and shown with `view.Image`; single-quoted attributes avoid the C# quote-escaping spiral.
 - `dialog-stat-card-grid` — detail modal with conditional-color stat tiles.
