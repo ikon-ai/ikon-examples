@@ -41,10 +41,8 @@ view.Column(["h-screen"], content: view =>
     // Input area — Enter submits, auto-clears
     view.Row(["p-4 gap-2 flex-shrink-0"], content: view =>
     {
-        view.TextField([Input.Default, "flex-1"],
+        view.TextField(bind: _input, style: ["flex-1"],
             placeholder: "Type a message...",
-            value: _input.Value,
-            onValueChange: async v => _input.Value = v,
             onSubmit: async submitted =>
             {
                 // Use the `submitted` parameter — NOT `_input.Value`. onValueChange round-trips
@@ -67,8 +65,8 @@ view.Text([Text.Display], "Large Title");
 view.Text([Text.H2], "Section Heading");
 view.Text([Text.Body], "Body text");
 view.Text([Text.Caption, "text-muted-foreground"], "Small caption");
-view.Heading([Text.H3], content: view => view.Text(text: "Heading component"));
-view.Markdown(content: "**Bold** and `code`");
+view.Heading([Text.H3], text: "Heading component");   // or positional: view.Heading("Title")
+view.Markdown("**Bold** and `code`");
 ```
 
 ### Input
@@ -78,11 +76,9 @@ view.Button([Button.PrimaryMd], label: "Click", onClick: async () => { ... });
 view.Button([Button.OutlineMd], label: "Secondary", disabled: isLoading, onClick: async () => { ... });
 view.Button([Button.GhostMd, Button.Icon], onClick: async () => { ... },
     content: v => v.Icon([Icon.Default], name: "settings"));
-view.TextField([Input.Default], placeholder: "Enter text", value: _text.Value,
-    onValueChange: async v => _text.Value = v,
+view.TextField(bind: _text, placeholder: "Enter text",
     onSubmit: async submitted => { await HandleSubmit(submitted); });  // Enter submits; input auto-clears after submit
-view.TextArea([Textarea.Default, "min-h-[100px]"], placeholder: "Type a message...", value: _text.Value,  // TextArea uses Textarea.Default, NOT Input.Default
-    onValueChange: async v => _text.Value = v,
+view.TextArea(bind: _text, style: ["min-h-[100px]"], placeholder: "Type a message...",
     onSubmit: async submitted => { await HandleSubmit(submitted); });  // Ctrl+Enter submits; input auto-clears after submit
 // IMPORTANT — onSubmit's parameter is the submitted value. Always use it. Do NOT re-read the bound reactive
 // (`_text.Value`) inside onSubmit: onValueChange is a separate round-trip and may not have landed when
@@ -95,14 +91,12 @@ view.TextArea([Textarea.Default, "min-h-[100px]"], placeholder: "Type a message.
 // Pass a content: lambda only to put CUSTOM content inside (e.g. a different icon), or a
 // style: array only to override the default look. To render a checkbox with no check mark
 // at all, opt out explicitly with content: _ => { }.
-view.Checkbox(isChecked: _checked.Value, onCheckedChange: async v => _checked.Value = v);
-view.Switch(isChecked: _enabled.Value, onCheckedChange: async v => _enabled.Value = v);
-view.Slider(value: [_slider.Value], min: 0, max: 100, step: 1,
-    onValueChange: async values => _slider.Value = values[0]);
-view.Select(value: _selected.Value, placeholder: "Choose...",
-    onValueChange: async v => _selected.Value = v,
+view.Checkbox(bind: _checked, label: "Enable feature");  // label: renders a clickable trailing label
+view.Switch(bind: _enabled);
+view.Slider(bind: _slider, min: 0, max: 100, step: 1);   // scalar single-thumb; pass value: [a, b] lists for multi-thumb
+view.Select(bind: _selected, placeholder: "Choose...",
     options: [new SelectOption("a", "Option A"), new SelectOption("b", "Option B")]);
-view.RadioGroup(value: _radio.Value, onValueChange: async v => _radio.Value = v,
+view.RadioGroup(bind: _radio,
     content: view =>
     {
         view.RadioGroupItem([RadioGroup.Item], value: "opt1",
@@ -141,7 +135,7 @@ view.Image(["rounded-lg"], data: bytes, mimeType: MimeTypes.ImageJpeg);  // From
 
 ```csharp
 // Dialog
-view.Dialog(open: _open.Value, onOpenChange: async o => _open.Value = o ?? false,
+view.Dialog(open: _open.Value, onOpenChange: async o => _open.Value = o,
     overlayStyle: [Dialog.Overlay], contentStyle: [Dialog.Content],
     trigger: view => view.Button([Button.OutlineMd], label: "Open"),
     contentSlot: view =>
@@ -160,7 +154,7 @@ view.Dialog(open: _open.Value, onOpenChange: async o => _open.Value = o ?? false
     });
 
 // AlertDialog
-view.AlertDialog(open: _alertOpen.Value, onOpenChange: async o => _alertOpen.Value = o ?? false,
+view.AlertDialog(open: _alertOpen.Value, onOpenChange: async o => _alertOpen.Value = o,
     overlayStyle: [AlertDialog.Overlay], contentStyle: [AlertDialog.Content],
     trigger: view => view.Button([Button.ErrorMd], label: "Delete"),
     title: "Are you sure?", titleStyle: [AlertDialog.Title],
@@ -169,7 +163,7 @@ view.AlertDialog(open: _alertOpen.Value, onOpenChange: async o => _alertOpen.Val
     actionLabel: "Delete", actionStyle: [Button.ErrorMd]);
 
 // Popover, Tooltip, HoverCard
-view.Popover(open: _popOpen.Value, onOpenChange: async o => _popOpen.Value = o ?? false,
+view.Popover(open: _popOpen.Value, onOpenChange: async o => _popOpen.Value = o,
     contentStyle: [Popover.Content],
     trigger: view => view.Button([Button.OutlineMd], label: "Open"),
     contentSlot: view => { ... });
@@ -181,7 +175,7 @@ view.HoverCard(contentStyle: [HoverCard.Content],
     contentSlot: view => { ... });
 
 // Toast
-view.Toast(open: _toastOpen.Value, onOpenChange: async o => _toastOpen.Value = o ?? false,
+view.Toast(open: _toastOpen.Value, onOpenChange: async o => _toastOpen.Value = o,
     viewportStyle: [Toast.ViewportBottomCenter], toastStyle: [Toast.Base],
     title: "Success", titleStyle: [Toast.Title],
     description: "Action completed", descriptionStyle: [Toast.Description],
