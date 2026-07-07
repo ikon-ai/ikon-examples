@@ -8527,16 +8527,17 @@ namespace Ikon.App.Payments
     string Name { get; init; }
     string OfferId { get; init; }
     OfferPriceSpec Price { get; init; }
-  // A single payment record (a one-off charge or a subscription renewal).
+  // A single payment record (a one-off charge or a subscription renewal). OfferId is null for ad-hoc charges and records written before offer tracking.
   sealed class Payment : IEquatable<Payment>
-    // A single payment record (a one-off charge or a subscription renewal).
-    ctor(string Id, PaymentProvider? Provider, PaymentStatus Status, PaymentKind Kind, long AmountMinor, string Currency, long AmountRefundedMinor, DateTimeOffset? CreatedAt)
+    // A single payment record (a one-off charge or a subscription renewal). OfferId is null for ad-hoc charges and records written before offer tracking.
+    ctor(string Id, PaymentProvider? Provider, PaymentStatus Status, PaymentKind Kind, string? OfferId, long AmountMinor, string Currency, long AmountRefundedMinor, DateTimeOffset? CreatedAt)
     long AmountMinor { get; init; }
     long AmountRefundedMinor { get; init; }
     DateTimeOffset? CreatedAt { get; init; }
     string Currency { get; init; }
     string Id { get; init; }
     PaymentKind Kind { get; init; }
+    string? OfferId { get; init; }
     PaymentProvider? Provider { get; init; }
     PaymentStatus Status { get; init; }
   // A customer's access to an offer, whether from an active subscription or a one-time purchase. This is the access-control answer the [PaymentsRequireEntitlement] policy gates on. Subscription access carries ExpiresAt (period end plus a grace window) and reports inactive once it has passed; a one-time purchase has no expiry.
@@ -8751,13 +8752,13 @@ namespace Ikon.App.Connectors.Browser
     ValueTask DisposeAsync()
     // Evaluate a JavaScript function-expression (e.g. "() => { ...; return 'x'; }") on the current page and return its string result. For light page-state manipulation by non-agentic callers — e.g. the codegen visual gate flipping data-theme so it can screenshot both theme states of the same view.
     Task<string?> EvaluateAsync(string script)
-    Task<ValueTuple<bool, string, string?>> ExecuteAsync(WebAction action)
+    Task<ValueTuple<bool, string, string?, string?>> ExecuteAsync(WebAction action)
     Task<IReadOnlyList<MarkedElement>> MarkElementsAsync()
     Task NavigateAsync(string url)
     Task<byte[]> ScreenshotAsync()
     // Screenshot as JPEG at the given quality — for callers that put the image into an LLM context, where a PNG's 3-5x larger payload rides along for every later turn.
     Task<byte[]> ScreenshotJpegAsync(int quality = 70)
-    Task StartAsync(bool headless, CancellationToken ct = null)
+    Task StartAsync(bool headless, bool captureGrade = false, CancellationToken ct = null)
   sealed class WebAction.Click : WebAction, IEquatable<WebAction.Click>
     ctor(WebTarget Target)
     WebTarget Target { get; init; }

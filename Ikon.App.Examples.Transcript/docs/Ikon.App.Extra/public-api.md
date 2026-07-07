@@ -34,13 +34,13 @@ namespace Ikon.App.Connectors.Browser
     ValueTask DisposeAsync()
     // Evaluate a JavaScript function-expression (e.g. "() => { ...; return 'x'; }") on the current page and return its string result. For light page-state manipulation by non-agentic callers — e.g. the codegen visual gate flipping data-theme so it can screenshot both theme states of the same view.
     Task<string?> EvaluateAsync(string script)
-    Task<ValueTuple<bool, string, string?>> ExecuteAsync(WebAction action)
+    Task<ValueTuple<bool, string, string?, string?>> ExecuteAsync(WebAction action)
     Task<IReadOnlyList<MarkedElement>> MarkElementsAsync()
     Task NavigateAsync(string url)
     Task<byte[]> ScreenshotAsync()
     // Screenshot as JPEG at the given quality — for callers that put the image into an LLM context, where a PNG's 3-5x larger payload rides along for every later turn.
     Task<byte[]> ScreenshotJpegAsync(int quality = 70)
-    Task StartAsync(bool headless, CancellationToken ct = null)
+    Task StartAsync(bool headless, bool captureGrade = false, CancellationToken ct = null)
   sealed class WebAction.Click : WebAction, IEquatable<WebAction.Click>
     ctor(WebTarget Target)
     WebTarget Target { get; init; }
