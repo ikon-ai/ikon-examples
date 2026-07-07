@@ -11,7 +11,7 @@
     <IsIkonInternal Condition="'$(IkonRoot)' != ''">true</IsIkonInternal>
   </PropertyGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' != 'true'">
-    <PackageReference Include="Ikon.Parallax" Version="3.2.29" />
+    <PackageReference Include="Ikon.Parallax" Version="3.2.30" />
   </ItemGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' == 'true'">
     <ProjectReference Include="$(IkonRoot)\Ikon.Parallax\Ikon.Parallax.csproj" />
