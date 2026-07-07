@@ -1572,16 +1572,17 @@ namespace Ikon.App.Payments
     string Name { get; init; }
     string OfferId { get; init; }
     OfferPriceSpec Price { get; init; }
-  // A single payment record (a one-off charge or a subscription renewal).
+  // A single payment record (a one-off charge or a subscription renewal). OfferId is null for ad-hoc charges and records written before offer tracking.
   sealed class Payment : IEquatable<Payment>
-    // A single payment record (a one-off charge or a subscription renewal).
-    ctor(string Id, PaymentProvider? Provider, PaymentStatus Status, PaymentKind Kind, long AmountMinor, string Currency, long AmountRefundedMinor, DateTimeOffset? CreatedAt)
+    // A single payment record (a one-off charge or a subscription renewal). OfferId is null for ad-hoc charges and records written before offer tracking.
+    ctor(string Id, PaymentProvider? Provider, PaymentStatus Status, PaymentKind Kind, string? OfferId, long AmountMinor, string Currency, long AmountRefundedMinor, DateTimeOffset? CreatedAt)
     long AmountMinor { get; init; }
     long AmountRefundedMinor { get; init; }
     DateTimeOffset? CreatedAt { get; init; }
     string Currency { get; init; }
     string Id { get; init; }
     PaymentKind Kind { get; init; }
+    string? OfferId { get; init; }
     PaymentProvider? Provider { get; init; }
     PaymentStatus Status { get; init; }
   // A customer's access to an offer, whether from an active subscription or a one-time purchase. This is the access-control answer the [PaymentsRequireEntitlement] policy gates on. Subscription access carries ExpiresAt (period end plus a grace window) and reports inactive once it has passed; a one-time purchase has no expiry.
