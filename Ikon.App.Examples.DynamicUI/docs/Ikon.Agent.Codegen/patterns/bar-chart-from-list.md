@@ -61,6 +61,11 @@ private void RenderHourlyChart(UIView view)
                     }
                 };
 
+                // These tints are SEVERITY SEMANTICS (this app grades events: alert=rose,
+                // watch=amber). A sparkline WITHOUT state semantics — activity volume, weekly
+                // progress — uses ONE color: the app's brand accent (bg-brand-solid or the
+                // committed accent class), with a muted track (bg-muted) for empty buckets.
+                // Do not import this severity palette into a single-meaning chart.
                 var colorClass = (count, sev) switch
                 {
                     (0, _)               => "bg-zinc-800",
