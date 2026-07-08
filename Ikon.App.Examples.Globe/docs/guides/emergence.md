@@ -250,6 +250,8 @@ namespace Ikon.AI.Emergence
     TimeSpan? MaxWallTime { get; set; }
     LLMModel? Model { get; set; }
     bool? OptimizeContext { get; set; }
+    // Names of tools the caller declares SIDE-EFFECT-FREE (pure read/lookup). The executor runs consecutive calls to these from one model turn CONCURRENTLY — measured on codegen, sequential guide/read batches dominated pass latency. Results are still recorded in the model's original order. Mutating tools stay out of this set and act as barriers.
+    ISet<string> ReadOnlyToolNames { get; }
     ReasoningEffort? ReasoningEffort { get; set; }
     int? ReasoningTokenBudget { get; set; }
     IReadOnlyList<ModelRegion>? Regions { get; set; }
