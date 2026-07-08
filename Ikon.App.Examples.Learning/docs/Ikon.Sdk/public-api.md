@@ -170,6 +170,8 @@ namespace Ikon.Sdk
     string Description { get; set; }
     // Device ID for the connection. If not provided, a random one will be generated.
     string? DeviceId { get; set; }
+    // A pre-minted connect URL ("{serverUrl}/connect?token=…") issued by a trusted host — e.g. an embedded in-process app server whose /connect-token oracle is disabled mints these for its own clients (IAppHost.MintBrowserConnectUrl). When set, authentication is skipped and the client connects straight through this URL — the same external-connect-URL mechanism the TypeScript SDK consumes from its query parameter. Takes precedence over Local/ApiKey/ Backend.
+    string? ExternalConnectUrl { get; set; }
     // Installation ID.
     string? InstallId { get; set; }
     // Connect as the build-time boot-snapshot capture client, setting Context.IsSnapshot on the server so the app renders its privacy-safe snapshot variant (see the Parallax Snapshot* wrappers). Default false — only the snapshot-capture run sets this.
