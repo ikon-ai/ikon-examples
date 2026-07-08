@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 261079,
+      "sizeBytes": 262138,
       "alsoInclude": []
     },
     {
@@ -302,7 +302,7 @@
         "timeout"
       ],
       "file": "docs/guides/emergence.md",
-      "sizeBytes": 40680,
+      "sizeBytes": 41075,
       "alsoInclude": [
         "app-structure",
         "ai-models"
@@ -361,7 +361,7 @@
         "ImageGeneratorConfig"
       ],
       "file": "docs/guides/ai-image.md",
-      "sizeBytes": 4872,
+      "sizeBytes": 5066,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -543,7 +543,7 @@
         "function"
       ],
       "file": "docs/guides/endpoints-webhooks.md",
-      "sizeBytes": 41235,
+      "sizeBytes": 41749,
       "alsoInclude": []
     },
     {
