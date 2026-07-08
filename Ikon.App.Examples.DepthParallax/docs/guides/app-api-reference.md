@@ -2916,8 +2916,8 @@ namespace Ikon.Common
     static PlatformContext FromDirectory(string? directory, bool includeSibling = false)
     // Resolves the --platform-repo argument. Accepts the ikon-platform repo root, any of its platform-* subdirectories (e.g. platform-dotnet, platform-typescript), or a nested path within them — all normalize up to the same platform-dotnet root via the upward walk. Returns External when input is null or blank; throws UserException when set but no ikon-platform.slnx can be found at or above it.
     static PlatformContext FromExplicit(string? explicitPlatformRepo)
-    // The standard probe ladder: an explicit --platform-repo, then workingDirectory (defaulting to the current directory, including a sibling ikon-platform checkout), then the running tool's own location — so a locally-built ikon tool resolves the repo even for an app created far away. Returns External when nothing matches.
-    static PlatformContext Resolve(string? explicitPlatformRepo = null, string? workingDirectory = null)
+    // The standard probe ladder: an explicit --platform-repo, then workingDirectory (defaulting to the current directory), then the running tool's own location — so a locally-built ikon tool resolves the repo even for an app created far away. A checkout that is merely a sibling of some ancestor directory is deliberately not probed — an app outside the repo tree builds against published packages unless --platform-repo points at the repo explicitly. noPlatformRepo (--no-platform-repo) hard-disables detection so the app builds against published packages even inside the repo. Returns External when nothing matches.
+    static PlatformContext Resolve(string? explicitPlatformRepo = null, bool noPlatformRepo = false, string? workingDirectory = null)
     static PlatformContext External
   // Translates a PlatformContext (a pure detection result) into the tool-specific build inputs that pass the platform location to dotnet and to the SDK frontend's vite config. Kept off PlatformContext itself so the context doesn't carry dotnet/vite implementation detail.
   static class PlatformContextBuildExtensions
@@ -3173,6 +3173,8 @@ namespace Ikon.Common.Git
     static string EscapeMessage(string message)
     // Fetch from remote.
     Task FetchAsync(bool includeTags = false, CancellationToken ct = null)
+    // Count how many commits the local branch is ahead of and behind its origin counterpart. Returns null when the counts cannot be determined (e.g. origin/{branch} does not exist).
+    Task<ValueTuple<int, int>?> GetAheadBehindAsync(string branch, CancellationToken ct = null)
     // Get all branches.
     Task<List<GitBranch>> GetBranchesAsync(CancellationToken ct = null)
     // Get a local git config value.
@@ -3203,6 +3205,8 @@ namespace Ikon.Common.Git
     Task<bool> HasUncommittedChangesAsync(CancellationToken ct = null)
     // Check if there are uncommitted changes under a specific path.
     Task<bool> HasUncommittedChangesAsync(string path, CancellationToken ct = null)
+    // Check if the local branch has commits that have not been pushed to origin. A branch that does not exist on origin counts as unpushed when local commits exist.
+    Task<bool> HasUnpushedCommitsAsync(string branch, CancellationToken ct = null)
     // Initialize a git repository and connect to a remote, preserving local files. Local files are kept as-is and NOT merged with remote content. Returns the repository instance ready for use.
     static Task<GitRepository> InitAndConnectAsync(string directory, string remoteUrl, GitCredentials? credentials = null, string? configKey = null, string? configValue = null, CancellationToken ct = null)
     // Initialize a new git repository.
