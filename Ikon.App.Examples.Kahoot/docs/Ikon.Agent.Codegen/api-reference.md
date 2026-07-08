@@ -134,6 +134,8 @@ namespace Ikon.AI.Emergence
     TimeSpan? MaxWallTime { get; set; }
     LLMModel? Model { get; set; }
     bool? OptimizeContext { get; set; }
+    // Names of tools the caller declares SIDE-EFFECT-FREE (pure read/lookup). The executor runs consecutive calls to these from one model turn CONCURRENTLY — measured on codegen, sequential guide/read batches dominated pass latency. Results are still recorded in the model's original order. Mutating tools stay out of this set and act as barriers.
+    ISet<string> ReadOnlyToolNames { get; }
     ReasoningEffort? ReasoningEffort { get; set; }
     int? ReasoningTokenBudget { get; set; }
     IReadOnlyList<ModelRegion>? Regions { get; set; }
@@ -1140,6 +1142,7 @@ namespace Ikon.AI.ImageGeneration
     string NegativePrompt { get; set; }
     string Prompt { get; set; }
     ImageQuality Quality { get; set; }
+    ImageResultDelivery ResultDelivery { get; set; }
     SafetyLevel SafetyLevel { get; set; }
     string SearchPrompt { get; set; }
     int Seed { get; set; }
@@ -1186,6 +1189,7 @@ namespace Ikon.AI.ImageGeneration
     byte[] Data { get; set; }
     int Height { get; set; }
     string MimeType { get; set; }
+    string? Url { get; set; }
     int Width { get; set; }
     static ImageGeneratorResult ReadFromTeleport(ReadOnlySpan<byte> data)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
@@ -1195,13 +1199,18 @@ namespace Ikon.AI.ImageGeneration
     Low
     Medium
     High
+  enum ImageResultDelivery
+    Data
+    Url
   sealed class InputImage
     ctor()
+    AssetUri? AssetUri { get; set; }
     byte[] Data { get; set; }
     double? MaskDilution { get; set; }
     string MimeType { get; set; }
     double? Strength { get; set; }
     InputImageType Type { get; set; }
+    string? Url { get; set; }
     static InputImage ReadFromTeleport(ReadOnlySpan<byte> data)
     void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static uint TeleportVersion
