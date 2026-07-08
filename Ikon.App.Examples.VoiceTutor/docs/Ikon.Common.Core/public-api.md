@@ -104,6 +104,7 @@ namespace Ikon.Common.Core
     bool PayoutsEnabled { get; set; }
     string? Provider { get; set; }
     List<string> RequirementsCurrentlyDue { get; set; }
+    bool UnderReview { get; set; }
   class IkonBackend.AppPaymentsRemoveResult
     ctor()
     bool Removed { get; set; }
@@ -576,6 +577,8 @@ namespace Ikon.Common.Core
     string? Url { get; }
     // Mints a signed connect URL ({serverUrl}/connect?token=…) for a browser client, in-process, using the running server's own secret — so the iframe can authenticate without the server exposing a public /connect-token minting oracle. Returns null when not running or when the host does not mint in-process (e.g. the child-process host, which keeps its own /connect-token).
     abstract string? MintBrowserConnectUrl()
+    // Mints a signed connect URL for a NATIVE SDK client (TCP transports) — e.g. the codegen tree validator connecting headlessly to a hosted app. Null when not running or the host kind cannot mint (child processes expose the /connect-token oracle instead).
+    abstract string? MintNativeConnectUrl()
     // Build-if-needed, start the app rooted at sandboxDir , and wait until it is ready (and, when NeedsFrontend , its frontend is up). Stops any app this host was previously running.
     abstract Task<AppHostResult> StartAsync(string sandboxDir, AppHostOptions options, CancellationToken ct = null)
     // Stop the running app and release its resources. Safe to call when nothing is running.
@@ -629,6 +632,7 @@ namespace Ikon.Common.Core
     string UserId { get; }
     Task<IkonBackend.AppBundle> ActivateAppBundleAsync(string id)
     Task<IkonBackend.Organisation> AddOrganisationUserAsync(string organisationId, string email)
+    Task AddSpaceConnectedGitRepositoryAsync(string spaceId, IkonBackend.SpaceConnectedGitRepository repository)
     Task<IkonBackend.ApplyAppBundleConfigResponse> ApplyAppBundleConfigAsync(object config)
     Task<string> AuthenticateSpaceTokenAsync(string spaceId, string externalUserId)
     Task CancelSignatureOrderAsync(string orderId)
@@ -734,6 +738,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.SpaceApiKey> GetSpaceApiKeyAsync(string id)
     Task<List<IkonBackend.SpaceApiKey>> GetSpaceApiKeysAsync(string spaceId, int maxResults = 1000)
     Task<IkonBackend.Space> GetSpaceAsync(string id)
+    Task<List<IkonBackend.SpaceConnectedGitRepository>> GetSpaceConnectedGitRepositoriesAsync(string spaceId)
     Task<IkonBackend.SpaceGitRepository> GetSpaceGitRepositoryAsync(string spaceId)
     Task<List<IkonBackend.Secret>> GetSpaceSecretsAsync(string spaceId, int maxResults = 1000)
     Task<List<IkonBackend.Space>> GetSpacesAsync(string organisationId, int maxResults = 1000)
@@ -767,6 +772,7 @@ namespace Ikon.Common.Core
     Task RemoveOrganisationInvitationAsync(string organisationId, string invitationId)
     Task<IkonBackend.Organisation> RemoveOrganisationUserAsync(string organisationId, string userId)
     Task RemovePushSubscriptionAsync(RemovePushSubscriptionDto request)
+    Task RemoveSpaceConnectedGitRepositoryAsync(string spaceId, string url)
     Task<string> RequestAccessTokenAsync(string apiKey, string spaceId, string externalUserId)
     Task<IkonBackend.ChannelInstance> RequestChannelAsync(IkonBackend.RequestChannelRequest request)
     Task<string> RequestReceiptAsync(string paymentId, string? provider = null, CancellationToken cancellationToken = null)
@@ -1381,6 +1387,15 @@ namespace Ikon.Common.Core
     string Key { get; set; }
     string SpaceId { get; set; }
     DateTime UpdatedAt { get; set; }
+  class IkonBackend.SpaceConnectedGitRepository
+    ctor()
+    string? DefaultBranch { get; set; }
+    string? Password { get; set; }
+    string Provider { get; set; }
+    string? RepositoryId { get; set; }
+    DateTimeOffset? UpstreamChangedAt { get; set; }
+    string Url { get; set; }
+    string? Username { get; set; }
   class IkonBackend.SpaceCostEventName
     ctor()
     string Category { get; set; }
