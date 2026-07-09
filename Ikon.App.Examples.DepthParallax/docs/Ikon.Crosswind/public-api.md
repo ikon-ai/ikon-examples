@@ -237,10 +237,18 @@ namespace Ikon.Crosswind
     int? ZIndex { get; init; }
   // Injectable theme data for the Flutter style resolver. When set (via ThemeSource ) the resolver resolves colour scales and semantic tokens against the app's own theme instead of the hardcoded platform baseline snapshot, so custom brand themes render correctly on native clients. Lookup values may be concrete colours ("#0c0e12", "oklch(...)"), scale references ("neutral-800"), or other semantic tokens ("text-secondary"); the resolver chases references and normalizes concrete colours to hex.
   sealed class FlutterThemeSource
-    ctor(IReadOnlyDictionary<string, string> scaleHex, IReadOnlyDictionary<string, string> darkSemantic, IReadOnlyDictionary<string, string> lightSemantic)
+    ctor(IReadOnlyDictionary<string, string> scaleHex, IReadOnlyDictionary<string, string> darkSemantic, IReadOnlyDictionary<string, string> lightSemantic, double? radiusBasePx = null, IReadOnlyDictionary<string, double>? radiusPx = null, IReadOnlyDictionary<string, string>? fontFamilies = null, double? spacingUnitPx = null)
     IReadOnlyDictionary<string, string> DarkSemantic { get; }
+    // Themed font families keyed by role ("body", "display", "heading", …), values are plain family names ("Fraunces") the Flutter client can load.
+    IReadOnlyDictionary<string, string> FontFamilies { get; }
     IReadOnlyDictionary<string, string> LightSemantic { get; }
+    // Themed radius base in logical px; rung values derive from it unless RadiusPx pins a rung explicitly. Null = platform default.
+    double? RadiusBasePx { get; }
+    // Explicit per-rung radius overrides in logical px, keyed by rung name ("lg").
+    IReadOnlyDictionary<string, double> RadiusPx { get; }
     IReadOnlyDictionary<string, string> ScaleHex { get; }
+    // Themed spacing unit in logical px (the density knob — web multiplies --spacing the same way). Null = platform default (4px).
+    double? SpacingUnitPx { get; }
     static FlutterThemeSource FromDesignTokens(CanvasDesignTokenDocument document)
   sealed class GradientToken : IEquatable<GradientToken>
     ctor(string Direction, ColorToken? From, ColorToken? Via, ColorToken? To)
