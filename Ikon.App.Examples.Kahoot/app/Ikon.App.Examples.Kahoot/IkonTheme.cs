@@ -656,9 +656,9 @@ public static class Button
 
     public static class Size
     {
-        public const string Sm = "h-9 px-3 rounded-md";
-        public const string Md = "h-10 px-4 py-2";
-        public const string Lg = "h-11 px-8 rounded-md";
+        public const string Sm = "min-h-9 px-3 rounded-md";
+        public const string Md = "min-h-10 px-4 py-2";
+        public const string Lg = "min-h-11 px-8 rounded-md";
     }
 
     public const string Icon = "h-10 w-10";
