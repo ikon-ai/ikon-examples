@@ -94,11 +94,13 @@ public static class AppStyles
 
 Crosswind supports three ways to style a component. They compose freely in the same array — the right choice depends on whether you want the surface to follow the active theme (light/dark mode, per-app brand overrides) or not.
 
-**1. Semantic theme-aware classes** (the default). `bg-card`, `text-primary`, `text-muted-foreground`, `bg-background`, `bg-brand-solid`, `border-secondary`, etc. resolve through CSS variables that the platform baseline defines for both light and dark modes and that `IkonTheme` overrides target. Switching `data-theme="dark"` re-paints the UI automatically; a per-app brand re-skin propagates to every semantic site — no style-array refactor needed.
+**1. Semantic theme-aware classes** (the default). `bg-card`, `text-foreground`, `text-muted-foreground`, `bg-background`, `bg-brand-solid`, `border-secondary`, etc. resolve through CSS variables that the platform baseline defines for both light and dark modes and that `IkonTheme` overrides target. Switching `data-theme="dark"` re-paints the UI automatically; a per-app brand re-skin propagates to every semantic site — no style-array refactor needed.
 
 ```csharp
-view.Box(style: ["rounded-2xl bg-card border border-secondary p-6 text-primary"], content: view => { ... });
+view.Box(style: ["rounded-2xl bg-card border border-secondary p-6 text-foreground"], content: view => { ... });
 ```
+
+Legacy note: `bg-primary`, `text-primary`, and `border-primary` are older tier names for the page surface, body text, and default hairline. They render unchanged forever, but do not write them in new code — their names collide with the shadcn reading where "primary" means brand. Write `bg-background` / `text-foreground` / `border-secondary` instead.
 
 **2. `Ikon.Parallax.Theming` token shortcuts**. Pre-composed bundles of layer 1 — Crosswind utility strings packaged into named constants per role/size. Use them as ergonomic shortcuts when their defaults fit; ignore them when you want a different look. They follow the theme because they're built from semantic classes.
 
@@ -119,6 +121,8 @@ view.Box(style: ["rounded-2xl bg-zinc-900 border border-zinc-800 p-6 shadow-lg"]
 
 The three layers compose freely (`[Button.PrimaryMd, "mt-4 self-center", "bg-[#F5A524]"]`) — pick whichever shape best matches what you're building, but default to layer 1 for surfaces that should follow the theme.
 
+This split is deliberate — Ikon styling is two-tier. The structural core (surfaces, text, borders, radius, fonts, density) lives in semantic classes and the committed `IkonTheme`, so it re-themes and dark-flips in one place. Everything with personality — gradients, textures, glows, decorative colors — is ENCOURAGED as concrete classes and arbitrary values right at the use point, with no token obligation. Coherence of the expressive layer is judged against the app's DESIGN brief, not enforced by token discipline.
+
 ## Hover only applies on devices that can hover
 
 `hover:` (and `group-hover:`, `peer-hover:`, `in-hover:`, `has-hover:`) rules are emitted inside `@media (hover: hover)`, so they apply only on devices with a real pointer — on touch-only devices they never fire (this is what prevents "sticky hover", where a tapped element stays in its hover state). Design accordingly:
@@ -133,7 +137,7 @@ view.Box(style: ["opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 t
 
 ### Theme Activation
 
-The active theme determines what semantic tokens like `text-primary`, `bg-background`, `text-muted-foreground` resolve to. **If you don't set a theme explicitly, the runtime picks one from the browser's `prefers-color-scheme`, falling back to light.**
+The active theme determines what semantic tokens like `text-foreground`, `bg-background`, `text-muted-foreground` resolve to. **If you don't set a theme explicitly, the runtime picks one from the browser's `prefers-color-scheme`, falling back to light.**
 
 This matters because Parallax button styles use semantic tokens. `Button.GhostMd`, `Button.OutlineMd`, `Button.NeutralMd` all set `text-primary`, which is dark in the light theme and light in the dark theme. If you build a custom dark UI with **fixed** Crosswind palette classes (`bg-slate-950`, `bg-zinc-900`, etc.) without setting the theme, ghost and outline buttons will render dark text on your dark background — invisible.
 
@@ -153,7 +157,7 @@ The same applies in reverse for a fixed-light UI: don't strand `text-primary` on
 
 ### Customizing the Theme
 
-For per-app palette / radius / shadow / font / motion overrides, see the [Ikon Theming Guide](ikon-theming-guide.md). It documents the `new IkonTheme { ... }` configurable surface — an indexer-keyed object initializer where each entry maps one CSS variable. No factory, no fan-out, no auto-contrast — what you write is what lands in the override block.
+For per-app palette / radius / density / font / motion overrides, see the [Ikon Theming Guide](ikon-theming-guide.md). It documents the `new IkonTheme { ... }` configurable surface — an indexer-keyed object initializer where each entry commits one theme key (a key like `["primary"]` fans out to its whole documented variable cluster; there is no factory and no auto-contrast).
 
 ## Utility Classes
 

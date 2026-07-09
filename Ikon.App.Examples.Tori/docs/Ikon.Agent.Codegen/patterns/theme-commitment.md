@@ -1,52 +1,71 @@
 # Theme Commitment — `new IkonTheme { ... }` at the App declaration site
 
-Every app commits a theme at the App's UI declaration as a `new IkonTheme { ... }` object initializer — NOT in `IkonTheme.cs`'s Css raw-string. Each entry is one CSS variable, indexer-keyed: `["primary"] = "amber-400"`, `["background"] = "zinc-950"`, `["radius-base"] = "rounded-lg"`. Every component inherits.
+Every app commits a theme at the App's UI declaration as a `new IkonTheme { ... }` object initializer — NOT in `IkonTheme.cs`'s Css raw-string. Each entry is one theme key: `["primary"] = "amber-400"`, `["background"] = "zinc-950"`, `["radius"] = "rounded-lg"`. Every component inherits.
 
 ## When to use
 
-**Every app — always.** A committed theme is part of the commercial-grade UI bar (see the styling guide), not an opt-in for "design" briefs. Even a plain "todo app" or "poll" gets a `new IkonTheme { ... }`: the bare default `new Theme()` reads as unfinished. If the plan has a STYLING section naming a mood ("fintech minimal", "vintage editorial", "retro arcade"), honor it; if it doesn't, still pick a cohesive palette that fits the app's domain and commit it (plus a `DarkMode` block). The right artifact is always the App's UI field — paste a `new IkonTheme { ... }` initializer. No `IkonTheme.cs` edit needed.
+**Every app — always.** A committed theme is part of the commercial-grade UI bar (see the styling guide), not an opt-in for "design" briefs. Even a plain "todo app" or "poll" gets a `new IkonTheme { ... }`: the bare default `new Theme()` reads as unfinished. If the plan has a STYLING section naming a mood ("fintech minimal", "vintage editorial", "retro arcade"), honor it; if it doesn't, still pick a cohesive palette that fits the app's domain and commit it. The right artifact is always the App's UI field — paste a `new IkonTheme { ... }` initializer. No `IkonTheme.cs` edit needed.
+
+**Two-tier scope rule:** only the STRUCTURAL core goes in the theme — surfaces, text, borders, the brand line, radius, fonts, density, motion defaults. Decorative/expressive values (gradients, textures, glows, one-off colors) stay CONCRETE at the use point in that component's class array; they carry the app's personality and have no token obligation.
 
 ## Snippet
 
 ```csharp
-// Pasted at the top of your App class — the Coder's standard styling step:
+// Pasted at the top of your App class — the Coder's standard styling step.
+// ONE line commits the whole brand cluster: ["primary"] expands to the CTA and
+// solid fills (+ hovers), focus rings, brand borders, brand icons, and brand text tiers.
 private UI UI { get; } = new(app, new IkonTheme
 {
-    // Brand cluster — set every brand-tinted CSS var explicitly.
-    ["primary"]              = "amber-400",
-    ["bg-brand-solid"]       = "amber-400",
-    ["bg-brand-solid-hover"] = "amber-500",
-    ["bg-brand-button"]      = "amber-400",  // THE PRIMARY BUTTON's bg — a SEPARATE token from
-    ["bg-brand-button-hover"]= "amber-500",  // bg-brand-solid. Omit it and Button.PrimaryMd stays
-                                             // the default brand colour while the rest goes amber.
-    ["text-brand"]           = "amber-400",
-    ["border-brand"]         = "amber-400",
-    ["primary-foreground"]   = "#0A0A0A",   // pick contrast yourself
+    ["primary"]            = "amber-400",
+    ["primary-foreground"] = "#0A0A0A",   // text on brand fills — only needed for LIGHT brand steps (white default)
 
-    // Surfaces.
-    ["background"]   = "zinc-950",
-    ["text-primary"] = "zinc-50",
-    ["card"]         = "zinc-900",
-    ["popover"]      = "zinc-900",
-    ["muted"]        = "zinc-700",
+    ["background"]       = "zinc-950",
+    ["foreground"]       = "zinc-50",
+    ["card"]             = "zinc-900",
+    ["muted-foreground"] = "zinc-500",
+    ["border"]           = "zinc-800",
 
-    // Type + shape + motion.
-    ["font-heading"]         = "font-sans",
-    ["font-body"]            = "font-sans",
-    ["radius-base"]          = "rounded-2xl",
-    ["motion-duration-base"] = "200ms",
-    ["ease-default"]         = "ease-out",
+    ["radius"]           = "rounded-2xl",
+    ["density"]          = "comfortable",   // compact | comfortable | airy — whole-app whitespace
+    ["font-heading"]     = "Crimson Pro",   // literal family name — Google Fonts import is automatic
+
+    DarkMode = new IkonTheme
+    {
+        ["primary"]    = "amber-300",
+        ["background"] = "zinc-950",
+        ["foreground"] = "zinc-50",
+        ["card"]       = "zinc-900",
+    },
 });
 ```
 
-The Coder gets the role/value pairs from a `style_mood(brief, notes)` call (the Styling Oracle returns 10-15 coherent tokens, expanded into ~20-30 indexer entries by the tool formatter) and pastes them verbatim. Direct authoring works too — the values are Crosswind class names (`amber-400`, `zinc-950`, `rounded-lg`, `font-sans`), so the LLM speaks the same vocabulary it uses in component class arrays.
+For a single committed scheme (vivid/expressive briefs — a neon arcade, a pirate tavern — where a light/dark flip makes no sense), pin the palette instead of authoring a dark variant:
+
+```csharp
+private UI UI { get; } = new(app, new IkonTheme
+{
+    Mode = ThemeMode.Fixed,   // no OS dark flip, no toggle flip — this palette IS the app
+    ["primary"]    = "violet-400",
+    ["background"] = "zinc-950",
+    ["foreground"] = "cyan-300",
+    ["card"]       = "zinc-900",
+    ["radius"]     = "rounded-none",
+    ["density"]    = "compact",
+});
+```
+
+`Mode = ThemeMode.Fixed` and a `DarkMode` block are mutually exclusive (Fixed + DarkMode throws). Pick the dark story explicitly — the plan's THEME STRATEGY makes this call.
+
+To refine one variable inside the `primary` cluster, add the explicit canonical key AFTER it (later entries win): `["bg-brand-solid-hover"] = "amber-500"` for a distinct hover shade, `["border-brand"] = "#000000"` for a contrasting brand border.
+
+The Coder gets the role/value pairs from a `style_mood(brief, notes)` call (the Styling Oracle returns coherent role/value tokens, expanded into indexer entries by the tool formatter) and pastes them verbatim. Direct authoring works too — the values are Crosswind tokens (`amber-400`, `zinc-950`, `rounded-lg`, `airy`), the same vocabulary the LLM uses in component class arrays.
 
 ## How — the Styling Oracle (preferred)
 
 The Coder gets four styling tools wired in:
 
 ```
-style_mood(brief, notes)              → 10-15 coherent role/value pairs (palette, typography, shape, motion)
+style_mood(brief, notes)              → coherent role/value pairs (palette, typography, shape, density, motion)
                                          → seeds the active mood for follow-up calls
                                          → PROPAGATES (paste into `new IkonTheme { ... }`)
 style_token(intent)                   → one mood-coherent role+value (e.g. "danger color")
@@ -66,20 +85,19 @@ await style_mood(
     notes: "")  // or any user-named colors / fonts the brief specified
 ```
 
-The Oracle returns a list of `{ Role, Value, CustomName?, Rationale }` records. Paste named roles as `PascalCase = "value"` property assignments and custom roles as `["name"] = "value"` indexer entries:
+The Oracle returns a list of `{ Role, Value, CustomName?, Rationale }` records. Paste every pair as an indexer entry:
 
 ```csharp
 private UI UI { get; } = new(app, new IkonTheme
 {
-    Brand        = "emerald-500",   /* mint — fintech accent */
-    Background   = "zinc-50",       /* near-white canvas */
-    Foreground   = "zinc-950",      /* high-contrast body */
-    Card         = "white",
-    Muted        = "zinc-500",
-    Border       = "zinc-200",
-    FontHeading  = "font-sans",
-    FontBody     = "font-sans",
-    RadiusBase   = "rounded-md",
+    ["primary"]          = "emerald-500",  /* mint — fintech accent */
+    ["background"]       = "zinc-50",      /* near-white canvas */
+    ["foreground"]       = "zinc-950",     /* high-contrast body */
+    ["card"]             = "#ffffff",
+    ["muted-foreground"] = "zinc-500",
+    ["border"]           = "zinc-200",
+    ["radius"]           = "rounded-md",
+    ["density"]          = "comfortable",
 });
 ```
 
@@ -91,13 +109,13 @@ await style_token(intent: "a danger color used by all destructive buttons");
 //     Rationale: "muted brick — reads warning without breaking the mint palette" }
 ```
 
-Add it to the same `new IkonTheme { ... }` initializer as an indexer entry:
+Add it to the same `new IkonTheme { ... }` initializer as an indexer entry (note: for destructive chrome specifically, the built-in `["destructive"]` key already fans out to the whole error cluster):
 
 ```csharp
-["danger"] = "rose-600",
+["destructive"] = "rose-600",
 ```
 
-For ONE-OFF decorations on a single component (rainbow text on a hero, glow on the submit CTA only):
+For ONE-OFF decorations on a single component (rainbow text on a hero, glow on the submit CTA only) — the expressive tier:
 
 ```csharp
 await style_class(intent: "rainbow gradient text for the hero title");
@@ -122,21 +140,21 @@ await style_set(role: "brand", value: "rose-600");
 
 | Scope | Where it lives | Tool |
 |---|---|---|
-| **Theme-level** (propagates) | indexer entry inside `new IkonTheme { ... }` | `style_mood`, `style_token`, `style_set` |
-| **One-off** (single component) | inline class string in that component's array | `style_class` |
+| **Theme-level** (structural core, propagates) | indexer entry inside `new IkonTheme { ... }` | `style_mood`, `style_token`, `style_set` |
+| **One-off** (expressive, single component) | inline class string in that component's array | `style_class` |
 
-Default to theme-level for: palette colors, font families, base radius, base motion, base shadow. Default to one-off for: gradient text on a hero, a single button's glow, a validation-error shake, a one-component motion stagger.
+Default to theme-level for: the brand line, surface/text/border colors, font families, radius, density, motion defaults. Default to one-off for: gradient text on a hero, a single button's glow, textures, a validation-error shake, a one-component motion stagger — anything decorative. Expressive values at use points are ENCOURAGED; coherence is judged against the plan's DESIGN brief, not by token count.
 
 ## Per-token overrides
 
-For Tailwind palette / radius / shadow / font overrides, or any free CSS variable, just add another indexer entry to the same initializer block:
+For Tailwind palette / radius / shadow / font overrides, or a deliberate custom variable, add another indexer entry to the same initializer block:
 
 ```csharp
 private UI UI { get; } = new(app, new IkonTheme
 {
-    ["primary"]      = "amber-400",
-    ["background"]   = "zinc-950",
-    ["text-primary"] = "amber-50",
+    ["primary"]    = "amber-400",
+    ["background"] = "zinc-950",
+    ["foreground"] = "amber-50",
 
     // Re-skin a Tailwind palette step — every bg-amber-400 / text-amber-400
     // / border-amber-400 in the app picks this up:
@@ -148,12 +166,13 @@ private UI UI { get; } = new(app, new IkonTheme
     // One shadow rung:
     ["shadow-lg"]  = "0 8px 16px rgba(0,0,0,.18)",
 
-    // Bespoke decorative token, referenced inline as bg-[var(--hero-glow)]:
-    ["hero-glow"]  = "radial-gradient(circle, #F5A52488, transparent 70%)",
+    // Deliberate custom variable (the -- prefix marks it intentional),
+    // referenced inline as bg-[var(--hero-glow)]:
+    ["--hero-glow"] = "radial-gradient(circle, #F5A52488, transparent 70%)",
 });
 ```
 
-The renderer dispatches by key shape: Tailwind palette step (`amber-400`) → `--color-amber-400`, `rounded-*` → `--radius-*`, `shadow-*` → `--shadow-*`, `font-*` → `--font-*`, `ease-*` → `--ease-*`. Anything else falls through as `--{key}: {value}` (with smart sniff so Tailwind tokens used as values still resolve).
+The renderer dispatches by key shape: theme keys expand to their canonical variable cluster; Tailwind palette steps (`amber-400`) → `--color-amber-400` (Ikon-scale families like `neutral-900` also move the semantic ramp); `rounded-*` → `--radius-*`; `shadow-*` → `--shadow-*`; `font-*` → `--font-*`. Unknown keys emit a dead variable and log a one-time warning — prefix with `--` to declare a custom variable on purpose.
 
 ## Direct edit (escape hatch)
 
@@ -162,13 +181,13 @@ You can still author the values directly — the Oracle is a librarian, not a ga
 - The brief is extremely specific ("primary is exactly `#d92626`").
 - A human dev is editing outside the codegen flow.
 
-Just pass the value verbatim — the indexer accepts raw hex / rem / family-stack values as fallback for cases that don't fit Crosswind tokens:
+Just pass the value verbatim — the indexer accepts raw hex / rem / family-stack values for cases that don't fit Crosswind tokens:
 
 ```csharp
 new IkonTheme
 {
     ["primary"]      = "#d92626",
-    ["radius-base"]  = "0.625rem",
+    ["radius"]       = "0.625rem",
     ["font-heading"] = "Quicksand",
 }
 ```
@@ -176,15 +195,15 @@ new IkonTheme
 ## Notes
 
 - **`IkonTheme` is a class in `Ikon.Parallax`. DO NOT redefine it.** It's auto-imported via `global using Ikon.Parallax;` in the scaffold's `GlobalUsings.cs`. The platform baseline (fonts, color ramps, radii, motion) is already inside `Ikon.Parallax.Theming.Theme` and inherited automatically — your indexer entries are *overrides* on top of that baseline, not a from-scratch CSS sheet. **Never write `class IkonTheme : ITheme` or `class Theme : ITheme` in the app's source tree** — that's the deleted pattern from before the indexer existed. If `new IkonTheme()` won't compile, the `global using Ikon.Parallax;` line is missing from `GlobalUsings.cs` — fix that, don't reimplement the class.
-- **Pass `new IkonTheme { ... }` to `UI`** when STYLING is in the plan. **Never `Theming.Apply(...)`, `Theming.Custom(...)`, or `Theme.Custom(...)`** — those factories were retired; the configurable surface is the `IkonTheme` class with `DarkMode` plus an indexer for every CSS variable.
-- **At minimum, the Oracle should set the brand cluster (`primary`, `bg-brand-solid`, `bg-brand-solid-hover`, `bg-brand-button`, `bg-brand-button-hover`, `text-brand`, `border-brand`, `primary-foreground`), the page surfaces (`background`, `text-primary`, `card`), plus typography (`font-heading` / `font-body`) and shape (`radius-base`).** With these set, `Button.Default`, `Card.Default`, `Layout.Page` all render in the brand palette automatically. **`bg-brand-button` / `bg-brand-button-hover` are easy to miss and load-bearing:** `Button.PrimaryMd` (the default primary button) draws its fill from `bg-brand-button`, NOT `bg-brand-solid`. Set only `bg-brand-solid` and your primary CTA keeps the platform-default brand colour while everything else re-skins — a glaring inconsistency (verified live: a sky-themed app shipped a purple "Add" button). Do the same in the `DarkMode` block. (Do NOT instead re-map the whole `brand-50…900` ramp to force it — that also recolours selects, labels, and other brand-derived surfaces in ways that don't compose; set the leaf button tokens.)
-- **For dark mode**, set `DarkMode = new IkonTheme { ... }` with the dark-theme overrides. The renderer emits `[data-theme="dark"]` / `.dark` / `prefers-color-scheme: dark` selectors.
+- **Pass `new IkonTheme { ... }` to `UI`** when STYLING is in the plan. **Never `Theming.Apply(...)`, `Theming.Custom(...)`, or `Theme.Custom(...)`** — those factories were retired; the configurable surface is the `IkonTheme` class with `Mode`, `DarkMode`, plus the indexer.
+- **The minimum commitment is small:** `["primary"]` (the whole brand cluster in one line — CTAs, solid fills, hovers, focus rings, brand icons, brand text), the page pair (`["background"]`, `["foreground"]`), `["card"]`, shape (`["radius"]`), and an explicit dark story (`DarkMode` block or `Mode = ThemeMode.Fixed`). With these set, `Button.PrimaryMd`, `Card.Default`, `Layout.Page` all render in the brand palette automatically — including the primary CTA's own fill and its hover, which the cluster covers.
+- **Pick brand contrast for light steps.** Text on brand fills defaults to white. Light brand step (≤ 500) → `["primary-foreground"] = "#0A0A0A"`. Dark brand step (≥ 600) → omit.
 - **For non-Tailwind palettes**, pass raw hex (`["primary"] = "#ffd54f"`). The resolver passes raw values through unchanged.
-- **Pick contrast yourself.** There is no auto-derived `primary-foreground`. Light brand step (≤ 500) → `"#0A0A0A"`. Dark brand step (≥ 600) → `"#ffffff"`.
-- **Don't repeat color in component class arrays.** Once `["primary"]` and `["bg-brand-solid"]` are set, `Button.Default` (which references `bg-primary`) picks it up. Hand-rolling `bg-zinc-950` per button breaks the brand commitment AND breaks dark theme.
+- **Don't repeat brand colors in component class arrays.** Once `["primary"]` is set, `Button.PrimaryMd` picks it up everywhere. Hand-rolling `bg-amber-400` per button breaks the brand commitment AND breaks dark theme. (Decorative one-offs are different — they belong inline, per the two-tier rule.)
+- **Never write `bg-primary` / `text-primary` / `border-primary` in new code.** Those utilities are legacy neutral tiers (page surface / body text / hairline), not brand — write `bg-background` / `text-foreground` / `border-secondary`. The theme KEY `primary` means brand; the legacy utility classes do not.
 
 ## See also
 
 - `typical-app-structure` — the skeleton; pair with this pattern when STYLING is declared.
 - `crosswind-styling-and-motion-guide` (top-level guide) — full Crosswind utility class reference.
-- `ikon-theming-guide` (top-level guide) — high-level roles, indexer overrides, mood cookbook for third-party reach.
+- `ikon-theming-guide` (top-level guide) — the canonical theme-key reference, value kinds, density, dark contract, mood cookbook.
