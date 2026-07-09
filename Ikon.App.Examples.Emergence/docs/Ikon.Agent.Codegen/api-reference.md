@@ -1411,6 +1411,10 @@ namespace Ikon.AI.Kernel
     ctor()
     ctor(KernelContext? baseContext = null, ImmutableList<Instruction>? instructions = null, ImmutableList<MessageBlock>? messages = null, ImmutableDictionary<string, Function>? functions = null, TimeSpan? timeout = null, double? temperature = null, int? maxOutputTokens = null, ReasoningEffort? reasoningEffort = null, int? reasoningTokenBudget = null, bool? useStreaming = null, bool? useJson = null, bool? useCitations = null, bool? useUserNames = null, bool? useAudioOutput = null, string? audioOutputVoiceId = null, bool? useCaching = null, bool? disableFunctionCalling = null, bool? discardTextOutputWithFunctionCalls = null, bool? logFullRequest = null, bool? logFullResponse = null, object? jsonSchema = null, string? gbnfGrammar = null, string? toolPlan = null)
     string AudioOutputVoiceId { get; init; }
+    // When set, providers that support server-side context editing (Anthropic context-management beta) clear OLD tool results once the request's input exceeds this many tokens — after prompt-cache lookup, so cached prefixes survive. The single biggest context sink in long tool-using loops is superseded tool results being re-sent every round; server-side clearing removes them without the cache-busting a client-side history rewrite causes. Null = off. Providers without support ignore it.
+    int? ClearToolResultsAfterInputTokens { get; init; }
+    // Tool names whose results are NEVER cleared by ClearToolResultsAfterInputTokens (semantic anchors like verdicts).
+    IReadOnlyList<string>? ClearToolResultsExcludedTools { get; init; }
     // Alias for Empty . Some generated code reaches for `Default` first (common shadcn / .NET pattern).
     static KernelContext Default { get; }
     bool DisableFunctionCalling { get; init; }
@@ -4725,6 +4729,11 @@ namespace Ikon.Parallax.Theming
     static string Header
     static string Overlay
     static string Title
+  sealed class ThemeVocabulary.Alias : IEquatable<ThemeVocabulary.Alias>
+    ctor(string Name, IReadOnlyList<string> Targets, ThemeVocabulary.ValueKind Kind)
+    ThemeVocabulary.ValueKind Kind { get; init; }
+    string Name { get; init; }
+    IReadOnlyList<string> Targets { get; init; }
   static class Accessibility.Aria
     static string Busy
     static string Checked
@@ -5116,10 +5125,6 @@ namespace Ikon.Parallax.Theming
     static string None
     static string Sentinel
     static string Within
-  static class Tokens.FocusRing
-    static string Default
-    static string Strong
-    static string Subtle
   static class FormField
     static string ErrorText
     static string HelpText
@@ -5171,7 +5176,7 @@ namespace Ikon.Parallax.Theming
     static string Lg
     static string Md
     static string Sm
-  // Per-app theme configuration. Composes the platform's Ikon CSS baseline with per-token CSS-variable overrides addressed by name. One uniform syntax: an indexer keyed by CSS variable name (without the leading --) or by Tailwind utility token. The renderer dispatches by key shape: Tailwind palette step (amber-400) → --color-amber-400rounded-{rung} → --radius-{rung}shadow-{rung} → --shadow-{rung}font-{role} → --font-{role}ease-{kind} → --ease-{kind}Anything else → --{key} (free CSS variable) Values are Crosswind / Tailwind class names (resolved via CrosswindResolver ) or raw CSS values (hex, rem, family stacks, gradients) — the resolver passes raw values through. Example: private UI UI { get; } = new(app, new IkonTheme { // Brand commitment — set the semantic vars that components consume. ["primary"] = "amber-400", ["bg-brand-solid"] = "amber-400", ["bg-brand-solid-hover"] = "amber-400", ["text-brand"] = "amber-400", ["border-brand"] = "amber-400", ["primary-foreground"] = "#0A0A0A", // pick contrast yourself // Background + foreground. ["background"] = "zinc-950", ["text-primary"] = "amber-50", ["text-foreground"] = "amber-50", // Surfaces. ["card"] = "zinc-900", ["popover"] = "zinc-900", // Type + shape. ["font-heading"] = "Crimson Pro", ["font-body"] = "Inter", ["radius-base"] = "rounded-lg", // Motion. ["motion-duration-base"] = "200ms", ["ease-default"] = "ease-out", // Per-token Tailwind palette / radius / shadow overrides. ["amber-400"] = "#F5A524", ["rounded-lg"] = "1.25rem", ["shadow-lg"] = "0 8px 16px rgba(0,0,0,.18)", // Bespoke decorative tokens. ["hero-glow"] = "radial-gradient(circle, #F5A52488, transparent 70%)", DarkMode = new IkonTheme { ["background"] = "zinc-50", ["text-primary"] = "zinc-950", }, }); The indexer is the only configurable surface — there are no magic property fan-outs and no auto-derived contrast text. What you write IS what lands in the override block.
+  // Per-app theme configuration. Composes the platform's Ikon CSS baseline with per-token CSS-variable overrides addressed by name. One uniform syntax: an indexer keyed by a vocabulary alias ( ThemeVocabulary ), a CSS variable name (without the leading --), or a Tailwind utility token. The renderer dispatches by key shape: Vocabulary alias (primary, card, radius, density) → its canonical variable clusterTailwind palette step (amber-400) → --color-amber-400 (Ikon scales like neutral-900 also set the bare var)rounded-{rung} → --radius-{rung}shadow-{rung} → --shadow-{rung}font-{role} → --font-{role}spacing → the --spacing density unitAnything else → --{key} (free CSS variable) Values are Crosswind / Tailwind class names (resolved via CrosswindResolver ) or raw CSS values (hex, rem, family stacks, gradients) — the resolver passes raw values through. Example — the structural core is a small committed set; expressive decoration (gradients, textures) stays concrete at use points: private UI UI { get; } = new(app, new IkonTheme { ["primary"] = "amber-400", // whole brand cluster: fills, CTA, focus ring, brand icons/text ["background"] = "zinc-950", ["card"] = "zinc-900", ["foreground"] = "amber-50", ["muted-foreground"] = "zinc-400", ["border"] = "zinc-800", ["font-heading"] = "Crimson Pro", ["font-body"] = "Inter", ["radius"] = "rounded-lg", ["density"] = "airy", ["motion-duration-base"] = "200ms", ["ease-default"] = "ease-out", // Per-token palette / radius / shadow overrides and free decorative vars. ["amber-400"] = "#F5A524", ["shadow-lg"] = "0 8px 16px rgba(0,0,0,.18)", ["hero-glow"] = "radial-gradient(circle, #F5A52488, transparent 70%)", DarkMode = new IkonTheme { ["background"] = "zinc-50", ["foreground"] = "zinc-950", }, }); Aliases expand to exactly their documented cluster — beyond that there is no magic fan-out and no auto-derived contrast text. A later explicit entry overrides an alias-expanded one (["primary"] then ["bg-brand-button"] re-pins just the CTA).
   sealed class IkonTheme : ITheme
     ctor()
     // Paired dark-mode theme. Pass another IkonTheme ; its overrides are emitted under [data-theme="dark"], .dark, and prefers-color-scheme: dark. Only meaningful in Adaptive mode.
@@ -5615,6 +5620,10 @@ namespace Ikon.Parallax.Theming
   enum ThemeMode
     Adaptive
     Fixed
+  // The canonical theming vocabulary: shadcn-style theme keys and what they commit. Each alias expands to the canonical CSS variables that make its intent real across every consumer (components, focus rings, native clients). This table is the single source of truth — the theme renderer expands aliases through it, the codegen styling tools fan roles out through it, and the docs drift tests lock the published reference tables to it. Collision policy: `primary` as a THEME KEY means brand (the shadcn reading; the Untitled-UI tiered reading only ever existed on the prefixed utility classes, which are untouched). Bare `accent` and `secondary` are deliberately NOT aliases — their shadcn and Ikon meanings genuinely conflict, so they stay unknown-key warnings instead of guessing.
+  static class ThemeVocabulary
+    // Every accepted alias, keyed by name.
+    static IReadOnlyDictionary<string, ThemeVocabulary.Alias> Aliases { get; }
   static class TimePicker
     static string Column
     static string ColumnSeparator
@@ -5679,6 +5688,13 @@ namespace Ikon.Parallax.Theming
     static string Negative
     static string Neutral
     static string Positive
+  enum ThemeVocabulary.ValueKind
+    Color
+    FontFamily
+    Radius
+    Duration
+    Easing
+    Spacing
   static class Separator.Variant
     static string Default
     static string Strong
@@ -5966,10 +5982,18 @@ namespace Ikon.Crosswind
     int? ZIndex { get; init; }
   // Injectable theme data for the Flutter style resolver. When set (via ThemeSource ) the resolver resolves colour scales and semantic tokens against the app's own theme instead of the hardcoded platform baseline snapshot, so custom brand themes render correctly on native clients. Lookup values may be concrete colours ("#0c0e12", "oklch(...)"), scale references ("neutral-800"), or other semantic tokens ("text-secondary"); the resolver chases references and normalizes concrete colours to hex.
   sealed class FlutterThemeSource
-    ctor(IReadOnlyDictionary<string, string> scaleHex, IReadOnlyDictionary<string, string> darkSemantic, IReadOnlyDictionary<string, string> lightSemantic)
+    ctor(IReadOnlyDictionary<string, string> scaleHex, IReadOnlyDictionary<string, string> darkSemantic, IReadOnlyDictionary<string, string> lightSemantic, double? radiusBasePx = null, IReadOnlyDictionary<string, double>? radiusPx = null, IReadOnlyDictionary<string, string>? fontFamilies = null, double? spacingUnitPx = null)
     IReadOnlyDictionary<string, string> DarkSemantic { get; }
+    // Themed font families keyed by role ("body", "display", "heading", …), values are plain family names ("Fraunces") the Flutter client can load.
+    IReadOnlyDictionary<string, string> FontFamilies { get; }
     IReadOnlyDictionary<string, string> LightSemantic { get; }
+    // Themed radius base in logical px; rung values derive from it unless RadiusPx pins a rung explicitly. Null = platform default.
+    double? RadiusBasePx { get; }
+    // Explicit per-rung radius overrides in logical px, keyed by rung name ("lg").
+    IReadOnlyDictionary<string, double> RadiusPx { get; }
     IReadOnlyDictionary<string, string> ScaleHex { get; }
+    // Themed spacing unit in logical px (the density knob — web multiplies --spacing the same way). Null = platform default (4px).
+    double? SpacingUnitPx { get; }
     static FlutterThemeSource FromDesignTokens(CanvasDesignTokenDocument document)
   sealed class GradientToken : IEquatable<GradientToken>
     ctor(string Direction, ColorToken? From, ColorToken? Via, ColorToken? To)
