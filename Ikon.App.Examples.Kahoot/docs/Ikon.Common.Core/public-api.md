@@ -5986,6 +5986,7 @@ namespace Ikon.Common.Core.Reactive
     int? GroupId { get; set; }
     Guid Id { get; }
     bool IsUpdate { get; }
+    ReactiveManager.Handle? Parent { get; }
     DateTime? UpdatedAt { get; }
     void StopTracking(bool isUpdating)
     override string ToString()
@@ -6078,6 +6079,10 @@ namespace Ikon.Common.Core.Reactive
   class ReactiveManager : IDisposable
     ctor(string category)
     string Category { get; }
+    // Live-handle count above which Dispose logs a leak warning. The default suits the classic one-render-handle-per-client shape; per-container subtree rendering legitimately holds one handle per UI container, so its owner raises this to keep the warning meaningful.
+    int DisposeHandleWarningThreshold { get; set; }
+    // Number of currently registered (dispatchable) handles. Diagnostic counterpart of DisposeHandleWarningThreshold .
+    int LiveHandleCount { get; }
     int UpdatedHandleCount { get; }
     void DecrementUICreationOngoing()
     void Dispose()
