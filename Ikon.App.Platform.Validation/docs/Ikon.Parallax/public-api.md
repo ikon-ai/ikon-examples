@@ -81,6 +81,8 @@ namespace Ikon.Parallax
     bool EnableProfiling { get; set; }
     // When true (the default), a re-render reuses the cached output of any subtree whose tracked reactive dependencies are unchanged, skipping re-execution of its content lambda — so an update costs O(changed subtree) rather than O(whole tree). Wire output is identical to the uncached path (proven by the differential oracle in Ikon.Parallax.Test); the only behavioural change is that a subtree reading NON-reactive data no longer refreshes until one of its reactive dependencies changes, which is the intended reactive contract. Set false to force a full re-render every cycle.
     bool EnableSubtreeCaching { get; set; }
+    // Experimental: when true, each container's content lambda runs inside its own reactive handle, so a reactive change re-executes only the nearest enclosing container and sends a targeted partial diff addressed at that subtree — instead of re-running the whole root render and re-walking the tree from the root. Falls back to a full render whenever the partial baseline cannot be trusted (resync pending, unknown node, duplicate ids). Combines with EnableSubtreeCaching ; wire output is validated against the flag-off path by the differential oracle in Ikon.Parallax.Test. Default false while being A/B measured.
+    bool EnableSubtreeRendering { get; set; }
     // Assigns a CSS block to a single client (e.g. a per-tenant theme overlay). Subsequent calls for the same client replace the previous assignment and queue a delete for the prior styleId on that client. Other clients are unaffected.
     string AddClientCss(int clientId, string css)
     // Adds a global CSS block that is sent to all connected clients. Idempotent: identical CSS returns the same style ID.
@@ -97,7 +99,7 @@ namespace Ikon.Parallax
     bool IsSnapshot { get; }
     // Adds a child node with the given type and props. The props parameter is the non-generic IDictionary on purpose: it's the ONLY type that cleanly accepts BOTH a `Dictionary<string, object>` (the natural non-null shape a model builds) AND a `Dictionary<string, object?>` (props that carry null values) with no nullability warning and no suppression. A generic `Dictionary<string, object?>` param warns CS8620 on the non-null form (identity-modulo-nullability), and no PAIR of generic overloads works either — nullability annotations are erased for overload resolution, so two such overloads are CS0111 (same signature) or CS0121 (ambiguous).
     void AddNode(string type, IDictionary? props = null, List<UIViewNode>? children = null, string? key = null, string[]? style = null, string? styleId = null, string file = "", int line = 0)
-    string? CreateAction<T>(Func<ActionArgs<T>, Task>? callback)
+    string? CreateAction<T>(Func<ActionArgs<T>, Task>? callback, string file = "", int line = 0)
     // Registers binary data as a payload and returns a reference string for use as an image src.
     string RegisterPayload(byte[] data, string mimeType)
   // Represents a single node in the UI view tree, with identity, props, children, and style information.
@@ -212,12 +214,12 @@ namespace Ikon.Parallax.Components.Charts
     int? LineWidth { get; init; }
   // Extension methods for rendering interactive chart components (bar, line, pie).
   static class ChartExtensions
-    // Renders an interactive bar chart with configurable grouping, layout, axes, and theming.
-    static void BarChart(UIView view, string[]? style = null, IEnumerable<Dictionary<string, object>>? data = null, IEnumerable<string>? keys = null, string? indexBy = null, BarGroupMode? groupMode = null, BarLayout? layout = null, ScaleType? valueScale = null, ScaleType? indexScale = null, bool? reverse = null, double? minValue = null, double? maxValue = null, double? padding = null, double? innerPadding = null, ChartMargin? margin = null, AxisConfig? axisTop = null, AxisConfig? axisRight = null, AxisConfig? axisBottom = null, AxisConfig? axisLeft = null, bool? enableGridX = null, bool? enableGridY = null, bool? enableLabel = null, int? labelSkipWidth = null, int? labelSkipHeight = null, string? labelTextColor = null, IEnumerable<LegendConfig>? legends = null, IEnumerable<string>? colors = null, ChartColorScheme? colorScheme = null, ChartTheme? theme = null, string? borderColor = null, double? borderRadius = null, double? borderWidth = null, string? valueFormat = null, bool? isInteractive = null, Func<ChartClickArgs, Task>? onClick = null, string? styleId = null, string? key = null, string file = "", int line = 0)
-    // Renders an interactive line chart with configurable curves, points, areas, and crosshairs.
-    static void LineChart(UIView view, string[]? style = null, IEnumerable<LineChartSeries>? data = null, ScaleType? xScaleType = null, ScaleType? yScaleType = null, double? xScaleMin = null, double? xScaleMax = null, double? yScaleMin = null, double? yScaleMax = null, bool? yScaleStacked = null, ChartMargin? margin = null, AxisConfig? axisTop = null, AxisConfig? axisRight = null, AxisConfig? axisBottom = null, AxisConfig? axisLeft = null, bool? enableGridX = null, bool? enableGridY = null, bool? enablePoints = null, int? pointSize = null, string? pointColor = null, string? pointBorderColor = null, int? pointBorderWidth = null, bool? enableArea = null, double? areaOpacity = null, double? areaBaselineValue = null, bool? enableCrosshair = null, CrosshairType? crosshairType = null, LineCurve? curve = null, IEnumerable<LegendConfig>? legends = null, IEnumerable<string>? colors = null, ChartColorScheme? colorScheme = null, ChartTheme? theme = null, double? lineWidth = null, bool? isInteractive = null, bool? useMesh = null, bool? enableSlices = null, string? xFormat = null, string? yFormat = null, string? gradientFromColor = null, string? gradientToColor = null, IEnumerable<double>? gridXValues = null, IEnumerable<double>? gridYValues = null, Func<ChartClickArgs, Task>? onClick = null, string? styleId = null, string? key = null, string file = "", int line = 0)
-    // Renders an interactive pie/donut chart with configurable arc labels, link labels, and legends.
-    static void PieChart(UIView view, string[]? style = null, IEnumerable<PieChartDatum>? data = null, double? innerRadius = null, double? padAngle = null, double? cornerRadius = null, double? startAngle = null, double? endAngle = null, bool? sortByValue = null, ChartMargin? margin = null, bool? enableArcLabels = null, string? arcLabelsTextColor = null, double? arcLabelsSkipAngle = null, bool? enableArcLinkLabels = null, string? arcLinkLabelsTextColor = null, double? arcLinkLabelsSkipAngle = null, double? arcLinkLabelsThickness = null, string? arcLinkLabelsColor = null, double? activeOuterRadiusOffset = null, IEnumerable<LegendConfig>? legends = null, IEnumerable<string>? colors = null, ChartColorScheme? colorScheme = null, ChartTheme? theme = null, string? borderColor = null, double? borderWidth = null, string? valueFormat = null, bool? arcLabelAsPercentage = null, bool? isInteractive = null, Func<ChartClickArgs, Task>? onClick = null, string? styleId = null, string? key = null, string file = "", int line = 0)
+    // Renders an interactive bar chart with configurable grouping, layout, axes, and theming. Pass valueUnit to render tooltip values and value-axis ticks in a human-scaled unit — well-known units are "milliseconds", "seconds", "bytes", "percent", and "usd" (e.g. 1333.9 milliseconds renders as "1.33 s"); any other string is appended as a plain suffix.
+    static void BarChart(UIView view, string[]? style = null, IEnumerable<Dictionary<string, object>>? data = null, IEnumerable<string>? keys = null, string? indexBy = null, BarGroupMode? groupMode = null, BarLayout? layout = null, ScaleType? valueScale = null, ScaleType? indexScale = null, bool? reverse = null, double? minValue = null, double? maxValue = null, double? padding = null, double? innerPadding = null, ChartMargin? margin = null, AxisConfig? axisTop = null, AxisConfig? axisRight = null, AxisConfig? axisBottom = null, AxisConfig? axisLeft = null, bool? enableGridX = null, bool? enableGridY = null, bool? enableLabel = null, int? labelSkipWidth = null, int? labelSkipHeight = null, string? labelTextColor = null, IEnumerable<LegendConfig>? legends = null, IEnumerable<string>? colors = null, ChartColorScheme? colorScheme = null, ChartTheme? theme = null, string? borderColor = null, double? borderRadius = null, double? borderWidth = null, string? valueFormat = null, string? valueUnit = null, bool? isInteractive = null, Func<ChartClickArgs, Task>? onClick = null, string? styleId = null, string? key = null, string file = "", int line = 0)
+    // Renders an interactive line chart with configurable curves, points, areas, and crosshairs. Pass valueUnit to render tooltip Y values and left-axis ticks in a human-scaled unit — well-known units are "milliseconds", "seconds", "bytes", "percent", and "usd" (e.g. 1333.9 milliseconds renders as "1.33 s"); any other string is appended as a plain suffix.
+    static void LineChart(UIView view, string[]? style = null, IEnumerable<LineChartSeries>? data = null, ScaleType? xScaleType = null, ScaleType? yScaleType = null, double? xScaleMin = null, double? xScaleMax = null, double? yScaleMin = null, double? yScaleMax = null, bool? yScaleStacked = null, ChartMargin? margin = null, AxisConfig? axisTop = null, AxisConfig? axisRight = null, AxisConfig? axisBottom = null, AxisConfig? axisLeft = null, bool? enableGridX = null, bool? enableGridY = null, bool? enablePoints = null, int? pointSize = null, string? pointColor = null, string? pointBorderColor = null, int? pointBorderWidth = null, bool? enableArea = null, double? areaOpacity = null, double? areaBaselineValue = null, bool? enableCrosshair = null, CrosshairType? crosshairType = null, LineCurve? curve = null, IEnumerable<LegendConfig>? legends = null, IEnumerable<string>? colors = null, ChartColorScheme? colorScheme = null, ChartTheme? theme = null, double? lineWidth = null, bool? isInteractive = null, bool? useMesh = null, bool? enableSlices = null, string? xFormat = null, string? yFormat = null, string? valueUnit = null, string? gradientFromColor = null, string? gradientToColor = null, IEnumerable<double>? gridXValues = null, IEnumerable<double>? gridYValues = null, Func<ChartClickArgs, Task>? onClick = null, string? styleId = null, string? key = null, string file = "", int line = 0)
+    // Renders an interactive pie/donut chart with configurable arc labels, link labels, and legends. Pass valueUnit to render tooltip values in a human-scaled unit — well-known units are "milliseconds", "seconds", "bytes", "percent", and "usd" (e.g. 1333.9 milliseconds renders as "1.33 s"); any other string is appended as a plain suffix.
+    static void PieChart(UIView view, string[]? style = null, IEnumerable<PieChartDatum>? data = null, double? innerRadius = null, double? padAngle = null, double? cornerRadius = null, double? startAngle = null, double? endAngle = null, bool? sortByValue = null, ChartMargin? margin = null, bool? enableArcLabels = null, string? arcLabelsTextColor = null, double? arcLabelsSkipAngle = null, bool? enableArcLinkLabels = null, string? arcLinkLabelsTextColor = null, double? arcLinkLabelsSkipAngle = null, double? arcLinkLabelsThickness = null, string? arcLinkLabelsColor = null, double? activeOuterRadiusOffset = null, IEnumerable<LegendConfig>? legends = null, IEnumerable<string>? colors = null, ChartColorScheme? colorScheme = null, ChartTheme? theme = null, string? borderColor = null, double? borderWidth = null, string? valueFormat = null, string? valueUnit = null, bool? arcLabelAsPercentage = null, bool? isInteractive = null, Func<ChartClickArgs, Task>? onClick = null, string? styleId = null, string? key = null, string file = "", int line = 0)
   // Styling for chart grid lines.
   class ChartGridStyle : IEquatable<ChartGridStyle>
     ctor()
@@ -389,7 +391,7 @@ namespace Ikon.Parallax.Components.ImageEditor
   // Extension methods for the image editor canvas component.
   static class ImageEditorExtensions
     // Canvas for editing images with brush and eraser tools.
-    static void ImageEditorCanvas(UIView view, string[]? style = null, string? src = null, int? brushWidth = null, string? brushColor = null, string? tool = null, double? zoom = null, int? textMaxLength = null, int? textFontSize = null, int? textPadding = null, Func<ImageEditorSaveArgs, Task>? onSave = null, Func<ImageEditorHistoryArgs, Task>? onHistoryChange = null, int? triggerSave = null, int? triggerUndo = null, int? triggerRedo = null, string? styleId = null, string? key = null, string file = "", int line = 0)
+    static void ImageEditorCanvas(UIView view, string[]? style = null, string? src = null, int? brushWidth = null, string? brushColor = null, string? tool = null, double? zoom = null, bool? highResolution = null, int? textMaxLength = null, int? textFontSize = null, int? textPadding = null, Func<ImageEditorSaveArgs, Task>? onSave = null, Func<ImageEditorHistoryArgs, Task>? onHistoryChange = null, int? triggerSave = null, int? triggerUndo = null, int? triggerRedo = null, string? styleId = null, string? key = null, string file = "", int line = 0)
   // Event args for when the undo/redo history state changes.
   sealed class ImageEditorHistoryArgs : IEquatable<ImageEditorHistoryArgs>
     // Event args for when the undo/redo history state changes.
@@ -1640,6 +1642,11 @@ namespace Ikon.Parallax.Theming
     static string Header
     static string Overlay
     static string Title
+  sealed class ThemeVocabulary.Alias : IEquatable<ThemeVocabulary.Alias>
+    ctor(string Name, IReadOnlyList<string> Targets, ThemeVocabulary.ValueKind Kind)
+    ThemeVocabulary.ValueKind Kind { get; init; }
+    string Name { get; init; }
+    IReadOnlyList<string> Targets { get; init; }
   static class Accessibility.Aria
     static string Busy
     static string Checked
@@ -2031,10 +2038,6 @@ namespace Ikon.Parallax.Theming
     static string None
     static string Sentinel
     static string Within
-  static class Tokens.FocusRing
-    static string Default
-    static string Strong
-    static string Subtle
   static class FormField
     static string ErrorText
     static string HelpText
@@ -2086,7 +2089,7 @@ namespace Ikon.Parallax.Theming
     static string Lg
     static string Md
     static string Sm
-  // Per-app theme configuration. Composes the platform's Ikon CSS baseline with per-token CSS-variable overrides addressed by name. One uniform syntax: an indexer keyed by CSS variable name (without the leading --) or by Tailwind utility token. The renderer dispatches by key shape: Tailwind palette step (amber-400) → --color-amber-400rounded-{rung} → --radius-{rung}shadow-{rung} → --shadow-{rung}font-{role} → --font-{role}ease-{kind} → --ease-{kind}Anything else → --{key} (free CSS variable) Values are Crosswind / Tailwind class names (resolved via CrosswindResolver ) or raw CSS values (hex, rem, family stacks, gradients) — the resolver passes raw values through. Example: private UI UI { get; } = new(app, new IkonTheme { // Brand commitment — set the semantic vars that components consume. ["primary"] = "amber-400", ["bg-brand-solid"] = "amber-400", ["bg-brand-solid-hover"] = "amber-400", ["text-brand"] = "amber-400", ["border-brand"] = "amber-400", ["primary-foreground"] = "#0A0A0A", // pick contrast yourself // Background + foreground. ["background"] = "zinc-950", ["text-primary"] = "amber-50", ["text-foreground"] = "amber-50", // Surfaces. ["card"] = "zinc-900", ["popover"] = "zinc-900", // Type + shape. ["font-heading"] = "Crimson Pro", ["font-body"] = "Inter", ["radius-base"] = "rounded-lg", // Motion. ["motion-duration-base"] = "200ms", ["ease-default"] = "ease-out", // Per-token Tailwind palette / radius / shadow overrides. ["amber-400"] = "#F5A524", ["rounded-lg"] = "1.25rem", ["shadow-lg"] = "0 8px 16px rgba(0,0,0,.18)", // Bespoke decorative tokens. ["hero-glow"] = "radial-gradient(circle, #F5A52488, transparent 70%)", DarkMode = new IkonTheme { ["background"] = "zinc-50", ["text-primary"] = "zinc-950", }, }); The indexer is the only configurable surface — there are no magic property fan-outs and no auto-derived contrast text. What you write IS what lands in the override block.
+  // Per-app theme configuration. Composes the platform's Ikon CSS baseline with per-token CSS-variable overrides addressed by name. One uniform syntax: an indexer keyed by a vocabulary alias ( ThemeVocabulary ), a CSS variable name (without the leading --), or a Tailwind utility token. The renderer dispatches by key shape: Vocabulary alias (primary, card, radius, density) → its canonical variable clusterTailwind palette step (amber-400) → --color-amber-400 (Ikon scales like neutral-900 also set the bare var)rounded-{rung} → --radius-{rung}shadow-{rung} → --shadow-{rung}font-{role} → --font-{role}spacing → the --spacing density unitAnything else → --{key} (free CSS variable) Values are Crosswind / Tailwind class names (resolved via CrosswindResolver ) or raw CSS values (hex, rem, family stacks, gradients) — the resolver passes raw values through. Example — the structural core is a small committed set; expressive decoration (gradients, textures) stays concrete at use points: private UI UI { get; } = new(app, new IkonTheme { ["primary"] = "amber-400", // whole brand cluster: fills, CTA, focus ring, brand icons/text ["background"] = "zinc-950", ["card"] = "zinc-900", ["foreground"] = "amber-50", ["muted-foreground"] = "zinc-400", ["border"] = "zinc-800", ["font-heading"] = "Crimson Pro", ["font-body"] = "Inter", ["radius"] = "rounded-lg", ["density"] = "airy", ["motion-duration-base"] = "200ms", ["ease-default"] = "ease-out", // Per-token palette / radius / shadow overrides and free decorative vars. ["amber-400"] = "#F5A524", ["shadow-lg"] = "0 8px 16px rgba(0,0,0,.18)", ["hero-glow"] = "radial-gradient(circle, #F5A52488, transparent 70%)", DarkMode = new IkonTheme { ["background"] = "zinc-50", ["foreground"] = "zinc-950", }, }); Aliases expand to exactly their documented cluster — beyond that there is no magic fan-out and no auto-derived contrast text. A later explicit entry overrides an alias-expanded one (["primary"] then ["bg-brand-button"] re-pins just the CTA).
   sealed class IkonTheme : ITheme
     ctor()
     // Paired dark-mode theme. Pass another IkonTheme ; its overrides are emitted under [data-theme="dark"], .dark, and prefers-color-scheme: dark. Only meaningful in Adaptive mode.
@@ -2530,6 +2533,10 @@ namespace Ikon.Parallax.Theming
   enum ThemeMode
     Adaptive
     Fixed
+  // The canonical theming vocabulary: shadcn-style theme keys and what they commit. Each alias expands to the canonical CSS variables that make its intent real across every consumer (components, focus rings, native clients). This table is the single source of truth — the theme renderer expands aliases through it, the codegen styling tools fan roles out through it, and the docs drift tests lock the published reference tables to it. Collision policy: `primary` as a THEME KEY means brand (the shadcn reading; the Untitled-UI tiered reading only ever existed on the prefixed utility classes, which are untouched). Bare `accent` and `secondary` are deliberately NOT aliases — their shadcn and Ikon meanings genuinely conflict, so they stay unknown-key warnings instead of guessing.
+  static class ThemeVocabulary
+    // Every accepted alias, keyed by name.
+    static IReadOnlyDictionary<string, ThemeVocabulary.Alias> Aliases { get; }
   static class TimePicker
     static string Column
     static string ColumnSeparator
@@ -2594,6 +2601,13 @@ namespace Ikon.Parallax.Theming
     static string Negative
     static string Neutral
     static string Positive
+  enum ThemeVocabulary.ValueKind
+    Color
+    FontFamily
+    Radius
+    Duration
+    Easing
+    Spacing
   static class Separator.Variant
     static string Default
     static string Strong

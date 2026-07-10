@@ -6,7 +6,7 @@ public record ClientParams(string Id, string Test);
 [App]
 public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 {
-    private UI UI { get; } = new(app, new Theme()) { EnableProfiling = false, EnableSubtreeCaching = true };
+    private UI UI { get; } = new(app, new Theme()) { EnableProfiling = false, EnableSubtreeCaching = true, EnableSubtreeRendering = true };
     private Audio Audio { get; set; } = new(app);
     private Video Video { get; } = new(app);
     private AudioGenerator AudioGenerator { get; } = new();

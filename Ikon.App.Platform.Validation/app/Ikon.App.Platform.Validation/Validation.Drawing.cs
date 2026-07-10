@@ -11,6 +11,7 @@ public partial class Validation
     private readonly Reactive<bool> _drawingCanUndo = new(false);
     private readonly Reactive<bool> _drawingCanRedo = new(false);
     private readonly Reactive<string> _drawingSourceUrl = new("https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900");
+    private readonly Reactive<bool> _drawingHighResolution = new(true);
 
     private static readonly (string Url, string Label)[] DrawingSources =
     [
@@ -124,6 +125,10 @@ public partial class Validation
 
                         row3.Box(["w-px h-8 bg-secondary"]);
 
+                        row3.Switch(bind: _drawingHighResolution, label: "High resolution");
+
+                        row3.Box(["w-px h-8 bg-secondary"]);
+
                         row3.Button([Button.SolidSm, "gap-1.5"], label: "Save", icon: "save",
                             onClick: async () => _drawingTriggerSave.Value = _drawingTriggerSave.Value + 1);
                     });
@@ -152,6 +157,7 @@ public partial class Validation
                     brushColor: _drawingBrushColor.Value,
                     brushWidth: _drawingBrushWidth.Value,
                     zoom: _drawingZoom.Value,
+                    highResolution: _drawingHighResolution.Value,
                     triggerSave: _drawingTriggerSave.Value,
                     triggerUndo: _drawingTriggerUndo.Value,
                     triggerRedo: _drawingTriggerRedo.Value,

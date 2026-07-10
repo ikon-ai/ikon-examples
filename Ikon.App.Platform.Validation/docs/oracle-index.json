@@ -100,7 +100,7 @@
         "value mutation"
       ],
       "file": "docs/guides/reactive-state.md",
-      "sizeBytes": 34312,
+      "sizeBytes": 34830,
       "alsoInclude": [
         "app-structure",
         "ui-components"
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 198989,
+      "sizeBytes": 201865,
       "alsoInclude": []
     },
     {
@@ -173,7 +173,7 @@
         "legend"
       ],
       "file": "docs/guides/charts.md",
-      "sizeBytes": 2312,
+      "sizeBytes": 2731,
       "alsoInclude": []
     },
     {
@@ -218,7 +218,7 @@
         "dual theme"
       ],
       "file": "docs/guides/ikon-theming-guide.md",
-      "sizeBytes": 21154,
+      "sizeBytes": 32816,
       "alsoInclude": [
         "styling-and-motion"
       ]
@@ -238,7 +238,7 @@
         "scanline"
       ],
       "file": "docs/guides/styling-guide.md",
-      "sizeBytes": 36567,
+      "sizeBytes": 37479,
       "alsoInclude": [
         "styling-and-motion"
       ]
@@ -281,7 +281,7 @@
         "transitions"
       ],
       "file": "docs/guides/tailwind-reference.md",
-      "sizeBytes": 106237,
+      "sizeBytes": 107099,
       "alsoInclude": []
     },
     {
@@ -346,7 +346,7 @@
         "AI connection"
       ],
       "file": "docs/guides/ai-models.md",
-      "sizeBytes": 26833,
+      "sizeBytes": 27576,
       "alsoInclude": []
     },
     {

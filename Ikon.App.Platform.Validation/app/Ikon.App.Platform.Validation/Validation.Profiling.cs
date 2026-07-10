@@ -7,6 +7,7 @@ public partial class Validation
     private readonly Reactive<long> _profilingCounter = new(0);
     private readonly Reactive<string> _profilingSummary = new("");
     private readonly Reactive<bool> _profilingSubtreeCaching = new(true);
+    private readonly Reactive<bool> _profilingSubtreeRendering = new(true);
 
     private CancellationTokenSource? _profilingCts;
 
@@ -28,9 +29,6 @@ public partial class Validation
 
     private void RenderProfilingSection(UIView view)
     {
-        var history = Profiler.History;
-        var totalStats = history?.GetTotalStats() ?? default;
-
         view.Column([Layout.Column.Lg], content: view =>
         {
             view.Box([Card.Default, "p-6"], content: view =>
@@ -88,15 +86,43 @@ public partial class Validation
                             {
                                 _profilingSubtreeCaching.Value = v;
                                 UI.EnableSubtreeCaching = v;
+                                ResetProfilingStatsAfterModeChange();
                             },
                             content: view => view.CheckboxIndicator([Checkbox.Indicator], content: v => v.Icon(name: "check")));
                         view.Text([Text.Body], "Subtree caching");
+                    });
+
+                    view.Row([Layout.Row.Md, "items-center"], content: view =>
+                    {
+                        view.Checkbox([Checkbox.Root],
+                            isChecked: _profilingSubtreeRendering.Value,
+                            onCheckedChange: async v =>
+                            {
+                                _profilingSubtreeRendering.Value = v;
+                                UI.EnableSubtreeRendering = v;
+                                // The per-container handle graph is built and torn down by a full
+                                // root render; without one, the previous mode keeps running.
+                                app.ReactiveGlobalState.Clients.NotifyUpdate();
+                                ResetProfilingStatsAfterModeChange();
+                            },
+                            content: view => view.CheckboxIndicator([Checkbox.Indicator], content: v => v.Icon(name: "check")));
+                        view.Text([Text.Body], "Subtree rendering (partial updates)");
                     });
                 });
             });
 
             view.Box([Card.Default, "p-6"], content: view =>
             {
+                // Profiler stats are not reactive; tie this subtree to the profiling tick and the
+                // mode toggles so it refreshes on every update AND immediately on a mode change,
+                // and read the stats HERE so each rebuild sees fresh values instead of a stale
+                // closure from the enclosing render.
+                _ = _profilingCounter.Value;
+                _ = _profilingSubtreeRendering.Value;
+                _ = _profilingSubtreeCaching.Value;
+                var history = Profiler.History;
+                var totalStats = history?.GetTotalStats() ?? default;
+
                 view.Text([Text.H3, "mb-4"], "Live Metrics");
 
                 view.Row([Layout.Row.Lg, "flex-wrap"], content: view =>
@@ -112,8 +138,11 @@ public partial class Validation
 
             view.Box([Card.Default, "p-6"], content: view =>
             {
+                _ = _profilingCounter.Value;
+                _ = _profilingSubtreeRendering.Value;
+                _ = _profilingSubtreeCaching.Value;
                 view.Text([Text.H3, "mb-4"], "Detailed Phase Breakdown");
-                RenderPhaseBreakdownTable(view, history);
+                RenderPhaseBreakdownTable(view, Profiler.History);
             });
 
             view.Box([Card.Default, "p-6"], content: view =>
@@ -177,6 +206,27 @@ public partial class Validation
         {
             view.Text([Text.Caption], label);
             view.Text([Text.H2], value);
+        });
+    }
+
+    // A render-mode change invalidates accumulated samples: mixing both modes' timings makes the
+    // stats meaningless and leaves the old mode's phase rows lingering in the breakdown table.
+    // Recording pauses through the transition (the mode switch itself still renders frames under
+    // the OLD mode's handle graph) and the reset lands once the switch has settled.
+    private void ResetProfilingStatsAfterModeChange()
+    {
+        Profiler.PauseHistory();
+
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(300);
+            Profiler.ResetHistory();
+            _profilingCounter.Value = 0;
+
+            if (_profilingRunning.Peek)
+            {
+                Profiler.ResumeHistory();
+            }
         });
     }
 

@@ -540,6 +540,11 @@ namespace Ikon.Common.Core
     string? SignedDocumentMimeType { get; set; }
     string? SignerNameHash { get; set; }
     string Status { get; set; }
+  class IkonBackend.GithubAppInfo
+    ctor()
+    string? AppSlug { get; set; }
+    string? ClientId { get; set; }
+    bool Enabled { get; set; }
   class HighPrecisionTimestamp : AsyncLocalInstance<HighPrecisionTimestamp>
     ctor()
     DateTime UtcNow { get; }
@@ -710,6 +715,7 @@ namespace Ikon.Common.Core
     Task<string> GetEntitlementAsync(string offerId, string customerKey, CancellationToken cancellationToken = null)
     Task<IkonBackend.Folder> GetFolderByPathAsync(string spaceId, string path)
     Task<List<IkonBackend.Folder>> GetFoldersAsync(string spaceId, string path, int maxResults = 1000)
+    Task<IkonBackend.GithubAppInfo> GetGithubAppInfoAsync()
     static IEnumerable<string> GetIkonDataDirectoryCandidates()
     Task<InboundEmailDetailDto> GetInboundEmailAsync(string id)
     Task<InboundEmailPageDto> GetInboundEmailsAsync(string? recipient, string? fromAddress, DateTimeOffset? since, DateTimeOffset? until, int? limit, string? cursor)
@@ -726,6 +732,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.Pipeline> GetPipelineAsync(string id)
     Task<IkonBackend.Pipeline?> GetPipelineByTypeNameAsync(string spaceId, string typeName)
     Task<List<IkonBackend.Pipeline>> GetPipelinesAsync(string spaceId, int maxResults = 1000)
+    static string GetPlatformDisplayName(IkonBackend.EnvironmentType environment)
     Task<IkonBackend.Plugin> GetPluginAsync(string id)
     Task<List<IkonBackend.Plugin>> GetPluginsAsync(string spaceId, int maxResults = 1000)
     Task<IkonBackend.Profile> GetProfileAsync(string spaceId, string userId)
@@ -1390,6 +1397,8 @@ namespace Ikon.Common.Core
   class IkonBackend.SpaceConnectedGitRepository
     ctor()
     string? DefaultBranch { get; set; }
+    string? GithubUserToken { get; set; }
+    string? InstallationId { get; set; }
     string? Password { get; set; }
     string Provider { get; set; }
     string? RepositoryId { get; set; }
@@ -1432,7 +1441,6 @@ namespace Ikon.Common.Core
   class IkonBackend.SpaceGitRepository
     ctor()
     string GitPassword { get; set; }
-    string? GitRepositoryPath { get; set; }
     string GitRepositoryUrl { get; set; }
     string GitUsername { get; set; }
   class IkonBackend.SpaceLanguages
@@ -5978,6 +5986,7 @@ namespace Ikon.Common.Core.Reactive
     int? GroupId { get; set; }
     Guid Id { get; }
     bool IsUpdate { get; }
+    ReactiveManager.Handle? Parent { get; }
     DateTime? UpdatedAt { get; }
     void StopTracking(bool isUpdating)
     override string ToString()
@@ -6070,6 +6079,10 @@ namespace Ikon.Common.Core.Reactive
   class ReactiveManager : IDisposable
     ctor(string category)
     string Category { get; }
+    // Live-handle count above which Dispose logs a leak warning. The default suits the classic one-render-handle-per-client shape; per-container subtree rendering legitimately holds one handle per UI container, so its owner raises this to keep the warning meaningful.
+    int DisposeHandleWarningThreshold { get; set; }
+    // Number of currently registered (dispatchable) handles. Diagnostic counterpart of DisposeHandleWarningThreshold .
+    int LiveHandleCount { get; }
     int UpdatedHandleCount { get; }
     void DecrementUICreationOngoing()
     void Dispose()
