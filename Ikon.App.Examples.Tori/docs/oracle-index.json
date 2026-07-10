@@ -100,7 +100,7 @@
         "value mutation"
       ],
       "file": "docs/guides/reactive-state.md",
-      "sizeBytes": 34312,
+      "sizeBytes": 34830,
       "alsoInclude": [
         "app-structure",
         "ui-components"
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 200295,
+      "sizeBytes": 201865,
       "alsoInclude": []
     },
     {
@@ -173,7 +173,7 @@
         "legend"
       ],
       "file": "docs/guides/charts.md",
-      "sizeBytes": 2312,
+      "sizeBytes": 2731,
       "alsoInclude": []
     },
     {
