@@ -50,4 +50,6 @@ view.LineChart(
 
 All three also accept `colorScheme:` (a `ChartColorScheme` enum value like `ChartColorScheme.Nivo` — NOT a string like `"nivo"`, which is CS1503), `margin:` (`ChartMargin`), `axisBottom:` / `axisLeft:` (`AxisConfig`), `legends:`, `isInteractive:`, and an `onClick:` handler. See the UI API Reference for the full parameter list.
 
+When the plotted values carry a unit, pass `valueUnit:` — tooltips and value-axis ticks then render human-scaled unit strings instead of bare numbers. Well-known units are `"milliseconds"`, `"seconds"`, `"bytes"`, `"percent"`, and `"usd"` (auto-scaled: `1333.9` milliseconds renders as `1.33 s`, `2411724` bytes as `2.3 MB`); any other string is appended as a plain suffix (`valueUnit: "credits"` → `12 credits`).
+
 For dark backgrounds, pass the ready-made preset `theme: ChartThemes.DefaultDark` (charts inherit sensible defaults if you omit `theme:`). Do NOT hand-construct `new ChartTheme { TextColor = ..., GridColor = ..., TooltipBackground = ... }` — `ChartTheme` has no such flat color properties (it nests `Axis`, `Grid`, `Tooltip`, ... style objects), so invented names are CS0117. Use the preset, or omit `theme:` entirely.
