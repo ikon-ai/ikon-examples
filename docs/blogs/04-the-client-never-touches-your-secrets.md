@@ -41,10 +41,10 @@ This is what server-side AI code looks like — the AI can query a database dire
 var (analysis, _) = await Emerge.Run<Report>(LLMModel.Claude46Sonnet, context, pass =>
 {
     pass.Command = "Analyze this financial data";
-    pass.AddTool("query_database", "Run a SQL query", async (string sql) =>
+    pass.AddTool(Tool.Of("query_database", "Run a SQL query", async (string sql) =>
     {
         return await _database.QueryAsync(sql);
-    });
+    }));
 }).FinalAsync();
 ```
 

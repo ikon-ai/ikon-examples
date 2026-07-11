@@ -419,8 +419,8 @@ public static class MyMapExtensions
 
     public static void MyMap(
         this UIView view,
-        List<MapPin>? pins = null,
-        List<AreaOverlay>? areas = null,
+        IReadOnlyList<MapPin>? pins = null,
+        IReadOnlyList<AreaOverlay>? areas = null,
         double? centerLat = null,
         double? centerLon = null,
         int? zoom = null,
@@ -488,15 +488,18 @@ public class MyApp(IApp<SessionIdentity, ClientParameters> app)
 {
     private UI UI { get; } = new(app, new IkonTheme());
 
-    private readonly Reactive<List<MapPin>> _pins = new([]);
+    private readonly ReactiveList<MapPin> _pins = new();
     private readonly Reactive<string?> _selectedPinId = new(null);
     private readonly Reactive<string?> _lastClickInfo = new(null);
 
     public async Task Main()
     {
-        // Seed some example pins
-        _pins.Value.Add(new MapPin { Id = "hq", Lat = 51.505, Lon = -0.09, Label = "HQ", Color = "#00ff88" });
-        _pins.Value.Add(new MapPin { Id = "depot", Lat = 51.51, Lon = -0.08, Label = "Depot", Color = "#ff6600" });
+        // Seed some example pins — one AddRange, one change notification
+        _pins.AddRange(
+        [
+            new MapPin { Id = "hq", Lat = 51.505, Lon = -0.09, Label = "HQ", Color = "#00ff88" },
+            new MapPin { Id = "depot", Lat = 51.51, Lon = -0.08, Label = "Depot", Color = "#ff6600" }
+        ]);
 
         UI.Root([Page.Default], content: view =>
         {
