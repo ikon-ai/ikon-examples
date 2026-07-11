@@ -24,7 +24,7 @@
         "invite link"
       ],
       "file": "docs/guides/app-structure.md",
-      "sizeBytes": 18523,
+      "sizeBytes": 18606,
       "alsoInclude": []
     },
     {
@@ -65,7 +65,7 @@
         "CS0234"
       ],
       "file": "docs/guides/csharp-primer.md",
-      "sizeBytes": 5903,
+      "sizeBytes": 5882,
       "alsoInclude": []
     },
     {
@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 262138,
+      "sizeBytes": 215471,
       "alsoInclude": []
     },
     {
@@ -100,7 +100,7 @@
         "value mutation"
       ],
       "file": "docs/guides/reactive-state.md",
-      "sizeBytes": 34830,
+      "sizeBytes": 39113,
       "alsoInclude": [
         "app-structure",
         "ui-components"
@@ -128,7 +128,7 @@
         "message bubbles"
       ],
       "file": "docs/guides/ui-components.md",
-      "sizeBytes": 14926,
+      "sizeBytes": 14853,
       "alsoInclude": [
         "app-structure"
       ]
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 201865,
+      "sizeBytes": 191110,
       "alsoInclude": []
     },
     {
@@ -190,7 +190,7 @@
         "theme customization"
       ],
       "file": "docs/guides/styling-and-motion.md",
-      "sizeBytes": 13803,
+      "sizeBytes": 13807,
       "alsoInclude": [
         "ui-components",
         "app-structure",
@@ -218,7 +218,7 @@
         "dual theme"
       ],
       "file": "docs/guides/ikon-theming-guide.md",
-      "sizeBytes": 32816,
+      "sizeBytes": 32830,
       "alsoInclude": [
         "styling-and-motion"
       ]
@@ -238,7 +238,7 @@
         "scanline"
       ],
       "file": "docs/guides/styling-guide.md",
-      "sizeBytes": 37479,
+      "sizeBytes": 38301,
       "alsoInclude": [
         "styling-and-motion"
       ]
@@ -281,7 +281,7 @@
         "transitions"
       ],
       "file": "docs/guides/tailwind-reference.md",
-      "sizeBytes": 107099,
+      "sizeBytes": 27483,
       "alsoInclude": []
     },
     {
@@ -302,7 +302,7 @@
         "timeout"
       ],
       "file": "docs/guides/emergence.md",
-      "sizeBytes": 41075,
+      "sizeBytes": 25167,
       "alsoInclude": [
         "app-structure",
         "ai-models"
@@ -326,7 +326,7 @@
         "advanced patterns"
       ],
       "file": "docs/guides/emergence-patterns.md",
-      "sizeBytes": 30538,
+      "sizeBytes": 19937,
       "alsoInclude": [
         "emergence"
       ]
@@ -346,7 +346,7 @@
         "AI connection"
       ],
       "file": "docs/guides/ai-models.md",
-      "sizeBytes": 27576,
+      "sizeBytes": 25506,
       "alsoInclude": []
     },
     {
@@ -361,7 +361,7 @@
         "ImageGeneratorConfig"
       ],
       "file": "docs/guides/ai-image.md",
-      "sizeBytes": 5066,
+      "sizeBytes": 5276,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -383,7 +383,7 @@
         "SoundEffectGenerator"
       ],
       "file": "docs/guides/ai-speech-and-audio.md",
-      "sizeBytes": 19330,
+      "sizeBytes": 21121,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -409,7 +409,7 @@
         "show a video"
       ],
       "file": "docs/guides/ai-video.md",
-      "sizeBytes": 7339,
+      "sizeBytes": 7983,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -433,7 +433,7 @@
         "EmbeddingGenerator"
       ],
       "file": "docs/guides/ai-web-and-data.md",
-      "sizeBytes": 25841,
+      "sizeBytes": 31280,
       "alsoInclude": [
         "emergence"
       ]
@@ -448,7 +448,7 @@
         "storage"
       ],
       "file": "docs/guides/ai-advanced.md",
-      "sizeBytes": 6416,
+      "sizeBytes": 6279,
       "alsoInclude": [
         "emergence"
       ]
@@ -471,7 +471,7 @@
         "filter"
       ],
       "file": "docs/guides/audio-video.md",
-      "sizeBytes": 45355,
+      "sizeBytes": 23083,
       "alsoInclude": []
     },
     {
@@ -488,7 +488,7 @@
         "optimistic concurrency"
       ],
       "file": "docs/guides/asset-system.md",
-      "sizeBytes": 22055,
+      "sizeBytes": 22259,
       "alsoInclude": []
     },
     {
@@ -516,7 +516,7 @@
         "audio file"
       ],
       "file": "docs/guides/media-analysis.md",
-      "sizeBytes": 24576,
+      "sizeBytes": 24780,
       "alsoInclude": []
     },
     {
@@ -543,7 +543,7 @@
         "function"
       ],
       "file": "docs/guides/endpoints-webhooks.md",
-      "sizeBytes": 41749,
+      "sizeBytes": 41647,
       "alsoInclude": []
     },
     {
@@ -554,6 +554,7 @@
         "PostgreSQL",
         "SQL",
         "db",
+        "app.Database",
         "AppDatabaseConnection",
         "EF Core",
         "Entity Framework",
@@ -563,7 +564,7 @@
         "LINQ"
       ],
       "file": "docs/guides/databases.md",
-      "sizeBytes": 5168,
+      "sizeBytes": 5137,
       "alsoInclude": []
     },
     {
@@ -610,7 +611,7 @@
         "cancel subscription"
       ],
       "file": "docs/guides/payments.md",
-      "sizeBytes": 17153,
+      "sizeBytes": 17311,
       "alsoInclude": []
     },
     {
@@ -649,7 +650,7 @@
         "callable functions"
       ],
       "file": "docs/guides/function-registry.md",
-      "sizeBytes": 32736,
+      "sizeBytes": 33375,
       "alsoInclude": []
     },
     {
@@ -692,7 +693,7 @@
         "pipeline guide"
       ],
       "file": "docs/guides/pipelines-reference.md",
-      "sizeBytes": 83681,
+      "sizeBytes": 84189,
       "alsoInclude": []
     },
     {

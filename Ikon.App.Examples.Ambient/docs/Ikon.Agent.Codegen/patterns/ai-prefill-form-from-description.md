@@ -22,8 +22,8 @@ private async Task RunWizardAiPrefillAsync()
     try
     {
         var model = await ResolveModelAsync(ModelTier.Large);
-        var (result, _) = await Emerge.Run<CaseDescriptionAnalysis>(
-            model, new KernelContext(), pass =>
+        var result = await Emerge.Run<CaseDescriptionAnalysis>(
+            model, pass =>
             {
                 pass.SystemPrompt = "You are a legal case intake assistant. Analyze the case description and extract structured information. " +
                     "Extract every detail that is stated or strongly implied — names, identifiers, contact details, addresses. " +
@@ -34,24 +34,21 @@ private async Task RunWizardAiPrefillAsync()
                     $"Return JSON:\n{pass.JsonSchema}";
                 pass.Temperature = 0.3;
                 pass.MaxOutputTokens = 6000;
-            }).FinalAsync();
+            }).ResultAsync();
 
-        if (result != null)
+        // Only fill empty fields — never overwrite what the user has typed.
+        if (string.IsNullOrWhiteSpace(_newCaseName.Value) && !string.IsNullOrEmpty(result.SuggestedCaseName))
+            _newCaseName.Value = result.SuggestedCaseName;
+
+        if (string.IsNullOrWhiteSpace(_wizardClientName.Value) && !string.IsNullOrEmpty(result.ClientName))
+            _wizardClientName.Value = result.ClientName;
+
+        if (result.ContactPersons.Count > 0 && _wizardContactPersons.Value.Count == 0)
         {
-            // Only fill empty fields — never overwrite what the user has typed.
-            if (string.IsNullOrWhiteSpace(_newCaseName.Value) && !string.IsNullOrEmpty(result.SuggestedCaseName))
-                _newCaseName.Value = result.SuggestedCaseName;
-
-            if (string.IsNullOrWhiteSpace(_wizardClientName.Value) && !string.IsNullOrEmpty(result.ClientName))
-                _wizardClientName.Value = result.ClientName;
-
-            if (result.ContactPersons.Count > 0 && _wizardContactPersons.Value.Count == 0)
-            {
-                _wizardContactPersons.AddRange(result.ContactPersons.Select(_ => new WizardContactPerson { /* ... */ }));
-            }
-
-            _wizardAiPrefillApplied.Value = true;
+            _wizardContactPersons.AddRange(result.ContactPersons.Select(_ => new WizardContactPerson { /* ... */ }));
         }
+
+        _wizardAiPrefillApplied.Value = true;
     }
     catch (Exception ex)
     {

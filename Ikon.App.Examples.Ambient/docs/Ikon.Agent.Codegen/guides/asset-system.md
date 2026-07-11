@@ -181,6 +181,10 @@ namespace Ikon.Common.Core.Assets
     Exists
     Changed
     Deleted
+  sealed class AssetUpdateConflictException : Exception
+    ctor(AssetUri assetUri, AssetMetadata? metadata)
+    AssetUri AssetUri { get; }
+    AssetMetadata? Metadata { get; }
   // AssetUris are used to store and retrieve data on the Ikon platform. Use the asset class to select the storage backend. Space ID, User ID, and Channel ID are optional identifiers to scope the asset. Path is the location of the asset within the storage backend. It may include subdirectories and/or a file name. Query is optional and is not used for now. Example asset URIs: assets://space/12345/user/67890/channel/12345/cloud-file/images/photos/pic1.jpg assets://cloud-json/config/settings.json assets://space/12345/local-file/documents/report.pdf assets://embedded-file/logo.png
   struct AssetUri : IEquatable<AssetUri>
     ctor(string uriString)

@@ -15,9 +15,8 @@ public sealed record TranscriptEntry(
     string Language, double DurationSeconds, string Summary,
     IReadOnlyList<string> ActionItems, DateTimeOffset CreatedAt);
 
-private readonly Reactive<IReadOnlyList<TranscriptEntry>> _transcripts = new([]);
+private readonly ReactiveList<TranscriptEntry> _transcripts = new();
 private readonly Reactive<string?> _activeTranscriptId = new(null);
-private readonly object _transcriptsLock = new();
 
 private AssetUri BuildTranscriptIndexUri(string userId) => new(
     AssetClass.CloudJson, "transcripts/index.json",
@@ -31,18 +30,13 @@ private async Task LoadTranscriptHistoryAsync()
     var entries = await Asset.Instance.TryGetAsync<List<TranscriptEntry>>(BuildTranscriptIndexUri(userId));
     if (entries == null) return;
 
-    lock (_transcriptsLock) { _transcripts.Value = entries; }
+    _transcripts.ReplaceAll(entries);
 }
 
 private async Task SaveTranscriptEntryAsync(TranscriptEntry entry)
 {
-    List<TranscriptEntry> updated;
-    lock (_transcriptsLock)
-    {
-        updated = new List<TranscriptEntry>(_transcripts.Value);
-        updated.Insert(0, entry);
-        _transcripts.Value = updated;
-    }
+    _transcripts.Insert(0, entry);
+    var updated = new List<TranscriptEntry>(_transcripts.Peek);
 
     var userId = ResolveUserId();
     if (string.IsNullOrWhiteSpace(userId)) return;
@@ -54,7 +48,7 @@ view.Column(["w-full lg:w-[320px] shrink-0"], content: view =>
     view.Box([Card.Default, "p-6"], content: view =>
     {
         view.Text([Text.H2, "mb-2"], "Saved transcripts");
-        foreach (var entry in _transcripts.Value)
+        foreach (var entry in _transcripts)
         {
             var isActive = entry.Id == _activeTranscriptId.Value;
             var cardStyle = isActive
@@ -64,7 +58,7 @@ view.Column(["w-full lg:w-[320px] shrink-0"], content: view =>
             {
                 view.Text([Text.Body, "font-semibold"], entry.FileName);
                 view.Text([Text.Caption], entry.CreatedAt.ToLocalTime().ToString("g"));
-                view.Button([Button.OutlineSm, "mt-3"], label: "Load",
+                view.Button([Button.OutlineSm, "mt-3"], text: "Load",
                     onClick: async () => await LoadTranscriptAsync(entry));
             });
         }
@@ -76,7 +70,7 @@ view.Column(["w-full lg:w-[320px] shrink-0"], content: view =>
 
 - Insert new entries at index 0 (`updated.Insert(0, entry)`) so newest appears at top — saves a separate sort step on every render.
 - The index stores only metadata + asset URIs. Don't denormalize the full transcript text into the index — re-saving the entire history on every new entry gets quadratic.
-- Lock around list mutation; `Reactive<IReadOnlyList<T>>` updates atomically via reassignment, but two concurrent `Save` calls could both copy from a stale list and then race-overwrite.
+- `_transcripts` is a `ReactiveList<TranscriptEntry>` — `Insert(0, entry)` / `ReplaceAll(entries)` each notify once and serialize internally, so no hand-rolled lock; two concurrent saves can't copy from a stale list. `Peek` gives an untracked snapshot for the asset write.
 - `userId` resolution falls back to `ReactiveScope.TryGet<UserScope>` then `app.GlobalState.PrimaryUserId` then `"dev-user"` — works in dev with auth disabled and in prod with real users.
 
 ## See also

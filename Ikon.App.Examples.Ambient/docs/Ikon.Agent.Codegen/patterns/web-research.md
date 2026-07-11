@@ -33,9 +33,9 @@ private async Task ResearchAsync()
         var sources = results.Select(r => new Source(r.Title, r.Url, r.Content)).ToList();
         var context = string.Join("\n", sources.Select((s, i) => $"[{i + 1}] {s.Title}\n{s.Snippet}"));
 
-        var (synthesisRaw, _) = await Emerge.Run<string>(LLMModel.Claude46Sonnet, new KernelContext(),
+        var synthesisRaw = await Emerge.Run<string>(LLMModel.Claude46Sonnet,
             pass => { pass.Command = $"Question: {q}\n\nSearch results:\n{context}\n\nWrite a concise answer citing sources by number [1], [2]…"; })
-            .FinalAsync();
+            .ResultAsync();
         var synthesis = string.IsNullOrEmpty(synthesisRaw) ? "(no synthesis)" : synthesisRaw;
 
         _answers.Value = [new Answer(q, synthesis, sources), .. _answers.Value]; // newest first

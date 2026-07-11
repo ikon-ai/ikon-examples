@@ -1,10 +1,9 @@
 # Ikon.Resonance Public API
 
 namespace Ikon.Resonance
-  // Extended audio frame with encoding options, analysis results, and target information.
-  struct AudioFrameEx
-    // Extended audio frame with encoding options, analysis results, and target information.
-    ctor(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string streamId, TimeSpan totalDuration = null, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null, IReadOnlyList<AudioAnalysisResult>? analysisResults = null, IReadOnlyList<AudioShapeSetDeclaration>? shapeSetDeclarations = null)
+  // Audio frame with samples, stream identity, and optional encoding options, analysis results, and target information.
+  struct AudioFrame
+    ctor(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string streamId, TimeSpan totalDuration = default, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null, IReadOnlyList<AudioAnalysisResult>? analysisResults = null, IReadOnlyList<AudioShapeSetDeclaration>? shapeSetDeclarations = null)
     IReadOnlyList<AudioAnalysisResult>? AnalysisResults { get; }
     int ChannelCount { get; }
     AudioEncoderOptions? EncoderOptions { get; }
@@ -16,82 +15,6 @@ namespace Ikon.Resonance
     string StreamId { get; }
     IReadOnlyList<int>? TargetIds { get; }
     TimeSpan TotalDuration { get; }
-  // Manages multiple audio sources and generates audio frames at a fixed rate (20ms at 48kHz stereo). Supports adding/removing sources dynamically, applying audio effects, and simulating network conditions. All options, sources, and effects can be changed while the generator is running without restart.
-  sealed class AudioGenerator
-    ctor()
-    // Gets a value indicating whether the audio generator is currently running.
-    bool IsRunning { get; }
-    // Gets the current options. To modify options, use UpdateOptions .
-    AudioGeneratorOptions Options { get; }
-    // Adds an audio effect to the effects chain. Effects are applied in order to all audio output.
-    void AddEffect(IAudioEffect effect)
-    // Adds an audio source to the generator.
-    string AddSource(IAudioSource source)
-    // Removes all audio effects from the effects chain.
-    void ClearEffects()
-    T GetSource<T>(string streamId) where T : class, IAudioSource
-    IEnumerable<ValueTuple<string, T>> GetSourcesOfType<T>() where T : class, IAudioSource
-    // Removes an audio effect at the specified index from the effects chain.
-    void RemoveEffectAt(int index)
-    // Marks an audio source for removal. The source will be removed after its final frame is sent.
-    bool RemoveSource(string streamId)
-    // Replaces an audio effect at the specified index with a new effect.
-    void ReplaceEffect(int index, IAudioEffect newEffect)
-    // Starts the audio generation loop asynchronously.
-    Task StartAsync(Func<AudioGeneratorFrame, ValueTask> onFrame, Func<string, ValueTask>? onStreamEnd = null, CancellationToken cancellationToken = null)
-    // Stops the audio generation loop and waits for it to complete.
-    Task StopAsync()
-    // Updates the generator options dynamically. Changes take effect on the next frame.
-    void UpdateOptions(Action<AudioGeneratorOptions> configure)
-  // Output frame from the AudioGenerator.
-  struct AudioGeneratorFrame
-    // Output frame from the AudioGenerator.
-    ctor(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string streamId)
-    int ChannelCount { get; }
-    bool IsFirst { get; }
-    bool IsLast { get; }
-    int SampleRate { get; }
-    ReadOnlyMemory<float> Samples { get; }
-    string StreamId { get; }
-  // Configuration options for the AudioGenerator to simulate various network conditions such as jitter, drift, burst transmission, and periodic pauses. All options can be changed dynamically while the generator is running.
-  sealed class AudioGeneratorOptions
-    ctor()
-    // Number of packets to send in each burst.
-    int BurstPacketCount { get; set; }
-    // Drift factor: 1.0 = realtime, 1.1 = 10% faster, 0.9 = 10% slower.
-    double DriftFactor { get; set; }
-    // Enable burst mode - sends multiple packets at once, then waits. Exercises buffer overflow handling on the receiver.
-    bool EnableBurstMode { get; set; }
-    // Enable drift simulation - sends audio faster or slower than real-time. Exercises driftCorrection on the receiver.
-    bool EnableDrift { get; set; }
-    // Enable jitter simulation - adds random timing variation to each packet. Exercises jitterTracking and adaptiveBuffering on the receiver.
-    bool EnableJitter { get; set; }
-    // Enable periodic pauses in packet sending. Exercises buffer underrun handling on the receiver.
-    bool EnablePause { get; set; }
-    // Maximum jitter magnitude in milliseconds. Actual jitter varies from -JitterMs to +JitterMs.
-    int JitterMs { get; set; }
-    // Duration of each pause in milliseconds.
-    int PauseDurationMs { get; set; }
-    // Interval between pauses in milliseconds (time of active sending before each pause).
-    int PauseIntervalMs { get; set; }
-  // Tracks audio stream metrics including packet counts, inter-packet delays, jitter, and encoding times. Supports tracking metrics across multiple streams.
-  class AudioMetrics
-    ctor()
-    double AvgEncodeTimeMs { get; }
-    double AvgIpdMs { get; }
-    double CpuUsagePercent { get; }
-    bool Enabled { get; set; }
-    double JitterMs { get; }
-    bool LogMetrics { get; set; }
-    double MaxIpdMs { get; }
-    double MinIpdMs { get; }
-    int StreamCount { get; }
-    double UpdateIntervalSeconds { get; set; }
-    void RecordPacket(string streamId, double encodingTimeMs)
-    void Remove(string streamId)
-    void Reset(string streamId)
-    void ResetAll()
-    event Action? Updated
   // Provides methods for resampling audio between different sample rates and channel configurations. Supports mono and stereo audio using linear interpolation for sample rate conversion.
   static class AudioResampler
     // Calculates the number of output frames after resampling.
@@ -104,15 +27,6 @@ namespace Ikon.Resonance
     static void Resample(ReadOnlySpan<float> source, Span<float> destination, int inputSampleRate, int outputSampleRate, int inputChannelCount, int outputChannelCount)
     // The maximum number of audio channels supported (mono or stereo).
     static int MaxSupportedChannelCount
-  // High-performance adaptive timer for audio frame pacing. Learns the actual sleep behavior of the OS and adjusts dynamically to minimize CPU usage while maintaining precise timing for audio frame delivery.
-  sealed class AudioTimer
-    ctor()
-    // Resets the timer state. Call when timing context changes significantly (e.g., after pausing/resuming audio, changing audio sources).
-    void Reset()
-    // Synchronous version for scenarios where async is not available. Uses Thread.Sleep instead of Task.Delay.
-    void WaitUntil(long targetTicks, CancellationToken token)
-    // Waits until the target time, using adaptive sleeping to minimize CPU usage.
-    Task WaitUntilAsync(long targetTicks, CancellationToken token)
   // Provides utility methods for converting audio samples between PCM 16-bit integer and 32-bit float formats.
   static class AudioUtils
     // Converts 32-bit float samples to 16-bit PCM samples as raw bytes (little-endian). Float values are clamped to [-1.0, 1.0] before conversion.
@@ -149,7 +63,7 @@ namespace Ikon.Resonance
     // Unregisters a participant. They will no longer receive mixed audio output.
     void RemoveParticipant(string excludeKey)
     void RemoveStream(string streamId)
-    Task StartAsync(Func<string, AudioFrameEx, ValueTask> onFrame, CancellationToken cancellationToken = null)
+    Task StartAsync(Func<string, AudioFrame, ValueTask> onFrame, CancellationToken cancellationToken = default)
     void WriteSamples(string streamId, ReadOnlySpan<float> samples, int sampleRate, int channelCount)
   // Configuration for the GroupAudioMixer .
   sealed class GroupAudioMixerConfig
@@ -163,12 +77,12 @@ namespace Ikon.Resonance
   enum WavFile.SampleFormat
     Short
     Float
-  // Filters silence from an audio chunk stream so that only speech reaches downstream consumers such as speech-to-text models (which tend to hallucinate on silent input). Uses asymmetric EMA for level tracking, an adaptive noise floor, and a circular pre-buffer to ensure speech onsets are never clipped. Designed for real-time audio at typical frame sizes (20 ms). Usage — push-based: call ProcessChunk per audio chunk, forward non-null results. Usage — stream-based: wrap an IAsyncEnumerable`1 source with FilterAsync .
+  // Filters silence from an audio chunk stream so that only speech reaches downstream consumers such as speech-to-text models (which tend to hallucinate on silent input). Uses asymmetric EMA for level tracking, an adaptive noise floor, and a circular pre-buffer to ensure speech onsets are never clipped. Designed for real-time audio at typical frame sizes (20 ms). Usage — push-based: call ProcessChunk per audio chunk, forward non-null results. Usage — stream-based: wrap an IAsyncEnumerable source with FilterAsync .
   sealed class SilenceRemover
     // Creates a new SilenceRemover for the given audio format.
     ctor(int sampleRate, int channelCount, SilenceRemoverConfig? config = null)
     // Wraps an async audio source, yielding only chunks that contain speech. Silence is suppressed and speech onsets include look-back audio from the pre-buffer.
-    static IAsyncEnumerable<float[]> FilterAsync(IAsyncEnumerable<float[]> source, int sampleRate, int channelCount, SilenceRemoverConfig? config = null, CancellationToken ct = null)
+    static IAsyncEnumerable<float[]> FilterAsync(IAsyncEnumerable<float[]> source, int sampleRate, int channelCount, SilenceRemoverConfig? config = null, CancellationToken ct = default)
     // Processes a single audio chunk and determines whether it should be forwarded downstream. Returns the samples to forward (including pre-buffered onset audio when speech begins), or null if the chunk is silence that should be suppressed.
     float[]? ProcessChunk(ReadOnlySpan<float> chunk)
     // Resets all internal state (EMA level, noise floor, pre-buffer, and state machine) to initial values. Call this when starting a new audio session on the same instance.
@@ -203,14 +117,13 @@ namespace Ikon.Resonance
     AudioEncoderOptions? EncoderOptions { get; set; }
     bool IsPaused { get; }
     string StreamId { get; }
-    void AddSamples(AudioContainer container, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null)
-    void AddSamples(string speechEventId, ReadOnlySpan<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null)
+    void AddSamples(AudioChunk chunk, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null)
     void Clear()
     ValueTask DisposeAsync()
     void FadeOut()
     void Pause()
     void Resume()
-    Task StartAsync(Func<AudioFrameEx, ValueTask> onFrame, CancellationToken cancellationToken = null)
+    Task StartAsync(Func<AudioFrame, ValueTask> onFrame, CancellationToken cancellationToken = default)
   // Configuration options for the SpeechMixer.
   sealed class SpeechMixerConfig
     ctor()
@@ -334,331 +247,3 @@ namespace Ikon.Resonance.Effects
     ctor()
     ctor(float rateHz, float depth, float mix, float stereoPhaseOffsetDegrees = 90)
     IAudioEffectInstance Create(int sampleRate, int channelCount)
-
-namespace Ikon.Resonance.Synth
-  // A synthesized drum machine IAudioSource that generates kick, hi-hat, and melody patterns at a specified BPM. Uses synthesis rather than samples for all drum sounds.
-  sealed class DrumMachineSource : IAudioSource
-    // A synthesized drum machine IAudioSource that generates kick, hi-hat, and melody patterns at a specified BPM. Uses synthesis rather than samples for all drum sounds.
-    ctor(double bpm)
-    double Bpm { get; }
-    void GenerateAudio(Span<float> buffer, int samplesPerChannel, int channelCount, int sampleRate)
-  // A simple IAudioSource that generates stereo sine waves from a pentatonic scale. Features slight stereo detuning for a wider sound.
-  sealed class SineWaveSource : IAudioSource
-    ctor(int frequencyIndex)
-    int FrequencyIndex { get; }
-    double FrequencyLeft { get; }
-    double FrequencyRight { get; }
-    void GenerateAudio(Span<float> buffer, int samplesPerChannel, int channelCount, int sampleRate)
-
-namespace Ikon.Resonance.Synth.Envelopes
-  // Implements an Attack-Decay-Sustain-Release (ADSR) envelope generator for amplitude and filter modulation. Uses exponential curves for natural-sounding transitions between stages.
-  sealed class AdsrEnvelope
-    ctor()
-    double Attack { get; set; }
-    double Decay { get; set; }
-    bool IsActive { get; }
-    double Output { get; }
-    double Release { get; set; }
-    EnvelopeStage Stage { get; }
-    double Sustain { get; set; }
-    void Gate(bool gate)
-    void NoteOff()
-    void NoteOn()
-    double Process()
-    void Reset()
-    void SetSampleRate(double sampleRate)
-  // Represents the current stage of an ADSR envelope.
-  enum EnvelopeStage
-    Idle
-    Attack
-    Decay
-    Sustain
-    Release
-
-namespace Ikon.Resonance.Synth.Filters
-  // Emulates the classic Moog ladder filter, a 4-pole (24dB/octave) low-pass filter with resonance. Features non-linear saturation for analog-style warmth.
-  sealed class MoogLadderFilter
-    ctor()
-    double Cutoff { get; set; }
-    double Drive { get; set; }
-    double Resonance { get; set; }
-    double Process(double input)
-    void Reset()
-    void SetSampleRate(double sampleRate)
-
-namespace Ikon.Resonance.Synth.Modulation
-  // Low Frequency Oscillator (LFO) for modulating synthesizer parameters such as pitch, filter cutoff, and pulse width. Supports multiple waveform shapes and configurable rate.
-  sealed class Lfo
-    ctor()
-    double Phase { get; }
-    double Rate { get; set; }
-    LfoWaveform Waveform { get; set; }
-    double Process()
-    void Reset()
-    void SetSampleRate(double sampleRate)
-    void Sync()
-  // Defines the waveform shapes available for the LFO.
-  enum LfoWaveform
-    Sine
-    Triangle
-    Saw
-    Square
-    SampleAndHold
-
-namespace Ikon.Resonance.Synth.Moog
-  // A polyphonic virtual analog synthesizer inspired by classic Moog synthesizers. Features dual oscillators, sub-oscillator, Moog ladder filter, dual envelopes, and LFO modulation.
-  sealed class MoogSynth
-    ctor(int voiceCount = 8)
-    Lfo Lfo { get; }
-    double NoiseFloor { get; set; }
-    MoogSynthPatch Patch { get; set; }
-    VoiceAllocator VoiceAllocator { get; }
-    void AllNotesOff()
-    void ApplyPatch()
-    void NoteOff(int noteNumber)
-    void NoteOn(int noteNumber, double velocity = 1)
-    double Process()
-    void Process(Span<float> buffer, int samplesPerChannel, int channelCount, int sampleRate)
-    void Reset()
-    void SetSampleRate(double sampleRate)
-  // Defines all configurable parameters for the Moog synthesizer including oscillator levels, filter settings, envelope times, LFO modulation, and master volume.
-  sealed class MoogSynthPatch
-    ctor()
-    double AmpAttack { get; set; }
-    double AmpDecay { get; set; }
-    double AmpRelease { get; set; }
-    double AmpSustain { get; set; }
-    double DriftAmount { get; set; }
-    double FilterAttack { get; set; }
-    double FilterCutoff { get; set; }
-    double FilterDecay { get; set; }
-    double FilterEnvAmount { get; set; }
-    double FilterKeyTrack { get; set; }
-    double FilterRelease { get; set; }
-    double FilterResonance { get; set; }
-    double FilterSustain { get; set; }
-    double LfoRate { get; set; }
-    double LfoToFilter { get; set; }
-    double LfoToPitch { get; set; }
-    double LfoToPwm { get; set; }
-    LfoWaveform LfoWaveform { get; set; }
-    double MasterVolume { get; set; }
-    string Name { get; set; }
-    double NoiseLevel { get; set; }
-    double Osc1Level { get; set; }
-    double Osc2Level { get; set; }
-    double Osc2PulseWidth { get; set; }
-    double SubLevel { get; set; }
-  // Provides a collection of preset patches for the Moog synthesizer including basses, leads, pads, and brass sounds.
-  static class MoogSynthPresets
-    static MoogSynthPatch AcidLead()
-    static MoogSynthPatch[] All()
-    static MoogSynthPatch Brass()
-    static MoogSynthPatch FatBass()
-    static MoogSynthPatch FilterSweep()
-    static MoogSynthPatch LushPad()
-    static MoogSynthPatch Pluck()
-  // An IAudioSource implementation that wraps the Moog synthesizer and sequencer for use with the audio generator system.
-  sealed class MoogSynthSource : IAudioSource
-    ctor(MoogSynthPatch? patch = null)
-    Sequencer Sequencer { get; }
-    MoogSynth Synth { get; }
-    void GenerateAudio(Span<float> buffer, int samplesPerChannel, int channelCount, int sampleRate)
-    void NextPattern()
-    void SetPatch(MoogSynthPatch patch)
-    void SetSequencerMode(SequencerMode mode)
-
-namespace Ikon.Resonance.Synth.Oscillators
-  // Defines the interface for audio oscillators that generate periodic waveforms.
-  interface IOscillator
-    double Phase { get; }
-    abstract double Process(double frequency, double sampleRate)
-    abstract void Reset()
-    abstract void Sync()
-  // Defines the available oscillator waveform types.
-  enum OscillatorType
-    Saw
-    Square
-    Triangle
-    Pulse
-    Sine
-  // Provides PolyBLEP (Polynomial Band-Limited Step) anti-aliasing for oscillator discontinuities. Reduces aliasing artifacts in sawtooth and square waveforms.
-  static class PolyBlep
-    static double Compute(double t, double dt)
-  // Generates a pulse wave with variable pulse width, using PolyBLEP anti-aliasing. Pulse width can be modulated for PWM (Pulse Width Modulation) effects.
-  sealed class PulseOscillator : IOscillator
-    ctor()
-    double Phase { get; }
-    double PulseWidth { get; set; }
-    double Process(double frequency, double sampleRate, double pulseWidth)
-    double Process(double frequency, double sampleRate)
-    void Reset()
-    void Sync()
-  // Generates a sawtooth waveform using PolyBLEP anti-aliasing to reduce aliasing artifacts.
-  sealed class SawOscillator : IOscillator
-    ctor()
-    double Phase { get; }
-    double Process(double frequency, double sampleRate)
-    void Reset()
-    void Sync()
-  // Generates a square wave with variable pulse width, using PolyBLEP anti-aliasing.
-  sealed class SquareOscillator : IOscillator
-    ctor()
-    double Phase { get; }
-    double PulseWidth { get; set; }
-    double Process(double frequency, double sampleRate)
-    void Reset()
-    void Sync()
-  // Generates a sub-oscillator square wave one or two octaves below the main oscillator frequency. Adds bass depth and weight to the synthesizer sound.
-  sealed class SubOscillator : IOscillator
-    ctor()
-    int OctaveDown { get; set; }
-    double Phase { get; }
-    double Process(double frequency, double sampleRate)
-    void Reset()
-    void Sync()
-  // Generates a triangle waveform. Naturally band-limited due to its smooth shape.
-  sealed class TriangleOscillator : IOscillator
-    ctor()
-    double Phase { get; }
-    double Process(double frequency, double sampleRate)
-    void Reset()
-    void Sync()
-
-namespace Ikon.Resonance.Synth.Sequencer
-  // Configuration settings for the generative sequencer mode, controlling scale, probability, and velocity parameters.
-  sealed class GenerativeSettings
-    ctor()
-    double Bpm { get; set; }
-    double ChordProbability { get; set; }
-    double MaxVelocity { get; set; }
-    double MinVelocity { get; set; }
-    double NoteProbability { get; set; }
-    int OctaveRange { get; set; }
-    double RestProbability { get; set; }
-    int RootNote { get; set; }
-    int[] Scale { get; set; }
-  // Controls note playback timing for the synthesizer, supporting both pattern-based and generative sequencing modes.
-  sealed class Sequencer
-    ctor(MoogSynth synth)
-    double Bpm { get; }
-    GenerativeSettings GenerativeSettings { get; set; }
-    SequencerMode Mode { get; set; }
-    SequencerPattern Pattern { get; set; }
-    void NextPattern()
-    void Process(int sampleCount)
-    void Reset()
-    void SetSampleRate(double sampleRate)
-  // Defines the operating mode of the sequencer.
-  enum SequencerMode
-    Pattern
-    Generative
-  // Represents a single note in a sequencer pattern with timing and expression data.
-  struct SequencerNote
-    // Represents a single note in a sequencer pattern with timing and expression data.
-    ctor(int noteNumber, double velocity, double duration)
-    double Duration { get; }
-    int NoteNumber { get; }
-    double Velocity { get; }
-  // Defines a step-based sequencer pattern with preset patterns for various musical styles.
-  sealed class SequencerPattern
-    ctor()
-    double Bpm { get; set; }
-    string Name { get; set; }
-    List<SequencerNote?> Steps { get; set; }
-    int StepsPerBeat { get; set; }
-    static SequencerPattern AcidBass()
-    static SequencerPattern Arpeggio()
-    static SequencerPattern FilterSweep()
-    static SequencerPattern Pad()
-
-namespace Ikon.Resonance.Synth.Songs
-  // Represents a complete song with multiple tracks, tempo, and loop length configuration.
-  sealed class Song
-    ctor()
-    double Bpm { get; set; }
-    int LoopLengthBeats { get; set; }
-    string Name { get; set; }
-    List<SongTrack> Tracks { get; set; }
-  // Provides a collection of pre-composed demo songs in various synth styles including C64-inspired covers and original compositions.
-  static class SongLibrary
-    static Song[] All()
-    static Song BinaryHorizon()
-    static Song CyberChase()
-    static Song DigitalDreams()
-    static Song LostPatrol()
-    static Song NeonPatrol()
-    static Song Parallax()
-    static Song ShadowRunner()
-  // Represents a single note in a song with timing, velocity, and duration information.
-  struct SongNote
-    // Represents a single note in a song with timing, velocity, and duration information.
-    ctor(int noteNumber, double velocity, double duration, double startBeat)
-    double Duration { get; }
-    int NoteNumber { get; }
-    double StartBeat { get; }
-    double Velocity { get; }
-  // Plays back multi-track songs using multiple Moog synthesizers, handling note timing, looping, and mixing.
-  sealed class SongPlayer
-    ctor()
-    double BeatPosition { get; }
-    string CurrentSongName { get; }
-    bool IsPlaying { get; }
-    Song Song { get; set; }
-    void Play()
-    void Process(Span<float> buffer, int samplesPerChannel, int channelCount, int sampleRate)
-    void Reset()
-    void SetSampleRate(double sampleRate)
-    void Stop()
-  // An IAudioSource implementation that wraps the song player for use with the audio generator system. Supports song switching and playback control.
-  sealed class SongPlayerSource : IAudioSource
-    ctor(Song? song = null)
-    string CurrentSongName { get; }
-    SongPlayer Player { get; }
-    void GenerateAudio(Span<float> buffer, int samplesPerChannel, int channelCount, int sampleRate)
-    void NextSong()
-    void Play()
-    void Reset()
-    void SetSong(Song song)
-    void Stop()
-  // Represents a track within a song, containing a synthesizer patch and a sequence of notes.
-  sealed class SongTrack
-    ctor()
-    string Name { get; set; }
-    List<SongNote> Notes { get; set; }
-    MoogSynthPatch Patch { get; set; }
-
-namespace Ikon.Resonance.Synth.Voice
-  // Represents a single synthesizer voice with dual oscillators, sub-oscillator, noise, filter, and envelopes. Handles note-on/off events and generates audio samples for one polyphonic voice.
-  sealed class SynthVoice
-    ctor()
-    AdsrEnvelope AmpEnvelope { get; }
-    double DriftAmount { get; set; }
-    double FilterCutoff { get; set; }
-    double FilterEnvAmount { get; set; }
-    AdsrEnvelope FilterEnvelope { get; }
-    double FilterKeyTrack { get; set; }
-    double FilterResonance { get; set; }
-    bool IsActive { get; }
-    double NoiseLevel { get; set; }
-    int NoteNumber { get; }
-    double Osc1Level { get; set; }
-    double Osc2Level { get; set; }
-    double Osc2PulseWidth { get; set; }
-    double SubLevel { get; set; }
-    double Velocity { get; }
-    void NoteOff()
-    void NoteOn(int noteNumber, double velocity)
-    double Process(double lfoFilterMod, double lfoPitchMod, double lfoPwmMod)
-    void Reset()
-    void SetSampleRate(double sampleRate)
-  // Manages polyphonic voice allocation for the synthesizer. Implements voice stealing with LRU (Least Recently Used) policy when all voices are active.
-  sealed class VoiceAllocator
-    ctor(int voiceCount = 8)
-    int VoiceCount { get; }
-    IReadOnlyList<SynthVoice> Voices { get; }
-    void AllNotesOff()
-    void NoteOff(int noteNumber)
-    SynthVoice? NoteOn(int noteNumber, double velocity)
-    void Reset()
-    void SetSampleRate(double sampleRate)

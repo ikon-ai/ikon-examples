@@ -204,6 +204,12 @@ namespace Ikon.Common.Core.Functions
   static class FunctionCallContext
     // The session id of the client that issued the current function call, or null when the call did not originate from a remote client (e.g. local in-process invocation).
     static int? CallerSessionId { get; }
+  sealed class FunctionCallException : Exception
+    ctor(string message, string remoteTypeName, string remoteStackTrace)
+    ctor(string message, string remoteTypeName, string remoteStackTrace, Exception? innerException)
+    string RemoteStackTrace { get; }
+    string RemoteTypeName { get; }
+    static string RemoteFunctionCallerNotSetTypeName
   // Metadata about a function parameter.
   struct FunctionParameter
     // Primary constructor with Type directly.
@@ -242,7 +248,7 @@ namespace Ikon.Common.Core.Functions
     bool RequireVerifiedCallerSpace { get; set; }
     // Optional resolver that maps a caller session id to the set of roles the caller holds. Wired by the host (e.g. Ikon.App.App) so that RequireRoleAttribute / RoleBasedPolicy can gate calls. Returns an empty/null collection for callers without any roles. The dispatcher copies the result into AdditionalContext under the key RolesContextKey .
     Func<int, IReadOnlyCollection<string>?>? RolesResolver { get; set; }
-    // Optional resolver that maps a caller session id to the reactive scopes that should be active during the function body's execution — typically [ClientScope, UserScope] derived from the caller's Context . Wired by the host (e.g. Ikon.App.App) so that ClientReactive`1 and UserReactive`1 resolve naturally without the function body having to push scopes manually via FunctionCallContext.CallerSessionId + Use .
+    // Optional resolver that maps a caller session id to the reactive scopes that should be active during the function body's execution — typically [ClientScope, UserScope] derived from the caller's Context . Wired by the host (e.g. Ikon.App.App) so that ClientReactive and UserReactive resolve naturally without the function body having to push scopes manually via FunctionCallContext.CallerSessionId + Use .
     Func<int, IReadOnlyList<IScopeKey>>? ScopeResolver { get; set; }
     // Optional resolver that maps a caller session id to the user id associated with that session. Wired by the host (e.g. Ikon.App.App) so that policy evaluation has access to the caller's identity. Returns null for unknown sessions or unauthenticated (guest) callers.
     Func<int, string?>? UserIdResolver { get; set; }
@@ -250,9 +256,9 @@ namespace Ikon.Common.Core.Functions
     // Hooks the registry to a protocol channel so that remote function calls and registrations are handled automatically.
     Task AttachProtocolAsync(IProtocolMessageChannel channel, int senderId)
     TResult Call<TResult>(string name, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
-    Task<TResult> CallAsync<TResult>(string name, CancellationToken cancellationToken = null, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
-    Task CallAsync(string name, CancellationToken cancellationToken = null, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
-    IAsyncEnumerable<TItem> CallAsyncEnumerable<TItem>(string name, CancellationToken cancellationToken = null, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
+    Task<TResult> CallAsync<TResult>(string name, CancellationToken cancellationToken = default, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
+    Task CallAsync(string name, CancellationToken cancellationToken = default, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
+    IAsyncEnumerable<TItem> CallAsyncEnumerable<TItem>(string name, CancellationToken cancellationToken = default, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
     IEnumerable<TItem> CallEnumerable<TItem>(string name, object?[]? args = null)
     // Removes all locally registered functions. Remote functions are preserved.
     void ClearLocalFunctions()
@@ -286,6 +292,7 @@ namespace Ikon.Common.Core.Functions
     void RegisterFromAssembly(Assembly assembly, FunctionVisibility? visibilityOverride = null, string? version = null)
     // Scans an instance for [RegisterAll] attribute or methods with [Function] attribute and registers them.
     void RegisterFromInstance(object instance, FunctionVisibility? visibilityOverride = null, string? version = null)
+    // Scans a type for [RegisterAll] attribute or methods with [Function] attribute and registers them. For instance methods, you need to use RegisterFromInstance instead.
     void RegisterFromType<T>(FunctionVisibility? visibilityOverride = null, string? version = null)
     // Scans a type for [RegisterAll] attribute or methods with [Function] attribute and registers them. For instance methods, you need to use RegisterFromInstance instead.
     void RegisterFromType(Type type, FunctionVisibility? visibilityOverride = null, string? version = null)
@@ -307,7 +314,7 @@ namespace Ikon.Common.Core.Functions
     // Tries to get a function with the given name.
     bool TryGetFunction(string name, out Function? function)
     // Waits for a function with the given name to be registered.
-    Task<bool> WaitForFunctionAsync(string functionName, TimeSpan timeout = null, CancellationToken ct = null)
+    Task<bool> WaitForFunctionAsync(string functionName, TimeSpan timeout = default, CancellationToken ct = default)
     // Fired when an approval flow completes (approved or rejected). Use this event for audit logging of approval decisions.
     event Action<ApprovalAuditEntry>? ApprovalCompleted
     // Fired when all of a client session's functions are removed because it disconnected ( RemoveFunctionsByClientSessionId ). Lets services that track per-session state — e.g. ReactiveSubscriptionService's subscriber set — release it promptly instead of discovering the dead session only when a later push fails.
@@ -329,6 +336,9 @@ namespace Ikon.Common.Core.Functions
   enum FunctionVisibility
     Local
     External
+  sealed class InstanceNotFoundException : Exception
+    ctor(Guid instanceId)
+    Guid InstanceId { get; }
   // Marks a class for automatic registration of all public members (methods, properties, constructors). Used for auto-registration via RegisterFromInstance/RegisterFromType/RegisterFromAssembly. Function names are automatically generated using the full type name (e.g., Namespace.Class.MethodName). Individual members can use [Function] to override defaults.
   class RegisterAllAttribute : Attribute
     ctor()

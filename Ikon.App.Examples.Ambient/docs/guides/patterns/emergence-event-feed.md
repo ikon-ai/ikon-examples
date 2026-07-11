@@ -5,7 +5,7 @@
 
 ## When to use
 
-You're shipping any Emergence pattern beyond `.FinalAsync()` — the user needs to *see* the agent thinking. Also valuable for debugging your own prompt: when iterations balloon or tool calls go in circles, the feed shows it instantly.
+You're shipping any Emergence pattern beyond `.ResultAsync()` — the user needs to *see* the agent thinking. Also valuable for debugging your own prompt: when iterations balloon or tool calls go in circles, the feed shows it instantly.
 
 ## Snippet
 

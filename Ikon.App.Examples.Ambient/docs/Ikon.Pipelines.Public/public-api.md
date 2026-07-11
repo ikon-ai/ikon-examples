@@ -129,25 +129,25 @@ namespace Ikon.Pipelines.Public.UniversalRag.Processors
 namespace Ikon.Pipelines.Public.UniversalRag.Shaders
   class AnalyzePdfDocument
     ctor()
-    static Task<AnalyzePdfDocument.Result> Run(LLMModel llmModel, List<Item> pageImageItems, CancellationToken cancellationToken = null)
+    static Task<AnalyzePdfDocument.Result> Run(LLMModel llmModel, List<Item> pageImageItems, CancellationToken cancellationToken = default)
   enum AnalyzePdfDocument.DocumentType
     Document
     Presentation
   class ExtractDocumentPageText
     ctor()
-    static Task<string> Run(LLMModel llmModel, Item rawTextItem, Item imageItem, CancellationToken cancellationToken = null)
+    static Task<string> Run(LLMModel llmModel, Item rawTextItem, Item imageItem, CancellationToken cancellationToken = default)
   class ExtractPresentationPageText
     ctor()
-    static Task<string> Run(LLMModel llmModel, Item rawTextItem, Item imageItem, CancellationToken cancellationToken = null)
+    static Task<string> Run(LLMModel llmModel, Item rawTextItem, Item imageItem, CancellationToken cancellationToken = default)
   class ExtractSections
     ctor()
-    static Task<ExtractSections.Result> Run(LLMModel llmModel, string documentTextWithLineNumbers, string extraContext, string extraCommand, CancellationToken cancellationToken = null)
+    static Task<ExtractSections.Result> Run(LLMModel llmModel, string documentTextWithLineNumbers, string extraContext, string extraCommand, CancellationToken cancellationToken = default)
   class FormatWebPage
     ctor()
-    static Task<FormatWebPage.Result> Run(LLMModel llmModel, string url, string title, string content, string extraContext, string extraCommand, CancellationToken cancellationToken = null)
+    static Task<FormatWebPage.Result> Run(LLMModel llmModel, string url, string title, string content, string extraContext, string extraCommand, CancellationToken cancellationToken = default)
   class GenerateSummary
     ctor()
-    static Task<string> Run(LLMModel llmModel, string content, CancellationToken cancellationToken = null)
+    static Task<string> Run(LLMModel llmModel, string content, CancellationToken cancellationToken = default)
   class AnalyzePdfDocument.Result
     ctor()
     string Title { get; set; }
@@ -244,11 +244,11 @@ namespace Ikon.Pipelines.Public.VideoImageSafety
 
 namespace Ikon.Pipelines.Public.VideoImageSafety.Shaders
   static class AnalyzeImageSafety
-    static Task<AnalyzeImageSafety.Result> RunAsync(LLMModel llmModel, byte[] image, string imageMimeType, string sourceName, string sourceDescription, CancellationToken cancellationToken = null)
+    static Task<AnalyzeImageSafety.Result> RunAsync(LLMModel llmModel, byte[] image, string imageMimeType, string sourceName, string sourceDescription, CancellationToken cancellationToken = default)
   static class AnalyzeVideoFrames
-    static Task<AnalyzeVideoFrames.Result> RunAsync(LLMModel llmModel, byte[] collageImage, string collageImageMimeType, CancellationToken cancellationToken = null)
+    static Task<AnalyzeVideoFrames.Result> RunAsync(LLMModel llmModel, byte[] collageImage, string collageImageMimeType, CancellationToken cancellationToken = default)
   static class EvaluateVideoSafety
-    static Task<EvaluateVideoSafety.Result> RunAsync(LLMModel llmModel, string sourceName, string sourceDescription, string transcript, AnalyzeVideoFrames.Result combinedAnalysis, CancellationToken cancellationToken = null)
+    static Task<EvaluateVideoSafety.Result> RunAsync(LLMModel llmModel, string sourceName, string sourceDescription, string transcript, AnalyzeVideoFrames.Result combinedAnalysis, CancellationToken cancellationToken = default)
   class AnalyzeImageSafety.Result
     ctor()
     string ContentCategory { get; set; }

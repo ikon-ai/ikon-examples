@@ -4,6 +4,15 @@
 
 ### Video Generation
 
+One-shot:
+
+```csharp
+var video = await VideoGenerator.GenerateAsync("A timelapse of a flower blooming");  // Veo31Fast (cheap+fast) by default
+// video.Url (string)
+```
+
+Use the constructor + config form for input images (image-to-video), length, resolution, or aspect ratio:
+
 ```csharp
 using var generator = new VideoGenerator(VideoGeneratorModel.Veo31);
 var result = await generator.GenerateVideoAsync(new VideoGeneratorConfig
@@ -55,22 +64,20 @@ namespace Ikon.AI.VideoEnhancement
     ctor(VideoEnhancerModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
     Task<VideoEnhancerResult> EnhanceVideoAsync(VideoEnhancerConfig config, CancellationToken cancellationToken = null)
-    static VideoEnhancerCapabilities GetCapabilities(VideoEnhancerModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(VideoEnhancerModel model)
-  sealed class VideoEnhancerCapabilities
+  sealed class VideoEnhancerConfig : IEquatable<VideoEnhancerConfig>
     ctor()
-  sealed class VideoEnhancerConfig
+    int? EndFrame { get; init; }
+    string? MimeType { get; init; }
+    int? StartFrame { get; init; }
+    int? TargetFps { get; init; }
+    TimeSpan Timeout { get; init; }
+    byte[]? VideoData { get; init; }
+    string? VideoUrl { get; init; }
+  class VideoEnhancerException : RetryableAIException
     ctor()
-    int? EndFrame { get; set; }
-    string? MimeType { get; set; }
-    int? StartFrame { get; set; }
-    int? TargetFps { get; set; }
-    TimeSpan Timeout { get; set; }
-    byte[]? VideoData { get; set; }
-    string? VideoUrl { get; set; }
-    static VideoEnhancerConfig ReadFromTeleport(ReadOnlySpan<byte> data)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
+    ctor(string message)
+    ctor(string message, Exception inner)
   enum VideoEnhancerModel
     TensorPixFpsBoost
     TensorPixUpscale2xUltra4
@@ -78,14 +85,11 @@ namespace Ikon.AI.VideoEnhancement
     TensorPixUpscale4xUltra4
   static class VideoEnhancerModelExtensions
     static string DisplayName(VideoEnhancerModel model)
-  sealed class VideoEnhancerResult
+  sealed class VideoEnhancerResult : IEquatable<VideoEnhancerResult>
     ctor()
     int? OutputFps { get; init; }
     long? OutputSizeBytes { get; init; }
     string Url { get; init; }
-    static VideoEnhancerResult ReadFromTeleport(ReadOnlySpan<byte> data)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
 
 namespace Ikon.AI.VideoGeneration
   interface IVideoGenerator : IDisposable, IVideoGeneratorInfo
@@ -102,14 +106,11 @@ namespace Ikon.AI.VideoGeneration
     bool SupportsSeed { get; }
     bool SupportsTailImage { get; }
     bool SupportsTextToVideo { get; }
-  sealed class VideoGeneratorConfig.InputImage
+  sealed class VideoGeneratorConfig.InputImage : IEquatable<VideoGeneratorConfig.InputImage>
     ctor()
-    byte[]? Data { get; set; }
-    string? MimeType { get; set; }
-    string? Url { get; set; }
-    static VideoGeneratorConfig.InputImage ReadFromTeleport(ReadOnlySpan<byte> data)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
+    byte[]? Data { get; init; }
+    string? MimeType { get; init; }
+    string? Url { get; init; }
   sealed class VideoGenerator : IDisposable, IVideoGenerator, IVideoGeneratorInfo
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(VideoGeneratorModel model, IReadOnlyList<ModelRegion>? regions = null)
@@ -125,6 +126,8 @@ namespace Ikon.AI.VideoGeneration
     bool SupportsTailImage { get; }
     bool SupportsTextToVideo { get; }
     void Dispose()
+    // One-shot text-to-video. The verbose form using var generator = new VideoGenerator(VideoGeneratorModel.Veo31Fast); var result = await generator.GenerateVideoAsync(new VideoGeneratorConfig { Prompt = prompt }); becomes var video = await VideoGenerator.GenerateAsync(prompt); Defaults to Veo31Fast (the cheap+fast tier of the strongest general-purpose family). Override the model via the second parameter when the task warrants. Returns the result with the generated clip's .Url. Reach for the constructor + GenerateVideoAsync when you need input images (image-to-video), a specific length, resolution, aspect ratio, negative prompt, audio, or any other VideoGeneratorConfig field beyond the prompt.
+    static Task<VideoGeneratorResult> GenerateAsync(string prompt, VideoGeneratorModel model = Veo31Fast, CancellationToken cancellationToken = null)
     Task<VideoGeneratorResult> GenerateVideoAsync(VideoGeneratorConfig config, CancellationToken cancellationToken = null)
     static VideoGeneratorCapabilities GetCapabilities(VideoGeneratorModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(VideoGeneratorModel model)
@@ -147,20 +150,21 @@ namespace Ikon.AI.VideoGeneration
     bool SupportsSeed { get; init; }
     bool SupportsTailImage { get; init; }
     bool SupportsTextToVideo { get; init; }
-  sealed class VideoGeneratorConfig
+  sealed class VideoGeneratorConfig : IEquatable<VideoGeneratorConfig>
     ctor()
-    VideoGeneratorAspectRatio AspectRatio { get; set; }
-    bool? GenerateAudio { get; set; }
-    List<VideoGeneratorConfig.InputImage> InputImages { get; set; }
-    int Length { get; set; }
-    string? NegativePrompt { get; set; }
-    string? Prompt { get; set; }
-    VideoGeneratorResolution Resolution { get; set; }
-    int? Seed { get; set; }
-    TimeSpan Timeout { get; set; }
-    static VideoGeneratorConfig ReadFromTeleport(ReadOnlySpan<byte> data)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
+    VideoGeneratorAspectRatio AspectRatio { get; init; }
+    bool? GenerateAudio { get; init; }
+    List<VideoGeneratorConfig.InputImage> InputImages { get; init; }
+    int Length { get; init; }
+    string? NegativePrompt { get; init; }
+    string? Prompt { get; init; }
+    VideoGeneratorResolution Resolution { get; init; }
+    int? Seed { get; init; }
+    TimeSpan Timeout { get; init; }
+  class VideoGeneratorException : RetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   enum VideoGeneratorModel
     Hailuo23
     Hailuo23Fast
@@ -202,9 +206,6 @@ namespace Ikon.AI.VideoGeneration
   enum VideoGeneratorResolutionMode
     Discrete
     AspectRatio
-  sealed class VideoGeneratorResult
+  sealed class VideoGeneratorResult : IEquatable<VideoGeneratorResult>
     ctor()
     string Url { get; init; }
-    static VideoGeneratorResult ReadFromTeleport(ReadOnlySpan<byte> data)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion

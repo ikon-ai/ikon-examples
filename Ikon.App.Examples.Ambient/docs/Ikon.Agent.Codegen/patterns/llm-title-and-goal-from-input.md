@@ -20,8 +20,8 @@ private static async Task<(string Title, string Goal)> GenerateThreadTitleAsync(
             ? $"\n\nActive skill packs:\n{string.Join("\n", skillPacks.Select(s => $"- {s}"))}"
             : "";
 
-        var (result, _) = await Emerge.Run<ThreadTitleResult>(
-            model, new KernelContext(), pass =>
+        var result = await Emerge.Run<ThreadTitleResult>(
+            model, pass =>
             {
                 pass.SystemPrompt = "Generate a short thread title and clear goal from the user's input. " +
                                     "Title: 3-8 words, no quotes, no periods. " +
@@ -32,10 +32,10 @@ private static async Task<(string Title, string Goal)> GenerateThreadTitleAsync(
                 pass.Temperature = 0;
                 pass.MaxOutputTokens = 200;
                 pass.MaxIterations = 1;
-            }).FinalAsync();
+            }).ResultAsync();
 
-        var title = result?.Title?.Trim();
-        var goal = result?.Goal?.Trim();
+        var title = result.Title?.Trim();
+        var goal = result.Goal?.Trim();
 
         return (
             !string.IsNullOrWhiteSpace(title) ? title : TruncateTitle(userInput),

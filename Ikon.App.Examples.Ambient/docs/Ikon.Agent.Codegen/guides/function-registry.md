@@ -204,6 +204,12 @@ namespace Ikon.Common.Core.Functions
   static class FunctionCallContext
     // The session id of the client that issued the current function call, or null when the call did not originate from a remote client (e.g. local in-process invocation).
     static int? CallerSessionId { get; }
+  sealed class FunctionCallException : Exception
+    ctor(string message, string remoteTypeName, string remoteStackTrace)
+    ctor(string message, string remoteTypeName, string remoteStackTrace, Exception? innerException)
+    string RemoteStackTrace { get; }
+    string RemoteTypeName { get; }
+    static string RemoteFunctionCallerNotSetTypeName
   // Metadata about a function parameter.
   struct FunctionParameter
     // Primary constructor with Type directly.
@@ -329,6 +335,9 @@ namespace Ikon.Common.Core.Functions
   enum FunctionVisibility
     Local
     External
+  sealed class InstanceNotFoundException : Exception
+    ctor(Guid instanceId)
+    Guid InstanceId { get; }
   // Marks a class for automatic registration of all public members (methods, properties, constructors). Used for auto-registration via RegisterFromInstance/RegisterFromType/RegisterFromAssembly. Function names are automatically generated using the full type name (e.g., Namespace.Class.MethodName). Individual members can use [Function] to override defaults.
   class RegisterAllAttribute : Attribute
     ctor()

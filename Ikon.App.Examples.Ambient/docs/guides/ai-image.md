@@ -2,13 +2,23 @@
 
 ## AI Image Generation
 
-Generate AI images with `new ImageGenerator(model)` and `GenerateImageAsync(config)`. Supports Gemini, GPT Image, Flux models. Returns image bytes and mime type.
+Generate AI images with the one-shot `ImageGenerator.GenerateAsync(prompt)`. Supports Gemini, GPT Image, Flux models. Returns image bytes and mime type.
 
-> **Always pass `ImageGeneratorConfig`, not a raw string.** The `Prompt` goes inside the config object.
+```csharp
+var image = await ImageGenerator.GenerateAsync("A neon-lit cyberpunk street");  // Gemini25FlashImage (cheap+fast) by default
+if (image is null) { return; }  // result is nullable — guard before use
+// image.Data, image.MimeType
+```
+
+Pass a model as the second argument to override the default: `ImageGenerator.GenerateAsync(prompt, ImageGeneratorModel.Gemini3ProImage)`.
+
+Reach for the constructor + config form only when you need width/height, batch generation, input images, or other `ImageGeneratorConfig` fields:
+
+> **The config form always takes `ImageGeneratorConfig`, not a raw string.** The `Prompt` goes inside the config object.
 > `imageGenerator.GenerateImageAsync("prompt")` will NOT compile — use `new ImageGeneratorConfig { Prompt = "..." }`.
 
 ```csharp
-var imageGenerator = new ImageGenerator(ImageGeneratorModel.Gemini25FlashImage);
+using var imageGenerator = new ImageGenerator(ImageGeneratorModel.Gemini25FlashImage);
 var results = await imageGenerator.GenerateImageAsync(new ImageGeneratorConfig
 {
     Prompt = "A neon-lit cyberpunk street",
@@ -23,7 +33,7 @@ if (results.Count > 0) { var image = results[0]; /* image.Data, image.MimeType *
 # Ikon.AI Public API
 namespace Ikon.AI.ImageGeneration
   interface IImageGenerator : IDisposable
-    abstract Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = null)
+    abstract Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = default)
   enum ImageBackground
     Auto
     Opaque
@@ -32,35 +42,39 @@ namespace Ikon.AI.ImageGeneration
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(ImageGeneratorModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
-    // One-shot image generation. The verbose form using var generator = new ImageGenerator(ImageGeneratorModel.Gemini25FlashImage); var results = await generator.GenerateImageAsync(new ImageGeneratorConfig { Prompt = prompt }); var image = results.FirstOrDefault(); becomes var image = await ImageGenerator.GenerateAsync(prompt); Defaults to Gemini25FlashImage (cheap+fast). Override the model via the second parameter when the task warrants. Returns null if the model produces no results — caller should null-check before using .Data / .MimeType. Reach for the constructor + GenerateImageAsync when you need batch generation, custom width/height, an ImageBackground override, input images, or any other ImageGeneratorConfig field beyond the prompt.
-    static Task<ImageGeneratorResult?> GenerateAsync(string prompt, ImageGeneratorModel model = Gemini25FlashImage, CancellationToken cancellationToken = null)
-    Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = null)
-    static ImageGeneratorCapabilities GetCapabilities(ImageGeneratorModel model)
+    // One-shot image generation. The verbose form
+    // using var generator = new ImageGenerator(ImageGeneratorModel.Gemini25FlashImage);
+    // var results = await generator.GenerateImageAsync(new ImageGeneratorConfig { Prompt = prompt });
+    // var image = results.FirstOrDefault();
+    // becomes
+    // var image = await ImageGenerator.GenerateAsync(prompt);
+    // Defaults to Gemini25FlashImage (cheap+fast). Override the model via the second parameter when the task warrants. Returns null if the model produces no results — caller should null-check before using .Data / .MimeType. Reach for the constructor + GenerateImageAsync when you need batch generation, custom width/height, an ImageBackground override, input images, or any other ImageGeneratorConfig field beyond the prompt.
+    static Task<ImageGeneratorResult?> GenerateAsync(string prompt, ImageGeneratorModel model = Gemini25FlashImage, CancellationToken cancellationToken = default)
+    Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = default)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ImageGeneratorModel model)
-  sealed class ImageGeneratorCapabilities
+  sealed class ImageGeneratorConfig : IEquatable<ImageGeneratorConfig>
     ctor()
-  sealed class ImageGeneratorConfig
+    ImageBackground Background { get; init; }
+    int Count { get; init; }
+    int Height { get; init; }
+    string ImageSize { get; init; }
+    List<InputImage> InputImages { get; init; }
+    string NegativePrompt { get; init; }
+    string Prompt { get; init; }
+    ImageQuality Quality { get; init; }
+    ImageResultDelivery ResultDelivery { get; init; }
+    SafetyLevel SafetyLevel { get; init; }
+    string SearchPrompt { get; init; }
+    int Seed { get; init; }
+    int Steps { get; init; }
+    string Style { get; init; }
+    TimeSpan Timeout { get; init; }
+    bool UpsamplePrompt { get; init; }
+    int Width { get; init; }
+  class ImageGeneratorException : RetryableAIException
     ctor()
-    ImageBackground Background { get; set; }
-    int Count { get; set; }
-    int Height { get; set; }
-    string ImageSize { get; set; }
-    List<InputImage> InputImages { get; set; }
-    string NegativePrompt { get; set; }
-    string Prompt { get; set; }
-    ImageQuality Quality { get; set; }
-    ImageResultDelivery ResultDelivery { get; set; }
-    SafetyLevel SafetyLevel { get; set; }
-    string SearchPrompt { get; set; }
-    int Seed { get; set; }
-    int Steps { get; set; }
-    string Style { get; set; }
-    TimeSpan Timeout { get; set; }
-    bool UpsamplePrompt { get; set; }
-    int Width { get; set; }
-    static ImageGeneratorConfig ReadFromTeleport(ReadOnlySpan<byte> data)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
+    ctor(string message)
+    ctor(string message, Exception inner)
   enum ImageGeneratorModel
     GptImage1Mini
     GptImage15
@@ -91,16 +105,13 @@ namespace Ikon.AI.ImageGeneration
     GrokImagineImageQuality
   static class ImageGeneratorModelExtensions
     static string DisplayName(ImageGeneratorModel model)
-  sealed class ImageGeneratorResult
+  sealed class ImageGeneratorResult : IEquatable<ImageGeneratorResult>
     ctor()
-    byte[] Data { get; set; }
-    int Height { get; set; }
-    string MimeType { get; set; }
-    string? Url { get; set; }
-    int Width { get; set; }
-    static ImageGeneratorResult ReadFromTeleport(ReadOnlySpan<byte> data)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
+    byte[] Data { get; init; }
+    int Height { get; init; }
+    string MimeType { get; init; }
+    string? Url { get; init; }
+    int Width { get; init; }
   enum ImageQuality
     Auto
     Low
@@ -109,18 +120,15 @@ namespace Ikon.AI.ImageGeneration
   enum ImageResultDelivery
     Data
     Url
-  sealed class InputImage
+  sealed class InputImage : IEquatable<InputImage>
     ctor()
-    AssetUri? AssetUri { get; set; }
-    byte[] Data { get; set; }
-    double? MaskDilution { get; set; }
-    string MimeType { get; set; }
-    double? Strength { get; set; }
-    InputImageType Type { get; set; }
-    string? Url { get; set; }
-    static InputImage ReadFromTeleport(ReadOnlySpan<byte> data)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
+    AssetUri? AssetUri { get; init; }
+    byte[] Data { get; init; }
+    double? MaskDilution { get; init; }
+    string MimeType { get; init; }
+    double? Strength { get; init; }
+    InputImageType Type { get; init; }
+    string? Url { get; init; }
   enum InputImageType
     Normal
     Mask

@@ -50,12 +50,12 @@ private async Task<T?> RunWithRetryAsync<T>(string operationName, Func<Task<T>> 
 // Caller:
 var result = await RunWithRetryAsync("CREATING PLAN", async () =>
 {
-    var (res, _) = await Emerge.Run<GamePlanResponse>(model, ctx, pass =>
+    var res = await Emerge.Run<GamePlanResponse>(model, ctx, pass =>
     {
         pass.SystemPrompt = PlanSystemPrompt;
         pass.Command = prompt;
         pass.Timeout = TimeSpan.FromMinutes(3);
-    }).FinalAsync();
+    }).ResultAsync();
     return res;
 });
 ```

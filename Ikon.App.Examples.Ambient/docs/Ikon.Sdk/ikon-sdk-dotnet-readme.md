@@ -39,13 +39,13 @@ var config = new IkonClientConfig
 // Create and connect the client
 await using var client = new IkonClient(config);
 
-client.ReadyAsync += async (sender, e) =>
+client.ReadyAsync += async e =>
 {
     Console.WriteLine("Connected!");
     await client.SignalReadyAsync();
 };
 
-client.MessageReceivedAsync += async (sender, e) =>
+client.MessageReceivedAsync += async e =>
 {
     Console.WriteLine($"Received: {e.Message.Opcode}");
 };
@@ -55,7 +55,8 @@ await client.ConnectAsync();
 
 ## Authentication Modes
 
-The SDK supports three authentication modes. Exactly one must be configured.
+The SDK supports four authentication modes. Exactly one must be configured:
+`ApiKey`, `Local`, `Backend`, or `ExternalConnectUrl`.
 
 ### API Key Authentication
 
@@ -113,6 +114,20 @@ var config = new IkonClientConfig
 };
 ```
 
+### External Connect URL
+
+Connect through a pre-minted connect URL (`{serverUrl}/connect?token=...`) issued by a trusted
+host — for example an embedded in-process app server minting URLs for its own clients. The
+authentication step is skipped entirely and the client connects straight through the URL. This
+mode is mutually exclusive with the other three; a config that combines them is rejected.
+
+```csharp
+var config = new IkonClientConfig
+{
+    ExternalConnectUrl = connectUrl
+};
+```
+
 ## Connection Lifecycle
 
 ### Connection States
@@ -136,38 +151,38 @@ Helper extension methods are available:
 
 ```csharp
 // Connection state changes
-client.StateChangedAsync += async (sender, e) =>
+client.StateChangedAsync += async e =>
 {
     Console.WriteLine($"State: {e.State}");
 };
 
 // Connection established and ready
-client.ReadyAsync += async (sender, e) =>
+client.ReadyAsync += async e =>
 {
     // Perform initialization here
     await client.SignalReadyAsync();  // Signal that this client is ready (mandatory)
 };
 
 // Server is stopping (can still send messages)
-client.StoppingAsync += async (sender, e) =>
+client.StoppingAsync += async e =>
 {
     Console.WriteLine("Server stopping...");
 };
 
 // Disconnected from server
-client.DisconnectedAsync += async (sender, e) =>
+client.DisconnectedAsync += async e =>
 {
     Console.WriteLine("Disconnected");
 };
 
 // Error occurred
-client.ErrorOccurredAsync += async (sender, e) =>
+client.ErrorOccurredAsync += async e =>
 {
     Console.WriteLine($"Error: {e.Error.Message}");
 };
 
 // Protocol message received
-client.MessageReceivedAsync += async (sender, e) =>
+client.MessageReceivedAsync += async e =>
 {
     Console.WriteLine($"Message: {e.Message.Opcode}");
 };
@@ -282,7 +297,7 @@ client.DefaultEncoderOptions = new AudioEncoderOptions
 Subscribe to audio events to receive incoming audio streams:
 
 ```csharp
-client.AudioInputStreamBeginAsync += async (sender, e) =>
+client.AudioInputStreamBeginAsync += async e =>
 {
     Console.WriteLine($"Audio stream started: {e.StreamId}");
     Console.WriteLine($"  Codec: {e.Codec}");
@@ -296,7 +311,7 @@ client.AudioInputStreamBeginAsync += async (sender, e) =>
     // e.StreamingMode = AudioInputStreamingMode.DelayUntilTotalDurationKnown;
 };
 
-client.AudioInputFrameAsync += async (sender, e) =>
+client.AudioInputFrameAsync += async e =>
 {
     // e.Samples contains decoded PCM float samples
     float[] samples = e.Samples;
@@ -310,7 +325,7 @@ client.AudioInputFrameAsync += async (sender, e) =>
     // Process or play the audio samples...
 };
 
-client.AudioInputStreamEndAsync += async (sender, e) =>
+client.AudioInputStreamEndAsync += async e =>
 {
     Console.WriteLine($"Audio stream ended: {e.StreamId}");
 };
@@ -329,7 +344,7 @@ Control how audio frames are delivered:
 Set the streaming mode in the `AudioInputStreamBeginAsync` event handler:
 
 ```csharp
-client.AudioInputStreamBeginAsync += async (sender, e) =>
+client.AudioInputStreamBeginAsync += async e =>
 {
     // Buffer audio for UI timeline display
     e.StreamingMode = AudioInputStreamingMode.DelayUntilTotalDurationKnown;
@@ -585,10 +600,10 @@ var config = new IkonClientConfig
 
 | Type | Description |
 |------|-------------|
-| `AudioInputStreamingMode` | Enum: `Streaming`, `DelayUntilTotalDurationKnown`, `DelayUntilIsLast` |
-| `AudioInputStreamBeginEventArgs` | Event args for audio stream start |
-| `AudioInputFrameEventArgs` | Event args for audio frame |
-| `AudioInputStreamEndEventArgs` | Event args for audio stream end |
+| `AudioInputStreamingMode` | Enum (from `Ikon.Resonance.Core`): `Streaming`, `DelayUntilTotalDurationKnown`, `DelayUntilIsLast` |
+| `IkonClient.AudioInputStreamBeginEventArgs` | Event args for audio stream start |
+| `IkonClient.AudioInputFrameEventArgs` | Event args for audio frame |
+| `IkonClient.AudioInputStreamEndEventArgs` | Event args for audio stream end |
 | `AudioEncoderOptions` | Options for configuring the Opus encoder |
 
 ### Function Types

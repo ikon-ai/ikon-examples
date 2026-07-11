@@ -20,8 +20,8 @@ private async Task ExtractProfileAsync()
     var current = _profile.Value;
     var conversation = string.Join("\n", recent);
 
-    var (result, _) = await Emerge.Run<ProfileExtraction>(
-        LLMModel.Claude45Haiku, new KernelContext(), pass =>
+    var result = await Emerge.Run<ProfileExtraction>(
+        LLMModel.Claude45Haiku, pass =>
         {
             pass.SystemPrompt = "Extract customer info. Return only fields that are mentioned. " +
                                 "Empty strings for unknown fields.";
@@ -36,7 +36,7 @@ private async Task ExtractProfileAsync()
                 {pass.JsonSchema}
                 """;
             pass.Temperature = 0;
-        }).FinalAsync();
+        }).ResultAsync();
 
     var p = _profile.Value;
     if (!string.IsNullOrEmpty(result.Name)) { p.Name = result.Name; }

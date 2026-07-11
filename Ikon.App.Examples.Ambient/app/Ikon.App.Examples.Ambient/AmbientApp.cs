@@ -57,7 +57,7 @@ public class AmbientApp
 
     public AmbientApp(IApp<SessionIdentity, ClientParams> app)
     {
-        UI = new UI(app, new Theme());
+        UI = new UI(app, new IkonTheme());
     }
 
     private static string GetPromptHash(string prompt)
@@ -546,7 +546,7 @@ public class AmbientApp
                     "hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))]",
                     "transition-all duration-300"
                 ],
-                label: "+ Create Scene",
+                text: "+ Create Scene",
                 onClick: async () => { _showCreateForm.Value = true; }
             );
         });
@@ -640,7 +640,7 @@ public class AmbientApp
                                 "shadow-[0_10px_30px_-12px_rgba(0,0,0,0.6)]",
                                 "transition-all duration-300 hover:scale-[1.02]"
                             ],
-                            label: "▶   PLAY",
+                            text: "▶   PLAY",
                             onClick: async () => await SelectExperienceAsync(index)
                         );
 
@@ -653,7 +653,7 @@ public class AmbientApp
                                 "hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.26),rgba(255,255,255,0.10))]",
                                 "transition-all duration-300"
                             ],
-                            label: "+  MY LIST",
+                            text: "+  MY LIST",
                             onClick: async () => { }
                         );
 
@@ -666,7 +666,7 @@ public class AmbientApp
                                 "hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))]",
                                 "transition-all duration-300"
                             ],
-                            label: "ⓘ",
+                            text: "ⓘ",
                             onClick: async () => { }
                         );
 
@@ -945,7 +945,7 @@ public class AmbientApp
                             "hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.06))]",
                             "transition-all duration-300"
                         ],
-                        label: "← Back",
+                        text: "← Back",
                         onClick: async () =>
                         {
                             _showCreateForm.Value = false;
@@ -987,7 +987,7 @@ public class AmbientApp
                                 "transition-all duration-300 hover:scale-[1.03]",
                                 "disabled:opacity-40 disabled:hover:scale-100"
                             ],
-                            label: _isCreating.Value ? "Creating..." : "▶  Create Scene",
+                            text: _isCreating.Value ? "Creating..." : "▶  Create Scene",
                             disabled: _isCreating.Value || string.IsNullOrWhiteSpace(_createDescription.Value),
                             onClick: async () => await CreateCustomExperience()
                         );
@@ -1001,7 +1001,7 @@ public class AmbientApp
                                 "hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.06))]",
                                 "transition-all duration-300"
                             ],
-                            label: "Cancel",
+                            text: "Cancel",
                             onClick: async () =>
                             {
                                 _showCreateForm.Value = false;
@@ -1056,7 +1056,7 @@ public class AmbientApp
                                     ? "bg-[linear-gradient(180deg,rgba(167,139,250,0.32),rgba(167,139,250,0.10))] text-violet-100 hover:bg-[linear-gradient(180deg,rgba(167,139,250,0.42),rgba(167,139,250,0.16))]"
                                     : "bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] text-white/40"
                             ],
-                            label: upscaleLabel,
+                            text: upscaleLabel,
                             disabled: !canUpscale,
                             onClick: async () =>
                             {
@@ -1077,7 +1077,7 @@ public class AmbientApp
                             "hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))]",
                             "transition-all duration-300"
                         ],
-                        label: "←  Back",
+                        text: "←  Back",
                         onClick: async () =>
                         {
                             _selectedIndex.Value = -1;
@@ -1104,7 +1104,7 @@ public class AmbientApp
                                 "hover:bg-[linear-gradient(180deg,rgba(244,63,94,0.38),rgba(244,63,94,0.14))]",
                                 "transition-all duration-300"
                             ],
-                            label: "Delete",
+                            text: "Delete",
                             onClick: async () => await DeleteCustomExperience(experience.CustomId!)
                         );
                     }

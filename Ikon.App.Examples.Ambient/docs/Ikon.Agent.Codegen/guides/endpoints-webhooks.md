@@ -201,7 +201,6 @@ namespace Ikon.Sdk
     Task AsyncEventHandler`1<TEventArgs>(object sender, TEventArgs e)
   // Event arguments raised when an incoming audio frame is received
   class AudioInputFrameEventArgs : EventArgs
-    // Event arguments raised when an incoming audio frame is received
     ctor(string streamId, float[] samples, bool isFirst, bool isLast, TimeSpan totalDuration)
     // Whether this is the first frame in a sequence
     bool IsFirst { get; }
@@ -215,7 +214,6 @@ namespace Ikon.Sdk
     TimeSpan TotalDuration { get; set; }
   // Event arguments raised when an incoming audio stream begins
   class AudioInputStreamBeginEventArgs : EventArgs
-    // Event arguments raised when an incoming audio stream begins
     ctor(string streamId, string description, string sourceType, AudioCodec codec, string codecDetails, int sampleRate, int channelCount)
     // Number of audio channels
     int ChannelCount { get; }
@@ -235,7 +233,6 @@ namespace Ikon.Sdk
     AudioInputStreamingMode StreamingMode { get; set; }
   // Event arguments raised when an incoming audio stream ends
   class AudioInputStreamEndEventArgs : EventArgs
-    // Event arguments raised when an incoming audio stream ends
     ctor(string streamId)
     // Unique identifier for the audio stream
     string StreamId { get; }
@@ -385,7 +382,6 @@ namespace Ikon.Sdk
     string? UserId { get; set; }
   // Event arguments for protocol messages.
   class MessageEventArgs : EventArgs
-    // Event arguments for protocol messages.
     ctor(ProtocolMessage message)
     // The protocol message.
     ProtocolMessage Message { get; }

@@ -39,7 +39,6 @@ namespace Ikon.Common.Core
     string Message { get; set; }
   // Options for booting a target app via an IAppHost .
   sealed class AppHostOptions : IEquatable<AppHostOptions>
-    // Options for booting a target app via an IAppHost .
     ctor(bool NeedsFrontend = true, bool ForceRelay = false, string LogPrefix = "Preview", bool WatchForReload = true, bool HostForwardsLogsToBackend = false)
     // Expose the app through the relay instead of a direct localhost URL — required when the viewer's browser can't reach this host's localhost (cloud run or --public-access).
     bool ForceRelay { get; init; }
@@ -53,7 +52,6 @@ namespace Ikon.Common.Core
     bool WatchForReload { get; init; }
   // Outcome of StartAsync . Url is the browsable frontend URL when NeedsFrontend was set, else null.
   struct AppHostResult : IEquatable<AppHostResult>
-    // Outcome of StartAsync . Url is the browsable frontend URL when NeedsFrontend was set, else null.
     ctor(bool Ok, string? Url, string Message)
     string Message { get; init; }
     bool Ok { get; init; }
@@ -121,7 +119,7 @@ namespace Ikon.Common.Core
     int Capacity { get; }
     int Count { get; }
     int FreeCount { get; }
-    T Item { get; }
+    T this[int index] { get; }
     int MaxCapacity { get; }
     Span<T> Span { get; }
     void Clear()
@@ -139,8 +137,8 @@ namespace Ikon.Common.Core
   sealed class AssertionVerifier
     ctor(string platformBaseUrl, HttpClient? httpClient = null, Func<DateTimeOffset>? clock = null)
     // Generic JWT validation: JWKS-backed signature verification + standard iss/aud/exp checks + (when present) iat clock-skew guard. Returns the decoded claims as a JsonDocument — caller owns disposal — plus the token's exp so a caller can cache the validated result against the token lifetime. Use this for OAuth 2.1 bearer-token resource-server validation where the step-up-specific projection in VerifyAsync isn't relevant.
-    Task<ValueTuple<JsonDocument, DateTimeOffset>> VerifyAndExtractClaimsAsync(string token, string expectedIssuer, string expectedAudience, CancellationToken ct = null)
-    Task<StepUpAssertion> VerifyAsync(string token, string expectedIssuer, string expectedAudience, CancellationToken ct = null)
+    Task<ValueTuple<JsonDocument, DateTimeOffset>> VerifyAndExtractClaimsAsync(string token, string expectedIssuer, string expectedAudience, CancellationToken ct = default)
+    Task<StepUpAssertion> VerifyAsync(string token, string expectedIssuer, string expectedAudience, CancellationToken ct = default)
   class IkonBackend.Asset
     ctor()
     string AssetId { get; set; }
@@ -161,6 +159,11 @@ namespace Ikon.Common.Core
     static void DisableAsyncLocalInstance()
     static void EnableAndInitAsyncLocalInstance()
     static void SetAsyncLocalInstance(T value)
+  class BackendQuotaExceededException : UserException
+    ctor(string key, int current, int limit, string friendlyMessage)
+    int Current { get; }
+    string Key { get; }
+    int Limit { get; }
   class BasePluginConfig
     ctor()
     AppSourceType AppSourceType
@@ -198,18 +201,18 @@ namespace Ikon.Common.Core
     // True once the server has signalled an intentional shutdown (CORE_ON_SERVER_STOPPING). The SDK uses this to suppress automatic reconnect — reconnecting to a deliberately-stopped server would just re-provision a fresh instance.
     bool ServerStopping { get; }
     int SessionId { get; }
-    Task ConnectAsync2(string connectUrl, CancellationToken ct = null)
-    Task ConnectAsync2(string host, int port, bool useTls, CancellationToken ct = null)
+    Task ConnectAsync2(string connectUrl, CancellationToken ct = default)
+    Task ConnectAsync2(string host, int port, bool useTls, CancellationToken ct = default)
     void OverrideConfigValues(string overrideConfigJson)
-    Task ReconnectWithAuthResponseAsync(AuthResponse cachedAuthResponse, CancellationToken ct = null)
+    Task ReconnectWithAuthResponseAsync(AuthResponse cachedAuthResponse, CancellationToken ct = default)
     IDisposable RegisterMessageHandler(Func<ProtocolMessage, ValueTask> handler, Opcode? opcodeGroupMask = null, Opcode[]? opcodes = null)
     virtual ValueTask SendMessageAsync(ProtocolMessage message)
     ValueTask SendMessageAsync(IProtocolMessagePayload payload)
     Task SignalReadyAsync()
     Task StopAsync()
     override string ToString()
-    Task<bool> WaitForClientAsync(int? clientSessionId = null, string? description = null, string? userId = null, string? deviceId = null, string? productId = null, TimeSpan timeout = null)
-    Task WaitForUdpReadyAsync(CancellationToken ct = null)
+    Task<bool> WaitForClientAsync(int? clientSessionId = null, string? description = null, string? userId = null, string? deviceId = null, string? productId = null, TimeSpan timeout = default)
+    Task WaitForUdpReadyAsync(CancellationToken ct = default)
     Func<Task> ConnectedAsync
     Func<Task> ConnectingAsync
     Func<Task> DisconnectedAsync
@@ -492,7 +495,7 @@ namespace Ikon.Common.Core
     int GetHashCode(Dictionary<TKey, TValue> obj)
     static ReactiveGlobalState.DictionaryComparer<TKey, TValue> Instance
   static class EditorLauncher
-    static Task<string> EditAsync(string initialContent, string fileExtension, CancellationToken cancellationToken = null)
+    static Task<string> EditAsync(string initialContent, string fileExtension, CancellationToken cancellationToken = default)
     static string ResolveEditorCommand(Func<string, string?> getEnv, bool isWindows)
     static string ResolveEditorCommand()
   enum IkonBackend.EnvironmentType
@@ -516,6 +519,10 @@ namespace Ikon.Common.Core
     ImmutableDictionary<string, bool> ReadOnlyFeatureFlags { get; }
     bool Get(string featureFlagName)
     void Set(string featureFlagName, bool value, bool shouldOverride = false)
+  class FeatureNotEnabledException : UserException
+    ctor(string featureKey, string friendlyMessage, string? hint = null)
+    string FeatureKey { get; }
+    string? Hint { get; }
   class IkonBackend.FileUploadResponse
     ctor()
     string UploadUrl { get; set; }
@@ -585,7 +592,7 @@ namespace Ikon.Common.Core
     // Mints a signed connect URL for a NATIVE SDK client (TCP transports) — e.g. the codegen tree validator connecting headlessly to a hosted app. Null when not running or the host kind cannot mint (child processes expose the /connect-token oracle instead).
     abstract string? MintNativeConnectUrl()
     // Build-if-needed, start the app rooted at sandboxDir , and wait until it is ready (and, when NeedsFrontend , its frontend is up). Stops any app this host was previously running.
-    abstract Task<AppHostResult> StartAsync(string sandboxDir, AppHostOptions options, CancellationToken ct = null)
+    abstract Task<AppHostResult> StartAsync(string sandboxDir, AppHostOptions options, CancellationToken ct = default)
     // Stop the running app and release its resources. Safe to call when nothing is running.
     abstract Task StopAsync()
     // Human-readable diagnostics (build status, frontend errors) for surfacing to the user.
@@ -606,11 +613,11 @@ namespace Ikon.Common.Core
     // The AuthResponse from the most recent successful connect (entrypoints + auth ticket + client session). Cache it to drive a later ReconnectWithAuthResponseAsync .
     AuthResponse? LastAuthResponse { get; }
     DateTime ServerInitTime { get; set; }
-    abstract Task ConnectAsync2(string connectUrl, CancellationToken ct = null)
-    abstract Task ConnectAsync2(string host, int port, bool useTls, CancellationToken ct = null)
+    abstract Task ConnectAsync2(string connectUrl, CancellationToken ct = default)
+    abstract Task ConnectAsync2(string host, int port, bool useTls, CancellationToken ct = default)
     abstract void OverrideConfigValues(string overrideConfigJson)
     // Soft reconnect: reopen the transport reusing a previously-fetched AuthResponse (its entrypoints, auth ticket, and client session) WITHOUT re-fetching it via the /connect GET. Lets the server resume the same session within its disconnect grace. Use LastAuthResponse from the prior connection.
-    abstract Task ReconnectWithAuthResponseAsync(AuthResponse cachedAuthResponse, CancellationToken ct = null)
+    abstract Task ReconnectWithAuthResponseAsync(AuthResponse cachedAuthResponse, CancellationToken ct = default)
     abstract Task StopAsync()
   interface IProtocolMessageChannel : IMessageChannel
     Context ClientContext { get; }
@@ -641,7 +648,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.ApplyAppBundleConfigResponse> ApplyAppBundleConfigAsync(object config)
     Task<string> AuthenticateSpaceTokenAsync(string spaceId, string externalUserId)
     Task CancelSignatureOrderAsync(string orderId)
-    Task CancelSubscriptionAsync(string subscriptionId, bool immediate = false, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = null)
+    Task CancelSubscriptionAsync(string subscriptionId, bool immediate = false, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = default)
     Task CompleteItemSignedUploadAsync(string uri, string path, string? sha256 = null)
     Task<IkonBackend.ConnectChannelInstanceResponse> ConnectChannelInstanceAsync(IkonBackend.ConnectChannelInstanceRequest request)
     Task<IkonBackend.AppBundle> CreateAppBundleAsync(string spaceId, string version, string itemId, IkonBackend.AppBundleState? state = null)
@@ -656,10 +663,10 @@ namespace Ikon.Common.Core
     Task<IkonBackend.ChannelInstance> CreateChannelInstanceAsync(string channelId, string mode)
     Task<IkonBackend.ChannelInstanceLaunchToken> CreateChannelInstanceLaunchTokenAsync(string id, int? httpsPort = null, int? httpPort = null, int? tcpPort = null, int? tlsPort = null)
     Task CreateChatMessageAsync(string channelInstanceId, string userId, string text, string createdAt)
-    Task<string> CreateOfferAsync(string offerId, string name, long amountMinor, string currency, string kind, string? interval = null, int? intervalCount = null, string? provider = null, CancellationToken cancellationToken = null)
-    Task<string> CreateOfferPaymentAsync(string offerId, string customerKey, string? email = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = null)
+    Task<string> CreateOfferAsync(string offerId, string name, long amountMinor, string currency, string kind, string? interval = null, int? intervalCount = null, string? provider = null, CancellationToken cancellationToken = default)
+    Task<string> CreateOfferPaymentAsync(string offerId, string customerKey, string? email = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = default)
     Task<IkonBackend.Organisation> CreateOrganisationAsync(string name)
-    Task<string> CreatePaymentAsync(long amountMinor, string currency, string customerKey, string? description = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = null)
+    Task<string> CreatePaymentAsync(long amountMinor, string currency, string customerKey, string? description = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = default)
     Task<IkonBackend.Pipeline> CreatePipelineAsync(object form)
     Task<IkonBackend.Plugin> CreatePluginAsync(IkonBackend.Plugin plugin)
     Task CreateProfileLeadAsync(string profileId, string source)
@@ -712,7 +719,7 @@ namespace Ikon.Common.Core
     Task<List<IkonBackend.CustomField>> GetCustomFieldsAsync(string spaceId, int maxResults = 1000)
     Task<IkonBackend.DatabaseConnectionResponse> GetDatabaseConnectionAsync(string databaseId, string? via = null)
     Task<List<IkonBackend.Database>> GetDatabasesForSpaceAsync(string spaceId, int maxResults = 20)
-    Task<string> GetEntitlementAsync(string offerId, string customerKey, CancellationToken cancellationToken = null)
+    Task<string> GetEntitlementAsync(string offerId, string customerKey, CancellationToken cancellationToken = default)
     Task<IkonBackend.Folder> GetFolderByPathAsync(string spaceId, string path)
     Task<List<IkonBackend.Folder>> GetFoldersAsync(string spaceId, string path, int maxResults = 1000)
     Task<IkonBackend.GithubAppInfo> GetGithubAppInfoAsync()
@@ -728,7 +735,7 @@ namespace Ikon.Common.Core
     Task<IkonBackend.Organisation> GetOrganisationAsync(string id)
     Task<List<IkonBackend.OrganisationInvitation>> GetOrganisationInvitationsAsync(string organisationId, int maxResults = 100)
     Task<List<IkonBackend.Organisation>> GetOrganisationsAsync(int maxResults = 1000)
-    Task<string> GetPaymentsAsync(string customerKey, CancellationToken cancellationToken = null)
+    Task<string> GetPaymentsAsync(string customerKey, CancellationToken cancellationToken = default)
     Task<IkonBackend.Pipeline> GetPipelineAsync(string id)
     Task<IkonBackend.Pipeline?> GetPipelineByTypeNameAsync(string spaceId, string typeName)
     Task<List<IkonBackend.Pipeline>> GetPipelinesAsync(string spaceId, int maxResults = 1000)
@@ -752,37 +759,37 @@ namespace Ikon.Common.Core
     Task<List<IkonBackend.Space>> GetSpacesAsync(string organisationId, string search, int maxResults = 100)
     Task<StepUpAssertionResponse> GetStepUpAssertionAsync(string challengeId, string userId)
     Task<T> GetStorageAsync<T>(string spaceId, string entity, string entityId, IEnumerable<string> keys) where T : new()
-    Task<string> GetSubscriptionsAsync(string customerKey, CancellationToken cancellationToken = null)
+    Task<string> GetSubscriptionsAsync(string customerKey, CancellationToken cancellationToken = default)
     Task<IkonBackend.Translation> GetTranslationAsync(string spaceId, string text, string locale, string description)
     Task<IkonBackend.TurnServerCredentialsResponse?> GetTurnServerCredentialsAsync(int sessionId)
     Task<IkonBackend.User> GetUserAsync(string id)
     Task<List<IkonBackend.User>> GetUsersAsync(string query, int limit = 20)
     bool HasCapability(string capability)
-    Task IngestPaymentsProviderEventAsync(string providerEventJson, CancellationToken cancellationToken = null)
+    Task IngestPaymentsProviderEventAsync(string providerEventJson, CancellationToken cancellationToken = default)
     Task<IkonBackend.AppPaymentsInitResult> InitAppPaymentsAsync(string spaceId, string mode = "ikon-connect", string provider = "stripe")
     Task<bool> IsSpaceDomainAvailableAsync(string domain)
     Task<IkonBackend.AppPaymentsOffersResult> ListAppPaymentsOffersAsync(string spaceId)
     Task<IkonBackend.ItemListResponse> ListItemsAsync(IkonBackend.ItemListRequest request)
-    Task<string> ListOffersAsync(CancellationToken cancellationToken = null)
+    Task<string> ListOffersAsync(CancellationToken cancellationToken = default)
     bool Login(ValueTuple<string, string>? fromCommandLine = null, ValueTuple<string, string>? fromConfig = null, bool logSource = true, bool mustLogin = true)
     Task<List<IkonBackend.MintEndpointGrantResult>> MintEndpointGrantsAsync(IEnumerable<IkonBackend.MintEndpointGrantRequest> grants)
     static IkonBackend.LoginInfo? ReadLoginConfig()
-    Task<string> ReconcilePaymentsAsync(string? customerKey = null, string? reference = null, string? provider = null, CancellationToken cancellationToken = null)
+    Task<string> ReconcilePaymentsAsync(string? customerKey = null, string? reference = null, string? provider = null, CancellationToken cancellationToken = default)
     Task<IkonBackend.CampaignRedeemResult> RedeemCampaignAsync(string code, string organisationId)
-    Task<string> RefundPaymentAsync(string paymentId, long? amountMinor = null, string? reason = null, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = null)
+    Task<string> RefundPaymentAsync(string paymentId, long? amountMinor = null, string? reason = null, string? idempotencyKey = null, string? provider = null, CancellationToken cancellationToken = default)
     // Local-dev parity: register this locally-run process as an externally-managed instance so the backend reverse-proxies {space}.ikonai.app/api/... to this machine's relay tunnel instead of provisioning a cloud instance. The backend mints a per-registration id (returned as LocalInstanceId ) that distinguishes this instance from other local runs sharing the same identity. Returns that id, which the host passes into MintUrl so its minted endpoint URLs carry the li claim and route to this process.
     Task<IkonBackend.RegisterLocalInstanceResponse> RegisterLocalInstanceAsync(string spaceId, string channelId, Dictionary<string, string> sessionIdentity, string relayEndpointPublicUrl)
     Task RegisterPushSubscriptionAsync(RegisterPushSubscriptionDto request)
     Task<IkonBackend.AppPaymentsRemoveResult> RemoveAppPaymentsMerchantAsync(string spaceId, string? provider = null)
     Task<IkonBackend.AppPaymentsRemoveResult> RemoveAppPaymentsOfferAsync(string spaceId, string offerId, string? provider = null)
-    Task<bool> RemoveOfferAsync(string offerId, string? provider = null, CancellationToken cancellationToken = null)
+    Task<bool> RemoveOfferAsync(string offerId, string? provider = null, CancellationToken cancellationToken = default)
     Task RemoveOrganisationInvitationAsync(string organisationId, string invitationId)
     Task<IkonBackend.Organisation> RemoveOrganisationUserAsync(string organisationId, string userId)
     Task RemovePushSubscriptionAsync(RemovePushSubscriptionDto request)
     Task RemoveSpaceConnectedGitRepositoryAsync(string spaceId, string url)
     Task<string> RequestAccessTokenAsync(string apiKey, string spaceId, string externalUserId)
     Task<IkonBackend.ChannelInstance> RequestChannelAsync(IkonBackend.RequestChannelRequest request)
-    Task<string> RequestReceiptAsync(string paymentId, string? provider = null, CancellationToken cancellationToken = null)
+    Task<string> RequestReceiptAsync(string paymentId, string? provider = null, CancellationToken cancellationToken = default)
     Task<StepUpStartResponse> RequestStepUpStartAsync(StepUpStartRequest request)
     void ResetCounters()
     Task ResetProfileAsync(string profileId)
@@ -920,7 +927,9 @@ namespace Ikon.Common.Core
     static T From<T>(string json, bool useJson5 = false, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false, bool caseInsensitive = false)
     static object? From(string json, Type type, bool useJson5 = false, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false)
     static object? From(string json, string typeName, bool useJson5 = false, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false)
+    // Like Deserialize<T> , but tolerant of LLM responses that wrap the JSON payload in a markdown code fence (```json ... ``` or ``` ... ```). Tries direct deserialization first; on JsonException , looks for the first fenced block in the input and retries with that content. The regex is only constructed and matched on the failure path, so the happy path pays no extra cost.
     static T FromLLMResponse<T>(string text, JsonSerializerOptions? options)
+    // Like From , but tolerant of LLM responses that wrap the JSON payload in a markdown code fence. Tries direct deserialization first; on a JSON parse failure (from either System.Text.Json or Newtonsoft, depending on useJson5 ), looks for the first fenced block in the input and retries with that content.
     static T FromLLMResponse<T>(string text, bool useJson5 = false, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false, bool caseInsensitive = false)
     static Type? ResolveTypeByName(string typeName)
     static string To<T>(T obj, bool useJson5 = false, bool indentation = true, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false)
@@ -1073,7 +1082,7 @@ namespace Ikon.Common.Core
     static string ToSlug(string input, int maxLength)
     static string ToSnakeCase(string input)
   static class NodeVersionGate
-    static Task EnsureCompatibleAsync(CancellationToken cancellationToken = null)
+    static Task EnsureCompatibleAsync(CancellationToken cancellationToken = default)
   class IkonBackend.Organisation
     ctor()
     string Id { get; set; }
@@ -1156,8 +1165,8 @@ namespace Ikon.Common.Core
   static class ProcessGuard
     static void HandleOutOfMemory()
   static class ProcessRunner
-    static ProcessRunner.Result Run(string command, bool ignoreErrors = false, bool runInBackground = false, bool runInNewWindow = false, bool attachToConsole = false, string? workingDirectory = null, string? stdinInput = null, IDictionary<string, string?>? environmentVariables = null, TimeSpan waitAfterCancel = null, bool captureBinaryOutput = false, CancellationToken cancellationToken = null)
-    static Task<ProcessRunner.Result> RunAsync(string command, bool ignoreErrors = false, bool runInBackground = false, bool runInNewWindow = false, bool attachToConsole = false, string? workingDirectory = null, string? stdinInput = null, IDictionary<string, string?>? environmentVariables = null, TimeSpan waitAfterCancel = null, bool captureBinaryOutput = false, CancellationToken cancellationToken = null)
+    static ProcessRunner.Result Run(string command, bool ignoreErrors = false, bool runInBackground = false, bool runInNewWindow = false, bool attachToConsole = false, string? workingDirectory = null, string? stdinInput = null, IDictionary<string, string?>? environmentVariables = null, TimeSpan waitAfterCancel = default, bool captureBinaryOutput = false, CancellationToken cancellationToken = default)
+    static Task<ProcessRunner.Result> RunAsync(string command, bool ignoreErrors = false, bool runInBackground = false, bool runInNewWindow = false, bool attachToConsole = false, string? workingDirectory = null, string? stdinInput = null, IDictionary<string, string?>? environmentVariables = null, TimeSpan waitAfterCancel = default, bool captureBinaryOutput = false, CancellationToken cancellationToken = default)
   class IkonBackend.Profile
     ctor()
     IkonBackend.Address? Address { get; set; }
@@ -1317,7 +1326,8 @@ namespace Ikon.Common.Core
     string Value { get; set; }
   // Read-only view of the space-scoped secrets (tokens, API keys, passwords) loaded from the Ikon backend. Apps receive a Secrets via app.Secrets; pipelines receive one via host.Secrets on IPipelineHost<TConfig>. Manage values from the CLI with ikon app secret set/list/delete. Rotating a secret while an app or pipeline is running only takes effect after a restart.
   sealed class Secrets
-    string Item { get; }
+    // Returns the value for key , or throws InvalidOperationException if no secret with that key is set for this space.
+    string this[string key] { get; }
     // Keys of all secrets available for this space. Values are intentionally not exposed in bulk.
     IReadOnlyCollection<string> Keys { get; }
     // Non-throwing lookup. Returns true and sets value when the key exists; returns false and sets value to null otherwise.
@@ -1356,14 +1366,14 @@ namespace Ikon.Common.Core
     T Value { get; }
   enum SensitivityPolicy
     Default
-  // High performance FIFO queue for value-type arrays, like ArrayQueue`1 but with an O(1) amortized dequeue. The live elements are held contiguously at a sliding offset: dequeuing advances a head index instead of shifting every remaining element down to the front. The backing array is only compacted (live data slid back to index 0) when a later enqueue needs contiguous tail space, so a fill-then-drain cycle moves each element at most once. This matters for audio: draining a large buffer one small frame at a time — e.g. the speech mixer pulling 20 ms frames out of a multi-second TTS clip — is O(N) overall here, versus O(N^2) with the shift-on-every-dequeue ArrayQueue`1 . The public surface mirrors ArrayQueue`1 ; Span and the indexer address the live region (index 0 is the oldest element), so callers see identical logical behaviour.
+  // High performance FIFO queue for value-type arrays, like ArrayQueue but with an O(1) amortized dequeue. The live elements are held contiguously at a sliding offset: dequeuing advances a head index instead of shifting every remaining element down to the front. The backing array is only compacted (live data slid back to index 0) when a later enqueue needs contiguous tail space, so a fill-then-drain cycle moves each element at most once. This matters for audio: draining a large buffer one small frame at a time — e.g. the speech mixer pulling 20 ms frames out of a multi-second TTS clip — is O(N) overall here, versus O(N^2) with the shift-on-every-dequeue ArrayQueue . The public surface mirrors ArrayQueue ; Span and the indexer address the live region (index 0 is the oldest element), so callers see identical logical behaviour.
   class SlidingArrayQueue<T> where T : struct
     ctor(int maxCapacity)
     ctor(int maxCapacity, int initialCapacity)
     int Capacity { get; }
     int Count { get; }
     int FreeCount { get; }
-    T Item { get; }
+    T this[int index] { get; }
     int MaxCapacity { get; }
     Span<T> Span { get; }
     void Clear()
@@ -1450,9 +1460,9 @@ namespace Ikon.Common.Core
     bool UseUserLocale { get; set; }
   static class StableFileWriter
     static bool SaveXml(XDocument document, string path)
-    static Task<bool> SaveXmlAsync(XDocument document, string path, CancellationToken cancellationToken = null)
+    static Task<bool> SaveXmlAsync(XDocument document, string path, CancellationToken cancellationToken = default)
     static bool WriteAllText(string path, string content)
-    static Task<bool> WriteAllTextAsync(string path, string content, CancellationToken cancellationToken = null)
+    static Task<bool> WriteAllTextAsync(string path, string content, CancellationToken cancellationToken = default)
   sealed class StepUpAssertionResponse
     ctor()
     string? Assertion { get; set; }
@@ -1481,7 +1491,7 @@ namespace Ikon.Common.Core
     // Standard-shape Levenshtein edit distance. Returns the minimum number of single-character insertions, deletions, or substitutions to turn a into b . Empty / null inputs return the length of the other side. O(|a|·|b|) time and memory; fine for the sub-100-char identifiers and filenames the platform compares.
     static int Levenshtein(string? a, string? b)
   static class Throttler
-    static bool TryExecute(Action action, TimeSpan throttleInterval = null, string? extraKey = null)
+    static bool TryExecute(Action action, TimeSpan throttleInterval = default, string? extraKey = null)
   static class Toml
     static T From<T>(string toml) where T : class, new()
     static string To<T>(T obj) where T : class
@@ -1516,6 +1526,10 @@ namespace Ikon.Common.Core
     string? Email { get; set; }
     string Id { get; set; }
     string Name { get; set; }
+  // Exception for user-facing errors that should be displayed cleanly without stack traces. Use this for expected error conditions like invalid input, missing files, or failed operations.
+  class UserException : Exception
+    ctor(string message)
+    ctor(string message, Exception innerException)
   static class Utils
     // Deletes a directory tree, clearing ReadOnly attributes along the way (git marks its pack files read-only, which makes a plain Directory.Delete fail with access denied). Continues past individual failures instead of stopping at the first one and returns the paths that could not be deleted; an empty list means the directory is completely gone.
     static IReadOnlyList<string> DeleteDirectoryBestEffort(string path)
@@ -1544,14 +1558,14 @@ namespace Ikon.Common.Core.Assets
     Task<string> GetTextAsync(AssetUri assetUri, Encoding? encoding = null)
     Task<AssetContent<string>> GetTextWithMetadataAsync(AssetUri assetUri, Encoding? encoding = null)
     Task<AssetContent<T>> GetWithMetadataAsync<T>(AssetUri assetUri) where T : class
-    Task<Stream> GetWriteStreamAsync(AssetUri assetUri, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
-    Task<IReadOnlyList<AssetListingEntry>> ListAsync(AssetQuery query, CancellationToken cancellationToken = null)
-    Task<IReadOnlyList<AssetUri>> ListAsync(AssetClass assetClass, string? prefix = null, CancellationToken cancellationToken = null)
-    Task<IReadOnlyList<AssetUri>> ListAsync(AssetUri folderUri, CancellationToken cancellationToken = null)
+    Task<Stream> GetWriteStreamAsync(AssetUri assetUri, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
+    Task<IReadOnlyList<AssetListingEntry>> ListAsync(AssetQuery query, CancellationToken cancellationToken = default)
+    Task<IReadOnlyList<AssetUri>> ListAsync(AssetClass assetClass, string? prefix = null, CancellationToken cancellationToken = default)
+    Task<IReadOnlyList<AssetUri>> ListAsync(AssetUri folderUri, CancellationToken cancellationToken = default)
     Task NotifyUpdateAsync(AssetUri assetUri)
-    Task SetAsync<T>(AssetUri assetUri, T asset, AssetMetadata? metadata = null, CancellationToken cancellationToken = null) where T : class
-    Task SetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
-    Task SetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
+    Task SetAsync<T>(AssetUri assetUri, T asset, AssetMetadata? metadata = null, CancellationToken cancellationToken = default) where T : class
+    Task SetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
+    Task SetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
     Task<T> TryGetAsync<T>(AssetUri assetUri) where T : class
     Task<byte[]?> TryGetBytesAsync(AssetUri assetUri)
     Task<AssetContent<byte[]>?> TryGetBytesWithMetadataAsync(AssetUri assetUri)
@@ -1559,8 +1573,8 @@ namespace Ikon.Common.Core.Assets
     Task<string?> TryGetTextAsync(AssetUri assetUri, Encoding? encoding = null)
     Task<AssetContent<string>?> TryGetTextWithMetadataAsync(AssetUri assetUri, Encoding? encoding = null)
     Task<AssetContent<T>?> TryGetWithMetadataAsync<T>(AssetUri assetUri) where T : class
-    Task<AssetWriteResult> TrySetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
-    Task<AssetWriteResult> TrySetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
+    Task<AssetWriteResult> TrySetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
+    Task<AssetWriteResult> TrySetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
   // Ambient override for the IkonBackend that cloud asset storages resolve against. While a scope is active, asset reads and writes that fall back to the default backend use Current instead of Instance . Lets a process resolve a caller's assets with the caller's space-scoped token when it acts on behalf of another space (e.g. the LLM RPC proxy). The scope is never set automatically; callers opt in explicitly with Use .
   static class AssetBackendScope
     static IkonBackend? Current { get; }
@@ -1623,6 +1637,10 @@ namespace Ikon.Common.Core.Assets
     Exists
     Changed
     Deleted
+  sealed class AssetUpdateConflictException : Exception
+    ctor(AssetUri assetUri, AssetMetadata? metadata)
+    AssetUri AssetUri { get; }
+    AssetMetadata? Metadata { get; }
   // AssetUris are used to store and retrieve data on the Ikon platform. Use the asset class to select the storage backend. Space ID, User ID, and Channel ID are optional identifiers to scope the asset. Path is the location of the asset within the storage backend. It may include subdirectories and/or a file name. Query is optional and is not used for now. Example asset URIs: assets://space/12345/user/67890/channel/12345/cloud-file/images/photos/pic1.jpg assets://cloud-json/config/settings.json assets://space/12345/local-file/documents/report.pdf assets://embedded-file/logo.png
   struct AssetUri : IEquatable<AssetUri>
     ctor(string uriString)
@@ -1699,7 +1717,7 @@ namespace Ikon.Common.Core.CommandLineParser
   static class CommandLineParser
     static Task<ParseResult<TGlobalOptions>> ParseAsync<TGlobalOptions>(string[] args, bool globalOptionsOnly = false) where TGlobalOptions : new()
     // Parse and invoke a verb IN-PROCESS — the same pipeline the CLI runs from the shell, minus the process boundary. This is the programmatic face of "the tool is a command-line parser over the tool API": verbs resolve from the assemblies loaded in the host process (the CLI itself, or any host that references a tool assembly such as IkonTool.Default), so there is no external binary to drift out of sync with the code that calls it. Login-requiring verbs authenticate from the saved login / environment exactly like the CLI; unlike the CLI there is never an interactive login prompt — an unauthenticated call fails with a clear message instead.
-    static Task<VerbRunResult> RunAsync(string[] args, CancellationToken cancellationToken = null)
+    static Task<VerbRunResult> RunAsync(string[] args, CancellationToken cancellationToken = default)
   // Single source of truth for whether the CLI is running interactively. A command is interactive only when a human is at the keyboard: no CI marker, and neither stdin nor stdout is redirected. Setting CI=true forces non-interactive mode; and any redirected stream — a coding agent capturing output, a pipe, a script — is treated as non-interactive automatically, so the tool stays robust even when the caller forgets to set CI. Verbs must consult IsInteractive before prompting or rendering live/animated output, and fall back to flags (e.g. --yes) or plain output.
   static class ConsoleInteractivity
     // True when the CI environment variable is set to "true" or "1".
@@ -1774,7 +1792,6 @@ namespace Ikon.Common.Core.CommandLineParser
     static void WriteVerbCache(string path, string hash)
   // Outcome of an in-process verb invocation ( RunAsync ). Invoked separates "the verb ran and failed" from "the command line didn't parse" — callers that auto-append arguments retry a parse failure, but must never re-run an invoked verb.
   sealed class VerbRunResult
-    // Outcome of an in-process verb invocation ( RunAsync ). Invoked separates "the verb ran and failed" from "the command line didn't parse" — callers that auto-append arguments retry a parse failure, but must never re-run an invoked verb.
     ctor(bool success, bool invoked, string message)
     // True when parsing succeeded and the verb callback actually ran (even if it then failed).
     bool Invoked { get; }
@@ -1784,14 +1801,12 @@ namespace Ikon.Common.Core.CommandLineParser
 namespace Ikon.Common.Core.Email
   // Sender or recipient entry parsed from an inbound email envelope.
   sealed class EmailAddress : IEquatable<EmailAddress>
-    // Sender or recipient entry parsed from an inbound email envelope.
     ctor(string Email, string? Name, string? Subaddress)
     string Email { get; init; }
     string? Name { get; init; }
     string? Subaddress { get; init; }
   // Represents a single attachment on an outgoing app email. Bytes is the raw binary content; the platform encodes it as base64 before sending it on the wire.
   sealed class EmailAttachment : IEquatable<EmailAttachment>
-    // Represents a single attachment on an outgoing app email. Bytes is the raw binary content; the platform encodes it as base64 before sending it on the wire.
     ctor(string Filename, string MimeType, byte[] Bytes)
     byte[] Bytes { get; init; }
     string Filename { get; init; }
@@ -1809,13 +1824,11 @@ namespace Ikon.Common.Core.Email
     ValueTask DisposeAsync()
   // A single SMTP header preserved on an inbound email.
   sealed class EmailHeader : IEquatable<EmailHeader>
-    // A single SMTP header preserved on an inbound email.
     ctor(string Name, string Value)
     string Name { get; init; }
     string Value { get; init; }
   // Specification for a custom email sent by an app through the platform mailer. The platform enqueues the send for asynchronous delivery and returns once the request has been accepted; transient delivery failures are retried server-side.
   sealed class EmailSendRequest : IEquatable<EmailSendRequest>
-    // Specification for a custom email sent by an app through the platform mailer. The platform enqueues the send for asynchronous delivery and returns once the request has been accepted; transient delivery failures are retried server-side.
     ctor(string To, string Subject, string HtmlBody, string? TextBody = null, string? ReplyTo = null, IReadOnlyList<EmailAttachment>? Attachments = null, IReadOnlyDictionary<string, string>? Metadata = null)
     // Optional list of binary attachments. Up to 10 per email.
     IReadOnlyList<EmailAttachment>? Attachments { get; init; }
@@ -1833,7 +1846,6 @@ namespace Ikon.Common.Core.Email
     string To { get; init; }
   // Lightweight metadata for an inbound email's attachment — does not include the body bytes. Fetch the body via the email service's DownloadAttachmentAsync.
   sealed class InboundAttachmentInfo : IEquatable<InboundAttachmentInfo>
-    // Lightweight metadata for an inbound email's attachment — does not include the body bytes. Fetch the body via the email service's DownloadAttachmentAsync.
     ctor(string Id, string Filename, string MimeType, long Size)
     string Filename { get; init; }
     string Id { get; init; }
@@ -1841,7 +1853,6 @@ namespace Ikon.Common.Core.Email
     long Size { get; init; }
   // Full inbound email with decrypted body and parsed envelope. Attachments expose metadata only; fetch each one via the email service's DownloadAttachmentAsync.
   sealed class InboundEmailDetail : IEquatable<InboundEmailDetail>
-    // Full inbound email with decrypted body and parsed envelope. Attachments expose metadata only; fetch each one via the email service's DownloadAttachmentAsync.
     ctor(string Id, string Recipient, string From, string Subject, string? BodyText, string? BodyHtml, IReadOnlyList<EmailAddress> To, IReadOnlyList<EmailAddress> Cc, string? ReplyTo, IReadOnlyList<EmailHeader> Headers, IReadOnlyList<InboundAttachmentInfo> Attachments, DateTimeOffset ReceivedAt, double? SpamScore, string? Tag)
     IReadOnlyList<InboundAttachmentInfo> Attachments { get; init; }
     string? BodyHtml { get; init; }
@@ -1859,7 +1870,6 @@ namespace Ikon.Common.Core.Email
     IReadOnlyList<EmailAddress> To { get; init; }
   // Inbox-listing entry. Subject is decrypted server-side; body and attachment bytes are not included here — call EmailService.GetMessageAsync for the full message.
   sealed class InboundEmailSummary : IEquatable<InboundEmailSummary>
-    // Inbox-listing entry. Subject is decrypted server-side; body and attachment bytes are not included here — call EmailService.GetMessageAsync for the full message.
     ctor(string Id, string Recipient, string From, string Subject, DateTimeOffset ReceivedAt, int AttachmentCount, double? SpamScore, string? Tag)
     int AttachmentCount { get; init; }
     string From { get; init; }
@@ -1871,7 +1881,6 @@ namespace Ikon.Common.Core.Email
     string? Tag { get; init; }
   // One page of inbox results. NextCursor is null when there are no more pages.
   sealed class InboxPage : IEquatable<InboxPage>
-    // One page of inbox results. NextCursor is null when there are no more pages.
     ctor(IReadOnlyList<InboundEmailSummary> Items, string? NextCursor)
     IReadOnlyList<InboundEmailSummary> Items { get; init; }
     string? NextCursor { get; init; }
@@ -2016,6 +2025,12 @@ namespace Ikon.Common.Core.Functions
   static class FunctionCallContext
     // The session id of the client that issued the current function call, or null when the call did not originate from a remote client (e.g. local in-process invocation).
     static int? CallerSessionId { get; }
+  sealed class FunctionCallException : Exception
+    ctor(string message, string remoteTypeName, string remoteStackTrace)
+    ctor(string message, string remoteTypeName, string remoteStackTrace, Exception? innerException)
+    string RemoteStackTrace { get; }
+    string RemoteTypeName { get; }
+    static string RemoteFunctionCallerNotSetTypeName
   // Metadata about a function parameter.
   struct FunctionParameter
     // Primary constructor with Type directly.
@@ -2054,7 +2069,7 @@ namespace Ikon.Common.Core.Functions
     bool RequireVerifiedCallerSpace { get; set; }
     // Optional resolver that maps a caller session id to the set of roles the caller holds. Wired by the host (e.g. Ikon.App.App) so that RequireRoleAttribute / RoleBasedPolicy can gate calls. Returns an empty/null collection for callers without any roles. The dispatcher copies the result into AdditionalContext under the key RolesContextKey .
     Func<int, IReadOnlyCollection<string>?>? RolesResolver { get; set; }
-    // Optional resolver that maps a caller session id to the reactive scopes that should be active during the function body's execution — typically [ClientScope, UserScope] derived from the caller's Context . Wired by the host (e.g. Ikon.App.App) so that ClientReactive`1 and UserReactive`1 resolve naturally without the function body having to push scopes manually via FunctionCallContext.CallerSessionId + Use .
+    // Optional resolver that maps a caller session id to the reactive scopes that should be active during the function body's execution — typically [ClientScope, UserScope] derived from the caller's Context . Wired by the host (e.g. Ikon.App.App) so that ClientReactive and UserReactive resolve naturally without the function body having to push scopes manually via FunctionCallContext.CallerSessionId + Use .
     Func<int, IReadOnlyList<IScopeKey>>? ScopeResolver { get; set; }
     // Optional resolver that maps a caller session id to the user id associated with that session. Wired by the host (e.g. Ikon.App.App) so that policy evaluation has access to the caller's identity. Returns null for unknown sessions or unauthenticated (guest) callers.
     Func<int, string?>? UserIdResolver { get; set; }
@@ -2062,9 +2077,9 @@ namespace Ikon.Common.Core.Functions
     // Hooks the registry to a protocol channel so that remote function calls and registrations are handled automatically.
     Task AttachProtocolAsync(IProtocolMessageChannel channel, int senderId)
     TResult Call<TResult>(string name, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
-    Task<TResult> CallAsync<TResult>(string name, CancellationToken cancellationToken = null, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
-    Task CallAsync(string name, CancellationToken cancellationToken = null, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
-    IAsyncEnumerable<TItem> CallAsyncEnumerable<TItem>(string name, CancellationToken cancellationToken = null, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
+    Task<TResult> CallAsync<TResult>(string name, CancellationToken cancellationToken = default, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
+    Task CallAsync(string name, CancellationToken cancellationToken = default, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
+    IAsyncEnumerable<TItem> CallAsyncEnumerable<TItem>(string name, CancellationToken cancellationToken = default, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
     IEnumerable<TItem> CallEnumerable<TItem>(string name, object?[]? args = null)
     // Removes all locally registered functions. Remote functions are preserved.
     void ClearLocalFunctions()
@@ -2098,6 +2113,7 @@ namespace Ikon.Common.Core.Functions
     void RegisterFromAssembly(Assembly assembly, FunctionVisibility? visibilityOverride = null, string? version = null)
     // Scans an instance for [RegisterAll] attribute or methods with [Function] attribute and registers them.
     void RegisterFromInstance(object instance, FunctionVisibility? visibilityOverride = null, string? version = null)
+    // Scans a type for [RegisterAll] attribute or methods with [Function] attribute and registers them. For instance methods, you need to use RegisterFromInstance instead.
     void RegisterFromType<T>(FunctionVisibility? visibilityOverride = null, string? version = null)
     // Scans a type for [RegisterAll] attribute or methods with [Function] attribute and registers them. For instance methods, you need to use RegisterFromInstance instead.
     void RegisterFromType(Type type, FunctionVisibility? visibilityOverride = null, string? version = null)
@@ -2119,7 +2135,7 @@ namespace Ikon.Common.Core.Functions
     // Tries to get a function with the given name.
     bool TryGetFunction(string name, out Function? function)
     // Waits for a function with the given name to be registered.
-    Task<bool> WaitForFunctionAsync(string functionName, TimeSpan timeout = null, CancellationToken ct = null)
+    Task<bool> WaitForFunctionAsync(string functionName, TimeSpan timeout = default, CancellationToken ct = default)
     // Fired when an approval flow completes (approved or rejected). Use this event for audit logging of approval decisions.
     event Action<ApprovalAuditEntry>? ApprovalCompleted
     // Fired when all of a client session's functions are removed because it disconnected ( RemoveFunctionsByClientSessionId ). Lets services that track per-session state — e.g. ReactiveSubscriptionService's subscriber set — release it promptly instead of discovering the dead session only when a later push fails.
@@ -2141,6 +2157,9 @@ namespace Ikon.Common.Core.Functions
   enum FunctionVisibility
     Local
     External
+  sealed class InstanceNotFoundException : Exception
+    ctor(Guid instanceId)
+    Guid InstanceId { get; }
   // Marks a class for automatic registration of all public members (methods, properties, constructors). Used for auto-registration via RegisterFromInstance/RegisterFromType/RegisterFromAssembly. Function names are automatically generated using the full type name (e.g., Namespace.Class.MethodName). Individual members can use [Function] to override defaults.
   class RegisterAllAttribute : Attribute
     ctor()
@@ -2310,8 +2329,11 @@ namespace Ikon.Common.Core.Functions.Policy
   static class PolicyArgs
     // Checks if all required arguments are present at the specified indices.
     static bool HasAll(object?[] args, params int[] requiredIndices)
+    // Gets an optional argument at the specified index, returning a default if missing.
     static T Optional<T>(object?[] args, int index, T defaultValue = null)
+    // Gets a required argument at the specified index, throwing if missing or wrong type.
     static T Required<T>(object?[] args, int index)
+    // Tries to get an argument at the specified index.
     static bool TryGet<T>(object?[] args, int index, out T value)
   // Base class for policy attributes that can be applied to functions.
   abstract class PolicyAttribute : Attribute
@@ -2375,6 +2397,24 @@ namespace Ikon.Common.Core.Functions.Policy
   // Delegate type for policy evaluation.
   delegate PolicyDelegate
     ValueTask<PolicyDecision> PolicyDelegate(object?[] args, PolicyCallContext context)
+  // Exception thrown when a function call is denied by a policy.
+  sealed class PolicyDeniedException : Exception
+    // Creates a new PolicyDeniedException with just a reason.
+    ctor(string? reason)
+    // Creates a new PolicyDeniedException with a reason and error code.
+    ctor(string? reason, string? code)
+    // Creates a new PolicyDeniedException with an error code, policy name, and function name.
+    ctor(string? reason, string? code, string? policyName, string? functionName)
+    // Creates a new PolicyDeniedException with an inner exception.
+    ctor(string? reason, Exception innerException, string? policyName = null, string? functionName = null)
+    // Creates a new PolicyDeniedException with an error code and inner exception.
+    ctor(string? reason, string? code, Exception innerException, string? policyName = null, string? functionName = null)
+    // Optional error code for programmatic handling (e.g., "rate_limit_exceeded", "approval_rejected").
+    string? Code { get; }
+    // The name of the function that was denied.
+    string? FunctionName { get; }
+    // The name of the policy that denied the call.
+    string? PolicyName { get; }
   // Contains the complete result of evaluating a function's policy.
   sealed class PolicyEvaluationResult
     ctor(PolicyDecision decision, string functionName, Guid callId, string? decidingPolicyName, TimeSpan evaluationDuration)
@@ -5971,13 +6011,18 @@ namespace Ikon.Common.Core.Protocol
     static uint TeleportVersion
 
 namespace Ikon.Common.Core.Reactive
-  // Factory methods for creating ClientReactive`1 with per-client initialization.
+  // Factory methods for creating ClientReactive with per-client initialization.
   static class ClientReactive
+    // Create a ClientReactive that initializes each client's value using a factory function. The factory receives the client session ID.
     static ClientReactive<T> Create<T>(Func<int, T> factory, string file = "", string member = "")
   // Shorthand for ReactiveEffect<ClientScope>. Mirrors ClientReactive<T> as the per-client variant of Reactive<T>. Each connected client gets its own runner with independent cancel/queue, materialized on first dep change inside that client's scope.
   class ClientReactiveEffect : ReactiveEffect<ClientScope>
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
     ctor(Action body, params IReactive[] deps)
+  // A ReactiveList with a separate list for each client session.
+  class ClientReactiveList<T> : ReactiveList<T>
+    ctor(string file = "", string member = "")
+    ctor(IEnumerable<T> initialItems, string file = "", string member = "")
   // A reactive variable with a separate value for each client session.
   class ClientReactive<T> : Reactive<T, ClientScope>
     ctor(T initialValue, string file = "", string member = "")
@@ -6017,9 +6062,14 @@ namespace Ikon.Common.Core.Reactive
     // Read this reactive's value for the currently-active scope, serialize to JSON, and trigger per-scope initialization if needed. Default implementation returns the session-0 value from CaptureState .
     virtual string ReadCurrentValueAsJson()
     abstract void RestoreState(StoredReactiveState state)
-  // Factory methods for creating MountReactive`1 with per-mount initialization.
+  // Factory methods for creating MountReactive with per-mount initialization.
   static class MountReactive
+    // Create a MountReactive that initializes each mount's value using a factory function. The factory receives the mount id.
     static MountReactive<T> Create<T>(Func<string, T> factory, string file = "", string member = "")
+  // A ReactiveList with a separate list for each Parallax mount in the active render iteration.
+  class MountReactiveList<T> : ReactiveList<T>
+    ctor(string file = "", string member = "")
+    ctor(IEnumerable<T> initialItems, string file = "", string member = "")
   // A reactive variable with a separate value for each Parallax mount in the active render iteration.
   class MountReactive<T> : Reactive<T, MountScope>
     ctor(T initialValue, string file = "", string member = "")
@@ -6042,29 +6092,50 @@ namespace Ikon.Common.Core.Reactive
     Session
     User
   static class Reactive
-    static void Run<T>(Reactive<T> reactiveValue, Func<Task<T>> action, Action<Exception>? onError = null, CancellationToken token = null)
-    static void Run<T>(Reactive<T> reactiveValue, Func<CancellationToken, Task<T>> action, Action<Exception>? onError = null, CancellationToken token = null)
-  // Convenience helpers on Reactive`1 for the busy-flag pattern that every async handler uses. Without these, the standard shape is verbose and easy to break: _busy.Value = true; try { await SlowThingAsync(); } finally { _busy.Value = false; } Forgetting finally leaves the flag stuck on if the call throws. AsToken collapses the shape to: using var _ = _busy.AsToken(); await SlowThingAsync(); — the flag flips to true on entry, the IDisposable returns it to false on dispose (including the catch-and-rethrow path of using).
+    static void Run<T>(Reactive<T> reactiveValue, Func<Task<T>> action, Action<Exception>? onError = null, CancellationToken token = default)
+    static void Run<T>(Reactive<T> reactiveValue, Func<CancellationToken, Task<T>> action, Action<Exception>? onError = null, CancellationToken token = default)
+  // Convenience helpers on Reactive for the busy-flag pattern that every async handler uses. Without these, the standard shape is verbose and easy to break:
+  // _busy.Value = true;
+  // try { await SlowThingAsync(); }
+  // finally { _busy.Value = false; }
+  // Forgetting finally leaves the flag stuck on if the call throws. AsToken collapses the shape to:
+  // using var _ = _busy.AsToken();
+  // await SlowThingAsync();
+  // — the flag flips to true on entry, the IDisposable returns it to false on dispose (including the catch-and-rethrow path of using).
   static class ReactiveBoolExtensions
     // Set the flag to true and return an IDisposable that returns it to false on dispose. Idempotent — disposing twice is safe (the second dispose is a no-op).
     static IDisposable AsToken(Reactive<bool> reactive)
-  // Mutation helpers for Reactive`1 wrapping a collection. They mutate the underlying instance AND fire NotifyUpdate in one call so callers can write _items.Add(x) instead of the two-step _items.Value.Add(x); _items.NotifyUpdate();. Why these exist on a Reactive wrapping a mutable collection: the reference-equality check at the Value setter doesn't trigger when the underlying list is mutated in-place. Forgetting NotifyUpdate is the dominant "UI doesn't update after Add/Remove" bug class. These helpers make the right thing the easy thing. Reassignment (_items.Value = [.. _items.Value, x]) still works and stays the right form when callers want immutable-style updates; these helpers are the in-place alternative for the common case.
+  // Mutation helpers for Reactive wrapping a collection. They mutate the underlying instance AND fire the change notification in one call so callers can write _items.Add(x) instead of the two-step _items.Value.Add(x); _items.NotifyUpdate();. Why these exist on a Reactive wrapping a mutable collection: the reference-equality check at the Value setter doesn't trigger when the underlying list is mutated in-place. Forgetting NotifyUpdate is the dominant "UI doesn't update after Add/Remove" bug class. These helpers make the right thing the easy thing. Every helper runs its mutation through the locked Update , so concurrent mutations from parallel handlers serialize instead of racing. Reassignment (_items.Value = [.. _items.Value, x]) still works and stays the right form when callers want immutable-style updates; these helpers are the in-place alternative for the common case. For list state, ReactiveList offers the same one-call surface with copy-on-write snapshots and a read-only Value.
   static class ReactiveCollectionExtensions
+    // Append item to the underlying list and notify.
     static void Add<T>(Reactive<List<T>> reactive, T item)
+    // Add item to the underlying set and notify if it was new.
     static bool Add<T>(Reactive<HashSet<T>> reactive, T item)
+    // Append items to the underlying list and notify once.
     static void AddRange<T>(Reactive<List<T>> reactive, IEnumerable<T> items)
+    // Clear the underlying list and notify if it had items.
     static void Clear<T>(Reactive<List<T>> reactive)
+    // Clear the underlying set and notify if it had items.
     static void Clear<T>(Reactive<HashSet<T>> reactive)
+    // Clear the underlying dictionary and notify if it had entries.
     static void Clear<TKey, TValue>(Reactive<Dictionary<TKey, TValue>> reactive)
+    // Insert item at index and notify.
     static void Insert<T>(Reactive<List<T>> reactive, int index, T item)
+    // Mutate the underlying value via mutator and notify.
     static void Mutate<T>(Reactive<T> reactive, Action<T> mutator)
+    // Remove the first occurrence of item and notify if removed.
     static bool Remove<T>(Reactive<List<T>> reactive, T item)
+    // Remove item from the underlying set and notify if removed.
     static bool Remove<T>(Reactive<HashSet<T>> reactive, T item)
+    // Remove key and notify if removed.
     static bool Remove<TKey, TValue>(Reactive<Dictionary<TKey, TValue>> reactive, TKey key)
+    // Remove all items matching match and notify if any removed.
     static int RemoveAll<T>(Reactive<List<T>> reactive, Predicate<T> match)
+    // Remove the item at index and notify.
     static void RemoveAt<T>(Reactive<List<T>> reactive, int index)
+    // Set key to value and notify.
     static void Set<TKey, TValue>(Reactive<Dictionary<TKey, TValue>> reactive, TKey key, TValue value)
-  // Side-effect primitive that runs on tracked IReactive dependency changes. Mirrors the shape of Reactive`1 / Reactive`2 : this class is the unscoped (global) variant; ReactiveEffect`1 binds to a single scope type; further generic variants (forthcoming) compose multiple scopes the same way Reactive<T, TScope1, TScope2> does.
+  // Side-effect primitive that runs on tracked IReactive dependency changes. Mirrors the shape of Reactive / Reactive : this class is the unscoped (global) variant; ReactiveEffect binds to a single scope type; further generic variants (forthcoming) compose multiple scopes the same way Reactive<T, TScope1, TScope2> does.
   class ReactiveEffect : IDisposable
     // Create an effect with an async body. The token cancels when a dep changes mid-run; respect it for clean cancellation.
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
@@ -6076,6 +6147,44 @@ namespace Ikon.Common.Core.Reactive
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
     ctor(Action body, params IReactive[] deps)
     void Dispose()
+  // A reactive list that automatically triggers UI updates on every mutation.
+  class ReactiveList<T> : Reactive<List<T>>, IEnumerable, IEnumerable<T>, IReadOnlyCollection<T>, IReadOnlyList<T>
+    ctor(string file = "", string member = "")
+    ctor(IEnumerable<T> initialItems, string file = "", string member = "")
+    // The number of items. Tracked read.
+    int Count { get; }
+    // The item at index . The getter is a tracked read; the setter replaces the item with one change notification.
+    T this[int index] { get; set; }
+    // The current items without dependency tracking. See Peek .
+    IReadOnlyList<T> Peek { get; }
+    // The current items as a read-only snapshot. Reading tracks a dependency like Value ; assigning replaces the whole content with a copy of the given sequence (see ReplaceAll ).
+    IReadOnlyList<T> Value { get; set; }
+    // Append item . One notification.
+    void Add(T item)
+    // Append items . One notification for the whole batch.
+    void AddRange(IEnumerable<T> items)
+    // Remove all items. One notification.
+    void Clear()
+    // Whether item is present. Tracked read.
+    bool Contains(T item)
+    // Enumerate a snapshot of the current items. Tracked read; the snapshot is safe to iterate while other code mutates the list.
+    IEnumerator<T> GetEnumerator()
+    // Index of the first occurrence of item , or -1. Tracked read.
+    int IndexOf(T item)
+    // Insert item at index . One notification.
+    void Insert(int index, T item)
+    // Remove the first occurrence of item . Returns whether it was found. One notification either way.
+    bool Remove(T item)
+    // Remove all items matching match . Returns the removed count. One notification either way.
+    int RemoveAll(Predicate<T> match)
+    // Remove the item at index . One notification.
+    void RemoveAt(int index)
+    // Replace the whole content with a copy of items . One notification.
+    void ReplaceAll(IEnumerable<T> items)
+    // Sort the items using comparison . One notification.
+    void Sort(Comparison<T> comparison)
+    // Atomically replace the content: transform sees the current items and returns the new ones, which are materialized into a fresh list. Runs under the same lock as all other mutations, so concurrent updates serialize. One notification.
+    void Update(Func<IReadOnlyList<T>, IEnumerable<T>> transform)
   class ReactiveManager : IDisposable
     ctor(string category)
     string Category { get; }
@@ -6126,10 +6235,10 @@ namespace Ikon.Common.Core.Reactive
     static IDisposable? Activate(IReadOnlyList<IScopeKey> scopes)
     static IScopeKey[] CaptureCurrent()
     static IScopeKey[] CopyInRestorableOrder(IList<IScopeKey> scopes)
-  // Bridges Reactive`1 change notifications to remote clients over the existing function-call wire. Exposes three framework-shipped shared functions — Ikon.Reactive.Subscribe, Ikon.Reactive.Unsubscribe, and Ikon.Reactive.Update — so any FunctionRegistry -connected client can observe a server-side reactive value without registering a Parallax UI tree.
+  // Bridges Reactive change notifications to remote clients over the existing function-call wire. Exposes three framework-shipped shared functions — Ikon.Reactive.Subscribe, Ikon.Reactive.Unsubscribe, and Ikon.Reactive.Update — so any FunctionRegistry -connected client can observe a server-side reactive value without registering a Parallax UI tree.
   sealed class ReactiveSubscriptionService : AsyncLocalInstance<ReactiveSubscriptionService>
     ctor()
-    // Optional resolver: given a calling session id, returns the scopes that should be active during Subscribe/Unsubscribe so per-scope reactives resolve to the caller's natural session/user. Typically wired in app startup as sid => { var ctx = app.GlobalState.GetClientContext(sid); return [new ClientScope(ctx), new UserScope(ctx)]; }. When unset, the service falls back to [new ClientScope(sessionId)] only — ClientReactive`1 works, UserReactive`1 throws.
+    // Optional resolver: given a calling session id, returns the scopes that should be active during Subscribe/Unsubscribe so per-scope reactives resolve to the caller's natural session/user. Typically wired in app startup as sid => { var ctx = app.GlobalState.GetClientContext(sid); return [new ClientScope(ctx), new UserScope(ctx)]; }. When unset, the service falls back to [new ClientScope(sessionId)] only — ClientReactive works, UserReactive throws.
     Func<int, IReadOnlyList<IScopeKey>>? ScopeResolver { get; set; }
     // Wires this service's framework functions into the given registry. Call once during app/server startup, after the registry has its protocol channel attached.
     void AttachTo(FunctionRegistry registry)
@@ -6147,27 +6256,17 @@ namespace Ikon.Common.Core.Reactive
     static string UpdateFunctionName
   // A reactive variable that automatically triggers UI updates when its value changes.
   class Reactive<T> : IReactive, IReactiveWithState
-    ctor(UseDefault _ = null, string file = "", string member = "")
+    ctor(UseDefault _ = default, string file = "", string member = "")
     ctor(T initialValue, string file = "", string member = "")
-    bool CaptureForHotReload { get; }
-    // Hash-derived session id that Value would resolve to under the currently-active ReactiveScope . Throws if a required scope is missing — same conditions as accessing Value . External subscribers use this to key their subscription routing.
-    int CurrentScopeSessionId { get; }
     T Peek { get; }
-    string StableId { get; }
     T Value { get; set; }
     long Version { get; }
-    StoredReactiveState CaptureState()
     // Opt this reactive out of hot-reload state capture. Use for runtime-only caches that hold non-serializable or cyclic object graphs and are rebuilt from their own backing store after a reload (e.g. orchestrator caches of live domain objects) — capturing them only fails noisily. Fluent: returns this so it can be chained onto a field initializer. Has no effect on long-term persistence, which only applies to non-None PersistenceScope s.
     Reactive<T> ExcludeFromHotReloadCapture()
     void NotifyUpdate()
-    // Read this reactive's value for the currently-active scope and serialize it to JSON. Triggers per-scope initialization if no signal exists yet — the returned JSON is the initial value the consumer should observe.
-    string ReadCurrentValueAsJson()
-    void RestoreState(StoredReactiveState state)
     override string ToString()
     // Atomically read-modify-write the value for the currently-active scope. The transform runs under a per-scope lock, so concurrent mutations (e.g. appending to a shared list from parallel action handlers) serialize instead of racing — replacing the ad-hoc external locks that callers previously needed. Fires the change notification once. See Update .
     void Update(Func<T, T> mutator)
-    event Action? Changed
-    event Action<int>? SessionChanged
     event Action<T>? ValueChanged
     event Func<T, Task>? ValueChangedAsync
   // A reactive variable scoped to a specific scope type, providing isolated values per scope instance.
@@ -6198,6 +6297,10 @@ namespace Ikon.Common.Core.Reactive
   class UserReactiveEffect : ReactiveEffect<UserScope>
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
     ctor(Action body, params IReactive[] deps)
+  // A ReactiveList with a separate list for each user, shared across their client sessions.
+  class UserReactiveList<T> : ReactiveList<T>
+    ctor(string file = "", string member = "")
+    ctor(IEnumerable<T> initialItems, string file = "", string member = "")
   // A reactive variable with a separate value for each user, shared across their client sessions.
   class UserReactive<T> : Reactive<T, UserScope>
     ctor(T initialValue, string file = "", string member = "")
@@ -6206,7 +6309,7 @@ namespace Ikon.Common.Core.Reactive
 namespace Ikon.Common.Core.Reflection
   // Reflection helpers for Task / ValueTask result types. Two pieces: a compile-time-style type unwrap for schema generation ( UnwrapResultType ), and a runtime await-and-extract for invocation sites that get an object? back from MethodInfo.Invoke ( AwaitAndGetResultAsync ).
   static class TaskTypeUnwrap
-    // Take whatever MethodInfo.Invoke handed back and produce its observable result. Awaits Task , Task`1 , ValueTask , ValueTask`1 ; returns null for void-shaped awaitables; passes non-task values straight through. Used by dispatchers that hand off to user code reflectively and need a uniform object? back regardless of whether the method was sync, Task, or ValueTask.
+    // Take whatever MethodInfo.Invoke handed back and produce its observable result. Awaits Task , Task , ValueTask , ValueTask ; returns null for void-shaped awaitables; passes non-task values straight through. Used by dispatchers that hand off to user code reflectively and need a uniform object? back regardless of whether the method was sync, Task, or ValueTask.
     static ValueTask<object?> AwaitAndGetResultAsync(object? raw)
     // Map a method's declared return type to the type the method actually produces: Task/ValueTask → Object (void-equivalent — there is no result), Task<T>/ValueTask<T> → T, anything else → as-is. Schema generators feed the result of this through the type → JSON-schema pipeline so async methods produce sensible outputSchema entries.
     static Type UnwrapResultType(Type declaredReturnType)
@@ -6214,7 +6317,6 @@ namespace Ikon.Common.Core.Reflection
 namespace Ikon.Common.Core.Scope
   // Scope for backend token context, transports the backend token of the caller.
   struct BackendTokenScope : IScopeKey
-    // Scope for backend token context, transports the backend token of the caller.
     ctor(string token)
     string Id { get; }
     string Name { get; }
@@ -6242,14 +6344,12 @@ namespace Ikon.Common.Core.Scope
   // Scope for grouping a single logical operation (e.g., LLM generation, image generation).
   struct OperationScope : IScopeKey
     ctor()
-    // Scope for grouping a single logical operation (e.g., LLM generation, image generation).
     ctor(Guid id)
     Guid Id { get; }
     string Name { get; }
   // Scope for application run context, typically set at program startup in Program.cs. Used to group all log events and operations within a single application run.
   struct RunScope : IScopeKey
     ctor()
-    // Scope for application run context, typically set at program startup in Program.cs. Used to group all log events and operations within a single application run.
     ctor(Guid id)
     Guid Id { get; }
     string Name { get; }
@@ -6276,7 +6376,6 @@ namespace Ikon.Common.Core.Scope
     IDisposable UseScopes(params IScopeKey[] scopes)
   // Scope for tenant/customer context, an arbitrary user-specified ID for scoping AI app logic.
   struct TenantScope : IScopeKey
-    // Scope for tenant/customer context, an arbitrary user-specified ID for scoping AI app logic.
     ctor(string tenantId)
     string Id { get; }
     string Name { get; }
@@ -6312,7 +6411,6 @@ namespace Ikon.Common.Core.Signing
     string? Vendor { get; init; }
   // Represents a successfully signed document returned by the platform signing service. The platform downloads the result from the upstream signing vendor, hashes it, and hands the signed bytes plus evidence metadata to the requesting app. Apps should persist Bytes as the system of record — the platform retention is short.
   sealed class SignedDocument : IEquatable<SignedDocument>
-    // Represents a successfully signed document returned by the platform signing service. The platform downloads the result from the upstream signing vendor, hashes it, and hands the signed bytes plus evidence metadata to the requesting app. Apps should persist Bytes as the system of record — the platform retention is short.
     ctor(string OrderId, byte[] Bytes, string MimeType, DateTimeOffset SignedAt, string SignedDocumentHash, string IdentityScheme, string? SignerNameHash, string? EvidenceLevel)
     byte[] Bytes { get; init; }
     string? EvidenceLevel { get; init; }

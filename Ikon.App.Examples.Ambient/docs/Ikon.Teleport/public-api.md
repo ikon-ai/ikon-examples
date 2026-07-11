@@ -13,6 +13,10 @@ namespace Ikon.Teleport
     ArrayMalformed
     DictMalformed
     DepthOverflow
+  sealed class TeleportException : Exception
+    ctor(TeleportError error, string message)
+    ctor(TeleportError error, string message, Exception innerException)
+    TeleportError Error { get; }
   sealed class TeleportFieldAttribute : Attribute
     ctor(string name)
     ctor(uint explicitId)

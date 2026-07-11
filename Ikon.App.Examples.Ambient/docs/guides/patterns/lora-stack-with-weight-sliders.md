@@ -52,8 +52,8 @@ private void RenderLoraRow(UIView view, Lora lora)
             });
 
             v.Switch([Switch.Default],
-                isChecked: lora.Enabled,
-                onCheckedChange: async v => UpdateLora(lora.Id, l => l.With(enabled: v)),
+                value: lora.Enabled,
+                onValueChange: async v => UpdateLora(lora.Id, l => l.With(enabled: v)),
                 content: s => s.SwitchThumb([Switch.Thumb]));
         });
 

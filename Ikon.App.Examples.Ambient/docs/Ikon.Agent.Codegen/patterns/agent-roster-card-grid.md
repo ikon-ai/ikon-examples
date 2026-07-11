@@ -47,8 +47,8 @@ private void RenderAgentCard(UIView view, Agent agent)
                 });
 
                 view.Switch([Switch.Default],
-                    isChecked: isActive,
-                    onCheckedChange: async v =>
+                    value: isActive,
+                    onValueChange: async v =>
                     {
                         if (v && !_activeAgentIds.Value.Contains(agent.Id))
                         {

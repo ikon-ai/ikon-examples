@@ -18,12 +18,12 @@ await foreach (var ev in Emerge.Run<AgentResponse>(LLMModel.Claude45Sonnet, _con
     pass.MaxOutputTokens = 1024;
     pass.MaxIterations = 10;
 
-    pass.AddTool("search_inventory", "Semantic search ...",
+    pass.AddTool(Tool.Of("search_inventory", "Semantic search ...",
         async (string? query, int? maxPrice, int? minYear) =>
-            await _apiClient.SearchInventoryAsync(showroom, query, maxPrice, minYear));
+            await _apiClient.SearchInventoryAsync(showroom, query, maxPrice, minYear)));
 
-    pass.AddTool("get_vehicle_images", "Image URLs by id.",
-        async (string vehicleId) => await _apiClient.GetVehicleImagesAsync(showroom, vehicleId));
+    pass.AddTool(Tool.Of("get_vehicle_images", "Image URLs by id.",
+        async (string vehicleId) => await _apiClient.GetVehicleImagesAsync(showroom, vehicleId)));
 }))
 {
     switch (ev)

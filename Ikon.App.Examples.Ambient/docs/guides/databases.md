@@ -4,7 +4,7 @@
 
 Managed PostgreSQL database connections.
 
-**One command sets up both the toml entry AND the platform provisioning** if your code uses a database named `"mydb"` (whether via EF Core's `app.Databases` or `AppDatabaseConnection.Create(app, "mydb")`):
+**One command sets up both the toml entry AND the platform provisioning** if your code uses a database named `"mydb"` (whether via EF Core's `app.Databases` or `app.Database("mydb")`):
 
 ```
 ikon app config --add-database mydb:postgres
@@ -16,7 +16,7 @@ For staging/production envs, repeat with `--target staging` / `--target producti
 
 Manual two-step path (only if you need to inspect/edit the toml first): `read` the env-specific toml → `edit` the `Databases = []` line to add `"mydb:postgres"` → `ikon app config`. NEVER `write` the toml end-to-end — that destroys the `[Target]` section and `ikon app config` will revert it.
 
-Code that references a database but skips this setup leaves the app broken at runtime. The Critic should reject any pass where the C# uses a database `"X"` — EF Core's `app.Databases.First(d => d.Name == "X")` or `AppDatabaseConnection.Create(app, "X")` — but `ikon-config.development.toml` doesn't declare `"X:postgres"` in `Databases`.
+Code that references a database but skips this setup leaves the app broken at runtime. The Critic should reject any pass where the C# uses a database `"X"` — EF Core's `app.Databases.First(d => d.Name == "X")`, `app.Database("X")`, or the older `AppDatabaseConnection.Create(app, "X")` — but `ikon-config.development.toml` doesn't declare `"X:postgres"` in `Databases`.
 
 ### Data access — prefer EF Core
 
@@ -77,10 +77,10 @@ After each model change, run `ikon app db ef-migrate-add <Name>` and commit the 
 
 ### Raw SQL (lightweight alternative)
 
-For a table or two with no schema churn, skip EF Core. `AppDatabaseConnection.Create(app, "mydb")` returns a standard ADO.NET `DbConnection` — open and dispose it **per operation** (never hold one as a field); create the schema with idempotent DDL at startup:
+For a table or two with no schema churn, skip EF Core. `app.Database("mydb")` returns a standard ADO.NET `DbConnection` — open and dispose it **per operation** (never hold one as a field); create the schema with idempotent DDL at startup:
 
 ```csharp
-await using var connection = AppDatabaseConnection.Create(app, "mydb");
+await using var connection = app.Database("mydb");
 await connection.OpenAsync();
 await using var cmd = connection.CreateCommand();
 cmd.CommandText = "CREATE TABLE IF NOT EXISTS users (id BIGSERIAL PRIMARY KEY, name TEXT NOT NULL);";

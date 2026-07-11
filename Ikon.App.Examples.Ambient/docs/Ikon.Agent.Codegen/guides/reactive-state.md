@@ -14,6 +14,11 @@ private readonly ClientReactive<string> _theme = new("light");
 // Per-user state (shared across a user's multiple client sessions)
 // If a user connects from phone and desktop, both clients share the same UserReactive values
 private readonly UserReactive<string> _userPref = new("");
+
+// List state — ReactiveList<T> (shared) / ClientReactiveList<T> / UserReactiveList<T>.
+// Never Reactive<List<T>> in new code; ReactiveList<T> is the list type.
+private readonly ReactiveList<string> _messages = new();
+private readonly ClientReactiveList<TodoItem> _todos = new();
 ```
 
 ### Persistent Reactives — survive app restarts
@@ -27,6 +32,10 @@ private readonly PersistentReactive<int> _totalVisits = new(0);
 
 // Follows a user across all of their client sessions
 private readonly PersistentUserReactive<Prefs> _prefs = new(new Prefs());
+
+// Persisted lists — same mutation-notifies contract as ReactiveList<T>
+private readonly PersistentReactiveList<TodoItem> _todos = new();        // app-wide
+private readonly PersistentUserReactiveList<Bookmark> _bookmarks = new(); // per-user
 ```
 
 Heuristic: if you can't articulate why it should be `Global` or `User`, use `PersistentSessionReactive<T>`. Persisted values load in parallel before `Main()` runs and save on graceful shutdown — read and write them like any other reactive. Never write runtime state to `app.DataDirectory`; it is read-only in cloud.
@@ -81,19 +90,23 @@ public async Task Main()
 // Simple assignment
 _count.Value = 42;
 
-// List mutation (mutate in place and notify)
-_items.Value.Add(newItem);
-_items.NotifyUpdate();
+// List mutation — call the method on the ReactiveList itself; each call notifies once
+_items.Add(newItem);
+_items.RemoveAll(i => i.Done);
+_items.Update(list => list.Select(i => i with { Done = true }));  // whole-list transform, one notification
+_items.Value = imported;  // assignment replaces the whole content (same as ReplaceAll)
 
 // Record mutation
 _config.Value = _config.Value with { Theme = "dark" };
 ```
 
+On a `ReactiveList<T>`, reads (`Value`, `Count`, indexer, enumeration) are `IReadOnlyList<T>` — `_items.Value.Add(x)` does not compile; `_items.Add(x)` is the spelling and there is no `NotifyUpdate` to remember. Each mutation copies the list, so batch with `AddRange` / `ReplaceAll` / `Update` instead of per-item calls in a loop.
+
 ### Complete Example: Shared Messages + Per-Client Input
 
 ```csharp
 // Shared state — all clients see the same messages
-private readonly Reactive<List<string>> _messages = new([]);
+private readonly ReactiveList<string> _messages = new();
 
 // Per-client state — each client has their own input
 private readonly ClientReactive<string> _input = new("");
@@ -105,10 +118,10 @@ public async Task Main()
         view.Column(["h-screen"], content: view =>
         {
             // All clients see the same messages
-            view.ScrollArea(autoScroll: true, autoScrollKey: _messages.Value.Count.ToString(),
+            view.ScrollArea(autoScroll: true, autoScrollKey: _messages.Count.ToString(),
                 rootStyle: ["flex-1 min-h-0 px-4"], content: view =>
             {
-                foreach (var msg in _messages.Value)
+                foreach (var msg in _messages)
                 {
                     view.Text([Text.Body, "py-1"], msg);
                 }
@@ -120,8 +133,7 @@ public async Task Main()
                 view.TextField(bind: _input, style: ["flex-1"],
                     onSubmit: async submitted =>
                     {
-                        _messages.Value.Add(submitted);
-                        _messages.NotifyUpdate(); // Required for in-place list mutation
+                        _messages.Add(submitted); // Mutation methods notify on their own
                     },
                     clearOnSubmit: true);
             });
@@ -153,6 +165,10 @@ namespace Ikon.Common.Core.Reactive
   class ClientReactiveEffect : ReactiveEffect<ClientScope>
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
     ctor(Action body, params IReactive[] deps)
+  // A ReactiveList`1 with a separate list for each client session.
+  class ClientReactiveList<T> : ReactiveList<T>
+    ctor(string file = "", string member = "")
+    ctor(IEnumerable<T> initialItems, string file = "", string member = "")
   // A reactive variable with a separate value for each client session.
   class ClientReactive<T> : Reactive<T, ClientScope>
     ctor(T initialValue, string file = "", string member = "")
@@ -161,6 +177,7 @@ namespace Ikon.Common.Core.Reactive
     int? GroupId { get; set; }
     Guid Id { get; }
     bool IsUpdate { get; }
+    ReactiveManager.Handle? Parent { get; }
     DateTime? UpdatedAt { get; }
     void StopTracking(bool isUpdating)
     override string ToString()
@@ -194,6 +211,10 @@ namespace Ikon.Common.Core.Reactive
   // Factory methods for creating MountReactive`1 with per-mount initialization.
   static class MountReactive
     static MountReactive<T> Create<T>(Func<string, T> factory, string file = "", string member = "")
+  // A ReactiveList`1 with a separate list for each Parallax mount in the active render iteration.
+  class MountReactiveList<T> : ReactiveList<T>
+    ctor(string file = "", string member = "")
+    ctor(IEnumerable<T> initialItems, string file = "", string member = "")
   // A reactive variable with a separate value for each Parallax mount in the active render iteration.
   class MountReactive<T> : Reactive<T, MountScope>
     ctor(T initialValue, string file = "", string member = "")
@@ -222,7 +243,7 @@ namespace Ikon.Common.Core.Reactive
   static class ReactiveBoolExtensions
     // Set the flag to true and return an IDisposable that returns it to false on dispose. Idempotent — disposing twice is safe (the second dispose is a no-op).
     static IDisposable AsToken(Reactive<bool> reactive)
-  // Mutation helpers for Reactive`1 wrapping a collection. They mutate the underlying instance AND fire NotifyUpdate in one call so callers can write _items.Add(x) instead of the two-step _items.Value.Add(x); _items.NotifyUpdate();. Why these exist on a Reactive wrapping a mutable collection: the reference-equality check at the Value setter doesn't trigger when the underlying list is mutated in-place. Forgetting NotifyUpdate is the dominant "UI doesn't update after Add/Remove" bug class. These helpers make the right thing the easy thing. Reassignment (_items.Value = [.. _items.Value, x]) still works and stays the right form when callers want immutable-style updates; these helpers are the in-place alternative for the common case.
+  // Mutation helpers for Reactive`1 wrapping a collection. They mutate the underlying instance AND fire the change notification in one call so callers can write _items.Add(x) instead of the two-step _items.Value.Add(x); _items.NotifyUpdate();. Why these exist on a Reactive wrapping a mutable collection: the reference-equality check at the Value setter doesn't trigger when the underlying list is mutated in-place. Forgetting NotifyUpdate is the dominant "UI doesn't update after Add/Remove" bug class. These helpers make the right thing the easy thing. Every helper runs its mutation through the locked Update , so concurrent mutations from parallel handlers serialize instead of racing. Reassignment (_items.Value = [.. _items.Value, x]) still works and stays the right form when callers want immutable-style updates; these helpers are the in-place alternative for the common case. For list state, ReactiveList`1 offers the same one-call surface with copy-on-write snapshots and a read-only Value.
   static class ReactiveCollectionExtensions
     static void Add<T>(Reactive<List<T>> reactive, T item)
     static bool Add<T>(Reactive<HashSet<T>> reactive, T item)
@@ -250,9 +271,50 @@ namespace Ikon.Common.Core.Reactive
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
     ctor(Action body, params IReactive[] deps)
     void Dispose()
+  // A reactive list that automatically triggers UI updates on every mutation.
+  class ReactiveList<T> : Reactive<List<T>>, IEnumerable, IEnumerable<T>, IReadOnlyCollection<T>, IReadOnlyList<T>
+    ctor(string file = "", string member = "")
+    ctor(IEnumerable<T> initialItems, string file = "", string member = "")
+    // The number of items. Tracked read.
+    int Count { get; }
+    T Item { get; set; }
+    // The current items without dependency tracking. See Peek .
+    IReadOnlyList<T> Peek { get; }
+    // The current items as a read-only snapshot. Reading tracks a dependency like Value ; assigning replaces the whole content with a copy of the given sequence (see ReplaceAll ).
+    IReadOnlyList<T> Value { get; set; }
+    // Append item . One notification.
+    void Add(T item)
+    // Append items . One notification for the whole batch.
+    void AddRange(IEnumerable<T> items)
+    // Remove all items. One notification.
+    void Clear()
+    // Whether item is present. Tracked read.
+    bool Contains(T item)
+    // Enumerate a snapshot of the current items. Tracked read; the snapshot is safe to iterate while other code mutates the list.
+    IEnumerator<T> GetEnumerator()
+    // Index of the first occurrence of item , or -1. Tracked read.
+    int IndexOf(T item)
+    // Insert item at index . One notification.
+    void Insert(int index, T item)
+    // Remove the first occurrence of item . Returns whether it was found. One notification either way.
+    bool Remove(T item)
+    // Remove all items matching match . Returns the removed count. One notification either way.
+    int RemoveAll(Predicate<T> match)
+    // Remove the item at index . One notification.
+    void RemoveAt(int index)
+    // Replace the whole content with a copy of items . One notification.
+    void ReplaceAll(IEnumerable<T> items)
+    // Sort the items using comparison . One notification.
+    void Sort(Comparison<T> comparison)
+    // Atomically replace the content: transform sees the current items and returns the new ones, which are materialized into a fresh list. Runs under the same lock as all other mutations, so concurrent updates serialize. One notification.
+    void Update(Func<IReadOnlyList<T>, IEnumerable<T>> transform)
   class ReactiveManager : IDisposable
     ctor(string category)
     string Category { get; }
+    // Live-handle count above which Dispose logs a leak warning. The default suits the classic one-render-handle-per-client shape; per-container subtree rendering legitimately holds one handle per UI container, so its owner raises this to keep the warning meaningful.
+    int DisposeHandleWarningThreshold { get; set; }
+    // Number of currently registered (dispatchable) handles. Diagnostic counterpart of DisposeHandleWarningThreshold .
+    int LiveHandleCount { get; }
     int UpdatedHandleCount { get; }
     void DecrementUICreationOngoing()
     void Dispose()
@@ -319,25 +381,15 @@ namespace Ikon.Common.Core.Reactive
   class Reactive<T> : IReactive, IReactiveWithState
     ctor(UseDefault _ = null, string file = "", string member = "")
     ctor(T initialValue, string file = "", string member = "")
-    bool CaptureForHotReload { get; }
-    // Hash-derived session id that Value would resolve to under the currently-active ReactiveScope . Throws if a required scope is missing — same conditions as accessing Value . External subscribers use this to key their subscription routing.
-    int CurrentScopeSessionId { get; }
     T Peek { get; }
-    string StableId { get; }
     T Value { get; set; }
     long Version { get; }
-    StoredReactiveState CaptureState()
     // Opt this reactive out of hot-reload state capture. Use for runtime-only caches that hold non-serializable or cyclic object graphs and are rebuilt from their own backing store after a reload (e.g. orchestrator caches of live domain objects) — capturing them only fails noisily. Fluent: returns this so it can be chained onto a field initializer. Has no effect on long-term persistence, which only applies to non-None PersistenceScope s.
     Reactive<T> ExcludeFromHotReloadCapture()
     void NotifyUpdate()
-    // Read this reactive's value for the currently-active scope and serialize it to JSON. Triggers per-scope initialization if no signal exists yet — the returned JSON is the initial value the consumer should observe.
-    string ReadCurrentValueAsJson()
-    void RestoreState(StoredReactiveState state)
     override string ToString()
     // Atomically read-modify-write the value for the currently-active scope. The transform runs under a per-scope lock, so concurrent mutations (e.g. appending to a shared list from parallel action handlers) serialize instead of racing — replacing the ad-hoc external locks that callers previously needed. Fires the change notification once. See Update .
     void Update(Func<T, T> mutator)
-    event Action? Changed
-    event Action<int>? SessionChanged
     event Action<T>? ValueChanged
     event Func<T, Task>? ValueChangedAsync
   // A reactive variable scoped to a specific scope type, providing isolated values per scope instance.
@@ -368,6 +420,10 @@ namespace Ikon.Common.Core.Reactive
   class UserReactiveEffect : ReactiveEffect<UserScope>
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
     ctor(Action body, params IReactive[] deps)
+  // A ReactiveList`1 with a separate list for each user, shared across their client sessions.
+  class UserReactiveList<T> : ReactiveList<T>
+    ctor(string file = "", string member = "")
+    ctor(IEnumerable<T> initialItems, string file = "", string member = "")
   // A reactive variable with a separate value for each user, shared across their client sessions.
   class UserReactive<T> : Reactive<T, UserScope>
     ctor(T initialValue, string file = "", string member = "")
@@ -376,7 +432,6 @@ namespace Ikon.Common.Core.Reactive
 namespace Ikon.Common.Core.Scope
   // Scope for backend token context, transports the backend token of the caller.
   struct BackendTokenScope : IScopeKey
-    // Scope for backend token context, transports the backend token of the caller.
     ctor(string token)
     string Id { get; }
     string Name { get; }
@@ -404,14 +459,12 @@ namespace Ikon.Common.Core.Scope
   // Scope for grouping a single logical operation (e.g., LLM generation, image generation).
   struct OperationScope : IScopeKey
     ctor()
-    // Scope for grouping a single logical operation (e.g., LLM generation, image generation).
     ctor(Guid id)
     Guid Id { get; }
     string Name { get; }
   // Scope for application run context, typically set at program startup in Program.cs. Used to group all log events and operations within a single application run.
   struct RunScope : IScopeKey
     ctor()
-    // Scope for application run context, typically set at program startup in Program.cs. Used to group all log events and operations within a single application run.
     ctor(Guid id)
     Guid Id { get; }
     string Name { get; }
@@ -438,7 +491,6 @@ namespace Ikon.Common.Core.Scope
     IDisposable UseScopes(params IScopeKey[] scopes)
   // Scope for tenant/customer context, an arbitrary user-specified ID for scoping AI app logic.
   struct TenantScope : IScopeKey
-    // Scope for tenant/customer context, an arbitrary user-specified ID for scoping AI app logic.
     ctor(string tenantId)
     string Id { get; }
     string Name { get; }

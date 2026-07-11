@@ -1133,7 +1133,6 @@ namespace Ikon.Common
     void Stop()
   // Captures whether the running ikon tool (or hosted ikon-server) has a platform-dotnet checkout it can build against, and exposes the flags every downstream build step needs: the -p:IkonRoot=... MSBuild arg for dotnet, and the VITE_IS_IKON_INTERNAL / VITE_IKON_PLATFORM_TYPESCRIPT_PATH env vars for vite.
   sealed class PlatformContext : IEquatable<PlatformContext>
-    // Captures whether the running ikon tool (or hosted ikon-server) has a platform-dotnet checkout it can build against, and exposes the flags every downstream build step needs: the -p:IkonRoot=... MSBuild arg for dotnet, and the VITE_IS_IKON_INTERNAL / VITE_IKON_PLATFORM_TYPESCRIPT_PATH env vars for vite.
     ctor(string? DotnetRoot)
     string? DotnetRoot { get; init; }
     bool IsIkonInternal { get; }
@@ -1195,9 +1194,9 @@ namespace Ikon.Common
     // Creates a relay agent with explicit connection parameters. Used when the relay host/port/token are already known (e.g. IkonServer's --public-access path). When stableId is non-empty, the relay assigns a fixed port-range segment to this identity so the public ports stay stable across reconnects.
     ctor(string relayServerAddress, int relayServerPort, string relayAuthToken, string stableId = "")
     // Allocates an endpoint. localPort of 0 picks an available port from an internal pool. The returned RelayEndpoint is disposable; dispose it to release the endpoint. When stablePortName is non-empty (and this agent has a non-empty stableId), the relay assigns a deterministic public port for that name within this agent's segment, so the endpoint's public URL stays the same across reconnects and process restarts. Empty = ephemeral, as before.
-    Task<RelayEndpoint> AddEndpointAsync(EndpointProtocol protocol, int localPort = 0, string stablePortName = "", CancellationToken cancellationToken = null)
+    Task<RelayEndpoint> AddEndpointAsync(EndpointProtocol protocol, int localPort = 0, string stablePortName = "", CancellationToken cancellationToken = default)
     // Ensures the connection supervisor is running and waits for a live session. Called implicitly by AddEndpointAsync on first use; calling it explicitly is optional. The very first connection attempt surfaces its failure to the caller; once a session has been established the supervisor reconnects on its own and this call simply waits for the next live session.
-    Task ConnectAsync(CancellationToken cancellationToken = null)
+    Task ConnectAsync(CancellationToken cancellationToken = default)
     // Creates a relay agent whose host/port/token are fetched from IkonBackend on first connect. Pass a non-empty stableId to opt into stable public-port assignments.
     static RelayAgent CreateFromIkonBackend(string stableId = "")
     ValueTask DisposeAsync()
@@ -1306,7 +1305,6 @@ namespace Ikon.Common.Assets
 namespace Ikon.Common.Git
   // Git branch information.
   class GitBranch : IEquatable<GitBranch>
-    // Git branch information.
     ctor(string Name, bool IsRemote, bool IsCurrent)
     bool IsCurrent { get; init; }
     bool IsRemote { get; init; }
@@ -1320,14 +1318,12 @@ namespace Ikon.Common.Git
     Untracked
   // Options for cloning a repository.
   class GitCloneOptions : IEquatable<GitCloneOptions>
-    // Options for cloning a repository.
     ctor(string? Branch = null, bool Shallow = false, GitCredentials? Credentials = null)
     string? Branch { get; init; }
     GitCredentials? Credentials { get; init; }
     bool Shallow { get; init; }
   // Git commit information.
   class GitCommit : IEquatable<GitCommit>
-    // Git commit information.
     ctor(string Sha, string ShortSha, string Author, string AuthorEmail, DateTimeOffset Date, string Message)
     string Author { get; init; }
     string AuthorEmail { get; init; }
@@ -1337,26 +1333,22 @@ namespace Ikon.Common.Git
     string ShortSha { get; init; }
   // Git credentials for authenticated operations.
   class GitCredentials : IEquatable<GitCredentials>
-    // Git credentials for authenticated operations.
     ctor(string Username, string Password)
     string Password { get; init; }
     string Username { get; init; }
   // Git diff between two commits.
   class GitDiff : IEquatable<GitDiff>
-    // Git diff between two commits.
     ctor(string? FromSha, string? ToSha, List<GitFileDiff> Files)
     List<GitFileDiff> Files { get; init; }
     string? FromSha { get; init; }
     string? ToSha { get; init; }
   // A changed file in git status or diff.
   class GitFileChange : IEquatable<GitFileChange>
-    // A changed file in git status or diff.
     ctor(string Path, GitChangeType Type)
     string Path { get; init; }
     GitChangeType Type { get; init; }
   // File diff information.
   class GitFileDiff : IEquatable<GitFileDiff>
-    // File diff information.
     ctor(string Path, GitChangeType Type, int LinesAdded, int LinesRemoved, string? Patch = null)
     int LinesAdded { get; init; }
     int LinesRemoved { get; init; }
@@ -1365,136 +1357,134 @@ namespace Ikon.Common.Git
     GitChangeType Type { get; init; }
   // Strongly-typed git repository operations.
   class GitRepository
-    // Strongly-typed git repository operations.
     ctor(string workingDirectory, GitCredentials? credentials = null)
     GitCredentials? Credentials { get; }
     string WorkingDirectory { get; }
     // Abort all in-progress operations (merge, rebase, cherry-pick).
-    Task AbortAllInProgressOperationsAsync(CancellationToken ct = null)
+    Task AbortAllInProgressOperationsAsync(CancellationToken ct = default)
     // Abort an in-progress cherry-pick.
-    Task<bool> AbortCherryPickAsync(CancellationToken ct = null)
+    Task<bool> AbortCherryPickAsync(CancellationToken ct = default)
     // Abort an in-progress merge.
-    Task<bool> AbortMergeAsync(CancellationToken ct = null)
+    Task<bool> AbortMergeAsync(CancellationToken ct = default)
     // Abort an in-progress rebase.
-    Task<bool> AbortRebaseAsync(CancellationToken ct = null)
+    Task<bool> AbortRebaseAsync(CancellationToken ct = default)
     // Add a remote. Credentials are stripped from the URL.
-    Task AddRemoteAsync(string name, string url, CancellationToken ct = null)
+    Task AddRemoteAsync(string name, string url, CancellationToken ct = default)
     // Checkout an existing branch.
-    Task CheckoutAsync(string branchOrRef, CancellationToken ct = null)
+    Task CheckoutAsync(string branchOrRef, CancellationToken ct = default)
     // Checkout files from a specific ref without changing HEAD.
-    Task CheckoutFilesFromRefAsync(string refName, string path = ".", CancellationToken ct = null)
+    Task CheckoutFilesFromRefAsync(string refName, string path = ".", CancellationToken ct = default)
     // Clone a repository to a target directory.
-    static Task<GitRepository> CloneAsync(string url, string targetDir, GitCloneOptions? options = null, CancellationToken ct = null)
+    static Task<GitRepository> CloneAsync(string url, string targetDir, GitCloneOptions? options = null, CancellationToken ct = default)
     // Clone a repository or sync if it already exists. Returns the repository instance with the current SHA.
-    static Task<ValueTuple<GitRepository, string?, bool>> CloneOrSyncAsync(string url, string targetDir, GitCloneOptions? options = null, CancellationToken ct = null)
+    static Task<ValueTuple<GitRepository, string?, bool>> CloneOrSyncAsync(string url, string targetDir, GitCloneOptions? options = null, CancellationToken ct = default)
     // Commit staged changes.
-    Task<GitCommit> CommitAsync(string message, CancellationToken ct = null)
+    Task<GitCommit> CommitAsync(string message, CancellationToken ct = default)
     // Commit staged changes with custom author.
-    Task<GitCommit> CommitAsync(string message, string authorName, string authorEmail, bool allowEmpty = false, CancellationToken ct = null)
+    Task<GitCommit> CommitAsync(string message, string authorName, string authorEmail, bool allowEmpty = false, CancellationToken ct = default)
     // Build per-invocation environment variables that authenticate git HTTP(S) operations. Uses git's environment config mechanism (git 2.31+) to inject an Authorization header, appending to any GIT_CONFIG_COUNT entries already present in the process environment.
     static Dictionary<string, string?> CreateAuthEnvironment(GitCredentials credentials)
     // Create and checkout a new branch.
-    Task CreateBranchAsync(string name, string? startPoint = null, CancellationToken ct = null)
+    Task CreateBranchAsync(string name, string? startPoint = null, CancellationToken ct = default)
     // Create a tag.
-    Task<GitTag> CreateTagAsync(string name, string? message = null, CancellationToken ct = null)
+    Task<GitTag> CreateTagAsync(string name, string? message = null, CancellationToken ct = default)
     // Delete a tag.
-    Task DeleteTagAsync(string name, CancellationToken ct = null)
+    Task DeleteTagAsync(string name, CancellationToken ct = default)
     // Discard all uncommitted changes.
-    Task DiscardChangesAsync(CancellationToken ct = null)
+    Task DiscardChangesAsync(CancellationToken ct = default)
     // Rewrite the remote URL to its credential-free form.
-    Task EnsureCleanRemoteUrlAsync(string name = "origin", CancellationToken ct = null)
+    Task EnsureCleanRemoteUrlAsync(string name = "origin", CancellationToken ct = default)
     // Escape a commit message for shell.
     static string EscapeMessage(string message)
     // Fetch from remote.
-    Task FetchAsync(bool includeTags = false, CancellationToken ct = null)
+    Task FetchAsync(bool includeTags = false, CancellationToken ct = default)
     // Count how many commits the local branch is ahead of and behind its origin counterpart. Returns null when the counts cannot be determined (e.g. origin/{branch} does not exist).
-    Task<ValueTuple<int, int>?> GetAheadBehindAsync(string branch, CancellationToken ct = null)
+    Task<ValueTuple<int, int>?> GetAheadBehindAsync(string branch, CancellationToken ct = default)
     // Get all branches.
-    Task<List<GitBranch>> GetBranchesAsync(CancellationToken ct = null)
+    Task<List<GitBranch>> GetBranchesAsync(CancellationToken ct = default)
     // Get a local git config value.
-    Task<string?> GetConfigAsync(string key, CancellationToken ct = null)
+    Task<string?> GetConfigAsync(string key, CancellationToken ct = default)
     // Get the current branch name.
-    Task<string> GetCurrentBranchAsync(CancellationToken ct = null)
+    Task<string> GetCurrentBranchAsync(CancellationToken ct = default)
     // Get diff between HEAD and another target (or working directory if null).
-    Task<GitDiff> GetDiffAsync(string? target = null, CancellationToken ct = null)
+    Task<GitDiff> GetDiffAsync(string? target = null, CancellationToken ct = default)
     // Get the HEAD commit.
-    Task<GitCommit?> GetHeadCommitAsync(CancellationToken ct = null)
+    Task<GitCommit?> GetHeadCommitAsync(CancellationToken ct = default)
     // Get the HEAD SHA.
-    Task<string?> GetHeadShaAsync(bool shortSha = false, CancellationToken ct = null)
+    Task<string?> GetHeadShaAsync(bool shortSha = false, CancellationToken ct = default)
     // Get commit history.
-    Task<List<GitCommit>> GetHistoryAsync(int limit = 20, string? fromRef = null, CancellationToken ct = null)
+    Task<List<GitCommit>> GetHistoryAsync(int limit = 20, string? fromRef = null, CancellationToken ct = default)
     // Get remote URL exactly as stored in .git/config, including any embedded credentials.
-    Task<string?> GetRawRemoteUrlAsync(string name = "origin", CancellationToken ct = null)
+    Task<string?> GetRawRemoteUrlAsync(string name = "origin", CancellationToken ct = default)
     // Get remote URL (without credentials).
-    Task<string?> GetRemoteUrlAsync(string name = "origin", CancellationToken ct = null)
+    Task<string?> GetRemoteUrlAsync(string name = "origin", CancellationToken ct = default)
     // Get the current repository status.
-    Task<GitStatus> GetStatusAsync(CancellationToken ct = null)
+    Task<GitStatus> GetStatusAsync(CancellationToken ct = default)
     // Get all tags.
-    Task<List<GitTag>> GetTagsAsync(CancellationToken ct = null)
+    Task<List<GitTag>> GetTagsAsync(CancellationToken ct = default)
     // Check if repository has any commits.
-    Task<bool> HasCommitsAsync(CancellationToken ct = null)
+    Task<bool> HasCommitsAsync(CancellationToken ct = default)
     // Check if a remote exists.
-    Task<bool> HasRemoteAsync(string name = "origin", CancellationToken ct = null)
+    Task<bool> HasRemoteAsync(string name = "origin", CancellationToken ct = default)
     // Check if there are uncommitted changes.
-    Task<bool> HasUncommittedChangesAsync(CancellationToken ct = null)
+    Task<bool> HasUncommittedChangesAsync(CancellationToken ct = default)
     // Check if there are uncommitted changes under a specific path.
-    Task<bool> HasUncommittedChangesAsync(string path, CancellationToken ct = null)
+    Task<bool> HasUncommittedChangesAsync(string path, CancellationToken ct = default)
     // Check if the local branch has commits that have not been pushed to origin. A branch that does not exist on origin counts as unpushed when local commits exist.
-    Task<bool> HasUnpushedCommitsAsync(string branch, CancellationToken ct = null)
+    Task<bool> HasUnpushedCommitsAsync(string branch, CancellationToken ct = default)
     // Initialize a git repository and connect to a remote, preserving local files. Local files are kept as-is and NOT merged with remote content. Returns the repository instance ready for use.
-    static Task<GitRepository> InitAndConnectAsync(string directory, string remoteUrl, GitCredentials? credentials = null, string? configKey = null, string? configValue = null, CancellationToken ct = null)
+    static Task<GitRepository> InitAndConnectAsync(string directory, string remoteUrl, GitCredentials? credentials = null, string? configKey = null, string? configValue = null, CancellationToken ct = default)
     // Initialize a new git repository.
-    static Task<GitRepository> InitAsync(string directory, CancellationToken ct = null)
+    static Task<GitRepository> InitAsync(string directory, CancellationToken ct = default)
     // Check if the working directory is a git repository.
-    Task<bool> IsGitRepositoryAsync(CancellationToken ct = null)
+    Task<bool> IsGitRepositoryAsync(CancellationToken ct = default)
     // Check if a directory is a git repository.
-    static Task<bool> IsGitRepositoryAsync(string directory, CancellationToken ct = null)
+    static Task<bool> IsGitRepositoryAsync(string directory, CancellationToken ct = default)
     // List all worktrees attached to this repository (including the primary one). Parses the output of `git worktree list --porcelain`.
-    Task<List<GitWorktreeInfo>> ListWorktreesAsync(CancellationToken ct = null)
+    Task<List<GitWorktreeInfo>> ListWorktreesAsync(CancellationToken ct = default)
     // Push to remote.
-    Task PushAsync(bool setUpstream = false, CancellationToken ct = null)
+    Task PushAsync(bool setUpstream = false, CancellationToken ct = default)
     // Check if a ref exists.
-    Task<bool> RefExistsAsync(string refName, CancellationToken ct = null)
+    Task<bool> RefExistsAsync(string refName, CancellationToken ct = default)
     // Rename current branch.
-    Task RenameBranchAsync(string oldName, string newName, CancellationToken ct = null)
+    Task RenameBranchAsync(string oldName, string newName, CancellationToken ct = default)
     // Reset HEAD to a specific ref (hard reset).
-    Task ResetHardAsync(string target, CancellationToken ct = null)
+    Task ResetHardAsync(string target, CancellationToken ct = default)
     // Reset HEAD to a specific ref (soft reset - keeps changes staged).
-    Task ResetSoftAsync(string target, CancellationToken ct = null)
+    Task ResetSoftAsync(string target, CancellationToken ct = default)
     // Restore to a specific target (tag, sha, or branch).
-    Task<GitSyncResult> RestoreAsync(string target, CancellationToken ct = null)
+    Task<GitSyncResult> RestoreAsync(string target, CancellationToken ct = default)
     // Run a git command (throws on failure).
-    Task<string> RunAsync(string args, CancellationToken ct = null)
+    Task<string> RunAsync(string args, CancellationToken ct = default)
     // Save changes (stage, commit, push).
-    Task<GitSyncResult> SaveAsync(string message, CancellationToken ct = null)
+    Task<GitSyncResult> SaveAsync(string message, CancellationToken ct = default)
     // Set a local git config value.
-    Task SetConfigAsync(string key, string value, CancellationToken ct = null)
+    Task SetConfigAsync(string key, string value, CancellationToken ct = default)
     // Set remote URL. Credentials are stripped from the URL.
-    Task SetRemoteUrlAsync(string name, string url, CancellationToken ct = null)
+    Task SetRemoteUrlAsync(string name, string url, CancellationToken ct = default)
     // Set up tracking for a branch.
-    Task SetUpstreamAsync(string remoteBranch, CancellationToken ct = null)
+    Task SetUpstreamAsync(string remoteBranch, CancellationToken ct = default)
     static string ShortCommitHash(string? hash)
     // Stage all changes.
-    Task StageAllAsync(CancellationToken ct = null)
+    Task StageAllAsync(CancellationToken ct = default)
     // Stage a specific path (file or directory).
-    Task StagePathAsync(string path, CancellationToken ct = null)
+    Task StagePathAsync(string path, CancellationToken ct = default)
     // Stash all changes.
-    Task<bool> StashAsync(string? message = null, CancellationToken ct = null)
+    Task<bool> StashAsync(string? message = null, CancellationToken ct = default)
     // Pop the latest stash.
-    Task<bool> StashPopAsync(CancellationToken ct = null)
+    Task<bool> StashPopAsync(CancellationToken ct = default)
     // Strip credentials from a git URL for safe display/comparison.
     static string StripCredentialsFromUrl(string url)
     // Sync to latest remote (fetch + reset --hard).
-    Task<GitSyncResult> SyncAsync(CancellationToken ct = null)
+    Task<GitSyncResult> SyncAsync(CancellationToken ct = default)
     // Try to open an existing git repository.
     static GitRepository? TryOpen(string directory)
     // Run a git command (doesn't throw on failure).
-    Task<ValueTuple<bool, string, string>> TryRunAsync(string args, CancellationToken ct = null)
+    Task<ValueTuple<bool, string, string>> TryRunAsync(string args, CancellationToken ct = default)
     // Compare two git URLs, ignoring credentials and trailing slashes.
     static bool UrlsMatch(string? url1, string? url2)
   // Git repository status.
   class GitStatus : IEquatable<GitStatus>
-    // Git repository status.
     ctor(string Branch, string? HeadSha, bool HasUncommittedChanges, bool IsDetachedHead, int AheadBy, int BehindBy, List<GitFileChange> Changes)
     int AheadBy { get; init; }
     int BehindBy { get; init; }
@@ -1505,7 +1495,6 @@ namespace Ikon.Common.Git
     bool IsDetachedHead { get; init; }
   // Result of a sync/restore/save operation.
   class GitSyncResult : IEquatable<GitSyncResult>
-    // Result of a sync/restore/save operation.
     ctor(bool Success, string? PreviousSha, string? CurrentSha, string? Error = null)
     string? CurrentSha { get; init; }
     string? Error { get; init; }
@@ -1513,14 +1502,12 @@ namespace Ikon.Common.Git
     bool Success { get; init; }
   // Git tag information.
   class GitTag : IEquatable<GitTag>
-    // Git tag information.
     ctor(string Name, string Sha, GitCommit? Commit = null)
     GitCommit? Commit { get; init; }
     string Name { get; init; }
     string Sha { get; init; }
   // Git worktree entry reported by `git worktree list`.
   class GitWorktreeInfo : IEquatable<GitWorktreeInfo>
-    // Git worktree entry reported by `git worktree list`.
     ctor(string Path, string? Head, string? Branch)
     string? Branch { get; init; }
     string? Head { get; init; }

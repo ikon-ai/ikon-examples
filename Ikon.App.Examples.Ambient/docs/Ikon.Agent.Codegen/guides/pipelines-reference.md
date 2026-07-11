@@ -77,7 +77,6 @@ namespace Ikon.Pipeline
     ctor()
   // Attribute for exposing a pre-existing pipeline from a framework assembly. Can be placed on the [App] decorated class or on empty marker classes.
   sealed class ExposePipelineAttribute : Attribute
-    // Attribute for exposing a pre-existing pipeline from a framework assembly. Can be placed on the [App] decorated class or on empty marker classes.
     ctor(Type pipelineType, string? name = null, PipelineExecutionMode executionMode = None, string? schedule = null)
     // Execution mode override for the exposed pipeline. If set to a value other than None, overrides the execution mode defined on the original [Pipeline] attribute.
     PipelineExecutionMode ExecutionMode { get; }
@@ -112,7 +111,6 @@ namespace Ikon.Pipeline
     void Dispose()
   // Class attribute for defining a pipeline. When running a pipeline with the pipeline runner, the target class must be decorated with this attribute.
   sealed class PipelineAttribute : Attribute
-    // Class attribute for defining a pipeline. When running a pipeline with the pipeline runner, the target class must be decorated with this attribute.
     ctor(string description = "", int version = 1, string guid = "", Type? inputSchema = null, Type? resultSchema = null, string? name = null, int maxInputItems = 0, PipelineExecutionMode executionMode = None, string? schedule = null)
     // Optional description of the pipeline.
     string Description { get; }
@@ -132,6 +130,11 @@ namespace Ikon.Pipeline
     string? Schedule { get; }
     // Version of the pipeline.
     int Version { get; }
+  // Represents errors raised by the pipeline infrastructure.
+  sealed class PipelineException : Exception
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception innerException)
   // Helper class for creating functions from pipeline types.
   static class PipelineFunction
     static Function Create<TPipeline>(string functionName, string? description = null, object? configInstance = null) where TPipeline : class
@@ -245,7 +248,6 @@ namespace Ikon.Pipeline
     event Pipeline<T>.AsyncEventHandler<T, T>? Output
   // Method attribute for defining a processor. When using processor methods in a pipeline, the method must be decorated with this attribute.
   sealed class ProcessorAttribute : Attribute
-    // Method attribute for defining a processor. When using processor methods in a pipeline, the method must be decorated with this attribute.
     ctor(string? id = null, int version = 1, int maxParallelism = 0, int maxRetries = 0, bool isRemote = false, bool skipCache = false, bool allowDuplicates = true, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
     // Indicates whether duplicate items produced by the processor should be preserved. Defaults to true. Set to false to enable deduplication based on content hash and group ID.
     bool AllowDuplicates { get; set; }
@@ -392,14 +394,11 @@ namespace Ikon.Pipeline.Items
     Task<bool> IsVideoAsync()
     bool IsXml()
     Task<bool> IsXmlAsync()
-    static Item ReadFromTeleport(ReadOnlySpan<byte> data)
     // Creates a copy of this item with optional property overrides.
     Item With(string? name = null, string? mimeType = null, Guid? processId = null, string? groupId = null, List<string>? tags = null, ItemMetadata? metadata = null)
     // Creates a copy of this item with the specified process identifier.
     Item WithProcessId(Guid processId)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static string ObjectMimeTypePrefix
-    static uint TeleportVersion
   // Extension methods for Item collections.
   static class ItemExtensions
     // Returns the first item matching the predicate, or null if none found. Use this instead of FirstOrDefault when you need null-checking semantics for Item structs.
@@ -440,11 +439,8 @@ namespace Ikon.Pipeline.Items
     IReadOnlyList<string>? TitleHierarchy { get; init; }
     // Last updated timestamp of the original file item, if applicable.
     DateTime? UpdatedAt { get; init; }
-    static ItemMetadata ReadFromTeleport(ReadOnlySpan<byte> data)
     // Because ItemMetadata is immutable, this method allows creating a new instance with modified properties.
     ItemMetadata With(string? previousItemName = null, string? nextItemName = null, string? originalPath = null, string? originalName = null, DateTime? createdAt = null, DateTime? updatedAt = null, string? documentType = null, string? documentTitle = null, IReadOnlyList<string>? titleHierarchy = null, int? pageNumber = null, IReadOnlyList<int>? pageNumbers = null, int? pageCount = null, IReadOnlyDictionary<string, string>? properties = null, string? customJson = null)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
 
 namespace Ikon.Pipeline.Remote.Bus
   // Abstraction for transporting remote pipeline processor calls between hosts and clients.

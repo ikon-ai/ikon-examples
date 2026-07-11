@@ -11,10 +11,7 @@ Full API reference for Ikon.App and Ikon.Common.
 namespace Ikon.App
   // Attribute that decorates app classes to configure their connection and messaging behavior
   sealed class AppAttribute : Attribute
-    // Attribute that decorates app classes to configure their connection and messaging behavior
     ctor(string? name = null, string? productId = null, string? description = null, int version = 1, string? guid = null, UserType userType = Machine, Opcode receiveOpcodeGroups = GROUP_ALL, GROUP_APP_LOCAL, Opcode sendOpcodeGroups = GROUP_ALL, GROUP_APP_LOCAL, string[]? dependencies = null)
-    // Internal version constant for the attribute schema itself, used for versioning the App constructor calls if new parameters are added
-    int AppVersion { get; }
     // Product IDs of other apps that must be ready before this app's Joined callback is invoked
     string[] Dependencies { get; }
     // Human-readable description of the app. Defaults to "{ClassName} App" if not specified
@@ -33,13 +30,6 @@ namespace Ikon.App
     UserType UserType { get; }
     // Version number of the app
     int Version { get; }
-    PluginAttribute ToPluginAttribute(Type owner)
-  // Helper class for creating database connections from app configuration.
-  static class AppDatabaseConnection
-    // Creates a database connection for the specified database name from the app's configured databases.
-    static DbConnection Create(IAppBase app, string databaseName)
-    // Creates a database connection from a database connection info.
-    static DbConnection Create(DatabaseConnectionInfo dbInfo)
   // A lightweight HTTP and WebSocket endpoint host built on ASP.NET Core. Construct the host, register routes with MapGet / MapPost / MapWebSocket , and call StartAsync to allocate the relay tunnel and begin serving requests.
   sealed class AppEndpointHost : IAsyncDisposable
     // Creates a new HTTP/WebSocket endpoint host. The relay tunnel is not allocated until StartAsync is called.
@@ -69,15 +59,18 @@ namespace Ikon.App
     // Registers a handler for WebSocket connections matching the specified route pattern. The socket is automatically closed and disposed after the handler completes.
     void MapWebSocket(string pattern, Func<HttpContext, WebSocket, Task> handler)
     // Allocates the relay tunnel, starts Kestrel with the registered routes, and returns immediately while the host continues to run in the background. When the relay tunnel cannot be allocated (relay not configured, backend unreachable), Kestrel still starts on a locally picked port and the tunnel allocation is retried in the background — local traffic keeps working, and PublicUrlAvailable fires once the tunnel comes up.
-    Task StartAsync(CancellationToken cancellationToken = null)
+    Task StartAsync(CancellationToken cancellationToken = default)
     // Stops the endpoint host gracefully. Waits up to 5 seconds for pending requests to complete.
-    Task StopAsync(CancellationToken cancellationToken = null)
+    Task StopAsync(CancellationToken cancellationToken = default)
     // Raised with the public URL when the background retry allocates the relay tunnel after StartAsync completed without one. Not raised when the tunnel was allocated during StartAsync itself — read PublicUrl directly in that case.
     event Action<string>? PublicUrlAvailable
-  // Typed app↔client custom-message helpers over the app-local Teleport channel. The payload types come from the app's own schema/*.tp files (compiled by ikon app teleport build); each carries its own GROUP_APP_LOCAL opcode and is sent/received as a native type — no JSON marshalling. Delivery is server-controlled and explicit: SendMessageAsync``1 always takes the recipient client session IDs — there is no implicit broadcast to every client. Whether a type travels reliably or unreliably is declared on the .tp schema (unreliable = true), not here.
+  // Typed app↔client custom-message helpers over the app-local Teleport channel. The payload types come from the app's own schema/*.tp files (compiled by ikon app teleport build); each carries its own GROUP_APP_LOCAL opcode and is sent/received as a native type — no JSON marshalling. Delivery is server-controlled and explicit: SendMessageAsync always takes the recipient client session IDs — there is no implicit broadcast to every client. Whether a type travels reliably or unreliably is declared on the .tp schema (unreliable = true), not here.
   static class AppMessaging
+    // Subscribe to inbound app messages of type T (filtered by the type's opcode). The handler receives the decoded native payload and the sender's client session ID. Dispose the returned handle to unsubscribe.
     static IDisposable OnMessage<T>(IMessageChannel app, Func<T, int, ValueTask> handler) where T : IProtocolMessagePayload, new()
+    // Send a typed app message to the given client session IDs. The server decides the recipients — pass the explicit target list (e.g. every current client, everyone-but-the-sender, or a single client).
     static ValueTask SendMessageAsync<T>(IMessageChannel app, T message, IReadOnlyList<int> targetIds) where T : IProtocolMessagePayload
+    // Send a typed app message to a single client.
     static ValueTask SendMessageAsync<T>(IMessageChannel app, T message, int targetClientSessionId) where T : IProtocolMessagePayload
   // Delegate for async event handlers in the app lifecycle.
   delegate AsyncEventHandler<TEventArgs> where TEventArgs : EventArgs
@@ -98,11 +91,23 @@ namespace Ikon.App
     // Gets information about an output stream if it exists.
     AudioOutputStreamInfo? GetOutputStreamInfo(string? streamId = null)
     // Sends audio data to the Ikon server.
-    ValueTask SendAsync(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string? streamId = null, TimeSpan totalDuration = null, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null)
+    ValueTask SendAsync(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string? streamId = null, TimeSpan totalDuration = default, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null)
     // Sends audio data through the default speech mixer.
-    void SendSpeech(AudioContainer audio, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null)
-    // Sends audio data through the default speech mixer.
-    void SendSpeech(string speechEventId, ReadOnlySpan<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null)
+    void SendSpeech(AudioChunk audio, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null)
+    // Generate speech for text and play it to listeners. The verbose form
+    // _speechCts?.Cancel();
+    // _speechCts = new CancellationTokenSource();
+    // Audio.SpeechMixer.FadeOut();
+    // using var generator = new SpeechGenerator(SpeechGeneratorModel.ElevenFlash25);
+    // var config = new SpeechGeneratorConfig { Text = text, VoiceId = voiceId };
+    // await foreach (var audio in generator.GenerateSpeechAsync(config, _speechCts.Token))
+    // {
+    //     Audio.SendSpeech(audio);
+    // }
+    // becomes
+    // await Audio.SpeakAsync(text);
+    // Each call interrupts the previous one — it fades out whatever is still playing and cancels the previous call's generation, which is what a voice app almost always wants (a new reply supersedes the old one). Uses ElevenFlash25 by default — cheap+fast, the platform's go-to tier for conversational TTS. Hand-roll the SpeechGenerator + SendSpeech loop instead when you need custom mixing (overlapping speakers), speech that must not interrupt what is already playing, raw access to the generated samples (duration math, waveform analysis), or generator config beyond text and voice (language, instructions, speed).
+    Task SpeakAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null, CancellationToken cancellationToken = default)
     // Enable speech-to-text on captured audio. After calling this, every captured audio segment (typically initiated by a CaptureButton or PushToTalkButton) is transcribed when the segment ends, and SpeechRecognizedAsync fires with the recognized text and originating client context.
     void UseSpeechRecognition(SpeechRecognizerModel model, float silenceThresholdRms = 0.01, bool requireCorrelatedStream = true, string language = "", TimeSpan? timeout = null)
     // Event raised when an incoming audio frame is received and decoded
@@ -115,7 +120,6 @@ namespace Ikon.App
     event AsyncEventHandler<SpeechRecognizedEventArgs> SpeechRecognizedAsync
   // Event arguments raised when an incoming audio frame is received
   class AudioInputFrameEventArgs : EventArgs, ICaptureCorrelationArgs
-    // Event arguments raised when an incoming audio frame is received
     ctor(string streamId, Context clientContext, float[] samples, bool isFirst, bool isLast, TimeSpan totalDuration, string? correlationId)
     // Client context containing user information
     Context ClientContext { get; }
@@ -137,7 +141,6 @@ namespace Ikon.App
     string UserId { get; }
   // Event arguments raised when an incoming audio stream begins
   class AudioInputStreamBeginEventArgs : EventArgs
-    // Event arguments raised when an incoming audio stream begins
     ctor(string streamId, string description, string sourceType, int sampleRate, int channelCount, Context clientContext, int trackId, string? correlationId)
     // Number of audio channels
     int ChannelCount { get; }
@@ -163,7 +166,6 @@ namespace Ikon.App
     string UserId { get; }
   // Event arguments raised when an incoming audio stream ends
   class AudioInputStreamEndEventArgs : EventArgs
-    // Event arguments raised when an incoming audio stream ends
     ctor(string streamId, Context clientContext, string? correlationId)
     // Client context containing user information
     Context ClientContext { get; }
@@ -175,14 +177,8 @@ namespace Ikon.App
     string StreamId { get; }
     // User identifier
     string UserId { get; }
-  // Controls when incoming audio frames are output to listeners
-  enum AudioInputStreamingMode
-    Streaming
-    DelayUntilTotalDurationKnown
-    DelayUntilIsLast
   // Information about an output audio stream
   class AudioOutputStreamInfo : IEquatable<AudioOutputStreamInfo>
-    // Information about an output audio stream
     ctor(string StreamId, int TrackId, AudioCodec Codec, int SampleRate, int ChannelCount)
     int ChannelCount { get; init; }
     AudioCodec Codec { get; init; }
@@ -195,14 +191,6 @@ namespace Ikon.App
     ValueTask<IAsyncDisposable> StartAsync()
     // Signals that one unit of background work has completed. The server is only notified when the last active scope is stopped.
     ValueTask StopAsync()
-  // Bridge between a media stream's CorrelationId and a higher-level handler (typically a UI component such as CaptureButton). For audio it dispatches from frame edges (IsFirst/IsLast) so registered callbacks always run before any subsequent AudioInputFrameAsync handler sees a frame from that segment. For video it dispatches from stream begin/end events. In both cases this eliminates the race that previously existed between the UI action dispatch path and the media transport path.
-  static class CaptureCorrelationBridge
-    // Register a handler that fires when a stream/segment with the given correlation id starts.
-    static void RegisterStart(string correlationId, Func<ICaptureCorrelationArgs, Task> handler)
-    // Register a handler that fires when a stream/segment with the given correlation id ends.
-    static void RegisterStop(string correlationId, Func<ICaptureCorrelationArgs, Task> handler)
-    // Remove handlers registered for the given correlation id.
-    static void Unregister(string correlationId)
   sealed class ClientAudioCaptureOptions : IEquatable<ClientAudioCaptureOptions>
     ctor()
     bool? AutoGainControl { get; init; }
@@ -214,7 +202,6 @@ namespace Ikon.App
     IReadOnlyList<int>? TargetIds { get; init; }
   // Represents a contact picked from the client's contact list.
   sealed class ClientContact : IEquatable<ClientContact>
-    // Represents a contact picked from the client's contact list.
     ctor(IReadOnlyList<string> Names, IReadOnlyList<string> Emails, IReadOnlyList<string> Phones)
     // The contact's email addresses.
     IReadOnlyList<string> Emails { get; init; }
@@ -222,93 +209,66 @@ namespace Ikon.App
     IReadOnlyList<string> Names { get; init; }
     // The contact's phone numbers.
     IReadOnlyList<string> Phones { get; init; }
-  // Provides convenient access to pre-agreed client-side functions. These functions are registered by clients (e.g., TypeScript SDK) and can be called from the server.
+  // Provides convenient access to pre-agreed client-side functions. These functions are registered by clients (e.g., TypeScript SDK) and can be called from the server. Every function targets the calling client resolved from the current reactive scope by default; pass targetId to address another client session.
   static class ClientFunctions
     // Captures a single image from the client's camera.
-    static Task<ClientImageCapture> CaptureImageAsync(int targetId, ClientImageCaptureOptions? options = null, CancellationToken cancellationToken = null)
-    static Task<ClientImageCapture> CaptureImageAsync(ClientImageCaptureOptions? options = null, CancellationToken cancellationToken = null)
+    static Task<ClientImageCapture> CaptureImageAsync(ClientImageCaptureOptions? options = null, int? targetId = null, CancellationToken cancellationToken = default)
     // Requests the client to exit fullscreen mode.
-    static Task<bool> ExitFullscreenAsync(int targetId, CancellationToken cancellationToken = null)
-    static Task<bool> ExitFullscreenAsync(CancellationToken cancellationToken = null)
+    static Task<bool> ExitFullscreenAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // Gets the current battery level on the client.
-    static Task<int?> GetBatteryLevelAsync(int targetId, CancellationToken cancellationToken = null)
-    static Task<int?> GetBatteryLevelAsync(CancellationToken cancellationToken = null)
+    static Task<int?> GetBatteryLevelAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // Gets the browser language preference from the client.
-    static Task<string?> GetLanguageAsync(int targetId, CancellationToken cancellationToken = null)
-    static Task<string?> GetLanguageAsync(CancellationToken cancellationToken = null)
+    static Task<string?> GetLanguageAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // Gets the current GPS location from the client.
-    static Task<ClientLocation?> GetLocationAsync(int targetId, CancellationToken cancellationToken = null)
-    static Task<ClientLocation?> GetLocationAsync(CancellationToken cancellationToken = null)
+    static Task<ClientLocation?> GetLocationAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // Gets the list of available media input devices on the client.
-    static Task<IReadOnlyList<ClientMediaDevice>> GetMediaDevicesAsync(int targetId, CancellationToken cancellationToken = null)
-    static Task<IReadOnlyList<ClientMediaDevice>> GetMediaDevicesAsync(CancellationToken cancellationToken = null)
+    static Task<IReadOnlyList<ClientMediaDevice>> GetMediaDevicesAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // Gets the current network connection type on the client.
-    static Task<string?> GetNetworkTypeAsync(int targetId, CancellationToken cancellationToken = null)
-    static Task<string?> GetNetworkTypeAsync(CancellationToken cancellationToken = null)
+    static Task<string?> GetNetworkTypeAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // Reads the client's current notification permission state.
-    static Task<NotificationPermission> GetNotificationPermissionAsync(int targetId, CancellationToken cancellationToken = null)
-    static Task<NotificationPermission> GetNotificationPermissionAsync(CancellationToken cancellationToken = null)
-    // Fetches the client's push subscription so the device can be registered for offline push. Returns null when the client has no subscription (push disabled, permission not granted, or the client cannot subscribe).
-    static Task<PushSubscriptionInfo?> GetPushSubscriptionAsync(int targetId, CancellationToken cancellationToken = null)
-    // Gets the currently selected UI theme from the client.
-    static Task<string?> GetThemeAsync(int targetId, CancellationToken cancellationToken = null)
-    static Task<string?> GetThemeAsync(CancellationToken cancellationToken = null)
+    static Task<NotificationPermission> GetNotificationPermissionAsync(int? targetId = null, CancellationToken cancellationToken = default)
+    // Gets the currently selected UI theme from the client as its wire string. To branch on dark versus light for the calling client, prefer IsDarkTheme on the client's Context — it needs no round-trip to the client.
+    static Task<string?> GetThemeAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // Gets the browser timezone from the client.
-    static Task<string?> GetTimezoneAsync(int targetId, CancellationToken cancellationToken = null)
-    static Task<string?> GetTimezoneAsync(CancellationToken cancellationToken = null)
+    static Task<string?> GetTimezoneAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // Gets the current browser URL path and query string from the client.
-    static Task<string?> GetUrlAsync(int targetId, CancellationToken cancellationToken = null)
-    static Task<string?> GetUrlAsync(CancellationToken cancellationToken = null)
+    static Task<string?> GetUrlAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // Gets the current page visibility state on the client.
-    static Task<string?> GetVisibilityAsync(int targetId, CancellationToken cancellationToken = null)
-    static Task<string?> GetVisibilityAsync(CancellationToken cancellationToken = null)
+    static Task<string?> GetVisibilityAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // Prevents or allows the screen to sleep on the client.
-    static Task<bool> KeepScreenAwakeAsync(int targetId, bool enabled, CancellationToken cancellationToken = null)
-    static Task<bool> KeepScreenAwakeAsync(bool enabled, CancellationToken cancellationToken = null)
+    static Task<bool> KeepScreenAwakeAsync(bool enabled, int? targetId = null, CancellationToken cancellationToken = default)
     // Prompts the client to show its login UI (deferred login flow).
-    static Task<bool> LoginShowAsync(int targetId, string? reason = null, CancellationToken cancellationToken = null)
+    static Task<bool> LoginShowAsync(string? reason = null, int? targetId = null, CancellationToken cancellationToken = default)
     // Clears the auth session and reloads the page, returning the client to the login screen.
-    static Task<bool> LogoutAsync(int targetId, CancellationToken cancellationToken = null)
-    static Task<bool> LogoutAsync(CancellationToken cancellationToken = null)
+    static Task<bool> LogoutAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // Opens an external URL in a new browser tab on the client.
-    static Task<bool> OpenExternalUrlAsync(int targetId, string url, CancellationToken cancellationToken = null)
-    static Task<bool> OpenExternalUrlAsync(string url, CancellationToken cancellationToken = null)
+    static Task<bool> OpenExternalUrlAsync(string url, int? targetId = null, CancellationToken cancellationToken = default)
     // Plays a sound on the client from a URL.
-    static Task<string?> PlaySoundAsync(int targetId, string url, double volume = 1, bool loop = false, CancellationToken cancellationToken = null)
+    static Task<string?> PlaySoundAsync(string url, double volume = 1, bool loop = false, int? targetId = null, CancellationToken cancellationToken = default)
     // Plays a sound on the client from a byte array. The sound data is cached per session, so subsequent calls with the same data will not re-transmit the audio.
-    static Task<string?> PlaySoundAsync(int targetId, byte[] data, string mimeType, double volume = 1, bool loop = false, CancellationToken cancellationToken = null)
-    static Task<string?> PlaySoundAsync(string url, double volume = 1, bool loop = false, CancellationToken cancellationToken = null)
-    static Task<string?> PlaySoundAsync(byte[] data, string mimeType, double volume = 1, bool loop = false, CancellationToken cancellationToken = null)
+    static Task<string?> PlaySoundAsync(byte[] data, string mimeType, double volume = 1, bool loop = false, int? targetId = null, CancellationToken cancellationToken = default)
     // Requests the client to enter fullscreen mode.
-    static Task<bool> RequestFullscreenAsync(int targetId, CancellationToken cancellationToken = null)
-    static Task<bool> RequestFullscreenAsync(CancellationToken cancellationToken = null)
+    static Task<bool> RequestFullscreenAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // Scrolls the page to a specific position on the client.
-    static Task<bool> ScrollToAsync(int targetId, double x, double y, bool smooth = false, CancellationToken cancellationToken = null)
-    static Task<bool> ScrollToAsync(double x, double y, bool smooth = false, CancellationToken cancellationToken = null)
+    static Task<bool> ScrollToAsync(double x, double y, bool smooth = false, int? targetId = null, CancellationToken cancellationToken = default)
     // Updates the UI theme on the client.
-    static Task<bool> SetThemeAsync(int targetId, string theme, bool persist = true, CancellationToken cancellationToken = null)
-    static Task<bool> SetThemeAsync(string theme, bool persist = true, CancellationToken cancellationToken = null)
+    static Task<bool> SetThemeAsync(Theme theme, bool persist = true, int? targetId = null, CancellationToken cancellationToken = default)
+    // Updates the UI theme on the client by its wire name. Prefer SetThemeAsync for the built-in dark and light themes; this overload exists for custom theme names.
+    static Task<bool> SetThemeAsync(string themeName, bool persist = true, int? targetId = null, CancellationToken cancellationToken = default)
     // Updates the browser URL without triggering a page reload.
-    static Task<bool> SetUrlAsync(int targetId, string url, bool replace = false, bool preserveQueryParams = false, CancellationToken cancellationToken = null)
-    static Task<bool> SetUrlAsync(string url, bool replace = false, bool preserveQueryParams = false, CancellationToken cancellationToken = null)
+    static Task<bool> SetUrlAsync(string url, bool replace = false, bool preserveQueryParams = false, int? targetId = null, CancellationToken cancellationToken = default)
     // Shows a notification on the client. The client requests notification permission lazily on the first send before displaying. Returns the client's resulting permission state.
-    static Task<NotificationPermission> ShowNotificationAsync(int targetId, NotificationContent content, CancellationToken cancellationToken = null)
-    static Task<NotificationPermission> ShowNotificationAsync(NotificationContent content, CancellationToken cancellationToken = null)
+    static Task<NotificationPermission> ShowNotificationAsync(NotificationContent content, int? targetId = null, CancellationToken cancellationToken = default)
     // Starts audio capture on the client from the microphone.
-    static Task<string> StartAudioCaptureAsync(int targetId, ClientAudioCaptureOptions? options = null, CancellationToken cancellationToken = null)
-    static Task<string> StartAudioCaptureAsync(ClientAudioCaptureOptions? options = null, CancellationToken cancellationToken = null)
+    static Task<string> StartAudioCaptureAsync(ClientAudioCaptureOptions? options = null, int? targetId = null, CancellationToken cancellationToken = default)
     // Starts video capture on the client from camera or screen.
-    static Task<string> StartVideoCaptureAsync(int targetId, ClientVideoCaptureSource source = Camera, ClientVideoCaptureOptions? options = null, CancellationToken cancellationToken = null)
-    static Task<string> StartVideoCaptureAsync(ClientVideoCaptureSource source = Camera, ClientVideoCaptureOptions? options = null, CancellationToken cancellationToken = null)
+    static Task<string> StartVideoCaptureAsync(ClientVideoCaptureSource source = Camera, ClientVideoCaptureOptions? options = null, int? targetId = null, CancellationToken cancellationToken = default)
     // Stops a media capture on the client by its stream ID.
-    static Task<bool> StopCaptureAsync(int targetId, string streamId, CancellationToken cancellationToken = null)
-    static Task<bool> StopCaptureAsync(string streamId, CancellationToken cancellationToken = null)
+    static Task<bool> StopCaptureAsync(string streamId, int? targetId = null, CancellationToken cancellationToken = default)
     // Stops a playing sound on the client.
-    static Task<bool> StopSoundAsync(int targetId, string playbackId, CancellationToken cancellationToken = null)
-    static Task<bool> StopSoundAsync(string playbackId, CancellationToken cancellationToken = null)
+    static Task<bool> StopSoundAsync(string playbackId, int? targetId = null, CancellationToken cancellationToken = default)
     // Triggers haptic feedback on supported devices.
-    static Task<bool> VibrateAsync(int targetId, string pattern, CancellationToken cancellationToken = null)
-    static Task<bool> VibrateAsync(string pattern, CancellationToken cancellationToken = null)
+    static Task<bool> VibrateAsync(string pattern, int? targetId = null, CancellationToken cancellationToken = default)
   enum ClientHardwareAcceleration
     PreferHardware
     PreferSoftware
@@ -329,7 +289,6 @@ namespace Ikon.App
     int? Width { get; init; }
   // Event arguments for the ClientJoinedAsync event.
   class ClientJoinedEventArgs : EventArgs
-    // Event arguments for the ClientJoinedAsync event.
     ctor(Context clientContext)
     // Gets the context of the client that joined.
     Context ClientContext { get; }
@@ -339,7 +298,6 @@ namespace Ikon.App
     string UserId { get; }
   // Event arguments for the ClientLeftAsync event.
   class ClientLeftEventArgs : EventArgs
-    // Event arguments for the ClientLeftAsync event.
     ctor(Context clientContext)
     // Gets the context of the client that left.
     Context ClientContext { get; }
@@ -349,7 +307,6 @@ namespace Ikon.App
     string UserId { get; }
   // Represents a geolocation with latitude, longitude, and accuracy in meters.
   sealed class ClientLocation : IEquatable<ClientLocation>
-    // Represents a geolocation with latitude, longitude, and accuracy in meters.
     ctor(double Latitude, double Longitude, double Accuracy)
     // The accuracy of the coordinates in meters.
     double Accuracy { get; init; }
@@ -357,13 +314,8 @@ namespace Ikon.App
     double Latitude { get; init; }
     // The longitude coordinate.
     double Longitude { get; init; }
-  static class ClientMediaCaptureSerializer
-    static string? SerializeAudioOptions(ClientAudioCaptureOptions? options)
-    static string? SerializeImageOptions(ClientImageCaptureOptions? options)
-    static string? SerializeVideoOptions(ClientVideoCaptureOptions? options)
   // Represents a media input device available on the client.
   sealed class ClientMediaDevice : IEquatable<ClientMediaDevice>
-    // Represents a media input device available on the client.
     ctor(string DeviceId, string Kind, string Label, string GroupId)
     // The unique identifier for the device.
     string DeviceId { get; init; }
@@ -411,11 +363,13 @@ namespace Ikon.App
     string VisibleName { get; }
     // Get a specific attribute value by key
     object? GetAttribute(string key)
+    // Get typed custom attributes from profile
     TAttributes GetAttributes<TAttributes>() where TAttributes : IProfileAttributes, new()
     // Check if user has a specific built-in role
     bool HasRole(UserRole role)
     // Check if user has a specific role by string name
     bool HasRole(string role)
+    // Check if user has a specific role from a custom enum
     bool HasRole<TRole>(TRole role) where TRole : Enum
   // Manages client profiles for an AI app. Profiles are loaded and cached when clients join, and GetProfileAsync loads any uncached profile from the backend on demand.
   class ClientProfiles
@@ -430,6 +384,7 @@ namespace Ikon.App
     Task<IReadOnlyList<ClientProfile>> FindProfilesAsync(Dictionary<string, string> filters, int maxResults = 1000)
     // Get all profiles in the space
     Task<IReadOnlyList<ClientProfile>> GetAllProfilesAsync(int maxResults = 1000)
+    // Get typed custom attributes for a client, loading the profile on a cache miss. Returns null if the client has no profile.
     Task<TAttributes> GetAttributesAsync<TAttributes>(Context clientContext) where TAttributes : IProfileAttributes, new()
     // Get a client's profile, loading it from the backend on a cache miss and caching the result. Connected clients are normally already cached (their profile is loaded when they join), so this usually returns instantly and only hits the backend for an uncached user. Returns null when the context carries no UserId or the backend has no profile for it.
     Task<ClientProfile?> GetProfileAsync(Context clientContext)
@@ -439,6 +394,7 @@ namespace Ikon.App
     bool HasRole(Context clientContext, UserRole role)
     // Check if client has a specific role by string name
     bool HasRole(Context clientContext, string role)
+    // Check if client has a specific role from a custom enum
     bool HasRole<TRole>(Context clientContext, TRole role) where TRole : Enum
     // Check if client is an admin
     bool IsAdmin(Context clientContext)
@@ -462,6 +418,7 @@ namespace Ikon.App
     void RequireRole(Context clientContext, UserRole role)
     // Require that the client has the specified role. Throws if not.
     void RequireRole(Context clientContext, string role)
+    // Set custom attributes for a client
     Task SetAttributesAsync<TAttributes>(Context clientContext, TAttributes attrs) where TAttributes : IProfileAttributes
     // Set roles for a client
     Task SetRolesAsync(Context clientContext, IEnumerable<UserRole> roles)
@@ -490,9 +447,6 @@ namespace Ikon.App
   enum ClientVideoCaptureSource
     Camera
     Screen
-  static class Constants
-    static string DarkTheme
-    static string LightTheme
   // Marks a method to run on a cron schedule. Unlike HttpMethodAttribute / [Mcp], a cron job is not externally addressable — it has no path and no edge authorization. The platform discovers [Cron] methods at build time, records each in the app bundle manifest, and the backend schedules them; when a tick fires the app is run under the global (empty) session identity and the target function is invoked through the FunctionRegistry.
   sealed class CronAttribute : Attribute
     // Declares a cron job that runs on schedule .
@@ -504,17 +458,17 @@ namespace Ikon.App
   // Platform email surface for an Ikon app — sending custom emails through the platform mailer and reading inbound emails delivered to the app's space. Accessed via app.Email. All operations require the app's organisation/space to have the Email feature enabled; calls against a non-entitled space throw FeatureNotEnabledException .
   sealed class EmailService
     // Removes an inbound email and frees its attachment storage. Idempotent — deleting a missing message succeeds silently.
-    Task DeleteAsync(string id, CancellationToken ct = null)
+    Task DeleteAsync(string id, CancellationToken ct = default)
     // Streams a decrypted attachment from the platform. The returned EmailAttachmentDownload owns the content stream — dispose it (e.g. await using) when done.
-    Task<EmailAttachmentDownload> DownloadAttachmentAsync(string emailId, string attachmentId, CancellationToken ct = null)
+    Task<EmailAttachmentDownload> DownloadAttachmentAsync(string emailId, string attachmentId, CancellationToken ct = default)
     // Lazily enumerates all received emails matching query , transparently following pages until exhausted. Pages are fetched on demand as the sequence is consumed, so breaking out of the await foreach stops fetching further pages.
-    IAsyncEnumerable<InboundEmailSummary> EnumerateInboxAsync(InboxQuery query, CancellationToken ct = null)
+    IAsyncEnumerable<InboundEmailSummary> EnumerateInboxAsync(InboxQuery query, CancellationToken ct = default)
     // Fetches a single page of received emails for the app's space. Paginate by passing the returned NextCursor back as Cursor .
-    Task<InboxPage> GetInboxPageAsync(InboxQuery query, CancellationToken ct = null)
+    Task<InboxPage> GetInboxPageAsync(InboxQuery query, CancellationToken ct = default)
     // Fetches a single inbound email with decrypted body and parsed envelope.
-    Task<InboundEmailDetail> GetMessageAsync(string id, CancellationToken ct = null)
+    Task<InboundEmailDetail> GetMessageAsync(string id, CancellationToken ct = default)
     // Sends a custom HTML email through the platform mailer. The platform sets the visible From address; pass ReplyTo to direct replies elsewhere. The send is enqueued for asynchronous delivery — a successful return means the platform has accepted the request, not that the recipient has received the message. Transient delivery failures are retried server-side. The total payload size (subject, body, attachments, metadata) is capped at roughly 10 MB.
-    Task SendAsync(EmailSendRequest request, CancellationToken ct = null)
+    Task SendAsync(EmailSendRequest request, CancellationToken ct = default)
   // Shared base for the two developer-facing inbound HTTP surfaces, [Rest] and [Mcp]. They differ only in the wire protocol (typed HTTP vs MCP JSON-RPC) and the schema advertised to clients; addressing, path templating, identity binding, auth, and abuse-control are identical and live here so there is exactly one place to reason about them.
   abstract class EndpointAttribute : Attribute
     // Built-in authorization for this endpoint, resolved at the gateway edge before (and without) provisioning the app. Defaults to Grant (a signed grant URL). Set AuthPolicy instead to name a custom /router/ policy.
@@ -523,8 +477,6 @@ namespace Ikon.App
     string? AuthPolicy { get; init; }
     // External path under the space domain (after {space}.ikonai.app/api). Optional: when omitted (empty) the path is derived from the method name (kebab-cased) — /{method} on the app class, /{cell-type}/{method} on a cell. A leading-slash path is absolute; a relative form ("bump") is resolved against the owner's auto-derived mount point at build time. Route params use {name} syntax. A {name} whose name matches a field of the owner's SessionIdentity record binds into the routing identity (the extrinsic resource the caller names); other {name} segments bind as ordinary handler parameters. Reserved paths the developer must NOT declare: /.well-known/* (RFC), and the /ikon/* + /api subtrees (platform-owned).
     string Path { get; }
-    // The effective /router/ policy name this endpoint authorizes with: AuthPolicy when set, otherwise the lower-cased Auth built-in (grant/public/deny). Mirrors the manifest's resolution so runtime discovery and the bundle manifest agree.
-    string ResolveAuthPolicy()
   // The built-in authorization for an endpoint — the discoverable, no-/router/-needed options. For a custom edge policy (an apiKey/hmac/ipAllow helper you defined in /router/), set AuthPolicy to its name instead.
   enum EndpointAuth
     Grant
@@ -539,14 +491,6 @@ namespace Ikon.App
     string FunctionName { get; set; }
     // The bare public URL for this endpoint under the space domain ({space}.ikonai.app/api/{path}), templated where the path has open {segment}s. It carries NO grant: a public endpoint is callable as-is; a grant/policy endpoint needs a working, identity-bound URL from IApp.MintUrl. The backend reverse-proxies to this instance — cold-starting it in the cloud, or routing to a registered local run.
     string PublicUrl { get; set; }
-  sealed class FileUploadCallbackSet
-    ctor()
-    Func<FileUploadChunkArgs, Task>? OnChunkReceived
-    Func<FileUploadCompleteArgs, Task>? OnUploadComplete
-    Func<FileUploadErrorArgs, Task>? OnUploadError
-    Func<FileUploadPreStartArgs, Task<FileUploadPreStartResult>>? OnUploadPreStart
-    Func<FileUploadProgressArgs, Task>? OnUploadProgress
-    Func<FileUploadStartArgs, Task<FileUploadStartResult>>? OnUploadStart
   sealed class FileUploadChunkArgs : IEquatable<FileUploadChunkArgs>
     ctor(string UploadId, string FileName, string MimeType, long Size, byte[] Data, long BytesWritten)
     long BytesWritten { get; init; }
@@ -570,10 +514,6 @@ namespace Ikon.App
     string MimeType { get; init; }
     long Size { get; init; }
     string UploadId { get; init; }
-  sealed class FileUploadHandler : IDisposable
-    ctor(IAppBase app)
-    void Dispose()
-    void RegisterCallbacks(string uploadActionId, FileUploadCallbackSet callbackSet)
   sealed class FileUploadPreStartArgs : IEquatable<FileUploadPreStartArgs>
     ctor(string UploadId, string FileName, string MimeType, long Size, Func<string?, Task> Cancel)
     Func<string?, Task> Cancel { get; init; }
@@ -634,7 +574,6 @@ namespace Ikon.App
     string Method { get; }
   // Serializable view of an inbound HTTP request — its method, path, query, headers, and raw body. The dispatcher constructs one per inbound request; a handler reads it (e.g. via HttpCallContext) for the untrusted inputs the typed binding doesn't surface, such as verifying a webhook signature inline.
   sealed class HttpRequest : IEquatable<HttpRequest>
-    // Serializable view of an inbound HTTP request — its method, path, query, headers, and raw body. The dispatcher constructs one per inbound request; a handler reads it (e.g. via HttpCallContext) for the untrusted inputs the typed binding doesn't surface, such as verifying a webhook signature inline.
     ctor(string Method, string Path, IReadOnlyDictionary<string, string> Query, IReadOnlyDictionary<string, string> Headers, string Body)
     string Body { get; init; }
     IReadOnlyDictionary<string, string> Headers { get; init; }
@@ -643,7 +582,6 @@ namespace Ikon.App
     IReadOnlyDictionary<string, string> Query { get; init; }
   // Typed return value from an HttpMethodAttribute -annotated method. Endpoints can return any serializable type for an automatic 200 + JSON response, or return an HttpResult when they need control over status code, content type, or custom body serialization.
   sealed class HttpResult : IEquatable<HttpResult>
-    // Typed return value from an HttpMethodAttribute -annotated method. Endpoints can return any serializable type for an automatic 200 + JSON response, or return an HttpResult when they need control over status code, content type, or custom body serialization.
     ctor(int StatusCode, object? Body = null, string ContentType = "application/json")
     object? Body { get; init; }
     string ContentType { get; init; }
@@ -677,7 +615,7 @@ namespace Ikon.App
     IReadOnlyList<EndpointInfo> Endpoints { get; }
     // Gets the platform-wide shared state from the server containing clients, streams, and space/channel info.
     GlobalState GlobalState { get; }
-    // The loopback endpoint (host + HTTPS port) of THIS instance's own local server, but ONLY when the server's own URL is a localhost address — i.e. local dev WITHOUT --public-access. This lets an in-process client (e.g. a simulated player, a self-test harness) connect directly over loopback to this exact process instead of routing through the relay. It returns null when the instance is exposed via the relay (--public-access) or runs in the cloud — there the server's own URL is the relay/space URL, a direct socket can't (and shouldn't) reach it, and callers should use the normal relay/ApiKey connect path (which routes to this registered serving instance) instead. The default is null for hosts that don't run a local server; IApp`2 overrides it.
+    // The loopback endpoint (host + HTTPS port) of THIS instance's own local server, but ONLY when the server's own URL is a localhost address — i.e. local dev WITHOUT --public-access. This lets an in-process client (e.g. a simulated player, a self-test harness) connect directly over loopback to this exact process instead of routing through the relay. It returns null when the instance is exposed via the relay (--public-access) or runs in the cloud — there the server's own URL is the relay/space URL, a direct socket can't (and shouldn't) reach it, and callers should use the normal relay/ApiKey connect path (which routes to this registered serving instance) instead. The default is null for hosts that don't run a local server; IApp overrides it.
     ValueTuple<string, int>? LocalLoopbackEndpoint { get; }
     // The maximum number of clients this app instance accepts. Initialized to the server's memory-derived limit (computed from the instance's memory budget), so reading it tells you the default ceiling for this instance. You may set it lower to cap the instance below that default, or higher if you know your app's per-client cost is small enough to support more — once the app sets a value it fully overrides the memory-derived default. Once the limit is reached the server rejects further connections. Changes take effect immediately; the new limit is sent to the server.
     int MaxClients { get; set; }
@@ -691,10 +629,10 @@ namespace Ikon.App
     NotificationService Notifications { get; }
     // Gets the payments service for this app — offer plans, take one-off and recurring payments, and react to PaymentReceived events. Set up a provider with ikon app payments enable; the backend drives it and the app holds no payment state.
     PaymentsService Payments { get; }
+    // The app's public URL — the address a browser opens to join this app instance's channel. Replaces the app.ReactiveGlobalState.ChannelUrl.Value incantation; reading it inside UI code subscribes to changes the same way. For a URL with query parameters (e.g. a session join link) use JoinUrl .
+    string PublicUrl { get; }
     // Gets the reactive wrapper around GlobalState that provides change notifications.
     ReactiveGlobalState ReactiveGlobalState { get; }
-    // Gets the reactive root that manages per-client reactive graphs and update cycles.
-    ReactiveRoot ReactiveRoot { get; }
     // Gets the secrets (tokens, API keys, passwords) configured for this app. Values are fetched from the Ikon backend once at app startup and exposed synchronously; changes made via ikon app secret set while the app is running only take effect after a restart.
     Secrets Secrets { get; }
     // Whether this app instance offers the raw UDP / UDP-DTLS transports to connecting clients. Enabled by default. Set to false to disable them. Like WebRtcEnabled this takes effect for clients that connect after it is set (the transports are no longer advertised); already-connected clients are unaffected until they reconnect.
@@ -702,19 +640,23 @@ namespace Ikon.App
     // Whether this app instance offers WebRTC transport to connecting clients. Enabled by default. Set to false (e.g. in Main) to disable WebRTC for apps that don't use audio/video or low-latency data — WebRTC peer setup (ICE candidate gathering, DTLS) is a notable per-client memory and allocation cost. Takes effect for clients that connect after it is set: the server stops advertising WebRTC and ignores WebRTC signaling, so no per-client peer state is created. Already-connected clients keep their channels until they reconnect.
     bool WebRtcEnabled { get; set; }
     // Creates a platform-managed eID-backed PAdES signature order for the supplied document(s). The platform navigates the signer's browser to the signing-ceremony URL through the existing client UI surface, awaits the asynchronous packaging completion, and resolves the returned task with the signed PDF and evidence metadata. The returned bytes are the long-term-validation PAdES PDF when the chosen scheme produces it; apps should persist them as the system of record because the platform's session retention is short.
-    abstract Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = null)
+    abstract Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = default)
+    // Creates a DbConnection for one of the app's configured databases (the Databases list in the app's env-specific ikon-config toml, applied with ikon app config and surfaced via Databases ) by name; the caller opens and disposes it: await using var connection = app.Database("mydb");.
+    virtual DbConnection Database(string databaseName)
+    // Build a shareable link to this app: PublicUrl plus a query string built from queryParams — an anonymous object (or a string dictionary), following the identity-by-anonymous-object shape of MintUrlAsync . Each readable property becomes a URL-encoded name=value pair; null-valued properties are skipped. So app.JoinUrl(new { id = sessionId }) yields {PublicUrl}?id={sessionId}. Replaces hand-assembling $"{app.ReactiveGlobalState.ChannelUrl.Value}?id={sessionId}". Passing null returns PublicUrl as-is.
+    virtual string JoinUrl(object? queryParams = null)
     // Mint a working, identity-bound URL for one endpoint — the single way to get a callable URL for a grant (default) or policy endpoint. You identify the endpoint by its HANDLER (the method name, e.g. nameof(GetDocument)), NOT by its URL path — the path is often derived from the method name (and may be templated), so the path is what minting RETURNS, not what you pass in. The returned URL is the endpoint's PublicUrl with any pinned {placeholder} path segments substituted and a signed ?ikon-grant= appended. identity (an anonymous object, e.g. new { DocumentId = "doc-42" }, or a string dictionary) PINS those identity fields into the grant; fields you omit stay open {captures} for the caller to fill. Omitting identity entirely ( null ) pins THIS instance's own session identity, so the URL routes back to this app instance — the common case. Grants are non-expiring by default — pass expiresIn only for an ephemeral link, and an optional group to revoke a batch together via RevokeGroupAsync . Re-minting the same stable (non-expiring) URL returns an identical URL, so it survives restarts.
-    virtual Task<MintedUrl> MintUrlAsync(string endpoint, object? identity = null, TimeSpan? expiresIn = null, string? group = null, CancellationToken ct = null)
+    virtual Task<MintedUrl> MintUrlAsync(string endpoint, object? identity = null, TimeSpan? expiresIn = null, string? group = null, CancellationToken ct = default)
     // Mint working URLs for several endpoints sharing one pinned identity, in a single backend round-trip. Returns a map keyed by the endpoints you passed. See MintUrlAsync .
-    virtual Task<IReadOnlyDictionary<string, MintedUrl>> MintUrlsAsync(IEnumerable<string> endpoints, object? identity = null, TimeSpan? expiresIn = null, string? group = null, CancellationToken ct = null)
+    virtual Task<IReadOnlyDictionary<string, MintedUrl>> MintUrlsAsync(IEnumerable<string> endpoints, object? identity = null, TimeSpan? expiresIn = null, string? group = null, CancellationToken ct = default)
     // Dynamically requests a raw TCP/TLS/UDP endpoint. Returns a RelayEndpoint whose LocalPort a listener should bind to; the endpoint is reachable from the internet at {PublicHost}:{PublicPort}. Dispose the returned endpoint to release it. For HTTP/HTTPS endpoints use AppEndpointHost .
-    abstract Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", int localPort = 0, CancellationToken ct = null)
+    abstract Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", int localPort = 0, CancellationToken ct = default)
     // Requests a fresh strong-authentication step-up challenge for the current user. Navigates the client browser to the platform's configured identity provider through the existing client UI surface, waits for the user to complete the challenge, and returns the platform-signed step-up assertion JWT. Apps must verify the returned JWT (issuer, audience, signature, expiry) before trusting any of its claims — see AssertionVerifier .
-    abstract Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string>? acrValues = null, string? clientReturnUrl = null, CancellationToken ct = null)
+    abstract Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string>? acrValues = null, string? clientReturnUrl = null, CancellationToken ct = default)
     // Revoke every URL minted under a shared group tag.
-    virtual Task RevokeGroupAsync(string group, CancellationToken ct = null)
+    virtual Task RevokeGroupAsync(string group, CancellationToken ct = default)
     // Revoke a single minted URL by its GrantId .
-    virtual Task RevokeUrlAsync(string grantId, CancellationToken ct = null)
+    virtual Task RevokeUrlAsync(string grantId, CancellationToken ct = default)
     // Event fired when a client joins the session.
     event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
     // Event fired when a client leaves the session.
@@ -729,9 +671,11 @@ namespace Ikon.App
   static class IAppEventExtensions
     // Subscribe to ClientJoinedAsync with a handler that receives the joining client's Context directly (SessionId, UserId, etc) — skipping the ClientJoinedEventArgs wrapper the raw event emits.
     static void OnClientJoined(IAppBase app, Func<Context, Task> handler)
+    // Subscribe to ClientJoinedAsync with a handler that receives both the joining client's Context AND its typed TClientParameters . Replaces the awkward app.Clients[ctx.SessionId]!.Parameters drill inside the handler body.
     static void OnClientJoined<TSessionIdentity, TClientParameters>(IApp<TSessionIdentity, TClientParameters> app, Func<Context, TClientParameters, Task> handler)
     // Subscribe to ClientLeftAsync with a handler that receives the departing client's Context directly.
     static void OnClientLeft(IAppBase app, Func<Context, Task> handler)
+    // Subscribe to ClientLeftAsync with a handler that receives both the departing client's Context AND its typed TClientParameters .
     static void OnClientLeft<TSessionIdentity, TClientParameters>(IApp<TSessionIdentity, TClientParameters> app, Func<Context, TClientParameters, Task> handler)
     // Subscribe to MessageReceivedAsync with a handler that receives the protocol message directly.
     static void OnMessageReceived(IAppBase app, Func<ProtocolMessage, Task> handler)
@@ -747,25 +691,21 @@ namespace Ikon.App
     IClientCollection<TClientParameters> Clients { get; }
     // Gets the typed session identity used to determine app instance routing.
     TSessionIdentity SessionIdentity { get; }
-  // Common shape used by CaptureCorrelationBridge to dispatch capture start/stop callbacks. Implemented by audio frame args (used for per-segment dispatch) and video stream begin/end args (used for per-stream dispatch).
-  interface ICaptureCorrelationArgs
-    Context ClientContext { get; }
-    string? CorrelationId { get; }
-    string StreamId { get; }
   // Collection interface for accessing connected clients. Iterable for the common "broadcast / fan-out" pattern (`foreach (var client in app.Clients)`), indexable by session ID for direct lookups, and exposes Ids when only the connected-session-ids are needed.
   interface IClientCollection<TClientParameters> : IEnumerable, IEnumerable<IClient<TClientParameters>>
     // Gets the number of currently connected clients.
     int Count { get; }
     // Gets the connected client session IDs as an enumerable. Convenience for code that just needs the IDs without the full client objects — e.g. `foreach (var id in app.Clients.Ids) { _scores[id] = 0; }`.
     IEnumerable<int> Ids { get; }
-    IClient<TClientParameters>? Item { get; }
+    // Gets the client with the specified session ID, or null if not found.
+    IClient<TClientParameters>? this[int clientSessionId] { get; }
     // Alias for Ids — dictionary-shaped mental model. Generated code reaches for both interchangeably.
     IEnumerable<int> Keys { get; }
   // Interface representing a connected client with typed parameters.
   interface IClient<TClientParameters>
     // Gets the typed parameters for this client.
     TClientParameters Parameters { get; }
-    // Gets the session id of this client — the same id used to index IClientCollection`1 and to target client-directed APIs.
+    // Gets the session id of this client — the same id used to index IClientCollection and to target client-directed APIs.
     int SessionId { get; }
   // Marker interface for custom profile attribute classes. Implement this interface on classes that define custom profile attributes.
   interface IProfileAttributes
@@ -781,7 +721,6 @@ namespace Ikon.App
     string? Name { get; init; }
   // Marks a method on a cell as an MCP-exposed resource — read-only data addressed by a URI. The framework reflects the method's parameters into a URI template, registers the method on an Ikon.Mcp.McpHost, and routes incoming MCP resources/read requests against the matching URI.
   sealed class McpResourceAttribute : Attribute
-    // Marks a method on a cell as an MCP-exposed resource — read-only data addressed by a URI. The framework reflects the method's parameters into a URI template, registers the method on an Ikon.Mcp.McpHost, and routes incoming MCP resources/read requests against the matching URI.
     ctor(string uriTemplate)
     // Description shown to MCP clients so the agent (or user, via the client UI) can decide when to fetch the resource. Empty values pass through verbatim.
     string Description { get; init; }
@@ -793,46 +732,15 @@ namespace Ikon.App
     string UriTemplate { get; }
   // Event arguments for the MessageReceivedAsync event.
   class MessageReceivedEventArgs : EventArgs
-    // Event arguments for the MessageReceivedAsync event.
     ctor(ProtocolMessage message)
     // Gets the received protocol message.
     ProtocolMessage Message { get; }
   // A minted endpoint URL: the working Url (the endpoint URL with pinned path placeholders substituted and the signed ?ikon-grant= appended), the GrantId to revoke it by, and the optional ExpiresAt when a TTL was requested (grants are non-expiring by default).
   sealed class MintedUrl : IEquatable<MintedUrl>
-    // A minted endpoint URL: the working Url (the endpoint URL with pinned path placeholders substituted and the signed ?ikon-grant= appended), the GrantId to revoke it by, and the optional ExpiresAt when a TTL was requested (grants are non-expiring by default).
     ctor(string Url, string GrantId, DateTimeOffset? ExpiresAt)
     DateTimeOffset? ExpiresAt { get; init; }
     string GrantId { get; init; }
     string Url { get; init; }
-  static class ClientFunctions.Names
-    static string CaptureImage
-    static string ExitFullscreen
-    static string GetBatteryLevel
-    static string GetLanguage
-    static string GetLocation
-    static string GetMediaDevices
-    static string GetNetworkType
-    static string GetNotificationPermission
-    static string GetPushSubscription
-    static string GetTheme
-    static string GetTimezone
-    static string GetUrl
-    static string GetVisibility
-    static string KeepScreenAwake
-    static string LoginShow
-    static string Logout
-    static string OpenExternalUrl
-    static string PlaySound
-    static string RequestFullscreen
-    static string ScrollTo
-    static string SetTheme
-    static string SetUrl
-    static string ShowNotification
-    static string StartAudioCapture
-    static string StartVideoCapture
-    static string StopCapture
-    static string StopSound
-    static string Vibrate
   class Navigation : IReactiveWithState
     Task<string?> GetPathAsync(int targetId)
     Task<string?> GetPathAsync()
@@ -846,13 +754,8 @@ namespace Ikon.App
     string Path { get; }
     string Url { get; }
     string UserId { get; }
-  // Per-client convenience for sending a notification straight to a connected client — await app.Clients[id].NotifyAsync("Title", "Body") — without going through SendToSessionAsync with an explicit session id.
-  static class NotificationClientExtensions
-    static Task<NotificationPermission> NotifyAsync<TClientParameters>(IClient<TClientParameters> client, NotificationContent content, CancellationToken ct = null)
-    static Task<NotificationPermission> NotifyAsync<TClientParameters>(IClient<TClientParameters> client, string title, string? body = null, CancellationToken ct = null)
   // Content of a user-facing notification surfaced on the client device (browser notification on the web, OS notification on Flutter native apps).
   sealed class NotificationContent : IEquatable<NotificationContent>
-    // Content of a user-facing notification surfaced on the client device (browser notification on the web, OS notification on Flutter native apps).
     ctor(string Title, string? Body = null, string? IconUrl = null, string? Tag = null, string? LaunchUrl = null, string? Data = null)
     // Optional body text shown below the title.
     string? Body { get; init; }
@@ -874,7 +777,6 @@ namespace Ikon.App
     Unsupported
   // Outcome of sending a notification to a single client session.
   sealed class NotificationSendResult : IEquatable<NotificationSendResult>
-    // Outcome of sending a notification to a single client session.
     ctor(int SessionId, bool Delivered, NotificationPermission Permission)
     // True when the client actually displayed the notification (permission granted).
     bool Delivered { get; init; }
@@ -885,13 +787,20 @@ namespace Ikon.App
   // Platform notification surface for an Ikon app — shows user-facing notifications on connected clients. Accessed via app.Notifications. Connected clients receive the notification immediately (foreground). Permission is requested lazily on the client the first time a notification is actually sent, not when the app opens. SendToUserAsync fans out to every connected session for that user; if the user has no connected session it falls back to offline push (an OS notification) through the backend push hub. Offline push is server-orchestrated: when a foreground send is granted, the client's push subscription is fetched and registered with the backend, which then delivers via Web Push / FCM while the user is disconnected.
   sealed class NotificationService
     // Shows a notification on all currently-connected client sessions. Returns one result per session.
-    Task<IReadOnlyList<NotificationSendResult>> BroadcastAsync(NotificationContent content, CancellationToken ct = null)
+    Task<IReadOnlyList<NotificationSendResult>> BroadcastAsync(NotificationContent content, CancellationToken ct = default)
     // Reads a client's current notification permission state without sending anything.
-    Task<NotificationPermission> GetPermissionAsync(int sessionId, CancellationToken ct = null)
+    Task<NotificationPermission> GetPermissionAsync(int sessionId, CancellationToken ct = default)
     // Shows a notification on a single connected client session. The client requests notification permission lazily (on this first send) before displaying. Returns the per-session delivery and permission outcome.
-    Task<NotificationSendResult> SendToSessionAsync(int sessionId, NotificationContent content, CancellationToken ct = null)
+    Task<NotificationSendResult> SendToSessionAsync(int sessionId, NotificationContent content, CancellationToken ct = default)
     // Shows a notification on every currently-connected session belonging to userId (a user may be connected from several devices). When the user has no connected session, falls back to offline push — an OS notification delivered through the backend push hub. Returns one result per targeted session (empty when the user was offline and only push was attempted).
-    Task<IReadOnlyList<NotificationSendResult>> SendToUserAsync(string userId, NotificationContent content, CancellationToken ct = null)
+    Task<IReadOnlyList<NotificationSendResult>> SendToUserAsync(string userId, NotificationContent content, CancellationToken ct = default)
+  // A ReactiveList persisted globally for the app within its space. Shared across all session identities and users; one list per app deployment.
+  class PersistentReactiveList<T> : ReactiveList<T>, IPersistedReactive
+    ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null, string file = "", string member = "")
+    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null, string file = "", string member = "")
+    PersistenceBackend Backend { get; }
+    string? PostgresDatabase { get; }
+    string? PublicUrl { get; }
   // A reactive value persisted globally for the app within its space. Shared across all session identities and users; one value per app deployment.
   class PersistentReactive<T> : Reactive<T>, IPersistedReactive
     ctor(T initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null, string file = "", string member = "")
@@ -901,6 +810,13 @@ namespace Ikon.App
   // A reactive value persisted per session identity. Apps with the same routing key share the same value; different routing keys have isolated values.
   class PersistentSessionReactive<T> : Reactive<T>, IPersistedReactive
     ctor(T initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null, string file = "", string member = "")
+    PersistenceBackend Backend { get; }
+    string? PostgresDatabase { get; }
+    string? PublicUrl { get; }
+  // A ReactiveList persisted per user, partitioned at runtime by UserScope . Each user sees their own list across all of their client sessions.
+  class PersistentUserReactiveList<T> : ReactiveList<T>, IPersistedReactive
+    ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null, string file = "", string member = "")
+    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null, string file = "", string member = "")
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
@@ -936,26 +852,13 @@ namespace Ikon.App
     string? Name { get; set; }
     string? PhoneNumber { get; set; }
     string? PreferredName { get; set; }
-  // A client's push subscription, used to register the device for offline push. Web clients return Endpoint + P256dh + Auth ; Flutter clients return Token . Platform is "web" or "fcm".
-  sealed class PushSubscriptionInfo : IEquatable<PushSubscriptionInfo>
-    // A client's push subscription, used to register the device for offline push. Web clients return Endpoint + P256dh + Auth ; Flutter clients return Token . Platform is "web" or "fcm".
-    ctor(string Platform, string? Endpoint, string? Token, string? P256dh, string? Auth, string? DeviceId)
-    string? Auth { get; init; }
-    string? DeviceId { get; init; }
-    string? Endpoint { get; init; }
-    string? P256dh { get; init; }
-    string Platform { get; init; }
-    string? Token { get; init; }
-  // Manages per-client reactive graphs and update cycles for an Ikon app. Automatically stops when the app's StoppingAsync event fires.
-  class ReactiveRoot
-    // Creates a new reactive root for the specified app host.
-    ctor(IAppBase app, int updateIntervalMs = 1000)
-    // Gets the reactive manager that coordinates all reactive objects in the app.
-    ReactiveManager ReactiveManager { get; }
-    Task RunAsync(Func<Task> render, Func<Context, bool>? filter = null)
+  // Exception thrown when a required role is missing.
+  class RoleRequiredException : Exception
+    ctor(string role, string? userId = null)
+    string RequiredRole { get; }
+    string? UserId { get; }
   // Event arguments raised when speech has been recognized from a captured audio stream.
   sealed class SpeechRecognizedEventArgs : EventArgs
-    // Event arguments raised when speech has been recognized from a captured audio stream.
     ctor(string text, Context clientContext, string streamId, string? correlationId, TimeSpan duration, int sampleCount)
     // Client context of the speaker.
     Context ClientContext { get; }
@@ -979,6 +882,16 @@ namespace Ikon.App
   // Event arguments for the StoppingAsync event.
   class StoppingEventArgs : EventArgs
     ctor()
+  // The built-in client UI themes. The wire protocol carries the theme as a string (custom theme names are allowed via SetThemeAsync ); ToThemeName maps these values to their wire names.
+  enum Theme
+    Dark
+    Light
+  // Helpers for mapping Theme values to and from the wire strings used by the client.
+  static class ThemeExtensions
+    // True when the client's reported theme is the dark theme. False for the light theme, custom theme names, and clients that have not reported a theme.
+    static bool IsDarkTheme(Context clientContext)
+    // Returns the wire name of the theme: "dark" or "light".
+    static string ToThemeName(Theme theme)
   // Built-in user roles. Maps to role strings stored in profile.
   enum UserRole
     Guest
@@ -1004,7 +917,6 @@ namespace Ikon.App
     event AsyncEventHandler<VideoInputStreamEndEventArgs> VideoInputStreamEndAsync
   // Event arguments raised when an incoming video frame is received
   class VideoInputFrameEventArgs : EventArgs, ICaptureCorrelationArgs
-    // Event arguments raised when an incoming video frame is received
     ctor(string streamId, Context clientContext, int trackId, byte[] data, int frameNumber, bool isKey, ulong timestampInUs, uint durationInUs, string? correlationId)
     // Client context containing user information
     Context ClientContext { get; }
@@ -1030,7 +942,6 @@ namespace Ikon.App
     string UserId { get; }
   // Event arguments raised when an incoming video stream begins
   class VideoInputStreamBeginEventArgs : EventArgs, ICaptureCorrelationArgs
-    // Event arguments raised when an incoming video stream begins
     ctor(string streamId, string description, string sourceType, VideoCodec codec, string codecDetails, int width, int height, double framerate, Context clientContext, int trackId, string? correlationId)
     // Client context containing user information
     Context ClientContext { get; }
@@ -1060,7 +971,6 @@ namespace Ikon.App
     int Width { get; }
   // Event arguments raised when an incoming video stream ends
   class VideoInputStreamEndEventArgs : EventArgs, ICaptureCorrelationArgs
-    // Event arguments raised when an incoming video stream ends
     ctor(string streamId, Context clientContext, int trackId, string? correlationId)
     // Client context containing user information
     Context ClientContext { get; }
@@ -1076,7 +986,6 @@ namespace Ikon.App
     string UserId { get; }
   // Information about an output video stream
   class VideoOutputStreamInfo : IEquatable<VideoOutputStreamInfo>
-    // Information about an output video stream
     ctor(string StreamId, int TrackId, VideoCodec Codec, int Width, int Height, double Framerate)
     VideoCodec Codec { get; init; }
     double Framerate { get; init; }
@@ -1095,114 +1004,43 @@ namespace Ikon.App.Cells
   // Marks a class as a cell — a headless app addressed by a SessionIdentity record declared inside the class. Discovered by CellHost at startup via reflection over loaded assemblies.
   sealed class CellAttribute : Attribute
     ctor()
-    // Number of concurrent instances per addressable key. Defaults to 1 (per-key singleton). Values greater than 1 spawn that many instances and round-robin Resolve``1 across them. For globals (parameterless SessionIdentity) the N instances are eager-spawned at host construction — the load-balanced auth-cell pattern. For keyed cells the N instances are spawned together on first access; sharded keyed cells must tolerate eventual consistency between shards (cells should hold no per-instance state, or persist shared state through an external store).
+    // Number of concurrent instances per addressable key. Defaults to 1 (per-key singleton). Values greater than 1 spawn that many instances and round-robin Resolve across them. For globals (parameterless SessionIdentity) the N instances are eager-spawned at host construction — the load-balanced auth-cell pattern. For keyed cells the N instances are spawned together on first access; sharded keyed cells must tolerate eventual consistency between shards (cells should hold no per-instance state, or persist shared state through an external store).
     int Capacity { get; init; }
     // How long a keyed cell may remain idle before EvictIdle removes it from the directory. Zero (the default) means no eviction — the instance lives until the host shuts down. Globals (cells whose SessionIdentity is parameterless) are never evicted regardless of this value.
     int IdleTtlSeconds { get; init; }
     // Where this cell type is hosted. AppProcess (the default) keeps the cell in the app's own `CellHost` — every app process has its own copies, state is not shared across processes. Substrate declares that the cell should be hosted on the platform's cell-deployment substrate, where one instance per (cell-type, SessionIdentity) is shared across all app processes that connect.
     CellProcessScope ProcessScope { get; init; }
-  // What the cell-client factory needs to open a standard-SDK connection to a substrate cell-host: the cell type's simple name and its SessionIdentity-record field values.
-  sealed class CellConnectRequest : IEquatable<CellConnectRequest>
-    // What the cell-client factory needs to open a standard-SDK connection to a substrate cell-host: the cell type's simple name and its SessionIdentity-record field values.
-    ctor(string CellTypeName, IReadOnlyDictionary<string, string> Identity)
-    string CellTypeName { get; init; }
-    IReadOnlyDictionary<string, string> Identity { get; init; }
-  // A live standard-SDK connection from an app process to a substrate cell-host IkonServer, paired with the ReactiveRegistry that mirrors the cell's Reactive<T> state. Created lazily by Cells on first need and shared by every SubstrateCellProxy`1 for the same (CellType, SessionIdentity).
-  sealed class CellConnection : IAsyncDisposable
-    // The connected SDK client to the cell-host IkonServer.
-    IkonClient Client { get; }
-    // Reactive-subscription layer over Client 's function registry.
-    ReactiveRegistry Reactive { get; }
-    ValueTask DisposeAsync()
-  // In-process directory + spawn substrate for CellAttribute -decorated types. Maps wire interfaces to cell types at startup, then resolves (cellType, SessionIdentity) to a single shared instance per key.
-  sealed class CellHost : IAsyncDisposable
-    // Construct a host that scans the supplied assemblies for CellAttribute -decorated types. When assemblies is null, scans every loaded assembly in the current AppDomain. Cells whose SessionIdentity record is parameterless (= global) are eager-spawned at construction so they are always-already-provisioned by the time a request lands.
-    ctor(IEnumerable<Assembly>? assemblies = null)
-    // One canonical cell type per simple name — the exact set ResolveByCellTypeName dispatches to, and what every consumer that turns a cell into an externally-addressable surface iterates (typed-HTTP-endpoint discovery, MCP tool/resource discovery, the inbound path dispatcher). After a hot reload the same logical cell can linger in two AssemblyLoadContexts — the recompiled copy plus the not-yet-collected original — as two distinct Type identities sharing a FullName. The host keeps both internally for load-context-correct wire-interface mapping ( Resolve``1 ), but a surface must be discovered ONCE and bound to the type whose instance dispatch returns: otherwise a duplicate-name registration throws (MCP tools) or a handler built over the non-dispatched copy fails its invoke with a target-type mismatch. Keying on simple name collapses the duplicate to that single dispatchable type.
-    IReadOnlyCollection<Type> CellTypes { get; }
-    // Dispose every cell instance held by the host. Async disposal is preferred per BCL precedence; IDisposable is honored as a fallback. After disposal, Resolve``1 throws ObjectDisposedException .
-    ValueTask DisposeAsync()
-    // Evict every keyed cell instance whose idle time exceeds its cell type's IdleTtlSeconds . Cells without a configured TTL are never evicted by this method. Awaits DisposeAsync on each evicted instance that implements it; IDisposable is honored as a fallback. Returns the number of instances removed.
-    Task<int> EvictIdleAsync()
-    // Evict every keyed cell instance whose last access is strictly before cutoffUtc . Globals are never evicted. Awaits DisposeAsync on each evicted instance that implements it; IDisposable is honored as a fallback. Returns the number of instances removed.
-    Task<int> EvictIdleOlderThanAsync(DateTime cutoffUtc)
-    // The TSessionIdentity type a CellAttribute -decorated cell binds to, inferred from its primary-constructor's ICell`1 parameter. Returns null if the cell doesn't declare an ICell`1 ctor parameter at all.
-    static Type? GetSessionIdentityType(Type cellType)
-    // True when the identity record has at least one constructor parameter — i.e. the cell is keyed (different instances per identity value). False for parameterless / global identity types whose only constructor is the synthesised record copy-ctor.
-    static bool HasIdentityParameters(Type identityType)
-    // Register an externally-constructed instance (typically the running App<TSessionIdentity, TClientParameters> plugin) as a singleton cell. The host treats it like any other [Cell] for discovery + dispatch — its public methods show up in CellTypes , HttpEndpointDiscovery, McpToolDiscovery, and McpResourceDiscovery; ResolveByCellTypeName and Resolve``1 return the registered instance directly. The host does NOT construct, evict, or dispose singletons — lifecycle stays with the external owner.
-    void RegisterSingleton(object instance)
-    TInterface Resolve<TInterface>(object sessionIdentity) where TInterface : class
-    // Resolve (or spawn) a cell instance by the cell type's simple name and a SessionIdentity field dict (typically the URL query params from an inbound endpoint). The host constructs the SessionIdentity record from the dict by matching the record's primary-constructor parameter names; missing nullable/default-valued fields use null/their default; missing required fields throw. Returns the cell instance as Object — callers cast to the wire interface they expect or use reflection to invoke methods.
-    object ResolveByCellTypeName(string cellTypeName, IReadOnlyDictionary<string, string> sessionIdentityFields)
-    // Look up the registered [Cell] concrete type whose wire-interface mapping matches iface . Returns the same type that Resolve``1 would dispatch to. Used by Cells.Connect<TInterface> to consult the cell's CellAttribute (e.g. for ProcessScope ) before deciding between local resolution and substrate-proxy routing.
-    bool TryGetCellTypeForInterface(Type iface, out Type cellType)
-    // Raised when a NEW cell type appears in the host after construction — specifically when RegisterSingleton registers an instance whose type wasn't already known. Higher layers (IkonServer) that snapshot the topology at build time — e.g. the discovered MCP-tool host and typed-HTTP-endpoint list — subscribe to rebuild those snapshots. This is load-bearing for app-level [Mcp]: the user's [App] instance is registered lazily on first client join (via HttpEndpointRouting.EnsureCellHost), long after the host's initial discovery walk.
-    event Action? TopologyChanged
-  // The wire-name conventions for cell members. Both the substrate-cell proxy (the caller) and the cell-host's endpoint-wrapper registration (the producer) build these names; keeping the format in one place stops the two sides from drifting apart.
-  static class CellNaming
-    // The endpoint registry name for a cell's [HttpGet]/[HttpPost] method: {CellType}_{Method}. The manifest carries this flat name as the endpoint's Name; the backend derives the upstream route /{Owner}/{Method} from it.
-    static string EndpointFunctionName(Type cellType, string methodName)
-    // The SDK function name for a cell's [Function] method: {CellType.FullName}.{Method}. Matches how FunctionRegistry.RegisterFromInstance names instance methods, so a substrate-cell proxy can call them over its SDK connection to the cell-host.
-    static string SdkFunctionName(Type cellType, string methodName)
-    // The SDK function name a cell-host exposes to advertise the base URL of its AppEndpointHost — the relay tunnel serving the cell's [HttpGet]/[HttpPost] + [Mcp] routes. A SubstrateCellProxy calls it over the cell-host SDK connection to learn where to POST [HttpGet]/[HttpPost] requests directly, instead of going through the cloud endpoint gateway. Producer (the cell-host startup path) and consumer (SubstrateCellProxy) must agree on this name.
-    static string CellEndpointBaseUrlFunctionName
   // Where a CellAttribute -decorated type's instances live.
   enum CellProcessScope
     AppProcess
     Substrate
-  // Per-server-scoped accessor (via AsyncLocalInstance`1 — use Cells.Instance) for that server's CellHost plus the wiring substrate-cell proxies need: the endpoint-URL resolver (for [HttpGet]/[HttpPost] methods) and the cell-client factory (for [Function] methods and Reactive<T> state, which ride a standard IkonClient SDK connection to the cell-host).
+  // Per-server-scoped accessor (via AsyncLocalInstance — use Cells.Instance) for that server's CellHost plus the wiring substrate-cell proxies need: the endpoint-URL resolver (for [HttpGet]/[HttpPost] methods) and the cell-client factory (for [Function] methods and Reactive<T> state, which ride a standard IkonClient SDK connection to the cell-host).
   class Cells : AsyncLocalInstance<Cells>
     ctor()
-    // The currently installed process-wide cell host, or null if none has been installed yet. Use this when you want to reuse the shared host with a graceful fallback. For fail-fast access prefer Connect``1 .
-    CellHost? Current { get; }
+    // Resolve (or spawn on first call) the cell implementation for TInterface keyed by sessionIdentity . Subsequent calls with an equal SessionIdentity return the same instance.
     TInterface Connect<TInterface>(object sessionIdentity) where TInterface : class
     // Dispose every live cell-host connection. Call on app shutdown. Idempotent.
     ValueTask DisposeAsync()
-    // Install the process-wide cell host AND reset the app wiring: clears the endpoint-URL resolver and the cell-client factory, and drops the connection + proxy registries. Use this for a clean slate — tests re-run it between scenarios, and an app with no platform-installed host falls back to it. Production startup installs the host via InstallHost instead, which keeps the wiring the app already registered (see that method for why).
-    void Initialize(CellHost host)
-    // Swap the process-wide cell host WITHOUT touching the app-registered endpoint-URL resolver or cell-client factory. Drops the connection + proxy registries because they reference the previous host's cell instances (whose types may live in a now-unloaded AssemblyLoadContext).
-    void InstallHost(CellHost host)
-    // Register the factory that opens a standard-SDK IkonClient connection to a substrate cell-host. Called by the app host at startup — the app process has the backend context (space id, login) the factory needs. SubstrateCellProxy`1 uses it for [Function]-marked methods and Reactive<T> members; without it, those throw a clear error while [HttpGet]/[HttpPost] methods still work.
-    void SetCellClientFactory(Func<CellConnectRequest, Task<IkonClient>> factory)
-    // Register the function that maps a endpoint function name (e.g. "LabCell_IncrementHttp") to its public URL. Called by the app host at startup so SubstrateCellProxy`1 can dispatch a substrate cell's [HttpGet]/[HttpPost] methods over stateless HTTP. Methods the resolver returns no URL for fall through to the SDK connection.
-    void SetEndpointUrlResolver(Func<string, string?> resolver)
     // Reserved key in an SDK connection's parameters that names the substrate cell type to route to. The cell's SessionIdentity-record fields ride alongside it. MUST stay in sync with the cloud's CELL_TYPE_PARAM in cell-routing.ts — that's what ChannelInstanceService.create keys on to provision a cell-host channel-instance.
     static string CellTypeParam
   // Framework handle injected into a cell's primary constructor. Exposes the SessionIdentity the cell was instantiated for; future revisions add lifetime, config, etc.
   interface ICell<TSessionIdentity>
     // The SessionIdentity record value this cell instance is keyed by.
     TSessionIdentity Identity { get; }
-  // Runtime DispatchProxy for a [Cell(ProcessScope = Substrate)] cell type. App processes call the cell as if it were local; the proxy hides the network hop and picks a transport per member: [HttpGet]/[HttpPost] methods — dispatched as stateless HTTP POST. The target is the cell-host's own IkonClient -discovered endpoint base URL when available, falling back to the cloud endpoint-gateway URL otherwise.other methods — dispatched over a standard IkonClient SDK connection to the cell-host (the cell must expose them via [Function] / [RegisterAll] so they are callable on the wire).Reactive<T> members — return a cached local read-only mirror fed by an SDK subscription; reads and Changed events work locally, mutations flow through cell methods. The SDK connection is opened lazily on first need. Even a cell reached only through [HttpGet]/[HttpPost] methods opens one once, to discover the cell-host's endpoint base URL.
-  class SubstrateCellProxy<TInterface> : DispatchProxy where TInterface : class
-    ctor()
-    // Build a proxy implementing TInterface for the given substrate cell.
-    static TInterface Create(Type cellType, object sessionIdentity, Func<string, string?> endpointUrlResolver)
-
-namespace Ikon.App.Client
-  // Thread-safe implementation of IClientCollection`1 that synchronizes with GlobalState .
-  class ClientCollection<TClientParameters> : IClientCollection<TClientParameters>, IEnumerable, IEnumerable<IClient<TClientParameters>>
-    ctor()
-    int Count { get; }
-    IEnumerable<int> Ids { get; }
-    IClient<TClientParameters>? Item { get; }
-    IEnumerator<IClient<TClientParameters>> GetEnumerator()
-  // Implementation of IClient`1 representing a connected client with typed parameters.
-  class Client<TClientParameters> : IClient<TClientParameters>
-    // Implementation of IClient`1 representing a connected client with typed parameters.
-    ctor(int sessionId, TClientParameters parameters)
-    TClientParameters Parameters { get; }
-    int SessionId { get; }
 
 namespace Ikon.App.Connectors
+  // Thrown when a connector's remote service returns an error response.
+  sealed class ConnectorException : Exception
+    ctor(string provider, string message)
+    string Provider { get; }
   // Google Drive connector. Upload, download and list files with Google OAuth2 credentials. Raw — the agent skill lives in Ikon.Agent.Connectors.
   sealed class Drive
     ctor(GoogleCredentials credentials)
-    Task<Stream> DownloadAsync(string fileId, CancellationToken ct = null)
+    Task<Stream> DownloadAsync(string fileId, CancellationToken ct = default)
     // Stream every file under a folder (or the whole drive), paging through the full result set. Pass an extra query clause such as "modifiedTime > '2024-01-01T00:00:00'" to bound a historical backfill by time.
-    IAsyncEnumerable<DriveFile> ListAllAsync(string? folderId = null, string? extraQuery = null, CancellationToken ct = null)
-    Task<IReadOnlyList<DriveFile>> ListAsync(string? folderId = null, int limit = 50, CancellationToken ct = null)
-    Task<DriveFile> UploadAsync(string name, string mimeType, Stream content, string? folderId = null, CancellationToken ct = null)
+    IAsyncEnumerable<DriveFile> ListAllAsync(string? folderId = null, string? extraQuery = null, CancellationToken ct = default)
+    Task<IReadOnlyList<DriveFile>> ListAsync(string? folderId = null, int limit = 50, CancellationToken ct = default)
+    Task<DriveFile> UploadAsync(string name, string mimeType, Stream content, string? folderId = null, CancellationToken ct = default)
   sealed class DriveFile : IEquatable<DriveFile>
     ctor(string Id, string Name, string MimeType, long? Size, string? WebViewLink, DateTimeOffset? ModifiedTime = null)
     string Id { get; init; }
@@ -1217,7 +1055,6 @@ namespace Ikon.App.Connectors
     static bool IsAuthFailure(Exception ex)
   // OAuth2 credentials for Google connectors. The refresh token is long-lived; the access token is obtained and refreshed automatically by the Google client library.
   sealed class GoogleCredentials : IEquatable<GoogleCredentials>
-    // OAuth2 credentials for Google connectors. The refresh token is long-lived; the access token is obtained and refreshed automatically by the Google client library.
     ctor(string ClientId, string ClientSecret, string RefreshToken)
     string ClientId { get; init; }
     string ClientSecret { get; init; }
@@ -1225,8 +1062,8 @@ namespace Ikon.App.Connectors
   // Slack messaging connector. Post and read messages with a bot token (xoxb-...). Raw — no agent coupling; the agent skill lives in Ikon.Agent.Connectors.
   sealed class Slack
     ctor(string botToken, HttpClient? http = null)
-    Task<IReadOnlyList<SlackMessage>> HistoryAsync(string channel, int limit = 20, CancellationToken ct = null)
-    Task<SlackMessage> PostAsync(string channel, string text, string? threadTs = null, CancellationToken ct = null)
+    Task<IReadOnlyList<SlackMessage>> HistoryAsync(string channel, int limit = 20, CancellationToken ct = default)
+    Task<SlackMessage> PostAsync(string channel, string text, string? threadTs = null, CancellationToken ct = default)
   sealed class SlackMessage : IEquatable<SlackMessage>
     ctor(string Channel, string User, string Text, string Ts, string? ThreadTs = null)
     string Channel { get; init; }
@@ -1237,12 +1074,11 @@ namespace Ikon.App.Connectors
   // WhatsApp messaging connector (WhatsApp Business Cloud API via Meta Graph). Send with a system-user access token and the sender's phone number id. Raw — the agent skill lives in Ikon.Agent.Connectors.
   sealed class WhatsApp
     ctor(string accessToken, string phoneNumberId, HttpClient? http = null)
-    Task<string> SendAsync(string to, string text, CancellationToken ct = null)
+    Task<string> SendAsync(string to, string text, CancellationToken ct = default)
 
 namespace Ikon.App.Cron
   // Per-invocation context for a CronAttribute handler currently executing. A cron handler may optionally accept one of these (and/or a CancellationToken ) to learn when and why it fired; a parameterless handler is equally valid. AsyncLocal so handler code (and anything it calls) can read it without threading it through every method signature.
   sealed class CronContext : IEquatable<CronContext>
-    // Per-invocation context for a CronAttribute handler currently executing. A cron handler may optionally accept one of these (and/or a CancellationToken ) to learn when and why it fired; a parameterless handler is equally valid. AsyncLocal so handler code (and anything it calls) can read it without threading it through every method signature.
     ctor(DateTime FireTimeUtc, string Schedule)
     // The cron context for the invocation currently running on this async flow, or null.
     static CronContext? Current { get; }
@@ -1253,8 +1089,7 @@ namespace Ikon.App.Cron
 namespace Ikon.App.Http
   // Per-request context for an HttpMethodAttribute handler currently executing. AsyncLocal so handler code (and anything it calls) can read the request's resolved identity without threading the dict through every method signature. Relationship to other "context" concepts on the platform: SessionIdentity (the typed app/cell record): the routing / instance-partition key. Always present — it's what was used to address the channel-instance this handler runs in. Stable across the cell instance's lifetime.Context (Ikon protocol Context for WS clients): the live client *connection* — sessionId, deviceId, AuthSessionId, UserId from the connect-token. Absent for endpoint/MCP dispatches because there is no live client connection.HttpCallContext.Current (this) and McpCallContext .Current: the *request-scoped overlay* that exposes the per-call resolved identity for handler code to read. Set by the wrapper before the handler runs, cleared after. The point is that handlers reading "who is this call for?" get a non-empty answer on endpoint/MCP-dispatched calls, where the connection-level Context.UserId would be empty. The handler's SessionIdentity record (resolved by CellHost.ResolveByCellTypeName before this context is set) and HttpCallContext.Current.SessionIdentity carry the same information in different shapes: the former is typed and tied to the cell's lifetime; the latter is the raw wire dict tied to the call's lifetime. Headers and RawBody are the UNTRUSTED request inputs, exposed so a handler can do its own logic inline (e.g. verify a Stripe-Signature against the raw body) without a separate auth cell. They must never feed identity resolution — the target instance is already chosen from trusted sources (a signed ikon-grant / policy claims / platform-controlled path+query) before the handler runs, so reading a header cannot retarget the call.
   sealed class HttpCallContext : IEquatable<HttpCallContext>
-    // Per-request context for an HttpMethodAttribute handler currently executing. AsyncLocal so handler code (and anything it calls) can read the request's resolved identity without threading the dict through every method signature. Relationship to other "context" concepts on the platform: SessionIdentity (the typed app/cell record): the routing / instance-partition key. Always present — it's what was used to address the channel-instance this handler runs in. Stable across the cell instance's lifetime.Context (Ikon protocol Context for WS clients): the live client *connection* — sessionId, deviceId, AuthSessionId, UserId from the connect-token. Absent for endpoint/MCP dispatches because there is no live client connection.HttpCallContext.Current (this) and McpCallContext .Current: the *request-scoped overlay* that exposes the per-call resolved identity for handler code to read. Set by the wrapper before the handler runs, cleared after. The point is that handlers reading "who is this call for?" get a non-empty answer on endpoint/MCP-dispatched calls, where the connection-level Context.UserId would be empty. The handler's SessionIdentity record (resolved by CellHost.ResolveByCellTypeName before this context is set) and HttpCallContext.Current.SessionIdentity carry the same information in different shapes: the former is typed and tied to the cell's lifetime; the latter is the raw wire dict tied to the call's lifetime. Headers and RawBody are the UNTRUSTED request inputs, exposed so a handler can do its own logic inline (e.g. verify a Stripe-Signature against the raw body) without a separate auth cell. They must never feed identity resolution — the target instance is already chosen from trusted sources (a signed ikon-grant / policy claims / platform-controlled path+query) before the handler runs, so reading a header cannot retarget the call.
-    ctor(IReadOnlyDictionary<string, string>? SessionIdentity = null, CancellationToken CancellationToken = null, IReadOnlyDictionary<string, string>? Headers = null, string? RawBody = null)
+    ctor(IReadOnlyDictionary<string, string>? SessionIdentity = null, CancellationToken CancellationToken = default, IReadOnlyDictionary<string, string>? Headers = null, string? RawBody = null)
     CancellationToken CancellationToken { get; init; }
     static HttpCallContext? Current { get; }
     IReadOnlyDictionary<string, string>? Headers { get; init; }
@@ -1265,116 +1100,10 @@ namespace Ikon.App.Http
     // Case-insensitive lookup of a request header. UNTRUSTED request input — read it for handler logic (e.g. endpoint signature verification), NEVER to derive the SessionIdentity. Identity is resolved upstream before the handler runs and is the only thing that picks the target instance; headers cannot move it. Returns null when the header is absent. The accessor is case-insensitive because HTTP header names are, and the two dispatch paths build the header dictionary with different comparers.
     string? Header(string name)
     static IDisposable Use(HttpCallContext context)
-  // Bridges in-process HTTP cell-method dispatch through the active GovernanceScope hook. With no hook active this is a pass-through; with one set, the invocation flows through RunAsync``1 with the structural {CellType}.{Method} subject id so the same Mission gates HTTP and MCP symmetrically.
-  static class HttpDispatchGovernance
-    static Task<object?> InvokeAsync(MethodInfo handler, Type ownerType, IReadOnlyDictionary<string, object?> args, Func<Task<object?>> invoke, CancellationToken ct = null)
-  // Reflective discovery of the typed HTTP surface on a given type: every HttpMethodAttribute method. McpAttribute methods are NOT surfaced here — they are discovered separately by McpToolDiscovery and mounted by the framework both on the /{Type}/mcp multiplexer and as their own per-tool endpoints. Used at startup by the framework to enumerate the typed-HTTP surface of an app class and of every cell type.
-  static class HttpEndpointDiscovery
-    // Discover every typed HTTP endpoint on ownerType . Methods inherited from base classes are included; static methods and non-public methods are skipped (endpoints must be invokable on a specific instance). Requires an explicit [HttpGet]/[HttpPost].
-    static IReadOnlyList<HttpEndpointInfo> ForType(Type ownerType)
-    // Discover endpoints across every type in types . Convenience overload for the startup path that has already filtered an assembly's loaded types down to apps and cells.
-    static IReadOnlyList<HttpEndpointInfo> ForTypes(IEnumerable<Type> types)
-  // Metadata for a single HttpMethodAttribute -annotated method discovered at startup. Carries everything the dispatcher needs at request time: the HTTP method, path template, the name of the /router/ auth policy, the reflected MethodInfo , and the owner Type (an app class or a [Cell] class). Authorization itself runs at the gateway edge (the /router/ policy), not in-process — Auth is metadata carried into the manifest.
-  sealed class HttpEndpointInfo : IEquatable<HttpEndpointInfo>
-    // Metadata for a single HttpMethodAttribute -annotated method discovered at startup. Carries everything the dispatcher needs at request time: the HTTP method, path template, the name of the /router/ auth policy, the reflected MethodInfo , and the owner Type (an app class or a [Cell] class). Authorization itself runs at the gateway edge (the /router/ policy), not in-process — Auth is metadata carried into the manifest.
-    ctor(string Method, string Path, string? Auth, MethodInfo Handler, Type OwnerType)
-    string? Auth { get; init; }
-    MethodInfo Handler { get; init; }
-    string Method { get; init; }
-    Type OwnerType { get; init; }
-    string Path { get; init; }
-  // Which wire protocol an HTTP-class endpoint speaks. Addressing, path templating, identity binding, auth, and abuse-control are identical across the kinds — only the handler stack (typed bind vs MCP JSON-RPC) and the schema advertised to clients differ. [Rest] maps to Rest and [Mcp] to Mcp ; both ride the same AppEndpointHost .
-  enum HttpEndpointKind
-    Rest
-    Mcp
-  // Compiled representation of a Path template. Each segment is either a literal or a {name} capture; matching is exact on segment count, ordinal on literals, case-insensitive on capture names. No wildcard / catch-all support; that's a deliberate simplification — the typed-endpoint surface is meant to be explicit.
-  sealed class RouteTemplate
-    // Names of every {capture} segment, in path order.
-    IReadOnlyList<string> CaptureNames { get; }
-    // The literal path with capture syntax preserved (e.g. spaces/{spaceId}/messages).
-    string Pattern { get; }
-    static RouteTemplate Parse(string template)
-    // Try to match path against this template. On success, returns true and populates captures with the captured values keyed by name. On failure, returns false and captures is empty.
-    bool TryMatch(string path, out IReadOnlyDictionary<string, string> captures)
-  // RFC-6570 Level-1 URI template — {name} placeholders only, no list/operator modifiers. Compile once at registration time; match incoming URIs back to placeholder values. Used by McpResourceBridge to route resources/read URIs to the owning cell method.
-  sealed class UriTemplate
-    bool IsStatic { get; }
-    IReadOnlyList<string> PlaceholderNames { get; }
-    string Template { get; }
-    // Match an incoming URI against the template. Returns the placeholder bindings on success, or null if the URI doesn't fit the template shape. Placeholder values are non-empty and do not cross the next literal segment.
-    IReadOnlyDictionary<string, string>? Match(string uri)
-    static UriTemplate Parse(string template)
 
 namespace Ikon.App.Mcp
-  sealed class CallToolParams : IEquatable<CallToolParams>
-    ctor()
-    JsonElement Arguments { get; init; }
-    string Name { get; init; }
-  sealed class CallToolResult : IEquatable<CallToolResult>
-    ctor(IReadOnlyList<ToolContent> Content, bool IsError)
-    IReadOnlyList<ToolContent> Content { get; init; }
-    bool IsError { get; init; }
-  // Params of a notifications/cancelled notification. RequestId identifies the in-flight call the client wants to abort.
-  sealed class CancelledNotificationParams : IEquatable<CancelledNotificationParams>
-    // Params of a notifications/cancelled notification. RequestId identifies the in-flight call the client wants to abort.
-    ctor(JsonElement RequestId, string? Reason = null)
-    string? Reason { get; init; }
-    JsonElement RequestId { get; init; }
-  // Transport-facing sink for server-initiated JSON-RPC notifications. McpHost calls this to push progress updates and similar events that aren't the response to a specific request.
-  interface IMcpNotificationSink
-    abstract Task SendNotificationAsync(string method, object params, CancellationToken ct)
-  sealed class InitializeResult : IEquatable<InitializeResult>
-    ctor(string ProtocolVersion, McpCapabilities Capabilities, McpServerInfo ServerInfo)
-    McpCapabilities Capabilities { get; init; }
-    string ProtocolVersion { get; init; }
-    McpServerInfo ServerInfo { get; init; }
-  sealed class JsonRpcError : IEquatable<JsonRpcError>
-    ctor(int Code, string Message, JsonElement? Data = null)
-    int Code { get; init; }
-    JsonElement? Data { get; init; }
-    string Message { get; init; }
-  // JSON-RPC 2.0 + MCP message types. Minimal subset for an MCP server that answers initialize, tools/list, and tools/call. Reads / writes are routed through McpJson .
-  sealed class JsonRpcRequest : IEquatable<JsonRpcRequest>
-    ctor()
-    JsonElement? Id { get; init; }
-    bool IsNotification { get; }
-    string JsonRpc { get; init; }
-    string Method { get; init; }
-    JsonElement? Params { get; init; }
-  sealed class JsonRpcResponse : IEquatable<JsonRpcResponse>
-    ctor()
-    JsonRpcError? Error { get; init; }
-    JsonElement? Id { get; init; }
-    string JsonRpc { get; init; }
-    object? Result { get; init; }
-    static JsonRpcResponse Fail(JsonElement? id, int code, string message)
-    static JsonRpcResponse Ok(JsonElement? id, object? result)
-  // Builds JSON Schema objects from .NET reflection metadata (parameter lists, property bags). Used by McpToolBridge to derive an MCP tool's inputSchema from the method's parameter list. Defers per-type schema generation to JsonSchemaGenerator so MCP tools, Emerge.Run response schemas, and Ikon.AI tool definitions all speak the same dialect (currently OpenAI/Anthropic-strict 2020-12).
-  static class JsonSchemaBuilder
-    // Build an object-shaped JSON Schema describing the named property bag implied by a method's parameter list. Each non-optional parameter becomes a required property whose schema is derived from its type via JsonSchemaGenerator ; parameters with a default value are optional. [Description] attributes on parameters are surfaced as the property's description.
-    static JsonElement BuildObjectSchema(IReadOnlyList<ParameterInfo> parameters)
-    // As BuildObjectSchema but with an extra set of always-required properties prepended (used by the MCP bridge to inject a keyed cell's identity fields).
-    static JsonElement BuildObjectSchema(IReadOnlyList<ParameterInfo> parameters, IReadOnlyList<ValueTuple<string, Type, string?>> extraRequired)
-  sealed class ListResourceTemplatesResult : IEquatable<ListResourceTemplatesResult>
-    ctor(IReadOnlyList<ResourceTemplate> ResourceTemplates)
-    string? NextCursor { get; init; }
-    IReadOnlyList<ResourceTemplate> ResourceTemplates { get; init; }
-  sealed class ListResourcesResult : IEquatable<ListResourcesResult>
-    ctor(IReadOnlyList<Resource> Resources)
-    string? NextCursor { get; init; }
-    IReadOnlyList<Resource> Resources { get; init; }
-  sealed class ListToolsParams : IEquatable<ListToolsParams>
-    ctor()
-    // Opaque pagination cursor returned in a previous NextCursor . Clients pass it back verbatim to fetch the next page; first page omits it.
-    string? Cursor { get; init; }
-  sealed class ListToolsResult : IEquatable<ListToolsResult>
-    ctor(IReadOnlyList<ToolDefinition> Tools)
-    // Set when more tools remain. Clients echo this back in Cursor to get the next page. null when this is the last page.
-    string? NextCursor { get; init; }
-    IReadOnlyList<ToolDefinition> Tools { get; init; }
-  // Per-request context for an MCP tools/call or resources/read in flight. AsyncLocal so the bridge can read it from inside parameter binding without threading another argument through every call site. Carries: The request's effective CancellationToken (linked to the transport CT and a per-request CTS the host can trip on notifications/cancelled).An optional progress sink the bridge wires IProgress`1 parameters into. SessionIdentityFields — the authenticated identity for this request (from claims merged by the transport). Bridges pass it to CellHost.ResolveByCellTypeName so keyed cells route to the right instance. Empty / null on the stdio path (single-user process).
+  // Per-request context for an MCP tools/call or resources/read in flight. AsyncLocal so the bridge can read it from inside parameter binding without threading another argument through every call site. Carries: The request's effective CancellationToken (linked to the transport CT and a per-request CTS the host can trip on notifications/cancelled).An optional progress sink the bridge wires IProgress parameters into. SessionIdentityFields — the authenticated identity for this request (from claims merged by the transport). Bridges pass it to CellHost.ResolveByCellTypeName so keyed cells route to the right instance. Empty / null on the stdio path (single-user process).
   sealed class McpCallContext : IEquatable<McpCallContext>
-    // Per-request context for an MCP tools/call or resources/read in flight. AsyncLocal so the bridge can read it from inside parameter binding without threading another argument through every call site. Carries: The request's effective CancellationToken (linked to the transport CT and a per-request CTS the host can trip on notifications/cancelled).An optional progress sink the bridge wires IProgress`1 parameters into. SessionIdentityFields — the authenticated identity for this request (from claims merged by the transport). Bridges pass it to CellHost.ResolveByCellTypeName so keyed cells route to the right instance. Empty / null on the stdio path (single-user process).
     ctor(CancellationToken CancellationToken, Func<ProgressUpdate, Task>? OnProgress, IReadOnlyDictionary<string, string>? SessionIdentityFields = null)
     CancellationToken CancellationToken { get; init; }
     static McpCallContext? Current { get; }
@@ -1383,172 +1112,12 @@ namespace Ikon.App.Mcp
     // Convenience accessor for the conventional userid field of the request's SessionIdentity. Returns null when no McpCallContext is current or when claims carried no userid. Mirror of UserId — same semantics across both request-scoped contexts.
     string? UserId { get; }
     static IDisposable Use(McpCallContext context)
-  sealed class McpCapabilities : IEquatable<McpCapabilities>
-    ctor(McpToolsCapability? Tools = null, McpResourcesCapability? Resources = null)
-    McpResourcesCapability? Resources { get; init; }
-    McpToolsCapability? Tools { get; init; }
-  // Standard JSON-RPC error codes plus MCP additions. The MCP spec uses InvalidRequest for malformed envelopes and MethodNotFound for unknown methods.
-  static class McpErrorCode
-    static int GovernanceDenied
-    static int GovernanceEscalated
-    static int InternalError
-    static int InvalidParams
-    static int InvalidRequest
-    static int MethodNotFound
-    static int ParseError
-  // MCP server core — owns a tool registry and routes JSON-RPC requests (initialize, tools/list, tools/call) to their handlers. Tool invocations are routed through Current so the same hook that governs in-process Ikon agents governs MCP-exposed tools — one mission, two transports, one audit chain.
-  sealed class McpHost
-    ctor(string serverName = "ikon-mcp", string serverVersion = "0.1.0", string protocolVersion = "2024-11-05")
-    IReadOnlyCollection<McpResourceHandler> Resources { get; }
-    McpServerInfo ServerInfo { get; }
-    IReadOnlyCollection<McpToolHandler> Tools { get; }
-    // Invoke a single registered tool by name with the given arguments object — the shared core behind both the JSON-RPC tools/call path and the per-tool HTTP endpoint ( HandleToolPostAsync ). Sets up the McpCallContext (identity + cancellation + optional progress) and runs the invoke through governance, so both transports gate and bind identically. Returns an error CallToolResult for an unknown tool; governance denials/escalations propagate as exceptions for the caller to map.
-    Task<CallToolResult> CallToolAsync(string name, JsonElement arguments, CancellationToken ct = null, IReadOnlyDictionary<string, string>? sessionIdentityFields = null, Func<ProgressUpdate, Task>? onProgress = null)
-    Task<JsonRpcResponse?> HandleRequestAsync(JsonRpcRequest request, CancellationToken ct = null, IReadOnlyDictionary<string, string>? sessionIdentityFields = null, IMcpNotificationSink? perRequestSink = null)
-    McpHost RegisterResource(McpResourceHandler resource)
-    McpHost RegisterTool(McpToolHandler handler)
-    // Wire a transport's outbound notification sink. The host calls it to push notifications/progress events from in-flight tools. Optional — without a sink, progress emitted by handlers is silently dropped.
-    void SetNotificationSink(IMcpNotificationSink sink)
-  // MCP Streamable-HTTP entry point. The host (an AppEndpointHost map call or any ASP.NET WebApplication) wires HandlePostAsync at the MCP route — typically /mcp. The transport parses the JSON-RPC body, dispatches through the supplied McpHost with the caller-supplied sessionIdentityFields (so keyed cells resolve to the right per-identity instance), and writes the response back as application/json.
-  static class McpHttpTransport
-    static Task HandlePostAsync(HttpContext context, McpHost mcp, IReadOnlyDictionary<string, string>? sessionIdentityFields = null)
-    // OAuth 2.1 Protected Resource Metadata discovery (RFC 9728). MCP clients GET /.well-known/oauth-protected-resource to discover which authorization server they should obtain tokens from before retrying a 401-rejected MCP request.
-    static Task HandleProtectedResourceDiscoveryAsync(HttpContext context)
-    // Invoke a single MCP tool over plain HTTP — the per-tool endpoint at /{Owner}/{Method} that sits alongside the /{Owner}/mcp multiplexer. The request body IS the tool's arguments object, bound exactly as tools/call binds it (record / named mode), so a multi-arg tool like Add(int a, int b) is callable as a direct POST {"a":1,"b":2}. Returns the tool's raw result (not the MCP content envelope): JSON when the tool returns an object/number, plain text when it returns a string. Goes through CallToolAsync so identity routing and governance are identical to the multiplexer.
-    static Task HandleToolPostAsync(HttpContext context, McpHost mcp, string toolName, IReadOnlyDictionary<string, string>? sessionIdentityFields = null)
-  static class McpJson
-    static T Deserialize<T>(string json)
-    static T DeserializeParams<T>(JsonElement? element)
-    static string Serialize<T>(T value)
-    static JsonSerializerOptions Options
-  // Converts an McpResourceInfo (a discovered McpResourceAttribute -annotated cell method) into an McpResourceHandler that Ikon.Mcp.McpHost can register. On read, the handler matches the incoming URI against the template, binds placeholders to method parameters by name, resolves the owning cell, invokes the method, and packages the return value as ResourceContents — text for strings/JSON-serialisable types, base64 blob for byte[].
-  static class McpResourceBridge
-    static McpResourceHandler BuildHandler(CellHost cellHost, McpResourceInfo info)
-  // Reflective discovery of McpResourceAttribute -decorated methods on cell types. Mirror of McpToolDiscovery .
-  static class McpResourceDiscovery
-    static IReadOnlyList<McpResourceInfo> ForType(Type ownerType)
-    static IReadOnlyList<McpResourceInfo> ForTypes(IEnumerable<Type> types)
-  // MCP resource handler — the bridge builds one per [McpResource] cell method. The host iterates handlers to answer resources/list + resources/templates/list and, on resources/read, picks the first handler whose TryMatch binds the incoming URI.
-  sealed class McpResourceHandler : IEquatable<McpResourceHandler>
-    // MCP resource handler — the bridge builds one per [McpResource] cell method. The host iterates handlers to answer resources/list + resources/templates/list and, on resources/read, picks the first handler whose TryMatch binds the incoming URI.
-    ctor(string DisplayName, string Description, string MimeType, string UriTemplate, bool IsStatic, Func<string, IReadOnlyDictionary<string, string>?> TryMatch, Func<string, IReadOnlyDictionary<string, string>, CancellationToken, Task<ResourceContents>> Read)
-    string Description { get; init; }
-    string DisplayName { get; init; }
-    bool IsStatic { get; init; }
-    string MimeType { get; init; }
-    Func<string, IReadOnlyDictionary<string, string>, CancellationToken, Task<ResourceContents>> Read { get; init; }
-    // Stable governance subject id (e.g. "CatalogCell.GetItem"). Used as GovernanceCall.Subject on resources/read; the bridge always sets it explicitly.
-    string SubjectId { get; init; }
-    Func<string, IReadOnlyDictionary<string, string>?> TryMatch { get; init; }
-    string UriTemplate { get; init; }
-  // Discovered metadata for a single McpResourceAttribute -annotated cell method. Carries the parsed URI template + reflected MethodInfo so the bridge can match incoming reads and invoke without re-parsing per request.
-  sealed class McpResourceInfo : IEquatable<McpResourceInfo>
-    // Discovered metadata for a single McpResourceAttribute -annotated cell method. Carries the parsed URI template + reflected MethodInfo so the bridge can match incoming reads and invoke without re-parsing per request.
-    ctor(string DisplayName, string Description, string MimeType, UriTemplate UriTemplate, MethodInfo Handler, Type OwnerCellType)
-    string Description { get; init; }
-    string DisplayName { get; init; }
-    MethodInfo Handler { get; init; }
-    // True when the URI template has no placeholders — the resource has a single concrete URI and is published in resources/list rather than resources/templates/list.
-    bool IsStatic { get; }
-    string MimeType { get; init; }
-    Type OwnerCellType { get; init; }
-    // Structural id used for governance subject + audit. Stable regardless of the MCP-wire display name.
-    string SubjectId { get; }
-    UriTemplate UriTemplate { get; init; }
-  sealed class McpResourcesCapability : IEquatable<McpResourcesCapability>
-    ctor()
-  sealed class McpServerInfo : IEquatable<McpServerInfo>
-    ctor(string Name, string Version)
-    string Name { get; init; }
-    string Version { get; init; }
-  // Converts an McpToolInfo (a discovered McpAttribute -annotated cell method) into an McpToolHandler that Ikon.Mcp.McpHost can register. The handler resolves the cell instance via CellHost , deserialises method parameters from the incoming JSON-RPC arguments object, invokes the method, awaits a possible Task`1 / ValueTask`1 , and normalises the return value to a string MCP can ship as a "text" tool content. Two binding modes, picked by signature shape: Record mode — the method has exactly one parameter whose type serialises as a JSON object (a record, POCO, dictionary, or JsonElement ). The MCP inputSchema is the record's schema, derived top-level via JsonSchemaExporter . The whole arguments object is deserialised into that single parameter — no wrapper property name.Named mode — anything else (multiple parameters, or a single primitive parameter). Each parameter becomes a top-level property of the schema; at call time the bridge binds by parameter name. Authors don't write JSON schema strings — the C# signature is the schema.
-  static class McpToolBridge
-    static McpToolHandler BuildHandler(CellHost cellHost, McpToolInfo info)
-  // Reflective discovery of McpAttribute -decorated methods on a cell type. Used at startup by the framework to enumerate the MCP-exposed surface of every registered cell type. Mirrors HttpEndpointDiscovery .
-  static class McpToolDiscovery
-    // Discover every McpAttribute -decorated public instance method on ownerType . Methods inherited from base classes are included; static methods and non-public methods are skipped (tools must be invokable on a specific cell instance).
-    static IReadOnlyList<McpToolInfo> ForType(Type ownerType)
-    // Discover tools across every type in types . Convenience overload for the startup path that has already filtered an assembly's loaded types down to cells.
-    static IReadOnlyList<McpToolInfo> ForTypes(IEnumerable<Type> types)
-  sealed class McpToolHandler : IEquatable<McpToolHandler>
-    ctor(string Name, string Description, JsonElement InputSchema, Func<JsonElement, CancellationToken, Task<string>> Invoke)
-    string Description { get; init; }
-    JsonElement InputSchema { get; init; }
-    Func<JsonElement, CancellationToken, Task<string>> Invoke { get; init; }
-    string Name { get; init; }
-    // Optional JSON schema for the tool's return value. Auto-derived from the method's return type by Ikon.App.McpToolBridge. Surfaced to MCP clients via OutputSchema .
-    JsonElement? OutputSchema { get; init; }
-    // Stable governance subject id, decoupled from the MCP-wire Name . When non-empty, the host uses this as GovernanceCall.Subject so missions can address the tool by a structural id (e.g. "RefundsCell.Refund") regardless of any client-facing name override. Defaults to Name .
-    string SubjectId { get; init; }
-  // Metadata for a single McpAttribute -annotated method discovered at startup. Carries everything the bridge needs at request time: the MCP-wire name, description, the reflected MethodInfo , and the owner cell Type .
-  sealed class McpToolInfo : IEquatable<McpToolInfo>
-    // Metadata for a single McpAttribute -annotated method discovered at startup. Carries everything the bridge needs at request time: the MCP-wire name, description, the reflected MethodInfo , and the owner cell Type .
-    ctor(string Name, string Description, MethodInfo Handler, Type OwnerCellType)
-    string Description { get; init; }
-    MethodInfo Handler { get; init; }
-    string Name { get; init; }
-    Type OwnerCellType { get; init; }
-    // Optional override for the tool's standalone HTTP endpoint path (from Path ). Empty → the path is derived from the method name. Does not affect the MCP wire Name .
-    string Path { get; init; }
-    // Structural identifier used for governance and audit. Stable regardless of the Name override — missions and policies always reference tools by this id.
-    string SubjectId { get; }
-  sealed class McpToolsCapability : IEquatable<McpToolsCapability>
-    ctor()
-  // Params of a notifications/progress notification. ProgressToken echoes the request id (or a client-supplied token) so clients can match progress events back to the call they kicked off.
-  sealed class ProgressNotificationParams : IEquatable<ProgressNotificationParams>
-    // Params of a notifications/progress notification. ProgressToken echoes the request id (or a client-supplied token) so clients can match progress events back to the call they kicked off.
-    ctor(JsonElement ProgressToken, double Progress, double? Total = null, string? Message = null)
-    string? Message { get; init; }
-    double Progress { get; init; }
-    JsonElement ProgressToken { get; init; }
-    double? Total { get; init; }
   // One progress update emitted by a long-running tool. Progress is a monotonic counter; Total is optional but expected to stay constant across updates so clients can render a percentage. Message is freeform display text.
   sealed class ProgressUpdate : IEquatable<ProgressUpdate>
-    // One progress update emitted by a long-running tool. Progress is a monotonic counter; Total is optional but expected to stay constant across updates so clients can render a percentage. Message is freeform display text.
     ctor(double Progress, double? Total = null, string? Message = null)
     string? Message { get; init; }
     double Progress { get; init; }
     double? Total { get; init; }
-  sealed class ReadResourceParams : IEquatable<ReadResourceParams>
-    ctor(string Uri)
-    string Uri { get; init; }
-  sealed class ReadResourceResult : IEquatable<ReadResourceResult>
-    ctor(IReadOnlyList<ResourceContents> Contents)
-    IReadOnlyList<ResourceContents> Contents { get; init; }
-  sealed class Resource : IEquatable<Resource>
-    ctor(string Uri, string Name, string? Description = null, string? MimeType = null)
-    string? Description { get; init; }
-    string? MimeType { get; init; }
-    string Name { get; init; }
-    string Uri { get; init; }
-  sealed class ResourceContents : IEquatable<ResourceContents>
-    ctor(string Uri, string? MimeType = null, string? Text = null, string? Blob = null)
-    string? Blob { get; init; }
-    string? MimeType { get; init; }
-    string? Text { get; init; }
-    string Uri { get; init; }
-  sealed class ResourceTemplate : IEquatable<ResourceTemplate>
-    ctor(string UriTemplate, string Name, string? Description = null, string? MimeType = null)
-    string? Description { get; init; }
-    string? MimeType { get; init; }
-    string Name { get; init; }
-    string UriTemplate { get; init; }
-  // Newline-delimited JSON-RPC over stdin / stdout — the transport Claude Desktop and other MCP clients use to talk to local servers. One line per message; malformed input yields a JSON-RPC parse-error response (rather than killing the loop) so a flaky client can't poison the server. Also acts as the outbound IMcpNotificationSink for the host: in-flight tools that emit progress write notifications/progress lines back through the same stdout pipe. Writes are serialised on a per-transport lock so request-response and server-push don't interleave.
-  sealed class StdioTransport : IMcpNotificationSink
-    ctor(McpHost host, TextReader? input = null, TextWriter? output = null)
-    Task RunAsync(CancellationToken ct = null)
-    Task SendNotificationAsync(string method, object params, CancellationToken ct)
-  sealed class ToolContent : IEquatable<ToolContent>
-    ctor(string Type, string Text)
-    string Text { get; init; }
-    string Type { get; init; }
-  sealed class ToolDefinition : IEquatable<ToolDefinition>
-    ctor(string Name, string Description, JsonElement InputSchema)
-    string Description { get; init; }
-    JsonElement InputSchema { get; init; }
-    string Name { get; init; }
-    // Optional JSON schema for the tool's return value. Derived from the method's return type (after Task/ValueTask unwrap) by Ikon.App.McpToolBridge; authors never specify it directly. Helps MCP clients validate / type-check what they get back.
-    JsonElement? OutputSchema { get; init; }
 
 namespace Ikon.App.Payments
   // How a PaymentEntitlement was obtained.
@@ -1558,7 +1127,6 @@ namespace Ikon.App.Payments
     OneTime
   // The price for a created offer. Omit Interval for a one-time offer.
   sealed class OfferPriceSpec : IEquatable<OfferPriceSpec>
-    // The price for a created offer. Omit Interval for a one-time offer.
     ctor(long AmountMinor, string Currency, PriceKind Kind, PriceInterval? Interval = null, int? IntervalCount = null)
     long AmountMinor { get; init; }
     string Currency { get; init; }
@@ -1567,14 +1135,12 @@ namespace Ikon.App.Payments
     PriceKind Kind { get; init; }
   // Defines an offer to create via CreateOfferAsync .
   sealed class OfferSpec : IEquatable<OfferSpec>
-    // Defines an offer to create via CreateOfferAsync .
     ctor(string OfferId, string Name, OfferPriceSpec Price)
     string Name { get; init; }
     string OfferId { get; init; }
     OfferPriceSpec Price { get; init; }
   // A single payment record (a one-off charge or a subscription renewal). OfferId is null for ad-hoc charges and records written before offer tracking.
   sealed class Payment : IEquatable<Payment>
-    // A single payment record (a one-off charge or a subscription renewal). OfferId is null for ad-hoc charges and records written before offer tracking.
     ctor(string Id, PaymentProvider? Provider, PaymentStatus Status, PaymentKind Kind, string? OfferId, long AmountMinor, string Currency, long AmountRefundedMinor, DateTimeOffset? CreatedAt)
     long AmountMinor { get; init; }
     long AmountRefundedMinor { get; init; }
@@ -1587,7 +1153,6 @@ namespace Ikon.App.Payments
     PaymentStatus Status { get; init; }
   // A customer's access to an offer, whether from an active subscription or a one-time purchase. This is the access-control answer the [PaymentsRequireEntitlement] policy gates on. Subscription access carries ExpiresAt (period end plus a grace window) and reports inactive once it has passed; a one-time purchase has no expiry.
   sealed class PaymentEntitlement : IEquatable<PaymentEntitlement>
-    // A customer's access to an offer, whether from an active subscription or a one-time purchase. This is the access-control answer the [PaymentsRequireEntitlement] policy gates on. Subscription access carries ExpiresAt (period end plus a grace window) and reports inactive once it has passed; a one-time purchase has no expiry.
     ctor(string OfferId, bool Active, DateTimeOffset? ExpiresAt, EntitlementSource Source)
     bool Active { get; init; }
     DateTimeOffset? ExpiresAt { get; init; }
@@ -1595,7 +1160,6 @@ namespace Ikon.App.Payments
     EntitlementSource Source { get; init; }
   // A normalized payment event the backend pushes to the app.
   sealed class PaymentEvent : IEquatable<PaymentEvent>
-    // A normalized payment event the backend pushes to the app.
     ctor(string EventId, PaymentProvider? Provider, PaymentEventType? Type, DateTimeOffset? OccurredAt, long Sequence, string PayloadJson)
     string EventId { get; init; }
     DateTimeOffset? OccurredAt { get; init; }
@@ -1626,21 +1190,18 @@ namespace Ikon.App.Payments
     Subscription
   // A provider-hosted page the customer is redirected to in order to pay. Send them to Url .
   sealed class PaymentLink : IEquatable<PaymentLink>
-    // A provider-hosted page the customer is redirected to in order to pay. Send them to Url .
     ctor(string Url, string Reference, PaymentProvider? Provider)
     PaymentProvider? Provider { get; init; }
     string Reference { get; init; }
     string Url { get; init; }
   // A purchasable offer in the app's catalog — recurring (subscription) or one-time, per its prices.
   sealed class PaymentOffer : IEquatable<PaymentOffer>
-    // A purchasable offer in the app's catalog — recurring (subscription) or one-time, per its prices.
     ctor(string OfferId, string Name, IReadOnlyList<PaymentPrice> Prices)
     string Name { get; init; }
     string OfferId { get; init; }
     IReadOnlyList<PaymentPrice> Prices { get; init; }
   // One price on an offer. Interval and IntervalCount are meaningful only when Kind is Recurring ; a one-time price reports Unknown .
   sealed class PaymentPrice : IEquatable<PaymentPrice>
-    // One price on an offer. Interval and IntervalCount are meaningful only when Kind is Recurring ; a one-time price reports Unknown .
     ctor(long AmountMinor, string Currency, PriceKind Kind, PriceInterval Interval, int? IntervalCount)
     long AmountMinor { get; init; }
     string Currency { get; init; }
@@ -1654,20 +1215,17 @@ namespace Ikon.App.Payments
     Surfboard
   // A receipt for a completed payment. Url is a provider-hosted receipt page. Pdf holds downloadable PDF bytes only when the provider exposes one; today every provider (Stripe, Surfboard) returns a hosted URL only, so Pdf is null — the field is populated when a provider offers a PDF.
   sealed class PaymentReceipt : IEquatable<PaymentReceipt>
-    // A receipt for a completed payment. Url is a provider-hosted receipt page. Pdf holds downloadable PDF bytes only when the provider exposes one; today every provider (Stripe, Surfboard) returns a hosted URL only, so Pdf is null — the field is populated when a provider offers a PDF.
     ctor(string? Url, byte[]? Pdf, string? PdfContentType)
     byte[]? Pdf { get; init; }
     string? PdfContentType { get; init; }
     string? Url { get; init; }
   // Result of a ReconcileAsync request. Enqueued counts the provider objects queued for re-processing; their effects arrive asynchronously as normal payment events.
   sealed class PaymentReconcileResult : IEquatable<PaymentReconcileResult>
-    // Result of a ReconcileAsync request. Enqueued counts the provider objects queued for re-processing; their effects arrive asynchronously as normal payment events.
     ctor(PaymentProvider? Provider, int Enqueued)
     int Enqueued { get; init; }
     PaymentProvider? Provider { get; init; }
   // Result of a refund.
   sealed class PaymentRefund : IEquatable<PaymentRefund>
-    // Result of a refund.
     ctor(string Reference, RefundStatus Status)
     string Reference { get; init; }
     RefundStatus Status { get; init; }
@@ -1680,7 +1238,6 @@ namespace Ikon.App.Payments
     Canceled
   // A customer's live subscription, created by paying for a recurring offer.
   sealed class PaymentSubscription : IEquatable<PaymentSubscription>
-    // A customer's live subscription, created by paying for a recurring offer.
     ctor(string Id, PaymentProvider? Provider, SubscriptionStatus Status, string? OfferId, DateTimeOffset? CurrentPeriodEnd, bool CancelAtPeriodEnd)
     bool CancelAtPeriodEnd { get; init; }
     DateTimeOffset? CurrentPeriodEnd { get; init; }
@@ -1694,7 +1251,7 @@ namespace Ikon.App.Payments
     // Offer the entitlement is keyed to.
     string OfferId { get; }
     override IFunctionPolicy CreatePolicy()
-  // App-level entry point for payments, reached via app.Payments. The app creates payment links (for an offer or an ad-hoc amount) and reacts to PaymentEventReceived events. Every command accepts an optional per-call provider override; when none is given the backend uses the space's enabled provider. The app holds no payment state. One instance per app (an AsyncLocalInstance`1 singleton).
+  // App-level entry point for payments, reached via app.Payments. The app creates payment links (for an offer or an ad-hoc amount) and reacts to PaymentEventReceived events. Every command accepts an optional per-call provider override; when none is given the backend uses the space's enabled provider. The app holds no payment state. One instance per app (an AsyncLocalInstance singleton).
   sealed class PaymentsService : AsyncLocalInstance<PaymentsService>
     ctor()
     // Default cancel URL used when a command does not specify one.
@@ -1704,31 +1261,31 @@ namespace Ikon.App.Payments
     // Default success URL used when a command does not specify one.
     string? DefaultSuccessUrl { get; set; }
     // Cancel a subscription at the period end (default) or right away with immediate . The entitlement lapses when the cancellation takes effect.
-    Task CancelSubscriptionAsync(string subscriptionId, bool immediate = false, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
+    Task CancelSubscriptionAsync(string subscriptionId, bool immediate = false, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
     // Create (or update) an offer in the app's catalog so customers can pay for it by id. For Stripe this provisions a Product + Price; for providers without a catalog (Mollie, Surfboard) the offer is stored by the platform. Idempotent on OfferId .
-    Task<PaymentOffer> CreateOfferAsync(OfferSpec offer, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
+    Task<PaymentOffer> CreateOfferAsync(OfferSpec offer, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
     // Create a provider-hosted payment link for an offer. Recurring offers start a subscription; paying grants an entitlement. customerKey defaults to the current user.
-    Task<PaymentLink> CreatePaymentLinkAsync(string offerId, string? customerKey = null, string? email = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
+    Task<PaymentLink> CreatePaymentLinkAsync(string offerId, string? customerKey = null, string? email = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
     // Create a provider-hosted payment link for an ad-hoc amount (tip, one-off charge). Grants no entitlement — use an offer for that. customerKey defaults to the current user.
-    Task<PaymentLink> CreatePaymentLinkAsync(long amountMinor, string currency, string? customerKey = null, string? description = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
+    Task<PaymentLink> CreatePaymentLinkAsync(long amountMinor, string currency, string? customerKey = null, string? description = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
     // The customer's access to an offer (a backend call). Used by the [PaymentsRequireEntitlement] policy. customerKey defaults to the current user. For gating UI, prefer the synchronous IsEntitled .
-    Task<PaymentEntitlement> GetEntitlementAsync(string offerId, string? customerKey = null, CancellationToken cancellationToken = null)
+    Task<PaymentEntitlement> GetEntitlementAsync(string offerId, string? customerKey = null, CancellationToken cancellationToken = default)
     // Synchronous, cache-backed access check for gating UI — no backend call, safe to read every render. Reading it inside a UI lambda re-renders when the entitlement changes (after a purchase or a pushed event). customerKey defaults to the current user. The first read for an unseen offer returns false and warms the cache in the background, flipping to the real value on the next render.
     bool IsEntitled(string offerId, string? customerKey = null)
     // The app's catalog of purchasable offers.
-    Task<IReadOnlyList<PaymentOffer>> ListOffersAsync(CancellationToken cancellationToken = null)
+    Task<IReadOnlyList<PaymentOffer>> ListOffersAsync(CancellationToken cancellationToken = default)
     // The customer's payments. customerKey defaults to the current user.
-    Task<IReadOnlyList<Payment>> ListPaymentsAsync(string? customerKey = null, CancellationToken cancellationToken = null)
+    Task<IReadOnlyList<Payment>> ListPaymentsAsync(string? customerKey = null, CancellationToken cancellationToken = default)
     // The customer's subscriptions. customerKey defaults to the current user.
-    Task<IReadOnlyList<PaymentSubscription>> ListSubscriptionsAsync(string? customerKey = null, CancellationToken cancellationToken = null)
+    Task<IReadOnlyList<PaymentSubscription>> ListSubscriptionsAsync(string? customerKey = null, CancellationToken cancellationToken = default)
     // Ask the backend to re-pull live provider state — the recovery path when a provider webhook was missed or the app was offline when an event was pushed. Eventually consistent: the pulled objects flow through the normal pipeline and surface as ordinary PaymentEventReceived pushes and entitlement refreshes within seconds. With a reference (a payment link's checkout-session reference or a subscription id) only that object is pulled; otherwise the customer's recent objects; with neither and no current user in scope, the space's recent window.
-    Task<PaymentReconcileResult> ReconcileAsync(string? customerKey = null, string? reference = null, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
+    Task<PaymentReconcileResult> ReconcileAsync(string? customerKey = null, string? reference = null, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
     // Refund a payment, in full by default or partially via amountMinor . Refunding does not revoke an entitlement the payment granted.
-    Task<PaymentRefund> RefundAsync(string paymentId, long? amountMinor = null, string? reason = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
+    Task<PaymentRefund> RefundAsync(string paymentId, long? amountMinor = null, string? reason = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
     // Remove an offer from the app's catalog (Stripe archives the Product/Price). Returns false if no such active offer existed.
-    Task<bool> RemoveOfferAsync(string offerId, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
+    Task<bool> RemoveOfferAsync(string offerId, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
     // Fetch a receipt for a completed payment. Url is a provider-hosted receipt page (present for Stripe and Surfboard). Pdf carries downloadable PDF bytes only when the provider offers one; today both providers return a hosted URL only, so it is null.
-    Task<PaymentReceipt> RequestReceiptAsync(string paymentId, PaymentProvider? provider = null, CancellationToken cancellationToken = null)
+    Task<PaymentReceipt> RequestReceiptAsync(string paymentId, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
     // Raised for each normalized payment event the backend pushes (paid, refunded, subscription renewed/canceled). Subscribing registers the receiver on first use.
     event Func<PaymentEvent, Task>? PaymentEventReceived
   // The billing interval of a recurring price.
@@ -2899,7 +2456,6 @@ namespace Ikon.Common
     void Stop()
   // Captures whether the running ikon tool (or hosted ikon-server) has a platform-dotnet checkout it can build against, and exposes the flags every downstream build step needs: the -p:IkonRoot=... MSBuild arg for dotnet, and the VITE_IS_IKON_INTERNAL / VITE_IKON_PLATFORM_TYPESCRIPT_PATH env vars for vite.
   sealed class PlatformContext : IEquatable<PlatformContext>
-    // Captures whether the running ikon tool (or hosted ikon-server) has a platform-dotnet checkout it can build against, and exposes the flags every downstream build step needs: the -p:IkonRoot=... MSBuild arg for dotnet, and the VITE_IS_IKON_INTERNAL / VITE_IKON_PLATFORM_TYPESCRIPT_PATH env vars for vite.
     ctor(string? DotnetRoot)
     string? DotnetRoot { get; init; }
     bool IsIkonInternal { get; }
@@ -2961,9 +2517,9 @@ namespace Ikon.Common
     // Creates a relay agent with explicit connection parameters. Used when the relay host/port/token are already known (e.g. IkonServer's --public-access path). When stableId is non-empty, the relay assigns a fixed port-range segment to this identity so the public ports stay stable across reconnects.
     ctor(string relayServerAddress, int relayServerPort, string relayAuthToken, string stableId = "")
     // Allocates an endpoint. localPort of 0 picks an available port from an internal pool. The returned RelayEndpoint is disposable; dispose it to release the endpoint. When stablePortName is non-empty (and this agent has a non-empty stableId), the relay assigns a deterministic public port for that name within this agent's segment, so the endpoint's public URL stays the same across reconnects and process restarts. Empty = ephemeral, as before.
-    Task<RelayEndpoint> AddEndpointAsync(EndpointProtocol protocol, int localPort = 0, string stablePortName = "", CancellationToken cancellationToken = null)
+    Task<RelayEndpoint> AddEndpointAsync(EndpointProtocol protocol, int localPort = 0, string stablePortName = "", CancellationToken cancellationToken = default)
     // Ensures the connection supervisor is running and waits for a live session. Called implicitly by AddEndpointAsync on first use; calling it explicitly is optional. The very first connection attempt surfaces its failure to the caller; once a session has been established the supervisor reconnects on its own and this call simply waits for the next live session.
-    Task ConnectAsync(CancellationToken cancellationToken = null)
+    Task ConnectAsync(CancellationToken cancellationToken = default)
     // Creates a relay agent whose host/port/token are fetched from IkonBackend on first connect. Pass a non-empty stableId to opt into stable public-port assignments.
     static RelayAgent CreateFromIkonBackend(string stableId = "")
     ValueTask DisposeAsync()
@@ -3072,7 +2628,6 @@ namespace Ikon.Common.Assets
 namespace Ikon.Common.Git
   // Git branch information.
   class GitBranch : IEquatable<GitBranch>
-    // Git branch information.
     ctor(string Name, bool IsRemote, bool IsCurrent)
     bool IsCurrent { get; init; }
     bool IsRemote { get; init; }
@@ -3086,14 +2641,12 @@ namespace Ikon.Common.Git
     Untracked
   // Options for cloning a repository.
   class GitCloneOptions : IEquatable<GitCloneOptions>
-    // Options for cloning a repository.
     ctor(string? Branch = null, bool Shallow = false, GitCredentials? Credentials = null)
     string? Branch { get; init; }
     GitCredentials? Credentials { get; init; }
     bool Shallow { get; init; }
   // Git commit information.
   class GitCommit : IEquatable<GitCommit>
-    // Git commit information.
     ctor(string Sha, string ShortSha, string Author, string AuthorEmail, DateTimeOffset Date, string Message)
     string Author { get; init; }
     string AuthorEmail { get; init; }
@@ -3103,26 +2656,22 @@ namespace Ikon.Common.Git
     string ShortSha { get; init; }
   // Git credentials for authenticated operations.
   class GitCredentials : IEquatable<GitCredentials>
-    // Git credentials for authenticated operations.
     ctor(string Username, string Password)
     string Password { get; init; }
     string Username { get; init; }
   // Git diff between two commits.
   class GitDiff : IEquatable<GitDiff>
-    // Git diff between two commits.
     ctor(string? FromSha, string? ToSha, List<GitFileDiff> Files)
     List<GitFileDiff> Files { get; init; }
     string? FromSha { get; init; }
     string? ToSha { get; init; }
   // A changed file in git status or diff.
   class GitFileChange : IEquatable<GitFileChange>
-    // A changed file in git status or diff.
     ctor(string Path, GitChangeType Type)
     string Path { get; init; }
     GitChangeType Type { get; init; }
   // File diff information.
   class GitFileDiff : IEquatable<GitFileDiff>
-    // File diff information.
     ctor(string Path, GitChangeType Type, int LinesAdded, int LinesRemoved, string? Patch = null)
     int LinesAdded { get; init; }
     int LinesRemoved { get; init; }
@@ -3131,136 +2680,134 @@ namespace Ikon.Common.Git
     GitChangeType Type { get; init; }
   // Strongly-typed git repository operations.
   class GitRepository
-    // Strongly-typed git repository operations.
     ctor(string workingDirectory, GitCredentials? credentials = null)
     GitCredentials? Credentials { get; }
     string WorkingDirectory { get; }
     // Abort all in-progress operations (merge, rebase, cherry-pick).
-    Task AbortAllInProgressOperationsAsync(CancellationToken ct = null)
+    Task AbortAllInProgressOperationsAsync(CancellationToken ct = default)
     // Abort an in-progress cherry-pick.
-    Task<bool> AbortCherryPickAsync(CancellationToken ct = null)
+    Task<bool> AbortCherryPickAsync(CancellationToken ct = default)
     // Abort an in-progress merge.
-    Task<bool> AbortMergeAsync(CancellationToken ct = null)
+    Task<bool> AbortMergeAsync(CancellationToken ct = default)
     // Abort an in-progress rebase.
-    Task<bool> AbortRebaseAsync(CancellationToken ct = null)
+    Task<bool> AbortRebaseAsync(CancellationToken ct = default)
     // Add a remote. Credentials are stripped from the URL.
-    Task AddRemoteAsync(string name, string url, CancellationToken ct = null)
+    Task AddRemoteAsync(string name, string url, CancellationToken ct = default)
     // Checkout an existing branch.
-    Task CheckoutAsync(string branchOrRef, CancellationToken ct = null)
+    Task CheckoutAsync(string branchOrRef, CancellationToken ct = default)
     // Checkout files from a specific ref without changing HEAD.
-    Task CheckoutFilesFromRefAsync(string refName, string path = ".", CancellationToken ct = null)
+    Task CheckoutFilesFromRefAsync(string refName, string path = ".", CancellationToken ct = default)
     // Clone a repository to a target directory.
-    static Task<GitRepository> CloneAsync(string url, string targetDir, GitCloneOptions? options = null, CancellationToken ct = null)
+    static Task<GitRepository> CloneAsync(string url, string targetDir, GitCloneOptions? options = null, CancellationToken ct = default)
     // Clone a repository or sync if it already exists. Returns the repository instance with the current SHA.
-    static Task<ValueTuple<GitRepository, string?, bool>> CloneOrSyncAsync(string url, string targetDir, GitCloneOptions? options = null, CancellationToken ct = null)
+    static Task<ValueTuple<GitRepository, string?, bool>> CloneOrSyncAsync(string url, string targetDir, GitCloneOptions? options = null, CancellationToken ct = default)
     // Commit staged changes.
-    Task<GitCommit> CommitAsync(string message, CancellationToken ct = null)
+    Task<GitCommit> CommitAsync(string message, CancellationToken ct = default)
     // Commit staged changes with custom author.
-    Task<GitCommit> CommitAsync(string message, string authorName, string authorEmail, bool allowEmpty = false, CancellationToken ct = null)
+    Task<GitCommit> CommitAsync(string message, string authorName, string authorEmail, bool allowEmpty = false, CancellationToken ct = default)
     // Build per-invocation environment variables that authenticate git HTTP(S) operations. Uses git's environment config mechanism (git 2.31+) to inject an Authorization header, appending to any GIT_CONFIG_COUNT entries already present in the process environment.
     static Dictionary<string, string?> CreateAuthEnvironment(GitCredentials credentials)
     // Create and checkout a new branch.
-    Task CreateBranchAsync(string name, string? startPoint = null, CancellationToken ct = null)
+    Task CreateBranchAsync(string name, string? startPoint = null, CancellationToken ct = default)
     // Create a tag.
-    Task<GitTag> CreateTagAsync(string name, string? message = null, CancellationToken ct = null)
+    Task<GitTag> CreateTagAsync(string name, string? message = null, CancellationToken ct = default)
     // Delete a tag.
-    Task DeleteTagAsync(string name, CancellationToken ct = null)
+    Task DeleteTagAsync(string name, CancellationToken ct = default)
     // Discard all uncommitted changes.
-    Task DiscardChangesAsync(CancellationToken ct = null)
+    Task DiscardChangesAsync(CancellationToken ct = default)
     // Rewrite the remote URL to its credential-free form.
-    Task EnsureCleanRemoteUrlAsync(string name = "origin", CancellationToken ct = null)
+    Task EnsureCleanRemoteUrlAsync(string name = "origin", CancellationToken ct = default)
     // Escape a commit message for shell.
     static string EscapeMessage(string message)
     // Fetch from remote.
-    Task FetchAsync(bool includeTags = false, CancellationToken ct = null)
+    Task FetchAsync(bool includeTags = false, CancellationToken ct = default)
     // Count how many commits the local branch is ahead of and behind its origin counterpart. Returns null when the counts cannot be determined (e.g. origin/{branch} does not exist).
-    Task<ValueTuple<int, int>?> GetAheadBehindAsync(string branch, CancellationToken ct = null)
+    Task<ValueTuple<int, int>?> GetAheadBehindAsync(string branch, CancellationToken ct = default)
     // Get all branches.
-    Task<List<GitBranch>> GetBranchesAsync(CancellationToken ct = null)
+    Task<List<GitBranch>> GetBranchesAsync(CancellationToken ct = default)
     // Get a local git config value.
-    Task<string?> GetConfigAsync(string key, CancellationToken ct = null)
+    Task<string?> GetConfigAsync(string key, CancellationToken ct = default)
     // Get the current branch name.
-    Task<string> GetCurrentBranchAsync(CancellationToken ct = null)
+    Task<string> GetCurrentBranchAsync(CancellationToken ct = default)
     // Get diff between HEAD and another target (or working directory if null).
-    Task<GitDiff> GetDiffAsync(string? target = null, CancellationToken ct = null)
+    Task<GitDiff> GetDiffAsync(string? target = null, CancellationToken ct = default)
     // Get the HEAD commit.
-    Task<GitCommit?> GetHeadCommitAsync(CancellationToken ct = null)
+    Task<GitCommit?> GetHeadCommitAsync(CancellationToken ct = default)
     // Get the HEAD SHA.
-    Task<string?> GetHeadShaAsync(bool shortSha = false, CancellationToken ct = null)
+    Task<string?> GetHeadShaAsync(bool shortSha = false, CancellationToken ct = default)
     // Get commit history.
-    Task<List<GitCommit>> GetHistoryAsync(int limit = 20, string? fromRef = null, CancellationToken ct = null)
+    Task<List<GitCommit>> GetHistoryAsync(int limit = 20, string? fromRef = null, CancellationToken ct = default)
     // Get remote URL exactly as stored in .git/config, including any embedded credentials.
-    Task<string?> GetRawRemoteUrlAsync(string name = "origin", CancellationToken ct = null)
+    Task<string?> GetRawRemoteUrlAsync(string name = "origin", CancellationToken ct = default)
     // Get remote URL (without credentials).
-    Task<string?> GetRemoteUrlAsync(string name = "origin", CancellationToken ct = null)
+    Task<string?> GetRemoteUrlAsync(string name = "origin", CancellationToken ct = default)
     // Get the current repository status.
-    Task<GitStatus> GetStatusAsync(CancellationToken ct = null)
+    Task<GitStatus> GetStatusAsync(CancellationToken ct = default)
     // Get all tags.
-    Task<List<GitTag>> GetTagsAsync(CancellationToken ct = null)
+    Task<List<GitTag>> GetTagsAsync(CancellationToken ct = default)
     // Check if repository has any commits.
-    Task<bool> HasCommitsAsync(CancellationToken ct = null)
+    Task<bool> HasCommitsAsync(CancellationToken ct = default)
     // Check if a remote exists.
-    Task<bool> HasRemoteAsync(string name = "origin", CancellationToken ct = null)
+    Task<bool> HasRemoteAsync(string name = "origin", CancellationToken ct = default)
     // Check if there are uncommitted changes.
-    Task<bool> HasUncommittedChangesAsync(CancellationToken ct = null)
+    Task<bool> HasUncommittedChangesAsync(CancellationToken ct = default)
     // Check if there are uncommitted changes under a specific path.
-    Task<bool> HasUncommittedChangesAsync(string path, CancellationToken ct = null)
+    Task<bool> HasUncommittedChangesAsync(string path, CancellationToken ct = default)
     // Check if the local branch has commits that have not been pushed to origin. A branch that does not exist on origin counts as unpushed when local commits exist.
-    Task<bool> HasUnpushedCommitsAsync(string branch, CancellationToken ct = null)
+    Task<bool> HasUnpushedCommitsAsync(string branch, CancellationToken ct = default)
     // Initialize a git repository and connect to a remote, preserving local files. Local files are kept as-is and NOT merged with remote content. Returns the repository instance ready for use.
-    static Task<GitRepository> InitAndConnectAsync(string directory, string remoteUrl, GitCredentials? credentials = null, string? configKey = null, string? configValue = null, CancellationToken ct = null)
+    static Task<GitRepository> InitAndConnectAsync(string directory, string remoteUrl, GitCredentials? credentials = null, string? configKey = null, string? configValue = null, CancellationToken ct = default)
     // Initialize a new git repository.
-    static Task<GitRepository> InitAsync(string directory, CancellationToken ct = null)
+    static Task<GitRepository> InitAsync(string directory, CancellationToken ct = default)
     // Check if the working directory is a git repository.
-    Task<bool> IsGitRepositoryAsync(CancellationToken ct = null)
+    Task<bool> IsGitRepositoryAsync(CancellationToken ct = default)
     // Check if a directory is a git repository.
-    static Task<bool> IsGitRepositoryAsync(string directory, CancellationToken ct = null)
+    static Task<bool> IsGitRepositoryAsync(string directory, CancellationToken ct = default)
     // List all worktrees attached to this repository (including the primary one). Parses the output of `git worktree list --porcelain`.
-    Task<List<GitWorktreeInfo>> ListWorktreesAsync(CancellationToken ct = null)
+    Task<List<GitWorktreeInfo>> ListWorktreesAsync(CancellationToken ct = default)
     // Push to remote.
-    Task PushAsync(bool setUpstream = false, CancellationToken ct = null)
+    Task PushAsync(bool setUpstream = false, CancellationToken ct = default)
     // Check if a ref exists.
-    Task<bool> RefExistsAsync(string refName, CancellationToken ct = null)
+    Task<bool> RefExistsAsync(string refName, CancellationToken ct = default)
     // Rename current branch.
-    Task RenameBranchAsync(string oldName, string newName, CancellationToken ct = null)
+    Task RenameBranchAsync(string oldName, string newName, CancellationToken ct = default)
     // Reset HEAD to a specific ref (hard reset).
-    Task ResetHardAsync(string target, CancellationToken ct = null)
+    Task ResetHardAsync(string target, CancellationToken ct = default)
     // Reset HEAD to a specific ref (soft reset - keeps changes staged).
-    Task ResetSoftAsync(string target, CancellationToken ct = null)
+    Task ResetSoftAsync(string target, CancellationToken ct = default)
     // Restore to a specific target (tag, sha, or branch).
-    Task<GitSyncResult> RestoreAsync(string target, CancellationToken ct = null)
+    Task<GitSyncResult> RestoreAsync(string target, CancellationToken ct = default)
     // Run a git command (throws on failure).
-    Task<string> RunAsync(string args, CancellationToken ct = null)
+    Task<string> RunAsync(string args, CancellationToken ct = default)
     // Save changes (stage, commit, push).
-    Task<GitSyncResult> SaveAsync(string message, CancellationToken ct = null)
+    Task<GitSyncResult> SaveAsync(string message, CancellationToken ct = default)
     // Set a local git config value.
-    Task SetConfigAsync(string key, string value, CancellationToken ct = null)
+    Task SetConfigAsync(string key, string value, CancellationToken ct = default)
     // Set remote URL. Credentials are stripped from the URL.
-    Task SetRemoteUrlAsync(string name, string url, CancellationToken ct = null)
+    Task SetRemoteUrlAsync(string name, string url, CancellationToken ct = default)
     // Set up tracking for a branch.
-    Task SetUpstreamAsync(string remoteBranch, CancellationToken ct = null)
+    Task SetUpstreamAsync(string remoteBranch, CancellationToken ct = default)
     static string ShortCommitHash(string? hash)
     // Stage all changes.
-    Task StageAllAsync(CancellationToken ct = null)
+    Task StageAllAsync(CancellationToken ct = default)
     // Stage a specific path (file or directory).
-    Task StagePathAsync(string path, CancellationToken ct = null)
+    Task StagePathAsync(string path, CancellationToken ct = default)
     // Stash all changes.
-    Task<bool> StashAsync(string? message = null, CancellationToken ct = null)
+    Task<bool> StashAsync(string? message = null, CancellationToken ct = default)
     // Pop the latest stash.
-    Task<bool> StashPopAsync(CancellationToken ct = null)
+    Task<bool> StashPopAsync(CancellationToken ct = default)
     // Strip credentials from a git URL for safe display/comparison.
     static string StripCredentialsFromUrl(string url)
     // Sync to latest remote (fetch + reset --hard).
-    Task<GitSyncResult> SyncAsync(CancellationToken ct = null)
+    Task<GitSyncResult> SyncAsync(CancellationToken ct = default)
     // Try to open an existing git repository.
     static GitRepository? TryOpen(string directory)
     // Run a git command (doesn't throw on failure).
-    Task<ValueTuple<bool, string, string>> TryRunAsync(string args, CancellationToken ct = null)
+    Task<ValueTuple<bool, string, string>> TryRunAsync(string args, CancellationToken ct = default)
     // Compare two git URLs, ignoring credentials and trailing slashes.
     static bool UrlsMatch(string? url1, string? url2)
   // Git repository status.
   class GitStatus : IEquatable<GitStatus>
-    // Git repository status.
     ctor(string Branch, string? HeadSha, bool HasUncommittedChanges, bool IsDetachedHead, int AheadBy, int BehindBy, List<GitFileChange> Changes)
     int AheadBy { get; init; }
     int BehindBy { get; init; }
@@ -3271,7 +2818,6 @@ namespace Ikon.Common.Git
     bool IsDetachedHead { get; init; }
   // Result of a sync/restore/save operation.
   class GitSyncResult : IEquatable<GitSyncResult>
-    // Result of a sync/restore/save operation.
     ctor(bool Success, string? PreviousSha, string? CurrentSha, string? Error = null)
     string? CurrentSha { get; init; }
     string? Error { get; init; }
@@ -3279,14 +2825,12 @@ namespace Ikon.Common.Git
     bool Success { get; init; }
   // Git tag information.
   class GitTag : IEquatable<GitTag>
-    // Git tag information.
     ctor(string Name, string Sha, GitCommit? Commit = null)
     GitCommit? Commit { get; init; }
     string Name { get; init; }
     string Sha { get; init; }
   // Git worktree entry reported by `git worktree list`.
   class GitWorktreeInfo : IEquatable<GitWorktreeInfo>
-    // Git worktree entry reported by `git worktree list`.
     ctor(string Path, string? Head, string? Branch)
     string? Branch { get; init; }
     string? Head { get; init; }

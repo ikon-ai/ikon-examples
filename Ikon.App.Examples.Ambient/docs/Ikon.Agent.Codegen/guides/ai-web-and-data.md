@@ -5,47 +5,56 @@
 ### Web Search
 
 ```csharp
-using var searcher = new WebSearcher(WebSearcherModel.Google);
-var results = await searcher.SearchPagesAsync(new SearchConfig { Query = "latest AI news" });
+var results = await WebSearcher.SearchAsync("latest AI news", maxResults: 5);  // Google by default
 foreach (var result in results) { /* result.Title, result.Url, result.Content */ }
+```
+
+Use the constructor + config form for site-restricted search or country/language targeting:
+
+```csharp
+using var searcher = new WebSearcher(WebSearcherModel.Google);
+var results = await searcher.SearchPagesAsync(new SearchConfig { Query = "latest AI news", InSiteUrl = "https://example.com" });
 ```
 
 ### Embeddings
 
 ```csharp
-using var embedder = new EmbeddingGenerator(EmbeddingModel.OpenAI3Small);
-var embeddings = await embedder.GenerateEmbeddingsAsync(["Hello world", "Goodbye"], EmbeddingType.Document);
+var embeddings = await EmbeddingGenerator.EmbedAsync(["Hello world", "Goodbye"]);  // OpenAI3Small (cheap+fast) by default
 // embeddings[0] is float[] vector
 ```
 
 ### Other Data Services
 
-Available: `WebScraper`, `Classifier`, `OCR`, `FileConverter`, `Reranker`, `Retriever`. Refer to generated API docs for model listings and configuration.
+Each has a static one-shot with a sensible default model:
+
+```csharp
+var page = await WebScraper.ScrapeAsync("https://example.com");          // page.Content is Markdown
+var moderation = await Classifier.ClassifyAsync(userText);               // moderation.IsFlagged
+var ocr = await OCR.AnalyzeAsync(documentBytes);                         // ocr.Text
+var pdf = await FileConverter.ConvertToPdfAsync(docxBytes, "report.docx");
+var ranked = await Reranker.RerankAsync(documents, query);               // ranked[0].Index into documents
+```
+
+Refer to generated API docs for model listings and the constructor + config forms (multi-page crawling, screenshots, image moderation, OCR from URL, custom timeouts). `Retriever` provides RAG primitives.
 
 ---
 
 # Ikon.AI Public API
 namespace Ikon.AI.Classification
-  sealed class ClassificationDetail
+  sealed class ClassificationDetail : IEquatable<ClassificationDetail>
     ctor()
     ctor(ClassificationLabel label, string originalCategory, bool isFlagged, double score)
     bool IsFlagged { get; init; }
     ClassificationLabel Label { get; init; }
     string OriginalCategory { get; init; }
     double Score { get; init; }
-    static ClassificationDetail ReadFromTeleport(ReadOnlySpan<byte> data)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
-  sealed class ClassificationInput
+  sealed class ClassificationInput : IEquatable<ClassificationInput>
     ctor()
     byte[] Data { get; init; }
     string MimeType { get; init; }
     string Text { get; init; }
     string Url { get; init; }
     static ClassificationInput FromMessagePart(IMessagePart messagePart)
-    static ClassificationInput ReadFromTeleport(ReadOnlySpan<byte> data)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
   enum ClassificationLabel
     Unknown
     SafetyHateSpeech
@@ -66,25 +75,28 @@ namespace Ikon.AI.Classification
     MistralModeration
   static class ClassificationModelExtensions
     static string DisplayName(ClassificationModel model)
-  sealed class ClassificationResult
+  sealed class ClassificationResult : IEquatable<ClassificationResult>
     ctor()
     List<ClassificationDetail> Details { get; init; }
     bool IsFlagged { get; init; }
-    static ClassificationResult ReadFromTeleport(ReadOnlySpan<byte> data)
-    override string ToString()
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
+  class ClassificationResultException : NonRetryableAIException
+    ctor(ClassificationResult classificationResult)
+    ctor(ClassificationResult classificationResult, Exception inner)
+    ClassificationResult ClassificationResult { get; }
   sealed class Classifier : IClassifier, IDisposable
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(ClassificationModel model, IReadOnlyList<ModelRegion>? regions = null)
     Task<ClassificationResult> ClassifyAsync(IReadOnlyList<ClassificationInput> inputs, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
     Task<ClassificationResult> ClassifyAsync(IReadOnlyList<IMessagePart> messageParts, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
     Task<ClassificationResult> ClassifyAsync(string text, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
+    // One-shot text moderation. The verbose form using var classifier = new Classifier(ClassificationModel.OpenAIOmniModeration); var result = await classifier.ClassifyAsync(text); becomes var result = await Classifier.ClassifyAsync(text); Defaults to OpenAIOmniModeration (free to use, the standard moderation model). Override the model via the second parameter when the task warrants. Check result.IsFlagged and the per-label result.Details. Reach for the constructor + the instance ClassifyAsync overloads when you need to classify images or message parts ( ClassificationInput ), set a custom timeout, or classify many inputs with the same generator instance.
+    static Task<ClassificationResult> ClassifyAsync(string text, ClassificationModel model = OpenAIOmniModeration, CancellationToken cancellationToken = null)
     void Dispose()
-    static ClassifierCapabilities GetCapabilities(ClassificationModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ClassificationModel model)
-  sealed class ClassifierCapabilities
+  class ClassifierException : RetryableAIException
     ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   interface IClassifier : IDisposable
     abstract Task<ClassificationResult> ClassifyAsync(IReadOnlyList<ClassificationInput> inputs, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
     virtual Task<ClassificationResult> ClassifyAsync(IReadOnlyList<IMessagePart> messageParts, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
@@ -100,6 +112,8 @@ namespace Ikon.AI.Embeddings
     int EmbeddingVectorSize { get; }
     int MaxInputCount { get; }
     void Dispose()
+    // One-shot embedding generation. The verbose form using var embeddingGenerator = new EmbeddingGenerator(EmbeddingModel.OpenAI3Small); var embeddings = await embeddingGenerator.GenerateEmbeddingsAsync(texts, EmbeddingType.Generic); becomes var embeddings = await EmbeddingGenerator.EmbedAsync(texts); Defaults to OpenAI3Small (cheap+fast) and Generic . Override the model via the second parameter when the task warrants; pass an explicit EmbeddingType when embedding documents and queries for asymmetric retrieval. Returns one float[] vector per input, in input order. Reach for the constructor + GenerateEmbeddingsAsync when you need batching control (maxInputCount), a custom timeout, or the generator's MaxInputCount / EmbeddingVectorSize properties.
+    static Task<List<float[]>> EmbedAsync(IReadOnlyList<string> texts, EmbeddingModel model = OpenAI3Small, EmbeddingType type = Generic, CancellationToken cancellationToken = null)
     Task<List<float[]>> GenerateEmbeddingsAsync(IReadOnlyList<string> inputs, EmbeddingType type, int maxInputCount = 0, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
     static EmbeddingGeneratorCapabilities GetCapabilities(EmbeddingModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(EmbeddingModel model)
@@ -107,6 +121,10 @@ namespace Ikon.AI.Embeddings
     ctor()
     int EmbeddingVectorSize { get; init; }
     int MaxInputCount { get; init; }
+  class EmbeddingGeneratorException : RetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class EmbeddingItem
     ctor(string context, EmbeddingModel model, EmbeddingType type, EmbeddingEncoding encoding, string embedding)
     string Context { get; init; }
@@ -115,8 +133,8 @@ namespace Ikon.AI.Embeddings
     EmbeddingEncoding Encoding { get; init; }
     EmbeddingModel Model { get; init; }
     EmbeddingType Type { get; init; }
-    static Task<EmbeddingItem> Create(string input, string context, EmbeddingModel model, EmbeddingType type, EmbeddingEncoding encoding, CancellationToken cancellationToken = null)
-    static Task<EmbeddingItem> Create(float[] embedding, string context, EmbeddingModel model, EmbeddingType type, EmbeddingEncoding encoding)
+    static Task<EmbeddingItem> CreateAsync(string input, string context, EmbeddingModel model, EmbeddingType type, EmbeddingEncoding encoding, CancellationToken cancellationToken = null)
+    static Task<EmbeddingItem> CreateAsync(float[] embedding, string context, EmbeddingModel model, EmbeddingType type, EmbeddingEncoding encoding)
   enum EmbeddingModel
     OpenAIAda2
     OpenAI3Small
@@ -178,11 +196,10 @@ namespace Ikon.AI.FileConversion
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(FileConverterModel model, IReadOnlyList<ModelRegion>? regions = null)
     Task<ConvertedFile> ConvertToPdfAsync(FileConverterConfig config, CancellationToken cancellationToken = null)
+    // One-shot PDF conversion from raw file bytes. The verbose form using var fileConverter = new FileConverter(FileConverterModel.ConvertApi); var pdf = await fileConverter.ConvertToPdfAsync(new FileConverterConfig { Data = data, FileName = fileName }); becomes var pdf = await FileConverter.ConvertToPdfAsync(data, fileName); Defaults to ConvertApi (the only conversion model). fileName must carry the source extension (e.g. report.docx) — it determines the input format. The converted PDF is in pdf.Data. Reach for the constructor + ConvertToPdfAsync when the source is a URL or AssetUri instead of bytes, or when you need a custom timeout.
+    static Task<ConvertedFile> ConvertToPdfAsync(byte[] data, string fileName, FileConverterModel model = ConvertApi, CancellationToken cancellationToken = null)
     void Dispose()
-    static FileConverterCapabilities GetCapabilities(FileConverterModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(FileConverterModel model)
-  sealed class FileConverterCapabilities
-    ctor()
   sealed class FileConverterConfig
     ctor()
     AssetUri? AssetUri { get; set; }
@@ -190,6 +207,10 @@ namespace Ikon.AI.FileConversion
     string FileName { get; set; }
     TimeSpan Timeout { get; set; }
     string? Url { get; set; }
+  class FileConverterException : RetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   enum FileConverterModel
     ConvertApi
   static class FileConverterModelExtensions
@@ -209,6 +230,8 @@ namespace Ikon.AI.OCR
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(OCRModel model, IReadOnlyList<ModelRegion>? regions = null)
     int MaxPagesSupported { get; }
+    // One-shot document OCR from raw file bytes (image or PDF). The verbose form using var ocr = new OCR(OCRModel.AzureDocumentIntelligence); var result = await ocr.AnalyzeDocumentAsync(new OCRConfig { Data = data }); becomes var result = await OCR.AnalyzeAsync(data); Defaults to AzureDocumentIntelligence (cheap+robust general document OCR). Override the model via the second parameter when the task warrants. Read the extracted text from result.Text; result.Paragraphs and result.Pages carry the structure. Reach for the constructor + AnalyzeDocumentAsync when the document is a URL or AssetUri instead of bytes, or when you need page selection, word-level bounding boxes, or any other OCRConfig field; use AnalyzeDocumentStreamingAsync for page-by-page streaming.
+    static Task<OCRResult> AnalyzeAsync(byte[] data, OCRModel model = AzureDocumentIntelligence, CancellationToken cancellationToken = null)
     Task<OCRResult> AnalyzeDocumentAsync(OCRConfig config, CancellationToken cancellationToken = null)
     IAsyncEnumerable<OCRResult> AnalyzeDocumentStreamingAsync(OCRConfig config, CancellationToken cancellationToken = null)
     void Dispose()
@@ -230,6 +253,10 @@ namespace Ikon.AI.OCR
     string? Pages { get; set; }
     TimeSpan Timeout { get; set; }
     string? Url { get; set; }
+  class OCRException : RetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   enum OCRModel
     AzureDocumentIntelligence
     MistralOCR
@@ -260,13 +287,10 @@ namespace Ikon.AI.OCR
 namespace Ikon.AI.Reranking
   interface IReranker : IDisposable
     abstract Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, int topN = 0, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
-  sealed class RerankItem
+  sealed class RerankItem : IEquatable<RerankItem>
     ctor()
     int Index { get; init; }
     double Score { get; init; }
-    static RerankItem ReadFromTeleport(ReadOnlySpan<byte> data)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
   enum RerankModel
     CohereRerank4Fast
     CohereRerank4Pro
@@ -279,11 +303,14 @@ namespace Ikon.AI.Reranking
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(RerankModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
-    static RerankerCapabilities GetCapabilities(RerankModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(RerankModel model)
     Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, int topN = 0, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
-  sealed class RerankerCapabilities
+    // One-shot reranking. The verbose form using var reranker = new Reranker(RerankModel.CohereRerank4Fast); var items = await reranker.RerankAsync(documents, query); becomes var items = await Reranker.RerankAsync(documents, query); Defaults to CohereRerank4Fast (cheap+fast). Override the model via the third parameter when the task warrants; pass topN to cap how many items are returned (0 returns all). Each RerankItem carries the document's original .Index and its relevance .Score, ordered most relevant first. Reach for the constructor + the instance RerankAsync when you need a custom timeout or rerank many queries against the same generator instance.
+    static Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, RerankModel model = CohereRerank4Fast, int topN = 0, CancellationToken cancellationToken = null)
+  class RerankerException : RetryableAIException
     ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
 
 namespace Ikon.AI.Retrieving
   class Content
@@ -333,25 +360,10 @@ namespace Ikon.AI.Retrieving
     float SearchThreshold { get; set; }
     bool UseCumulativeScore { get; set; }
     bool UseIdMapper { get; set; }
-  class Retriever.GetContentsOptions2
+  class IdMapperException : RetryableAIException
     ctor()
-    bool IncludeFullTexts { get; set; }
-    int MaxRerankResults { get; set; }
-    int MaxSearchResults { get; set; }
-    double RerankThreshold { get; set; }
-    float SearchThreshold { get; set; }
-  class IdMapper
-    ctor(IdMappingType mappingType = None, int randomHexLength = 8, int randomLettersLength = 8, int integerCounter = 0, int? seed = null)
-    string ToMapped(string original)
-    string ToOriginal(string mapped)
-    bool TryToOriginal(string mapped, out string original)
-    ConcurrentDictionary<string, string> Mapping
-    ConcurrentDictionary<string, string> ReverseMapping
-  enum IdMappingType
-    None
-    RandomHex
-    RandomLetters
-    IncreasingInteger
+    ctor(string message)
+    ctor(string message, Exception inner)
   class JsonAsset
     ctor(string content)
     IEnumerable<string> GetAllKeys()
@@ -363,58 +375,48 @@ namespace Ikon.AI.Retrieving
     KernelContext Context { get; }
     IdMapper IdMapper { get; }
     ValueTask DisposeAsync()
-    Task<ContentLink[]> Expand(ContentLink[] links)
-    Task<ContentLink[]> Expand(ContentLink link)
-    Task<Content?> GetContent(ContentLink link)
+    Task<ContentLink[]> ExpandAsync(ContentLink[] links)
+    Task<ContentLink[]> ExpandAsync(ContentLink link)
+    Task<Content?> GetContentAsync(ContentLink link)
     Retriever.ContentMetadata? GetContentMetadata(string metadataId)
-    Task<string> GetContents(string query, Retriever.GetContentsOptions options)
-    Task<string> GetContents2(string query, Retriever.GetContentsOptions2 options)
+    Task<string> GetContentsAsync(string query, Retriever.GetContentsOptions options)
     ContentLink? Ignore(ContentLink link, string detail)
     Task InitializeAsync(string dataDirectory, EmbeddingModel embeddingModel = OpenAI3Small)
     Task InitializeAsync(IReadOnlyList<AssetUri> assetUris, EmbeddingModel embeddingModel = OpenAI3Small)
     ContentLink[] Prefer(ContentLink link, string detail)
     ContentLink[] Prefer(ContentLink[] links, string detail)
-    Task<ContentLink[]> Search(string query, int maxLinks = 25, float searchThreshold = 0.1)
-    Task<Retriever.Event[]> SearchEvents(string startUtcTimestamp, string endUtcTimestamp, int maxResults = 100)
-    Task<Retriever.Event[]> SearchEvents(string startUtcTimestamp, string endUtcTimestamp, string searchString, int maxResults = 100)
-    Task<KeywordSearchResult[]> SearchKeywords(string searchString, int maxResults = 100)
+    Task<ContentLink[]> SearchAsync(string query, int maxLinks = 25, float searchThreshold = 0.1)
+    Task<Retriever.Event[]> SearchEventsAsync(string startUtcTimestamp, string endUtcTimestamp, int maxResults = 100)
+    Task<Retriever.Event[]> SearchEventsAsync(string startUtcTimestamp, string endUtcTimestamp, string searchString, int maxResults = 100)
+    Task<KeywordSearchResult[]> SearchKeywordsAsync(string searchString, int maxResults = 100)
     Task StopAsync()
-    Task WaitForLoadingToEnd()
+    Task WaitForLoadingToEndAsync()
 
 namespace Ikon.AI.WebScraping
-  sealed class Cookie
+  sealed class Cookie : IEquatable<Cookie>
     ctor()
-    string Domain { get; set; }
-    double ExpirationDate { get; set; }
-    bool HostOnly { get; set; }
-    bool HttpOnly { get; set; }
-    int Id { get; set; }
-    string Name { get; set; }
-    string Path { get; set; }
-    string SameSite { get; set; }
-    bool Secure { get; set; }
-    bool Session { get; set; }
-    string StoreId { get; set; }
-    string Value { get; set; }
-    static Cookie ReadFromTeleport(ReadOnlySpan<byte> data)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
-  sealed class DownloadFileConfig
+    string Domain { get; init; }
+    double ExpirationDate { get; init; }
+    bool HostOnly { get; init; }
+    bool HttpOnly { get; init; }
+    int Id { get; init; }
+    string Name { get; init; }
+    string Path { get; init; }
+    string SameSite { get; init; }
+    bool Secure { get; init; }
+    bool Session { get; init; }
+    string StoreId { get; init; }
+    string Value { get; init; }
+  sealed class DownloadFileConfig : IEquatable<DownloadFileConfig>
     ctor()
-    string CountryCode { get; set; }
-    TimeSpan Timeout { get; set; }
-    string Url { get; set; }
-    static DownloadFileConfig ReadFromTeleport(ReadOnlySpan<byte> data)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
-  sealed class DownloadFileResult
+    string CountryCode { get; init; }
+    TimeSpan Timeout { get; init; }
+    string Url { get; init; }
+  sealed class DownloadFileResult : IEquatable<DownloadFileResult>
     ctor()
     byte[] Data { get; init; }
     string MimeType { get; init; }
     string Url { get; init; }
-    static DownloadFileResult ReadFromTeleport(ReadOnlySpan<byte> data)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
   interface IWebScraper : IDisposable, IWebScraperInfo
     abstract Task<DownloadFileResult> DownloadFileAsync(DownloadFileConfig config, CancellationToken cancellationToken = null)
     abstract Task<List<PageResult>> ScrapeMultiplePagesAsync(MultiPageScrapeConfig config, CancellationToken cancellationToken = null)
@@ -425,99 +427,84 @@ namespace Ikon.AI.WebScraping
     bool SupportsMultiPageScraping { get; }
     bool SupportsScreenshotting { get; }
     bool SupportsSinglePageScraping { get; }
-  sealed class MultiPageScrapeConfig
+  sealed class MultiPageScrapeConfig : IEquatable<MultiPageScrapeConfig>
     ctor()
-    bool AddGivenUrlsToWhitelist { get; set; }
-    bool AllowOnlyGivenUrls { get; set; }
-    List<Cookie> Cookies { get; set; }
-    string CountryCode { get; set; }
-    int DelayMs { get; set; }
-    string ExcludedCSSElements { get; set; }
-    List<string> ExcludedLineStarts { get; set; }
-    List<string> ExcludedWholeLines { get; set; }
-    bool Headless { get; set; }
-    bool IgnoreRobotsTxt { get; set; }
-    bool IncludeLinkedFiles { get; set; }
-    string IncludedCSSElements { get; set; }
-    string JavaScript { get; set; }
-    bool LoadResources { get; set; }
-    string Locale { get; set; }
-    int MaxDepth { get; set; }
-    int MaxPages { get; set; }
-    WebScraperOutputFormat OutputFormat { get; set; }
-    string PlaywrightScript { get; set; }
-    bool RerunIfGivenUrlsMissing { get; set; }
-    TimeSpan SinglePageTimeout { get; set; }
-    TimeSpan Timeout { get; set; }
-    List<string> UrlBlacklist { get; set; }
-    List<string> UrlWhitelist { get; set; }
-    List<string> Urls { get; set; }
-    bool UseReadability { get; set; }
-    bool UseSitemap { get; set; }
-    bool UseSitemapOnly { get; set; }
-    bool UseStreaming { get; set; }
-    TimeSpan WaitAfter { get; set; }
-    static MultiPageScrapeConfig ReadFromTeleport(ReadOnlySpan<byte> data)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
-  sealed class PageResult
+    bool AddGivenUrlsToWhitelist { get; init; }
+    bool AllowOnlyGivenUrls { get; init; }
+    List<Cookie> Cookies { get; init; }
+    string CountryCode { get; init; }
+    int DelayMs { get; init; }
+    string ExcludedCSSElements { get; init; }
+    List<string> ExcludedLineStarts { get; init; }
+    List<string> ExcludedWholeLines { get; init; }
+    bool Headless { get; init; }
+    bool IgnoreRobotsTxt { get; init; }
+    bool IncludeLinkedFiles { get; init; }
+    string IncludedCSSElements { get; init; }
+    string JavaScript { get; init; }
+    bool LoadResources { get; init; }
+    string Locale { get; init; }
+    int MaxDepth { get; init; }
+    int MaxPages { get; init; }
+    WebScraperOutputFormat OutputFormat { get; init; }
+    string PlaywrightScript { get; init; }
+    bool RerunIfGivenUrlsMissing { get; init; }
+    TimeSpan SinglePageTimeout { get; init; }
+    TimeSpan Timeout { get; init; }
+    List<string> UrlBlacklist { get; init; }
+    List<string> UrlWhitelist { get; init; }
+    List<string> Urls { get; init; }
+    bool UseReadability { get; init; }
+    bool UseSitemap { get; init; }
+    bool UseSitemapOnly { get; init; }
+    bool UseStreaming { get; init; }
+    TimeSpan WaitAfter { get; init; }
+  sealed class PageResult : IEquatable<PageResult>
     ctor()
     string Content { get; init; }
     List<string> Keywords { get; init; }
     string Mimetype { get; init; }
     string Title { get; init; }
     string Url { get; init; }
-    static PageResult ReadFromTeleport(ReadOnlySpan<byte> data)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
-  sealed class ScreenshotConfig
+  sealed class ScreenshotConfig : IEquatable<ScreenshotConfig>
     ctor()
-    List<Cookie> Cookies { get; set; }
-    string CountryCode { get; set; }
-    bool FullPage { get; set; }
-    bool Headless { get; set; }
-    int Height { get; set; }
-    string JavaScript { get; set; }
-    string Locale { get; set; }
-    string PlaywrightScript { get; set; }
-    TimeSpan Timeout { get; set; }
-    string Url { get; set; }
-    bool UseCaptchaSolver { get; set; }
-    TimeSpan WaitAfter { get; set; }
-    int Width { get; set; }
-    static ScreenshotConfig ReadFromTeleport(ReadOnlySpan<byte> data)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
-  sealed class ScreenshotResult
+    List<Cookie> Cookies { get; init; }
+    string CountryCode { get; init; }
+    bool FullPage { get; init; }
+    bool Headless { get; init; }
+    int Height { get; init; }
+    string JavaScript { get; init; }
+    string Locale { get; init; }
+    string PlaywrightScript { get; init; }
+    TimeSpan Timeout { get; init; }
+    string Url { get; init; }
+    bool UseCaptchaSolver { get; init; }
+    TimeSpan WaitAfter { get; init; }
+    int Width { get; init; }
+  sealed class ScreenshotResult : IEquatable<ScreenshotResult>
     ctor()
     byte[] Data { get; init; }
     string MimeType { get; init; }
-    static ScreenshotResult ReadFromTeleport(ReadOnlySpan<byte> data)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
-  sealed class SinglePageScrapeConfig
+  sealed class SinglePageScrapeConfig : IEquatable<SinglePageScrapeConfig>
     ctor()
-    List<Cookie> Cookies { get; set; }
-    string CountryCode { get; set; }
-    string ExcludedCSSElements { get; set; }
-    List<string> ExcludedLineStarts { get; set; }
-    List<string> ExcludedWholeLines { get; set; }
-    bool Headless { get; set; }
-    bool IncludeLinkedFiles { get; set; }
-    string IncludedCSSElements { get; set; }
-    string JavaScript { get; set; }
-    bool LoadResources { get; set; }
-    string Locale { get; set; }
-    WebScraperOutputFormat OutputFormat { get; set; }
-    string PlaywrightScript { get; set; }
-    TimeSpan Timeout { get; set; }
-    string Url { get; set; }
-    bool UseCaptchaSolver { get; set; }
-    bool UseReadability { get; set; }
-    TimeSpan WaitAfter { get; set; }
-    static SinglePageScrapeConfig ReadFromTeleport(ReadOnlySpan<byte> data)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
+    List<Cookie> Cookies { get; init; }
+    string CountryCode { get; init; }
+    string ExcludedCSSElements { get; init; }
+    List<string> ExcludedLineStarts { get; init; }
+    List<string> ExcludedWholeLines { get; init; }
+    bool Headless { get; init; }
+    bool IncludeLinkedFiles { get; init; }
+    string IncludedCSSElements { get; init; }
+    string JavaScript { get; init; }
+    bool LoadResources { get; init; }
+    string Locale { get; init; }
+    WebScraperOutputFormat OutputFormat { get; init; }
+    string PlaywrightScript { get; init; }
+    TimeSpan Timeout { get; init; }
+    string Url { get; init; }
+    bool UseCaptchaSolver { get; init; }
+    bool UseReadability { get; init; }
+    TimeSpan WaitAfter { get; init; }
   sealed class WebScraper : IDisposable, IWebScraper, IWebScraperInfo
     ctor(string modelName)
     ctor(WebScraperModel model)
@@ -531,6 +518,8 @@ namespace Ikon.AI.WebScraping
     Task<DownloadFileResult> DownloadFileAsync(DownloadFileConfig config, CancellationToken cancellationToken = null)
     static WebScraperCapabilities GetCapabilities(WebScraperModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(WebScraperModel model)
+    // One-shot single page scrape. The verbose form using var scraper = new WebScraper(WebScraperModel.Jina); var page = await scraper.ScrapeSinglePageAsync(new SinglePageScrapeConfig { Url = url }); becomes var page = await WebScraper.ScrapeAsync(url); Defaults to Jina (cheap+fast hosted reader). Override the model via the second parameter when the task warrants. Returns the page as Markdown in .Content along with .Title and .Url. Reach for the constructor + ScrapeSinglePageAsync when you need a different output format, cookies, custom JavaScript, or any other SinglePageScrapeConfig field beyond the URL; use ScrapeMultiplePagesAsync , TakeScreenshotAsync , or DownloadFileAsync for crawling, screenshots, and file downloads.
+    static Task<PageResult> ScrapeAsync(string url, WebScraperModel model = Jina, CancellationToken cancellationToken = null)
     Task<List<PageResult>> ScrapeMultiplePagesAsync(MultiPageScrapeConfig config, CancellationToken cancellationToken = null)
     Task<PageResult> ScrapeSinglePageAsync(SinglePageScrapeConfig config, CancellationToken cancellationToken = null)
     Task<ScreenshotResult> TakeScreenshotAsync(ScreenshotConfig config, CancellationToken cancellationToken = null)
@@ -540,6 +529,10 @@ namespace Ikon.AI.WebScraping
     bool SupportsMultiPageScraping { get; init; }
     bool SupportsScreenshotting { get; init; }
     bool SupportsSinglePageScraping { get; init; }
+  class WebScraperException : RetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   enum WebScraperModel
     Spider
     Jina
@@ -559,28 +552,22 @@ namespace Ikon.AI.WebSearching
     abstract Task<List<SearchResult>> SearchPagesAsync(SearchConfig config, CancellationToken cancellationToken = null)
   interface IWebSearcherInfo
     bool SupportsImageSearching { get; }
-  sealed class SearchConfig
+  sealed class SearchConfig : IEquatable<SearchConfig>
     ctor()
-    string CountryCode { get; set; }
-    string InSiteUrl { get; set; }
-    string Language { get; set; }
-    int MaxResults { get; set; }
-    WebSearcherOutputFormat OutputFormat { get; set; }
-    string Query { get; set; }
-    TimeSpan Timeout { get; set; }
-    static SearchConfig ReadFromTeleport(ReadOnlySpan<byte> data)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
-  sealed class SearchResult
+    string CountryCode { get; init; }
+    string InSiteUrl { get; init; }
+    string Language { get; init; }
+    int MaxResults { get; init; }
+    WebSearcherOutputFormat OutputFormat { get; init; }
+    string Query { get; init; }
+    TimeSpan Timeout { get; init; }
+  sealed class SearchResult : IEquatable<SearchResult>
     ctor()
     string Content { get; init; }
     List<string> Keywords { get; init; }
     string Mimetype { get; init; }
     string Title { get; init; }
     string Url { get; init; }
-    static SearchResult ReadFromTeleport(ReadOnlySpan<byte> data)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
   sealed class WebSearcher : IDisposable, IWebSearcher, IWebSearcherInfo
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(WebSearcherModel model, IReadOnlyList<ModelRegion>? regions = null)
@@ -588,11 +575,17 @@ namespace Ikon.AI.WebSearching
     void Dispose()
     static WebSearcherCapabilities GetCapabilities(WebSearcherModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(WebSearcherModel model)
+    // One-shot web page search. The verbose form using var searcher = new WebSearcher(WebSearcherModel.Google); var results = await searcher.SearchPagesAsync(new SearchConfig { Query = query }); becomes var results = await WebSearcher.SearchAsync(query); Defaults to Google (cheap+fast general web search). Override the model via the second parameter when the task warrants. Each SearchResult exposes .Url, .Title, and .Content. Reach for the constructor + SearchPagesAsync when you need site-restricted search, country/language targeting, or any other SearchConfig field beyond query+max results; use SearchImagesAsync (with an image-capable model such as GoogleImages ) for image search.
+    static Task<List<SearchResult>> SearchAsync(string query, WebSearcherModel model = Google, int maxResults = 10, CancellationToken cancellationToken = null)
     Task<List<SearchResult>> SearchImagesAsync(SearchConfig config, CancellationToken cancellationToken = null)
     Task<List<SearchResult>> SearchPagesAsync(SearchConfig config, CancellationToken cancellationToken = null)
   sealed class WebSearcherCapabilities : IWebSearcherInfo
     ctor()
     bool SupportsImageSearching { get; init; }
+  class WebSearcherException : RetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   enum WebSearcherModel
     Spider
     Jina

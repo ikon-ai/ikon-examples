@@ -99,15 +99,10 @@ namespace Ikon.AI.Database
   static class SqlValidator
     static void ValidateReadOnly(string sql, HashSet<string> allowedTables)
 
-namespace Ikon.AI.Policy
-  sealed class CreditLimitChecker : IUsageLimitChecker
-    ctor()
-    ValueTask<UsageLimitCheckResult> CheckAsync(PolicyCallContext context, object?[] args)
-
 namespace Ikon.AI.Storage
   class KeywordIndex
     ctor()
-    Task Add(string word, string link)
+    Task AddAsync(string word, string link)
     static KeywordIndex Deserialize(Stream stream)
     Task InitializeAsync()
     void RemoveTooCommonTerms(double threshold = 0.5, int minDocumentCount = 5)
@@ -129,7 +124,7 @@ namespace Ikon.AI.Storage
   class VectorDatabase
     ctor()
     Task CreateCollectionAsync(string collectionName, EmbeddingModel model)
-    Task<int> GetDataItemCount(string collectionName)
+    Task<int> GetDataItemCountAsync(string collectionName)
     Task RemoveAsync(string collectionName, IEnumerable<string> tags)
     Task<List<Result<object>>> SearchAsync(string collectionName, float[] queryVector, int maxItems, float threshold, Metric metric, Func<IEnumerable<string>, bool>? tagsFilter = null)
     Task<List<Result<object>>> SearchAsync(string collectionName, string query, int maxItems, float threshold, Metric metric, Func<IEnumerable<string>, bool>? tagsFilter = null)
