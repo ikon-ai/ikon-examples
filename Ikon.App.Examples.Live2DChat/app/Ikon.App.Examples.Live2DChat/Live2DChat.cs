@@ -19,7 +19,7 @@ public record Live2DModelConfig(
 [App]
 public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
 {
-    private UI UI { get; } = new(app, new Theme());
+    private UI UI { get; } = new(app, new IkonTheme());
     private Audio Audio { get; set; } = new(app);
 
     // Viseme analyzer for lip sync (shape data is embedded in audio frames)
@@ -247,7 +247,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                     style: [_settingsPanelOpen.Value
                         ? "w-12 h-12 rounded-2xl bg-blue-500 text-white text-xl flex items-center justify-center shadow-lg"
                         : "w-12 h-12 rounded-2xl bg-white/80 backdrop-blur-xl text-gray-600 text-xl flex items-center justify-center shadow-lg border border-gray-200 hover:bg-gray-100 transition-all"],
-                    label: "⚙",
+                    text: "⚙",
                     onClick: async () => { _settingsPanelOpen.Value = !_settingsPanelOpen.Value; });
             });
 
@@ -270,7 +270,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                                     style: [isSelected
                                         ? "text-sm px-4 py-2 rounded-xl font-semibold bg-blue-500 text-white shadow-md"
                                         : "text-sm px-4 py-2 rounded-xl font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 transition-all"],
-                                    label: model.Name,
+                                    text: model.Name,
                                     onClick: async () => { _selectedModelIndex.Value = idx; });
                             }
                         });
@@ -290,7 +290,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                                     style: [isSelected
                                         ? "text-sm px-4 py-2 rounded-xl font-semibold bg-blue-500 text-white shadow-md"
                                         : "text-sm px-4 py-2 rounded-xl font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 transition-all"],
-                                    label: mode.Name,
+                                    text: mode.Name,
                                     onClick: async () => { _viewModeIndex.Value = idx; });
                             }
                         });
@@ -398,7 +398,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                         style: [_isProcessingMessage.Value
                             ? "w-14 h-14 rounded-full bg-gray-300 text-gray-500 text-2xl flex items-center justify-center shadow-lg cursor-not-allowed"
                             : "w-14 h-14 rounded-full bg-blue-500 hover:bg-blue-600 hover:scale-105 text-white text-2xl flex items-center justify-center shadow-lg transition-all duration-200"],
-                        label: _isProcessingMessage.Value ? "⏳" : "➤",
+                        text: _isProcessingMessage.Value ? "⏳" : "➤",
                         onClick: async () =>
                         {
                             var text = _ttsText.Value;
@@ -412,7 +412,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                             ? "w-14 h-14 rounded-full bg-red-500 text-white text-2xl flex items-center justify-center shadow-lg animate-pulse"
                             : "w-14 h-14 rounded-full bg-gray-100 hover:bg-gray-200 hover:scale-105 text-gray-600 text-2xl flex items-center justify-center shadow-lg border border-gray-300 transition-all duration-200"],
                         kind: MediaCaptureKind.Audio,
-                        label: "🎤",
+                        text: "🎤",
                         captureMode: MediaCaptureButtonMode.Hold,
                         onCaptureStart: async _ =>
                         {
@@ -441,12 +441,12 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
             {
                 view.Button(
                     style: ["text-sm px-4 py-2 rounded-xl font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 transition-all text-left"],
-                    label: $"Model: {_ttsModel.Value}",
+                    text: $"Model: {_ttsModel.Value}",
                     onClick: async () => { CycleTtsModel(); });
 
                 view.Button(
                     style: ["text-sm px-4 py-2 rounded-xl font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 transition-all text-left"],
-                    label: $"Voice: {GetCurrentVoiceLabel()}",
+                    text: $"Voice: {GetCurrentVoiceLabel()}",
                     onClick: async () => { CycleTtsVoice(); });
             });
         });
@@ -482,7 +482,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                             view.Text(style: ["text-sm font-medium text-blue-700"], text: effect.EffectType);
                             view.Button(
                                 style: ["text-xs px-2 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 border border-red-300 transition-all"],
-                                label: "✕",
+                                text: "✕",
                                 onClick: async () => { RemoveTtsEffect(effectIndex); });
                         });
                         RenderTtsEffectParams(view, effect, effectIndex);
@@ -497,7 +497,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                         var type = effectType;
                         view.Button(
                             style: ["text-xs px-3 py-1.5 rounded-lg font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 transition-all"],
-                            label: $"+ {effectType}",
+                            text: $"+ {effectType}",
                             onClick: async () => { AddTtsEffect(type); });
                     }
                 });
@@ -507,7 +507,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                 {
                     view.Button(
                         style: ["text-xs px-4 py-2 rounded-xl font-medium bg-red-100 hover:bg-red-200 text-red-600 border border-red-300 transition-all mt-2"],
-                        label: "Clear All Effects",
+                        text: "Clear All Effects",
                         onClick: async () => { ClearTtsEffects(); });
                 }
             });
@@ -524,15 +524,15 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
             {
                 view.Button(
                     style: ["text-sm px-4 py-2 rounded-xl font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 transition-all text-left"],
-                    label: $"Model: {_sttModel.Value}",
+                    text: $"Model: {_sttModel.Value}",
                     onClick: async () => { CycleSttModel(); });
 
                 view.Row(style: ["flex items-center gap-3 px-4 py-2 rounded-xl bg-gray-100 border border-gray-300"], content: view =>
                 {
                     view.Switch(
                         style: ["w-10 h-5 rounded-full bg-gray-300 data-[state=checked]:bg-blue-500"],
-                        isChecked: _sttContinuousMode.Value,
-                        onCheckedChange: value =>
+                        value: _sttContinuousMode.Value,
+                        onValueChange: value =>
                         {
                             _sttContinuousMode.Value = value;
                             return Task.CompletedTask;

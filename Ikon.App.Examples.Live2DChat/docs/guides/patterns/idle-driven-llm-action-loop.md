@@ -33,8 +33,8 @@ private async Task RunIdleLoopAsync()
         if (_isProcessingMessage.Value || _ttsSpeaking.Value || _isListening.Value) continue;
 
         var currentMotion = _currentMotion.Value;
-        var (idleAction, _) = await Emerge.Run<IdleAction>(
-            LLMModel.Gpt5Nano, new KernelContext(),
+        var idleAction = await Emerge.Run<IdleAction>(
+            LLMModel.Gpt5Nano,
             pass =>
             {
                 pass.SystemPrompt = "You control a 3D virtual character's idle behavior. "
@@ -47,7 +47,7 @@ private async Task RunIdleLoopAsync()
                 pass.Temperature = 0.9f;
                 pass.MaxOutputTokens = 100;
             },
-            ct).FinalAsync(ct);
+            ct).ResultAsync(ct);
 
         if (_isProcessingMessage.Value || _ttsSpeaking.Value || _isListening.Value) continue;
 

@@ -14,8 +14,8 @@ public class MyApp(IApp<SessionIdentity, ClientParameters> app)
     private UI UI { get; } = new(app, new IkonTheme());
     private Audio Audio { get; } = new(app);
 
-    // Shared state — same value for all clients
-    private readonly Reactive<List<string>> _messages = new([]);
+    // Shared state — same value for all clients; list mutations notify on their own
+    private readonly ReactiveList<string> _messages = new();
 
     // Per-client state — each client has its own value
     private readonly ClientReactive<string> _input = new("");
@@ -32,7 +32,7 @@ public class MyApp(IApp<SessionIdentity, ClientParameters> app)
                 // ScrollArea for unbounded content (chat, lists, feeds)
                 view.ScrollArea(rootStyle: ["flex-1 min-h-0 px-4"], content: view =>
                 {
-                    foreach (var msg in _messages.Value)
+                    foreach (var msg in _messages)
                     {
                         view.Text([Text.Body], msg);
                     }
@@ -48,18 +48,16 @@ public class MyApp(IApp<SessionIdentity, ClientParameters> app)
                             // before the last keystroke arrives). Reading the bound reactive can give stale text.
                             if (!string.IsNullOrWhiteSpace(submitted))
                             {
-                                _messages.Value.Add(submitted);
-                                _messages.NotifyUpdate();
+                                _messages.Add(submitted);
                                 _input.Value = "";
                             }
                         },
                         clearOnSubmit: true);
-                    view.Button([Button.PrimaryMd], label: "Send", onClick: async () =>
+                    view.Button([Button.PrimaryMd], text: "Send", onClick: async () =>
                     {
                         if (!string.IsNullOrWhiteSpace(_input.Value))
                         {
-                            _messages.Value.Add(_input.Value);
-                            _messages.NotifyUpdate();
+                            _messages.Add(_input.Value);
                             _input.Value = "";
                         }
                     });
@@ -204,8 +202,7 @@ When in doubt, prefer the canonical name. These are the recurring wrong names th
 | `Theming.Apply(...)` | `new IkonTheme { ... }` | Factory retired; the indexer is the only configurable surface. |
 | `new IkonTheme { Brand = "...", Background = "..." }` | `new IkonTheme { ["primary"] = "...", ["background"] = "..." }` | No named init properties — every override is an indexer entry. |
 | `IApp<NoSession, NoClient>` | `IApp<SessionIdentity, ClientParameters>` with concrete records above | `NoSession` / `NoClient` types do not exist. Always declare `public record SessionIdentity()` / `public record ClientParameters()` — `public` is required (CS0051 otherwise); use empty `()` if you have nothing. |
-| `Audio.SpeakAsync(text)` | `Audio.SendSpeech(audio)` | Only `SendSpeech` exists. The `audio` argument is an `AudioContainer` from `SpeechGenerator.GenerateSpeechAsync`. |
-| `Audio.Speech` (property) | `new SpeechGenerator(...)` then `Audio.SendSpeech(...)` | No `Speech` property on `Audio`. The full chain is `var gen = new SpeechGenerator(model); await foreach (var chunk in gen.GenerateSpeechAsync(cfg)) Audio.SendSpeech(chunk);`. |
+| `Audio.Speech` (property) | `await Audio.SpeakAsync(text)` | No `Speech` property on `Audio`. `SpeakAsync` generates and plays speech in one call; the manual chain (for custom mixing/config) is `var gen = new SpeechGenerator(model); await foreach (var chunk in gen.GenerateSpeechAsync(cfg)) Audio.SendSpeech(chunk);`. |
 | `app.PlayAudioAsync(bytes, mime)` | `ClientFunctions.PlaySoundAsync(bytes, mime)` | Audio routes live on the static `ClientFunctions`, not `IApp`. |
 | `Button.Sm` / `Button.Md` / `Button.Lg` (bare size) | `Button.PrimarySm` / `Button.PrimaryMd` / `Button.PrimaryLg` (or another variant) | Bare size constants don't exist on Button — pick a variant + size. `Button.Primary` / `Button.Secondary` / `Button.Ghost` / `Button.Default` do exist as Md-sized aliases. |
 | `Layout.Container` | `Layout.Page` | Doesn't exist. |
@@ -287,7 +284,8 @@ app.GlobalState.SpaceId           // Current space ID
 app.GlobalState.ChannelId         // Current channel ID
 app.GlobalState.ServerSessionId   // Id of this Ikon server instance
 app.GlobalState.SessionHash       // Hash of session identity params (logical session id)
-app.GlobalState.ChannelUrl        // Channel access URL
+app.PublicUrl                     // The app's public URL (channel access URL)
+app.JoinUrl(new { id = gameId })  // PublicUrl + URL-encoded query string from an anonymous object
 app.GlobalState.SessionChannelUrl // Session-specific access URL
 app.GlobalState.PrimaryUserId     // Static user ID of session owner
 app.GlobalState.FirstUserId       // First human user who joined (dynamically reassigned)
@@ -305,7 +303,9 @@ The session join URL allows other users to connect. Display it as a QR code for 
 
 ```csharp
 // Get the shareable join URL
-var joinUrl = app.ReactiveGlobalState.ChannelUrl.Value;
+var joinUrl = app.PublicUrl;
+// with query parameters (URL-encoded name=value pairs from an anonymous object):
+var inviteUrl = app.JoinUrl(new { id = sessionId });
 // or session-specific:
 var sessionUrl = app.ReactiveGlobalState.SessionChannelUrl.Value;
 
@@ -331,9 +331,8 @@ await LongRunningTask();
 Programmatic client-side actions (no user gesture required):
 
 ```csharp
-// Parameterless overloads auto-resolve the client via ReactiveScope.ClientId
-await ClientFunctions.SetThemeAsync("dark");               // persist: true by default
-await ClientFunctions.GetThemeAsync();
+// Every function targets the calling client (resolved via ReactiveScope.ClientId) by default
+await ClientFunctions.SetThemeAsync(Theme.Dark);           // persist: true by default; string overload for custom themes
 await ClientFunctions.GetMediaDevicesAsync();
 await ClientFunctions.StartAudioCaptureAsync(options);     // returns streamId
 await ClientFunctions.StartVideoCaptureAsync(source, options); // returns streamId
@@ -356,8 +355,8 @@ await ClientFunctions.RequestFullscreenAsync();
 await ClientFunctions.ExitFullscreenAsync();
 await ClientFunctions.LogoutAsync();
 
-// Explicit targetId overloads also available for all functions:
-await ClientFunctions.SetThemeAsync(targetId, "dark");
+// Pass targetId to address another client session (all functions):
+await ClientFunctions.SetThemeAsync(Theme.Dark, targetId: targetId);
 ```
 
 ### Messages

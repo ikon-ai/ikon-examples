@@ -8,6 +8,15 @@ LLM model selection, connection configuration, and core AI infrastructure.
 
 # Ikon.AI Public API
 namespace Ikon.AI
+  class AIException : Exception
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
+  class AITimeoutException : RetryableAIException
+    ctor(string message)
+    ctor(TimeSpan configuredTimeout, string targetName)
+    TimeSpan ConfiguredTimeout { get; }
+    string TargetName { get; }
   enum GovernanceAction
     Allow
     Deny
@@ -16,7 +25,6 @@ namespace Ikon.AI
     Delay
   // The pending AI operation presented to the hook. Operation discriminates surface ("ai_call", "tool", "ingest"); Subject is the thing being acted on (model name, tool name, corpus name); Args are call-specific parameters; Ctx carries host-supplied identity / mission / runtime context (mission_id, agent_id, thread_id, user, tenant, time, etc.).
   sealed class GovernanceCall : IEquatable<GovernanceCall>
-    // The pending AI operation presented to the hook. Operation discriminates surface ("ai_call", "tool", "ingest"); Subject is the thing being acted on (model name, tool name, corpus name); Args are call-specific parameters; Ctx carries host-supplied identity / mission / runtime context (mission_id, agent_id, thread_id, user, tenant, time, etc.).
     ctor(string Operation, string Subject, IReadOnlyDictionary<string, object?> Args, IReadOnlyDictionary<string, object?> Ctx)
     IReadOnlyDictionary<string, object?> Args { get; init; }
     IReadOnlyDictionary<string, object?> Ctx { get; init; }
@@ -24,17 +32,28 @@ namespace Ikon.AI
     string Subject { get; init; }
   // What happened after the operation ran (or didn't). Hooks use this in AfterAsync to close out the audit record.
   sealed class GovernanceCallResult : IEquatable<GovernanceCallResult>
-    // What happened after the operation ran (or didn't). Hooks use this in AfterAsync to close out the audit record.
     ctor(bool Failed, string Outcome, string? ErrorMessage = null)
     string? ErrorMessage { get; init; }
     bool Failed { get; init; }
     string Outcome { get; init; }
+  // Thrown by AI primitives when an active IGovernanceHook returns Deny . Carries the decision id so callers can correlate the failure to the audit record.
+  sealed class GovernanceDeniedException : Exception
+    ctor(string decisionId, string ruleId, string policyId, string reason)
+    string DecisionId { get; }
+    string PolicyId { get; }
+    string Reason { get; }
+    string RuleId { get; }
+  // Thrown by AI primitives when an active hook returns Escalate . The host runtime is expected to catch this and route to the escalation target rather than retry — the operation is paused, not failed.
+  sealed class GovernanceEscalatedException : Exception
+    ctor(string decisionId, string target, string reason)
+    string DecisionId { get; }
+    string Reason { get; }
+    string Target { get; }
   // Shared invocation wrapper used by every transport that gates a call through GovernanceScope . Builds the standard Before / Deny / Escalate / invoke / After flow once so HTTP, MCP, and any future transport stay symmetric — the only thing each transport supplies is the GovernanceCall shape and the inner invocation. With no hook active the wrap is a pass-through.
   static class GovernanceInvoker
-    static Task<T> RunAsync<T>(GovernanceCall call, Func<Task<T>> invoke, CancellationToken ct = null)
+    static Task<T> RunAsync<T>(GovernanceCall call, Func<Task<T>> invoke, CancellationToken ct = default)
   // What the hook decided. The host must honour Action : Allow → invoke the operationDeny → throw GovernanceDeniedException Escalate → suspend / route to Target Obfuscate → apply the named transformDelay → wait the named duration then proceed DecisionId is the audit identifier the host can attach to any subsequent telemetry tied to this operation.
   sealed class GovernanceOutcome : IEquatable<GovernanceOutcome>
-    // What the hook decided. The host must honour Action : Allow → invoke the operationDeny → throw GovernanceDeniedException Escalate → suspend / route to Target Obfuscate → apply the named transformDelay → wait the named duration then proceed DecisionId is the audit identifier the host can attach to any subsequent telemetry tied to this operation.
     ctor(GovernanceAction Action, string DecisionId, string RuleId, string PolicyId, string Reason, string? Target = null)
     GovernanceAction Action { get; init; }
     string DecisionId { get; init; }
@@ -46,51 +65,14 @@ namespace Ikon.AI
   static class GovernanceScope
     static IGovernanceHook? Current { get; }
     static IDisposable Use(IGovernanceHook hook)
-  // Single hook surface called by every AI-touched primitive in the Ikon platform — LLM calls (Emerge.Run<T>), agent tool dispatch (Ikon.Agent2), data ingest steps — before they act. One contract, three surfaces. Host code activates a hook by entering a GovernanceScope ; downstream primitives read Current and consult the hook if it is set. The default — no scope active — is a no-op pass-through and the AI primitives behave exactly as they do without governance.
+  // Single hook surface called by every AI-touched primitive in the Ikon platform — LLM calls (Emerge.Run<T>), agent tool dispatch (Ikon.Agent), data ingest steps — before they act. One contract, three surfaces. Host code activates a hook by entering a GovernanceScope ; downstream primitives read Current and consult the hook if it is set. The default — no scope active — is a no-op pass-through and the AI primitives behave exactly as they do without governance.
   interface IGovernanceHook
     abstract Task AfterAsync(GovernanceCall call, GovernanceCallResult result, CancellationToken ct)
     abstract Task<GovernanceOutcome> BeforeAsync(GovernanceCall call, CancellationToken ct)
-  // Central configuration for SDK connection to the Ikon.AI function host. Uses BackendConfig mode (IkonBackend.Instance token) for authentication. Inherits from AsyncLocalInstance to support proper async local flow in tests and apps.
-  class IkonAIConnection : AsyncLocalInstance<IkonAIConnection>
-    ctor()
-    IkonClientConfig? ConfigOverride { get; set; }
-    Task ForceReconnectAsync(CancellationToken ct = null)
-    // Gets or creates an IkonClient connected to the Ikon.AI function host. The client is cached per instance to avoid connection overhead on each call. If the client is reconnecting, waits for reconnection to complete.
-    Task<IkonClient> GetOrCreateClientAsync(CancellationToken ct = null)
-    // Pre-establishes the connection to the host app so that subsequent function calls do not incur connection setup latency.
-    Task WarmupAsync(CancellationToken ct = null)
-    static string ChannelKey
-    static string DevelopmentSpaceId
-    static string ExternalUserId
-    static string ProductionSpaceId
-  class ImplementationSelector : AsyncLocalInstance<ImplementationSelector>
-    ctor()
-    bool ForceLocal { get; set; }
-    bool ForceRemote { get; set; }
-  enum ModelCategory
-    Classifier
-    DepthEstimator
-    Embeddings
-    FileConverter
-    ImageGenerator
-    ImageSegmenter
-    LLM
-    MeshGenerator
-    MusicGenerator
-    OCR
-    Reranker
-    SoundEffectGenerator
-    SpeechGenerator
-    SpeechRecognizer
-    VideoEnhancer
-    VideoGenerator
-    WebScraper
-    WebSearcher
-  // JSON converter factory that handles deserialization of legacy model enum formats. Supports both the current enum names (e.g., "OpenAI3Small") and legacy canonical names (e.g., "OpenAI_3Small").
-  class ModelEnumConverterFactory : JsonConverterFactory
-    ctor()
-    override bool CanConvert(Type typeToConvert)
-    override JsonConverter CreateConverter(Type typeToConvert, JsonSerializerOptions options)
+  // Connecting to the Ikon server timed out or failed. TRANSIENT by nature — a network blip, a server restart, a flaky link — so it is retryable: the RPC layer retries with a forced reconnect, and one that exhausts those attempts still lands as retryable so Emerge's bounded retry (and a host's re-drive) get their shot. A single 15s blip killing a 40-minute codegen run (observed repeatedly on a flaky uplink) is exactly what this classification prevents.
+  sealed class IkonServerConnectException : RetryableAIException
+    ctor(string message)
+    ctor(string message, Exception inner)
   enum ModelRegion
     Global
     Eu
@@ -101,70 +83,40 @@ namespace Ikon.AI
     Us
     UsEast
     UsWest
-  struct ModelRegionPriorityKey : IEquatable<ModelRegionPriorityKey>
-    ctor(ModelCategory category, Organization organization, string modelFamilyName)
-    ModelCategory Category { get; }
-    string ModelFamilyName { get; }
-    Organization Organization { get; }
-  static class ModelRegionSelector
-    static void SetPriorityList(ModelRegionPriorityKey key, IReadOnlyList<ModelRegion> priorities)
-    static bool TryGetPriorityList(ModelRegionPriorityKey key, out IReadOnlyList<ModelRegion> priorities)
+  class NonRetryableAIException : AIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   // Default no-op hook. Allows every call, records nothing. Lets primitives treat the hook contract as non-nullable downstream.
   sealed class NullGovernanceHook : IGovernanceHook
     ctor()
     Task AfterAsync(GovernanceCall call, GovernanceCallResult result, CancellationToken ct)
     Task<GovernanceOutcome> BeforeAsync(GovernanceCall call, CancellationToken ct)
     static NullGovernanceHook Instance
-  enum Organization
-    None
-    AI21
-    Anthropic
-    AssemblyAI
-    Aws
-    Azure
-    BlackForestLabs
-    Cerebras
-    Cohere
-    ConvertApi
-    DeepInfra
-    Deepgram
-    ElevenLabs
-    Fal
-    Fireworks
-    Google
-    Groq
-    Hyperbolic
-    Ikon
-    Jina
-    Meshy
-    Mistral
-    OpenAI
-    OpenRouter
-    Pollo
-    SerpApi
-    Spider
-    Stability
-    TensorPix
-    Together
-    Voyage
-    XAI
+  class RegionNotSupportedException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
+  class RetryableAIException : AIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
 
 namespace Ikon.AI.Kernel
-  sealed class AsyncEnumerableExtensions.<G>$CA58BA95B4ED5DE0AC5F384160329049
-    Task<T1[]> AsArrayAsync<T1>()
-    Task<T1> AsFirstAsync<T1>()
-    Task<string> AsStringAsync()
-    IAsyncEnumerable<StreamingResult> WithWindowedProcessingAsync(Func<string, List<StreamingResult>, Task<ValueTuple<bool, List<StreamingResult>>>> processAsync, int windowSize = 0, int windowOverlap = 0)
-  static class AsyncEnumerableExtensions.<G>$CA58BA95B4ED5DE0AC5F384160329049.<M>$7325656A85ACD35A95DB91A9468B406C
   static class AsyncEnumerableExtensions
-    static Task<T1[]> AsArrayAsync<T1>(IAsyncEnumerable<StreamingResult> source)
-    static Task<T1> AsFirstAsync<T1>(IAsyncEnumerable<StreamingResult> source)
-    static Task<string> AsStringAsync(IAsyncEnumerable<StreamingResult> source)
-    static IAsyncEnumerable<StreamingResult> WithCitationsAsync(IAsyncEnumerable<StreamingResult> source, IdMapper idMapper)
-    static IAsyncEnumerable<StreamingResult> WithParsedTagsAsync(IAsyncEnumerable<StreamingResult> source, List<string>? tagWhitelist = null, List<string>? tagBlacklist = null)
-    static IAsyncEnumerable<StreamingResult> WithReasoningFromTagAsync(IAsyncEnumerable<StreamingResult> source, string reasoningTagName)
-    static IAsyncEnumerable<StreamingResult> WithThrottlingAsync(IAsyncEnumerable<StreamingResult> source, int charsPerSecond, int charsPerUpdate, CancellationToken cancellationToken = null)
-    static IAsyncEnumerable<StreamingResult> WithWindowedProcessingAsync(IAsyncEnumerable<StreamingResult> source, Func<string, List<StreamingResult>, Task<ValueTuple<bool, List<StreamingResult>>>> processAsync, int windowSize = 0, int windowOverlap = 0)
+    static Task<T1[]> AsArrayAsync<T1>(this IAsyncEnumerable<LLMEvent> source)
+    static Task<T1> AsFirstAsync<T1>(this IAsyncEnumerable<LLMEvent> source)
+    static Task<string> AsStringAsync(this IAsyncEnumerable<LLMEvent> source)
+    static IAsyncEnumerable<LLMEvent> WithParsedTagsAsync(this IAsyncEnumerable<LLMEvent> source, List<string>? tagWhitelist = null, List<string>? tagBlacklist = null)
+    static IAsyncEnumerable<LLMEvent> WithReasoningFromTagAsync(this IAsyncEnumerable<LLMEvent> source, string reasoningTagName)
+    static IAsyncEnumerable<LLMEvent> WithThrottlingAsync(this IAsyncEnumerable<LLMEvent> source, int charsPerSecond, int charsPerUpdate, CancellationToken cancellationToken = default)
+    static IAsyncEnumerable<LLMEvent> WithWindowedProcessingAsync(this IAsyncEnumerable<LLMEvent> source, Func<string, List<LLMEvent>, Task<(bool, List<LLMEvent>)>> processAsync, int windowSize = 0, int windowOverlap = 0)
+  sealed class LLMEvent.AudioDelta : LLMEvent, IEquatable<LLMEvent.AudioDelta>
+    ctor(AudioChunk Audio)
+    AudioChunk Audio { get; init; }
+  sealed class LLMEvent.AudioId : LLMEvent, IEquatable<LLMEvent.AudioId>
+    ctor(string Id)
+    string Id { get; init; }
   struct AudioIdPart : IMessagePart
     ctor(string id)
     string Id { get; }
@@ -174,26 +126,32 @@ namespace Ikon.AI.Kernel
     byte[] Content { get; }
     string MimeType { get; }
     MessagePartType Type { get; }
+  sealed class LLMEvent.AudioTranscript : LLMEvent, IEquatable<LLMEvent.AudioTranscript>
+    ctor(string Transcript)
+    string Transcript { get; init; }
   class BinaryDataContainer
     ctor(byte[] data, string mimeType)
     byte[] Data { get; }
     string MimeType { get; }
-  class Citation
-    ctor(string originalId, string mappedId, int referStartIndex, int referEndIndex, int positionIndex)
-    string MappedId { get; }
-    string OriginalId { get; }
-    int PositionIndex { get; }
-    int ReferEndIndex { get; }
-    int ReferStartIndex { get; }
-  class FinalModelMessage
-    ctor(string text)
-    string Text { get; }
-  class FinalTextResponse
-    ctor(string text)
-    string Text { get; }
-  class FinishReason
-    ctor(string reason)
-    string Reason { get; }
+  sealed class LLMEvent.Citation : LLMEvent, IEquatable<LLMEvent.Citation>
+    ctor(string OriginalId, string MappedId, int ReferStartIndex, int ReferEndIndex, int PositionIndex)
+    string MappedId { get; init; }
+    string OriginalId { get; init; }
+    int PositionIndex { get; init; }
+    int ReferEndIndex { get; init; }
+    int ReferStartIndex { get; init; }
+  sealed class LLMEvent.ContentFiltered : LLMEvent, IEquatable<LLMEvent.ContentFiltered>
+    ctor(ClassificationResult Classification)
+    ClassificationResult Classification { get; init; }
+  sealed class LLMEvent.FinalModelMessage : LLMEvent, IEquatable<LLMEvent.FinalModelMessage>
+    ctor(string Text)
+    string Text { get; init; }
+  sealed class LLMEvent.FinalText : LLMEvent, IEquatable<LLMEvent.FinalText>
+    ctor(string Text)
+    string Text { get; init; }
+  sealed class LLMEvent.Finished : LLMEvent, IEquatable<LLMEvent.Finished>
+    ctor(string Reason)
+    string Reason { get; init; }
   class FunctionCall
     ctor(Function function, object?[] parameters, string parametersJson, string callId, string hash, string thoughtSignature = "", string reasoningContent = "")
     string CallId { get; }
@@ -205,7 +163,6 @@ namespace Ikon.AI.Kernel
     string ThoughtSignature { get; }
   // Function/tool result carrying media alongside text. Providers that support media inside tool results (Anthropic tool_result image blocks) inline the media so the model actually SEES it; every other consumer degrades to ToString , which summarizes the media without dumping bytes.
   sealed class FunctionMediaResult
-    // Function/tool result carrying media alongside text. Providers that support media inside tool results (Anthropic tool_result image blocks) inline the media so the model actually SEES it; every other consumer degrades to ToString , which summarizes the media without dumping bytes.
     ctor(string text, params BinaryDataContainer[] media)
     IReadOnlyList<BinaryDataContainer> Media { get; }
     string Text { get; }
@@ -216,10 +173,10 @@ namespace Ikon.AI.Kernel
     string? ModelMessageSuffix { get; set; }
     object? Result { get; set; }
   struct FunctionResultPart : IMessagePart
-    ctor(FunctionCall functionCall, StreamingResult[] streamingResults, object result)
+    ctor(FunctionCall functionCall, LLMEvent[] events, object result)
+    LLMEvent[] Events { get; }
     FunctionCall FunctionCall { get; }
     object Result { get; }
-    StreamingResult[] StreamingResults { get; }
     MessagePartType Type { get; }
   interface IMessagePart
     MessagePartType Type { get; }
@@ -239,19 +196,6 @@ namespace Ikon.AI.Kernel
   enum InstructionType
     Context
     Command
-  class JsonExampleGenerator
-    ctor()
-    static JsonNode DeepSerialize(object? obj)
-    static T GenerateExampleInstance<T>()
-    static string GenerateExampleJson<T>()
-  // Generates JSON Schema definitions from .NET types. To satisfy the OpenAI spec, every object schema’s "required" array must exactly equal the keys in "properties", and every object schema must have a "type": "object" key. Properties that are allowed to be null are marked according to the target dialect: the 2020-12 dialect expands "type" into a ["X", "null"] union, while the OpenAPI 3.0 dialect adds a sibling "nullable": true.
-  static class JsonSchemaGenerator
-    static ExpandoObject GenerateJsonSchemaExpandoObject<T>(SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
-    // Generate the schema as a JsonNode tree rather than a serialised string. Handles primitives (string, int, bool, ...), enums, arrays, dictionaries, and complex types — i.e. valid as a root for any callable shape, not just records. Useful when the caller wants to embed the schema into a larger JSON structure without the round-trip of string→parse.
-    static JsonNode GenerateSchemaNode(Type type, string? description = null, SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
-    static string GenerateSchemaString<T>(SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
-    // Non-generic overload for callers that have a Type at runtime (reflection, dynamic dispatch, MCP tool-schema generation). Same semantics as the generic version.
-    static string GenerateSchemaString(Type type, SchemaDialect dialect = JsonSchema202012, bool supersetCompatibilityMode = false)
   struct KernelContext : IEquatable<KernelContext>
     ctor()
     ctor(KernelContext? baseContext = null, ImmutableList<Instruction>? instructions = null, ImmutableList<MessageBlock>? messages = null, ImmutableDictionary<string, Function>? functions = null, TimeSpan? timeout = null, double? temperature = null, int? maxOutputTokens = null, ReasoningEffort? reasoningEffort = null, int? reasoningTokenBudget = null, bool? useStreaming = null, bool? useJson = null, bool? useCitations = null, bool? useUserNames = null, bool? useAudioOutput = null, string? audioOutputVoiceId = null, bool? useCaching = null, bool? disableFunctionCalling = null, bool? discardTextOutputWithFunctionCalls = null, bool? logFullRequest = null, bool? logFullResponse = null, object? jsonSchema = null, string? gbnfGrammar = null, string? toolPlan = null)
@@ -260,11 +204,9 @@ namespace Ikon.AI.Kernel
     int? ClearToolResultsAfterInputTokens { get; init; }
     // Tool names whose results are NEVER cleared by ClearToolResultsAfterInputTokens (semantic anchors like verdicts).
     IReadOnlyList<string>? ClearToolResultsExcludedTools { get; init; }
-    // Alias for Empty . Some generated code reaches for `Default` first (common shadcn / .NET pattern).
-    static KernelContext Default { get; }
     bool DisableFunctionCalling { get; init; }
     bool DiscardTextOutputWithFunctionCalls { get; init; }
-    // A fresh, blank `KernelContext` — equivalent to `new KernelContext()` or `default`. Provided as a named constant for code generated against frameworks that expect an `.Empty` / `.Default` affordance on context-like types.
+    // A fresh, blank `KernelContext` — equivalent to `new KernelContext()` or `default`. Provided as a named constant for code generated against frameworks that expect an `.Empty` affordance on context-like types.
     static KernelContext Empty { get; }
     ImmutableDictionary<string, Function> Functions { get; init; }
     string GbnfGrammar { get; init; }
@@ -287,13 +229,13 @@ namespace Ikon.AI.Kernel
     bool UseUserNames { get; init; }
     KernelContext Add(Instruction instruction)
     KernelContext Add(MessageBlock message)
-    static KernelContext Create(IEnumerable<Instruction>? instructions = null, IEnumerable<MessageBlock>? messages = null, IEnumerable<Function>? functions = null, TimeSpan? timeout = null, double? temperature = null, int? maxOutputTokens = null, ReasoningEffort? reasoningEffort = null, int? reasoningTokenBudget = null, bool? useStreaming = null, bool? useJson = null, bool? useCitations = null, bool? useUserNames = null, bool? useAudioOutput = null, string? audioOutputVoiceId = null, bool? useCaching = null, bool? disableFunctionCalling = null, bool? discardTextOutputWithFunctionCalls = null, bool? logFullRequest = null, bool? logFullResponse = null, object? jsonSchema = null, string? gbnfGrammar = null, string? toolPlan = null)
-    IAsyncEnumerable<StreamingResult> GenerateAsync(ILLM llm, CancellationToken cancellationToken = null)
+    IAsyncEnumerable<LLMEvent> GenerateAsync(ILLM llm, CancellationToken cancellationToken = default)
     KernelContext KeepMessagesMax(int count)
-    IAsyncEnumerable<StreamingResult> RecurseAsync(IAsyncEnumerable<StreamingResult> generator, HashSet<string> alreadyCalledFunctions, CancellationToken cancellationToken = null)
-    IAsyncEnumerable<StreamingResult> ReturnFunctionCallAsync(string name, string parametersJson, string callId, string thoughtSignature = "", string reasoningContent = "")
-    IAsyncEnumerable<StreamingResult> RunFunctionAsync(string functionName, object?[] parameters, CancellationToken cancellationToken = null)
     KernelContext WithFunctions(IEnumerable<Function>? functions, bool replaceExisting = false)
+  // One event in the typed stream produced by GenerateAsync and its combinators. Consume the stream by switching on the concrete case: TextDelta for incremental text, ToolCallRequested when the model asks for a tool, ToolResult for a tool's output, Usage and Finished for end-of-generation accounting, and so on. Events not relevant to a consumer should be passed through unchanged so downstream consumers still see them.
+  abstract class LLMEvent : IEquatable<LLMEvent>
+    // Name of the pipeline stage that produced this event (e.g. "generate", "generate.reasoning", "Shader.Output.AfterPass"). Combinators re-tag events they transform so the origin of each event stays visible.
+    string Source { get; init; }
   enum MediaResolution
     Default
     Low
@@ -325,12 +267,6 @@ namespace Ikon.AI.Kernel
     Pdf
     PdfUrl
     FunctionResult
-  class OutputAudioId
-    ctor(string id)
-    string Id { get; }
-  class OutputAudioTranscript
-    ctor(string transcript)
-    string Transcript { get; }
   struct PdfPart : IMessagePart
     ctor(byte[] content, string mimeType)
     byte[] Content { get; }
@@ -340,9 +276,9 @@ namespace Ikon.AI.Kernel
     ctor(string url)
     MessagePartType Type { get; }
     string Url { get; }
-  class ReasoningBlock
-    ctor(string text)
-    string Text { get; }
+  sealed class LLMEvent.Reasoning : LLMEvent, IEquatable<LLMEvent.Reasoning>
+    ctor(string Text)
+    string Text { get; init; }
   enum ReasoningEffort
     None
     Minimal
@@ -353,30 +289,36 @@ namespace Ikon.AI.Kernel
   enum SchemaDialect
     JsonSchema202012
     OpenApi30
-  struct StreamingResult
-    ctor(object value, string sourceName, string? valueTypeName = null)
-    string SourceName { get; }
-    object Value { get; }
-    string? ValueTypeName { get; }
-  class Tag
-    ctor(string name, string content, Dictionary<string, string>? attributes = null)
-    Dictionary<string, string>? Attributes { get; }
-    string Content { get; }
-    string Name { get; }
+  sealed class LLMEvent.Tag : LLMEvent, IEquatable<LLMEvent.Tag>
+    ctor(string Name, string Content, IReadOnlyDictionary<string, string>? Attributes)
+    IReadOnlyDictionary<string, string>? Attributes { get; init; }
+    string Content { get; init; }
+    string Name { get; init; }
+  sealed class LLMEvent.TextDelta : LLMEvent, IEquatable<LLMEvent.TextDelta>
+    ctor(string Text)
+    string Text { get; init; }
   struct TextPart : IMessagePart
     ctor(string content)
     string Content { get; }
     MessagePartType Type { get; }
-  class TokenUsage
-    ctor(int inputTokens, int cachedInputTokens, int cacheCreationInputTokens, int outputTokens)
-    int CacheCreationInputTokens { get; }
-    // Subset of InputTokens served from the provider's prompt cache (Anthropic cache_read_input_tokens, OpenAI cached_tokens, Bedrock CacheReadInputTokens). Always included in InputTokens; this is the cache-attributable portion.
-    int CachedInputTokens { get; }
-    int InputTokens { get; }
-    int OutputTokens { get; }
-  class ToolPlan
-    ctor(string text)
-    string Text { get; }
+  sealed class LLMEvent.ToolCallRequested : LLMEvent, IEquatable<LLMEvent.ToolCallRequested>
+    ctor(FunctionCall Call)
+    FunctionCall Call { get; init; }
+  sealed class LLMEvent.ToolPlan : LLMEvent, IEquatable<LLMEvent.ToolPlan>
+    ctor(string Text)
+    string Text { get; init; }
+  sealed class LLMEvent.ToolResult : LLMEvent, IEquatable<LLMEvent.ToolResult>
+    ctor(string functionName, object? value)
+    ctor(string functionName, object? value, string? valueType)
+    string FunctionName { get; }
+    object? Value { get; }
+    string? ValueType { get; }
+  sealed class LLMEvent.Usage : LLMEvent, IEquatable<LLMEvent.Usage>
+    ctor(int InputTokens, int CachedInputTokens, int CacheCreationInputTokens, int OutputTokens)
+    int CacheCreationInputTokens { get; init; }
+    int CachedInputTokens { get; init; }
+    int InputTokens { get; init; }
+    int OutputTokens { get; init; }
   struct VideoAssetPart : IMessagePart
     ctor(AssetUri uri, string? mimeType = null, MediaResolution resolution = Default, double? fps = null, TimeSpan? startOffset = null, TimeSpan? endOffset = null)
     TimeSpan? EndOffset { get; }
@@ -406,8 +348,12 @@ namespace Ikon.AI.Kernel
     string Url { get; }
 
 namespace Ikon.AI.LLM
+  // Public seam over the provider-facing JSON schema generator. This is the exact projection every LLM provider applies when it ships a Function to the model (Anthropic input_schema, OpenAI parameters, …). Callers that need to display, persist, or compare "the schema the LLM will see" should use this instead of re-deriving their own — any drift between a home-grown projection and the wire is a bug this seam exists to prevent.
+  static class FunctionSchema
+    // Projects the function's parameter list into its provider JSON schema: an object schema with type/properties/required, including parameter descriptions and allowed-value enums.
+    static string ToJson(Function function)
   interface ILLM : IDisposable, ILLMInfo
-    abstract IAsyncEnumerable<StreamingResult> GenerateAsync(KernelContext context, CancellationToken cancellationToken = null)
+    abstract IAsyncEnumerable<LLMEvent> GenerateAsync(KernelContext context, CancellationToken cancellationToken = default)
   interface ILLMInfo
     int ContextWindowSize { get; }
     string InlineReasoningTagName { get; }
@@ -444,7 +390,7 @@ namespace Ikon.AI.LLM
     bool SupportsZeroDataRetention { get; }
     bool UsesInlineReasoning { get; }
     void Dispose()
-    IAsyncEnumerable<StreamingResult> GenerateAsync(KernelContext context, CancellationToken cancellationToken = null)
+    IAsyncEnumerable<LLMEvent> GenerateAsync(KernelContext context, CancellationToken cancellationToken = default)
     static LLMCapabilities GetCapabilities(LLMModel model)
     static LLMCapabilities GetCapabilities(LLMModel model, IReadOnlyList<ModelRegion>? regions)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(LLMModel model)
@@ -467,6 +413,10 @@ namespace Ikon.AI.LLM
     bool SupportsStreaming { get; init; }
     bool SupportsZeroDataRetention { get; init; }
     bool UsesInlineReasoning { get; init; }
+  class LLMMaxOutputTokensException : NonRetryableLLMException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   enum LLMModel
     Gpt4OmniMini
     Gpt41
@@ -542,5 +492,13 @@ namespace Ikon.AI.LLM
     Nova2Lite
   static class LLMModelExtensions
     // Maximum input-context window for the model, in tokens (e.g. 200_000 for Claude 4.x base, 1_000_000 for the 1M-context tier). Returns 0 when the model can't be resolved — callers should treat 0 as "unknown" and skip utilization computation rather than dividing by zero.
-    static int ContextWindowSize(LLMModel model)
-    static string DisplayName(LLMModel model)
+    static int ContextWindowSize(this LLMModel model)
+    static string DisplayName(this LLMModel model)
+  class NonRetryableLLMException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
+  class RetryableLLMException : RetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)

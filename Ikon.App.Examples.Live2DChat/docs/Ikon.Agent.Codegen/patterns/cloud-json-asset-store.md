@@ -31,12 +31,12 @@ private async Task LoadDashboardsAsync()
         if (!string.IsNullOrEmpty(json))
         {
             var index = JsonSerializer.Deserialize<DashboardIndex>(json);
-            if (index != null) { _dashboards.Value = index.Dashboards; }
+            if (index != null) { _dashboards.ReplaceAll(index.Dashboards); }   // ReactiveList — one notification
         }
     }
     catch
     {
-        _dashboards.Value = [];
+        _dashboards.Clear();
         await SaveDashboardsAsync();
     }
     finally
@@ -47,7 +47,7 @@ private async Task LoadDashboardsAsync()
 
 private async Task SaveDashboardsAsync()
 {
-    var index = new DashboardIndex { Dashboards = _dashboards.Value };
+    var index = new DashboardIndex { Dashboards = _dashboards.ToList() };
     var json = JsonSerializer.Serialize(index, new JsonSerializerOptions { WriteIndented = true });
     await Asset.Instance.SetTextAsync(DashboardIndexUri, json);
 }
@@ -60,6 +60,7 @@ private async Task SaveDashboardsAsync()
 - For per-user state (preferences, chat history) include `userId: app.GlobalState.PrimaryUserId` in the URI; for space-shared state omit it.
 - Save on `app.StoppingAsync` for state that mutates often (chat history) so you don't pay write cost per turn.
 - Pretty-print (`WriteIndented = true`) — these blobs are operator-readable in the asset browser.
+- The in-memory mirror is a `ReactiveList<Dashboard>`: `ReplaceAll(loaded)` after a load, `Clear()` on a miss, `ToList()` when serialising back out. Each mutator notifies once; `_dashboards.Value` is an `IReadOnlyList<T>` snapshot, so there is no in-place mutation to forget.
 
 ## See also
 
