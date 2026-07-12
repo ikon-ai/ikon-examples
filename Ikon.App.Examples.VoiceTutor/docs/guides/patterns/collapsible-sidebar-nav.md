@@ -18,7 +18,7 @@ private void RenderSidebar(UIView view)
     var collapsed = _sidebarCollapsed.Value;
     var widthClass = collapsed ? "w-14" : "w-56";
 
-    var openCount = _events.Value.Count(e => e.Severity == Severity.Alert && e.Status == EventStatus.Open);
+    var openCount = _events.Count(e => e.Severity == Severity.Alert && e.Status == EventStatus.Open);
     var offlineCount = _streams.Values.Count(s => s.OfflineFlagged);
 
     view.Column([$"hidden md:flex {widthClass} bg-zinc-925 border-r border-zinc-800/80 flex-shrink-0 transition-all duration-150"], content: view =>

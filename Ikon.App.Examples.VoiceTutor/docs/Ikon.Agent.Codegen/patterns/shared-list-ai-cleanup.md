@@ -11,7 +11,7 @@ Any "list of items, occasionally let AI tidy them" shape — todos, notes, tags,
 ```csharp
 public sealed record TodoItem(string Id, string Text);
 
-private readonly Reactive<List<TodoItem>> _items = new([]);
+private readonly ReactiveList<TodoItem> _items = new();
 private readonly Reactive<string> _draft = new("");
 private readonly Reactive<bool> _busy = new(false);
 
@@ -19,21 +19,21 @@ private void Add()
 {
     var text = _draft.Value.Trim();
     if (string.IsNullOrEmpty(text)) return;
-    _items.Value = [.. _items.Value, new TodoItem(Guid.NewGuid().ToString("N"), text)];
+    _items.Add(new TodoItem(Guid.NewGuid().ToString("N"), text));
     _draft.Value = "";
 }
 
 private void Remove(string id) =>
-    _items.Value = [.. _items.Value.Where(i => i.Id != id)];
+    _items.RemoveAll(i => i.Id == id);
 
 private async Task AiCleanupAsync()
 {
-    if (_busy.Value || _items.Value.Count == 0) return;
+    if (_busy.Value || _items.Count == 0) return;
     using var _ = _busy.AsToken();
-    var current = string.Join("\n", _items.Value.Select(i => $"- {i.Text}"));
+    var current = string.Join("\n", _items.Select(i => $"- {i.Text}"));
     var cleaned = await Emerge.AskAsync<List<string>>(
         $"Deduplicate and prioritize this todo list:\n{current}\n\nReturn the cleaned list, most important first.");
-    _items.Value = cleaned.Select(t => new TodoItem(Guid.NewGuid().ToString("N"), t)).ToList();
+    _items.ReplaceAll(cleaned.Select(t => new TodoItem(Guid.NewGuid().ToString("N"), t)));
 }
 
 // UI:
@@ -44,11 +44,11 @@ view.Row(["gap-2 p-4"], content: v =>
     v.Button(style: [Button.Default, "transition-colors duration-150 hover:opacity-90"],
         onClick: () => Add(), content: c => c.Text(text: "Add"));
     v.Button(style: [Button.SecondaryMd, _busy.Value ? "opacity-50" : ""],
-        disabled: _busy.Value || _items.Value.Count == 0, onClick: AiCleanupAsync,
+        disabled: _busy.Value || _items.Count == 0, onClick: AiCleanupAsync,
         content: c => c.Text(text: _busy.Value ? "Cleaning…" : "AI Cleanup"));
 });
 
-if (_items.Value.Count == 0)
+if (_items.Count == 0)
 {
     view.Box(["text-center text-muted-foreground p-12"], content: v =>
         v.Text(text: "No items yet — add one above to get started."));
@@ -57,7 +57,7 @@ else
 {
     view.Column(["gap-1 p-4"], content: view =>
     {
-        foreach (var item in _items.Value)
+        foreach (var item in _items)
         {
             view.Row(["items-center gap-2 p-3 rounded-md hover:bg-surface transition-colors duration-150"], content: v =>
             {
@@ -72,7 +72,7 @@ else
 
 ## Notes
 
-- `_items` is `Reactive<List<TodoItem>>`. Always **reassign** the Value (`_items.Value = [...]`) — don't mutate in place.
+- `_items` is a `ReactiveList<TodoItem>` — call the mutation on the reactive itself (`Add`, `RemoveAll`, `ReplaceAll`); each call notifies once, and `.Value.Add` does not compile.
 - Empty input is rejected at the start of `Add()`.
 - Empty list state has its own visible branch (no items yet — "add one above to get started").
 - AI Cleanup is gated by both `_busy` and `Count == 0` (no point cleaning empty list).

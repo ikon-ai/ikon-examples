@@ -32,10 +32,10 @@ private void RenderPendingMissingFileMappings(UIView view)
                     view.Text(["text-xs text-tertiary truncate"], TF("Missing: {0}", missing.Label));
                 });
 
-                view.Button([Button.OutlineSm], label: T("Dismiss"),
+                view.Button([Button.OutlineSm], text: T("Dismiss"),
                     onClick: async () => DismissMissingFileMapping(uploaded.Id, missing.Id));
 
-                view.Button([Button.PrimarySm], label: T("Confirm"),
+                view.Button([Button.PrimarySm], text: T("Confirm"),
                     onClick: async () => await ConfirmMissingFileMappingAsync(uploaded.Id, missing.Id));
             });
         }

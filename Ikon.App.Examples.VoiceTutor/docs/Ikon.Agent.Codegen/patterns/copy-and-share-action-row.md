@@ -13,7 +13,7 @@ Any view with a long block of generated/derived text the user might want to shar
 private void RenderTranscriptContent(UIView view)
 {
     var transcriptText = GetTranscriptAsText();
-    var hasContent = _recognizedSpeech.Value.Count > 0;
+    var hasContent = _recognizedSpeech.Count > 0;
 
     view.Box(["h-full overflow-hidden relative"], content: box =>
     {

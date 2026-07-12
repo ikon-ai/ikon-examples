@@ -6,7 +6,7 @@ public record ClientParams(string Name = "Ikon");
 [App]
 public class VoiceTutor(IApp<SessionIdentity, ClientParams> app)
 {
-    private UI UI { get; } = new(app, new Theme());
+    private UI UI { get; } = new(app, new IkonTheme());
     private Audio Audio { get; } = new(app);
 
     private readonly Reactive<bool> _isMicActive = new(false);
@@ -86,7 +86,7 @@ public class VoiceTutor(IApp<SessionIdentity, ClientParams> app)
                             row.CaptureButton(
                                 [Button.PrimaryMd],
                                 kind: MediaCaptureKind.Audio,
-                                label: micLabel,
+                                text: micLabel,
                                 captureMode: MediaCaptureButtonMode.Toggle,
                                 onCaptureStart: OnAudioCaptureStart,
                                 onCaptureStop: OnAudioCaptureStop);
@@ -140,7 +140,7 @@ public class VoiceTutor(IApp<SessionIdentity, ClientParams> app)
 
                                             voicesRow.Button(
                                                 [isSelected ? Button.PrimarySm : Button.OutlineSm],
-                                                label: voice.Name,
+                                                text: voice.Name,
                                                 onClick: async () => _selectedVoiceIndex.Value = voiceIndex);
                                         }
                                     });

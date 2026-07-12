@@ -1,7 +1,7 @@
 <!-- mined-from: Anima -->
 # Inline List-Cell Edit — Type-To-Save Card Fields
 
-Each list item renders its editable string field directly as a `TextField` inside the card (no edit/save mode). The `onValueChange` mutates the item in-place, then re-assigns the parent reactive list to fire the change, then triggers a debounced save. The user never clicks an "Edit" button.
+Each list item renders its editable string field directly as a `TextField` inside the card (no edit/save mode). The `onValueChange` mutates the item in-place, then assigns it back through the `ReactiveList` indexer to fire the change, then triggers a debounced save. The user never clicks an "Edit" button.
 
 ## When to use
 
@@ -10,8 +10,11 @@ Anywhere editing should feel like Notion or a spreadsheet — single short field
 ## Snippet
 
 ```csharp
-foreach (var state in _states.Value)
+// _states is a ReactiveList<CharacterState>
+for (var i = 0; i < _states.Count; i++)
 {
+    var index = i;
+    var state = _states[i];
     var stateId = state.Id;
     view.Column([Card.Default, "p-3", Layout.Column.Sm], content: view =>
     {
@@ -23,7 +26,7 @@ foreach (var state in _states.Value)
             onValueChange: async value =>
             {
                 state.Name = value;
-                _states.Value = new List<CharacterState>(_states.Value);
+                _states[index] = state;
                 _ = SaveProjectAsync();
             });
 
@@ -64,9 +67,9 @@ foreach (var state in _states.Value)
 
 ## Notes
 
-- The `state.Name = value` mutation is *required* — only updating the reactive's `.Value` reference doesn't propagate the new field to consumers that hold the same item by reference.
-- Always re-assign the reactive (`_states.Value = new List<...>(_states.Value)`) after a per-item mutation. Reactive<List<T>> compares by reference; without re-assignment the UI does not re-render.
-- Capture `var stateId = state.Id;` outside the lambdas so the closure captures the value, not the loop variable.
+- The `state.Name = value` mutation is *required* — it is what propagates the new field to consumers that hold the same item by reference.
+- A `ReactiveList<T>` notifies on ITS mutators, not on a field write inside an item. After a per-item mutation, assign the item back through the indexer (`_states[index] = state`) — one notification, and the row re-renders. Never rebuild the list by hand: `_states.Value` is an `IReadOnlyList<T>` snapshot, so `.Value.Add`/`.Value[i] =` do not compile.
+- Loop by index (`for (var i = 0; i < _states.Count; i++)`) so the handler has an `index` to write back through; `Count` and `[i]` are tracked reads. Capture `var stateId = state.Id;` and `var index = i;` outside the lambdas so the closures capture values, not the loop variable.
 - Use `_ = SaveProjectAsync();` (fire-and-forget) on every keystroke; debounce inside the save function or use a periodic timer instead. Don't `await` it — that re-renders the field and breaks focus.
 - Skip an explicit "Edit" button entirely. Modes are friction.
 

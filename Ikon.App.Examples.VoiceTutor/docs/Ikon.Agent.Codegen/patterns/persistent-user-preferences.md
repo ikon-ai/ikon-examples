@@ -19,7 +19,7 @@ public partial class SentinelApp(IApp app)
     private readonly PersistentUserReactive<string> _settingsSubTab = new("general");
 
     // Per-session, persists for the multi-user session — shared facts
-    private readonly PersistentSessionReactive<List<ThreatEvent>> _events = new(new List<ThreatEvent>());
+    private readonly PersistentSessionReactiveList<ThreatEvent> _events = new();
     private readonly PersistentSessionReactive<SentinelPreferences?> _persistedPrefs = new(null);
 
     // Per-client only, no persistence — open dialogs, current selection

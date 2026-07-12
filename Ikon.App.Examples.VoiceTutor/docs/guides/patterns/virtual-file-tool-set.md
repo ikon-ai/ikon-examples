@@ -14,16 +14,16 @@ private readonly Dictionary<string, string> _virtualFiles = new();
 
 await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx, pass =>
 {
-    pass.AddTool("write_file", "Write content to a file. Creates the file if it doesn't exist, overwrites if it does.",
-        (string path, string content) => WriteFile(state, path, content))
-       .AddTool("read_file", "Read the contents of a file",
-        (string path) => ReadFile(state, path))
-       .AddTool("list_files", "List all files in the virtual file system",
-        () => ListFiles(state))
-       .AddTool("delete_file", "Delete a file from the virtual file system",
-        (string path) => DeleteFile(state, path))
-       .AddTool("search_in_files", "Search for a pattern in all files",
-        (string pattern) => SearchInFiles(state, pattern));
+    pass.AddTool(Tool.Of("write_file", "Write content to a file. Creates the file if it doesn't exist, overwrites if it does.",
+            (string path, string content) => WriteFile(state, path, content)))
+        .AddTool(Tool.Of("read_file", "Read the contents of a file",
+            (string path) => ReadFile(state, path)))
+        .AddTool(Tool.Of("list_files", "List all files in the virtual file system",
+            () => ListFiles(state)))
+        .AddTool(Tool.Of("delete_file", "Delete a file from the virtual file system",
+            (string path) => DeleteFile(state, path)))
+        .AddTool(Tool.Of("search_in_files", "Search for a pattern in all files",
+            (string pattern) => SearchInFiles(state, pattern)));
 
     var filesList = _virtualFiles.Count > 0
         ? $"\n\nCurrent files:\n{string.Join("\n", _virtualFiles.Keys.Select(f => $"- {f}"))}"

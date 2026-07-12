@@ -1,7 +1,7 @@
 <!-- mined-from: Sentrix -->
 # File Upload with Progress — Drag-Drop Zone + Live Progress Tracker
 
-A drag-and-drop upload zone wired to a `Reactive` list of in-flight uploads. Per-file callbacks (`PreStart`, `Start`, `Progress`, `Complete`, `Error`) update a tracker so the UI can show live percentages, dedupe by hash, and surface error toasts.
+A drag-and-drop upload zone wired to a `ReactiveList` of in-flight uploads. Per-file callbacks (`PreStart`, `Start`, `Progress`, `Complete`, `Error`) update a tracker so the UI can show live percentages, dedupe by hash, and surface error toasts.
 
 ## When to use
 
@@ -19,7 +19,7 @@ private sealed class UploadTracker
     public Guid? CaseFileId;
 }
 
-private readonly Reactive<List<UploadTracker>> _activeUploads = new(new());
+private readonly ReactiveList<UploadTracker> _activeUploads = new();
 private readonly Reactive<string?> _fileUploadError = new(null);
 
 private void RenderFileUploadArea(UIView view, Guid caseId)
@@ -43,7 +43,7 @@ private void RenderFileUploadArea(UIView view, Guid caseId)
         });
 }
 
-private async Task<FileUploadPreStartResult> OnFileUploadPreStartAsync(FileUploadPreStartArgs args)
+private async Task<FileUploadResult> OnFileUploadPreStartAsync(FileUploadPreStartArgs args)
 {
     if (args.Size > MaxFileSizeBytes)
     {
@@ -51,16 +51,13 @@ private async Task<FileUploadPreStartResult> OnFileUploadPreStartAsync(FileUploa
         return false;
     }
 
-    _activeUploads.Value = new List<UploadTracker>(_activeUploads.Value)
-    {
-        new() { UploadId = args.UploadId, FileName = args.FileName }
-    };
+    _activeUploads.Add(new UploadTracker { UploadId = args.UploadId, FileName = args.FileName });
     return true;
 }
 
 private Task OnFileUploadProgressAsync(FileUploadProgressArgs args)
 {
-    var tracker = _activeUploads.Value.FirstOrDefault(u => u.UploadId == args.UploadId);
+    var tracker = _activeUploads.FirstOrDefault(u => u.UploadId == args.UploadId);
     if (tracker != null)
     {
         tracker.Progress = args.ProgressPercentage;
@@ -73,7 +70,8 @@ private Task OnFileUploadProgressAsync(FileUploadProgressArgs args)
 ## Notes
 
 - `FileUpload` exposes the full lifecycle as five callbacks. `PreStart` returns `false` to reject (size limit, type, etc.); `Start` returns an `AssetUri` so the client streams the bytes straight to storage.
-- `UploadTracker` is a mutable POCO inside a `Reactive<List<>>`. Mutate the field, then call `_activeUploads.NotifyUpdate()` — re-creating the list each progress tick is wasteful at 60 fps progress.
+- Rows live in a `ReactiveList<UploadTracker>` — `_activeUploads.Add(tracker)` on PreStart notifies once; enumeration and LINQ (`FirstOrDefault`) run straight on the reactive.
+- `UploadTracker` is a mutable POCO INSIDE the list, so a field write is invisible to the list's mutators. Mutate the field, then call `_activeUploads.NotifyUpdate()` — the escape hatch for in-place item edits. Every `ReactiveList` mutator copies the list, and re-copying it on each progress tick is wasteful at 60 fps.
 - Match `args.UploadId` to find the row; never index by filename (collisions on duplicate names).
 - Surface upload errors via a `Toast` bound to a separate `Reactive<string?>`; reset to `null` on `onOpenChange`.
 - Render in-flight rows alongside completed rows in the same `DataTable` so users see "Uploading 47%" inline with finished items.
