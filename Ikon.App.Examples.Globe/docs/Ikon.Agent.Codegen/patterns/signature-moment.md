@@ -40,7 +40,7 @@ view.Column(["items-center gap-1"], content: v =>
 ///    Swap the working surface for a celebratory one (brand gradient or brand-tinted fill, an icon
 ///    with presence, display-type headline) when the goal completes. Reactive makes this a plain
 ///    conditional — no animation framework needed for the moment to land.
-if (_completedToday.Value == _steps.Value.Count && _steps.Value.Count > 0)
+if (_completedToday.Value == _steps.Count && _steps.Count > 0)
 {
     // Gradient stops come from the app's COMMITTED palette (this app's brand is amber/orange —
     // substitute YOUR brand scale; a violet app celebrates in violet, not in this example's hues).

@@ -26,7 +26,7 @@ private void RenderWeeklyChart(UIView view)
         .Select(day => new Dictionary<string, object>
         {
             ["day"] = day.ToString("ddd"),
-            ["done"] = _completions.Value.Count(c => c.Date.Date == day),
+            ["done"] = _completions.Count(c => c.Date.Date == day),
         })
         .ToList();
 

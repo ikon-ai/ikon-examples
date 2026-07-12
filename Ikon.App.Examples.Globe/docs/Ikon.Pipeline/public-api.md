@@ -1,75 +1,133 @@
 # Ikon.Pipeline Public API
 
 namespace Ikon.Pipeline
+  // Delegate signature used for asynchronous event notifications.
   delegate Pipeline<T>.AsyncEventHandler<T, TEventArgs> where T : IItem<T>
-    Task AsyncEventHandler`1<T, TEventArgs>(object sender, TEventArgs e)
+    Task AsyncEventHandler<T, TEventArgs>(object sender, TEventArgs e)
+  // Represents a branch in the pipeline for processing items.
   sealed class Pipeline<T>.Branch<T> where T : IItem<T>
     ctor(Pipeline<T> outer, ISourceBlock<T> sourceBlock, IDataflowBlock dataflowBlock)
+    // Filters items in the branch using an asynchronous predicate.
     Pipeline<T>.Branch<T> Filter(Func<T, Task<bool>> predicate, int? maxParallelism = null)
+    // Filters the branch to items that can be treated as TObject .
     Pipeline<T>.Branch<T> Filter<TObject>(int? maxParallelism = null)
+    // Executes an asynchronous action for every item in the branch. Note: this ends the branch. Prefer using any of the Transform methods for further processing.
     void ForEach(Func<T, Task> func, int? maxParallelism = null)
     Pipeline<T>.Branch<T> Merge(params Pipeline<T>.Branch<T>[] branches)
+    // Outputs all the items from this branch. Note: this ends the branch.
     void Output(int? maxParallelism = null)
+    // Sends a single item directly into this branch.
     void Post(T item)
+    // Sends a collection of items into this branch.
     void Post(List<T> items)
+    // Streams items from an asynchronous sequence into the branch.
     void Post(IAsyncEnumerable<T> stream)
+    // Applies an asynchronous transformation to each item. Note: The expression will be analyzed and all variable values will be used to calculate the processor ID (which will invalidate caches if changed).
     Pipeline<T>.Branch<T> Transform(Expression<Func<T, Task<List<T>>>> transformExpr, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
+    // Batches items and processes each batch with an asynchronous function. Note: The expression will be analyzed and all variable values will be used to calculate the processor ID (which will invalidate caches if changed).
     Pipeline<T>.Branch<T> TransformBatch(Expression<Func<List<T>, Task<List<T>>>> transformExpr, string? id = null, int? maxParallelism = null, int? maxRetries = null, int? maxBatchSize = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
+    // Collects items into batches and transforms each batch with an asynchronous function. Note: Please prefer using the TransformBatch method that takes in an expression for better cache and remote call handling.
     Pipeline<T>.Branch<T> TransformBatchLambda(Func<List<T>, Task<List<T>>> transformFunc, string? id = null, int? maxParallelism = null, int? maxRetries = null, int? maxBatchSize = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
+    // Groups items by a key and processes each group with an asynchronous function. Note: The expression will be analyzed and all variable values will be used to calculate the processor ID (which will invalidate caches if changed).
     Pipeline<T>.Branch<T> TransformGroup(Expression<Func<T, Task<string>>> groupKeySelectorExpr, Expression<Func<List<T>, Task<List<T>>>> transformExpr, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
+    // Groups items by a key and processes each group with an asynchronous function. Note: Please prefer using the TransformGroup method that takes in an expression for better cache and remote call handling.
     Pipeline<T>.Branch<T> TransformGroupLambda(Func<T, Task<string>> groupKeyFunc, Func<List<T>, Task<List<T>>> transformFunc, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
+    // Applies an asynchronous transformation to each item. The function can return zero or more output items per input item. Note: Please prefer using the Transform method that takes in an expression for better cache and remote call handling.
     Pipeline<T>.Branch<T> TransformLambda(Func<T, Task<List<T>>> transformFunc, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
+    // Transforms each item into an asynchronous stream of items. Note: The expression will be analyzed and all variable values will be used to calculate the processor ID (which will invalidate caches if changed).
     Pipeline<T>.Branch<T> TransformStream(Expression<Func<T, IAsyncEnumerable<T>>> transformExpr, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
+    // Applies a stream-to-stream transformation. Note: The expression will be analyzed and all variable values will be used to calculate the processor ID (which will invalidate caches if changed).
     Pipeline<T>.Branch<T> TransformStream(Expression<Func<IAsyncEnumerable<T>, IAsyncEnumerable<T>>> transformExpr, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
+    // Transforms each item into an asynchronous stream of items. Note: Please prefer using the TransformStream method that takes in an expression for better cache and remote call handling.
     Pipeline<T>.Branch<T> TransformStreamLambda(Func<T, IAsyncEnumerable<T>> transformFunc, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
+    // Applies a stream-to-stream asynchronous transformation. Note: Please prefer using the TransformStream method that takes in an expression for better cache and remote call handling.
     Pipeline<T>.Branch<T> TransformStreamLambda(Func<IAsyncEnumerable<T>, IAsyncEnumerable<T>> transformFunc, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
+  // Configuration settings for the PipelineRunner .
   sealed class PipelineRunner.Config
     ctor()
+    // Whether to request all API keys from the backend (admin only).
     bool AllApiKeys { get; set; }
+    // Base directory for persistent cache and state data.
     string? CachePath { get; set; }
+    // Indicates whether existing cache data should be cleared before execution.
     bool ClearCache { get; set; }
+    // Optional path to a JSON configuration file.
     string? ConfigPath { get; set; }
+    // Content cache implementation backing item storage.
     CacheType ContentCacheType { get; set; }
+    // Disables caching of processor outputs unless explicitly re-enabled.
     bool DefaultDisableProcessCache { get; set; }
+    // Optional default degree of parallelism for processors when not overridden.
     int? DefaultMaxProcessParallelism { get; set; }
+    // Optional default retry count for processors when not overridden.
     int? DefaultMaxRetries { get; set; }
+    // Type names of exceptions that should be treated as retryable by default.
     List<string>? DefaultRetryableExceptionTypes { get; set; }
+    // Disables caching of input items.
     bool DisableInputCache { get; set; }
+    // Disables writing metadata files for output items.
     bool DisableMetadataOutput { get; set; }
+    // Disables caching of output items.
     bool DisableOutputCache { get; set; }
+    // Optional path to the assembly containing the pipeline type when loading dynamically.
     string? DllPath { get; set; }
+    // Enables remote client functionality that offloads processors to a host.
     bool EnableRemoteClient { get; set; }
+    // Enables remote host functionality that serves processor calls to clients.
     bool EnableRemoteHost { get; set; }
+    // Enables SSE streaming of output content.
     bool EnableSseOutput { get; set; }
+    // Enumerates ZIP archives for input content when enabled.
     bool EnumerateZips { get; set; }
+    // Optional file path to persist the final status JSON payload.
     string? FinalStatusPath { get; set; }
+    // Ikon backend access token propagated to the hosted pipeline.
     string IkonBackendToken { get; set; }
+    // Ikon backend URL propagated to the hosted pipeline.
     string IkonBackendUrl { get; set; }
+    // Locations that should be scanned for input content.
     List<string>? InputPaths { get; set; }
+    // Indicates that the run is executed in a test context with minimal side effects.
     bool IsTestRun { get; set; }
+    // Keeps the runner active after initial processing to watch for new inputs.
     bool KeepRunning { get; set; }
+    // Log filter level that should be applied when running in an external context.
     int LogFilter { get; set; }
+    // Optional maximum degree of parallelism for reading inputs.
     int? MaxInputReadParallelism { get; set; }
+    // Optional limit for concurrent remote requests.
     int? MaxRemoteRequestParallelism { get; set; }
+    // Emits the final status snapshot after completion.
     bool OutputFinalStatus { get; set; }
+    // Destination paths for persisted output content.
     List<string>? OutputPaths { get; set; }
+    // Maximum number of processor failures tolerated before aborting the run.
     int ProcessFailureThreshold { get; set; }
+    // Identifier used to correlate logs and status updates for this run.
     string? ProcessingId { get; set; }
+    // RabbitMQ connection string used when remote execution is enabled.
     string? RabbitMQConnectionString { get; set; }
+    // Indicates whether directory inputs should be enumerated recursively.
     bool RecursiveInput { get; set; }
+    // Optional whitelist restricting which processors a remote client may execute.
     List<string>? RemoteClientProcessorWhiteList { get; set; }
+    // Interval, in seconds, between input scans when KeepRunning is enabled.
     int ScanInterval { get; set; }
+    // State storage implementation used by the pipeline.
     StateType StateType { get; set; }
+    // Interval, in seconds, between status update callbacks.
     int StatusUpdateInterval { get; set; }
+    // Fully qualified name of the pipeline type to execute.
     string TypeName { get; set; }
+    // Optional pipeline configuration instance supplied by the caller.
     object? UserConfigInstance { get; set; }
+    // Optional user-provided pipeline instance that overrides automatic construction.
     object? UserPipelineInstance { get; set; }
   // Empty configuration sentinel for pipelines that need a host (for Secrets , OrganisationId , SpaceId ) but no user-defined configuration.
   sealed class EmptyPipelineConfig
     ctor()
   // Attribute for exposing a pre-existing pipeline from a framework assembly. Can be placed on the [App] decorated class or on empty marker classes.
   sealed class ExposePipelineAttribute : Attribute
-    // Attribute for exposing a pre-existing pipeline from a framework assembly. Can be placed on the [App] decorated class or on empty marker classes.
     ctor(Type pipelineType, string? name = null, PipelineExecutionMode executionMode = None, string? schedule = null)
     // Execution mode override for the exposed pipeline. If set to a value other than None, overrides the execution mode defined on the original [Pipeline] attribute.
     PipelineExecutionMode ExecutionMode { get; }
@@ -81,7 +139,8 @@ namespace Ikon.Pipeline
     string? Schedule { get; }
   // Extension methods for registering pipelines with the FunctionRegistry.
   static class FunctionRegistryExtensions
-    static void RegisterPipeline<TPipeline>(FunctionRegistry registry, string functionName, string? description = null, object? configInstance = null) where TPipeline : class
+    // Registers a pipeline as a callable function in the registry.
+    static void RegisterPipeline<TPipeline>(this FunctionRegistry registry, string functionName, string? description = null, object? configInstance = null) where TPipeline : class
   // Provides access to the configuration and platform context (secrets, space, organisation) available while a pipeline runs.
   interface IPipelineHost<TConfig>
     // Configuration associated with the host.
@@ -104,7 +163,6 @@ namespace Ikon.Pipeline
     void Dispose()
   // Class attribute for defining a pipeline. When running a pipeline with the pipeline runner, the target class must be decorated with this attribute.
   sealed class PipelineAttribute : Attribute
-    // Class attribute for defining a pipeline. When running a pipeline with the pipeline runner, the target class must be decorated with this attribute.
     ctor(string description = "", int version = 1, string guid = "", Type? inputSchema = null, Type? resultSchema = null, string? name = null, int maxInputItems = 0, PipelineExecutionMode executionMode = None, string? schedule = null)
     // Optional description of the pipeline.
     string Description { get; }
@@ -124,8 +182,14 @@ namespace Ikon.Pipeline
     string? Schedule { get; }
     // Version of the pipeline.
     int Version { get; }
+  // Represents errors raised by the pipeline infrastructure.
+  sealed class PipelineException : Exception
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception innerException)
   // Helper class for creating functions from pipeline types.
   static class PipelineFunction
+    // Creates a function that runs the specified pipeline type.
     static Function Create<TPipeline>(string functionName, string? description = null, object? configInstance = null) where TPipeline : class
   // Transport-friendly representation of a pipeline item for remote function calls. Contains the actual content data (not just a cache reference).
   struct PipelineFunctionItem
@@ -142,19 +206,22 @@ namespace Ikon.Pipeline
     ctor()
     // Releases resources associated with the runner.
     void Dispose()
+    // Initializes the runner with the given configuration. Note: Use the Initialize method for a simplified initialization.
     Task Initialize(PipelineRunner.Config config)
-    Task Initialize<TPipeline>(TPipeline userPipelineInstance = null, object? userConfigInstance = null, bool usePersistentCache = false, string? cachePath = null, bool keepRunning = false, string? outputPath = null, bool allApiKeys = false) where TPipeline : class
+    // Convenience method that initializes the runner using sensible defaults.
+    Task Initialize<TPipeline>(TPipeline? userPipelineInstance = default, object? userConfigInstance = null, bool usePersistentCache = false, string? cachePath = null, bool keepRunning = false, string? outputPath = null, bool allApiKeys = false) where TPipeline : class
     // Simplified initialization used by unit tests.
     Task InitializeForUnitTest()
     // Runs the pipeline with optional in-memory input items and collects all output items into a list. Will return only after the pipeline has completed.
-    Task<List<Item>> Run(List<Item>? items = null, CancellationToken cancellationToken = null)
+    Task<List<Item>> Run(List<Item>? items = null, CancellationToken cancellationToken = default)
     // Runs the pipeline with optional in-memory input items and returns an asynchronous stream of output items.
-    IAsyncEnumerable<Item> RunAsEnumerable(List<Item>? items = null, CancellationToken cancellationToken = null)
+    IAsyncEnumerable<Item> RunAsEnumerable(List<Item>? items = null, CancellationToken cancellationToken = default)
     // This method is meant to be used when running the pipeline loaded in an external assembly load context.
     static Task RunInExternalAssembly(string configJson, Action<string> onStatusUpdate, CancellationToken cancellationToken)
-    static Task RunRemote(PipelineRunner.Config config, Action<PipelineStatus> onStatusUpdate, CancellationToken cancellationToken = null)
+    // Runs the pipeline in remote host and/or client mode.
+    static Task RunRemote(PipelineRunner.Config config, Action<PipelineStatus> onStatusUpdate, CancellationToken cancellationToken = default)
     // Runs the pipeline with optional in-memory input items without collecting output items. Will return only after the pipeline has completed.
-    Task RunWithoutCollecting(List<Item>? items = null, CancellationToken cancellationToken = null)
+    Task RunWithoutCollecting(List<Item>? items = null, CancellationToken cancellationToken = default)
     // Raised whenever the pipeline produces an output item.
     event Pipeline<T>.AsyncEventHandler<Item, Item>? Output
     // Raised periodically with updated pipeline status metrics.
@@ -212,14 +279,22 @@ namespace Ikon.Pipeline
     int WarningLogCount { get; set; }
     // Indicates whether the pipeline was cancelled.
     bool WasCancelled { get; set; }
+  // Snapshot of the current processing statistics for a pipeline instance.
   sealed class Pipeline<T>.PipelineStatus<T> where T : IItem<T>
     ctor()
+    // Total time elapsed since the pipeline started.
     TimeSpan Duration { get; set; }
+    // Count of error log entries produced during execution.
     int ErrorLogCount { get; set; }
+    // Number of processor executions that resulted in failure.
     int ProcessFailureCount { get; set; }
+    // Number of times processors retried execution.
     int ProcessRetryCount { get; set; }
+    // Number of items served from the processor cache.
     int ProcessedItemCacheHits { get; set; }
+    // Number of items processed by the pipeline.
     int ProcessedItemCount { get; set; }
+    // Count of warning log entries produced during execution.
     int WarningLogCount { get; set; }
   // Reactive asynchronous parallel data processing pipeline.
   sealed class Pipeline<T> where T : IItem<T>
@@ -237,7 +312,6 @@ namespace Ikon.Pipeline
     event Pipeline<T>.AsyncEventHandler<T, T>? Output
   // Method attribute for defining a processor. When using processor methods in a pipeline, the method must be decorated with this attribute.
   sealed class ProcessorAttribute : Attribute
-    // Method attribute for defining a processor. When using processor methods in a pipeline, the method must be decorated with this attribute.
     ctor(string? id = null, int version = 1, int maxParallelism = 0, int maxRetries = 0, bool isRemote = false, bool skipCache = false, bool allowDuplicates = true, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
     // Indicates whether duplicate items produced by the processor should be preserved. Defaults to true. Set to false to enable deduplication based on content hash and group ID.
     bool AllowDuplicates { get; set; }
@@ -260,17 +334,22 @@ namespace Ikon.Pipeline
   // Describes additional capabilities or requirements for a processor.
   enum ProcessorTags
     Gpu
+  // Represents a remote processor invocation request emitted by the pipeline.
   sealed class Pipeline<T>.RemoteCall<T> where T : IItem<T>
     ctor(Pipeline<T> pipeline, object? instance, string processorName, object?[] args)
+    // Arguments supplied to the processor method.
     object?[] Args { get; }
+    // Optional processor instance used to execute the call.
     object? Instance { get; }
+    // Pipeline issuing the remote call.
     Pipeline<T> Pipeline { get; }
+    // Name of the processor method being invoked remotely.
     string ProcessorName { get; }
   static class Pipeline<T>.RemoteCallHelper<T> where T : IItem<T>
     static object? BlockOnResult(Task<object?> task)
     static Task<object?> CallRemoteAsync(Pipeline<T> pipeline, object? instance, MethodInfo method, ProcessorAttribute attr, object[] args)
-    static IAsyncEnumerable<TR> CallRemoteStreamAsync<TR>(Pipeline<T> pipeline, object? instance, MethodInfo method, ProcessorAttribute attr, object[] args)
-    static Task<RT> CastTaskResult<RT>(Task<object?> task)
+    static IAsyncEnumerable<TR?> CallRemoteStreamAsync<TR>(Pipeline<T> pipeline, object? instance, MethodInfo method, ProcessorAttribute attr, object[] args)
+    static Task<RT?> CastTaskResult<RT>(Task<object?> task)
     static Task IgnoreTaskResult(Task<object?> task)
 
 namespace Ikon.Pipeline.ContentCache
@@ -281,6 +360,7 @@ namespace Ikon.Pipeline.ContentCache
 namespace Ikon.Pipeline.Items
   // Minimal interface for items processed by the pipeline.
   interface IItem<T>
+    // Determines whether the underlying content can be treated as the specified object type.
     abstract Task<bool> IsObjectAsync<TObject>()
     // Returns a copy of the item with the supplied process identifier.
     abstract T WithProcessId(Guid processId)
@@ -324,7 +404,9 @@ namespace Ikon.Pipeline.Items
     static Task<Item> Create(List<Item> parents, string name, LocalFile content, List<string>? tags = null, ItemMetadata? metadata = null)
     // Overload of Create that reads content from a LocalFile . Use when a tool needs a path on disk. For pre-run items use CreateInitial .
     static Task<Item> Create(Item parent, string name, LocalFile content, List<string>? tags = null, ItemMetadata? metadata = null)
+    // Serializes an object as JSON and creates a new item within the pipeline. Use this from processors. To generate initial items before running the pipeline, call CreateInitialFromObject .
     static Task<Item> CreateFromObject<T>(List<Item> parents, string name, T content, List<string>? tags = null, ItemMetadata? metadata = null, JsonSerializerOptions? jsonSerializerOptions = null)
+    // Overload of CreateFromObject for a single parent item. Use CreateInitialFromObject before running the pipeline and this overload inside the pipeline.
     static Task<Item> CreateFromObject<T>(Item parent, string name, T content, List<string>? tags = null, ItemMetadata? metadata = null, JsonSerializerOptions? jsonSerializerOptions = null)
     // Creates an initial Item before the pipeline is started. Use this to generate input items outside of the pipeline after it has been initialized but before Run is called. Inside the pipeline, use Create instead of CreateInitial.
     static Task<Item> CreateInitial(string name, Stream content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
@@ -332,9 +414,11 @@ namespace Ikon.Pipeline.Items
     static Task<Item> CreateInitial(string name, string content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
     // Convenience overload of CreateInitial that accepts the content as a byte array. Call Create inside the pipeline; use CreateInitial beforehand.
     static Task<Item> CreateInitial(string name, byte[] content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
+    // Serializes an object as JSON and creates an initial item from it. Use this before the pipeline runs; processors should call CreateFromObject during pipeline execution instead.
     static Task<Item> CreateInitialFromObject<T>(string name, T content, ItemMetadata? metadata = null, List<string>? tags = null, JsonSerializerOptions? jsonSerializerOptions = null)
     // Retrieves the item's content as a byte array.
     Task<byte[]> GetContentAsBytes()
+    // Deserializes the item's JSON content into an object.
     Task<TObject> GetContentAsObject<TObject>()
     // Retrieves the item's content as a Stream .
     Task<Stream> GetContentAsStream()
@@ -384,20 +468,17 @@ namespace Ikon.Pipeline.Items
     Task<bool> IsVideoAsync()
     bool IsXml()
     Task<bool> IsXmlAsync()
-    static Item ReadFromTeleport(ReadOnlySpan<byte> data)
     // Creates a copy of this item with optional property overrides.
     Item With(string? name = null, string? mimeType = null, Guid? processId = null, string? groupId = null, List<string>? tags = null, ItemMetadata? metadata = null)
     // Creates a copy of this item with the specified process identifier.
     Item WithProcessId(Guid processId)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
     static string ObjectMimeTypePrefix
-    static uint TeleportVersion
   // Extension methods for Item collections.
   static class ItemExtensions
     // Returns the first item matching the predicate, or null if none found. Use this instead of FirstOrDefault when you need null-checking semantics for Item structs.
-    static Item? FirstOrNull(IEnumerable<Item> items, Func<Item, bool> predicate)
+    static Item? FirstOrNull(this IEnumerable<Item> items, Func<Item, bool> predicate)
     // Returns the first item, or null if the collection is empty. Use this instead of FirstOrDefault when you need null-checking semantics for Item structs.
-    static Item? FirstOrNull(IEnumerable<Item> items)
+    static Item? FirstOrNull(this IEnumerable<Item> items)
   // Optional metadata that can be associated with an item in the pipeline. When outputting an item that has metadata, the metadata will be output alongside the item with .meta.json extension. ItemMetadata is immutable by design to avoid accidental modifications during processing. Use the With method to create modified copies.
   struct ItemMetadata
     // Do not use. Use the constructor which takes a parent ItemMetadata instead.
@@ -432,21 +513,18 @@ namespace Ikon.Pipeline.Items
     IReadOnlyList<string>? TitleHierarchy { get; init; }
     // Last updated timestamp of the original file item, if applicable.
     DateTime? UpdatedAt { get; init; }
-    static ItemMetadata ReadFromTeleport(ReadOnlySpan<byte> data)
     // Because ItemMetadata is immutable, this method allows creating a new instance with modified properties.
     ItemMetadata With(string? previousItemName = null, string? nextItemName = null, string? originalPath = null, string? originalName = null, DateTime? createdAt = null, DateTime? updatedAt = null, string? documentType = null, string? documentTitle = null, IReadOnlyList<string>? titleHierarchy = null, int? pageNumber = null, IReadOnlyList<int>? pageNumbers = null, int? pageCount = null, IReadOnlyDictionary<string, string>? properties = null, string? customJson = null)
-    void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-    static uint TeleportVersion
 
 namespace Ikon.Pipeline.Remote.Bus
   // Abstraction for transporting remote pipeline processor calls between hosts and clients.
   interface IRemoteCallBus
     // Sends a function call from a client to the host and awaits the response.
-    abstract Task<RemoteCallResult> Client_CallHostFunction(RemoteCallMessage message, CancellationToken cancellationToken = null)
+    abstract Task<RemoteCallResult> Client_CallHostFunction(RemoteCallMessage message, CancellationToken cancellationToken = default)
     // Streams host function call results back to clients.
-    virtual IAsyncEnumerable<RemoteCallResult> Client_GetFunctionCallResults(CancellationToken cancellationToken = null)
+    virtual IAsyncEnumerable<RemoteCallResult> Client_GetFunctionCallResults(CancellationToken cancellationToken = default)
     // Retrieves processor calls that the host has dispatched to clients.
-    abstract IAsyncEnumerable<RemoteCallMessage> Client_GetProcessorCalls(CancellationToken cancellationToken = null)
+    abstract IAsyncEnumerable<RemoteCallMessage> Client_GetProcessorCalls(CancellationToken cancellationToken = default)
     // Sends the outcome of a host-executed processor back to a client.
     abstract Task Client_HostProcessorCallResult(RemoteCallResult result)
     // Sends a processor invocation from the host to clients.
@@ -454,22 +532,22 @@ namespace Ikon.Pipeline.Remote.Bus
     // Sends the outcome of a client-executed processor back to the host.
     virtual Task Host_ClientFunctionCallResult(RemoteCallResult result)
     // Retrieves remote function calls destined for the host.
-    virtual IAsyncEnumerable<RemoteCallMessage> Host_GetFunctionCalls(CancellationToken cancellationToken = null)
+    virtual IAsyncEnumerable<RemoteCallMessage> Host_GetFunctionCalls(CancellationToken cancellationToken = default)
     // Streams processor results generated by clients back to the host.
-    abstract IAsyncEnumerable<RemoteCallResult> Host_GetProcessorCallResults(CancellationToken cancellationToken = null)
+    abstract IAsyncEnumerable<RemoteCallResult> Host_GetProcessorCallResults(CancellationToken cancellationToken = default)
   // RabbitMQ-backed implementation of IRemoteCallBus supporting host and client roles.
   sealed class RabbitMQRemoteCallBus : IDisposable, IRemoteCallBus
-    Task<RemoteCallResult> Client_CallHostFunction(RemoteCallMessage message, CancellationToken cancellationToken = null)
-    IAsyncEnumerable<RemoteCallResult> Client_GetFunctionCallResults(CancellationToken cancellationToken = null)
-    IAsyncEnumerable<RemoteCallMessage> Client_GetProcessorCalls(CancellationToken cancellationToken = null)
+    Task<RemoteCallResult> Client_CallHostFunction(RemoteCallMessage message, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<RemoteCallResult> Client_GetFunctionCallResults(CancellationToken cancellationToken = default)
+    IAsyncEnumerable<RemoteCallMessage> Client_GetProcessorCalls(CancellationToken cancellationToken = default)
     Task Client_HostProcessorCallResult(RemoteCallResult result)
     // Creates a new RabbitMQRemoteCallBus configured for the requested roles.
     static Task<RabbitMQRemoteCallBus> CreateAsync(string connectionString, bool isHost, bool isClient, List<string>? processorWhiteList = null)
     void Dispose()
     Task Host_CallProcessor(RemoteCallMessage message)
     Task Host_ClientFunctionCallResult(RemoteCallResult result)
-    IAsyncEnumerable<RemoteCallMessage> Host_GetFunctionCalls(CancellationToken cancellationToken = null)
-    IAsyncEnumerable<RemoteCallResult> Host_GetProcessorCallResults(CancellationToken cancellationToken = null)
+    IAsyncEnumerable<RemoteCallMessage> Host_GetFunctionCalls(CancellationToken cancellationToken = default)
+    IAsyncEnumerable<RemoteCallResult> Host_GetProcessorCallResults(CancellationToken cancellationToken = default)
     // Configures the client-side whitelist of processors to consume.
     void SetWhiteList(List<string>? processorNames)
   // Represents a remote invocation request exchanged between pipeline hosts and clients.
@@ -484,7 +562,8 @@ namespace Ikon.Pipeline.Remote.Bus
     Guid CorrelationId { get; set; }
     // Name of the processor that should handle the call.
     string ProcessorName { get; set; }
-    T GetArg<T>(int index)
+    // Deserializes the argument at the specified index.
+    T? GetArg<T>(int index)
   // Represents the outcome of a remote processor invocation.
   sealed class RemoteCallResult
     // Initializes a new RemoteCallResult for serialization.
@@ -501,7 +580,8 @@ namespace Ikon.Pipeline.Remote.Bus
     string? ResultJson { get; set; }
     // Indicates whether the call succeeded, failed, or produced streaming output.
     RemoteCallResultType ResultType { get; set; }
-    T GetResult<T>()
+    // Deserializes the result payload to the requested type.
+    T? GetResult<T>()
   // Indicates how a remote call completed and whether additional messages follow.
   enum RemoteCallResultType
     Success

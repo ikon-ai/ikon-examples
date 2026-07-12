@@ -19,7 +19,7 @@ private void RenderOverviewMapView(UIView view)
         view.Row(["justify-between items-center px-4 py-2 border-b border-[#1E2E22]"], content: view =>
         {
             view.Text(["text-xs font-bold text-[#9FB5A3] tracking-wider"], "TACTICAL MAP");
-            view.Text(["text-xs text-[#9FB5A3]"], $"{_fleet.Value.Count} SILOS  {_activeDrones.Value.Count} ACTIVE  {_targets.Value.Count} TARGETS");
+            view.Text(["text-xs text-[#9FB5A3]"], $"{_fleet.Count} SILOS  {_activeDrones.Count} ACTIVE  {_targets.Count} TARGETS");
         });
 
         var markers = BuildMapMarkers();
@@ -43,11 +43,12 @@ private void RenderOverviewMapView(UIView view)
     });
 }
 
+// _fleet / _activeDrones / _targets are ReactiveList<T> — enumerate and Count them directly.
 private List<MapMarker> BuildMapMarkers()
 {
     var markers = new List<MapMarker>();
 
-    foreach (var silo in _fleet.Value)
+    foreach (var silo in _fleet)
     {
         var ready = silo.Slots.Count(s => s.Status == SlotStatus.Ready);
         var total = silo.Slots.Count;
@@ -60,7 +61,7 @@ private List<MapMarker> BuildMapMarkers()
         });
     }
 
-    foreach (var target in _targets.Value)
+    foreach (var target in _targets)
     {
         markers.Add(new MapMarker
         {
@@ -77,7 +78,7 @@ private List<MapMarker> BuildMapMarkers()
 ## Notes
 
 - The map is a leaf component — you don't draw inside it; you hand it data and a click handler.
-- Re-derive the marker list every render from `Reactive<List<...>>` state. The diff is what gets streamed.
+- Re-derive the marker list every render from `ReactiveList<T>` state — enumerating the reactive (`foreach (var silo in _fleet)`) and reading `.Count` are tracked reads, so the map re-renders when the fleet changes. The diff is what gets streamed.
 - Marker `Type` is a free string; the React side picks an icon based on it. Conventional values: `silo`, `target`, `drone`, `track`.
 - Center the map on the most relevant entity (active drone → silo → fallback hardcoded coord) — see `GetMapCenter`.
 - `paths` (polylines) and `areaOverlays` are optional; pass `null` to skip rather than empty lists for clarity.

@@ -17,8 +17,11 @@ private void RenderStatesTab(UIView view)
         view.Button([Button.PrimaryMd, "w-full"], "+ Add State",
             onClick: async () => { AddState(); });
 
-        foreach (var state in _states.Value)
+        // _states is a ReactiveList<CharacterState>; loop by index so handlers can write the item back.
+        for (var i = 0; i < _states.Count; i++)
         {
+            var index = i;
+            var state = _states[i];
             var stateId = state.Id;
             view.Column([Card.Default, "p-3", Layout.Column.Sm], content: view =>
             {
@@ -28,7 +31,7 @@ private void RenderStatesTab(UIView view)
                     onValueChange: async value =>
                     {
                         state.Name = value;
-                        _states.Value = new List<CharacterState>(_states.Value);
+                        _states[index] = state;   // indexer setter fires the one notification
                     });
 
                 // ... image upload / thumbnail ...
@@ -51,10 +54,10 @@ private void RenderStatesTab(UIView view)
 
 private void RenderTransitionsTab(UIView view)
 {
-    foreach (var transition in _transitions.Value)
+    foreach (var transition in _transitions)
     {
-        var sourceState = _states.Value.Find(s => s.Id == transition.SourceStateId);
-        var targetState = _states.Value.Find(s => s.Id == transition.TargetStateId);
+        var sourceState = _states.First(s => s.Id == transition.SourceStateId);
+        var targetState = _states.First(s => s.Id == transition.TargetStateId);
         var transitionId = transition.Id;
 
         view.Row([Card.Default, "p-3 items-center gap-2"], content: view =>
@@ -81,8 +84,8 @@ private void RenderTransitionsTab(UIView view)
 ## Notes
 
 - Per-item status enum (`Idle / Generating / Complete / Failed`) drives both the button label and an inline glyph — single source of truth, no parallel busy flags.
-- Capture `var stateId = state.Id;` before the `onClick` lambda so the closure doesn't bind to the loop variable.
-- After mutating an item field in-place, re-assign the list to its reactive (`_states.Value = new List<...>(_states.Value)`) to fire the change notification — Reactive<List<T>> diffs by reference, not by deep equality.
+- Capture `var stateId = state.Id;` and `var index = i;` before the `onClick` lambda so the closure doesn't bind to the loop variable.
+- States and transitions are `ReactiveList<T>` fields. A field write inside an item is invisible to the list, so after mutating an item in place assign it back through the indexer (`_states[index] = state`) — one notification. Never rebuild the list by hand: `_states.Value` is an `IReadOnlyList<T>` snapshot, so `.Value.Add` / `.Value.Find` / `.Value[i] =` do not compile. Read with `foreach (var t in _transitions)`, `_states.First(…)`, `_states.Count`.
 - Provide a "Generate All" bulk-action button at the top of each tab; it kicks off the per-item loops in parallel.
 - Auto-create the transitions cross-product whenever a state with an image is added; users won't manually wire them.
 

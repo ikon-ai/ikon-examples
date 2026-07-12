@@ -12,7 +12,7 @@ Project board, sprint planning, content pipeline (idea → drafting → publishe
 public sealed record Card(string Id, string Title, string? Description, int ColumnIndex);
 
 private static readonly string[] Columns = ["Todo", "In Progress", "Done"];
-private readonly Reactive<List<Card>> _cards = new([]);
+private readonly ReactiveList<Card> _cards = new();
 private readonly Reactive<string> _newTitle = new("");
 private readonly Reactive<bool> _busy = new(false);
 
@@ -20,27 +20,26 @@ private void AddCard()
 {
     var title = _newTitle.Value.Trim();
     if (string.IsNullOrEmpty(title)) return;
-    _cards.Value = [.. _cards.Value, new Card(Guid.NewGuid().ToString("N"), title, null, 0)];
+    _cards.Add(new Card(Guid.NewGuid().ToString("N"), title, null, 0));
     _newTitle.Value = "";
 }
 
 private void Move(string id, int delta)
 {
-    _cards.Value = _cards.Value
+    _cards.Update(cards => cards
         .Select(c => c.Id == id
             ? c with { ColumnIndex = Math.Clamp(c.ColumnIndex + delta, 0, Columns.Length - 1) }
-            : c)
-        .ToList();
+            : c));
 }
 
 private async Task AiPlanAsync(string description)
 {
     if (_busy.Value) return;
     using var _ = _busy.AsToken();
-    var (generated, _) = await Emerge.Run<List<Card>>(LLMModel.Claude45Haiku, new KernelContext(),
+    var generated = await Emerge.Run<List<Card>>(LLMModel.Claude45Haiku,
         pass => { pass.Command = $"Project description: {description}\n\nGenerate 6-10 starter kanban cards. Distribute across columns 0=Todo, 1=In Progress, 2=Done based on what's actionable now vs blocked vs done."; })
-        .FinalAsync();
-    _cards.Value = [.. _cards.Value, .. (generated ?? []).Select(g => g with { Id = Guid.NewGuid().ToString("N") })];
+        .ResultAsync();
+    _cards.AddRange(generated.Select(g => g with { Id = Guid.NewGuid().ToString("N") }));
 }
 
 // UI:
@@ -49,7 +48,7 @@ view.Row(["gap-4 p-4 items-start"], content: view =>
     for (int colIdx = 0; colIdx < Columns.Length; colIdx++)
     {
         var idx = colIdx;
-        var cardsInCol = _cards.Value.Where(c => c.ColumnIndex == idx).ToList();
+        var cardsInCol = _cards.Where(c => c.ColumnIndex == idx).ToList();
         view.Column(["flex-1 bg-surface rounded-lg p-3 gap-2 min-w-0"], content: view =>
         {
             view.Row(["items-center justify-between"], content: v =>
@@ -96,8 +95,8 @@ view.Row(["gap-4 p-4 items-start"], content: view =>
 ## Notes
 
 - Columns are computed from `_cards`'s `ColumnIndex`, not stored separately. One source of truth.
-- Move uses `c with { ColumnIndex = ... }` (record `with` expression) and reassigns the whole list.
-- Multi-user safe: shared `Reactive<List<Card>>`, every client sees the same board updates.
+- `_cards` is a `ReactiveList<Card>` — `Add`/`AddRange` notify on their own; the element-wise Move is one `_cards.Update(cards => …)` with `c with { ColumnIndex = ... }` (record `with` expression), one notification for the whole transform.
+- Multi-user safe: shared `ReactiveList<Card>`, every client sees the same board updates.
 - AI Plan uses **structured output** (`Emerge.Run<List<Card>>`) — the LLM returns typed cards directly, no JSON parsing.
 - Drag-and-drop: this snippet uses Move buttons for clarity; for true HTML5 drag-and-drop, see ui-components guide's drag-and-drop section. Buttons are accessible and work on mobile, drag-and-drop is nice-to-have on top.
 - Each column has its own empty-state branch.

@@ -48,9 +48,8 @@ internal static class GenerateGlobeDataShader
             For internet, developed regions should show higher connectivity.
             """;
 
-        var (result, _) = await Emerge.Run<GlobeDataSet>(
+        var result = await Emerge.Run<GlobeDataSet>(
             LLMModel.Gpt41,
-            new KernelContext(),
             pass =>
             {
                 pass.Command = command;
@@ -58,7 +57,7 @@ internal static class GenerateGlobeDataShader
                 pass.MaxOutputTokens = 8000;
             },
             cancellationToken
-        ).FinalAsync();
+        ).ResultAsync();
 
         return result;
     }

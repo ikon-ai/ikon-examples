@@ -27,16 +27,15 @@ internal static class ProcessDataQueryShader
             - "Carbon footprint" -> CO2 emissions
             """;
 
-        var (result, _) = await Emerge.Run<DataQueryResult>(
+        var result = await Emerge.Run<DataQueryResult>(
             LLMModel.Gpt41Mini,
-            new KernelContext(),
             pass =>
             {
                 pass.Command = command;
                 pass.Temperature = 0.3f;
             },
             cancellationToken
-        ).FinalAsync();
+        ).ResultAsync();
 
         return result;
     }

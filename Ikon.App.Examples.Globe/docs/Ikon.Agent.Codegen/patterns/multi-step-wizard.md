@@ -57,11 +57,11 @@ private void RenderWizardFooter(UIView view)
     view.Row(["flex items-center justify-end gap-2 px-6 py-6 border-t"], content: view =>
     {
         if (_wizardStep.Value > 0)
-            view.Button([Button.OutlineMd], label: T("Back"),
+            view.Button([Button.OutlineMd], text: T("Back"),
                 onClick: async () => _wizardStep.Value -= 1);
 
         if (_wizardStep.Value < WizardStepLabels.Length - 1)
-            view.Button([Button.PrimaryMd], label: T("Next"),
+            view.Button([Button.PrimaryMd], text: T("Next"),
                 onClick: async () =>
                 {
                     _wizardStep.Value += 1;
@@ -69,7 +69,7 @@ private void RenderWizardFooter(UIView view)
                         _wizardHighestStep.Value = _wizardStep.Value;
                 });
         else
-            view.Button([Button.PrimaryMd], label: T("Create"),
+            view.Button([Button.PrimaryMd], text: T("Create"),
                 disabled: _isLoading.Value, onClick: async () => await ProcessWizardSubmitAsync());
     });
 }

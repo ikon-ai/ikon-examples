@@ -10,7 +10,7 @@ public record ClientParams;
 [App]
 public partial class Globe(IApp<SessionIdentity, ClientParams> app)
 {
-    private UI UI { get; } = new(app, new Theme());
+    private UI UI { get; } = new(app, new IkonTheme());
 
     private readonly Reactive<string> _queryText = new("");
     private readonly Reactive<bool> _isProcessing = new(false);
