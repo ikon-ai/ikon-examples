@@ -17,7 +17,7 @@ private static string[] GetProcessingStatusStyle(ProcessingStatus status) => sta
     ProcessingStatus.Processing => [Badge.InfoSm],
     ProcessingStatus.Done => [Badge.SuccessSm],
     ProcessingStatus.Error => [Badge.ErrorSm],
-    _ => [Badge.GreySm]
+    _ => [Badge.NeutralSm]
 };
 
 // Mid-state override: file is "Done" in the DB but classification still running.
@@ -39,13 +39,13 @@ private (string[] Style, string Label) GetEvidenceStrengthBucketDisplay(string? 
         "sourceoriginal" => (new[] { Badge.InfoSm }, T("Source-original")),
         "derivedcompiled" => (new[] { Badge.WarningSm }, T("Derived")),
         "weakscreenshot" => (new[] { Badge.ErrorSm }, T("Weak / screenshot")),
-        "unknown" => (new[] { Badge.GreySm }, T("Unknown")),
+        "unknown" => (new[] { Badge.NeutralSm }, T("Unknown")),
         _ => (Array.Empty<string>(), "")
     };
 
 // At the call site:
 Cell.Badge(statusLabel, style: GetProcessingStatusStyle(file));
-view.Text([Badge.GreySm], FormatDocumentKind(parsed.DocumentKind ?? "-"));
+view.Text([Badge.NeutralSm], FormatDocumentKind(parsed.DocumentKind ?? "-"));
 ```
 
 ## Notes

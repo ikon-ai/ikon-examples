@@ -136,14 +136,23 @@ This matters because Parallax button styles use semantic tokens. `Button.GhostMd
 Two ways to avoid this:
 
 1. **Use semantic background tokens** that follow the theme: `bg-background`, `bg-card`, `bg-muted`, `bg-tertiary`. These flip automatically with the theme, so `text-primary` always contrasts.
-2. **Set the theme explicitly** to match the UI you're rendering. The scaffolded `TemplateApp.cs` does this in `ClientJoinedAsync`:
+2. **Set the theme explicitly** to match the UI you're rendering. The canonical form is one `UI.UseTheme()` call in `Main`:
    ```csharp
-   app.ClientJoinedAsync += async args =>
+   private ThemeControl _theme = null!;
+
+   public async Task Main()
    {
-       await ClientFunctions.SetThemeAsync(args.ClientSessionId, "dark");
-   };
+       _theme = UI.UseTheme(); // defaults: dark, and follows a client's own saved theme
+       ...
+   }
    ```
-   If you rewrite the app body and remove this boilerplate, you re-introduce the trap. Keep it in any app that uses fixed dark Crosswind palette classes for surfaces.
+   `UseTheme(Theme defaultTheme = Theme.Dark, bool followClient = true)` syncs every joining client — with `followClient: true` a client that already has a theme keeps it and clients without one get `defaultTheme`; with `followClient: false` every client is forced to `defaultTheme`. It returns a `ThemeControl` whose `Current` (`ClientReactive<string>`) is bindable in views and whose `ToggleAsync` / `SetAsync` switch the calling client's theme:
+   ```csharp
+   view.Button([Button.GhostMd, Button.Icon],
+       onClick: _theme.ToggleAsync,
+       content: v => v.Icon([Icon.Default], name: _theme.Current.Value == Theme.Dark.ToThemeName() ? "sun" : "moon"));
+   ```
+   Do not hand-roll the `ClientJoinedAsync` + `ClientFunctions.SetThemeAsync` ceremony this replaces — and if you rewrite the app body and drop the `UseTheme` call, you re-introduce the trap. Keep it in any app that uses fixed dark Crosswind palette classes for surfaces.
 
 The same applies in reverse for a fixed-light UI: don't strand `text-primary` on a fixed-white background while the theme is dark.
 

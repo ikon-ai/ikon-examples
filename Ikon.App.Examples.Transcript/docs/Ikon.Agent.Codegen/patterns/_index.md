@@ -17,7 +17,7 @@
 - `streaming-agent-status` — Threads-style live LiveState block surfacing.
 - `quick-reply-options-from-llm` — `<ask>...<option>` pills from LLM output.
 - `clickable-reference-card-in-chat` — LLM tool emits clickable detail cards.
-- `orchestrator-thread-with-tools` — Orchestrator + ThreadStore + tool-providing Skill.
+- `orchestrator-thread-with-tools` — Orchestrator + Persona + tool-providing Skill.
 - `embedded-coding-agent-tools` — agent that writes/edits code as the user.
 - `plan-then-code-iteration` — plan → revise → execute agentic loop.
 

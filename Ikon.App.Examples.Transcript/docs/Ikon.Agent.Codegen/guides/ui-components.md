@@ -24,11 +24,11 @@ view.Column(["h-screen"], content: view =>
     // Scrollable message area with auto-scroll
     view.ScrollArea(
         autoScroll: true,
-        autoScrollKey: _messages.Value.Count.ToString(),
+        autoScrollKey: _messages.Count.ToString(),
         rootStyle: ["flex-1 min-h-0 px-4"],
         content: view =>
         {
-            foreach (var msg in _messages.Value)
+            foreach (var msg in _messages)
             {
                 view.Box(["py-2"], content: view =>
                 {
@@ -49,8 +49,7 @@ view.Column(["h-screen"], content: view =>
                 // separately and may not have landed when onSubmit fires for a fast typist.
                 if (!string.IsNullOrWhiteSpace(submitted))
                 {
-                    _messages.Value.Add(new Message("User", submitted));
-                    _messages.NotifyUpdate();
+                    _messages.Add(new Message("User", submitted));
                 }
             },
             clearOnSubmit: true);
@@ -72,8 +71,8 @@ view.Markdown("**Bold** and `code`");
 ### Input
 
 ```csharp
-view.Button([Button.PrimaryMd], label: "Click", onClick: async () => { ... });
-view.Button([Button.OutlineMd], label: "Secondary", disabled: isLoading, onClick: async () => { ... });
+view.Button([Button.PrimaryMd], text: "Click", onClick: async () => { ... });
+view.Button([Button.OutlineMd], text: "Secondary", disabled: isLoading, onClick: async () => { ... });
 view.Button([Button.GhostMd, Button.Icon], onClick: async () => { ... },
     content: v => v.Icon([Icon.Default], name: "settings"));
 view.TextField(bind: _text, placeholder: "Enter text",
@@ -137,7 +136,7 @@ view.Image(["rounded-lg"], data: bytes, mimeType: MimeTypes.ImageJpeg);  // From
 // Dialog
 view.Dialog(open: _open.Value, onOpenChange: async o => _open.Value = o,
     overlayStyle: [Dialog.Overlay], contentStyle: [Dialog.Content],
-    trigger: view => view.Button([Button.OutlineMd], label: "Open"),
+    trigger: view => view.Button([Button.OutlineMd], text: "Open"),
     contentSlot: view =>
     {
         view.Box([Dialog.Header], content: view =>
@@ -148,15 +147,15 @@ view.Dialog(open: _open.Value, onOpenChange: async o => _open.Value = o,
         view.Text([Text.Body, "my-4"], "Content");
         view.Box([Dialog.Footer], content: view =>
         {
-            view.Button([Button.OutlineMd], label: "Cancel", onClick: async () => _open.Value = false);
-            view.Button([Button.PrimaryMd], label: "Confirm", onClick: async () => _open.Value = false);
+            view.Button([Button.OutlineMd], text: "Cancel", onClick: async () => _open.Value = false);
+            view.Button([Button.PrimaryMd], text: "Confirm", onClick: async () => _open.Value = false);
         });
     });
 
 // AlertDialog
 view.AlertDialog(open: _alertOpen.Value, onOpenChange: async o => _alertOpen.Value = o,
     overlayStyle: [AlertDialog.Overlay], contentStyle: [AlertDialog.Content],
-    trigger: view => view.Button([Button.ErrorMd], label: "Delete"),
+    trigger: view => view.Button([Button.ErrorMd], text: "Delete"),
     title: "Are you sure?", titleStyle: [AlertDialog.Title],
     description: "This action cannot be undone.", descriptionStyle: [AlertDialog.Description],
     footerStyle: [AlertDialog.Footer], cancelLabel: "Cancel", cancelStyle: [AlertDialog.Cancel],
@@ -165,10 +164,10 @@ view.AlertDialog(open: _alertOpen.Value, onOpenChange: async o => _alertOpen.Val
 // Popover, Tooltip, HoverCard
 view.Popover(open: _popOpen.Value, onOpenChange: async o => _popOpen.Value = o,
     contentStyle: [Popover.Content],
-    trigger: view => view.Button([Button.OutlineMd], label: "Open"),
+    trigger: view => view.Button([Button.OutlineMd], text: "Open"),
     contentSlot: view => { ... });
 view.Tooltip(contentStyle: [Tooltip.Content],
-    trigger: view => view.Button([Button.OutlineMd], label: "Hover me"),
+    trigger: view => view.Button([Button.OutlineMd], text: "Hover me"),
     contentSlot: view => view.Text(text: "Tooltip text"));
 view.HoverCard(contentStyle: [HoverCard.Content],
     trigger: view => view.Text([Text.Link], "@user"),
@@ -217,7 +216,7 @@ view.AccordionSingle(value: _accordionValue.Value,
 view.Collapsible(open: _open.Value, onOpenChange: async o => _open.Value = o,
     content: view =>
     {
-        view.CollapsibleTrigger(content: view => view.Button(label: "Toggle"));
+        view.CollapsibleTrigger(content: view => view.Button(text: "Toggle"));
         view.CollapsibleContent(content: view => { ... });
     });
 

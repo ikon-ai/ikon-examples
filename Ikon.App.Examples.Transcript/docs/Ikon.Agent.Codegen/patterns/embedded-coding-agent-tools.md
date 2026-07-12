@@ -12,38 +12,38 @@ You want the LLM to edit files in a sandboxed workspace inside your app. The use
 ```csharp
 private void RegisterTools(EmergePass<AgentResponse> pass)
 {
-    pass.AddTool("ReadFile",
+    pass.AddTool(Tool.Of("ReadFile",
         "Read a file. Returns line-numbered output. When editing, do not include the '<line>\\t' prefix.",
-        (string filePath) => ToolReadFile(filePath));
+        (string filePath) => ToolReadFile(filePath)));
 
-    pass.AddTool("WriteFile",
+    pass.AddTool(Tool.Of("WriteFile",
         "Create or overwrite a file. You must read a file before overwriting it.",
-        (string filePath, string content) => ToolWriteFile(filePath, content));
+        (string filePath, string content) => ToolWriteFile(filePath, content)));
 
-    pass.AddTool("EditFile",
+    pass.AddTool(Tool.Of("EditFile",
         "Replace text in a file. oldString must match exactly. Set replaceAll=true for all occurrences.",
         (string filePath, string oldString, string newString, bool replaceAll) =>
-            ToolEditFile(filePath, oldString, newString, replaceAll));
+            ToolEditFile(filePath, oldString, newString, replaceAll)));
 
-    pass.AddTool("ListFiles",
+    pass.AddTool(Tool.Of("ListFiles",
         "List files and directories. Use path parameter to list a subdirectory.",
-        (string path) => ToolListFiles(path));
+        (string path) => ToolListFiles(path)));
 
-    pass.AddTool("SearchFiles",
+    pass.AddTool(Tool.Of("SearchFiles",
         "Find files matching a glob pattern (e.g. '**/*.cs').",
-        (string pattern) => ToolSearchFiles(pattern));
+        (string pattern) => ToolSearchFiles(pattern)));
 
-    pass.AddTool("SearchContent",
+    pass.AddTool(Tool.Of("SearchContent",
         "Search file contents for a regex. Returns matching paths.",
-        (string pattern, string path) => ToolSearchContent(pattern, path));
+        (string pattern, string path) => ToolSearchContent(pattern, path)));
 
-    pass.AddTool("BuildApp",
+    pass.AddTool(Tool.Of("BuildApp",
         "Run 'dotnet build'. Always build before saving to ensure code compiles.",
-        async () => await ToolBuildApp());
+        async () => await ToolBuildApp()));
 
-    pass.AddTool("SaveToGit",
+    pass.AddTool(Tool.Of("SaveToGit",
         "Commit all changes with the given message and push. Save after each meaningful change.",
-        async (string message) => await ToolSaveToGit(message));
+        async (string message) => await ToolSaveToGit(message)));
 }
 ```
 

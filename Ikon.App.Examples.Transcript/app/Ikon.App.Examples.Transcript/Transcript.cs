@@ -37,7 +37,7 @@ public sealed class TranscriptChunkSummary
 [App]
 public class Transcript(IApp<SessionIdentity, ClientParams> app)
 {
-    private UI UI { get; } = new(app, new Theme());
+    private UI UI { get; } = new(app, new IkonTheme());
     private SpeechRecognizer SpeechRecognizer { get; } = new(SpeechRecognizerModel.WhisperLarge3Turbo);
 
     private readonly Reactive<PendingUpload?> _pendingUpload = new(null);
@@ -143,8 +143,8 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
                             {
                                 view.Switch(
                                     [Switch.Default],
-                                    isChecked: _generateSummary.Value,
-                                    onCheckedChange: async value => _generateSummary.Value = value,
+                                    value: _generateSummary.Value,
+                                    onValueChange: async value => _generateSummary.Value = value,
                                     content: view => view.SwitchThumb([Switch.Thumb]));
                                 view.Text([Text.Caption], "Generate summary and action items");
                             });
@@ -153,13 +153,13 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
                             {
                                 view.Button(
                                     [Button.PrimaryMd],
-                                    label: _isTranscribing.Value ? "Transcribing..." : "Transcribe",
+                                    text: _isTranscribing.Value ? "Transcribing..." : "Transcribe",
                                     disabled: _isTranscribing.Value || _pendingUpload.Value == null,
                                     onClick: async () => await StartTranscriptionAsync());
 
                                 view.Button(
                                     [Button.OutlineMd],
-                                    label: "Clear",
+                                    text: "Clear",
                                     disabled: _isTranscribing.Value,
                                     onClick: async () => ClearCurrentTranscript());
                             });
@@ -256,7 +256,7 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
 
                                             view.Button(
                                                 [Button.OutlineSm, "mt-3"],
-                                                label: "Load",
+                                                text: "Load",
                                                 onClick: async () => await LoadTranscriptAsync(entry));
                                         });
                                     }

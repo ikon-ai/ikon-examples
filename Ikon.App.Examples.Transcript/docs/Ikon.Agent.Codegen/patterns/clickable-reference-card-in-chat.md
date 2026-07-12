@@ -41,7 +41,7 @@ private void RenderEntityReferenceCard(UIView view, ChatMessageEntry message)
         wrapper.Button(
             [.. GetEntityTypeBadgeStyle(parsedType),
                 "w-full text-left border border-secondary rounded-lg px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"],
-            label: message.EntityReferenceName.Value ?? "",
+            text: message.EntityReferenceName.Value ?? "",
             onClick: async () =>
             {
                 _selectedEntityId.Value = message.EntityReferenceId.Value;
@@ -70,11 +70,10 @@ private void RenderEntityReferenceCard(UIView view, ChatMessageEntry message)
 }
 
 // In RegisterChatTools:
-pass.AddTool<ChatResponse, string[], EmergeResult>(
-    "refer_entities",
+pass.AddTool(Tool.Of("refer_entities",
     "Display interactive entity reference cards in the chat for one or more entities. " +
     "Use this when discussing specific entities to let the user click through to their full details.",
-    async (string[] entityNames) => await ReferEntitiesAsync(caseId, entityNames));
+    async (string[] entityNames) => await ReferEntitiesAsync(caseId, entityNames)));
 ```
 
 ## Notes

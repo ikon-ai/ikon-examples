@@ -12,7 +12,7 @@ Research assistant, news summarizer, fact-checker, "ask the internet" tools, cit
 public sealed record Answer(string Question, string Synthesis, List<Source> Sources);
 public sealed record Source(string Title, string Url, string Snippet);
 
-private readonly Reactive<List<Answer>> _answers = new([]);
+private readonly ReactiveList<Answer> _answers = new();
 private readonly Reactive<string> _question = new("");
 private readonly Reactive<string?> _phase = new(null); // null | "Searching" | "Synthesizing"
 private readonly Reactive<string?> _error = new(null);
@@ -33,12 +33,12 @@ private async Task ResearchAsync()
         var sources = results.Select(r => new Source(r.Title, r.Url, r.Content)).ToList();
         var context = string.Join("\n", sources.Select((s, i) => $"[{i + 1}] {s.Title}\n{s.Snippet}"));
 
-        var (synthesisRaw, _) = await Emerge.Run<string>(LLMModel.Claude46Sonnet, new KernelContext(),
+        var synthesisRaw = await Emerge.Run<string>(LLMModel.Claude46Sonnet,
             pass => { pass.Command = $"Question: {q}\n\nSearch results:\n{context}\n\nWrite a concise answer citing sources by number [1], [2]…"; })
-            .FinalAsync();
+            .ResultAsync();
         var synthesis = string.IsNullOrEmpty(synthesisRaw) ? "(no synthesis)" : synthesisRaw;
 
-        _answers.Value = [new Answer(q, synthesis, sources), .. _answers.Value]; // newest first
+        _answers.Insert(0, new Answer(q, synthesis, sources)); // newest first
         _question.Value = "";
     }
     catch (Exception ex)
@@ -74,7 +74,7 @@ if (_error.Value is string err)
         v.Text(text: err));
 }
 
-if (_answers.Value.Count == 0 && _phase.Value == null)
+if (_answers.Count == 0 && _phase.Value == null)
 {
     view.Box(["text-center text-muted-foreground p-12"], content: v =>
         v.Text(text: "Ask a question to get an answer with sources."));
@@ -82,7 +82,7 @@ if (_answers.Value.Count == 0 && _phase.Value == null)
 
 view.Column(["gap-4 p-4"], content: view =>
 {
-    foreach (var ans in _answers.Value)
+    foreach (var ans in _answers)
     {
         view.Box(["bg-surface rounded-lg p-4 gap-3"], content: v =>
         {
@@ -110,7 +110,7 @@ view.Column(["gap-4 p-4"], content: view =>
 - The fetch call is `searcher.SearchPagesAsync(new SearchConfig { Query = ..., MaxResults = ... })`. There is no positional `SearchAsync(string, int)` overload — use the config object. `SearchImagesAsync` is the image-search counterpart.
 - `SearchResult` exposes `Url`, `Title`, `Content`, `Mimetype`, `Keywords`. There is no `Snippet` property — use `Content` for the body text.
 - Sources displayed alongside the synthesis with clickable links. Citation numbers in the prose match the list.
-- Newest-first prepend (`[new, ..old]`).
+- Answers live in a `ReactiveList<Answer>`; newest-first prepend is `_answers.Insert(0, answer)` — one notification, no list rebuild. `Count` and enumeration of the reactive itself are tracked reads.
 
 ## See also
 

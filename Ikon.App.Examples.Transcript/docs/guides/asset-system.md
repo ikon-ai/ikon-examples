@@ -87,7 +87,6 @@ await Asset.Instance.DeleteAsync(uri);
 namespace Ikon.Common.Core.Assets
   sealed class Asset : AsyncLocalInstance<Asset>, IAsyncDisposable
     ctor()
-    IkonBackend? Backend { get; set; }
     Task AddStorageAsync(AssetClass assetClass, IStorage storage, bool startInBackground = false)
     Task DeleteAsync(AssetUri assetUri)
     ValueTask DisposeAsync()
@@ -102,27 +101,23 @@ namespace Ikon.Common.Core.Assets
     Task<string> GetTextAsync(AssetUri assetUri, Encoding? encoding = null)
     Task<AssetContent<string>> GetTextWithMetadataAsync(AssetUri assetUri, Encoding? encoding = null)
     Task<AssetContent<T>> GetWithMetadataAsync<T>(AssetUri assetUri) where T : class
-    Task<Stream> GetWriteStreamAsync(AssetUri assetUri, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
-    Task<IReadOnlyList<AssetListingEntry>> ListAsync(AssetQuery query, CancellationToken cancellationToken = null)
-    Task<IReadOnlyList<AssetUri>> ListAsync(AssetClass assetClass, string? prefix = null, CancellationToken cancellationToken = null)
-    Task<IReadOnlyList<AssetUri>> ListAsync(AssetUri folderUri, CancellationToken cancellationToken = null)
+    Task<Stream> GetWriteStreamAsync(AssetUri assetUri, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
+    Task<IReadOnlyList<AssetListingEntry>> ListAsync(AssetQuery query, CancellationToken cancellationToken = default)
+    Task<IReadOnlyList<AssetUri>> ListAsync(AssetClass assetClass, string? prefix = null, CancellationToken cancellationToken = default)
+    Task<IReadOnlyList<AssetUri>> ListAsync(AssetUri folderUri, CancellationToken cancellationToken = default)
     Task NotifyUpdateAsync(AssetUri assetUri)
-    Task SetAsync<T>(AssetUri assetUri, T asset, AssetMetadata? metadata = null, CancellationToken cancellationToken = null) where T : class
-    Task SetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
-    Task SetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
-    Task<T> TryGetAsync<T>(AssetUri assetUri) where T : class
+    Task SetAsync<T>(AssetUri assetUri, T asset, AssetMetadata? metadata = null, CancellationToken cancellationToken = default) where T : class
+    Task SetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
+    Task SetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
+    Task<T?> TryGetAsync<T>(AssetUri assetUri) where T : class
     Task<byte[]?> TryGetBytesAsync(AssetUri assetUri)
     Task<AssetContent<byte[]>?> TryGetBytesWithMetadataAsync(AssetUri assetUri)
     Task<AssetMetadata?> TryGetMetadataAsync(AssetUri assetUri)
     Task<string?> TryGetTextAsync(AssetUri assetUri, Encoding? encoding = null)
     Task<AssetContent<string>?> TryGetTextWithMetadataAsync(AssetUri assetUri, Encoding? encoding = null)
     Task<AssetContent<T>?> TryGetWithMetadataAsync<T>(AssetUri assetUri) where T : class
-    Task<AssetWriteResult> TrySetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
-    Task<AssetWriteResult> TrySetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = null)
-  // Ambient override for the IkonBackend that cloud asset storages resolve against. While a scope is active, asset reads and writes that fall back to the default backend use Current instead of Instance . Lets a process resolve a caller's assets with the caller's space-scoped token when it acts on behalf of another space (e.g. the LLM RPC proxy). The scope is never set automatically; callers opt in explicitly with Use .
-  static class AssetBackendScope
-    static IkonBackend? Current { get; }
-    static IDisposable Use(IkonBackend backend)
+    Task<AssetWriteResult> TrySetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
+    Task<AssetWriteResult> TrySetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
   // Asset class determines which storage backend is used to store/retrieve the asset.
   enum AssetClass
     LocalFile
@@ -181,6 +176,10 @@ namespace Ikon.Common.Core.Assets
     Exists
     Changed
     Deleted
+  sealed class AssetUpdateConflictException : Exception
+    ctor(AssetUri assetUri, AssetMetadata? metadata)
+    AssetUri AssetUri { get; }
+    AssetMetadata? Metadata { get; }
   // AssetUris are used to store and retrieve data on the Ikon platform. Use the asset class to select the storage backend. Space ID, User ID, and Channel ID are optional identifiers to scope the asset. Path is the location of the asset within the storage backend. It may include subdirectories and/or a file name. Query is optional and is not used for now. Example asset URIs: assets://space/12345/user/67890/channel/12345/cloud-file/images/photos/pic1.jpg assets://cloud-json/config/settings.json assets://space/12345/local-file/documents/report.pdf assets://embedded-file/logo.png
   struct AssetUri : IEquatable<AssetUri>
     ctor(string uriString)
@@ -228,7 +227,7 @@ namespace Ikon.Common.Core.Assets
     abstract Task WaitUntilQueueEmptyAsync()
     event Func<AssetEventArgs, Task> AssetEventAsync
   static class StorageExtensions
-    static Task AddEmbeddedFileStorageAsync(Asset asset, Assembly? assembly = null, string resourceNamespace = "")
+    static Task AddEmbeddedFileStorageAsync(this Asset asset, Assembly? assembly = null, string resourceNamespace = "")
 
 ---
 

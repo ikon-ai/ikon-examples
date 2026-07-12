@@ -14,13 +14,13 @@ private void RenderCaseProcessingBanner(UIView view, Case caseEntity)
 {
     _caseProcessingInfo.Value.TryGetValue(caseEntity.Id, out var caseInfo);
 
-    var filesTotal = _selectedCaseFiles.Value.Count;
-    var filesInProgress = _selectedCaseFiles.Value.Count(f =>
+    var filesTotal = _selectedCaseFiles.Count;
+    var filesInProgress = _selectedCaseFiles.Count(f =>
         f.ProcessingStatus == ProcessingStatus.Uploading ||
         f.ProcessingStatus == ProcessingStatus.Queued ||
         f.ProcessingStatus == ProcessingStatus.Processing ||
         (f.ProcessingStatus == ProcessingStatus.Done && f.Classification == null));
-    var filesDone = _selectedCaseFiles.Value.Count(IsCaseFileFullyProcessed);
+    var filesDone = _selectedCaseFiles.Count(IsCaseFileFullyProcessed);
 
     if (caseInfo == null && filesInProgress == 0)
     {
