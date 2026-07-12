@@ -3,7 +3,7 @@
 namespace Ikon.App
   // Attribute that decorates app classes to configure their connection and messaging behavior
   sealed class AppAttribute : Attribute
-    ctor(string? name = null, string? productId = null, string? description = null, int version = 1, string? guid = null, UserType userType = Machine, Opcode receiveOpcodeGroups = GROUP_ALL, GROUP_APP_LOCAL, Opcode sendOpcodeGroups = GROUP_ALL, GROUP_APP_LOCAL, string[]? dependencies = null)
+    ctor(string? name = null, string? productId = null, string? description = null, int version = 1, string? guid = null, UserType userType = Machine, Opcode receiveOpcodeGroups = GROUP_ALL | GROUP_APP_LOCAL, Opcode sendOpcodeGroups = GROUP_ALL | GROUP_APP_LOCAL, string[]? dependencies = null)
     // Product IDs of other apps that must be ready before this app's Joined callback is invoked
     string[] Dependencies { get; }
     // Human-readable description of the app. Defaults to "{ClassName} App" if not specified
@@ -59,14 +59,14 @@ namespace Ikon.App
   // Typed app↔client custom-message helpers over the app-local Teleport channel. The payload types come from the app's own schema/*.tp files (compiled by ikon app teleport build); each carries its own GROUP_APP_LOCAL opcode and is sent/received as a native type — no JSON marshalling. Delivery is server-controlled and explicit: SendMessageAsync always takes the recipient client session IDs — there is no implicit broadcast to every client. Whether a type travels reliably or unreliably is declared on the .tp schema (unreliable = true), not here.
   static class AppMessaging
     // Subscribe to inbound app messages of type T (filtered by the type's opcode). The handler receives the decoded native payload and the sender's client session ID. Dispose the returned handle to unsubscribe.
-    static IDisposable OnMessage<T>(IMessageChannel app, Func<T, int, ValueTask> handler) where T : IProtocolMessagePayload, new()
+    static IDisposable OnMessage<T>(this IMessageChannel app, Func<T, int, ValueTask> handler) where T : IProtocolMessagePayload, new()
     // Send a typed app message to the given client session IDs. The server decides the recipients — pass the explicit target list (e.g. every current client, everyone-but-the-sender, or a single client).
-    static ValueTask SendMessageAsync<T>(IMessageChannel app, T message, IReadOnlyList<int> targetIds) where T : IProtocolMessagePayload
+    static ValueTask SendMessageAsync<T>(this IMessageChannel app, T message, IReadOnlyList<int> targetIds) where T : IProtocolMessagePayload
     // Send a typed app message to a single client.
-    static ValueTask SendMessageAsync<T>(IMessageChannel app, T message, int targetClientSessionId) where T : IProtocolMessagePayload
+    static ValueTask SendMessageAsync<T>(this IMessageChannel app, T message, int targetClientSessionId) where T : IProtocolMessagePayload
   // Delegate for async event handlers in the app lifecycle.
   delegate AsyncEventHandler<TEventArgs> where TEventArgs : EventArgs
-    Task AsyncEventHandler`1<TEventArgs>(TEventArgs e)
+    Task AsyncEventHandler<TEventArgs>(TEventArgs e)
   // Handles audio streaming, encoding, and decoding for apps
   class Audio
     ctor(IAppBase app)
@@ -98,8 +98,8 @@ namespace Ikon.App
     // }
     // becomes
     // await Audio.SpeakAsync(text);
-    // Each call interrupts the previous one — it fades out whatever is still playing and cancels the previous call's generation, which is what a voice app almost always wants (a new reply supersedes the old one). Uses ElevenFlash25 by default — cheap+fast, the platform's go-to tier for conversational TTS. Hand-roll the SpeechGenerator + SendSpeech loop instead when you need custom mixing (overlapping speakers), speech that must not interrupt what is already playing, raw access to the generated samples (duration math, waveform analysis), or generator config beyond text and voice (language, instructions, speed).
-    Task SpeakAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null, CancellationToken cancellationToken = default)
+    // Each call interrupts the previous one — it fades out whatever is still playing and cancels the previous call's generation, which is what a voice app almost always wants (a new reply supersedes the old one). Uses ElevenFlash25 by default — cheap+fast, the platform's go-to tier for conversational TTS. Hand-roll the SpeechGenerator + SendSpeech loop instead when you need custom mixing (overlapping speakers), speech that must not interrupt what is already playing, raw access to the generated samples (duration math, waveform analysis), or generator config beyond text, voice, instructions, and speed (e.g. language).
+    Task SpeakAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, string? instructions = null, string? speed = null, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null, CancellationToken cancellationToken = default)
     // Enable speech-to-text on captured audio. After calling this, every captured audio segment (typically initiated by a CaptureButton or PushToTalkButton) is transcribed when the segment ends, and SpeechRecognizedAsync fires with the recognized text and originating client context.
     void UseSpeechRecognition(SpeechRecognizerModel model, float silenceThresholdRms = 0.01, bool requireCorrelatedStream = true, string language = "", TimeSpan? timeout = null)
     // Event raised when an incoming audio frame is received and decoded
@@ -111,7 +111,7 @@ namespace Ikon.App
     // Event raised when speech-to-text recognition completes for a captured audio segment. Requires UseSpeechRecognition to be called once during app setup. Each press of a PushToTalkButton (or any other capture-button-initiated stream) produces one recognition event when the user releases. Args carry the recognized text plus the originating client context — no streamId-to-client plumbing needed.
     event AsyncEventHandler<SpeechRecognizedEventArgs> SpeechRecognizedAsync
   // Event arguments raised when an incoming audio frame is received
-  class AudioInputFrameEventArgs : EventArgs, ICaptureCorrelationArgs
+  class AudioInputFrameEventArgs : EventArgs
     ctor(string streamId, Context clientContext, float[] samples, bool isFirst, bool isLast, TimeSpan totalDuration, string? correlationId)
     // Client context containing user information
     Context ClientContext { get; }
@@ -219,8 +219,6 @@ namespace Ikon.App
     static Task<string?> GetNetworkTypeAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // Reads the client's current notification permission state.
     static Task<NotificationPermission> GetNotificationPermissionAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    // Gets the currently selected UI theme from the client as its wire string. To branch on dark versus light for the calling client, prefer IsDarkTheme on the client's Context — it needs no round-trip to the client.
-    static Task<string?> GetThemeAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // Gets the browser timezone from the client.
     static Task<string?> GetTimezoneAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // Gets the current browser URL path and query string from the client.
@@ -331,12 +329,6 @@ namespace Ikon.App
     string? Gender { get; }
     // Profile ID
     string Id { get; }
-    // True if user has admin role
-    bool IsAdmin { get; }
-    // True if user is a guest (anonymous/unauthenticated)
-    bool IsGuest { get; }
-    // True if user has moderator role
-    bool IsModerator { get; }
     // Preferred language code
     string? Language { get; }
     // Last name
@@ -357,12 +349,10 @@ namespace Ikon.App
     object? GetAttribute(string key)
     // Get typed custom attributes from profile
     TAttributes GetAttributes<TAttributes>() where TAttributes : IProfileAttributes, new()
-    // Check if user has a specific built-in role
+    // Check if user has a specific built-in role. For roles outside UserRole , check Roles directly.
     bool HasRole(UserRole role)
-    // Check if user has a specific role by string name
-    bool HasRole(string role)
-    // Check if user has a specific role from a custom enum
-    bool HasRole<TRole>(TRole role) where TRole : Enum
+    // Require that the user has the specified role. Throws RoleRequiredException if not.
+    void RequireRole(UserRole role)
   // Manages client profiles for an AI app. Profiles are loaded and cached when clients join, and GetProfileAsync loads any uncached profile from the backend on demand.
   class ClientProfiles
     ctor(IAppBase app)
@@ -377,23 +367,11 @@ namespace Ikon.App
     // Get all profiles in the space
     Task<IReadOnlyList<ClientProfile>> GetAllProfilesAsync(int maxResults = 1000)
     // Get typed custom attributes for a client, loading the profile on a cache miss. Returns null if the client has no profile.
-    Task<TAttributes> GetAttributesAsync<TAttributes>(Context clientContext) where TAttributes : IProfileAttributes, new()
+    Task<TAttributes?> GetAttributesAsync<TAttributes>(Context clientContext) where TAttributes : IProfileAttributes, new()
     // Get a client's profile, loading it from the backend on a cache miss and caching the result. Connected clients are normally already cached (their profile is loaded when they join), so this usually returns instantly and only hits the backend for an uncached user. Returns null when the context carries no UserId or the backend has no profile for it.
     Task<ClientProfile?> GetProfileAsync(Context clientContext)
     // Get a profile by userId, loading it from the backend on a cache miss.
     Task<ClientProfile?> GetProfileAsync(string userId)
-    // Check if client has a specific built-in role
-    bool HasRole(Context clientContext, UserRole role)
-    // Check if client has a specific role by string name
-    bool HasRole(Context clientContext, string role)
-    // Check if client has a specific role from a custom enum
-    bool HasRole<TRole>(Context clientContext, TRole role) where TRole : Enum
-    // Check if client is an admin
-    bool IsAdmin(Context clientContext)
-    // Check if client is a guest (anonymous/unauthenticated)
-    bool IsGuest(Context clientContext)
-    // Check if client is a moderator
-    bool IsModerator(Context clientContext)
     // Refresh a client's profile from the backend
     Task RefreshProfileAsync(Context clientContext)
     // Refresh a profile from the backend by userId
@@ -402,14 +380,6 @@ namespace Ikon.App
     Task RemoveRoleAsync(Context clientContext, UserRole role)
     // Remove a role from a client using string role name
     Task RemoveRoleAsync(Context clientContext, string role)
-    // Require admin role. Throws if not.
-    void RequireAdmin(Context clientContext)
-    // Require moderator role. Throws if not.
-    void RequireModerator(Context clientContext)
-    // Require that the client has the specified role. Throws if not.
-    void RequireRole(Context clientContext, UserRole role)
-    // Require that the client has the specified role. Throws if not.
-    void RequireRole(Context clientContext, string role)
     // Set custom attributes for a client
     Task SetAttributesAsync<TAttributes>(Context clientContext, TAttributes attrs) where TAttributes : IProfileAttributes
     // Set roles for a client
@@ -475,14 +445,14 @@ namespace Ikon.App
     Public
     Deny
   // Information about an HTTP endpoint exposed by the app — an [HttpGet]/[HttpPost]/[Mcp] surface. Returned by Endpoints for developer convenience.
-  sealed class EndpointInfo
+  sealed class EndpointInfo : IEquatable<EndpointInfo>
     ctor()
     // The cell type for a substrate-cell endpoint (empty for app + AppProcess-cell endpoints). When non-empty, the gateway cell-routes the request to that cell's partitioned instance, keyed by the cell's IdentityFields in the URL; empty means the endpoint resolves to the app instance.
-    string CellType { get; set; }
+    string CellType { get; init; }
     // The endpoint's registry name — {Owner}_{Method} for typed endpoints (or the explicit FunctionAttribute.Name override). The backend resolves this name when routing.
-    string FunctionName { get; set; }
+    string FunctionName { get; init; }
     // The bare public URL for this endpoint under the space domain ({space}.ikonai.app/api/{path}), templated where the path has open {segment}s. It carries NO grant: a public endpoint is callable as-is; a grant/policy endpoint needs a working, identity-bound URL from IApp.MintUrl. The backend reverse-proxies to this instance — cold-starting it in the cloud, or routing to a registered local run.
-    string PublicUrl { get; set; }
+    string PublicUrl { get; init; }
   sealed class FileUploadChunkArgs : IEquatable<FileUploadChunkArgs>
     ctor(string UploadId, string FileName, string MimeType, long Size, byte[] Data, long BytesWritten)
     long BytesWritten { get; init; }
@@ -513,12 +483,6 @@ namespace Ikon.App
     string MimeType { get; init; }
     long Size { get; init; }
     string UploadId { get; init; }
-  sealed class FileUploadPreStartResult : IEquatable<FileUploadPreStartResult>
-    ctor()
-    ctor(string? assetUri)
-    ctor(bool accepted, string? assetUri = null)
-    bool Accepted { get; set; }
-    string? AssetUri { get; set; }
   sealed class FileUploadProgressArgs : IEquatable<FileUploadProgressArgs>
     ctor(string UploadId, string FileName, string MimeType, long Size, double ProgressPercentage, long BytesUploaded)
     long BytesUploaded { get; init; }
@@ -527,6 +491,11 @@ namespace Ikon.App
     double ProgressPercentage { get; init; }
     long Size { get; init; }
     string UploadId { get; init; }
+  // Accept/reject decision returned from the onUploadPreStart and onUploadStart callbacks. Accepted defaults to true; return true; works via the implicit bool conversion. Set AssetUri to write the upload straight into the asset system instead of a local temp file.
+  sealed class FileUploadResult : IEquatable<FileUploadResult>
+    ctor()
+    bool Accepted { get; init; }
+    string? AssetUri { get; init; }
   sealed class FileUploadStartArgs : IEquatable<FileUploadStartArgs>
     ctor(string UploadId, string FileName, string MimeType, long Size, string Hash)
     string FileName { get; init; }
@@ -534,12 +503,6 @@ namespace Ikon.App
     string MimeType { get; init; }
     long Size { get; init; }
     string UploadId { get; init; }
-  sealed class FileUploadStartResult : IEquatable<FileUploadStartResult>
-    ctor()
-    ctor(string? assetUri)
-    ctor(bool accepted, string? assetUri = null)
-    bool Accepted { get; set; }
-    string? AssetUri { get; set; }
   // Marks a method as a DELETE REST endpoint. See EndpointAttribute .
   sealed class HttpDeleteAttribute : HttpMethodAttribute
     ctor(string path = "")
@@ -608,7 +571,7 @@ namespace Ikon.App
     // Gets the platform-wide shared state from the server containing clients, streams, and space/channel info.
     GlobalState GlobalState { get; }
     // The loopback endpoint (host + HTTPS port) of THIS instance's own local server, but ONLY when the server's own URL is a localhost address — i.e. local dev WITHOUT --public-access. This lets an in-process client (e.g. a simulated player, a self-test harness) connect directly over loopback to this exact process instead of routing through the relay. It returns null when the instance is exposed via the relay (--public-access) or runs in the cloud — there the server's own URL is the relay/space URL, a direct socket can't (and shouldn't) reach it, and callers should use the normal relay/ApiKey connect path (which routes to this registered serving instance) instead. The default is null for hosts that don't run a local server; IApp overrides it.
-    ValueTuple<string, int>? LocalLoopbackEndpoint { get; }
+    (string Host, int Port)? LocalLoopbackEndpoint { get; }
     // The maximum number of clients this app instance accepts. Initialized to the server's memory-derived limit (computed from the instance's memory budget), so reading it tells you the default ceiling for this instance. You may set it lower to cap the instance below that default, or higher if you know your app's per-client cost is small enough to support more — once the app sets a value it fully overrides the memory-derived default. Once the limit is reached the server rejects further connections. Changes take effect immediately; the new limit is sent to the server.
     int MaxClients { get; set; }
     // Gets the configured maximum memory limit in megabytes for this server instance.
@@ -662,19 +625,19 @@ namespace Ikon.App
   // Convenience subscription helpers for the lifecycle events on IAppBase . The raw event handler shape is AsyncEventHandler<TEventArgs> which expects a single EventArgs parameter — LLM-generated code routinely reaches for app.StartingAsync += async () => ... (zero-arg) or async (sender, args) => ... (two-arg, .NET prior). Both fail to compile against the canonical one-arg delegate. These extension methods accept the LLM-natural shapes directly: app.OnStarting(async () => ...) wires the underlying event; app.OnClientJoined(async ctx => ...) passes the Context straight through so the handler doesn't need to remember to drill into the event-args wrapper.
   static class IAppEventExtensions
     // Subscribe to ClientJoinedAsync with a handler that receives the joining client's Context directly (SessionId, UserId, etc) — skipping the ClientJoinedEventArgs wrapper the raw event emits.
-    static void OnClientJoined(IAppBase app, Func<Context, Task> handler)
+    static void OnClientJoined(this IAppBase app, Func<Context, Task> handler)
     // Subscribe to ClientJoinedAsync with a handler that receives both the joining client's Context AND its typed TClientParameters . Replaces the awkward app.Clients[ctx.SessionId]!.Parameters drill inside the handler body.
-    static void OnClientJoined<TSessionIdentity, TClientParameters>(IApp<TSessionIdentity, TClientParameters> app, Func<Context, TClientParameters, Task> handler)
+    static void OnClientJoined<TSessionIdentity, TClientParameters>(this IApp<TSessionIdentity, TClientParameters> app, Func<Context, TClientParameters, Task> handler)
     // Subscribe to ClientLeftAsync with a handler that receives the departing client's Context directly.
-    static void OnClientLeft(IAppBase app, Func<Context, Task> handler)
+    static void OnClientLeft(this IAppBase app, Func<Context, Task> handler)
     // Subscribe to ClientLeftAsync with a handler that receives both the departing client's Context AND its typed TClientParameters .
-    static void OnClientLeft<TSessionIdentity, TClientParameters>(IApp<TSessionIdentity, TClientParameters> app, Func<Context, TClientParameters, Task> handler)
+    static void OnClientLeft<TSessionIdentity, TClientParameters>(this IApp<TSessionIdentity, TClientParameters> app, Func<Context, TClientParameters, Task> handler)
     // Subscribe to MessageReceivedAsync with a handler that receives the protocol message directly.
-    static void OnMessageReceived(IAppBase app, Func<ProtocolMessage, Task> handler)
+    static void OnMessageReceived(this IAppBase app, Func<ProtocolMessage, Task> handler)
     // Subscribe to StartingAsync with a zero-arg async handler. The Starting event carries no data — there's nothing to forward.
-    static void OnStarting(IAppBase app, Func<Task> handler)
+    static void OnStarting(this IAppBase app, Func<Task> handler)
     // Subscribe to StoppingAsync with a zero-arg async handler.
-    static void OnStopping(IAppBase app, Func<Task> handler)
+    static void OnStopping(this IAppBase app, Func<Task> handler)
   // App host interface providing typed session identity and client parameters.
   interface IApp<TSessionIdentity, TClientParameters> : IAppBase, IMessageChannel
     // Gets the typed parameters for the current client (determined by ReactiveScope). Must be called inside UI.Root() or a ReactiveScope context.
@@ -691,8 +654,6 @@ namespace Ikon.App
     IEnumerable<int> Ids { get; }
     // Gets the client with the specified session ID, or null if not found.
     IClient<TClientParameters>? this[int clientSessionId] { get; }
-    // Alias for Ids — dictionary-shaped mental model. Generated code reaches for both interchangeably.
-    IEnumerable<int> Keys { get; }
   // Interface representing a connected client with typed parameters.
   interface IClient<TClientParameters>
     // Gets the typed parameters for this client.
@@ -702,7 +663,7 @@ namespace Ikon.App
   // Marker interface for custom profile attribute classes. Implement this interface on classes that define custom profile attributes.
   interface IProfileAttributes
   // Marks a method on an app or cell as an MCP tool. The framework discovers these at startup, reflects the method's parameters into a JSON Schema, registers the method on an Ikon.Mcp.McpHost, and routes incoming MCP tools/call requests to it.
-  class McpAttribute : EndpointAttribute
+  sealed class McpAttribute : EndpointAttribute
     // Declares an MCP tool whose own endpoint path is the kebab-cased method name.
     ctor()
     // Declares an MCP tool whose own directly-callable endpoint is served at path .
@@ -733,7 +694,7 @@ namespace Ikon.App
     DateTimeOffset? ExpiresAt { get; init; }
     string GrantId { get; init; }
     string Url { get; init; }
-  class Navigation : IReactiveWithState
+  class Navigation
     Task<string?> GetPathAsync(int targetId)
     Task<string?> GetPathAsync()
     Task<bool> SetPathAsync(int targetId, string path, bool replace = false)
@@ -787,35 +748,42 @@ namespace Ikon.App
     // Shows a notification on every currently-connected session belonging to userId (a user may be connected from several devices). When the user has no connected session, falls back to offline push — an OS notification delivered through the backend push hub. Returns one result per targeted session (empty when the user was offline and only push was attempted).
     Task<IReadOnlyList<NotificationSendResult>> SendToUserAsync(string userId, NotificationContent content, CancellationToken ct = default)
   // A ReactiveList persisted globally for the app within its space. Shared across all session identities and users; one list per app deployment.
-  class PersistentReactiveList<T> : ReactiveList<T>, IPersistedReactive
-    ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null, string file = "", string member = "")
-    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null, string file = "", string member = "")
+  class PersistentReactiveList<T> : ReactiveList<T>
+    ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
   // A reactive value persisted globally for the app within its space. Shared across all session identities and users; one value per app deployment.
-  class PersistentReactive<T> : Reactive<T>, IPersistedReactive
-    ctor(T initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null, string file = "", string member = "")
+  class PersistentReactive<T> : Reactive<T>
+    ctor(T initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    PersistenceBackend Backend { get; }
+    string? PostgresDatabase { get; }
+    string? PublicUrl { get; }
+  // A ReactiveList persisted per session identity. Apps with the same routing key share the same list; different routing keys have isolated lists.
+  class PersistentSessionReactiveList<T> : ReactiveList<T>
+    ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
   // A reactive value persisted per session identity. Apps with the same routing key share the same value; different routing keys have isolated values.
-  class PersistentSessionReactive<T> : Reactive<T>, IPersistedReactive
-    ctor(T initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null, string file = "", string member = "")
+  class PersistentSessionReactive<T> : Reactive<T>
+    ctor(T initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
   // A ReactiveList persisted per user, partitioned at runtime by UserScope . Each user sees their own list across all of their client sessions.
-  class PersistentUserReactiveList<T> : ReactiveList<T>, IPersistedReactive
-    ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null, string file = "", string member = "")
-    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null, string file = "", string member = "")
+  class PersistentUserReactiveList<T> : ReactiveList<T>
+    ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
   // A reactive value persisted per user, partitioned at runtime by UserScope . Each user sees their own value across all of their client sessions.
-  class PersistentUserReactive<T> : Reactive<T, UserScope>, IPersistedReactive
-    ctor(T initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null, string file = "", string member = "")
-    ctor(Func<string, T> initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null, string file = "", string member = "")
+  class PersistentUserReactive<T> : Reactive<T, UserScope>
+    ctor(T initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    ctor(Func<string, T> initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
@@ -881,9 +849,9 @@ namespace Ikon.App
   // Helpers for mapping Theme values to and from the wire strings used by the client.
   static class ThemeExtensions
     // True when the client's reported theme is the dark theme. False for the light theme, custom theme names, and clients that have not reported a theme.
-    static bool IsDarkTheme(Context clientContext)
+    static bool IsDarkTheme(this Context clientContext)
     // Returns the wire name of the theme: "dark" or "light".
-    static string ToThemeName(Theme theme)
+    static string ToThemeName(this Theme theme)
   // Built-in user roles. Maps to role strings stored in profile.
   enum UserRole
     Guest
@@ -908,7 +876,7 @@ namespace Ikon.App
     // Event raised when an incoming video stream ends
     event AsyncEventHandler<VideoInputStreamEndEventArgs> VideoInputStreamEndAsync
   // Event arguments raised when an incoming video frame is received
-  class VideoInputFrameEventArgs : EventArgs, ICaptureCorrelationArgs
+  class VideoInputFrameEventArgs : EventArgs
     ctor(string streamId, Context clientContext, int trackId, byte[] data, int frameNumber, bool isKey, ulong timestampInUs, uint durationInUs, string? correlationId)
     // Client context containing user information
     Context ClientContext { get; }
@@ -933,7 +901,7 @@ namespace Ikon.App
     // User identifier
     string UserId { get; }
   // Event arguments raised when an incoming video stream begins
-  class VideoInputStreamBeginEventArgs : EventArgs, ICaptureCorrelationArgs
+  class VideoInputStreamBeginEventArgs : EventArgs
     ctor(string streamId, string description, string sourceType, VideoCodec codec, string codecDetails, int width, int height, double framerate, Context clientContext, int trackId, string? correlationId)
     // Client context containing user information
     Context ClientContext { get; }
@@ -962,7 +930,7 @@ namespace Ikon.App
     // Video width in pixels
     int Width { get; }
   // Event arguments raised when an incoming video stream ends
-  class VideoInputStreamEndEventArgs : EventArgs, ICaptureCorrelationArgs
+  class VideoInputStreamEndEventArgs : EventArgs
     ctor(string streamId, Context clientContext, int trackId, string? correlationId)
     // Client context containing user information
     Context ClientContext { get; }
@@ -985,12 +953,6 @@ namespace Ikon.App
     string StreamId { get; init; }
     int TrackId { get; init; }
     int Width { get; init; }
-
-namespace Ikon.App.Auth
-  // OAuth resource-server configuration the platform reads to advertise the protected-resource discovery document (RFC 9728), so an MCP client knows which authorization server to obtain a bearer token from. Bearer-token validation itself would be an edge /router/ bearer policy evaluated at the gateway before provisioning — not an in-process cell — but no such policy is implemented yet (the fail-closed oauth helper was removed).
-  static class OAuthAuth
-    // Configured issuer URL (IKON_OAUTH_ISSUER) — returned by the protected-resource discovery document. Null when unconfigured.
-    static string? ConfiguredIssuer { get; }
 
 namespace Ikon.App.Cells
   // Marks a class as a cell — a headless app addressed by a SessionIdentity record declared inside the class. Discovered by CellHost at startup via reflection over loaded assemblies.

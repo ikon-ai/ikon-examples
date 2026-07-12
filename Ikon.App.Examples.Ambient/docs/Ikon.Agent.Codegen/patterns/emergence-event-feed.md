@@ -1,7 +1,7 @@
 <!-- mined-from: Ikon.App.Examples.Emergence -->
 # Emergence Event Feed — Color-Coded Log Of Run Events
 
-`Emerge.Run<T>(...)` is an `IAsyncEnumerable<EmergeEvent<T>>` — every iteration, tool call, stage transition, and completion arrives as a separate event. Switching on the event type and pushing a typed `LogEntry` into a reactive list gives you a debugger-style live log: timestamp + level + message, color-coded by category. This is what makes long-running agentic patterns (MapReduce, BestOf, TaskGraph, agentic coder) feel transparent instead of opaque.
+`Emerge.Run<T>(...)` is an `IAsyncEnumerable<EmergeEvent<T>>` — every iteration, tool call, stage transition, and completion arrives as a separate event. Switching on the event type and pushing a typed `LogEntry` into a `ReactiveList<LogEntry>` gives you a debugger-style live log: timestamp + level + message, color-coded by category. This is what makes long-running agentic patterns (MapReduce, BestOf, TaskGraph, agentic coder) feel transparent instead of opaque.
 
 ## When to use
 
@@ -15,15 +15,14 @@ public record LogEntry(DateTime Timestamp, LogLevel Level, string Message);
 
 public class ExampleState
 {
-    public Reactive<List<LogEntry>> Logs { get; } = new([]);
+    public ReactiveList<LogEntry> Logs { get; } = new();
     public Reactive<string> CurrentStage { get; } = new("Ready");
     public Reactive<int> CurrentIteration { get; } = new(0);
     public Reactive<int> ToolCallCount { get; } = new(0);
 
     public void Log(string message, LogLevel level = LogLevel.Info)
     {
-        var logs = new List<LogEntry>(Logs.Value) { new(DateTime.Now, level, message) };
-        Logs.Value = logs;
+        Logs.Add(new LogEntry(DateTime.Now, level, message));   // mutator notifies — no list rebuild
     }
 }
 
@@ -52,7 +51,7 @@ private void LogEvent<T>(ExampleState state, EmergeEvent<T> ev)
 }
 
 // Render — color per level
-foreach (var log in state.Logs.Value.TakeLast(100))
+foreach (var log in state.Logs.TakeLast(100))
 {
     var (bg, text) = log.Level switch
     {
@@ -77,6 +76,7 @@ foreach (var log in state.Logs.Value.TakeLast(100))
 
 ## Notes
 
+- The feed is a `ReactiveList<LogEntry>` — `Logs.Add(entry)` mutates AND broadcasts in one call; enumeration and LINQ (`TakeLast`) run straight on the reactive. `Logs.Value` is an `IReadOnlyList<T>` snapshot, so `.Value.Add(entry)` does not compile.
 - Cap the rendered list with `TakeLast(100)` — the underlying list can grow huge but the DOM stays bounded.
 - Don't log every `ModelText<T>` chunk — it's per-token and floods the feed; use `chatbot-streaming` for that.
 - Track `_cts` so the same UI can show a "Stop" button that cancels mid-run; the feed will show the `Stopped<T>` event.

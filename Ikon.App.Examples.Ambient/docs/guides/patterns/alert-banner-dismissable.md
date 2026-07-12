@@ -36,7 +36,7 @@ private void RenderAlertBanner(UIView view)
             view.Row(["items-center gap-2"], content: view =>
             {
                 view.Text(["text-sm font-semibold text-rose-100"], "Unacknowledged alert");
-                var openCount = _events.Value.Count(e => e.Severity == Severity.Alert && e.Status == EventStatus.Open);
+                var openCount = _events.Count(e => e.Severity == Severity.Alert && e.Status == EventStatus.Open);
                 if (openCount > 1)
                 {
                     view.Text(["text-xs text-rose-300/80"], $"× {openCount}");

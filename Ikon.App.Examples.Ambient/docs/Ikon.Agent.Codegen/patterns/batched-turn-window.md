@@ -26,7 +26,7 @@ private async Task SubmitPlayerActionAsync(string action)
     var pending = new Dictionary<int, string>(_pendingActions.Value) { [clientId] = action };
     _pendingActions.Value = pending;
 
-    int totalPlayers = _players.Value.Count(p => p.Character != null);
+    int totalPlayers = _players.Count(p => p.Character != null);
     if (pending.Count >= totalPlayers)
     {
         _batchTimerCts?.Cancel();
@@ -82,5 +82,5 @@ private void ExtendBatchTime()
 
 ## See also
 
-- `multi-user-game` — base shape for shared `Reactive<List<Player>>` state
+- `multi-user-game` — base shape for shared `ReactiveList<Player>` state
 - `chatbot-streaming` — used inside `ProcessBatchedActionsAsync` to stream the unified GM response

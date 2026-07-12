@@ -20,27 +20,45 @@ namespace Ikon.Sdk
     string SpaceId { get; init; }
     // User type for this connection. Default: Human
     UserType UserType { get; init; }
+  // Async event handler delegate for IkonClient events.
   delegate IkonClient.AsyncEventHandler<TEventArgs> where TEventArgs : EventArgs
-    Task AsyncEventHandler`1<TEventArgs>(TEventArgs e)
+    Task AsyncEventHandler<TEventArgs>(TEventArgs e)
+  // Event arguments raised when an incoming audio frame is received
   class IkonClient.AudioInputFrameEventArgs : EventArgs
     ctor(string streamId, float[] samples, bool isFirst, bool isLast, TimeSpan totalDuration)
+    // Whether this is the first frame in a sequence
     bool IsFirst { get; }
+    // Whether this is the last frame in a sequence
     bool IsLast { get; }
+    // Decoded floating point PCM samples in range [-1.0, 1.0]
     float[] Samples { get; }
+    // Unique identifier for the audio stream
     string StreamId { get; }
+    // Total duration of the audio if known, otherwise zero
     TimeSpan TotalDuration { get; set; }
+  // Event arguments raised when an incoming audio stream begins
   class IkonClient.AudioInputStreamBeginEventArgs : EventArgs
     ctor(string streamId, string description, string sourceType, AudioCodec codec, string codecDetails, int sampleRate, int channelCount)
+    // Number of audio channels
     int ChannelCount { get; }
+    // Audio codec used for encoding/decoding
     AudioCodec Codec { get; }
+    // Codec-specific details
     string CodecDetails { get; }
+    // Description of the audio stream
     string Description { get; }
+    // Sample rate in Hz (can be modified by event handler)
     int SampleRate { get; set; }
+    // Source type of the audio stream (e.g., "microphone")
     string SourceType { get; }
+    // Unique identifier for the audio stream
     string StreamId { get; }
+    // Controls when frames are output (can be modified by event handler)
     AudioInputStreamingMode StreamingMode { get; set; }
+  // Event arguments raised when an incoming audio stream ends
   class IkonClient.AudioInputStreamEndEventArgs : EventArgs
     ctor(string streamId)
+    // Unique identifier for the audio stream
     string StreamId { get; }
   // Configuration for backend authentication mode. Uses existing IkonBackend login credentials (from login.json or environment variables). This is the preferred mode for internal Ikon C# applications.
   sealed class BackendConfig : IEquatable<BackendConfig>
@@ -68,19 +86,23 @@ namespace Ikon.Sdk
     Connected
     Reconnecting
     Offline
+  // Event arguments for connection state changes.
   class IkonClient.ConnectionStateEventArgs : EventArgs
     ctor(ConnectionState state)
+    // The new connection state.
     ConnectionState State { get; }
   // Helper methods for ConnectionState.
   static class ConnectionStateExtensions
     // Returns true if the state represents a successful connection.
-    static bool IsConnected(ConnectionState state)
+    static bool IsConnected(this ConnectionState state)
     // Returns true if the state represents an active connection attempt.
-    static bool IsConnecting(ConnectionState state)
+    static bool IsConnecting(this ConnectionState state)
     // Returns true if the state represents a disconnected state.
-    static bool IsOffline(ConnectionState state)
+    static bool IsOffline(this ConnectionState state)
+  // Event arguments for errors.
   class IkonClient.ErrorEventArgs : EventArgs
     ctor(Exception error)
+    // The error that occurred.
     Exception Error { get; }
   // Main client for connecting to Ikon servers. Features: - Single connection per client instance - Three authentication modes: Local, ApiKey, Backend - Automatic reconnection with exponential backoff - Audio encoding/decoding helpers - Function registration via FunctionRegistry
   sealed class IkonClient : IAsyncDisposable
@@ -145,7 +167,7 @@ namespace Ikon.Sdk
     string Description { get; init; }
     // Device ID for the connection. If not provided, a random one will be generated.
     string? DeviceId { get; init; }
-    // The fourth authentication mode: a pre-minted connect URL ("{serverUrl}/connect?token=…") issued by a trusted host — e.g. an embedded in-process app server whose /connect-token oracle is disabled mints these for its own clients (IAppHost.MintBrowserConnectUrl). When set, the authentication step is skipped and the client connects straight through this URL — the same external-connect-URL mechanism the TypeScript SDK consumes from its query parameter. Mutually exclusive with Local, ApiKey, and Backend; Validate rejects a config that combines them.
+    // The fourth authentication mode: a pre-minted connect URL ("{serverUrl}/connect?token=…") issued by a trusted host — e.g. an embedded in-process app server whose /connect-token oracle is disabled mints these for its own clients (IAppHost.MintBrowserConnectUrl). When set, the authentication step is skipped and the client connects straight through this URL — the same external-connect-URL mechanism the TypeScript SDK consumes from its query parameter. Mutually exclusive with Local, ApiKey, and Backend; a config that combines them is rejected.
     string? ExternalConnectUrl { get; init; }
     // Installation ID.
     string? InstallId { get; init; }

@@ -74,7 +74,7 @@ namespace Ikon.AI.Classification
     OpenAIOmniModeration
     MistralModeration
   static class ClassificationModelExtensions
-    static string DisplayName(ClassificationModel model)
+    static string DisplayName(this ClassificationModel model)
   sealed class ClassificationResult : IEquatable<ClassificationResult>
     ctor()
     List<ClassificationDetail> Details { get; init; }
@@ -86,15 +86,16 @@ namespace Ikon.AI.Classification
   sealed class Classifier : IClassifier, IDisposable
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(ClassificationModel model, IReadOnlyList<ModelRegion>? regions = null)
-    Task<ClassificationResult> ClassifyAsync(IReadOnlyList<ClassificationInput> inputs, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
-    Task<ClassificationResult> ClassifyAsync(IReadOnlyList<IMessagePart> messageParts, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
-    Task<ClassificationResult> ClassifyAsync(string text, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    TimeSpan Timeout { get; set; }
+    Task<ClassificationResult> ClassifyAsync(IReadOnlyList<ClassificationInput> inputs, CancellationToken cancellationToken = default)
+    Task<ClassificationResult> ClassifyAsync(IReadOnlyList<IMessagePart> messageParts, CancellationToken cancellationToken = default)
+    Task<ClassificationResult> ClassifyAsync(string text, CancellationToken cancellationToken = default)
     // One-shot text moderation. The verbose form
     // using var classifier = new Classifier(ClassificationModel.OpenAIOmniModeration);
     // var result = await classifier.ClassifyAsync(text);
     // becomes
     // var result = await Classifier.ClassifyAsync(text);
-    // Defaults to OpenAIOmniModeration (free to use, the standard moderation model). Override the model via the second parameter when the task warrants. Check result.IsFlagged and the per-label result.Details. Reach for the constructor + the instance ClassifyAsync overloads when you need to classify images or message parts ( ClassificationInput ), set a custom timeout, or classify many inputs with the same generator instance.
+    // Defaults to OpenAIOmniModeration (free to use, the standard moderation model). Override the model via the second parameter when the task warrants. Check result.IsFlagged and the per-label result.Details. Reach for the constructor + the instance ClassifyAsync overloads when you need to classify images or message parts ( ClassificationInput ), set a custom Timeout , or classify many inputs with the same classifier instance.
     static Task<ClassificationResult> ClassifyAsync(string text, ClassificationModel model = OpenAIOmniModeration, CancellationToken cancellationToken = default)
     void Dispose()
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ClassificationModel model)
@@ -103,9 +104,15 @@ namespace Ikon.AI.Classification
     ctor(string message)
     ctor(string message, Exception inner)
   interface IClassifier : IDisposable
-    abstract Task<ClassificationResult> ClassifyAsync(IReadOnlyList<ClassificationInput> inputs, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
-    virtual Task<ClassificationResult> ClassifyAsync(IReadOnlyList<IMessagePart> messageParts, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
-    virtual Task<ClassificationResult> ClassifyAsync(string text, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    // Maximum duration of a single classification request. Defaults to 10 seconds.
+    TimeSpan Timeout { get; set; }
+    abstract Task<ClassificationResult> ClassifyAsync(IReadOnlyList<ClassificationInput> inputs, CancellationToken cancellationToken = default)
+    virtual Task<ClassificationResult> ClassifyAsync(IReadOnlyList<IMessagePart> messageParts, CancellationToken cancellationToken = default)
+    virtual Task<ClassificationResult> ClassifyAsync(string text, CancellationToken cancellationToken = default)
+  class NonRetryableClassifierException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
 
 namespace Ikon.AI.Embeddings
   enum EmbeddingEncoding
@@ -116,15 +123,16 @@ namespace Ikon.AI.Embeddings
     ctor(EmbeddingModel model, IReadOnlyList<ModelRegion>? regions = null)
     int EmbeddingVectorSize { get; }
     int MaxInputCount { get; }
+    TimeSpan Timeout { get; set; }
     void Dispose()
     // One-shot embedding generation. The verbose form
     // using var embeddingGenerator = new EmbeddingGenerator(EmbeddingModel.OpenAI3Small);
     // var embeddings = await embeddingGenerator.GenerateEmbeddingsAsync(texts, EmbeddingType.Generic);
     // becomes
     // var embeddings = await EmbeddingGenerator.EmbedAsync(texts);
-    // Defaults to OpenAI3Small (cheap+fast) and Generic . Override the model via the second parameter when the task warrants; pass an explicit EmbeddingType when embedding documents and queries for asymmetric retrieval. Returns one float[] vector per input, in input order. Reach for the constructor + GenerateEmbeddingsAsync when you need batching control (maxInputCount), a custom timeout, or the generator's MaxInputCount / EmbeddingVectorSize properties.
+    // Defaults to OpenAI3Small (cheap+fast) and Generic . Override the model via the second parameter when the task warrants; pass an explicit EmbeddingType when embedding documents and queries for asymmetric retrieval. Returns one float[] vector per input, in input order. Reach for the constructor + GenerateEmbeddingsAsync when you need batching control (maxInputCount), a custom Timeout , or the generator's MaxInputCount / EmbeddingVectorSize properties.
     static Task<List<float[]>> EmbedAsync(IReadOnlyList<string> texts, EmbeddingModel model = OpenAI3Small, EmbeddingType type = Generic, CancellationToken cancellationToken = default)
-    Task<List<float[]>> GenerateEmbeddingsAsync(IReadOnlyList<string> inputs, EmbeddingType type, int maxInputCount = 0, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    Task<List<float[]>> GenerateEmbeddingsAsync(IReadOnlyList<string> inputs, EmbeddingType type, int maxInputCount = 0, CancellationToken cancellationToken = default)
     static EmbeddingGeneratorCapabilities GetCapabilities(EmbeddingModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(EmbeddingModel model)
   sealed class EmbeddingGeneratorCapabilities
@@ -167,7 +175,7 @@ namespace Ikon.AI.Embeddings
     Voyage4Lite
     Voyage4Large
   static class EmbeddingModelExtensions
-    static string DisplayName(EmbeddingModel model)
+    static string DisplayName(this EmbeddingModel model)
   enum EmbeddingType
     Generic
     Document
@@ -177,11 +185,17 @@ namespace Ikon.AI.Embeddings
   interface IEmbeddingGenerator : IDisposable
     int EmbeddingVectorSize { get; }
     int MaxInputCount { get; }
-    abstract Task<List<float[]>> GenerateEmbeddingsAsync(IReadOnlyList<string> inputs, EmbeddingType type, int maxInputCount = 0, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    // Maximum duration of a single embedding request, scaled up internally with the batch size. Defaults to 10 seconds.
+    TimeSpan Timeout { get; set; }
+    abstract Task<List<float[]>> GenerateEmbeddingsAsync(IReadOnlyList<string> inputs, EmbeddingType type, int maxInputCount = 0, CancellationToken cancellationToken = default)
   struct VectorMath.Neighbor
     ctor(int index, float distance)
     float Distance { get; }
     int Index { get; }
+  class NonRetryableEmbeddingGeneratorException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   static class VectorMath
     // Calculates the element-wise average embedding from a list of embeddings. Each embedding must be a float array of the same length.
     static float[] CalculateAverageEmbedding(IList<float[]> embeddings)
@@ -229,9 +243,13 @@ namespace Ikon.AI.FileConversion
   enum FileConverterModel
     ConvertApi
   static class FileConverterModelExtensions
-    static string DisplayName(FileConverterModel model)
+    static string DisplayName(this FileConverterModel model)
   interface IFileConverter : IDisposable
     abstract Task<ConvertedFile> ConvertToPdfAsync(FileConverterConfig config, CancellationToken cancellationToken = default)
+  class NonRetryableFileConverterException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
 
 namespace Ikon.AI.OCR
   enum DocumentType
@@ -241,6 +259,10 @@ namespace Ikon.AI.OCR
     abstract IAsyncEnumerable<OCRResult> AnalyzeDocumentStreamingAsync(OCRConfig config, CancellationToken cancellationToken = default)
   interface IOCRInfo
     int MaxPagesSupported { get; }
+  class NonRetryableOCRException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class OCR : IDisposable, IOCR, IOCRInfo
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(OCRModel model, IReadOnlyList<ModelRegion>? regions = null)
@@ -281,7 +303,7 @@ namespace Ikon.AI.OCR
     AzureDocumentIntelligence
     MistralOCR
   static class OCRModelExtensions
-    static string DisplayName(OCRModel model)
+    static string DisplayName(this OCRModel model)
   sealed class OCRPage
     ctor()
     float Height { get; init; }
@@ -306,7 +328,13 @@ namespace Ikon.AI.OCR
 
 namespace Ikon.AI.Reranking
   interface IReranker : IDisposable
-    abstract Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, int topN = 0, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    // Maximum duration of a single rerank request, scaled up internally with the document count. Defaults to 10 seconds.
+    TimeSpan Timeout { get; set; }
+    abstract Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, int topN = 0, CancellationToken cancellationToken = default)
+  class NonRetryableRerankerException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class RerankItem : IEquatable<RerankItem>
     ctor()
     int Index { get; init; }
@@ -318,19 +346,20 @@ namespace Ikon.AI.Reranking
     VoyageRerank25
     VoyageRerank25Lite
   static class RerankModelExtensions
-    static string DisplayName(RerankModel model)
+    static string DisplayName(this RerankModel model)
   sealed class Reranker : IDisposable, IReranker
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(RerankModel model, IReadOnlyList<ModelRegion>? regions = null)
+    TimeSpan Timeout { get; set; }
     void Dispose()
     static IReadOnlyList<ModelRegion> GetSupportedRegions(RerankModel model)
-    Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, int topN = 0, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, int topN = 0, CancellationToken cancellationToken = default)
     // One-shot reranking. The verbose form
     // using var reranker = new Reranker(RerankModel.CohereRerank4Fast);
     // var items = await reranker.RerankAsync(documents, query);
     // becomes
     // var items = await Reranker.RerankAsync(documents, query);
-    // Defaults to CohereRerank4Fast (cheap+fast). Override the model via the third parameter when the task warrants; pass topN to cap how many items are returned (0 returns all). Each RerankItem carries the document's original .Index and its relevance .Score, ordered most relevant first. Reach for the constructor + the instance RerankAsync when you need a custom timeout or rerank many queries against the same generator instance.
+    // Defaults to CohereRerank4Fast (cheap+fast). Override the model via the third parameter when the task warrants; pass topN to cap how many items are returned (0 returns all). Each RerankItem carries the document's original .Index and its relevance .Score, ordered most relevant first. Reach for the constructor + the instance RerankAsync when you need a custom Timeout or rerank many queries against the same reranker instance.
     static Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, RerankModel model = CohereRerank4Fast, int topN = 0, CancellationToken cancellationToken = default)
   class RerankerException : RetryableAIException
     ctor()
@@ -352,7 +381,7 @@ namespace Ikon.AI.Retrieving
     ContentLink Parent { get; }
     ContentLink Root { get; }
     override bool Equals(object? obj)
-    List<ValueTuple<string, string>> GenerateHierarchicalSplitLinks()
+    List<(string Link, string Internal)> GenerateHierarchicalSplitLinks()
     override int GetHashCode()
     override string ToString()
     string Link
@@ -398,7 +427,6 @@ namespace Ikon.AI.Retrieving
   class Retriever : IAsyncDisposable
     ctor()
     KernelContext Context { get; }
-    IdMapper IdMapper { get; }
     ValueTask DisposeAsync()
     Task<ContentLink[]> ExpandAsync(ContentLink[] links)
     Task<ContentLink[]> ExpandAsync(ContentLink link)
@@ -484,6 +512,10 @@ namespace Ikon.AI.WebScraping
     bool UseSitemapOnly { get; init; }
     bool UseStreaming { get; init; }
     TimeSpan WaitAfter { get; init; }
+  class NonRetryableWebScraperException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class PageResult : IEquatable<PageResult>
     ctor()
     string Content { get; init; }
@@ -570,7 +602,7 @@ namespace Ikon.AI.WebScraping
     LocalNodriver
     LocalPlaywright
   static class WebScraperModelExtensions
-    static string DisplayName(WebScraperModel model)
+    static string DisplayName(this WebScraperModel model)
   enum WebScraperOutputFormat
     Text
     Markdown
@@ -582,6 +614,10 @@ namespace Ikon.AI.WebSearching
     abstract Task<List<SearchResult>> SearchPagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
   interface IWebSearcherInfo
     bool SupportsImageSearching { get; }
+  class NonRetryableWebSearcherException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class SearchConfig : IEquatable<SearchConfig>
     ctor()
     string CountryCode { get; init; }
@@ -631,7 +667,7 @@ namespace Ikon.AI.WebSearching
     BingImages
     Youtube
   static class WebSearcherModelExtensions
-    static string DisplayName(WebSearcherModel model)
+    static string DisplayName(this WebSearcherModel model)
   enum WebSearcherOutputFormat
     Text
     Markdown

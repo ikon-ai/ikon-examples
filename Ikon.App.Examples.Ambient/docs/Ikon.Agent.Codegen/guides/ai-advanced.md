@@ -56,7 +56,10 @@ namespace Ikon.AI.Database
     bool? IsForeignKey { get; set; }
     bool? IsPrimaryKey { get; set; }
     List<string>? Values { get; set; }
-  // Creates database connections. Prefer the typed factory methods ( Trino , Postgres , Sqlite , BigQuery ) for app code — host, port, and catalog are not secrets, only the password is. Pass that password from app.Secrets: DatabaseConnection.Trino(host: "trino.example.com", port: 443, catalog: "hive", user: "ikon", password: app.Secrets["TRINO_PASSWORD"]) CreateAsync remains for shared pipelines that read all of host/port/user/password/etc. from environment variables or space secrets.
+  // Creates database connections. Prefer the typed factory methods ( Trino , Postgres , Sqlite , BigQuery ) for app code — host, port, and catalog are not secrets, only the password is. Pass that password from app.Secrets:
+  // DatabaseConnection.Trino(host: "trino.example.com", port: 443, catalog: "hive",
+  //                      user: "ikon", password: app.Secrets["TRINO_PASSWORD"])
+  // CreateAsync remains for shared pipelines that read all of host/port/user/password/etc. from environment variables or space secrets.
   class DatabaseConnection
     ctor()
     string BigQueryDataset { get; set; }

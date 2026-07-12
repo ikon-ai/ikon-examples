@@ -87,7 +87,6 @@ await Asset.Instance.DeleteAsync(uri);
 namespace Ikon.Common.Core.Assets
   sealed class Asset : AsyncLocalInstance<Asset>, IAsyncDisposable
     ctor()
-    IkonBackend? Backend { get; set; }
     Task AddStorageAsync(AssetClass assetClass, IStorage storage, bool startInBackground = false)
     Task DeleteAsync(AssetUri assetUri)
     ValueTask DisposeAsync()
@@ -110,7 +109,7 @@ namespace Ikon.Common.Core.Assets
     Task SetAsync<T>(AssetUri assetUri, T asset, AssetMetadata? metadata = null, CancellationToken cancellationToken = default) where T : class
     Task SetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
     Task SetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
-    Task<T> TryGetAsync<T>(AssetUri assetUri) where T : class
+    Task<T?> TryGetAsync<T>(AssetUri assetUri) where T : class
     Task<byte[]?> TryGetBytesAsync(AssetUri assetUri)
     Task<AssetContent<byte[]>?> TryGetBytesWithMetadataAsync(AssetUri assetUri)
     Task<AssetMetadata?> TryGetMetadataAsync(AssetUri assetUri)
@@ -119,10 +118,6 @@ namespace Ikon.Common.Core.Assets
     Task<AssetContent<T>?> TryGetWithMetadataAsync<T>(AssetUri assetUri) where T : class
     Task<AssetWriteResult> TrySetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
     Task<AssetWriteResult> TrySetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
-  // Ambient override for the IkonBackend that cloud asset storages resolve against. While a scope is active, asset reads and writes that fall back to the default backend use Current instead of Instance . Lets a process resolve a caller's assets with the caller's space-scoped token when it acts on behalf of another space (e.g. the LLM RPC proxy). The scope is never set automatically; callers opt in explicitly with Use .
-  static class AssetBackendScope
-    static IkonBackend? Current { get; }
-    static IDisposable Use(IkonBackend backend)
   // Asset class determines which storage backend is used to store/retrieve the asset.
   enum AssetClass
     LocalFile
@@ -232,7 +227,7 @@ namespace Ikon.Common.Core.Assets
     abstract Task WaitUntilQueueEmptyAsync()
     event Func<AssetEventArgs, Task> AssetEventAsync
   static class StorageExtensions
-    static Task AddEmbeddedFileStorageAsync(Asset asset, Assembly? assembly = null, string resourceNamespace = "")
+    static Task AddEmbeddedFileStorageAsync(this Asset asset, Assembly? assembly = null, string resourceNamespace = "")
 
 ---
 

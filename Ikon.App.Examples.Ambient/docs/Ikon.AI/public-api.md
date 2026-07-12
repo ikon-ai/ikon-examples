@@ -86,7 +86,7 @@ namespace Ikon.AI
     Task AfterAsync(GovernanceCall call, GovernanceCallResult result, CancellationToken ct)
     Task<GovernanceOutcome> BeforeAsync(GovernanceCall call, CancellationToken ct)
     static NullGovernanceHook Instance
-  class RegionNotSupportedException : AIException
+  class RegionNotSupportedException : NonRetryableAIException
     ctor()
     ctor(string message)
     ctor(string message, Exception inner)
@@ -109,10 +109,10 @@ namespace Ikon.AI.Chat
     void Continue()
     KernelContext CreateKernelContext()
     ValueTask DisposeAsync()
-    IAsyncEnumerable<LLMEvent> GenerateAsync(IEnumerable<ValueTuple<string, object?>>? parameters = null, IEnumerable<KernelContext>? contexts = null, CancellationToken cancellationToken = default)
-    Task<T> GenerateObjectAsync<T>(IEnumerable<ValueTuple<string, object?>>? parameters = null, IEnumerable<KernelContext>? contexts = null, CancellationToken cancellationToken = default) where T : new()
-    Task<string> GenerateStringAsync(IEnumerable<ValueTuple<string, object?>>? parameters = null, IEnumerable<KernelContext>? contexts = null, CancellationToken cancellationToken = default)
-    T GetState<T>(string key)
+    IAsyncEnumerable<LLMEvent> GenerateAsync(IEnumerable<(string Key, object? Value)>? parameters = null, IEnumerable<KernelContext>? contexts = null, CancellationToken cancellationToken = default)
+    Task<T> GenerateObjectAsync<T>(IEnumerable<(string Key, object? Value)>? parameters = null, IEnumerable<KernelContext>? contexts = null, CancellationToken cancellationToken = default) where T : new()
+    Task<string> GenerateStringAsync(IEnumerable<(string Key, object? Value)>? parameters = null, IEnumerable<KernelContext>? contexts = null, CancellationToken cancellationToken = default)
+    T? GetState<T>(string key)
     void SetState(string key, object? value)
     void StopProcessing()
     event EventHandler<string>? RenderedShader
@@ -151,7 +151,7 @@ namespace Ikon.AI.Classification
     OpenAIOmniModeration
     MistralModeration
   static class ClassificationModelExtensions
-    static string DisplayName(ClassificationModel model)
+    static string DisplayName(this ClassificationModel model)
   sealed class ClassificationResult : IEquatable<ClassificationResult>
     ctor()
     List<ClassificationDetail> Details { get; init; }
@@ -163,15 +163,16 @@ namespace Ikon.AI.Classification
   sealed class Classifier : IClassifier, IDisposable
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(ClassificationModel model, IReadOnlyList<ModelRegion>? regions = null)
-    Task<ClassificationResult> ClassifyAsync(IReadOnlyList<ClassificationInput> inputs, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
-    Task<ClassificationResult> ClassifyAsync(IReadOnlyList<IMessagePart> messageParts, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
-    Task<ClassificationResult> ClassifyAsync(string text, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    TimeSpan Timeout { get; set; }
+    Task<ClassificationResult> ClassifyAsync(IReadOnlyList<ClassificationInput> inputs, CancellationToken cancellationToken = default)
+    Task<ClassificationResult> ClassifyAsync(IReadOnlyList<IMessagePart> messageParts, CancellationToken cancellationToken = default)
+    Task<ClassificationResult> ClassifyAsync(string text, CancellationToken cancellationToken = default)
     // One-shot text moderation. The verbose form
     // using var classifier = new Classifier(ClassificationModel.OpenAIOmniModeration);
     // var result = await classifier.ClassifyAsync(text);
     // becomes
     // var result = await Classifier.ClassifyAsync(text);
-    // Defaults to OpenAIOmniModeration (free to use, the standard moderation model). Override the model via the second parameter when the task warrants. Check result.IsFlagged and the per-label result.Details. Reach for the constructor + the instance ClassifyAsync overloads when you need to classify images or message parts ( ClassificationInput ), set a custom timeout, or classify many inputs with the same generator instance.
+    // Defaults to OpenAIOmniModeration (free to use, the standard moderation model). Override the model via the second parameter when the task warrants. Check result.IsFlagged and the per-label result.Details. Reach for the constructor + the instance ClassifyAsync overloads when you need to classify images or message parts ( ClassificationInput ), set a custom Timeout , or classify many inputs with the same classifier instance.
     static Task<ClassificationResult> ClassifyAsync(string text, ClassificationModel model = OpenAIOmniModeration, CancellationToken cancellationToken = default)
     void Dispose()
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ClassificationModel model)
@@ -180,9 +181,15 @@ namespace Ikon.AI.Classification
     ctor(string message)
     ctor(string message, Exception inner)
   interface IClassifier : IDisposable
-    abstract Task<ClassificationResult> ClassifyAsync(IReadOnlyList<ClassificationInput> inputs, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
-    virtual Task<ClassificationResult> ClassifyAsync(IReadOnlyList<IMessagePart> messageParts, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
-    virtual Task<ClassificationResult> ClassifyAsync(string text, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    // Maximum duration of a single classification request. Defaults to 10 seconds.
+    TimeSpan Timeout { get; set; }
+    abstract Task<ClassificationResult> ClassifyAsync(IReadOnlyList<ClassificationInput> inputs, CancellationToken cancellationToken = default)
+    virtual Task<ClassificationResult> ClassifyAsync(IReadOnlyList<IMessagePart> messageParts, CancellationToken cancellationToken = default)
+    virtual Task<ClassificationResult> ClassifyAsync(string text, CancellationToken cancellationToken = default)
+  class NonRetryableClassifierException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
 
 namespace Ikon.AI.Database
   sealed class BigQueryDbConnection : DbConnection
@@ -202,17 +209,22 @@ namespace Ikon.AI.Database
     ctor()
     string? EnvVarPrefix { get; set; }
     DatabaseConnection.SpaceSecret? SpaceSecret { get; set; }
+  // Configuration for database info extraction.
   class DatabaseInfoExtractor.Config
     ctor()
+    // Regex patterns for column names to exclude (format: "schema.table.column").
     List<string>? ColumnExcludeRegex { get; set; }
     Dictionary<string, string> ColumnExtraInfo { get; set; }
     bool IncludeEmptyColumns { get; set; }
     int JsonSampleLengthLimit { get; set; }
     int JsonSampleRowLimit { get; set; }
     int NonTextSampleRowLimit { get; set; }
+    // Exact schema names to include. If empty, defaults depend on database type (e.g., "public" for PostgreSQL).
     List<string>? Schemas { get; set; }
+    // Regex patterns for table names to exclude.
     List<string>? TableExcludeRegex { get; set; }
     Dictionary<string, string> TableExtraInfo { get; set; }
+    // Regex patterns for table names to include (format: "schema.table" or just "table").
     List<string>? TableIncludeRegex { get; set; }
     int TextSampleLengthLimit { get; set; }
     int TextSampleRowLimit { get; set; }
@@ -251,9 +263,6 @@ namespace Ikon.AI.Database
   class DatabaseInfoExtractor
     ctor(DatabaseConnection databaseConnection)
     Task<DatabaseInfo> ExtractAsync(DatabaseInfoExtractor.Config config, CancellationToken cancellationToken)
-    Task<ResultSet> GetCteDatabaseInfoAllValuesAsync(DatabaseInfo cteDatabaseInfo, int maxRows)
-    static bool IsText(string dataType)
-    Task<DatabaseInfo> ValidateAndFillCteDatabaseInfoAsync(DatabaseInfo cteDatabaseInfo, int maxRowsFilter)
   class DatabaseTableInfo
     ctor()
     List<DatabaseColumnInfo> Columns { get; set; }
@@ -306,7 +315,7 @@ namespace Ikon.AI.DepthEstimation
     Marigold
     Midas
   static class DepthEstimatorModelExtensions
-    static string DisplayName(DepthEstimatorModel model)
+    static string DisplayName(this DepthEstimatorModel model)
   sealed class DepthEstimatorResult : IEquatable<DepthEstimatorResult>
     ctor()
     DepthEstimatorResult.OutputImage Depth { get; init; }
@@ -317,6 +326,10 @@ namespace Ikon.AI.DepthEstimation
     byte[]? Data { get; init; }
     string? MimeType { get; init; }
     string? Url { get; init; }
+  class NonRetryableDepthEstimatorException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class DepthEstimatorResult.OutputImage : IEquatable<DepthEstimatorResult.OutputImage>
     ctor()
     byte[] Data { get; init; }
@@ -333,15 +346,16 @@ namespace Ikon.AI.Embeddings
     ctor(EmbeddingModel model, IReadOnlyList<ModelRegion>? regions = null)
     int EmbeddingVectorSize { get; }
     int MaxInputCount { get; }
+    TimeSpan Timeout { get; set; }
     void Dispose()
     // One-shot embedding generation. The verbose form
     // using var embeddingGenerator = new EmbeddingGenerator(EmbeddingModel.OpenAI3Small);
     // var embeddings = await embeddingGenerator.GenerateEmbeddingsAsync(texts, EmbeddingType.Generic);
     // becomes
     // var embeddings = await EmbeddingGenerator.EmbedAsync(texts);
-    // Defaults to OpenAI3Small (cheap+fast) and Generic . Override the model via the second parameter when the task warrants; pass an explicit EmbeddingType when embedding documents and queries for asymmetric retrieval. Returns one float[] vector per input, in input order. Reach for the constructor + GenerateEmbeddingsAsync when you need batching control (maxInputCount), a custom timeout, or the generator's MaxInputCount / EmbeddingVectorSize properties.
+    // Defaults to OpenAI3Small (cheap+fast) and Generic . Override the model via the second parameter when the task warrants; pass an explicit EmbeddingType when embedding documents and queries for asymmetric retrieval. Returns one float[] vector per input, in input order. Reach for the constructor + GenerateEmbeddingsAsync when you need batching control (maxInputCount), a custom Timeout , or the generator's MaxInputCount / EmbeddingVectorSize properties.
     static Task<List<float[]>> EmbedAsync(IReadOnlyList<string> texts, EmbeddingModel model = OpenAI3Small, EmbeddingType type = Generic, CancellationToken cancellationToken = default)
-    Task<List<float[]>> GenerateEmbeddingsAsync(IReadOnlyList<string> inputs, EmbeddingType type, int maxInputCount = 0, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    Task<List<float[]>> GenerateEmbeddingsAsync(IReadOnlyList<string> inputs, EmbeddingType type, int maxInputCount = 0, CancellationToken cancellationToken = default)
     static EmbeddingGeneratorCapabilities GetCapabilities(EmbeddingModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(EmbeddingModel model)
   sealed class EmbeddingGeneratorCapabilities
@@ -384,7 +398,7 @@ namespace Ikon.AI.Embeddings
     Voyage4Lite
     Voyage4Large
   static class EmbeddingModelExtensions
-    static string DisplayName(EmbeddingModel model)
+    static string DisplayName(this EmbeddingModel model)
   enum EmbeddingType
     Generic
     Document
@@ -394,11 +408,17 @@ namespace Ikon.AI.Embeddings
   interface IEmbeddingGenerator : IDisposable
     int EmbeddingVectorSize { get; }
     int MaxInputCount { get; }
-    abstract Task<List<float[]>> GenerateEmbeddingsAsync(IReadOnlyList<string> inputs, EmbeddingType type, int maxInputCount = 0, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    // Maximum duration of a single embedding request, scaled up internally with the batch size. Defaults to 10 seconds.
+    TimeSpan Timeout { get; set; }
+    abstract Task<List<float[]>> GenerateEmbeddingsAsync(IReadOnlyList<string> inputs, EmbeddingType type, int maxInputCount = 0, CancellationToken cancellationToken = default)
   struct VectorMath.Neighbor
     ctor(int index, float distance)
     float Distance { get; }
     int Index { get; }
+  class NonRetryableEmbeddingGeneratorException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   static class VectorMath
     // Calculates the element-wise average embedding from a list of embeddings. Each embedding must be a float array of the same length.
     static float[] CalculateAverageEmbedding(IList<float[]> embeddings)
@@ -446,9 +466,13 @@ namespace Ikon.AI.FileConversion
   enum FileConverterModel
     ConvertApi
   static class FileConverterModelExtensions
-    static string DisplayName(FileConverterModel model)
+    static string DisplayName(this FileConverterModel model)
   interface IFileConverter : IDisposable
     abstract Task<ConvertedFile> ConvertToPdfAsync(FileConverterConfig config, CancellationToken cancellationToken = default)
+  class NonRetryableFileConverterException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
 
 namespace Ikon.AI.ImageGeneration
   interface IImageGenerator : IDisposable
@@ -467,8 +491,8 @@ namespace Ikon.AI.ImageGeneration
     // var image = results.FirstOrDefault();
     // becomes
     // var image = await ImageGenerator.GenerateAsync(prompt);
-    // Defaults to Gemini25FlashImage (cheap+fast). Override the model via the second parameter when the task warrants. Returns null if the model produces no results — caller should null-check before using .Data / .MimeType. Reach for the constructor + GenerateImageAsync when you need batch generation, custom width/height, an ImageBackground override, input images, or any other ImageGeneratorConfig field beyond the prompt.
-    static Task<ImageGeneratorResult?> GenerateAsync(string prompt, ImageGeneratorModel model = Gemini25FlashImage, CancellationToken cancellationToken = default)
+    // Defaults to Gemini25FlashImage (cheap+fast). Override the model via the second parameter when the task warrants. Never returns null — throws an ImageGeneratorException when generation fails or the model produces no results, so wrap in try/catch when the app should continue without the image. Reach for the constructor + GenerateImageAsync when you need batch generation, custom width/height, an ImageBackground override, input images, or any other ImageGeneratorConfig field beyond the prompt.
+    static Task<ImageGeneratorResult> GenerateAsync(string prompt, ImageGeneratorModel model = Gemini25FlashImage, CancellationToken cancellationToken = default)
     Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = default)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ImageGeneratorModel model)
   sealed class ImageGeneratorConfig : IEquatable<ImageGeneratorConfig>
@@ -523,7 +547,7 @@ namespace Ikon.AI.ImageGeneration
     GrokImagineImage
     GrokImagineImageQuality
   static class ImageGeneratorModelExtensions
-    static string DisplayName(ImageGeneratorModel model)
+    static string DisplayName(this ImageGeneratorModel model)
   sealed class ImageGeneratorResult : IEquatable<ImageGeneratorResult>
     ctor()
     byte[] Data { get; init; }
@@ -551,6 +575,10 @@ namespace Ikon.AI.ImageGeneration
   enum InputImageType
     Normal
     Mask
+  class NonRetryableImageGeneratorException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   enum SafetyLevel
     Level0
     Level1
@@ -604,7 +632,7 @@ namespace Ikon.AI.ImageSegmentation
     Sam3
     Sam31
   static class ImageSegmenterModelExtensions
-    static string DisplayName(ImageSegmenterModel model)
+    static string DisplayName(this ImageSegmenterModel model)
   sealed class ImageSegmenterResult : IEquatable<ImageSegmenterResult>
     ctor()
     ImageSegmenterResult.OutputImage? Preview { get; init; }
@@ -614,6 +642,10 @@ namespace Ikon.AI.ImageSegmentation
     byte[]? Data { get; init; }
     string? MimeType { get; init; }
     string? Url { get; init; }
+  class NonRetryableImageSegmenterException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class ImageSegmenterResult.OutputImage : IEquatable<ImageSegmenterResult.OutputImage>
     ctor()
     byte[] Data { get; init; }
@@ -634,17 +666,18 @@ namespace Ikon.AI.ImageSegmentation
 
 namespace Ikon.AI.Kernel
   static class AsyncEnumerableExtensions
-    static Task<T1[]> AsArrayAsync<T1>(IAsyncEnumerable<LLMEvent> source)
-    static Task<T1> AsFirstAsync<T1>(IAsyncEnumerable<LLMEvent> source)
-    static Task<string> AsStringAsync(IAsyncEnumerable<LLMEvent> source)
-    static IAsyncEnumerable<LLMEvent> WithCitationsAsync(IAsyncEnumerable<LLMEvent> source, IdMapper idMapper)
-    static IAsyncEnumerable<LLMEvent> WithParsedTagsAsync(IAsyncEnumerable<LLMEvent> source, List<string>? tagWhitelist = null, List<string>? tagBlacklist = null)
-    static IAsyncEnumerable<LLMEvent> WithReasoningFromTagAsync(IAsyncEnumerable<LLMEvent> source, string reasoningTagName)
-    static IAsyncEnumerable<LLMEvent> WithThrottlingAsync(IAsyncEnumerable<LLMEvent> source, int charsPerSecond, int charsPerUpdate, CancellationToken cancellationToken = default)
-    static IAsyncEnumerable<LLMEvent> WithWindowedProcessingAsync(IAsyncEnumerable<LLMEvent> source, Func<string, List<LLMEvent>, Task<ValueTuple<bool, List<LLMEvent>>>> processAsync, int windowSize = 0, int windowOverlap = 0)
+    static Task<T1[]> AsArrayAsync<T1>(this IAsyncEnumerable<LLMEvent> source)
+    static Task<T1> AsFirstAsync<T1>(this IAsyncEnumerable<LLMEvent> source)
+    static Task<string> AsStringAsync(this IAsyncEnumerable<LLMEvent> source)
+    static IAsyncEnumerable<LLMEvent> WithParsedTagsAsync(this IAsyncEnumerable<LLMEvent> source, List<string>? tagWhitelist = null, List<string>? tagBlacklist = null)
+    static IAsyncEnumerable<LLMEvent> WithReasoningFromTagAsync(this IAsyncEnumerable<LLMEvent> source, string reasoningTagName)
+    static IAsyncEnumerable<LLMEvent> WithThrottlingAsync(this IAsyncEnumerable<LLMEvent> source, int charsPerSecond, int charsPerUpdate, CancellationToken cancellationToken = default)
+    static IAsyncEnumerable<LLMEvent> WithWindowedProcessingAsync(this IAsyncEnumerable<LLMEvent> source, Func<string, List<LLMEvent>, Task<(bool, List<LLMEvent>)>> processAsync, int windowSize = 0, int windowOverlap = 0)
+  // An incremental chunk of generated output audio.
   sealed class LLMEvent.AudioDelta : LLMEvent, IEquatable<LLMEvent.AudioDelta>
     ctor(AudioChunk Audio)
     AudioChunk Audio { get; init; }
+  // The provider-side id of the generated output audio, replayable as an AudioIdPart in a follow-up context.
   sealed class LLMEvent.AudioId : LLMEvent, IEquatable<LLMEvent.AudioId>
     ctor(string Id)
     string Id { get; init; }
@@ -657,6 +690,7 @@ namespace Ikon.AI.Kernel
     byte[] Content { get; }
     string MimeType { get; }
     MessagePartType Type { get; }
+  // The transcript of generated output audio.
   sealed class LLMEvent.AudioTranscript : LLMEvent, IEquatable<LLMEvent.AudioTranscript>
     ctor(string Transcript)
     string Transcript { get; init; }
@@ -664,6 +698,7 @@ namespace Ikon.AI.Kernel
     ctor(byte[] data, string mimeType)
     byte[] Data { get; }
     string MimeType { get; }
+  // A citation reference detected in the generated text. The refer indices bound the text span that refers to the citation; PositionIndex is the character index of the citation marker itself.
   sealed class LLMEvent.Citation : LLMEvent, IEquatable<LLMEvent.Citation>
     ctor(string OriginalId, string MappedId, int ReferStartIndex, int ReferEndIndex, int PositionIndex)
     string MappedId { get; init; }
@@ -671,15 +706,19 @@ namespace Ikon.AI.Kernel
     int PositionIndex { get; init; }
     int ReferEndIndex { get; init; }
     int ReferStartIndex { get; init; }
+  // Generation was stopped by a content-safety classifier.
   sealed class LLMEvent.ContentFiltered : LLMEvent, IEquatable<LLMEvent.ContentFiltered>
     ctor(ClassificationResult Classification)
     ClassificationResult Classification { get; init; }
+  // The complete model message of a shader run (may differ from the text response), emitted once at the end.
   sealed class LLMEvent.FinalModelMessage : LLMEvent, IEquatable<LLMEvent.FinalModelMessage>
     ctor(string Text)
     string Text { get; init; }
+  // The complete text response of a shader run, emitted once at the end.
   sealed class LLMEvent.FinalText : LLMEvent, IEquatable<LLMEvent.FinalText>
     ctor(string Text)
     string Text { get; init; }
+  // The provider's finish reason for the generation (e.g. "stop", "max_tokens").
   sealed class LLMEvent.Finished : LLMEvent, IEquatable<LLMEvent.Finished>
     ctor(string Reason)
     string Reason { get; init; }
@@ -735,11 +774,9 @@ namespace Ikon.AI.Kernel
     int? ClearToolResultsAfterInputTokens { get; init; }
     // Tool names whose results are NEVER cleared by ClearToolResultsAfterInputTokens (semantic anchors like verdicts).
     IReadOnlyList<string>? ClearToolResultsExcludedTools { get; init; }
-    // Alias for Empty . Some generated code reaches for `Default` first (common shadcn / .NET pattern).
-    static KernelContext Default { get; }
     bool DisableFunctionCalling { get; init; }
     bool DiscardTextOutputWithFunctionCalls { get; init; }
-    // A fresh, blank `KernelContext` — equivalent to `new KernelContext()` or `default`. Provided as a named constant for code generated against frameworks that expect an `.Empty` / `.Default` affordance on context-like types.
+    // A fresh, blank `KernelContext` — equivalent to `new KernelContext()` or `default`. Provided as a named constant for code generated against frameworks that expect an `.Empty` affordance on context-like types.
     static KernelContext Empty { get; }
     ImmutableDictionary<string, Function> Functions { get; init; }
     string GbnfGrammar { get; init; }
@@ -762,7 +799,6 @@ namespace Ikon.AI.Kernel
     bool UseUserNames { get; init; }
     KernelContext Add(Instruction instruction)
     KernelContext Add(MessageBlock message)
-    static KernelContext Create(IEnumerable<Instruction>? instructions = null, IEnumerable<MessageBlock>? messages = null, IEnumerable<Function>? functions = null, TimeSpan? timeout = null, double? temperature = null, int? maxOutputTokens = null, ReasoningEffort? reasoningEffort = null, int? reasoningTokenBudget = null, bool? useStreaming = null, bool? useJson = null, bool? useCitations = null, bool? useUserNames = null, bool? useAudioOutput = null, string? audioOutputVoiceId = null, bool? useCaching = null, bool? disableFunctionCalling = null, bool? discardTextOutputWithFunctionCalls = null, bool? logFullRequest = null, bool? logFullResponse = null, object? jsonSchema = null, string? gbnfGrammar = null, string? toolPlan = null)
     IAsyncEnumerable<LLMEvent> GenerateAsync(ILLM llm, CancellationToken cancellationToken = default)
     KernelContext KeepMessagesMax(int count)
     KernelContext WithFunctions(IEnumerable<Function>? functions, bool replaceExisting = false)
@@ -810,6 +846,7 @@ namespace Ikon.AI.Kernel
     ctor(string url)
     MessagePartType Type { get; }
     string Url { get; }
+  // The model's reasoning trace for this generation.
   sealed class LLMEvent.Reasoning : LLMEvent, IEquatable<LLMEvent.Reasoning>
     ctor(string Text)
     string Text { get; init; }
@@ -819,11 +856,17 @@ namespace Ikon.AI.Kernel
     Low
     Medium
     High
+  // Selects which JSON-schema dialect the generator emits. All Ikon-side schema shapes (primitives, arrays, dictionaries, polymorphism) are expressible in both dialects; the two differ in how they encode nullability and how strictly they police unknown keywords.
+  enum SchemaDialect
+    JsonSchema202012
+    OpenApi30
+  // A parsed XML-style tag extracted from the text stream by WithParsedTagsAsync .
   sealed class LLMEvent.Tag : LLMEvent, IEquatable<LLMEvent.Tag>
     ctor(string Name, string Content, IReadOnlyDictionary<string, string>? Attributes)
     IReadOnlyDictionary<string, string>? Attributes { get; init; }
     string Content { get; init; }
     string Name { get; init; }
+  // An incremental chunk of generated text.
   sealed class LLMEvent.TextDelta : LLMEvent, IEquatable<LLMEvent.TextDelta>
     ctor(string Text)
     string Text { get; init; }
@@ -831,18 +874,22 @@ namespace Ikon.AI.Kernel
     ctor(string content)
     string Content { get; }
     MessagePartType Type { get; }
+  // The model requested a tool invocation.
   sealed class LLMEvent.ToolCallRequested : LLMEvent, IEquatable<LLMEvent.ToolCallRequested>
     ctor(FunctionCall Call)
     FunctionCall Call { get; init; }
+  // The model's plan for upcoming tool calls (Cohere).
   sealed class LLMEvent.ToolPlan : LLMEvent, IEquatable<LLMEvent.ToolPlan>
     ctor(string Text)
     string Text { get; init; }
+  // The output of an executed tool. Value holds the tool's return value; ValueType records its runtime type so the value can be rehydrated to the original type after a JSON round-trip (e.g. over RPC).
   sealed class LLMEvent.ToolResult : LLMEvent, IEquatable<LLMEvent.ToolResult>
     ctor(string functionName, object? value)
     ctor(string functionName, object? value, string? valueType)
     string FunctionName { get; }
     object? Value { get; }
     string? ValueType { get; }
+  // Token accounting for one generation. CachedInputTokens is the subset of InputTokens served from the provider's prompt cache (Anthropic cache_read_input_tokens, OpenAI cached_tokens, Bedrock CacheReadInputTokens).
   sealed class LLMEvent.Usage : LLMEvent, IEquatable<LLMEvent.Usage>
     ctor(int InputTokens, int CachedInputTokens, int CacheCreationInputTokens, int OutputTokens)
     int CacheCreationInputTokens { get; init; }
@@ -1022,8 +1069,8 @@ namespace Ikon.AI.LLM
     Nova2Lite
   static class LLMModelExtensions
     // Maximum input-context window for the model, in tokens (e.g. 200_000 for Claude 4.x base, 1_000_000 for the 1M-context tier). Returns 0 when the model can't be resolved — callers should treat 0 as "unknown" and skip utilization computation rather than dividing by zero.
-    static int ContextWindowSize(LLMModel model)
-    static string DisplayName(LLMModel model)
+    static int ContextWindowSize(this LLMModel model)
+    static string DisplayName(this LLMModel model)
   class NonRetryableLLMException : NonRetryableAIException
     ctor()
     ctor(string message)
@@ -1096,7 +1143,7 @@ namespace Ikon.AI.MeshGeneration
     Meshy5
     Meshy6
   static class MeshGeneratorModelExtensions
-    static string DisplayName(MeshGeneratorModel model)
+    static string DisplayName(this MeshGeneratorModel model)
   // Result of a mesh generation. The URLs are signed and expire roughly three days after generation, so download the model files promptly.
   sealed class MeshGeneratorResult : IEquatable<MeshGeneratorResult>
     ctor()
@@ -1110,6 +1157,10 @@ namespace Ikon.AI.MeshGeneration
   enum MeshGeneratorTopology
     Triangle
     Quad
+  class NonRetryableMeshGeneratorException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
 
 namespace Ikon.AI.MusicGeneration
   interface IMusicGenerator : IDisposable, IMusicGeneratorInfo
@@ -1182,12 +1233,16 @@ namespace Ikon.AI.MusicGeneration
     FalStableAudio
     FalLyria2
   static class MusicGeneratorModelExtensions
-    static string DisplayName(MusicGeneratorModel model)
+    static string DisplayName(this MusicGeneratorModel model)
   sealed class MusicGeneratorResult : IEquatable<MusicGeneratorResult>
     ctor()
     byte[] AudioData { get; init; }
     string ContentType { get; init; }
     double DurationSeconds { get; init; }
+  class NonRetryableMusicGeneratorException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
 
 namespace Ikon.AI.OCR
   enum DocumentType
@@ -1197,6 +1252,10 @@ namespace Ikon.AI.OCR
     abstract IAsyncEnumerable<OCRResult> AnalyzeDocumentStreamingAsync(OCRConfig config, CancellationToken cancellationToken = default)
   interface IOCRInfo
     int MaxPagesSupported { get; }
+  class NonRetryableOCRException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class OCR : IDisposable, IOCR, IOCRInfo
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(OCRModel model, IReadOnlyList<ModelRegion>? regions = null)
@@ -1237,7 +1296,7 @@ namespace Ikon.AI.OCR
     AzureDocumentIntelligence
     MistralOCR
   static class OCRModelExtensions
-    static string DisplayName(OCRModel model)
+    static string DisplayName(this OCRModel model)
   sealed class OCRPage
     ctor()
     float Height { get; init; }
@@ -1262,7 +1321,13 @@ namespace Ikon.AI.OCR
 
 namespace Ikon.AI.Reranking
   interface IReranker : IDisposable
-    abstract Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, int topN = 0, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    // Maximum duration of a single rerank request, scaled up internally with the document count. Defaults to 10 seconds.
+    TimeSpan Timeout { get; set; }
+    abstract Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, int topN = 0, CancellationToken cancellationToken = default)
+  class NonRetryableRerankerException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class RerankItem : IEquatable<RerankItem>
     ctor()
     int Index { get; init; }
@@ -1274,19 +1339,20 @@ namespace Ikon.AI.Reranking
     VoyageRerank25
     VoyageRerank25Lite
   static class RerankModelExtensions
-    static string DisplayName(RerankModel model)
+    static string DisplayName(this RerankModel model)
   sealed class Reranker : IDisposable, IReranker
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(RerankModel model, IReadOnlyList<ModelRegion>? regions = null)
+    TimeSpan Timeout { get; set; }
     void Dispose()
     static IReadOnlyList<ModelRegion> GetSupportedRegions(RerankModel model)
-    Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, int topN = 0, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, int topN = 0, CancellationToken cancellationToken = default)
     // One-shot reranking. The verbose form
     // using var reranker = new Reranker(RerankModel.CohereRerank4Fast);
     // var items = await reranker.RerankAsync(documents, query);
     // becomes
     // var items = await Reranker.RerankAsync(documents, query);
-    // Defaults to CohereRerank4Fast (cheap+fast). Override the model via the third parameter when the task warrants; pass topN to cap how many items are returned (0 returns all). Each RerankItem carries the document's original .Index and its relevance .Score, ordered most relevant first. Reach for the constructor + the instance RerankAsync when you need a custom timeout or rerank many queries against the same generator instance.
+    // Defaults to CohereRerank4Fast (cheap+fast). Override the model via the third parameter when the task warrants; pass topN to cap how many items are returned (0 returns all). Each RerankItem carries the document's original .Index and its relevance .Score, ordered most relevant first. Reach for the constructor + the instance RerankAsync when you need a custom Timeout or rerank many queries against the same reranker instance.
     static Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, RerankModel model = CohereRerank4Fast, int topN = 0, CancellationToken cancellationToken = default)
   class RerankerException : RetryableAIException
     ctor()
@@ -1308,7 +1374,7 @@ namespace Ikon.AI.Retrieving
     ContentLink Parent { get; }
     ContentLink Root { get; }
     override bool Equals(object? obj)
-    List<ValueTuple<string, string>> GenerateHierarchicalSplitLinks()
+    List<(string Link, string Internal)> GenerateHierarchicalSplitLinks()
     override int GetHashCode()
     override string ToString()
     string Link
@@ -1354,7 +1420,6 @@ namespace Ikon.AI.Retrieving
   class Retriever : IAsyncDisposable
     ctor()
     KernelContext Context { get; }
-    IdMapper IdMapper { get; }
     ValueTask DisposeAsync()
     Task<ContentLink[]> ExpandAsync(ContentLink[] links)
     Task<ContentLink[]> ExpandAsync(ContentLink link)
@@ -1380,6 +1445,10 @@ namespace Ikon.AI.SoundEffectGeneration
     abstract IAsyncEnumerable<AudioChunk> GenerateSoundEffectAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
   interface ISoundEffectGeneratorInfo
     bool SupportsLooping { get; }
+  class NonRetryableSoundEffectGeneratorException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class SoundEffectFileResult
     byte[] AudioData { get; init; }
     string ContentType { get; init; }
@@ -1421,7 +1490,7 @@ namespace Ikon.AI.SoundEffectGeneration
   enum SoundEffectGeneratorModel
     ElevenLabsV2
   static class SoundEffectGeneratorModelExtensions
-    static string DisplayName(SoundEffectGeneratorModel model)
+    static string DisplayName(this SoundEffectGeneratorModel model)
 
 namespace Ikon.AI.SpeechGeneration
   sealed class TextFilter.Config
@@ -1435,6 +1504,10 @@ namespace Ikon.AI.SpeechGeneration
     int SampleRate { get; }
     IReadOnlyList<string> VoiceIds { get; }
     abstract IAsyncEnumerable<AudioChunk> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = default)
+  class NonRetryableSpeechGeneratorException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class SpeechGenerator : IDisposable, ISpeechGenerator
     ctor(string modelName)
     ctor(SpeechGeneratorModel model)
@@ -1452,8 +1525,8 @@ namespace Ikon.AI.SpeechGeneration
     // }
     // becomes
     // var audio = await SpeechGenerator.GenerateAsync(text);
-    // Defaults to ElevenFlash25 (cheap+fast). Override the model via the second parameter when the task warrants; pass voice to pick a voice (the model's default voice otherwise). The streamed chunks are concatenated into a single PCM AudioChunk (.Samples / .SampleRate / .ChannelCount). Returns null if the model produces no audio — caller should null-check before using the samples. Reach for the constructor + GenerateSpeechAsync when you need chunk-by-chunk streaming playback while generation runs, or any other SpeechGeneratorConfig field beyond text+voice (language, instructions, speed).
-    static Task<AudioChunk?> GenerateAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, CancellationToken cancellationToken = default)
+    // Defaults to ElevenFlash25 (cheap+fast). Override the model via the second parameter when the task warrants; pass voice to pick a voice (the model's default voice otherwise). The streamed chunks are concatenated into a single PCM AudioChunk (.Samples / .SampleRate / .ChannelCount). Never returns null — throws a SpeechGeneratorException when generation fails or the model produces no audio, so wrap in try/catch when the app should continue without the audio. Reach for the constructor + GenerateSpeechAsync when you need chunk-by-chunk streaming playback while generation runs, or any other SpeechGeneratorConfig field beyond text+voice (language, instructions, speed).
+    static Task<AudioChunk> GenerateAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, CancellationToken cancellationToken = default)
     IAsyncEnumerable<AudioChunk> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = default)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(SpeechGeneratorModel model)
     static IReadOnlyDictionary<SpeechGeneratorModel, IReadOnlyList<string>> GetVoiceIdsByModel()
@@ -1483,7 +1556,7 @@ namespace Ikon.AI.SpeechGeneration
     Gemini25ProTts
     Gemini31FlashTts
   static class SpeechGeneratorModelExtensions
-    static string DisplayName(SpeechGeneratorModel model)
+    static string DisplayName(this SpeechGeneratorModel model)
   static class TextFilter
     static string Filter(string text, TextFilter.Config config)
 
@@ -1505,11 +1578,17 @@ namespace Ikon.AI.SpeechRecognition
     Pronunciation.UnexpectedBreak UnexpectedBreak { get; init; }
   sealed class SpeechRecognizerAdapter.Config
     ctor()
+    // The maximum duration of continuous speech before recognition is forced in SilenceTriggered mode. This prevents indefinite buffering when the speaker doesn't pause. Set to Zero or negative to disable the limit.
     TimeSpan MaxSpeechDuration { get; set; }
+    // The recognition mode that determines how audio is segmented and when recognition is triggered.
     SpeechRecognizerAdapter.Mode Mode { get; set; }
+    // The interval at which speech recognition is triggered in GrowingWindow and SlidingWindow modes. In GrowingWindow mode, recognition runs on all accumulated audio at this interval. In SlidingWindow mode, recognition runs on the audio collected since the last recognition.
     TimeSpan RecognitionInterval { get; set; }
+    // The timeout for individual speech recognition API requests.
     TimeSpan RequestTimeout { get; set; }
+    // The duration of continuous silence required to trigger recognition in SilenceTriggered mode. When the speaker pauses for this duration, the accumulated speech is sent for recognition.
     TimeSpan SilenceDuration { get; set; }
+    // The amplitude threshold below which audio is considered silence. Sample values with absolute amplitude below this threshold are treated as silent.
     float SilenceThreshold { get; set; }
   sealed class Pronunciation.Feedback : IEquatable<Pronunciation.Feedback>
     ctor()
@@ -1547,6 +1626,10 @@ namespace Ikon.AI.SpeechRecognition
     string MaskedITN { get; init; }
     Pronunciation.PronunciationAssessment PronunciationAssessment { get; init; }
     List<Pronunciation.Word> Words { get; init; }
+  class NonRetryableSpeechRecognizerException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class Pronunciation.Phoneme : IEquatable<Pronunciation.Phoneme>
     ctor()
     long Duration { get; init; }
@@ -1653,7 +1736,7 @@ namespace Ikon.AI.SpeechRecognition
     AssemblyAIUniversalStreamingMultilingual
     VoxtralMiniTranscribe2
   static class SpeechRecognizerModelExtensions
-    static string DisplayName(SpeechRecognizerModel model)
+    static string DisplayName(this SpeechRecognizerModel model)
   sealed class Pronunciation.Syllable : IEquatable<Pronunciation.Syllable>
     ctor()
     long Duration { get; init; }
@@ -1720,17 +1803,28 @@ namespace Ikon.AI.Utils
     static byte[] ConvertAlphaMaskToBlackWhiteMask(byte[] maskData)
     static byte[] ConvertBlackWhiteMaskToAlphaMask(byte[] maskData)
     // Re-encodes an image as JPEG with both dimensions capped at maxDimension (aspect preserved). Returns the original bytes untouched when the image already fits AND is at most maxBytes — small screenshots pass through without a decode cost. Intended for images going into LLM context, where anything above ~1568px is downscaled by the provider anyway and only costs tokens.
-    static ValueTuple<byte[], string, int, int> EncodeJpegCapped(byte[] source, string sourceMimeType, int maxDimension = 1568, int quality = 70, int maxBytes = 204800)
-    static ValueTuple<int, int> GetImageDimensions(byte[] buffer)
+    static (byte[] Bytes, string MimeType, int Width, int Height) EncodeJpegCapped(byte[] source, string sourceMimeType, int maxDimension = 1568, int quality = 70, int maxBytes = 204800)
+    static (int width, int height) GetImageDimensions(byte[] buffer)
     static byte[] InvertMask(byte[] maskData)
 
 namespace Ikon.AI.VideoEnhancement
   interface IVideoEnhancer : IDisposable
     abstract Task<VideoEnhancerResult> EnhanceVideoAsync(VideoEnhancerConfig config, CancellationToken cancellationToken = default)
+  class NonRetryableVideoEnhancerException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class VideoEnhancer : IDisposable, IVideoEnhancer
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(VideoEnhancerModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
+    // One-shot video enhancement from a video URL. The verbose form
+    // using var enhancer = new VideoEnhancer(VideoEnhancerModel.TensorPixUpscale2xUltra41);
+    // var result = await enhancer.EnhanceVideoAsync(new VideoEnhancerConfig { VideoUrl = url });
+    // becomes
+    // var enhanced = await VideoEnhancer.EnhanceAsync(url);
+    // Defaults to TensorPixUpscale2xUltra41 (the current 2x upscale generation — cheaper than the 4x filter). Override the model via the second parameter when the task warrants. Returns the enhanced video as a download URL in .Url along with .OutputFps and .OutputSizeBytes. Reach for the constructor + EnhanceVideoAsync when you need to enhance raw video bytes (VideoData), trim to a frame range, set a target FPS for TensorPixFpsBoost , or any other VideoEnhancerConfig field beyond the URL.
+    static Task<VideoEnhancerResult> EnhanceAsync(string videoUrl, VideoEnhancerModel model = TensorPixUpscale2xUltra41, CancellationToken cancellationToken = default)
     Task<VideoEnhancerResult> EnhanceVideoAsync(VideoEnhancerConfig config, CancellationToken cancellationToken = default)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(VideoEnhancerModel model)
   sealed class VideoEnhancerConfig : IEquatable<VideoEnhancerConfig>
@@ -1752,7 +1846,7 @@ namespace Ikon.AI.VideoEnhancement
     TensorPixUpscale2xUltra41
     TensorPixUpscale4xUltra4
   static class VideoEnhancerModelExtensions
-    static string DisplayName(VideoEnhancerModel model)
+    static string DisplayName(this VideoEnhancerModel model)
   sealed class VideoEnhancerResult : IEquatable<VideoEnhancerResult>
     ctor()
     int? OutputFps { get; init; }
@@ -1779,6 +1873,10 @@ namespace Ikon.AI.VideoGeneration
     byte[]? Data { get; init; }
     string? MimeType { get; init; }
     string? Url { get; init; }
+  class NonRetryableVideoGeneratorException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class VideoGenerator : IDisposable, IVideoGenerator, IVideoGeneratorInfo
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(VideoGeneratorModel model, IReadOnlyList<ModelRegion>? regions = null)
@@ -1867,7 +1965,7 @@ namespace Ikon.AI.VideoGeneration
     GrokImagineVideo
     GrokImagineVideo15
   static class VideoGeneratorModelExtensions
-    static string DisplayName(VideoGeneratorModel model)
+    static string DisplayName(this VideoGeneratorModel model)
   enum VideoGeneratorResolution
     Resolution360p
     Resolution480p
@@ -1950,6 +2048,10 @@ namespace Ikon.AI.WebScraping
     bool UseSitemapOnly { get; init; }
     bool UseStreaming { get; init; }
     TimeSpan WaitAfter { get; init; }
+  class NonRetryableWebScraperException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class PageResult : IEquatable<PageResult>
     ctor()
     string Content { get; init; }
@@ -2036,7 +2138,7 @@ namespace Ikon.AI.WebScraping
     LocalNodriver
     LocalPlaywright
   static class WebScraperModelExtensions
-    static string DisplayName(WebScraperModel model)
+    static string DisplayName(this WebScraperModel model)
   enum WebScraperOutputFormat
     Text
     Markdown
@@ -2048,6 +2150,10 @@ namespace Ikon.AI.WebSearching
     abstract Task<List<SearchResult>> SearchPagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
   interface IWebSearcherInfo
     bool SupportsImageSearching { get; }
+  class NonRetryableWebSearcherException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class SearchConfig : IEquatable<SearchConfig>
     ctor()
     string CountryCode { get; init; }
@@ -2097,7 +2203,7 @@ namespace Ikon.AI.WebSearching
     BingImages
     Youtube
   static class WebSearcherModelExtensions
-    static string DisplayName(WebSearcherModel model)
+    static string DisplayName(this WebSearcherModel model)
   enum WebSearcherOutputFormat
     Text
     Markdown

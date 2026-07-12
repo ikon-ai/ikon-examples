@@ -13,19 +13,19 @@ Text-to-speech with `Audio.SpeakAsync(text)`, speech-to-text with `SpeechRecogni
 // replaces whatever is still playing (the interrupt behavior a voice app wants).
 await Audio.SpeakAsync("Hello world");
 
-// Pick a model/voice, or target specific clients:
+// Pick a model/voice, shape the delivery, or target specific clients:
 await Audio.SpeakAsync("Hello world", SpeechGeneratorModel.Eleven3, voice: "Aria", targetIds: [clientSessionId]);
+await Audio.SpeakAsync("Hello world", instructions: "Whisper, as if sharing a secret", speed: "1.2");
 ```
 
-To get the audio WITHOUT playing it (e.g. to store or post-process a clip), use the one-shot `SpeechGenerator.GenerateAsync(text)` — it returns a single PCM `AudioChunk?` (nullable — guard it):
+To get the audio WITHOUT playing it (e.g. to store or post-process a clip), use the one-shot `SpeechGenerator.GenerateAsync(text)` — it returns a single PCM `AudioChunk` (never null; throws `SpeechGeneratorException` on failure):
 
 ```csharp
 var audio = await SpeechGenerator.GenerateAsync("Hello world");  // ElevenFlash25 (cheap+fast) by default
-if (audio is null) { return; }
 // audio.Samples (float[]), audio.SampleRate, audio.ChannelCount
 ```
 
-Hand-roll the generator loop only when you need custom mixing, speech that must not interrupt what is playing, chunk-by-chunk streaming, or config beyond text+voice (language, instructions, speed):
+Hand-roll the generator loop only when you need custom mixing, speech that must not interrupt what is playing, chunk-by-chunk streaming, or config beyond text, voice, instructions, and speed (e.g. language):
 
 ```csharp
 using var speechGenerator = new SpeechGenerator(SpeechGeneratorModel.ElevenFlash25);
@@ -121,9 +121,13 @@ namespace Ikon.AI.SoundEffectGeneration
   interface ISoundEffectGenerator : IDisposable, ISoundEffectGeneratorInfo
     int ChannelCount { get; }
     int SampleRate { get; }
-    abstract IAsyncEnumerable<AudioChunk> GenerateSoundEffectAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = null)
+    abstract IAsyncEnumerable<AudioChunk> GenerateSoundEffectAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
   interface ISoundEffectGeneratorInfo
     bool SupportsLooping { get; }
+  class NonRetryableSoundEffectGeneratorException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class SoundEffectFileResult
     byte[] AudioData { get; init; }
     string ContentType { get; init; }
@@ -137,10 +141,15 @@ namespace Ikon.AI.SoundEffectGeneration
     int SampleRate { get; }
     bool SupportsLooping { get; }
     void Dispose()
-    // One-shot sound effect generation. The verbose form using var generator = new SoundEffectGenerator(SoundEffectGeneratorModel.ElevenLabsV2); var result = await generator.GenerateSoundEffectFileAsync(new SoundEffectGeneratorConfig { Prompt = prompt }); becomes var effect = await SoundEffectGenerator.GenerateAsync(prompt); Defaults to ElevenLabsV2 (the only sound effect model). Returns a buffered WAV file (.AudioData / .ContentType / .DurationSeconds). Reach for the constructor + GenerateSoundEffectFileAsync when you need a target duration, looping, prompt influence, or any other SoundEffectGeneratorConfig field beyond the prompt; use GenerateSoundEffectAsync for streaming PCM chunks.
-    static Task<SoundEffectFileResult> GenerateAsync(string prompt, SoundEffectGeneratorModel model = ElevenLabsV2, CancellationToken cancellationToken = null)
-    IAsyncEnumerable<AudioChunk> GenerateSoundEffectAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = null)
-    Task<SoundEffectFileResult> GenerateSoundEffectFileAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = null)
+    // One-shot sound effect generation. The verbose form
+    // using var generator = new SoundEffectGenerator(SoundEffectGeneratorModel.ElevenLabsV2);
+    // var result = await generator.GenerateSoundEffectFileAsync(new SoundEffectGeneratorConfig { Prompt = prompt });
+    // becomes
+    // var effect = await SoundEffectGenerator.GenerateAsync(prompt);
+    // Defaults to ElevenLabsV2 (the only sound effect model). Returns a buffered WAV file (.AudioData / .ContentType / .DurationSeconds). Reach for the constructor + GenerateSoundEffectFileAsync when you need a target duration, looping, prompt influence, or any other SoundEffectGeneratorConfig field beyond the prompt; use GenerateSoundEffectAsync for streaming PCM chunks.
+    static Task<SoundEffectFileResult> GenerateAsync(string prompt, SoundEffectGeneratorModel model = ElevenLabsV2, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<AudioChunk> GenerateSoundEffectAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
+    Task<SoundEffectFileResult> GenerateSoundEffectFileAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
     static SoundEffectGeneratorCapabilities GetCapabilities(SoundEffectGeneratorModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(SoundEffectGeneratorModel model)
   sealed class SoundEffectGeneratorCapabilities : ISoundEffectGeneratorInfo
@@ -160,7 +169,7 @@ namespace Ikon.AI.SoundEffectGeneration
   enum SoundEffectGeneratorModel
     ElevenLabsV2
   static class SoundEffectGeneratorModelExtensions
-    static string DisplayName(SoundEffectGeneratorModel model)
+    static string DisplayName(this SoundEffectGeneratorModel model)
 
 namespace Ikon.AI.SpeechGeneration
   sealed class TextFilter.Config
@@ -173,7 +182,11 @@ namespace Ikon.AI.SpeechGeneration
     int ChannelCount { get; }
     int SampleRate { get; }
     IReadOnlyList<string> VoiceIds { get; }
-    abstract IAsyncEnumerable<AudioChunk> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = null)
+    abstract IAsyncEnumerable<AudioChunk> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = default)
+  class NonRetryableSpeechGeneratorException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class SpeechGenerator : IDisposable, ISpeechGenerator
     ctor(string modelName)
     ctor(SpeechGeneratorModel model)
@@ -183,9 +196,17 @@ namespace Ikon.AI.SpeechGeneration
     int SampleRate { get; }
     IReadOnlyList<string> VoiceIds { get; }
     void Dispose()
-    // One-shot text-to-speech. The verbose form using var generator = new SpeechGenerator(SpeechGeneratorModel.ElevenFlash25); await foreach (var chunk in generator.GenerateSpeechAsync(new SpeechGeneratorConfig { Text = text })) { // collect chunk.Samples } becomes var audio = await SpeechGenerator.GenerateAsync(text); Defaults to ElevenFlash25 (cheap+fast). Override the model via the second parameter when the task warrants; pass voice to pick a voice (the model's default voice otherwise). The streamed chunks are concatenated into a single PCM AudioChunk (.Samples / .SampleRate / .ChannelCount). Returns null if the model produces no audio — caller should null-check before using the samples. Reach for the constructor + GenerateSpeechAsync when you need chunk-by-chunk streaming playback while generation runs, or any other SpeechGeneratorConfig field beyond text+voice (language, instructions, speed).
-    static Task<AudioChunk?> GenerateAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, CancellationToken cancellationToken = null)
-    IAsyncEnumerable<AudioChunk> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = null)
+    // One-shot text-to-speech. The verbose form
+    // using var generator = new SpeechGenerator(SpeechGeneratorModel.ElevenFlash25);
+    // await foreach (var chunk in generator.GenerateSpeechAsync(new SpeechGeneratorConfig { Text = text }))
+    // {
+    //     // collect chunk.Samples
+    // }
+    // becomes
+    // var audio = await SpeechGenerator.GenerateAsync(text);
+    // Defaults to ElevenFlash25 (cheap+fast). Override the model via the second parameter when the task warrants; pass voice to pick a voice (the model's default voice otherwise). The streamed chunks are concatenated into a single PCM AudioChunk (.Samples / .SampleRate / .ChannelCount). Never returns null — throws a SpeechGeneratorException when generation fails or the model produces no audio, so wrap in try/catch when the app should continue without the audio. Reach for the constructor + GenerateSpeechAsync when you need chunk-by-chunk streaming playback while generation runs, or any other SpeechGeneratorConfig field beyond text+voice (language, instructions, speed).
+    static Task<AudioChunk> GenerateAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<AudioChunk> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = default)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(SpeechGeneratorModel model)
     static IReadOnlyDictionary<SpeechGeneratorModel, IReadOnlyList<string>> GetVoiceIdsByModel()
   sealed class SpeechGeneratorConfig : IEquatable<SpeechGeneratorConfig>
@@ -214,7 +235,7 @@ namespace Ikon.AI.SpeechGeneration
     Gemini25ProTts
     Gemini31FlashTts
   static class SpeechGeneratorModelExtensions
-    static string DisplayName(SpeechGeneratorModel model)
+    static string DisplayName(this SpeechGeneratorModel model)
   static class TextFilter
     static string Filter(string text, TextFilter.Config config)
 
@@ -248,9 +269,9 @@ namespace Ikon.AI.SpeechRecognition
   interface ISpeechRecognizer : IDisposable, ISpeechRecognizerInfo
     int ChannelCount { get; }
     int SampleRate { get; }
-    abstract Task<Pronunciation.Result> AnalyzePronunciationAsync(AnalyzePronunciationConfig config, CancellationToken cancellationToken = null)
-    abstract Task<string> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = null)
-    abstract IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = null)
+    abstract Task<Pronunciation.Result> AnalyzePronunciationAsync(AnalyzePronunciationConfig config, CancellationToken cancellationToken = default)
+    abstract Task<string> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
+    abstract IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
   interface ISpeechRecognizerInfo
     bool SupportsBatchRecognition { get; }
     bool SupportsContinuousRecognition { get; }
@@ -278,6 +299,10 @@ namespace Ikon.AI.SpeechRecognition
     string MaskedITN { get; init; }
     Pronunciation.PronunciationAssessment PronunciationAssessment { get; init; }
     List<Pronunciation.Word> Words { get; init; }
+  class NonRetryableSpeechRecognizerException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class Pronunciation.Phoneme : IEquatable<Pronunciation.Phoneme>
     ctor()
     long Duration { get; init; }
@@ -333,14 +358,24 @@ namespace Ikon.AI.SpeechRecognition
     bool SupportsBatchRecognition { get; }
     bool SupportsContinuousRecognition { get; }
     bool SupportsPronunciationAnalysis { get; }
-    Task<Pronunciation.Result> AnalyzePronunciationAsync(AnalyzePronunciationConfig config, CancellationToken cancellationToken = null)
+    Task<Pronunciation.Result> AnalyzePronunciationAsync(AnalyzePronunciationConfig config, CancellationToken cancellationToken = default)
     void Dispose()
     static SpeechRecognizerCapabilities GetCapabilities(SpeechRecognizerModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(SpeechRecognizerModel model)
-    // One-shot batch transcription. The verbose form using var recognizer = new SpeechRecognizer(SpeechRecognizerModel.WhisperLarge3Turbo); var text = await recognizer.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig { Samples = samples, SampleRate = 16000, ChannelCount = 1 }); becomes var text = await SpeechRecognizer.RecognizeAsync(samples, 16000); Defaults to WhisperLarge3Turbo (cheap+fast). Override the model via the third parameter when the task warrants. Returns the recognized text (empty when nothing was recognized). Reach for the constructor + RecognizeBatchSpeechAsync when you need PCM16 byte input, a language hint, a prompt, or any other RecognizeSpeechConfig field; use RecognizeContinuousSpeechAsync for streaming recognition.
-    static Task<string> RecognizeAsync(float[] samples, int sampleRate, SpeechRecognizerModel model = WhisperLarge3Turbo, int channelCount = 1, CancellationToken cancellationToken = null)
-    Task<string> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = null)
-    IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = null)
+    // One-shot batch transcription. The verbose form
+    // using var recognizer = new SpeechRecognizer(SpeechRecognizerModel.WhisperLarge3Turbo);
+    // var text = await recognizer.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
+    // {
+    //     Samples = samples,
+    //     SampleRate = 16000,
+    //     ChannelCount = 1
+    // });
+    // becomes
+    // var text = await SpeechRecognizer.RecognizeAsync(samples, 16000);
+    // Defaults to WhisperLarge3Turbo (cheap+fast). Override the model via the third parameter when the task warrants. Returns the recognized text (empty when nothing was recognized). Reach for the constructor + RecognizeBatchSpeechAsync when you need PCM16 byte input, a language hint, a prompt, or any other RecognizeSpeechConfig field; use RecognizeContinuousSpeechAsync for streaming recognition.
+    static Task<string> RecognizeAsync(float[] samples, int sampleRate, SpeechRecognizerModel model = WhisperLarge3Turbo, int channelCount = 1, CancellationToken cancellationToken = default)
+    Task<string> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
   sealed class SpeechRecognizerAdapter : IDisposable, ISpeechRecognizer, ISpeechRecognizerInfo
     ctor(ISpeechRecognizer speechRecognizer, SpeechRecognizerAdapter.Config? config = null)
     int ChannelCount { get; }
@@ -348,10 +383,10 @@ namespace Ikon.AI.SpeechRecognition
     bool SupportsBatchRecognition { get; }
     bool SupportsContinuousRecognition { get; }
     bool SupportsPronunciationAnalysis { get; }
-    Task<Pronunciation.Result> AnalyzePronunciationAsync(AnalyzePronunciationConfig config, CancellationToken cancellationToken = null)
+    Task<Pronunciation.Result> AnalyzePronunciationAsync(AnalyzePronunciationConfig config, CancellationToken cancellationToken = default)
     void Dispose()
-    Task<string> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = null)
-    IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = null)
+    Task<string> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
   sealed class SpeechRecognizerCapabilities : ISpeechRecognizerInfo
     ctor()
     bool SupportsBatchRecognition { get; init; }
@@ -374,7 +409,7 @@ namespace Ikon.AI.SpeechRecognition
     AssemblyAIUniversalStreamingMultilingual
     VoxtralMiniTranscribe2
   static class SpeechRecognizerModelExtensions
-    static string DisplayName(SpeechRecognizerModel model)
+    static string DisplayName(this SpeechRecognizerModel model)
   sealed class Pronunciation.Syllable : IEquatable<Pronunciation.Syllable>
     ctor()
     long Duration { get; init; }

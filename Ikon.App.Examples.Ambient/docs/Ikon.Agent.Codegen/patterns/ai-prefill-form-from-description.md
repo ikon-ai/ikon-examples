@@ -43,7 +43,7 @@ private async Task RunWizardAiPrefillAsync()
         if (string.IsNullOrWhiteSpace(_wizardClientName.Value) && !string.IsNullOrEmpty(result.ClientName))
             _wizardClientName.Value = result.ClientName;
 
-        if (result.ContactPersons.Count > 0 && _wizardContactPersons.Value.Count == 0)
+        if (result.ContactPersons.Count > 0 && _wizardContactPersons.Count == 0)
         {
             _wizardContactPersons.AddRange(result.ContactPersons.Select(_ => new WizardContactPerson { /* ... */ }));
         }

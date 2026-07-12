@@ -31,17 +31,22 @@ namespace Ikon.AI.Database
     ctor()
     string? EnvVarPrefix { get; set; }
     DatabaseConnection.SpaceSecret? SpaceSecret { get; set; }
+  // Configuration for database info extraction.
   class DatabaseInfoExtractor.Config
     ctor()
+    // Regex patterns for column names to exclude (format: "schema.table.column").
     List<string>? ColumnExcludeRegex { get; set; }
     Dictionary<string, string> ColumnExtraInfo { get; set; }
     bool IncludeEmptyColumns { get; set; }
     int JsonSampleLengthLimit { get; set; }
     int JsonSampleRowLimit { get; set; }
     int NonTextSampleRowLimit { get; set; }
+    // Exact schema names to include. If empty, defaults depend on database type (e.g., "public" for PostgreSQL).
     List<string>? Schemas { get; set; }
+    // Regex patterns for table names to exclude.
     List<string>? TableExcludeRegex { get; set; }
     Dictionary<string, string> TableExtraInfo { get; set; }
+    // Regex patterns for table names to include (format: "schema.table" or just "table").
     List<string>? TableIncludeRegex { get; set; }
     int TextSampleLengthLimit { get; set; }
     int TextSampleRowLimit { get; set; }
@@ -80,9 +85,6 @@ namespace Ikon.AI.Database
   class DatabaseInfoExtractor
     ctor(DatabaseConnection databaseConnection)
     Task<DatabaseInfo> ExtractAsync(DatabaseInfoExtractor.Config config, CancellationToken cancellationToken)
-    Task<ResultSet> GetCteDatabaseInfoAllValuesAsync(DatabaseInfo cteDatabaseInfo, int maxRows)
-    static bool IsText(string dataType)
-    Task<DatabaseInfo> ValidateAndFillCteDatabaseInfoAsync(DatabaseInfo cteDatabaseInfo, int maxRowsFilter)
   class DatabaseTableInfo
     ctor()
     List<DatabaseColumnInfo> Columns { get; set; }

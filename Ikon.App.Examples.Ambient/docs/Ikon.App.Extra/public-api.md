@@ -20,10 +20,6 @@ namespace Ikon.App.Connectors
     Task<string> SendAsync(string to, string subject, string body, string? cc = null, CancellationToken ct = default)
 
 namespace Ikon.App.Connectors.Browser
-  // Raw browser-session tuning. Model/agent choices live in the agent layer.
-  sealed class BrowserOptions : IEquatable<BrowserOptions>
-    ctor(bool Headless = true)
-    bool Headless { get; init; }
   // A long-lived Playwright page driven across many turns. Owns the browser lifecycle; resolves a WebTarget by mark, then accessibility role+name, then selector. Raw — no agent logic; the agent layer (Ikon.Agent.Browser) exposes these actions as tools.
   sealed class BrowserSession : IAsyncDisposable
     ctor()
@@ -33,7 +29,7 @@ namespace Ikon.App.Connectors.Browser
     ValueTask DisposeAsync()
     // Evaluate a JavaScript function-expression (e.g. "() => { ...; return 'x'; }") on the current page and return its string result. For light page-state manipulation by non-agentic callers — e.g. the codegen visual gate flipping data-theme so it can screenshot both theme states of the same view.
     Task<string?> EvaluateAsync(string script)
-    Task<ValueTuple<bool, string, string?, string?>> ExecuteAsync(WebAction action)
+    Task<(bool Ok, string Selector, string? Extracted, string? Failure)> ExecuteAsync(WebAction action)
     Task<IReadOnlyList<MarkedElement>> MarkElementsAsync()
     Task NavigateAsync(string url)
     Task<byte[]> ScreenshotAsync()

@@ -6,8 +6,7 @@ Generate AI images with the one-shot `ImageGenerator.GenerateAsync(prompt)`. Sup
 
 ```csharp
 var image = await ImageGenerator.GenerateAsync("A neon-lit cyberpunk street");  // Gemini25FlashImage (cheap+fast) by default
-if (image is null) { return; }  // result is nullable — guard before use
-// image.Data, image.MimeType
+// image.Data, image.MimeType — never null; throws ImageGeneratorException on failure
 ```
 
 Pass a model as the second argument to override the default: `ImageGenerator.GenerateAsync(prompt, ImageGeneratorModel.Gemini3ProImage)`.
@@ -33,7 +32,7 @@ if (results.Count > 0) { var image = results[0]; /* image.Data, image.MimeType *
 # Ikon.AI Public API
 namespace Ikon.AI.ImageGeneration
   interface IImageGenerator : IDisposable
-    abstract Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = null)
+    abstract Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = default)
   enum ImageBackground
     Auto
     Opaque
@@ -42,9 +41,15 @@ namespace Ikon.AI.ImageGeneration
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(ImageGeneratorModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
-    // One-shot image generation. The verbose form using var generator = new ImageGenerator(ImageGeneratorModel.Gemini25FlashImage); var results = await generator.GenerateImageAsync(new ImageGeneratorConfig { Prompt = prompt }); var image = results.FirstOrDefault(); becomes var image = await ImageGenerator.GenerateAsync(prompt); Defaults to Gemini25FlashImage (cheap+fast). Override the model via the second parameter when the task warrants. Returns null if the model produces no results — caller should null-check before using .Data / .MimeType. Reach for the constructor + GenerateImageAsync when you need batch generation, custom width/height, an ImageBackground override, input images, or any other ImageGeneratorConfig field beyond the prompt.
-    static Task<ImageGeneratorResult?> GenerateAsync(string prompt, ImageGeneratorModel model = Gemini25FlashImage, CancellationToken cancellationToken = null)
-    Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = null)
+    // One-shot image generation. The verbose form
+    // using var generator = new ImageGenerator(ImageGeneratorModel.Gemini25FlashImage);
+    // var results = await generator.GenerateImageAsync(new ImageGeneratorConfig { Prompt = prompt });
+    // var image = results.FirstOrDefault();
+    // becomes
+    // var image = await ImageGenerator.GenerateAsync(prompt);
+    // Defaults to Gemini25FlashImage (cheap+fast). Override the model via the second parameter when the task warrants. Never returns null — throws an ImageGeneratorException when generation fails or the model produces no results, so wrap in try/catch when the app should continue without the image. Reach for the constructor + GenerateImageAsync when you need batch generation, custom width/height, an ImageBackground override, input images, or any other ImageGeneratorConfig field beyond the prompt.
+    static Task<ImageGeneratorResult> GenerateAsync(string prompt, ImageGeneratorModel model = Gemini25FlashImage, CancellationToken cancellationToken = default)
+    Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = default)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ImageGeneratorModel model)
   sealed class ImageGeneratorConfig : IEquatable<ImageGeneratorConfig>
     ctor()
@@ -98,7 +103,7 @@ namespace Ikon.AI.ImageGeneration
     GrokImagineImage
     GrokImagineImageQuality
   static class ImageGeneratorModelExtensions
-    static string DisplayName(ImageGeneratorModel model)
+    static string DisplayName(this ImageGeneratorModel model)
   sealed class ImageGeneratorResult : IEquatable<ImageGeneratorResult>
     ctor()
     byte[] Data { get; init; }
@@ -126,6 +131,10 @@ namespace Ikon.AI.ImageGeneration
   enum InputImageType
     Normal
     Mask
+  class NonRetryableImageGeneratorException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   enum SafetyLevel
     Level0
     Level1

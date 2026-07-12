@@ -185,9 +185,9 @@ namespace Ikon.AI.Emergence
     static IAsyncEnumerable<EmergeEvent<T>> TreeSearch<T>(LLMModel model, KernelContext context, Action<TreeSearchOptions<T>> configure, ILLM llm, CancellationToken ct = default)
   static class EmergeEventExtensions
     // Drains the stream and returns the completed result together with the updated KernelContext . Reach for this over ResultAsync when you need the context back (conversation continuity) or want to handle a null result yourself.
-    static Task<ValueTuple<T, KernelContext>> FinalAsync<T>(IAsyncEnumerable<EmergeEvent<T>> events, CancellationToken ct = default)
+    static Task<(T Result, KernelContext Context)> FinalAsync<T>(this IAsyncEnumerable<EmergeEvent<T>> events, CancellationToken ct = default)
     // Like FinalAsync but also returns the run's EmergenceTrace . Reach for this when you need telemetry (duration, token usage, tool-call history) alongside the result.
-    static Task<ValueTuple<T, KernelContext, EmergenceTrace>> FinalWithTraceAsync<T>(IAsyncEnumerable<EmergeEvent<T>> events, CancellationToken ct = default)
+    static Task<(T Result, KernelContext Context, EmergenceTrace Trace)> FinalWithTraceAsync<T>(this IAsyncEnumerable<EmergeEvent<T>> events, CancellationToken ct = default)
     // Drains the stream and returns the completed result without the tuple ceremony. The verbose form
     // var (result, _) = await Emerge.Run<Recipe>(
     //     model, pass => pass.Command = command).FinalAsync(ct);
@@ -195,7 +195,7 @@ namespace Ikon.AI.Emergence
     // var result = await Emerge.Run<Recipe>(
     //     model, pass => pass.Command = command).ResultAsync(ct);
     // Never returns null — if the run completes without producing a result (where FinalAsync would hand back a null result), an EmergenceStoppedException is thrown. Reach for FinalAsync instead when you need the updated KernelContext back (conversation continuity) or want to handle a missing result yourself via a nullable result.
-    static Task<T> ResultAsync<T>(IAsyncEnumerable<EmergeEvent<T>> events, CancellationToken ct = default)
+    static Task<T> ResultAsync<T>(this IAsyncEnumerable<EmergeEvent<T>> events, CancellationToken ct = default)
   abstract class EmergeEvent<T> : IEquatable<EmergeEvent<T>>
   sealed class EmergePass<T>
     ctor()
@@ -214,6 +214,7 @@ namespace Ikon.AI.Emergence
     int? MaxRetries { get; set; }
     int? MaxToolCalls { get; set; }
     TimeSpan? MaxWallTime { get; set; }
+    // Concrete model for this pass. Callers that sit above the agent layer (Ikon.Agent) usually don't set this directly — there a persona declares an abstract Reasoning (Capability × ModelFamily) and the agent runtime resolves it to the LLMModel placed here.
     LLMModel? Model { get; set; }
     bool? OptimizeContext { get; set; }
     // Names of tools the caller declares SIDE-EFFECT-FREE (pure read/lookup). The executor runs consecutive calls to these from one model turn CONCURRENTLY — measured on codegen, sequential guide/read batches dominated pass latency. Results are still recorded in the model's original order. Mutating tools stay out of this set and act as barriers.
@@ -233,7 +234,8 @@ namespace Ikon.AI.Emergence
     int? UseLastNMessages { get; set; }
     void Stop(string? reason = null)
     void UseLastMessages(int count, int skipLast = 0)
-  class EmergeResult
+  // Optional wrapper a tool body can return to control how Emerge feeds the result back to the model. The executor unwraps Result into the tool-result message (so the model never sees the wrapper), and SkipReprocessing = true completes the run right after the current batch of tool calls instead of sending the results back for another model turn — for tools whose side effect IS the answer (e.g. a UI action the model triggered on the user's behalf); the run then completes with a default result. Plain return values behave as if wrapped with SkipReprocessing = false.
+  sealed class EmergeResult
     ctor(object? result = null)
     object? Result { get; }
     bool SkipReprocessing { get; init; }
@@ -265,26 +267,6 @@ namespace Ikon.AI.Emergence
     string JsonExample { get; }
     string JsonSchema { get; }
     bool UseJson { get; set; }
-  sealed class EmergenceCallInfo
-    ctor()
-    long CacheCreationInputTokens { get; set; }
-    long CachedInputTokens { get; set; }
-    string CallId { get; init; }
-    // Resolved context-window size for this call's model, or 0 when the model can't be resolved.
-    int ContextWindowSize { get; init; }
-    // Fraction of the model's context window currently consumed by input tokens (0.0–1.0). Returns 0 when context window is unknown. Read by the agent runtime to decide when to surface a budget-extension prompt or self-compact.
-    double ContextWindowUtilization { get; }
-    TimeSpan? Duration { get; set; }
-    string? Error { get; set; }
-    long InputTokens { get; set; }
-    string Model { get; init; }
-    long OutputTokens { get; set; }
-    string Pattern { get; init; }
-    string ResultType { get; init; }
-    DateTime StartedAt { get; init; }
-    string? StopReason { get; set; }
-    bool? Success { get; set; }
-    Dictionary<string, string> Tags { get; init; }
   enum EmergenceStatus
     Completed
     Stopped
@@ -316,17 +298,18 @@ namespace Ikon.AI.Emergence
     int SolverCount { get; set; }
     void Merger(Action<EmergeScope<T>> configure)
     void Solver(Action<AgentScope<T>> configure)
-  class FoundSection
-    ctor()
-    string Content { get; set; }
-    string NodeId { get; set; }
-    int? Page { get; set; }
-    string Path { get; set; }
-    string Relevance { get; set; }
+  // One tree section the navigator marked relevant, with the reason it gave.
+  sealed class FoundSection : IEquatable<FoundSection>
+    ctor(string NodeId, string Path, string Content, string Relevance, int? Page = null)
+    string Content { get; init; }
+    string NodeId { get; init; }
+    int? Page { get; init; }
+    string Path { get; init; }
+    string Relevance { get; init; }
   static class KernelContextExtensions
-    static IReadOnlyList<FunctionCall> GetFunctionCalls(KernelContext ctx, int take = 10)
-    static IReadOnlyList<FunctionResultPart> GetFunctionResults(KernelContext ctx, int take = 10)
-    static bool HasFunctionResults(KernelContext ctx)
+    static IReadOnlyList<FunctionCall> GetFunctionCalls(this KernelContext ctx, int take = 10)
+    static IReadOnlyList<FunctionResultPart> GetFunctionResults(this KernelContext ctx, int take = 10)
+    static bool HasFunctionResults(this KernelContext ctx)
   sealed class MapReduceOptions<TChunk, TResult> : EmergeScope<TResult>
     ctor()
     IReadOnlyList<object>? Chunks { get; set; }
@@ -360,10 +343,11 @@ namespace Ikon.AI.Emergence
   sealed class ModelText<T> : EmergeEvent<T>, IEquatable<ModelText<T>>
     ctor(string Text)
     string Text { get; init; }
-  class NavigationDecision
-    ctor()
-    bool Complete { get; set; }
-    string Reasoning { get; set; }
+  // The navigator's structured verdict at the end of a TreeSearch run.
+  sealed class NavigationDecision : IEquatable<NavigationDecision>
+    ctor(string Reasoning = "", bool Complete = false)
+    bool Complete { get; init; }
+    string Reasoning { get; init; }
   sealed class Progress<T> : EmergeEvent<T>, IEquatable<Progress<T>>
     ctor(string Message)
     string Message { get; init; }
@@ -425,18 +409,21 @@ namespace Ikon.AI.Emergence
     EmergeScope<NavigationDecision> NavigatorScope { get; }
     string Query { get; set; }
     void Navigator(Action<EmergeScope<NavigationDecision>> configure)
-  class TreeSearchResult
-    ctor()
-    string ReasoningTrace { get; set; }
-    List<FoundSection> Sections { get; set; }
+  // Result of a TreeSearch run: the sections the navigator marked relevant, plus its final reasoning.
+  sealed class TreeSearchResult : IEquatable<TreeSearchResult>
+    ctor(List<FoundSection> Sections, string ReasoningTrace = "")
+    string ReasoningTrace { get; init; }
+    List<FoundSection> Sections { get; init; }
 
 namespace Ikon.AI.Emergence.Structured
+  // A parsed block from the content
   sealed class StructuredTagParser.ParsedBlock : IEquatable<StructuredTagParser.ParsedBlock>
     ctor(string TagName, string Content, int StartIndex, int EndIndex)
     string Content { get; init; }
     int EndIndex { get; init; }
     int StartIndex { get; init; }
     string TagName { get; init; }
+  // Complete parsed response with plain text and extracted blocks
   sealed class StructuredTagParser.ParsedResponse : IEquatable<StructuredTagParser.ParsedResponse>
     ctor(string PlainText, IReadOnlyList<StructuredTagParser.ParsedBlock> Blocks)
     IReadOnlyList<StructuredTagParser.ParsedBlock> Blocks { get; init; }

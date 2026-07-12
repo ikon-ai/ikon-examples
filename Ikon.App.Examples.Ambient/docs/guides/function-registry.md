@@ -87,10 +87,6 @@ namespace Ikon.Common.Core.Functions
     AsyncEnumerable
   // Immutable representation of a function with metadata and optional callbacks. Consolidates FunctionInfo, RegisteredFunction, and KernelContext.Function into a single type.
   struct Function
-    // JSON deserialization constructor. Resolves ReturnType from ReturnTypeName string. Creates a function without callbacks (for remote/metadata-only use).
-    ctor(Guid id, string name, FunctionParameter[] parameters, string returnTypeName, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, bool requiresInstance = false, string? version = null)
-    // Primary constructor for creating functions with callbacks.
-    ctor(Guid id, string name, FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int? clientSessionId, Func<object?[], object?>? callback, Func<object?[], Task<object?>>? callbackAsync, Func<object?[], IAsyncEnumerable<object?>>? callbackAsyncEnumerable, MethodInfo? methodInfo = null, bool requiresInstance = false, PolicyDelegate? policy = null, string? version = null)
     // The type of callback (Sync, Async, or AsyncEnumerable).
     CallbackType CallbackType { get; }
     // The clientSessionId of the client who registered this function. Null means this is a local function (registered in this process).
@@ -116,7 +112,7 @@ namespace Ikon.Common.Core.Functions
     // The name of the function (used for lookup and LLM tool name).
     string Name { get; }
     // The parameters of the function.
-    FunctionParameter[] Parameters { get; }
+    Ikon.Common.Core.Functions.FunctionParameter[] Parameters { get; }
     // Optional policy delegate for evaluating whether this function can be called. If null, the function is allowed to execute without policy checks.
     PolicyDelegate? Policy { get; }
     // True if this function requires an instance to be invoked. When true and no callback is set, the function is metadata-only and can only be invoked with a provided InstanceId.
@@ -137,53 +133,7 @@ namespace Ikon.Common.Core.Functions
     IAsyncEnumerable<object?> CallAsyncEnumerable(object?[] args)
     // Calls the function synchronously and returns an enumerable result. Only valid for local sync functions whose result implements IEnumerable.
     IEnumerable<object?> CallEnumerable(object?[] args)
-    static Function Create<TResult>(string name, string description, Func<TResult> function, PolicyDelegate? policy = null)
-    static Function Create<T1, TResult>(string name, string description, Func<T1, TResult> function, PolicyDelegate? policy = null)
-    static Function Create<T1, T2, TResult>(string name, string description, Func<T1, T2, TResult> function, PolicyDelegate? policy = null)
-    static Function Create<T1, T2, T3, TResult>(string name, string description, Func<T1, T2, T3, TResult> function, PolicyDelegate? policy = null)
-    static Function Create<T1, T2, T3, T4, TResult>(string name, string description, Func<T1, T2, T3, T4, TResult> function, PolicyDelegate? policy = null)
-    static Function Create<T1, T2, T3, T4, T5, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, TResult> function, PolicyDelegate? policy = null)
-    static Function Create<T1, T2, T3, T4, T5, T6, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, T6, TResult> function, PolicyDelegate? policy = null)
-    static Function Create<T1, T2, T3, T4, T5, T6, T7, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, T6, T7, TResult> function, PolicyDelegate? policy = null)
-    static Function Create<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, T6, T7, T8, TResult> function, PolicyDelegate? policy = null)
-    static Function Create<TResult>(string name, string description, Func<Task<TResult>> function, PolicyDelegate? policy = null)
-    static Function Create<T1, TResult>(string name, string description, Func<T1, Task<TResult>> function, PolicyDelegate? policy = null)
-    static Function Create<T1, T2, TResult>(string name, string description, Func<T1, T2, Task<TResult>> function, PolicyDelegate? policy = null)
-    static Function Create<T1, T2, T3, TResult>(string name, string description, Func<T1, T2, T3, Task<TResult>> function, PolicyDelegate? policy = null)
-    static Function Create<T1, T2, T3, T4, TResult>(string name, string description, Func<T1, T2, T3, T4, Task<TResult>> function, PolicyDelegate? policy = null)
-    static Function Create<T1, T2, T3, T4, T5, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, Task<TResult>> function, PolicyDelegate? policy = null)
-    static Function Create<T1, T2, T3, T4, T5, T6, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, T6, Task<TResult>> function, PolicyDelegate? policy = null)
-    static Function Create<T1, T2, T3, T4, T5, T6, T7, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, T6, T7, Task<TResult>> function, PolicyDelegate? policy = null)
-    static Function Create<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(string name, string description, Func<T1, T2, T3, T4, T5, T6, T7, T8, Task<TResult>> function, PolicyDelegate? policy = null)
-    static Function Create<TResult>(string name, string description, Func<IAsyncEnumerable<TResult>> function, PolicyDelegate? policy = null)
-    static Function Create<T1, TResult>(string name, string description, Func<T1, IAsyncEnumerable<TResult>> function, PolicyDelegate? policy = null)
-    static Function Create<T1, T2, TResult>(string name, string description, Func<T1, T2, IAsyncEnumerable<TResult>> function, PolicyDelegate? policy = null)
-    // Creates a Function definition from a delegate.
-    static Function Register(Delegate function, string? name = null, FunctionAttribute? attribute = null, MethodInfo? methodInfo = null, PolicyDelegate? policy = null, Dictionary<string, string>? paramDescriptions = null)
-    static Function Register<TResult>(Func<TResult> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
-    static Function Register<T1, TResult>(Func<T1, TResult> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
-    static Function Register<T1, T2, TResult>(Func<T1, T2, TResult> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
-    static Function Register<T1, T2, T3, TResult>(Func<T1, T2, T3, TResult> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
-    static Function Register<T1, T2, T3, T4, TResult>(Func<T1, T2, T3, T4, TResult> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
-    static Function Register<T1, T2, T3, T4, T5, TResult>(Func<T1, T2, T3, T4, T5, TResult> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
-    static Function Register<T1, T2, T3, T4, T5, T6, TResult>(Func<T1, T2, T3, T4, T5, T6, TResult> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
-    static Function Register<T1, T2, T3, T4, T5, T6, T7, TResult>(Func<T1, T2, T3, T4, T5, T6, T7, TResult> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
-    static Function Register<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(Func<T1, T2, T3, T4, T5, T6, T7, T8, TResult> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
-    static Function Register<TResult>(Func<Task<TResult>> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
-    static Function Register<T1, TResult>(Func<T1, Task<TResult>> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
-    static Function Register<T1, T2, TResult>(Func<T1, T2, Task<TResult>> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
-    static Function Register<T1, T2, T3, TResult>(Func<T1, T2, T3, Task<TResult>> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
-    static Function Register<T1, T2, T3, T4, TResult>(Func<T1, T2, T3, T4, Task<TResult>> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
-    static Function Register<TResult>(Func<IAsyncEnumerable<TResult>> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
-    static Function Register<T1, TResult>(Func<T1, IAsyncEnumerable<TResult>> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
-    static Function Register<T1, T2, TResult>(Func<T1, T2, IAsyncEnumerable<TResult>> function, string? name = null, FunctionAttribute? attribute = null, PolicyDelegate? policy = null)
     override string ToString()
-    // Creates a new Function with modified properties. Null parameters keep existing values. Use clearClientSessionId=true to explicitly set ClientSessionId to null. Use clearPolicy=true to explicitly set Policy to null.
-    Function With(Guid? id = null, string? name = null, FunctionParameter[]? parameters = null, Type? returnType = null, string? description = null, FunctionVisibility? visibility = null, bool? llmInlineResult = null, bool? llmCallOnlyOnce = null, CallbackType? callbackType = null, int? clientSessionId = null, Func<object?[], object?>? callback = null, Func<object?[], Task<object?>>? callbackAsync = null, Func<object?[], IAsyncEnumerable<object?>>? callbackAsyncEnumerable = null, MethodInfo? methodInfo = null, bool? requiresInstance = null, PolicyDelegate? policy = null, bool clearClientSessionId = false, bool clearMethodInfo = false, bool clearPolicy = false, string? version = null)
-    // Returns a new Function with the specified parameter's AllowedValues set. Pass null to clear an existing override and fall back to the type-based enum (or no enum at all). Use together with WithParamDescription to ship dynamic enum + dynamic doc per pass: rebuild the Function at the start of each pass, plumb the current allowed transitions through the parameter description and the allowed-values list, and re-add to EmergePass.Tools.
-    Function WithAllowedValues(string paramName, IReadOnlyList<string>? allowedValues)
-    // Returns a new Function with the specified parameter's description updated.
-    Function WithParamDescription(string paramName, string description)
   // Marks a method as a registerable function for the FunctionRegistry. Used for auto-registration via RegisterFromInstance/RegisterFromType/RegisterFromAssembly.
   class FunctionAttribute : Attribute
     ctor()
@@ -236,7 +186,7 @@ namespace Ikon.Common.Core.Functions
     string TypeName { get; }
     override string ToString()
   // Central registry for functions that can be called locally or remotely. Supports both local and shared (distributed) function scopes.
-  class FunctionRegistry : AsyncLocalInstance<FunctionRegistry>, BuiltInApprovalHandlers.IApprovalProtocolBridge
+  class FunctionRegistry : AsyncLocalInstance<FunctionRegistry>
     ctor()
     // Optional resolver that maps a caller session id to the auth session id. Returns null or empty for unauthenticated (guest) callers.
     Func<int, string?>? AuthSessionIdResolver { get; set; }
@@ -275,9 +225,9 @@ namespace Ikon.Common.Core.Functions
     // Gets the function with the given name, using argument types to resolve overloads.
     Function? GetFunction(string name, object?[] args)
     // Gets the function with the given name, using protocol parameter type names to resolve overloads. Used by the protocol handler when receiving remote calls.
-    Function? GetFunction(string name, IReadOnlyList<FunctionParameter> protocolParameters)
+    Function? GetFunction(string name, IReadOnlyList<Ikon.Common.Core.Protocol.FunctionParameter> protocolParameters)
     // Gets a local function with the given name and version, using protocol parameter type names to resolve overloads. If version is non-empty, tries exact version match first, then falls back to greatest version. If version is empty, selects the greatest versioned function or falls back to unversioned.
-    Function? GetFunction(string name, IReadOnlyList<FunctionParameter> protocolParameters, string version)
+    Function? GetFunction(string name, IReadOnlyList<Ikon.Common.Core.Protocol.FunctionParameter> protocolParameters, string version)
     // Gets a function with the given name from a specific client session.
     Function? GetFunction(string name, int clientSessionId)
     // Gets all functions with the given name.
@@ -300,7 +250,7 @@ namespace Ikon.Common.Core.Functions
     void RegisterFunctionMethod(object instance, MethodInfo method, string? name = null, FunctionVisibility visibility = Local)
     void RegisterFunctionsFromClientInitialization(ClientInitialization? clientInitialization)
     // Registers a remote function (from another client via protocol).
-    void RegisterRemoteFunction(Guid id, string name, FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int clientSessionId, bool requiresInstance = false)
+    void RegisterRemoteFunction(Guid id, string name, Ikon.Common.Core.Functions.FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int clientSessionId, bool requiresInstance = false)
     bool RemoveFunction(string name, FunctionVisibility visibility)
     // Removes all local functions with the given name. Remote functions with the same name are preserved. Returns true if any functions were removed.
     bool RemoveFunction(string name)
@@ -329,9 +279,6 @@ namespace Ikon.Common.Core.Functions
     ctor(T value, byte[] data)
     byte[] Data { get; }
     T Value { get; }
-  static class FunctionUtils
-    static ValueTuple<string?, string> DecodeFunctionName(string encodedFunctionName)
-    static string EncodeFunctionName(string? typeName, string functionName)
   // Determines whether a function is advertised over the protocol so remote clients can call it. This is a dispatch-scope axis only — auth gating is a separate concern declared via policy attributes ([RequireLogin], [AllowAnonymous], [RequireRole], ...).
   enum FunctionVisibility
     Local
@@ -348,35 +295,3 @@ namespace Ikon.Common.Core.Functions
     bool LlmInlineResult { get; set; }
     // Whether the functions should be distributed to other clients. Default is Local (not distributed).
     FunctionVisibility Visibility { get; set; }
-  sealed class RemoteFunctionCallRequest
-    ctor(string functionName)
-    CancellationToken CancellationToken { get; set; }
-    string FunctionName { get; }
-    Guid? InstanceId { get; set; }
-    object?[]? Parameters { get; set; }
-    bool PropagateScopes { get; set; }
-    int? TargetId { get; set; }
-    string? Version { get; set; }
-  sealed class RemoteFunctionCaller
-    ctor(IProtocolMessageChannel protocolMessageChannel, int senderId = 0, TimeSpan? actionAckTimeout = null, TimeSpan? callTimeout = null, int? enumerationBufferCapacity = null)
-    TResult Call<TResult>(RemoteFunctionCallRequest request)
-    void Call(RemoteFunctionCallRequest request)
-    Task<TResult> CallAsync<TResult>(RemoteFunctionCallRequest request)
-    Task CallAsync(RemoteFunctionCallRequest request)
-    IAsyncEnumerable<TItem> CallAsyncEnumerable<TItem>(RemoteFunctionCallRequest request)
-    // Cancels all pending calls with a connection closed exception. Called when the underlying connection is lost.
-    void CancelAllPendingCalls()
-    // Cancels pending calls targeting a specific client with a target-disconnected exception. Called when a target client leaves so callers fail fast instead of waiting for the ack timeout.
-    void CancelPendingCallsForTarget(int targetId)
-    static object CreateAsyncEnumerableParameter<T>(IAsyncEnumerable<T> source)
-    static object CreateEnumerableParameter<T>(IEnumerable<T> source)
-    static FunctionParameter CreateParameter<T>(T value)
-    static FunctionParameter CreateParameter(Type type, object? value)
-    Task DisposeInstanceAsync(Guid instanceId, int? targetId = null)
-  // Records which path the version-aware function lookup took. Surfaced in failure events so the analytics tool can distinguish "no match at all" from "fell back from the requested version".
-  enum VersionResolution
-    None
-    Exact
-    Greatest
-    Unversioned
-    Other

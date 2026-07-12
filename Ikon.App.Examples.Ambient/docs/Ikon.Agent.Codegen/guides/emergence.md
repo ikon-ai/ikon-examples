@@ -145,32 +145,57 @@ namespace Ikon.AI.Emergence
     T Result { get; init; }
     EmergenceTrace Trace { get; init; }
   static class Emerge
-    // One-shot LLM completion that returns the result string. The verbose form var (reply, _) = await Emerge.Run<string>( LLMModel.Claude45Haiku, new KernelContext(), pass => pass.Command = command).FinalAsync(ct); becomes var reply = await Emerge.AskAsync(command, ct); Uses Claude45Haiku by default — cheap+fast, the right choice for short transformations (chatbot replies, reformat-as-X, classify, summarize). Override the model via the other overload when the task warrants a stronger tier. Reach for the full Run``1 when you need tools, multi-iteration agentic loops, a populated KernelContext , or fine pass tuning.
-    static Task<string> AskAsync(string command, CancellationToken ct = null)
+    // One-shot LLM completion that returns the result string. The verbose form
+    // var (reply, _) = await Emerge.Run<string>(
+    //     LLMModel.Claude45Haiku, new KernelContext(),
+    //     pass => pass.Command = command).FinalAsync(ct);
+    // becomes
+    // var reply = await Emerge.AskAsync(command, ct);
+    // Uses Claude45Haiku by default — cheap+fast, the right choice for short transformations (chatbot replies, reformat-as-X, classify, summarize). Override the model via the other overload when the task warrants a stronger tier. Reach for the full Run when you need tools, multi-iteration agentic loops, a populated KernelContext , or fine pass tuning.
+    static Task<string> AskAsync(string command, CancellationToken ct = default)
     // Like AskAsync but with an explicit model override.
-    static Task<string> AskAsync(string command, LLMModel model, CancellationToken ct = null)
-    // One-shot LLM completion that returns the result string. The verbose form var (reply, _) = await Emerge.Run<string>( LLMModel.Claude45Haiku, new KernelContext(), pass => pass.Command = command).FinalAsync(ct); becomes var reply = await Emerge.AskAsync(command, ct); Uses Claude45Haiku by default — cheap+fast, the right choice for short transformations (chatbot replies, reformat-as-X, classify, summarize). Override the model via the other overload when the task warrants a stronger tier. Reach for the full Run``1 when you need tools, multi-iteration agentic loops, a populated KernelContext , or fine pass tuning.
-    static Task<T> AskAsync<T>(string command, CancellationToken ct = null) where T : class
+    static Task<string> AskAsync(string command, LLMModel model, CancellationToken ct = default)
+    // One-shot structured-output completion. Same shape as the string overload, but the model is asked for a JSON object matching T 's schema. Throws if the model returns nothing or invalid JSON.
+    static Task<T> AskAsync<T>(string command, CancellationToken ct = default) where T : class
     // Like AskAsync but with an explicit model override.
-    static Task<T> AskAsync<T>(string command, LLMModel model, CancellationToken ct = null) where T : class
-    static IAsyncEnumerable<EmergeEvent<T>> BestOf<T>(LLMModel model, KernelContext context, Action<BestOfOptions<T>> configure, CancellationToken ct = null)
-    static IAsyncEnumerable<EmergeEvent<T>> BestOf<T>(LLMModel model, KernelContext context, Action<BestOfOptions<T>> configure, ILLM llm, CancellationToken ct = null)
-    static IAsyncEnumerable<EmergeEvent<T>> EnsembleMerge<T>(LLMModel model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, CancellationToken ct = null)
-    static IAsyncEnumerable<EmergeEvent<T>> EnsembleMerge<T>(LLMModel model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, ILLM llm, CancellationToken ct = null)
-    static IAsyncEnumerable<EmergeEvent<TResult>> MapReduce<TChunk, TResult>(LLMModel model, KernelContext context, Action<MapReduceOptions<TChunk, TResult>> configure, CancellationToken ct = null)
-    static IAsyncEnumerable<EmergeEvent<TResult>> MapReduce<TChunk, TResult>(LLMModel model, KernelContext context, Action<MapReduceOptions<TChunk, TResult>> configure, ILLM llm, CancellationToken ct = null)
-    static IAsyncEnumerable<EmergeEvent<T>> Refine<T>(LLMModel model, KernelContext context, Action<RefineOptions<T>> configure, CancellationToken ct = null)
-    static IAsyncEnumerable<EmergeEvent<T>> Refine<T>(LLMModel model, KernelContext context, Action<RefineOptions<T>> configure, ILLM llm, CancellationToken ct = null)
-    static IAsyncEnumerable<EmergeEvent<T>> Run<T>(LLMModel model, Action<EmergePass<T>> configure, CancellationToken ct = null)
-    static IAsyncEnumerable<EmergeEvent<T>> Run<T>(LLMModel model, Action<EmergePass<T>> configure, ILLM llm, CancellationToken ct = null)
-    static IAsyncEnumerable<EmergeEvent<T>> Run<T>(LLMModel model, KernelContext context, Action<EmergePass<T>> configure, CancellationToken ct = null)
-    static IAsyncEnumerable<EmergeEvent<T>> Run<T>(LLMModel model, KernelContext context, Action<EmergePass<T>> configure, ILLM llm, CancellationToken ct = null)
-    static IAsyncEnumerable<EmergeEvent<T>> TreeSearch<T>(LLMModel model, KernelContext context, Action<TreeSearchOptions<T>> configure, CancellationToken ct = null)
-    static IAsyncEnumerable<EmergeEvent<T>> TreeSearch<T>(LLMModel model, KernelContext context, Action<TreeSearchOptions<T>> configure, ILLM llm, CancellationToken ct = null)
+    static Task<T> AskAsync<T>(string command, LLMModel model, CancellationToken ct = default) where T : class
+    static IAsyncEnumerable<EmergeEvent<T>> BestOf<T>(LLMModel model, KernelContext context, Action<BestOfOptions<T>> configure, CancellationToken ct = default)
+    static IAsyncEnumerable<EmergeEvent<T>> BestOf<T>(LLMModel model, KernelContext context, Action<BestOfOptions<T>> configure, ILLM llm, CancellationToken ct = default)
+    static IAsyncEnumerable<EmergeEvent<T>> EnsembleMerge<T>(LLMModel model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, CancellationToken ct = default)
+    static IAsyncEnumerable<EmergeEvent<T>> EnsembleMerge<T>(LLMModel model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, ILLM llm, CancellationToken ct = default)
+    static IAsyncEnumerable<EmergeEvent<TResult>> MapReduce<TChunk, TResult>(LLMModel model, KernelContext context, Action<MapReduceOptions<TChunk, TResult>> configure, CancellationToken ct = default)
+    static IAsyncEnumerable<EmergeEvent<TResult>> MapReduce<TChunk, TResult>(LLMModel model, KernelContext context, Action<MapReduceOptions<TChunk, TResult>> configure, ILLM llm, CancellationToken ct = default)
+    static IAsyncEnumerable<EmergeEvent<T>> Refine<T>(LLMModel model, KernelContext context, Action<RefineOptions<T>> configure, CancellationToken ct = default)
+    static IAsyncEnumerable<EmergeEvent<T>> Refine<T>(LLMModel model, KernelContext context, Action<RefineOptions<T>> configure, ILLM llm, CancellationToken ct = default)
+    // Like Run but creates a fresh KernelContext internally — the common case where the call carries no prior conversation. Paired with ResultAsync , the verbose form
+    // var (result, _) = await Emerge.Run<Recipe>(
+    //     LLMModel.Claude45Sonnet, new KernelContext(),
+    //     pass => pass.Command = command, ct).FinalAsync(ct);
+    // becomes
+    // var result = await Emerge.Run<Recipe>(
+    //     LLMModel.Claude45Sonnet,
+    //     pass => pass.Command = command, ct).ResultAsync(ct);
+    // Pass an explicit KernelContext via the other overloads when you seed the call with input (images, prior turns) or carry conversation history across calls.
+    static IAsyncEnumerable<EmergeEvent<T>> Run<T>(LLMModel model, Action<EmergePass<T>> configure, CancellationToken ct = default)
+    // Like Run but with an explicit ILLM (e.g. a mock for testing).
+    static IAsyncEnumerable<EmergeEvent<T>> Run<T>(LLMModel model, Action<EmergePass<T>> configure, ILLM llm, CancellationToken ct = default)
+    static IAsyncEnumerable<EmergeEvent<T>> Run<T>(LLMModel model, KernelContext context, Action<EmergePass<T>> configure, CancellationToken ct = default)
+    static IAsyncEnumerable<EmergeEvent<T>> Run<T>(LLMModel model, KernelContext context, Action<EmergePass<T>> configure, ILLM llm, CancellationToken ct = default)
+    static IAsyncEnumerable<EmergeEvent<T>> TreeSearch<T>(LLMModel model, KernelContext context, Action<TreeSearchOptions<T>> configure, CancellationToken ct = default)
+    static IAsyncEnumerable<EmergeEvent<T>> TreeSearch<T>(LLMModel model, KernelContext context, Action<TreeSearchOptions<T>> configure, ILLM llm, CancellationToken ct = default)
   static class EmergeEventExtensions
-    static Task<ValueTuple<T, KernelContext>> FinalAsync<T>(IAsyncEnumerable<EmergeEvent<T>> events, CancellationToken ct = null)
-    static Task<ValueTuple<T, KernelContext, EmergenceTrace>> FinalWithTraceAsync<T>(IAsyncEnumerable<EmergeEvent<T>> events, CancellationToken ct = null)
-    static Task<T> ResultAsync<T>(IAsyncEnumerable<EmergeEvent<T>> events, CancellationToken ct = null)
+    // Drains the stream and returns the completed result together with the updated KernelContext . Reach for this over ResultAsync when you need the context back (conversation continuity) or want to handle a null result yourself.
+    static Task<(T Result, KernelContext Context)> FinalAsync<T>(this IAsyncEnumerable<EmergeEvent<T>> events, CancellationToken ct = default)
+    // Like FinalAsync but also returns the run's EmergenceTrace . Reach for this when you need telemetry (duration, token usage, tool-call history) alongside the result.
+    static Task<(T Result, KernelContext Context, EmergenceTrace Trace)> FinalWithTraceAsync<T>(this IAsyncEnumerable<EmergeEvent<T>> events, CancellationToken ct = default)
+    // Drains the stream and returns the completed result without the tuple ceremony. The verbose form
+    // var (result, _) = await Emerge.Run<Recipe>(
+    //     model, pass => pass.Command = command).FinalAsync(ct);
+    // becomes
+    // var result = await Emerge.Run<Recipe>(
+    //     model, pass => pass.Command = command).ResultAsync(ct);
+    // Never returns null — if the run completes without producing a result (where FinalAsync would hand back a null result), an EmergenceStoppedException is thrown. Reach for FinalAsync instead when you need the updated KernelContext back (conversation continuity) or want to handle a missing result yourself via a nullable result.
+    static Task<T> ResultAsync<T>(this IAsyncEnumerable<EmergeEvent<T>> events, CancellationToken ct = default)
   abstract class EmergeEvent<T> : IEquatable<EmergeEvent<T>>
   sealed class EmergePass<T>
     ctor()
@@ -189,6 +214,7 @@ namespace Ikon.AI.Emergence
     int? MaxRetries { get; set; }
     int? MaxToolCalls { get; set; }
     TimeSpan? MaxWallTime { get; set; }
+    // Concrete model for this pass. Callers that sit above the agent layer (Ikon.Agent) usually don't set this directly — there a persona declares an abstract Reasoning (Capability × ModelFamily) and the agent runtime resolves it to the LLMModel placed here.
     LLMModel? Model { get; set; }
     bool? OptimizeContext { get; set; }
     // Names of tools the caller declares SIDE-EFFECT-FREE (pure read/lookup). The executor runs consecutive calls to these from one model turn CONCURRENTLY — measured on codegen, sequential guide/read batches dominated pass latency. Results are still recorded in the model's original order. Mutating tools stay out of this set and act as barriers.
@@ -208,12 +234,11 @@ namespace Ikon.AI.Emergence
     int? UseLastNMessages { get; set; }
     void Stop(string? reason = null)
     void UseLastMessages(int count, int skipLast = 0)
-  class EmergeResult
+  // Optional wrapper a tool body can return to control how Emerge feeds the result back to the model. The executor unwraps Result into the tool-result message (so the model never sees the wrapper), and SkipReprocessing = true completes the run right after the current batch of tool calls instead of sending the results back for another model turn — for tools whose side effect IS the answer (e.g. a UI action the model triggered on the user's behalf); the run then completes with a default result. Plain return values behave as if wrapped with SkipReprocessing = false.
+  sealed class EmergeResult
     ctor(object? result = null)
     object? Result { get; }
     bool SkipReprocessing { get; init; }
-  sealed class EmergeScope : EmergeScopeBase
-    ctor()
   abstract class EmergeScopeBase
     string? Command { get; set; }
     bool? IncludeJsonExample { get; set; }
@@ -242,26 +267,6 @@ namespace Ikon.AI.Emergence
     string JsonExample { get; }
     string JsonSchema { get; }
     bool UseJson { get; set; }
-  sealed class EmergenceCallInfo
-    ctor()
-    long CacheCreationInputTokens { get; set; }
-    long CachedInputTokens { get; set; }
-    string CallId { get; init; }
-    // Resolved context-window size for this call's model, or 0 when the model can't be resolved.
-    int ContextWindowSize { get; init; }
-    // Fraction of the model's context window currently consumed by input tokens (0.0–1.0). Returns 0 when context window is unknown. Read by the agent runtime to decide when to surface a budget-extension prompt or self-compact.
-    double ContextWindowUtilization { get; }
-    TimeSpan? Duration { get; set; }
-    string? Error { get; set; }
-    long InputTokens { get; set; }
-    string Model { get; init; }
-    long OutputTokens { get; set; }
-    string Pattern { get; init; }
-    string ResultType { get; init; }
-    DateTime StartedAt { get; init; }
-    string? StopReason { get; set; }
-    bool? Success { get; set; }
-    Dictionary<string, string> Tags { get; init; }
   enum EmergenceStatus
     Completed
     Stopped
@@ -293,17 +298,18 @@ namespace Ikon.AI.Emergence
     int SolverCount { get; set; }
     void Merger(Action<EmergeScope<T>> configure)
     void Solver(Action<AgentScope<T>> configure)
-  class FoundSection
-    ctor()
-    string Content { get; set; }
-    string NodeId { get; set; }
-    int? Page { get; set; }
-    string Path { get; set; }
-    string Relevance { get; set; }
+  // One tree section the navigator marked relevant, with the reason it gave.
+  sealed class FoundSection : IEquatable<FoundSection>
+    ctor(string NodeId, string Path, string Content, string Relevance, int? Page = null)
+    string Content { get; init; }
+    string NodeId { get; init; }
+    int? Page { get; init; }
+    string Path { get; init; }
+    string Relevance { get; init; }
   static class KernelContextExtensions
-    static IReadOnlyList<FunctionCall> GetFunctionCalls(KernelContext ctx, int take = 10)
-    static IReadOnlyList<FunctionResultPart> GetFunctionResults(KernelContext ctx, int take = 10)
-    static bool HasFunctionResults(KernelContext ctx)
+    static IReadOnlyList<FunctionCall> GetFunctionCalls(this KernelContext ctx, int take = 10)
+    static IReadOnlyList<FunctionResultPart> GetFunctionResults(this KernelContext ctx, int take = 10)
+    static bool HasFunctionResults(this KernelContext ctx)
   sealed class MapReduceOptions<TChunk, TResult> : EmergeScope<TResult>
     ctor()
     IReadOnlyList<object>? Chunks { get; set; }
@@ -319,11 +325,11 @@ namespace Ikon.AI.Emergence
     ctor(string endpoint, Dictionary<string, string>? headers = null)
     IReadOnlyList<McpTool> Tools { get; }
     // Calls an MCP tool by name with the given JSON arguments.
-    Task<string> CallToolAsync(string name, JsonElement arguments, CancellationToken ct = null)
+    Task<string> CallToolAsync(string name, JsonElement arguments, CancellationToken ct = default)
     // Calls an MCP tool and returns both content and pagination cursor. Pass a cursor from a previous response to fetch the next page.
-    Task<McpToolResult> CallToolRawAsync(string name, JsonElement arguments, CancellationToken ct = null, string? cursor = null)
+    Task<McpToolResult> CallToolRawAsync(string name, JsonElement arguments, CancellationToken ct = default, string? cursor = null)
     // Initializes the MCP session and discovers available tools.
-    Task ConnectAsync(CancellationToken ct = null)
+    Task ConnectAsync(CancellationToken ct = default)
     void Dispose()
   class McpTool : IEquatable<McpTool>
     ctor(string Name, string? Description, JsonElement? InputSchema)
@@ -337,10 +343,11 @@ namespace Ikon.AI.Emergence
   sealed class ModelText<T> : EmergeEvent<T>, IEquatable<ModelText<T>>
     ctor(string Text)
     string Text { get; init; }
-  class NavigationDecision
-    ctor()
-    bool Complete { get; set; }
-    string Reasoning { get; set; }
+  // The navigator's structured verdict at the end of a TreeSearch run.
+  sealed class NavigationDecision : IEquatable<NavigationDecision>
+    ctor(string Reasoning = "", bool Complete = false)
+    bool Complete { get; init; }
+    string Reasoning { get; init; }
   sealed class Progress<T> : EmergeEvent<T>, IEquatable<Progress<T>>
     ctor(string Message)
     string Message { get; init; }
@@ -402,10 +409,11 @@ namespace Ikon.AI.Emergence
     EmergeScope<NavigationDecision> NavigatorScope { get; }
     string Query { get; set; }
     void Navigator(Action<EmergeScope<NavigationDecision>> configure)
-  class TreeSearchResult
-    ctor()
-    string ReasoningTrace { get; set; }
-    List<FoundSection> Sections { get; set; }
+  // Result of a TreeSearch run: the sections the navigator marked relevant, plus its final reasoning.
+  sealed class TreeSearchResult : IEquatable<TreeSearchResult>
+    ctor(List<FoundSection> Sections, string ReasoningTrace = "")
+    string ReasoningTrace { get; init; }
+    List<FoundSection> Sections { get; init; }
 
 namespace Ikon.AI.Emergence.Structured
   sealed class StructuredTagParser.ParsedBlock : IEquatable<StructuredTagParser.ParsedBlock>
@@ -434,16 +442,16 @@ namespace Ikon.AI.Emergence.Tree
     int? Page { get; init; }
     string Title { get; init; }
   interface IContentReader
-    abstract IAsyncEnumerable<ContentSection> ReadSectionsAsync(CancellationToken ct = null)
+    abstract IAsyncEnumerable<ContentSection> ReadSectionsAsync(CancellationToken ct = default)
   class StringContentReader : IContentReader
     ctor(string content)
-    IAsyncEnumerable<ContentSection> ReadSectionsAsync(CancellationToken ct = null)
+    IAsyncEnumerable<ContentSection> ReadSectionsAsync(CancellationToken ct = default)
   class TreeIndex
     ctor()
     ctor(TreeNode root)
     TreeNode Root { get; set; }
-    static IAsyncEnumerable<EmergeEvent<TreeIndex>> BuildAsync(LLMModel model, string content, TreeIndexOptions? options = null, CancellationToken ct = null)
-    static IAsyncEnumerable<EmergeEvent<TreeIndex>> BuildAsync(LLMModel model, IContentReader reader, TreeIndexOptions? options = null, CancellationToken ct = null)
+    static IAsyncEnumerable<EmergeEvent<TreeIndex>> BuildAsync(LLMModel model, string content, TreeIndexOptions? options = null, CancellationToken ct = default)
+    static IAsyncEnumerable<EmergeEvent<TreeIndex>> BuildAsync(LLMModel model, IContentReader reader, TreeIndexOptions? options = null, CancellationToken ct = default)
     TreeNode? FindById(string id)
     void RebuildIndex()
     string ToTableOfContents(int maxDepth = -1)

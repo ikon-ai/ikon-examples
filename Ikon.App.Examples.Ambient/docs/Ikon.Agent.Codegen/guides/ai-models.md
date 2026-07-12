@@ -51,7 +51,7 @@ namespace Ikon.AI
     string Target { get; }
   // Shared invocation wrapper used by every transport that gates a call through GovernanceScope . Builds the standard Before / Deny / Escalate / invoke / After flow once so HTTP, MCP, and any future transport stay symmetric — the only thing each transport supplies is the GovernanceCall shape and the inner invocation. With no hook active the wrap is a pass-through.
   static class GovernanceInvoker
-    static Task<T> RunAsync<T>(GovernanceCall call, Func<Task<T>> invoke, CancellationToken ct = null)
+    static Task<T> RunAsync<T>(GovernanceCall call, Func<Task<T>> invoke, CancellationToken ct = default)
   // What the hook decided. The host must honour Action : Allow → invoke the operationDeny → throw GovernanceDeniedException Escalate → suspend / route to Target Obfuscate → apply the named transformDelay → wait the named duration then proceed DecisionId is the audit identifier the host can attach to any subsequent telemetry tied to this operation.
   sealed class GovernanceOutcome : IEquatable<GovernanceOutcome>
     ctor(GovernanceAction Action, string DecisionId, string RuleId, string PolicyId, string Reason, string? Target = null)
@@ -65,7 +65,7 @@ namespace Ikon.AI
   static class GovernanceScope
     static IGovernanceHook? Current { get; }
     static IDisposable Use(IGovernanceHook hook)
-  // Single hook surface called by every AI-touched primitive in the Ikon platform — LLM calls (Emerge.Run<T>), agent tool dispatch (Ikon.Agent2), data ingest steps — before they act. One contract, three surfaces. Host code activates a hook by entering a GovernanceScope ; downstream primitives read Current and consult the hook if it is set. The default — no scope active — is a no-op pass-through and the AI primitives behave exactly as they do without governance.
+  // Single hook surface called by every AI-touched primitive in the Ikon platform — LLM calls (Emerge.Run<T>), agent tool dispatch (Ikon.Agent), data ingest steps — before they act. One contract, three surfaces. Host code activates a hook by entering a GovernanceScope ; downstream primitives read Current and consult the hook if it is set. The default — no scope active — is a no-op pass-through and the AI primitives behave exactly as they do without governance.
   interface IGovernanceHook
     abstract Task AfterAsync(GovernanceCall call, GovernanceCallResult result, CancellationToken ct)
     abstract Task<GovernanceOutcome> BeforeAsync(GovernanceCall call, CancellationToken ct)
@@ -93,7 +93,7 @@ namespace Ikon.AI
     Task AfterAsync(GovernanceCall call, GovernanceCallResult result, CancellationToken ct)
     Task<GovernanceOutcome> BeforeAsync(GovernanceCall call, CancellationToken ct)
     static NullGovernanceHook Instance
-  class RegionNotSupportedException : AIException
+  class RegionNotSupportedException : NonRetryableAIException
     ctor()
     ctor(string message)
     ctor(string message, Exception inner)
@@ -104,14 +104,13 @@ namespace Ikon.AI
 
 namespace Ikon.AI.Kernel
   static class AsyncEnumerableExtensions
-    static Task<T1[]> AsArrayAsync<T1>(IAsyncEnumerable<LLMEvent> source)
-    static Task<T1> AsFirstAsync<T1>(IAsyncEnumerable<LLMEvent> source)
-    static Task<string> AsStringAsync(IAsyncEnumerable<LLMEvent> source)
-    static IAsyncEnumerable<LLMEvent> WithCitationsAsync(IAsyncEnumerable<LLMEvent> source, IdMapper idMapper)
-    static IAsyncEnumerable<LLMEvent> WithParsedTagsAsync(IAsyncEnumerable<LLMEvent> source, List<string>? tagWhitelist = null, List<string>? tagBlacklist = null)
-    static IAsyncEnumerable<LLMEvent> WithReasoningFromTagAsync(IAsyncEnumerable<LLMEvent> source, string reasoningTagName)
-    static IAsyncEnumerable<LLMEvent> WithThrottlingAsync(IAsyncEnumerable<LLMEvent> source, int charsPerSecond, int charsPerUpdate, CancellationToken cancellationToken = null)
-    static IAsyncEnumerable<LLMEvent> WithWindowedProcessingAsync(IAsyncEnumerable<LLMEvent> source, Func<string, List<LLMEvent>, Task<ValueTuple<bool, List<LLMEvent>>>> processAsync, int windowSize = 0, int windowOverlap = 0)
+    static Task<T1[]> AsArrayAsync<T1>(this IAsyncEnumerable<LLMEvent> source)
+    static Task<T1> AsFirstAsync<T1>(this IAsyncEnumerable<LLMEvent> source)
+    static Task<string> AsStringAsync(this IAsyncEnumerable<LLMEvent> source)
+    static IAsyncEnumerable<LLMEvent> WithParsedTagsAsync(this IAsyncEnumerable<LLMEvent> source, List<string>? tagWhitelist = null, List<string>? tagBlacklist = null)
+    static IAsyncEnumerable<LLMEvent> WithReasoningFromTagAsync(this IAsyncEnumerable<LLMEvent> source, string reasoningTagName)
+    static IAsyncEnumerable<LLMEvent> WithThrottlingAsync(this IAsyncEnumerable<LLMEvent> source, int charsPerSecond, int charsPerUpdate, CancellationToken cancellationToken = default)
+    static IAsyncEnumerable<LLMEvent> WithWindowedProcessingAsync(this IAsyncEnumerable<LLMEvent> source, Func<string, List<LLMEvent>, Task<(bool, List<LLMEvent>)>> processAsync, int windowSize = 0, int windowOverlap = 0)
   sealed class LLMEvent.AudioDelta : LLMEvent, IEquatable<LLMEvent.AudioDelta>
     ctor(AudioChunk Audio)
     AudioChunk Audio { get; init; }
@@ -205,11 +204,9 @@ namespace Ikon.AI.Kernel
     int? ClearToolResultsAfterInputTokens { get; init; }
     // Tool names whose results are NEVER cleared by ClearToolResultsAfterInputTokens (semantic anchors like verdicts).
     IReadOnlyList<string>? ClearToolResultsExcludedTools { get; init; }
-    // Alias for Empty . Some generated code reaches for `Default` first (common shadcn / .NET pattern).
-    static KernelContext Default { get; }
     bool DisableFunctionCalling { get; init; }
     bool DiscardTextOutputWithFunctionCalls { get; init; }
-    // A fresh, blank `KernelContext` — equivalent to `new KernelContext()` or `default`. Provided as a named constant for code generated against frameworks that expect an `.Empty` / `.Default` affordance on context-like types.
+    // A fresh, blank `KernelContext` — equivalent to `new KernelContext()` or `default`. Provided as a named constant for code generated against frameworks that expect an `.Empty` affordance on context-like types.
     static KernelContext Empty { get; }
     ImmutableDictionary<string, Function> Functions { get; init; }
     string GbnfGrammar { get; init; }
@@ -232,8 +229,7 @@ namespace Ikon.AI.Kernel
     bool UseUserNames { get; init; }
     KernelContext Add(Instruction instruction)
     KernelContext Add(MessageBlock message)
-    static KernelContext Create(IEnumerable<Instruction>? instructions = null, IEnumerable<MessageBlock>? messages = null, IEnumerable<Function>? functions = null, TimeSpan? timeout = null, double? temperature = null, int? maxOutputTokens = null, ReasoningEffort? reasoningEffort = null, int? reasoningTokenBudget = null, bool? useStreaming = null, bool? useJson = null, bool? useCitations = null, bool? useUserNames = null, bool? useAudioOutput = null, string? audioOutputVoiceId = null, bool? useCaching = null, bool? disableFunctionCalling = null, bool? discardTextOutputWithFunctionCalls = null, bool? logFullRequest = null, bool? logFullResponse = null, object? jsonSchema = null, string? gbnfGrammar = null, string? toolPlan = null)
-    IAsyncEnumerable<LLMEvent> GenerateAsync(ILLM llm, CancellationToken cancellationToken = null)
+    IAsyncEnumerable<LLMEvent> GenerateAsync(ILLM llm, CancellationToken cancellationToken = default)
     KernelContext KeepMessagesMax(int count)
     KernelContext WithFunctions(IEnumerable<Function>? functions, bool replaceExisting = false)
   // One event in the typed stream produced by GenerateAsync and its combinators. Consume the stream by switching on the concrete case: TextDelta for incremental text, ToolCallRequested when the model asks for a tool, ToolResult for a tool's output, Usage and Finished for end-of-generation accounting, and so on. Events not relevant to a consumer should be passed through unchanged so downstream consumers still see them.
@@ -289,6 +285,10 @@ namespace Ikon.AI.Kernel
     Low
     Medium
     High
+  // Selects which JSON-schema dialect the generator emits. All Ikon-side schema shapes (primitives, arrays, dictionaries, polymorphism) are expressible in both dialects; the two differ in how they encode nullability and how strictly they police unknown keywords.
+  enum SchemaDialect
+    JsonSchema202012
+    OpenApi30
   sealed class LLMEvent.Tag : LLMEvent, IEquatable<LLMEvent.Tag>
     ctor(string Name, string Content, IReadOnlyDictionary<string, string>? Attributes)
     IReadOnlyDictionary<string, string>? Attributes { get; init; }
@@ -353,7 +353,7 @@ namespace Ikon.AI.LLM
     // Projects the function's parameter list into its provider JSON schema: an object schema with type/properties/required, including parameter descriptions and allowed-value enums.
     static string ToJson(Function function)
   interface ILLM : IDisposable, ILLMInfo
-    abstract IAsyncEnumerable<LLMEvent> GenerateAsync(KernelContext context, CancellationToken cancellationToken = null)
+    abstract IAsyncEnumerable<LLMEvent> GenerateAsync(KernelContext context, CancellationToken cancellationToken = default)
   interface ILLMInfo
     int ContextWindowSize { get; }
     string InlineReasoningTagName { get; }
@@ -390,7 +390,7 @@ namespace Ikon.AI.LLM
     bool SupportsZeroDataRetention { get; }
     bool UsesInlineReasoning { get; }
     void Dispose()
-    IAsyncEnumerable<LLMEvent> GenerateAsync(KernelContext context, CancellationToken cancellationToken = null)
+    IAsyncEnumerable<LLMEvent> GenerateAsync(KernelContext context, CancellationToken cancellationToken = default)
     static LLMCapabilities GetCapabilities(LLMModel model)
     static LLMCapabilities GetCapabilities(LLMModel model, IReadOnlyList<ModelRegion>? regions)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(LLMModel model)
@@ -492,8 +492,8 @@ namespace Ikon.AI.LLM
     Nova2Lite
   static class LLMModelExtensions
     // Maximum input-context window for the model, in tokens (e.g. 200_000 for Claude 4.x base, 1_000_000 for the 1M-context tier). Returns 0 when the model can't be resolved — callers should treat 0 as "unknown" and skip utilization computation rather than dividing by zero.
-    static int ContextWindowSize(LLMModel model)
-    static string DisplayName(LLMModel model)
+    static int ContextWindowSize(this LLMModel model)
+    static string DisplayName(this LLMModel model)
   class NonRetryableLLMException : NonRetryableAIException
     ctor()
     ctor(string message)

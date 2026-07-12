@@ -14,7 +14,7 @@ public sealed record VoiceTurn(string Role, string Text);
 
 private Audio Audio { get; } = new(app);
 
-private readonly Reactive<List<VoiceTurn>> _turns = new([]);
+private readonly ReactiveList<VoiceTurn> _turns = new();
 private readonly ClientReactive<bool> _processing = new(false);
 
 // Per-stream sample buffer keyed by stream id.
@@ -56,14 +56,14 @@ public Task Main()
                 ChannelCount = channelCount,
             });
             if (string.IsNullOrWhiteSpace(heard)) return;
-            _turns.Value = [.. _turns.Value, new VoiceTurn("You", heard)];
+            _turns.Add(new VoiceTurn("You", heard));
 
-            var transcript = string.Join("\n", _turns.Value.Select(t => $"{t.Role}: {t.Text}"));
+            var transcript = string.Join("\n", _turns.Select(t => $"{t.Role}: {t.Text}"));
             var replyRaw = await Emerge.Run<string>(LLMModel.Claude45Haiku,
                 pass => { pass.Command = $"Conversation:\n{transcript}\n\nReply briefly as the tutor."; })
                 .ResultAsync();
             var reply = string.IsNullOrEmpty(replyRaw) ? "(no reply)" : replyRaw;
-            _turns.Value = [.. _turns.Value, new VoiceTurn("Tutor", reply)];
+            _turns.Add(new VoiceTurn("Tutor", reply));
 
             await Audio.SpeakAsync(reply);
         }
@@ -81,7 +81,7 @@ public Task Main()
             {
                 v.Column(["gap-3 p-2"], content: vv =>
                 {
-                    foreach (var t in _turns.Value)
+                    foreach (var t in _turns)
                     {
                         var isUser = t.Role == "You";
                         vv.Box([isUser ? "self-end bg-primary text-primary-foreground" : "self-start bg-surface", "rounded-lg p-3 max-w-[80%]"],
@@ -110,6 +110,7 @@ public Task Main()
 - Hand-roll the loop only for custom mixing, no-interrupt overlap, raw sample access, or config beyond text+voice: `using var tts = new SpeechGenerator(model); await foreach (var audio in tts.GenerateSpeechAsync(new SpeechGeneratorConfig { Text = reply })) { Audio.SendSpeech(audio); }`. `AudioChunk` carries PCM samples (`float[] Samples`, `int SampleRate`, `int ChannelCount`) — it does NOT have `.Data` or `.MimeType` properties; do not call `ClientFunctions.PlaySoundAsync(chunk.Data, chunk.MimeType)` (that combination doesn't compile).
 - `ClientFunctions.PlaySoundAsync(byte[] bytes, string mimeType)` is for playing already-encoded sound files (MP3, WAV); use `Audio.SpeakAsync` / `Audio.SendSpeech` for generated speech.
 - Wrap STT + LLM + TTS in try/finally so `_processing` always resets.
+- The transcript is a `ReactiveList<VoiceTurn>` — `_turns.Add(turn)` notifies once; enumerate and LINQ the reactive directly (`foreach (var t in _turns)`). The per-stream sample buffers stay plain `Dictionary`s: they are server-side bookkeeping, not UI state.
 
 ## See also
 

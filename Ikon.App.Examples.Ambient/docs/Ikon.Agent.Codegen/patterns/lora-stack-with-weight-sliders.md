@@ -15,7 +15,7 @@ private void RenderLibrary(UIView view)
     view.Row(["items-baseline justify-between"], content: view =>
     {
         view.Text([Text.Caption, "uppercase tracking-[0.18em]"], "library");
-        view.Text([Text.Caption, "italic opacity-70"], $"{_library.Value.Count(l => l.Enabled)} active");
+        view.Text([Text.Caption, "italic opacity-70"], $"{_library.Count(l => l.Enabled)} active");
     });
 
     view.ScrollArea(rootStyle: ["flex-1 min-h-0 -mx-2"], viewportStyle: ["px-2"], content: view =>

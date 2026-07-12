@@ -333,7 +333,6 @@ Programmatic client-side actions (no user gesture required):
 ```csharp
 // Every function targets the calling client (resolved via ReactiveScope.ClientId) by default
 await ClientFunctions.SetThemeAsync(Theme.Dark);           // persist: true by default; string overload for custom themes
-await ClientFunctions.GetThemeAsync();
 await ClientFunctions.GetMediaDevicesAsync();
 await ClientFunctions.StartAudioCaptureAsync(options);     // returns streamId
 await ClientFunctions.StartVideoCaptureAsync(source, options); // returns streamId
@@ -400,6 +399,6 @@ if (_imageData.Value != null)
 onClick: async () =>
 {
     try { await RiskyOperation(); }
-    catch (Exception ex) { Log.Instance.Warning($"Operation failed: {ex.Message}"); }
+    catch (Exception ex) { Log.Instance.Warning(ex, "Operation failed"); }
 }
 ```

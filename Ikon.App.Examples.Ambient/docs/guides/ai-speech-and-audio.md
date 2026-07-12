@@ -13,19 +13,19 @@ Text-to-speech with `Audio.SpeakAsync(text)`, speech-to-text with `SpeechRecogni
 // replaces whatever is still playing (the interrupt behavior a voice app wants).
 await Audio.SpeakAsync("Hello world");
 
-// Pick a model/voice, or target specific clients:
+// Pick a model/voice, shape the delivery, or target specific clients:
 await Audio.SpeakAsync("Hello world", SpeechGeneratorModel.Eleven3, voice: "Aria", targetIds: [clientSessionId]);
+await Audio.SpeakAsync("Hello world", instructions: "Whisper, as if sharing a secret", speed: "1.2");
 ```
 
-To get the audio WITHOUT playing it (e.g. to store or post-process a clip), use the one-shot `SpeechGenerator.GenerateAsync(text)` — it returns a single PCM `AudioChunk?` (nullable — guard it):
+To get the audio WITHOUT playing it (e.g. to store or post-process a clip), use the one-shot `SpeechGenerator.GenerateAsync(text)` — it returns a single PCM `AudioChunk` (never null; throws `SpeechGeneratorException` on failure):
 
 ```csharp
 var audio = await SpeechGenerator.GenerateAsync("Hello world");  // ElevenFlash25 (cheap+fast) by default
-if (audio is null) { return; }
 // audio.Samples (float[]), audio.SampleRate, audio.ChannelCount
 ```
 
-Hand-roll the generator loop only when you need custom mixing, speech that must not interrupt what is playing, chunk-by-chunk streaming, or config beyond text+voice (language, instructions, speed):
+Hand-roll the generator loop only when you need custom mixing, speech that must not interrupt what is playing, chunk-by-chunk streaming, or config beyond text, voice, instructions, and speed (e.g. language):
 
 ```csharp
 using var speechGenerator = new SpeechGenerator(SpeechGeneratorModel.ElevenFlash25);
@@ -124,6 +124,10 @@ namespace Ikon.AI.SoundEffectGeneration
     abstract IAsyncEnumerable<AudioChunk> GenerateSoundEffectAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
   interface ISoundEffectGeneratorInfo
     bool SupportsLooping { get; }
+  class NonRetryableSoundEffectGeneratorException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class SoundEffectFileResult
     byte[] AudioData { get; init; }
     string ContentType { get; init; }
@@ -165,7 +169,7 @@ namespace Ikon.AI.SoundEffectGeneration
   enum SoundEffectGeneratorModel
     ElevenLabsV2
   static class SoundEffectGeneratorModelExtensions
-    static string DisplayName(SoundEffectGeneratorModel model)
+    static string DisplayName(this SoundEffectGeneratorModel model)
 
 namespace Ikon.AI.SpeechGeneration
   sealed class TextFilter.Config
@@ -179,6 +183,10 @@ namespace Ikon.AI.SpeechGeneration
     int SampleRate { get; }
     IReadOnlyList<string> VoiceIds { get; }
     abstract IAsyncEnumerable<AudioChunk> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = default)
+  class NonRetryableSpeechGeneratorException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class SpeechGenerator : IDisposable, ISpeechGenerator
     ctor(string modelName)
     ctor(SpeechGeneratorModel model)
@@ -196,8 +204,8 @@ namespace Ikon.AI.SpeechGeneration
     // }
     // becomes
     // var audio = await SpeechGenerator.GenerateAsync(text);
-    // Defaults to ElevenFlash25 (cheap+fast). Override the model via the second parameter when the task warrants; pass voice to pick a voice (the model's default voice otherwise). The streamed chunks are concatenated into a single PCM AudioChunk (.Samples / .SampleRate / .ChannelCount). Returns null if the model produces no audio — caller should null-check before using the samples. Reach for the constructor + GenerateSpeechAsync when you need chunk-by-chunk streaming playback while generation runs, or any other SpeechGeneratorConfig field beyond text+voice (language, instructions, speed).
-    static Task<AudioChunk?> GenerateAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, CancellationToken cancellationToken = default)
+    // Defaults to ElevenFlash25 (cheap+fast). Override the model via the second parameter when the task warrants; pass voice to pick a voice (the model's default voice otherwise). The streamed chunks are concatenated into a single PCM AudioChunk (.Samples / .SampleRate / .ChannelCount). Never returns null — throws a SpeechGeneratorException when generation fails or the model produces no audio, so wrap in try/catch when the app should continue without the audio. Reach for the constructor + GenerateSpeechAsync when you need chunk-by-chunk streaming playback while generation runs, or any other SpeechGeneratorConfig field beyond text+voice (language, instructions, speed).
+    static Task<AudioChunk> GenerateAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, CancellationToken cancellationToken = default)
     IAsyncEnumerable<AudioChunk> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = default)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(SpeechGeneratorModel model)
     static IReadOnlyDictionary<SpeechGeneratorModel, IReadOnlyList<string>> GetVoiceIdsByModel()
@@ -227,7 +235,7 @@ namespace Ikon.AI.SpeechGeneration
     Gemini25ProTts
     Gemini31FlashTts
   static class SpeechGeneratorModelExtensions
-    static string DisplayName(SpeechGeneratorModel model)
+    static string DisplayName(this SpeechGeneratorModel model)
   static class TextFilter
     static string Filter(string text, TextFilter.Config config)
 
@@ -249,11 +257,17 @@ namespace Ikon.AI.SpeechRecognition
     Pronunciation.UnexpectedBreak UnexpectedBreak { get; init; }
   sealed class SpeechRecognizerAdapter.Config
     ctor()
+    // The maximum duration of continuous speech before recognition is forced in SilenceTriggered mode. This prevents indefinite buffering when the speaker doesn't pause. Set to Zero or negative to disable the limit.
     TimeSpan MaxSpeechDuration { get; set; }
+    // The recognition mode that determines how audio is segmented and when recognition is triggered.
     SpeechRecognizerAdapter.Mode Mode { get; set; }
+    // The interval at which speech recognition is triggered in GrowingWindow and SlidingWindow modes. In GrowingWindow mode, recognition runs on all accumulated audio at this interval. In SlidingWindow mode, recognition runs on the audio collected since the last recognition.
     TimeSpan RecognitionInterval { get; set; }
+    // The timeout for individual speech recognition API requests.
     TimeSpan RequestTimeout { get; set; }
+    // The duration of continuous silence required to trigger recognition in SilenceTriggered mode. When the speaker pauses for this duration, the accumulated speech is sent for recognition.
     TimeSpan SilenceDuration { get; set; }
+    // The amplitude threshold below which audio is considered silence. Sample values with absolute amplitude below this threshold are treated as silent.
     float SilenceThreshold { get; set; }
   sealed class Pronunciation.Feedback : IEquatable<Pronunciation.Feedback>
     ctor()
@@ -291,6 +305,10 @@ namespace Ikon.AI.SpeechRecognition
     string MaskedITN { get; init; }
     Pronunciation.PronunciationAssessment PronunciationAssessment { get; init; }
     List<Pronunciation.Word> Words { get; init; }
+  class NonRetryableSpeechRecognizerException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class Pronunciation.Phoneme : IEquatable<Pronunciation.Phoneme>
     ctor()
     long Duration { get; init; }
@@ -397,7 +415,7 @@ namespace Ikon.AI.SpeechRecognition
     AssemblyAIUniversalStreamingMultilingual
     VoxtralMiniTranscribe2
   static class SpeechRecognizerModelExtensions
-    static string DisplayName(SpeechRecognizerModel model)
+    static string DisplayName(this SpeechRecognizerModel model)
   sealed class Pronunciation.Syllable : IEquatable<Pronunciation.Syllable>
     ctor()
     long Duration { get; init; }

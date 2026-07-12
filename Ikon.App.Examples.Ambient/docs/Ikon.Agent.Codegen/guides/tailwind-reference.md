@@ -336,15 +336,17 @@ namespace Ikon.Crosswind
     IReadOnlyDictionary<string, string> Light { get; }
     string EmitDark()
     string EmitLight()
-  // Static facade the Crosswind compiler resolves custom aliases through. Lookups prefer the ambient scope (pushed by a StyleRegistry around each compile) and fall back to the process-wide scope, which the legacy static SetDefinitions/MergeDefinitions still write.
+  // Static facade the Crosswind compiler resolves custom aliases through. Definitions live in a TailwindCustomStyleScope that the caller pins with PushScope around each compile, so several apps hosted in one process each resolve against their own theme. Lookups fall back to a process-wide scope kept for legacy single-app hosts that still write it via SetDefinitions / MergeDefinitions .
   static class TailwindCustomStyleRegistry
     // Flutter theme data of the scope active for the current compile, preferring the ambient scope like the alias lookups do.
     static FlutterThemeSource? CurrentFlutterTheme { get; }
     static bool IsFontFamilyToken(string name)
     static bool IsFontWeightToken(string name)
+    // Compat write path for legacy single-app hosts: merges definitions into the process-wide fallback scope. New code should own a TailwindCustomStyleScope and pin it with PushScope instead.
     static void MergeDefinitions(TailwindStyleDefinitions definitions)
     // Makes the given scope the ambient alias source for the current async flow until the returned handle is disposed. Compilation call sites stay static, but each caller can pin its own scope for the duration of a compile.
     static IDisposable PushScope(TailwindCustomStyleScope scope)
+    // Compat write path for legacy single-app hosts: replaces the process-wide fallback scope's definitions (null clears them). New code should own a TailwindCustomStyleScope and pin it with PushScope instead.
     static void SetDefinitions(TailwindStyleDefinitions? definitions)
     static bool TryResolve(string name, TailwindColorContext context, out string value)
     static bool TryResolveFontFamily(string name, out string value)

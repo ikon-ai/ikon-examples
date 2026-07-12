@@ -1,7 +1,7 @@
 <!-- mined-from: Architect -->
 # Agent Roster Card Grid — Toggle Specialists Onto The Team
 
-A responsive grid (`grid-cols-1 md:grid-cols-2 lg:grid-cols-3`) of agent personas, each card showing a circular icon avatar (background tinted when active), name, role, specialty, and a Switch on the right edge that flips membership. The active set lives in a `Reactive<List<string>>` of agent ids; the card looks at `Contains` to decide its ring/tint.
+A responsive grid (`grid-cols-1 md:grid-cols-2 lg:grid-cols-3`) of agent personas, each card showing a circular icon avatar (background tinted when active), name, role, specialty, and a Switch on the right edge that flips membership. The active set lives in a `ReactiveList<string>` of agent ids; the card looks at `Contains` to decide its ring/tint.
 
 ## When to use
 
@@ -23,7 +23,7 @@ private void RenderAgentsTab(UIView view)
 
 private void RenderAgentCard(UIView view, Agent agent)
 {
-    var isActive = _activeAgentIds.Value.Contains(agent.Id);
+    var isActive = _activeAgentIds.Contains(agent.Id);
 
     view.Box([Card.Default, "p-5 cursor-pointer", isActive ? "ring-2 ring-primary bg-primary/5" : ""], content: view =>
     {
@@ -50,7 +50,7 @@ private void RenderAgentCard(UIView view, Agent agent)
                     value: isActive,
                     onValueChange: async v =>
                     {
-                        if (v && !_activeAgentIds.Value.Contains(agent.Id))
+                        if (v && !_activeAgentIds.Contains(agent.Id))
                         {
                             _activeAgentIds.Add(agent.Id);
                         }
@@ -72,8 +72,8 @@ private void RenderAgentCard(UIView view, Agent agent)
 
 - Use `ring-2 ring-primary bg-primary/5` for the active state — a ring reads as "selected" without consuming a border slot already used by the card.
 - The agent icon doubles as a status indicator: filled background when active, tinted background when not.
-- Use the platform's `Reactive<List<T>>.Add(item)` / `.Remove(item)` extensions — they mutate AND fire `Changed` in one call. Calling `_x.Value.Add(item)` directly does not trigger a UI update (the list reference is unchanged); the extensions handle that for you.
-- Pair with a sticky "N specialists ready — Start Discussion" CTA that only renders when `Count > 0`. Gives the user feedback that their selection had effect.
+- Declare the selection as `private readonly ReactiveList<string> _activeAgentIds = new();` and mutate it directly — `_activeAgentIds.Add(id)` / `.Remove(id)` each fire exactly one change notification. `Contains` and `Count` are tracked reads, so the card re-renders on toggle. `_activeAgentIds.Value` is an `IReadOnlyList<string>` snapshot — `.Value.Add(id)` does not compile, so the old "mutated but never re-rendered" footgun is gone.
+- Pair with a sticky "N specialists ready — Start Discussion" CTA that only renders when `_activeAgentIds.Count > 0`. Gives the user feedback that their selection had effect.
 
 ## See also
 

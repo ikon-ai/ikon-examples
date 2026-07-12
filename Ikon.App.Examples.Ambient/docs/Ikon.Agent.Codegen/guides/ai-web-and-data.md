@@ -74,7 +74,7 @@ namespace Ikon.AI.Classification
     OpenAIOmniModeration
     MistralModeration
   static class ClassificationModelExtensions
-    static string DisplayName(ClassificationModel model)
+    static string DisplayName(this ClassificationModel model)
   sealed class ClassificationResult : IEquatable<ClassificationResult>
     ctor()
     List<ClassificationDetail> Details { get; init; }
@@ -86,11 +86,17 @@ namespace Ikon.AI.Classification
   sealed class Classifier : IClassifier, IDisposable
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(ClassificationModel model, IReadOnlyList<ModelRegion>? regions = null)
-    Task<ClassificationResult> ClassifyAsync(IReadOnlyList<ClassificationInput> inputs, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
-    Task<ClassificationResult> ClassifyAsync(IReadOnlyList<IMessagePart> messageParts, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
-    Task<ClassificationResult> ClassifyAsync(string text, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
-    // One-shot text moderation. The verbose form using var classifier = new Classifier(ClassificationModel.OpenAIOmniModeration); var result = await classifier.ClassifyAsync(text); becomes var result = await Classifier.ClassifyAsync(text); Defaults to OpenAIOmniModeration (free to use, the standard moderation model). Override the model via the second parameter when the task warrants. Check result.IsFlagged and the per-label result.Details. Reach for the constructor + the instance ClassifyAsync overloads when you need to classify images or message parts ( ClassificationInput ), set a custom timeout, or classify many inputs with the same generator instance.
-    static Task<ClassificationResult> ClassifyAsync(string text, ClassificationModel model = OpenAIOmniModeration, CancellationToken cancellationToken = null)
+    TimeSpan Timeout { get; set; }
+    Task<ClassificationResult> ClassifyAsync(IReadOnlyList<ClassificationInput> inputs, CancellationToken cancellationToken = default)
+    Task<ClassificationResult> ClassifyAsync(IReadOnlyList<IMessagePart> messageParts, CancellationToken cancellationToken = default)
+    Task<ClassificationResult> ClassifyAsync(string text, CancellationToken cancellationToken = default)
+    // One-shot text moderation. The verbose form
+    // using var classifier = new Classifier(ClassificationModel.OpenAIOmniModeration);
+    // var result = await classifier.ClassifyAsync(text);
+    // becomes
+    // var result = await Classifier.ClassifyAsync(text);
+    // Defaults to OpenAIOmniModeration (free to use, the standard moderation model). Override the model via the second parameter when the task warrants. Check result.IsFlagged and the per-label result.Details. Reach for the constructor + the instance ClassifyAsync overloads when you need to classify images or message parts ( ClassificationInput ), set a custom Timeout , or classify many inputs with the same classifier instance.
+    static Task<ClassificationResult> ClassifyAsync(string text, ClassificationModel model = OpenAIOmniModeration, CancellationToken cancellationToken = default)
     void Dispose()
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ClassificationModel model)
   class ClassifierException : RetryableAIException
@@ -98,9 +104,15 @@ namespace Ikon.AI.Classification
     ctor(string message)
     ctor(string message, Exception inner)
   interface IClassifier : IDisposable
-    abstract Task<ClassificationResult> ClassifyAsync(IReadOnlyList<ClassificationInput> inputs, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
-    virtual Task<ClassificationResult> ClassifyAsync(IReadOnlyList<IMessagePart> messageParts, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
-    virtual Task<ClassificationResult> ClassifyAsync(string text, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
+    // Maximum duration of a single classification request. Defaults to 10 seconds.
+    TimeSpan Timeout { get; set; }
+    abstract Task<ClassificationResult> ClassifyAsync(IReadOnlyList<ClassificationInput> inputs, CancellationToken cancellationToken = default)
+    virtual Task<ClassificationResult> ClassifyAsync(IReadOnlyList<IMessagePart> messageParts, CancellationToken cancellationToken = default)
+    virtual Task<ClassificationResult> ClassifyAsync(string text, CancellationToken cancellationToken = default)
+  class NonRetryableClassifierException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
 
 namespace Ikon.AI.Embeddings
   enum EmbeddingEncoding
@@ -111,10 +123,16 @@ namespace Ikon.AI.Embeddings
     ctor(EmbeddingModel model, IReadOnlyList<ModelRegion>? regions = null)
     int EmbeddingVectorSize { get; }
     int MaxInputCount { get; }
+    TimeSpan Timeout { get; set; }
     void Dispose()
-    // One-shot embedding generation. The verbose form using var embeddingGenerator = new EmbeddingGenerator(EmbeddingModel.OpenAI3Small); var embeddings = await embeddingGenerator.GenerateEmbeddingsAsync(texts, EmbeddingType.Generic); becomes var embeddings = await EmbeddingGenerator.EmbedAsync(texts); Defaults to OpenAI3Small (cheap+fast) and Generic . Override the model via the second parameter when the task warrants; pass an explicit EmbeddingType when embedding documents and queries for asymmetric retrieval. Returns one float[] vector per input, in input order. Reach for the constructor + GenerateEmbeddingsAsync when you need batching control (maxInputCount), a custom timeout, or the generator's MaxInputCount / EmbeddingVectorSize properties.
-    static Task<List<float[]>> EmbedAsync(IReadOnlyList<string> texts, EmbeddingModel model = OpenAI3Small, EmbeddingType type = Generic, CancellationToken cancellationToken = null)
-    Task<List<float[]>> GenerateEmbeddingsAsync(IReadOnlyList<string> inputs, EmbeddingType type, int maxInputCount = 0, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
+    // One-shot embedding generation. The verbose form
+    // using var embeddingGenerator = new EmbeddingGenerator(EmbeddingModel.OpenAI3Small);
+    // var embeddings = await embeddingGenerator.GenerateEmbeddingsAsync(texts, EmbeddingType.Generic);
+    // becomes
+    // var embeddings = await EmbeddingGenerator.EmbedAsync(texts);
+    // Defaults to OpenAI3Small (cheap+fast) and Generic . Override the model via the second parameter when the task warrants; pass an explicit EmbeddingType when embedding documents and queries for asymmetric retrieval. Returns one float[] vector per input, in input order. Reach for the constructor + GenerateEmbeddingsAsync when you need batching control (maxInputCount), a custom Timeout , or the generator's MaxInputCount / EmbeddingVectorSize properties.
+    static Task<List<float[]>> EmbedAsync(IReadOnlyList<string> texts, EmbeddingModel model = OpenAI3Small, EmbeddingType type = Generic, CancellationToken cancellationToken = default)
+    Task<List<float[]>> GenerateEmbeddingsAsync(IReadOnlyList<string> inputs, EmbeddingType type, int maxInputCount = 0, CancellationToken cancellationToken = default)
     static EmbeddingGeneratorCapabilities GetCapabilities(EmbeddingModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(EmbeddingModel model)
   sealed class EmbeddingGeneratorCapabilities
@@ -133,7 +151,7 @@ namespace Ikon.AI.Embeddings
     EmbeddingEncoding Encoding { get; init; }
     EmbeddingModel Model { get; init; }
     EmbeddingType Type { get; init; }
-    static Task<EmbeddingItem> CreateAsync(string input, string context, EmbeddingModel model, EmbeddingType type, EmbeddingEncoding encoding, CancellationToken cancellationToken = null)
+    static Task<EmbeddingItem> CreateAsync(string input, string context, EmbeddingModel model, EmbeddingType type, EmbeddingEncoding encoding, CancellationToken cancellationToken = default)
     static Task<EmbeddingItem> CreateAsync(float[] embedding, string context, EmbeddingModel model, EmbeddingType type, EmbeddingEncoding encoding)
   enum EmbeddingModel
     OpenAIAda2
@@ -157,7 +175,7 @@ namespace Ikon.AI.Embeddings
     Voyage4Lite
     Voyage4Large
   static class EmbeddingModelExtensions
-    static string DisplayName(EmbeddingModel model)
+    static string DisplayName(this EmbeddingModel model)
   enum EmbeddingType
     Generic
     Document
@@ -167,11 +185,17 @@ namespace Ikon.AI.Embeddings
   interface IEmbeddingGenerator : IDisposable
     int EmbeddingVectorSize { get; }
     int MaxInputCount { get; }
-    abstract Task<List<float[]>> GenerateEmbeddingsAsync(IReadOnlyList<string> inputs, EmbeddingType type, int maxInputCount = 0, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
+    // Maximum duration of a single embedding request, scaled up internally with the batch size. Defaults to 10 seconds.
+    TimeSpan Timeout { get; set; }
+    abstract Task<List<float[]>> GenerateEmbeddingsAsync(IReadOnlyList<string> inputs, EmbeddingType type, int maxInputCount = 0, CancellationToken cancellationToken = default)
   struct VectorMath.Neighbor
     ctor(int index, float distance)
     float Distance { get; }
     int Index { get; }
+  class NonRetryableEmbeddingGeneratorException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   static class VectorMath
     // Calculates the element-wise average embedding from a list of embeddings. Each embedding must be a float array of the same length.
     static float[] CalculateAverageEmbedding(IList<float[]> embeddings)
@@ -195,9 +219,14 @@ namespace Ikon.AI.FileConversion
   sealed class FileConverter : IDisposable, IFileConverter
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(FileConverterModel model, IReadOnlyList<ModelRegion>? regions = null)
-    Task<ConvertedFile> ConvertToPdfAsync(FileConverterConfig config, CancellationToken cancellationToken = null)
-    // One-shot PDF conversion from raw file bytes. The verbose form using var fileConverter = new FileConverter(FileConverterModel.ConvertApi); var pdf = await fileConverter.ConvertToPdfAsync(new FileConverterConfig { Data = data, FileName = fileName }); becomes var pdf = await FileConverter.ConvertToPdfAsync(data, fileName); Defaults to ConvertApi (the only conversion model). fileName must carry the source extension (e.g. report.docx) — it determines the input format. The converted PDF is in pdf.Data. Reach for the constructor + ConvertToPdfAsync when the source is a URL or AssetUri instead of bytes, or when you need a custom timeout.
-    static Task<ConvertedFile> ConvertToPdfAsync(byte[] data, string fileName, FileConverterModel model = ConvertApi, CancellationToken cancellationToken = null)
+    Task<ConvertedFile> ConvertToPdfAsync(FileConverterConfig config, CancellationToken cancellationToken = default)
+    // One-shot PDF conversion from raw file bytes. The verbose form
+    // using var fileConverter = new FileConverter(FileConverterModel.ConvertApi);
+    // var pdf = await fileConverter.ConvertToPdfAsync(new FileConverterConfig { Data = data, FileName = fileName });
+    // becomes
+    // var pdf = await FileConverter.ConvertToPdfAsync(data, fileName);
+    // Defaults to ConvertApi (the only conversion model). fileName must carry the source extension (e.g. report.docx) — it determines the input format. The converted PDF is in pdf.Data. Reach for the constructor + ConvertToPdfAsync when the source is a URL or AssetUri instead of bytes, or when you need a custom timeout.
+    static Task<ConvertedFile> ConvertToPdfAsync(byte[] data, string fileName, FileConverterModel model = ConvertApi, CancellationToken cancellationToken = default)
     void Dispose()
     static IReadOnlyList<ModelRegion> GetSupportedRegions(FileConverterModel model)
   sealed class FileConverterConfig
@@ -214,26 +243,39 @@ namespace Ikon.AI.FileConversion
   enum FileConverterModel
     ConvertApi
   static class FileConverterModelExtensions
-    static string DisplayName(FileConverterModel model)
+    static string DisplayName(this FileConverterModel model)
   interface IFileConverter : IDisposable
-    abstract Task<ConvertedFile> ConvertToPdfAsync(FileConverterConfig config, CancellationToken cancellationToken = null)
+    abstract Task<ConvertedFile> ConvertToPdfAsync(FileConverterConfig config, CancellationToken cancellationToken = default)
+  class NonRetryableFileConverterException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
 
 namespace Ikon.AI.OCR
   enum DocumentType
     General
   interface IOCR : IDisposable, IOCRInfo
-    abstract Task<OCRResult> AnalyzeDocumentAsync(OCRConfig config, CancellationToken cancellationToken = null)
-    abstract IAsyncEnumerable<OCRResult> AnalyzeDocumentStreamingAsync(OCRConfig config, CancellationToken cancellationToken = null)
+    abstract Task<OCRResult> AnalyzeDocumentAsync(OCRConfig config, CancellationToken cancellationToken = default)
+    abstract IAsyncEnumerable<OCRResult> AnalyzeDocumentStreamingAsync(OCRConfig config, CancellationToken cancellationToken = default)
   interface IOCRInfo
     int MaxPagesSupported { get; }
+  class NonRetryableOCRException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class OCR : IDisposable, IOCR, IOCRInfo
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(OCRModel model, IReadOnlyList<ModelRegion>? regions = null)
     int MaxPagesSupported { get; }
-    // One-shot document OCR from raw file bytes (image or PDF). The verbose form using var ocr = new OCR(OCRModel.AzureDocumentIntelligence); var result = await ocr.AnalyzeDocumentAsync(new OCRConfig { Data = data }); becomes var result = await OCR.AnalyzeAsync(data); Defaults to AzureDocumentIntelligence (cheap+robust general document OCR). Override the model via the second parameter when the task warrants. Read the extracted text from result.Text; result.Paragraphs and result.Pages carry the structure. Reach for the constructor + AnalyzeDocumentAsync when the document is a URL or AssetUri instead of bytes, or when you need page selection, word-level bounding boxes, or any other OCRConfig field; use AnalyzeDocumentStreamingAsync for page-by-page streaming.
-    static Task<OCRResult> AnalyzeAsync(byte[] data, OCRModel model = AzureDocumentIntelligence, CancellationToken cancellationToken = null)
-    Task<OCRResult> AnalyzeDocumentAsync(OCRConfig config, CancellationToken cancellationToken = null)
-    IAsyncEnumerable<OCRResult> AnalyzeDocumentStreamingAsync(OCRConfig config, CancellationToken cancellationToken = null)
+    // One-shot document OCR from raw file bytes (image or PDF). The verbose form
+    // using var ocr = new OCR(OCRModel.AzureDocumentIntelligence);
+    // var result = await ocr.AnalyzeDocumentAsync(new OCRConfig { Data = data });
+    // becomes
+    // var result = await OCR.AnalyzeAsync(data);
+    // Defaults to AzureDocumentIntelligence (cheap+robust general document OCR). Override the model via the second parameter when the task warrants. Read the extracted text from result.Text; result.Paragraphs and result.Pages carry the structure. Reach for the constructor + AnalyzeDocumentAsync when the document is a URL or AssetUri instead of bytes, or when you need page selection, word-level bounding boxes, or any other OCRConfig field; use AnalyzeDocumentStreamingAsync for page-by-page streaming.
+    static Task<OCRResult> AnalyzeAsync(byte[] data, OCRModel model = AzureDocumentIntelligence, CancellationToken cancellationToken = default)
+    Task<OCRResult> AnalyzeDocumentAsync(OCRConfig config, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<OCRResult> AnalyzeDocumentStreamingAsync(OCRConfig config, CancellationToken cancellationToken = default)
     void Dispose()
     static OCRCapabilities GetCapabilities(OCRModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(OCRModel model)
@@ -261,7 +303,7 @@ namespace Ikon.AI.OCR
     AzureDocumentIntelligence
     MistralOCR
   static class OCRModelExtensions
-    static string DisplayName(OCRModel model)
+    static string DisplayName(this OCRModel model)
   sealed class OCRPage
     ctor()
     float Height { get; init; }
@@ -286,7 +328,13 @@ namespace Ikon.AI.OCR
 
 namespace Ikon.AI.Reranking
   interface IReranker : IDisposable
-    abstract Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, int topN = 0, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
+    // Maximum duration of a single rerank request, scaled up internally with the document count. Defaults to 10 seconds.
+    TimeSpan Timeout { get; set; }
+    abstract Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, int topN = 0, CancellationToken cancellationToken = default)
+  class NonRetryableRerankerException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class RerankItem : IEquatable<RerankItem>
     ctor()
     int Index { get; init; }
@@ -298,15 +346,21 @@ namespace Ikon.AI.Reranking
     VoyageRerank25
     VoyageRerank25Lite
   static class RerankModelExtensions
-    static string DisplayName(RerankModel model)
+    static string DisplayName(this RerankModel model)
   sealed class Reranker : IDisposable, IReranker
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(RerankModel model, IReadOnlyList<ModelRegion>? regions = null)
+    TimeSpan Timeout { get; set; }
     void Dispose()
     static IReadOnlyList<ModelRegion> GetSupportedRegions(RerankModel model)
-    Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, int topN = 0, TimeSpan? timeout = null, CancellationToken cancellationToken = null)
-    // One-shot reranking. The verbose form using var reranker = new Reranker(RerankModel.CohereRerank4Fast); var items = await reranker.RerankAsync(documents, query); becomes var items = await Reranker.RerankAsync(documents, query); Defaults to CohereRerank4Fast (cheap+fast). Override the model via the third parameter when the task warrants; pass topN to cap how many items are returned (0 returns all). Each RerankItem carries the document's original .Index and its relevance .Score, ordered most relevant first. Reach for the constructor + the instance RerankAsync when you need a custom timeout or rerank many queries against the same generator instance.
-    static Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, RerankModel model = CohereRerank4Fast, int topN = 0, CancellationToken cancellationToken = null)
+    Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, int topN = 0, CancellationToken cancellationToken = default)
+    // One-shot reranking. The verbose form
+    // using var reranker = new Reranker(RerankModel.CohereRerank4Fast);
+    // var items = await reranker.RerankAsync(documents, query);
+    // becomes
+    // var items = await Reranker.RerankAsync(documents, query);
+    // Defaults to CohereRerank4Fast (cheap+fast). Override the model via the third parameter when the task warrants; pass topN to cap how many items are returned (0 returns all). Each RerankItem carries the document's original .Index and its relevance .Score, ordered most relevant first. Reach for the constructor + the instance RerankAsync when you need a custom Timeout or rerank many queries against the same reranker instance.
+    static Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, RerankModel model = CohereRerank4Fast, int topN = 0, CancellationToken cancellationToken = default)
   class RerankerException : RetryableAIException
     ctor()
     ctor(string message)
@@ -327,7 +381,7 @@ namespace Ikon.AI.Retrieving
     ContentLink Parent { get; }
     ContentLink Root { get; }
     override bool Equals(object? obj)
-    List<ValueTuple<string, string>> GenerateHierarchicalSplitLinks()
+    List<(string Link, string Internal)> GenerateHierarchicalSplitLinks()
     override int GetHashCode()
     override string ToString()
     string Link
@@ -418,10 +472,10 @@ namespace Ikon.AI.WebScraping
     string MimeType { get; init; }
     string Url { get; init; }
   interface IWebScraper : IDisposable, IWebScraperInfo
-    abstract Task<DownloadFileResult> DownloadFileAsync(DownloadFileConfig config, CancellationToken cancellationToken = null)
-    abstract Task<List<PageResult>> ScrapeMultiplePagesAsync(MultiPageScrapeConfig config, CancellationToken cancellationToken = null)
-    abstract Task<PageResult> ScrapeSinglePageAsync(SinglePageScrapeConfig config, CancellationToken cancellationToken = null)
-    abstract Task<ScreenshotResult> TakeScreenshotAsync(ScreenshotConfig config, CancellationToken cancellationToken = null)
+    abstract Task<DownloadFileResult> DownloadFileAsync(DownloadFileConfig config, CancellationToken cancellationToken = default)
+    abstract Task<List<PageResult>> ScrapeMultiplePagesAsync(MultiPageScrapeConfig config, CancellationToken cancellationToken = default)
+    abstract Task<PageResult> ScrapeSinglePageAsync(SinglePageScrapeConfig config, CancellationToken cancellationToken = default)
+    abstract Task<ScreenshotResult> TakeScreenshotAsync(ScreenshotConfig config, CancellationToken cancellationToken = default)
   interface IWebScraperInfo
     bool SupportsFileDownload { get; }
     bool SupportsMultiPageScraping { get; }
@@ -459,6 +513,10 @@ namespace Ikon.AI.WebScraping
     bool UseSitemapOnly { get; init; }
     bool UseStreaming { get; init; }
     TimeSpan WaitAfter { get; init; }
+  class NonRetryableWebScraperException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class PageResult : IEquatable<PageResult>
     ctor()
     string Content { get; init; }
@@ -515,14 +573,19 @@ namespace Ikon.AI.WebScraping
     bool SupportsScreenshotting { get; }
     bool SupportsSinglePageScraping { get; }
     void Dispose()
-    Task<DownloadFileResult> DownloadFileAsync(DownloadFileConfig config, CancellationToken cancellationToken = null)
+    Task<DownloadFileResult> DownloadFileAsync(DownloadFileConfig config, CancellationToken cancellationToken = default)
     static WebScraperCapabilities GetCapabilities(WebScraperModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(WebScraperModel model)
-    // One-shot single page scrape. The verbose form using var scraper = new WebScraper(WebScraperModel.Jina); var page = await scraper.ScrapeSinglePageAsync(new SinglePageScrapeConfig { Url = url }); becomes var page = await WebScraper.ScrapeAsync(url); Defaults to Jina (cheap+fast hosted reader). Override the model via the second parameter when the task warrants. Returns the page as Markdown in .Content along with .Title and .Url. Reach for the constructor + ScrapeSinglePageAsync when you need a different output format, cookies, custom JavaScript, or any other SinglePageScrapeConfig field beyond the URL; use ScrapeMultiplePagesAsync , TakeScreenshotAsync , or DownloadFileAsync for crawling, screenshots, and file downloads.
-    static Task<PageResult> ScrapeAsync(string url, WebScraperModel model = Jina, CancellationToken cancellationToken = null)
-    Task<List<PageResult>> ScrapeMultiplePagesAsync(MultiPageScrapeConfig config, CancellationToken cancellationToken = null)
-    Task<PageResult> ScrapeSinglePageAsync(SinglePageScrapeConfig config, CancellationToken cancellationToken = null)
-    Task<ScreenshotResult> TakeScreenshotAsync(ScreenshotConfig config, CancellationToken cancellationToken = null)
+    // One-shot single page scrape. The verbose form
+    // using var scraper = new WebScraper(WebScraperModel.Jina);
+    // var page = await scraper.ScrapeSinglePageAsync(new SinglePageScrapeConfig { Url = url });
+    // becomes
+    // var page = await WebScraper.ScrapeAsync(url);
+    // Defaults to Jina (cheap+fast hosted reader). Override the model via the second parameter when the task warrants. Returns the page as Markdown in .Content along with .Title and .Url. Reach for the constructor + ScrapeSinglePageAsync when you need a different output format, cookies, custom JavaScript, or any other SinglePageScrapeConfig field beyond the URL; use ScrapeMultiplePagesAsync , TakeScreenshotAsync , or DownloadFileAsync for crawling, screenshots, and file downloads.
+    static Task<PageResult> ScrapeAsync(string url, WebScraperModel model = Jina, CancellationToken cancellationToken = default)
+    Task<List<PageResult>> ScrapeMultiplePagesAsync(MultiPageScrapeConfig config, CancellationToken cancellationToken = default)
+    Task<PageResult> ScrapeSinglePageAsync(SinglePageScrapeConfig config, CancellationToken cancellationToken = default)
+    Task<ScreenshotResult> TakeScreenshotAsync(ScreenshotConfig config, CancellationToken cancellationToken = default)
   sealed class WebScraperCapabilities : IWebScraperInfo
     ctor()
     bool SupportsFileDownload { get; init; }
@@ -540,7 +603,7 @@ namespace Ikon.AI.WebScraping
     LocalNodriver
     LocalPlaywright
   static class WebScraperModelExtensions
-    static string DisplayName(WebScraperModel model)
+    static string DisplayName(this WebScraperModel model)
   enum WebScraperOutputFormat
     Text
     Markdown
@@ -548,10 +611,14 @@ namespace Ikon.AI.WebScraping
 
 namespace Ikon.AI.WebSearching
   interface IWebSearcher : IDisposable, IWebSearcherInfo
-    abstract Task<List<SearchResult>> SearchImagesAsync(SearchConfig config, CancellationToken cancellationToken = null)
-    abstract Task<List<SearchResult>> SearchPagesAsync(SearchConfig config, CancellationToken cancellationToken = null)
+    abstract Task<List<SearchResult>> SearchImagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
+    abstract Task<List<SearchResult>> SearchPagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
   interface IWebSearcherInfo
     bool SupportsImageSearching { get; }
+  class NonRetryableWebSearcherException : NonRetryableAIException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   sealed class SearchConfig : IEquatable<SearchConfig>
     ctor()
     string CountryCode { get; init; }
@@ -575,10 +642,15 @@ namespace Ikon.AI.WebSearching
     void Dispose()
     static WebSearcherCapabilities GetCapabilities(WebSearcherModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(WebSearcherModel model)
-    // One-shot web page search. The verbose form using var searcher = new WebSearcher(WebSearcherModel.Google); var results = await searcher.SearchPagesAsync(new SearchConfig { Query = query }); becomes var results = await WebSearcher.SearchAsync(query); Defaults to Google (cheap+fast general web search). Override the model via the second parameter when the task warrants. Each SearchResult exposes .Url, .Title, and .Content. Reach for the constructor + SearchPagesAsync when you need site-restricted search, country/language targeting, or any other SearchConfig field beyond query+max results; use SearchImagesAsync (with an image-capable model such as GoogleImages ) for image search.
-    static Task<List<SearchResult>> SearchAsync(string query, WebSearcherModel model = Google, int maxResults = 10, CancellationToken cancellationToken = null)
-    Task<List<SearchResult>> SearchImagesAsync(SearchConfig config, CancellationToken cancellationToken = null)
-    Task<List<SearchResult>> SearchPagesAsync(SearchConfig config, CancellationToken cancellationToken = null)
+    // One-shot web page search. The verbose form
+    // using var searcher = new WebSearcher(WebSearcherModel.Google);
+    // var results = await searcher.SearchPagesAsync(new SearchConfig { Query = query });
+    // becomes
+    // var results = await WebSearcher.SearchAsync(query);
+    // Defaults to Google (cheap+fast general web search). Override the model via the second parameter when the task warrants. Each SearchResult exposes .Url, .Title, and .Content. Reach for the constructor + SearchPagesAsync when you need site-restricted search, country/language targeting, or any other SearchConfig field beyond query+max results; use SearchImagesAsync (with an image-capable model such as GoogleImages ) for image search.
+    static Task<List<SearchResult>> SearchAsync(string query, WebSearcherModel model = Google, int maxResults = 10, CancellationToken cancellationToken = default)
+    Task<List<SearchResult>> SearchImagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
+    Task<List<SearchResult>> SearchPagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
   sealed class WebSearcherCapabilities : IWebSearcherInfo
     ctor()
     bool SupportsImageSearching { get; init; }
@@ -596,7 +668,7 @@ namespace Ikon.AI.WebSearching
     BingImages
     Youtube
   static class WebSearcherModelExtensions
-    static string DisplayName(WebSearcherModel model)
+    static string DisplayName(this WebSearcherModel model)
   enum WebSearcherOutputFormat
     Text
     Markdown

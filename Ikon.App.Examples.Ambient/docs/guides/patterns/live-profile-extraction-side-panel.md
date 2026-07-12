@@ -12,7 +12,7 @@ A chat that's collecting structured data (sales qualification, intake form, supp
 ```csharp
 private async Task ExtractProfileAsync()
 {
-    var recent = _messages.Value.TakeLast(6)
+    var recent = _messages.TakeLast(6)
         .Select(m => $"{(m.Role == "user" ? "Customer" : "Agent")}: {m.Content}")
         .ToList();
     if (recent.Count == 0) { return; }
