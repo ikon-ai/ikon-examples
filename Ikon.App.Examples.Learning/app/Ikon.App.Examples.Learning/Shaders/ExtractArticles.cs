@@ -28,9 +28,8 @@ internal static class ExtractArticlesShader
             The response should use the same language as the one used in the articles.
             """;
 
-        var (result, _) = await Emerge.Run<News>(
+        var result = await Emerge.Run<News>(
             LLMModel.Gpt41,
-            new KernelContext(),
             pass =>
             {
                 pass.Command = command;
@@ -38,7 +37,7 @@ internal static class ExtractArticlesShader
                 pass.MaxOutputTokens = 4000;
             },
             cancellationToken
-        ).FinalAsync();
+        ).ResultAsync();
 
         return result;
     }

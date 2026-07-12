@@ -23,9 +23,8 @@ internal static class GenerateExerciseShader
     {
         var command = BuildCommand(userState, theme, scenario, exerciseType, exerciseSource, exerciseCategory);
 
-        var (result, _) = await Emerge.Run<Exercise>(
+        var result = await Emerge.Run<Exercise>(
             LLMModel.Gpt41,
-            new KernelContext(),
             pass =>
             {
                 pass.Command = command;
@@ -33,7 +32,7 @@ internal static class GenerateExerciseShader
                 pass.MaxOutputTokens = 18000;
             },
             cancellationToken
-        ).FinalAsync();
+        ).ResultAsync();
 
         return result;
     }

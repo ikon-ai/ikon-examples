@@ -17,16 +17,15 @@ internal static class GenerateReportShader
     {
         var command = BuildCommand(userState, exercise, userScores, timeTakenSeconds);
 
-        var (result, _) = await Emerge.Run<Report>(
+        var result = await Emerge.Run<Report>(
             LLMModel.Gpt41,
-            new KernelContext(),
             pass =>
             {
                 pass.Command = command;
                 pass.Temperature = 0.3f;
             },
             cancellationToken
-        ).FinalAsync();
+        ).ResultAsync();
 
         return result;
     }

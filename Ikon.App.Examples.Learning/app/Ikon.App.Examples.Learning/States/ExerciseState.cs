@@ -630,7 +630,7 @@ public class ExerciseState(LearningApp outer) : ILearningState
                                     : "text-xs font-medium px-3 py-1.5 rounded-full bg-gray-100/80 hover:bg-gray-200/90 text-[#6b7280] hover:text-[#1a1a1a] transition-all duration-200";
 
                                 actionsRow.Button([translateStyle],
-                                    label: translateLabel,
+                                    text: translateLabel,
                                     onClick: async () =>
                                     {
                                         await TranslateMessage(currentMessage);
@@ -639,7 +639,7 @@ public class ExerciseState(LearningApp outer) : ILearningState
                                 if (!isUser)
                                 {
                                     actionsRow.Button(["text-xs font-medium px-3 py-1.5 rounded-full bg-gray-100/80 hover:bg-gray-200/90 text-[#6b7280] hover:text-[#1a1a1a] transition-all duration-200"],
-                                        label: "📖 Details",
+                                        text: "📖 Details",
                                         onClick: async () =>
                                         {
                                             await ShowDetailedTranslation(messageContent);
@@ -652,7 +652,7 @@ public class ExerciseState(LearningApp outer) : ILearningState
                                         : "text-xs font-medium px-3 py-1.5 rounded-full bg-gray-100/80 hover:bg-gray-200/90 text-[#6b7280] hover:text-[#1a1a1a] transition-all duration-200";
 
                                     actionsRow.Button([audioStyle],
-                                        label: audioState == AudioPlaybackState.Playing ? $"⏸ {audioLabel}" : $"🔊 {audioLabel}",
+                                        text: audioState == AudioPlaybackState.Playing ? $"⏸ {audioLabel}" : $"🔊 {audioLabel}",
                                         onClick: async () =>
                                         {
                                             await outer.PlayMessageAudioAsync(currentMessage.Id, currentMessage.Content.Value);
@@ -757,14 +757,14 @@ public class ExerciseState(LearningApp outer) : ILearningState
                     var translateLabel = message.IsTranslating.Value ? "⏳" : (message.ShowTranslation.Value ? "🔽 Hide" : "🌐 Translate");
 
                     actionsRow.Button(["text-xs font-medium px-3 py-1.5 rounded-full bg-gray-100/80 hover:bg-gray-200/90 text-[#6b7280] hover:text-[#1a1a1a] transition-all duration-200"],
-                        label: translateLabel,
+                        text: translateLabel,
                         onClick: async () =>
                         {
                             await TranslateMessage(message);
                         });
 
                     actionsRow.Button(["text-xs font-medium px-3 py-1.5 rounded-full bg-gray-100/80 hover:bg-gray-200/90 text-[#6b7280] hover:text-[#1a1a1a] transition-all duration-200"],
-                        label: "📖 Details",
+                        text: "📖 Details",
                         onClick: async () =>
                         {
                             await ShowDetailedTranslation(message.Content.Value);
@@ -777,7 +777,7 @@ public class ExerciseState(LearningApp outer) : ILearningState
                         : "text-xs font-medium px-3 py-1.5 rounded-full bg-gray-100/80 hover:bg-gray-200/90 text-[#6b7280] hover:text-[#1a1a1a] transition-all duration-200";
 
                     actionsRow.Button([audioStyle],
-                        label: audioState == AudioPlaybackState.Playing ? $"⏸ {audioLabel}" : $"🔊 {audioLabel}",
+                        text: audioState == AudioPlaybackState.Playing ? $"⏸ {audioLabel}" : $"🔊 {audioLabel}",
                         onClick: async () =>
                         {
                             await outer.PlayMessageAudioAsync(message.Id, message.Content.Value);
@@ -817,7 +817,7 @@ public class ExerciseState(LearningApp outer) : ILearningState
                 col.Row(["justify-between items-center"], content: headerRow =>
                 {
                     headerRow.Text([Text.Body, "font-semibold text-[#1a1a1a]"], "Word Details");
-                    headerRow.Button([LearningApp.Styles.GhostXs, "text-[#6b7280] hover:text-[#1a1a1a]"], label: "Close", onClick: async () =>
+                    headerRow.Button([LearningApp.Styles.GhostXs, "text-[#6b7280] hover:text-[#1a1a1a]"], text: "Close", onClick: async () =>
                     {
                         _tokenizedWords.Value = [];
                         _detailedTranslationWord.Value = null;
@@ -837,7 +837,7 @@ public class ExerciseState(LearningApp outer) : ILearningState
                             : "bg-white/60 hover:bg-white/80 text-[#1a1a1a] border border-gray-200";
 
                         wordsRow.Button([$"px-3 py-1.5 rounded-xl text-sm cursor-pointer transition-all {wordStyle}"],
-                            label: word,
+                            text: word,
                             onClick: async () =>
                             {
                                 var context = string.Join(" ", _tokenizedWords.Value);
@@ -924,7 +924,7 @@ public class ExerciseState(LearningApp outer) : ILearningState
                 inputColumn.Row(["justify-center"], content: hintRow =>
                 {
                     hintRow.Button(["text-xs md:text-sm font-medium text-[#6b7280] hover:text-[#1a1a1a] px-3 py-1.5 rounded-lg hover:bg-white/50 transition-colors"],
-                        label: _isGeneratingHint.Value ? "Generating hint..." : "💡 Need a hint?",
+                        text: _isGeneratingHint.Value ? "Generating hint..." : "💡 Need a hint?",
                         disabled: _isGeneratingHint.Value,
                         onClick: async () =>
                         {
@@ -946,7 +946,7 @@ public class ExerciseState(LearningApp outer) : ILearningState
                     inputView.CaptureButton(
                         [micStyle],
                         kind: MediaCaptureKind.Audio,
-                        label: "🎤",
+                        text: "🎤",
                         captureMode: MediaCaptureButtonMode.Hold,
                         disabled: _hasConversationEnded,
                         audioOptions: new ClientAudioCaptureOptions
@@ -1001,7 +1001,7 @@ public class ExerciseState(LearningApp outer) : ILearningState
                         : $"{LearningApp.Styles.GetAccentGradient(theme)} hover:opacity-90 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-semibold text-sm md:text-base transition-opacity shadow-sm";
 
                     inputView.Button([sendButtonStyle],
-                        label: _isGeneratingFeedback.Value ? "..." : "Lähetä",
+                        text: _isGeneratingFeedback.Value ? "..." : "Lähetä",
                         disabled: isDisabled,
                         onClick: async () =>
                         {
@@ -1084,14 +1084,14 @@ public class ExerciseState(LearningApp outer) : ILearningState
             view.Row(["gap-4 justify-center mt-4"], content: buttonsRow =>
             {
                 buttonsRow.Button(["bg-white/60 hover:bg-white/80 text-[#1a1a1a] px-6 py-3 rounded-xl font-medium border border-gray-200 transition-colors"],
-                    label: "Back to Menu",
+                    text: "Back to Menu",
                     onClick: async () =>
                     {
                         await outer.States.StateMachine.FireAsync(Trigger.ReturnToMainMenu);
                     });
 
                 buttonsRow.Button([$"{LearningApp.Styles.GetAccentGradient(theme)} text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:opacity-90 transition-opacity"],
-                    label: "Try Again",
+                    text: "Try Again",
                     onClick: async () =>
                     {
                         await EnterAsync();

@@ -20,16 +20,15 @@ internal static class CreateTranslationShader
             Set TransliteratedMessage empty in case transliteration is not needed (not needed for languages that use the latin or extended latin alphabet, like Finnish).
             """;
 
-        var (result, _) = await Emerge.Run<Translation>(
+        var result = await Emerge.Run<Translation>(
             LLMModel.Gpt41Mini,
-            new KernelContext(),
             pass =>
             {
                 pass.Command = command;
                 pass.Temperature = 0.2f;
             },
             cancellationToken
-        ).FinalAsync();
+        ).ResultAsync();
 
         return result;
     }

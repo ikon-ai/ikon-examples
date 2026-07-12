@@ -135,7 +135,7 @@ public class CreateExerciseState(LearningApp outer) : ILearningState
                             row.CaptureButton(
                                 [micStyle],
                                 kind: MediaCaptureKind.Audio,
-                                label: "🎤",
+                                text: "🎤",
                                 captureMode: MediaCaptureButtonMode.Hold,
                                 audioOptions: new ClientAudioCaptureOptions
                                 {
@@ -185,7 +185,7 @@ public class CreateExerciseState(LearningApp outer) : ILearningState
                     else
                     {
                         col.Button([$"{LearningApp.Styles.GetAccentGradient(theme)} text-white w-full py-4 rounded-2xl font-semibold text-base shadow-lg hover:shadow-xl hover:opacity-95 active:scale-[0.98] transition-all duration-200"],
-                            label: translations.Start,
+                            text: translations.Start,
                             disabled: string.IsNullOrWhiteSpace(_scenarioDescription.Value),
                             onClick: async () =>
                             {

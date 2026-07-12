@@ -22,16 +22,15 @@ internal static class TokenizeShader
             Return an array of words/tokens in their order of appearance. Keep punctuation attached to words where appropriate for the language.
             """;
 
-        var (result, _) = await Emerge.Run<Tokenized>(
+        var result = await Emerge.Run<Tokenized>(
             LLMModel.Gpt41Mini,
-            new KernelContext(),
             pass =>
             {
                 pass.Command = command;
                 pass.Temperature = 0.1f;
             },
             cancellationToken
-        ).FinalAsync();
+        ).ResultAsync();
 
         return result;
     }

@@ -18,7 +18,7 @@ private async Task<MatchPitch?> GeneratePitchAsync(UserProfile self, UserProfile
         context = context.Add(new MessageBlock(MessageBlockRole.User,
             BuildMatchmakerPrompt(self, other)));
 
-        var (result, _) = await Emerge.Run<MatchPitch>(LLMModel.Claude46Sonnet, context, pass =>
+        var result = await Emerge.Run<MatchPitch>(LLMModel.Claude46Sonnet, context, pass =>
         {
             pass.SystemPrompt = """
                 You are a matchmaker for a one-to-one app.
@@ -33,7 +33,7 @@ private async Task<MatchPitch?> GeneratePitchAsync(UserProfile self, UserProfile
             pass.Temperature = 0.7;
             pass.UseJson = true;
             pass.MaxIterations = 1;
-        }).FinalAsync();
+        }).ResultAsync();
 
         return result;
     }

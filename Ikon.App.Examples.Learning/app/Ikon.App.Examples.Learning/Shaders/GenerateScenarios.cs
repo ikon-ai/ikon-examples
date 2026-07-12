@@ -20,9 +20,8 @@ internal static class GenerateScenariosShader
     {
         var command = BuildCommand(themeName, themeDescription, targetLanguage, languageLevel, existingScenarios, count);
 
-        var (result, _) = await Emerge.Run<GeneratedScenarios>(
+        var result = await Emerge.Run<GeneratedScenarios>(
             LLMModel.Gpt41,
-            new KernelContext(),
             pass =>
             {
                 pass.Command = command;
@@ -30,7 +29,7 @@ internal static class GenerateScenariosShader
                 pass.MaxOutputTokens = 4000;
             },
             cancellationToken
-        ).FinalAsync();
+        ).ResultAsync();
 
         return result;
     }

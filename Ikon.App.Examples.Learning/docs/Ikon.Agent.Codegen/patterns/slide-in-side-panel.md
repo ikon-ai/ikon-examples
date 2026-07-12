@@ -36,7 +36,7 @@ private void RenderSystemPanel(UIView view)
             {
                 row.Text(["text-lg font-semibold text-[#D6A85C]"], "System");
                 row.Button([Button.GhostSm, "!px-2 !py-1"],
-                    label: "✕",
+                    text: "✕",
                     onClick: async () => { _systemPanelOpen.Value = false; });
             });
 
@@ -49,7 +49,7 @@ private void RenderSystemPanel(UIView view)
                         ? "text-xs font-semibold text-[#EDE7DC] bg-white/10 rounded-md px-3 py-1.5 cursor-pointer transition-all"
                         : "text-xs text-[#A8A29E] px-3 py-1.5 cursor-pointer hover:text-[#EDE7DC] transition-all";
                     row.Button([style, "border-none"],
-                        label: tab.Item2,
+                        text: tab.Item2,
                         onClick: async () => { _systemTab.Value = tab.Item1; });
                 }
             });

@@ -33,16 +33,15 @@ internal static class CreateDetailedTranslationShader
             Make the explanation appropriate for their {userState.CurrentLanguageLevel} level.
             """;
 
-        var (result, _) = await Emerge.Run<DetailedTranslationResult>(
+        var result = await Emerge.Run<DetailedTranslationResult>(
             LLMModel.Gpt41,
-            new KernelContext(),
             pass =>
             {
                 pass.Command = command;
                 pass.Temperature = 0.3f;
             },
             cancellationToken
-        ).FinalAsync();
+        ).ResultAsync();
 
         return result;
     }

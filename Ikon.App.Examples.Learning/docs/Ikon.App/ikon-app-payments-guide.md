@@ -235,7 +235,8 @@ else if (receipt.Pdf is { Length: > 0 } pdf)
 
 `PaymentReceipt.Url` is a provider-hosted receipt page (Stripe and Surfboard both return one); `Pdf` carries
 downloadable PDF bytes only when the provider exposes one (today a hosted URL is the norm, so `Pdf` is
-usually `null`). Return shape is uniform across providers.
+usually `null`). Return shape is uniform across providers; a provider with no customer-facing receipt at all
+(Mollie) returns both fields `null` rather than failing — check for that before showing a receipt button.
 
 ## Providers
 

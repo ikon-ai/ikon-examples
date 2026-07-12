@@ -29,7 +29,7 @@ public sealed record ChatMessage(ChatRole Role, Reactive<string> Content)
 [App]
 public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
 {
-    private UI UI { get; } = new(app, new Ikon.Parallax.Theming.Theme());
+    private UI UI { get; } = new(app, new IkonTheme());
     private Audio Audio { get; set; } = new(app);
 
     // State machine

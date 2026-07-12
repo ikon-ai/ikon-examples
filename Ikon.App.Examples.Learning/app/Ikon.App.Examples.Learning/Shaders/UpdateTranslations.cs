@@ -22,16 +22,15 @@ internal static class UpdateTranslationsShader
             The default values of the texts are available as the default values of items in the JSON response. You are to translate those default values into the specified language. If the default english value has ((VARIABLE)) in it, that variable should remain the same as it is a placeholder to be replaced later. For example, a default value of 'Hello ((NAME))' should be translated to 'Hola ((NAME))' in Spanish. These translations will be used in the menus for a language learning platform. The translations should be accurate and contextually appropriate for the menus for a language learning platform.
             """;
 
-        var (result, _) = await Emerge.Run<Translations>(
+        var result = await Emerge.Run<Translations>(
             LLMModel.Gpt41Mini,
-            new KernelContext(),
             pass =>
             {
                 pass.Command = command;
                 pass.Temperature = 0.2f;
             },
             cancellationToken
-        ).FinalAsync();
+        ).ResultAsync();
 
         return result;
     }

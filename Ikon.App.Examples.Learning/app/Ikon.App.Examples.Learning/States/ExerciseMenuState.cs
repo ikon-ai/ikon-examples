@@ -314,7 +314,7 @@ public class ExerciseMenuState(LearningApp outer) : ILearningState
             headerView.Column(["gap-3"], content: col =>
             {
                 col.Button(["self-start text-sm font-medium text-[#6b7280] hover:text-[#1a1a1a] px-0 py-0"],
-                    label: "← Takaisin teemoihin",
+                    text: "← Takaisin teemoihin",
                     onClick: () =>
                     {
                         _selectedTheme.Value = null;

@@ -96,21 +96,21 @@ public class MainMenuState(LearningApp outer) : ILearningState
                     {
                         // Let's practice button - prominent CTA with subtle shadow
                         menuView.Button([$"{LearningApp.Styles.GetAccentGradient(theme)} text-white w-full py-4 md:py-5 rounded-2xl font-semibold text-base md:text-lg shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-200", LearningApp.Styles.SlideUp],
-                            label: translations.LetsPractice,
+                            text: translations.LetsPractice,
                             onClick: async () => await outer.States.StateMachine.FireAsync(Trigger.SelectExerciseMenu));
 
                         // Secondary buttons - clean with icons hint
                         menuView.Button(["w-full py-3.5 md:py-4 rounded-2xl font-medium text-[#1a1a1a] bg-white/80 hover:bg-white border border-gray-200/60 hover:border-gray-300/80 hover:shadow-sm transition-all duration-200"],
-                            label: $"📰  {translations.TodaysNews}",
+                            text: $"📰  {translations.TodaysNews}",
                             onClick: async () => await outer.States.StateMachine.FireAsync(Trigger.News));
 
                         menuView.Button(["w-full py-3.5 md:py-4 rounded-2xl font-medium text-[#1a1a1a] bg-white/80 hover:bg-white border border-gray-200/60 hover:border-gray-300/80 hover:shadow-sm transition-all duration-200"],
-                            label: $"🎭  {translations.YourScenarios}",
+                            text: $"🎭  {translations.YourScenarios}",
                             onClick: async () => await outer.States.StateMachine.FireAsync(Trigger.YourScenarios));
 
                         // Chat with Aino - special outlined style
                         menuView.Button([$"w-full py-3.5 md:py-4 rounded-2xl font-semibold {LearningApp.Styles.GetAccentText(theme)} bg-white/60 hover:bg-white/90 border-2 {LearningApp.Styles.GetAccentBorder(theme)} hover:shadow-md transition-all duration-200"],
-                            label: $"💬  Chat with Aino",
+                            text: $"💬  Chat with Aino",
                             onClick: async () => await outer.States.StateMachine.FireAsync(Trigger.Chat));
                     });
                 });
@@ -118,7 +118,7 @@ public class MainMenuState(LearningApp outer) : ILearningState
 
             // Progress button - subtle link style at bottom
             view.Button(["w-full py-3.5 rounded-2xl font-medium text-[#6b7280] hover:text-[#1a1a1a] bg-white/40 hover:bg-white/70 transition-all duration-200"],
-                label: $"📊  {translations.YourProgress}",
+                text: $"📊  {translations.YourProgress}",
                 onClick: async () => await outer.States.StateMachine.FireAsync(Trigger.YourProgress));
         });
     }

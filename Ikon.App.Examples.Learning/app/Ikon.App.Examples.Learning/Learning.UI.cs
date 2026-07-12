@@ -120,7 +120,7 @@ public partial class LearningApp
                     [Button.Base, showSettings
                         ? $"{Styles.GetAccentGradient(theme)} w-10 h-10 md:w-11 md:h-11 rounded-full text-white shadow-lg scale-95"
                         : $"{Styles.GlassCard} w-10 h-10 md:w-11 md:h-11 rounded-full text-gray-600 hover:bg-white/95 hover:shadow-md transition-all duration-200"],
-                    label: showSettings ? "✕" : "⚙",
+                    text: showSettings ? "✕" : "⚙",
                     onClick: () =>
                     {
                         ShowSettingsPanel.Value = !ShowSettingsPanel.Value;
@@ -162,7 +162,7 @@ public partial class LearningApp
 
         // Overlay backdrop with blur - clicking closes the panel
         view.Button(["absolute inset-0 bg-black/40 backdrop-blur-sm z-30 cursor-default", Styles.FadeIn],
-            label: "",
+            text: "",
             onClick: () =>
             {
                 ShowSettingsPanel.Value = false;
@@ -192,7 +192,7 @@ public partial class LearningApp
                             {
                                 headerRow.Text(["text-2xl font-semibold text-[#1a1a1a]"], translations.Settings);
                                 headerRow.Button(["w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"],
-                                    label: "✕",
+                                    text: "✕",
                                     onClick: () =>
                                     {
                                         ShowSettingsPanel.Value = false;
@@ -229,7 +229,7 @@ public partial class LearningApp
                                         charactersView.Button([isSelected
                                             ? $"{Styles.GetAccentGradient(theme)} text-white px-5 py-3 rounded-2xl font-semibold shadow-md text-sm transition-all duration-200"
                                             : "bg-gray-50 hover:bg-gray-100 text-[#1a1a1a] px-5 py-3 rounded-2xl font-medium text-sm transition-all duration-200 border border-gray-100 hover:border-gray-200"],
-                                            label: name,
+                                            text: name,
                                             onClick: () =>
                                             {
                                                 SelectedModelIndex.Value = index;
@@ -277,7 +277,7 @@ public partial class LearningApp
                                                     voicesRow.Button([isSelected
                                                         ? $"{Styles.GetAccentGradient(theme)} text-white px-3 py-2 rounded-lg font-semibold shadow-md text-xs transition-all duration-200"
                                                         : "bg-gray-50 hover:bg-gray-100 text-[#1a1a1a] px-3 py-2 rounded-lg font-medium text-xs transition-all duration-200 border border-gray-100 hover:border-gray-200"],
-                                                        label: voice.Name,
+                                                        text: voice.Name,
                                                         onClick: () =>
                                                         {
                                                             SelectedVoiceIndex.Value = voiceIndex;
@@ -307,7 +307,7 @@ public partial class LearningApp
                                         modesView.Button([isSelected
                                             ? $"{Styles.GetAccentGradient(theme)} text-white px-5 py-3 rounded-2xl font-semibold shadow-md text-sm transition-all duration-200"
                                             : "bg-gray-50 hover:bg-gray-100 text-[#1a1a1a] px-5 py-3 rounded-2xl font-medium text-sm transition-all duration-200 border border-gray-100 hover:border-gray-200"],
-                                            label: name,
+                                            text: name,
                                             onClick: () =>
                                             {
                                                 ViewModeIndex.Value = index;

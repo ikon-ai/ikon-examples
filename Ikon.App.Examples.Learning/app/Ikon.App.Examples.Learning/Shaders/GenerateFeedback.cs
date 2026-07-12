@@ -21,16 +21,15 @@ internal static class GenerateFeedbackShader
     {
         var command = BuildCommand(userState, exercise, aiQuestion, userAnswer, subGoalId, questionId, helpCount, audioInput);
 
-        var (result, _) = await Emerge.Run<UserScore>(
+        var result = await Emerge.Run<UserScore>(
             LLMModel.Gpt41,
-            new KernelContext(),
             pass =>
             {
                 pass.Command = command;
                 pass.Temperature = 0.3f;
             },
             cancellationToken
-        ).FinalAsync();
+        ).ResultAsync();
 
         return result;
     }

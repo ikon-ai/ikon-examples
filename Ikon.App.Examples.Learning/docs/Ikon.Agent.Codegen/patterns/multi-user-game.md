@@ -171,8 +171,8 @@ public partial class LiveQuizApp(IApp<SessionIdentity, ClientParams> app)
     // ── Shared state (all clients see the same values) ──────────────────────
     private readonly Reactive<GameStage> _stage = new(GameStage.Lobby);
     private readonly Reactive<int> _questionIndex = new(0);
-    private readonly Reactive<List<Question>> _questions = new([]);
-    private readonly Reactive<List<Player>> _players = new([]);
+    private readonly ReactiveList<Question> _questions = new();
+    private readonly ReactiveList<Player> _players = new();
 
     // ── Per-client state (each player has their own copy) ───────────────────
     private readonly ClientReactive<string> _playerName = new("");
@@ -200,13 +200,7 @@ public partial class LiveQuizApp(IApp<SessionIdentity, ClientParams> app)
 
     private async Task OnClientLeftAsync(Context ctx)
     {
-        var players = _players.Value.ToList();
-        var leaver = players.FirstOrDefault(p => p.ClientId == ctx.ClientSessionId);
-        if (leaver != null)
-        {
-            players.Remove(leaver);
-            _players.Value = players;
-        }
+        _players.RemoveAll(p => p.ClientId == ctx.ClientSessionId);   // one notification
         _playerAnswers.TryRemove(ctx.ClientSessionId, out _);
     }
 
@@ -219,17 +213,15 @@ public partial class LiveQuizApp(IApp<SessionIdentity, ClientParams> app)
     }
 
     private Player? CurrentPlayer() =>
-        _players.Value.FirstOrDefault(p => p.ClientId == ReactiveScope.ClientId);
+        _players.FirstOrDefault(p => p.ClientId == ReactiveScope.ClientId);
 
     private async Task JoinAsync(string name)
     {
         var clientId = ReactiveScope.ClientId;
-        var players = _players.Value.ToList();
 
-        if (!players.Any(p => p.ClientId == clientId))
+        if (!_players.Any(p => p.ClientId == clientId))
         {
-            players.Add(new Player(clientId, name, Score: 0));
-            _players.Value = players;
+            _players.Add(new Player(clientId, name, Score: 0));   // mutator notifies; no list rebuild
         }
         _hasJoined.Value = true;        // per-client reactive — only THIS client's UI flips
         _playerName.Value = name;
@@ -247,7 +239,7 @@ public partial class LiveQuizApp(IApp<SessionIdentity, ClientParams> app)
         // Reset per-client state for everyone by walking the player list.
         // (Don't iterate `app.Clients` — there is no .All / .Current; use the
         // shared `_players` list instead, then enter each client's scope.)
-        foreach (var player in _players.Value)
+        foreach (var player in _players)
         {
             using var _ = ReactiveScope.Use(new ClientScope(player.ClientId));
             _selectedAnswer.Value = null;
@@ -268,10 +260,11 @@ public record Question(string Prompt, string[] Choices, int CorrectIndex);
 - **Host detection via `ClientParams.Host`** — the `Host` flag on `ClientParams` is set by query param (`?host=true`). All other clients default to `Host = false`. Don't try to make the first joiner the host; URL-driven role is robust and lets the host reload without losing the role.
 - **`app.ClientJoinedAsync` and `ClientLeftAsync` are 1-arg async handlers** — `async args => { ... }`, never `async () => { ... }`. Wrong arity produces CS1593.
 - **`ReactiveScope.ClientId` is `int`, not `string`.** `app.Clients[id]?.Parameters` is the read path. There is **NO** `app.ClientSessionId`, **NO** `app.ClientParameters`, **NO** `app.Clients.All`, **NO** `IClientCollection.Current`. Inside event handlers, wrap with `using var _ = ReactiveScope.Use(new ClientScope(args.ClientSessionId))` to enter the joining client's scope.
-- **Mix shared + per-client state explicitly.** The current question, players list, and game stage are `Reactive<T>` (everyone sees same value). Each player's name, has-joined state, and selected answer are `ClientReactive<T>` (each client sees their own). Trying to make a single `Reactive<Dictionary<int, T>>` work for per-client state defeats the purpose — `ClientReactive<T>` auto-scopes for free.
+- **Mix shared + per-client state explicitly.** The current question, players list, and game stage are shared — `Reactive<T>` for scalars, `ReactiveList<T>` for the lists (everyone sees the same value). Each player's name, has-joined state, and selected answer are `ClientReactive<T>` (each client sees their own). Trying to make a single `Reactive<Dictionary<int, T>>` work for per-client state defeats the purpose — `ClientReactive<T>` auto-scopes for free.
+- **Shared lists are `ReactiveList<T>`, never `Reactive<List<T>>`.** Mutate the reactive itself — `_players.Add(player)`, `_players.RemoveAll(p => p.ClientId == id)` — one change notification each, no rebuild-and-reassign. Read it directly too: `foreach (var p in _players)`, `_players.FirstOrDefault(…)`, `_players.Count`. `_players.Value` is an `IReadOnlyList<T>` snapshot, so `.Value.Add(p)` does not compile.
 - **Server-side bookkeeping uses `ConcurrentDictionary<int, …>`** keyed by `ClientSessionId` — for state that doesn't need to be reactive (vote tallies, timestamps, internal counters). Only push to `Reactive`/`ClientReactive` when the UI needs to refresh.
 - **Don't iterate `app.Clients` to reset per-client state.** `IClientCollection<T>` exposes only `Count` and the indexer. To touch every client's `ClientReactive` value, walk your shared `_players` list and `ReactiveScope.Use(new ClientScope(p.ClientId))` per entry.
-- **`Reactive<T>` constructor must take an explicit initial value** — `new Reactive<List<Player>>([])`, `new Reactive<int>(0)`, `new ClientReactive<int?>((int?)null)`. Bare `new Reactive<T>()` produces CS0121 ambiguous-call.
+- **`Reactive<T>` constructor must take an explicit initial value** — `new Reactive<GameStage>(GameStage.Lobby)`, `new Reactive<int>(0)`, `new ClientReactive<int?>((int?)null)`. Bare `new Reactive<T>()` produces CS0121 ambiguous-call. The `ReactiveList<T>` family is the exception: it starts empty, so `private readonly ReactiveList<Player> _players = new();` takes no argument.
 - **Game flow as a state machine via `Reactive<GameStage>`**: Lobby → Question → Reveal → Leaderboard → (next round or GameOver). UI branches on `_stage.Value`; transitions happen in host-only handlers.
 
 ## See also

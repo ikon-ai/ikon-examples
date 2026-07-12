@@ -29,16 +29,15 @@ internal static class CreateImageGeneratorPromptShader
             The prompt should be 2-3 sentences long and paint a clear visual picture.
             """;
 
-        var (result, _) = await Emerge.Run<ImagePrompt>(
+        var result = await Emerge.Run<ImagePrompt>(
             LLMModel.Gpt41Mini,
-            new KernelContext(),
             pass =>
             {
                 pass.Command = command;
                 pass.Temperature = 0.7f;
             },
             cancellationToken
-        ).FinalAsync();
+        ).ResultAsync();
 
         return result;
     }

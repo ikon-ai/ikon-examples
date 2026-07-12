@@ -18,16 +18,15 @@ internal static class ContinuationShader
     {
         var command = BuildCommand(userState, exercise, conversationHistory, currentAiQuestion, previousHint);
 
-        var (result, _) = await Emerge.Run<Hint>(
+        var result = await Emerge.Run<Hint>(
             LLMModel.Gpt41Mini,
-            new KernelContext(),
             pass =>
             {
                 pass.Command = command;
                 pass.Temperature = 0.5f;
             },
             cancellationToken
-        ).FinalAsync();
+        ).ResultAsync();
 
         return result;
     }

@@ -4,7 +4,7 @@ Every app commits a theme at the App's UI declaration as a `new IkonTheme { ... 
 
 ## When to use
 
-**Every app — always.** A committed theme is part of the commercial-grade UI bar (see the styling guide), not an opt-in for "design" briefs. Even a plain "todo app" or "poll" gets a `new IkonTheme { ... }`: the bare default `new Theme()` reads as unfinished. If the plan has a STYLING section naming a mood ("fintech minimal", "vintage editorial", "retro arcade"), honor it; if it doesn't, still pick a cohesive palette that fits the app's domain and commit it. The right artifact is always the App's UI field — paste a `new IkonTheme { ... }` initializer. No `IkonTheme.cs` edit needed.
+**Every app — always.** A committed theme is part of the commercial-grade UI bar (see the styling guide), not an opt-in for "design" briefs. Even a plain "todo app" or "poll" gets a `new IkonTheme { ... }`: the bare default `new IkonTheme()` reads as unfinished. If the plan has a STYLING section naming a mood ("fintech minimal", "vintage editorial", "retro arcade"), honor it; if it doesn't, still pick a cohesive palette that fits the app's domain and commit it. The right artifact is always the App's UI field — paste a `new IkonTheme { ... }` initializer. No `IkonTheme.cs` edit needed.
 
 **Two-tier scope rule:** only the STRUCTURAL core goes in the theme — surfaces, text, borders, the brand line, radius, fonts, density, motion defaults. Decorative/expressive values (gradients, textures, glows, one-off colors) stay CONCRETE at the use point in that component's class array; they carry the app's personality and have no token obligation.
 

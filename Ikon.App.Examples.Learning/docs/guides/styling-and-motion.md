@@ -5,7 +5,7 @@
 Style UI with Crosswind (Tailwind-like) utility classes in C# string arrays. Animate with `motion-[keyframes]` syntax for fade-in, slide, glow, shimmer, and per-letter effects. Components are called on the `view` parameter inside `UI.Root()` — no namespace import needed.
 
 ```csharp
-view.Button([Button.PrimaryMd, "mt-2 w-fit self-center"], label: "Submit");
+view.Button([Button.PrimaryMd, "mt-2 w-fit self-center"], text: "Submit");
 view.Box([Card.Default, "p-6 mb-4"], content: view => { ... });
 ```
 
@@ -23,7 +23,7 @@ The full catalog:
 - **Container**: `Container.Xs` through `Container.Xl7`, `Container.Full`, `Container.Prose`, `Container.Screen`
 - **Input** (single-line `view.TextField`): `Input.Default`, `Input.DefaultSm`, `Input.DefaultLg`, `Input.Ghost`, `Input.Invalid`
 - **Textarea** (multi-line `view.TextArea` — a SEPARATE token set; `Input.*` is single-line-height and wrong for a textarea): `Textarea.Default`, `Textarea.DefaultSm`, `Textarea.DefaultLg`, `Textarea.Invalid`
-- **Badge**: `Badge.GreySm/Md/Lg`, `Badge.BrandSm/Md/Lg`, `Badge.ErrorSm/Md/Lg`, `Badge.SuccessSm/Md/Lg`, `Badge.WarningSm/Md/Lg`, `Badge.InfoSm/Md/Lg`, `Badge.OutlineGrey/Brand/Error/Success/Warning/Info`
+- **Badge**: `Badge.NeutralSm/Md/Lg`, `Badge.BrandSm/Md/Lg`, `Badge.ErrorSm/Md/Lg`, `Badge.SuccessSm/Md/Lg`, `Badge.WarningSm/Md/Lg`, `Badge.InfoSm/Md/Lg`, `Badge.OutlineNeutral/Brand/Error/Success/Warning/Info`
 - **Icon**: `Icon.Default`, `Icon.Xs/Sm/Md/Lg`, `Icon.Spinner`, `Icon.SpinnerSm`, `Icon.SpinnerLg`
 - **Nav**: `NavigationMenu.*` (Root, List, Trigger, Content, Link, Indicator)
 - **Data**: `DataTable.*`, `Progress.*`, `Skeleton.*`, `Media.*`
@@ -167,7 +167,7 @@ public async Task Main()
 
             // Pulsing glow button
             view.Button([Button.PrimaryMd, "motion-[0:shadow-none,50:shadow-[0_0_20px_rgba(168,85,247,0.6)],100:shadow-none] motion-duration-2000ms motion-loop"],
-                label: "Click me");
+                text: "Click me");
         });
     });
 }
