@@ -212,7 +212,7 @@ Runtime automatically sets / updates the following:
 - <function>_HasResults: Per-function flag (true if that function has results)
 - Messages: Array of visible messages – each { Role, Content } built from text parts only
 - ImplicitJsonExample: Auto-generated example when using GenerateObjectAsync<T>()
-- Input: Set by Listeners and Process scripts (current StreamingResult value)
+- Input: Set by Listeners and Process scripts (payload of the current LLMEvent)
 - ShaderResult: Accumulated text output of the current run
 
 You can freely add your own custom variables (like ExampleVariable above).
@@ -227,7 +227,7 @@ Controls how the LLM is invoked:
 - Temperature, MaxOutputTokens: Standard sampling limits.
 - ReasoningEffort: Hint for the model on how much internal reasoning to allocate (None/Minimal/Low/Medium/High).
 - ReasoningTokenBudget: Upper limit for the model’s hidden scratch-pad (0 → let the model decide).
-- UseStreaming: Stream partial results (StreamingResult).
+- UseStreaming: Stream partial results (LLMEvent.TextDelta chunks).
 - UseJson: Ask the model to reply in pure JSON.
 - UseCitations / ForceCitations: Enable the citation pipeline / force it to assume citations are required.
 - UseUserNames: Include user/assistant names in the message history (for LLMs that support it).
@@ -363,11 +363,29 @@ Executed in template context – perfect for side effects.
 
 - BeforeShader / AfterShader: Run once before/after the whole shader (AfterShader runs after the model message is assembled).
 - BeforePass / AfterPass: Run before/after the selected Pass (every iteration).
-- Listeners: Dictionary "<StreamingResultType> → script". Runs whenever that result type is produced during generation – Input contains the value. Common types include `String`, `FunctionCall`, `Citation`, `OutputAudioTranscript`, `OutputAudioId`, `ReasoningBlock`, `ToolPlan`, and `ClassificationResult`. Note: `FinalTextResponse` and `FinalModelMessage` are emitted after the generation loop and cannot be observed by Listeners.
+- Listeners: Dictionary "<key> → script". Runs whenever the matching LLMEvent is produced during generation – Input contains the event's payload. The keys are the legacy payload type names, mapped explicitly to the event cases:
+
+  | Listener key | LLMEvent case | Input |
+  |---|---|---|
+  | `String` | `TextDelta` | the text chunk (string) |
+  | `FunctionCall` | `ToolCallRequested` | the `FunctionCall` |
+  | `Citation` | `Citation` | the event (`OriginalId`, `MappedId`, …) |
+  | `Tag` | `Tag` | the event (`Name`, `Content`, `Attributes`) |
+  | `ReasoningBlock` | `Reasoning` | the event (`Text`) |
+  | `ToolPlan` | `ToolPlan` | the event (`Text`) |
+  | `OutputAudioTranscript` | `AudioTranscript` | the event (`Transcript`) |
+  | `OutputAudioId` | `AudioId` | the event (`Id`) |
+  | `AudioContainer` | `AudioDelta` | the `AudioChunk` |
+  | `ClassificationResult` | `ContentFiltered` | the `ClassificationResult` |
+  | `TokenUsage` | `Usage` | the event (`InputTokens`, `OutputTokens`, …) |
+  | `FinishReason` | `Finished` | the event (`Reason`) |
+  | *(tool result type name)* | `ToolResult` | the tool's return value (key is its short type name, e.g. `FunctionResult`) |
+
+  Note: `FinalTextResponse` and `FinalModelMessage` are emitted after the generation loop and cannot be observed by Listeners.
 
 #### Output
 
-Static text injected into the StreamingResult stream.
+Static text injected into the LLMEvent stream (as TextDelta events).
 Allows pre-/post-ambles or fully scripted answers when Model.Name is empty.
 Every emission updates `ShaderResult`, letting subsequent scripts inspect the accumulated text.
 

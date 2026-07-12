@@ -79,19 +79,19 @@ public partial class DynamicUI
 
             ```csharp
             // Primary button with click handler
-            view.Button([Button.PrimaryMd], label: "Click Me", onClick: async () =>
+            view.Button([Button.PrimaryMd], text: "Click Me", onClick: async () =>
             {
                 counter.Value++;
             });
 
             // Other button variants
-            view.Button([Button.NeutralMd], label: "Secondary");
-            view.Button([Button.OutlineMd], label: "Outline");
-            view.Button([Button.GhostMd], label: "Ghost");
-            view.Button([Button.ErrorMd], label: "Delete");
+            view.Button([Button.NeutralMd], text: "Secondary");
+            view.Button([Button.OutlineMd], text: "Outline");
+            view.Button([Button.GhostMd], text: "Ghost");
+            view.Button([Button.ErrorMd], text: "Delete");
 
             // Disabled button
-            view.Button([Button.PrimaryMd], label: "Disabled", disabled: true);
+            view.Button([Button.PrimaryMd], text: "Disabled", disabled: true);
 
             // Button with content (for icons)
             view.Button([Button.PrimaryMd], onClick: async () => { }, content: view =>
@@ -130,7 +130,7 @@ public partial class DynamicUI
             ```
 
             ## Checkbox
-            IMPORTANT: Use `@checked` (with @ prefix), `onCheckedChange`, and provide content with `CheckboxIndicator`.
+            IMPORTANT: Use `value` and `onValueChange`, and provide content with `CheckboxIndicator`.
 
             ```csharp
             var isChecked = state.GetOrCreate<Reactive<bool>>("isChecked", () => new Reactive<bool>(false));
@@ -138,8 +138,8 @@ public partial class DynamicUI
             view.Row([Layout.Row.Sm, "items-center"], content: view =>
             {
                 view.Checkbox([Checkbox.Root],
-                    isChecked: isChecked.Value,
-                    onCheckedChange: async value => isChecked.Value = value,
+                    value: isChecked.Value,
+                    onValueChange: async value => isChecked.Value = value,
                     content: view => view.CheckboxIndicator([Checkbox.Indicator],
                         content: v => v.Icon(name: "check")));
                 view.Text([Text.Body], "Enable option");
@@ -147,7 +147,7 @@ public partial class DynamicUI
             ```
 
             ## Switch
-            IMPORTANT: Use `@checked` (with @ prefix), `onCheckedChange`, and provide content with `SwitchThumb`.
+            IMPORTANT: Use `value` and `onValueChange`, and provide content with `SwitchThumb`.
 
             ```csharp
             var isEnabled = state.GetOrCreate<Reactive<bool>>("isEnabled", () => new Reactive<bool>(false));
@@ -155,8 +155,8 @@ public partial class DynamicUI
             view.Row([Layout.Row.Sm, "items-center"], content: view =>
             {
                 view.Switch([Switch.Root],
-                    isChecked: isEnabled.Value,
-                    onCheckedChange: async v => isEnabled.Value = v,
+                    value: isEnabled.Value,
+                    onValueChange: async v => isEnabled.Value = v,
                     content: view => view.SwitchThumb([Switch.Thumb]));
                 view.Text([Text.Body], isEnabled.Value ? "On" : "Off");
             });
@@ -214,11 +214,11 @@ public partial class DynamicUI
                 view.Text([Text.Display], counter.Value.ToString());
                 view.Row([Layout.Row.Md], content: view =>
                 {
-                    view.Button([Button.OutlineMd], label: "-", onClick: async () =>
+                    view.Button([Button.OutlineMd], text: "-", onClick: async () =>
                     {
                         counter.Value--;
                     });
-                    view.Button([Button.PrimaryMd], label: "+", onClick: async () =>
+                    view.Button([Button.PrimaryMd], text: "+", onClick: async () =>
                     {
                         counter.Value++;
                     });
@@ -244,7 +244,7 @@ public partial class DynamicUI
                         value: newTodo.Value,
                         placeholder: "Add a task...",
                         onValueChange: async v => newTodo.Value = v ?? "");
-                    view.Button([Button.PrimaryMd], label: "Add", onClick: async () =>
+                    view.Button([Button.PrimaryMd], text: "Add", onClick: async () =>
                     {
                         if (!string.IsNullOrWhiteSpace(newTodo.Value))
                         {
@@ -260,7 +260,7 @@ public partial class DynamicUI
                     view.Row([Card.Default, "p-3", "mb-2", "items-center", "justify-between"], key: $"todo-{index}", content: view =>
                     {
                         view.Text([Text.Body], todo);
-                        view.Button([Button.ErrorMd], label: "Remove", onClick: async () =>
+                        view.Button([Button.ErrorMd], text: "Remove", onClick: async () =>
                         {
                             var newList = todos.Value.ToList();
                             newList.RemoveAt(index);
@@ -332,9 +332,9 @@ public partial class DynamicUI
 
             ## Important Rules
             1. Always use `state.GetOrCreate<Reactive<T>>()` for state
-            2. Button text uses `label:` parameter: `view.Button([...], label: "Text")`
-            3. Checkbox uses `@checked` (with @): `isChecked: value`
-            4. Switch uses `@checked` (with @): `isChecked: value`
+            2. Button text uses `label:` parameter: `view.Button([...], text: "Text")`
+            3. Checkbox uses `value:` with `onValueChange:`
+            4. Switch uses `value:` with `onValueChange:`
             5. onValueChange uses `async v =>`: `onValueChange: async v => x.Value = v ?? ""`
             6. Use `key:` parameter for list items
             7. All onClick/onValueChange handlers must be async

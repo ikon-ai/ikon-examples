@@ -23,8 +23,8 @@ view.Column([Layout.Column.Md, "p-4", "items-center"], content: view =>
     view.Text([Text.Display], counter.Value.ToString());
     view.Row([Layout.Row.Md], content: view =>
     {
-        view.Button([Button.OutlineMd], label: "-", onClick: async () => counter.Value--);
-        view.Button([Button.PrimaryMd], label: "+", onClick: async () => counter.Value++);
+        view.Button([Button.OutlineMd], text: "-", onClick: async () => counter.Value--);
+        view.Button([Button.PrimaryMd], text: "+", onClick: async () => counter.Value++);
     });
 });
 """)]

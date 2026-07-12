@@ -42,14 +42,14 @@ private async Task CritiqueUIAsync()
     ];
     var ctx = new KernelContext().Add(new MessageBlock(MessageBlockRole.User, parts));
 
-    var (critique, _) = await Emerge.Run<StructuredCritique>(LLMModel.Gemini25Flash, ctx,
+    var critique = await Emerge.Run<StructuredCritique>(LLMModel.Gemini25Flash, ctx,
         pass =>
         {
             pass.SystemPrompt = StructuredCritiqueSystemPrompt;
             pass.Command = $"Plan:\n{_currentPlan.Value}\n\nEvaluate.";
             pass.MaxOutputTokens = 4000;
             pass.UseJson = true;
-        }).FinalAsync();
+        }).ResultAsync();
 
     ApplyCritique(critique);
 }

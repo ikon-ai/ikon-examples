@@ -1,7 +1,7 @@
 <!-- mined-from: Nanobot -->
 # Colorized Activity Log — Pattern-Match Rows To Color By Substring
 
-A monospace, append-only event stream where each line is colored by what it contains: ERROR/❌ → red bg, ✓/COMPLETED → green bg, Tool:/🔧 → yellow bg, heartbeat → purple. The log is a single `Reactive<IReadOnlyList<string>>` truncated to the last N entries; the renderer just reverses it (newest first) and applies the color rules in a switch ladder. No per-entry struct needed.
+A monospace, append-only event stream where each line is colored by what it contains: ERROR/❌ → red bg, ✓/COMPLETED → green bg, Tool:/🔧 → yellow bg, heartbeat → purple. The log is a single `ReactiveList<string>` truncated to the last N entries; the renderer just reverses it (newest first) and applies the color rules in a switch ladder. No per-entry struct needed.
 
 ## When to use
 
@@ -10,17 +10,15 @@ Long-running agent / bot / automation processes where the user watches a debug s
 ## Snippet
 
 ```csharp
-private readonly Reactive<IReadOnlyList<string>> _logEntries = new(Array.Empty<string>());
+private readonly ReactiveList<string> _logEntries = new();
 private const int MaxLogEntries = 200;
 
 private void AddLogEntry(string entry)
 {
-    var ts = DateTime.Now.ToString("HH:mm:ss");
-    var line = $"[{ts}] {entry}";
-    var current = _logEntries.Value.ToList();
-    current.Add(line);
-    while (current.Count > MaxLogEntries) current.RemoveAt(0);
-    _logEntries.Value = current;
+    var line = $"[{DateTime.Now:HH:mm:ss}] {entry}";
+
+    // Append + truncate in ONE transform — one change notification for both.
+    _logEntries.Update(current => current.Append(line).TakeLast(MaxLogEntries));
 }
 
 private void RenderLogsTab(UIView col)
@@ -28,7 +26,7 @@ private void RenderLogsTab(UIView col)
     col.Column(["flex-1 bg-slate-900/50 rounded-2xl p-4 font-mono text-xs space-y-1.5 overflow-y-auto"],
         content: logCol =>
     {
-        foreach (var entry in _logEntries.Value.Reverse())
+        foreach (var entry in _logEntries.Reverse())
         {
             var (color, bg) = ClassifyLogLine(entry);
             logCol.Text([$"{color} px-2 py-1 rounded {bg}"], entry);
@@ -54,7 +52,8 @@ private static (string color, string bg) ClassifyLogLine(string entry)
 
 ## Notes
 
-- `Reactive<IReadOnlyList<string>>` not `List<string>` — only assigning a new list triggers UI updates; mutating in place is silent.
+- `ReactiveList<string>`, never `Reactive<List<string>>` — every mutator (`Add`, `Update`, `RemoveAt`, …) notifies on its own, and `_logEntries.Value` is a read-only snapshot so the "mutated in place, UI never updated" bug cannot compile. Enumerate the reactive directly (`foreach (var e in _logEntries.Reverse())`) — that read is tracked.
+- Append and truncate in a single `_logEntries.Update(...)` — one notification instead of one per operation.
 - Truncate at write time, not render time. A 10k-line log re-rendering 60 times a second tanks the diff.
 - Reverse on render so the newest line is at the top — operators don't want to scroll.
 - Use lowercase substrings only when you `ToLowerInvariant` the entry first; otherwise be case-sensitive on tags you control.

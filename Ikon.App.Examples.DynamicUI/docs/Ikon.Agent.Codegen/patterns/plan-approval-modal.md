@@ -55,7 +55,7 @@ private void RenderPlanApprovalModal(UIView view)
 
                     footer.Button(
                         ["px-4 py-2.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30"],
-                        label: "Refine Plan",
+                        text: "Refine Plan",
                         disabled: string.IsNullOrWhiteSpace(_planFeedback.Value),
                         onClick: async () => await HandlePlanRefinementAsync());
                 });
@@ -63,10 +63,10 @@ private void RenderPlanApprovalModal(UIView view)
                 footer.Row(["justify-end gap-3"], content: buttons =>
                 {
                     buttons.Button(["px-4 py-2.5 rounded-xl bg-red-500/10 text-red-400 border border-red-500/30"],
-                        label: "Start Over", onClick: async () => await HandlePlanApprovalAsync(false));
+                        text: "Start Over", onClick: async () => await HandlePlanApprovalAsync(false));
 
                     buttons.Button(["px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white"],
-                        label: "Looks Good, Execute", onClick: async () => await HandlePlanApprovalAsync(true));
+                        text: "Looks Good, Execute", onClick: async () => await HandlePlanApprovalAsync(true));
                 });
             });
         });

@@ -19,12 +19,9 @@ public record ChatMessage(string Role, string Content, DateTime Timestamp);
 [App]
 public partial class DynamicUI(IApp<SessionIdentity, ClientParams> app)
 {
-    private UI UI { get; } = new(app, new Theme());
+    private UI UI { get; } = new(app, new IkonTheme());
 
-    // Theme state
-    private const string ThemeLight = "light";
-    private const string ThemeDark = "dark";
-    private readonly ClientReactive<string> _currentTheme = ClientReactive.Create(_ => ThemeLight);
+    private ThemeControl _theme = null!;
 
     // Chat state
     private string _userInputValue = "";
@@ -45,6 +42,8 @@ public partial class DynamicUI(IApp<SessionIdentity, ClientParams> app)
 
     public async Task Main()
     {
+        _theme = UI.UseTheme(Theme.Light);
+
         InitializeMindChat();
 
         UI.Root([Page.Default, "font-sans bg-gradient-to-br from-background via-background to-muted/30"],
@@ -75,9 +74,9 @@ public partial class DynamicUI(IApp<SessionIdentity, ClientParams> app)
                 });
 
                 // Theme toggle
-                var isDark = _currentTheme.Value == ThemeDark;
+                var isDark = _theme.Current.Value == Theme.Dark.ToThemeName();
                 view.Button([Button.GhostMd, Button.Icon],
-                    onClick: ToggleThemeAsync,
+                    onClick: _theme.ToggleAsync,
                     content: v => v.Icon([Icon.Default], name: isDark ? "sun" : "moon"));
             });
 
@@ -358,18 +357,6 @@ public partial class DynamicUI(IApp<SessionIdentity, ClientParams> app)
         {
             _isProcessing.Value = false;
             _streamingResponse.Value = "";
-        }
-    }
-
-    private async Task ToggleThemeAsync()
-    {
-        var currentTheme = _currentTheme.Value;
-        var nextTheme = currentTheme == ThemeDark ? ThemeLight : ThemeDark;
-        var updated = await ClientFunctions.SetThemeAsync(nextTheme);
-
-        if (updated)
-        {
-            _currentTheme.Value = nextTheme;
         }
     }
 }

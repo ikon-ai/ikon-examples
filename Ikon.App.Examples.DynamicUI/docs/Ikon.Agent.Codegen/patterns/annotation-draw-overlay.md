@@ -16,7 +16,7 @@ private string? _annotationImageBase64;
 
 // Render: toggle button
 view.Button([_annotationMode.Value ? "bg-orange-500" : "bg-slate-700"],
-    label: _annotationMode.Value ? "Drawing... (click to send)" : "Draw on preview",
+    text: _annotationMode.Value ? "Drawing... (click to send)" : "Draw on preview",
     onClick: async () =>
     {
         var wasAnnotating = _annotationMode.Value;

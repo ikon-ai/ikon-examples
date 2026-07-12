@@ -53,7 +53,7 @@ view.Row(style: ["flex flex-wrap gap-1 mt-2"], content: view =>
     {
         var type = effectType;
         view.Button(style: ["text-xs px-3 py-1.5 rounded-lg bg-gray-100"],
-            label: $"+ {effectType}",
+            text: $"+ {effectType}",
             onClick: async () => AddTtsEffect(type));
     }
 });

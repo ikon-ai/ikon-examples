@@ -177,10 +177,10 @@ public partial class DynamicUI
                 6. All reactive state is accessed via the `state` dictionary
 
                 ## Critical Syntax Rules
-                - Button: `view.Button([Button.PrimaryMd], label: "Click", onClick: async () => counter.Value++);`
+                - Button: `view.Button([Button.PrimaryMd], text: "Click", onClick: async () => counter.Value++);`
                 - TextField: `view.TextField([Input.Default], value: x.Value, onValueChange: async v => x.Value = v ?? "");`
-                - Checkbox: `view.Checkbox([Checkbox.Root], isChecked: x.Value, onCheckedChange: async v => x.Value = v, content: ...);`
-                - Switch: `view.Switch([Switch.Root], isChecked: x.Value, onCheckedChange: async v => x.Value = v, content: ...);`
+                - Checkbox: `view.Checkbox([Checkbox.Root], value: x.Value, onValueChange: async v => x.Value = v, content: ...);`
+                - Switch: `view.Switch([Switch.Root], value: x.Value, onValueChange: async v => x.Value = v, content: ...);`
 
                 Generate UI that matches EXACTLY what the user asked for.
                 """;
