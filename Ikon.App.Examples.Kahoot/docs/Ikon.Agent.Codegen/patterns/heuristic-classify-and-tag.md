@@ -28,9 +28,9 @@ private async Task CrawlWalletsAsync()
             wallet.LastSeenUtc = DateTime.UtcNow;
         }
 
-        _wallets.Value = crawled;
+        _wallets.ReplaceAll(crawled);
         await SaveWalletStoreAsync();
-        _status.Value = $"Loaded {_wallets.Value.Count} wallets";
+        _status.Value = $"Loaded {_wallets.Count} wallets";
     }
     finally { _isCrawling.Value = false; }
 }

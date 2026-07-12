@@ -53,8 +53,7 @@ private async Task<List<VehicleImages>?> ExtractVehicleImagesAsync(string messag
 // In the Completed handler:
 var vehicles = await ExtractVehicleImagesAsync(finalMessage);
 finalMessage = Regex.Replace(finalMessage, @"\[vehicle:[^\]]+\]", "").Trim();
-_messages.Value = [.._messages.Value,
-    new ChatMessage("assistant", finalMessage, DateTime.UtcNow, vehicles)];
+_messages.Add(new ChatMessage("assistant", finalMessage, DateTime.UtcNow, vehicles));
 ```
 
 ## Notes

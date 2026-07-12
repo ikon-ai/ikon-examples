@@ -12,7 +12,7 @@ Any single-LLM-conversation app — assistant, tutor, support bot, advisor, jour
 public sealed record ChatMessage(string Role, string Text);
 public sealed record ChatReply(string Reply);
 
-private readonly Reactive<List<ChatMessage>> _transcript = new([]);
+private readonly ReactiveList<ChatMessage> _transcript = new();
 private readonly Reactive<string> _draft = new("");
 private readonly Reactive<bool> _busy = new(false);
 private readonly Reactive<string> _streaming = new("");
@@ -23,7 +23,7 @@ private async Task SendAsync()
     var text = _draft.Value.Trim();
     if (string.IsNullOrEmpty(text) || _busy.Value) return;
 
-    _transcript.Value = [.. _transcript.Value, new ChatMessage("You", text)];
+    _transcript.Add(new ChatMessage("You", text));
     _draft.Value = "";
     _streaming.Value = "";
     using var _ = _busy.AsToken();
@@ -49,14 +49,14 @@ private async Task SendAsync()
             else if (ev is Completed<ChatReply> done)
             {
                 _ctx = done.Context;
-                _transcript.Value = [.. _transcript.Value, new ChatMessage("Assistant", done.Result.Reply)];
+                _transcript.Add(new ChatMessage("Assistant", done.Result.Reply));
                 _streaming.Value = "";
             }
         }
     }
     catch (Exception ex)
     {
-        _transcript.Value = [.. _transcript.Value, new ChatMessage("System", $"Error: {ex.Message}")];
+        _transcript.Add(new ChatMessage("System", $"Error: {ex.Message}"));
         _streaming.Value = "";
     }
 }
@@ -66,7 +66,7 @@ view.ScrollArea(rootStyle: ["flex-1 min-h-0"], viewportStyle: ["p-4"], content: 
 {
     view.Column([..], content: view =>
     {
-        foreach (var msg in _transcript.Value)
+        foreach (var msg in _transcript)
         {
             var isUser = msg.Role == "You";
             view.Box([isUser ? "self-end bg-primary" : "self-start bg-surface", "rounded-lg p-3 max-w-[80%]"], content: v =>
@@ -95,7 +95,7 @@ view.Row(["p-4 gap-2 border-t"], content: view =>
 
 ## Notes
 
-- `_transcript` is a `Reactive<List<ChatMessage>>`. **Reassign** (`_transcript.Value = [.. _transcript.Value, x]`) — don't mutate the list in-place without `Notify()`.
+- `_transcript` is a `ReactiveList<ChatMessage>` — `_transcript.Add(msg)` mutates and notifies in one call; `.Value.Add` does not compile.
 - `_busy` gates Send (button disabled, label changes). The label-change is the loading state — no spinner needed for sub-2s replies; for longer ones add a Skeleton row.
 - **Do NOT bind `_busy` to TextField's `disabled` prop** — the framework re-mounts the input on disabled flips and drops keyboard focus mid-typing. Gate the action via the Button + the early-return in `SendAsync`; let the user keep typing the next message while the AI is replying.
 - Pass the **full transcript** to the LLM, not just the last user message.

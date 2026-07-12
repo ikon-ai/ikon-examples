@@ -11,7 +11,7 @@ Any app where the user generates / iterates / collects images: studio, mood boar
 ```csharp
 public sealed record GalleryItem(string Id, string Prompt, byte[] Data, string MimeType);
 
-private readonly Reactive<List<GalleryItem>> _gallery = new([]);
+private readonly ReactiveList<GalleryItem> _gallery = new();
 private readonly Reactive<string> _prompt = new("");
 private readonly Reactive<bool> _busy = new(false);
 private readonly Reactive<string?> _error = new(null);
@@ -26,11 +26,8 @@ private async Task GenerateAsync()
     try
     {
         var image = await ImageGenerator.GenerateAsync(prompt);
-        if (image != null)
-        {
-            _gallery.Add(new GalleryItem(Guid.NewGuid().ToString("N"), prompt, image.Data, image.MimeType));
-            _prompt.Value = "";
-        }
+        _gallery.Add(new GalleryItem(Guid.NewGuid().ToString("N"), prompt, image.Data, image.MimeType));
+        _prompt.Value = "";
     }
     catch (Exception ex)
     {
@@ -39,7 +36,7 @@ private async Task GenerateAsync()
 }
 
 private void Remove(string id) =>
-    _gallery.Value = [.. _gallery.Value.Where(g => g.Id != id)];
+    _gallery.RemoveAll(g => g.Id == id);
 
 // UI:
 view.Row(["gap-2 p-4"], content: v =>
@@ -58,7 +55,7 @@ if (_error.Value is string err)
         v.Text(text: $"Generation failed: {err}"));
 }
 
-if (_gallery.Value.Count == 0 && !_busy.Value)
+if (_gallery.Count == 0 && !_busy.Value)
 {
     view.Box(["text-center text-muted-foreground p-12"], content: v =>
         v.Text(text: "No images yet. Try a prompt above."));
@@ -72,7 +69,7 @@ else
             // Skeleton tile while generating
             view.Box(["aspect-square bg-surface rounded-lg animate-pulse"], content: _ => { });
         }
-        foreach (var item in _gallery.Value)
+        foreach (var item in _gallery)
         {
             view.Box(["relative group rounded-lg overflow-hidden bg-surface aspect-square hover:ring-2 hover:ring-primary transition-all duration-150"], content: v =>
             {

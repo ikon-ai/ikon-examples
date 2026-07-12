@@ -80,7 +80,7 @@ private async Task SendChatMessageAsync(string userMessage, Guid caseId)
 - `IsProcessing.Value` toggles per phase so the typing-dots spinner only renders while the model is actively working, not during tool execution gaps.
 - `MaxIterations: 15` caps tool-loop runaway. Pair with a strong system prompt about confirming before mutations.
 - `preRunCount` snapshots the session length before the run. After `Completed`, persist only the *new* messages (`[preRunCount..]`) so tool memory survives a page refresh.
-- Tools are registered inside the `pass =>` lambda via `pass.AddTool<TResult, TArg1, TArg2>(name, description, async (a1, a2) => ...)`. Use `.DescribeParams` to document each parameter to the LLM.
+- Tools are registered inside the `pass =>` lambda via `pass.AddTool(Tool.Of(name, description, async (a1, a2) => ...))`. Annotate lambda parameters with `[Description("...")]` to document them to the LLM.
 
 ## See also
 

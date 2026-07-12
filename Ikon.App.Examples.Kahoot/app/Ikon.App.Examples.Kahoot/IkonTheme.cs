@@ -1,9 +1,11 @@
 // ReSharper disable once CheckNamespace
 // ReSharper disable MemberHidesStaticFromOuterClass
 
+using Ikon.Parallax.Theming;
+
 namespace Themes.Ikon;
 
-public sealed class Theme : ITheme
+public sealed class AppTheme : ITheme
 {
     public string DefaultIconLibrary => "lucide";
 

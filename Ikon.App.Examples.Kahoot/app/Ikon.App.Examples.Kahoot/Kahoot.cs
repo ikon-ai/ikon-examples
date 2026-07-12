@@ -6,7 +6,7 @@ public record ClientParams(string Id = "", bool Host = false);
 [App]
 public partial class Kahoot(IApp<SessionIdentity, ClientParams> app)
 {
-    private UI UI { get; } = new(app, new Theme());
+    private UI UI { get; } = new(app, new AppTheme());
 
     private const int QuestionChannelCapacity = 3;
     private const int MaxQuestionHistory = 20;
@@ -21,7 +21,7 @@ public partial class Kahoot(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<int> _countdownSeconds = new(20);
     private readonly Reactive<int> _feedbackSeconds = new(5);
     private readonly Reactive<int> _leaderboardSeconds = new(5);
-    private readonly Reactive<List<Player>> _players = new([]);
+    private readonly ReactiveList<Player> _players = new();
 
     private readonly ClientReactive<string> _playerName = new("");
     private readonly ClientReactive<bool> _hasJoined = new(false);
@@ -65,20 +65,12 @@ public partial class Kahoot(IApp<SessionIdentity, ClientParams> app)
             }
         }
 
-        await ClientFunctions.SetThemeAsync(args.ClientSessionId, Constants.DarkTheme);
+        await ClientFunctions.SetThemeAsync(Theme.Dark, targetId: args.ClientSessionId);
     }
 
     private async Task OnClientLeftAsync(ClientLeftEventArgs args)
     {
-        var players = _players.Value.ToList();
-        var player = players.FirstOrDefault(p => p.ClientId == args.ClientSessionId);
-
-        if (player != null)
-        {
-            players.Remove(player);
-            _players.Value = players;
-        }
-
+        _players.RemoveAll(p => p.ClientId == args.ClientSessionId);
         _playerAnswers.TryRemove(args.ClientSessionId, out _);
     }
 
@@ -90,30 +82,26 @@ public partial class Kahoot(IApp<SessionIdentity, ClientParams> app)
 
     private Player? GetCurrentPlayer()
     {
-        return _players.Value.FirstOrDefault(p => p.ClientId == ReactiveScope.ClientId);
+        return _players.FirstOrDefault(p => p.ClientId == ReactiveScope.ClientId);
     }
 
     private async Task AddOrUpdatePlayerAsync(int clientId, string name)
     {
-        var players = _players.Value.ToList();
-        var existingPlayer = players.FirstOrDefault(p => p.ClientId == clientId);
+        var existingPlayer = _players.FirstOrDefault(p => p.ClientId == clientId);
 
         if (existingPlayer != null)
         {
-            var index = players.IndexOf(existingPlayer);
-            players[index] = existingPlayer with { Name = name };
+            _players.Update(players => players.Select(p => p.ClientId == clientId ? p with { Name = name } : p));
         }
         else
         {
-            if (players.Count >= MaxPlayers)
+            if (_players.Count >= MaxPlayers)
             {
                 return;
             }
 
-            players.Add(new Player(clientId, name, 0, 0, 0, 0));
+            _players.Add(new Player(clientId, name, 0, 0, 0, 0));
         }
-
-        _players.Value = players;
 
         if (existingPlayer == null && _gameStage.Value == GameStage.Question)
         {
@@ -126,58 +114,51 @@ public partial class Kahoot(IApp<SessionIdentity, ClientParams> app)
 
     private void UpdatePlayerScore(int clientId, int points, bool correct, bool missed)
     {
-        var players = _players.Value.ToList();
-        var player = players.FirstOrDefault(p => p.ClientId == clientId);
-
-        if (player == null)
+        if (_players.All(p => p.ClientId != clientId))
         {
             return;
         }
 
-        var index = players.IndexOf(player);
+        _players.Update(players => players.Select(p =>
+        {
+            if (p.ClientId != clientId)
+            {
+                return p;
+            }
 
-        if (correct)
-        {
-            players[index] = player with
+            if (correct)
             {
-                Score = player.Score + points,
-                CorrectCount = player.CorrectCount + 1
-            };
-        }
-        else if (missed)
-        {
-            players[index] = player with
-            {
-                MissedCount = player.MissedCount + 1
-            };
-        }
-        else
-        {
-            players[index] = player with
-            {
-                WrongCount = player.WrongCount + 1
-            };
-        }
+                return p with
+                {
+                    Score = p.Score + points,
+                    CorrectCount = p.CorrectCount + 1
+                };
+            }
 
-        _players.Value = players;
+            if (missed)
+            {
+                return p with
+                {
+                    MissedCount = p.MissedCount + 1
+                };
+            }
+
+            return p with
+            {
+                WrongCount = p.WrongCount + 1
+            };
+        }));
     }
 
     private void ResetPlayerScores()
     {
-        var players = _players.Value.ToList();
-
-        for (int i = 0; i < players.Count; i++)
+        _players.Update(players => players.Select(p => p with
         {
-            players[i] = players[i] with
-            {
-                Score = 0,
-                CorrectCount = 0,
-                WrongCount = 0,
-                MissedCount = 0
-            };
-        }
-
-        _players.Value = players;
+            Score = 0,
+            CorrectCount = 0,
+            WrongCount = 0,
+            MissedCount = 0
+        }));
     }
 
     private static bool IsValidSessionId(string? id)
@@ -193,12 +174,12 @@ public partial class Kahoot(IApp<SessionIdentity, ClientParams> app)
     private string GetJoinUrl()
     {
         var sessionId = app.Clients[ReactiveScope.ClientId]?.Parameters.Id ?? "";
-        return $"{app.ReactiveGlobalState.ChannelUrl.Value}?id={sessionId}";
+        return app.JoinUrl(new { id = sessionId });
     }
 
     private string GetCreateSessionUrl()
     {
-        return $"{app.ReactiveGlobalState.ChannelUrl.Value}?id={GenerateSessionId()}&host=true";
+        return app.JoinUrl(new { id = GenerateSessionId(), host = "true" });
     }
 
     private static string GenerateSessionId()

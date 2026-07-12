@@ -18,12 +18,12 @@ await foreach (var ev in Emerge.Run<AgentResponse>(LLMModel.Claude45Sonnet, _con
     pass.MaxOutputTokens = 1024;
     pass.MaxIterations = 10;
 
-    pass.AddTool("search_inventory", "Semantic search ...",
+    pass.AddTool(Tool.Of("search_inventory", "Semantic search ...",
         async (string? query, int? maxPrice, int? minYear) =>
-            await _apiClient.SearchInventoryAsync(showroom, query, maxPrice, minYear));
+            await _apiClient.SearchInventoryAsync(showroom, query, maxPrice, minYear)));
 
-    pass.AddTool("get_vehicle_images", "Image URLs by id.",
-        async (string vehicleId) => await _apiClient.GetVehicleImagesAsync(showroom, vehicleId));
+    pass.AddTool(Tool.Of("get_vehicle_images", "Image URLs by id.",
+        async (string vehicleId) => await _apiClient.GetVehicleImagesAsync(showroom, vehicleId)));
 }))
 {
     switch (ev)
@@ -44,7 +44,7 @@ await foreach (var ev in Emerge.Run<AgentResponse>(LLMModel.Claude45Sonnet, _con
         case Completed<AgentResponse> done:
             _conversationContext = done.Context;
             var final = done.Result?.Message ?? _streamingText.Value ?? "Sorry, try again?";
-            _messages.Value = [.._messages.Value, new ChatMessage("assistant", final, DateTime.UtcNow)];
+            _messages.Add(new ChatMessage("assistant", final, DateTime.UtcNow));
             _streamingText.Value = "";
             _statusText.Value = "";
             _ = ExtractProfileAsync();
@@ -58,7 +58,7 @@ await foreach (var ev in Emerge.Run<AgentResponse>(LLMModel.Claude45Sonnet, _con
 - The streaming text is rendered as a transient assistant bubble (separate from `_messages`); on `Completed` it gets committed and `_streamingText` is cleared.
 - Map tool function names to user-facing verbs in a `switch` expression — never expose raw function names.
 - Persist `done.Context` back into `_conversationContext` so the next turn continues.
-- Always replace the list (`= [..old, new]`), never `.Add` — `Reactive<List<>>` only diff-broadcasts on reference change.
+- Committed history is a `ReactiveList<ChatMessage>` — `_messages.Add(msg)` mutates AND broadcasts in one call. Never reassign the whole list to append; `_messages.Value` is an `IReadOnlyList<T>` snapshot, so `_messages.Value.Add(msg)` does not compile.
 
 ## See also
 

@@ -94,7 +94,7 @@ public partial class Kahoot
 
     private void RenderHostLobby(UIView view)
     {
-        var playerCount = _players.Value.Count;
+        var playerCount = _players.Count;
         var isFull = playerCount >= MaxPlayers;
 
         view.Column(style: ["flex-1 items-center gap-8 p-8 min-h-0"], content: view =>
@@ -124,7 +124,7 @@ public partial class Kahoot
                         view.Text(style: ["text-2xl font-bold text-white mt-2"], text: "Scan to join!");
                         view.Button(
                             style: [Button.GhostMd, "text-sm text-gray-400 hover:text-white"],
-                            label: "Open player view",
+                            text: "Open player view",
                             href: GetJoinUrl(),
                             target: "_blank"
                         );
@@ -150,7 +150,7 @@ public partial class Kahoot
                         {
                             view.Column(style: ["gap-3"], content: view =>
                             {
-                                foreach (var player in _players.Value)
+                                foreach (var player in _players)
                                 {
                                     view.Row(style: [
                                         "px-4 py-2 rounded-xl bg-white/10 backdrop-blur-sm",
@@ -172,7 +172,7 @@ public partial class Kahoot
             {
                 view.Button(
                     style: ["px-10 py-4 text-2xl rounded-full bg-purple-600 hover:bg-purple-500 text-white font-bold shrink-0"],
-                    label: "Start Game!",
+                    text: "Start Game!",
                     onClick: async () => await StartGameAsync()
                 );
             }
@@ -206,7 +206,7 @@ public partial class Kahoot
                 );
 
                 var answeredCount = _playerAnswers.Count;
-                var totalPlayers = _players.Value.Count;
+                var totalPlayers = _players.Count;
                 view.Text(
                     style: ["text-lg text-gray-400"],
                     text: $"{answeredCount} / {totalPlayers} answered"
@@ -400,7 +400,7 @@ public partial class Kahoot
 
     private void RenderHostLeaderboard(UIView view)
     {
-        var sortedPlayers = _players.Value.OrderByDescending(p => p.Score).ToList();
+        var sortedPlayers = _players.OrderByDescending(p => p.Score).ToList();
 
         view.Column(style: ["flex-1 items-center gap-6 p-8 min-h-0"], content: view =>
         {
@@ -445,7 +445,7 @@ public partial class Kahoot
 
     private void RenderHostGameOver(UIView view)
     {
-        var sortedPlayers = _players.Value.OrderByDescending(p => p.Score).ToList();
+        var sortedPlayers = _players.OrderByDescending(p => p.Score).ToList();
 
         view.Column(style: ["flex-1 items-center gap-8 p-8 min-h-0"], content: view =>
         {
@@ -496,7 +496,7 @@ public partial class Kahoot
 
             view.Button(
                 style: ["px-8 py-3 text-xl rounded-full bg-purple-600 hover:bg-purple-500 text-white font-bold shrink-0"],
-                label: "Play Again",
+                text: "Play Again",
                 onClick: async () =>
                 {
                     _gameStage.Value = GameStage.Lobby;
@@ -567,7 +567,7 @@ public partial class Kahoot
             view.ActionButton(
                 style: ["w-full max-w-sm py-4 rounded-full bg-purple-600 text-white text-lg font-bold border-none mt-4"],
                 action: ActionKind.RequestFullscreen,
-                label: "Let's go!",
+                text: "Let's go!",
                 onActionComplete: async _ =>
                 {
                     _hasStarted.Value = true;
@@ -615,7 +615,7 @@ public partial class Kahoot
             var nameValid = !string.IsNullOrWhiteSpace(_playerName.Value) && _playerName.Value.Length >= 2;
             view.Button(
                 style: [$"w-full max-w-sm py-4 rounded-full bg-purple-600 text-white text-lg font-bold border-none {(nameValid ? "opacity-100" : "opacity-40")}"],
-                label: "Join!",
+                text: "Join!",
                 disabled: !nameValid,
                 onClick: async () =>
                 {
@@ -637,7 +637,7 @@ public partial class Kahoot
             view.Text(style: ["text-2xl font-bold text-white"], text: "You're in!");
             view.Text(style: ["text-lg text-gray-400 text-center"], text: "Waiting for the host to start the game...");
 
-            view.Text(style: ["text-sm text-gray-500 mt-4"], text: $"{_players.Value.Count} player{(_players.Value.Count != 1 ? "s" : "")} joined");
+            view.Text(style: ["text-sm text-gray-500 mt-4"], text: $"{_players.Count} player{(_players.Count != 1 ? "s" : "")} joined");
         });
     }
 
@@ -883,7 +883,7 @@ public partial class Kahoot
                 {
                     if (player != null)
                     {
-                        var sortedPlayers = _players.Value.OrderByDescending(p => p.Score).ToList();
+                        var sortedPlayers = _players.OrderByDescending(p => p.Score).ToList();
                         var rank = sortedPlayers.FindIndex(p => p.ClientId == player.ClientId) + 1;
 
                         var scoreFeedback = rank switch
@@ -909,7 +909,7 @@ public partial class Kahoot
 
                     view.Button(
                         style: ["w-full max-w-sm py-3 rounded-full bg-purple-600 text-white text-lg font-bold border-none mt-4"],
-                        label: "Play Again",
+                        text: "Play Again",
                         disabled: _gameStage.Value != GameStage.GameOver,
                         onClick: async () =>
                         {
@@ -924,7 +924,7 @@ public partial class Kahoot
     private void RenderPlayerScoreboard(UIView view)
     {
         var currentPlayer = GetCurrentPlayer();
-        var sortedPlayers = _players.Value.OrderByDescending(p => p.Score).Take(3).ToList();
+        var sortedPlayers = _players.OrderByDescending(p => p.Score).Take(3).ToList();
 
         if (currentPlayer != null && !sortedPlayers.Any(p => p.ClientId == currentPlayer.ClientId))
         {

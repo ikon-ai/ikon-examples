@@ -30,7 +30,7 @@ public partial class Kahoot
             return;
         }
 
-        if (_players.Value.Count == 0)
+        if (_players.Count == 0)
         {
             return;
         }
@@ -227,12 +227,12 @@ public partial class Kahoot
                               Generate a fresh, unique question that differs from all previous ones.
                               """;
 
-            var (result, _) = await Emerge.Run<GeneratedKahootQuestion>(LLMModel.Gemini25Flash, new KernelContext(), pass =>
+            var result = await Emerge.Run<GeneratedKahootQuestion>(LLMModel.Gemini25Flash, pass =>
             {
                 pass.Command = command;
                 pass.Temperature = 0.8f;
                 pass.MaxOutputTokens = 4000;
-            }).FinalAsync(ct);
+            }).ResultAsync(ct);
 
             if (string.IsNullOrWhiteSpace(result.Question) || result.AnswerOptions.Length < 4)
             {
@@ -276,7 +276,7 @@ public partial class Kahoot
 
     private void ResetPlayerAnswerState()
     {
-        foreach (var player in _players.Value)
+        foreach (var player in _players)
         {
             using var _ = ReactiveScope.Use(new ClientScope(player.ClientId));
             _selectedAnswer.Value = null;
@@ -287,7 +287,7 @@ public partial class Kahoot
 
     private bool AllPlayersAnswered()
     {
-        var playerCount = _players.Value.Count;
+        var playerCount = _players.Count;
         return playerCount > 0 && _playerAnswers.Count >= playerCount;
     }
 
@@ -315,7 +315,7 @@ public partial class Kahoot
             return;
         }
 
-        foreach (var player in _players.Value)
+        foreach (var player in _players)
         {
             if (_playerAnswers.TryGetValue(player.ClientId, out var entry))
             {
