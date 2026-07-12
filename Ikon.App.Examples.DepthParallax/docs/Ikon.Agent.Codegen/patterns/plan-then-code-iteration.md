@@ -20,8 +20,8 @@ private async Task ModifyGameAsync(int clientId, string prompt)
 
     _statusText.Value = "UPDATING PLAN...";
     var existingPlan = _currentPlan.Value!;
-    var (planResult, _) = await Emerge.Run<GamePlanAdjustResponse>(
-        CodeGenModel, new KernelContext(),
+    var planResult = await Emerge.Run<GamePlanAdjustResponse>(
+        CodeGenModel,
         pass =>
         {
             pass.SystemPrompt = PlanAdjustSystemPrompt;
@@ -29,7 +29,7 @@ private async Task ModifyGameAsync(int clientId, string prompt)
             pass.Temperature = 0.7;
             pass.MaxOutputTokens = 4000;
             pass.UseJson = true;
-        }).FinalAsync();
+        }).ResultAsync();
 
     if (!string.IsNullOrWhiteSpace(planResult.UpdatedSections))
     {
@@ -46,14 +46,14 @@ private async Task ModifyGameAsync(int clientId, string prompt)
             + "Apply the changes."
         : $"Plan:\n{_currentPlan.Value}\n\nCurrent HTML:\n{_currentGameHtml.Value}\n\nChange: {prompt}";
 
-    var (result, _, _) = await Emerge.Run<GameResponse>(CodeGenModel, new KernelContext(),
+    var result = await Emerge.Run<GameResponse>(CodeGenModel,
         pass =>
         {
             pass.SystemPrompt = PlanGenerateSystemPrompt;
             pass.Command = command;
             pass.MaxOutputTokens = 32000;
             pass.UseJson = true;
-        }).FinalWithTraceAsync();
+        }).ResultAsync();
 
     _currentGameHtml.Value = InjectBridgeScript(result.Code);
 }

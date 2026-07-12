@@ -22,10 +22,10 @@ public partial class Kahoot(IApp<SessionIdentity, ClientParams> app)
     }
 
     private string GetJoinUrl()
-        => $"{app.ReactiveGlobalState.ChannelUrl.Value}?id={app.SessionIdentity.Id}";
+        => app.JoinUrl(new { id = app.SessionIdentity.Id });
 
     private string GetCreateSessionUrl()
-        => $"{app.ReactiveGlobalState.ChannelUrl.Value}?id={GenerateSessionId()}&host=true";
+        => app.JoinUrl(new { id = GenerateSessionId(), host = "true" });
 
     private void RenderUI(UIView view)
     {

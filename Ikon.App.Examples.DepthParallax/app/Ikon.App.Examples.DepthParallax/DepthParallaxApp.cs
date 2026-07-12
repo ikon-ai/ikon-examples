@@ -36,9 +36,9 @@ public partial class DepthParallaxApp(IApp<SessionIdentity, ClientParameters> ap
     {
         app.ClientJoinedAsync += async args =>
         {
-            if (args.ClientContext.Theme != Constants.DarkTheme)
+            if (!args.ClientContext.IsDarkTheme())
             {
-                await ClientFunctions.SetThemeAsync(Constants.DarkTheme);
+                await ClientFunctions.SetThemeAsync(Theme.Dark);
             }
         };
 
@@ -181,8 +181,8 @@ public partial class DepthParallaxApp(IApp<SessionIdentity, ClientParameters> ap
                 view.Row(["gap-2 items-center pb-2"], content: view =>
                 {
                     view.Switch([Switch.Root],
-                        isChecked: _showDepth.Value,
-                        onCheckedChange: async c => { _showDepth.Value = c; },
+                        value: _showDepth.Value,
+                        onValueChange: async c => { _showDepth.Value = c; },
                         content: v => v.SwitchThumb([Switch.Thumb]));
                     view.Text(["text-white/70 text-sm"], "Show depth map");
                 });

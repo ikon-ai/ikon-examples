@@ -31,16 +31,16 @@ public class VisualCache(IAppBase app)
         foreach (var url in urls.Take(3)) { parts.Add(new ImageUrlPart(url)); }
         var ctx = new KernelContext().Add(new MessageBlock(MessageBlockRole.User, parts.ToArray()));
 
-        var (result, _) = await Emerge.Run<VisualDescription>(LLMModel.Claude45Haiku, ctx, pass =>
+        var result = await Emerge.Run<VisualDescription>(LLMModel.Claude45Haiku, ctx, pass =>
         {
             pass.SystemPrompt = "Describe used-item photos so a sales agent can comment naturally. " +
                                 "Be concrete and honest. Only describe what's visible. 1 sentence per field.";
             pass.Command = $"Return JSON: {pass.JsonSchema}";
             pass.Temperature = 0.2;
             pass.MaxOutputTokens = 500;
-        }).FinalAsync();
+        }).ResultAsync();
 
-        if (result != null) { await WriteAsync(id, result); }
+        await WriteAsync(id, result);
         _inflight.TryRemove(id, out _);
         return result;
     }

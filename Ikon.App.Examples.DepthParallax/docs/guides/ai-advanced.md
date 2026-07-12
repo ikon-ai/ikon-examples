@@ -31,17 +31,22 @@ namespace Ikon.AI.Database
     ctor()
     string? EnvVarPrefix { get; set; }
     DatabaseConnection.SpaceSecret? SpaceSecret { get; set; }
+  // Configuration for database info extraction.
   class DatabaseInfoExtractor.Config
     ctor()
+    // Regex patterns for column names to exclude (format: "schema.table.column").
     List<string>? ColumnExcludeRegex { get; set; }
     Dictionary<string, string> ColumnExtraInfo { get; set; }
     bool IncludeEmptyColumns { get; set; }
     int JsonSampleLengthLimit { get; set; }
     int JsonSampleRowLimit { get; set; }
     int NonTextSampleRowLimit { get; set; }
+    // Exact schema names to include. If empty, defaults depend on database type (e.g., "public" for PostgreSQL).
     List<string>? Schemas { get; set; }
+    // Regex patterns for table names to exclude.
     List<string>? TableExcludeRegex { get; set; }
     Dictionary<string, string> TableExtraInfo { get; set; }
+    // Regex patterns for table names to include (format: "schema.table" or just "table").
     List<string>? TableIncludeRegex { get; set; }
     int TextSampleLengthLimit { get; set; }
     int TextSampleRowLimit { get; set; }
@@ -56,7 +61,10 @@ namespace Ikon.AI.Database
     bool? IsForeignKey { get; set; }
     bool? IsPrimaryKey { get; set; }
     List<string>? Values { get; set; }
-  // Creates database connections. Prefer the typed factory methods ( Trino , Postgres , Sqlite , BigQuery ) for app code — host, port, and catalog are not secrets, only the password is. Pass that password from app.Secrets: DatabaseConnection.Trino(host: "trino.example.com", port: 443, catalog: "hive", user: "ikon", password: app.Secrets["TRINO_PASSWORD"]) CreateAsync remains for shared pipelines that read all of host/port/user/password/etc. from environment variables or space secrets.
+  // Creates database connections. Prefer the typed factory methods ( Trino , Postgres , Sqlite , BigQuery ) for app code — host, port, and catalog are not secrets, only the password is. Pass that password from app.Secrets:
+  // DatabaseConnection.Trino(host: "trino.example.com", port: 443, catalog: "hive",
+  //                      user: "ikon", password: app.Secrets["TRINO_PASSWORD"])
+  // CreateAsync remains for shared pipelines that read all of host/port/user/password/etc. from environment variables or space secrets.
   class DatabaseConnection
     ctor()
     string BigQueryDataset { get; set; }
@@ -77,9 +85,6 @@ namespace Ikon.AI.Database
   class DatabaseInfoExtractor
     ctor(DatabaseConnection databaseConnection)
     Task<DatabaseInfo> ExtractAsync(DatabaseInfoExtractor.Config config, CancellationToken cancellationToken)
-    Task<ResultSet> GetCteDatabaseInfoAllValuesAsync(DatabaseInfo cteDatabaseInfo, int maxRows)
-    static bool IsText(string dataType)
-    Task<DatabaseInfo> ValidateAndFillCteDatabaseInfoAsync(DatabaseInfo cteDatabaseInfo, int maxRowsFilter)
   class DatabaseTableInfo
     ctor()
     List<DatabaseColumnInfo> Columns { get; set; }
@@ -99,15 +104,10 @@ namespace Ikon.AI.Database
   static class SqlValidator
     static void ValidateReadOnly(string sql, HashSet<string> allowedTables)
 
-namespace Ikon.AI.Policy
-  sealed class CreditLimitChecker : IUsageLimitChecker
-    ctor()
-    ValueTask<UsageLimitCheckResult> CheckAsync(PolicyCallContext context, object?[] args)
-
 namespace Ikon.AI.Storage
   class KeywordIndex
     ctor()
-    Task Add(string word, string link)
+    Task AddAsync(string word, string link)
     static KeywordIndex Deserialize(Stream stream)
     Task InitializeAsync()
     void RemoveTooCommonTerms(double threshold = 0.5, int minDocumentCount = 5)
@@ -129,7 +129,7 @@ namespace Ikon.AI.Storage
   class VectorDatabase
     ctor()
     Task CreateCollectionAsync(string collectionName, EmbeddingModel model)
-    Task<int> GetDataItemCount(string collectionName)
+    Task<int> GetDataItemCountAsync(string collectionName)
     Task RemoveAsync(string collectionName, IEnumerable<string> tags)
     Task<List<Result<object>>> SearchAsync(string collectionName, float[] queryVector, int maxItems, float threshold, Metric metric, Func<IEnumerable<string>, bool>? tagsFilter = null)
     Task<List<Result<object>>> SearchAsync(string collectionName, string query, int maxItems, float threshold, Metric metric, Func<IEnumerable<string>, bool>? tagsFilter = null)

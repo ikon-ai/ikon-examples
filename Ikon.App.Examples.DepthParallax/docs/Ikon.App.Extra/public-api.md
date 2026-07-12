@@ -13,18 +13,13 @@ namespace Ikon.App.Connectors
   sealed class Gmail
     ctor(GoogleCredentials credentials)
     // Fetch the full plain-text body of a message. Returns the text/plain part when present, falling back to the text extracted from the HTML part, then to an empty string.
-    Task<string> GetBodyAsync(string id, CancellationToken ct = null)
+    Task<string> GetBodyAsync(string id, CancellationToken ct = default)
     // Stream every message matching the query, paging through the whole result set. Use a query with date operators (e.g. "after:2024/01/01") to bound a historical backfill by time.
-    IAsyncEnumerable<EmailSummary> ListAllAsync(string? query = null, CancellationToken ct = null)
-    Task<IReadOnlyList<EmailSummary>> ListAsync(string? query = null, int limit = 20, CancellationToken ct = null)
-    Task<string> SendAsync(string to, string subject, string body, string? cc = null, CancellationToken ct = null)
+    IAsyncEnumerable<EmailSummary> ListAllAsync(string? query = null, CancellationToken ct = default)
+    Task<IReadOnlyList<EmailSummary>> ListAsync(string? query = null, int limit = 20, CancellationToken ct = default)
+    Task<string> SendAsync(string to, string subject, string body, string? cc = null, CancellationToken ct = default)
 
 namespace Ikon.App.Connectors.Browser
-  // Raw browser-session tuning. Model/agent choices live in the agent layer.
-  sealed class BrowserOptions : IEquatable<BrowserOptions>
-    // Raw browser-session tuning. Model/agent choices live in the agent layer.
-    ctor(bool Headless = true)
-    bool Headless { get; init; }
   // A long-lived Playwright page driven across many turns. Owns the browser lifecycle; resolves a WebTarget by mark, then accessibility role+name, then selector. Raw — no agent logic; the agent layer (Ikon.Agent.Browser) exposes these actions as tools.
   sealed class BrowserSession : IAsyncDisposable
     ctor()
@@ -34,13 +29,13 @@ namespace Ikon.App.Connectors.Browser
     ValueTask DisposeAsync()
     // Evaluate a JavaScript function-expression (e.g. "() => { ...; return 'x'; }") on the current page and return its string result. For light page-state manipulation by non-agentic callers — e.g. the codegen visual gate flipping data-theme so it can screenshot both theme states of the same view.
     Task<string?> EvaluateAsync(string script)
-    Task<ValueTuple<bool, string, string?, string?>> ExecuteAsync(WebAction action)
+    Task<(bool Ok, string Selector, string? Extracted, string? Failure)> ExecuteAsync(WebAction action)
     Task<IReadOnlyList<MarkedElement>> MarkElementsAsync()
     Task NavigateAsync(string url)
     Task<byte[]> ScreenshotAsync()
     // Screenshot as JPEG at the given quality — for callers that put the image into an LLM context, where a PNG's 3-5x larger payload rides along for every later turn.
     Task<byte[]> ScreenshotJpegAsync(int quality = 70)
-    Task StartAsync(bool headless, bool captureGrade = false, CancellationToken ct = null)
+    Task StartAsync(bool headless, bool captureGrade = false, CancellationToken ct = default)
   sealed class WebAction.Click : WebAction, IEquatable<WebAction.Click>
     ctor(WebTarget Target)
     WebTarget Target { get; init; }
@@ -56,7 +51,6 @@ namespace Ikon.App.Connectors.Browser
     string Text { get; init; }
   // An interactable element discovered on the page, tagged for this observation.
   sealed class MarkedElement : IEquatable<MarkedElement>
-    // An interactable element discovered on the page, tagged for this observation.
     ctor(int Mark, string Role, string Name, string Selector)
     int Mark { get; init; }
     string Name { get; init; }
@@ -76,7 +70,6 @@ namespace Ikon.App.Connectors.Browser
   abstract class WebAction : IEquatable<WebAction>
   // A distilled, replayable integration: ordered steps with parameterized input slots.
   sealed class WebFlow : IEquatable<WebFlow>
-    // A distilled, replayable integration: ordered steps with parameterized input slots.
     ctor(string Name, string Origin, IReadOnlyList<WebStep> Steps, IReadOnlyList<string> Inputs)
     IReadOnlyList<string> Inputs { get; init; }
     string Name { get; init; }
@@ -87,21 +80,19 @@ namespace Ikon.App.Connectors.Browser
     static WebFlow Distill(WebRun run, string? name = null)
   // Deterministically replays a distilled WebFlow on a browser session — no LLM — substituting input slots with supplied values.
   static class WebFlowPlayer
-    static Task<WebReplay> ReplayAsync(BrowserSession session, WebFlow flow, IReadOnlyDictionary<string, string> inputs, CancellationToken ct = null)
+    static Task<WebReplay> ReplayAsync(BrowserSession session, WebFlow flow, IReadOnlyDictionary<string, string> inputs, CancellationToken ct = default)
   enum WebOutcome
     Succeeded
     Failed
     BudgetExhausted
   // The result of replaying a WebFlow .
   sealed class WebReplay : IEquatable<WebReplay>
-    // The result of replaying a WebFlow .
     ctor(bool Ok, IReadOnlyDictionary<string, string> Outputs, bool Healed)
     bool Healed { get; init; }
     bool Ok { get; init; }
     IReadOnlyDictionary<string, string> Outputs { get; init; }
   // The result of an operate run: outcome, summary, the action trace, and any extracted outputs. Looks counts visual inspections separately — they consume agent budget without appearing in the action trace, so budget analysis needs both numbers.
   sealed class WebRun : IEquatable<WebRun>
-    // The result of an operate run: outcome, summary, the action trace, and any extracted outputs. Looks counts visual inspections separately — they consume agent budget without appearing in the action trace, so budget analysis needs both numbers.
     ctor(WebOutcome Outcome, string Summary, IReadOnlyList<WebStep> Steps, IReadOnlyDictionary<string, string> Outputs, int Looks = 0)
     int Looks { get; init; }
     WebOutcome Outcome { get; init; }
@@ -110,14 +101,12 @@ namespace Ikon.App.Connectors.Browser
     string Summary { get; init; }
   // One executed action, the selector that actually resolved it, and whether it succeeded.
   sealed class WebStep : IEquatable<WebStep>
-    // One executed action, the selector that actually resolved it, and whether it succeeded.
     ctor(WebAction Action, string ResolvedSelector, bool Ok)
     WebAction Action { get; init; }
     bool Ok { get; init; }
     string ResolvedSelector { get; init; }
   // How to locate an element. Prefer accessibility role + name; fall back to a CSS/XPath selector or a perception mark id from the current observation.
   sealed class WebTarget : IEquatable<WebTarget>
-    // How to locate an element. Prefer accessibility role + name; fall back to a CSS/XPath selector or a perception mark id from the current observation.
     ctor(string? Role = null, string? Name = null, string? Selector = null, int? Mark = null)
     int? Mark { get; init; }
     string? Name { get; init; }
@@ -127,7 +116,6 @@ namespace Ikon.App.Connectors.Browser
 namespace Ikon.App.Connectors.Telephony
   // Raw call tuning: the TTS voice, spoken language, and a hard duration cap. Model/agent choices live in the agent layer (Ikon.Agent.Telephony), not here.
   sealed class CallOptions : IEquatable<CallOptions>
-    // Raw call tuning: the TTS voice, spoken language, and a hard duration cap. Model/agent choices live in the agent layer (Ikon.Agent.Telephony), not here.
     ctor(string VoiceId = "", string Language = "en-US", TimeSpan? MaxDuration = null)
     string Language { get; init; }
     TimeSpan? MaxDuration { get; init; }
@@ -144,7 +132,6 @@ namespace Ikon.App.Connectors.Telephony
     string Transcript { get; init; }
   // A completed caller utterance: its transcript plus the raw mu-law audio.
   sealed class CallTurn : IEquatable<CallTurn>
-    // A completed caller utterance: its transcript plus the raw mu-law audio.
     ctor(string Transcript, byte[] AudioMuLaw)
     byte[] AudioMuLaw { get; init; }
     string Transcript { get; init; }
@@ -161,18 +148,17 @@ namespace Ikon.App.Connectors.Telephony
     ValueTask DisposeAsync()
     Task HangupAsync()
     // Speak a reply to the caller (TTS → 8kHz mu-law → Media Streams). Interruptible by barge-in; returns true if the caller barged in (so the consumer can stop voicing the rest of the reply).
-    Task<bool> SpeakAsync(string text, CancellationToken ct = null)
+    Task<bool> SpeakAsync(string text, CancellationToken ct = default)
     // Caller utterances as they complete, until the call ends.
-    IAsyncEnumerable<CallTurn> Turns(CancellationToken ct = null)
+    IAsyncEnumerable<CallTurn> Turns(CancellationToken ct = default)
   // Places outbound Twilio calls and hosts the Media Streams WebSocket. Each placed call yields a live PhoneCall once the audio stream connects. Raw — no agent logic; credentials come from app.Secrets.
   sealed class Telephone : IAsyncDisposable
     ctor(IAppBase app, TwilioCredentials credentials, CallOptions? options = null)
     // Place a call to an E.164 number; resolves to the live call once audio connects.
-    Task<PhoneCall> CallAsync(string number, CancellationToken ct = null)
+    Task<PhoneCall> CallAsync(string number, CancellationToken ct = default)
     ValueTask DisposeAsync()
   // Twilio credentials. Supplied from app.Secrets at construction; never hardcoded.
   sealed class TwilioCredentials : IEquatable<TwilioCredentials>
-    // Twilio credentials. Supplied from app.Secrets at construction; never hardcoded.
     ctor(string AccountSid, string AuthToken, string FromNumber)
     string AccountSid { get; init; }
     string AuthToken { get; init; }
