@@ -10,14 +10,7 @@ Parent-child structures where the depth is unbounded but most users only care ab
 ## Snippet
 
 ```csharp
-private readonly ClientReactive<HashSet<string>> _expandedChildrenIds = new(initialValue: new HashSet<string>());
-
-private static void AddToSet(ClientReactive<HashSet<string>> reactive, string item)
-{
-    var set = new HashSet<string>(reactive.Value);
-    set.Add(item);
-    reactive.Value = set;
-}
+private readonly ClientReactiveList<string> _expandedChildrenIds = new();
 
 private void RenderThreadTree(UIView view, List<ThreadInfo> threads, List<ThreadInfo> allThreads, int depth)
 {
@@ -46,7 +39,7 @@ private void RenderThreadTree(UIView view, List<ThreadInfo> threads, List<Thread
         var children = allThreads.Where(t => t.ParentId == capturedThread.Id).ToList();
         if (children.Count == 0) continue;
 
-        var childrenExpanded = _expandedChildrenIds.Value.Contains(capturedThread.Id);
+        var childrenExpanded = _expandedChildrenIds.Contains(capturedThread.Id);
 
         if (childrenExpanded)
         {
@@ -64,7 +57,7 @@ private void RenderThreadTree(UIView view, List<ThreadInfo> threads, List<Thread
                     : $"{children.Count} children";
 
             view.Box(["py-0.5 cursor-pointer hover:bg-accent/40 rounded-md mx-1.5"],
-                onClick: async () => AddToSet(_expandedChildrenIds, capturedThread.Id),
+                onClick: async () => _expandedChildrenIds.Add(capturedThread.Id),
                 content: view =>
                 {
                     view.Box([$"pl-[{childIndent + 12}px] pr-3"], content: view =>
@@ -83,8 +76,7 @@ private void RenderThreadTree(UIView view, List<ThreadInfo> threads, List<Thread
 
 ## Notes
 
-- Storing expanded ids in a `HashSet<string>` (wrapped in a `ClientReactive<HashSet<string>>`) is the right shape — fast contains-check, fast add/remove, and the value is per-client so two browser tabs can have different rows expanded.
-- *Replace* the hashset, don't mutate it: `var set = new HashSet<string>(reactive.Value); set.Add(item); reactive.Value = set;` — mutating the existing set bypasses change detection and the UI won't update.
+- Expanded ids live in a `ClientReactiveList<string>` — `_expandedChildrenIds.Add(id)` mutates and notifies in one call (`.Value.Add` does not compile), `Contains` is a tracked read, and the value is per-client so two browser tabs can have different rows expanded. To collapse, `_expandedChildrenIds.Remove(id)`.
 - The collapsed-summary row gives users useful information without the noise of N nested items: "5 children — 2 active" is more actionable than a chevron alone. Compute the summary from the unflattened list so it stays accurate as children update.
 - Indent via `pl-[{n}px]` arbitrary value; this is one of the few cases where it's idiomatic to compute the value at render time. Crosswind handles the dynamic class string.
 - For very deep trees (depth >5), cap the indent at a max so the rightmost nodes don't disappear off-screen: `Math.Min(depth, 5) * 12`.

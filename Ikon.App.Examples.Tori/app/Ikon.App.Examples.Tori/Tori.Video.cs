@@ -93,7 +93,7 @@ public partial class Tori
             _videoStreamStates.Remove(args.StreamId);
 
             // Check if this is a screen share or camera stream ending by comparing stream IDs
-            var participant = _participants.Value.FirstOrDefault(p => p.ClientSessionId == args.ClientSessionId);
+            var participant = _participants.FirstOrDefault(p => p.ClientSessionId == args.ClientSessionId);
             var isScreenShare = participant?.ScreenShareStreamId == args.StreamId;
 
             if (isScreenShare)

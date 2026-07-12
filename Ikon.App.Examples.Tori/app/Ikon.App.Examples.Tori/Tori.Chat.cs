@@ -39,10 +39,7 @@ public partial class Tori
             DateTime.UtcNow,
             text);
 
-        var messages = _chatMessages.Value.TakeLast(MaxChatEntries - 1).ToList();
-        messages.Add(message);
-        _chatMessages.Value = messages;
-        _chatMessagesVersion.Value++;
+        _chatMessages.Update(messages => messages.TakeLast(MaxChatEntries - 1).Append(message));
 
         _chatInputText.Value = "";
     }

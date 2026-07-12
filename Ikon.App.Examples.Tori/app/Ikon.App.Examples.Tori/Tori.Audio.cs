@@ -1,3 +1,5 @@
+using AudioFrame = Ikon.Resonance.AudioFrame;
+
 public partial class Tori
 {
     private void SetupAudioInputHandlers()
@@ -15,7 +17,7 @@ public partial class Tori
                 _groupAudioMixer = new GroupAudioMixer();
                 await _groupAudioMixer.StartAsync(OnGroupAudioMixerOutputAsync);
 
-                foreach (var p in _participants.Value)
+                foreach (var p in _participants)
                 {
                     _groupAudioMixer.AddParticipant(p.ClientSessionId.ToString());
                 }
@@ -25,7 +27,7 @@ public partial class Tori
 
             UpdateParticipant(clientId, p => p with { IsAudioEnabled = true });
 
-            var participant = _participants.Value.FirstOrDefault(p => p.ClientSessionId == clientId);
+            var participant = _participants.FirstOrDefault(p => p.ClientSessionId == clientId);
 
             if (participant != null)
             {
@@ -146,7 +148,7 @@ public partial class Tori
         return state.IsSpeaking;
     }
 
-    private async ValueTask OnGroupAudioMixerOutputAsync(string excludeKey, AudioFrameEx frame)
+    private async ValueTask OnGroupAudioMixerOutputAsync(string excludeKey, AudioFrame frame)
     {
         if (!int.TryParse(excludeKey, out var targetId))
         {

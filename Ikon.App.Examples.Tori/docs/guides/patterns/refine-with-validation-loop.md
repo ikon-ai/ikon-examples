@@ -19,7 +19,7 @@ private async Task<(UICodeResponse Response, string? ValidationError)> GenerateU
 {
     string? validationError = initialError;
 
-    var (response, _) = await Emerge.Refine<UICodeResponse>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
+    var response = await Emerge.Refine<UICodeResponse>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
     {
         opt.MaxRefinements = MaxAutoRetries;
         opt.Temperature = 0.3f;
@@ -57,7 +57,7 @@ private async Task<(UICodeResponse Response, string? ValidationError)> GenerateU
             validationError = await ValidateSyntaxAsync(result.Code);
             return validationError != null;     // true == do another refinement
         };
-    }).FinalAsync();
+    }).ResultAsync();
 
     return (response, validationError);
 }

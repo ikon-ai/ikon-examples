@@ -147,7 +147,7 @@ public partial class Tori
                     {
                         row.Button(
                             [Button.PrimaryMd],
-                            label: "Close",
+                            text: "Close",
                             onClick: async () => _settingsOpen.Value = false);
                     });
                 });
@@ -167,8 +167,8 @@ public partial class Tori
                         r.Text([Text.Body], "Enable transcription");
                         r.Switch(
                             [Switch.Default],
-                            isChecked: _speechEnabled.Value,
-                            onCheckedChange: async value =>
+                            value: _speechEnabled.Value,
+                            onValueChange: async value =>
                             {
                                 _speechEnabled.Value = value;
 
@@ -244,8 +244,8 @@ public partial class Tori
                         r.Text([Text.Body], "Enable summary");
                         r.Switch(
                             [Switch.Default],
-                            isChecked: _summaryEnabled.Value,
-                            onCheckedChange: async value =>
+                            value: _summaryEnabled.Value,
+                            onValueChange: async value =>
                             {
                                 _summaryEnabled.Value = value;
                             },
@@ -348,8 +348,8 @@ public partial class Tori
                         r.Text([Text.Body], "Echo cancellation");
                         r.Switch(
                             [Switch.Default],
-                            isChecked: _audioEchoCancellation.Value,
-                            onCheckedChange: async value => _audioEchoCancellation.Value = value,
+                            value: _audioEchoCancellation.Value,
+                            onValueChange: async value => _audioEchoCancellation.Value = value,
                             content: v => v.SwitchThumb([Switch.Thumb]));
                     });
                 });
@@ -365,8 +365,8 @@ public partial class Tori
                         r.Text([Text.Body], "Noise suppression");
                         r.Switch(
                             [Switch.Default],
-                            isChecked: _audioNoiseSuppression.Value,
-                            onCheckedChange: async value => _audioNoiseSuppression.Value = value,
+                            value: _audioNoiseSuppression.Value,
+                            onValueChange: async value => _audioNoiseSuppression.Value = value,
                             content: v => v.SwitchThumb([Switch.Thumb]));
                     });
                 });
@@ -382,8 +382,8 @@ public partial class Tori
                         r.Text([Text.Body], "Auto gain control");
                         r.Switch(
                             [Switch.Default],
-                            isChecked: _audioAutoGainControl.Value,
-                            onCheckedChange: async value => _audioAutoGainControl.Value = value,
+                            value: _audioAutoGainControl.Value,
+                            onValueChange: async value => _audioAutoGainControl.Value = value,
                             content: v => v.SwitchThumb([Switch.Thumb]));
                     });
                 });

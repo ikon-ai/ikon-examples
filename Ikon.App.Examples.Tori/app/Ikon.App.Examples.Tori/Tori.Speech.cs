@@ -46,10 +46,7 @@ public partial class Tori
                 if (!string.IsNullOrWhiteSpace(text))
                 {
                     var entry = new TranscriptEntry(state.ParticipantName, text, DateTime.UtcNow);
-                    var list = _recognizedSpeech.Value.TakeLast(MaxTranscriptEntries - 1).ToList();
-                    list.Add(entry);
-                    _recognizedSpeech.Value = list;
-                    _recognizedSpeechVersion.Value++;
+                    _recognizedSpeech.Update(list => list.TakeLast(MaxTranscriptEntries - 1).Append(entry));
                 }
             }
         }
@@ -94,7 +91,7 @@ public partial class Tori
         _participantSpeechStates.Clear();
 
         // Restart for all participants who have audio enabled
-        foreach (var participant in _participants.Value)
+        foreach (var participant in _participants)
         {
             if (participant.IsAudioEnabled)
             {

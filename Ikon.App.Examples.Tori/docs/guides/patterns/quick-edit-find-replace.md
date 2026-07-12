@@ -29,12 +29,12 @@ private async Task<QuickEditResponse?> TryQuickEditAsync(string userMessage)
 
     try
     {
-        var (result, _) = await Emerge.Run<QuickEditResponse>(LLMModel.Claude45Haiku, ctx, pass =>
+        var result = await Emerge.Run<QuickEditResponse>(LLMModel.Claude45Haiku, ctx, pass =>
         {
             pass.Temperature = 0.1f;
             pass.MaxOutputTokens = 1000;
             pass.Command = $"Return find/replace pairs if simple, else IsSimpleEdit=false.\n\n{pass.JsonSchema}";
-        }).FinalAsync();
+        }).ResultAsync();
 
         if (result.IsSimpleEdit && result.Replacements.Count > 0)
         {

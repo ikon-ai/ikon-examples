@@ -59,16 +59,15 @@ private async Task<string> GetAgentResponse(Agent agent, string userMessage, str
         Other specialists may have different perspectives — engage constructively.
         """;
 
-    var (result, _) = await Emerge.Run<AgentResponse>(
+    var result = await Emerge.Run<AgentResponse>(
         LLMModel.Claude45Sonnet,
-        new KernelContext(),
         pass =>
         {
             pass.SystemPrompt = systemPrompt;
             pass.Command = $"User: {userMessage}\n\nProvide your expert perspective. Return JSON:\n{pass.JsonSchema}";
             pass.Temperature = 0.7;
             pass.MaxOutputTokens = 1000;
-        }).FinalAsync();
+        }).ResultAsync();
 
     return result.Response;
 }

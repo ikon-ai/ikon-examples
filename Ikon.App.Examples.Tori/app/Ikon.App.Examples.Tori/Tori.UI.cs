@@ -34,20 +34,12 @@ public partial class Tori
 
     private string GetMeetingUrl(string meetId)
     {
-        var channelUrl = app.GlobalState.ChannelUrl;
-
-        if (string.IsNullOrWhiteSpace(channelUrl))
-        {
-            return $"?id={meetId}";
-        }
-
-        var separator = channelUrl.Contains('?') ? "&" : "?";
-        return $"{channelUrl}{separator}id={meetId}";
+        return app.JoinUrl(new { id = meetId });
     }
 
     private void RenderCreateMeetPage(UIView view)
     {
-        var isDark = _currentTheme.Value == Constants.DarkTheme;
+        var isDark = _theme.Current.Value == Theme.Dark.ToThemeName();
 
         view.Column(["h-full flex flex-col items-center justify-center gap-6 relative"], content: col =>
         {
@@ -58,7 +50,7 @@ public partial class Tori
                     contentStyle: [Tooltip.Content],
                     trigger: v => v.Button(
                         [Button.GhostMd, Button.Icon],
-                        onClick: ToggleThemeAsync,
+                        onClick: _theme.ToggleAsync,
                         content: vv => vv.Icon([Icon.Default], name: isDark ? "sun" : "moon")),
                     contentSlot: v => v.Text([Text.Caption], isDark ? "Light mode" : "Dark mode"));
             });
@@ -177,7 +169,7 @@ public partial class Tori
                     {
                         row.Button(
                             [Button.PrimaryMd, "font-sans text-primary-foreground"],
-                            label: "Start meeting",
+                            text: "Start meeting",
                             href: meetLink);
                     });
                 });
@@ -186,7 +178,7 @@ public partial class Tori
 
     private void RenderEnterNamePage(UIView view)
     {
-        var isDark = _currentTheme.Value == Constants.DarkTheme;
+        var isDark = _theme.Current.Value == Theme.Dark.ToThemeName();
         var nameValue = _nameInput.Value.Trim();
         var hasValidName = !string.IsNullOrWhiteSpace(nameValue);
 
@@ -199,7 +191,7 @@ public partial class Tori
                     contentStyle: [Tooltip.Content],
                     trigger: v => v.Button(
                         [Button.GhostMd, Button.Icon],
-                        onClick: ToggleThemeAsync,
+                        onClick: _theme.ToggleAsync,
                         content: vv => vv.Icon([Icon.Default], name: isDark ? "sun" : "moon")),
                     contentSlot: v => v.Text([Text.Caption], isDark ? "Light mode" : "Dark mode"));
             });
@@ -255,7 +247,7 @@ public partial class Tori
 
     private void RenderLeftMeetingPage(UIView view)
     {
-        var isDark = _currentTheme.Value == Constants.DarkTheme;
+        var isDark = _theme.Current.Value == Theme.Dark.ToThemeName();
 
         view.Column(["h-full flex flex-col items-center justify-center gap-6 relative"], content: col =>
         {
@@ -266,7 +258,7 @@ public partial class Tori
                     contentStyle: [Tooltip.Content],
                     trigger: v => v.Button(
                         [Button.GhostMd, Button.Icon],
-                        onClick: ToggleThemeAsync,
+                        onClick: _theme.ToggleAsync,
                         content: vv => vv.Icon([Icon.Default], name: isDark ? "sun" : "moon")),
                     contentSlot: v => v.Text([Text.Caption], isDark ? "Light mode" : "Dark mode"));
             });
@@ -284,8 +276,6 @@ public partial class Tori
 
     private void RenderMeetingPage(UIView view)
     {
-        _ = _participantsVersion.Value;
-
         if (IsMobileLayout())
         {
             RenderMobileMeetingPage(view);
@@ -349,7 +339,7 @@ public partial class Tori
         view.CaptureButton(
             [Button.OutlineMd, Button.Icon, "w-11 h-11"],
             kind: MediaCaptureKind.Audio,
-            label: isAudioOn ? "Mute" : "Unmute",
+            text: isAudioOn ? "Mute" : "Unmute",
             captureMode: MediaCaptureButtonMode.Toggle,
             audioOptions: GetAudioCaptureOptions(),
             onCaptureStart: OnAudioCaptureStart,
@@ -360,7 +350,7 @@ public partial class Tori
         view.CaptureButton(
             [Button.OutlineMd, Button.Icon, "w-11 h-11"],
             kind: MediaCaptureKind.Camera,
-            label: isVideoOn ? "Camera off" : "Camera on",
+            text: isVideoOn ? "Camera off" : "Camera on",
             captureMode: MediaCaptureButtonMode.Toggle,
             videoOptions: GetCameraCaptureOptions(),
             onCaptureStart: OnVideoCaptureStart,
@@ -388,10 +378,6 @@ public partial class Tori
 
     private void RenderMobilePanel(UIView view)
     {
-        _ = _chatMessagesVersion.Value;
-        _ = _recognizedSpeechVersion.Value;
-        _ = _summaryVersion.Value;
-
         // Overlay backdrop
         view.Box([Drawer.Overlay], content: overlay =>
         {
@@ -458,7 +444,7 @@ public partial class Tori
 
         view.Button(
             [activeStyle],
-            label: label,
+            text: label,
             onClick: async () => _mobilePanelTab.Value = tabId);
     }
 
@@ -471,7 +457,7 @@ public partial class Tori
             {
                 v.ScrollArea(
                     autoScroll: true,
-                    autoScrollKey: $"mobile-chat-{_chatMessagesVersion.Value}",
+                    autoScrollKey: $"mobile-chat-{_chatMessages.Count}-{_chatMessages.Version}",
                     rootStyle: ["h-full"],
                     viewportStyle: ["h-full"],
                     content: scroll =>
@@ -565,11 +551,11 @@ public partial class Tori
                     {
                         row.Button(
                             [Button.OutlineMd],
-                            label: "Cancel",
+                            text: "Cancel",
                             onClick: async () => _leaveConfirmDialogOpen.Value = false);
                         row.Button(
                             [Button.ErrorMd],
-                            label: "Leave",
+                            text: "Leave",
                             onClick: async () =>
                             {
                                 _leaveConfirmDialogOpen.Value = false;
@@ -656,7 +642,7 @@ public partial class Tori
 
     private void RenderParticipantTile(UIView view, Participant participant)
     {
-        var isDark = _currentTheme.Value == Constants.DarkTheme;
+        var isDark = _theme.Current.Value == Theme.Dark.ToThemeName();
         var gradient = GetParticipantGradient(participant.UserId, isDark);
         var isSpeaking = GetIsSpeaking(participant.ClientSessionId);
         var participantKey = participant.ClientSessionId.ToString();
@@ -708,7 +694,7 @@ public partial class Tori
         var isVideoOn = _isVideoEnabled.Value;
         var isAudioOn = _isAudioEnabled.Value;
         var isScreenShareOn = _isScreenShareEnabled.Value;
-        var isDark = _currentTheme.Value == Constants.DarkTheme;
+        var isDark = _theme.Current.Value == Theme.Dark.ToThemeName();
 
         // Left spacer for centering
         view.Box(["flex-1"], content: _ => { });
@@ -722,7 +708,7 @@ public partial class Tori
                 trigger: v => v.CaptureButton(
                     [Button.OutlineMd, Button.Icon, "w-14 h-14"],
                     kind: MediaCaptureKind.Audio,
-                    label: isAudioOn ? "Unmute" : "Mute",
+                    text: isAudioOn ? "Unmute" : "Mute",
                     captureMode: MediaCaptureButtonMode.Toggle,
                     audioOptions: GetAudioCaptureOptions(),
                     onCaptureStart: OnAudioCaptureStart,
@@ -736,7 +722,7 @@ public partial class Tori
                 trigger: v => v.CaptureButton(
                     [Button.OutlineMd, Button.Icon, "w-14 h-14"],
                     kind: MediaCaptureKind.Camera,
-                    label: isVideoOn ? "Video On" : "Video Off",
+                    text: isVideoOn ? "Video On" : "Video Off",
                     captureMode: MediaCaptureButtonMode.Toggle,
                     videoOptions: GetCameraCaptureOptions(),
                     onCaptureStart: OnVideoCaptureStart,
@@ -752,7 +738,7 @@ public partial class Tori
                     trigger: v => v.CaptureButton(
                         [Button.OutlineMd, Button.Icon, "w-14 h-14"],
                         kind: MediaCaptureKind.Screen,
-                        label: isScreenShareOn ? "Stop Sharing" : "Share Screen",
+                        text: isScreenShareOn ? "Stop Sharing" : "Share Screen",
                         captureMode: MediaCaptureButtonMode.Toggle,
                         videoOptions: GetScreenCaptureOptions(),
                         onCaptureStart: OnScreenShareStart,
@@ -779,7 +765,7 @@ public partial class Tori
                 contentStyle: [Tooltip.Content],
                 trigger: v => v.Button(
                     [Button.GhostMd, Button.Icon, "w-10 h-10"],
-                    onClick: ToggleThemeAsync,
+                    onClick: _theme.ToggleAsync,
                     content: vv => vv.Icon([Icon.Default], name: isDark ? "sun" : "moon")),
                 contentSlot: v => v.Text([Text.Caption], isDark ? "Light mode" : "Dark mode"));
 
@@ -796,10 +782,6 @@ public partial class Tori
 
     private void RenderRightPanel(UIView view)
     {
-        _ = _chatMessagesVersion.Value;
-        _ = _recognizedSpeechVersion.Value;
-        _ = _summaryVersion.Value;
-
         // People/Summary/Transcript section (top half)
         view.Column([Card.Default, "flex-1 min-h-0 flex flex-col"], content: col =>
         {
@@ -834,7 +816,7 @@ public partial class Tori
             {
                 v.ScrollArea(
                     autoScroll: true,
-                    autoScrollKey: $"chat-{_chatMessagesVersion.Value}",
+                    autoScrollKey: $"chat-{_chatMessages.Count}-{_chatMessages.Version}",
                     rootStyle: ["h-full"],
                     viewportStyle: ["h-full"],
                     content: scroll =>
@@ -1054,7 +1036,7 @@ public partial class Tori
         {
             box.ScrollArea(
                 autoScroll: true,
-                autoScrollKey: $"transcript-{_recognizedSpeechVersion.Value}",
+                autoScrollKey: $"transcript-{_recognizedSpeech.Count}-{_recognizedSpeech.Version}",
                 rootStyle: ["h-full"],
                 viewportStyle: ["h-full"],
                 content: scroll =>

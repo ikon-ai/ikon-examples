@@ -6,7 +6,7 @@ public record ClientParams(string Id = "", string Name = "");
 [App]
 public partial class Tori(IApp<SessionIdentity, ClientParams> app)
 {
-    private UI UI { get; } = new(app, new Theme());
+    private UI UI { get; } = new(app, new IkonTheme());
     private Audio Audio { get; } = new(app);
     private Video Video { get; } = new(app);
 
@@ -45,8 +45,7 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
         "bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.4)_0%,rgba(139,92,246,0.25)_50%,rgba(99,102,241,0.15)_100%)]",  // Indigo-Violet
     ];
 
-    private readonly Reactive<List<Participant>> _participants = new([]);
-    private readonly Reactive<int> _participantsVersion = new(0);
+    private readonly ReactiveList<Participant> _participants = new();
 
     // Per-client state
     private readonly ClientReactive<bool> _isVideoEnabled = new(false);
@@ -75,14 +74,12 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
 
     // Chat state
     public record ChatMessage(string Id, string SenderName, DateTime Timestamp, string Content);
-    private readonly Reactive<List<ChatMessage>> _chatMessages = new([]);
-    private readonly Reactive<int> _chatMessagesVersion = new(0);
+    private readonly ReactiveList<ChatMessage> _chatMessages = new();
     private readonly ClientReactive<string> _chatInputText = new("");
 
     // Speech recognition state
     public record TranscriptEntry(string ParticipantName, string Text, DateTime Timestamp);
-    private readonly Reactive<List<TranscriptEntry>> _recognizedSpeech = new([]);
-    private readonly Reactive<int> _recognizedSpeechVersion = new(0);
+    private readonly ReactiveList<TranscriptEntry> _recognizedSpeech = new();
     private readonly Reactive<bool> _speechEnabled = new(true);
     private readonly Reactive<SpeechRecognizerModel> _speechModel = new(SpeechRecognizerModel.WhisperLarge3Turbo);
     private readonly Reactive<string> _speechLanguage = new("en-US");
@@ -93,17 +90,15 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
     private readonly ClientReactive<string> _rightPanelTab = new("people");
     private readonly Reactive<string> _summary = new("");
     private readonly Reactive<bool> _summaryExtracting = new(false);
-    private readonly Reactive<int> _summaryVersion = new(0);
     private readonly Reactive<bool> _summaryEnabled = new(true);
     private readonly Reactive<LLMModel> _summaryModel = new(LLMModel.Gemini25Pro);
     private readonly ClientReactive<string> _settingsTab = new("audio");
 
-    // Track what has been sent to LLM for summary extraction (using version numbers since lists can be capped)
-    private int _lastExtractedTranscriptVersion;
-    private int _lastExtractedChatVersion;
+    // Track what has been sent to LLM for summary extraction (using reactive versions since lists can be capped)
+    private long _lastExtractedTranscriptVersion;
+    private long _lastExtractedChatVersion;
 
-    // Theme state
-    private readonly ClientReactive<string> _currentTheme = new(Constants.LightTheme);
+    private ThemeControl _theme = null!;
 
     // Timezone state (IANA timezone identifier, e.g. "America/New_York")
     private readonly ClientReactive<string> _clientTimezone = new("UTC");
@@ -184,6 +179,8 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
 
     public async Task Main()
     {
+        _theme = UI.UseTheme(Theme.Light);
+
         SetupVideoInputHandlers();
         SetupAudioInputHandlers();
         SetupClientHandlers();
@@ -227,8 +224,8 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
             {
                 keyPointsCheckCounter = 0;
 
-                var hasNewTranscript = _recognizedSpeechVersion.Value > _lastExtractedTranscriptVersion;
-                var hasNewChat = _chatMessagesVersion.Value > _lastExtractedChatVersion;
+                var hasNewTranscript = _recognizedSpeech.Version > _lastExtractedTranscriptVersion;
+                var hasNewChat = _chatMessages.Version > _lastExtractedChatVersion;
 
                 if ((hasNewTranscript || hasNewChat) && _summaryEnabled.Value)
                 {
@@ -245,9 +242,10 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
             return;
         }
 
-        // Calculate how many new entries since last extraction using version numbers
-        var transcriptVersionDelta = _recognizedSpeechVersion.Value - _lastExtractedTranscriptVersion;
-        var chatVersionDelta = _chatMessagesVersion.Value - _lastExtractedChatVersion;
+        // Calculate how many new entries since last extraction using reactive versions
+        // (each append is exactly one mutation, so the version delta counts new entries)
+        var transcriptVersionDelta = _recognizedSpeech.Version - _lastExtractedTranscriptVersion;
+        var chatVersionDelta = _chatMessages.Version - _lastExtractedChatVersion;
 
         // Check if there's actually new content (skip for forced/manual extraction)
         if (!force && transcriptVersionDelta <= 0 && chatVersionDelta <= 0)
@@ -258,15 +256,15 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
         // For forced extraction, use all available content if no new content
         if (force && transcriptVersionDelta <= 0 && chatVersionDelta <= 0)
         {
-            transcriptVersionDelta = _recognizedSpeech.Value.Count;
-            chatVersionDelta = _chatMessages.Value.Count;
+            transcriptVersionDelta = _recognizedSpeech.Count;
+            chatVersionDelta = _chatMessages.Count;
         }
 
         // Get new entries - take the last N entries where N = version delta (capped to list size)
         var transcriptEntries = _recognizedSpeech.Value;
         var chatEntries = _chatMessages.Value;
-        var newTranscriptCount = Math.Min(transcriptVersionDelta, transcriptEntries.Count);
-        var newChatCount = Math.Min(chatVersionDelta, chatEntries.Count);
+        var newTranscriptCount = (int)Math.Min(transcriptVersionDelta, transcriptEntries.Count);
+        var newChatCount = (int)Math.Min(chatVersionDelta, chatEntries.Count);
         var newTranscriptEntries = newTranscriptCount > 0 ? transcriptEntries.TakeLast(newTranscriptCount).ToList() : [];
         var newChatEntries = newChatCount > 0 ? chatEntries.TakeLast(newChatCount).ToList() : [];
 
@@ -303,7 +301,7 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
             Log.Instance.Info($"Summary extraction: {newTranscriptEntries.Count} new transcript entries, {newChatEntries.Count} new chat entries");
             Log.Instance.Info($"Summary context:\n{context}");
 
-            var (result, _) = await Emerge.Run<SummaryResult>(model, new KernelContext(), pass =>
+            var result = await Emerge.Run<SummaryResult>(model, pass =>
             {
                 pass.SystemPrompt = """
                     You are a meeting assistant that extracts and summarizes key points from meeting transcripts and chat messages.
@@ -336,16 +334,15 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
                     """;
                 pass.Temperature = 0.3f;
                 pass.MaxOutputTokens = 32000;
-            }).FinalAsync();
+            }).ResultAsync();
 
             // Update tracking versions after successful extraction
-            _lastExtractedTranscriptVersion = _recognizedSpeechVersion.Value;
-            _lastExtractedChatVersion = _chatMessagesVersion.Value;
+            _lastExtractedTranscriptVersion = _recognizedSpeech.Version;
+            _lastExtractedChatVersion = _chatMessages.Version;
 
             Log.Instance.Info($"Summary extraction result:\n{result.Markdown}");
 
             _summary.Value = result.Markdown;
-            _summaryVersion.Value++;
         }
         catch (Exception ex)
         {
@@ -359,21 +356,21 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
 
     private string GetTranscriptAsText()
     {
-        if (_recognizedSpeech.Value.Count == 0)
+        if (_recognizedSpeech.Count == 0)
         {
             return "";
         }
 
-        return string.Join("\n\n", _recognizedSpeech.Value.Select(e => $"{e.ParticipantName}: {e.Text}"));
+        return string.Join("\n\n", _recognizedSpeech.Select(e => $"{e.ParticipantName}: {e.Text}"));
     }
 
     private void SetupClientHandlers()
     {
         app.ClientJoinedAsync += async args =>
         {
-            await ClientFunctions.KeepScreenAwakeAsync(args.ClientSessionId, true);
+            await ClientFunctions.KeepScreenAwakeAsync(true, targetId: args.ClientSessionId);
 
-            InitializeClientThemeAndTimezone(args.ClientSessionId, args.ClientContext);
+            InitializeClientTimezoneAndDevice(args.ClientSessionId, args.ClientContext);
 
             _ = RefreshDevicesAsync(args.ClientSessionId, args.ClientContext);
 
@@ -395,9 +392,7 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
             _groupAudioMixer?.RemoveParticipant(args.ClientSessionId.ToString());
             await CleanupClientStreamsAsync(args.ClientSessionId);
 
-            var list = _participants.Value.Where(p => p.ClientSessionId != args.ClientSessionId).ToList();
-            _participants.Value = list;
-            _participantsVersion.Value++;
+            _participants.RemoveAll(p => p.ClientSessionId == args.ClientSessionId);
         };
 
         app.MessageReceivedAsync += async args =>
@@ -417,14 +412,9 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
         };
     }
 
-    private void InitializeClientThemeAndTimezone(int clientSessionId, Context clientContext)
+    private void InitializeClientTimezoneAndDevice(int clientSessionId, Context clientContext)
     {
         using var _ = ReactiveScope.Use(new ClientScope(clientSessionId));
-
-        if (!string.IsNullOrEmpty(clientContext.Theme))
-        {
-            _currentTheme.Value = clientContext.Theme == Constants.DarkTheme ? Constants.DarkTheme : Constants.LightTheme;
-        }
 
         if (!string.IsNullOrEmpty(clientContext.Timezone))
         {
@@ -436,7 +426,7 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
 
     private async Task CleanupClientStreamsAsync(int clientSessionId)
     {
-        var participant = _participants.Value.FirstOrDefault(p => p.ClientSessionId == clientSessionId);
+        var participant = _participants.FirstOrDefault(p => p.ClientSessionId == clientSessionId);
 
         if (participant?.VideoStreamId != null)
         {
@@ -471,34 +461,27 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
             return null;
         }
 
-        return _participants.Value.FirstOrDefault(p => p.ClientSessionId == clientScope.Value.Id);
+        return _participants.FirstOrDefault(p => p.ClientSessionId == clientScope.Value.Id);
     }
 
     private void UpdateParticipant(int clientSessionId, Func<Participant, Participant> update)
     {
-        var list = _participants.Value.ToList();
-        var index = list.FindIndex(p => p.ClientSessionId == clientSessionId);
-
-        if (index >= 0)
-        {
-            list[index] = update(list[index]);
-            _participants.Value = list;
-            _participantsVersion.Value++;
-        }
-    }
-
-    private void AddParticipant(int clientSessionId, string userId, string name, bool isMobile)
-    {
-        if (_participants.Value.Any(p => p.ClientSessionId == clientSessionId))
+        if (_participants.All(p => p.ClientSessionId != clientSessionId))
         {
             return;
         }
 
-        var participant = new Participant(clientSessionId, userId, name, null, null, false, false, IsMobile: isMobile);
-        var list = _participants.Value.ToList();
-        list.Add(participant);
-        _participants.Value = list;
-        _participantsVersion.Value++;
+        _participants.Update(list => list.Select(p => p.ClientSessionId == clientSessionId ? update(p) : p));
+    }
+
+    private void AddParticipant(int clientSessionId, string userId, string name, bool isMobile)
+    {
+        if (_participants.Any(p => p.ClientSessionId == clientSessionId))
+        {
+            return;
+        }
+
+        _participants.Add(new Participant(clientSessionId, userId, name, null, null, false, false, IsMobile: isMobile));
 
         _groupAudioMixer?.AddParticipant(clientSessionId.ToString());
     }
@@ -523,18 +506,6 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
         AddParticipant(clientSessionId, userId, name, isMobile);
     }
 
-    private async Task ToggleThemeAsync()
-    {
-        var currentTheme = _currentTheme.Value;
-        var nextTheme = currentTheme == Constants.DarkTheme ? Constants.LightTheme : Constants.DarkTheme;
-        var updated = await ClientFunctions.SetThemeAsync(nextTheme);
-
-        if (updated)
-        {
-            _currentTheme.Value = nextTheme;
-        }
-    }
-
     private async Task RefreshDevicesAsync(int clientSessionId, Context clientContext)
     {
         using var _ = ReactiveScope.Use(new ClientScope(clientSessionId));
@@ -548,7 +519,7 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
 
         try
         {
-            var devices = await ClientFunctions.GetMediaDevicesAsync(clientSessionId);
+            var devices = await ClientFunctions.GetMediaDevicesAsync(targetId: clientSessionId);
             _availableDevices.Value = devices;
         }
         catch (Exception ex)
@@ -577,25 +548,23 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
 
         if (_activeAudioStreamId.Value != null)
         {
-            stopTasks.Add(ClientFunctions.StopCaptureAsync(sessionId, _activeAudioStreamId.Value));
+            stopTasks.Add(ClientFunctions.StopCaptureAsync(_activeAudioStreamId.Value, targetId: sessionId));
         }
 
         if (_activeVideoStreamId.Value != null)
         {
-            stopTasks.Add(ClientFunctions.StopCaptureAsync(sessionId, _activeVideoStreamId.Value));
+            stopTasks.Add(ClientFunctions.StopCaptureAsync(_activeVideoStreamId.Value, targetId: sessionId));
         }
 
         if (_activeScreenShareStreamId.Value != null)
         {
-            stopTasks.Add(ClientFunctions.StopCaptureAsync(sessionId, _activeScreenShareStreamId.Value));
+            stopTasks.Add(ClientFunctions.StopCaptureAsync(_activeScreenShareStreamId.Value, targetId: sessionId));
         }
 
         await Task.WhenAll(stopTasks);
 
         // Remove from participants list
-        var list = _participants.Value.Where(p => p.ClientSessionId != sessionId).ToList();
-        _participants.Value = list;
-        _participantsVersion.Value++;
+        _participants.RemoveAll(p => p.ClientSessionId == sessionId);
 
         // Mark as left
         _hasLeft.Value = true;
