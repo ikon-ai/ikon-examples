@@ -198,17 +198,13 @@ Log.Instance.Info($"String result: {stringResult}");
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
-One-shot — defaults to `Gemini25FlashImage` (cheap+fast); the result is nullable, so guard it:
+One-shot — defaults to `Gemini25FlashImage` (cheap+fast); the result is never null (throws `ImageGeneratorException` on failure):
 
 ```csharp
 using Ikon.AI.ImageGeneration;
 
 var image = await ImageGenerator.GenerateAsync("A santa dancing in the snow");
-
-if (image != null)
-{
-    await File.WriteAllBytesAsync("santa.png", image.Data);
-}
+await File.WriteAllBytesAsync("santa.png", image.Data);
 ```
 
 Use the constructor + config form for negative prompts, resolution, seeding, batches, or input images:
@@ -367,6 +363,17 @@ Log.Instance.Info($"Video URL: {result.Url}");
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
+One-shot — defaults to `TensorPixUpscale2xUltra41` (the current 2x upscale generation):
+
+```csharp
+using Ikon.AI.VideoEnhancement;
+
+var enhanced = await VideoEnhancer.EnhanceAsync("https://example.com/input.mp4");
+Log.Instance.Info($"Enhanced video URL: {enhanced.Url}");
+```
+
+Use the constructor + config form for raw video bytes, frame ranges, or a target FPS:
+
 ```csharp
 using Ikon.AI.VideoEnhancement;
 
@@ -386,7 +393,7 @@ Log.Instance.Info($"Enhanced video URL: {result.Url}");
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
-One-shot — defaults to `ElevenFlash25` (cheap+fast) and returns the full clip as a single PCM `AudioChunk?` (nullable — guard it):
+One-shot — defaults to `ElevenFlash25` (cheap+fast) and returns the full clip as a single PCM `AudioChunk` (never null; throws `SpeechGeneratorException` on failure):
 
 ```csharp
 using Ikon.AI.SpeechGeneration;
@@ -394,12 +401,9 @@ using Ikon.Resonance;
 
 var audio = await SpeechGenerator.GenerateAsync("There once was a ship that put to sea.");
 
-if (audio != null)
-{
-    using var wavFile = new WavFile(audio.SampleRate, audio.ChannelCount, WavFile.SampleFormat.Float);
-    wavFile.AddSamples(audio.Samples);
-    wavFile.SaveToFile("speech.wav");
-}
+using var wavFile = new WavFile(audio.SampleRate, audio.ChannelCount, WavFile.SampleFormat.Float);
+wavFile.AddSamples(audio.Samples);
+wavFile.SaveToFile("speech.wav");
 ```
 
 Use the constructor + config form for chunk-by-chunk streaming, voice discovery, language, instructions, or speed:
@@ -675,7 +679,7 @@ foreach (var item in items)
 }
 ```
 
-Use the constructor + instance `RerankAsync` for custom timeouts or when reranking many queries with the same instance:
+Use the constructor + instance `RerankAsync` for a custom `Timeout` or when reranking many queries with the same instance:
 
 ```csharp
 using Ikon.AI.Reranking;
@@ -707,7 +711,7 @@ foreach (var detail in result.Details)
 }
 ```
 
-Use the constructor + the instance `ClassifyAsync` overloads for image/message-part inputs, custom timeouts, or classifying many inputs with the same instance:
+Use the constructor + the instance `ClassifyAsync` overloads for image/message-part inputs, a custom `Timeout`, or classifying many inputs with the same instance:
 
 ```csharp
 using Ikon.AI.Classification;
@@ -738,7 +742,7 @@ foreach (var embedding in embeddings)
 }
 ```
 
-Use the constructor + `GenerateEmbeddingsAsync` for batching control, custom timeouts, or the generator's `MaxInputCount` / `EmbeddingVectorSize` properties:
+Use the constructor + `GenerateEmbeddingsAsync` for batching control, a custom `Timeout`, or the generator's `MaxInputCount` / `EmbeddingVectorSize` properties:
 
 ```csharp
 using Ikon.AI.Embeddings;
