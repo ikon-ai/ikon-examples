@@ -354,7 +354,7 @@ public partial class Validation
                 {
                     view.Button(
                         [Button.OutlineMd, "mt-4"],
-                        label: $"Show all {matched.Length}",
+                        text: $"Show all {matched.Length}",
                         onClick: async () => _iconShowAll.Value = true);
                 }
             });

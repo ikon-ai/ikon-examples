@@ -62,25 +62,23 @@ public partial class Validation
                     view.Row([Layout.Row.Md, "flex-wrap mb-4"], content: view =>
                     {
                         view.Button([Button.PrimaryMd],
-                            label: "Add Sine Wave",
+                            text: "Add Sine Wave",
                             onClick: async () =>
                             {
                                 var source = new SineWaveSource(_sineWaveIds.Value.Count);
                                 var streamId = AudioGenerator.AddSource(source);
-                                _sineWaveIds.Value.Add(streamId);
-                                _sineWaveIds.NotifyUpdate();
+                                _sineWaveIds.Add(streamId);
                             });
 
                         view.Button([Button.ErrorMd],
-                            label: "Remove",
+                            text: "Remove",
                             onClick: async () =>
                             {
                                 if (_sineWaveIds.Value.Count > 0)
                                 {
                                     var streamId = _sineWaveIds.Value[^1];
-                                    _sineWaveIds.Value.RemoveAt(_sineWaveIds.Value.Count - 1);
+                                    _sineWaveIds.RemoveAt(_sineWaveIds.Value.Count - 1);
                                     AudioGenerator.RemoveSource(streamId);
-                                    _sineWaveIds.NotifyUpdate();
                                 }
                             });
                     });
@@ -90,26 +88,24 @@ public partial class Validation
                     view.Row([Layout.Row.Md, "flex-wrap mb-4"], content: view =>
                     {
                         view.Button([Button.PrimaryMd],
-                            label: "Add Drum Machine",
+                            text: "Add Drum Machine",
                             onClick: async () =>
                             {
                                 double bpm = 120 + _drumMachineIds.Value.Count * 10;
                                 var source = new DrumMachineSource(bpm);
                                 var streamId = AudioGenerator.AddSource(source);
-                                _drumMachineIds.Value.Add(streamId);
-                                _drumMachineIds.NotifyUpdate();
+                                _drumMachineIds.Add(streamId);
                             });
 
                         view.Button([Button.ErrorMd],
-                            label: "Remove",
+                            text: "Remove",
                             onClick: async () =>
                             {
                                 if (_drumMachineIds.Value.Count > 0)
                                 {
                                     var streamId = _drumMachineIds.Value[^1];
-                                    _drumMachineIds.Value.RemoveAt(_drumMachineIds.Value.Count - 1);
+                                    _drumMachineIds.RemoveAt(_drumMachineIds.Value.Count - 1);
                                     AudioGenerator.RemoveSource(streamId);
-                                    _drumMachineIds.NotifyUpdate();
                                 }
                             });
                     });
@@ -119,7 +115,7 @@ public partial class Validation
                     view.Row([Layout.Row.Md, "flex-wrap mb-4"], content: view =>
                     {
                         view.Button([Button.PrimaryMd],
-                            label: "Add Synth",
+                            text: "Add Synth",
                             onClick: async () =>
                             {
                                 var patch = Patches[_moogSynthIds.Value.Count % Patches.Length];
@@ -131,21 +127,19 @@ public partial class Validation
                                 }
 
                                 var streamId = AudioGenerator.AddSource(source);
-                                _moogSynthIds.Value.Add(streamId);
-                                _moogSynthIds.NotifyUpdate();
+                                _moogSynthIds.Add(streamId);
                                 UpdateSynthInfo();
                             });
 
                         view.Button([Button.ErrorMd],
-                            label: "Remove",
+                            text: "Remove",
                             onClick: async () =>
                             {
                                 if (_moogSynthIds.Value.Count > 0)
                                 {
                                     var streamId = _moogSynthIds.Value[^1];
-                                    _moogSynthIds.Value.RemoveAt(_moogSynthIds.Value.Count - 1);
+                                    _moogSynthIds.RemoveAt(_moogSynthIds.Value.Count - 1);
                                     AudioGenerator.RemoveSource(streamId);
-                                    _moogSynthIds.NotifyUpdate();
                                     UpdateSynthInfo();
                                 }
                             });
@@ -158,16 +152,16 @@ public partial class Validation
                         view.Row([Layout.Row.Md, "flex-wrap mb-2"], content: view =>
                         {
                             view.Button([Button.NeutralMd],
-                                label: "Next Patch",
+                                text: "Next Patch",
                                 onClick: async () => CycleSynthPatch());
 
                             view.Button([Button.NeutralMd],
-                                label: "Next Pattern",
+                                text: "Next Pattern",
                                 onClick: async () => CycleSynthPattern());
 
                             view.Button(
                                 [_generativeMode.Value ? Button.PrimaryMd : Button.OutlineMd],
-                                label: _generativeMode.Value ? "Generative Mode" : "Pattern Mode",
+                                text: _generativeMode.Value ? "Generative Mode" : "Pattern Mode",
                                 onClick: async () =>
                                 {
                                     _generativeMode.Value = !_generativeMode.Value;
@@ -192,13 +186,13 @@ public partial class Validation
                         foreach (var effectType in EffectTypes)
                         {
                             view.Button([Button.OutlineSm],
-                                label: effectType,
+                                text: effectType,
                                 onClick: async () => AddEffect(effectType));
                         }
                     });
 
                     view.Button([Button.ErrorMd],
-                        label: "Clear All Effects",
+                        text: "Clear All Effects",
                         onClick: async () => ClearAllEffects());
 
                     if (_activeEffects.Value.Count > 0)
@@ -215,7 +209,7 @@ public partial class Validation
                                 {
                                     view.Text([Text.BodyStrong], entry.EffectType);
                                     view.Button([Button.ErrorMd],
-                                        label: "Remove",
+                                        text: "Remove",
                                         onClick: async () => RemoveEffect(index));
                                 });
                                 RenderEffectParams(view, entry, index);
@@ -276,8 +270,8 @@ public partial class Validation
                         {
                             view.Switch(
                                 [Switch.Default],
-                                isChecked: _audioEchoCancellation.Value,
-                                onCheckedChange: value =>
+                                value: _audioEchoCancellation.Value,
+                                onValueChange: value =>
                                 {
                                     _audioEchoCancellation.Value = value;
                                     return Task.CompletedTask;
@@ -290,8 +284,8 @@ public partial class Validation
                         {
                             view.Switch(
                                 [Switch.Default],
-                                isChecked: _audioNoiseSuppression.Value,
-                                onCheckedChange: value =>
+                                value: _audioNoiseSuppression.Value,
+                                onValueChange: value =>
                                 {
                                     _audioNoiseSuppression.Value = value;
                                     return Task.CompletedTask;
@@ -304,8 +298,8 @@ public partial class Validation
                         {
                             view.Switch(
                                 [Switch.Default],
-                                isChecked: _audioAutoGainControl.Value,
-                                onCheckedChange: value =>
+                                value: _audioAutoGainControl.Value,
+                                onValueChange: value =>
                                 {
                                     _audioAutoGainControl.Value = value;
                                     return Task.CompletedTask;
@@ -320,7 +314,7 @@ public partial class Validation
                         view.CaptureButton(
                             [_isAudioHoldRecording.Value ? Button.ErrorMd : Button.PrimaryMd],
                             kind: MediaCaptureKind.Audio,
-                            label: "Hold to Record",
+                            text: "Hold to Record",
                             captureMode: MediaCaptureButtonMode.Hold,
                             audioOptions: new ClientAudioCaptureOptions
                             {
@@ -337,7 +331,7 @@ public partial class Validation
                         view.CaptureButton(
                             [_isAudioHoldRecording.Value ? Button.ErrorMd : Button.PrimaryMd, Button.Icon],
                             kind: MediaCaptureKind.Audio,
-                            label: "Hold to Record",
+                            text: "Hold to Record",
                             captureMode: MediaCaptureButtonMode.Hold,
                             audioOptions: new ClientAudioCaptureOptions
                             {
@@ -355,7 +349,7 @@ public partial class Validation
                         view.CaptureButton(
                             [_isAudioToggleRecording.Value ? Button.ErrorMd : Button.NeutralMd],
                             kind: MediaCaptureKind.Audio,
-                            label: _isAudioToggleRecording.Value ? "Stop Recording" : "Toggle Record",
+                            text: _isAudioToggleRecording.Value ? "Stop Recording" : "Toggle Record",
                             captureMode: MediaCaptureButtonMode.Toggle,
                             audioOptions: new ClientAudioCaptureOptions
                             {
@@ -372,7 +366,7 @@ public partial class Validation
                         view.CaptureButton(
                             [_isAudioToggleRecording.Value ? Button.ErrorMd : Button.NeutralMd, Button.Icon],
                             kind: MediaCaptureKind.Audio,
-                            label: _isAudioToggleRecording.Value ? "Stop Recording" : "Toggle Record",
+                            text: _isAudioToggleRecording.Value ? "Stop Recording" : "Toggle Record",
                             captureMode: MediaCaptureButtonMode.Toggle,
                             audioOptions: new ClientAudioCaptureOptions
                             {
@@ -392,7 +386,7 @@ public partial class Validation
                     {
                         view.PushToTalkButton(
                             style: [_isPushToTalkRecording.Value ? Button.ErrorMd : Button.PrimaryMd],
-                            label: "Hold to Record (Easy)",
+                            text: "Hold to Record (Easy)",
                             audioOptions: new ClientAudioCaptureOptions
                             {
                                 AutoGainControl = _audioAutoGainControl.Value,
@@ -414,8 +408,8 @@ public partial class Validation
                     {
                         view.Switch(
                             [Switch.Default],
-                            isChecked: _audioPlaybackEnabled.Value,
-                            onCheckedChange: value =>
+                            value: _audioPlaybackEnabled.Value,
+                            onValueChange: value =>
                             {
                                 _audioPlaybackEnabled.Value = value;
                                 return Task.CompletedTask;
@@ -431,13 +425,13 @@ public partial class Validation
                         foreach (var effectType in EffectTypes)
                         {
                             view.Button([Button.OutlineSm],
-                                label: effectType,
+                                text: effectType,
                                 onClick: async () => AddVoiceEffect(effectType));
                         }
                     });
 
                     view.Button([Button.ErrorMd],
-                        label: "Clear Voice Effects",
+                        text: "Clear Voice Effects",
                         onClick: async () => ClearVoiceEffects());
 
                     if (_voiceEffects.Value.Count > 0)
@@ -454,7 +448,7 @@ public partial class Validation
                                 {
                                     view.Text([Text.BodyStrong], entry.EffectType);
                                     view.Button([Button.ErrorMd],
-                                        label: "Remove",
+                                        text: "Remove",
                                         onClick: async () => RemoveVoiceEffect(index));
                                 });
                                 RenderVoiceEffectParams(view, entry, index);
@@ -478,48 +472,48 @@ public partial class Validation
                     view.Row([Layout.Row.Md, "flex-wrap mb-4"], content: view =>
                     {
                         view.Button([Button.PrimaryMd],
-                            label: "Play from byte[]",
+                            text: "Play from byte[]",
                             onClick: async () =>
                             {
                                 var soundPath = Path.Combine(app.DataDirectory, "whoosh.mp3");
                                 var soundData = await File.ReadAllBytesAsync(soundPath);
-                                var playbackId = await ClientFunctions.PlaySoundAsync(clientSessionId, soundData, "audio/mpeg", volume: 1.0);
+                                var playbackId = await ClientFunctions.PlaySoundAsync(soundData, "audio/mpeg", volume: 1.0, targetId: clientSessionId);
                                 _lastSoundPlaybackId.Value = playbackId ?? "(failed)";
                                 _soundToastMessage.Value = playbackId != null ? $"Playing from byte[]: {playbackId}" : "Failed to play sound";
                                 _soundToastOpen.Value = true;
                             });
 
                         view.Button([Button.NeutralMd],
-                            label: "Play from data URL",
+                            text: "Play from data URL",
                             onClick: async () =>
                             {
                                 var soundPath = Path.Combine(app.DataDirectory, "whoosh.mp3");
                                 var soundData = await File.ReadAllBytesAsync(soundPath);
                                 var base64 = Convert.ToBase64String(soundData);
                                 var dataUrl = $"data:audio/mpeg;base64,{base64}";
-                                var playbackId = await ClientFunctions.PlaySoundAsync(clientSessionId, dataUrl, volume: 0.8);
+                                var playbackId = await ClientFunctions.PlaySoundAsync(dataUrl, volume: 0.8, targetId: clientSessionId);
                                 _lastSoundPlaybackId.Value = playbackId ?? "(failed)";
                                 _soundToastMessage.Value = playbackId != null ? $"Playing from data URL: {playbackId}" : "Failed to play sound";
                                 _soundToastOpen.Value = true;
                             });
 
                         view.Button([Button.OutlineMd],
-                            label: "Play from URL",
+                            text: "Play from URL",
                             onClick: async () =>
                             {
-                                var playbackId = await ClientFunctions.PlaySoundAsync(clientSessionId, "https://cdn.freesound.org/previews/256/256113_3263906-lq.mp3", volume: 0.6);
+                                var playbackId = await ClientFunctions.PlaySoundAsync("https://cdn.freesound.org/previews/256/256113_3263906-lq.mp3", volume: 0.6, targetId: clientSessionId);
                                 _lastSoundPlaybackId.Value = playbackId ?? "(failed)";
                                 _soundToastMessage.Value = playbackId != null ? $"Playing from URL: {playbackId}" : "Failed to play sound";
                                 _soundToastOpen.Value = true;
                             });
 
                         view.Button([Button.ErrorMd],
-                            label: "Stop Sound",
+                            text: "Stop Sound",
                             onClick: async () =>
                             {
                                 if (_lastSoundPlaybackId.Value != "(no sound playing)" && _lastSoundPlaybackId.Value != "(failed)")
                                 {
-                                    var stopped = await ClientFunctions.StopSoundAsync(clientSessionId, _lastSoundPlaybackId.Value);
+                                    var stopped = await ClientFunctions.StopSoundAsync(_lastSoundPlaybackId.Value, targetId: clientSessionId);
                                     _soundToastMessage.Value = stopped ? $"Stopped: {_lastSoundPlaybackId.Value}" : "Sound not found or already stopped";
                                     _lastSoundPlaybackId.Value = "(no sound playing)";
                                 }
@@ -614,12 +608,12 @@ public partial class Validation
                     {
                         view.Button(
                             [_intervalRunning.Value ? Button.OutlineMd : Button.PrimaryMd],
-                            label: "Start Interval Test",
+                            text: "Start Interval Test",
                             disabled: _intervalRunning.Value,
                             onClick: async () => StartIntervalTest(ReactiveScope.ClientId));
 
                         view.Button([Button.ErrorMd],
-                            label: "Stop Interval Test",
+                            text: "Stop Interval Test",
                             disabled: !_intervalRunning.Value,
                             onClick: async () => StopIntervalTest());
                     });
@@ -680,7 +674,7 @@ public partial class Validation
                 {
                     var soundPath = Path.Combine(app.DataDirectory, "whoosh.mp3");
                     var soundData = await File.ReadAllBytesAsync(soundPath, token);
-                    var playbackId = await ClientFunctions.PlaySoundAsync(clientSessionId, soundData, "audio/mpeg", volume: 1.0);
+                    var playbackId = await ClientFunctions.PlaySoundAsync(soundData, "audio/mpeg", volume: 1.0, targetId: clientSessionId);
                     _lastSoundPlaybackId.Value = playbackId ?? "(failed)";
                     _intervalStatus.Value = "Playing (sound)";
                     await Task.Delay(SoundClipApproxDuration, token);
@@ -821,9 +815,8 @@ public partial class Validation
         var reactiveParams = EffectEntry.ToReactiveParams(defaultParams);
         var effect = CreateEffect(effectType, defaultParams);
         var entry = new EffectEntry(effectType, effect, reactiveParams);
-        _activeEffects.Value.Add(entry);
+        _activeEffects.Add(entry);
         AudioGenerator.AddEffect(effect);
-        _activeEffects.NotifyUpdate();
     }
 
     private void RemoveEffect(int index)
@@ -833,9 +826,8 @@ public partial class Validation
             return;
         }
 
-        _activeEffects.Value.RemoveAt(index);
+        _activeEffects.RemoveAt(index);
         AudioGenerator.RemoveEffectAt(index);
-        _activeEffects.NotifyUpdate();
     }
 
     private void UpdateEffectParam(int index, string paramKey, float value)
@@ -854,9 +846,8 @@ public partial class Validation
 
     private void ClearAllEffects()
     {
-        _activeEffects.Value.Clear();
+        _activeEffects.Clear();
         AudioGenerator.ClearEffects();
-        _activeEffects.NotifyUpdate();
     }
 
     private void AddVoiceEffect(string effectType)
@@ -865,8 +856,7 @@ public partial class Validation
         var reactiveParams = EffectEntry.ToReactiveParams(defaultParams);
         var effect = CreateEffect(effectType, defaultParams);
         var entry = new EffectEntry(effectType, effect, reactiveParams);
-        _voiceEffects.Value.Add(entry);
-        _voiceEffects.NotifyUpdate();
+        _voiceEffects.Add(entry);
     }
 
     private void RemoveVoiceEffect(int index)
@@ -876,8 +866,7 @@ public partial class Validation
             return;
         }
 
-        _voiceEffects.Value.RemoveAt(index);
-        _voiceEffects.NotifyUpdate();
+        _voiceEffects.RemoveAt(index);
     }
 
     private void UpdateVoiceEffectParam(int index, string paramKey, float value)
@@ -895,8 +884,7 @@ public partial class Validation
 
     private void ClearVoiceEffects()
     {
-        _voiceEffects.Value.Clear();
-        _voiceEffects.NotifyUpdate();
+        _voiceEffects.Clear();
     }
 
     private static Dictionary<string, float> GetDefaultParams(string effectType)

@@ -6,7 +6,7 @@ public record ClientParams(string Id, string Test);
 [App]
 public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 {
-    private UI UI { get; } = new(app, new Theme()) { EnableProfiling = false, EnableSubtreeCaching = true, EnableSubtreeRendering = true };
+    private UI UI { get; } = new(app, new IkonTheme()) { EnableProfiling = false, EnableSubtreeCaching = true, EnableSubtreeRendering = true };
     private Audio Audio { get; set; } = new(app);
     private Video Video { get; } = new(app);
     private AudioGenerator AudioGenerator { get; } = new();
@@ -155,7 +155,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<bool> _serverUsernameInvalid = new(true);
 
     // Theme state
-    private readonly ClientReactive<string> _currentTheme = new(Constants.LightTheme);
+    private ThemeControl _theme = null!;
 
     // Video capture state
     private readonly Reactive<bool> _isCameraCaptureActive = new(false);
@@ -215,9 +215,9 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<bool> _videoUrlControls = new(true);
 
     // Audio source tracking
-    private readonly Reactive<List<string>> _sineWaveIds = new([]);
-    private readonly Reactive<List<string>> _drumMachineIds = new([]);
-    private readonly Reactive<List<string>> _moogSynthIds = new([]);
+    private readonly ReactiveList<string> _sineWaveIds = new();
+    private readonly ReactiveList<string> _drumMachineIds = new();
+    private readonly ReactiveList<string> _moogSynthIds = new();
 
     // Audio metrics
     private readonly Reactive<int> _audioStreamCount = new(0);
@@ -235,13 +235,13 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private int _patchIndex;
 
     // Audio effects
-    private readonly Reactive<List<EffectEntry>> _activeEffects = new([]);
+    private readonly ReactiveList<EffectEntry> _activeEffects = new();
 
     // Audio recording state
     private readonly Reactive<bool> _isAudioHoldRecording = new(false);
     private readonly Reactive<bool> _isAudioToggleRecording = new(false);
     private readonly Reactive<bool> _audioPlaybackEnabled = new(true);
-    private readonly Reactive<List<EffectEntry>> _voiceEffects = new([]);
+    private readonly ReactiveList<EffectEntry> _voiceEffects = new();
     private readonly Dictionary<string, AudioStreamState> _audioStreamStates = new();
 
     // PushToTalk validation
@@ -251,7 +251,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     // Chat state
     private readonly Reactive<string> _chatInputText = new("");
     private readonly Reactive<bool> _chatIsProcessing = new(false);
-    private readonly Reactive<List<ChatMessageEntry>> _chatMessages = new([]);
+    private readonly ReactiveList<ChatMessageEntry> _chatMessages = new();
 
     // Infinite scroll state
     private readonly Reactive<List<string>> _infiniteScrollItems = new([]);
@@ -345,6 +345,8 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
     public async Task Main()
     {
+        _theme = UI.UseTheme(Theme.Light);
+
         FunctionRegistry.Instance.RegisterFromType(typeof(ValidationFunctions));
         FunctionRegistry.Instance.RegisterFromInstance(this);
 
@@ -376,11 +378,6 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
         app.ClientJoinedAsync += async args =>
         {
-            if (!string.IsNullOrEmpty(args.ClientContext.Theme))
-            {
-                _currentTheme.Value = args.ClientContext.Theme == Constants.DarkTheme ? Constants.DarkTheme : Constants.LightTheme;
-            }
-
             var tab = args.ClientContext.InitialPath.TrimStart('/');
 
             if (ValidTabs.Contains(tab))
@@ -407,10 +404,10 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                     {
                         view.Text([Text.Display], "Validation");
 
-                        var isDark = _currentTheme.Value == Constants.DarkTheme;
+                        var isDark = _theme.Current.Value == Theme.Dark.ToThemeName();
                         var iconName = isDark ? "sun" : "moon";
                         view.Button([Button.GhostMd, Button.Icon],
-                            onClick: ToggleThemeAsync,
+                            onClick: _theme.ToggleAsync,
                             content: vv => vv.Icon([Icon.Default], name: iconName));
                     });
 
@@ -572,7 +569,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
         try
         {
-            var devices = await ClientFunctions.GetMediaDevicesAsync(clientSessionId);
+            var devices = await ClientFunctions.GetMediaDevicesAsync(targetId: clientSessionId);
             _availableDevices.Value = devices;
         }
         catch (Exception ex)
@@ -817,17 +814,6 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         return state.EffectInstances;
     }
 
-    private async Task ToggleThemeAsync()
-    {
-        var currentTheme = _currentTheme.Value;
-        var nextTheme = currentTheme == Constants.DarkTheme ? Constants.LightTheme : Constants.DarkTheme;
-        var updated = await ClientFunctions.SetThemeAsync(nextTheme);
-
-        if (updated)
-        {
-            _currentTheme.Value = nextTheme;
-        }
-    }
 }
 
 internal class AudioStreamState(int sampleRate, int channelCount)

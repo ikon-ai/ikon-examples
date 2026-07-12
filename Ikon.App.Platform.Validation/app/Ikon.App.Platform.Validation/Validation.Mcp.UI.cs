@@ -86,7 +86,7 @@ public partial class Validation
                 {
                     view.Button(
                         [Button.PrimaryMd],
-                        label: _mcpInvoking.Value ? "Invoking…" : "Invoke",
+                        text: _mcpInvoking.Value ? "Invoking…" : "Invoke",
                         disabled: _mcpInvoking.Value || _mcpHost is null,
                         onClick: InvokeMcpToolAsync);
 

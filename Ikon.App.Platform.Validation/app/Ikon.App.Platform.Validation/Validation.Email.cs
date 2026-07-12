@@ -14,7 +14,7 @@ public partial class Validation
     // Inbox state
     private readonly Reactive<bool> _inboxLoading = new(false);
     private readonly Reactive<string?> _inboxError = new(null);
-    private readonly Reactive<List<InboundEmailSummary>> _inboxEmails = new([]);
+    private readonly ReactiveList<InboundEmailSummary> _inboxEmails = new();
     private readonly Reactive<string?> _inboxNextCursor = new(null);
     private readonly Reactive<string> _inboxFilterRecipient = new("");
     private readonly Reactive<string> _inboxFilterFrom = new("");
@@ -137,8 +137,8 @@ public partial class Validation
                 {
                     view.Checkbox(
                         [Checkbox.Default],
-                        isChecked: _emailAttachSample.Value,
-                        onCheckedChange: async v => _emailAttachSample.Value = v);
+                        value: _emailAttachSample.Value,
+                        onValueChange: async v => _emailAttachSample.Value = v);
                     view.Text([Text.Body], "Attach sample image (santa.jpg)");
                 });
 
@@ -146,7 +146,7 @@ public partial class Validation
                 {
                     view.Button(
                         [Button.PrimaryMd],
-                        label: "Send",
+                        text: "Send",
                         disabled: _emailSending.Value
                             || string.IsNullOrWhiteSpace(_emailSubject.Value)
                             || !IsAllowedRecipient(_emailTo.Value),
@@ -213,7 +213,7 @@ public partial class Validation
 
                 view.Button(
                     [Button.PrimaryMd],
-                    label: "Refresh",
+                    text: "Refresh",
                     disabled: _inboxLoading.Value,
                     onClick: async () => await RefreshInboxAsync(reset: true));
 
@@ -249,7 +249,7 @@ public partial class Validation
                 {
                     view.Button(
                         [Button.OutlineMd, "mt-4"],
-                        label: "Load more",
+                        text: "Load more",
                         disabled: _inboxLoading.Value,
                         onClick: async () => await RefreshInboxAsync(reset: false));
                 }
@@ -391,7 +391,7 @@ public partial class Validation
                         else
                         {
                             view.Button([Button.OutlineMd],
-                                label: "Render HTML",
+                                text: "Render HTML",
                                 onClick: OpenHtmlBodyAsync);
                         }
                     });
@@ -451,7 +451,7 @@ public partial class Validation
                 else
                 {
                     view.Button([Button.OutlineMd],
-                        label: "Open",
+                        text: "Open",
                         disabled: _emailAttachmentBusyId.Value == attachmentId,
                         onClick: async () => await OpenAttachmentAsync(emailId, attachment));
 
@@ -546,11 +546,13 @@ public partial class Validation
 
             if (reset)
             {
-                _inboxEmails.Value.Clear();
+                _inboxEmails.ReplaceAll(page.Items);
+            }
+            else
+            {
+                _inboxEmails.AddRange(page.Items);
             }
 
-            _inboxEmails.Value.AddRange(page.Items);
-            _inboxEmails.NotifyUpdate();
             _inboxNextCursor.Value = page.NextCursor;
         }
         catch (Exception ex)
@@ -601,8 +603,7 @@ public partial class Validation
 
             if (url != null)
             {
-                _emailAttachmentUrls.Value[attachment.Id] = url;
-                _emailAttachmentUrls.NotifyUpdate();
+                _emailAttachmentUrls.Set(attachment.Id, url);
             }
             else
             {
@@ -645,8 +646,7 @@ public partial class Validation
         {
             await app.Email.DeleteAsync(id);
 
-            _inboxEmails.Value.RemoveAll(e => e.Id == id);
-            _inboxEmails.NotifyUpdate();
+            _inboxEmails.RemoveAll(e => e.Id == id);
 
             if (_selectedEmailId.Value == id)
             {

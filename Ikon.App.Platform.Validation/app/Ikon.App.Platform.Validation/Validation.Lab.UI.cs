@@ -80,9 +80,9 @@ public partial class Validation
 
             view.Row([Layout.Row.Md, "items-center mt-4"], content: view =>
             {
-                view.Button([Button.PrimaryMd], label: "+1", onClick: async () => { cell.Increment(1); });
-                view.Button([Button.PrimaryMd], label: "+5", onClick: async () => { cell.Increment(5); });
-                view.Button([Button.GhostMd], label: "Reset", onClick: async () =>
+                view.Button([Button.PrimaryMd], text: "+1", onClick: async () => { cell.Increment(1); });
+                view.Button([Button.PrimaryMd], text: "+5", onClick: async () => { cell.Increment(5); });
+                view.Button([Button.GhostMd], text: "Reset", onClick: async () =>
                 {
                     cell.Counter.Value = 0;
                     cell.History.Clear();
@@ -152,11 +152,11 @@ public partial class Validation
             // waits for the response), which is what made these buttons feel slow/frozen.
             view.Row([Layout.Row.Md, "items-center mt-4"], content: view =>
             {
-                view.Button([Button.PrimaryMd], label: "+1",
+                view.Button([Button.PrimaryMd], text: "+1",
                     onClick: async () => FireGlobalCommand(() => cell.IncrementAsync(1)));
-                view.Button([Button.PrimaryMd], label: "+5",
+                view.Button([Button.PrimaryMd], text: "+5",
                     onClick: async () => FireGlobalCommand(() => cell.IncrementAsync(5)));
-                view.Button([Button.GhostMd], label: "Reset",
+                view.Button([Button.GhostMd], text: "Reset",
                     onClick: async () => FireGlobalCommand(() => cell.ResetAsync()));
             });
 
@@ -215,7 +215,7 @@ public partial class Validation
             view.Row([Layout.Row.Md, "items-center mt-3"], content: view =>
             {
                 view.Button([Button.PrimaryMd],
-                    label: _labRestInvoking.Value ? "Sending…" : "Send POST { Delta: 1 }",
+                    text: _labRestInvoking.Value ? "Sending…" : "Send POST { Delta: 1 }",
                     disabled: _labRestInvoking.Value || webhook is null,
                     onClick: InvokeLabRestAsync);
 
@@ -243,10 +243,10 @@ public partial class Validation
 
             view.Row([Layout.Row.Md, "items-center mt-3"], content: view =>
             {
-                view.Button([Button.OutlineMd], label: "Mint grant URL", onClick: async () => { await EnsureLabGrantUrlAsync(); });
+                view.Button([Button.OutlineMd], text: "Mint grant URL", onClick: async () => { await EnsureLabGrantUrlAsync(); });
 
                 view.Button([Button.PrimaryMd],
-                    label: _labGrantInvoking.Value ? "Sending…" : "Mint + POST { Delta: 1 }",
+                    text: _labGrantInvoking.Value ? "Sending…" : "Mint + POST { Delta: 1 }",
                     disabled: _labGrantInvoking.Value,
                     onClick: InvokeLabGrantRestAsync);
 
@@ -291,7 +291,7 @@ public partial class Validation
                 view.Row([Layout.Row.Md, "items-center mt-3"], content: view =>
                 {
                     view.Button([Button.PrimaryMd],
-                        label: _labMcpInvoking.Value ? "Sending…" : "Call tools/call IncrementMcp {delta:1}",
+                        text: _labMcpInvoking.Value ? "Sending…" : "Call tools/call IncrementMcp {delta:1}",
                         disabled: _labMcpInvoking.Value,
                         onClick: InvokeLabMcpAsync);
 
@@ -333,7 +333,7 @@ public partial class Validation
             view.Row([Layout.Row.Md, "items-center mt-3"], content: view =>
             {
                 view.Button([Button.PrimaryMd],
-                    label: _globalRestInvoking.Value ? "Sending…" : "Send POST { Delta: 1 }",
+                    text: _globalRestInvoking.Value ? "Sending…" : "Send POST { Delta: 1 }",
                     disabled: _globalRestInvoking.Value || webhook is null,
                     onClick: InvokeGlobalRestAsync);
 
@@ -369,7 +369,7 @@ public partial class Validation
                 view.Row([Layout.Row.Md, "items-center mt-3"], content: view =>
                 {
                     view.Button([Button.PrimaryMd],
-                        label: _globalMcpInvoking.Value ? "Sending…" : "Call tools/call IncrementGlobalMcp {delta:1}",
+                        text: _globalMcpInvoking.Value ? "Sending…" : "Call tools/call IncrementGlobalMcp {delta:1}",
                         disabled: _globalMcpInvoking.Value,
                         onClick: InvokeGlobalMcpAsync);
 

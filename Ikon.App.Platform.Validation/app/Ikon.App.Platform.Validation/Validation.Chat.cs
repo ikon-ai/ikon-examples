@@ -81,7 +81,7 @@ public partial class Validation
                         });
 
                     row.Button([Button.PrimaryMd],
-                        label: _chatIsProcessing.Value ? "Sending..." : "Send",
+                        text: _chatIsProcessing.Value ? "Sending..." : "Send",
                         disabled: _chatIsProcessing.Value || string.IsNullOrWhiteSpace(_chatInputText.Value),
                         onClick: async () =>
                         {
@@ -98,11 +98,11 @@ public partial class Validation
                 view.Row([Layout.Row.Md, "mt-4"], content: row =>
                 {
                     row.Button([Button.NeutralMd],
-                        label: "Add Test Message",
+                        text: "Add Test Message",
                         onClick: AddTestMessage);
 
                     row.Button([Button.OutlineMd],
-                        label: "Clear Chat",
+                        text: "Clear Chat",
                         onClick: ClearChatMessages);
                 });
             });
@@ -140,13 +140,11 @@ public partial class Validation
         {
             var userEntry = new ChatMessageEntry { Role = ChatMessageRole.User };
             userEntry.Content.Value = userMessage;
-            _chatMessages.Value.Add(userEntry);
-            _chatMessages.NotifyUpdate();
+            _chatMessages.Add(userEntry);
 
             var assistantEntry = new ChatMessageEntry { Role = ChatMessageRole.Assistant };
             assistantEntry.Content.Value = "";
-            _chatMessages.Value.Add(assistantEntry);
-            _chatMessages.NotifyUpdate();
+            _chatMessages.Add(assistantEntry);
 
             var responseText = new StringBuilder();
             var ctx = new KernelContext();
@@ -191,8 +189,7 @@ public partial class Validation
         {
             var errorEntry = new ChatMessageEntry { Role = ChatMessageRole.Assistant };
             errorEntry.Content.Value = $"Error: {ex.Message}";
-            _chatMessages.Value.Add(errorEntry);
-            _chatMessages.NotifyUpdate();
+            _chatMessages.Add(errorEntry);
         }
         finally
         {
@@ -204,20 +201,18 @@ public partial class Validation
     {
         var userEntry = new ChatMessageEntry { Role = ChatMessageRole.User };
         userEntry.Content.Value = $"Test message #{_chatMessages.Value.Count + 1}";
-        _chatMessages.Value.Add(userEntry);
+        _chatMessages.Add(userEntry);
 
         var assistantEntry = new ChatMessageEntry { Role = ChatMessageRole.Assistant };
         assistantEntry.Content.Value = $"This is a test response to message #{_chatMessages.Value.Count}.";
-        _chatMessages.Value.Add(assistantEntry);
+        _chatMessages.Add(assistantEntry);
 
-        _chatMessages.NotifyUpdate();
         return Task.CompletedTask;
     }
 
     private Task ClearChatMessages()
     {
-        _chatMessages.Value.Clear();
-        _chatMessages.NotifyUpdate();
+        _chatMessages.Clear();
         return Task.CompletedTask;
     }
 }

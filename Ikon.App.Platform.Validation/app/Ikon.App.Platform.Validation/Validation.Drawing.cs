@@ -1,6 +1,6 @@
 public partial class Validation
 {
-    private readonly Reactive<string> _drawingTool = new("brush");
+    private readonly Reactive<ImageEditorTool> _drawingTool = new(ImageEditorTool.Brush);
     private readonly Reactive<string> _drawingBrushColor = new("#ef4444");
     private readonly Reactive<int> _drawingBrushWidth = new(8);
     private readonly Reactive<double> _drawingZoom = new(1.0);
@@ -26,13 +26,13 @@ public partial class Validation
         "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#a855f7", "#ec4899", "#000000", "#ffffff"
     ];
 
-    private static readonly (string Tool, string Icon, string Label)[] DrawingTools =
+    private static readonly (ImageEditorTool Tool, string Icon, string Label)[] DrawingTools =
     [
-        ("brush", "brush", "Brush"),
-        ("eraser", "eraser", "Eraser"),
-        ("text", "type", "Text"),
-        ("arrow", "move-up-right", "Arrow"),
-        ("region", "square-dashed", "Region")
+        (ImageEditorTool.Brush, "brush", "Brush"),
+        (ImageEditorTool.Eraser, "eraser", "Eraser"),
+        (ImageEditorTool.Text, "type", "Text"),
+        (ImageEditorTool.Arrow, "move-up-right", "Arrow"),
+        (ImageEditorTool.Region, "square-dashed", "Region")
     ];
 
     private static readonly int[] DrawingBrushSizes = [2, 4, 8, 16, 32, 48, 64];
@@ -57,7 +57,7 @@ public partial class Validation
                             var captured = toolId;
                             var active = _drawingTool.Value == toolId;
                             toolsRow.Button([active ? Button.SolidSm : Button.NeutralSm, "gap-1.5"],
-                                label: label,
+                                text: label,
                                 icon: icon,
                                 onClick: async () => _drawingTool.Value = captured);
                         }
@@ -74,7 +74,7 @@ public partial class Validation
                                 var captured = size;
                                 var active = _drawingBrushWidth.Value == size;
                                 brushRow.Button([active ? Button.SolidSm : Button.NeutralSm],
-                                    label: $"{size}",
+                                    text: $"{size}",
                                     onClick: async () => _drawingBrushWidth.Value = captured);
                             }
                         });
@@ -98,14 +98,14 @@ public partial class Validation
                     {
                         row3.Row([Layout.Row.Xs, "items-center gap-1"], content: zoomRow =>
                         {
-                            zoomRow.Button([Button.NeutralSm, Button.Icon], label: "Zoom out",
+                            zoomRow.Button([Button.NeutralSm, Button.Icon], text: "Zoom out",
                                 onClick: async () => _drawingZoom.Value = Math.Max(0.5, _drawingZoom.Value - 0.25),
                                 content: b => b.Icon([Icon.Default], name: "minus"));
                             zoomRow.Text([Text.Caption, "text-tertiary w-12 text-center"], $"{_drawingZoom.Value:0.0}×");
-                            zoomRow.Button([Button.NeutralSm, Button.Icon], label: "Zoom in",
+                            zoomRow.Button([Button.NeutralSm, Button.Icon], text: "Zoom in",
                                 onClick: async () => _drawingZoom.Value = Math.Min(4.0, _drawingZoom.Value + 0.25),
                                 content: b => b.Icon([Icon.Default], name: "plus"));
-                            zoomRow.Button([Button.NeutralSm], label: "1×",
+                            zoomRow.Button([Button.NeutralSm], text: "1×",
                                 onClick: async () => _drawingZoom.Value = 1.0);
                         });
 
@@ -113,11 +113,11 @@ public partial class Validation
 
                         row3.Row([Layout.Row.Xs, "items-center gap-1"], content: histRow =>
                         {
-                            histRow.Button([Button.NeutralSm, Button.Icon], label: "Undo",
+                            histRow.Button([Button.NeutralSm, Button.Icon], text: "Undo",
                                 disabled: !_drawingCanUndo.Value,
                                 onClick: async () => _drawingTriggerUndo.Value = _drawingTriggerUndo.Value + 1,
                                 content: b => b.Icon([Icon.Default], name: "undo-2"));
-                            histRow.Button([Button.NeutralSm, Button.Icon], label: "Redo",
+                            histRow.Button([Button.NeutralSm, Button.Icon], text: "Redo",
                                 disabled: !_drawingCanRedo.Value,
                                 onClick: async () => _drawingTriggerRedo.Value = _drawingTriggerRedo.Value + 1,
                                 content: b => b.Icon([Icon.Default], name: "redo-2"));
@@ -129,7 +129,7 @@ public partial class Validation
 
                         row3.Box(["w-px h-8 bg-secondary"]);
 
-                        row3.Button([Button.SolidSm, "gap-1.5"], label: "Save", icon: "save",
+                        row3.Button([Button.SolidSm, "gap-1.5"], text: "Save", icon: "save",
                             onClick: async () => _drawingTriggerSave.Value = _drawingTriggerSave.Value + 1);
                     });
 
@@ -141,7 +141,7 @@ public partial class Validation
                         {
                             var captured = url;
                             var active = _drawingSourceUrl.Value == url;
-                            srcRow.Button([active ? Button.SolidSm : Button.NeutralSm], label: label,
+                            srcRow.Button([active ? Button.SolidSm : Button.NeutralSm], text: label,
                                 onClick: async () => _drawingSourceUrl.Value = captured);
                         }
                     });

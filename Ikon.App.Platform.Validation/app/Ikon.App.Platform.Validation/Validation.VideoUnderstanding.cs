@@ -68,13 +68,13 @@ public partial class Validation
                 {
                     view.Button(
                         [Button.PrimaryMd],
-                        label: "Analyze Uploaded Video",
+                        text: "Analyze Uploaded Video",
                         disabled: _videoUnderstandingProcessing.Value || string.IsNullOrEmpty(_videoUnderstandingFilePath),
                         onClick: AnalyzeUploadedVideoAsync);
 
                     view.Button(
                         [Button.PrimaryMd],
-                        label: "Analyze Sample Video",
+                        text: "Analyze Sample Video",
                         disabled: _videoUnderstandingProcessing.Value,
                         onClick: AnalyzeSampleVideoAsync);
 

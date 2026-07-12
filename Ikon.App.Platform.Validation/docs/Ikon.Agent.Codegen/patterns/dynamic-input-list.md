@@ -10,39 +10,47 @@ A form needs an arbitrary-length list of short strings (filter clauses, email ad
 ## Snippet
 
 ```csharp
-private static void RenderDynamicInputList(UIView view, Reactive<List<string>> items, string placeholder)
+private static void RenderDynamicInputList(UIView view, ReactiveList<string> items, string placeholder)
 {
-    var list = items.Value;
-    for (int i = 0; i < list.Count; i++)
+    var count = items.Count;
+    for (int i = 0; i < count; i++)
     {
         int index = i;
         view.Row(["gap-2 items-center"], content: view =>
         {
             view.TextField([Input.Default, "flex-1"],
                 placeholder: placeholder,
-                value: list[index],
+                value: items[index],
                 onValueChange: async v =>
                 {
-                    list[index] = v;
-                    while (list.Count > 1
-                           && string.IsNullOrWhiteSpace(list[^1])
-                           && string.IsNullOrWhiteSpace(list[^2]))
+                    items.Update(current =>
                     {
-                        list.RemoveAt(list.Count - 1);
-                    }
-                    if (!string.IsNullOrWhiteSpace(list[^1])) { list.Add(""); }
-                    items.NotifyUpdate();
+                        var list = new List<string>(current);
+                        list[index] = v;
+                        while (list.Count > 1
+                               && string.IsNullOrWhiteSpace(list[^1])
+                               && string.IsNullOrWhiteSpace(list[^2]))
+                        {
+                            list.RemoveAt(list.Count - 1);
+                        }
+                        if (!string.IsNullOrWhiteSpace(list[^1])) { list.Add(""); }
+                        return list;
+                    });
                     await Task.CompletedTask;
                 });
 
-            if (index < list.Count - 1)
+            if (index < count - 1)
             {
                 view.Button([Button.GhostMd, Button.Icon, "shrink-0"],
                     onClick: async () =>
                     {
-                        list.RemoveAt(index);
-                        if (list.Count == 0 || !string.IsNullOrWhiteSpace(list[^1])) { list.Add(""); }
-                        items.NotifyUpdate();
+                        items.Update(current =>
+                        {
+                            var list = new List<string>(current);
+                            list.RemoveAt(index);
+                            if (list.Count == 0 || !string.IsNullOrWhiteSpace(list[^1])) { list.Add(""); }
+                            return list;
+                        });
                         await Task.CompletedTask;
                     },
                     content: v => v.Icon([Icon.Default], name: "x"));
@@ -55,15 +63,15 @@ private static void RenderDynamicInputList(UIView view, Reactive<List<string>> i
     }
 }
 
-private static List<string> CollectNonEmpty(Reactive<List<string>> items) =>
-    items.Value.Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()).ToList();
+private static List<string> CollectNonEmpty(ReactiveList<string> items) =>
+    items.Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()).ToList();
 ```
 
 ## Notes
 
 - Invariant: the last row is always blank. Typing into it auto-appends a new blank; clearing the second-to-last collapses any trailing empties.
 - The remove button is omitted on the trailing empty row — replaced with a spacer Box of equal width so the column doesn't jump.
-- `Reactive<List<string>>.NotifyUpdate()` is required because we're mutating the list in place rather than reassigning.
+- `items` is a `ReactiveList<string>` — each edit is one `items.Update(list => …)` so the whole transform (set value, collapse trailing empties, ensure last blank) lands as a single notification; mutating `.Value` in place does not compile and there is no `NotifyUpdate`.
 - Pair with `CollectNonEmpty` at submit time to drop the trailing empty + any other gaps.
 
 ## See also

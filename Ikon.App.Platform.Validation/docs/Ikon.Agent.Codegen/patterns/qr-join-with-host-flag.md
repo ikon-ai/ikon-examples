@@ -21,10 +21,10 @@ private static bool IsValidSessionId(string? id)
 private static string GenerateSessionId() => Guid.NewGuid().ToString("N")[..8];
 
 private string GetJoinUrl()
-    => $"{app.ReactiveGlobalState.ChannelUrl.Value}?id={app.SessionIdentity.Id}";
+    => app.JoinUrl(new { id = app.SessionIdentity.Id });
 
 private string GetCreateSessionUrl()
-    => $"{app.ReactiveGlobalState.ChannelUrl.Value}?id={GenerateSessionId()}&host=true";
+    => app.JoinUrl(new { id = GenerateSessionId(), host = "true" });
 
 private void RenderCreateSession(UIView view)
 {
@@ -55,7 +55,7 @@ private void RenderHostLobby(UIView view)
     view.Text(style: ["text-2xl font-bold mt-2"], text: "Scan to join!");
     view.Button(
         style: [Button.GhostMd, "text-sm"],
-        label: "Open player view",
+        text: "Open player view",
         href: GetJoinUrl(),
         target: "_blank");
 }

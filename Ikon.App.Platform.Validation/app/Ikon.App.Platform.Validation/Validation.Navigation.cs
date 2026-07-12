@@ -508,7 +508,7 @@ public partial class Validation
                                 else
                                 {
                                     view.Button([Breadcrumb.Link, "cursor-pointer hover:underline"],
-                                        label: segment,
+                                        text: segment,
                                         onClick: async () =>
                                         {
                                             _breadcrumbPath.Value = _breadcrumbPath.Value.Take(index + 1).ToList();
@@ -521,12 +521,12 @@ public partial class Validation
 
                 view.Row([Layout.Row.Sm, "mt-4"], content: view =>
                 {
-                    view.Button([Button.OutlineSm], label: "Add Segment", onClick: async () =>
+                    view.Button([Button.OutlineSm], text: "Add Segment", onClick: async () =>
                     {
                         var newSegment = $"Folder{_breadcrumbPath.Value.Count}";
                         _breadcrumbPath.Value = [.. _breadcrumbPath.Value, newSegment];
                     });
-                    view.Button([Button.GhostMd], label: "Reset", onClick: async () =>
+                    view.Button([Button.GhostMd], text: "Reset", onClick: async () =>
                     {
                         _breadcrumbPath.Value = ["Home", "Products", "Electronics"];
                     });

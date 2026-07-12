@@ -266,7 +266,7 @@ public partial class Validation
                                 {
                                     var isDisabled = item.StartsWith("fixed");
                                     var itemStyle = isDisabled
-                                        ? DragDrop.Item.Base + " cursor-not-allowed opacity-50"
+                                        ? $"{DragDrop.Item.Base} {DragDrop.Item.Disabled}"
                                         : DragDrop.Item.Base;
 
                                     view.SortableItem(
@@ -306,7 +306,7 @@ public partial class Validation
     private void RenderDraggableItem(UIView view, string itemId)
     {
         var isDisabled = itemId == "drag-disabled";
-        var style = isDisabled ? DragDrop.Draggable.Disabled : DragDrop.Draggable.Dashed;
+        var style = isDisabled ? $"{DragDrop.Item.Dashed} {DragDrop.Item.Disabled}" : DragDrop.Item.Dashed;
 
         view.Draggable(
             [style],
@@ -340,7 +340,7 @@ public partial class Validation
         var text = itemId == "overlay-item-1" ? "Item with overlay" : "Another item";
 
         view.Draggable(
-            [DragDrop.Draggable.Base],
+            [DragDrop.Item.Base],
             id: itemId,
             hideOnDrag: true,
             content: v => v.Text(text: text));

@@ -198,8 +198,8 @@ public partial class Validation
                     });
                     view.Box([Card.Footer], content: view =>
                     {
-                        view.Button([Button.OutlineMd], label: "Cancel");
-                        view.Button([Button.PrimaryMd], label: "Submit");
+                        view.Button([Button.OutlineMd], text: "Cancel");
+                        view.Button([Button.PrimaryMd], text: "Submit");
                     });
                 });
             });
@@ -215,9 +215,9 @@ public partial class Validation
                     view.Text([Text.H3], "Size");
                     view.Row([Layout.Row.Sm, "flex-wrap items-center"], content: view =>
                     {
-                        view.Box([Badge.GreySm], content: v => v.Text(text: "Small"));
-                        view.Box([Badge.GreyMd], content: v => v.Text(text: "Medium"));
-                        view.Box([Badge.GreyLg], content: v => v.Text(text: "Large"));
+                        view.Box([Badge.NeutralSm], content: v => v.Text(text: "Small"));
+                        view.Box([Badge.NeutralMd], content: v => v.Text(text: "Medium"));
+                        view.Box([Badge.NeutralLg], content: v => v.Text(text: "Large"));
                     });
 
                     // Style
@@ -233,7 +233,7 @@ public partial class Validation
                     view.Text([Text.Caption], "Neutral");
                     view.Row([Layout.Row.Sm, "flex-wrap"], content: view =>
                     {
-                        view.Box([Badge.GreyMd], content: v => v.Text(text: "Grey"));
+                        view.Box([Badge.NeutralMd], content: v => v.Text(text: "Grey"));
                         view.Box([Badge.BrandMd], content: v => v.Text(text: "Brand"));
                         view.Box([Badge.ErrorMd], content: v => v.Text(text: "Error"));
                         view.Box([Badge.SuccessMd], content: v => v.Text(text: "Success"));
@@ -243,7 +243,7 @@ public partial class Validation
                     view.Text([Text.Caption], "Outline");
                     view.Row([Layout.Row.Sm, "flex-wrap"], content: view =>
                     {
-                        view.Box([Badge.OutlineGreyMd], content: v => v.Text(text: "Grey"));
+                        view.Box([Badge.OutlineNeutralMd], content: v => v.Text(text: "Grey"));
                         view.Box([Badge.OutlineBrandMd], content: v => v.Text(text: "Brand"));
                         view.Box([Badge.OutlineErrorMd], content: v => v.Text(text: "Error"));
                         view.Box([Badge.OutlineSuccessMd], content: v => v.Text(text: "Success"));
@@ -275,7 +275,7 @@ public partial class Validation
                             view.Icon([Icon.Xs], name: "info");
                             view.Text(text: "Info");
                         });
-                        view.Box([Badge.GreyMd, Badge.IconRight], content: view =>
+                        view.Box([Badge.NeutralMd, Badge.IconRight], content: view =>
                         {
                             view.Icon([Icon.Xs], name: "x");
                             view.Text(text: "Dismiss");
@@ -401,7 +401,7 @@ public partial class Validation
                             view.Text([EmptyState.Description], "When you receive messages they will appear here.");
                             view.Row([EmptyState.Actions], content: view =>
                             {
-                                view.Button([Button.PrimaryMd], label: "Get started", onClick: async () => { });
+                                view.Button([Button.PrimaryMd], text: "Get started", onClick: async () => { });
                             });
                         });
                     });
@@ -431,8 +431,8 @@ public partial class Validation
                             view.Text([EmptyState.Description], "Upload your first file to get started, or import from another source.");
                             view.Row([EmptyState.Actions], content: view =>
                             {
-                                view.Button([Button.PrimaryMd], label: "Upload file", onClick: async () => { });
-                                view.Button([Button.OutlineMd], label: "Import", onClick: async () => { });
+                                view.Button([Button.PrimaryMd], text: "Upload file", onClick: async () => { });
+                                view.Button([Button.OutlineMd], text: "Import", onClick: async () => { });
                             });
                         });
                     });
@@ -452,7 +452,7 @@ public partial class Validation
                             view.Text([EmptyState.Description], "Connect a data source to start seeing your metrics here.");
                             view.Row([EmptyState.Actions], content: view =>
                             {
-                                view.Button([Button.PrimaryMd], label: "Connect source", onClick: async () => { });
+                                view.Button([Button.PrimaryMd], text: "Connect source", onClick: async () => { });
                             });
                         });
                     });
@@ -467,7 +467,7 @@ public partial class Validation
                             view.Text([EmptyState.Description], "Add your first item to get started.");
                             view.Row([EmptyState.Actions], content: view =>
                             {
-                                view.Button([Button.NeutralSm], label: "Add item", onClick: async () => { });
+                                view.Button([Button.NeutralSm], text: "Add item", onClick: async () => { });
                             });
                         });
                     });

@@ -167,8 +167,8 @@ public partial class Validation
                             {
                                 view.Switch(
                                     [Switch.Default],
-                                    isChecked: _rivePersonAgreedToTerms.Value,
-                                    onCheckedChange: value =>
+                                    value: _rivePersonAgreedToTerms.Value,
+                                    onValueChange: value =>
                                     {
                                         _rivePersonAgreedToTerms.Value = value;
                                         return Task.CompletedTask;
@@ -295,12 +295,12 @@ public partial class Validation
                         {
                             view.Button(
                                 [Button.PrimaryMd],
-                                label: "Submit Form",
+                                text: "Submit Form",
                                 onClick: async () => _riveSubmitTrigger.Fire());
 
                             view.Button(
                                 [Button.NeutralMd],
-                                label: "Reset Form",
+                                text: "Reset Form",
                                 onClick: async () => _riveResetTrigger.Fire());
                         });
                     });

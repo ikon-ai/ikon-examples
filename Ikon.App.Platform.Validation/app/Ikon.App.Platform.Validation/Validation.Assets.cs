@@ -22,7 +22,7 @@ public partial class Validation
             view.Text([Text.H2, "mb-4"], "LocalFile");
             view.Text([Text.Caption, "font-mono mb-2"], $"URI: {uri}");
 
-            view.Button([Button.PrimaryMd], label: "Load from Data", onClick: async () =>
+            view.Button([Button.PrimaryMd], text: "Load from Data", onClick: async () =>
             {
                 var bytes = await Asset.Instance.GetBytesAsync(uri);
                 _assetLocalFileData.Value = bytes;
@@ -49,7 +49,7 @@ public partial class Validation
 
             view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
             {
-                view.Button([Button.PrimaryMd], label: "Upload",
+                view.Button([Button.PrimaryMd], text: "Upload",
                     disabled: _assetCloudFileUploading.Value,
                     onClick: async () =>
                     {
@@ -69,19 +69,19 @@ public partial class Validation
                         }
                     });
 
-                view.Button([Button.PrimaryMd], label: "Download & Show", onClick: async () =>
+                view.Button([Button.PrimaryMd], text: "Download & Show", onClick: async () =>
                 {
                     var bytes = await Asset.Instance.GetBytesAsync(uri);
                     _assetCloudFileDownloaded.Value = bytes;
                 });
 
-                view.Button([Button.PrimaryMd], label: "Show via URL", onClick: async () =>
+                view.Button([Button.PrimaryMd], text: "Show via URL", onClick: async () =>
                 {
                     var metadata = await Asset.Instance.GetMetadataAsync(uri);
                     _assetCloudFileUrl.Value = metadata.Url;
                 });
 
-                view.Button([Button.ErrorMd], label: "Delete", onClick: async () =>
+                view.Button([Button.ErrorMd], text: "Delete", onClick: async () =>
                 {
                     await Asset.Instance.DeleteAsync(uri);
                     _assetCloudFileStatus.Value = "Not uploaded";
@@ -129,7 +129,7 @@ public partial class Validation
 
             view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
             {
-                view.Button([Button.PrimaryMd], label: "Upload",
+                view.Button([Button.PrimaryMd], text: "Upload",
                     disabled: _assetCloudFilePublicUploading.Value,
                     onClick: async () =>
                     {
@@ -149,19 +149,19 @@ public partial class Validation
                         }
                     });
 
-                view.Button([Button.PrimaryMd], label: "Download & Show", onClick: async () =>
+                view.Button([Button.PrimaryMd], text: "Download & Show", onClick: async () =>
                 {
                     var bytes = await Asset.Instance.GetBytesAsync(uri);
                     _assetCloudFilePublicDownloaded.Value = bytes;
                 });
 
-                view.Button([Button.PrimaryMd], label: "Show via URL", onClick: async () =>
+                view.Button([Button.PrimaryMd], text: "Show via URL", onClick: async () =>
                 {
                     var metadata = await Asset.Instance.GetMetadataAsync(uri);
                     _assetCloudFilePublicUrl.Value = metadata.Url;
                 });
 
-                view.Button([Button.ErrorMd], label: "Delete", onClick: async () =>
+                view.Button([Button.ErrorMd], text: "Delete", onClick: async () =>
                 {
                     await Asset.Instance.DeleteAsync(uri);
                     _assetCloudFilePublicStatus.Value = "Not uploaded";
@@ -209,7 +209,7 @@ public partial class Validation
 
             view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
             {
-                view.Button([Button.PrimaryMd], label: "Generate & Upload", onClick: async () =>
+                view.Button([Button.PrimaryMd], text: "Generate & Upload", onClick: async () =>
                 {
                     var data = new ValidationAssetData
                     {
@@ -226,13 +226,13 @@ public partial class Validation
                     _assetCloudJsonUploaded.Value = json;
                 });
 
-                view.Button([Button.PrimaryMd], label: "Download", onClick: async () =>
+                view.Button([Button.PrimaryMd], text: "Download", onClick: async () =>
                 {
                     var json = await Asset.Instance.GetTextAsync(uri);
                     _assetCloudJsonDownloaded.Value = json;
                 });
 
-                view.Button([Button.ErrorMd], label: "Delete", onClick: async () =>
+                view.Button([Button.ErrorMd], text: "Delete", onClick: async () =>
                 {
                     await Asset.Instance.DeleteAsync(uri);
                     _assetCloudJsonStatus.Value = "Not uploaded";

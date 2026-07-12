@@ -15,7 +15,7 @@ public partial class Validation
                     onOpenChange: async open => _dialogOpen.Value = open,
                     overlayStyle: [Dialog.Overlay],
                     contentStyle: [Dialog.Content],
-                    trigger: view => view.Button([Button.OutlineMd], label: "Open Dialog"),
+                    trigger: view => view.Button([Button.OutlineMd], text: "Open Dialog"),
                     content: view =>
                     {
                         view.Box([Dialog.Header], content: view =>
@@ -26,8 +26,8 @@ public partial class Validation
                         view.Text([Text.Body, "my-4"], "Dialog content goes here. You can put any content inside.");
                         view.Box([Dialog.Footer], content: view =>
                         {
-                            view.Button([Button.OutlineMd], label: "Cancel", onClick: async () => _dialogOpen.Value = false);
-                            view.Button([Button.PrimaryMd], label: "Confirm", onClick: async () => _dialogOpen.Value = false);
+                            view.Button([Button.OutlineMd], text: "Cancel", onClick: async () => _dialogOpen.Value = false);
+                            view.Button([Button.PrimaryMd], text: "Confirm", onClick: async () => _dialogOpen.Value = false);
                         });
                     });
             });
@@ -43,7 +43,7 @@ public partial class Validation
                     onOpenChange: async open => _alertDialogOpen.Value = open,
                     overlayStyle: [AlertDialog.Overlay],
                     contentStyle: [AlertDialog.Content],
-                    trigger: view => view.Button([Button.ErrorMd], label: "Delete Item"),
+                    trigger: view => view.Button([Button.ErrorMd], text: "Delete Item"),
                     title: "Are you sure?",
                     titleStyle: [AlertDialog.Title],
                     description: "This action cannot be undone. This will permanently delete the item.",
@@ -65,7 +65,7 @@ public partial class Validation
                     open: _popoverOpen.Value,
                     onOpenChange: async open => _popoverOpen.Value = open,
                     contentStyle: [Popover.Content],
-                    trigger: view => view.Button([Button.OutlineMd], label: "Open Popover"),
+                    trigger: view => view.Button([Button.OutlineMd], text: "Open Popover"),
                     content: view =>
                     {
                         view.Column([Layout.Column.Sm], content: view =>
@@ -87,7 +87,7 @@ public partial class Validation
                 {
                     view.Tooltip(
                         contentStyle: [Tooltip.Content],
-                        trigger: view => view.Button([Button.OutlineMd], label: "Hover me"),
+                        trigger: view => view.Button([Button.OutlineMd], text: "Hover me"),
                         content: view => view.Text(text: "This is a tooltip!"));
 
                     view.Tooltip(
@@ -132,7 +132,7 @@ public partial class Validation
 
                 view.Column([Layout.Column.Md], content: view =>
                 {
-                    view.Button([Button.OutlineMd], label: "Show Toast", onClick: async () => _toastOpen.Value = true);
+                    view.Button([Button.OutlineMd], text: "Show Toast", onClick: async () => _toastOpen.Value = true);
 
                     view.Text([Text.Caption, "mt-4"], "Static preview:");
                     view.Box([Toast.Base, Tokens.Width.Toast], content: view =>
@@ -142,7 +142,7 @@ public partial class Validation
                             view.Text([Toast.Title], "Toast Title");
                             view.Text([Toast.Description], "This is a toast notification message.");
                         });
-                        view.Button([Toast.Action], label: "Undo");
+                        view.Button([Toast.Action], text: "Undo");
                     });
                 });
 
@@ -176,8 +176,8 @@ public partial class Validation
                     view.Text([Text.Body, "py-4"], "Sheet content area");
                     view.Box([Sheet.Footer], content: view =>
                     {
-                        view.Button([Button.OutlineMd], label: "Cancel");
-                        view.Button([Button.PrimaryMd], label: "Save");
+                        view.Button([Button.OutlineMd], text: "Cancel");
+                        view.Button([Button.PrimaryMd], text: "Save");
                     });
                 });
             });
@@ -205,7 +205,7 @@ public partial class Validation
                     });
                     view.Box([Drawer.Footer], content: view =>
                     {
-                        view.Button([Button.PrimaryMd, "w-full"], label: "Continue");
+                        view.Button([Button.PrimaryMd, "w-full"], text: "Continue");
                     });
                 });
             });

@@ -118,25 +118,25 @@ public partial class Validation
                     view.Text([Text.Caption], "Grid.Cols2");
                     view.Box([Layout.Grid.Cols2], content: view =>
                     {
-                        view.Box([Badge.Grey, "justify-center"], content: v => v.Text(text: "1"));
-                        view.Box([Badge.Grey, "justify-center"], content: v => v.Text(text: "2"));
+                        view.Box([Badge.Neutral, "justify-center"], content: v => v.Text(text: "1"));
+                        view.Box([Badge.Neutral, "justify-center"], content: v => v.Text(text: "2"));
                     });
 
                     view.Text([Text.Caption], "Grid.Cols3");
                     view.Box([Layout.Grid.Cols3], content: view =>
                     {
-                        view.Box([Badge.Grey, "justify-center"], content: v => v.Text(text: "1"));
-                        view.Box([Badge.Grey, "justify-center"], content: v => v.Text(text: "2"));
-                        view.Box([Badge.Grey, "justify-center"], content: v => v.Text(text: "3"));
+                        view.Box([Badge.Neutral, "justify-center"], content: v => v.Text(text: "1"));
+                        view.Box([Badge.Neutral, "justify-center"], content: v => v.Text(text: "2"));
+                        view.Box([Badge.Neutral, "justify-center"], content: v => v.Text(text: "3"));
                     });
 
                     view.Text([Text.Caption], "Grid.Cols4");
                     view.Box([Layout.Grid.Cols4], content: view =>
                     {
-                        view.Box([Badge.Grey, "justify-center"], content: v => v.Text(text: "1"));
-                        view.Box([Badge.Grey, "justify-center"], content: v => v.Text(text: "2"));
-                        view.Box([Badge.Grey, "justify-center"], content: v => v.Text(text: "3"));
-                        view.Box([Badge.Grey, "justify-center"], content: v => v.Text(text: "4"));
+                        view.Box([Badge.Neutral, "justify-center"], content: v => v.Text(text: "1"));
+                        view.Box([Badge.Neutral, "justify-center"], content: v => v.Text(text: "2"));
+                        view.Box([Badge.Neutral, "justify-center"], content: v => v.Text(text: "3"));
+                        view.Box([Badge.Neutral, "justify-center"], content: v => v.Text(text: "4"));
                     });
                 });
             });

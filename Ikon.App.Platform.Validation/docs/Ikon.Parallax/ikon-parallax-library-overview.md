@@ -55,7 +55,7 @@ Styling uses Crosswind, a Tailwind-compatible utility class system. Styles are d
 private const string ButtonStyle =
     "px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition";
 
-view.Button(style: [ButtonStyle], label: "Click me", onClick: async () => { });
+view.Button(style: [ButtonStyle], text: "Click me", onClick: async () => { });
 ```
 
 ## Basic Usage
@@ -85,7 +85,7 @@ public class MyApp(IApp<SessionIdentity, ClientParams> app)
                 view.Text(style: ["text-lg"], text: $"Count: {_counter.Value}");
                 view.Button(
                     style: ["px-4 py-2 bg-blue-500 rounded hover:bg-blue-600"],
-                    label: "Increment",
+                    text: "Increment",
                     onClick: async () => _counter.Value++);
             });
         });
@@ -232,8 +232,8 @@ public async Task Main()
             {
                 view.Switch(
                     style: ["w-10 h-5 rounded-full bg-neutral-700 data-[state=checked]:bg-blue-500"],
-                    isChecked: _subscribed.Value,
-                    onCheckedChange: value =>
+                    value: _subscribed.Value,
+                    onValueChange: value =>
                     {
                         _subscribed.Value = value;
                         return Task.CompletedTask;
@@ -316,7 +316,7 @@ The library ships a set of theme style constants under `Ikon.Parallax.Theming` (
 using Ikon.Parallax.Theming;
 
 // Use theme style constants
-view.Button(style: [Button.PrimaryMd], label: "Submit");
+view.Button(style: [Button.PrimaryMd], text: "Submit");
 view.TextField(style: [Input.Default], value: _text.Value, onValueChange: async v => _text.Value = v);
 ```
 
@@ -326,10 +326,10 @@ view.TextField(style: [Input.Default], value: _text.Value, onValueChange: async 
 their default theme token, so the minimal call renders a complete, themed control:
 
 ```csharp
-view.Checkbox(isChecked: _done.Value, onCheckedChange: async v => _done.Value = v);
-view.Switch(isChecked: _on.Value, onCheckedChange: async v => _on.Value = v);
+view.Checkbox(value: _done.Value, onValueChange: async v => _done.Value = v);
+view.Switch(value: _on.Value, onValueChange: async v => _on.Value = v);
 view.TextField(value: _text.Value, onValueChange: async v => _text.Value = v);
-view.Button(label: "Submit", onClick: async () => { });
+view.Button(text: "Submit", onClick: async () => { });
 ```
 
 Controls that have a visible inner part also compose it automatically when no `content:`
@@ -355,7 +355,7 @@ public async Task Main()
         // Each client sees their own counter value
         view.Text(text: $"Your count: {_clientCounter.Value}");
         view.Button(
-            label: "Increment",
+            text: "Increment",
             onClick: async () => _clientCounter.Value++);
     });
 }
@@ -385,7 +385,7 @@ view.SnapshotReveal(v =>
 });
 
 // Live: real content. Snapshot: nothing (omit entirely — e.g. a control that is dead before connect).
-view.SnapshotHide(v => v.Button(label: "Sign out", onClick: SignOutAsync));
+view.SnapshotHide(v => v.Button(text: "Sign out", onClick: SignOutAsync));
 
 // Live: nothing. Snapshot: snapshot-only filler, rendered as authored (not skeletonized).
 view.SnapshotOnly(v => v.Text([Text.Caption], "Loading your dashboard…"));

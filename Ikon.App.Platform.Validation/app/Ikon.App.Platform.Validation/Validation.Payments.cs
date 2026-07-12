@@ -138,8 +138,8 @@ public partial class Validation
                         });
                         r.Row([Layout.Row.Xs], content: actions =>
                         {
-                            actions.Button([Button.PrimarySm], label: "Take payment", disabled: _payBusy.Value, onClick: () => PayAsync(offerId));
-                            actions.Button([Button.PrimarySm], label: "Remove", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
+                            actions.Button([Button.PrimarySm], text: "Take payment", disabled: _payBusy.Value, onClick: () => PayAsync(offerId));
+                            actions.Button([Button.PrimarySm], text: "Remove", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
                             {
                                 var removed = await app.Payments.RemoveOfferAsync(offerId);
                                 LogPayments(removed ? $"Removed offer '{offerId}' from the catalog" : $"Offer '{offerId}' was not an active offer");
@@ -151,8 +151,8 @@ public partial class Validation
 
                 card.Row([Layout.Row.Sm, "flex-wrap"], content: btns =>
                 {
-                    btns.Button([Button.PrimarySm], label: "Refresh offers", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(RefreshOffersAsync));
-                    btns.Button([Button.PrimarySm], label: "Create validation offers", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(CreateValidationOffersAsync));
+                    btns.Button([Button.PrimarySm], text: "Refresh offers", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(RefreshOffersAsync));
+                    btns.Button([Button.PrimarySm], text: "Create validation offers", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(CreateValidationOffersAsync));
                 });
 
                 card.AccordionSingle([Accordion.Root], collapsible: true, content: acc =>
@@ -184,7 +184,7 @@ public partial class Validation
                                     options: [new SelectOption("one_time", "One-time"), new SelectOption("month", "Monthly subscription")],
                                     label: "Type",
                                     onValueChange: async v => _payNewOfferKind.Value = v);
-                                row.Button([Button.PrimarySm], label: "Create offer", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(CreateOfferAsync));
+                                row.Button([Button.PrimarySm], text: "Create offer", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(CreateOfferAsync));
                             });
                         });
                     });
@@ -204,7 +204,7 @@ public partial class Validation
                         label: "Currency",
                         onValueChange: async v => _payCurrency.Value = v);
                     row.TextField(bind: _payChargeDescription, label: "Description", style: [Input.Default, "min-w-[220px]"]);
-                    row.Button([Button.PrimarySm], label: "Charge", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
+                    row.Button([Button.PrimarySm], text: "Charge", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
                     {
                         if (!TryParseAmountMinor(_payAmount.Value, out var amountMinor))
                         {
@@ -225,7 +225,7 @@ public partial class Validation
                 card.Row(["gap-3 flex-wrap items-end"], content: row =>
                 {
                     row.TextField(bind: _payOfferId, label: "Offer ID", style: [Input.Default, "w-48"]);
-                    row.Button([Button.PrimarySm], label: "Check access", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
+                    row.Button([Button.PrimarySm], text: "Check access", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
                     {
                         var e = await app.Payments.GetEntitlementAsync(_payOfferId.Value, CustomerOverrideOrNull);
                         _payEntitlement.Value = e.Active
@@ -248,7 +248,7 @@ public partial class Validation
             col.Column([Card.Default, "p-6 gap-3"], content: card =>
             {
                 card.Text([Text.H3], text: "Subscriptions & payments");
-                card.Button([Button.PrimarySm, "self-start"], label: "Refresh", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(ReloadCustomerAsync));
+                card.Button([Button.PrimarySm, "self-start"], text: "Refresh", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(ReloadCustomerAsync));
 
                 if (_payCustomerLoaded.Value)
                 {
@@ -274,17 +274,17 @@ public partial class Validation
                                 {
                                     // A simulated subscription exists only in the normalized store, so a
                                     // real provider cancel can only fail — end it through the simulator.
-                                    actions.Button([Button.PrimarySm], label: "Revoke (simulated)", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(
+                                    actions.Button([Button.PrimarySm], text: "Revoke (simulated)", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(
                                         () => SimulateSubscriptionRevokedAsync(id.Substring(SimulatedSubscriptionPrefix.Length))));
                                     return;
                                 }
-                                actions.Button([Button.PrimarySm], label: "Cancel at period end", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
+                                actions.Button([Button.PrimarySm], text: "Cancel at period end", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
                                 {
                                     await app.Payments.CancelSubscriptionAsync(id);
                                     LogPayments("Canceled a subscription — it stays active until the period ends");
                                     await ReloadCustomerAsync();
                                 }));
-                                actions.Button([Button.PrimarySm], label: "Cancel now", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
+                                actions.Button([Button.PrimarySm], text: "Cancel now", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
                                 {
                                     await app.Payments.CancelSubscriptionAsync(id, immediate: true);
                                     LogPayments("Canceled a subscription immediately");
@@ -312,8 +312,8 @@ public partial class Validation
                             });
                             r.Row([Layout.Row.Xs], content: actions =>
                             {
-                                actions.Button([Button.PrimarySm], label: "Receipt", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(() => RequestReceiptAsync(id)));
-                                actions.Button([Button.PrimarySm], label: "Refund", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
+                                actions.Button([Button.PrimarySm], text: "Receipt", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(() => RequestReceiptAsync(id)));
+                                actions.Button([Button.PrimarySm], text: "Refund", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
                                 {
                                     var refund = await app.Payments.RefundAsync(id);
                                     LogPayments($"Refund {refund.Status}");
@@ -329,7 +329,7 @@ public partial class Validation
             col.Column([Card.Default, "p-6 gap-3"], content: card =>
             {
                 card.Text([Text.H3], text: "Feature gating");
-                card.Button([Button.PrimarySm, "self-start"], label: "Evaluate the gate", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
+                card.Button([Button.PrimarySm, "self-start"], text: "Evaluate the gate", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
                 {
                     var policy = new PaymentsRequireEntitlementAttribute(_payOfferId.Value).CreatePolicy();
                     var ctx = new PolicyCallContext(Guid.NewGuid(), "validation-demo", 0, SimulationCustomer, null, null, true, CancellationToken.None);
@@ -356,9 +356,9 @@ public partial class Validation
                 card.Text([Text.Label, "mt-2"], text: "Simulate provider webhooks");
                 card.Row([Layout.Row.Sm, "flex-wrap"], content: btns =>
                 {
-                    btns.Button([Button.PrimarySm], label: "Grant expired access", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(() => SimulateSubscriptionAccessAsync(expired: true)));
-                    btns.Button([Button.PrimarySm], label: "Grant active access", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(() => SimulateSubscriptionAccessAsync(expired: false)));
-                    btns.Button([Button.PrimarySm], label: "Revoke access", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(() => SimulateSubscriptionRevokedAsync(SimulationCustomer)));
+                    btns.Button([Button.PrimarySm], text: "Grant expired access", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(() => SimulateSubscriptionAccessAsync(expired: true)));
+                    btns.Button([Button.PrimarySm], text: "Grant active access", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(() => SimulateSubscriptionAccessAsync(expired: false)));
+                    btns.Button([Button.PrimarySm], text: "Revoke access", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(() => SimulateSubscriptionRevokedAsync(SimulationCustomer)));
                 });
             });
 
@@ -375,7 +375,7 @@ public partial class Validation
                     card.Text([Text.BodySm], text: $"• {line}");
                 }
 
-                card.Button([Button.PrimarySm, "self-start mt-2"], label: "Reconcile", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
+                card.Button([Button.PrimarySm, "self-start mt-2"], text: "Reconcile", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
                 {
                     // The outcome reads naturally as an event-feed entry right above
                     // this button — no separate status banner needed.

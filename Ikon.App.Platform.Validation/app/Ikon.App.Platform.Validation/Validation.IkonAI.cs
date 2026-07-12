@@ -248,7 +248,7 @@ public partial class Validation
 
                 view.Button(
                     [Button.PrimaryMd, "mt-4"],
-                    label: "Unlock",
+                    text: "Unlock",
                     disabled: string.IsNullOrEmpty(_sectionPassword.Value),
                     onClick: async () =>
                     {
@@ -341,7 +341,7 @@ public partial class Validation
                 {
                     view.Button(
                         [Button.PrimaryMd],
-                        label: "Classify",
+                        text: "Classify",
                         disabled: _classifierProcessing.Value || string.IsNullOrWhiteSpace(_classifierInput.Value),
                         onClick: ClassifyTextAsync);
 
@@ -448,7 +448,7 @@ public partial class Validation
                 {
                     view.Button(
                         [Button.PrimaryMd],
-                        label: "Generate Embeddings",
+                        text: "Generate Embeddings",
                         disabled: _embeddingProcessing.Value || string.IsNullOrWhiteSpace(_embeddingInput.Value),
                         onClick: GenerateEmbeddingsAsync);
 
@@ -556,7 +556,7 @@ public partial class Validation
                 {
                     view.Button(
                         [Button.PrimaryMd],
-                        label: "Search",
+                        text: "Search",
                         disabled: _webSearcherProcessing.Value || string.IsNullOrWhiteSpace(_webSearcherQuery.Value),
                         onClick: SearchWebAsync);
 
@@ -662,7 +662,7 @@ public partial class Validation
                 {
                     view.Button(
                         [Button.PrimaryMd],
-                        label: "Scrape",
+                        text: "Scrape",
                         disabled: _webScraperProcessing.Value || string.IsNullOrWhiteSpace(_webScraperUrl.Value),
                         onClick: ScrapeWebAsync);
 
@@ -762,7 +762,7 @@ public partial class Validation
                 {
                     view.Button(
                         [Button.PrimaryMd],
-                        label: "Rerank",
+                        text: "Rerank",
                         disabled: _rerankerProcessing.Value || string.IsNullOrWhiteSpace(_rerankerQuery.Value) || string.IsNullOrWhiteSpace(_rerankerDocuments.Value),
                         onClick: RerankDocumentsAsync);
 
@@ -986,8 +986,8 @@ public partial class Validation
                 {
                     view.Checkbox(
                         [Checkbox.Default],
-                        isChecked: _imageGeneratorUpsamplePrompt.Value,
-                        onCheckedChange: async v => _imageGeneratorUpsamplePrompt.Value = v);
+                        value: _imageGeneratorUpsamplePrompt.Value,
+                        onValueChange: async v => _imageGeneratorUpsamplePrompt.Value = v);
                     view.Text([Text.Body], "Upsample Prompt");
                 });
 
@@ -1041,7 +1041,7 @@ public partial class Validation
                 {
                     view.Button(
                         [Button.PrimaryMd],
-                        label: "Generate Image",
+                        text: "Generate Image",
                         disabled: _imageGeneratorProcessing.Value || string.IsNullOrWhiteSpace(_imageGeneratorPrompt.Value),
                         onClick: GenerateImageAsync);
 
@@ -1281,7 +1281,7 @@ public partial class Validation
                 {
                     view.Button(
                         [Button.PrimaryMd],
-                        label: "Generate Music",
+                        text: "Generate Music",
                         disabled: _musicProcessing.Value || string.IsNullOrWhiteSpace(_musicPrompt.Value),
                         onClick: GenerateMusicAsync);
 
@@ -1490,7 +1490,7 @@ public partial class Validation
                 {
                     view.Button(
                         [Button.PrimaryMd],
-                        label: "Generate Speech",
+                        text: "Generate Speech",
                         disabled: _speechGeneratorProcessing.Value || string.IsNullOrWhiteSpace(_speechGeneratorText.Value),
                         onClick: GenerateSpeechAsync);
 
@@ -1637,8 +1637,8 @@ public partial class Validation
                 {
                     view.Switch(
                         [Switch.Default],
-                        isChecked: isContinuous,
-                        onCheckedChange: value =>
+                        value: isContinuous,
+                        onValueChange: value =>
                         {
                             _speechRecognizerContinuous.Value = value;
 
@@ -1661,7 +1661,7 @@ public partial class Validation
                         view.CaptureButton(
                             [_speechRecognizerRecording.Value ? Button.ErrorMd : Button.PrimaryMd],
                             kind: MediaCaptureKind.Audio,
-                            label: _speechRecognizerRecording.Value ? "Stop Recording" : "Start Recording",
+                            text: _speechRecognizerRecording.Value ? "Stop Recording" : "Start Recording",
                             captureMode: MediaCaptureButtonMode.Toggle,
                             audioOptions: new ClientAudioCaptureOptions
                             {
@@ -1685,7 +1685,7 @@ public partial class Validation
 
                         view.Button(
                             [Button.PrimaryMd],
-                            label: "Recognize from Sample Audio",
+                            text: "Recognize from Sample Audio",
                             disabled: _speechRecognizerProcessing.Value || _speechRecognizerRecording.Value,
                             onClick: RecognizeFromSampleAsync);
 
@@ -1707,7 +1707,7 @@ public partial class Validation
                         view.CaptureButton(
                             [_speechRecognizerRecording.Value ? Button.ErrorMd : Button.PrimaryMd],
                             kind: MediaCaptureKind.Audio,
-                            label: _speechRecognizerRecording.Value ? "Recording..." : "Hold to Record",
+                            text: _speechRecognizerRecording.Value ? "Recording..." : "Hold to Record",
                             captureMode: MediaCaptureButtonMode.Hold,
                             audioOptions: new ClientAudioCaptureOptions
                             {
@@ -1729,7 +1729,7 @@ public partial class Validation
 
                         view.Button(
                             [Button.PrimaryMd],
-                            label: "Recognize from Sample Audio",
+                            text: "Recognize from Sample Audio",
                             disabled: _speechRecognizerProcessing.Value || _speechRecognizerRecording.Value,
                             onClick: RecognizeFromSampleAsync);
 
@@ -1950,13 +1950,13 @@ public partial class Validation
                 {
                     view.Button(
                         [Button.PrimaryMd],
-                        label: "Extract from Upload",
+                        text: "Extract from Upload",
                         disabled: _ocrProcessing.Value || string.IsNullOrEmpty(_ocrFilePath),
                         onClick: PerformOCRAsync);
 
                     view.Button(
                         [Button.PrimaryMd],
-                        label: "Extract from Sample PDF",
+                        text: "Extract from Sample PDF",
                         disabled: _ocrProcessing.Value,
                         onClick: PerformOCRFromSampleAsync);
 
@@ -2122,13 +2122,13 @@ public partial class Validation
                 {
                     view.Button(
                         [Button.PrimaryMd],
-                        label: "Convert from Upload",
+                        text: "Convert from Upload",
                         disabled: _fileConverterProcessing.Value || string.IsNullOrEmpty(_fileConverterFilePath),
                         onClick: ConvertFileAsync);
 
                     view.Button(
                         [Button.PrimaryMd],
-                        label: "Convert from Sample PPTX",
+                        text: "Convert from Sample PPTX",
                         disabled: _fileConverterProcessing.Value,
                         onClick: async () =>
                         {
@@ -2315,8 +2315,8 @@ public partial class Validation
                     {
                         view.Checkbox(
                             [Checkbox.Default],
-                            isChecked: _videoGeneratorGenerateAudio.Value,
-                            onCheckedChange: async v => _videoGeneratorGenerateAudio.Value = v);
+                            value: _videoGeneratorGenerateAudio.Value,
+                            onValueChange: async v => _videoGeneratorGenerateAudio.Value = v);
                         view.Text([Text.Body], "Generate Audio");
                     });
                 }
@@ -2374,7 +2374,7 @@ public partial class Validation
                 {
                     view.Button(
                         [Button.PrimaryMd],
-                        label: "Generate Video",
+                        text: "Generate Video",
                         disabled: _videoGeneratorProcessing.Value || string.IsNullOrWhiteSpace(_videoGeneratorPrompt.Value),
                         onClick: GenerateVideoAsync);
 
@@ -2445,12 +2445,12 @@ public partial class Validation
 
             if (_videoGeneratorSeed.Value > 0)
             {
-                config.Seed = _videoGeneratorSeed.Value;
+                config = config with { Seed = _videoGeneratorSeed.Value };
             }
 
             if (_videoGeneratorGenerateAudio.Value)
             {
-                config.GenerateAudio = true;
+                config = config with { GenerateAudio = true };
             }
 
             if (_videoGeneratorInputImageData != null && _videoGeneratorInputImageMimeType != null)
@@ -2548,8 +2548,8 @@ public partial class Validation
                     {
                         view.Checkbox(
                             [Checkbox.Default],
-                            isChecked: _soundEffectLoop.Value,
-                            onCheckedChange: async v => _soundEffectLoop.Value = v);
+                            value: _soundEffectLoop.Value,
+                            onValueChange: async v => _soundEffectLoop.Value = v);
                         view.Text([Text.Body], "Loop");
                     });
                 }
@@ -2558,7 +2558,7 @@ public partial class Validation
                 {
                     view.Button(
                         [Button.PrimaryMd],
-                        label: "Generate Sound Effect",
+                        text: "Generate Sound Effect",
                         disabled: _soundEffectProcessing.Value || string.IsNullOrWhiteSpace(_soundEffectPrompt.Value),
                         onClick: GenerateSoundEffectAsync);
 
@@ -2729,13 +2729,13 @@ public partial class Validation
                 {
                     view.Button(
                         [Button.PrimaryMd],
-                        label: "Enhance Video",
+                        text: "Enhance Video",
                         disabled: _videoEnhancerProcessing.Value || string.IsNullOrWhiteSpace(_videoEnhancerVideoUrl.Value),
                         onClick: EnhanceVideoAsync);
 
                     view.Button(
                         [Button.PrimaryMd],
-                        label: "Enhance Sample Video",
+                        text: "Enhance Sample Video",
                         disabled: _videoEnhancerProcessing.Value,
                         onClick: EnhanceSampleVideoAsync);
 
@@ -2793,24 +2793,12 @@ public partial class Validation
 
     private VideoEnhancerConfig BuildVideoEnhancerConfig()
     {
-        var config = new VideoEnhancerConfig();
-
-        if (_videoEnhancerTargetFps.Value > 0)
+        return new VideoEnhancerConfig
         {
-            config.TargetFps = _videoEnhancerTargetFps.Value;
-        }
-
-        if (_videoEnhancerStartFrame.Value > 0)
-        {
-            config.StartFrame = _videoEnhancerStartFrame.Value;
-        }
-
-        if (_videoEnhancerEndFrame.Value > 0)
-        {
-            config.EndFrame = _videoEnhancerEndFrame.Value;
-        }
-
-        return config;
+            TargetFps = _videoEnhancerTargetFps.Value > 0 ? _videoEnhancerTargetFps.Value : null,
+            StartFrame = _videoEnhancerStartFrame.Value > 0 ? _videoEnhancerStartFrame.Value : null,
+            EndFrame = _videoEnhancerEndFrame.Value > 0 ? _videoEnhancerEndFrame.Value : null
+        };
     }
 
     private void SetVideoEnhancerResultInfo(VideoEnhancerResult result)
@@ -2842,8 +2830,7 @@ public partial class Validation
             var model = Enum.Parse<VideoEnhancerModel>(_videoEnhancerModel.Value);
             using var enhancer = new VideoEnhancer(model);
 
-            var config = BuildVideoEnhancerConfig();
-            config.VideoUrl = _videoEnhancerVideoUrl.Value;
+            var config = BuildVideoEnhancerConfig() with { VideoUrl = _videoEnhancerVideoUrl.Value };
 
             var result = await enhancer.EnhanceVideoAsync(config);
 
@@ -2875,9 +2862,11 @@ public partial class Validation
             var videoPath = Path.Combine(app.DataDirectory, "sample.mp4");
             var videoBytes = await File.ReadAllBytesAsync(videoPath);
 
-            var config = BuildVideoEnhancerConfig();
-            config.VideoData = videoBytes;
-            config.MimeType = "video/mp4";
+            var config = BuildVideoEnhancerConfig() with
+            {
+                VideoData = videoBytes,
+                MimeType = "video/mp4"
+            };
 
             var result = await enhancer.EnhanceVideoAsync(config);
 

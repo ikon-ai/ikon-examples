@@ -21,6 +21,12 @@ public record Bot(
 
 private const int MaxHistoryVersions = 50;
 
+// The bots live in a ReactiveList — item edits go through one whole-list transform.
+private readonly PersistentReactiveList<Bot> _bots = new();
+
+private void ReplaceBot(string id, Func<Bot, Bot> update) =>
+    _bots.Update(bots => bots.Select(b => b.Id == id ? update(b) : b));   // one notification
+
 private Task SaveActiveBotAsync()
 {
     var active = ResolveActiveBot();
@@ -78,9 +84,10 @@ actions.Button([Button.GhostSm], disabled: bot.Cursor < 0 || bot.Cursor >= bot.H
 - Save *truncates the redo tail* (`History.Take(Cursor + 1)`) before appending — standard linear history semantics.
 - `PublishedIndex` is decoupled from `Cursor` so the author can keep editing past the version other people are using.
 - Cap `History` (50 here) to bound memory; trim from the start when over.
-- Wrap `_bots` in `PersistentReactive<List<Bot>>` so the whole timeline survives restarts.
+- Hold `_bots` in a `PersistentReactiveList<Bot>` so the whole timeline survives restarts — same one-notification-per-mutation contract as `ReactiveList<T>`, never `PersistentReactive<List<Bot>>`.
+- Item-level edits go through `_bots.Update(bots => bots.Select(b => b.Id == id ? update(b) : b))` — one atomic whole-list transform, one notification. `_bots.Value` is an `IReadOnlyList<Bot>` snapshot, so there is nothing to rebuild and reassign by hand.
 
 ## See also
 
 - `persistent-user-preferences` — different shape: single value, not a timeline
-- `shared-list-ai-cleanup` — same `_bots.Value = ...` immutable list update pattern
+- `shared-list-ai-cleanup` — same `_bots.Update(...)` whole-list transform pattern

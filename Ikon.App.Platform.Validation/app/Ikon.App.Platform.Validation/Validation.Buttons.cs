@@ -11,10 +11,10 @@ public partial class Validation
                 view.Text([Text.BodySm, "text-tertiary mb-4"], "Always brand-600 background and white text — identical in light and dark mode. Use when the button must look the same regardless of theme.");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.SolidSm],  label: "Solid Sm");
-                    view.Button([Button.SolidMd],  label: "Solid Md");
-                    view.Button([Button.SolidLg],  label: "Solid Lg");
-                    view.Button([Button.SolidMd],  label: "Disabled", disabled: true);
+                    view.Button([Button.SolidSm],  text: "Solid Sm");
+                    view.Button([Button.SolidMd],  text: "Solid Md");
+                    view.Button([Button.SolidLg],  text: "Solid Lg");
+                    view.Button([Button.SolidMd],  text: "Disabled", disabled: true);
                 });
             });
 
@@ -25,10 +25,10 @@ public partial class Validation
                 view.Text([Text.BodySm, "text-tertiary mb-4"], "Adapts to theme — deep brand background with white text in light mode; light pastel brand background with dark text in dark mode.");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.PrimarySm],  label: "Primary Sm");
-                    view.Button([Button.PrimaryMd],  label: "Primary Md");
-                    view.Button([Button.PrimaryLg],  label: "Primary Lg");
-                    view.Button([Button.PrimaryMd],  label: "Disabled", disabled: true);
+                    view.Button([Button.PrimarySm],  text: "Primary Sm");
+                    view.Button([Button.PrimaryMd],  text: "Primary Md");
+                    view.Button([Button.PrimaryLg],  text: "Primary Lg");
+                    view.Button([Button.PrimaryMd],  text: "Disabled", disabled: true);
                 });
             });
 
@@ -38,10 +38,10 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "Neutral");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.NeutralSm], label: "Neutral Sm");
-                    view.Button([Button.NeutralMd], label: "Neutral Md");
-                    view.Button([Button.NeutralLg], label: "Neutral Lg");
-                    view.Button([Button.NeutralMd], label: "Disabled", disabled: true);
+                    view.Button([Button.NeutralSm], text: "Neutral Sm");
+                    view.Button([Button.NeutralMd], text: "Neutral Md");
+                    view.Button([Button.NeutralLg], text: "Neutral Lg");
+                    view.Button([Button.NeutralMd], text: "Disabled", disabled: true);
                 });
             });
 
@@ -51,10 +51,10 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "Outline");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.OutlineSm], label: "Outline Sm");
-                    view.Button([Button.OutlineMd], label: "Outline Md");
-                    view.Button([Button.OutlineLg], label: "Outline Lg");
-                    view.Button([Button.OutlineMd], label: "Disabled", disabled: true);
+                    view.Button([Button.OutlineSm], text: "Outline Sm");
+                    view.Button([Button.OutlineMd], text: "Outline Md");
+                    view.Button([Button.OutlineLg], text: "Outline Lg");
+                    view.Button([Button.OutlineMd], text: "Disabled", disabled: true);
                 });
             });
 
@@ -64,10 +64,10 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "Ghost");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.GhostSm], label: "Ghost Sm");
-                    view.Button([Button.GhostMd], label: "Ghost Md");
-                    view.Button([Button.GhostLg], label: "Ghost Lg");
-                    view.Button([Button.GhostMd], label: "Disabled", disabled: true);
+                    view.Button([Button.GhostSm], text: "Ghost Sm");
+                    view.Button([Button.GhostMd], text: "Ghost Md");
+                    view.Button([Button.GhostLg], text: "Ghost Lg");
+                    view.Button([Button.GhostMd], text: "Disabled", disabled: true);
                 });
             });
 
@@ -77,10 +77,10 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "Error");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.ErrorSm], label: "Error Sm");
-                    view.Button([Button.ErrorMd], label: "Error Md");
-                    view.Button([Button.ErrorLg], label: "Error Lg");
-                    view.Button([Button.ErrorMd], label: "Disabled", disabled: true);
+                    view.Button([Button.ErrorSm], text: "Error Sm");
+                    view.Button([Button.ErrorMd], text: "Error Md");
+                    view.Button([Button.ErrorLg], text: "Error Lg");
+                    view.Button([Button.ErrorMd], text: "Disabled", disabled: true);
                 });
             });
 
@@ -90,10 +90,10 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "Success");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.SuccessSm], label: "Success Sm");
-                    view.Button([Button.SuccessMd], label: "Success Md");
-                    view.Button([Button.SuccessLg], label: "Success Lg");
-                    view.Button([Button.SuccessMd], label: "Disabled", disabled: true);
+                    view.Button([Button.SuccessSm], text: "Success Sm");
+                    view.Button([Button.SuccessMd], text: "Success Md");
+                    view.Button([Button.SuccessLg], text: "Success Lg");
+                    view.Button([Button.SuccessMd], text: "Disabled", disabled: true);
                 });
             });
 
@@ -103,10 +103,10 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "Warning");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.WarningSm], label: "Warning Sm");
-                    view.Button([Button.WarningMd], label: "Warning Md");
-                    view.Button([Button.WarningLg], label: "Warning Lg");
-                    view.Button([Button.WarningMd], label: "Disabled", disabled: true);
+                    view.Button([Button.WarningSm], text: "Warning Sm");
+                    view.Button([Button.WarningMd], text: "Warning Md");
+                    view.Button([Button.WarningLg], text: "Warning Lg");
+                    view.Button([Button.WarningMd], text: "Disabled", disabled: true);
                 });
             });
 
@@ -116,10 +116,10 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "Info");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.InfoSm], label: "Info Sm");
-                    view.Button([Button.InfoMd], label: "Info Md");
-                    view.Button([Button.InfoLg], label: "Info Lg");
-                    view.Button([Button.InfoMd], label: "Disabled", disabled: true);
+                    view.Button([Button.InfoSm], text: "Info Sm");
+                    view.Button([Button.InfoMd], text: "Info Md");
+                    view.Button([Button.InfoLg], text: "Info Lg");
+                    view.Button([Button.InfoMd], text: "Disabled", disabled: true);
                 });
             });
 
@@ -129,10 +129,10 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "Link");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.LinkSm], label: "Link Sm");
-                    view.Button([Button.LinkMd], label: "Link Md");
-                    view.Button([Button.LinkLg], label: "Link Lg");
-                    view.Button([Button.LinkMd], label: "Disabled", disabled: true);
+                    view.Button([Button.LinkSm], text: "Link Sm");
+                    view.Button([Button.LinkMd], text: "Link Md");
+                    view.Button([Button.LinkLg], text: "Link Lg");
+                    view.Button([Button.LinkMd], text: "Disabled", disabled: true);
                 });
             });
 
@@ -176,9 +176,9 @@ public partial class Validation
                     view.Text([Text.Caption, "mt-4"], "Icon button loading");
                     view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                     {
-                        view.Button([Button.PrimaryMd, Button.Icon, State.Loading], label: "Loading", content: v => v.Box([Icon.Spinner]));
-                        view.Button([Button.NeutralMd, Button.Icon, State.Loading], label: "Loading", content: v => v.Box([Icon.Spinner]));
-                        view.Button([Button.OutlineMd, Button.Icon, State.Loading], label: "Loading", content: v => v.Box([Icon.Spinner]));
+                        view.Button([Button.PrimaryMd, Button.Icon, State.Loading], text: "Loading", content: v => v.Box([Icon.Spinner]));
+                        view.Button([Button.NeutralMd, Button.Icon, State.Loading], text: "Loading", content: v => v.Box([Icon.Spinner]));
+                        view.Button([Button.OutlineMd, Button.Icon, State.Loading], text: "Loading", content: v => v.Box([Icon.Spinner]));
                     });
                 });
             });
@@ -189,22 +189,22 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "Icon Buttons");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.PrimaryMd, Button.Icon], label: "Heart", content: v => v.Icon([Icon.Default], name: "heart"));
-                    view.Button([Button.NeutralMd, Button.Icon], label: "Star", content: v => v.Icon([Icon.Default], name: "star"));
-                    view.Button([Button.OutlineMd, Button.Icon], label: "Settings", content: v => v.Icon([Icon.Default], name: "settings"));
-                    view.Button([Button.GhostMd, Button.Icon], label: "Search", content: v => v.Icon([Icon.Default], name: "search"));
-                    view.Button([Button.ErrorMd, Button.Icon], label: "Delete", content: v => v.Icon([Icon.Default], name: "trash-2"));
+                    view.Button([Button.PrimaryMd, Button.Icon], text: "Heart", content: v => v.Icon([Icon.Default], name: "heart"));
+                    view.Button([Button.NeutralMd, Button.Icon], text: "Star", content: v => v.Icon([Icon.Default], name: "star"));
+                    view.Button([Button.OutlineMd, Button.Icon], text: "Settings", content: v => v.Icon([Icon.Default], name: "settings"));
+                    view.Button([Button.GhostMd, Button.Icon], text: "Search", content: v => v.Icon([Icon.Default], name: "search"));
+                    view.Button([Button.ErrorMd, Button.Icon], text: "Delete", content: v => v.Icon([Icon.Default], name: "trash-2"));
                 });
                 view.Row([Layout.Row.Md, "flex-wrap", "mt-4"], content: view =>
                 {
-                    view.Button([Button.OutlineMd, Button.Icon], label: "Add", content: v => v.Icon([Icon.Default], name: "plus"));
-                    view.Button([Button.OutlineMd, Button.Icon], label: "Remove", content: v => v.Icon([Icon.Default], name: "minus"));
-                    view.Button([Button.OutlineMd, Button.Icon], label: "Confirm", content: v => v.Icon([Icon.Default], name: "check"));
-                    view.Button([Button.OutlineMd, Button.Icon], label: "Close", content: v => v.Icon([Icon.Default], name: "x"));
-                    view.Button([Button.OutlineMd, Button.Icon], label: "Expand", content: v => v.Icon([Icon.Default], name: "chevron-down"));
-                    view.Button([Button.OutlineMd, Button.Icon], label: "Collapse", content: v => v.Icon([Icon.Default], name: "chevron-up"));
-                    view.Button([Button.OutlineMd, Button.Icon], label: "Menu", content: v => v.Icon([Icon.Default], name: "menu"));
-                    view.Button([Button.OutlineMd, Button.Icon], label: "More options", content: v => v.Icon([Icon.Default], name: "more-horizontal"));
+                    view.Button([Button.OutlineMd, Button.Icon], text: "Add", content: v => v.Icon([Icon.Default], name: "plus"));
+                    view.Button([Button.OutlineMd, Button.Icon], text: "Remove", content: v => v.Icon([Icon.Default], name: "minus"));
+                    view.Button([Button.OutlineMd, Button.Icon], text: "Confirm", content: v => v.Icon([Icon.Default], name: "check"));
+                    view.Button([Button.OutlineMd, Button.Icon], text: "Close", content: v => v.Icon([Icon.Default], name: "x"));
+                    view.Button([Button.OutlineMd, Button.Icon], text: "Expand", content: v => v.Icon([Icon.Default], name: "chevron-down"));
+                    view.Button([Button.OutlineMd, Button.Icon], text: "Collapse", content: v => v.Icon([Icon.Default], name: "chevron-up"));
+                    view.Button([Button.OutlineMd, Button.Icon], text: "Menu", content: v => v.Icon([Icon.Default], name: "menu"));
+                    view.Button([Button.OutlineMd, Button.Icon], text: "More options", content: v => v.Icon([Icon.Default], name: "more-horizontal"));
                 });
             });
 
@@ -214,11 +214,11 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "Emoji Buttons");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.PrimaryMd, Button.Icon], label: "Heart", content: v => v.Text(text: "❤️"));
-                    view.Button([Button.NeutralMd, Button.Icon], label: "Star", content: v => v.Text(text: "⭐"));
-                    view.Button([Button.OutlineMd, Button.Icon], label: "Settings", content: v => v.Text(text: "⚙️"));
-                    view.Button([Button.GhostMd, Button.Icon], label: "Search", content: v => v.Text(text: "🔍"));
-                    view.Button([Button.ErrorMd, Button.Icon], label: "Delete", content: v => v.Text(text: "🗑️"));
+                    view.Button([Button.PrimaryMd, Button.Icon], text: "Heart", content: v => v.Text(text: "❤️"));
+                    view.Button([Button.NeutralMd, Button.Icon], text: "Star", content: v => v.Text(text: "⭐"));
+                    view.Button([Button.OutlineMd, Button.Icon], text: "Settings", content: v => v.Text(text: "⚙️"));
+                    view.Button([Button.GhostMd, Button.Icon], text: "Search", content: v => v.Text(text: "🔍"));
+                    view.Button([Button.ErrorMd, Button.Icon], text: "Delete", content: v => v.Text(text: "🗑️"));
                 });
             });
 
@@ -289,21 +289,21 @@ public partial class Validation
                     view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                     {
                         view.Toggle([Toggle.DefaultSm],
-                            pressed: _togglePressed.Value, onPressedChange: async pressed => _togglePressed.Value = pressed, content: v => v.Text(text: "Sm"));
+                            value: _togglePressed.Value, onValueChange: async pressed => _togglePressed.Value = pressed, content: v => v.Text(text: "Sm"));
                         view.Toggle([Toggle.DefaultMd],
-                            pressed: _togglePressed.Value, onPressedChange: async pressed => _togglePressed.Value = pressed, content: v => v.Text(text: "Md"));
+                            value: _togglePressed.Value, onValueChange: async pressed => _togglePressed.Value = pressed, content: v => v.Text(text: "Md"));
                         view.Toggle([Toggle.DefaultLg],
-                            pressed: _togglePressed.Value, onPressedChange: async pressed => _togglePressed.Value = pressed, content: v => v.Text(text: "Lg"));
+                            value: _togglePressed.Value, onValueChange: async pressed => _togglePressed.Value = pressed, content: v => v.Text(text: "Lg"));
                     });
                     view.Text([Text.Label], "Icon");
                     view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                     {
                         view.Toggle([Toggle.IconDefaultSm],
-                            pressed: _togglePressed.Value, onPressedChange: async pressed => _togglePressed.Value = pressed, content: v => v.Text(text: "✱"));
+                            value: _togglePressed.Value, onValueChange: async pressed => _togglePressed.Value = pressed, content: v => v.Text(text: "✱"));
                         view.Toggle([Toggle.IconDefaultMd],
-                            pressed: _togglePressed.Value, onPressedChange: async pressed => _togglePressed.Value = pressed, content: v => v.Text(text: "✱"));
+                            value: _togglePressed.Value, onValueChange: async pressed => _togglePressed.Value = pressed, content: v => v.Text(text: "✱"));
                         view.Toggle([Toggle.IconDefaultLg],
-                            pressed: _togglePressed.Value, onPressedChange: async pressed => _togglePressed.Value = pressed, content: v => v.Text(text: "✱"));
+                            value: _togglePressed.Value, onValueChange: async pressed => _togglePressed.Value = pressed, content: v => v.Text(text: "✱"));
                     });
                 });
             });

@@ -63,14 +63,14 @@ public partial class Validation
                     {
                         if (!_profilingRunning.Value)
                         {
-                            view.Button([Button.PrimaryMd], label: "Start Profiling", onClick: StartProfilingAsync);
+                            view.Button([Button.PrimaryMd], text: "Start Profiling", onClick: StartProfilingAsync);
                         }
                         else
                         {
-                            view.Button([Button.ErrorMd], label: "Stop Profiling", onClick: StopProfilingAsync);
+                            view.Button([Button.ErrorMd], text: "Stop Profiling", onClick: StopProfilingAsync);
                         }
 
-                        view.Button([Button.OutlineMd], label: "Reset Stats", onClick: ResetProfilingStatsAsync);
+                        view.Button([Button.OutlineMd], text: "Reset Stats", onClick: ResetProfilingStatsAsync);
                     });
 
                     if (_profilingRunning.Value)
@@ -81,8 +81,8 @@ public partial class Validation
                     view.Row([Layout.Row.Md, "items-center"], content: view =>
                     {
                         view.Checkbox([Checkbox.Root],
-                            isChecked: _profilingSubtreeCaching.Value,
-                            onCheckedChange: async v =>
+                            value: _profilingSubtreeCaching.Value,
+                            onValueChange: async v =>
                             {
                                 _profilingSubtreeCaching.Value = v;
                                 UI.EnableSubtreeCaching = v;
@@ -95,8 +95,8 @@ public partial class Validation
                     view.Row([Layout.Row.Md, "items-center"], content: view =>
                     {
                         view.Checkbox([Checkbox.Root],
-                            isChecked: _profilingSubtreeRendering.Value,
-                            onCheckedChange: async v =>
+                            value: _profilingSubtreeRendering.Value,
+                            onValueChange: async v =>
                             {
                                 _profilingSubtreeRendering.Value = v;
                                 UI.EnableSubtreeRendering = v;

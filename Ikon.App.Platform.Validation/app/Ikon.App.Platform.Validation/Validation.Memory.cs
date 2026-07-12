@@ -62,7 +62,7 @@ public partial class Validation
                     view.TextField([Input.Default, "w-32"], value: _maxClientsOverride.Value, type: "number",
                         step: "1", min: "0", placeholder: app.MaxClients.ToString(),
                         onValueChange: async v => _maxClientsOverride.Value = v ?? "");
-                    view.Button([Button.PrimaryMd], label: "Apply", onClick: ApplyMaxClientsOverrideAsync);
+                    view.Button([Button.PrimaryMd], text: "Apply", onClick: ApplyMaxClientsOverrideAsync);
                 });
 
                 view.Text([Text.Caption, "mt-2"],
@@ -80,9 +80,9 @@ public partial class Validation
                     view.TextField([Input.Default, "w-32"], value: _memoryAllocateMb.Value, type: "number",
                         step: "1", min: "1", max: "4096",
                         onValueChange: async v => _memoryAllocateMb.Value = v ?? "10");
-                    view.Button([Button.PrimaryMd], label: "Allocate Managed", disabled: allocating, onClick: AllocateManagedMemoryAsync);
-                    view.Button([Button.PrimaryMd], label: "Allocate Unmanaged", disabled: allocating, onClick: AllocateUnmanagedMemoryAsync);
-                    view.Button([Button.ErrorMd], label: "Free All", disabled: allocating, onClick: FreeAllMemoryAsync);
+                    view.Button([Button.PrimaryMd], text: "Allocate Managed", disabled: allocating, onClick: AllocateManagedMemoryAsync);
+                    view.Button([Button.PrimaryMd], text: "Allocate Unmanaged", disabled: allocating, onClick: AllocateUnmanagedMemoryAsync);
+                    view.Button([Button.ErrorMd], text: "Free All", disabled: allocating, onClick: FreeAllMemoryAsync);
                 });
 
                 view.Text([Text.Body, "mt-4"], $"Managed allocations: {_memoryManagedAllocations.Count} ({managedAllocatedMb:F1} MB)");

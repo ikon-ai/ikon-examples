@@ -33,7 +33,7 @@ private void RenderInput(UIView view)
             var canSend = !_isProcessing.Value && !string.IsNullOrWhiteSpace(_inputText.Value);
             view.Button(
                 style: [canSend ? Styles.Input.SendButton : Styles.Input.SendButtonDisabled],
-                label: _isProcessing.Value ? "..." : "Send",
+                text: _isProcessing.Value ? "..." : "Send",
                 disabled: !canSend,
                 onClick: async () => SubmitCommand());
         });
@@ -48,7 +48,7 @@ private void RenderInput(UIView view)
                     var h = hint;
                     view.Button(
                         style: [Styles.Input.HintButton],
-                        label: hint,
+                        text: hint,
                         onClick: async () => _inputText.Value = h + " ");
                 }
             });

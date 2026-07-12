@@ -24,7 +24,7 @@ public partial class Validation
                 view.Text([Text.Caption, "mb-4"], $"Current: {_notificationPermission.Value}");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.PrimaryMd], label: "Check permission", icon: "bell",
+                    view.Button([Button.PrimaryMd], text: "Check permission", icon: "bell",
                         onClick: async () =>
                         {
                             var permission = await app.Notifications.GetPermissionAsync(ReactiveScope.ClientId);
@@ -40,16 +40,16 @@ public partial class Validation
                 view.Text([Text.Caption, "mb-4"], "Shown while the client is connected. The first send triggers the permission prompt.");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.PrimaryMd], label: "Notify this session", icon: "bell",
+                    view.Button([Button.PrimaryMd], text: "Notify this session", icon: "bell",
                         onClick: async () => await NotifyOneAsync(() => app.Notifications.SendToSessionAsync(
                             ReactiveScope.ClientId,
                             new NotificationContent("Validation", "Foreground notification to this session."))));
 
-                    view.Button([Button.NeutralMd], label: "Broadcast to all sessions", icon: "bell-ring",
+                    view.Button([Button.NeutralMd], text: "Broadcast to all sessions", icon: "bell-ring",
                         onClick: async () => await NotifyManyAsync(() => app.Notifications.BroadcastAsync(
                             new NotificationContent("Validation", "Broadcast to every connected session."))));
 
-                    view.Button([Button.NeutralMd], label: "Notify my user (all my devices)", icon: "user",
+                    view.Button([Button.NeutralMd], text: "Notify my user (all my devices)", icon: "user",
                         onClick: async () =>
                         {
                             var userId = app.GlobalState.Clients.TryGetValue(ReactiveScope.ClientId, out var ctx) ? ctx.UserId : "";
@@ -67,7 +67,7 @@ public partial class Validation
 
                 view.Row([Layout.Row.Md, "flex-wrap mt-3"], content: view =>
                 {
-                    view.Button([Button.OutlineMd], label: "Collapsing tag (send twice)", icon: "layers",
+                    view.Button([Button.OutlineMd], text: "Collapsing tag (send twice)", icon: "layers",
                         onClick: async () =>
                         {
                             await app.Notifications.SendToSessionAsync(ReactiveScope.ClientId,
@@ -76,7 +76,7 @@ public partial class Validation
                                 new NotificationContent("Validation", "Second — replaces the first (same tag).", Tag: "validation-demo")));
                         });
 
-                    view.Button([Button.OutlineMd], label: "With launch URL + data (tap test)", icon: "external-link",
+                    view.Button([Button.OutlineMd], text: "With launch URL + data (tap test)", icon: "external-link",
                         onClick: async () => await NotifyOneAsync(() => app.Notifications.SendToSessionAsync(
                             ReactiveScope.ClientId,
                             new NotificationContent(
@@ -97,7 +97,7 @@ public partial class Validation
                 view.Text([Text.Label, "mb-2"], "Step 1 — Enable push on this device");
                 view.Row([Layout.Row.Md, "flex-wrap mb-4"], content: view =>
                 {
-                    view.Button([Button.PrimaryMd], label: "Grant & register", icon: "bell-plus",
+                    view.Button([Button.PrimaryMd], text: "Grant & register", icon: "bell-plus",
                         onClick: async () => await NotifyOneAsync(() => app.Notifications.SendToSessionAsync(
                             ReactiveScope.ClientId,
                             new NotificationContent("Validation", "Push enabled — this device is now registered for offline push."))));
@@ -106,13 +106,13 @@ public partial class Validation
                 view.Text([Text.Label, "mb-2"], "Step 2 — Schedule a push, then close this tab");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.OutlineMd], label: "Push in 10s", icon: "clock",
+                    view.Button([Button.OutlineMd], text: "Push in 10s", icon: "clock",
                         onClick: async () => await ScheduleOfflinePushAsync(10));
 
-                    view.Button([Button.OutlineMd], label: "Push in 30s", icon: "clock",
+                    view.Button([Button.OutlineMd], text: "Push in 30s", icon: "clock",
                         onClick: async () => await ScheduleOfflinePushAsync(30));
 
-                    view.Button([Button.OutlineMd], label: "Push in 60s", icon: "clock",
+                    view.Button([Button.OutlineMd], text: "Push in 60s", icon: "clock",
                         onClick: async () => await ScheduleOfflinePushAsync(60));
                 });
 

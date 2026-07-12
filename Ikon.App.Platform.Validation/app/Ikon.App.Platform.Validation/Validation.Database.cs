@@ -43,7 +43,7 @@ public partial class Validation
 
         try
         {
-            await using var connection = AppDatabaseConnection.Create(app, DatabaseName);
+            await using var connection = app.Database(DatabaseName);
             await connection.OpenAsync();
             await using var command = connection.CreateCommand();
             command.CommandText = "DELETE FROM entries";
@@ -109,17 +109,17 @@ public partial class Validation
                     view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                     {
                         view.Button([Button.PrimaryMd],
-                            label: "Add via EF Core",
+                            text: "Add via EF Core",
                             disabled: _dbBusy.Value,
                             onClick: async () => await AddEntryAsync("ef"));
 
                         view.Button([Button.SecondaryMd],
-                            label: "Add via Dapper",
+                            text: "Add via Dapper",
                             disabled: _dbBusy.Value,
                             onClick: async () => await AddEntryAsync("dapper"));
 
                         view.Button([Button.OutlineMd],
-                            label: "Add via Raw SQL",
+                            text: "Add via Raw SQL",
                             disabled: _dbBusy.Value,
                             onClick: async () => await AddEntryAsync("raw"));
                     });
@@ -157,12 +157,12 @@ public partial class Validation
                             });
 
                         view.Button([Button.OutlineMd],
-                            label: "Refresh",
+                            text: "Refresh",
                             disabled: _dbBusy.Value,
                             onClick: async () => await RefreshEntriesAsync());
 
                         view.Button([Button.ErrorMd],
-                            label: "Delete all",
+                            text: "Delete all",
                             disabled: _dbBusy.Value,
                             onClick: DeleteAllEntriesAsync);
                     });
@@ -283,7 +283,7 @@ public partial class Validation
 
     private async Task AddViaDapperAsync(string author, string message)
     {
-        await using var connection = AppDatabaseConnection.Create(app, DatabaseName);
+        await using var connection = app.Database(DatabaseName);
         await connection.OpenAsync();
 
         var count = await connection.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM entries");
@@ -302,7 +302,7 @@ public partial class Validation
 
     private async Task<List<Entry>> ReadViaDapperAsync()
     {
-        await using var connection = AppDatabaseConnection.Create(app, DatabaseName);
+        await using var connection = app.Database(DatabaseName);
         await connection.OpenAsync();
 
         var rows = await connection.QueryAsync<Entry>(
@@ -315,7 +315,7 @@ public partial class Validation
 
     private async Task AddViaRawAsync(string author, string message)
     {
-        await using var connection = AppDatabaseConnection.Create(app, DatabaseName);
+        await using var connection = app.Database(DatabaseName);
         await connection.OpenAsync();
 
         await using (var countCommand = connection.CreateCommand())
@@ -342,7 +342,7 @@ public partial class Validation
 
     private async Task<List<Entry>> ReadViaRawAsync()
     {
-        await using var connection = AppDatabaseConnection.Create(app, DatabaseName);
+        await using var connection = app.Database(DatabaseName);
         await connection.OpenAsync();
 
         await using var command = connection.CreateCommand();
@@ -402,7 +402,7 @@ public partial class Validation
 
         try
         {
-            await using var connection = AppDatabaseConnection.Create(app, DatabaseName);
+            await using var connection = app.Database(DatabaseName);
             await connection.OpenAsync();
             await using var command = connection.CreateCommand();
             command.CommandText = "DELETE FROM entries";

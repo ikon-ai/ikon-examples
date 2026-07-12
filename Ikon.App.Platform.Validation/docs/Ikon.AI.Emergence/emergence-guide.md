@@ -1,12 +1,12 @@
 # Ikon.AI.Emergence Guide
 
-Ikon.AI.Emergence is a streaming-first, C#-idiomatic library for building AI workflows with typed JSON outputs. It provides a collection of patterns for common AI tasks, from simple single-shot generation to complex multi-agent orchestration.
+Ikon.AI.Emergence is a streaming-first, C#-idiomatic library for building AI workflows with typed JSON outputs. It provides a collection of patterns for common AI tasks, from simple single-shot generation to parallel candidate search and document-tree navigation.
 
 ## Core Concepts
 
 ### Streaming-First Design
 
-All APIs return `IAsyncEnumerable<EmergeEvent<T>>`. Non-streaming usage is achieved via the `.FinalAsync()` extension method.
+All APIs return `IAsyncEnumerable<EmergeEvent<T>>`. Non-streaming usage is achieved via the `.ResultAsync()` extension method — or `.FinalAsync()` when you also need the updated `KernelContext` back.
 
 ```csharp
 // Streaming - observe progress
@@ -20,7 +20,11 @@ await foreach (var ev in Emerge.Run<MyType>(model, ctx, pass => { ... }))
     }
 }
 
-// Non-streaming - just get the result
+// Non-streaming - just get the result (never null; throws EmergenceStoppedException
+// if the run stops or completes without one)
+var result = await Emerge.Run<MyType>(model, pass => { ... }).ResultAsync();
+
+// Non-streaming - get the (nullable) result plus the updated KernelContext
 var (result, context) = await Emerge.Run<MyType>(model, ctx, pass => { ... }).FinalAsync();
 
 // Non-streaming - get the result with trace info
@@ -33,8 +37,8 @@ var (result, context, trace) = await Emerge.Run<MyType>(model, ctx, pass => { ..
 |-------|-------------|
 | `ModelText<T>` | Streaming text chunk from the model |
 | `ToolCallPlanned<T>` | Tool call detected (contains `FunctionCall`) |
-| `ToolCallResult<T>` | Tool execution completed (contains `Call`, `StreamingResults`, `Result`) |
-| `Stage<T>` | Pattern stage boundary (e.g., "Solver", "Critic") |
+| `ToolCallResult<T>` | Tool execution completed (contains `Call`, `Events`, `Result`) |
+| `Stage<T>` | Pattern stage boundary (e.g., "Candidate:0", "Critic") |
 | `Progress<T>` | Progress message |
 | `Retry<T>` | Retry attempt (contains `Reason`, `AttemptNumber`, `MaxAttempts`) |
 | `TokenUpdate<T>` | Token usage update (contains `InputTokens`, `CachedInputTokens`, `CacheCreationInputTokens`, `OutputTokens`) |
@@ -53,10 +57,10 @@ public class AnalysisResult
     public float Confidence { get; set; }
 }
 
-var (result, _) = await Emerge.Run<AnalysisResult>(model, ctx, pass =>
+var result = await Emerge.Run<AnalysisResult>(model, pass =>
 {
     pass.Command = "Analyze the following text and provide structured output.";
-}).FinalAsync();
+}).ResultAsync();
 
 // result.Summary, result.KeyPoints, result.Confidence are typed
 ```
@@ -83,15 +87,15 @@ await Emerge.Refine<T>(model, ctx, opt =>
         s.Temperature = 0.2f;  // Override for refinement
         s.Command = "Improve the draft.";
     });
-}).FinalAsync();
+}).ResultAsync();
 ```
 
 ### Context Behavior
 
 Patterns handle context in two ways:
 
-- **Shared context**: Sequential stages (Solver→Critic→Verifier, Refine iterations) share context. Each stage's output is automatically added to context before the next stage runs.
-- **Isolated context**: Parallel runs (BestOf candidates, MapReduce chunks, Swarm agents) use isolated derived contexts to ensure deterministic parallel execution.
+- **Shared context**: Sequential stages (Refine iterations, EnsembleMerge merger) share context. Each stage's output is automatically added to context before the next stage runs.
+- **Isolated context**: Parallel runs (BestOf candidates, MapReduce chunks, EnsembleMerge solvers) use isolated derived contexts to ensure deterministic parallel execution.
 
 ---
 
@@ -128,14 +132,23 @@ The structured overload throws `InvalidOperationException` if the model returns 
 The core pattern. Generates a typed JSON result with optional tool use.
 
 ```csharp
-var (result, ctx) = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, context, pass =>
+var result = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, pass =>
 {
     pass.SystemPrompt = "You are a helpful assistant.";
     pass.Command = "Answer the user's question.";
     pass.Temperature = 0.7;
     pass.MaxIterations = 5;
-    pass.AddTool("search_web", "Search the web for information",
-        (string query) => SearchWeb(query));
+    pass.AddTool(Tool.Of("search_web", "Search the web for information",
+        (string query) => SearchWeb(query)));
+}).ResultAsync();
+```
+
+A fresh `KernelContext` is created internally. Pass your own when you seed the call with input (images, prior turns), and use `.FinalAsync()` when you need the updated context back for conversation continuity or want a nullable result instead of a throw:
+
+```csharp
+var (result, ctx) = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, context, pass =>
+{
+    pass.Command = "Answer the user's question.";
 }).FinalAsync();
 ```
 
@@ -160,7 +173,7 @@ The `EmergePass<T>` configure callback is invoked on every iteration, giving acc
 Run N independent attempts and select the best result based on a scoring function.
 
 ```csharp
-var (best, _) = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
+var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
 {
     opt.Count = 5;
     opt.Command = "Solve this problem step by step.";
@@ -171,7 +184,7 @@ var (best, _) = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
         c.Temperature = 0.7 + 0.1 * c.Index;  // Vary temperature per candidate
         c.Seed = 1000 + c.Index;
     });
-}).FinalAsync();
+}).ResultAsync();
 ```
 
 **Options:**
@@ -187,110 +200,12 @@ var (best, _) = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
 
 ---
 
-### ParallelBestOf — Parallel Score and Select
-
-Like BestOf but explicitly parallelized with concurrency control.
-
-```csharp
-var (best, _) = await Emerge.ParallelBestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
-{
-    opt.Count = 10;
-    opt.MaxParallel = 4;  // Run 4 at a time
-    opt.Command = "Generate a creative solution.";
-    opt.Score = (answer, _) => ScoreAnswer(answer);
-}).FinalAsync();
-```
-
-**Options:**
-- `Count` - Number of candidates (default: 3)
-- `MaxParallel` - Concurrency limit (default: 4)
-- `Score` - Scoring function
-- `EnableCritic` - Enable critic-guided refinement of candidates (default: false)
-- `Critic(Action<EmergeScope<T>>)` - Configure the critic scope
-- `BuildCriticFeedback` - Custom function `Func<T, ScoreBreakdown?, string>` to build critic feedback
-- `CriticMustImprove` - Require critic to improve on the current best (default: true)
-
----
-
-### SolverCriticVerifier — Draft, Critique, Verify
-
-Three-stage pattern: generate a draft, critique it, then produce a verified final version.
-
-```csharp
-var (final, _) = await Emerge.SolverCriticVerifier<Report>(LLMModel.Claude45Sonnet, ctx, opt =>
-{
-    opt.MaxRounds = 2;
-
-    opt.Solver(s =>
-    {
-        s.Temperature = 0.8;
-        s.Command = "Draft a comprehensive report on the topic.";
-    });
-
-    opt.Critic(c =>
-    {
-        c.Temperature = 0.3;
-        c.Command = "Review this draft. List factual errors, logical gaps, and areas for improvement.";
-    });
-
-    opt.Verifier(v =>
-    {
-        v.Temperature = 0.4;
-        v.Command = "Produce the final report addressing all critique points.";
-    });
-}).FinalAsync();
-```
-
-**Options:**
-- `MaxRounds` - Number of solver→critic→verifier cycles (default: 1)
-- `Solver(Action<EmergeScope<T>>)` - Configure the draft generator
-- `Critic(Action<EmergeScope>)` - Configure the critic (untyped output)
-- `Verifier(Action<EmergeScope<T>>)` - Configure the final verifier
-
-**Context flow:** Solver output is automatically added to context before Critic runs. Critic output is added before Verifier runs.
-
----
-
-### DebateThenJudge — Multiple Perspectives
-
-Multiple debaters generate competing proposals, then a judge selects or synthesizes the best.
-
-```csharp
-var (final, _) = await Emerge.DebateThenJudge<Decision>(LLMModel.Claude45Sonnet, ctx, opt =>
-{
-    opt.Debaters = 3;
-    opt.DebateRounds = 1;
-
-    opt.Debater(d =>
-    {
-        d.Temperature = 0.9;
-        d.Command = $"As debater {d.Index}, argue for your position on this issue.";
-    });
-
-    opt.Judge(j =>
-    {
-        j.Temperature = 0.3;
-        j.Command = "Review all arguments. Synthesize the best points into a final decision.";
-    });
-}).FinalAsync();
-```
-
-**Options:**
-- `Debaters` - Number of debaters (default: 2)
-- `DebateRounds` - Rounds of debate (default: 1). Each round, debaters receive previous round arguments in context.
-- `Debater(Action<AgentScope<T>>)` - Configure debaters (has `Index`, `Role`, `Seed`)
-- `Judge(Action<EmergeScope<T>>)` - Configure the judge
-
-**Context flow:** Debaters run with isolated contexts. After all debaters complete, the Judge receives all arguments in context.
-
----
-
 ### MapReduce — Chunk Processing
 
 Split input into chunks, process each in parallel, then reduce to a final result.
 
 ```csharp
-var (report, _) = await Emerge.MapReduce<ChunkSummary, FinalReport>(LLMModel.Claude45Sonnet, ctx, opt =>
+var report = await Emerge.MapReduce<ChunkSummary, FinalReport>(LLMModel.Claude45Sonnet, ctx, opt =>
 {
     opt.Chunks = documents.Select(d => (object)d).ToList();
     opt.MaxParallel = 8;
@@ -306,7 +221,7 @@ var (report, _) = await Emerge.MapReduce<ChunkSummary, FinalReport>(LLMModel.Cla
         r.Temperature = 0.3;
         r.Command = "Combine all chunk summaries into a comprehensive final report.";
     });
-}).FinalAsync();
+}).ResultAsync();
 ```
 
 **Options:**
@@ -325,7 +240,7 @@ var (report, _) = await Emerge.MapReduce<ChunkSummary, FinalReport>(LLMModel.Cla
 Generate an initial result, then iteratively improve it based on feedback.
 
 ```csharp
-var (final, _) = await Emerge.Refine<Code>(LLMModel.Claude45Sonnet, ctx, opt =>
+var final = await Emerge.Refine<Code>(LLMModel.Claude45Sonnet, ctx, opt =>
 {
     opt.MaxRefinements = 3;
 
@@ -345,7 +260,7 @@ var (final, _) = await Emerge.Refine<Code>(LLMModel.Claude45Sonnet, ctx, opt =>
         var error = await ValidateCodeAsync(result.Code);
         return error != null;
     };
-}).FinalAsync();
+}).ResultAsync();
 ```
 
 **Options:**
@@ -358,128 +273,12 @@ var (final, _) = await Emerge.Refine<Code>(LLMModel.Claude45Sonnet, ctx, opt =>
 
 ---
 
-### TestRefine — Agentic Loop with Real-World Testing
-
-Generate an initial result, then iteratively apply it to the real environment, evaluate via testing, and refine based on feedback. Unlike Refine which operates purely on the serialized result, TestRefine includes caller-provided side effects for grounding each iteration in real-world testing (screenshots, browser tests, compilation, etc.).
-
-```csharp
-var (final, _) = await Emerge.TestRefine<UIComponent>(LLMModel.Claude45Sonnet, ctx, opt =>
-{
-    opt.MaxIterations = 5;
-
-    opt.Initial(s =>
-    {
-        s.Command = "Generate a responsive card component.";
-    });
-
-    opt.Refinement(s =>
-    {
-        s.Command = "Fix the issues found during testing.";
-    });
-
-    // Apply the result to the real environment
-    opt.Apply = async (result, iteration) =>
-    {
-        await RenderToPreview(result.Code);
-    };
-
-    // Test the environment, score, decide whether to continue
-    opt.Evaluate = async (result, iteration) =>
-    {
-        var screenshots = await CaptureScreenshots();
-        var critique = await RunVisualCritique(screenshots);
-        return new TestRefineFeedback
-        {
-            Continue = critique.Issues.Count > 0,
-            Feedback = string.Join("\n", critique.Issues.Select(i => $"Fix: {i}")),
-            Score = critique.Score
-        };
-    };
-}).FinalAsync();
-```
-
-**Options:**
-- `MaxIterations` - Maximum apply→evaluate→refine cycles (default: 5)
-- `Initial(Action<EmergeScope<T>>)` - Configure initial generation
-- `Refinement(Action<EmergeScope<T>>)` - Configure refinement passes
-- `Apply` - Async callback `Func<T, int, Task>` to apply the result to the real environment (e.g., render UI, serve HTML, deploy to sandbox). Receives the result and iteration index. Optional.
-- `Evaluate` - Async callback `Func<T, int, Task<TestRefineFeedback>>` to test the environment and decide whether to continue. Returns `TestRefineFeedback` with `Continue`, `Feedback`, and optional `Score`. Optional.
-
-**Callback behavior:**
-- Without `Apply`, generates and evaluates without side effects
-- Without `Evaluate`, generates, applies, and loops to `MaxIterations` (degenerates to Refine with Apply side effects)
-- `TestRefineFeedback.Feedback` is injected into the next refinement prompt alongside the current result JSON
-
-**Context flow:** Each refinement receives the current result JSON and evaluation feedback in context. The Apply and Evaluate callbacks run between LLM calls.
-
----
-
-### PlanAndExecute — Strategic Execution
-
-First create a plan, then execute each step to produce the final result.
-
-```csharp
-var (result, _) = await Emerge.PlanAndExecute<ProjectPlan>(LLMModel.Claude45Sonnet, ctx, opt =>
-{
-    opt.MaxSteps = 10;
-    opt.Tools.Add(fileReadTool);
-    opt.Tools.Add(searchTool);
-
-    opt.Planner(p =>
-    {
-        p.Command = "Create a step-by-step plan to complete this task.";
-    });
-
-    opt.Executor(e =>
-    {
-        e.Command = "Execute the current step and report results.";
-    });
-}).FinalAsync();
-```
-
-**Options:**
-- `MaxSteps` - Maximum execution steps (default: 10)
-- `Planner(Action<EmergeScope<ExecutionPlan>>)` - Configure plan generation
-- `Executor(Action<EmergeScope<T>>)` - Configure step execution
-
-The `ExecutionPlan` type contains `List<PlanStep> Steps` and optional `Summary`. Each `PlanStep` has `Description`, `RequiresTool`, and optional `ToolName`.
-
----
-
-### Router — Dynamic Routing
-
-Select the best route/model/approach for the task, then execute it.
-
-```csharp
-var (result, _) = await Emerge.Router<Response>(LLMModel.Claude45Sonnet, ctx, opt =>
-{
-    opt.AddRoute("code", "Programming and technical questions", LLMModel.Claude45Sonnet);
-    opt.AddRoute("creative", "Creative writing and brainstorming", LLMModel.Claude45Sonnet);
-    opt.AddRoute("analysis", "Data analysis and reasoning", LLMModel.Claude45Sonnet);
-
-    opt.Router(r =>
-    {
-        r.Command = "Analyze this request and select the most appropriate route.";
-    });
-
-    opt.Command = "Handle the user's request.";
-}).FinalAsync();
-```
-
-**Options:**
-- `AddRoute(name, description, model?, configure?)` - Define available routes
-- `Router(Action<EmergeScope<RouterDecision>>)` - Configure route selection
-
-The `RouterDecision` type contains `SelectedRoute` and optional `Reasoning`.
-
----
-
 ### EnsembleMerge — Diverse Solutions Merged
 
 Run multiple diverse solvers in parallel, then merge their outputs into a coherent result.
 
 ```csharp
-var (merged, _) = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, ctx, opt =>
+var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, ctx, opt =>
 {
     opt.SolverCount = 4;
     opt.MaxParallel = 4;
@@ -495,7 +294,7 @@ var (merged, _) = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, 
         m.Temperature = 0.3;
         m.Command = "Synthesize all analyses into a comprehensive unified result.";
     });
-}).FinalAsync();
+}).ResultAsync();
 ```
 
 **Options:**
@@ -505,176 +304,6 @@ var (merged, _) = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, 
 - `Merger(Action<EmergeScope<T>>)` - Configure the merger
 
 **Context flow:** Solvers run with isolated contexts for deterministic parallel execution. Merger receives all solver outputs in context.
-
----
-
-### TreeOfThought — Branching Reasoning
-
-Explore multiple reasoning paths with beam search, evaluating and pruning to find the best solution.
-
-```csharp
-var (best, _) = await Emerge.TreeOfThought<Solution>(LLMModel.Claude45Sonnet, ctx, opt =>
-{
-    opt.MaxDepth = 4;
-    opt.BranchingFactor = 3;
-    opt.BeamWidth = 2;
-
-    opt.Evaluate = (thought, trace) => ScoreThought(thought);
-
-    opt.Thought(t =>
-    {
-        t.Command = "Generate the next reasoning step.";
-    });
-}).FinalAsync();
-```
-
-**Options:**
-- `MaxDepth` - Maximum tree depth (default: 3)
-- `BranchingFactor` - Branches per node (default: 3)
-- `BeamWidth` - Best paths to keep at each level (default: 2)
-- `Evaluate` - Scoring function `Func<T, EmergenceTrace, double>`
-- `Thought(Action<EmergeScope<T>>)` - Configure thought generation
-- `Evaluator(Action<EmergeScope<T>>)` - Configure evaluator scope
-
-**Context flow:** Each branch runs with an isolated derived context containing its parent thought path.
-
----
-
-### SelfConsistency — Majority Voting
-
-Sample multiple completions and select the most consistent/majority answer.
-
-```csharp
-var (answer, _) = await Emerge.SelfConsistency<MathAnswer>(LLMModel.Claude45Sonnet, ctx, opt =>
-{
-    opt.Samples = 7;
-    opt.MaxParallel = 7;
-
-    opt.Sample(s =>
-    {
-        s.Temperature = 0.8;
-        s.Seed = s.Index * 1000;
-        s.Command = "Solve this math problem step by step.";
-    });
-
-    // Optional custom majority selection
-    opt.SelectMajority = answers => answers
-        .GroupBy(a => a.FinalAnswer)
-        .OrderByDescending(g => g.Count())
-        .First()
-        .First();
-}).FinalAsync();
-```
-
-**Options:**
-- `Samples` - Number of samples (default: 5)
-- `MaxParallel` - Concurrency limit (default: 5)
-- `SelectMajority` - Custom selection function (default: JSON equality grouping)
-- `Sample(Action<CandidateScope<T>>)` - Configure sampling (has `Index`, `Seed`)
-
-**Context flow:** Each sample runs with an isolated derived context to ensure independent sampling.
-
----
-
-### Swarm — Multi-Agent Orchestration
-
-Coordinate multiple agents with different roles across rounds.
-
-```csharp
-var (result, _) = await Emerge.Swarm<ProjectOutput>(LLMModel.Claude45Sonnet, ctx, opt =>
-{
-    opt.MaxRounds = 2;
-    opt.MaxParallel = 3;
-
-    opt.AddAgent("researcher", s =>
-    {
-        s.Command = "Research and gather relevant information.";
-    });
-
-    opt.AddAgent("analyst", s =>
-    {
-        s.Command = "Analyze the gathered information.";
-    });
-
-    opt.AddAgent("writer", s =>
-    {
-        s.Command = "Write the final output based on analysis.";
-    });
-
-    opt.Coordinator(c =>
-    {
-        c.Command = "Synthesize all agent outputs into the final deliverable.";
-    });
-
-    // Or use a custom merge function
-    // opt.Merge = results => MergeResults(results);
-}).FinalAsync();
-```
-
-**Options:**
-- `MaxRounds` - Number of orchestration rounds (default: 1)
-- `MaxParallel` - Agents running concurrently (default: 4)
-- `AddAgent(role, configure)` - Add an agent with a role and configuration
-- `Coordinator(Action<EmergeScope<T>>)` - Configure final coordination
-- `Merge` - Custom merge function instead of coordinator
-
-Each `SwarmAgent<T>` has `Role`, optional `Id`, and `DependsOn` list for declaring inter-agent dependencies.
-
-**Context flow:** Agents run with isolated contexts per round. All agents run every round. Coordinator receives all agent outputs in context.
-
----
-
-### TaskGraph — Dependency-Aware Task Execution
-
-Define a graph of tasks with dependencies, execute them in parallel where possible, with periodic review and plan revision.
-
-```csharp
-var (result, _) = await Emerge.TaskGraph<FinalReport>(LLMModel.Claude45Sonnet, ctx, opt =>
-{
-    opt.MaxParallel = 4;
-    opt.EnableParallelReview = true;
-    opt.ReviewIntervalTasks = 2;
-
-    opt.AddTask("research-benefits", "Research the benefits of the approach");
-    opt.AddTask("research-challenges", "Research the challenges and risks");
-    opt.AddTask("synthesize", "Synthesize findings into a report",
-        "research-benefits", "research-challenges");  // blocked by both
-
-    opt.Worker(w =>
-    {
-        w.Temperature = 0.7;
-        w.Command = "Complete the assigned task thoroughly.";
-    });
-
-    opt.Reviewer(r =>
-    {
-        r.Temperature = 0.3;
-        r.Command = "Review completed tasks for quality and suggest improvements.";
-    });
-
-    opt.Synthesizer(s =>
-    {
-        s.Temperature = 0.4;
-        s.Command = "Synthesize all task results into the final deliverable.";
-    });
-
-    opt.OnTaskCompleted = (task, result) => Console.WriteLine($"Task {task.Id} done");
-}).FinalAsync();
-```
-
-**Options:**
-- `AddTask(id, description, params blockedBy)` - Add a task with optional dependencies
-- `MaxParallel` - Concurrent task limit (default: 4)
-- `EnableParallelReview` - Run reviews alongside execution (default: true)
-- `ReviewIntervalTasks` - Review after every N completed tasks (default: 2)
-- `Worker(Action<EmergeScope<T>>)` - Configure task executor
-- `Reviewer(Action<EmergeScope<ReviewFeedback>>)` - Configure reviewer
-- `PlanReviser(Action<EmergeScope<PlanRevision>>)` - Configure plan reviser
-- `Synthesizer(Action<EmergeScope<T>>)` - Configure final synthesis
-- `OnTaskCompleted`, `OnReviewCompleted`, `OnPlanRevised` - Progress callbacks
-- `OnHumanFeedback` - Async callback for human-in-the-loop
-
-Each `TaskNode` has `Id`, `Description`, `BlockedBy`, `Blocks`, `Status`, optional `Owner`, `Result`, and `Error`.
 
 ---
 
@@ -695,7 +324,7 @@ await foreach (var ev in TreeIndex.BuildAsync(LLMModel.Claude45Sonnet, documentC
 }
 
 // Step 2: Search the tree
-var (result, _) = await Emerge.TreeSearch<TreeSearchResult>(LLMModel.Claude45Sonnet, ctx, opt =>
+var result = await Emerge.TreeSearch<TreeSearchResult>(LLMModel.Claude45Sonnet, ctx, opt =>
 {
     opt.Index = index;
     opt.Query = "How does authentication work?";
@@ -706,7 +335,7 @@ var (result, _) = await Emerge.TreeSearch<TreeSearchResult>(LLMModel.Claude45Son
     {
         n.Command = "Navigate the document tree to find sections relevant to the query.";
     });
-}).FinalAsync();
+}).ResultAsync();
 
 // result.Sections contains found sections with NodeId, Path, Content, Relevance, Page
 ```
@@ -734,19 +363,19 @@ var (result, _) = await Emerge.TreeSearch<TreeSearchResult>(LLMModel.Claude45Son
 
 ---
 
-## Inline Tool Registration
+## Tool Registration
 
-The `EmergePass<T>` provides fluent `AddTool` extension methods for registering tools inline with lambda functions. Tools are deduplicated by name.
+Tools are authored with the `Tool` vocabulary from `Ikon.Agent` and registered on the pass via `AddTool` / `AddTools`. `Tool.Of` infers the parameter schema from the lambda signature — parameter names carry through to the model, and `[Description]` attributes (from `System.ComponentModel`) document individual parameters. Tools are deduplicated by name.
 
 ```csharp
 await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx, pass =>
 {
-    pass.AddTool("write_file", "Write content to a file",
-            (string path, string content) => WriteFile(path, content))
-        .AddTool("read_file", "Read file contents",
-            (string path) => ReadFile(path))
-        .AddTool("list_files", "List all files",
-            () => ListFiles());
+    pass.AddTool(Tool.Of("write_file", "Write content to a file",
+            ([Description("Workspace-relative path")] string path, string content) => WriteFile(path, content)))
+        .AddTool(Tool.Of("read_file", "Read file contents",
+            (string path) => ReadFile(path)))
+        .AddTool(Tool.Of("list_files", "List all files",
+            () => ListFiles()));
 
     pass.Command = "Complete this coding task.";
     pass.MaxIterations = 10;
@@ -756,15 +385,42 @@ await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx,
 ```
 
 **Methods:**
-- `AddTool(Function)` - Add a pre-built `Function` object
-- `AddTools(params Function[])` - Add multiple pre-built functions
-- `AddToolsFrom(object instance)` - Auto-discover methods with `[Function]` attributes
-- `AddTool(name, description, Func<..., TResult>)` - Inline sync function (0-8 parameters)
-- `AddTool(name, description, Func<..., Task<TResult>>)` - Inline async function (0-8 parameters)
-- `AddMcpTools(McpClient)` - Add all tools discovered from a connected MCP client
-- `DescribeParams(toolName, Dictionary<string, string>)` - Set parameter descriptions on a previously added tool
+- `Tool.Of(name, description, lambda)` — sync or async lambda, up to 4 parameters; the schema the LLM sees is derived from the lambda's parameter names and `[Description]` attributes
+- `Tool.OfContext(name, description, (ToolContext toolCtx, ...) => ...)` — like `Tool.Of` but the impl receives the live `ToolContext`; requires an `AgentRunner` scope when invoked
+- `Tool.FromSchema(name, description, parameterSchemaJson, invoke)` — schema-first, for shapes a typed delegate cannot express (MCP-discovered tools, hand-authored schemas); `invoke` receives the raw `JsonElement` arguments
+- `AddTool(Tool)` / `AddTools(params Tool[])` — register on the pass, skipping tools whose name is already present; both return `EmergePass<T>` for chaining
+- `tool.WithParamDescription(paramName, description)` / `tool.WithAllowedValues(paramName, values)` — per-pass dynamic parameter docs and enums on a copy of the tool
+- Pre-built `Function` objects go directly onto the pass via `pass.Tools.Add(function)`
 
-All `AddTool` overloads return `EmergePass<T>` for chaining.
+**Many-parameter tools — request record.** `Tool.Of` tops out at 4 parameters by design. A tool that needs more takes a single request record; `[property: Description]` documents each field:
+
+```csharp
+public sealed record CreateEventRequest(
+    [property: Description("Event title shown in the calendar")] string Title,
+    [property: Description("ISO-8601 start time")] string Start,
+    [property: Description("ISO-8601 end time")] string End,
+    [property: Description("Optional location")] string? Location,
+    [property: Description("Attendee emails")] string[]? Attendees);
+
+pass.AddTool(Tool.Of("create_event", "Create a calendar event",
+    (CreateEventRequest request) => CreateEvent(request)));
+```
+
+**MCP tools.** Wrap a connected `McpClient` in an `McpSkill` — it yields one `Tool.FromSchema` per tool the server advertises, proxying calls back through the client:
+
+```csharp
+var mcpClient = new McpClient("https://example.com/mcp");
+await mcpClient.ConnectAsync();
+var skill = new McpSkill(mcpClient);
+
+// As part of a Persona's skill set:
+var persona = new Persona("Assistant", systemPrompt,
+    Skills: [Built.Messaging, skill],
+    Reasoning: new Reasoning());
+
+// Or directly on a pass (requires an AgentRunner scope):
+pass.AddTools(skill.Tools().ToArray());
+```
 
 ---
 
@@ -830,16 +486,6 @@ All pattern options inherit these from `EmergeScopeBase`:
 
 `EmergeScope<T>` adds `UseJson` (default: true), `CaseInsensitiveJson` (default: true), `JsonSchema`, and `JsonExample` (both read-only, auto-generated from `T`).
 
-### EmergenceBudget
-
-Pre-defined budget configurations:
-
-```csharp
-var budget = EmergenceBudget.Default;    // 10 iterations, 50 tool calls, 5 min
-var budget = EmergenceBudget.Unlimited;  // No limits
-var budget = new EmergenceBudget(maxIterations: 20, maxToolCalls: 100, maxWallTime: TimeSpan.FromMinutes(10));
-```
-
 ### EmergenceTrace
 
 Returned with `Completed<T>` events:
@@ -865,10 +511,9 @@ All pattern methods have an overload accepting `ILLM` for testing:
 ```csharp
 var mockLlm = new MockLLM(responses);
 
-var (result, _) = await Emerge.Run<MyType>(
+var result = await Emerge.Run<MyType>(
     LLMModel.Claude45Sonnet,
-    ctx,
     pass => { ... },
     mockLlm  // Injected for testing
-).FinalAsync();
+).ResultAsync();
 ```

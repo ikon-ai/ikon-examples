@@ -674,7 +674,7 @@ public partial class Validation
                 view.Row([Layout.Row.Md, "items-center mb-4"], content: view =>
                 {
                     view.Text([Text.Body], $"Items loaded: {_infiniteScrollItems.Value.Count}");
-                    view.Button([Button.NeutralMd], label: "Reset", onClick: async () =>
+                    view.Button([Button.NeutralMd], text: "Reset", onClick: async () =>
                     {
                         _infiniteScrollItems.Value = [];
                         _infiniteScrollPage = 0;
@@ -762,7 +762,7 @@ public partial class Validation
             {
                 var isRunning = _autoScrollCts != null;
                 view.Button([isRunning ? Button.NeutralMd : Button.PrimaryMd],
-                    label: isRunning ? "Stop" : "Start",
+                    text: isRunning ? "Stop" : "Start",
                     onClick: async () =>
                     {
                         if (_autoScrollCts != null)
@@ -776,7 +776,7 @@ public partial class Validation
                             _ = RunAutoScrollTestAsync(_autoScrollCts.Token);
                         }
                     });
-                view.Button([Button.OutlineMd], label: "Clear", onClick: async () =>
+                view.Button([Button.OutlineMd], text: "Clear", onClick: async () =>
                 {
                     _autoScrollPoliteItems.Value = [];
                     _autoScrollAssertiveItems.Value = [];
@@ -1048,26 +1048,26 @@ public partial class Validation
             view.Text([Text.Caption, "mb-4"], "Progress bar with auto-rendered indicator");
             view.Column([Layout.Column.Md], content: view =>
             {
-                view.Text([Text.Caption], "Default variant");
+                view.Text([Text.Caption], "Neutral tone (default)");
                 view.Progress(value: _progressValue.Value, max: 100, rootStyle: [Progress.Root]);
 
-                view.Text([Text.Caption], "Success variant");
-                view.Progress(value: 80, max: 100, variant: ProgressVariant.Success, rootStyle: [Progress.Root]);
+                view.Text([Text.Caption], "Success tone");
+                view.Progress(value: 80, max: 100, tone: SemanticTone.Success, rootStyle: [Progress.Root]);
 
-                view.Text([Text.Caption], "Warning variant");
-                view.Progress(value: 50, max: 100, variant: ProgressVariant.Warning, rootStyle: [Progress.Root]);
+                view.Text([Text.Caption], "Warning tone");
+                view.Progress(value: 50, max: 100, tone: SemanticTone.Warning, rootStyle: [Progress.Root]);
 
-                view.Text([Text.Caption], "Error variant");
-                view.Progress(value: 30, max: 100, variant: ProgressVariant.Error, rootStyle: [Progress.Root]);
+                view.Text([Text.Caption], "Error tone");
+                view.Progress(value: 30, max: 100, tone: SemanticTone.Error, rootStyle: [Progress.Root]);
 
                 view.Text([Text.Caption], "Indeterminate");
                 view.Progress(indeterminate: true, rootStyle: [Progress.Root]);
 
-                view.Text([Text.Caption], "Indeterminate with success variant");
-                view.Progress(indeterminate: true, variant: ProgressVariant.Success, rootStyle: [Progress.Root]);
+                view.Text([Text.Caption], "Indeterminate with success tone");
+                view.Progress(indeterminate: true, tone: SemanticTone.Success, rootStyle: [Progress.Root]);
 
                 view.Text([Text.Caption], "Custom size (Size.Sm)");
-                view.Progress(value: 70, max: 100, variant: ProgressVariant.Default, rootStyle: [Progress.Base, Progress.Size.Sm]);
+                view.Progress(value: 70, max: 100, tone: SemanticTone.Neutral, rootStyle: [Progress.Base, Progress.Size.Sm]);
             });
         });
     }
@@ -1125,9 +1125,9 @@ public partial class Validation
                         view.Text([Text.Body], "This text flows left-to-right.");
                         view.Row(["gap-2 mt-2"], content: view =>
                         {
-                            view.Button([Button.PrimaryMd], label: "First");
-                            view.Button([Button.NeutralMd], label: "Second");
-                            view.Button([Button.OutlineMd], label: "Third");
+                            view.Button([Button.PrimaryMd], text: "First");
+                            view.Button([Button.NeutralMd], text: "Second");
+                            view.Button([Button.OutlineMd], text: "Third");
                         });
                     });
                 });
@@ -1140,9 +1140,9 @@ public partial class Validation
                         view.Text([Text.Body], "This text flows right-to-left. Components respect RTL direction.");
                         view.Row(["gap-2 mt-2"], content: view =>
                         {
-                            view.Button([Button.PrimaryMd], label: "First");
-                            view.Button([Button.NeutralMd], label: "Second");
-                            view.Button([Button.OutlineMd], label: "Third");
+                            view.Button([Button.PrimaryMd], text: "First");
+                            view.Button([Button.NeutralMd], text: "Second");
+                            view.Button([Button.OutlineMd], text: "Third");
                         });
                     });
                 });

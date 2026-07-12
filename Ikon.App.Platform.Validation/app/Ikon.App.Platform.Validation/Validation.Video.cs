@@ -96,7 +96,7 @@ public partial class Validation
                                 ? Button.ErrorMd
                                 : Button.PrimaryMd],
                             kind: MediaCaptureKind.Camera,
-                            label: _isCameraCaptureActive.Value ? "Stop Camera" : "Start Camera",
+                            text: _isCameraCaptureActive.Value ? "Stop Camera" : "Start Camera",
                             captureMode: MediaCaptureButtonMode.Toggle,
                             videoOptions: new ClientVideoCaptureOptions
                             {
@@ -191,7 +191,7 @@ public partial class Validation
                                 ? Button.ErrorMd
                                 : Button.PrimaryMd],
                             kind: MediaCaptureKind.Screen,
-                            label: _isScreenCaptureActive.Value ? "Stop Screen" : "Start Screen",
+                            text: _isScreenCaptureActive.Value ? "Stop Screen" : "Start Screen",
                             captureMode: MediaCaptureButtonMode.Toggle,
                             videoOptions: new ClientVideoCaptureOptions
                             {
@@ -316,7 +316,7 @@ public partial class Validation
 
                         view.ActionButton([Button.PrimaryMd],
                             action: ActionKind.CaptureImage,
-                            label: "Capture Image",
+                            text: "Capture Image",
                             options: new CaptureImageActionOptions
                             {
                                 Mode = CaptureImageMode.Headless,
@@ -336,7 +336,7 @@ public partial class Validation
 
                         view.ActionButton([Button.PrimaryMd],
                             action: ActionKind.CaptureImage,
-                            label: "Capture Image (Native)",
+                            text: "Capture Image (Native)",
                             options: new CaptureImageActionOptions
                             {
                                 Mode = CaptureImageMode.Native,
@@ -358,7 +358,7 @@ public partial class Validation
                         {
                             view.Button(
                                 [Button.OutlineMd],
-                                label: "Clear Image",
+                                text: "Clear Image",
                                 onClick: async () =>
                                 {
                                     _capturedImageData.Value = null;
@@ -417,8 +417,8 @@ public partial class Validation
                         {
                             view.Switch(
                                 [Switch.Default],
-                                isChecked: _videoUrlLoop.Value,
-                                onCheckedChange: value =>
+                                value: _videoUrlLoop.Value,
+                                onValueChange: value =>
                                 {
                                     _videoUrlLoop.Value = value;
                                     return Task.CompletedTask;
@@ -431,8 +431,8 @@ public partial class Validation
                         {
                             view.Switch(
                                 [Switch.Default],
-                                isChecked: _videoUrlMuted.Value,
-                                onCheckedChange: value =>
+                                value: _videoUrlMuted.Value,
+                                onValueChange: value =>
                                 {
                                     _videoUrlMuted.Value = value;
                                     return Task.CompletedTask;
@@ -445,8 +445,8 @@ public partial class Validation
                         {
                             view.Switch(
                                 [Switch.Default],
-                                isChecked: _videoUrlControls.Value,
-                                onCheckedChange: value =>
+                                value: _videoUrlControls.Value,
+                                onValueChange: value =>
                                 {
                                     _videoUrlControls.Value = value;
                                     return Task.CompletedTask;

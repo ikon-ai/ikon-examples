@@ -143,8 +143,8 @@ public partial class Validation
                     view.Row(["items-center gap-3 flex-wrap"], content: row =>
                     {
                         row.Switch([Switch.Root],
-                            isChecked: _autoResizePlaygroundEnabled.Value,
-                            onCheckedChange: async v => _autoResizePlaygroundEnabled.Value = v,
+                            value: _autoResizePlaygroundEnabled.Value,
+                            onValueChange: async v => _autoResizePlaygroundEnabled.Value = v,
                             content: s => s.SwitchThumb([Switch.Thumb]));
                         row.Text([Text.Body], $"autoResize: {(_autoResizePlaygroundEnabled.Value ? "true" : "false")}");
                     });
@@ -166,8 +166,8 @@ public partial class Validation
                     view.Row(["items-center gap-3 flex-wrap"], content: row =>
                     {
                         row.Switch([Switch.Root],
-                            isChecked: _autoResizePlaygroundMaxRowsDefined.Value,
-                            onCheckedChange: async v => _autoResizePlaygroundMaxRowsDefined.Value = v,
+                            value: _autoResizePlaygroundMaxRowsDefined.Value,
+                            onValueChange: async v => _autoResizePlaygroundMaxRowsDefined.Value = v,
                             content: s => s.SwitchThumb([Switch.Thumb]));
                         row.Text([Text.Body], $"maxRows defined: {(_autoResizePlaygroundMaxRowsDefined.Value ? "true" : "false")}");
                     });
@@ -269,8 +269,8 @@ public partial class Validation
                     view.Row([Layout.Row.Sm], content: view =>
                     {
                         view.Checkbox([Checkbox.Root],
-                            isChecked: _checkboxChecked.Value,
-                            onCheckedChange: async state => _checkboxChecked.Value = state,
+                            value: _checkboxChecked.Value,
+                            onValueChange: async state => _checkboxChecked.Value = state,
                             content: view => view.CheckboxIndicator([Checkbox.Indicator], content: v => v.Icon(name: "check")));
                         view.Label([Label.Base], content: v => v.Text(text: "Unchecked/Checked"));
                     });
@@ -278,7 +278,7 @@ public partial class Validation
                     view.Row([Layout.Row.Sm], content: view =>
                     {
                         view.TriStateCheckbox([Checkbox.Root],
-                            checkedState: CheckedState.Indeterminate,
+                            value: CheckedState.Indeterminate,
                             content: view => view.CheckboxIndicator([Checkbox.Indicator], content: v => v.Icon(name: "minus")));
                         view.Label([Label.Base], content: v => v.Text(text: "Indeterminate"));
                     });
@@ -286,7 +286,7 @@ public partial class Validation
                     view.Row([Layout.Row.Sm], content: view =>
                     {
                         view.Checkbox([Checkbox.Root],
-                            isChecked: true, disabled: true,
+                            value: true, disabled: true,
                             content: view => view.CheckboxIndicator([Checkbox.Indicator], content: v => v.Icon(name: "check")));
                         view.Label([Label.Base, "opacity-50"], content: v => v.Text(text: "Disabled checked"));
                     });
@@ -302,22 +302,22 @@ public partial class Validation
                     view.Row([Layout.Row.Sm], content: view =>
                     {
                         view.Switch([Switch.Root],
-                            isChecked: _switchChecked.Value,
-                            onCheckedChange: async v => _switchChecked.Value = v, content: view => view.SwitchThumb([Switch.Thumb]));
+                            value: _switchChecked.Value,
+                            onValueChange: async v => _switchChecked.Value = v, content: view => view.SwitchThumb([Switch.Thumb]));
                         view.Label([Label.Base], content: v => v.Text(text: _switchChecked.Value ? "On" : "Off"));
                     });
 
                     view.Row([Layout.Row.Sm], content: view =>
                     {
                         view.Switch([Switch.Root],
-                            isChecked: true, disabled: true, content: view => view.SwitchThumb([Switch.Thumb]));
+                            value: true, disabled: true, content: view => view.SwitchThumb([Switch.Thumb]));
                         view.Label([Label.Base, "opacity-50"], content: v => v.Text(text: "Disabled on"));
                     });
 
                     view.Row([Layout.Row.Sm], content: view =>
                     {
                         view.Switch([Switch.Root],
-                            isChecked: false, disabled: true, content: view => view.SwitchThumb([Switch.Thumb]));
+                            value: false, disabled: true, content: view => view.SwitchThumb([Switch.Thumb]));
                         view.Label([Label.Base, "opacity-50"], content: v => v.Text(text: "Disabled off"));
                     });
                 });
@@ -767,8 +767,8 @@ public partial class Validation
                     view.Row(["items-center gap-3 flex-wrap"], content: row =>
                     {
                         row.Switch([Switch.Root],
-                            isChecked: _carouselLoop.Value,
-                            onCheckedChange: async v => _carouselLoop.Value = v,
+                            value: _carouselLoop.Value,
+                            onValueChange: async v => _carouselLoop.Value = v,
                             content: s => s.SwitchThumb([Switch.Thumb]));
                         row.Text([Text.Body], $"loop: {(_carouselLoop.Value ? "true" : "false")}");
                     });
@@ -817,8 +817,8 @@ public partial class Validation
                     view.Row(["items-center gap-3 flex-wrap"], content: row =>
                     {
                         row.Switch([Switch.Root],
-                            isChecked: _multiCarouselLoop.Value,
-                            onCheckedChange: async v => _multiCarouselLoop.Value = v,
+                            value: _multiCarouselLoop.Value,
+                            onValueChange: async v => _multiCarouselLoop.Value = v,
                             content: s => s.SwitchThumb([Switch.Thumb]));
                         row.Text([Text.Body], $"loop: {(_multiCarouselLoop.Value ? "true" : "false")}");
                     });

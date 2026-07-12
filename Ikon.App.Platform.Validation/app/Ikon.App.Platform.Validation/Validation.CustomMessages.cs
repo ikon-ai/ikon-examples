@@ -210,12 +210,12 @@ public partial class Validation
                 {
                     view.Button(
                         [_tpStreamRunning.Value ? Button.OutlineMd : Button.PrimaryMd],
-                        label: "Start stream",
+                        text: "Start stream",
                         disabled: _tpStreamRunning.Value,
                         onClick: async () => StartTpStream(ReactiveScope.ClientId));
 
                     view.Button([Button.ErrorMd],
-                        label: "Stop stream",
+                        text: "Stop stream",
                         disabled: !_tpStreamRunning.Value,
                         onClick: async () => StopTpStream());
                 });

@@ -27,8 +27,8 @@ view.Box(["group rounded-xl bg-card p-4"], key: item.Id, content: card =>
         // height never changes because the visible content defines it.
         row.Row(["hidden group-hover:flex items-center gap-1"], content: actions =>
         {
-            actions.Button([Button.GhostSm], label: "Archive", onClick: async () => { await ArchiveAsync(item); });
-            actions.Button([Button.GhostSm, "text-error"], label: "Delete", onClick: async () => { await DeleteAsync(item); });
+            actions.Button([Button.GhostSm], text: "Archive", onClick: async () => { await ArchiveAsync(item); });
+            actions.Button([Button.GhostSm, "text-error"], text: "Delete", onClick: async () => { await DeleteAsync(item); });
         });
     });
 });

@@ -63,7 +63,7 @@ private void RenderFilesFilterButtonGroup(UIView view, string label, ClientReact
                 ? new[] { "text-xs font-medium px-2.5 py-1 rounded-md bg-primary text-primary-foreground" }
                 : new[] { "text-xs font-medium px-2.5 py-1 rounded-md text-tertiary hover:bg-secondary hover:text-primary cursor-pointer" };
 
-            view.Button(style, label: optionLabel,
+            view.Button(style, text: optionLabel,
                 onClick: async () =>
                 {
                     state.Value = value;

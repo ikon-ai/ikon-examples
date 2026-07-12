@@ -247,8 +247,8 @@ public partial class Validation
 
                 view.Row(["items-center gap-2"], content: view =>
                 {
-                    view.Switch([Switch.Root], isChecked: _advUploadRejectAll.Value,
-                        onCheckedChange: async v => _advUploadRejectAll.Value = v,
+                    view.Switch([Switch.Root], value: _advUploadRejectAll.Value,
+                        onValueChange: async v => _advUploadRejectAll.Value = v,
                         content: view => view.SwitchThumb([Switch.Thumb]));
                     view.Label([Label.Base], content: v => v.Text(text: "Reject all uploads"));
                 });
@@ -269,7 +269,7 @@ public partial class Validation
                             AssetClass.CloudFilePublic,
                             $"validation-uploads/{args.FileName}",
                             spaceId: app.GlobalState.SpaceId);
-                        return new FileUploadPreStartResult { AssetUri = assetUri.ToString() };
+                        return new FileUploadResult { AssetUri = assetUri.ToString() };
                     }
 
                     return true;
@@ -337,7 +337,7 @@ public partial class Validation
 
             if (_advUploadAssetUrl.Value != null)
             {
-                view.Button([Button.PrimaryMd, "mt-4"], label: "Open Asset URL",
+                view.Button([Button.PrimaryMd, "mt-4"], text: "Open Asset URL",
                     href: _advUploadAssetUrl.Value,
                     target: "_blank",
                     rel: "noopener noreferrer");

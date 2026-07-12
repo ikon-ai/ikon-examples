@@ -26,8 +26,8 @@ public partial class Validation
         [Description("The topic to research")] string topic,
         [Description("Depth: 1=quick, 3=thorough")] int depth = 2)
     {
-        var (brief, _) = await Emerge.Run<TopicBrief>(
-            LLMModel.Claude45Sonnet, new KernelContext(),
+        var brief = await Emerge.Run<TopicBrief>(
+            LLMModel.Claude45Sonnet,
             pass =>
             {
                 pass.SystemPrompt = """
@@ -38,7 +38,7 @@ public partial class Validation
                 pass.Command = $"Topic: {topic}\nDepth: {depth}";
                 pass.Temperature = 0.2;
                 pass.MaxIterations = depth;
-            }).FinalAsync();
+            }).ResultAsync();
 
         return brief;
     }

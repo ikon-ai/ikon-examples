@@ -175,12 +175,12 @@ public partial class Validation
                     {
                         if (_colorPromptGenerating.Value)
                         {
-                            view.Button([Button.PrimaryMd], label: "Generating...", disabled: true);
+                            view.Button([Button.PrimaryMd], text: "Generating...", disabled: true);
                             view.Box([Icon.Spinner]);
                         }
                         else
                         {
-                            view.Button([Button.PrimaryMd], label: "Generate Color Scheme",
+                            view.Button([Button.PrimaryMd], text: "Generate Color Scheme",
                                 disabled: string.IsNullOrWhiteSpace(_colorPrompt.Value),
                                 onClick: async () => await GenerateColorSchemeFromPromptAsync());
                         }
@@ -230,7 +230,7 @@ public partial class Validation
                     value: hex.Value,
                     onValueChange: async v => { hex.Value = v; });
 
-                view.Button([Button.PrimaryMd], label: "Generate",
+                view.Button([Button.PrimaryMd], text: "Generate",
                     onClick: async () => GenerateScale(hex.Value, error, scale, neutral));
             });
 
@@ -281,10 +281,10 @@ public partial class Validation
                     view.Text([Text.Label], "Buttons");
                     view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                     {
-                        view.Button([Button.PrimaryMd], label: "Primary");
-                        view.Button([Button.NeutralMd], label: "Secondary");
-                        view.Button([Button.OutlineMd], label: "Outline");
-                        view.Button([Button.GhostMd], label: "Ghost");
+                        view.Button([Button.PrimaryMd], text: "Primary");
+                        view.Button([Button.NeutralMd], text: "Secondary");
+                        view.Button([Button.OutlineMd], text: "Outline");
+                        view.Button([Button.GhostMd], text: "Ghost");
                     });
                 });
 

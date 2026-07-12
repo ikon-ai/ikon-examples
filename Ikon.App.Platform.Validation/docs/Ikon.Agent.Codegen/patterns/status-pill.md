@@ -34,7 +34,7 @@ view.Box(["inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs fon
 // 4. SOLID accent chip (strong emphasis, e.g. the active filter) — a 500-step fill with explicit
 //    contrast text is theme-invariant BY DESIGN and safe in both themes (unlike a -100 pastel).
 view.Button(["rounded-full px-4 py-1.5 text-sm font-semibold bg-amber-500 text-white shadow-sm border-0"],
-    label: "All", onClick: async () => { _filter.Value = null; });
+    text: "All", onClick: async () => { _filter.Value = null; });
 ```
 
 ## Anti-pattern

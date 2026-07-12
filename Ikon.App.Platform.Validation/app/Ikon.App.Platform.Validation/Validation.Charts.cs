@@ -1,7 +1,7 @@
 public partial class Validation
 {
     private ChartTheme GetChartTheme() =>
-        _currentTheme.Value == Constants.DarkTheme ? ChartThemes.DefaultDark : ChartThemes.DefaultLight;
+        _theme.Current.Value == Theme.Dark.ToThemeName() ? ChartThemes.DefaultDark : ChartThemes.DefaultLight;
 
     private static LineChartSeries[] GenerateDenseLineData()
     {
@@ -90,8 +90,8 @@ public partial class Validation
                         [
                             new LegendConfig
                             {
-                                Anchor = "bottom-right",
-                                Direction = "column",
+                                Anchor = LegendAnchor.BottomRight,
+                                Direction = LegendDirection.Column,
                                 TranslateX = 130,
                                 ItemWidth = 110,
                                 ItemHeight = 20,
@@ -149,8 +149,8 @@ public partial class Validation
                         [
                             new LegendConfig
                             {
-                                Anchor = "bottom-right",
-                                Direction = "column",
+                                Anchor = LegendAnchor.BottomRight,
+                                Direction = LegendDirection.Column,
                                 TranslateX = 120,
                                 ItemWidth = 100,
                                 ItemHeight = 20,
@@ -187,8 +187,8 @@ public partial class Validation
                         [
                             new LegendConfig
                             {
-                                Anchor = "bottom-right",
-                                Direction = "column",
+                                Anchor = LegendAnchor.BottomRight,
+                                Direction = LegendDirection.Column,
                                 TranslateX = 160,
                                 ItemWidth = 150,
                                 ItemHeight = 20,
@@ -235,8 +235,8 @@ public partial class Validation
                         [
                             new LegendConfig
                             {
-                                Anchor = "right",
-                                Direction = "column",
+                                Anchor = LegendAnchor.Right,
+                                Direction = LegendDirection.Column,
                                 TranslateX = 140,
                                 ItemWidth = 120,
                                 ItemHeight = 20,
@@ -280,8 +280,8 @@ public partial class Validation
                         [
                             new LegendConfig
                             {
-                                Anchor = "right",
-                                Direction = "column",
+                                Anchor = LegendAnchor.Right,
+                                Direction = LegendDirection.Column,
                                 TranslateX = 140,
                                 ItemWidth = 120,
                                 ItemHeight = 20,

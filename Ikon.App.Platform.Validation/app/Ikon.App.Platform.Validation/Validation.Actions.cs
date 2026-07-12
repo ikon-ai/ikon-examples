@@ -260,32 +260,23 @@ public partial class Validation
                 var clientSessionId = ReactiveScope.ClientId;
 
                 view.Text([Text.H2, "mb-4"], "Theme");
-                view.Text([Text.Caption, "mb-4"], "Get and set the current theme");
+                view.Text([Text.Caption, "mb-4"], "Set the current theme");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.PrimaryMd],
-                        label: "Get Theme",
-                        onClick: async () =>
-                        {
-                            var theme = await ClientFunctions.GetThemeAsync(clientSessionId);
-                            _clientFunctionResultText.Value = $"Theme: {theme ?? "(null)"}";
-                            _clientFunctionToastOpen.Value = true;
-                        });
-
                     view.Button([Button.NeutralMd],
-                        label: "Set Theme (dark)",
+                        text: "Set Theme (dark)",
                         onClick: async () =>
                         {
-                            var success = await ClientFunctions.SetThemeAsync(clientSessionId, "dark");
+                            var success = await ClientFunctions.SetThemeAsync(Theme.Dark, targetId: clientSessionId);
                             _clientFunctionResultText.Value = success ? "SetTheme: Success (dark)" : "SetTheme: Failed";
                             _clientFunctionToastOpen.Value = true;
                         });
 
                     view.Button([Button.OutlineMd],
-                        label: "Set Theme (light)",
+                        text: "Set Theme (light)",
                         onClick: async () =>
                         {
-                            var success = await ClientFunctions.SetThemeAsync(clientSessionId, "light");
+                            var success = await ClientFunctions.SetThemeAsync(Theme.Light, targetId: clientSessionId);
                             _clientFunctionResultText.Value = success ? "SetTheme: Success (light)" : "SetTheme: Failed";
                             _clientFunctionToastOpen.Value = true;
                         });
@@ -302,19 +293,19 @@ public partial class Validation
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Button([Button.PrimaryMd],
-                        label: "Get Language",
+                        text: "Get Language",
                         onClick: async () =>
                         {
-                            var language = await ClientFunctions.GetLanguageAsync(clientSessionId);
+                            var language = await ClientFunctions.GetLanguageAsync(targetId: clientSessionId);
                             _clientFunctionResultText.Value = $"Language: {language}";
                             _clientFunctionToastOpen.Value = true;
                         });
 
                     view.Button([Button.NeutralMd],
-                        label: "Get Timezone",
+                        text: "Get Timezone",
                         onClick: async () =>
                         {
-                            var timezone = await ClientFunctions.GetTimezoneAsync(clientSessionId);
+                            var timezone = await ClientFunctions.GetTimezoneAsync(targetId: clientSessionId);
                             _clientFunctionResultText.Value = $"Timezone: {timezone}";
                             _clientFunctionToastOpen.Value = true;
                         });
@@ -331,19 +322,19 @@ public partial class Validation
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Button([Button.PrimaryMd],
-                        label: "Get URL",
+                        text: "Get URL",
                         onClick: async () =>
                         {
-                            var url = await ClientFunctions.GetUrlAsync(clientSessionId);
+                            var url = await ClientFunctions.GetUrlAsync(targetId: clientSessionId);
                             _clientFunctionResultText.Value = $"URL: {url ?? "(null)"}";
                             _clientFunctionToastOpen.Value = true;
                         });
 
                     view.Button([Button.NeutralMd],
-                        label: "Set URL (/test)",
+                        text: "Set URL (/test)",
                         onClick: async () =>
                         {
-                            var success = await ClientFunctions.SetUrlAsync(clientSessionId, "/test?param=1");
+                            var success = await ClientFunctions.SetUrlAsync("/test?param=1", targetId: clientSessionId);
                             _clientFunctionResultText.Value = success ? "SetUrl: Success" : "SetUrl: Failed";
                             _clientFunctionToastOpen.Value = true;
                         });
@@ -360,19 +351,19 @@ public partial class Validation
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Button([Button.PrimaryMd],
-                        label: "Vibrate (200ms)",
+                        text: "Vibrate (200ms)",
                         onClick: async () =>
                         {
-                            var success = await ClientFunctions.VibrateAsync(clientSessionId, "200");
+                            var success = await ClientFunctions.VibrateAsync("200", targetId: clientSessionId);
                             _clientFunctionResultText.Value = success ? "Vibrate: Success" : "Vibrate: Failed/Not Supported";
                             _clientFunctionToastOpen.Value = true;
                         });
 
                     view.Button([Button.NeutralMd],
-                        label: "Vibrate Pattern",
+                        text: "Vibrate Pattern",
                         onClick: async () =>
                         {
-                            var success = await ClientFunctions.VibrateAsync(clientSessionId, "100,50,100,50,200");
+                            var success = await ClientFunctions.VibrateAsync("100,50,100,50,200", targetId: clientSessionId);
                             _clientFunctionResultText.Value = success ? "Vibrate: Success (pattern)" : "Vibrate: Failed/Not Supported";
                             _clientFunctionToastOpen.Value = true;
                         });
@@ -389,19 +380,19 @@ public partial class Validation
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Button([Button.PrimaryMd],
-                        label: "Keep Awake ON",
+                        text: "Keep Awake ON",
                         onClick: async () =>
                         {
-                            var success = await ClientFunctions.KeepScreenAwakeAsync(clientSessionId, true);
+                            var success = await ClientFunctions.KeepScreenAwakeAsync(true, targetId: clientSessionId);
                             _clientFunctionResultText.Value = success ? "KeepAwake: ON" : "KeepAwake: Failed";
                             _clientFunctionToastOpen.Value = true;
                         });
 
                     view.Button([Button.NeutralMd],
-                        label: "Keep Awake OFF",
+                        text: "Keep Awake OFF",
                         onClick: async () =>
                         {
-                            var success = await ClientFunctions.KeepScreenAwakeAsync(clientSessionId, false);
+                            var success = await ClientFunctions.KeepScreenAwakeAsync(false, targetId: clientSessionId);
                             _clientFunctionResultText.Value = success ? "KeepAwake: OFF" : "KeepAwake: Failed";
                             _clientFunctionToastOpen.Value = true;
                         });
@@ -418,28 +409,28 @@ public partial class Validation
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Button([Button.PrimaryMd],
-                        label: "Get Visibility",
+                        text: "Get Visibility",
                         onClick: async () =>
                         {
-                            var visibility = await ClientFunctions.GetVisibilityAsync(clientSessionId);
+                            var visibility = await ClientFunctions.GetVisibilityAsync(targetId: clientSessionId);
                             _clientFunctionResultText.Value = $"Visibility: {visibility ?? "(null)"}";
                             _clientFunctionToastOpen.Value = true;
                         });
 
                     view.Button([Button.NeutralMd],
-                        label: "Scroll To Top",
+                        text: "Scroll To Top",
                         onClick: async () =>
                         {
-                            var success = await ClientFunctions.ScrollToAsync(clientSessionId, 0, 0, smooth: true);
+                            var success = await ClientFunctions.ScrollToAsync(0, 0, smooth: true, targetId: clientSessionId);
                             _clientFunctionResultText.Value = success ? "ScrollTo: Success (0,0)" : "ScrollTo: Failed";
                             _clientFunctionToastOpen.Value = true;
                         });
 
                     view.Button([Button.OutlineMd],
-                        label: "Scroll Down",
+                        text: "Scroll Down",
                         onClick: async () =>
                         {
-                            var success = await ClientFunctions.ScrollToAsync(clientSessionId, 0, 500, smooth: true);
+                            var success = await ClientFunctions.ScrollToAsync(0, 500, smooth: true, targetId: clientSessionId);
                             _clientFunctionResultText.Value = success ? "ScrollTo: Success (0,500)" : "ScrollTo: Failed";
                             _clientFunctionToastOpen.Value = true;
                         });
@@ -456,19 +447,19 @@ public partial class Validation
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Button([Button.PrimaryMd],
-                        label: "Get Battery",
+                        text: "Get Battery",
                         onClick: async () =>
                         {
-                            var level = await ClientFunctions.GetBatteryLevelAsync(clientSessionId);
+                            var level = await ClientFunctions.GetBatteryLevelAsync(targetId: clientSessionId);
                             _clientFunctionResultText.Value = level.HasValue ? $"Battery: {level.Value}%" : "Battery: Not Available";
                             _clientFunctionToastOpen.Value = true;
                         });
 
                     view.Button([Button.NeutralMd],
-                        label: "Get Network",
+                        text: "Get Network",
                         onClick: async () =>
                         {
-                            var networkType = await ClientFunctions.GetNetworkTypeAsync(clientSessionId);
+                            var networkType = await ClientFunctions.GetNetworkTypeAsync(targetId: clientSessionId);
                             _clientFunctionResultText.Value = $"Network: {networkType ?? "Not Available"}";
                             _clientFunctionToastOpen.Value = true;
                         });
