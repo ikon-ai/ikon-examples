@@ -10,6 +10,8 @@ Apps with a single shared LLM/AI pipeline that must not be invoked concurrently 
 ## Snippet
 
 ```csharp
+using System.Threading.Channels;
+
 private readonly Channel<string> _commandQueue = Channel.CreateUnbounded<string>();
 private readonly CancellationTokenSource _appCts = new();
 private bool _commandProcessorStarted;

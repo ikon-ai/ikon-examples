@@ -67,8 +67,8 @@ namespace Ikon.AI
     static IDisposable Use(IGovernanceHook hook)
   // Single hook surface called by every AI-touched primitive in the Ikon platform — LLM calls (Emerge.Run<T>), agent tool dispatch (Ikon.Agent), data ingest steps — before they act. One contract, three surfaces. Host code activates a hook by entering a GovernanceScope ; downstream primitives read Current and consult the hook if it is set. The default — no scope active — is a no-op pass-through and the AI primitives behave exactly as they do without governance.
   interface IGovernanceHook
-    abstract Task AfterAsync(GovernanceCall call, GovernanceCallResult result, CancellationToken ct)
-    abstract Task<GovernanceOutcome> BeforeAsync(GovernanceCall call, CancellationToken ct)
+    Task AfterAsync(GovernanceCall call, GovernanceCallResult result, CancellationToken ct)
+    Task<GovernanceOutcome> BeforeAsync(GovernanceCall call, CancellationToken ct)
   // Connecting to the Ikon server timed out or failed. TRANSIENT by nature — a network blip, a server restart, a flaky link — so it is retryable: the RPC layer retries with a forced reconnect, and one that exhausts those attempts still lands as retryable so Emerge's bounded retry (and a host's re-drive) get their shot. A single 15s blip killing a 40-minute codegen run (observed repeatedly on a flaky uplink) is exactly what this classification prevents.
   sealed class IkonServerConnectException : RetryableAIException
     ctor(string message)
@@ -111,9 +111,11 @@ namespace Ikon.AI.Kernel
     static IAsyncEnumerable<LLMEvent> WithReasoningFromTagAsync(this IAsyncEnumerable<LLMEvent> source, string reasoningTagName)
     static IAsyncEnumerable<LLMEvent> WithThrottlingAsync(this IAsyncEnumerable<LLMEvent> source, int charsPerSecond, int charsPerUpdate, CancellationToken cancellationToken = default)
     static IAsyncEnumerable<LLMEvent> WithWindowedProcessingAsync(this IAsyncEnumerable<LLMEvent> source, Func<string, List<LLMEvent>, Task<(bool, List<LLMEvent>)>> processAsync, int windowSize = 0, int windowOverlap = 0)
+  // An incremental chunk of generated output audio.
   sealed class LLMEvent.AudioDelta : LLMEvent, IEquatable<LLMEvent.AudioDelta>
     ctor(AudioChunk Audio)
     AudioChunk Audio { get; init; }
+  // The provider-side id of the generated output audio, replayable as an AudioIdPart in a follow-up context.
   sealed class LLMEvent.AudioId : LLMEvent, IEquatable<LLMEvent.AudioId>
     ctor(string Id)
     string Id { get; init; }
@@ -126,6 +128,7 @@ namespace Ikon.AI.Kernel
     byte[] Content { get; }
     string MimeType { get; }
     MessagePartType Type { get; }
+  // The transcript of generated output audio.
   sealed class LLMEvent.AudioTranscript : LLMEvent, IEquatable<LLMEvent.AudioTranscript>
     ctor(string Transcript)
     string Transcript { get; init; }
@@ -133,6 +136,7 @@ namespace Ikon.AI.Kernel
     ctor(byte[] data, string mimeType)
     byte[] Data { get; }
     string MimeType { get; }
+  // A citation reference detected in the generated text. The refer indices bound the text span that refers to the citation; PositionIndex is the character index of the citation marker itself.
   sealed class LLMEvent.Citation : LLMEvent, IEquatable<LLMEvent.Citation>
     ctor(string OriginalId, string MappedId, int ReferStartIndex, int ReferEndIndex, int PositionIndex)
     string MappedId { get; init; }
@@ -140,15 +144,19 @@ namespace Ikon.AI.Kernel
     int PositionIndex { get; init; }
     int ReferEndIndex { get; init; }
     int ReferStartIndex { get; init; }
+  // Generation was stopped by a content-safety classifier.
   sealed class LLMEvent.ContentFiltered : LLMEvent, IEquatable<LLMEvent.ContentFiltered>
     ctor(ClassificationResult Classification)
     ClassificationResult Classification { get; init; }
+  // The complete model message of a shader run (may differ from the text response), emitted once at the end.
   sealed class LLMEvent.FinalModelMessage : LLMEvent, IEquatable<LLMEvent.FinalModelMessage>
     ctor(string Text)
     string Text { get; init; }
+  // The complete text response of a shader run, emitted once at the end.
   sealed class LLMEvent.FinalText : LLMEvent, IEquatable<LLMEvent.FinalText>
     ctor(string Text)
     string Text { get; init; }
+  // The provider's finish reason for the generation (e.g. "stop", "max_tokens").
   sealed class LLMEvent.Finished : LLMEvent, IEquatable<LLMEvent.Finished>
     ctor(string Reason)
     string Reason { get; init; }
@@ -276,6 +284,7 @@ namespace Ikon.AI.Kernel
     ctor(string url)
     MessagePartType Type { get; }
     string Url { get; }
+  // The model's reasoning trace for this generation.
   sealed class LLMEvent.Reasoning : LLMEvent, IEquatable<LLMEvent.Reasoning>
     ctor(string Text)
     string Text { get; init; }
@@ -289,11 +298,13 @@ namespace Ikon.AI.Kernel
   enum SchemaDialect
     JsonSchema202012
     OpenApi30
+  // A parsed XML-style tag extracted from the text stream by WithParsedTagsAsync .
   sealed class LLMEvent.Tag : LLMEvent, IEquatable<LLMEvent.Tag>
     ctor(string Name, string Content, IReadOnlyDictionary<string, string>? Attributes)
     IReadOnlyDictionary<string, string>? Attributes { get; init; }
     string Content { get; init; }
     string Name { get; init; }
+  // An incremental chunk of generated text.
   sealed class LLMEvent.TextDelta : LLMEvent, IEquatable<LLMEvent.TextDelta>
     ctor(string Text)
     string Text { get; init; }
@@ -301,18 +312,22 @@ namespace Ikon.AI.Kernel
     ctor(string content)
     string Content { get; }
     MessagePartType Type { get; }
+  // The model requested a tool invocation.
   sealed class LLMEvent.ToolCallRequested : LLMEvent, IEquatable<LLMEvent.ToolCallRequested>
     ctor(FunctionCall Call)
     FunctionCall Call { get; init; }
+  // The model's plan for upcoming tool calls (Cohere).
   sealed class LLMEvent.ToolPlan : LLMEvent, IEquatable<LLMEvent.ToolPlan>
     ctor(string Text)
     string Text { get; init; }
+  // The output of an executed tool. Value holds the tool's return value; ValueType records its runtime type so the value can be rehydrated to the original type after a JSON round-trip (e.g. over RPC).
   sealed class LLMEvent.ToolResult : LLMEvent, IEquatable<LLMEvent.ToolResult>
     ctor(string functionName, object? value)
     ctor(string functionName, object? value, string? valueType)
     string FunctionName { get; }
     object? Value { get; }
     string? ValueType { get; }
+  // Token accounting for one generation. CachedInputTokens is the subset of InputTokens served from the provider's prompt cache (Anthropic cache_read_input_tokens, OpenAI cached_tokens, Bedrock CacheReadInputTokens).
   sealed class LLMEvent.Usage : LLMEvent, IEquatable<LLMEvent.Usage>
     ctor(int InputTokens, int CachedInputTokens, int CacheCreationInputTokens, int OutputTokens)
     int CacheCreationInputTokens { get; init; }
@@ -353,7 +368,7 @@ namespace Ikon.AI.LLM
     // Projects the function's parameter list into its provider JSON schema: an object schema with type/properties/required, including parameter descriptions and allowed-value enums.
     static string ToJson(Function function)
   interface ILLM : IDisposable, ILLMInfo
-    abstract IAsyncEnumerable<LLMEvent> GenerateAsync(KernelContext context, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<LLMEvent> GenerateAsync(KernelContext context, CancellationToken cancellationToken = default)
   interface ILLMInfo
     int ContextWindowSize { get; }
     string InlineReasoningTagName { get; }

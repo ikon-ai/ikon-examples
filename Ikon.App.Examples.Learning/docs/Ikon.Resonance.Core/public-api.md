@@ -1,7 +1,7 @@
 # Ikon.Resonance.Core Public API
 
 namespace Ikon.Resonance.Core
-  // One chunk of a speech event's audio: interleaved float samples plus the format and first/last markers, identified by the speech event's Id . Mutable with settable properties and a parameterless constructor because the Teleport-generated serializer requires that shape — treat instances as immutable after construction.
+  // One chunk of a speech event's audio: interleaved float samples plus the format and first/last markers, identified by the speech event's AudioChunk.Id. Mutable with settable properties and a parameterless constructor because the Teleport-generated serializer requires that shape — treat instances as immutable after construction.
   class AudioChunk
     ctor()
     ctor(string id, float[] samples, int sampleRate, int channelCount, bool isFirst, bool isLast)

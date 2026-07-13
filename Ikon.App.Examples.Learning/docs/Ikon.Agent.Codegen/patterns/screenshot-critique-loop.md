@@ -49,7 +49,7 @@ private async Task CritiqueUIAsync()
             pass.Command = $"Plan:\n{_currentPlan.Value}\n\nEvaluate.";
             pass.MaxOutputTokens = 4000;
             pass.UseJson = true;
-        }).ResultAsync();
+        });
 
     ApplyCritique(critique);
 }

@@ -79,7 +79,7 @@ Use `ScrollArea` for content that can grow unboundedly (chat messages, lists, lo
 view.Column(["min-h-screen"], content: view =>
 {
     RenderHeader(view);
-    foreach (var msg in _messages.Value) { RenderMessage(view, msg); }  // unbounded
+    foreach (var msg in _messages) { RenderMessage(view, msg); }  // unbounded
     RenderInput(view);
 });
 
@@ -89,7 +89,7 @@ view.Column(["h-screen"], content: view =>
     RenderHeader(view);                                           // flex-shrink-0
     view.ScrollArea(rootStyle: ["flex-1 min-h-0"], content: view =>
     {
-        foreach (var msg in _messages.Value) { RenderMessage(view, msg); }
+        foreach (var msg in _messages) { RenderMessage(view, msg); }
     });
     RenderInput(view);                                            // flex-shrink-0
 });
@@ -101,7 +101,7 @@ For `ScrollArea` showing live-updating content (chat, logs, streaming), add poli
 
     view.ScrollArea(
         autoScroll: true,
-        autoScrollKey: messages.Count.ToString(),
+        autoScrollKey: messages.Count,
         rootStyle: ["flex-1 min-h-0"],
         content: view => { ... });
 
@@ -289,7 +289,7 @@ app.JoinUrl(new { id = gameId })  // PublicUrl + URL-encoded query string from a
 app.GlobalState.SessionChannelUrl // Session-specific access URL
 app.GlobalState.PrimaryUserId     // Static user ID of session owner
 app.GlobalState.FirstUserId       // First human user who joined (dynamically reassigned)
-app.GlobalState.GetClientContext(clientSessionId)  // Get client context
+app.GlobalState.GetClientContext(clientSessionId)  // Get client context; null if no such client is connected
 app.DataDirectory                 // Path to app's Data directory
 app.Databases                     // Database connection info (see Databases section)
 app.SessionIdentity               // Current session identity
@@ -343,10 +343,10 @@ await ClientFunctions.GetLanguageAsync();
 await ClientFunctions.GetTimezoneAsync();
 await ClientFunctions.GetUrlAsync();
 await ClientFunctions.SetUrlAsync("/path");                // replace: false, preserveQueryParams: false
-await ClientFunctions.GetVisibilityAsync();                // page visibility state
+await ClientFunctions.GetVisibilityAsync();                // ClientVisibility.Visible/Hidden/Unknown
 await ClientFunctions.GetBatteryLevelAsync();              // 0-100
 await ClientFunctions.GetNetworkTypeAsync();               // connection type
-await ClientFunctions.VibrateAsync("200");
+await ClientFunctions.VibrateAsync(200);                   // or a pattern: VibrateAsync(new[] { 100, 50, 100 })
 await ClientFunctions.ScrollToAsync(x: 0, y: 0, smooth: true);
 await ClientFunctions.PlaySoundAsync(url, volume: 0.8, loop: false);
 await ClientFunctions.PlaySoundAsync(data, mimeType, volume: 0.8, loop: false); // from bytes
@@ -399,6 +399,6 @@ if (_imageData.Value != null)
 onClick: async () =>
 {
     try { await RiskyOperation(); }
-    catch (Exception ex) { Log.Instance.Warning($"Operation failed: {ex.Message}"); }
+    catch (Exception ex) { Log.Instance.Warning(ex, "Operation failed"); }
 }
 ```

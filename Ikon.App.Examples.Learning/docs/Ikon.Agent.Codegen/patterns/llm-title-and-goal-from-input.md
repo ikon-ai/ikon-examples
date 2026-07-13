@@ -15,13 +15,13 @@ private static async Task<(string Title, string Goal)> GenerateThreadTitleAsync(
 {
     try
     {
-        var model = new DefaultModelResolver().Resolve(Capability.Quick, ModelFamily.Claude);
         var skillContext = skillPacks is { Count: > 0 }
             ? $"\n\nActive skill packs:\n{string.Join("\n", skillPacks.Select(s => $"- {s}"))}"
             : "";
 
+        // LLMModel.Default IS the cheap+fast tier (Claude45Haiku) — exactly what a utility call wants.
         var result = await Emerge.Run<ThreadTitleResult>(
-            model, pass =>
+            LLMModel.Default, pass =>
             {
                 pass.SystemPrompt = "Generate a short thread title and clear goal from the user's input. " +
                                     "Title: 3-8 words, no quotes, no periods. " +
@@ -32,7 +32,7 @@ private static async Task<(string Title, string Goal)> GenerateThreadTitleAsync(
                 pass.Temperature = 0;
                 pass.MaxOutputTokens = 200;
                 pass.MaxIterations = 1;
-            }).ResultAsync();
+            });
 
         var title = result.Title?.Trim();
         var goal = result.Goal?.Trim();
@@ -59,7 +59,7 @@ public record ThreadTitleResult(string Title, string Goal);
 
 ## Notes
 
-- `Capability.Quick` resolves to whichever fast cheap model is current (Haiku-tier). Don't hardcode model enums for utility calls like this.
+- `LLMModel.Default` is the platform's fast+cheap tier (currently `Claude45Haiku`) and tracks whatever that becomes — pass it for utility calls instead of pinning a specific model. There is no `DefaultModelResolver` / model-resolver type an app can construct (CS0246); `Capability` / `ModelFamily` belong to `Ikon.Agent` persona definitions, not to `Emerge.Run`, which takes an `LLMModel`.
 - `MaxIterations = 1` and `Temperature = 0` — title/goal generation must be deterministic and cheap.
 - Always have a non-LLM fallback (the `TruncateTitle` path). Never let a flaky utility call block a user clicking "Start".
 - The 500-char truncation prevents huge pastes from blowing context.

@@ -36,7 +36,7 @@ private async Task ExtractProfileAsync()
                 {pass.JsonSchema}
                 """;
             pass.Temperature = 0;
-        }).ResultAsync();
+        });
 
     var p = _profile.Value;
     if (!string.IsNullOrEmpty(result.Name)) { p.Name = result.Name; }

@@ -21,9 +21,8 @@ private async Task RunWizardAiPrefillAsync()
 
     try
     {
-        var model = await ResolveModelAsync(ModelTier.Large);
         var result = await Emerge.Run<CaseDescriptionAnalysis>(
-            model, pass =>
+            LLMModel.Claude46Sonnet, pass =>
             {
                 pass.SystemPrompt = "You are a legal case intake assistant. Analyze the case description and extract structured information. " +
                     "Extract every detail that is stated or strongly implied — names, identifiers, contact details, addresses. " +
@@ -34,7 +33,7 @@ private async Task RunWizardAiPrefillAsync()
                     $"Return JSON:\n{pass.JsonSchema}";
                 pass.Temperature = 0.3;
                 pass.MaxOutputTokens = 6000;
-            }).ResultAsync();
+            });
 
         // Only fill empty fields — never overwrite what the user has typed.
         if (string.IsNullOrWhiteSpace(_newCaseName.Value) && !string.IsNullOrEmpty(result.SuggestedCaseName))
@@ -68,6 +67,7 @@ private async Task RunWizardAiPrefillAsync()
 - Surface progress with a separate `_wizardIsAnalyzing.Value = true/false` flag — show "Analyzing…" in the header, don't block the form.
 - `pass.SystemPrompt` is explicit about ambiguity policy: "pick the most likely option rather than leaving blank — the user will verify". This shifts the LLM's natural caution toward completeness.
 - Catch and log; never bubble — a failed prefill should silently fall back to manual entry.
+- Name the model directly on `Emerge.Run<T>` — `LLMModel.Claude46Sonnet` here because the extraction is the whole feature; `LLMModel.Default` (the fast+cheap tier) is right for lighter prefills. There is no platform model-tier resolver to call (`ModelTier` / `ResolveModelAsync` are app-local inventions and won't compile).
 
 ## See also
 

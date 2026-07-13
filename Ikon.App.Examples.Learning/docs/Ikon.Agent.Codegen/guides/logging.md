@@ -5,15 +5,14 @@
 ```csharp
 Log.Instance.Info("Processing started");
 Log.Instance.Debug("Detail info");
-Log.Instance.Warning($"Something unexpected: {ex.Message}");
-Log.Instance.Error($"Failed: {ex.Message}");
 ```
 
-For exceptions, use either of the conventional .NET logger shapes — both work and append the exception's full ToString() (with stack trace) to the log:
+When logging a caught exception, pass it to `Error`, `Warning`, or `Critical` — the exception's full ToString() (inner-exception chain + stack trace) is appended to the message. Prefer this over interpolating `ex.Message`, which drops those details and can hide the real cause of wrapper exceptions like `DbUpdateException`:
 
 ```csharp
-Log.Instance.Error("AI cleanup failed", ex);   // Serilog / message-first
-Log.Instance.Error(ex, "AI cleanup failed");   // Microsoft.Extensions.Logging idiom
+Log.Instance.Error(ex, "AI cleanup failed");     // Serilog / Microsoft.Extensions.Logging idiom
+Log.Instance.Warning(ex, "Auto-retry failed");
+Log.Instance.Critical(ex, "Startup failed");
 ```
 
-Or interpolate `ex` into the message string for the single-arg form. The non-exception overloads (`Info`/`Debug`/`Warning`/`Error`/`Critical`) all take a single string or interpolated string.
+The message-first order (`Log.Instance.Error("AI cleanup failed", ex)`) works too. `Info`/`Debug` take a single string or interpolated string; interpolate the whole exception when needed: `$"... {ex}"`.

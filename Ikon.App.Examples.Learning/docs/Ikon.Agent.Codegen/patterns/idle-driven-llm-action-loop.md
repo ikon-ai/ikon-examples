@@ -47,7 +47,7 @@ private async Task RunIdleLoopAsync()
                 pass.Temperature = 0.9f;
                 pass.MaxOutputTokens = 100;
             },
-            ct).ResultAsync(ct);
+            ct);
 
         if (_isProcessingMessage.Value || _ttsSpeaking.Value || _isListening.Value) continue;
 

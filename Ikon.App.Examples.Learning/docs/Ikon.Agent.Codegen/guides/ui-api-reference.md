@@ -65,7 +65,7 @@ namespace Ikon.Parallax
   class UIView
     // The default icon library name used when no library is specified on an icon component.
     string DefaultIconLibrary { get; }
-    // True when this render is capturing the build-time boot snapshot (the client's Context.IsSnapshot is set). The snapshot is a public asset shown to everyone before the live UI connects, so gate per-user or sensitive content on this — typically via the SnapshotSkeleton / SnapshotHide / SnapshotOnly wrappers rather than reading this directly. Always false on the normal live render path.
+    // True when this render is capturing the build-time boot snapshot (the client's Context.IsSnapshot is set). The snapshot is a public asset shown to everyone before the live UI connects, so gate per-user or sensitive content on this — typically via the SnapshotReveal / SnapshotHide / SnapshotOnly wrappers rather than reading this directly. Always false on the normal live render path.
     bool IsSnapshot { get; }
     // Adds a child node with the given type and props. The props parameter is the non-generic IDictionary on purpose: it's the ONLY type that cleanly accepts BOTH a `Dictionary<string, object>` (the natural non-null shape a model builds) AND a `Dictionary<string, object?>` (props that carry null values) with no nullability warning and no suppression. A generic `Dictionary<string, object?>` param warns CS8620 on the non-null form (identity-modulo-nullability), and no PAIR of generic overloads works either — nullability annotations are erased for overload resolution, so two such overloads are CS0111 (same signature) or CS0121 (ambiguous).
     void AddNode(string type, IDictionary? props = null, List<UIViewNode>? children = null, string? key = null, string[]? style = null, string? styleId = null)
@@ -1379,7 +1379,7 @@ namespace Ikon.Parallax.Components.Standard
     Left
   // Extension methods for the Skeleton component.
   static class SkeletonExtensions
-    // Pulsing placeholder block for loading / not-yet-available content — the visual stand-in used while real content is pending, and the default fill for content redacted from the build-time boot snapshot (see SnapshotSkeleton). A typed convenience over the Skeleton.* theme tokens (a div with animate-pulse styling); size and shape via size / shape , or override freely through style .
+    // Pulsing placeholder block for loading / not-yet-available content — the visual stand-in used while real content is pending, and the default fill for content redacted from the build-time boot snapshot (see SnapshotReveal). A typed convenience over the Skeleton.* theme tokens (a div with animate-pulse styling); size and shape via size / shape , or override freely through style .
     static void Skeleton(this UIView view, string[]? style = null, SkeletonShape shape = Rectangle, SkeletonSize size = Md, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
   // Outline shape of a Skeleton placeholder.
   enum SkeletonShape
@@ -1393,7 +1393,7 @@ namespace Ikon.Parallax.Components.Standard
     Md
     Lg
     Xl
-  // Wrappers for controlling how the UI renders into the build-time boot snapshot. The boot snapshot is a public asset painted to everyone before the live connection, so by default the snapshot render replaces every content leaf with a skeleton (see SnapshotSkeletonizer ) — per-user content can never leak. These wrappers let the app override that default for specific regions, branching on IsSnapshot at build time so it keeps a single UI.Root definition instead of two separate UIs. On the normal live render path every wrapper is a single bool check plus the content the developer already wrote.
+  // Wrappers for controlling how the UI renders into the build-time boot snapshot. The boot snapshot is a public asset painted to everyone before the live connection, so by default the snapshot render replaces every content leaf with a skeleton — per-user content can never leak. These wrappers let the app override that default for specific regions, branching on IsSnapshot at build time so it keeps a single UI.Root definition instead of two separate UIs. On the normal live render path every wrapper is a single bool check plus the content the developer already wrote.
   static class SnapshotExtensions
     // Renders content live, but omits it entirely from the boot snapshot — use to keep a region out of the public snapshot without leaving even a skeleton (e.g. interactive controls that are dead before the live connection).
     static void SnapshotHide(this UIView view, Action<UIView> content)
@@ -1595,6 +1595,7 @@ namespace Ikon.Parallax.Theming
     static string Header
     static string Overlay
     static string Title
+  // One vocabulary entry: an accepted theme key and the canonical variable keys it commits. Targets are always canonical (never other aliases), so expansion is one step.
   sealed class ThemeVocabulary.Alias : IEquatable<ThemeVocabulary.Alias>
     ctor(string Name, IReadOnlyList<string> Targets, ThemeVocabulary.ValueKind Kind)
     ThemeVocabulary.ValueKind Kind { get; init; }
@@ -2034,7 +2035,7 @@ namespace Ikon.Parallax.Theming
     static string Lg
     static string Md
     static string Sm
-  // Per-app theme configuration. Composes the platform's Ikon CSS baseline with per-token CSS-variable overrides addressed by name. One uniform syntax: an indexer keyed by a vocabulary alias ( ThemeVocabulary ), a CSS variable name (without the leading --), or a Tailwind utility token. The renderer dispatches by key shape: Vocabulary alias (primary, card, radius, density) → its canonical variable clusterTailwind palette step (amber-400) → --color-amber-400 (Ikon scales like neutral-900 also set the bare var)rounded-{rung} → --radius-{rung}shadow-{rung} → --shadow-{rung}font-{role} → --font-{role}spacing → the --spacing density unitAnything else → --{key} (free CSS variable) Values are Crosswind / Tailwind class names (resolved via CrosswindResolver ) or raw CSS values (hex, rem, family stacks, gradients) — the resolver passes raw values through. Example — the structural core is a small committed set; expressive decoration (gradients, textures) stays concrete at use points:
+  // Per-app theme configuration. Composes the platform's Ikon CSS baseline with per-token CSS-variable overrides addressed by name. One uniform syntax: an indexer keyed by a vocabulary alias ( ThemeVocabulary ), a CSS variable name (without the leading --), or a Tailwind utility token. The renderer dispatches by key shape: Vocabulary alias (primary, card, radius, density) → its canonical variable clusterTailwind palette step (amber-400) → --color-amber-400 (Ikon scales like neutral-900 also set the bare var)rounded-{rung} → --radius-{rung}shadow-{rung} → --shadow-{rung}font-{role} → --font-{role}spacing → the --spacing density unitAnything else → --{key} (free CSS variable) Values are Crosswind / Tailwind class names, which are resolved to CSS, or raw CSS values (hex, rem, family stacks, gradients), which pass through unchanged. Example — the structural core is a small committed set; expressive decoration (gradients, textures) stays concrete at use points:
   // private UI UI { get; } = new(app, new IkonTheme
   // {
   //     ["primary"]    = "amber-400",   // whole brand cluster: fills, CTA, focus ring, brand icons/text
@@ -2572,6 +2573,7 @@ namespace Ikon.Parallax.Theming
     static string Negative
     static string Neutral
     static string Positive
+  // What value shape an alias expects, for docs and tooling.
   enum ThemeVocabulary.ValueKind
     Color
     FontFamily

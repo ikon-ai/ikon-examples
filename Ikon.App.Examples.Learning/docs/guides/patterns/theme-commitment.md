@@ -184,12 +184,12 @@ You can still author the values directly — the Oracle is a librarian, not a ga
 Just pass the value verbatim — the indexer accepts raw hex / rem / family-stack values for cases that don't fit Crosswind tokens:
 
 ```csharp
-new IkonTheme
+var theme = new IkonTheme
 {
     ["primary"]      = "#d92626",
     ["radius"]       = "0.625rem",
     ["font-heading"] = "Quicksand",
-}
+};
 ```
 
 ## Notes

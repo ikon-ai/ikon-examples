@@ -67,7 +67,7 @@ private async Task<string> GetAgentResponse(Agent agent, string userMessage, str
             pass.Command = $"User: {userMessage}\n\nProvide your expert perspective. Return JSON:\n{pass.JsonSchema}";
             pass.Temperature = 0.7;
             pass.MaxOutputTokens = 1000;
-        }).ResultAsync();
+        });
 
     return result.Response;
 }

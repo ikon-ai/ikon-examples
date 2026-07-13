@@ -836,7 +836,7 @@ public class ExerciseState(LearningApp outer) : ILearningState
                             ? $"{LearningApp.Styles.GetAccentGradient(theme)} text-white shadow-md"
                             : "bg-white/60 hover:bg-white/80 text-[#1a1a1a] border border-gray-200";
 
-                        wordsRow.Button([$"px-3 py-1.5 rounded-xl text-sm cursor-pointer transition-all {wordStyle}"],
+                        wordsRow.Button([$"bg-transparent px-3 py-1.5 rounded-xl text-sm cursor-pointer transition-all {wordStyle}"],
                             text: word,
                             onClick: async () =>
                             {
@@ -923,7 +923,7 @@ public class ExerciseState(LearningApp outer) : ILearningState
             {
                 inputColumn.Row(["justify-center"], content: hintRow =>
                 {
-                    hintRow.Button(["text-xs md:text-sm font-medium text-[#6b7280] hover:text-[#1a1a1a] px-3 py-1.5 rounded-lg hover:bg-white/50 transition-colors"],
+                    hintRow.Button(["bg-transparent text-xs md:text-sm font-medium text-[#6b7280] hover:text-[#1a1a1a] px-3 py-1.5 rounded-lg hover:bg-white/50 transition-colors"],
                         text: _isGeneratingHint.Value ? "Generating hint..." : "💡 Need a hint?",
                         disabled: _isGeneratingHint.Value,
                         onClick: async () =>
@@ -968,7 +968,7 @@ public class ExerciseState(LearningApp outer) : ILearningState
                             await Task.CompletedTask;
                         });
 
-                    inputView.TextField(["flex-1 bg-transparent border-0 outline-none px-2 py-1.5 md:px-3 md:py-2 text-[#1a1a1a] placeholder-[#9ca3af] text-[15px]"],
+                    inputView.TextField(["unstyled flex-1 bg-transparent border-0 outline-none px-2 py-1.5 md:px-3 md:py-2 text-[#1a1a1a] placeholder-[#9ca3af] text-[15px]"],
                         value: outer.InputText.Value,
                         placeholder: _hasConversationEnded ? "Harjoitus valmis!" : "Kirjoita vastauksesi...",
                         disabled: _hasConversationEnded,
@@ -1090,7 +1090,7 @@ public class ExerciseState(LearningApp outer) : ILearningState
                         await outer.States.StateMachine.FireAsync(Trigger.ReturnToMainMenu);
                     });
 
-                buttonsRow.Button([$"{LearningApp.Styles.GetAccentGradient(theme)} text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:opacity-90 transition-opacity"],
+                buttonsRow.Button([$"bg-transparent {LearningApp.Styles.GetAccentGradient(theme)} text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:opacity-90 transition-opacity"],
                     text: "Try Again",
                     onClick: async () =>
                     {

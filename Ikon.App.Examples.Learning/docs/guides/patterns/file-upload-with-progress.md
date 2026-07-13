@@ -69,7 +69,7 @@ private Task OnFileUploadProgressAsync(FileUploadProgressArgs args)
 
 ## Notes
 
-- `FileUpload` exposes the full lifecycle as five callbacks. `PreStart` returns `false` to reject (size limit, type, etc.); `Start` returns an `AssetUri` so the client streams the bytes straight to storage.
+- `FileUpload` exposes the full lifecycle as five callbacks. `PreStart` returns `false` to reject (size limit, type, etc.); `Start` returns a `FileUploadResult { AssetUri = uri }` so the bytes stream straight to storage. That `AssetUri` — on the way in and on the way back out as `args.AssetUri` (an `AssetUri?`) in `onUploadComplete` — is the struct every `Asset.Instance.*` call takes: null-check it and pass it on, no parsing.
 - Rows live in a `ReactiveList<UploadTracker>` — `_activeUploads.Add(tracker)` on PreStart notifies once; enumeration and LINQ (`FirstOrDefault`) run straight on the reactive.
 - `UploadTracker` is a mutable POCO INSIDE the list, so a field write is invisible to the list's mutators. Mutate the field, then call `_activeUploads.NotifyUpdate()` — the escape hatch for in-place item edits. Every `ReactiveList` mutator copies the list, and re-copying it on each progress tick is wasteful at 60 fps.
 - Match `args.UploadId` to find the row; never index by filename (collisions on duplicate names).

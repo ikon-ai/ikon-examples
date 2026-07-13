@@ -212,7 +212,7 @@ public class ChatState(LearningApp outer) : ILearningState
                             await Task.CompletedTask;
                         });
 
-                    inputView.TextField(["flex-1 bg-white/60 border border-gray-200/50 rounded-2xl outline-none px-4 py-3 md:px-5 md:py-3.5 text-[#1a1a1a] placeholder-[#9ca3af] text-[15px] focus:border-gray-300 focus:bg-white/80 transition-all duration-200"],
+                    inputView.TextField(["unstyled flex-1 bg-white/60 border border-gray-200/50 rounded-2xl outline-none px-4 py-3 md:px-5 md:py-3.5 text-[#1a1a1a] placeholder-[#9ca3af] text-[15px] focus:border-gray-300 focus:bg-white/80 transition-all duration-200"],
                         value: outer.InputText.Value,
                         placeholder: "Kirjoita viestisi...",
                         onValueChange: value =>
@@ -232,7 +232,7 @@ public class ChatState(LearningApp outer) : ILearningState
                             }
                         });
 
-                    inputView.Button([$"{LearningApp.Styles.GetAccentGradient(theme)} hover:shadow-lg active:scale-95 text-white px-5 md:px-6 py-3 md:py-3.5 rounded-2xl font-semibold text-sm md:text-base transition-all duration-200 shadow-md"],
+                    inputView.Button([$"bg-transparent {LearningApp.Styles.GetAccentGradient(theme)} hover:shadow-lg active:scale-95 text-white px-5 md:px-6 py-3 md:py-3.5 rounded-2xl font-semibold text-sm md:text-base transition-all duration-200 shadow-md"],
                         text: "Lähetä",
                         onClick: async () =>
                         {

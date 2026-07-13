@@ -37,8 +37,7 @@ private async Task AiPlanAsync(string description)
     if (_busy.Value) return;
     using var _ = _busy.AsToken();
     var generated = await Emerge.Run<List<Card>>(LLMModel.Claude45Haiku,
-        pass => { pass.Command = $"Project description: {description}\n\nGenerate 6-10 starter kanban cards. Distribute across columns 0=Todo, 1=In Progress, 2=Done based on what's actionable now vs blocked vs done."; })
-        .ResultAsync();
+        pass => { pass.Command = $"Project description: {description}\n\nGenerate 6-10 starter kanban cards. Distribute across columns 0=Todo, 1=In Progress, 2=Done based on what's actionable now vs blocked vs done."; });
     _cards.AddRange(generated.Select(g => g with { Id = Guid.NewGuid().ToString("N") }));
 }
 

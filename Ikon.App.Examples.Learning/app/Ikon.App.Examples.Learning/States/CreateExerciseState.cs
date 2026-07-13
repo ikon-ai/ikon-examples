@@ -114,7 +114,7 @@ public class CreateExerciseState(LearningApp outer) : ILearningState
             {
                 inputView.Column(["gap-5"], content: col =>
                 {
-                    col.TextArea(["min-h-[180px] bg-white/60 border border-gray-200/50 rounded-2xl px-4 py-3 text-[#1a1a1a] placeholder-[#9ca3af] text-[15px] focus:border-gray-300 focus:bg-white/80 transition-all duration-200 resize-none"],
+                    col.TextArea(["unstyled min-h-[180px] bg-white/60 border border-gray-200/50 rounded-2xl px-4 py-3 text-[#1a1a1a] placeholder-[#9ca3af] text-[15px] focus:border-gray-300 focus:bg-white/80 transition-all duration-200 resize-none"],
                         value: _scenarioDescription.Value,
                         placeholder: "Describe the scenario you want to practice...\n\nFor example:\n• Ordering food at a restaurant\n• Asking for directions in Helsinki\n• A job interview in Finnish",
                         onValueChange: value =>
@@ -184,7 +184,7 @@ public class CreateExerciseState(LearningApp outer) : ILearningState
                     }
                     else
                     {
-                        col.Button([$"{LearningApp.Styles.GetAccentGradient(theme)} text-white w-full py-4 rounded-2xl font-semibold text-base shadow-lg hover:shadow-xl hover:opacity-95 active:scale-[0.98] transition-all duration-200"],
+                        col.Button([$"bg-transparent justify-start {LearningApp.Styles.GetAccentGradient(theme)} text-white w-full py-4 rounded-2xl font-semibold text-base shadow-lg hover:shadow-xl hover:opacity-95 active:scale-[0.98] transition-all duration-200"],
                             text: translations.Start,
                             disabled: string.IsNullOrWhiteSpace(_scenarioDescription.Value),
                             onClick: async () =>
