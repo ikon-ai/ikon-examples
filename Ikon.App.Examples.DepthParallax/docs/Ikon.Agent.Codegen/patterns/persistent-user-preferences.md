@@ -10,7 +10,7 @@ Anywhere you'd previously declare `private readonly Reactive<bool> _sidebarColla
 ## Snippet
 
 ```csharp
-public partial class SentinelApp(IApp app)
+public partial class SentinelApp(IApp<SessionIdentity, ClientParameters> app)
 {
     // Per-user, persists across sessions — sidebar state, view mode, sub-tabs
     private readonly PersistentUserReactive<bool> _sidebarCollapsed = new(false);

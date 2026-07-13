@@ -1,7 +1,7 @@
 <!-- mined-from: Examples.Emergence -->
 # Multi-line Text Input — TextArea Bound to State
 
-A multi-line text box the user types into: a description, notes, a prompt, a message body. Use `view.TextArea` (NOT `view.TextField`, which is single-line) and give it the **`Textarea.Default`** token — the textarea's own base style. `Input.Default` is the single-line token and is wrong here.
+A multi-line text box the user types into: a description, notes, a prompt, a message body. Use `view.TextArea` (NOT `view.TextField`, which is single-line). It merges its own **`Textarea.Default`** base token automatically, so a bare `style:` array of your own utilities is all you need.
 
 ## When to use
 
@@ -32,10 +32,9 @@ view.TextArea(bind: _notes, label: "Notes", placeholder: "Type your notes…");
 
 ## Notes
 
-- **`view.TextArea` → `Textarea.Default`; `view.TextField` → `Input.Default`.** They are different tokens: `Input.Default` is single-line (`h-10`), `Textarea.Default` is multi-line (`min-h-[80px]`, `py-2`).
-- **A `style:` array REPLACES the component's default token — it does not merge.** So when you pass a `style:` for sizing (`w-full`, `min-h-*`, `font-mono`), put the base token FIRST or the control loses its theming and renders as a bare white browser box on a dark theme. The build stays clean, so nothing flags it. Omitting `style:` is also fine — you then get `Textarea.Default` automatically.
-- Do NOT reach for `Input.Default` on a textarea just because it's the input token you already know — it looks dark but is the wrong (single-line) shape.
-- For editable fields prefer `bind:` (a `Reactive<string>`) over `value:` + `onValueChange:`; add a `label:` and `placeholder:` so the field is findable by screen readers and the app validator.
+- **`view.TextArea` → `Textarea.Default`; `view.TextField` → `Input.Default`.** They are different tokens: `Input.Default` is single-line (`h-10`), `Textarea.Default` is multi-line (`min-h-[80px]`, `py-2`). Handing a TextArea an `Input.*` token is now harmless — it is ignored and the textarea base merges anyway — but name the right one.
+- **A `style:` array MERGES on top of the component's default token.** Pass just your own utilities (`w-full`, `min-h-*`, `font-mono`); the themed base stays underneath and your classes win where they overlap. Omitting `style:` entirely is fine too.
+- For editable fields prefer `bind:` (a `Reactive<string>`) over `value:` + `onValueChange:`; add a `label:` and `placeholder:` so the field is findable by screen readers and the app validator. A `value:` with no `bind:`/`onValueChange:` renders a read-only field on purpose — do not use that shape for input.
 
 ## See also
 

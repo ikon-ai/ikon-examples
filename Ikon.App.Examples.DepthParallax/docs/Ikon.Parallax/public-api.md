@@ -8,10 +8,27 @@ namespace Ikon.Parallax
     Context ClientContext { get; init; }
     // The deserialized action payload.
     T Value { get; init; }
-  // Per-client theme state created by UseTheme . Holds each client's active theme and switches it: Current is bindable in views, and ToggleAsync can be bound directly to a button's onClick.
+  // The busy/status pattern every async UI handler repeats, as one call. Without this, the standard shape is five lines of ceremony around one line of work:
+  // _busy.Value = true;
+  // _status.Value = null;
+  //
+  // try { await LoadAsync(); }
+  // catch (Exception ex) { _status.Value = ex.Message; }
+  // finally { _busy.Value = false; }
+  // ReactiveBusyExtensions.RunAsync collapses it to:
+  // await _busy.RunAsync(_status, LoadAsync);
+  // For the busy flag alone (no status reactive), use _busy.AsToken() from Ikon.Common.Core.Reactive instead.
+  static class ReactiveBusyExtensions
+    // Runs work with busy raised: clears status, sets the flag for the duration of the work (via ReactiveBoolExtensions.AsToken, so it always returns to false), and routes a failure's message into status instead of throwing. Returns whether the work completed, so callers can add their own failure handling on top:
+    // if (!await _busy.RunAsync(_status, RefreshAsync))
+    // {
+    //     _entries.Value = [];
+    // }
+    static Task<bool> RunAsync(this Reactive<bool> busy, Reactive<string?> status, Func<Task> work)
+  // Per-client theme state created by UI.UseTheme. Holds each client's active theme and switches it: ThemeControl.Current is bindable in views, and ThemeControl.ToggleAsync can be bound directly to a button's onClick.
   sealed class ThemeControl
-    // The calling client's active theme as its wire string, "dark" or "light" (see ToThemeName ). Bindable in views, e.g. name: theme.Current.Value == Theme.Dark.ToThemeName() ? "sun" : "moon".
-    ClientReactive<string> Current { get; }
+    // The calling client's active theme. Bindable in views, e.g. name: theme.Current.Value == Theme.Dark ? "sun" : "moon".
+    ClientReactive<Theme> Current { get; }
     // Sets the calling client's theme and pushes it to that client.
     Task SetAsync(Theme theme)
     // Flips the calling client between dark and light.
@@ -26,32 +43,32 @@ namespace Ikon.Parallax
     bool EnableSubtreeCaching { get; set; }
     // Defines the root UI view tree. Call this in a reactive context to re-render when dependencies change.
     void Root(string[]? style = null, Action<UIView>? content = null, string? styleId = null)
-    // One-call per-client theme handling: syncs each joining client's theme, exposes the active theme as a bindable Current , and provides dark/light switching. The verbose form
-    // private readonly ClientReactive<string> _theme = new(Theme.Dark.ToThemeName());
+    // One-call per-client theme handling: syncs each joining client's theme, exposes the active theme as a bindable ThemeControl.Current, and provides dark/light switching. The verbose form
+    // private readonly ClientReactive<Theme> _theme = new(Theme.Dark);
     //
     // // In Main:
     // app.ClientJoinedAsync += async args =>
     // {
     //     if (string.IsNullOrEmpty(args.ClientContext.Theme))
     //     {
-    //         _theme.Value = Theme.Dark.ToThemeName();
+    //         _theme.Value = Theme.Dark;
     //         await ClientFunctions.SetThemeAsync(Theme.Dark);
     //     }
     //     else
     //     {
-    //         _theme.Value = (args.ClientContext.IsDarkTheme() ? Theme.Dark : Theme.Light).ToThemeName();
+    //         _theme.Value = args.ClientContext.IsDarkTheme() ? Theme.Dark : Theme.Light;
     //     }
     // };
     //
     // private async Task ToggleThemeAsync()
     // {
-    //     var next = _theme.Value == Theme.Dark.ToThemeName() ? Theme.Light : Theme.Dark;
+    //     var next = _theme.Value == Theme.Dark ? Theme.Light : Theme.Dark;
     //     await ClientFunctions.SetThemeAsync(next);
-    //     _theme.Value = next.ToThemeName();
+    //     _theme.Value = next;
     // }
     // becomes
     // _theme = UI.UseTheme();
-    // with _theme.Current bindable in views (e.g. a sun/moon icon) and _theme.ToggleAsync bindable to a button's onClick. When followClient is true (the default), a joining client that already has a theme keeps it and clients without one get defaultTheme ; when false, every joining client is forced to defaultTheme . Call once in Main, before clients join.
+    // with _theme.Current bindable in views (e.g. a sun/moon icon) and _theme.ToggleAsync bindable to a button's onClick. When followClient is true (the default), a joining client that already has a theme keeps it and clients without one get defaultTheme; when false, every joining client is forced to defaultTheme. Call once in Main, before clients join.
     ThemeControl UseTheme(Theme defaultTheme = Dark, bool followClient = true)
   // Represents a UI view scope for building the component tree. Extension methods on this type provide the component API (e.g. Text, Button, Input).
   class UIView
@@ -73,17 +90,17 @@ namespace Ikon.Parallax
     List<UIViewNode> Children { get; }
     // Lazily computed content signature used for subtree caching and diffing.
     string? ContentFingerprint { get; }
-    // True when StableHint came from an explicit key argument, not from a prop such as value or text.
+    // True when UIViewNode.StableHint came from an explicit key argument, not from a prop such as value or text.
     bool HasExplicitKey { get; }
     // Stable unique identifier for this node.
     string Id { get; }
-    // Precomputed hash of Id for fast lookups.
+    // Precomputed hash of UIViewNode.Id for fast lookups.
     int IdHash { get; }
     // When true, nodes include source file and line markers for debugging.
     static bool IncludeSourceMarkers { get; set; }
     // Component properties passed to the frontend renderer.
     Dictionary<string, object?> Props { get; }
-    // Source file and line marker for debugging, included only when IncludeSourceMarkers is true.
+    // Source file and line marker for debugging, included only when UIViewNode.IncludeSourceMarkers is true.
     string? SourceMarker { get; }
     // Hint string used by the stable ID generator to produce deterministic IDs.
     string? StableHint { get; }
@@ -277,14 +294,16 @@ namespace Ikon.Parallax.Components.Charts
     Column
   // A single data point in a line chart series.
   sealed class LineChartPoint : IEquatable<LineChartPoint>
+    ctor()
     // X value — a string label for point scales, or a number for linear/time scales, so the type is genuinely mixed.
-    object X { get; init; }
-    double Y { get; init; }
+    required object X { get; init; }
+    required double Y { get; init; }
   // A named data series for a line chart, containing an ordered collection of points.
   sealed class LineChartSeries : IEquatable<LineChartSeries>
+    ctor()
     string? Color { get; init; }
     IEnumerable<LineChartPoint>? Data { get; init; }
-    string Id { get; init; }
+    required string Id { get; init; }
   // Interpolation curve type for line charts.
   enum LineCurve
     Linear
@@ -296,10 +315,11 @@ namespace Ikon.Parallax.Components.Charts
     Basis
   // A single slice in a pie chart.
   sealed class PieChartDatum : IEquatable<PieChartDatum>
+    ctor()
     string? Color { get; init; }
-    string Id { get; init; }
+    required string Id { get; init; }
     string? Label { get; init; }
-    double Value { get; init; }
+    required double Value { get; init; }
   // Scale type for chart axes.
   enum ScaleType
     Point
@@ -362,13 +382,44 @@ namespace Ikon.Parallax.Components.DataTable
     bool Wrap { get; init; }
   // Extension methods for rendering paginated data tables.
   static class DataTableExtensions
-    // Renders a paginated data table with configurable columns, rows, actions, and styling.
-    static void DataTable(this UIView view, DataTableColumn[] columns, DataTableRow[] rows, int totalCount, int pageIndex, int pageSize, Func<int, Task>? onPageChange = null, Func<string, Task>? onRowClick = null, Func<string, Task>? onActionClick = null, Action<UIView>? emptyContent = null, int[]? columnWidths = null, Func<string, Task>? onColumnResize = null, string[]? style = null, string[]? headerStyle = null, string[]? rowStyle = null, string[]? cellStyle = null, string[]? headerCellStyle = null, string[]? dataCellStyle = null, string[]? paginationStyle = null, string[]? paginationButtonStyle = null, string[]? pageNumberStyle = null, string[]? pageNumberActiveStyle = null, string[]? emptyStyle = null, string[]? actionButtonStyle = null, string[]? resizeHandleStyle = null, string[]? tooltipStyle = null, string? prevLabel = null, string? nextLabel = null, string? pageLabel = null, string? key = null)
+    // Renders a paginated data table with configurable columns, rows, actions, and styling. Per-slot styling (header, rows, cells, pagination, …) goes through styles; see DataTableStyles for the slots.
+    static void DataTable(this UIView view, DataTableColumn[] columns, DataTableRow[] rows, int totalCount, int pageIndex, int pageSize, Func<int, Task>? onPageChange = null, Func<string, Task>? onRowClick = null, Func<string, Task>? onActionClick = null, Action<UIView>? emptyContent = null, int[]? columnWidths = null, Func<string, Task>? onColumnResize = null, string[]? style = null, DataTableStyles? styles = null, string? prevLabel = null, string? nextLabel = null, string? pageLabel = null, string? key = null)
   // A single row in a data table, identified by a unique ID and containing an array of cells.
   class DataTableRow : IEquatable<DataTableRow>
     ctor(string Id, Cell[] Cells)
     Cell[] Cells { get; init; }
     string Id { get; init; }
+  // Per-slot style overrides for DataTableExtensions.DataTable. Each slot is a Crosswind class array that merges on top of the slot's themed default, exactly like a component's style: parameter. Set only the slots you are changing:
+  // view.DataTable(columns, rows, totalCount, pageIndex, pageSize,
+  //     styles: new DataTableStyles { Header = ["bg-muted"], Row = ["hover:bg-accent"] });
+  sealed class DataTableStyles : IEquatable<DataTableStyles>
+    ctor()
+    // Action buttons rendered from action cells.
+    string[]? ActionButton { get; init; }
+    // Every cell (header and data).
+    string[]? Cell { get; init; }
+    // Data cells only.
+    string[]? DataCell { get; init; }
+    // The empty-state container shown when there are no rows.
+    string[]? Empty { get; init; }
+    // The header row.
+    string[]? Header { get; init; }
+    // Header cells only.
+    string[]? HeaderCell { get; init; }
+    // Page number buttons.
+    string[]? PageNumber { get; init; }
+    // The active page number button.
+    string[]? PageNumberActive { get; init; }
+    // The pagination bar.
+    string[]? Pagination { get; init; }
+    // The previous/next pagination buttons.
+    string[]? PaginationButton { get; init; }
+    // Column resize handles.
+    string[]? ResizeHandle { get; init; }
+    // Every data row.
+    string[]? Row { get; init; }
+    // Truncated-cell hover tooltips.
+    string[]? Tooltip { get; init; }
 
 namespace Ikon.Parallax.Components.ImageEditor
   // Extension methods for the image editor canvas component.
@@ -545,7 +596,7 @@ namespace Ikon.Parallax.Components.Standard
   static class BadgeExtensions
     // Small status pill. With zero style args it renders the themed pill for the tone (Theming.Badge.*); caller styles merge on top of the base token, and the literal "unstyled" class opts out of the base entirely.
     static void Badge(this UIView view, string text, SemanticTone tone = Neutral, string[]? style = null, BadgeSize size = Md, bool outline = false, bool dot = false, string[]? dotStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-  // Size of a Badge .
+  // Size of a BadgeExtensions.Badge.
   enum BadgeSize
     Sm
     Md
@@ -554,7 +605,7 @@ namespace Ikon.Parallax.Components.Standard
   static class BreadcrumbExtensions
     // Breadcrumb navigation trail. Items with an OnClick render as clickable links; the last item always renders as the non-clickable current page (with aria-current="page"). A chevron separator is placed between items.
     static void Breadcrumb(this UIView view, IReadOnlyList<BreadcrumbItem> items, string[]? style = null, string? separatorIcon = null, string[]? linkStyle = null, string[]? itemStyle = null, string[]? pageStyle = null, string[]? separatorStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-  // One entry in a Breadcrumb trail.
+  // One entry in a BreadcrumbExtensions.Breadcrumb trail.
   sealed class BreadcrumbItem : IEquatable<BreadcrumbItem>
     ctor(string Label, Func<Task>? OnClick = null)
     // Visible text of the crumb.
@@ -565,7 +616,7 @@ namespace Ikon.Parallax.Components.Standard
   static class CalendarExtensions
     // Month-grid date selector. Renders a single month with day cells. Dates are ISO yyyy-MM-dd strings.
     static void Calendar(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? month = null, string? defaultMonth = null, string? minDate = null, string? maxDate = null, IReadOnlyList<string>? disabledDates = null, WeekStart weekStart = Monday, string? locale = null, bool? disabled = null, string[]? headerStyle = null, string[]? weekdayStyle = null, string[]? dayStyle = null, string[]? daySelectedStyle = null, string[]? dayTodayStyle = null, string[]? dayOutsideStyle = null, string[]? dayDisabledStyle = null, string[]? navButtonStyle = null, string[]? titleStyle = null, string[]? gridStyle = null, string[]? rowStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onMonthChange = null)
-    // Button that opens a popover containing a Calendar .
+    // Button that opens a popover containing a CalendarExtensions.Calendar.
     static void DatePicker(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, string? format = null, string? minDate = null, string? maxDate = null, IReadOnlyList<string>? disabledDates = null, WeekStart weekStart = Monday, bool? disabled = null, bool? open = null, bool? defaultOpen = null, Side side = Bottom, Align align = Start, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? calendarStyle = null, string[]? headerStyle = null, string[]? weekdayStyle = null, string[]? dayStyle = null, string[]? daySelectedStyle = null, string[]? dayTodayStyle = null, string[]? dayOutsideStyle = null, string[]? dayDisabledStyle = null, string[]? navButtonStyle = null, string[]? titleStyle = null, string[]? gridStyle = null, string[]? rowStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool, Task>? onOpenChange = null, string? label = null)
   // Which physical camera to prefer when starting the capture. Maps to the W3C MediaStream facingMode constraint and is treated as an "ideal" hint — the browser falls back to whatever camera is available if the requested side does not exist (e.g. desktops without a rear camera).
   enum CameraFacing
@@ -580,18 +631,18 @@ namespace Ikon.Parallax.Components.Standard
     ClientImageCaptureFormat? Format { get; init; }
     // Desired image height in pixels.
     int? Height { get; init; }
-    // How the capture is presented (native OS camera UI vs. headless silent grab). Defaults to Headless — silent webcam capture via getUserMedia, which works uniformly on desktop and mobile. Set to Native to opt in to the OS camera app on phones (preview + shutter + front/back toggle); on desktop browsers Native transparently falls back to the headless path because the web platform doesn't expose a camera-app launch.
+    // How the capture is presented (native OS camera UI vs. headless silent grab). Defaults to CaptureImageMode.Headless — silent webcam capture via getUserMedia, which works uniformly on desktop and mobile. Set to CaptureImageMode.Native to opt in to the OS camera app on phones (preview + shutter + front/back toggle); on desktop browsers Native transparently falls back to the headless path because the web platform doesn't expose a camera-app launch.
     CaptureImageMode? Mode { get; init; }
     // Image quality (0.0 to 1.0) for lossy formats.
     double? Quality { get; init; }
     // Desired image width in pixels.
     int? Width { get; init; }
-  // Hardware constraints for image capture. Applied directly when Mode is Headless . In Native mode only FacingMode is honored (mapped to the file input's capture attribute); the OS camera UI ignores other constraints.
+  // Hardware constraints for image capture. Applied directly when CaptureImageActionOptions.Mode is CaptureImageMode.Headless. In CaptureImageMode.Native mode only CaptureImageConstraints.FacingMode is honored (mapped to the file input's capture attribute); the OS camera UI ignores other constraints.
   sealed class CaptureImageConstraints : IEquatable<CaptureImageConstraints>
     ctor()
     // Preferred camera device ID. Headless mode only.
     string? DeviceId { get; init; }
-    // Preferred camera side (front vs. rear). Most useful on phones where Environment opens the rear camera by default. On desktops with only a webcam this is ignored.
+    // Preferred camera side (front vs. rear). Most useful on phones where CameraFacing.Environment opens the rear camera by default. On desktops with only a webcam this is ignored.
     CameraFacing? FacingMode { get; init; }
   // How the image capture is presented to the user. Controls whether the OS camera UI is invoked or whether the capture happens silently.
   enum CaptureImageMode
@@ -626,20 +677,33 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for Carousel components.
   static class CarouselExtensions
     // Horizontal or vertical carousel with optional navigation arrows and indicator dots.
+    // Remarks:
+    // Provide slides via slides for the simple case, or via the content builder using CarouselExtensions.Slide for fully custom children.
     static void Carousel(this UIView view, string[]? style = null, int? index = null, int? defaultIndex = null, Orientation orientation = Horizontal, CarouselAlign align = Start, bool? loop = null, int? autoPlayMs = null, int? slidesPerView = null, int? slidesPerGroup = null, int? slideGapPx = null, IEnumerable<CarouselBreakpoint>? breakpoints = null, IEnumerable<CarouselSlideItem>? slides = null, bool? showArrows = null, bool? showIndicators = null, string? previousLabel = null, string? nextLabel = null, string? previousIconName = null, string? nextIconName = null, string[]? rootStyle = null, string[]? viewportStyle = null, string[]? slideStyle = null, string[]? previousStyle = null, string[]? nextStyle = null, string[]? indicatorsStyle = null, string[]? indicatorStyle = null, string[]? indicatorActiveStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, Func<int, Task>? onIndexChange = null)
-    // A single slide inside a Carousel . Use when rendering slides manually.
+    // A single slide inside a CarouselExtensions.Carousel. Use when rendering slides manually.
     static void Slide(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-  // Declarative slide definition for Carousel .
+  // Declarative slide definition for CarouselExtensions.Carousel.
   sealed class CarouselSlideItem : IEquatable<CarouselSlideItem>
     ctor(Action<UIView> Content, string? Key = null)
     // Builder function for rendering the slide.
     Action<UIView> Content { get; init; }
     // Optional stable key used for diffing.
     string? Key { get; init; }
-  // Extension methods for the ChatLog primitive — the canonical chat-bubble layout shape: header + scrolling auto-scrolled body + composer. Wraps ScrollColumn with chat-friendly defaults so callers don't have to remember to set autoScroll: true.
+  // Extension methods for the ChatLog primitive — the canonical chat-bubble layout shape: header + scrolling auto-scrolled body + composer. Wraps ScrollColumnExtensions.ScrollColumn with chat-friendly defaults so callers don't have to remember to set autoScroll: true.
   static class ChatLogExtensions
     // Renders a chat-style scrolling region: an optional pinned header (e.g. "Conversation"), a scrollable body that auto-scrolls to the bottom on change, and an optional pinned footer (typically the input row).
-    static void ChatLog(this UIView view, string[]? style = null, int messageCount = 0, Action<UIView>? header = null, Action<UIView>? footer = null, Action<UIView>? content = null, string? styleId = null, string? key = null)
+    // Remarks:
+    // Use this instead of a manual Column(overflow-auto) for chat, transcript, or any other "newest at the bottom, follow when content grows" layout. Avoids the common bug of new messages landing off-screen because the user has scrolled but the framework has no signal to re-engage auto-scroll. autoScrollKey is what tells the framework when to re-anchor to the bottom — pass the message collection itself (any reactive contributes its change version), a count, or any other value that changes when the content does. Example:
+    // view.ChatLog(
+    //     ["h-[480px] w-full"],
+    //     autoScrollKey: messages,
+    //     header: h => h.Text("Conversation"),
+    //     content: body =>
+    //     {
+    //         foreach (var msg in messages) body.Row(...);
+    //     },
+    //     footer: f => f.TextField(bind: _draft, onSubmit: ...));
+    static void ChatLog(this UIView view, string[]? style = null, object? autoScrollKey = null, Action<UIView>? header = null, Action<UIView>? footer = null, Action<UIView>? content = null, string? styleId = null, string? key = null)
   // Represents the checked state for checkbox-like components.
   enum CheckedState
     Unchecked
@@ -655,7 +719,7 @@ namespace Ikon.Parallax.Components.Standard
     ClosestCorners
     RectIntersection
     PointerWithin
-  // Output string format for ColorPicker .
+  // Output string format for ColorPickerExtensions.ColorPicker.
   enum ColorFormat
     Hex
     Rgb
@@ -685,7 +749,7 @@ namespace Ikon.Parallax.Components.Standard
     static void Column(this UIView view, string[]? style, Action<UIView> children)
     // Container with flexbox layout enabled.
     static void Flex(this UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null)
-    // Flex — positional (style, children) overload (see Box ).
+    // Flex — positional (style, children) overload (see ContainerExtensions.Box).
     static void Flex(this UIView view, string[]? style, Action<UIView> children)
     // Container with CSS grid layout enabled.
     static void Grid(this UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null)
@@ -693,17 +757,17 @@ namespace Ikon.Parallax.Components.Standard
     static void Grid(this UIView view, string[]? style, Action<UIView> children)
     // Absolutely positioned layer within a Stack container.
     static void Layer(this UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null)
-    // Layer — positional (style, children) overload (see Box ).
+    // Layer — positional (style, children) overload (see ContainerExtensions.Box).
     static void Layer(this UIView view, string[]? style, Action<UIView> children)
     // Container with horizontal flexbox layout (flex-row).
     static void Row(this UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null)
-    // Row — positional (style, children) overload (see Box ).
+    // Row — positional (style, children) overload (see ContainerExtensions.Box).
     static void Row(this UIView view, string[]? style, Action<UIView> children)
     // Loading spinner — an animated circular indicator for async/pending states. A typed convenience over the spin utility classes (equivalent to a div with the Theming.Icon.Spinner style): render it while waiting on data, e.g. if (_loading.Value) { view.Spinner(); }. Override colour/size via the style array; the default tracks the theme's muted foreground.
     static void Spinner(this UIView view, string[]? style = null, SpinnerSize size = Md, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
     // Container for layering children on top of each other. Use with Layer components as children.
     static void Stack(this UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null)
-    // Stack — positional (style, children) overload (see Box ).
+    // Stack — positional (style, children) overload (see ContainerExtensions.Box).
     static void Stack(this UIView view, string[]? style, Action<UIView> children)
   // Defines a column in a content grid including optional header, width, flex, and alignment.
   class ContentGridColumn : IEquatable<ContentGridColumn>
@@ -718,8 +782,9 @@ namespace Ikon.Parallax.Components.Standard
     static void ContentGrid(this UIView view, ContentGridColumn[] columns, Action<UIView>? content = null, string[]? style = null, string[]? headerStyle = null, string? key = null)
   // Options for copying text to the clipboard.
   sealed class CopyToClipboardActionOptions : ActionOptions, IEquatable<CopyToClipboardActionOptions>
+    ctor()
     // The text to copy.
-    string Text { get; init; }
+    required string Text { get; init; }
   // Extension methods for core UI components including buttons, toggles, text inputs, dialogs, and typography.
   static class CoreExtensions
     // Button that triggers a client-side action (e.g., clipboard, download). Supports both text mode and icon mode. In text mode (content is null), text is displayed as visible button text. In icon mode (content is provided), text becomes the accessible aria-label and content is displayed.
@@ -733,9 +798,9 @@ namespace Ikon.Parallax.Components.Standard
     // Heading — positional-text-first overload, same rationale as the matching Text overload: view.Heading("Settings", style: [Text.H2]) is the shape models reach for. Parameter is named headingText to avoid ambiguity with callers using text: by name.
     static void Heading(this UIView view, string headingText, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // Renders an icon from an icon library.
-    static void Icon(this UIView view, string[]? style = null, string? name = null, string? library = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
+    static void Icon(this UIView view, string[]? style = null, string? name = null, IconSize? size = null, string? library = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // Icon — positional-name-first overload. Same rationale as the matching Text overload: view.Icon("check", style: [Icon.Sm]) is the shape models reach for. Parameter is named iconName to avoid ambiguity with callers using name: by name.
-    static void Icon(this UIView view, string iconName, string[]? style = null, string? library = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
+    static void Icon(this UIView view, string iconName, string[]? style = null, IconSize? size = null, string? library = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // Inline anchor link — sugar for a `Button` styled like a hyperlink with an `href`. Mirrors HTML anchor semantics. By default opens in the same tab; pass target: "_blank" to open in a new tab (we automatically add `rel="noopener noreferrer"` for `_blank` if no other `rel` is provided). Generated code naturally reaches for `view.Link(text:, href:)`; this gives it the canonical shape rather than forcing every link into `view.Button(href:, …)`.
     static void Link(this UIView view, string[]? style = null, string? text = null, string? href = null, string? target = null, string? rel = null, Delegate? onClick = null, string? icon = null, Align iconPosition = Start, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // Link — positional-text-first overload. Same rationale as the matching Text overload: view.Link("Docs", href: "https://…") is the shape models reach for. Parameter is named linkText to avoid ambiguity with callers using text: by name.
@@ -787,9 +852,9 @@ namespace Ikon.Parallax.Components.Standard
     byte[]? Data { get; init; }
     // Suggested filename for the downloaded file.
     string? Filename { get; init; }
-    // MIME type for binary data (e.g. "image/png"). Optional — defaults to "application/octet-stream" when Data is set without a MIME type.
+    // MIME type for binary data (e.g. "image/png"). Optional — defaults to "application/octet-stream" when DownloadFileActionOptions.Data is set without a MIME type.
     string? MimeType { get; init; }
-    // URL to download. Can be a regular URL or a data URL. If Data is provided, this is auto-generated from the binary data using MimeType , falling back to "application/octet-stream" when MimeType is unset so the download still fires.
+    // URL to download. Can be a regular URL or a data URL. If Data is provided, this is auto-generated from the binary data using DownloadFileActionOptions.MimeType, falling back to "application/octet-stream" when MimeType is unset so the download still fires.
     string Url { get; init; }
   // Extension methods for drag and drop components.
   static class DragAndDropExtensions
@@ -808,6 +873,12 @@ namespace Ikon.Parallax.Components.Standard
     // Sortable item within a SortableContext.
     static void SortableItem(this UIView view, string[]? style = null, string? id = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // SortableList component that auto-handles reordering.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • listStyle - The container holding all sortable items • itemStyle - Each individual sortable item Example:
+    // view.SortableList(
+    //     items: _items.Value,
+    //     onReorder: async args => _items.Value = args.NewOrder.ToList(),
+    //     itemContent: (v, id) => v.Text([Text.Body], id));
     static void SortableList(this UIView view, IReadOnlyList<string>? items = null, SortStrategy strategy = VerticalList, CollisionDetection collisionDetection = ClosestCenter, Func<SortableReorderArgs, Task>? onReorder = null, Func<DragStartArgs, Task>? onDragStart = null, Action<UIView, string>? itemContent = null, string[]? listStyle = null, string[]? itemStyle = null, int? activationDistance = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
   // Event args for drag cancel in @dnd-kit.
   sealed class DragCancelArgs : IEquatable<DragCancelArgs>
@@ -836,7 +907,9 @@ namespace Ikon.Parallax.Components.Standard
   // Event args for escape key down events on overlays.
   sealed class EscapeKeyDownArgs : IEquatable<EscapeKeyDownArgs>
     ctor()
-  // Per-client expanded-node state for TreeView — a reactive set of expanded node ids, so apps don't hand-roll revision counters or per-node booleans.
+  // Per-client expanded-node state for TreeViewExtensions.TreeView<T> — a reactive set of expanded node ids, so apps don't hand-roll revision counters or per-node booleans.
+  // Remarks:
+  // Backed by a ClientReactive<T>: each client expands and collapses independently, and reads during UI rendering are dependency-tracked, so the tree re-renders automatically. Access it where a client scope is active (UI render or event handlers).
   sealed class ExpandedSet
     // Create the set, optionally pre-expanding the given node ids for every client.
     ctor(params string[] expandedIds)
@@ -859,12 +932,14 @@ namespace Ikon.Parallax.Components.Standard
     Video
     VideoFull
   // Extension methods for the FeedScroller component — a vertically-snapping, full-viewport feed optimized for media-heavy content (TikTok / Reels / Shorts-style).
+  // Remarks:
+  // Performance model: • Native CSS scroll-snap drives the snap — no JS scroll loop. • Active slide is detected with IntersectionObserver, not scroll events. • Only slides inside [active - preloadBehind, active + preloadAhead] render their content; slides outside the window render as fixed-height spacers that preserve scroll position. • Media declared on FeedScrollerExtensions.FeedSlide is warmed with off-DOM Image/<video> elements as soon as a slide enters the preload window. • Autoplay is gated on the active slide only — neighbour videos are paused.
   static class FeedScrollerExtensions
     // Renders a TikTok-style vertical feed: each slide occupies the viewport and snaps into place.
     static void FeedScroller(this UIView view, IEnumerable<FeedSlide> slides, int? activeIndex = null, int? defaultActiveIndex = null, int preloadAhead = 2, int preloadBehind = 1, bool? autoPlay = null, bool? muted = null, bool? loop = null, int scrollEndThreshold = 2, string[]? style = null, string[]? slideStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<double, Task>? onActiveChange = null, Func<double, Task>? onScrollNearEnd = null, Func<bool, Task>? onMuteChange = null)
-    // A single slide inside a FeedScroller . Use when rendering slides manually rather than via the FeedSlide declarative API.
+    // A single slide inside a FeedScrollerExtensions.FeedScroller. Use when rendering slides manually rather than via the FeedScrollerExtensions.FeedSlide declarative API.
     static void FeedSlide(this UIView view, int index, string[]? style = null, FeedMediaKind mediaKind = None, string? mediaUrl = null, string? mediaPoster = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-  // A single slide in a FeedScroller .
+  // A single slide in a FeedScrollerExtensions.FeedScroller.
   sealed class FeedSlide : IEquatable<FeedSlide>
     ctor(Action<UIView> Content, string? Key = null, FeedMediaKind MediaKind = None, string? MediaUrl = null, string? MediaPoster = null)
     // Builder invoked to render the slide. Only slides inside the render window are realized.
@@ -875,20 +950,20 @@ namespace Ikon.Parallax.Components.Standard
     FeedMediaKind MediaKind { get; init; }
     // Optional poster image URL for video slides.
     string? MediaPoster { get; init; }
-    // URL of the media asset matching MediaKind .
+    // URL of the media asset matching MediaKind.
     string? MediaUrl { get; init; }
-  // Extension methods for file picker components. Unlike FileUpload , a FilePicker only opens the native file picker and reports selected file metadata to the server — it does not transfer bytes. The picked File handles are cached on the client and uploaded later by a FileUpload rendered with a matching seedSelectionIds prop.
+  // Extension methods for file picker components. Unlike FileUploadExtensions.FileUpload, a FilePicker only opens the native file picker and reports selected file metadata to the server — it does not transfer bytes. The picked File handles are cached on the client and uploaded later by a FileUploadExtensions.FileUpload rendered with a matching seedSelectionIds prop.
   static class FilePickerExtensions
     // Native file picker. Emits onFileSelected once per selected file with its metadata (name, mime, size, client-generated selection id). The File bytes stay on the client and are not transferred until a FileUpload with matching seedSelectionIds is mounted.
     static void FilePicker(this UIView view, string[]? style = null, string[]? accept = null, bool? multiple = null, long? maxFileSize = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<FilePickerSelectedArgs, Task>? onFileSelected = null, Func<FilePickerValidationErrorArgs, Task>? onValidationError = null, Action<UIView>? content = null)
-  // Metadata for a file chosen in a FilePicker . The file bytes are held on the client until an upload is triggered later via a FileUpload with matching seedSelectionIds.
+  // Metadata for a file chosen in a FilePickerExtensions.FilePicker. The file bytes are held on the client until an upload is triggered later via a FileUpload with matching seedSelectionIds.
   sealed class FilePickerSelectedArgs : IEquatable<FilePickerSelectedArgs>
     ctor(string SelectionId, string FileName, string MimeType, long Size)
     string FileName { get; init; }
     string MimeType { get; init; }
     string SelectionId { get; init; }
     long Size { get; init; }
-  // Reported when client-side validation rejects a picked file (e.g. file too large for maxFileSize). Host UIs should surface Reason to the user — without a handler the rejection is silent and the user just sees "nothing happened" after clicking the picker.
+  // Reported when client-side validation rejects a picked file (e.g. file too large for maxFileSize). Host UIs should surface FilePickerValidationErrorArgs.Reason to the user — without a handler the rejection is silent and the user just sees "nothing happened" after clicking the picker.
   sealed class FilePickerValidationErrorArgs : IEquatable<FilePickerValidationErrorArgs>
     ctor(string FileName, string MimeType, long Size, string Reason)
     string FileName { get; init; }
@@ -900,6 +975,14 @@ namespace Ikon.Parallax.Components.Standard
     // File upload component with explicit upload area, button click, drag-drop, and paste support.
     static void FileUpload(this UIView view, string[]? style = null, string[]? accept = null, bool? multiple = null, long? maxFileSize = null, bool? disabled = null, bool? allowPaste = null, string? capture = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<FileUploadPreStartArgs, Task<FileUploadResult>>? onUploadPreStart = null, Func<FileUploadStartArgs, Task<FileUploadResult>>? onUploadStart = null, Func<FileUploadProgressArgs, Task>? onUploadProgress = null, Func<FileUploadCompleteArgs, Task>? onUploadComplete = null, Func<FileUploadErrorArgs, Task>? onUploadError = null, Func<FileUploadChunkArgs, Task>? onChunkReceived = null, string[]? seedSelectionIds = null, Action<UIView>? content = null)
     // Wrapper component that adds file upload capability (drag-drop + paste) to any content. Children define the visual appearance.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • zoneStyle - The drop zone container • activeStyle - Style applied when a file is being dragged over the zone Example:
+    // view.FileUploadZone(
+    //     accept: ["image/*"],
+    //     onUploadComplete: async args => { /* handle uploaded file */ },
+    //     zoneStyle: ["border-2 border-dashed p-8"],
+    //     activeStyle: ["border-primary bg-primary/10"],
+    //     content: v => v.Text([Text.Muted], "Drop files here"));
     static void FileUploadZone(this UIView view, string[]? style = null, bool? multiple = null, long? maxFileSize = null, bool? disabled = null, bool? allowPaste = null, string[]? accept = null, Func<FileUploadPreStartArgs, Task<FileUploadResult>>? onUploadPreStart = null, Func<FileUploadStartArgs, Task<FileUploadResult>>? onUploadStart = null, Func<FileUploadProgressArgs, Task>? onUploadProgress = null, Func<FileUploadCompleteArgs, Task>? onUploadComplete = null, Func<FileUploadErrorArgs, Task>? onUploadError = null, Func<FileUploadChunkArgs, Task>? onChunkReceived = null, Func<bool, Task>? onDragActiveChange = null, Action<UIView>? content = null, string[]? zoneStyle = null, string[]? activeStyle = null, string? activeStyleId = null, string? styleId = null, string? key = null, string[]? seedSelectionIds = null, IReadOnlyDictionary<string, object>? props = null)
   // Extension methods for focus hint management.
   static class FocusHintExtensions
@@ -926,7 +1009,7 @@ namespace Ikon.Parallax.Components.Standard
     Assertive
   // Extension methods for Form, Checkbox, RadioGroup, Switch, Slider, and Label components.
   static class FormExtensions
-    // Checkbox control with simple boolean state. For tri-state support (indeterminate), use TriStateCheckbox .
+    // Checkbox control with simple boolean state. For tri-state support (indeterminate), use FormExtensions.TriStateCheckbox.
     static void Checkbox(this UIView view, string[]? style = null, bool? value = null, bool? defaultValue = null, bool? required = null, bool? disabled = null, string? name = null, string? formValue = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onValueChange = null, Action<UIView>? content = null, string? label = null, Reactive<bool>? bind = null)
     // Visual indicator for the checkbox state.
     static void CheckboxIndicator(this UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
@@ -978,10 +1061,17 @@ namespace Ikon.Parallax.Components.Standard
     StepMismatch
     BadInput
     CustomError
-  // Hour display format for TimePicker .
+  // Hour display format for TimePickerExtensions.TimePicker.
   enum HourFormat
     Hour24
     Hour12
+  // Size of an Icon — the size: form of the Theming.Icon.Xs..Xl tokens, so an icon sizes the same way a Spinner does (size: IconSize.Lg). The style-array form (view.Icon([Icon.Lg], name: "check")) stays valid and, being a caller class, still wins over size: when both are given.
+  enum IconSize
+    Xs
+    Sm
+    Md
+    Lg
+    Xl
   // Event returned from an image capture action with the captured image data.
   sealed class ImageCaptureActionEvent : ActionEvent, IEquatable<ImageCaptureActionEvent>
     ctor(bool Success, string? Mime, int Width, int Height, string? Data)
@@ -1017,44 +1107,44 @@ namespace Ikon.Parallax.Components.Standard
     static void PasswordToggleFieldToggle(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // Multi-line text input area.
     static void TextArea(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, int? rows = null, bool? autoResize = null, int? maxRows = null, bool? submitOnEnter = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, Func<Context, Task>? onSubmitWithContext = null, bool? clearOnSubmit = null, Action<UIView>? content = null, bool? autoFocus = null, string? label = null, int? debounceMs = null, Reactive<string>? bind = null)
-    // Single-line text input field.
+    // Single-line text input field. Passing multiline: true or rows: turns it into a multi-line field by delegating to TextArea.
     static void TextField(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, string? type = null, string? step = null, string? min = null, string? max = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, bool? clearOnSubmit = null, Action<UIView>? content = null, bool? autoFocus = null, string? label = null, int? debounceMs = null, Reactive<string>? bind = null, bool? multiline = null, int? rows = null)
   // Event args for interact outside events on overlays (combines pointer and focus).
   sealed class InteractOutsideArgs : IEquatable<InteractOutsideArgs>
     ctor(string? TargetId)
     string? TargetId { get; init; }
-  // String constants for common keyboard key names, matching the browser KeyboardEvent.key specification. Use these with KeyboardListener for type-safe key filtering. Raw strings can also be used for uncommon keys not listed here.
+  // String constants for common keyboard key names, matching the browser KeyboardEvent.key specification. Use these with KeyboardExtensions.KeyboardListener for type-safe key filtering. Raw strings can also be used for uncommon keys not listed here.
   static class Key
-    static string Alt
-    static string ArrowDown
-    static string ArrowLeft
-    static string ArrowRight
-    static string ArrowUp
-    static string Backspace
-    static string Control
-    static string Delete
-    static string End
-    static string Enter
-    static string Escape
-    static string F1
-    static string F10
-    static string F11
-    static string F12
-    static string F2
-    static string F3
-    static string F4
-    static string F5
-    static string F6
-    static string F7
-    static string F8
-    static string F9
-    static string Home
-    static string Meta
-    static string PageDown
-    static string PageUp
-    static string Shift
-    static string Space
-    static string Tab
+    const string Alt
+    const string ArrowDown
+    const string ArrowLeft
+    const string ArrowRight
+    const string ArrowUp
+    const string Backspace
+    const string Control
+    const string Delete
+    const string End
+    const string Enter
+    const string Escape
+    const string F1
+    const string F10
+    const string F11
+    const string F12
+    const string F2
+    const string F3
+    const string F4
+    const string F5
+    const string F6
+    const string F7
+    const string F8
+    const string F9
+    const string Home
+    const string Meta
+    const string PageDown
+    const string PageUp
+    const string Shift
+    const string Space
+    const string Tab
   // Event args for keyboard events, matching the browser KeyboardEvent properties.
   sealed class KeyboardEventArgs : IEquatable<KeyboardEventArgs>
     ctor(string Key, string Code, bool AltKey, bool CtrlKey, bool MetaKey, bool ShiftKey, bool Repeat)
@@ -1076,14 +1166,30 @@ namespace Ikon.Parallax.Components.Standard
     // Provides text direction context (ltr/rtl) to descendants.
     static void DirectionProvider(this UIView view, string[]? style = null, Dir dir = Ltr, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // Infinite scroll view that fires callbacks when user scrolls near the end.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • viewportStyle - The scrollable viewport (use ScrollArea.Viewport) • scrollbarStyle - The scrollbar track (use ScrollArea.Scrollbar) • thumbStyle - The scrollbar thumb (use ScrollArea.Thumb) • rootStyle - The outermost container (rarely needed) Example:
+    // view.InfiniteScrollView(
+    //     hasMore: _hasMoreData.Value,
+    //     loading: _isLoading.Value,
+    //     onNearEnd: async args => await LoadMoreItems(),
+    //     content: v => { /* list items */ });
     static void InfiniteScrollView(this UIView view, string[]? style = null, int threshold = 200, int debounceMs = 100, bool loading = false, bool hasMore = true, ScrollDirection direction = Down, ScrollAreaScrollbars scrollbars = Vertical, Action<UIView>? loadingIndicator = null, Func<ScrollNearEndArgs, Task>? onNearEnd = null, Action<UIView>? content = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    // Progress component that auto-renders the indicator with transform. Success , Warning , and Error tones map to the matching Theming.Progress.Variant tokens; other tones use the default (brand) fill.
+    // Progress component that auto-renders the indicator with transform. SemanticTone.Success, SemanticTone.Warning, and SemanticTone.Error tones map to the matching Theming.Progress.Variant tokens; other tones use the default (brand) fill.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • rootStyle - The progress track/container (use Progress.Root) • indicatorStyle - The filled indicator bar (use Progress.Indicator) Example:
+    // view.Progress(value: 50, max: 100, rootStyle: [Progress.Root]);
+    // view.Progress(indeterminate: true, rootStyle: [Progress.Root]);
     static void Progress(this UIView view, string[]? style = null, double? value = null, double? max = null, SemanticTone tone = Neutral, bool indeterminate = false, Func<double?, string>? getValueLabel = null, string[]? rootStyle = null, string[]? indicatorStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    // Resizable split panel with a drag handle between two panes. Resize is handled entirely on the client — only the final size is sent to the server via onResized .
+    // Resizable split panel with a drag handle between two panes. Resize is handled entirely on the client — only the final size is sent to the server via onResized.
     static void ResizableSplit(this UIView view, Orientation orientation = Horizontal, double initialSize = 200, double minSize = 100, double maxSize = 500, bool reversed = false, Func<double, Task>? onResized = null, Action<UIView>? first = null, Action<UIView>? second = null, string[]? style = null, string[]? handleStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
     // ScrollArea component that auto-renders viewport and scrollbars.
-    static void ScrollArea(this UIView view, string[]? style = null, ScrollAreaScrollbars scrollbars = Vertical, ScrollAreaType type = Hover, int? scrollHideDelay = null, Dir dir = Ltr, bool autoScroll = false, string? autoScrollKey = null, Action<UIView>? content = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string[]? cornerStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    // ScrollArea — positional (style, children) overload (see Box ).
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • viewportStyle - The scrollable viewport (use ScrollArea.Viewport) • scrollbarStyle - The scrollbar track (use ScrollArea.Scrollbar) • thumbStyle - The scrollbar thumb (use ScrollArea.Thumb) • cornerStyle - The corner element when both scrollbars are visible • rootStyle - The outermost container (rarely needed) Example:
+    // view.ScrollArea(
+    //     scrollbars: ScrollAreaScrollbars.Vertical,
+    //     content: v => { /* scrollable content */ });
+    static void ScrollArea(this UIView view, string[]? style = null, ScrollAreaScrollbars scrollbars = Vertical, ScrollAreaType type = Hover, int? scrollHideDelay = null, Dir dir = Ltr, bool autoScroll = false, object? autoScrollKey = null, Action<UIView>? content = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string[]? cornerStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
+    // ScrollArea — positional (style, children) overload (see ContainerExtensions.Box).
     static void ScrollArea(this UIView view, string[]? style, Action<UIView> children)
     // Visual separator between content.
     static void Separator(this UIView view, string[]? style = null, Orientation orientation = Horizontal, bool decorative = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
@@ -1097,7 +1203,7 @@ namespace Ikon.Parallax.Components.Standard
   enum MediaCaptureButtonMode
     Hold
     Toggle
-  // Event data for media capture start/stop callbacks, containing the stream identifier and capture kind. ClientContext identifies the user who initiated the capture and is populated for all capture kinds (audio, camera, screen). Prefer reading ClientSessionId / UserId rather than tracking streamId-to-client mappings yourself.
+  // Event data for media capture start/stop callbacks, containing the stream identifier and capture kind. MediaCaptureEvent.ClientContext identifies the user who initiated the capture and is populated for all capture kinds (audio, camera, screen). Prefer reading MediaCaptureEvent.ClientSessionId / MediaCaptureEvent.UserId rather than tracking streamId-to-client mappings yourself.
   sealed class MediaCaptureEvent : IEquatable<MediaCaptureEvent>
     ctor(string StreamId, MediaCaptureKind Kind)
     // Client context of the user who initiated the capture.
@@ -1119,7 +1225,7 @@ namespace Ikon.Parallax.Components.Standard
     static void AudioUrlPlayer(this UIView view, string[]? style = null, string? url = null, bool? controls = null, bool? autoplay = null, bool? loop = null, bool? muted = null, string? preload = null, string? styleId = null, string? key = null)
     // Button that captures media (audio, camera, or screen) based on the specified kind. Supports both text mode and icon mode. In text mode (content is null), text is displayed as visible button text. In icon mode (content is provided), text becomes the accessible aria-label and content is displayed.
     static void CaptureButton(this UIView view, string[]? style = null, MediaCaptureKind kind = Audio, string? text = null, MediaCaptureButtonMode captureMode = Hold, ClientAudioCaptureOptions? audioOptions = null, ClientVideoCaptureOptions? videoOptions = null, int? holdReleaseDelayMs = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<MediaCaptureEvent, Task>? onCaptureStart = null, Func<MediaCaptureEvent, Task>? onCaptureStop = null, Action<UIView>? content = null)
-    // Push-to-talk microphone button: a CaptureButton(kind: Audio, captureMode: Hold) that integrates with SpeechRecognizedAsync . After enabling speech recognition once (Audio.UseSpeechRecognition(...)), subscribe to Audio.SpeechRecognizedAsync to receive transcriptions when the user releases the button. The user's client context is carried on the event args — no streamId-to-client plumbing needed in the app.
+    // Push-to-talk microphone button: a CaptureButton(kind: Audio, captureMode: Hold) that integrates with Audio.SpeechRecognizedAsync. After enabling speech recognition once (Audio.UseSpeechRecognition(...)), subscribe to Audio.SpeechRecognizedAsync to receive transcriptions when the user releases the button. The user's client context is carried on the event args — no streamId-to-client plumbing needed in the app.
     static void PushToTalkButton(this UIView view, string[]? style = null, string? text = "⏺", int holdReleaseDelayMs = 500, ClientAudioCaptureOptions? audioOptions = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<MediaCaptureEvent, Task>? onCaptureStart = null, Func<MediaCaptureEvent, Task>? onCaptureStop = null, Action<UIView>? content = null)
     // Canvas element for rendering a live video stream.
     static void VideoStreamCanvas(this UIView view, string[]? style = null, string? streamId = null, int? width = null, int? height = null, string? styleId = null, string? key = null)
@@ -1190,18 +1296,71 @@ namespace Ikon.Parallax.Components.Standard
   // Overlay components (Dialog, AlertDialog, Popover, Tooltip, HoverCard, Toast). Each handles Portal/Overlay management automatically.
   static class OverlayExtensions
     // Alert dialog that requires explicit user acknowledgment. Cannot be dismissed by clicking outside.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • overlayStyle - The background overlay (use AlertDialog.Overlay) • contentStyle - The dialog content container (use AlertDialog.Content) • titleStyle - The title text (use AlertDialog.Title) • descriptionStyle - The description text (use AlertDialog.Description) • footerStyle - The button container (use AlertDialog.Footer) • cancelStyle - The cancel button (use AlertDialog.Cancel) • actionStyle - The action button (use AlertDialog.Action) • rootStyle - The outermost container (rarely needed) Example:
+    // view.AlertDialog(
+    //     title: "Are you sure?",
+    //     description: "This action cannot be undone.",
+    //     actionLabel: "Delete",
+    //     onAction: async () => { /* handle delete */ },
+    //     overlayStyle: [AlertDialog.Overlay],
+    //     contentStyle: [AlertDialog.Content],
+    //     trigger: v => v.Button([Button.ErrorMd], text: "Delete"));
     static void AlertDialog(this UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, string? title = null, string? description = null, string? cancelLabel = null, string? actionLabel = null, Func<Task>? onAction = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, string[]? overlayStyle = null, string? overlayStyleId = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? footerStyle = null, string[]? cancelStyle = null, string[]? actionStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null, Action<UIView>? content = null)
     // Modal dialog window.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • overlayStyle - The background overlay (use Dialog.Overlay) • contentStyle - The dialog content container (use Dialog.Content) • rootStyle - The outermost container (rarely needed) Example:
+    // view.Dialog(
+    //     overlayStyle: [Dialog.Overlay],
+    //     contentStyle: [Dialog.Content],
+    //     trigger: v => v.Button([Button.PrimaryMd], text: "Open"),
+    //     contentSlot: v => v.Text([Text.Body], "Dialog content"));
     static void Dialog(this UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, bool? modal = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? overlayStyle = null, string? overlayStyleId = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null, string? title = null, string? description = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? headerStyle = null)
     // Rich content card that appears on hover with configurable delays.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • contentStyle - The hover card content (use HoverCard.Content) • rootStyle - The hover card container (rarely needed) Example:
+    // view.HoverCard(
+    //     contentStyle: [HoverCard.Content],
+    //     trigger: v => v.Text([Text.Link], "@username"),
+    //     contentSlot: v => { ... });
     static void HoverCard(this UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, int? openDelay = null, int? closeDelay = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null)
     // Floating content panel that appears next to a trigger element.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • contentStyle - The popover content container (use Popover.Content) • rootStyle - The outermost container (rarely needed) Example:
+    // view.Popover(
+    //     contentStyle: [Popover.Content],
+    //     trigger: v => v.Button([Button.PrimaryMd], text: "Open"),
+    //     contentSlot: v => v.Text([Text.Body], "Popover content"));
     static void Popover(this UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, bool? modal = null, Side side = Bottom, Align align = Center, double? sideOffset = null, double? alignOffset = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null)
     // Toast notification with built-in provider and viewport.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • toastStyle - The toast container (use Toast.Root) • viewportStyle - The viewport where toasts appear (use Toast.Viewport) • titleStyle - The title text (use Toast.Title) • descriptionStyle - The description text (use Toast.Description) • closeStyle - The close button (use Toast.Close) Example:
+    // view.Toast(
+    //     title: "Saved!",
+    //     description: "Your changes have been saved.",
+    //     toastStyle: [Toast.Root],
+    //     titleStyle: [Toast.Title],
+    //     descriptionStyle: [Toast.Description]);
     static void Toast(this UIView view, string[]? style = null, ToastType type = Foreground, bool? open = null, bool? defaultOpen = null, int? durationMs = null, bool? forceMount = null, ToastSwipeDirection swipeDirection = Right, int? swipeThreshold = null, string? title = null, string? description = null, bool? showClose = null, string? closeLabel = null, Action<UIView>? content = null, string[]? toastStyle = null, string[]? viewportStyle = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? closeStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null, Func<Task>? onEscapeKeyDown = null, Func<Task>? onPause = null, Func<Task>? onResume = null, Func<ToastSwipeArgs, Task>? onSwipeStart = null, Func<ToastSwipeArgs, Task>? onSwipeMove = null, Func<ToastSwipeArgs, Task>? onSwipeEnd = null, Func<ToastSwipeArgs, Task>? onSwipeCancel = null)
     // Brief informational message that appears on hover. Includes built-in provider.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • contentStyle - The tooltip content (use Tooltip.Content) • rootStyle - The tooltip container (rarely needed) Example:
+    // view.Tooltip(
+    //     contentStyle: [Tooltip.Content],
+    //     trigger: v => v.Button([Button.GhostMd], text: "Hover me"),
+    //     contentSlot: v => v.Text([Text.Caption], "Helpful hint"));
     static void Tooltip(this UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, double? delayDuration = null, double? skipDelayDuration = null, bool? disableHoverableContent = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null)
-  // One page of items plus the controls needed to render prev/next buttons. Returned by Paginate .
+  // Composite overlay-menu components built on the Popover/Dialog primitives and the Menu/Combobox/ Command theme tokens — the shadcn Combobox, DropdownMenu, Command-palette, and Kbd, expressed as C# composites (no bespoke node type). Filtering is server-side over the app's reactive search state, matching Parallax's reactive model; client-side typeahead/roving-focus is a later renderer concern, not required for the components to work.
+  static class OverlayMenuExtensions
+    // A searchable Select (the shadcn Combobox): a Popover whose trigger shows the current selection and whose panel is a search field over the filtered options. Filtering is server-side — bind searchValue to a reactive and echo edits via onSearchChange, and the list narrows by case-insensitive label match. Without a bound search value it renders as a Popover-select (no filtering).
+    static void Combobox(this UIView view, IReadOnlyList<SelectOption> options, string? value = null, Func<string, Task>? onValueChange = null, string? searchValue = null, Func<string, Task>? onSearchChange = null, bool? open = null, Func<bool, Task>? onOpenChange = null, string? placeholder = "Select…", string? searchPlaceholder = "Search…", string? emptyText = "No results.", string[]? style = null, string[]? triggerStyle = null, string[]? contentStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
+    // A command palette (the shadcn Command in a dialog): a centred search field over a grouped, filtered action list. Filtering is server-side over searchValue — each group's options narrow by case-insensitive label match, and empty groups drop out. onSelect fires with the chosen option's value.
+    static void CommandPalette(this UIView view, IReadOnlyList<SelectOptionGroup> groups, bool? open = null, Func<bool, Task>? onOpenChange = null, Func<string, Task>? onSelect = null, string? searchValue = null, Func<string, Task>? onSearchChange = null, string? placeholder = "Type a command or search…", string? emptyText = "No results.", string[]? panelStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
+    // A dropdown menu — a Popover preset with the menu content surface. Fill content with view.Button([Menu.Item]) / [Menu.ItemDestructive] rows and Menu.Label / Menu.Separator; the component supplies the trigger wiring and the menu-shaped popover panel.
+    static void DropdownMenu(this UIView view, Action<UIView> trigger, Action<UIView> content, bool? open = null, Side side = Bottom, Align align = Start, string[]? contentStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null)
+    // A keyboard-key chip — the shadcn Kbd. Pass a single text for one key, or keys for a combo (each key its own chip, spaced).
+    static void Kbd(this UIView view, string? text = null, IReadOnlyList<string>? keys = null, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
+  // One page of items plus the controls needed to render prev/next buttons. Returned by PaginationExtensions.Paginate<T>.
   sealed class Page<T> : IEquatable<Page<T>>
     ctor(IReadOnlyList<T> Items, int Index, int TotalPages, int PageSize, bool CanPrev, bool CanNext, Func<Task> Prev, Func<Task> Next, Func<int, Task> JumpTo, Func<Task> First, Func<Task> Last, IReadOnlyList<T> Source)
     // True if there is a next page.
@@ -1212,7 +1371,7 @@ namespace Ikon.Parallax.Components.Standard
     Func<Task> First { get; init; }
     // Zero-based current page index.
     int Index { get; init; }
-    // The slice of Source for the current page.
+    // The slice of Page<T>.Source for the current page.
     IReadOnlyList<T> Items { get; init; }
     // Action that moves to a specific page (0-based). Clamps to valid range.
     Func<int, Task> JumpTo { get; init; }
@@ -1226,9 +1385,9 @@ namespace Ikon.Parallax.Components.Standard
     Func<Task> Prev { get; init; }
     // The full input list, if the caller wants the original.
     IReadOnlyList<T> Source { get; init; }
-    // Total number of pages (always >= 1, even when Source is empty).
+    // Total number of pages (always >= 1, even when Page<T>.Source is empty).
     int TotalPages { get; init; }
-  // Bounded-cursor primitive on top of ClientReactive . Slices an in-memory list, returns the slice + bound actions (Prev/Next/JumpTo/First/Last) the caller binds to whatever UI fits. Holds zero rendering opinion — no tab bars, no default control rows, no opinionated layout. Most Ikon apps don't need pagination at all (live feeds, autoscroll, virtualization handle the common cases via Reactive<List<T>> + ScrollArea(autoScroll: true)). Use this when you have a static list large enough to warrant explicit page navigation. For DB-backed pagination (load only the current page from a backend), drive ClientReactive directly and observe its value in your data-loading code — same per-client semantics, no special helper needed.
+  // Bounded-cursor primitive on top of ClientReactive<T>. Slices an in-memory list, returns the slice + bound actions (Prev/Next/JumpTo/First/Last) the caller binds to whatever UI fits. Holds zero rendering opinion — no tab bars, no default control rows, no opinionated layout. Most Ikon apps don't need pagination at all (live feeds, autoscroll, virtualization handle the common cases via ReactiveList<T> + ScrollArea(autoScroll: true)). Use this when you have a static list large enough to warrant explicit page navigation. For DB-backed pagination (load only the current page from a backend), drive ClientReactive<T> directly and observe its value in your data-loading code — same per-client semantics, no special helper needed.
   static class PaginationExtensions
     // Slice items by pageSize using page as per-client current-page state. Each connected client sees its own page; setting page from one client doesn't shift another client's view.
     static Page<T> Paginate<T>(this UIView view, IReadOnlyList<T> items, ClientReactive<int> page, int pageSize = 20)
@@ -1249,7 +1408,7 @@ namespace Ikon.Parallax.Components.Standard
   static class RichTextEditorExtensions
     // Inline rich-text editor with a configurable toolbar. Values are HTML strings.
     static void RichTextEditor(this UIView view, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, IReadOnlyList<RichTextTool>? tools = null, bool? showToolbar = null, int? minRows = null, int? maxRows = null, string[]? style = null, string[]? toolbarStyle = null, string[]? toolbarButtonStyle = null, string[]? contentStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null)
-  // Formatting action available in the RichTextEditor toolbar.
+  // Formatting action available in the RichTextEditorExtensions.RichTextEditor toolbar.
   enum RichTextTool
     Bold
     Italic
@@ -1270,7 +1429,7 @@ namespace Ikon.Parallax.Components.Standard
     ClearFormatting
     Undo
     Redo
-  // Tiny primitives for using ClientReactive as a signal the app reads to decide what to render. Routes, tabs, modes, panel selections, "which dialog is open" — same shape, same primitives. Intentionally minimal: no opinionated tab bars, no URL coupling, no rendering bias. The signal is the building block; the app decides how to consume it. For URL ↔ signal sync (browser bar, deep links, back/forward), use Navigation on the host app — keeps URL concerns in one place instead of forking them through this layer.
+  // Tiny primitives for using ClientReactive<T> as a signal the app reads to decide what to render. Routes, tabs, modes, panel selections, "which dialog is open" — same shape, same primitives. Intentionally minimal: no opinionated tab bars, no URL coupling, no rendering bias. The signal is the building block; the app decides how to consume it. For URL ↔ signal sync (browser bar, deep links, back/forward), use Navigation on the host app — keeps URL concerns in one place instead of forking them through this layer.
   static class RoutingExtensions
     // Renders the content for the currently-active key. signal holds the active key (per-client); cases maps each known key to a render lambda. Falls back to fallback (or empty) when the active key isn't in the dictionary. private ClientReactive<string> _route = new("home"); ... view.Routed(_route, new() { ["home"] = v => RenderHome(v), ["about"] = v => RenderAbout(v), ["settings"] = v => RenderSettings(v), });
     static void Routed<T>(this UIView view, ClientReactive<T> signal, Dictionary<T, Action<UIView>> cases, Action<UIView>? fallback = null)
@@ -1288,10 +1447,17 @@ namespace Ikon.Parallax.Components.Standard
     Always
     Scroll
     Hover
-  // Extension methods for the ScrollColumn primitive — a header/body/footer dialog pattern where the body scrolls. Wraps a ScrollArea with the correct flex sizing so scrolling engages without ceremony.
+  // Extension methods for the ScrollColumn primitive — a header/body/footer dialog pattern where the body scrolls. Wraps a LayoutExtensions.ScrollArea with the correct flex sizing so scrolling engages without ceremony.
   static class ScrollColumnExtensions
     // Renders a flex column with an optional header, a scrollable body, and an optional footer. The header and footer stay pinned; the body scrolls.
-    static void ScrollColumn(this UIView view, string[]? style = null, Action<UIView>? header = null, Action<UIView>? footer = null, Action<UIView>? content = null, ScrollAreaScrollbars scrollbars = Vertical, ScrollAreaType scrollType = Hover, bool autoScroll = false, string? autoScrollKey = null, string[]? bodyStyle = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string? styleId = null, string? key = null)
+    // Remarks:
+    // This is the canonical shape for dialogs, side panels, and chat-style layouts where you need a fixed chrome around an overflowing region. Using this helper avoids the common pitfall of a flex-1 ScrollArea that won't shrink inside a flex parent (a CSS flexbox quirk: min-height: auto by default). The outer container's height is the caller's responsibility — set it via the style parameter (for example "h-[82vh]") or let a flex-1 parent provide bounds. Example — dialog with header + scrolling body + composer:
+    // view.ScrollColumn(
+    //     style: ["h-[82vh] w-full sm:max-w-[560px] rounded-2xl bg-white"],
+    //     header: h => h.Row(["px-5 py-4 border-b"], content: ...),
+    //     footer: f => f.Row(["p-3 border-t"], content: ...),
+    //     content: body => body.Column(["gap-3"], content: ...));
+    static void ScrollColumn(this UIView view, string[]? style = null, Action<UIView>? header = null, Action<UIView>? footer = null, Action<UIView>? content = null, ScrollAreaScrollbars scrollbars = Vertical, ScrollAreaType scrollType = Hover, bool autoScroll = false, object? autoScrollKey = null, string[]? bodyStyle = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string? styleId = null, string? key = null)
   // Direction for infinite scroll loading.
   enum ScrollDirection
     Down
@@ -1306,6 +1472,8 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for Select components.
   static class SelectExtensions
     // Select dropdown component that auto-renders the full structure with trigger button, dropdown content, and items. Use either options (flat list) or groups (grouped items) - not both.
+    // Remarks:
+    // An Input.* token passed as the Select's own style is ignored (with a dev warning): it would style the outer wrapper, not the field-shaped element. The trigger already carries the field theme — customize it through triggerStyle. For trigger sizing, use Select.Size tokens: triggerStyle: [Select.Size.Sm] for small, triggerStyle: [Select.Size.Lg] for large. The default size is medium.
     static void Select(this UIView view, string[]? style = null, IReadOnlyList<SelectOption>? options = null, IReadOnlyList<SelectOptionGroup>? groups = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, bool? required = null, bool? open = null, string? name = null, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? itemStyle = null, string[]? itemIndicatorStyle = null, string? indicatorIconName = "check", string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool, Task>? onOpenChange = null, string? label = null, Reactive<string>? bind = null)
   // Represents a selectable option in a Select component.
   sealed class SelectOption : IEquatable<SelectOption>
@@ -1347,6 +1515,8 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for WebGL shader components.
   static class ShadertoyExtensions
     // Shadertoy-compatible WebGL fragment shader canvas.
+    // Remarks:
+    // Renders GLSL fragment shaders with Shadertoy-compatible uniforms. The shader code must define a mainImage function with signature: void mainImage(out vec4 color, in vec2 fragCoord) Built-in uniforms (automatically provided): • iResolution (vec3) - canvas width, height, and 1.0 • iTime (float) - elapsed time in seconds • iTimeDelta (float) - time since last frame • iFrame (int) - current frame number • iMouse (vec4) - mouse x, y, click x, click y (requires enableMouse=true) • iDate (vec4) - year, month, day, seconds of day Texture channels: Pass image URLs (data URIs or http(s)) via channels to bind them to the Shadertoy channel uniforms, matching Shadertoy's default sampler behavior so shaders copied from shadertoy.com that sample 2D textures render the same way: • iChannel0..iChannel3 (sampler2D) - channel textures, in array order • iChannelResolution[4] (vec3) - per-channel pixel size (0 until loaded) • iChannelTime[4] (float) - always 0 for static images Textures use Shadertoy's defaults: vertical flip on (upright with uv = fragCoord/iResolution), repeat wrap, and mipmap filtering. Sample with texture(iChannel0, uv). Limitations: 2D image channels only - no cubemap (samplerCube), buffer, audio, or video channels; single output only.
     static void ShadertoyCanvas(this UIView view, string[]? style = null, string? shaderSource = null, int? fps = null, IReadOnlyDictionary<string, ShaderUniform>? uniforms = null, IReadOnlyList<string>? channels = null, bool? enableMouse = null, int? width = null, int? height = null, string? styleId = null, string? key = null)
   // Options for the Web Share API action.
   sealed class ShareActionOptions : ActionOptions, IEquatable<ShareActionOptions>
@@ -1359,9 +1529,9 @@ namespace Ikon.Parallax.Components.Standard
     string? Url { get; init; }
   // Slide-over panel composites (Sheet, Drawer) built on the Dialog primitive. The dialog's portal + content styling is repositioned per side via the Theming.Sheet / Theming.Drawer token recipes, including Crosswind slide-in/out motion classes driven by the panel's data-state attribute.
   static class SheetExtensions
-    // Bottom drawer on top of the Dialog primitive — mobile-style rounded panel with a drag handle, per the Theming.Drawer token recipe. Same open/close model as Sheet : in controlled mode pass onOpenChange to actually close.
+    // Bottom drawer on top of the Dialog primitive — mobile-style rounded panel with a drag handle, per the Theming.Drawer token recipe. Same open/close model as SheetExtensions.Sheet: in controlled mode pass onOpenChange to actually close.
     static void Drawer(this UIView view, bool? open = null, Func<bool, Task>? onOpenChange = null, string? title = null, string? description = null, Action<UIView>? trigger = null, Action<UIView>? content = null, Action<UIView>? footer = null, bool? defaultOpen = null, bool? modal = null, bool showHandle = true, string[]? style = null, string[]? overlayStyle = null, string[]? handleStyle = null, string[]? headerStyle = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? footerStyle = null, string? key = null)
-    // Side-anchored slide-over panel on top of the Dialog primitive. With zero style args the panel uses Theming.Sheet.Base plus the side token (position, border, slide animation); caller styles merge on top, and the literal "unstyled" class opts out. In controlled mode ( open set) pass onOpenChange and flip your state to false there, or the built-in close button and outside clicks cannot dismiss the sheet.
+    // Side-anchored slide-over panel on top of the Dialog primitive. With zero style args the panel uses Theming.Sheet.Base plus the side token (position, border, slide animation); caller styles merge on top, and the literal "unstyled" class opts out. In controlled mode (open set) pass onOpenChange and flip your state to false there, or the built-in close button and outside clicks cannot dismiss the sheet.
     static void Sheet(this UIView view, bool? open = null, Func<bool, Task>? onOpenChange = null, Side side = Right, string? title = null, string? description = null, Action<UIView>? trigger = null, Action<UIView>? content = null, Action<UIView>? footer = null, bool? defaultOpen = null, bool? modal = null, bool showClose = true, string[]? style = null, string[]? overlayStyle = null, string[]? headerStyle = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? footerStyle = null, string[]? closeStyle = null, string? key = null)
   // Represents the side for positioning overlays.
   enum Side
@@ -1371,21 +1541,21 @@ namespace Ikon.Parallax.Components.Standard
     Left
   // Extension methods for the Skeleton component.
   static class SkeletonExtensions
-    // Pulsing placeholder block for loading / not-yet-available content — the visual stand-in used while real content is pending, and the default fill for content redacted from the build-time boot snapshot (see SnapshotReveal). A typed convenience over the Skeleton.* theme tokens (a div with animate-pulse styling); size and shape via size / shape , or override freely through style .
+    // Pulsing placeholder block for loading / not-yet-available content — the visual stand-in used while real content is pending, and the default fill for content redacted from the build-time boot snapshot (see SnapshotReveal). A typed convenience over the Skeleton.* theme tokens (a div with animate-pulse styling); size and shape via size / shape, or override freely through style.
     static void Skeleton(this UIView view, string[]? style = null, SkeletonShape shape = Rectangle, SkeletonSize size = Md, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-  // Outline shape of a Skeleton placeholder.
+  // Outline shape of a SkeletonExtensions.Skeleton placeholder.
   enum SkeletonShape
     Rectangle
     Circle
     Square
-  // Height preset for a Skeleton placeholder.
+  // Height preset for a SkeletonExtensions.Skeleton placeholder.
   enum SkeletonSize
     Xs
     Sm
     Md
     Lg
     Xl
-  // Wrappers for controlling how the UI renders into the build-time boot snapshot. The boot snapshot is a public asset painted to everyone before the live connection, so by default the snapshot render replaces every content leaf with a skeleton — per-user content can never leak. These wrappers let the app override that default for specific regions, branching on IsSnapshot at build time so it keeps a single UI.Root definition instead of two separate UIs. On the normal live render path every wrapper is a single bool check plus the content the developer already wrote.
+  // Wrappers for controlling how the UI renders into the build-time boot snapshot. The boot snapshot is a public asset painted to everyone before the live connection, so by default the snapshot render replaces every content leaf with a skeleton — per-user content can never leak. These wrappers let the app override that default for specific regions, branching on UIView.IsSnapshot at build time so it keeps a single UI.Root definition instead of two separate UIs. On the normal live render path every wrapper is a single bool check plus the content the developer already wrote.
   static class SnapshotExtensions
     // Renders content live, but omits it entirely from the boot snapshot — use to keep a region out of the public snapshot without leaving even a skeleton (e.g. interactive controls that are dead before the live connection).
     static void SnapshotHide(this UIView view, Action<UIView> content)
@@ -1410,7 +1580,7 @@ namespace Ikon.Parallax.Components.Standard
     Sm
     Md
     Lg
-  // Trend direction for a StatCard delta.
+  // Trend direction for a CardExtensions.StatCard delta.
   enum StatTrend
     Flat
     Up
@@ -1453,7 +1623,7 @@ namespace Ikon.Parallax.Components.Standard
   //     });
   // });
   static class TableExtensions
-    // Table container (CSS display: table). Compose with TableHeader , TableBody , TableRow , TableHead , and TableCell . Caller styles merge on top of the base token; include the literal "unstyled" class to opt out.
+    // Table container (CSS display: table). Compose with TableExtensions.TableHeader, TableExtensions.TableBody, TableExtensions.TableRow, TableExtensions.TableHead, and TableExtensions.TableCell. Caller styles merge on top of the base token; include the literal "unstyled" class to opt out.
     static void Table(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // Table — positional (style, children) overload.
     static void Table(this UIView view, string[]? style, Action<UIView> children)
@@ -1467,15 +1637,22 @@ namespace Ikon.Parallax.Components.Standard
     static void TableHead(this UIView view, string[]? style = null, string? text = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // TableHead — positional-text-first overload: r.TableHead("Name").
     static void TableHead(this UIView view, string text, string[]? style = null, string? key = null, Action<UIView>? content = null)
-    // Header row group (CSS display: table-header-group). Put one TableRow of TableHead cells inside.
+    // Header row group (CSS display: table-header-group). Put one TableExtensions.TableRow of TableExtensions.TableHead cells inside.
     static void TableHeader(this UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null)
     // Table row (CSS display: table-row) with a bottom border. Rows with onClick also get hover highlight + pointer cursor.
     static void TableRow(this UIView view, string[]? style = null, bool striped = false, Delegate? onClick = null, string? styleId = null, string? key = null, Action<UIView>? content = null)
   // Extension methods for Tabs components.
   static class TabsExtensions
     // Container for Tabs components. Use the 'tabs' parameter to define tab content.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • listStyle - The tab list container (use Tabs.List) • triggerStyle - Each tab trigger button (use Tabs.Trigger) • contentStyle - Each tab content panel (use Tabs.Content) • rootStyle - The outermost container (rarely needed) Example:
+    // view.Tabs(
+    //     listStyle: [Tabs.List],
+    //     triggerStyle: [Tabs.Trigger],
+    //     contentStyle: [Tabs.Content],
+    //     tabs: [...]);
     static void Tabs(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, Orientation orientation = Horizontal, ActivationMode activationMode = Automatic, IEnumerable<TabItem>? tabs = null, string[]? listContainerStyle = null, string[]? listStyle = null, string[]? triggerStyle = null, string[]? disabledTriggerStyle = null, string[]? contentContainerStyle = null, string[]? contentStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null)
-  // Smallest time unit shown by a TimePicker .
+  // Smallest time unit shown by a TimePickerExtensions.TimePicker.
   enum TimeGranularity
     Hour
     Minute
@@ -1514,6 +1691,17 @@ namespace Ikon.Parallax.Components.Standard
     Foreground
     Background
   // Imperative per-client toast queue so app code never owns notification state.
+  // Remarks:
+  // Wiring: construct one instance as an app field, mount ToastsExtensions.ToastHost once in the root UI, then fire notifications from any event handler:
+  // private readonly Toasts _toasts = new();
+  //
+  // // in UI.Root(...):
+  // view.ToastHost(_toasts);
+  //
+  // // in any handler:
+  // _toasts.Success("Saved");
+  // _toasts.Error("Upload failed", "The file exceeds 10 MB.");
+  // State lives in a ClientReactive<T>, so each client sees only its own toasts and the host re-renders automatically. Methods must therefore be called where a client scope is active (UI render or event handlers) — the normal places notifications originate. Auto-dismiss is client-driven: the toast primitive counts down ToastItem.DurationMs and reports the close, which removes the item from the queue.
   sealed class Toasts
     ctor()
     // Toasts currently visible for the calling client (reactive read).
@@ -1533,16 +1721,18 @@ namespace Ikon.Parallax.Components.Standard
     // Enqueue a warning toast.
     long Warning(string title, string? description = null, int durationMs = 5000)
     // Default auto-dismiss duration in milliseconds.
-    static int DefaultDurationMs
+    const int DefaultDurationMs
   // Host composite that renders a Toasts queue with the toast primitives.
   static class ToastsExtensions
     // Render the toast viewport for a Toasts queue. Mount exactly once in the root UI; every queued toast renders as a themed toast (tone icon, title, description, close button) that the client auto-dismisses after its duration. Both auto-dismiss and the close button report back and remove the item from the queue.
     static void ToastHost(this UIView view, Toasts toasts, string[]? viewportStyle = null, string[]? toastStyle = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? closeStyle = null, bool showClose = true)
   // Recursive tree composite over the Collapsible primitive, styled with the NavPanel/NavItem token recipes.
   static class TreeViewExtensions
-    // Hierarchical tree view. Branch nodes render as Collapsibles whose trigger row toggles expansion (tracked in expanded ) and reports selection; leaf nodes are plain clickable rows. The row matching selectedId renders with the active item style.
+    // Hierarchical tree view. Branch nodes render as Collapsibles whose trigger row toggles expansion (tracked in expanded) and reports selection; leaf nodes are plain clickable rows. The row matching selectedId renders with the active item style.
     static void TreeView<T>(this UIView view, IReadOnlyList<T> roots, Func<T, string> id, Func<T, string> label, Func<T, IReadOnlyList<T>?> children, ExpandedSet expanded, string[]? style = null, Func<T, Task>? onSelect = null, string? selectedId = null, Func<T, string?>? icon = null, string[]? itemStyle = null, string[]? selectedItemStyle = null, string[]? labelStyle = null, string[]? childrenStyle = null, string? styleId = null, string? key = null)
-  // Extension methods for the DOM-virtualized scroll containers VirtualList and VirtualGrid . Items outside the visible window plus an overscan buffer have their content children skipped at the React layer (the wrapper still occupies space via fixed dimensions), so DOM size scales with viewport, not itemCount.
+  // Extension methods for the DOM-virtualized scroll containers VirtualListExtensions.VirtualList and VirtualListExtensions.VirtualGrid. Items outside the visible window plus an overscan buffer have their content children skipped at the React layer (the wrapper still occupies space via fixed dimensions), so DOM size scales with viewport, not itemCount.
+  // Remarks:
+  // Performance model: • Server emits one wrapper node per item up to itemCount; per-item content builders run server-side eagerly. Inexpensive content trees are fine even at large counts. • Client React component watches scroll on the viewport, computes the visible row range from itemHeight/rowHeight + scrollTop, and only mounts children inside [start - overscan, end + overscan]. Out-of-window wrappers render as empty fixed-height placeholders. • onNearEnd fires when the visible window enters the last nearEndThreshold rows. Append more items to grow the list — no special prepend/append API needed.
   static class VirtualListExtensions
     // DOM-virtualized scrollable grid. Items are laid out in a fixed number of columns and rows outside the visible window are not mounted in the DOM.
     static void VirtualGrid(this UIView view, int itemCount, int columns, double rowHeight, Action<UIView, int> onRenderItem, int overscan = 2, int gap = 12, int? minItemWidthPx = null, int? maxColumns = null, double? aspectRatio = null, string? resetScrollKey = null, Func<int, Task>? onNearEnd = null, int nearEndThresholdRows = 2, string[]? style = null, string[]? itemStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
@@ -1556,37 +1746,37 @@ namespace Ikon.Parallax.Components.Standard
 namespace Ikon.Parallax.Theming
   static class Accessibility
     static string RequiredLabel(string baseLabel)
-    static string NotScreenReaderOnly
-    static string ScreenReaderOnly
-    static string SkipLink
+    const string NotScreenReaderOnly
+    const string ScreenReaderOnly
+    const string SkipLink
   static class Accordion
-    static string ChevronIcon
-    static string Content
-    static string ContentInner
-    static string Default
-    static string Header
-    static string Item
-    static string Root
-    static string Trigger
+    const string ChevronIcon
+    const string Content
+    const string ContentInner
+    const string Default
+    const string Header
+    const string Item
+    const string Root
+    const string Trigger
   static class Alert
-    static string Base
-    static string Default
-    static string Description
-    static string Error
-    static string Info
-    static string Success
-    static string Title
-    static string Warning
+    const string Base
+    const string Default
+    const string Description
+    const string Error
+    const string Info
+    const string Success
+    const string Title
+    const string Warning
   static class AlertDialog
-    static string Action
-    static string Cancel
-    static string Content
-    static string Default
-    static string Description
-    static string Footer
-    static string Header
-    static string Overlay
-    static string Title
+    const string Action
+    const string Cancel
+    const string Content
+    const string Default
+    const string Description
+    const string Footer
+    const string Header
+    const string Overlay
+    const string Title
   // One vocabulary entry: an accepted theme key and the canonical variable keys it commits. Targets are always canonical (never other aliases), so expansion is one step.
   sealed class ThemeVocabulary.Alias : IEquatable<ThemeVocabulary.Alias>
     ctor(string Name, IReadOnlyList<string> Targets, ThemeVocabulary.ValueKind Kind)
@@ -1594,412 +1784,429 @@ namespace Ikon.Parallax.Theming
     string Name { get; init; }
     IReadOnlyList<string> Targets { get; init; }
   static class Accessibility.Aria
-    static string Busy
-    static string Checked
-    static string CurrentPage
-    static string CurrentStep
-    static string Disabled
-    static string Expanded
-    static string Invalid
-    static string Required
-    static string Selected
+    const string Busy
+    const string Checked
+    const string CurrentPage
+    const string CurrentStep
+    const string Disabled
+    const string Expanded
+    const string Invalid
+    const string Required
+    const string Selected
   static class AspectRatio
-    static string Base
-    static string Default
-    static string PlaceholderContent
+    const string Base
+    const string Default
+    const string PlaceholderContent
   static class Avatar
-    static string Base
-    static string Default
-    static string Fallback
-    static string Image
-    static string Root
+    const string Base
+    const string Default
+    const string Fallback
+    const string Image
+    const string Root
   static class Badge
-    static string Base
-    static string Brand
-    static string BrandLg
-    static string BrandMd
-    static string BrandSm
-    static string Default
-    static string DefaultLg
-    static string DefaultMd
-    static string DefaultSm
-    static string Error
-    static string ErrorLg
-    static string ErrorMd
-    static string ErrorSm
-    static string IconLeft
-    static string IconRight
-    static string Info
-    static string InfoLg
-    static string InfoMd
-    static string InfoSm
-    static string Neutral
-    static string NeutralLg
-    static string NeutralMd
-    static string NeutralSm
-    static string OutlineBrand
-    static string OutlineBrandLg
-    static string OutlineBrandMd
-    static string OutlineBrandSm
-    static string OutlineError
-    static string OutlineErrorLg
-    static string OutlineErrorMd
-    static string OutlineErrorSm
-    static string OutlineInfo
-    static string OutlineInfoLg
-    static string OutlineInfoMd
-    static string OutlineInfoSm
-    static string OutlineNeutral
-    static string OutlineNeutralLg
-    static string OutlineNeutralMd
-    static string OutlineNeutralSm
-    static string OutlineSuccess
-    static string OutlineSuccessLg
-    static string OutlineSuccessMd
-    static string OutlineSuccessSm
-    static string OutlineWarning
-    static string OutlineWarningLg
-    static string OutlineWarningMd
-    static string OutlineWarningSm
-    static string Success
-    static string SuccessLg
-    static string SuccessMd
-    static string SuccessSm
-    static string Warning
-    static string WarningLg
-    static string WarningMd
-    static string WarningSm
+    const string Base
+    const string Brand
+    const string BrandLg
+    const string BrandMd
+    const string BrandSm
+    const string Default
+    const string DefaultLg
+    const string DefaultMd
+    const string DefaultSm
+    const string Error
+    const string ErrorLg
+    const string ErrorMd
+    const string ErrorSm
+    const string IconLeft
+    const string IconRight
+    const string Info
+    const string InfoLg
+    const string InfoMd
+    const string InfoSm
+    const string Neutral
+    const string NeutralLg
+    const string NeutralMd
+    const string NeutralSm
+    const string OutlineBrand
+    const string OutlineBrandLg
+    const string OutlineBrandMd
+    const string OutlineBrandSm
+    const string OutlineError
+    const string OutlineErrorLg
+    const string OutlineErrorMd
+    const string OutlineErrorSm
+    const string OutlineInfo
+    const string OutlineInfoLg
+    const string OutlineInfoMd
+    const string OutlineInfoSm
+    const string OutlineNeutral
+    const string OutlineNeutralLg
+    const string OutlineNeutralMd
+    const string OutlineNeutralSm
+    const string OutlineSuccess
+    const string OutlineSuccessLg
+    const string OutlineSuccessMd
+    const string OutlineSuccessSm
+    const string OutlineWarning
+    const string OutlineWarningLg
+    const string OutlineWarningMd
+    const string OutlineWarningSm
+    const string Success
+    const string SuccessLg
+    const string SuccessMd
+    const string SuccessSm
+    const string Warning
+    const string WarningLg
+    const string WarningMd
+    const string WarningSm
   static class Tokens.Blur
-    static string Lg
-    static string Md
-    static string Sm
+    const string Lg
+    const string Md
+    const string Sm
   static class Breadcrumb
-    static string Ellipsis
-    static string Item
-    static string Link
-    static string List
-    static string Page
-    static string Root
-    static string Separator
+    const string Ellipsis
+    const string Item
+    const string Link
+    const string List
+    const string Page
+    const string Root
+    const string Separator
   static class Button
-    static string Base
-    static string Default
-    static string DefaultLg
-    static string DefaultMd
-    static string DefaultSm
-    static string Error
-    static string ErrorLg
-    static string ErrorMd
-    static string ErrorSm
-    static string Ghost
-    static string GhostLg
-    static string GhostMd
-    static string GhostSm
-    static string Icon
-    static string IconLeft
-    static string IconRight
-    static string Info
-    static string InfoLg
-    static string InfoMd
-    static string InfoSm
-    static string Link
-    static string LinkLg
-    static string LinkMd
-    static string LinkSm
-    static string Neutral
-    static string NeutralLg
-    static string NeutralMd
-    static string NeutralSm
-    static string Outline
-    static string OutlineLg
-    static string OutlineMd
-    static string OutlineSm
-    static string Primary
-    static string PrimaryLg
-    static string PrimaryMd
-    static string PrimarySm
-    static string Secondary
-    static string SecondaryLg
-    static string SecondaryMd
-    static string SecondarySm
-    static string SolidLg
-    static string SolidMd
-    static string SolidSm
-    static string Success
-    static string SuccessLg
-    static string SuccessMd
-    static string SuccessSm
-    static string Warning
-    static string WarningLg
-    static string WarningMd
-    static string WarningSm
+    const string Base
+    const string Default
+    const string DefaultLg
+    const string DefaultMd
+    const string DefaultSm
+    const string Error
+    const string ErrorLg
+    const string ErrorMd
+    const string ErrorSm
+    const string Ghost
+    const string GhostLg
+    const string GhostMd
+    const string GhostSm
+    const string Icon
+    const string IconLeft
+    const string IconRight
+    const string Info
+    const string InfoLg
+    const string InfoMd
+    const string InfoSm
+    const string Link
+    const string LinkLg
+    const string LinkMd
+    const string LinkSm
+    const string Neutral
+    const string NeutralLg
+    const string NeutralMd
+    const string NeutralSm
+    const string Outline
+    const string OutlineLg
+    const string OutlineMd
+    const string OutlineSm
+    const string Primary
+    const string PrimaryLg
+    const string PrimaryMd
+    const string PrimarySm
+    const string Secondary
+    const string SecondaryLg
+    const string SecondaryMd
+    const string SecondarySm
+    const string SolidLg
+    const string SolidMd
+    const string SolidSm
+    const string Success
+    const string SuccessLg
+    const string SuccessMd
+    const string SuccessSm
+    const string Warning
+    const string WarningLg
+    const string WarningMd
+    const string WarningSm
   static class Calendar
-    static string Day
-    static string DayDisabled
-    static string DayOutside
-    static string DaySelected
-    static string DayToday
-    static string Default
-    static string Grid
-    static string Header
-    static string HeaderTitle
-    static string NavButton
-    static string Root
-    static string Row
-    static string Weekday
+    const string Day
+    const string DayDisabled
+    const string DayOutside
+    const string DaySelected
+    const string DayToday
+    const string Default
+    const string Grid
+    const string Header
+    const string HeaderTitle
+    const string NavButton
+    const string Root
+    const string Row
+    const string Weekday
   static class Card
-    static string Base
-    static string Content
-    static string Default
-    static string Description
-    static string Elevated
-    static string Flat
-    static string Footer
-    static string Ghost
-    static string Glass
-    static string GlassSubtle
-    static string Header
-    static string HeaderRow
-    static string Interactive
-    static string InteractiveFill
-    static string Outline
-    static string Selected
-    static string Strong
-    static string Subtle
-    static string Title
+    const string Base
+    const string Content
+    const string Default
+    const string Description
+    const string Elevated
+    const string Flat
+    const string Footer
+    const string Ghost
+    const string Glass
+    const string GlassSubtle
+    const string Header
+    const string HeaderRow
+    const string Interactive
+    const string InteractiveFill
+    const string Outline
+    const string Selected
+    const string Strong
+    const string Subtle
+    const string Title
   static class OnSurface.Card
-    static string Caption
-    static string Muted
-    static string Subtle
-    static string Text
+    const string Caption
+    const string Muted
+    const string Subtle
+    const string Text
   static class Carousel
-    static string Default
-    static string Indicator
-    static string IndicatorActive
-    static string Indicators
-    static string NavButton
-    static string Next
-    static string Previous
-    static string Root
-    static string Slide
-    static string Track
-    static string TrackVertical
-    static string Viewport
+    const string Default
+    const string Indicator
+    const string IndicatorActive
+    const string Indicators
+    const string NavButton
+    const string Next
+    const string Previous
+    const string Root
+    const string Slide
+    const string Track
+    const string TrackVertical
+    const string Viewport
   static class Chart
-    static string Container
-    static string ContainerLg
-    static string ContainerMd
-    static string ContainerSm
-    static string ContainerXl
-    static string Default
+    const string Container
+    const string ContainerLg
+    const string ContainerMd
+    const string ContainerSm
+    const string ContainerXl
+    const string Default
   static class Checkbox
-    static string Default
-    static string Indicator
-    static string Root
+    const string Default
+    const string Indicator
+    const string Root
   static class CodeEditor
-    static string Body
-    static string Content
-    static string Default
-    static string Gutter
-    static string Header
-    static string LanguageBadge
-    static string Line
-    static string Root
+    const string Body
+    const string Content
+    const string Default
+    const string Gutter
+    const string Header
+    const string LanguageBadge
+    const string Line
+    const string Root
   static class Collapsible
-    static string Content
-    static string Default
-    static string Root
-    static string Trigger
-    static string TriggerIcon
+    const string Content
+    const string Default
+    const string Root
+    const string Trigger
+    const string TriggerIcon
   static class ColorPicker
-    static string AlphaTrack
-    static string Content
-    static string Default
-    static string HexInput
-    static string HueThumb
-    static string HueTrack
-    static string PresetSwatch
-    static string PresetsGrid
-    static string SaturationArea
-    static string Swatch
-    static string SwatchLg
-    static string SwatchSm
-    static string Thumb
-    static string Trigger
+    const string AlphaTrack
+    const string Content
+    const string Default
+    const string HexInput
+    const string HueThumb
+    const string HueTrack
+    const string PresetSwatch
+    const string PresetsGrid
+    const string SaturationArea
+    const string Swatch
+    const string SwatchLg
+    const string SwatchSm
+    const string Thumb
+    const string Trigger
   static class Layout.Column
-    static string Center
-    static string Default
-    static string Lg
-    static string Md
-    static string Sm
-    static string Xl
-    static string Xs
+    const string Center
+    const string Default
+    const string Lg
+    const string Md
+    const string Sm
+    const string Xl
+    const string Xs
+  // Combobox (searchable Select): a Popover whose trigger shows the current value and whose content is a search field over a filtered option list. Slot tokens for the whole surface; the trigger deliberately reuses the outline Button look so a Combobox and a Select read the same in a form.
+  static class Combobox
+    const string Content
+    const string Empty
+    const string Item
+    const string ItemSelected
+    const string List
+    const string Search
+    const string Trigger
   static class Command
-    static string Default
-    static string Dialog
-    static string Empty
-    static string Group
-    static string GroupHeading
-    static string Input
-    static string InputWrapper
-    static string Item
-    static string List
-    static string Root
-    static string Separator
-    static string Shortcut
+    const string Default
+    const string Dialog
+    const string Empty
+    const string Group
+    const string GroupHeading
+    const string Input
+    const string InputWrapper
+    const string Item
+    const string List
+    const string Root
+    const string Separator
+    const string Shortcut
+  // Command palette (the shadcn Command in a dialog): a centred search field over a grouped, filtered action list. Slot tokens for the surface, groups, and rows.
+  static class CommandPalette
+    const string Empty
+    const string GroupLabel
+    const string Item
+    const string List
+    const string Panel
+    const string Search
   static class Container
-    static string Full
-    static string Lg
-    static string Md
-    static string Prose
-    static string Screen
-    static string Sm
-    static string Xl
-    static string Xl2
-    static string Xl3
-    static string Xl4
-    static string Xl5
-    static string Xl6
-    static string Xl7
-    static string Xs
+    const string Full
+    const string Lg
+    const string Md
+    const string Prose
+    const string Screen
+    const string Sm
+    const string Xl
+    const string Xl2
+    const string Xl3
+    const string Xl4
+    const string Xl5
+    const string Xl6
+    const string Xl7
+    const string Xs
   static class ContentGrid
-    static string Bordered
-    static string Cell
-    static string CellMuted
-    static string Default
-    static string Header
+    const string Bordered
+    const string Cell
+    const string CellMuted
+    const string Default
+    const string Header
   static class DataTable
-    static string Cell
-    static string DataCell
-    static string Default
-    static string EmptyState
-    static string Header
-    static string HeaderCell
-    static string PageNumber
-    static string PageNumberActive
-    static string Pagination
-    static string PaginationButton
-    static string ResizeHandle
-    static string Row
-    static string RowClickable
+    const string Cell
+    const string DataCell
+    const string Default
+    const string EmptyState
+    const string Header
+    const string HeaderCell
+    const string PageNumber
+    const string PageNumberActive
+    const string Pagination
+    const string PaginationButton
+    const string ResizeHandle
+    const string Row
+    const string RowClickable
   static class DatePicker
-    static string Content
-    static string Default
-    static string Trigger
-    static string TriggerLg
-    static string TriggerSm
+    const string Content
+    const string Default
+    const string Trigger
+    const string TriggerLg
+    const string TriggerSm
   static class OnSurface.Default
-    static string Caption
-    static string Muted
-    static string Subtle
-    static string Text
+    const string Caption
+    const string Muted
+    const string Subtle
+    const string Text
   static class Dialog
-    static string CloseButton
-    static string Content
-    static string Description
-    static string Footer
-    static string Header
-    static string Overlay
-    static string Title
+    const string CloseButton
+    const string Content
+    const string Description
+    const string Footer
+    const string Header
+    const string Overlay
+    const string Title
   static class DragDrop
-    static string Container
-    static string ContainerHorizontal
-    static string DropZone
-    static string DropZoneActive
-    static string Overlay
-    static string OverlayContent
+    const string Container
+    const string ContainerHorizontal
+    const string DropZone
+    const string DropZoneActive
+    const string Overlay
+    const string OverlayContent
   static class Drawer
-    static string Content
-    static string Default
-    static string Description
-    static string Footer
-    static string Handle
-    static string Header
-    static string Overlay
-    static string Title
+    const string Content
+    const string Default
+    const string Description
+    const string Footer
+    const string Handle
+    const string Header
+    const string Overlay
+    const string Title
   static class DropdownMenu
-    static string CheckboxItem
-    static string Content
-    static string Group
-    static string Item
-    static string Label
-    static string RadioItem
-    static string Separator
-    static string Shortcut
-    static string SubContent
-    static string SubTrigger
+    const string CheckboxItem
+    const string Content
+    const string Group
+    const string Item
+    const string Label
+    const string RadioItem
+    const string Separator
+    const string Shortcut
+    const string SubContent
+    const string SubTrigger
   static class DragDrop.Droppable
-    static string Base
-    static string Default
-    static string Disabled
-    static string Info
-    static string Success
+    const string Base
+    const string Default
+    const string Disabled
+    const string Info
+    const string Success
   static class Tokens.Duration
-    static string Fast
-    static string Instant
-    static string Normal
-    static string Slow
-    static string Slower
+    const string Fast
+    const string Instant
+    const string Normal
+    const string Slow
+    const string Slower
   static class Transition.Ease
-    static string In
-    static string InOut
-    static string Linear
-    static string Out
+    const string In
+    const string InOut
+    const string Linear
+    const string Out
   static class EmptyState
-    static string Actions
-    static string Description
-    static string IconSize
-    static string IconSizeSm
-    static string IconWrap
-    static string IconWrapSm
-    static string IllustrationSize
-    static string IllustrationWrap
-    static string IllustrationWrapSm
-    static string Root
-    static string RootFull
-    static string RootSm
-    static string Title
+    const string Actions
+    const string Description
+    const string IconSize
+    const string IconSizeSm
+    const string IconWrap
+    const string IconWrapSm
+    const string IllustrationSize
+    const string IllustrationWrap
+    const string IllustrationWrapSm
+    const string Root
+    const string RootFull
+    const string RootSm
+    const string Title
   static class FeedScroller
-    static string Default
-    static string MuteToggle
-    static string Root
-    static string Slide
-    static string SlideMedia
-    static string SlideOverlay
+    const string Default
+    const string MuteToggle
+    const string Root
+    const string Slide
+    const string SlideMedia
+    const string SlideOverlay
   static class FileUpload
-    static string FileItem
-    static string FileList
-    static string FileName
-    static string FileSize
-    static string RemoveButton
-    static string TypeIcon
+    const string FileItem
+    const string FileList
+    const string FileName
+    const string FileSize
+    const string RemoveButton
+    const string TypeIcon
   static class Accessibility.Focus
-    static string HighContrast
-    static string None
-    static string Sentinel
-    static string Within
+    const string HighContrast
+    const string None
+    const string Sentinel
+    const string Within
   static class FormField
-    static string ErrorText
-    static string HelpText
-    static string Label
-    static string LabelRequired
-    static string ParamRow
-    static string Root
-    static string SuccessText
-    static string WarningText
+    const string ErrorText
+    const string HelpText
+    const string Label
+    const string LabelRequired
+    const string ParamRow
+    const string Root
+    const string SuccessText
+    const string WarningText
   static class Layout.Grid
-    static string Cols2
-    static string Cols3
-    static string Cols4
+    const string Cols2
+    const string Cols3
+    const string Cols4
   static class Select.Group
-    static string Label
-    static string Root
+    const string Label
+    const string Root
   static class ImageCard.Hover
-    static string Dim
-    static string Zoom
+    const string Dim
+    const string Zoom
   static class HoverCard
-    static string Content
-    static string Default
+    const string Content
+    const string Default
   // Defines a UI theme providing base CSS and a default icon library.
   interface ITheme
     // Global CSS injected into the client as the theme baseline.
@@ -2007,35 +2214,36 @@ namespace Ikon.Parallax.Theming
     // The default icon library name (e.g. "lucide") used when no library is specified on an icon component.
     string DefaultIconLibrary { get; }
   static class Icon
-    static string Default
-    static string Lg
-    static string Md
-    static string Sm
-    static string Spinner
-    static string SpinnerLg
-    static string SpinnerSm
-    static string Xl
-    static string Xs
+    const string Default
+    const string Lg
+    const string Md
+    const string Sm
+    const string Spinner
+    const string SpinnerLg
+    const string SpinnerSm
+    const string Xl
+    const string Xs
   static class FileUpload.Icon
-    static string Base
-    static string Brand
-    static string Disabled
-    static string Error
-    static string Info
-    static string Success
+    const string Base
+    const string Brand
+    const string Disabled
+    const string Error
+    const string Info
+    const string Success
   static class Toggle.Size.Icon
-    static string Lg
-    static string Md
-    static string Sm
-  // Per-app theme configuration. Composes the platform's Ikon CSS baseline with per-token CSS-variable overrides addressed by name. One uniform syntax: an indexer keyed by a vocabulary alias ( ThemeVocabulary ), a CSS variable name (without the leading --), or a Tailwind utility token. The renderer dispatches by key shape: Vocabulary alias (primary, card, radius, density) → its canonical variable clusterTailwind palette step (amber-400) → --color-amber-400 (Ikon scales like neutral-900 also set the bare var)rounded-{rung} → --radius-{rung}shadow-{rung} → --shadow-{rung}font-{role} → --font-{role}spacing → the --spacing density unitAnything else → --{key} (free CSS variable) Values are Crosswind / Tailwind class names, which are resolved to CSS, or raw CSS values (hex, rem, family stacks, gradients), which pass through unchanged. Example — the structural core is a small committed set; expressive decoration (gradients, textures) stays concrete at use points:
+    const string Lg
+    const string Md
+    const string Sm
+  // Per-app theme configuration. Composes the platform's Ikon CSS baseline with per-token CSS-variable overrides addressed by name. One uniform syntax: an indexer keyed by a vocabulary alias (ThemeVocabulary), a CSS variable name (without the leading --), or a Tailwind utility token. The renderer dispatches by key shape: • Vocabulary alias (primary, card, radius, density) → its canonical variable cluster • Tailwind palette step (amber-400) → --color-amber-400 (Ikon scales like neutral-900 also set the bare var) • rounded-{rung} → --radius-{rung} • shadow-{rung} → --shadow-{rung} • font-{role} → --font-{role} • spacing → the --spacing density unit • Anything else → --{key} (free CSS variable) Values are Crosswind / Tailwind class names, which are resolved to CSS, or raw CSS values (hex, rem, family stacks, gradients), which pass through unchanged. Example — the structural core is a small committed set; expressive decoration (gradients, textures) stays concrete at use points:
   // private UI UI { get; } = new(app, new IkonTheme
   // {
+  //     // Base overrides restyle the LIGHT theme; DarkMode restyles the dark one.
   //     ["primary"]    = "amber-400",   // whole brand cluster: fills, CTA, focus ring, brand icons/text
-  //     ["background"] = "zinc-950",
-  //     ["card"]       = "zinc-900",
-  //     ["foreground"] = "amber-50",
-  //     ["muted-foreground"] = "zinc-400",
-  //     ["border"]     = "zinc-800",
+  //     ["background"] = "zinc-50",
+  //     ["card"]       = "white",
+  //     ["foreground"] = "zinc-950",
+  //     ["muted-foreground"] = "zinc-500",
+  //     ["border"]     = "zinc-200",
   //
   //     ["font-heading"] = "Crimson Pro",
   //     ["font-body"]    = "Inter",
@@ -2051,448 +2259,480 @@ namespace Ikon.Parallax.Theming
   //
   //     DarkMode = new IkonTheme
   //     {
-  //         ["background"] = "zinc-50",
-  //         ["foreground"] = "zinc-950",
+  //         ["background"] = "zinc-950",
+  //         ["card"]       = "zinc-900",
+  //         ["foreground"] = "amber-50",
+  //         ["muted-foreground"] = "zinc-400",
+  //         ["border"]     = "zinc-800",
   //     },
   // });
   // Aliases expand to exactly their documented cluster — beyond that there is no magic fan-out and no auto-derived contrast text. A later explicit entry overrides an alias-expanded one (["primary"] then ["bg-brand-button"] re-pins just the CTA).
   sealed class IkonTheme : ITheme
     ctor()
-    // Paired dark-mode theme. Pass another IkonTheme ; its overrides are emitted under [data-theme="dark"], .dark, and prefers-color-scheme: dark. Only meaningful in Adaptive mode.
+    // Paired dark-mode theme. Pass another IkonTheme; its overrides are emitted under [data-theme="dark"], .dark, and prefers-color-scheme: dark. Valid only in ThemeMode.Adaptive mode: combining it with ThemeMode.Fixed — which commits to a single scheme — is a contradiction and throws InvalidOperationException at render time.
     IkonTheme? DarkMode { get; init; }
     // Per-token override addressed by CSS variable name (without the leading --) or by Tailwind utility token. Set during object initialization.
     string this[string token] { get; set; }
-    // How the app relates to light/dark switching. Adaptive (the default) keeps today's behavior: overrides restyle the light theme, DarkMode restyles the dark one, and the client's theme preference picks between them. Fixed commits to ONE scheme: every override is also emitted under the dark selectors, so a client-side theme flip cannot pull the platform's dark palette in under the app's committed colors. For atmospheric, game, or brand-locked looks that should never light/dark switch.
+    // How the app relates to light/dark switching. ThemeMode.Adaptive (the default) keeps today's behavior: overrides restyle the light theme, IkonTheme.DarkMode restyles the dark one, and the client's theme preference picks between them. ThemeMode.Fixed commits to ONE scheme: every override is also emitted under the dark selectors, so a client-side theme flip cannot pull the platform's dark palette in under the app's committed colors. For atmospheric, game, or brand-locked looks that should never light/dark switch.
     ThemeMode Mode { get; init; }
   static class ImageCard
-    static string Caption
-    static string Image
-    static string Root
-    static string Title
+    const string Caption
+    const string Image
+    const string Root
+    const string Title
   static class Input
-    static string Base
-    static string Default
-    static string DefaultLg
-    static string DefaultSm
-    static string Error
-    static string ErrorLg
-    static string ErrorSm
-    static string Ghost
-    static string GhostLg
-    static string GhostSm
-    static string Invalid
-    static string InvalidLg
-    static string InvalidSm
-    static string Success
-    static string SuccessLg
-    static string SuccessSm
-    static string Warning
-    static string WarningLg
-    static string WarningSm
+    const string Base
+    const string Default
+    const string DefaultLg
+    const string DefaultSm
+    const string Error
+    const string ErrorLg
+    const string ErrorSm
+    const string Ghost
+    const string GhostLg
+    const string GhostSm
+    const string Invalid
+    const string InvalidLg
+    const string InvalidSm
+    const string Success
+    const string SuccessLg
+    const string SuccessSm
+    const string Warning
+    const string WarningLg
+    const string WarningSm
   static class Interaction
-    static string HoverCard
-    static string HoverGlow
-    static string HoverLift
+    const string HoverCard
+    const string HoverGlow
+    const string HoverLift
   static class DragDrop.Item
-    static string Base
-    static string Dashed
-    static string Default
-    static string Disabled
-    static string Dragging
+    const string Base
+    const string Dashed
+    const string Default
+    const string Disabled
+    const string Dragging
+  // Keyboard-key display (the shadcn Kbd): a small inset chip for a shortcut key or combo. Complete default-marked composite for view.Kbd; the Kbd.Group wrapper spaces several keys in a combo.
+  static class Kbd
+    const string Default
+    const string Group
   static class Label
-    static string Base
-    static string Default
-    static string Error
-    static string Optional
-    static string Required
+    const string Base
+    const string Default
+    const string Error
+    const string Optional
+    const string Required
   static class Layout
-    static string Center
-    static string Page
-    static string RowWrap
-    static string Section
-    static string SectionBody
-    static string SectionHeader
-    static string Stretch
+    const string Center
+    const string Page
+    const string RowWrap
+    const string Section
+    const string SectionBody
+    const string SectionHeader
+    const string Stretch
   static class Media
-    static string CanvasFill
-    static string Default
-    static string EmptyState
-    static string Fill
-    static string ImageEmptyState
-    static string Mirror
-    static string PlaceholderHint
-    static string PlaceholderIcon
-    static string PlaceholderText
-    static string VideoContainer
+    const string CanvasFill
+    const string Default
+    const string EmptyState
+    const string Fill
+    const string ImageEmptyState
+    const string Mirror
+    const string PlaceholderHint
+    const string PlaceholderIcon
+    const string PlaceholderText
+    const string VideoContainer
+  // Menu-surface primitives (the shadcn DropdownMenuItem / Label / Separator family), for the rows inside popover menus, account menus, and context menus. A menu row is NOT a button look: it rests transparent, fills the row, reads left, and highlights on hover — so these are complete default-marked composites for view.Button rather than additions to the Button tones. Selection/active state stays a caller concern (add bg-brand-selected on the active row).
+  static class Menu
+    const string Item
+    // The destructive row (Log out, Delete) — error text with an error-tinted hover, same geometry as Menu.Item.
+    const string ItemDestructive
+    // A non-interactive section heading between item groups.
+    const string Label
+    // The thin rule between item groups.
+    const string Separator
+    // Right-aligned muted shortcut hint on a menu row (pairs with Kbd).
+    const string Shortcut
   static class Menubar
-    static string Content
-    static string Default
-    static string Item
-    static string Root
-    static string Separator
-    static string Trigger
+    const string Content
+    const string Default
+    const string Item
+    const string Root
+    const string Separator
+    const string Trigger
   static class Accessibility.Motion
-    static string Reduce
-    static string ReduceFade
-    static string Respectful
-    static string Safe
+    const string Reduce
+    const string ReduceFade
+    const string Respectful
+    const string Safe
   static class NavItem
-    static string Active
-    static string ActiveAccent
-    static string ActiveBrand
-    static string ActiveSubtle
-    static string Count
-    static string Default
-    static string Icon
-    static string Label
-    static string Lg
-    static string Md
-    static string Sm
-    static string Subtle
+    const string Active
+    const string ActiveAccent
+    const string ActiveBrand
+    const string ActiveSubtle
+    const string Count
+    const string Default
+    const string Icon
+    const string Label
+    const string Lg
+    const string Md
+    const string Sm
+    const string Subtle
   static class NavPanel
-    static string Base
-    static string Border
-    static string Divided
-    static string Filled
-    static string Ghost
+    const string Base
+    const string Border
+    const string Divided
+    const string Filled
+    const string Ghost
   static class NavSection
-    static string Divider
-    static string Label
-    static string Root
+    const string Divider
+    const string Label
+    const string Root
   static class NavigationMenu
-    static string Content
-    static string ContentNarrow
-    static string ContentPopover
-    static string ContentPopoverSide
-    static string ContentWide
-    static string Default
-    static string Indicator
-    static string Link
-    static string LinkCompact
-    static string List
-    static string ListVertical
-    static string Root
-    static string Trigger
-    static string TriggerDisabled
-    static string TriggerIcon
-    static string TriggerIconRotate180
-    static string TriggerIconRotate90
-    static string TriggerVertical
-    static string Viewport
+    const string Content
+    const string ContentNarrow
+    const string ContentPopover
+    const string ContentPopoverSide
+    const string ContentWide
+    const string Default
+    const string Indicator
+    const string Link
+    const string LinkCompact
+    const string List
+    const string ListVertical
+    const string Root
+    const string Trigger
+    const string TriggerDisabled
+    const string TriggerIcon
+    const string TriggerIconRotate180
+    const string TriggerIconRotate90
+    const string TriggerVertical
+    const string Viewport
   static class OnSurface
   static class Tokens.Opacity
-    static string GlassLg
-    static string GlassMd
-    static string GlassSm
-    static string O10
-    static string O15
-    static string O20
-    static string O25
-    static string O30
-    static string O40
-    static string O5
-    static string O50
+    const string GlassLg
+    const string GlassMd
+    const string GlassSm
+    const string O10
+    const string O15
+    const string O20
+    const string O25
+    const string O30
+    const string O40
+    const string O5
+    const string O50
   static class Separator.Orientation
-    static string Horizontal
-    static string Vertical
+    const string Horizontal
+    const string Vertical
   static class OtpField
-    static string Default
-    static string Input
-    static string Root
+    const string Default
+    const string Input
+    const string Root
   static class ImageCard.Overlay
-    static string Center
-    static string Dim
-    static string Reveal
+    const string Center
+    const string Dim
+    const string Reveal
   static class Page
-    static string Base
-    static string Default
-    static string Plain
+    const string Base
+    const string Default
+    const string Plain
   static class Pagination
-    static string Active
-    static string Disabled
-    static string Ellipsis
-    static string Item
-    static string List
-    static string Next
-    static string Previous
-    static string Root
+    const string Active
+    const string Disabled
+    const string Ellipsis
+    const string Item
+    const string List
+    const string Next
+    const string Previous
+    const string Root
   static class Panel
-    static string Fill
-    static string Side
-    static string Sidebar
-    static string SidebarNarrow
-    static string Wide
+    const string Fill
+    const string Side
+    const string Sidebar
+    const string SidebarNarrow
+    const string Wide
   static class Input.Password
-    static string Input
-    static string Toggle
-    static string Wrapper
+    const string Input
+    const string Toggle
+    const string Wrapper
   static class Popover
-    static string Content
-    static string Default
+    const string Content
+    const string Default
   static class OnSurface.Popover
-    static string Caption
-    static string Muted
-    static string Subtle
-    static string Text
+    const string Caption
+    const string Muted
+    const string Subtle
+    const string Text
   static class Progress
-    // Composes the indicator class list from the base recipe, a fill variant ( Variant , defaulting to the brand fill), the optional indeterminate shimmer, and caller overrides appended last so they win.
+    // Composes the indicator class list from the base recipe, a fill variant (Variant, defaulting to the brand fill), the optional indeterminate shimmer, and caller overrides appended last so they win.
     static string ComposeIndicator(string? variant = null, bool indeterminate = false, params string?[] overrides)
     // Arbitrary-value transform class that fills the indicator to value percent (clamped to 0–100) by translating it left from the fully-filled position.
     static string IndicatorTransform(double value)
-    static string Base
-    static string Default
-    static string Indeterminate
-    static string Indicator
-    static string IndicatorBase
-    static string Label
-    static string Root
-    static string Value
+    const string Base
+    const string Default
+    const string Indeterminate
+    const string Indicator
+    const string IndicatorBase
+    const string Label
+    const string Root
+    const string Value
   static class Transition.Property
-    static string All
-    static string Colors
-    static string Opacity
-    static string Shadow
-    static string Transform
+    const string All
+    const string Colors
+    const string Opacity
+    const string Shadow
+    const string Transform
   static class RadioGroup
-    static string Default
-    static string Indicator
-    static string Item
-    static string Root
-    static string RootHorizontal
+    const string Default
+    const string Indicator
+    const string Item
+    const string Root
+    const string RootHorizontal
   static class Tokens.Radius
-    static string Full
-    static string Lg
-    static string Md
-    static string None
-    static string Sm
-    static string Xl
-    static string Xl2
+    const string Full
+    const string Lg
+    const string Md
+    const string None
+    const string Sm
+    const string Xl
+    const string Xl2
   static class AspectRatio.Ratio
-    static string Photo
-    static string Portrait
-    static string Square
-    static string Video
-    static string Wide
+    const string Photo
+    const string Portrait
+    const string Square
+    const string Video
+    const string Wide
   static class ResizableSplit
-    static string FirstPane
-    static string FirstPaneVertical
-    static string Handle
-    static string HandleVertical
-    static string Root
-    static string SecondPane
-    static string SecondPaneVertical
+    const string FirstPane
+    const string FirstPaneVertical
+    const string Handle
+    const string HandleVertical
+    const string Root
+    const string SecondPane
+    const string SecondPaneVertical
   static class Responsive
-    static string CenterToEnd
-    static string CenterToLeft
-    static string CenterToSpaceBetween
-    static string CenterToStart
-    static string ColToRow
-    static string ColToRowMd
-    static string HiddenDesktop
-    static string HiddenMobile
-    static string HiddenTablet
-    static string LeftToCenter
-    static string RowToCol
-    static string VisibleMobile
-    static string VisibleTablet
+    const string CenterToEnd
+    const string CenterToLeft
+    const string CenterToSpaceBetween
+    const string CenterToStart
+    const string ColToRow
+    const string ColToRowMd
+    const string HiddenDesktop
+    const string HiddenMobile
+    const string HiddenTablet
+    const string LeftToCenter
+    const string RowToCol
+    const string VisibleMobile
+    const string VisibleTablet
   static class RichTextEditor
-    static string Content
-    static string Default
-    static string Root
-    static string Toolbar
-    static string ToolbarButton
-    static string ToolbarSeparator
+    const string Content
+    const string Default
+    const string Root
+    const string Toolbar
+    const string ToolbarButton
+    const string ToolbarSeparator
   static class Layout.Row
-    static string Default
-    static string InlineCenter
-    static string Lg
-    static string Md
-    static string Sm
-    static string SpaceBetween
-    static string Xl
-    static string Xs
+    const string Default
+    const string InlineCenter
+    const string Lg
+    const string Md
+    const string Sm
+    const string SpaceBetween
+    const string Xl
+    const string Xs
   static class ScrollArea
-    static string Bordered
-    static string Default
-    static string Root
-    static string Scrollbar
-    static string Thumb
-    static string Viewport
+    const string Bordered
+    const string Default
+    const string Root
+    const string Scrollbar
+    const string Thumb
+    const string Viewport
   static class Select
-    static string Content
-    static string Default
-    static string Item
-    static string ItemIndicator
-    static string Label
-    static string ScrollButton
-    static string Separator
-    static string Trigger
-    static string TriggerBase
+    const string Content
+    const string Default
+    const string Item
+    const string ItemIndicator
+    const string Label
+    const string ScrollButton
+    const string Separator
+    const string Trigger
+    const string TriggerBase
   static class Separator
-    static string Base
-    static string Horizontal
-    static string Vertical
+    const string Base
+    const string Horizontal
+    const string Vertical
   static class Tokens.Shadow
-    static string Lg
-    static string Md
-    static string None
-    static string Sm
-    static string Xl
-    static string Xl2
+    const string Lg
+    const string Md
+    const string None
+    const string Sm
+    const string Xl
+    const string Xl2
   static class Avatar.Shape
-    static string Circle
-    static string Square
+    const string Circle
+    const string Square
   static class Skeleton.Shape
-    static string Circle
-    static string Rectangle
-    static string Square
+    const string Circle
+    const string Rectangle
+    const string Square
   static class Sheet
-    static string Base
-    static string CloseButton
-    static string Default
-    static string Description
-    static string Footer
-    static string Header
-    static string Overlay
-    static string Title
+    const string Base
+    const string CloseButton
+    const string Default
+    const string Description
+    const string Footer
+    const string Header
+    const string Overlay
+    const string Title
   static class Sheet.Side
-    static string Bottom
-    static string Left
-    static string Right
-    static string Top
+    const string Bottom
+    const string Left
+    const string Right
+    const string Top
   static class Button.Size
-    static string Lg
-    static string Md
-    static string Sm
+    const string Lg
+    const string Md
+    const string Sm
   static class Toggle.Size
-    static string Lg
-    static string Md
-    static string Sm
+    const string Lg
+    const string Md
+    const string Sm
   static class Select.Size
-    static string Lg
-    static string Md
-    static string Sm
+    const string Lg
+    const string Md
+    const string Sm
   static class Progress.Size
-    static string Lg
-    static string Md
-    static string Sm
-    static string Xs
+    const string Lg
+    const string Md
+    const string Sm
+    const string Xs
   static class Avatar.Size
-    static string Lg
-    static string Md
-    static string Sm
-    static string Xl
-    static string Xl2
-    static string Xs
+    const string Lg
+    const string Md
+    const string Sm
+    const string Xl
+    const string Xl2
+    const string Xs
   static class Skeleton.Size
-    static string Lg
-    static string Md
-    static string Sm
-    static string Xl
-    static string Xs
+    const string Lg
+    const string Md
+    const string Sm
+    const string Xl
+    const string Xs
   static class Skeleton
-    static string Avatar
-    static string AvatarLg
-    static string AvatarSm
-    static string Base
-    static string Button
-    static string Card
-    static string Default
-    static string Input
-    static string Text
-    static string TextLg
-    static string TextSm
+    const string Avatar
+    const string AvatarLg
+    const string AvatarSm
+    const string Base
+    const string Button
+    const string Card
+    const string Default
+    const string Input
+    const string Text
+    const string TextLg
+    const string TextSm
   static class Slider
-    static string Default
-    static string Range
-    static string Root
-    static string RootVertical
-    static string Thumb
-    static string Track
-    static string TrackVertical
+    const string Default
+    const string Range
+    const string Root
+    const string RootVertical
+    const string Thumb
+    const string Track
+    const string TrackVertical
   static class Drawer.Snap
-    static string Full
-    static string Half
-    static string Quarter
-    static string ThreeQuarter
+    const string Full
+    const string Half
+    const string Quarter
+    const string ThreeQuarter
   static class Layout.Split
-    static string Detail
-    static string DetailLg
-    static string Gapped
-    static string Main
-    static string Root
-    static string Sidebar
-    static string SidebarLg
-    static string SidebarSm
+    const string Detail
+    const string DetailLg
+    const string Gapped
+    const string Main
+    const string Root
+    const string Sidebar
+    const string SidebarLg
+    const string SidebarSm
   static class StatCard
-    static string Header
-    static string IconBox
-    static string IconBoxBrand
-    static string IconBoxError
-    static string IconBoxInfo
-    static string IconBoxSuccess
-    static string IconBoxWarning
-    static string IconSize
-    static string Label
-    static string Root
-    static string Trend
-    static string TrendIcon
-    static string TrendLabel
-    static string TrendValue
-    static string Value
-    static string ValueRow
+    const string Header
+    const string IconBox
+    const string IconBoxBrand
+    const string IconBoxError
+    const string IconBoxInfo
+    const string IconBoxSuccess
+    const string IconBoxWarning
+    const string IconSize
+    const string Label
+    const string Root
+    const string Trend
+    const string TrendIcon
+    const string TrendLabel
+    const string TrendValue
+    const string Value
+    const string ValueRow
   static class State
-    static string Checked
-    static string Disabled
-    static string Empty
-    static string Focusable
-    static string Indeterminate
-    static string Invalid
-    static string Loading
-    static string Pending
-    static string Pressable
-    static string Readonly
-    static string Selected
-    static string Success
-    static string Validating
-    static string Warning
+    const string Checked
+    const string Disabled
+    const string Empty
+    const string Focusable
+    const string Indeterminate
+    const string Invalid
+    const string Loading
+    const string Pending
+    const string Pressable
+    const string Readonly
+    const string Selected
+    const string Success
+    const string Validating
+    const string Warning
   static class Switch
-    static string Default
-    static string Root
-    static string Thumb
+    const string Default
+    const string Root
+    const string Thumb
   static class Tabs
-    static string Content
-    static string List
-    static string ListVertical
-    static string Trigger
-    static string TriggerDisabled
+    const string Content
+    const string List
+    const string ListVertical
+    const string Trigger
+    const string TriggerDisabled
   static class Text
-    static string Body
-    static string BodySm
-    static string BodyStrong
-    static string Caption
-    static string Code
-    static string Display
-    static string DisplaySm
-    static string H1
-    static string H2
-    static string H3
-    static string H4
-    static string H5
-    static string H6
-    static string Label
-    static string Link
-    static string Muted
-    static string Numeric
-    static string Overline
-    static string Small
-    static string Tabular
+    const string Body
+    const string BodySm
+    const string BodyStrong
+    const string Caption
+    const string Code
+    const string Display
+    const string DisplaySm
+    const string H1
+    const string H2
+    const string H3
+    const string H4
+    const string H5
+    const string H6
+    const string Label
+    const string Link
+    const string Muted
+    const string Numeric
+    const string Overline
+    const string Small
+    const string Tabular
   static class Textarea
-    static string Base
-    static string Default
-    static string DefaultLg
-    static string DefaultSm
-    static string Invalid
+    const string Base
+    const string Default
+    const string DefaultLg
+    const string DefaultSm
+    const string Error
+    const string ErrorLg
+    const string ErrorSm
+    const string Ghost
+    const string GhostLg
+    const string GhostSm
+    const string Invalid
+    const string InvalidLg
+    const string InvalidSm
+    const string Success
+    const string SuccessLg
+    const string SuccessSm
+    const string Warning
+    const string WarningLg
+    const string WarningSm
   // How an app's IkonTheme relates to the client's light/dark preference. Not every app wants two themes: a productivity tool should adapt, but a game, an atmospheric experience, or a brand-locked look is designed as ONE palette — and letting a theme toggle pull the platform's dark (or light) defaults in underneath that palette produces a broken half-switched hybrid.
   enum ThemeMode
     Adaptive
@@ -2502,69 +2742,69 @@ namespace Ikon.Parallax.Theming
     // Every accepted alias, keyed by name.
     static IReadOnlyDictionary<string, ThemeVocabulary.Alias> Aliases { get; }
   static class TimePicker
-    static string Column
-    static string ColumnSeparator
-    static string Content
-    static string Default
-    static string Item
-    static string ItemSelected
-    static string Trigger
+    const string Column
+    const string ColumnSeparator
+    const string Content
+    const string Default
+    const string Item
+    const string ItemSelected
+    const string Trigger
   static class Toast
-    static string Action
-    static string Base
-    static string Close
-    static string Default
-    static string Description
-    static string Title
-    static string Viewport
-    static string ViewportBottomCenter
+    const string Action
+    const string Base
+    const string Close
+    const string Default
+    const string Description
+    const string Title
+    const string Viewport
+    const string ViewportBottomCenter
   static class Toggle
-    static string Base
-    static string Default
-    static string DefaultLg
-    static string DefaultMd
-    static string DefaultSm
-    static string Group
-    static string GroupVertical
-    static string IconDefault
-    static string IconDefaultLg
-    static string IconDefaultMd
-    static string IconDefaultSm
+    const string Base
+    const string Default
+    const string DefaultLg
+    const string DefaultMd
+    const string DefaultSm
+    const string Group
+    const string GroupVertical
+    const string IconDefault
+    const string IconDefaultLg
+    const string IconDefaultMd
+    const string IconDefaultSm
   static class Tokens
   static class Tone
-    static string Error
-    static string Ghost
-    static string Info
-    static string Link
-    static string Muted
-    static string Neutral
-    static string Outline
-    static string Primary
-    static string Solid
-    static string Subtle
-    static string Success
-    static string Warning
+    const string Error
+    const string Ghost
+    const string Info
+    const string Link
+    const string Muted
+    const string Neutral
+    const string Outline
+    const string Primary
+    const string Solid
+    const string Subtle
+    const string Success
+    const string Warning
   static class Toolbar
-    static string Button
-    static string Default
-    static string IconStyle
-    static string Root
-    static string Separator
-    static string ToggleGroup
-    static string ToggleItem
+    const string Button
+    const string Default
+    const string IconStyle
+    const string Root
+    const string Separator
+    const string ToggleGroup
+    const string ToggleItem
   static class Tooltip
-    static string Content
-    static string Default
+    const string Content
+    const string Default
   static class Transition
-    static string Fast
-    static string None
-    static string Normal
-    static string Slow
-    static string Slower
+    const string Fast
+    const string None
+    const string Normal
+    const string Slow
+    const string Slower
   static class StatCard.TrendVariant
-    static string Negative
-    static string Neutral
-    static string Positive
+    const string Negative
+    const string Neutral
+    const string Positive
   // What value shape an alias expects, for docs and tooling.
   enum ThemeVocabulary.ValueKind
     Color
@@ -2574,49 +2814,49 @@ namespace Ikon.Parallax.Theming
     Easing
     Spacing
   static class Separator.Variant
-    static string Default
-    static string Strong
-    static string Subtle
+    const string Default
+    const string Strong
+    const string Subtle
   static class Alert.Variant
-    static string Default
-    static string Error
-    static string Info
-    static string Success
-    static string Warning
+    const string Default
+    const string Error
+    const string Info
+    const string Success
+    const string Warning
   static class Toggle.Variant
-    static string Default
+    const string Default
   static class Progress.Variant
-    static string Default
-    static string Error
-    static string Success
-    static string Warning
+    const string Default
+    const string Error
+    const string Success
+    const string Warning
   static class Tokens.Width
-    static string Dialog
-    static string DialogLg
-    static string DialogMd
-    static string DialogSm
-    static string DialogXl
-    static string Drawer
-    static string Popover
-    static string Sheet
-    static string Toast
+    const string Dialog
+    const string DialogLg
+    const string DialogMd
+    const string DialogSm
+    const string DialogXl
+    const string Drawer
+    const string Popover
+    const string Sheet
+    const string Toast
   static class ZIndex
-    static string Dropdown
-    static string Modal
-    static string Overlay
-    static string Popover
-    static string Sticky
-    static string Toast
-    static string Tooltip
+    const string Dropdown
+    const string Modal
+    const string Overlay
+    const string Popover
+    const string Sticky
+    const string Toast
+    const string Tooltip
   static class FileUpload.Zone
-    static string Active
-    static string ActiveRing
-    static string Base
-    static string Code
-    static string Compact
-    static string Default
-    static string Disabled
-    static string Documents
-    static string DragOverlay
-    static string Images
-    static string Wrapper
+    const string Active
+    const string ActiveRing
+    const string Base
+    const string Code
+    const string Compact
+    const string Default
+    const string Disabled
+    const string Documents
+    const string DragOverlay
+    const string Images
+    const string Wrapper

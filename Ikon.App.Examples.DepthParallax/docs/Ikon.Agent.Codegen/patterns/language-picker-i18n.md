@@ -56,8 +56,8 @@ actions.Select(
     });
 
 // At call sites — always wrap user-facing strings
-hero.Text([...], T("Travel smarter"));
-hero.Text([...], T("What's on sale."));
+hero.Text([Text.H1], T("Travel smarter"));
+hero.Text(["text-sm text-muted-foreground"], T("What's on sale."));
 ```
 
 ## Notes

@@ -10,6 +10,8 @@ Any user-blocking AI operation that occasionally hits provider 429s/503s. Silent
 ## Snippet
 
 ```csharp
+using Ikon.AI;
+
 private const int MaxRetries = 5;
 private static readonly TimeSpan[] RetryDelays =
 [
@@ -55,7 +57,7 @@ var result = await RunWithRetryAsync("CREATING PLAN", async () =>
         pass.SystemPrompt = PlanSystemPrompt;
         pass.Command = prompt;
         pass.Timeout = TimeSpan.FromMinutes(3);
-    }).ResultAsync();
+    });
     return res;
 });
 ```

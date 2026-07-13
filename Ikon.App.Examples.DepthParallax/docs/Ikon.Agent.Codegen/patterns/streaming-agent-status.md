@@ -1,101 +1,104 @@
-<!-- mined-from: Threads -->
+<!-- mined-from: Threads (rewritten against the real Ikon.Agent AgentThread surface) -->
 # Streaming Agent Status — Live block of in-progress agent activity
 
-A reactive box that renders the *current* state of a running agent — its model, capability tier, active skill packs, in-flight tool calls, written artifacts, and token counts — by reading from a `LiveState` object that the agent updates in-place as it runs. The block reappears every render because the underlying reactive bumps; closures don't loop, the reactive system does.
+A reactive box that renders the *current* state of a running `AgentThread` — what it is doing right now, which tools have fired, and how many tokens it has burned — by reading the thread's own reactives. No bespoke "live state" object is needed: `AgentThread` already exposes all of it as `Reactive<T>`, so reading them inside the UI lambda registers the dependency and the block re-renders as the agent runs.
 
 ## When to use
 
-When an agent or LLM call takes more than 1-2 seconds and you want to show the user *what's happening* (which tool is running, what file is being written, how many tokens have streamed) rather than a generic spinner. Surfaces tool calls, partial text, and intermediate artifacts as they arrive. Pair with `chatbot-streaming` (token-level streaming for the final answer) — this pattern surfaces the orchestration layer above it.
+When an agent or LLM call takes more than 1-2 seconds and you want to show the user *what's happening* (which tool is running, which turn it is on, how many tokens have streamed) rather than a generic spinner. Pair with `chatbot-streaming` (token-level streaming for the final answer) — this pattern surfaces the orchestration layer above it.
+
+## The API this reads
+
+Everything below is on `AgentThread`; get one with `orchestrator.GetThread(threadId)`, which returns `AgentThread?`.
+
+| Member | Type | What it gives you |
+|---|---|---|
+| `AgentName` | `string` | plain property, not reactive |
+| `Status` | `Reactive<ThreadStatus>` | `Pending`, `Active`, `WaitingForChildren`, `WaitingForInput`, `Idle`, `Done`, `Failed`, `Archived` — "running" is `Active` |
+| `Activity` | `Reactive<Activity>` | `Activity(ActivityKind Kind, string? Tool)`; kinds `Idle` / `Thinking` / `Streaming` / `RunningTool` |
+| `Stage` | `Reactive<string?>` | the runner's free-text stage label, when set |
+| `ToolCallTimeline` | `Reactive<IReadOnlyList<ToolCallEntry>>` | `(int PrecedingAgentMessages, string ToolName, string ArgsJson, string? ResultText, bool? IsError)` |
+| `ActiveTools` | `Reactive<IReadOnlyList<ToolInfo>>` | tools the LLM can currently call |
+| `Messages` | `Reactive<IReadOnlyList<Message>>` | every turn on the thread |
+| `Usage` | `Reactive<ThreadUsage>` | `InputTokens`, `OutputTokens`, `Turns`, `WallTime`, … (token kinds are never summed for you) |
+| `FailureReason` | `Reactive<string?>` | why it last failed |
 
 ## Snippet
 
 ```csharp
-if (_selectedThreadId.Value != null && (_mind.GetThread(_selectedThreadId.Value)?.IsRunning ?? false))
+var thread = _selectedThreadId.Value is { } id ? _orchestrator.GetThread(id) : null;
+
+if (thread is not null && thread.Status.Value == ThreadStatus.Active)
 {
-    var thread = _threadStore.GetThread(_selectedThreadId.Value);
-    var liveState = _mind.GetThread(_selectedThreadId.Value)?.LiveState;
-    var activeCall = _emergenceObserver.GetActiveCall(_selectedThreadId.Value);
+    var activity = thread.Activity.Value;
+    var usage = thread.Usage.Value;
 
     view.Box(["py-4 mt-3 px-5 rounded-xl bg-gradient-to-r from-muted/40 to-muted/20 shadow-sm"], content: view =>
     {
         view.Row(["items-center gap-3 mb-1"], content: view =>
         {
-            view.Text(["text-xs font-bold text-sky-600 dark:text-sky-400"], thread?.AgentName ?? "agent");
+            view.Text(["text-xs font-bold text-sky-600 dark:text-sky-400"], text: thread.AgentName);
             view.Box(["flex-1"]);
 
-            if (liveState?.Capability != null)
+            var activityText = activity.Kind switch
             {
-                var (capText, capColor) = liveState.Capability.Value switch
-                {
-                    Capability.Quick    => ("quick", "text-blue-400 bg-blue-900/40"),
-                    Capability.Standard => ("std",   "text-yellow-400 bg-yellow-900/40"),
-                    Capability.Deep     => ("deep",  "text-orange-400 bg-orange-900/40"),
-                    _                   => ("?",     "text-muted-foreground bg-muted")
-                };
-                view.Text([$"text-xs px-1 py-0.5 rounded font-mono {capColor}"], capText);
-            }
+                ActivityKind.Thinking => "thinking",
+                ActivityKind.Streaming => "streaming",
+                ActivityKind.RunningTool => activity.Tool ?? "tool",
+                _ => "idle"
+            };
+            view.Text(["text-xs px-1 py-0.5 rounded font-mono text-muted-foreground bg-muted"], text: activityText);
         });
 
-        if (liveState?.ActiveSkillPacks.Count > 0)
+        if (thread.Stage.Value is { Length: > 0 } stage)
         {
-            view.Row(["items-center gap-1 flex-wrap mb-1"], content: view =>
+            view.Text(["text-xs text-muted-foreground/70 mb-1"], text: stage);
+        }
+
+        // IsError is null while the call is still in flight — spinner, then check or error.
+        foreach (var call in thread.ToolCallTimeline.Value)
+        {
+            view.Row(["items-center gap-1.5 py-0.5"], key: $"{call.PrecedingAgentMessages}-{call.ToolName}", content: view =>
             {
-                foreach (var pack in liveState.ActiveSkillPacks)
+                if (call.IsError is null)
                 {
-                    view.Text(["text-xs px-1 py-0.5 rounded bg-cyan-900/40 text-sky-300 font-mono"], pack);
+                    view.Spinner(["text-sky-400"], size: SpinnerSize.Sm);
+                }
+                else if (call.IsError == true)
+                {
+                    view.Icon(["w-3 h-3 text-red-400"], name: "x");
+                }
+                else
+                {
+                    view.Icon(["w-3 h-3 text-emerald-400"], name: "check");
+                }
+
+                view.Text(["text-xs text-muted-foreground font-mono"], text: call.ToolName);
+
+                if (!string.IsNullOrEmpty(call.ResultText))
+                {
+                    view.Text(["text-xs text-muted-foreground/50 truncate"], text: call.ResultText);
                 }
             });
         }
 
-        if (liveState?.Blocks.Count > 0)
-        {
-            foreach (var block in liveState.Blocks)
-            {
-                if (block is TextBlock tb && !string.IsNullOrEmpty(tb.Text))
-                {
-                    view.Text(["text-xs text-muted-foreground break-words"], tb.Text);
-                }
-                else if (block is ToolCallBlock tcb)
-                {
-                    view.Row(["items-center gap-1.5 py-0.5"], content: view =>
-                    {
-                        if (tcb.IsComplete) view.Icon(["w-3 h-3 text-emerald-400"], name: "check");
-                        else view.Box([Icon.Spinner, "w-3 h-3 text-sky-400"]);
-
-                        view.Text(["text-xs text-muted-foreground font-mono"], tcb.ToolName);
-                        if (!string.IsNullOrEmpty(tcb.Summary))
-                        {
-                            view.Text(["text-xs text-muted-foreground/50 truncate"], tcb.Summary);
-                        }
-                    });
-                }
-            }
-        }
-
-        // Thinking icon — animates without a timer, by reading the wall clock at render
-        var thinkingIcons = new[] { "circle", "triangle", "square" };
-        var thinkingIcon = thinkingIcons[(int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 500 % thinkingIcons.Length)];
-        view.Icon(["w-3 h-3 text-muted-foreground/60"], name: thinkingIcon);
-
-        var tokens = activeCall != null ? activeCall.InputTokens + activeCall.OutputTokens : 0;
-        if (tokens > 0)
-        {
-            view.Text(["text-xs text-muted-foreground/50 mt-1"],
-                $"{liveState?.Model} · {tokens} tokens · iter {liveState?.Iterations ?? 0}");
-        }
+        view.Text(["text-xs text-muted-foreground/50 mt-1"],
+            text: $"turn {usage.Turns} · {usage.InputTokens + usage.OutputTokens} tokens · {usage.WallTime.TotalSeconds:F0}s");
     });
 }
 ```
 
 ## Notes
 
-- The block is rendered by *reading* a `LiveState` snapshot — your background runner mutates the same object, and the reactive system re-renders. Mutate-in-place is fine for a single live snapshot; copy-on-write is overkill here.
-- Tool calls render with a spinner-vs-checkmark based on `IsComplete` — the same block appears throughout the call's lifetime, just with the icon flipping.
-- The thinking-icon trick — `(unixMs / 500) % icons.Length` — animates without a `Task.Delay` loop because the parent reactive bumps every time the agent updates state. If you need it to animate when *nothing* is updating, attach a 500ms timer that bumps a `Reactive<int> _tick`.
-- Show the `Iterations` count for multi-iteration agents (Refine, BestOf, plan-and-execute) — that number tells the user roughly where they are inside the loop.
-- Use `bg-gradient-to-r from-muted/40 to-muted/20` to make the live block visually distinct from finished messages.
+- `Activity` is the "what is it doing right now" signal — `ActivityKind.RunningTool` carries the tool name in `activity.Tool`. `Status` is the coarser lifecycle (`Active` vs `WaitingForInput` vs `Done`); render the live block only while `Active`.
+- Reading `thread.Activity.Value` / `thread.ToolCallTimeline.Value` inside the UI lambda IS the subscription — no timer, no manual re-render, no bespoke live-state object. The runner mutates the thread's reactives; the subtree re-renders.
+- `ToolCallEntry.IsError` is a `bool?`: **null = still running**, `false` = succeeded, `true` = failed. That tri-state is what drives spinner → check/×; there is no `IsComplete` flag.
+- `ThreadUsage` keeps token kinds independent (`InputTokens`, `CachedInputTokens`, `CacheCreationInputTokens`, `OutputTokens`) — add only the ones you mean to display, and use `Turns` for "which iteration are we on".
+- `PrecedingAgentMessages` is how many agent messages had landed when the call started — use it to interleave tool rows with `thread.Messages.Value` in a Claude-Code-style transcript instead of stacking them in a separate box.
+- `bg-gradient-to-r from-muted/40 to-muted/20` makes the live block visually distinct from finished messages.
 
 ## See also
 
 - `chatbot-streaming` — token-level streaming for the final answer; this pattern wraps that
-- `multi-agent-parallel-discussion` — when several agents are running and each needs its own status block
+- `agent-streaming-with-tool-status` — the transcript-interleaved variant
+- `multi-agent-parallel-discussion` — when several threads run and each needs its own status block

@@ -27,15 +27,14 @@ private async Task ResearchAsync()
     try
     {
         using var searcher = new WebSearcher(WebSearcherModel.Google);
-        var results = await searcher.SearchPagesAsync(new SearchConfig { Query = q, MaxResults = 5 });
+        var results = await searcher.SearchAsync(q, maxResults: 5);
 
         _phase.Value = "Synthesizing";
         var sources = results.Select(r => new Source(r.Title, r.Url, r.Content)).ToList();
         var context = string.Join("\n", sources.Select((s, i) => $"[{i + 1}] {s.Title}\n{s.Snippet}"));
 
         var synthesisRaw = await Emerge.Run<string>(LLMModel.Claude46Sonnet,
-            pass => { pass.Command = $"Question: {q}\n\nSearch results:\n{context}\n\nWrite a concise answer citing sources by number [1], [2]…"; })
-            .ResultAsync();
+            pass => { pass.Command = $"Question: {q}\n\nSearch results:\n{context}\n\nWrite a concise answer citing sources by number [1], [2]…"; });
         var synthesis = string.IsNullOrEmpty(synthesisRaw) ? "(no synthesis)" : synthesisRaw;
 
         _answers.Insert(0, new Answer(q, synthesis, sources)); // newest first
@@ -107,7 +106,7 @@ view.Column(["gap-4 p-4"], content: view =>
 
 - Two-phase loading via a single nullable `Reactive<string?>` — `null` (idle) / `"Searching"` / `"Synthesizing"`. Button label and shimmer panel both react.
 - WebSearcher does the actual fetch; Emerge.Run synthesizes. **Don't shortcut by asking the LLM directly** — the answers go stale.
-- The fetch call is `searcher.SearchPagesAsync(new SearchConfig { Query = ..., MaxResults = ... })`. There is no positional `SearchAsync(string, int)` overload — use the config object. `SearchImagesAsync` is the image-search counterpart.
+- The fetch call is `searcher.SearchAsync(query, maxResults: 5)` — the same shape as the static one-shot `WebSearcher.SearchAsync(query, maxResults: 5)`. Drop to `searcher.SearchPagesAsync(new SearchConfig { ... })` only for site restriction, country, or language targeting; `SearchImagesAsync` is the image-search counterpart.
 - `SearchResult` exposes `Url`, `Title`, `Content`, `Mimetype`, `Keywords`. There is no `Snippet` property — use `Content` for the body text.
 - Sources displayed alongside the synthesis with clickable links. Citation numbers in the prose match the list.
 - Answers live in a `ReactiveList<Answer>`; newest-first prepend is `_answers.Insert(0, answer)` — one notification, no list rebuild. `Count` and enumeration of the reactive itself are tracked reads.
