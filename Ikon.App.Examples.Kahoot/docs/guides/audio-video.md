@@ -87,38 +87,28 @@ using Ikon.Resonance.Synth.Envelopes;
 # Ikon.Resonance Public API
 
 namespace Ikon.Resonance
-  // Audio frame with samples, stream identity, and optional encoding options, analysis results, and target information.
-  struct AudioFrame
-    ctor(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string streamId, TimeSpan totalDuration = default, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null, IReadOnlyList<AudioAnalysisResult>? analysisResults = null, IReadOnlyList<AudioShapeSetDeclaration>? shapeSetDeclarations = null)
-    IReadOnlyList<AudioAnalysisResult>? AnalysisResults { get; }
-    int ChannelCount { get; }
-    AudioEncoderOptions? EncoderOptions { get; }
-    bool IsFirst { get; }
-    bool IsLast { get; }
-    int SampleRate { get; }
-    ReadOnlyMemory<float> Samples { get; }
-    IReadOnlyList<AudioShapeSetDeclaration>? ShapeSetDeclarations { get; }
-    string StreamId { get; }
-    IReadOnlyList<int>? TargetIds { get; }
-    TimeSpan TotalDuration { get; }
-  // Tracks audio stream metrics including packet counts, inter-packet delays, jitter, and encoding times. Supports tracking metrics across multiple streams.
+  // Tracks audio stream metrics including packet counts, inter-packet delays, jitter, and encoding times. Supports tracking metrics across multiple streams. When AudioMetrics.Enabled, an AudioMetricsReport is published to AudioMetrics.Reports once per AudioMetrics.UpdateIntervalSeconds while packets are being recorded.
   class AudioMetrics
     ctor()
-    double AvgEncodeTimeMs { get; }
-    double AvgIpdMs { get; }
-    double CpuUsagePercent { get; }
     bool Enabled { get; set; }
-    double JitterMs { get; }
     bool LogMetrics { get; set; }
-    double MaxIpdMs { get; }
-    double MinIpdMs { get; }
-    int StreamCount { get; }
     double UpdateIntervalSeconds { get; set; }
     void RecordPacket(string streamId, double encodingTimeMs)
     void Remove(string streamId)
+    // The interval snapshots as an async stream. A single-consumer diagnostics stream: only the latest unread report is kept, and concurrent enumerations compete for reports.
+    IAsyncEnumerable<AudioMetricsReport> Reports(CancellationToken cancellationToken = default)
     void Reset(string streamId)
     void ResetAll()
-    event Action? Updated
+  // One interval snapshot of audio stream metrics published by AudioMetrics.
+  sealed class AudioMetricsReport : IEquatable<AudioMetricsReport>
+    ctor(int StreamCount, double MinIpdMs, double AvgIpdMs, double MaxIpdMs, double JitterMs, double AvgEncodeTimeMs, double CpuUsagePercent)
+    double AvgEncodeTimeMs { get; init; }
+    double AvgIpdMs { get; init; }
+    double CpuUsagePercent { get; init; }
+    double JitterMs { get; init; }
+    double MaxIpdMs { get; init; }
+    double MinIpdMs { get; init; }
+    int StreamCount { get; init; }
   // Provides methods for resampling audio between different sample rates and channel configurations. Supports mono and stereo audio using linear interpolation for sample rate conversion.
   static class AudioResampler
     // Calculates the number of output frames after resampling.
@@ -130,7 +120,7 @@ namespace Ikon.Resonance
     // Resamples audio from one sample rate and channel configuration to another using linear interpolation.
     static void Resample(ReadOnlySpan<float> source, Span<float> destination, int inputSampleRate, int outputSampleRate, int inputChannelCount, int outputChannelCount)
     // The maximum number of audio channels supported (mono or stereo).
-    static int MaxSupportedChannelCount
+    const int MaxSupportedChannelCount
   // Provides utility methods for measuring audio levels and converting audio samples between PCM 16-bit integer and 32-bit float formats.
   static class AudioUtils
     // Converts 32-bit float samples to 16-bit PCM samples as raw bytes (little-endian). Float values are clamped to [-1.0, 1.0] before conversion.
@@ -159,36 +149,54 @@ namespace Ikon.Resonance
   enum FadeMode
     Sequential
     Crossfade
-  // Server-side audio mixer for group voice scenarios (meetings, conferences, multiplayer). Mixes multiple participant audio streams together, producing a personalized output stream for each participant that contains all other participants' audio mixed together but excludes the participant's own audio. Each input stream is tagged with an excludeKey (typically a participant/session ID) to control the exclusion. Participants must be registered with AddParticipant before they can receive mixed output. Streams are added/removed independently via AddStream and RemoveStream . A participant continues to receive output (from other participants' streams) even when they have no active streams of their own. Uses power-preserving normalization (1/sqrt(N)) and tanh soft-clipping to prevent distortion when many participants speak simultaneously.
+  // One personalized output frame from a GroupAudioMixer: the participant it is addressed to plus their mixed audio.
+  struct GroupAudioFrame
+    ctor(int participantId, PcmAudioFrame frame)
+    // The mixed audio frame (all other participants' streams, excluding the participant's own).
+    PcmAudioFrame Frame { get; }
+    // The participant this mix is addressed to.
+    int ParticipantId { get; }
+    void Deconstruct(out int participantId, out PcmAudioFrame frame)
+  // Server-side audio mixer for group voice scenarios (meetings, conferences, multiplayer). Mixes multiple participant audio streams together, producing a personalized output stream for each participant that contains all other participants' audio mixed together but excludes the participant's own audio. Each input stream is tagged with the id of the participant it belongs to (typically a client session id) to control the exclusion. Participants must be registered with GroupAudioMixer.AddParticipant before they can receive mixed output. Streams are added/removed independently via GroupAudioMixer.AddStream and GroupAudioMixer.RemoveStream. A participant continues to receive output (from other participants' streams) even when they have no active streams of their own. Uses power-preserving normalization (1/sqrt(N)) and tanh soft-clipping to prevent distortion when many participants speak simultaneously.
   sealed class GroupAudioMixer : IAsyncDisposable
     ctor(GroupAudioMixerConfig? config = null)
-    // Registers a participant to receive personalized mixed audio output. The participant will receive a mix of all streams except those tagged with their excludeKey.
-    void AddParticipant(string excludeKey)
-    // Registers an input audio stream and tags it with excludeKey so the owning participant never hears their own audio. Adding an already-registered stream id is a no-op.
-    void AddStream(string streamId, string excludeKey)
+    // Registers a participant to receive personalized mixed audio output. The participant will receive a mix of all streams except those tagged with their own id.
+    void AddParticipant(int participantId)
+    // Registers an input audio stream and tags it with the owning participantId so that participant never hears their own audio. Adding an already-registered stream id is a no-op.
+    void AddStream(string streamId, int participantId)
     ValueTask DisposeAsync()
     // Unregisters a participant. They will no longer receive mixed audio output.
-    void RemoveParticipant(string excludeKey)
+    void RemoveParticipant(int participantId)
     // Unregisters an input stream and discards any samples still buffered for it. Removing an unknown stream id is a no-op.
     void RemoveStream(string streamId)
-    // Starts the output loop that paces personalized mixes into onFrame as 20 ms frames (called once per registered participant per tick, with the participant's excludeKey as the first argument). May be called only once per mixer instance; a second call throws so a silently dropped onFrame can never go unnoticed. Buffer-reuse contract: the frames passed to onFrame alias a single reused sample buffer — consume the samples fully before returning from the callback and copy them if you need to store them beyond the call.
-    Task StartAsync(Func<string, AudioFrame, ValueTask> onFrame, CancellationToken cancellationToken = default)
+    // The personalized mixes as a stream of 20 ms frames, paced at best-effort real time. Each tick yields one GroupAudioFrame per registered participant — except a participant whose tick mix would contain only their own audio (e.g. a lone speaker), who is skipped for that tick. The caller owns the loop: run await foreach over the stream and forward each frame to its participant. May be enumerated only once per mixer instance; a second enumeration throws. Buffer-reuse contract: the yielded frames alias a single reused sample buffer — consume the samples fully within the loop body and copy them if you need to store them beyond it. Cancelling cancellationToken (or disposing the mixer) ends the stream gracefully: each participant that received audio gets one final empty frame marked PcmAudioFrame.IsLast so downstream consumers can close their streams, then the enumeration completes without throwing.
+    IAsyncEnumerable<GroupAudioFrame> StreamAsync(CancellationToken cancellationToken = default)
     // Buffers interleaved samples for a registered input stream, resampling to the mixer's native 48 kHz stereo format when needed. When the stream's buffer is full the oldest samples are dropped to make room; writes to an unknown stream are dropped with a throttled warning (stream teardown races with in-flight frames, so this is not an error).
     void WriteSamples(string streamId, ReadOnlySpan<float> samples, int sampleRate, int channelCount)
-  // Configuration for the GroupAudioMixer . Immutable — the mixer captures the values at construction, so construct a new config (and mixer) instead of mutating a shared instance.
+  // Configuration for the GroupAudioMixer. Immutable — the mixer captures the values at construction, so construct a new config (and mixer) instead of mutating a shared instance.
   sealed class GroupAudioMixerConfig : IEquatable<GroupAudioMixerConfig>
     ctor()
     // Maximum buffer size per stream in milliseconds.
     double MaxBufferSizeMs { get; init; }
-  // Represents a source that generates audio frames.
-  interface IAudioSource
-    // Generates a frame of audio into the provided buffer.
-    abstract void GenerateAudio(Span<float> buffer, int samplesPerChannel, int channelCount, int sampleRate)
+  // One in-process frame of raw PCM audio: interleaved float samples plus stream identity and optional encoding options, analysis results, and target information. This is the middle of the three audio currencies. AudioChunk is producer audio flowing INTO a mixer (TTS output, synthesized samples), identified by its speech-event id. PcmAudioFrame is the paced PCM output flowing OUT of the mixers toward the Opus encoder, identified by its output stream id. The encoded result travels on the wire as the protocol type AudioFrame2.
+  struct PcmAudioFrame
+    ctor(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string streamId, TimeSpan totalDuration = default, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null, IReadOnlyList<AudioAnalysisResult>? analysisResults = null, IReadOnlyList<AudioShapeSetDeclaration>? shapeSetDeclarations = null)
+    IReadOnlyList<AudioAnalysisResult>? AnalysisResults { get; }
+    int ChannelCount { get; }
+    AudioEncoderOptions? EncoderOptions { get; }
+    bool IsFirst { get; }
+    bool IsLast { get; }
+    int SampleRate { get; }
+    ReadOnlyMemory<float> Samples { get; }
+    IReadOnlyList<AudioShapeSetDeclaration>? ShapeSetDeclarations { get; }
+    string StreamId { get; }
+    IReadOnlyList<int>? TargetIds { get; }
+    TimeSpan TotalDuration { get; }
   // Specifies the sample format used in the WAV file.
   enum WavFile.SampleFormat
     Short
     Float
-  // Filters silence from an audio chunk stream so that only speech reaches downstream consumers such as speech-to-text models (which tend to hallucinate on silent input). Uses asymmetric EMA for level tracking, an adaptive noise floor, and a circular pre-buffer to ensure speech onsets are never clipped. Designed for real-time audio at typical frame sizes (20 ms). Usage — push-based: call ProcessChunk per audio chunk, forward non-null results. Usage — stream-based: wrap an IAsyncEnumerable source with FilterAsync .
+  // Filters silence from an audio chunk stream so that only speech reaches downstream consumers such as speech-to-text models (which tend to hallucinate on silent input). Uses asymmetric EMA for level tracking, an adaptive noise floor, and a circular pre-buffer to ensure speech onsets are never clipped. Designed for real-time audio at typical frame sizes (20 ms). Usage — push-based: call SilenceRemover.ProcessChunk per audio chunk, forward non-null results. Usage — stream-based: wrap an IAsyncEnumerable<T> source with SilenceRemover.FilterAsync.
   sealed class SilenceRemover
     // Creates a new SilenceRemover for the given audio format.
     ctor(int sampleRate, int channelCount, SilenceRemoverConfig? config = null)
@@ -198,7 +206,7 @@ namespace Ikon.Resonance
     float[]? ProcessChunk(ReadOnlySpan<float> chunk)
     // Resets all internal state (EMA level, noise floor, pre-buffer, and state machine) to initial values. Call this when starting a new audio session on the same instance.
     void Reset()
-  // Configuration for SilenceRemover . The silence remover uses asymmetric EMA (exponential moving average) to track audio level, an adaptive noise floor that adjusts to the environment, and a circular pre-buffer that preserves the onset of speech so words are never clipped. The speech threshold is computed as: noiseFloor * NoiseFloorMultiplier + NoiseFloorOffset . Immutable — the remover captures the values at construction, so construct a new config (and remover) instead of mutating a shared instance.
+  // Configuration for SilenceRemover. The silence remover uses asymmetric EMA (exponential moving average) to track audio level, an adaptive noise floor that adjusts to the environment, and a circular pre-buffer that preserves the onset of speech so words are never clipped. The speech threshold is computed as: noiseFloor * SilenceRemoverConfig.NoiseFloorMultiplier + SilenceRemoverConfig.NoiseFloorOffset. Immutable — the remover captures the values at construction, so construct a new config (and remover) instead of mutating a shared instance.
   sealed class SilenceRemoverConfig : IEquatable<SilenceRemoverConfig>
     ctor()
     // EMA smoothing factor for rising audio levels (0..1). Higher values respond faster to speech onset.
@@ -226,23 +234,23 @@ namespace Ikon.Resonance
     ctor(SpeechMixerConfig? config = null)
     // Encoder options to use for audio output.
     AudioEncoderOptions? EncoderOptions { get; set; }
-    // Whether output is currently paused (a pending Pause fade-out counts once it completes).
+    // Whether output is currently paused (a pending SpeechMixer.Pause fade-out counts once it completes).
     bool IsPaused { get; }
     // Stable identifier stamped on every output frame this mixer emits.
     string StreamId { get; }
     // Feeds a chunk of speech audio into the mixer, resampling to 48 kHz stereo when needed. The chunk's id identifies the speech event: chunks with the current event's id append to it, while a new id interrupts the current event with the configured fade transition. Effects, analyzers, and target ids are captured from the event's first chunk.
     void AddSamples(AudioChunk chunk, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null)
-    // Immediately discards all speech state — current, pending, and paused — without fading. Use for hard resets (e.g. conversation restart); prefer FadeOut for a graceful stop.
+    // Immediately discards all speech state — current, pending, and paused — without fading. Use for hard resets (e.g. conversation restart); prefer SpeechMixer.FadeOut for a graceful stop.
     void Clear()
     ValueTask DisposeAsync()
     // Starts fading out the current speech event over the configured fade-out duration. The event completes when the fade reaches silence. No-op when nothing is playing or a fade-out is already in progress.
     void FadeOut()
-    // Pauses output by fading the current speech out, then holding it (buffered samples are kept) until Resume . No-op when already paused or pausing.
+    // Pauses output by fading the current speech out, then holding it (buffered samples are kept) until SpeechMixer.Resume. No-op when already paused or pausing.
     void Pause()
     // Resumes paused output, fading the held speech event back in from where it stopped. No-op when not paused.
     void Resume()
-    // Starts the output loop that paces mixed audio into onFrame as 20 ms frames. May be called only once per mixer instance; a second call throws so a silently dropped onFrame can never go unnoticed. Buffer-reuse contract: the frames passed to onFrame alias a single reused sample buffer — consume the samples fully before returning from the callback and copy them if you need to store them beyond the call.
-    Task StartAsync(Func<AudioFrame, ValueTask> onFrame, CancellationToken cancellationToken = default)
+    // The mixed output as a stream of 20 ms frames, paced at best-effort real time. The caller owns the loop: run await foreach over the stream and forward each frame (typically to an encoder). May be enumerated only once per mixer instance; a second enumeration throws. Buffer-reuse contract: the yielded frames alias a single reused sample buffer — consume the samples fully within the loop body and copy them if you need to store them beyond it. Cancelling cancellationToken (or disposing the mixer) ends the stream gracefully: when a speech event had begun playing, one final silent frame marked PcmAudioFrame.IsLast is yielded so downstream consumers can close the stream, then the enumeration completes without throwing.
+    IAsyncEnumerable<PcmAudioFrame> StreamAsync(CancellationToken cancellationToken = default)
   // Configuration options for the SpeechMixer. Immutable — the mixer captures the values at construction, so construct a new config (and mixer) instead of mutating a shared instance.
   sealed class SpeechMixerConfig : IEquatable<SpeechMixerConfig>
     ctor()
@@ -262,6 +270,47 @@ namespace Ikon.Resonance
     double MaxPaddingTimeMs { get; init; }
     // RMS threshold below which effect tail padding stops. Default is 0.001 (~-60dB), meaning padding continues until output is essentially silent.
     double PaddingThreshold { get; init; }
+  // Detects conversational turns in a continuous (open-mic) audio stream: speech onset, probable turn end (speculative), speech resumption, and confirmed turn end — the segmentation an always-listening voice app needs between "raw mic frames" and "transcribe and respond". Deterministic: time is counted in received samples, not wall-clock, so the same frame sequence always produces the same events. This assumes the source keeps delivering frames during silence (true for platform mic capture, which streams continuously while active). Usage — push-based: call TurnDetector.Process per audio chunk and act on the returned event. Usage — stream-based: wrap an IAsyncEnumerable<T> source with TurnDetector.DetectAsync.
+  sealed class TurnDetector
+    // Creates a new TurnDetector for the given audio format.
+    ctor(int sampleRate, int channelCount, TurnDetectorConfig? config = null)
+    // Wraps an async audio source, yielding turn events as they occur. When the source completes, a still-open turn is flushed as a final TurnEventKind.TurnEnded event.
+    static IAsyncEnumerable<TurnEvent> DetectAsync(IAsyncEnumerable<float[]> source, int sampleRate, int channelCount, TurnDetectorConfig? config = null, CancellationToken ct = default)
+    // Reports the end of the audio stream. A confirmed turn still in progress is finalized and returned as a TurnEventKind.TurnEnded event; otherwise returns null. The detector is reset either way.
+    TurnEvent? Flush()
+    // Processes one audio chunk (interleaved float samples in [-1, 1]) and returns the transition it caused, or null when nothing changed.
+    TurnEvent? Process(ReadOnlyMemory<float> samples)
+    // Resets all internal state to initial values. Call this when starting a new audio session on the same instance.
+    void Reset()
+  // Configuration for TurnDetector. Immutable — construct a new config (and detector) instead of mutating a shared instance.
+  sealed class TurnDetectorConfig : IEquatable<TurnDetectorConfig>
+    ctor()
+    // Tuning for the built-in level gate and the onset pre-buffer (SilenceRemoverConfig.PreBufferMs). Only the level-tracking and pre-buffer fields apply; the onset/trailing fields belong to SilenceRemover. When null, SilenceRemover defaults are used except SilenceRemoverConfig.ReleaseAlpha is raised to 0.3 — turn detection needs the level to fall promptly when speech stops (the hold-through-pauses role is played by TurnDetectorConfig.TurnEndSilence instead), where the slow default would add noticeable latency to every turn end.
+    SilenceRemoverConfig? GateConfig { get; init; }
+    // Maximum turn length; a turn still running at this point is force-ended.
+    TimeSpan MaxTurnDuration { get; init; }
+    // Minimum cumulative speech required before a turn is confirmed. Shorter bursts (coughs, clicks) are discarded without producing any events.
+    TimeSpan MinSpeechDuration { get; init; }
+    // Silence duration after which the turn has probably ended and a TurnEventKind.SpeculativeTurnEnd fires, letting downstream work start before the turn end is certain. Must be shorter than TurnDetectorConfig.TurnEndSilence. Null disables speculative turn ends.
+    TimeSpan? SpeculativeSilence { get; init; }
+    // Optional external speech classifier (e.g. a neural VAD such as Silero) that replaces the built-in adaptive level gate. Receives one chunk of interleaved float PCM and returns whether it contains speech. Null uses the built-in gate.
+    Func<ReadOnlyMemory<float>, bool>? SpeechClassifier { get; init; }
+    // Silence duration that ends a turn. This window — not the level gate — provides the "hold through natural pauses" behavior, so mid-sentence breaths don't split a turn.
+    TimeSpan TurnEndSilence { get; init; }
+  // A transition reported by TurnDetector. TurnEvent.Samples carries the utterance audio for TurnEventKind.SpeculativeTurnEnd and TurnEventKind.TurnEnded (including pre-buffered onset audio) and is empty for the other kinds.
+  struct TurnEvent
+    // Duration of TurnEvent.Samples; zero when no audio is carried.
+    TimeSpan Duration { get; }
+    // The kind of transition.
+    TurnEventKind Kind { get; }
+    // Utterance samples (interleaved float PCM), or empty for events that carry no audio.
+    float[] Samples { get; }
+  // The kind of transition reported by TurnDetector.
+  enum TurnEventKind
+    SpeechStarted
+    SpeculativeTurnEnd
+    SpeechResumed
+    TurnEnded
   // Creates WAV audio files in memory with support for 16-bit integer or 32-bit float sample formats. Samples are written incrementally and the WAV header is finalized when the file is accessed.
   class WavFile : IDisposable
     // Initializes a new WAV file builder with the specified audio parameters.
@@ -301,13 +350,13 @@ namespace Ikon.Resonance.Analysis
     // Gets the shape set declaration for this analyzer. Called once when setting up the audio stream.
     AudioShapeSetDeclaration ShapeSetDeclaration { get; }
     // Creates a stateful analyzer instance bound to the mixer's output format.
-    abstract IAudioAnalyzerInstance Create(int sampleRate, int channelCount)
+    IAudioAnalyzerInstance Create(int sampleRate, int channelCount)
   // Stateful audio analyzer that extracts data from audio buffers without modifying them.
   interface IAudioAnalyzerInstance
     // Analyzes the provided buffer and returns shape set values. The buffer is not modified.
-    abstract AudioAnalysisResult Analyze(ReadOnlySpan<float> buffer)
+    AudioAnalysisResult Analyze(ReadOnlySpan<float> buffer)
     // Resets the analyzer internal state back to its initial values.
-    abstract void Reset()
+    void Reset()
   // Audio analyzer that performs FFT-based spectral analysis for viseme (lip sync) detection. Produces MouthOpenY (0-1) from RMS and MouthForm (-1 to +1) from spectral analysis.
   sealed class VisemeAnalyzer : IAudioAnalyzer
     ctor()
@@ -333,14 +382,16 @@ namespace Ikon.Resonance.Effects
   // Stateless definition of an audio effect that can create mixer-ready instances.
   interface IAudioEffect
     // Creates a stateful effect instance bound to the mixer's output format.
-    abstract IAudioEffectInstance Create(int sampleRate, int channelCount)
+    IAudioEffectInstance Create(int sampleRate, int channelCount)
   // Stateful audio effect that can mutate audio buffers in place.
   interface IAudioEffectInstance
     // Processes the provided buffer in place.
-    abstract void Process(Span<float> buffer)
+    void Process(Span<float> buffer)
     // Resets the effect internal state back to its initial values.
-    abstract void Reset()
+    void Reset()
   // Factory for creating reverb effects with configurable delay lines, feedback, mix, and damping.
+  // Remarks:
+  // If you just want a quick, natural-sounding reverb, call the constructor without parameters. The defaults create four delay lines (120ms – 320ms) with moderate feedback and a low-pass damping around 2kHz, which mimics a small room. To tweak the sound: • Delay times control the perceived room size. Longer times feel larger. • Feedback controls tail length. Values close to 1.0 sustain longer. • Mix defines how much of each delay line is blended into the output. • Cutoff damps high frequencies inside the feedback loop for warmer tails. All arrays must have the same length, so each delay line has a matching set of parameters.
   sealed class ReverbAudioEffect : IAudioEffect
     // Creates a reverb with default room parameters (small room).
     ctor()
@@ -376,7 +427,7 @@ namespace Ikon.Resonance.Effects
 # Ikon.Resonance.Core Public API
 
 namespace Ikon.Resonance.Core
-  // One chunk of a speech event's audio: interleaved float samples plus the format and first/last markers, identified by the speech event's Id . Mutable with settable properties and a parameterless constructor because the Teleport-generated serializer requires that shape — treat instances as immutable after construction.
+  // One chunk of a speech event's audio: interleaved float samples plus the format and first/last markers, identified by the speech event's AudioChunk.Id. Mutable with settable properties and a parameterless constructor because the Teleport-generated serializer requires that shape — treat instances as immutable after construction.
   class AudioChunk
     ctor()
     ctor(string id, float[] samples, int sampleRate, int channelCount, bool isFirst, bool isLast)

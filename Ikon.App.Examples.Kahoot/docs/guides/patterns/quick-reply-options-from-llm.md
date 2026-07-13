@@ -76,9 +76,16 @@ private static (string TextBefore, string Question, List<string> Options) ParseA
 
 private async Task HandleAskReplyAsync(string threadId, string answer)
 {
-    await _threadStore.AppendMessageAsync(threadId, MessageAuthor.User, $"{author}: {answer}");
-    try { await _threadStore.TransitionAsync(threadId, ThreadTransition.ReactivateFromAsk); }
-    catch { await _threadStore.TransitionAsync(threadId, ThreadTransition.Reactivate); }
+    var thread = _orchestrator.GetThread(threadId);
+
+    if (thread is null)
+    {
+        return;
+    }
+
+    // Same channel as a typed reply: post the user turn, then re-engage the paused thread.
+    await thread.PostAsync(new Message(Author.User, [new Content.Text(answer)]));
+    await thread.ReactivateIfIdleAsync();
 }
 ```
 
@@ -88,6 +95,7 @@ private async Task HandleAskReplyAsync(string threadId, string answer)
 - Parser uses raw string scanning instead of XML — the LLM emits inline tags inside prose and full XML parsing rejects it. Decoding `&amp; &lt; &gt; &quot;` covers what the model tends to emit.
 - The text *before* the `<ask>` is preserved as a separate paragraph — the LLM often writes a sentence and then asks; both belong on screen.
 - Posting the answer goes through the same channel as a typed reply so the rest of the agent loop (transition, thinking indicator, response) needs no special-casing.
+- The agent API here is the real one: `_orchestrator.GetThread(id)` → `AgentThread?`, `thread.PostAsync(new Message(Author.User, [new Content.Text(text)]))` (a `Message` carries its text in `Parts` as `Content.Text`), and `thread.ReactivateIfIdleAsync()` (sugar for `TransitionAsync(ThreadTransition.Reactivate)`, a no-op if the thread is already active). There is no `MessageAuthor` type — the author is `Ikon.Agent.Author` with `Author.User` / `Author.Agent(name)`.
 
 ## See also
 

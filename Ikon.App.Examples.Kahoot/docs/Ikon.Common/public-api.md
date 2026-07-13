@@ -9,11 +9,15 @@ namespace Ikon.Common
     void Restore(object owner)
     bool TryRestore(object owner)
     static AsyncLocalInstances Instance
-  sealed class DatabaseConnectionInfo
+  // A database the host has provisioned for the app, as handed to it at startup and exposed through IAppBase.Databases. This is read-only configuration: the app looks a database up by DatabaseConnectionInfo.Name or DatabaseConnectionInfo.Type and opens a connection with it (see IAppBase.Database or AppDatabaseConnection.Create). An app never constructs one — which databases exist is decided by the Databases entry in ikon-config.toml and provisioned by the backend.
+  sealed class DatabaseConnectionInfo : IEquatable<DatabaseConnectionInfo>
     ctor()
-    string ConnectionString { get; set; }
-    string Name { get; set; }
-    string Type { get; set; }
+    // The ready-to-use ADO.NET connection string, pointing at the app's own database through the connection pooler. It carries credentials — never log it or surface it to a client.
+    string ConnectionString { get; init; }
+    // The database's name, matching the name declared in the app's ikon-config.tomlDatabases entry (the part before the colon in "mydb:postgres"). This is the key an app looks a database up by when it has more than one.
+    string Name { get; init; }
+    // The database engine. "postgres" is the only value the platform produces or supports today — both the backend provisioner and the local runner hardcode it, and AppDatabaseConnection.Create throws NotSupportedException for anything else. Match on it rather than assuming, so an app keeps working when a second engine appears.
+    string Type { get; init; }
   class DescriptionAttribute : Attribute
     ctor(string description, object? example = null, RequiredStatus isRequired = Default, int minArrayItems = 0)
     string Description { get; }
@@ -29,7 +33,7 @@ namespace Ikon.Common
     ILogger CreateLogger(string categoryName)
     void Dispose()
   static class IkonTaskExtensions
-    // Intentionally does not await the task. Exceptions are observed and sent to onException .
+    // Intentionally does not await the task. Exceptions are observed and sent to onException.
     static void RunParallel(this Task task, Action<Exception>? onException = null)
   static class MimeTypes
     static void AddOrUpdate(string mime, string extension)
@@ -53,40 +57,40 @@ namespace Ikon.Common
     static bool IsXml(string mimeType)
     static bool IsZip(string mimeType)
     static bool TypeMatchesMimetype(string type, string mimeType)
-    static string ApplicationExcel
-    static string ApplicationJavascript
-    static string ApplicationJson
-    static string ApplicationMsword
-    static string ApplicationOctetStream
-    static string ApplicationPdf
-    static string ApplicationSql
-    static string ApplicationVndOpenxmlformatsOfficedocumentPresentationmlPresentation
-    static string ApplicationVndOpenxmlformatsOfficedocumentSpreadsheetmlSheet
-    static string ApplicationVndOpenxmlformatsOfficedocumentWordprocessingmlDocument
-    static string ApplicationXml
-    static string ApplicationZip
-    static string AudioMpeg
-    static string AudioXWav
-    static string Binary
-    static string DefaultExtension
-    static string DefaultMimeType
-    static string ImageBmp
-    static string ImageGif
-    static string ImageHeif
-    static string ImageJpeg
-    static string ImagePng
-    static string ImageSvg
-    static string ImageSvgXml
-    static string ImageTiff
-    static string ImageWebp
-    static string TextCss
-    static string TextCsv
-    static string TextHtml
-    static string TextJavascript
-    static string TextMarkdown
-    static string TextPlain
-    static string TextXml
-    static string VideoMp4
+    const string ApplicationExcel
+    const string ApplicationJavascript
+    const string ApplicationJson
+    const string ApplicationMsword
+    const string ApplicationOctetStream
+    const string ApplicationPdf
+    const string ApplicationSql
+    const string ApplicationVndOpenxmlformatsOfficedocumentPresentationmlPresentation
+    const string ApplicationVndOpenxmlformatsOfficedocumentSpreadsheetmlSheet
+    const string ApplicationVndOpenxmlformatsOfficedocumentWordprocessingmlDocument
+    const string ApplicationXml
+    const string ApplicationZip
+    const string AudioMpeg
+    const string AudioXWav
+    const string Binary
+    const string DefaultExtension
+    const string DefaultMimeType
+    const string ImageBmp
+    const string ImageGif
+    const string ImageHeif
+    const string ImageJpeg
+    const string ImagePng
+    const string ImageSvg
+    const string ImageSvgXml
+    const string ImageTiff
+    const string ImageWebp
+    const string TextCss
+    const string TextCsv
+    const string TextHtml
+    const string TextJavascript
+    const string TextMarkdown
+    const string TextPlain
+    const string TextXml
+    const string VideoMp4
   enum PipelineExecutionMode
     None
     HttpsEndpoint
@@ -117,15 +121,12 @@ namespace Ikon.Common
     Task<byte[]> ReadAsBytesAsync(string resourcePath)
     Task<Stream> ReadAsStreamAsync(string resourcePath)
     Task<string> ReadAsStringAsync(string resourcePath)
+  // Runs a delegate with retries and exponential backoff. One overload per delegate shape, all sharing the same parameter order: the work first, then the optional retry knobs.
   static class Retrier
-    static T Run<T>(List<Type>? retryableExceptions, int retries, Func<T> func)
     static T Run<T>(Func<T> func, List<Type>? retryableExceptions = null, int retries = 5, Action<Exception>? onRetry = null, Action<Exception>? onFailure = null, bool useExponentialBackoff = true, string? description = null)
-    static void Run(List<Type>? retryableExceptions, int retries, Action func)
     static void Run(Action func, List<Type>? retryableExceptions = null, int retries = 5, Action<Exception>? onRetry = null, Action<Exception>? onFailure = null, bool useExponentialBackoff = true, string? description = null)
-    static Task<T> RunAsync<T>(List<Type>? retryableExceptions, int retries, Func<Task<T>> func)
     static Task<T> RunAsync<T>(Func<CancellationToken, Task<T>> func, CancellationToken cancellationToken, List<Type>? retryableExceptions = null, int retries = 5, Func<Exception, Task>? onRetry = null, Func<Exception, Task>? onFailure = null, bool useExponentialBackoff = true, string? description = null)
     static Task<T> RunAsync<T>(Func<Task<T>> func, List<Type>? retryableExceptions = null, int retries = 5, Func<Exception, Task>? onRetry = null, Func<Exception, Task>? onFailure = null, bool useExponentialBackoff = true, string? description = null)
-    static Task RunAsync(List<Type>? retryableExceptions, int retries, Func<Task> func)
     static Task RunAsync(Func<Task> func, List<Type>? retryableExceptions = null, int retries = 5, Func<Exception, Task>? onRetry = null, Func<Exception, Task>? onFailure = null, bool useExponentialBackoff = true, string? description = null)
   static class Utils
     static string GenerateRandomToken(int size = 32)
@@ -177,8 +178,8 @@ namespace Ikon.Common.Git
     string Username { get; init; }
   // Git diff between two commits.
   class GitDiff : IEquatable<GitDiff>
-    ctor(string? FromSha, string? ToSha, List<GitFileDiff> Files)
-    List<GitFileDiff> Files { get; init; }
+    ctor(string? FromSha, string? ToSha, IReadOnlyList<GitFileDiff> Files)
+    IReadOnlyList<GitFileDiff> Files { get; init; }
     string? FromSha { get; init; }
     string? ToSha { get; init; }
   // A changed file in git status or diff.
@@ -240,7 +241,7 @@ namespace Ikon.Common.Git
     // Count how many commits the local branch is ahead of and behind its origin counterpart. Returns null when the counts cannot be determined (e.g. origin/{branch} does not exist).
     Task<(int Ahead, int Behind)?> GetAheadBehindAsync(string branch, CancellationToken ct = default)
     // Get all branches.
-    Task<List<GitBranch>> GetBranchesAsync(CancellationToken ct = default)
+    Task<IReadOnlyList<GitBranch>> GetBranchesAsync(CancellationToken ct = default)
     // Get a local git config value.
     Task<string?> GetConfigAsync(string key, CancellationToken ct = default)
     // Get the current branch name.
@@ -252,7 +253,7 @@ namespace Ikon.Common.Git
     // Get the HEAD SHA.
     Task<string?> GetHeadShaAsync(bool shortSha = false, CancellationToken ct = default)
     // Get commit history.
-    Task<List<GitCommit>> GetHistoryAsync(int limit = 20, string? fromRef = null, CancellationToken ct = default)
+    Task<IReadOnlyList<GitCommit>> GetHistoryAsync(int limit = 20, string? fromRef = null, CancellationToken ct = default)
     // Get remote URL exactly as stored in .git/config, including any embedded credentials.
     Task<string?> GetRawRemoteUrlAsync(string name = "origin", CancellationToken ct = default)
     // Get remote URL (without credentials).
@@ -260,7 +261,7 @@ namespace Ikon.Common.Git
     // Get the current repository status.
     Task<GitStatus> GetStatusAsync(CancellationToken ct = default)
     // Get all tags.
-    Task<List<GitTag>> GetTagsAsync(CancellationToken ct = default)
+    Task<IReadOnlyList<GitTag>> GetTagsAsync(CancellationToken ct = default)
     // Check if repository has any commits.
     Task<bool> HasCommitsAsync(CancellationToken ct = default)
     // Check if a remote exists.
@@ -280,7 +281,7 @@ namespace Ikon.Common.Git
     // Check if a directory is a git repository.
     static Task<bool> IsGitRepositoryAsync(string directory, CancellationToken ct = default)
     // List all worktrees attached to this repository (including the primary one). Parses the output of `git worktree list --porcelain`.
-    Task<List<GitWorktreeInfo>> ListWorktreesAsync(CancellationToken ct = default)
+    Task<IReadOnlyList<GitWorktreeInfo>> ListWorktreesAsync(CancellationToken ct = default)
     // Push to remote.
     Task PushAsync(bool setUpstream = false, CancellationToken ct = default)
     // Check if a ref exists.
@@ -324,11 +325,11 @@ namespace Ikon.Common.Git
     static bool UrlsMatch(string? url1, string? url2)
   // Git repository status.
   class GitStatus : IEquatable<GitStatus>
-    ctor(string Branch, string? HeadSha, bool HasUncommittedChanges, bool IsDetachedHead, int AheadBy, int BehindBy, List<GitFileChange> Changes)
+    ctor(string Branch, string? HeadSha, bool HasUncommittedChanges, bool IsDetachedHead, int AheadBy, int BehindBy, IReadOnlyList<GitFileChange> Changes)
     int AheadBy { get; init; }
     int BehindBy { get; init; }
     string Branch { get; init; }
-    List<GitFileChange> Changes { get; init; }
+    IReadOnlyList<GitFileChange> Changes { get; init; }
     bool HasUncommittedChanges { get; init; }
     string? HeadSha { get; init; }
     bool IsDetachedHead { get; init; }

@@ -47,7 +47,7 @@ private void RenderInsightsSection(UIView view)
                 sub: openCount == 0 ? "All clear" : "Needs triage",
                 accent: openCount > 0 ? "text-rose-300" : "text-emerald-300");
             RenderKpiCard(kpi, "AI cost today", $"${todayCost:0.00}",
-                sub: $"{_dailyCostCapUsd.Value > 0 ? $"of ${_dailyCostCapUsd.Value:0.00} cap" : "—"}");
+                sub: _dailyCostCapUsd.Value > 0 ? $"of ${_dailyCostCapUsd.Value:0.00} cap" : "—");
         });
     });
 }

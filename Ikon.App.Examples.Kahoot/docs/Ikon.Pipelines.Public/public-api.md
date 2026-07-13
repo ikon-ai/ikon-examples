@@ -48,15 +48,15 @@ namespace Ikon.Pipelines.Public.Processors.Pdf
     static Task<List<Item>> Run(Item input, ExtractPdfProcessor.Config config, CancellationToken cancellationToken)
   interface IPdfDocument : IDisposable
     int PageCount { get; }
-    abstract IPdfPage GetPage(int index)
+    IPdfPage GetPage(int index)
   interface IPdfPage : IDisposable
     double Height { get; }
     int Index { get; }
     double Width { get; }
-    abstract void CreateCopy(Stream output)
-    abstract (byte[] rgba, byte[] rgbaForHash, int width, int height) GetPixels(int maxDimension)
-    abstract (byte[] rgba, byte[] rgbaForHash, int width, int height) GetPixels(int width, int height, bool hasAlpha)
-    abstract string GetText()
+    void CreateCopy(Stream output)
+    (byte[] rgba, byte[] rgbaForHash, int width, int height) GetPixels(int maxDimension)
+    (byte[] rgba, byte[] rgbaForHash, int width, int height) GetPixels(int width, int height, bool hasAlpha)
+    string GetText()
   static class PdfDocument
     static IPdfDocument Load(byte[] bytes, string? password = null)
 

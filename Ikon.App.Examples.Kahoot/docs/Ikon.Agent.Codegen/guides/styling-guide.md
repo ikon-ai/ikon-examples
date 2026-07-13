@@ -154,11 +154,11 @@ Two ways to avoid this:
        ...
    }
    ```
-   `UseTheme(Theme defaultTheme = Theme.Dark, bool followClient = true)` syncs every joining client — with `followClient: true` a client that already has a theme keeps it and clients without one get `defaultTheme`; with `followClient: false` every client is forced to `defaultTheme`. It returns a `ThemeControl` whose `Current` (`ClientReactive<string>`) is bindable in views and whose `ToggleAsync` / `SetAsync` switch the calling client's theme:
+   `UseTheme(Theme defaultTheme = Theme.Dark, bool followClient = true)` syncs every joining client — with `followClient: true` a client that already has a theme keeps it and clients without one get `defaultTheme`; with `followClient: false` every client is forced to `defaultTheme`. It returns a `ThemeControl` whose `Current` (`ClientReactive<Theme>`) is bindable in views and whose `ToggleAsync` / `SetAsync` switch the calling client's theme:
    ```csharp
    view.Button([Button.GhostMd, Button.Icon],
        onClick: _theme.ToggleAsync,
-       content: v => v.Icon([Icon.Default], name: _theme.Current.Value == Theme.Dark.ToThemeName() ? "sun" : "moon"));
+       content: v => v.Icon([Icon.Default], name: _theme.Current.Value == Theme.Dark ? "sun" : "moon"));
    ```
    Do not hand-roll the `ClientJoinedAsync` + `ClientFunctions.SetThemeAsync` ceremony this replaces — and if you rewrite the app body and drop the `UseTheme` call, you re-introduce the trap. Keep it in any app that uses fixed dark Crosswind palette classes for surfaces.
 

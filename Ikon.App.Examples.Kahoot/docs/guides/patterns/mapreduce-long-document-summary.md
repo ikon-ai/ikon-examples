@@ -28,10 +28,10 @@ private async Task<TranscriptAnalysis> SummarizeTranscriptAsync(string transcrip
     var chunks = SplitTranscript(transcriptText, 4000);
     TranscriptAnalysis? analysis = null;
 
-    await foreach (var ev in Emerge.MapReduce<TranscriptChunkSummary, TranscriptAnalysis>(
+    await foreach (var ev in Emerge.MapReduce<string, TranscriptChunkSummary, TranscriptAnalysis>(
         LLMModel.Claude45Sonnet, ctx, mr =>
         {
-            mr.Input = chunks;
+            mr.Chunks = chunks;
             mr.MaxParallel = 3;
 
             mr.Map(map =>
@@ -81,7 +81,7 @@ private static IReadOnlyList<string> SplitTranscript(string text, int chunkSize)
 
 ## Notes
 
-- Two distinct types: `TChunk` for per-chunk output and `TFinal` for the reduce output — they're often shape-similar but typing them separately stops the reduce from accidentally producing chunk-level granularity.
+- Three type arguments, in flow order: `TInput` for a chunk of input (a `string` here), `TMapped` for the per-chunk model output, `TResult` for the reduce output. `mr.Chunks` is the list to map over — one LLM call per element. `mr.Input` + `mr.Split` is the alternative lane when the chunking belongs to the pattern rather than the caller.
 - `MaxParallel = 3` is conservative — Anthropic / OpenAI rate limits will shape this. Bump up for long inputs once you've measured.
 - Interpolate `map.JsonSchema` / `reduce.JsonSchema` into the prompt — Emerge fills in the schema string from the generic type, so prompt and parser stay in sync.
 - Listen for `Completed<TFinal>` — there are intermediate events you can also UI-stream (per-chunk progress) but only `Completed` carries the merged result.

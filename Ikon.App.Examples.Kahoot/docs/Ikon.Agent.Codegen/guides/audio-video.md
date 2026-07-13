@@ -130,7 +130,7 @@ namespace Ikon.Resonance
     // Resamples audio from one sample rate and channel configuration to another using linear interpolation.
     static void Resample(ReadOnlySpan<float> source, Span<float> destination, int inputSampleRate, int outputSampleRate, int inputChannelCount, int outputChannelCount)
     // The maximum number of audio channels supported (mono or stereo).
-    static int MaxSupportedChannelCount
+    const int MaxSupportedChannelCount
   // Provides utility methods for measuring audio levels and converting audio samples between PCM 16-bit integer and 32-bit float formats.
   static class AudioUtils
     // Converts 32-bit float samples to 16-bit PCM samples as raw bytes (little-endian). Float values are clamped to [-1.0, 1.0] before conversion.
@@ -171,7 +171,7 @@ namespace Ikon.Resonance
     void RemoveParticipant(string excludeKey)
     // Unregisters an input stream and discards any samples still buffered for it. Removing an unknown stream id is a no-op.
     void RemoveStream(string streamId)
-    // Starts the output loop that paces personalized mixes into onFrame as 20 ms frames (called once per registered participant per tick, with the participant's excludeKey as the first argument). May be called only once per mixer instance; a second call throws so a silently dropped onFrame can never go unnoticed. Buffer-reuse contract: the frames passed to onFrame alias a single reused sample buffer — consume the samples fully before returning from the callback and copy them if you need to store them beyond the call.
+    // Starts the output loop that paces personalized mixes into onFrame as 20 ms frames (called once per registered participant per tick, with the participant's excludeKey as the first argument — except a participant whose tick mix would contain only their own audio, e.g. a lone speaker, who is skipped for that tick). May be called only once per mixer instance; a second call throws so a silently dropped onFrame can never go unnoticed. Buffer-reuse contract: the frames passed to onFrame alias a single reused sample buffer — consume the samples fully before returning from the callback and copy them if you need to store them beyond the call.
     Task StartAsync(Func<string, AudioFrame, ValueTask> onFrame, CancellationToken cancellationToken = default)
     // Buffers interleaved samples for a registered input stream, resampling to the mixer's native 48 kHz stereo format when needed. When the stream's buffer is full the oldest samples are dropped to make room; writes to an unknown stream are dropped with a throttled warning (stream teardown races with in-flight frames, so this is not an error).
     void WriteSamples(string streamId, ReadOnlySpan<float> samples, int sampleRate, int channelCount)
@@ -184,6 +184,7 @@ namespace Ikon.Resonance
   interface IAudioSource
     // Generates a frame of audio into the provided buffer.
     abstract void GenerateAudio(Span<float> buffer, int samplesPerChannel, int channelCount, int sampleRate)
+  // Specifies the sample format used in the WAV file.
   enum WavFile.SampleFormat
     Short
     Float
@@ -261,8 +262,50 @@ namespace Ikon.Resonance
     double MaxPaddingTimeMs { get; init; }
     // RMS threshold below which effect tail padding stops. Default is 0.001 (~-60dB), meaning padding continues until output is essentially silent.
     double PaddingThreshold { get; init; }
+  // Detects conversational turns in a continuous (open-mic) audio stream: speech onset, probable turn end (speculative), speech resumption, and confirmed turn end — the segmentation an always-listening voice app needs between "raw mic frames" and "transcribe and respond". Deterministic: time is counted in received samples, not wall-clock, so the same frame sequence always produces the same events. This assumes the source keeps delivering frames during silence (true for platform mic capture, which streams continuously while active). Usage — push-based: call TurnDetector.Process per audio chunk and act on the returned event. Usage — stream-based: wrap an IAsyncEnumerable<T> source with TurnDetector.DetectAsync.
+  sealed class TurnDetector
+    // Creates a new TurnDetector for the given audio format.
+    ctor(int sampleRate, int channelCount, TurnDetectorConfig? config = null)
+    // Wraps an async audio source, yielding turn events as they occur. When the source completes, a still-open turn is flushed as a final TurnEventKind.TurnEnded event.
+    static IAsyncEnumerable<TurnEvent> DetectAsync(IAsyncEnumerable<float[]> source, int sampleRate, int channelCount, TurnDetectorConfig? config = null, CancellationToken ct = default)
+    // Reports the end of the audio stream. A confirmed turn still in progress is finalized and returned as a TurnEventKind.TurnEnded event; otherwise returns null. The detector is reset either way.
+    TurnEvent? Flush()
+    // Processes one audio chunk (interleaved float samples in [-1, 1]) and returns the transition it caused, or null when nothing changed.
+    TurnEvent? Process(ReadOnlyMemory<float> samples)
+    // Resets all internal state to initial values. Call this when starting a new audio session on the same instance.
+    void Reset()
+  // Configuration for TurnDetector. Immutable — construct a new config (and detector) instead of mutating a shared instance.
+  sealed class TurnDetectorConfig : IEquatable<TurnDetectorConfig>
+    ctor()
+    // Tuning for the built-in level gate and the onset pre-buffer (SilenceRemoverConfig.PreBufferMs). Only the level-tracking and pre-buffer fields apply; the onset/trailing fields belong to SilenceRemover. When null, SilenceRemover defaults are used except SilenceRemoverConfig.ReleaseAlpha is raised to 0.3 — turn detection needs the level to fall promptly when speech stops (the hold-through-pauses role is played by TurnDetectorConfig.TurnEndSilence instead), where the slow default would add noticeable latency to every turn end.
+    SilenceRemoverConfig? GateConfig { get; init; }
+    // Maximum turn length; a turn still running at this point is force-ended.
+    TimeSpan MaxTurnDuration { get; init; }
+    // Minimum cumulative speech required before a turn is confirmed. Shorter bursts (coughs, clicks) are discarded without producing any events.
+    TimeSpan MinSpeechDuration { get; init; }
+    // Silence duration after which the turn has probably ended and a TurnEventKind.SpeculativeTurnEnd fires, letting downstream work start before the turn end is certain. Must be shorter than TurnDetectorConfig.TurnEndSilence. Null disables speculative turn ends.
+    TimeSpan? SpeculativeSilence { get; init; }
+    // Optional external speech classifier (e.g. a neural VAD such as Silero) that replaces the built-in adaptive level gate. Receives one chunk of interleaved float PCM and returns whether it contains speech. Null uses the built-in gate.
+    Func<ReadOnlyMemory<float>, bool>? SpeechClassifier { get; init; }
+    // Silence duration that ends a turn. This window — not the level gate — provides the "hold through natural pauses" behavior, so mid-sentence breaths don't split a turn.
+    TimeSpan TurnEndSilence { get; init; }
+  // A transition reported by TurnDetector. TurnEvent.Samples carries the utterance audio for TurnEventKind.SpeculativeTurnEnd and TurnEventKind.TurnEnded (including pre-buffered onset audio) and is empty for the other kinds.
+  struct TurnEvent
+    // Duration of TurnEvent.Samples; zero when no audio is carried.
+    TimeSpan Duration { get; }
+    // The kind of transition.
+    TurnEventKind Kind { get; }
+    // Utterance samples (interleaved float PCM), or empty for events that carry no audio.
+    float[] Samples { get; }
+  // The kind of transition reported by TurnDetector.
+  enum TurnEventKind
+    SpeechStarted
+    SpeculativeTurnEnd
+    SpeechResumed
+    TurnEnded
   // Creates WAV audio files in memory with support for 16-bit integer or 32-bit float sample formats. Samples are written incrementally and the WAV header is finalized when the file is accessed.
   class WavFile : IDisposable
+    // Initializes a new WAV file builder with the specified audio parameters.
     ctor(int sampleRate, int channelCount, WavFile.SampleFormat sampleFormat)
     // Adds 16-bit integer audio samples to the WAV file.
     void AddSamples(ReadOnlySpan<short> samples)
@@ -299,13 +342,13 @@ namespace Ikon.Resonance.Analysis
     // Gets the shape set declaration for this analyzer. Called once when setting up the audio stream.
     AudioShapeSetDeclaration ShapeSetDeclaration { get; }
     // Creates a stateful analyzer instance bound to the mixer's output format.
-    abstract IAudioAnalyzerInstance Create(int sampleRate, int channelCount)
+    IAudioAnalyzerInstance Create(int sampleRate, int channelCount)
   // Stateful audio analyzer that extracts data from audio buffers without modifying them.
   interface IAudioAnalyzerInstance
     // Analyzes the provided buffer and returns shape set values. The buffer is not modified.
-    abstract AudioAnalysisResult Analyze(ReadOnlySpan<float> buffer)
+    AudioAnalysisResult Analyze(ReadOnlySpan<float> buffer)
     // Resets the analyzer internal state back to its initial values.
-    abstract void Reset()
+    void Reset()
   // Audio analyzer that performs FFT-based spectral analysis for viseme (lip sync) detection. Produces MouthOpenY (0-1) from RMS and MouthForm (-1 to +1) from spectral analysis.
   sealed class VisemeAnalyzer : IAudioAnalyzer
     ctor()
@@ -331,14 +374,16 @@ namespace Ikon.Resonance.Effects
   // Stateless definition of an audio effect that can create mixer-ready instances.
   interface IAudioEffect
     // Creates a stateful effect instance bound to the mixer's output format.
-    abstract IAudioEffectInstance Create(int sampleRate, int channelCount)
+    IAudioEffectInstance Create(int sampleRate, int channelCount)
   // Stateful audio effect that can mutate audio buffers in place.
   interface IAudioEffectInstance
     // Processes the provided buffer in place.
-    abstract void Process(Span<float> buffer)
+    void Process(Span<float> buffer)
     // Resets the effect internal state back to its initial values.
-    abstract void Reset()
+    void Reset()
   // Factory for creating reverb effects with configurable delay lines, feedback, mix, and damping.
+  // Remarks:
+  // If you just want a quick, natural-sounding reverb, call the constructor without parameters. The defaults create four delay lines (120ms – 320ms) with moderate feedback and a low-pass damping around 2kHz, which mimics a small room. To tweak the sound: • Delay times control the perceived room size. Longer times feel larger. • Feedback controls tail length. Values close to 1.0 sustain longer. • Mix defines how much of each delay line is blended into the output. • Cutoff damps high frequencies inside the feedback loop for warmer tails. All arrays must have the same length, so each delay line has a matching set of parameters.
   sealed class ReverbAudioEffect : IAudioEffect
     // Creates a reverb with default room parameters (small room).
     ctor()
