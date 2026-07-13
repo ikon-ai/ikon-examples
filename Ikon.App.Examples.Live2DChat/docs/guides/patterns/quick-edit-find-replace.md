@@ -34,7 +34,7 @@ private async Task<QuickEditResponse?> TryQuickEditAsync(string userMessage)
             pass.Temperature = 0.1f;
             pass.MaxOutputTokens = 1000;
             pass.Command = $"Return find/replace pairs if simple, else IsSimpleEdit=false.\n\n{pass.JsonSchema}";
-        }).ResultAsync();
+        });
 
         if (result.IsSimpleEdit && result.Replacements.Count > 0)
         {

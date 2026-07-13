@@ -44,7 +44,7 @@ private void RenderOnboarding(UIView view)
                 "bg-black/[0.04] hover:bg-black/[0.08] border-0 rounded-full px-8 py-3",
                 "text-sm text-black/40 hover:text-black/60 transition-colors duration-200"],
                 disabled: string.IsNullOrWhiteSpace(_onboardingName.Value),
-                onClick: async () => await CompleteOnboardingAsync(),
+                onClick: async () => await CompleteOnboardingAsync(_onboardingName.Value),
                 content: v => v.Text(text: "Let's go"));
         });
     });

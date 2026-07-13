@@ -33,7 +33,7 @@ private async Task<MatchPitch?> GeneratePitchAsync(UserProfile self, UserProfile
             pass.Temperature = 0.7;
             pass.UseJson = true;
             pass.MaxIterations = 1;
-        }).ResultAsync();
+        });
 
         return result;
     }

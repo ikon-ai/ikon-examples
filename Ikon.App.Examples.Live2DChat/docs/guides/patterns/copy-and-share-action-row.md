@@ -19,7 +19,7 @@ private void RenderTranscriptContent(UIView view)
     {
         box.ScrollArea(
             autoScroll: true,
-            autoScrollKey: $"transcript-{_recognizedSpeechVersion.Value}",
+            autoScrollKey: _recognizedSpeechVersion.Value,
             rootStyle: ["h-full"],
             content: scroll =>
             {

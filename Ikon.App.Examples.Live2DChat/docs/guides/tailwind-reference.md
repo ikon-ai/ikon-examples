@@ -289,20 +289,21 @@ namespace Ikon.Crosswind
     Dictionary<string, CanvasTokenValue<int>> FontWeights { get; init; }
     Dictionary<string, CanvasTypographyScale> Text { get; init; }
     void Validate()
-  // Injectable theme data for the Flutter style resolver. When set (via ThemeSource ) the resolver resolves colour scales and semantic tokens against the app's own theme instead of the hardcoded platform baseline snapshot, so custom brand themes render correctly on native clients. Lookup values may be concrete colours ("#0c0e12", "oklch(...)"), scale references ("neutral-800"), or other semantic tokens ("text-secondary"); the resolver chases references and normalizes concrete colours to hex.
+  // Injectable theme data for the Flutter style resolver. Set it on a TailwindCustomStyleScope (TailwindCustomStyleScope.FlutterTheme) and pin that scope with TailwindCustomStyleRegistry.PushScope: the resolver then resolves colour scales and semantic tokens against the app's own theme instead of the hardcoded platform baseline snapshot, so custom brand themes render correctly on native clients. Lookup values may be concrete colours ("#0c0e12", "oklch(...)"), scale references ("neutral-800"), or other semantic tokens ("text-secondary"); the resolver chases references and normalizes concrete colours to hex.
   sealed class FlutterThemeSource
     ctor(IReadOnlyDictionary<string, string> scaleHex, IReadOnlyDictionary<string, string> darkSemantic, IReadOnlyDictionary<string, string> lightSemantic, double? radiusBasePx = null, IReadOnlyDictionary<string, double>? radiusPx = null, IReadOnlyDictionary<string, string>? fontFamilies = null, double? spacingUnitPx = null)
     IReadOnlyDictionary<string, string> DarkSemantic { get; }
     // Themed font families keyed by role ("body", "display", "heading", …), values are plain family names ("Fraunces") the Flutter client can load.
     IReadOnlyDictionary<string, string> FontFamilies { get; }
     IReadOnlyDictionary<string, string> LightSemantic { get; }
-    // Themed radius base in logical px; rung values derive from it unless RadiusPx pins a rung explicitly. Null = platform default.
+    // Themed radius base in logical px; rung values derive from it unless FlutterThemeSource.RadiusPx pins a rung explicitly. Null = platform default.
     double? RadiusBasePx { get; }
     // Explicit per-rung radius overrides in logical px, keyed by rung name ("lg").
     IReadOnlyDictionary<string, double> RadiusPx { get; }
     IReadOnlyDictionary<string, string> ScaleHex { get; }
     // Themed spacing unit in logical px (the density knob — web multiplies --spacing the same way). Null = platform default (4px).
     double? SpacingUnitPx { get; }
+    // Builds a source from a design-token document, mapping colours only: the colour scales plus the light/dark semantic tokens. The document's radii and typography are NOT mapped — their token shapes don't line up with this type (radii are CSS strings under "radius-*" keys, not rung-named logical px; font families are quoted CSS stacks, not plain family names) — so radius, fonts, and spacing stay at platform defaults unless supplied explicitly via the constructor.
     static FlutterThemeSource FromDesignTokens(CanvasDesignTokenDocument document)
   enum TailwindColorContext
     Generic
@@ -336,22 +337,18 @@ namespace Ikon.Crosswind
     IReadOnlyDictionary<string, string> Light { get; }
     string EmitDark()
     string EmitLight()
-  // Static facade the Crosswind compiler resolves custom aliases through. Definitions live in a TailwindCustomStyleScope that the caller pins with PushScope around each compile, so several apps hosted in one process each resolve against their own theme. Lookups fall back to a process-wide scope kept for legacy single-app hosts that still write it via SetDefinitions / MergeDefinitions .
+  // Static facade the Crosswind compiler resolves custom aliases through. Definitions live in a TailwindCustomStyleScope that the caller pins with TailwindCustomStyleRegistry.PushScope around each compile, so several apps hosted in one process each resolve against their own theme. Lookups fall back to a process-wide scope kept for legacy single-app hosts.
   static class TailwindCustomStyleRegistry
     // Flutter theme data of the scope active for the current compile, preferring the ambient scope like the alias lookups do.
     static FlutterThemeSource? CurrentFlutterTheme { get; }
     static bool IsFontFamilyToken(string name)
     static bool IsFontWeightToken(string name)
-    // Compat write path for legacy single-app hosts: merges definitions into the process-wide fallback scope. New code should own a TailwindCustomStyleScope and pin it with PushScope instead.
-    static void MergeDefinitions(TailwindStyleDefinitions definitions)
     // Makes the given scope the ambient alias source for the current async flow until the returned handle is disposed. Compilation call sites stay static, but each caller can pin its own scope for the duration of a compile.
     static IDisposable PushScope(TailwindCustomStyleScope scope)
-    // Compat write path for legacy single-app hosts: replaces the process-wide fallback scope's definitions (null clears them). New code should own a TailwindCustomStyleScope and pin it with PushScope instead.
-    static void SetDefinitions(TailwindStyleDefinitions? definitions)
     static bool TryResolve(string name, TailwindColorContext context, out string value)
     static bool TryResolveFontFamily(string name, out string value)
     static bool TryResolveFontWeight(string name, out string value)
-  // One isolated set of custom color and font alias definitions. Style compilation reads aliases through TailwindCustomStyleRegistry , which prefers the ambient scope pushed via PushScope and falls back to the process-wide scope, so several apps hosted in one process can each compile against their own theme without contaminating the others.
+  // One isolated set of custom color and font alias definitions. Style compilation reads aliases through TailwindCustomStyleRegistry, which prefers the ambient scope pushed via TailwindCustomStyleRegistry.PushScope and falls back to the process-wide scope, so several apps hosted in one process can each compile against their own theme without contaminating the others.
   sealed class TailwindCustomStyleScope
     ctor()
     // Optional Flutter theme data derived from the same app theme as the alias definitions. The Flutter style resolver reads it through the ambient scope so each app in a shared process renders its own brand colors on native clients.
@@ -399,5 +396,5 @@ namespace Ikon.Crosswind
     static bool Has(IReadOnlyList<string> variants, string target)
     // Returns a copy of variants with the given target marker removed. The marker has been satisfied by the active renderer and must not become a CSS selector or block Flutter resolution. Returns the original reference unchanged when the marker is absent, to avoid an allocation on the common path.
     static IReadOnlyList<string> Without(IReadOnlyList<string> variants, string target)
-    static string Flutter
-    static string Web
+    const string Flutter
+    const string Web

@@ -23,36 +23,36 @@ namespace Ikon.AI
     Escalate
     Obfuscate
     Delay
-  // The pending AI operation presented to the hook. Operation discriminates surface ("ai_call", "tool", "ingest"); Subject is the thing being acted on (model name, tool name, corpus name); Args are call-specific parameters; Ctx carries host-supplied identity / mission / runtime context (mission_id, agent_id, thread_id, user, tenant, time, etc.).
+  // The pending AI operation presented to the hook. GovernanceCall.Operation discriminates surface ("ai_call", "tool", "ingest"); GovernanceCall.Subject is the thing being acted on (model name, tool name, corpus name); GovernanceCall.Args are call-specific parameters; GovernanceCall.Ctx carries host-supplied identity / mission / runtime context (mission_id, agent_id, thread_id, user, tenant, time, etc.).
   sealed class GovernanceCall : IEquatable<GovernanceCall>
     ctor(string Operation, string Subject, IReadOnlyDictionary<string, object?> Args, IReadOnlyDictionary<string, object?> Ctx)
     IReadOnlyDictionary<string, object?> Args { get; init; }
     IReadOnlyDictionary<string, object?> Ctx { get; init; }
     string Operation { get; init; }
     string Subject { get; init; }
-  // What happened after the operation ran (or didn't). Hooks use this in AfterAsync to close out the audit record.
+  // What happened after the operation ran (or didn't). Hooks use this in IGovernanceHook.AfterAsync to close out the audit record.
   sealed class GovernanceCallResult : IEquatable<GovernanceCallResult>
     ctor(bool Failed, string Outcome, string? ErrorMessage = null)
     string? ErrorMessage { get; init; }
     bool Failed { get; init; }
     string Outcome { get; init; }
-  // Thrown by AI primitives when an active IGovernanceHook returns Deny . Carries the decision id so callers can correlate the failure to the audit record.
+  // Thrown by AI primitives when an active IGovernanceHook returns GovernanceAction.Deny. Carries the decision id so callers can correlate the failure to the audit record.
   sealed class GovernanceDeniedException : Exception
     ctor(string decisionId, string ruleId, string policyId, string reason)
     string DecisionId { get; }
     string PolicyId { get; }
     string Reason { get; }
     string RuleId { get; }
-  // Thrown by AI primitives when an active hook returns Escalate . The host runtime is expected to catch this and route to the escalation target rather than retry — the operation is paused, not failed.
+  // Thrown by AI primitives when an active hook returns GovernanceAction.Escalate. The host runtime is expected to catch this and route to the escalation target rather than retry — the operation is paused, not failed.
   sealed class GovernanceEscalatedException : Exception
     ctor(string decisionId, string target, string reason)
     string DecisionId { get; }
     string Reason { get; }
     string Target { get; }
-  // Shared invocation wrapper used by every transport that gates a call through GovernanceScope . Builds the standard Before / Deny / Escalate / invoke / After flow once so HTTP, MCP, and any future transport stay symmetric — the only thing each transport supplies is the GovernanceCall shape and the inner invocation. With no hook active the wrap is a pass-through.
+  // Shared invocation wrapper used by every transport that gates a call through GovernanceScope. Builds the standard Before / Deny / Escalate / invoke / After flow once so HTTP, MCP, and any future transport stay symmetric — the only thing each transport supplies is the GovernanceCall shape and the inner invocation. With no hook active the wrap is a pass-through.
   static class GovernanceInvoker
     static Task<T> RunAsync<T>(GovernanceCall call, Func<Task<T>> invoke, CancellationToken ct = default)
-  // What the hook decided. The host must honour Action : Allow → invoke the operationDeny → throw GovernanceDeniedException Escalate → suspend / route to Target Obfuscate → apply the named transformDelay → wait the named duration then proceed DecisionId is the audit identifier the host can attach to any subsequent telemetry tied to this operation.
+  // What the hook decided. The host must honour GovernanceOutcome.Action: • Allow → invoke the operation • Deny → throw GovernanceDeniedException • Escalate → suspend / route to GovernanceOutcome.Target • Obfuscate → apply the named transform • Delay → wait the named duration then proceed GovernanceOutcome.DecisionId is the audit identifier the host can attach to any subsequent telemetry tied to this operation.
   sealed class GovernanceOutcome : IEquatable<GovernanceOutcome>
     ctor(GovernanceAction Action, string DecisionId, string RuleId, string PolicyId, string Reason, string? Target = null)
     GovernanceAction Action { get; init; }
@@ -61,14 +61,14 @@ namespace Ikon.AI
     string Reason { get; init; }
     string RuleId { get; init; }
     string? Target { get; init; }
-  // AsyncLocal scope carrying the active IGovernanceHook for the duration of an AI-touched operation. Host code wraps work in using var _ = GovernanceScope.Use(hook);; downstream Ikon AI primitives read Current and apply the hook if present. The scope crosses await boundaries naturally; it does NOT cross Task.Run or manually-started threads. Capture the hook into a local before any fork if you need to.
+  // AsyncLocal scope carrying the active IGovernanceHook for the duration of an AI-touched operation. Host code wraps work in using var _ = GovernanceScope.Use(hook);; downstream Ikon AI primitives read GovernanceScope.Current and apply the hook if present. The scope crosses await boundaries naturally; it does NOT cross Task.Run or manually-started threads. Capture the hook into a local before any fork if you need to.
   static class GovernanceScope
     static IGovernanceHook? Current { get; }
     static IDisposable Use(IGovernanceHook hook)
-  // Single hook surface called by every AI-touched primitive in the Ikon platform — LLM calls (Emerge.Run<T>), agent tool dispatch (Ikon.Agent), data ingest steps — before they act. One contract, three surfaces. Host code activates a hook by entering a GovernanceScope ; downstream primitives read Current and consult the hook if it is set. The default — no scope active — is a no-op pass-through and the AI primitives behave exactly as they do without governance.
+  // Single hook surface called by every AI-touched primitive in the Ikon platform — LLM calls (Emerge.Run<T>), agent tool dispatch (Ikon.Agent), data ingest steps — before they act. One contract, three surfaces. Host code activates a hook by entering a GovernanceScope; downstream primitives read GovernanceScope.Current and consult the hook if it is set. The default — no scope active — is a no-op pass-through and the AI primitives behave exactly as they do without governance.
   interface IGovernanceHook
-    abstract Task AfterAsync(GovernanceCall call, GovernanceCallResult result, CancellationToken ct)
-    abstract Task<GovernanceOutcome> BeforeAsync(GovernanceCall call, CancellationToken ct)
+    Task AfterAsync(GovernanceCall call, GovernanceCallResult result, CancellationToken ct)
+    Task<GovernanceOutcome> BeforeAsync(GovernanceCall call, CancellationToken ct)
   // Connecting to the Ikon server timed out or failed. TRANSIENT by nature — a network blip, a server restart, a flaky link — so it is retryable: the RPC layer retries with a forced reconnect, and one that exhausts those attempts still lands as retryable so Emerge's bounded retry (and a host's re-drive) get their shot. A single 15s blip killing a 40-minute codegen run (observed repeatedly on a flaky uplink) is exactly what this classification prevents.
   sealed class IkonServerConnectException : RetryableAIException
     ctor(string message)
@@ -136,7 +136,7 @@ namespace Ikon.AI.Kernel
     ctor(byte[] data, string mimeType)
     byte[] Data { get; }
     string MimeType { get; }
-  // A citation reference detected in the generated text. The refer indices bound the text span that refers to the citation; PositionIndex is the character index of the citation marker itself.
+  // A citation reference detected in the generated text. The refer indices bound the text span that refers to the citation; Citation.PositionIndex is the character index of the citation marker itself.
   sealed class LLMEvent.Citation : LLMEvent, IEquatable<LLMEvent.Citation>
     ctor(string OriginalId, string MappedId, int ReferStartIndex, int ReferEndIndex, int PositionIndex)
     string MappedId { get; init; }
@@ -169,7 +169,7 @@ namespace Ikon.AI.Kernel
     string ParametersJson { get; }
     string ReasoningContent { get; }
     string ThoughtSignature { get; }
-  // Function/tool result carrying media alongside text. Providers that support media inside tool results (Anthropic tool_result image blocks) inline the media so the model actually SEES it; every other consumer degrades to ToString , which summarizes the media without dumping bytes.
+  // Function/tool result carrying media alongside text. Providers that support media inside tool results (Anthropic tool_result image blocks) inline the media so the model actually SEES it; every other consumer degrades to FunctionMediaResult.ToString, which summarizes the media without dumping bytes.
   sealed class FunctionMediaResult
     ctor(string text, params BinaryDataContainer[] media)
     IReadOnlyList<BinaryDataContainer> Media { get; }
@@ -210,7 +210,7 @@ namespace Ikon.AI.Kernel
     string AudioOutputVoiceId { get; init; }
     // When set, providers that support server-side context editing (Anthropic context-management beta) clear OLD tool results once the request's input exceeds this many tokens — after prompt-cache lookup, so cached prefixes survive. The single biggest context sink in long tool-using loops is superseded tool results being re-sent every round; server-side clearing removes them without the cache-busting a client-side history rewrite causes. Null = off. Providers without support ignore it.
     int? ClearToolResultsAfterInputTokens { get; init; }
-    // Tool names whose results are NEVER cleared by ClearToolResultsAfterInputTokens (semantic anchors like verdicts).
+    // Tool names whose results are NEVER cleared by KernelContext.ClearToolResultsAfterInputTokens (semantic anchors like verdicts).
     IReadOnlyList<string>? ClearToolResultsExcludedTools { get; init; }
     bool DisableFunctionCalling { get; init; }
     bool DiscardTextOutputWithFunctionCalls { get; init; }
@@ -240,7 +240,7 @@ namespace Ikon.AI.Kernel
     IAsyncEnumerable<LLMEvent> GenerateAsync(ILLM llm, CancellationToken cancellationToken = default)
     KernelContext KeepMessagesMax(int count)
     KernelContext WithFunctions(IEnumerable<Function>? functions, bool replaceExisting = false)
-  // One event in the typed stream produced by GenerateAsync and its combinators. Consume the stream by switching on the concrete case: TextDelta for incremental text, ToolCallRequested when the model asks for a tool, ToolResult for a tool's output, Usage and Finished for end-of-generation accounting, and so on. Events not relevant to a consumer should be passed through unchanged so downstream consumers still see them.
+  // One event in the typed stream produced by ILLM.GenerateAsync and its combinators. Consume the stream by switching on the concrete case: TextDelta for incremental text, ToolCallRequested when the model asks for a tool, ToolResult for a tool's output, Usage and Finished for end-of-generation accounting, and so on. Events not relevant to a consumer should be passed through unchanged so downstream consumers still see them.
   abstract class LLMEvent : IEquatable<LLMEvent>
     // Name of the pipeline stage that produced this event (e.g. "generate", "generate.reasoning", "Shader.Output.AfterPass"). Combinators re-tag events they transform so the origin of each event stays visible.
     string Source { get; init; }
@@ -298,7 +298,7 @@ namespace Ikon.AI.Kernel
   enum SchemaDialect
     JsonSchema202012
     OpenApi30
-  // A parsed XML-style tag extracted from the text stream by WithParsedTagsAsync .
+  // A parsed XML-style tag extracted from the text stream by AsyncEnumerableExtensions.WithParsedTagsAsync.
   sealed class LLMEvent.Tag : LLMEvent, IEquatable<LLMEvent.Tag>
     ctor(string Name, string Content, IReadOnlyDictionary<string, string>? Attributes)
     IReadOnlyDictionary<string, string>? Attributes { get; init; }
@@ -320,14 +320,14 @@ namespace Ikon.AI.Kernel
   sealed class LLMEvent.ToolPlan : LLMEvent, IEquatable<LLMEvent.ToolPlan>
     ctor(string Text)
     string Text { get; init; }
-  // The output of an executed tool. Value holds the tool's return value; ValueType records its runtime type so the value can be rehydrated to the original type after a JSON round-trip (e.g. over RPC).
+  // The output of an executed tool. ToolResult.Value holds the tool's return value; ToolResult.ValueType records its runtime type so the value can be rehydrated to the original type after a JSON round-trip (e.g. over RPC).
   sealed class LLMEvent.ToolResult : LLMEvent, IEquatable<LLMEvent.ToolResult>
     ctor(string functionName, object? value)
     ctor(string functionName, object? value, string? valueType)
     string FunctionName { get; }
     object? Value { get; }
     string? ValueType { get; }
-  // Token accounting for one generation. CachedInputTokens is the subset of InputTokens served from the provider's prompt cache (Anthropic cache_read_input_tokens, OpenAI cached_tokens, Bedrock CacheReadInputTokens).
+  // Token accounting for one generation. Usage.CachedInputTokens is the subset of Usage.InputTokens served from the provider's prompt cache (Anthropic cache_read_input_tokens, OpenAI cached_tokens, Bedrock CacheReadInputTokens).
   sealed class LLMEvent.Usage : LLMEvent, IEquatable<LLMEvent.Usage>
     ctor(int InputTokens, int CachedInputTokens, int CacheCreationInputTokens, int OutputTokens)
     int CacheCreationInputTokens { get; init; }
@@ -368,7 +368,7 @@ namespace Ikon.AI.LLM
     // Projects the function's parameter list into its provider JSON schema: an object schema with type/properties/required, including parameter descriptions and allowed-value enums.
     static string ToJson(Function function)
   interface ILLM : IDisposable, ILLMInfo
-    abstract IAsyncEnumerable<LLMEvent> GenerateAsync(KernelContext context, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<LLMEvent> GenerateAsync(KernelContext context, CancellationToken cancellationToken = default)
   interface ILLMInfo
     int ContextWindowSize { get; }
     string InlineReasoningTagName { get; }
@@ -382,6 +382,7 @@ namespace Ikon.AI.LLM
     bool SupportsOutputAudio { get; }
     bool SupportsParallelToolCalling { get; }
     bool SupportsReasoning { get; }
+    bool SupportsSingleToolCalling { get; }
     bool SupportsStreaming { get; }
     bool SupportsZeroDataRetention { get; }
     bool UsesInlineReasoning { get; }
@@ -415,7 +416,7 @@ namespace Ikon.AI.LLM
     string InlineReasoningTagName { get; init; }
     SchemaDialect SchemaDialect { get; init; }
     bool SupportsGbnfGrammar { get; init; }
-    // True when the provider binding can inline images INSIDE tool results (Anthropic tool_result image blocks). Distinct from SupportsInputImages : a vision model whose tool results are JSON-only (e.g. Gemini functionResponse) sees images in messages but not in tool results.
+    // True when the provider binding can inline images INSIDE tool results (Anthropic tool_result image blocks). Distinct from LLMCapabilities.SupportsInputImages: a vision model whose tool results are JSON-only (e.g. Gemini functionResponse) sees images in messages but not in tool results.
     bool SupportsImagesInToolResults { get; init; }
     bool SupportsInputAudio { get; init; }
     bool SupportsInputImages { get; init; }
@@ -425,6 +426,7 @@ namespace Ikon.AI.LLM
     bool SupportsOutputAudio { get; init; }
     bool SupportsParallelToolCalling { get; init; }
     bool SupportsReasoning { get; init; }
+    bool SupportsSingleToolCalling { get; init; }
     bool SupportsStreaming { get; init; }
     bool SupportsZeroDataRetention { get; init; }
     bool UsesInlineReasoning { get; init; }

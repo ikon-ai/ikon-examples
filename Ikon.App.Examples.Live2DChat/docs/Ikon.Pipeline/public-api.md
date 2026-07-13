@@ -9,7 +9,7 @@ namespace Ikon.Pipeline
     ctor(Pipeline<T> outer, ISourceBlock<T> sourceBlock, IDataflowBlock dataflowBlock)
     // Filters items in the branch using an asynchronous predicate.
     Pipeline<T>.Branch<T> Filter(Func<T, Task<bool>> predicate, int? maxParallelism = null)
-    // Filters the branch to items that can be treated as TObject .
+    // Filters the branch to items that can be treated as TObject.
     Pipeline<T>.Branch<T> Filter<TObject>(int? maxParallelism = null)
     // Executes an asynchronous action for every item in the branch. Note: this ends the branch. Prefer using any of the Transform methods for further processing.
     void ForEach(Func<T, Task> func, int? maxParallelism = null)
@@ -26,23 +26,23 @@ namespace Ikon.Pipeline
     Pipeline<T>.Branch<T> Transform(Expression<Func<T, Task<List<T>>>> transformExpr, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
     // Batches items and processes each batch with an asynchronous function. Note: The expression will be analyzed and all variable values will be used to calculate the processor ID (which will invalidate caches if changed).
     Pipeline<T>.Branch<T> TransformBatch(Expression<Func<List<T>, Task<List<T>>>> transformExpr, string? id = null, int? maxParallelism = null, int? maxRetries = null, int? maxBatchSize = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
-    // Collects items into batches and transforms each batch with an asynchronous function. Note: Please prefer using the TransformBatch method that takes in an expression for better cache and remote call handling.
+    // Collects items into batches and transforms each batch with an asynchronous function. Note: Please prefer using the Branch.TransformBatch method that takes in an expression for better cache and remote call handling.
     Pipeline<T>.Branch<T> TransformBatchLambda(Func<List<T>, Task<List<T>>> transformFunc, string? id = null, int? maxParallelism = null, int? maxRetries = null, int? maxBatchSize = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
     // Groups items by a key and processes each group with an asynchronous function. Note: The expression will be analyzed and all variable values will be used to calculate the processor ID (which will invalidate caches if changed).
     Pipeline<T>.Branch<T> TransformGroup(Expression<Func<T, Task<string>>> groupKeySelectorExpr, Expression<Func<List<T>, Task<List<T>>>> transformExpr, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
-    // Groups items by a key and processes each group with an asynchronous function. Note: Please prefer using the TransformGroup method that takes in an expression for better cache and remote call handling.
+    // Groups items by a key and processes each group with an asynchronous function. Note: Please prefer using the Branch.TransformGroup method that takes in an expression for better cache and remote call handling.
     Pipeline<T>.Branch<T> TransformGroupLambda(Func<T, Task<string>> groupKeyFunc, Func<List<T>, Task<List<T>>> transformFunc, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
-    // Applies an asynchronous transformation to each item. The function can return zero or more output items per input item. Note: Please prefer using the Transform method that takes in an expression for better cache and remote call handling.
+    // Applies an asynchronous transformation to each item. The function can return zero or more output items per input item. Note: Please prefer using the Branch.Transform method that takes in an expression for better cache and remote call handling.
     Pipeline<T>.Branch<T> TransformLambda(Func<T, Task<List<T>>> transformFunc, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
     // Transforms each item into an asynchronous stream of items. Note: The expression will be analyzed and all variable values will be used to calculate the processor ID (which will invalidate caches if changed).
     Pipeline<T>.Branch<T> TransformStream(Expression<Func<T, IAsyncEnumerable<T>>> transformExpr, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
     // Applies a stream-to-stream transformation. Note: The expression will be analyzed and all variable values will be used to calculate the processor ID (which will invalidate caches if changed).
     Pipeline<T>.Branch<T> TransformStream(Expression<Func<IAsyncEnumerable<T>, IAsyncEnumerable<T>>> transformExpr, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
-    // Transforms each item into an asynchronous stream of items. Note: Please prefer using the TransformStream method that takes in an expression for better cache and remote call handling.
+    // Transforms each item into an asynchronous stream of items. Note: Please prefer using the Branch.TransformStream method that takes in an expression for better cache and remote call handling.
     Pipeline<T>.Branch<T> TransformStreamLambda(Func<T, IAsyncEnumerable<T>> transformFunc, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
-    // Applies a stream-to-stream asynchronous transformation. Note: Please prefer using the TransformStream method that takes in an expression for better cache and remote call handling.
+    // Applies a stream-to-stream asynchronous transformation. Note: Please prefer using the Branch.TransformStream method that takes in an expression for better cache and remote call handling.
     Pipeline<T>.Branch<T> TransformStreamLambda(Func<IAsyncEnumerable<T>, IAsyncEnumerable<T>> transformFunc, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
-  // Configuration settings for the PipelineRunner .
+  // Configuration settings for the PipelineRunner.
   sealed class PipelineRunner.Config
     ctor()
     // Whether to request all API keys from the backend (admin only).
@@ -111,7 +111,7 @@ namespace Ikon.Pipeline
     bool RecursiveInput { get; set; }
     // Optional whitelist restricting which processors a remote client may execute.
     List<string>? RemoteClientProcessorWhiteList { get; set; }
-    // Interval, in seconds, between input scans when KeepRunning is enabled.
+    // Interval, in seconds, between input scans when Config.KeepRunning is enabled.
     int ScanInterval { get; set; }
     // State storage implementation used by the pipeline.
     StateType StateType { get; set; }
@@ -123,7 +123,7 @@ namespace Ikon.Pipeline
     object? UserConfigInstance { get; set; }
     // Optional user-provided pipeline instance that overrides automatic construction.
     object? UserPipelineInstance { get; set; }
-  // Empty configuration sentinel for pipelines that need a host (for Secrets , OrganisationId , SpaceId ) but no user-defined configuration.
+  // Empty configuration sentinel for pipelines that need a host (for IPipelineHost<TConfig>.Secrets, IPipelineHost<TConfig>.OrganisationId, IPipelineHost<TConfig>.SpaceId) but no user-defined configuration.
   sealed class EmptyPipelineConfig
     ctor()
   // Attribute for exposing a pre-existing pipeline from a framework assembly. Can be placed on the [App] decorated class or on empty marker classes.
@@ -202,11 +202,11 @@ namespace Ikon.Pipeline
     string GetContentAsString()
   // Helper class to run pipelines with various configurations.
   sealed class PipelineRunner : IDisposable
-    // Creates a new instance of PipelineRunner . Only one runner should exist in a given async context.
+    // Creates a new instance of PipelineRunner. Only one runner should exist in a given async context.
     ctor()
     // Releases resources associated with the runner.
     void Dispose()
-    // Initializes the runner with the given configuration. Note: Use the Initialize method for a simplified initialization.
+    // Initializes the runner with the given configuration. Note: Use the PipelineRunner.Initialize<TPipeline> method for a simplified initialization.
     Task Initialize(PipelineRunner.Config config)
     // Convenience method that initializes the runner using sensible defaults.
     Task Initialize<TPipeline>(TPipeline? userPipelineInstance = default, object? userConfigInstance = null, bool usePersistentCache = false, string? cachePath = null, bool keepRunning = false, string? outputPath = null, bool allApiKeys = false) where TPipeline : class
@@ -237,7 +237,7 @@ namespace Ikon.Pipeline
     ctor()
     // Number of items detected as duplicates.
     int DuplicateItemCount { get; set; }
-    // Time elapsed since StartTime .
+    // Time elapsed since PipelineStatus.StartTime.
     TimeSpan Duration { get; set; }
     // Count of error-level log entries emitted during the run.
     int ErrorLogCount { get; set; }
@@ -361,9 +361,9 @@ namespace Ikon.Pipeline.Items
   // Minimal interface for items processed by the pipeline.
   interface IItem<T>
     // Determines whether the underlying content can be treated as the specified object type.
-    abstract Task<bool> IsObjectAsync<TObject>()
+    Task<bool> IsObjectAsync<TObject>()
     // Returns a copy of the item with the supplied process identifier.
-    abstract T WithProcessId(Guid processId)
+    T WithProcessId(Guid processId)
   // Represents an item processed by the pipeline. Items consist of their name, MIME type, and content. Items themselves do not store the content but carry a hash that points to the content in the content cache. Items are lightweight pointers to content stored in the content cache. They are immutable by design to avoid accidental modifications. If item properties need to be modified, use the With method to create a new item with the desired changes. When an item is created with content, its hash is automatically computed based on the content, MIME type, parent item hashes, and tags. If no MIME type is provided, it will be detected automatically. The content is then stored in the content cache. Item names do not need to contain any extension; the MIME type is used to determine the content type and the file extension when outputting.
   struct Item : IItem<Item>
     // Do not use. Always use the static Create or CreateInitial methods to create new items.
@@ -388,45 +388,45 @@ namespace Ikon.Pipeline.Items
     Guid ProcessId { get; init; }
     // Optional user-defined tags associated with the item. Tags can be used filtering or grouping items.
     IReadOnlyList<string>? Tags { get; init; }
-    // Creates a new Item inside the pipeline based on parent items. This should be used by processors during pipeline execution. To supply initial inputs before running the pipeline, use CreateInitial instead.
+    // Creates a new Item inside the pipeline based on parent items. This should be used by processors during pipeline execution. To supply initial inputs before running the pipeline, use Item.CreateInitial instead.
     static Task<Item> Create(List<Item> parents, string name, Stream content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
-    // Overload of Create for a single parent item. Use Create within the pipeline and CreateInitial for items created before Run.
+    // Overload of Create for a single parent item. Use Create within the pipeline and Item.CreateInitial for items created before Run.
     static Task<Item> Create(Item parent, string name, Stream content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
-    // Overload of Create that accepts string content. Use CreateInitial before running the pipeline and Create from processors.
+    // Overload of Create that accepts string content. Use Item.CreateInitial before running the pipeline and Create from processors.
     static Task<Item> Create(List<Item> parents, string name, string content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
-    // Overload of Create that accepts string content. Use CreateInitial before the pipeline runs and Create for in-pipeline items.
+    // Overload of Create that accepts string content. Use Item.CreateInitial before the pipeline runs and Create for in-pipeline items.
     static Task<Item> Create(Item parent, string name, string content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
-    // Overload of Create that accepts binary content. Use CreateInitial for pre-run items and this method within the pipeline.
+    // Overload of Create that accepts binary content. Use Item.CreateInitial for pre-run items and this method within the pipeline.
     static Task<Item> Create(List<Item> parents, string name, byte[] content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
-    // Overload of Create that accepts binary content. Use CreateInitial to create initial input items before the pipeline runs.
+    // Overload of Create that accepts binary content. Use Item.CreateInitial to create initial input items before the pipeline runs.
     static Task<Item> Create(Item parent, string name, byte[] content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
-    // Overload of Create that reads content from a LocalFile . Use this when a tool requires a local path. For creating inputs before the pipeline runs, call CreateInitial .
+    // Overload of Create that reads content from a LocalFile. Use this when a tool requires a local path. For creating inputs before the pipeline runs, call Item.CreateInitial.
     static Task<Item> Create(List<Item> parents, string name, LocalFile content, List<string>? tags = null, ItemMetadata? metadata = null)
-    // Overload of Create that reads content from a LocalFile . Use when a tool needs a path on disk. For pre-run items use CreateInitial .
+    // Overload of Create that reads content from a LocalFile. Use when a tool needs a path on disk. For pre-run items use Item.CreateInitial.
     static Task<Item> Create(Item parent, string name, LocalFile content, List<string>? tags = null, ItemMetadata? metadata = null)
-    // Serializes an object as JSON and creates a new item within the pipeline. Use this from processors. To generate initial items before running the pipeline, call CreateInitialFromObject .
+    // Serializes an object as JSON and creates a new item within the pipeline. Use this from processors. To generate initial items before running the pipeline, call Item.CreateInitialFromObject<T>.
     static Task<Item> CreateFromObject<T>(List<Item> parents, string name, T content, List<string>? tags = null, ItemMetadata? metadata = null, JsonSerializerOptions? jsonSerializerOptions = null)
-    // Overload of CreateFromObject for a single parent item. Use CreateInitialFromObject before running the pipeline and this overload inside the pipeline.
+    // Overload of Item.CreateFromObject<T> for a single parent item. Use Item.CreateInitialFromObject<T> before running the pipeline and this overload inside the pipeline.
     static Task<Item> CreateFromObject<T>(Item parent, string name, T content, List<string>? tags = null, ItemMetadata? metadata = null, JsonSerializerOptions? jsonSerializerOptions = null)
-    // Creates an initial Item before the pipeline is started. Use this to generate input items outside of the pipeline after it has been initialized but before Run is called. Inside the pipeline, use Create instead of CreateInitial.
+    // Creates an initial Item before the pipeline is started. Use this to generate input items outside of the pipeline after it has been initialized but before Run is called. Inside the pipeline, use Item.Create instead of CreateInitial.
     static Task<Item> CreateInitial(string name, Stream content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
-    // Convenience overload of CreateInitial that accepts the content as a string. Call Create inside the pipeline; use CreateInitial only before Run.
+    // Convenience overload of CreateInitial that accepts the content as a string. Call Item.Create inside the pipeline; use CreateInitial only before Run.
     static Task<Item> CreateInitial(string name, string content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
-    // Convenience overload of CreateInitial that accepts the content as a byte array. Call Create inside the pipeline; use CreateInitial beforehand.
+    // Convenience overload of CreateInitial that accepts the content as a byte array. Call Item.Create inside the pipeline; use CreateInitial beforehand.
     static Task<Item> CreateInitial(string name, byte[] content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
-    // Serializes an object as JSON and creates an initial item from it. Use this before the pipeline runs; processors should call CreateFromObject during pipeline execution instead.
+    // Serializes an object as JSON and creates an initial item from it. Use this before the pipeline runs; processors should call Item.CreateFromObject<T> during pipeline execution instead.
     static Task<Item> CreateInitialFromObject<T>(string name, T content, ItemMetadata? metadata = null, List<string>? tags = null, JsonSerializerOptions? jsonSerializerOptions = null)
     // Retrieves the item's content as a byte array.
     Task<byte[]> GetContentAsBytes()
     // Deserializes the item's JSON content into an object.
     Task<TObject> GetContentAsObject<TObject>()
-    // Retrieves the item's content as a Stream .
+    // Retrieves the item's content as a Stream.
     Task<Stream> GetContentAsStream()
     // Retrieves the item's content as a UTF-8 string.
     Task<string> GetContentAsString()
     string GetGroupId()
     Task<string> GetGroupIdAsync()
-    // Materializes the item's content as a temporary LocalFile . A LocalFile allows easily proxying the item through any tool that expects a path to an on-disk file.
+    // Materializes the item's content as a temporary LocalFile. A LocalFile allows easily proxying the item through any tool that expects a path to an on-disk file.
     Task<LocalFile> GetLocalFile()
     string GetOriginalName()
     Task<string> GetOriginalNameAsync()
@@ -472,7 +472,7 @@ namespace Ikon.Pipeline.Items
     Item With(string? name = null, string? mimeType = null, Guid? processId = null, string? groupId = null, List<string>? tags = null, ItemMetadata? metadata = null)
     // Creates a copy of this item with the specified process identifier.
     Item WithProcessId(Guid processId)
-    static string ObjectMimeTypePrefix
+    const string ObjectMimeTypePrefix
   // Extension methods for Item collections.
   static class ItemExtensions
     // Returns the first item matching the predicate, or null if none found. Use this instead of FirstOrDefault when you need null-checking semantics for Item structs.
@@ -520,21 +520,21 @@ namespace Ikon.Pipeline.Remote.Bus
   // Abstraction for transporting remote pipeline processor calls between hosts and clients.
   interface IRemoteCallBus
     // Sends a function call from a client to the host and awaits the response.
-    abstract Task<RemoteCallResult> Client_CallHostFunction(RemoteCallMessage message, CancellationToken cancellationToken = default)
+    Task<RemoteCallResult> Client_CallHostFunction(RemoteCallMessage message, CancellationToken cancellationToken = default)
     // Streams host function call results back to clients.
     virtual IAsyncEnumerable<RemoteCallResult> Client_GetFunctionCallResults(CancellationToken cancellationToken = default)
     // Retrieves processor calls that the host has dispatched to clients.
-    abstract IAsyncEnumerable<RemoteCallMessage> Client_GetProcessorCalls(CancellationToken cancellationToken = default)
+    IAsyncEnumerable<RemoteCallMessage> Client_GetProcessorCalls(CancellationToken cancellationToken = default)
     // Sends the outcome of a host-executed processor back to a client.
-    abstract Task Client_HostProcessorCallResult(RemoteCallResult result)
+    Task Client_HostProcessorCallResult(RemoteCallResult result)
     // Sends a processor invocation from the host to clients.
-    abstract Task Host_CallProcessor(RemoteCallMessage message)
+    Task Host_CallProcessor(RemoteCallMessage message)
     // Sends the outcome of a client-executed processor back to the host.
     virtual Task Host_ClientFunctionCallResult(RemoteCallResult result)
     // Retrieves remote function calls destined for the host.
     virtual IAsyncEnumerable<RemoteCallMessage> Host_GetFunctionCalls(CancellationToken cancellationToken = default)
     // Streams processor results generated by clients back to the host.
-    abstract IAsyncEnumerable<RemoteCallResult> Host_GetProcessorCallResults(CancellationToken cancellationToken = default)
+    IAsyncEnumerable<RemoteCallResult> Host_GetProcessorCallResults(CancellationToken cancellationToken = default)
   // RabbitMQ-backed implementation of IRemoteCallBus supporting host and client roles.
   sealed class RabbitMQRemoteCallBus : IDisposable, IRemoteCallBus
     Task<RemoteCallResult> Client_CallHostFunction(RemoteCallMessage message, CancellationToken cancellationToken = default)

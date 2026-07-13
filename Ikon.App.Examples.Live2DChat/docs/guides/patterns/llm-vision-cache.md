@@ -38,7 +38,7 @@ public class VisualCache(IAppBase app)
             pass.Command = $"Return JSON: {pass.JsonSchema}";
             pass.Temperature = 0.2;
             pass.MaxOutputTokens = 500;
-        }).ResultAsync();
+        });
 
         await WriteAsync(id, result);
         _inflight.TryRemove(id, out _);

@@ -10,6 +10,8 @@ Booking flows (trains, planes, theaters, restaurants), conference room pickers, 
 ## Snippet
 
 ```csharp
+using System.Globalization;
+
 public enum SeatState { Available, Selected, Shared, Occupied }
 
 private void RenderWagonGrid(UIView view, Service service, Wagon wagon, DateOnly date, int fromOrder, int toOrder)

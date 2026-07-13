@@ -60,8 +60,7 @@ public Task Main()
 
             var transcript = string.Join("\n", _turns.Select(t => $"{t.Role}: {t.Text}"));
             var replyRaw = await Emerge.Run<string>(LLMModel.Claude45Haiku,
-                pass => { pass.Command = $"Conversation:\n{transcript}\n\nReply briefly as the tutor."; })
-                .ResultAsync();
+                pass => { pass.Command = $"Conversation:\n{transcript}\n\nReply briefly as the tutor."; });
             var reply = string.IsNullOrEmpty(replyRaw) ? "(no reply)" : replyRaw;
             _turns.Add(new VoiceTurn("Tutor", reply));
 
@@ -92,7 +91,7 @@ public Task Main()
 
             view.CaptureButton(
                 style: [Button.Default, "transition-colors duration-150 hover:opacity-90"],
-                mode: MediaCaptureButtonMode.Hold,
+                captureMode: MediaCaptureButtonMode.Hold,
                 disabled: _processing.Value,
                 content: c => c.Text(text: _processing.Value ? "Thinking…" : "Hold to talk"));
         });
@@ -105,7 +104,7 @@ public Task Main()
 
 - `Audio` is a field on the App class: `private Audio Audio { get; } = new(app);`. Subscribe events through it — there is no `app.AudioInputStreamBeginAsync` shortcut; that produces CS1061.
 - The audio input streams as frames. Buffer samples per `StreamId` in a Dictionary; flush at `AudioInputStreamEndAsync`. `args.AudioStream` does NOT exist on the args; you reconstruct the buffer yourself.
-- `view.CaptureButton(mode: MediaCaptureButtonMode.Hold, ...)` is the platform's push-to-talk primitive — no separate Start/Stop wiring needed. (`Toggle` mode is the alternative for tap-to-start tap-to-stop.)
+- `view.CaptureButton(captureMode: MediaCaptureButtonMode.Hold, ...)` is the platform's push-to-talk primitive — no separate Start/Stop wiring needed. (`Toggle` mode is the alternative for tap-to-start tap-to-stop.)
 - `await Audio.SpeakAsync(text)` runs the whole TTS chain — generation, streaming, playback — and a new call fades out and replaces the previous utterance (barge-in for free). Optional parameters pick the model/voice (`Audio.SpeakAsync(text, SpeechGeneratorModel.Eleven3, voice: "Aria")`) or target specific clients (`targetIds:`).
 - Hand-roll the loop only for custom mixing, no-interrupt overlap, raw sample access, or config beyond text+voice: `using var tts = new SpeechGenerator(model); await foreach (var audio in tts.GenerateSpeechAsync(new SpeechGeneratorConfig { Text = reply })) { Audio.SendSpeech(audio); }`. `AudioChunk` carries PCM samples (`float[] Samples`, `int SampleRate`, `int ChannelCount`) — it does NOT have `.Data` or `.MimeType` properties; do not call `ClientFunctions.PlaySoundAsync(chunk.Data, chunk.MimeType)` (that combination doesn't compile).
 - `ClientFunctions.PlaySoundAsync(byte[] bytes, string mimeType)` is for playing already-encoded sound files (MP3, WAV); use `Audio.SpeakAsync` / `Audio.SendSpeech` for generated speech.

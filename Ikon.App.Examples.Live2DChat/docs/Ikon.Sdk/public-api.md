@@ -104,7 +104,7 @@ namespace Ikon.Sdk
     ctor(Exception error)
     // The error that occurred.
     Exception Error { get; }
-  // Main client for connecting to Ikon servers. Features: - Single connection per client instance - Three authentication modes: Local, ApiKey, Backend - Automatic reconnection with exponential backoff - Audio encoding/decoding helpers - Function registration via FunctionRegistry
+  // Main client for connecting to Ikon servers. Features: - Single connection per client instance - Four authentication modes: ExternalConnectUrl, Local, ApiKey, Backend - Automatic reconnection with exponential backoff - Audio encoding/decoding helpers - Function registration via FunctionRegistry
   sealed class IkonClient : IAsyncDisposable
     // Creates a new IkonClient with the specified configuration. Each IkonClient instance gets its own FunctionRegistry, enabling multiple SDK connections to run independently without conflicts (e.g., when running SDK inside an Ikon app).
     ctor(IkonClientConfig config)
@@ -161,7 +161,7 @@ namespace Ikon.Sdk
     ApiKeyConfig? ApiKey { get; init; }
     // Backend authentication using existing IkonBackend login. Use this for internal Ikon C# applications that have already logged in via CLI.
     BackendConfig? Backend { get; init; }
-    // How this connection identifies to the server. Default Plugin (a backend component — no UI, no per-connection ClientScope). Set to Native (or Browser ) to connect as a first-class PLAYER client — the server then gives it a per-connection ClientScope and streams UI, exactly like the web (TypeScript SDK) client.
+    // How this connection identifies to the server. Default ContextType.Plugin (a backend component — no UI, no per-connection ClientScope). Set to ContextType.Native (or ContextType.Browser) to connect as a first-class PLAYER client — the server then gives it a per-connection ClientScope and streams UI, exactly like the web (TypeScript SDK) client.
     ContextType ContextType { get; init; }
     // Description for this client. Default: "Ikon SDK C#"
     string Description { get; init; }
@@ -207,9 +207,11 @@ namespace Ikon.Sdk
     ctor(ProtocolMessage message)
     // The protocol message.
     ProtocolMessage Message { get; }
-  // Subscribes local callbacks to a server-side Reactive over the existing function-call wire. The current value is fetched on first subscribe and pushed by the server on every change — no polling.
+  // Subscribes local callbacks to a server-side Reactive<T> over the existing function-call wire. The current value is fetched on first subscribe and pushed by the server on every change — no polling.
+  // Remarks:
+  // This is the C# counterpart of the TypeScript SDK's ReactiveRegistry. Routing rides the same FunctionRegistry machinery used for any other RPC: subscribe is an ReactiveSubscriptionService.SubscribeFunctionName call; updates arrive as targeted ReactiveSubscriptionService.UpdateFunctionName calls from the server. No new opcodes. One registry per IkonClient: construct it over client.FunctionRegistry after the connection is established. The ReactiveSubscriptionService.UpdateFunctionName handler is registered once in the constructor and removed by ReactiveRegistry.Detach.
   sealed class ReactiveRegistry
-    // Create a registry over an IkonClient 's function registry. Registers the reactive-update handler immediately; call Detach on teardown.
+    // Create a registry over an IkonClient's function registry. Registers the reactive-update handler immediately; call ReactiveRegistry.Detach on teardown.
     ctor(FunctionRegistry functionRegistry)
     // Drop all subscriptions and unregister the update handler. Intended for client teardown — does not notify the server per key (the server's per-session subscription map is cleaned up when the session disconnects).
     void Detach()
@@ -218,11 +220,17 @@ namespace Ikon.Sdk
   // Timeout configuration for the SDK.
   sealed class TimeoutConfig : IEquatable<TimeoutConfig>
     ctor()
+    // When true, the client keeps retrying with capped exponential backoff after the fast reconnection ladder is exhausted, instead of staying Offline until the next explicit call. Default: true
+    bool BackgroundReconnect { get; init; }
     // Initial delay before the first reconnection attempt. Each subsequent attempt doubles the delay (e.g. 500ms, 1s, 2s, 4s). Default: 500 milliseconds
     TimeSpan InitialReconnectDelay { get; init; }
     // Maximum number of reconnection attempts. Default: 4
     int MaxReconnectAttempts { get; init; }
-  // Version class
+    // Upper bound for the delay between background reconnection attempts. Default: 30 seconds
+    TimeSpan MaxReconnectDelay { get; init; }
+    // Time budget for a single reconnection attempt (per tier). Without it, a reconnect attempt against a half-open connection can hang indefinitely and block the whole recovery ladder. Default: 30 seconds
+    TimeSpan ReconnectAttemptTimeout { get; init; }
+  // Build stamp for this component: the version of the build it was compiled from, exposed as a compile-time constant. Generated on every build from versions.json and git state, so never edit it by hand. Note that this type shadows System.Version in any file that imports this namespace — write System.Version explicitly there when you mean the BCL type.
   static class Version
-    // Version string for the library
-    static string VersionString
+    // The version this build was produced from, as git describe spells it: the release tag, the number of commits since that tag, the short commit hash, and a -dirty suffix when the working tree had uncommitted changes.
+    const string VersionString

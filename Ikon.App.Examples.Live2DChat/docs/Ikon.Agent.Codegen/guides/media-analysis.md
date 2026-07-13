@@ -12,10 +12,10 @@ How to accept user-uploaded video/audio files and analyze them WITHOUT copying t
 
 ### Step 1 — upload directly to asset storage
 
-Return an `AssetUri` string from `onUploadStart` and the platform routes the upload bytes straight into asset storage instead of a local temp file (`view.FileUploadZone` takes the same callbacks for drag-and-drop):
+Return an `AssetUri` from `onUploadStart` and the platform routes the upload bytes straight into asset storage instead of a local temp file (`view.FileUploadZone` takes the same callbacks for drag-and-drop):
 
 ```csharp
-private readonly Reactive<string?> _mediaAssetUri = new(null);
+private readonly Reactive<AssetUri?> _mediaAssetUri = new(null);
 
 view.FileUpload(
     accept: ["video/*", "audio/*"],
@@ -23,21 +23,21 @@ view.FileUpload(
     onUploadStart: async args =>
     {
         var assetUri = new AssetUri(AssetClass.CloudFile, $"uploads/{args.Hash}/{args.FileName}", spaceId: app.GlobalState.SpaceId);
-        return new FileUploadResult { Accepted = true, AssetUri = assetUri.ToString() };
+        return new FileUploadResult { Accepted = true, AssetUri = assetUri };
     },
     onUploadComplete: async args =>
     {
-        if (args.AssetUri is null)
+        if (args.AssetUri is not { } assetUri)
         {
             return;
         }
 
-        _mediaAssetUri.Value = args.AssetUri;
-        await AnalyzeMediaAsync(new AssetUri(args.AssetUri));
+        _mediaAssetUri.Value = assetUri;
+        await AnalyzeMediaAsync(assetUri);
     });
 ```
 
-The callbacks' `AssetUri` is a URI **string** — store it in a `Reactive<string?>` and wrap it with `new AssetUri(str)` for `Asset.Instance.*` calls (see the file-upload pitfall).
+The callbacks hand back the `AssetUri` struct itself (`AssetUri?`), the same type every `Asset.Instance.*` call takes — pattern-match the null away and pass it straight on.
 
 ### Step 2 — get a temp URL and probe with ffprobe
 
@@ -270,16 +270,16 @@ namespace Ikon.Common.Core.Assets
     Skipped
     Success
   interface IHashableStream
-    abstract void SetSha256Hash(string? hash)
+    void SetSha256Hash(string? hash)
   interface IStorage : IAsyncDisposable
-    abstract Task DeleteAsync(AssetUri assetUri)
-    abstract Task<bool> ExistsAsync(AssetUri assetUri)
-    abstract Task<AssetContent<Stream>> GetReadStreamAsync(AssetUri assetUri)
-    abstract Task<Stream> GetWriteStreamAsync(AssetUri assetUri, AssetMetadata? metadata, CancellationToken cancellationToken)
-    abstract Task<IReadOnlyList<AssetListingEntry>> ListAsync(AssetQuery query, CancellationToken cancellationToken)
-    abstract Task StartAsync()
-    abstract Task<AssetMetadata?> TryGetMetadataAsync(AssetUri assetUri)
-    abstract Task WaitUntilQueueEmptyAsync()
+    Task DeleteAsync(AssetUri assetUri)
+    Task<bool> ExistsAsync(AssetUri assetUri)
+    Task<AssetContent<Stream>> GetReadStreamAsync(AssetUri assetUri)
+    Task<Stream> GetWriteStreamAsync(AssetUri assetUri, AssetMetadata? metadata, CancellationToken cancellationToken)
+    Task<IReadOnlyList<AssetListingEntry>> ListAsync(AssetQuery query, CancellationToken cancellationToken)
+    Task StartAsync()
+    Task<AssetMetadata?> TryGetMetadataAsync(AssetUri assetUri)
+    Task WaitUntilQueueEmptyAsync()
     event Func<AssetEventArgs, Task> AssetEventAsync
   static class StorageExtensions
     static Task AddEmbeddedFileStorageAsync(this Asset asset, Assembly? assembly = null, string resourceNamespace = "")

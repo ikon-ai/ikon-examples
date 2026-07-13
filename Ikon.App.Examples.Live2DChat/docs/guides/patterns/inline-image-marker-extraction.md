@@ -10,6 +10,8 @@ Chat agents that mention referenceable records and you want to hang real UI off 
 ## Snippet
 
 ```csharp
+using System.Text.RegularExpressions;
+
 private async Task<List<VehicleImages>?> ExtractVehicleImagesAsync(string message)
 {
     var matches = Regex.Matches(message, @"\[vehicle:([^\]]+)\]");

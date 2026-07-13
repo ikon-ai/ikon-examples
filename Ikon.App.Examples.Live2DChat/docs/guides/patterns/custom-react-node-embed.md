@@ -52,6 +52,7 @@ arenaBox.AddNode(
 - Use `CreateAction<T>(handler)` not raw method references; the platform turns the returned id into a callable from JS.
 - Props become the React component's props verbatim. Reactive state changes re-render with new props but DO NOT remount unless the key changes.
 - The JS side lives under `frontend-node/` and is registered via the SDK's `customNodeResolver` — see `frontend-fundamentals` guide.
+- If you forget the registration, the node renders a red **"Unregistered node type"** placeholder and the console names the four parts it needs (component, resolver, `registerModule` in `app.tsx`, C# extension). It is never a silent blank — but check the browser console the first time you mount a new node type.
 - Send small data through props (state ids, code strings); big binary blobs go through asset URLs.
 
 ## See also
