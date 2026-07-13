@@ -71,7 +71,7 @@ private static List<string> CollectNonEmpty(ReactiveList<string> items) =>
 
 - Invariant: the last row is always blank. Typing into it auto-appends a new blank; clearing the second-to-last collapses any trailing empties.
 - The remove button is omitted on the trailing empty row — replaced with a spacer Box of equal width so the column doesn't jump.
-- `items` is a `ReactiveList<string>` — each edit is one `items.Update(list => …)` so the whole transform (set value, collapse trailing empties, ensure last blank) lands as a single notification; mutating `.Value` in place does not compile and there is no `NotifyUpdate`.
+- `items` is a `ReactiveList<string>` — each edit is one `items.Update(list => …)` so the whole transform (set value, collapse trailing empties, ensure last blank) lands as a single notification; mutating `.Value` in place does not compile. Every mutator (`Add`, `Remove`, `RemoveAll`, indexer-set, `Update`) fires its own notification, so there is nothing extra to call here — `NotifyUpdate()` exists, but you only reach for it when you mutate an item POCO in place (see `file-upload-with-progress`); the items here are strings.
 - Pair with `CollectNonEmpty` at submit time to drop the trailing empty + any other gaps.
 
 ## See also

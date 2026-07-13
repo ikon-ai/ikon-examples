@@ -43,7 +43,7 @@ private void RenderCommandPalette(UIView view)
     view.Dialog(
         open: _paletteOpen.Value,
         modal: true,
-        onOpenChange: async open => _paletteOpen.Value = open ?? false,
+        onOpenChange: async open => _paletteOpen.Value = open,
         overlayStyle: ["fixed inset-0 z-[55] bg-black/60 backdrop-blur-sm"],
         contentStyle: ["fixed top-[18%] left-1/2 -translate-x-1/2 z-[56] w-[560px] max-w-[94vw] bg-zinc-950 ring-1 ring-zinc-800 rounded-lg shadow-2xl"],
         contentSlot: dview =>

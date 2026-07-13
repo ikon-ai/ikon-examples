@@ -16,11 +16,11 @@ Refer to generated API docs for full details.
 namespace Ikon.AI.Database
   sealed class BigQueryDbConnection : DbConnection
     ctor(string projectId, string datasetId)
-    string ConnectionString { get; set; }
-    string DataSource { get; }
-    string Database { get; }
-    string ServerVersion { get; }
-    ConnectionState State { get; }
+    override string ConnectionString { get; set; }
+    override string DataSource { get; }
+    override string Database { get; }
+    override string ServerVersion { get; }
+    override ConnectionState State { get; }
     override void ChangeDatabase(string databaseName)
     override void Close()
     override DataTable GetSchema()
@@ -61,10 +61,10 @@ namespace Ikon.AI.Database
     bool? IsForeignKey { get; set; }
     bool? IsPrimaryKey { get; set; }
     List<string>? Values { get; set; }
-  // Creates database connections. Prefer the typed factory methods ( Trino , Postgres , Sqlite , BigQuery ) for app code — host, port, and catalog are not secrets, only the password is. Pass that password from app.Secrets:
+  // Creates database connections. Prefer the typed factory methods (DatabaseConnection.Trino, DatabaseConnection.Postgres, DatabaseConnection.Sqlite, DatabaseConnection.BigQuery) for app code — host, port, and catalog are not secrets, only the password is. Pass that password from app.Secrets:
   // DatabaseConnection.Trino(host: "trino.example.com", port: 443, catalog: "hive",
   //                      user: "ikon", password: app.Secrets["TRINO_PASSWORD"])
-  // CreateAsync remains for shared pipelines that read all of host/port/user/password/etc. from environment variables or space secrets.
+  // DatabaseConnection.CreateAsync remains for shared pipelines that read all of host/port/user/password/etc. from environment variables or space secrets.
   class DatabaseConnection
     ctor()
     string BigQueryDataset { get; set; }
@@ -102,7 +102,7 @@ namespace Ikon.AI.Database
     string Prefix { get; set; }
     string SpaceId { get; set; }
   static class SqlValidator
-    static void ValidateReadOnly(string sql, HashSet<string> allowedTables)
+    static void ValidateReadOnly(string sql, IReadOnlySet<string> allowedTables)
 
 namespace Ikon.AI.Storage
   class KeywordIndex

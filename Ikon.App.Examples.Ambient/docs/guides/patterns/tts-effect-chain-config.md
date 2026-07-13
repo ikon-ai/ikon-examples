@@ -23,8 +23,7 @@ internal class EffectEntry(string effectType, IAudioEffect effect, Dictionary<st
         => plain.ToDictionary(k => k.Key, v => new Reactive<float>(v.Value));
 }
 
-private readonly List<EffectEntry> _ttsEffects = [];
-private readonly Reactive<int> _ttsEffectsCount = new(0);
+private readonly ReactiveList<EffectEntry> _ttsEffects = new();
 
 private static readonly string[] EffectTypes =
     ["Delay", "Reverb", "Chorus", "Tremolo", "BitCrusher", "Saturation", "RobotVoice", "Telephone"];
@@ -32,18 +31,19 @@ private static readonly string[] EffectTypes =
 private void AddTtsEffect(string effectType)
 {
     var defaultParams = GetDefaultParams(effectType);
-    var entry = new EffectEntry(effectType, CreateEffect(effectType, defaultParams), EffectEntry.ToReactiveParams(defaultParams));
-    lock (_ttsEffectsLock) { _ttsEffects.Add(entry); _ttsEffectsCount.Value = _ttsEffects.Count; }
+    _ttsEffects.Add(new EffectEntry(
+        effectType,
+        CreateEffect(effectType, defaultParams),
+        EffectEntry.ToReactiveParams(defaultParams)));
 }
+
+private void RemoveTtsEffect(EffectEntry entry) => _ttsEffects.Remove(entry);
 
 private void UpdateTtsEffectParam(int index, string paramKey, float value)
 {
-    lock (_ttsEffectsLock)
-    {
-        var entry = _ttsEffects[index];
-        entry.Params[paramKey].Value = value;
-        entry.Effect = CreateEffect(entry.EffectType, entry.GetParamValues());
-    }
+    var entry = _ttsEffects[index];
+    entry.Params[paramKey].Value = value;
+    entry.Effect = CreateEffect(entry.EffectType, entry.GetParamValues());
 }
 
 // In the settings panel:
@@ -59,8 +59,7 @@ view.Row(style: ["flex flex-wrap gap-1 mt-2"], content: view =>
 });
 
 // When sending speech:
-List<IAudioEffect> effects;
-lock (_ttsEffectsLock) { effects = _ttsEffects.Select(e => e.Effect).ToList(); }
+var effects = _ttsEffects.Select(e => e.Effect).ToList();
 await foreach (var audio in generator.GenerateSpeechAsync(config))
     Audio.SendSpeech(audio, effects, analyzers);
 ```
@@ -69,7 +68,8 @@ await foreach (var audio in generator.GenerateSpeechAsync(config))
 
 - Defaults per effect type live in a `switch` on `effectType` returning a `Dictionary<string, float>` — keeps "what knobs does Reverb have" data-driven.
 - Rebuild the `IAudioEffect` on every parameter change (cheap) instead of trying to mutate it — most effects are immutable record-style classes.
-- `_ttsEffectsCount` (a `Reactive<int>`) is the trigger for re-rendering the panel; the list itself is plain `List<>` guarded by a lock.
+- `ReactiveList<EffectEntry>` is the chain: `Add`/`Remove` re-render the panel on their own and serialize concurrent mutations internally, so there is no count trigger and no lock to write.
+- Tuning a knob mutates an existing entry in place (`entry.Effect = …`), which the list cannot see — that's fine here because the effect object isn't rendered. Call `_ttsEffects.NotifyUpdate()` if you ever render a field you mutate in place.
 - The same chain pattern works for STT input (microphone monitoring): `state.EffectInstances ??= _sttEffects.Select(e => e.Effect.Create(sampleRate, channelCount)).ToList();`
 
 ## See also

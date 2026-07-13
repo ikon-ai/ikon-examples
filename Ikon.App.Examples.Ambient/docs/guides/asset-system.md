@@ -215,16 +215,16 @@ namespace Ikon.Common.Core.Assets
     Skipped
     Success
   interface IHashableStream
-    abstract void SetSha256Hash(string? hash)
+    void SetSha256Hash(string? hash)
   interface IStorage : IAsyncDisposable
-    abstract Task DeleteAsync(AssetUri assetUri)
-    abstract Task<bool> ExistsAsync(AssetUri assetUri)
-    abstract Task<AssetContent<Stream>> GetReadStreamAsync(AssetUri assetUri)
-    abstract Task<Stream> GetWriteStreamAsync(AssetUri assetUri, AssetMetadata? metadata, CancellationToken cancellationToken)
-    abstract Task<IReadOnlyList<AssetListingEntry>> ListAsync(AssetQuery query, CancellationToken cancellationToken)
-    abstract Task StartAsync()
-    abstract Task<AssetMetadata?> TryGetMetadataAsync(AssetUri assetUri)
-    abstract Task WaitUntilQueueEmptyAsync()
+    Task DeleteAsync(AssetUri assetUri)
+    Task<bool> ExistsAsync(AssetUri assetUri)
+    Task<AssetContent<Stream>> GetReadStreamAsync(AssetUri assetUri)
+    Task<Stream> GetWriteStreamAsync(AssetUri assetUri, AssetMetadata? metadata, CancellationToken cancellationToken)
+    Task<IReadOnlyList<AssetListingEntry>> ListAsync(AssetQuery query, CancellationToken cancellationToken)
+    Task StartAsync()
+    Task<AssetMetadata?> TryGetMetadataAsync(AssetUri assetUri)
+    Task WaitUntilQueueEmptyAsync()
     event Func<AssetEventArgs, Task> AssetEventAsync
   static class StorageExtensions
     static Task AddEmbeddedFileStorageAsync(this Asset asset, Assembly? assembly = null, string resourceNamespace = "")

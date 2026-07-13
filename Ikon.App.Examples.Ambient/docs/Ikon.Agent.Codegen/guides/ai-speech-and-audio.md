@@ -119,9 +119,14 @@ await foreach (var audio in generator.GenerateSoundEffectAsync(new SoundEffectGe
 # Ikon.AI Public API
 namespace Ikon.AI.SoundEffectGeneration
   interface ISoundEffectGenerator : IDisposable, ISoundEffectGeneratorInfo
+    // Channel count of the PCM samples produced by ISoundEffectGenerator.GenerateSoundEffectAsync.
     int ChannelCount { get; }
+    // Sample rate of the PCM samples produced by ISoundEffectGenerator.GenerateSoundEffectAsync.
     int SampleRate { get; }
-    abstract IAsyncEnumerable<AudioChunk> GenerateSoundEffectAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
+    // Streams the generated sound effect as PCM AudioChunk chunks as they are produced. Use ISoundEffectGenerator.GenerateSoundEffectFileAsync for a buffered, encoded audio file instead.
+    IAsyncEnumerable<AudioChunk> GenerateSoundEffectAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
+    // Generates the sound effect and returns it as a single buffered, encoded audio file (WAV).
+    Task<SoundEffectFileResult> GenerateSoundEffectFileAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
   interface ISoundEffectGeneratorInfo
     bool SupportsLooping { get; }
   class NonRetryableSoundEffectGeneratorException : NonRetryableAIException
@@ -129,9 +134,10 @@ namespace Ikon.AI.SoundEffectGeneration
     ctor(string message)
     ctor(string message, Exception inner)
   sealed class SoundEffectFileResult
-    byte[] AudioData { get; init; }
-    string ContentType { get; init; }
-    double DurationSeconds { get; init; }
+    ctor()
+    required byte[] AudioData { get; init; }
+    required string ContentType { get; init; }
+    required double DurationSeconds { get; init; }
   sealed class SoundEffectGenerator : IDisposable, ISoundEffectGenerator, ISoundEffectGeneratorInfo
     ctor(string modelName)
     ctor(SoundEffectGeneratorModel model)
@@ -141,6 +147,8 @@ namespace Ikon.AI.SoundEffectGeneration
     int SampleRate { get; }
     bool SupportsLooping { get; }
     void Dispose()
+    // Generate a sound-effect file from a plain prompt — the instance form of the SoundEffectGenerator.GenerateAsync one-shot, for when you already hold a generator. Reach for SoundEffectGenerator.GenerateSoundEffectFileAsync when the request needs any other SoundEffectGeneratorConfig field.
+    Task<SoundEffectFileResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     // One-shot sound effect generation. The verbose form
     // using var generator = new SoundEffectGenerator(SoundEffectGeneratorModel.ElevenLabsV2);
     // var result = await generator.GenerateSoundEffectFileAsync(new SoundEffectGeneratorConfig { Prompt = prompt });
@@ -182,7 +190,7 @@ namespace Ikon.AI.SpeechGeneration
     int ChannelCount { get; }
     int SampleRate { get; }
     IReadOnlyList<string> VoiceIds { get; }
-    abstract IAsyncEnumerable<AudioChunk> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<AudioChunk> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = default)
   class NonRetryableSpeechGeneratorException : NonRetryableAIException
     ctor()
     ctor(string message)
@@ -196,6 +204,8 @@ namespace Ikon.AI.SpeechGeneration
     int SampleRate { get; }
     IReadOnlyList<string> VoiceIds { get; }
     void Dispose()
+    // Speak a line of text and collect it into one audio chunk — the instance form of the SpeechGenerator.GenerateAsync one-shot, for when you already hold a generator. Reach for SpeechGenerator.GenerateSpeechAsync when you want the chunks as they stream, or any other SpeechGeneratorConfig field.
+    Task<AudioChunk> GenerateAsync(string text, string? voice = null, CancellationToken cancellationToken = default)
     // One-shot text-to-speech. The verbose form
     // using var generator = new SpeechGenerator(SpeechGeneratorModel.ElevenFlash25);
     // await foreach (var chunk in generator.GenerateSpeechAsync(new SpeechGeneratorConfig { Text = text }))
@@ -213,6 +223,7 @@ namespace Ikon.AI.SpeechGeneration
     ctor()
     string Instructions { get; init; }
     string Language { get; init; }
+    // Speaking-rate multiplier as an invariant-culture decimal string — "1.0" is normal speed, "0.75" slower, "1.5" faster. Empty means "leave the model's default". A string rather than a number for wire-compatibility reasons only. Honored per provider: OpenAI passes it through as speed (an unparseable value silently falls back to 1.0 — no error is raised), Google maps it to speakingRate (an unparseable value is silently ignored), ElevenLabs ignores it.
     string Speed { get; init; }
     string Text { get; init; }
     TimeSpan Timeout { get; init; }
@@ -257,11 +268,17 @@ namespace Ikon.AI.SpeechRecognition
     Pronunciation.UnexpectedBreak UnexpectedBreak { get; init; }
   sealed class SpeechRecognizerAdapter.Config
     ctor()
+    // The maximum duration of continuous speech before recognition is forced in SilenceTriggered mode. This prevents indefinite buffering when the speaker doesn't pause. Set to Zero or negative to disable the limit.
     TimeSpan MaxSpeechDuration { get; set; }
+    // The recognition mode that determines how audio is segmented and when recognition is triggered.
     SpeechRecognizerAdapter.Mode Mode { get; set; }
+    // The interval at which speech recognition is triggered in GrowingWindow and SlidingWindow modes. In GrowingWindow mode, recognition runs on all accumulated audio at this interval. In SlidingWindow mode, recognition runs on the audio collected since the last recognition.
     TimeSpan RecognitionInterval { get; set; }
+    // The timeout for individual speech recognition API requests.
     TimeSpan RequestTimeout { get; set; }
+    // The duration of continuous silence required to trigger recognition in SilenceTriggered mode. When the speaker pauses for this duration, the accumulated speech is sent for recognition.
     TimeSpan SilenceDuration { get; set; }
+    // The amplitude threshold below which audio is considered silence. Sample values with absolute amplitude below this threshold are treated as silent.
     float SilenceThreshold { get; set; }
   sealed class Pronunciation.Feedback : IEquatable<Pronunciation.Feedback>
     ctor()
@@ -269,9 +286,9 @@ namespace Ikon.AI.SpeechRecognition
   interface ISpeechRecognizer : IDisposable, ISpeechRecognizerInfo
     int ChannelCount { get; }
     int SampleRate { get; }
-    abstract Task<Pronunciation.Result> AnalyzePronunciationAsync(AnalyzePronunciationConfig config, CancellationToken cancellationToken = default)
-    abstract Task<string> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
-    abstract IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
+    Task<Pronunciation.Result> AnalyzePronunciationAsync(AnalyzePronunciationConfig config, CancellationToken cancellationToken = default)
+    Task<string> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
   interface ISpeechRecognizerInfo
     bool SupportsBatchRecognition { get; }
     bool SupportsContinuousRecognition { get; }
@@ -362,6 +379,8 @@ namespace Ikon.AI.SpeechRecognition
     void Dispose()
     static SpeechRecognizerCapabilities GetCapabilities(SpeechRecognizerModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(SpeechRecognizerModel model)
+    // Transcribe a buffer of samples — the instance form of the SpeechRecognizer.RecognizeAsync one-shot, for when you already hold a recognizer. Reach for SpeechRecognizer.RecognizeBatchSpeechAsync when the request needs any other RecognizeSpeechConfig field (language, prompt, timestamps).
+    Task<string> RecognizeAsync(float[] samples, int sampleRate, int channelCount = 1, CancellationToken cancellationToken = default)
     // One-shot batch transcription. The verbose form
     // using var recognizer = new SpeechRecognizer(SpeechRecognizerModel.WhisperLarge3Turbo);
     // var text = await recognizer.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig

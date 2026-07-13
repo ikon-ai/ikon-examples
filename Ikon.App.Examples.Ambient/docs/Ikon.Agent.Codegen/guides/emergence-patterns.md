@@ -12,11 +12,17 @@ Ikon.AI.Emergence is a streaming-first, C#-idiomatic library for building AI wor
 
 ## Core Concepts
 
-### Streaming-First Design
+### Awaitable and Streaming
 
-All APIs return `IAsyncEnumerable<EmergeEvent<T>>`. Non-streaming usage is achieved via the `.ResultAsync()` extension method — or `.FinalAsync()` when you also need the updated `KernelContext` back.
+Every entry point returns an `EmergeRun<T>` — a handle that is both awaitable and
+enumerable. Await it for the result, or `await foreach` it to watch the run unfold.
+There is no terminal call to remember.
 
 ```csharp
+// Just get the result (never null; throws EmergenceStoppedException
+// if the run stops or completes without one)
+var result = await Emerge.Run<MyType>(model, pass => { ... });
+
 // Streaming - observe progress
 await foreach (var ev in Emerge.Run<MyType>(model, ctx, pass => { ... }))
 {
@@ -28,16 +34,16 @@ await foreach (var ev in Emerge.Run<MyType>(model, ctx, pass => { ... }))
     }
 }
 
-// Non-streaming - just get the result (never null; throws EmergenceStoppedException
-// if the run stops or completes without one)
-var result = await Emerge.Run<MyType>(model, pass => { ... }).ResultAsync();
-
-// Non-streaming - get the (nullable) result plus the updated KernelContext
+// Get the (nullable) result plus the updated KernelContext
 var (result, context) = await Emerge.Run<MyType>(model, ctx, pass => { ... }).FinalAsync();
 
-// Non-streaming - get the result with trace info
+// Get the result with trace info
 var (result, context, trace) = await Emerge.Run<MyType>(model, ctx, pass => { ... }).FinalWithTraceAsync();
 ```
+
+A run is single-shot: pick one shape. Awaiting a run that has already been
+enumerated (or enumerating one that has already been awaited) throws rather
+than calling the model a second time.
 
 ### Event Types
 
@@ -68,7 +74,7 @@ public class AnalysisResult
 var result = await Emerge.Run<AnalysisResult>(model, pass =>
 {
     pass.Command = "Analyze the following text and provide structured output.";
-}).ResultAsync();
+});
 
 // result.Summary, result.KeyPoints, result.Confidence are typed
 ```
@@ -95,7 +101,7 @@ await Emerge.Refine<T>(model, ctx, opt =>
         s.Temperature = 0.2f;  // Override for refinement
         s.Command = "Improve the draft.";
     });
-}).ResultAsync();
+});
 ```
 
 ### Context Behavior
@@ -148,10 +154,10 @@ var result = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, pass =>
     pass.MaxIterations = 5;
     pass.AddTool(Tool.Of("search_web", "Search the web for information",
         (string query) => SearchWeb(query)));
-}).ResultAsync();
+});
 ```
 
-A fresh `KernelContext` is created internally. Pass your own when you seed the call with input (images, prior turns), and use `.FinalAsync()` when you need the updated context back for conversation continuity or want a nullable result instead of a throw:
+A fresh `KernelContext` is created internally. Pass your own when you seed the call with input (images, prior turns), and add `.FinalAsync()` when you need the updated context back for conversation continuity or want a nullable result instead of a throw:
 
 ```csharp
 var (result, ctx) = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, context, pass =>
@@ -192,19 +198,42 @@ var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
         c.Temperature = 0.7 + 0.1 * c.Index;  // Vary temperature per candidate
         c.Seed = 1000 + c.Index;
     });
-}).ResultAsync();
+});
 ```
 
 **Options:**
 - `Count` - Number of candidates (default: 3)
 - `Score` - Scoring function `Func<T, EmergenceTrace, double>`
+- `ScoreDetailed` - Multi-axis scoring `Func<T, EmergenceTrace, ScoreBreakdown>`; ranks by `TotalScore` and passes the breakdown to `BuildCriticFeedback` (takes precedence over `Score`)
 - `Candidate(Action<CandidateScope<T>>)` - Configure each candidate (has `Index`, `Seed`)
-- `EnableCritic` - Enable critic-guided refinement of candidates (default: false)
+- `EnableCritic` - Run a critic pass over the winning candidate (default: false). On its own it works: the winner and its score are appended to the critic scope's `Command`
 - `Critic(Action<EmergeScope<T>>)` - Configure the critic scope
-- `BuildCriticFeedback` - Custom function `Func<T, ScoreBreakdown?, string>` to build critic feedback
+- `BuildCriticFeedback` - Custom function `Func<T, ScoreBreakdown?, string>` to build the critic's prompt. The breakdown is non-null exactly when `ScoreDetailed` produced one
 - `CriticMustImprove` - Require critic to improve on the current best (default: true)
 
+Multi-axis scoring with a critic that is told which axis was weakest:
+
+```csharp
+var rubric = new ScoreBreakdownBuilder<Answer>()
+    .Metric("correctness", 3, a => a.Correctness)
+    .Metric("brevity", 1, a => a.Brevity);
+
+var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
+{
+    opt.Command = "Solve this problem step by step.";
+    opt.ScoreDetailed = (answer, _) => rubric.Score(answer);
+
+    opt.EnableCritic = true;
+    opt.BuildCriticFeedback = (answer, breakdown) =>
+        $"Weakest axis: {breakdown!.Weakest!.Name}. Improve it:\n{breakdown.FormatBreakdown()}";
+});
+```
+
 **Context flow:** Each candidate runs with an isolated derived context.
+
+**`Seed`:** a candidate's `Seed` is not a sampler seed — the chat models have none. It reaches the
+model as a directive in the candidate's system prompt telling it to explore an approach different
+from the other seeds, which is what makes the candidates diverge.
 
 ---
 
@@ -213,9 +242,9 @@ var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
 Split input into chunks, process each in parallel, then reduce to a final result.
 
 ```csharp
-var report = await Emerge.MapReduce<ChunkSummary, FinalReport>(LLMModel.Claude45Sonnet, ctx, opt =>
+var report = await Emerge.MapReduce<string, ChunkSummary, FinalReport>(LLMModel.Claude45Sonnet, ctx, opt =>
 {
-    opt.Chunks = documents.Select(d => (object)d).ToList();
+    opt.Chunks = documents;
     opt.MaxParallel = 8;
 
     opt.Map(m =>
@@ -229,7 +258,7 @@ var report = await Emerge.MapReduce<ChunkSummary, FinalReport>(LLMModel.Claude45
         r.Temperature = 0.3;
         r.Command = "Combine all chunk summaries into a comprehensive final report.";
     });
-}).ResultAsync();
+});
 ```
 
 **Options:**
@@ -268,7 +297,7 @@ var final = await Emerge.Refine<Code>(LLMModel.Claude45Sonnet, ctx, opt =>
         var error = await ValidateCodeAsync(result.Code);
         return error != null;
     };
-}).ResultAsync();
+});
 ```
 
 **Options:**
@@ -302,7 +331,7 @@ var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, ctx, 
         m.Temperature = 0.3;
         m.Command = "Synthesize all analyses into a comprehensive unified result.";
     });
-}).ResultAsync();
+});
 ```
 
 **Options:**
@@ -311,7 +340,9 @@ var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, ctx, 
 - `Solver(Action<AgentScope<T>>)` - Configure each solver (has `Index`, `Role`, `Seed`)
 - `Merger(Action<EmergeScope<T>>)` - Configure the merger
 
-**Context flow:** Solvers run with isolated contexts for deterministic parallel execution. Merger receives all solver outputs in context.
+**Context flow:** Solvers run with isolated contexts for deterministic parallel execution. The merger receives the solutions in solver order (not completion order), so the same inputs always build the same merge prompt.
+
+**`Role` and `Seed`:** both reach the solver's system prompt — `Role` (default `Solver{Index}`) is what differentiates ensemble members, and `Seed` tells a solver to explore a different approach from its siblings. Neither is a sampler seed.
 
 ---
 
@@ -343,7 +374,7 @@ var result = await Emerge.TreeSearch<TreeSearchResult>(LLMModel.Claude45Sonnet, 
     {
         n.Command = "Navigate the document tree to find sections relevant to the query.";
     });
-}).ResultAsync();
+});
 
 // result.Sections contains found sections with NodeId, Path, Content, Relevance, Page
 ```
@@ -523,5 +554,5 @@ var result = await Emerge.Run<MyType>(
     LLMModel.Claude45Sonnet,
     pass => { ... },
     mockLlm  // Injected for testing
-).ResultAsync();
+);
 ```

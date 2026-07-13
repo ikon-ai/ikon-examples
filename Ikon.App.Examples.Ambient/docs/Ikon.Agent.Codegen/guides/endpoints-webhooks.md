@@ -36,23 +36,6 @@ Requested at runtime from your app code — no `ikon-config.toml` entry needed. 
 ```csharp
 var endpoint = new AppEndpointHost(app);
 
-// Write the response via ctx.Response.Body (a Stream). NOT ctx.Response.WriteAsync(string)
-// — that ASP.NET Core extension (Microsoft.AspNetCore.Http) is not in scope in a
-// generated app and produces CS1061. Write UTF-8 bytes to the body stream.
-endpoint.MapGet("/health", async ctx =>
-{
-    ctx.Response.ContentType = "text/plain";
-    await ctx.Response.Body.WriteAsync(System.Text.Encoding.UTF8.GetBytes("OK"));
-});
-
-endpoint.MapPost("/data", async ctx =>
-{
-    using var reader = new StreamReader(ctx.Request.Body);
-    var body = await reader.ReadToEndAsync();
-    ctx.Response.ContentType = "application/json";
-    await ctx.Response.Body.WriteAsync(System.Text.Encoding.UTF8.GetBytes("{\"received\": true}"));
-});
-
 endpoint.MapWebSocket("/ws", async (ctx, webSocket) =>
 {
     var buffer = new byte[4096];
@@ -65,6 +48,19 @@ endpoint.MapWebSocket("/ws", async (ctx, webSocket) =>
 });
 
 await endpoint.StartAsync();
+```
+
+`MapGet`/`MapPost`/`MapPut`/`MapDelete`/`MapPatch` exist for an HTTP server you wire yourself (streaming proxies, catch-all static serving, custom redirects). A plain GET/POST JSON or text handler does NOT belong here — declare it as an `[HttpGet]`/`[HttpPost]` method instead for a stable, cold-startable URL; the build nudges with IKON005 when a verb route lands on the raw host. When you do own the server:
+
+```csharp
+// Write the response via ctx.Response.Body (a Stream). NOT ctx.Response.WriteAsync(string)
+// — that ASP.NET Core extension (Microsoft.AspNetCore.Http) is not in scope in a
+// generated app and produces CS1061. Write UTF-8 bytes to the body stream.
+endpoint.MapGet("/stream/{**path}", async ctx =>
+{
+    ctx.Response.ContentType = "text/plain";
+    await ctx.Response.Body.WriteAsync(System.Text.Encoding.UTF8.GetBytes("OK"));
+});
 ```
 
 Pass `secure: false` for plain HTTP (the default is HTTPS with TLS terminated at the relay).
@@ -196,27 +192,45 @@ namespace Ikon.Sdk
     string SpaceId { get; init; }
     // User type for this connection. Default: Human
     UserType UserType { get; init; }
+  // Async event handler delegate for IkonClient events.
   delegate IkonClient.AsyncEventHandler<TEventArgs> where TEventArgs : EventArgs
     Task AsyncEventHandler<TEventArgs>(TEventArgs e)
+  // Event arguments raised when an incoming audio frame is received
   class IkonClient.AudioInputFrameEventArgs : EventArgs
     ctor(string streamId, float[] samples, bool isFirst, bool isLast, TimeSpan totalDuration)
+    // Whether this is the first frame in a sequence
     bool IsFirst { get; }
+    // Whether this is the last frame in a sequence
     bool IsLast { get; }
+    // Decoded floating point PCM samples in range [-1.0, 1.0]
     float[] Samples { get; }
+    // Unique identifier for the audio stream
     string StreamId { get; }
+    // Total duration of the audio if known, otherwise zero
     TimeSpan TotalDuration { get; set; }
+  // Event arguments raised when an incoming audio stream begins
   class IkonClient.AudioInputStreamBeginEventArgs : EventArgs
     ctor(string streamId, string description, string sourceType, AudioCodec codec, string codecDetails, int sampleRate, int channelCount)
+    // Number of audio channels
     int ChannelCount { get; }
+    // Audio codec used for encoding/decoding
     AudioCodec Codec { get; }
+    // Codec-specific details
     string CodecDetails { get; }
+    // Description of the audio stream
     string Description { get; }
+    // Sample rate in Hz (can be modified by event handler)
     int SampleRate { get; set; }
+    // Source type of the audio stream (e.g., "microphone")
     string SourceType { get; }
+    // Unique identifier for the audio stream
     string StreamId { get; }
+    // Controls when frames are output (can be modified by event handler)
     AudioInputStreamingMode StreamingMode { get; set; }
+  // Event arguments raised when an incoming audio stream ends
   class IkonClient.AudioInputStreamEndEventArgs : EventArgs
     ctor(string streamId)
+    // Unique identifier for the audio stream
     string StreamId { get; }
   // Configuration for backend authentication mode. Uses existing IkonBackend login credentials (from login.json or environment variables). This is the preferred mode for internal Ikon C# applications.
   sealed class BackendConfig : IEquatable<BackendConfig>
@@ -244,8 +258,10 @@ namespace Ikon.Sdk
     Connected
     Reconnecting
     Offline
+  // Event arguments for connection state changes.
   class IkonClient.ConnectionStateEventArgs : EventArgs
     ctor(ConnectionState state)
+    // The new connection state.
     ConnectionState State { get; }
   // Helper methods for ConnectionState.
   static class ConnectionStateExtensions
@@ -255,10 +271,12 @@ namespace Ikon.Sdk
     static bool IsConnecting(this ConnectionState state)
     // Returns true if the state represents a disconnected state.
     static bool IsOffline(this ConnectionState state)
+  // Event arguments for errors.
   class IkonClient.ErrorEventArgs : EventArgs
     ctor(Exception error)
+    // The error that occurred.
     Exception Error { get; }
-  // Main client for connecting to Ikon servers. Features: - Single connection per client instance - Three authentication modes: Local, ApiKey, Backend - Automatic reconnection with exponential backoff - Audio encoding/decoding helpers - Function registration via FunctionRegistry
+  // Main client for connecting to Ikon servers. Features: - Single connection per client instance - Four authentication modes: ExternalConnectUrl, Local, ApiKey, Backend - Automatic reconnection with exponential backoff - Audio encoding/decoding helpers - Function registration via FunctionRegistry
   sealed class IkonClient : IAsyncDisposable
     // Creates a new IkonClient with the specified configuration. Each IkonClient instance gets its own FunctionRegistry, enabling multiple SDK connections to run independently without conflicts (e.g., when running SDK inside an Ikon app).
     ctor(IkonClientConfig config)
@@ -289,7 +307,7 @@ namespace Ikon.Sdk
     // Signal that the client is ready. Should be called after initialization in the ReadyAsync event handler.
     Task SignalReadyAsync()
     // Wait for a specific client to connect and become ready.
-    Task<bool> WaitForClientAsync(string? productId = null, string? userId = null, TimeSpan timeout = default)
+    Task<bool> WaitForClientAsync(string? productId = null, string? userId = null, TimeSpan? timeout = null)
     // Event raised when an incoming audio frame is received and decoded
     event IkonClient.AsyncEventHandler<IkonClient.AudioInputFrameEventArgs> AudioInputFrameAsync
     // Event raised when an incoming audio stream begins
@@ -315,7 +333,7 @@ namespace Ikon.Sdk
     ApiKeyConfig? ApiKey { get; init; }
     // Backend authentication using existing IkonBackend login. Use this for internal Ikon C# applications that have already logged in via CLI.
     BackendConfig? Backend { get; init; }
-    // How this connection identifies to the server. Default Plugin (a backend component — no UI, no per-connection ClientScope). Set to Native (or Browser ) to connect as a first-class PLAYER client — the server then gives it a per-connection ClientScope and streams UI, exactly like the web (TypeScript SDK) client.
+    // How this connection identifies to the server. Default ContextType.Plugin (a backend component — no UI, no per-connection ClientScope). Set to ContextType.Native (or ContextType.Browser) to connect as a first-class PLAYER client — the server then gives it a per-connection ClientScope and streams UI, exactly like the web (TypeScript SDK) client.
     ContextType ContextType { get; init; }
     // Description for this client. Default: "Ikon SDK C#"
     string Description { get; init; }
@@ -341,8 +359,8 @@ namespace Ikon.Sdk
     PayloadType PayloadType { get; init; }
     // Product identifier.
     string? ProductId { get; init; }
-    // Timeout configuration.
-    TimeoutConfig Timeouts { get; init; }
+    // Reconnection behavior after the connection drops.
+    ReconnectConfig Reconnect { get; init; }
     // User agent string.
     string? UserAgent { get; init; }
     // Version identifier.
@@ -361,25 +379,27 @@ namespace Ikon.Sdk
     ctor(ProtocolMessage message)
     // The protocol message.
     ProtocolMessage Message { get; }
-  // Subscribes local callbacks to a server-side Reactive over the existing function-call wire. The current value is fetched on first subscribe and pushed by the server on every change — no polling.
+  // Subscribes local callbacks to a server-side Reactive<T> over the existing function-call wire. The current value is fetched on first subscribe and pushed by the server on every change — no polling.
+  // Remarks:
+  // This is the C# counterpart of the TypeScript SDK's ReactiveRegistry. Routing rides the same FunctionRegistry machinery used for any other RPC: subscribe is an ReactiveSubscriptionService.SubscribeFunctionName call; updates arrive as targeted ReactiveSubscriptionService.UpdateFunctionName calls from the server. No new opcodes. One registry per IkonClient: construct it over client.FunctionRegistry after the connection is established. The ReactiveSubscriptionService.UpdateFunctionName handler is registered once in the constructor and removed by ReactiveRegistry.Detach.
   sealed class ReactiveRegistry
-    // Create a registry over an IkonClient 's function registry. Registers the reactive-update handler immediately; call Detach on teardown.
+    // Create a registry over an IkonClient's function registry. Registers the reactive-update handler immediately; call ReactiveRegistry.Detach on teardown.
     ctor(FunctionRegistry functionRegistry)
     // Drop all subscriptions and unregister the update handler. Intended for client teardown — does not notify the server per key (the server's per-session subscription map is cleaned up when the session disconnects).
     void Detach()
     // Subscribe to a server-side reactive identified by its stable id. callback fires once with the current value, then on every server-side change. Dispose the returned handle to unsubscribe — the last unsubscribe for a key notifies the server.
     Task<IAsyncDisposable> SubscribeAsync<T>(string stableId, Action<T> callback, string mountId = "", CancellationToken cancellationToken = default)
-  // Timeout configuration for the SDK.
-  sealed class TimeoutConfig : IEquatable<TimeoutConfig>
+  // How the client retries after the connection drops.
+  sealed class ReconnectConfig : IEquatable<ReconnectConfig>
     ctor()
     // Initial delay before the first reconnection attempt. Each subsequent attempt doubles the delay (e.g. 500ms, 1s, 2s, 4s). Default: 500 milliseconds
     TimeSpan InitialReconnectDelay { get; init; }
     // Maximum number of reconnection attempts. Default: 4
     int MaxReconnectAttempts { get; init; }
-  // Version class
+  // Build stamp for this component: the version of the build it was compiled from, exposed as a compile-time constant. Generated on every build from versions.json and git state, so never edit it by hand. Note that this type shadows System.Version in any file that imports this namespace — write System.Version explicitly there when you mean the BCL type.
   static class Version
-    // Version string for the library
-    static string VersionString
+    // The version this build was produced from, as git describe spells it: the release tag, the number of commits since that tag, the short commit hash, and a -dirty suffix when the working tree had uncommitted changes.
+    const string VersionString
 
 
 ---

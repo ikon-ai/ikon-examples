@@ -787,7 +787,7 @@ public class AmbientApp
 
         parent.Button(
             [
-                "group relative w-[560px] min-w-[560px] h-[316px] rounded-2xl overflow-hidden cursor-pointer",
+                "bg-transparent group relative w-[560px] min-w-[560px] h-[316px] rounded-2xl overflow-hidden cursor-pointer",
                 "transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
                 "hover:scale-[1.03] hover:-translate-y-1",
                 "shadow-[0_10px_28px_-12px_rgba(0,0,0,0.55)]",
@@ -965,7 +965,7 @@ public class AmbientApp
 
                     form.TextArea(
                         [
-                            "w-full h-44 px-5 py-4 rounded-2xl backdrop-blur-2xl",
+                            "unstyled w-full h-44 px-5 py-4 rounded-2xl backdrop-blur-2xl",
                             "bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.015))]",
                             "shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)]",
                             "text-white/90 placeholder:text-white/30 text-base leading-relaxed",

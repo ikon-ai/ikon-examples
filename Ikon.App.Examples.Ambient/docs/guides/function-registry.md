@@ -147,10 +147,10 @@ namespace Ikon.Common.Core.Functions
     // Override the function name. If null, the full type name plus method name is used.
     string? Name { get; set; }
     // Override the inherited TypeId property with JsonIgnore for serialization.
-    object TypeId { get; }
+    override object TypeId { get; }
     // Whether the function should be distributed to other clients. If not set, defaults to Local for standalone functions, or inherits from [RegisterAll] for methods in a class with that attribute.
     FunctionVisibility Visibility { get; set; }
-  // Per-call ambient context exposed to the body of a function dispatched by FunctionRegistry . Set by the registry's inbound dispatch path before invoking the function and cleared after.
+  // Per-call ambient context exposed to the body of a function dispatched by FunctionRegistry. Set by the registry's inbound dispatch path before invoking the function and cleared after.
   static class FunctionCallContext
     // The session id of the client that issued the current function call, or null when the call did not originate from a remote client (e.g. local in-process invocation).
     static int? CallerSessionId { get; }
@@ -159,14 +159,14 @@ namespace Ikon.Common.Core.Functions
     ctor(string message, string remoteTypeName, string remoteStackTrace, Exception? innerException)
     string RemoteStackTrace { get; }
     string RemoteTypeName { get; }
-    static string RemoteFunctionCallerNotSetTypeName
+    const string RemoteFunctionCallerNotSetTypeName
   // Metadata about a function parameter.
   struct FunctionParameter
     // Primary constructor with Type directly.
     ctor(int index, string name, string description, Type type, bool hasDefaultValue, object? defaultValue, IReadOnlyList<string>? allowedValues = null)
     // JSON deserialization constructor. Resolves Type from TypeName string.
     ctor(int index, string name, string description, string typeName, bool hasDefaultValue, object? defaultValue, IReadOnlyList<string>? allowedValues = null)
-    // Optional override for the JSON-schema enum field emitted to the LLM. When non-null, the schema uses these values instead of Enum.GetNames(Type). Lets callers narrow a static enum at registration time (e.g. "of these 7 enum members, only these 3 are valid right now") or attach an enum to a non-enum parameter type (e.g. a string field whose allowed values come from runtime state). Pair with Description rebuilds for dynamic per-call documentation.
+    // Optional override for the JSON-schema enum field emitted to the LLM. When non-null, the schema uses these values instead of Enum.GetNames(Type). Lets callers narrow a static enum at registration time (e.g. "of these 7 enum members, only these 3 are valid right now") or attach an enum to a non-enum parameter type (e.g. a string field whose allowed values come from runtime state). Pair with FunctionParameter.Description rebuilds for dynamic per-call documentation.
     IReadOnlyList<string>? AllowedValues { get; }
     // The default value if HasDefaultValue is true.
     object? DefaultValue { get; }
@@ -190,15 +190,17 @@ namespace Ikon.Common.Core.Functions
     ctor()
     // Optional resolver that maps a caller session id to the auth session id. Returns null or empty for unauthenticated (guest) callers.
     Func<int, string?>? AuthSessionIdResolver { get; set; }
+    // The version of the live/current registered implementation. When set, a caller that sends no version resolves to this version's functions instead of the greatest registered version. Hosts serving multiple versions side by side (e.g. the Ikon.AI library) set this so unversioned callers always reach the current build — in a local/dev build the current version is stamped low (1.0.0) and would otherwise lose to a higher-numbered preserved snapshot. Null keeps the greatest fallback.
+    string? CurrentVersion { get; set; }
     // All registered functions grouped by name.
     IReadOnlyDictionary<string, IReadOnlyList<Function>> Functions { get; }
     // Invoked at the start of a remote function call execution. Runs in the async context of the executing function, so subscribers can set AsyncLocal state.
     static Action? RemoteCallExecutionStarting { get; set; }
     // When set, the dispatcher rejects any remote call whose restored scopes carry no BackendTokenScope with a space claim. Turned on by delegating proxy hosts (e.g. the Ikon.AI library) that make platform-key calls on behalf of a caller and must never execute for an unidentified caller. Off by default so ordinary RPC hosts are unaffected.
     bool RequireVerifiedCallerSpace { get; set; }
-    // Optional resolver that maps a caller session id to the set of roles the caller holds. Wired by the host (e.g. Ikon.App.App) so that RequireRoleAttribute / RoleBasedPolicy can gate calls. Returns an empty/null collection for callers without any roles. The dispatcher copies the result into AdditionalContext under the key RolesContextKey .
+    // Optional resolver that maps a caller session id to the set of roles the caller holds. Wired by the host (e.g. Ikon.App.App) so that RequireRoleAttribute / RoleBasedPolicy can gate calls. Returns an empty/null collection for callers without any roles. The dispatcher copies the result into PolicyCallContext.AdditionalContext under the key RoleBasedPolicy.RolesContextKey.
     Func<int, IReadOnlyCollection<string>?>? RolesResolver { get; set; }
-    // Optional resolver that maps a caller session id to the reactive scopes that should be active during the function body's execution — typically [ClientScope, UserScope] derived from the caller's Context . Wired by the host (e.g. Ikon.App.App) so that ClientReactive and UserReactive resolve naturally without the function body having to push scopes manually via FunctionCallContext.CallerSessionId + Use .
+    // Optional resolver that maps a caller session id to the reactive scopes that should be active during the function body's execution — typically [ClientScope, UserScope] derived from the caller's Context. Wired by the host (e.g. Ikon.App.App) so that ClientReactive<T> and UserReactive<T> resolve naturally without the function body having to push scopes manually via FunctionCallContext.CallerSessionId + ReactiveScope.Use.
     Func<int, IReadOnlyList<IScopeKey>>? ScopeResolver { get; set; }
     // Optional resolver that maps a caller session id to the user id associated with that session. Wired by the host (e.g. Ikon.App.App) so that policy evaluation has access to the caller's identity. Returns null for unknown sessions or unauthenticated (guest) callers.
     Func<int, string?>? UserIdResolver { get; set; }
@@ -236,7 +238,7 @@ namespace Ikon.Common.Core.Functions
     bool HasFunction(string name)
     // Checks if a function with the given name exists for a specific client session.
     bool HasFunction(string name, int clientSessionId)
-    // Invoke an already-resolved local function with a pre-built positional argument array, bypassing the argument-type resolution that CallAsync performs. The args must already line up with the function's parameter list — used by callers that inject host-supplied parameters (e.g. a cron trigger building the array from MethodInfo to inject a context object). Returns the result, if any.
+    // Invoke an already-resolved local function with a pre-built positional argument array, bypassing the argument-type resolution that FunctionRegistry.CallAsync performs. The args must already line up with the function's parameter list — used by callers that inject host-supplied parameters (e.g. a cron trigger building the array from Function.MethodInfo to inject a context object). Returns the result, if any.
     Task<object?> InvokeLocalAsync(Function function, object?[] args)
     // Scans an assembly for types with [RegisterAll] or methods with [Function] attributes and registers them.
     void RegisterFromAssembly(Assembly assembly, FunctionVisibility? visibilityOverride = null, string? version = null)
@@ -264,10 +266,10 @@ namespace Ikon.Common.Core.Functions
     // Tries to get a function with the given name.
     bool TryGetFunction(string name, out Function? function)
     // Waits for a function with the given name to be registered.
-    Task<bool> WaitForFunctionAsync(string functionName, TimeSpan timeout = default, CancellationToken ct = default)
+    Task<bool> WaitForFunctionAsync(string functionName, TimeSpan? timeout = null, CancellationToken ct = default)
     // Fired when an approval flow completes (approved or rejected). Use this event for audit logging of approval decisions.
     event Action<ApprovalAuditEntry>? ApprovalCompleted
-    // Fired when all of a client session's functions are removed because it disconnected ( RemoveFunctionsByClientSessionId ). Lets services that track per-session state — e.g. ReactiveSubscriptionService's subscriber set — release it promptly instead of discovering the dead session only when a later push fails.
+    // Fired when all of a client session's functions are removed because it disconnected (FunctionRegistry.RemoveFunctionsByClientSessionId). Lets services that track per-session state — e.g. ReactiveSubscriptionService's subscriber set — release it promptly instead of discovering the dead session only when a later push fails.
     event Action<int>? ClientSessionRemoved
     // Fired when a function is registered.
     event Action<Function>? FunctionRegistered

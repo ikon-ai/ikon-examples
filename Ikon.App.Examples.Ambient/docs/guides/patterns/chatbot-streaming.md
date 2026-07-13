@@ -64,7 +64,7 @@ private async Task SendAsync()
 // Inside UI.Root:
 view.ScrollArea(rootStyle: ["flex-1 min-h-0"], viewportStyle: ["p-4"], content: view =>
 {
-    view.Column([..], content: view =>
+    view.Column(["gap-3"], content: view =>
     {
         foreach (var msg in _transcript)
         {

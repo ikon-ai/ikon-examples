@@ -46,7 +46,7 @@ if (_completedToday.Value == _steps.Count && _steps.Count > 0)
     // substitute YOUR brand scale; a violet app celebrates in violet, not in this example's hues).
     view.Column(["items-center gap-3 rounded-2xl p-8 bg-gradient-to-br from-brand-400 to-brand-600 shadow-lg shadow-brand-500/25"], content: v =>
     {
-        v.Icon(["size-10 text-white"], icon: "sunrise");
+        v.Icon(["size-10 text-white"], name: "sunrise");
         v.Text(["text-3xl font-bold tracking-tight text-white"], text: "Morning complete");
         v.Text(["text-sm text-white/85"], text: $"{_streak.Value} days in a row — see you tomorrow");
     });
