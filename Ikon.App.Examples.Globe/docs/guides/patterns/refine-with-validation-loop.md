@@ -10,6 +10,10 @@ Any structured-output use case where there's a real validator: code generation (
 ## Snippet
 
 ```csharp
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Scripting;
+using Microsoft.CodeAnalysis.Scripting;
+
 private const int MaxAutoRetries = 2;
 
 private async Task<(UICodeResponse Response, string? ValidationError)> GenerateUIWithRefinementAsync(
@@ -57,7 +61,7 @@ private async Task<(UICodeResponse Response, string? ValidationError)> GenerateU
             validationError = await ValidateSyntaxAsync(result.Code);
             return validationError != null;     // true == do another refinement
         };
-    }).ResultAsync();
+    });
 
     return (response, validationError);
 }

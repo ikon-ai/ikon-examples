@@ -50,7 +50,7 @@ view.Text([Badge.NeutralSm], FormatDocumentKind(parsed.DocumentKind ?? "-"));
 
 ## Notes
 
-- Switch expressions over enums + the platform's `Badge.InfoSm / WarningSm / SuccessSm / ErrorSm / GreySm / BrandSm` family. Don't invent new colours per app.
+- Switch expressions over enums + the platform's `Badge.InfoSm / WarningSm / SuccessSm / ErrorSm / NeutralSm / BrandSm` family. Don't invent new colours per app.
 - For "in-between" states (e.g. file Done but classifier still running) overload by entity instead of adding enum values that don't exist in the DB schema. Two helpers: one by enum, one by entity that delegates.
 - Pair a `GetXStyle` helper with a `GetXLabel` helper so the badge text and colour are always read from the same logical state.
 - Return `(string[] Style, string Label)` tuples when the label is also conditional — easier than two parallel switches.

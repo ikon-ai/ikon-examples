@@ -17,7 +17,8 @@ public record Bot(
     string DraftCode,                // unsaved live editor buffer
     List<BotVersion> History,        // committed versions
     int Cursor,                      // index in History; -1 = nothing saved yet
-    int PublishedIndex);             // separate from Cursor; what other clients see
+    int PublishedIndex,              // separate from Cursor; what other clients see
+    long UpdatedAtTicks);            // last save, for "edited 2m ago" and conflict checks
 
 private const int MaxHistoryVersions = 50;
 

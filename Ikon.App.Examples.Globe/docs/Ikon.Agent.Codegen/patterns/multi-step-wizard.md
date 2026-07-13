@@ -21,7 +21,7 @@ private void RenderCreateCaseDialog(UIView view)
     view.Dialog(
         open: _showCreateCaseDialog.Value,
         modal: true,
-        onOpenChange: async o => { _showCreateCaseDialog.Value = o ?? false; if (!(o ?? false)) ResetWizard(); },
+        onOpenChange: async isOpen => { _showCreateCaseDialog.Value = isOpen; if (!isOpen) ResetWizard(); },
         contentStyle: ["w-[860px] min-h-[85vh] max-h-[85vh] p-0 flex flex-col"],
         content: view =>
         {

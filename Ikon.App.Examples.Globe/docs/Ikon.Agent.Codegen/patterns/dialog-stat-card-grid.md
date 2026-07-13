@@ -17,7 +17,7 @@ private void RenderWalletDialog(UIView view)
 
     view.Dialog(
         open: _walletDialogOpen.Value,
-        onOpenChange: async open => _walletDialogOpen.Value = open ?? false,
+        onOpenChange: async open => _walletDialogOpen.Value = open,
         overlayStyle: [AlertDialog.Overlay],
         contentStyle: [AlertDialog.Content, "max-w-2xl max-h-[80vh] overflow-y-auto bg-zinc-900 border border-zinc-700"],
         contentSlot: content =>

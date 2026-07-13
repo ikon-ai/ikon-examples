@@ -29,7 +29,7 @@ private async Task ModifyGameAsync(int clientId, string prompt)
             pass.Temperature = 0.7;
             pass.MaxOutputTokens = 4000;
             pass.UseJson = true;
-        }).ResultAsync();
+        });
 
     if (!string.IsNullOrWhiteSpace(planResult.UpdatedSections))
     {
@@ -53,7 +53,7 @@ private async Task ModifyGameAsync(int clientId, string prompt)
             pass.Command = command;
             pass.MaxOutputTokens = 32000;
             pass.UseJson = true;
-        }).ResultAsync();
+        });
 
     _currentGameHtml.Value = InjectBridgeScript(result.Code);
 }

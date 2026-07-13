@@ -17,6 +17,8 @@ public sealed record ClientParameters(string ClientName);
 [App]
 public class MyApp(IApp<SessionIdentity, ClientParameters> app)
 {
+    private UI UI { get; } = new(app, new IkonTheme());
+
     private readonly Reactive<int> _count = new(0);
 
     public Task Main()

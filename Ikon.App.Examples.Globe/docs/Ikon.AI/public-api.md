@@ -16,36 +16,36 @@ namespace Ikon.AI
     Escalate
     Obfuscate
     Delay
-  // The pending AI operation presented to the hook. Operation discriminates surface ("ai_call", "tool", "ingest"); Subject is the thing being acted on (model name, tool name, corpus name); Args are call-specific parameters; Ctx carries host-supplied identity / mission / runtime context (mission_id, agent_id, thread_id, user, tenant, time, etc.).
+  // The pending AI operation presented to the hook. GovernanceCall.Operation discriminates surface ("ai_call", "tool", "ingest"); GovernanceCall.Subject is the thing being acted on (model name, tool name, corpus name); GovernanceCall.Args are call-specific parameters; GovernanceCall.Ctx carries host-supplied identity / mission / runtime context (mission_id, agent_id, thread_id, user, tenant, time, etc.).
   sealed class GovernanceCall : IEquatable<GovernanceCall>
     ctor(string Operation, string Subject, IReadOnlyDictionary<string, object?> Args, IReadOnlyDictionary<string, object?> Ctx)
     IReadOnlyDictionary<string, object?> Args { get; init; }
     IReadOnlyDictionary<string, object?> Ctx { get; init; }
     string Operation { get; init; }
     string Subject { get; init; }
-  // What happened after the operation ran (or didn't). Hooks use this in AfterAsync to close out the audit record.
+  // What happened after the operation ran (or didn't). Hooks use this in IGovernanceHook.AfterAsync to close out the audit record.
   sealed class GovernanceCallResult : IEquatable<GovernanceCallResult>
     ctor(bool Failed, string Outcome, string? ErrorMessage = null)
     string? ErrorMessage { get; init; }
     bool Failed { get; init; }
     string Outcome { get; init; }
-  // Thrown by AI primitives when an active IGovernanceHook returns Deny . Carries the decision id so callers can correlate the failure to the audit record.
+  // Thrown by AI primitives when an active IGovernanceHook returns GovernanceAction.Deny. Carries the decision id so callers can correlate the failure to the audit record.
   sealed class GovernanceDeniedException : Exception
     ctor(string decisionId, string ruleId, string policyId, string reason)
     string DecisionId { get; }
     string PolicyId { get; }
     string Reason { get; }
     string RuleId { get; }
-  // Thrown by AI primitives when an active hook returns Escalate . The host runtime is expected to catch this and route to the escalation target rather than retry — the operation is paused, not failed.
+  // Thrown by AI primitives when an active hook returns GovernanceAction.Escalate. The host runtime is expected to catch this and route to the escalation target rather than retry — the operation is paused, not failed.
   sealed class GovernanceEscalatedException : Exception
     ctor(string decisionId, string target, string reason)
     string DecisionId { get; }
     string Reason { get; }
     string Target { get; }
-  // Shared invocation wrapper used by every transport that gates a call through GovernanceScope . Builds the standard Before / Deny / Escalate / invoke / After flow once so HTTP, MCP, and any future transport stay symmetric — the only thing each transport supplies is the GovernanceCall shape and the inner invocation. With no hook active the wrap is a pass-through.
+  // Shared invocation wrapper used by every transport that gates a call through GovernanceScope. Builds the standard Before / Deny / Escalate / invoke / After flow once so HTTP, MCP, and any future transport stay symmetric — the only thing each transport supplies is the GovernanceCall shape and the inner invocation. With no hook active the wrap is a pass-through.
   static class GovernanceInvoker
     static Task<T> RunAsync<T>(GovernanceCall call, Func<Task<T>> invoke, CancellationToken ct = default)
-  // What the hook decided. The host must honour Action : Allow → invoke the operationDeny → throw GovernanceDeniedException Escalate → suspend / route to Target Obfuscate → apply the named transformDelay → wait the named duration then proceed DecisionId is the audit identifier the host can attach to any subsequent telemetry tied to this operation.
+  // What the hook decided. The host must honour GovernanceOutcome.Action: • Allow → invoke the operation • Deny → throw GovernanceDeniedException • Escalate → suspend / route to GovernanceOutcome.Target • Obfuscate → apply the named transform • Delay → wait the named duration then proceed GovernanceOutcome.DecisionId is the audit identifier the host can attach to any subsequent telemetry tied to this operation.
   sealed class GovernanceOutcome : IEquatable<GovernanceOutcome>
     ctor(GovernanceAction Action, string DecisionId, string RuleId, string PolicyId, string Reason, string? Target = null)
     GovernanceAction Action { get; init; }
@@ -54,14 +54,14 @@ namespace Ikon.AI
     string Reason { get; init; }
     string RuleId { get; init; }
     string? Target { get; init; }
-  // AsyncLocal scope carrying the active IGovernanceHook for the duration of an AI-touched operation. Host code wraps work in using var _ = GovernanceScope.Use(hook);; downstream Ikon AI primitives read Current and apply the hook if present. The scope crosses await boundaries naturally; it does NOT cross Task.Run or manually-started threads. Capture the hook into a local before any fork if you need to.
+  // AsyncLocal scope carrying the active IGovernanceHook for the duration of an AI-touched operation. Host code wraps work in using var _ = GovernanceScope.Use(hook);; downstream Ikon AI primitives read GovernanceScope.Current and apply the hook if present. The scope crosses await boundaries naturally; it does NOT cross Task.Run or manually-started threads. Capture the hook into a local before any fork if you need to.
   static class GovernanceScope
     static IGovernanceHook? Current { get; }
     static IDisposable Use(IGovernanceHook hook)
-  // Single hook surface called by every AI-touched primitive in the Ikon platform — LLM calls (Emerge.Run<T>), agent tool dispatch (Ikon.Agent), data ingest steps — before they act. One contract, three surfaces. Host code activates a hook by entering a GovernanceScope ; downstream primitives read Current and consult the hook if it is set. The default — no scope active — is a no-op pass-through and the AI primitives behave exactly as they do without governance.
+  // Single hook surface called by every AI-touched primitive in the Ikon platform — LLM calls (Emerge.Run<T>), agent tool dispatch (Ikon.Agent), data ingest steps — before they act. One contract, three surfaces. Host code activates a hook by entering a GovernanceScope; downstream primitives read GovernanceScope.Current and consult the hook if it is set. The default — no scope active — is a no-op pass-through and the AI primitives behave exactly as they do without governance.
   interface IGovernanceHook
-    abstract Task AfterAsync(GovernanceCall call, GovernanceCallResult result, CancellationToken ct)
-    abstract Task<GovernanceOutcome> BeforeAsync(GovernanceCall call, CancellationToken ct)
+    Task AfterAsync(GovernanceCall call, GovernanceCallResult result, CancellationToken ct)
+    Task<GovernanceOutcome> BeforeAsync(GovernanceCall call, CancellationToken ct)
   // Connecting to the Ikon server timed out or failed. TRANSIENT by nature — a network blip, a server restart, a flaky link — so it is retryable: the RPC layer retries with a forced reconnect, and one that exhausts those attempts still lands as retryable so Emerge's bounded retry (and a host's re-drive) get their shot. A single 15s blip killing a 40-minute codegen run (observed repeatedly on a flaky uplink) is exactly what this classification prevents.
   sealed class IkonServerConnectException : RetryableAIException
     ctor(string message)
@@ -160,9 +160,10 @@ namespace Ikon.AI.Classification
     ctor(ClassificationResult classificationResult)
     ctor(ClassificationResult classificationResult, Exception inner)
     ClassificationResult ClassificationResult { get; }
-  sealed class Classifier : IClassifier, IDisposable
+  sealed class Classifier : IClassifier, IClassifierInfo, IDisposable
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(ClassificationModel model, IReadOnlyList<ModelRegion>? regions = null)
+    bool SupportsImageInput { get; }
     TimeSpan Timeout { get; set; }
     Task<ClassificationResult> ClassifyAsync(IReadOnlyList<ClassificationInput> inputs, CancellationToken cancellationToken = default)
     Task<ClassificationResult> ClassifyAsync(IReadOnlyList<IMessagePart> messageParts, CancellationToken cancellationToken = default)
@@ -172,20 +173,26 @@ namespace Ikon.AI.Classification
     // var result = await classifier.ClassifyAsync(text);
     // becomes
     // var result = await Classifier.ClassifyAsync(text);
-    // Defaults to OpenAIOmniModeration (free to use, the standard moderation model). Override the model via the second parameter when the task warrants. Check result.IsFlagged and the per-label result.Details. Reach for the constructor + the instance ClassifyAsync overloads when you need to classify images or message parts ( ClassificationInput ), set a custom Timeout , or classify many inputs with the same classifier instance.
+    // Defaults to ClassificationModel.OpenAIOmniModeration (free to use, the standard moderation model). Override the model via the second parameter when the task warrants. Check result.IsFlagged and the per-label result.Details. Reach for the constructor + the instance ClassifyAsync overloads when you need to classify images or message parts (ClassificationInput), set a custom Classifier.Timeout, or classify many inputs with the same classifier instance.
     static Task<ClassificationResult> ClassifyAsync(string text, ClassificationModel model = OpenAIOmniModeration, CancellationToken cancellationToken = default)
     void Dispose()
+    static ClassifierCapabilities GetCapabilities(ClassificationModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ClassificationModel model)
+  sealed class ClassifierCapabilities : IClassifierInfo
+    ctor()
+    bool SupportsImageInput { get; init; }
   class ClassifierException : RetryableAIException
     ctor()
     ctor(string message)
     ctor(string message, Exception inner)
-  interface IClassifier : IDisposable
+  interface IClassifier : IClassifierInfo, IDisposable
     // Maximum duration of a single classification request. Defaults to 10 seconds.
     TimeSpan Timeout { get; set; }
-    abstract Task<ClassificationResult> ClassifyAsync(IReadOnlyList<ClassificationInput> inputs, CancellationToken cancellationToken = default)
+    Task<ClassificationResult> ClassifyAsync(IReadOnlyList<ClassificationInput> inputs, CancellationToken cancellationToken = default)
     virtual Task<ClassificationResult> ClassifyAsync(IReadOnlyList<IMessagePart> messageParts, CancellationToken cancellationToken = default)
     virtual Task<ClassificationResult> ClassifyAsync(string text, CancellationToken cancellationToken = default)
+  interface IClassifierInfo
+    bool SupportsImageInput { get; }
   class NonRetryableClassifierException : NonRetryableAIException
     ctor()
     ctor(string message)
@@ -194,11 +201,11 @@ namespace Ikon.AI.Classification
 namespace Ikon.AI.Database
   sealed class BigQueryDbConnection : DbConnection
     ctor(string projectId, string datasetId)
-    string ConnectionString { get; set; }
-    string DataSource { get; }
-    string Database { get; }
-    string ServerVersion { get; }
-    ConnectionState State { get; }
+    override string ConnectionString { get; set; }
+    override string DataSource { get; }
+    override string Database { get; }
+    override string ServerVersion { get; }
+    override ConnectionState State { get; }
     override void ChangeDatabase(string databaseName)
     override void Close()
     override DataTable GetSchema()
@@ -239,10 +246,10 @@ namespace Ikon.AI.Database
     bool? IsForeignKey { get; set; }
     bool? IsPrimaryKey { get; set; }
     List<string>? Values { get; set; }
-  // Creates database connections. Prefer the typed factory methods ( Trino , Postgres , Sqlite , BigQuery ) for app code — host, port, and catalog are not secrets, only the password is. Pass that password from app.Secrets:
+  // Creates database connections. Prefer the typed factory methods (DatabaseConnection.Trino, DatabaseConnection.Postgres, DatabaseConnection.Sqlite, DatabaseConnection.BigQuery) for app code — host, port, and catalog are not secrets, only the password is. Pass that password from app.Secrets:
   // DatabaseConnection.Trino(host: "trino.example.com", port: 443, catalog: "hive",
   //                      user: "ikon", password: app.Secrets["TRINO_PASSWORD"])
-  // CreateAsync remains for shared pipelines that read all of host/port/user/password/etc. from environment variables or space secrets.
+  // DatabaseConnection.CreateAsync remains for shared pipelines that read all of host/port/user/password/etc. from environment variables or space secrets.
   class DatabaseConnection
     ctor()
     string BigQueryDataset { get; set; }
@@ -280,13 +287,15 @@ namespace Ikon.AI.Database
     string Prefix { get; set; }
     string SpaceId { get; set; }
   static class SqlValidator
-    static void ValidateReadOnly(string sql, HashSet<string> allowedTables)
+    static void ValidateReadOnly(string sql, IReadOnlySet<string> allowedTables)
 
 namespace Ikon.AI.DepthEstimation
   sealed class DepthEstimator : IDepthEstimator, IDisposable
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(DepthEstimatorModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
+    // Estimate depth for one image — the instance form of the DepthEstimator.EstimateAsync one-shot, for when you already hold an estimator. Reach for DepthEstimator.EstimateDepthAsync when the request needs any other DepthEstimatorConfig field.
+    Task<DepthEstimatorResult> EstimateAsync(byte[] imageData, string mimeType, CancellationToken cancellationToken = default)
     // One-shot depth estimation from raw image bytes. The verbose form
     // using var depthEstimator = new DepthEstimator(DepthEstimatorModel.DepthAnythingV2);
     // var result = await depthEstimator.EstimateDepthAsync(new DepthEstimatorConfig
@@ -295,7 +304,7 @@ namespace Ikon.AI.DepthEstimation
     // });
     // becomes
     // var result = await DepthEstimator.EstimateAsync(imageData, "image/png");
-    // Defaults to DepthAnythingV2 (cheap+fast). Override the model via the third parameter when the task warrants (Marigold is slower but higher quality). The depth map image is in result.Depth (.Data / .MimeType). Reach for the constructor + EstimateDepthAsync when the image is a URL instead of bytes, or when you need the Marigold tuning fields on DepthEstimatorConfig .
+    // Defaults to DepthEstimatorModel.DepthAnythingV2 (cheap+fast). Override the model via the third parameter when the task warrants (Marigold is slower but higher quality). The depth map image is in result.Depth (.Data / .MimeType). Reach for the constructor + DepthEstimator.EstimateDepthAsync when the image is a URL instead of bytes, or when you need the Marigold tuning fields on DepthEstimatorConfig.
     static Task<DepthEstimatorResult> EstimateAsync(byte[] imageData, string mimeType, DepthEstimatorModel model = DepthAnythingV2, CancellationToken cancellationToken = default)
     Task<DepthEstimatorResult> EstimateDepthAsync(DepthEstimatorConfig config, CancellationToken cancellationToken = default)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(DepthEstimatorModel model)
@@ -320,7 +329,7 @@ namespace Ikon.AI.DepthEstimation
     ctor()
     DepthEstimatorResult.OutputImage Depth { get; init; }
   interface IDepthEstimator : IDisposable
-    abstract Task<DepthEstimatorResult> EstimateDepthAsync(DepthEstimatorConfig config, CancellationToken cancellationToken = default)
+    Task<DepthEstimatorResult> EstimateDepthAsync(DepthEstimatorConfig config, CancellationToken cancellationToken = default)
   sealed class DepthEstimatorConfig.InputImage : IEquatable<DepthEstimatorConfig.InputImage>
     ctor()
     byte[]? Data { get; init; }
@@ -341,24 +350,26 @@ namespace Ikon.AI.Embeddings
   enum EmbeddingEncoding
     Base64
     GzipBase64
-  sealed class EmbeddingGenerator : IDisposable, IEmbeddingGenerator
+  sealed class EmbeddingGenerator : IDisposable, IEmbeddingGenerator, IEmbeddingGeneratorInfo
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(EmbeddingModel model, IReadOnlyList<ModelRegion>? regions = null)
     int EmbeddingVectorSize { get; }
     int MaxInputCount { get; }
     TimeSpan Timeout { get; set; }
     void Dispose()
+    // Embed a batch of texts — the instance form of the EmbeddingGenerator.EmbedAsync one-shot, for when you already hold a generator. Reach for EmbeddingGenerator.GenerateEmbeddingsAsync when you need to cap the batch size per request.
+    Task<List<float[]>> EmbedAsync(IReadOnlyList<string> texts, EmbeddingType type = Generic, CancellationToken cancellationToken = default)
     // One-shot embedding generation. The verbose form
     // using var embeddingGenerator = new EmbeddingGenerator(EmbeddingModel.OpenAI3Small);
     // var embeddings = await embeddingGenerator.GenerateEmbeddingsAsync(texts, EmbeddingType.Generic);
     // becomes
     // var embeddings = await EmbeddingGenerator.EmbedAsync(texts);
-    // Defaults to OpenAI3Small (cheap+fast) and Generic . Override the model via the second parameter when the task warrants; pass an explicit EmbeddingType when embedding documents and queries for asymmetric retrieval. Returns one float[] vector per input, in input order. Reach for the constructor + GenerateEmbeddingsAsync when you need batching control (maxInputCount), a custom Timeout , or the generator's MaxInputCount / EmbeddingVectorSize properties.
+    // Defaults to EmbeddingModel.OpenAI3Small (cheap+fast) and EmbeddingType.Generic. Override the model via the second parameter when the task warrants; pass an explicit EmbeddingType when embedding documents and queries for asymmetric retrieval. Returns one float[] vector per input, in input order. Reach for the constructor + EmbeddingGenerator.GenerateEmbeddingsAsync when you need batching control (maxInputCount), a custom EmbeddingGenerator.Timeout, or the generator's EmbeddingGenerator.MaxInputCount / EmbeddingGenerator.EmbeddingVectorSize properties.
     static Task<List<float[]>> EmbedAsync(IReadOnlyList<string> texts, EmbeddingModel model = OpenAI3Small, EmbeddingType type = Generic, CancellationToken cancellationToken = default)
     Task<List<float[]>> GenerateEmbeddingsAsync(IReadOnlyList<string> inputs, EmbeddingType type, int maxInputCount = 0, CancellationToken cancellationToken = default)
     static EmbeddingGeneratorCapabilities GetCapabilities(EmbeddingModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(EmbeddingModel model)
-  sealed class EmbeddingGeneratorCapabilities
+  sealed class EmbeddingGeneratorCapabilities : IEmbeddingGeneratorInfo
     ctor()
     int EmbeddingVectorSize { get; init; }
     int MaxInputCount { get; init; }
@@ -405,12 +416,13 @@ namespace Ikon.AI.Embeddings
     Query
     Clustering
     Classification
-  interface IEmbeddingGenerator : IDisposable
-    int EmbeddingVectorSize { get; }
-    int MaxInputCount { get; }
+  interface IEmbeddingGenerator : IDisposable, IEmbeddingGeneratorInfo
     // Maximum duration of a single embedding request, scaled up internally with the batch size. Defaults to 10 seconds.
     TimeSpan Timeout { get; set; }
-    abstract Task<List<float[]>> GenerateEmbeddingsAsync(IReadOnlyList<string> inputs, EmbeddingType type, int maxInputCount = 0, CancellationToken cancellationToken = default)
+    Task<List<float[]>> GenerateEmbeddingsAsync(IReadOnlyList<string> inputs, EmbeddingType type, int maxInputCount = 0, CancellationToken cancellationToken = default)
+  interface IEmbeddingGeneratorInfo
+    int EmbeddingVectorSize { get; }
+    int MaxInputCount { get; }
   struct VectorMath.Neighbor
     ctor(int index, float distance)
     float Distance { get; }
@@ -443,12 +455,14 @@ namespace Ikon.AI.FileConversion
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(FileConverterModel model, IReadOnlyList<ModelRegion>? regions = null)
     Task<ConvertedFile> ConvertToPdfAsync(FileConverterConfig config, CancellationToken cancellationToken = default)
+    // Convert one file's bytes to PDF — the instance form of the FileConverter.ConvertToPdfAsync one-shot, for when you already hold a converter. Reach for FileConverter.ConvertToPdfAsync when the request needs any other FileConverterConfig field.
+    Task<ConvertedFile> ConvertToPdfAsync(byte[] data, string fileName, CancellationToken cancellationToken = default)
     // One-shot PDF conversion from raw file bytes. The verbose form
     // using var fileConverter = new FileConverter(FileConverterModel.ConvertApi);
     // var pdf = await fileConverter.ConvertToPdfAsync(new FileConverterConfig { Data = data, FileName = fileName });
     // becomes
     // var pdf = await FileConverter.ConvertToPdfAsync(data, fileName);
-    // Defaults to ConvertApi (the only conversion model). fileName must carry the source extension (e.g. report.docx) — it determines the input format. The converted PDF is in pdf.Data. Reach for the constructor + ConvertToPdfAsync when the source is a URL or AssetUri instead of bytes, or when you need a custom timeout.
+    // Defaults to FileConverterModel.ConvertApi (the only conversion model). fileName must carry the source extension (e.g. report.docx) — it determines the input format. The converted PDF is in pdf.Data. Reach for the constructor + FileConverter.ConvertToPdfAsync when the source is a URL or AssetUri instead of bytes, or when you need a custom timeout.
     static Task<ConvertedFile> ConvertToPdfAsync(byte[] data, string fileName, FileConverterModel model = ConvertApi, CancellationToken cancellationToken = default)
     void Dispose()
     static IReadOnlyList<ModelRegion> GetSupportedRegions(FileConverterModel model)
@@ -468,7 +482,7 @@ namespace Ikon.AI.FileConversion
   static class FileConverterModelExtensions
     static string DisplayName(this FileConverterModel model)
   interface IFileConverter : IDisposable
-    abstract Task<ConvertedFile> ConvertToPdfAsync(FileConverterConfig config, CancellationToken cancellationToken = default)
+    Task<ConvertedFile> ConvertToPdfAsync(FileConverterConfig config, CancellationToken cancellationToken = default)
   class NonRetryableFileConverterException : NonRetryableAIException
     ctor()
     ctor(string message)
@@ -476,7 +490,7 @@ namespace Ikon.AI.FileConversion
 
 namespace Ikon.AI.ImageGeneration
   interface IImageGenerator : IDisposable
-    abstract Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = default)
+    Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = default)
   enum ImageBackground
     Auto
     Opaque
@@ -485,13 +499,15 @@ namespace Ikon.AI.ImageGeneration
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(ImageGeneratorModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
+    // Generate one image from a plain prompt — the instance form of the ImageGenerator.GenerateAsync one-shot, for when you already hold a generator. Reach for ImageGenerator.GenerateImageAsync when the request needs any other ImageGeneratorConfig field (input images, size, image count).
+    Task<ImageGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     // One-shot image generation. The verbose form
     // using var generator = new ImageGenerator(ImageGeneratorModel.Gemini25FlashImage);
     // var results = await generator.GenerateImageAsync(new ImageGeneratorConfig { Prompt = prompt });
     // var image = results.FirstOrDefault();
     // becomes
     // var image = await ImageGenerator.GenerateAsync(prompt);
-    // Defaults to Gemini25FlashImage (cheap+fast). Override the model via the second parameter when the task warrants. Never returns null — throws an ImageGeneratorException when generation fails or the model produces no results, so wrap in try/catch when the app should continue without the image. Reach for the constructor + GenerateImageAsync when you need batch generation, custom width/height, an ImageBackground override, input images, or any other ImageGeneratorConfig field beyond the prompt.
+    // Defaults to ImageGeneratorModel.Gemini25FlashImage (cheap+fast). Override the model via the second parameter when the task warrants. Never returns null — throws an ImageGeneratorException when generation fails or the model produces no results, so wrap in try/catch when the app should continue without the image. Reach for the constructor + ImageGenerator.GenerateImageAsync when you need batch generation, custom width/height, an ImageBackground override, input images, or any other ImageGeneratorConfig field beyond the prompt.
     static Task<ImageGeneratorResult> GenerateAsync(string prompt, ImageGeneratorModel model = Gemini25FlashImage, CancellationToken cancellationToken = default)
     Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = default)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ImageGeneratorModel model)
@@ -499,8 +515,8 @@ namespace Ikon.AI.ImageGeneration
     ctor()
     ImageBackground Background { get; init; }
     int Count { get; init; }
+    // Requested pixel height. See ImageGeneratorConfig.Width.
     int Height { get; init; }
-    string ImageSize { get; init; }
     List<InputImage> InputImages { get; init; }
     string NegativePrompt { get; init; }
     string Prompt { get; init; }
@@ -513,6 +529,7 @@ namespace Ikon.AI.ImageGeneration
     string Style { get; init; }
     TimeSpan Timeout { get; init; }
     bool UpsamplePrompt { get; init; }
+    // Requested pixel width. This is the only way to ask for a size: providers that take exact dimensions get these values, and providers that only offer fixed resolution tiers (Gemini: 1K/2K/4K) round the longer edge up to the nearest tier they support and take the aspect ratio from Width:Height. Ask for 2048x2048 to get a 2K image.
     int Width { get; init; }
   class ImageGeneratorException : RetryableAIException
     ctor()
@@ -597,12 +614,14 @@ namespace Ikon.AI.ImageSegmentation
     double YMax { get; init; }
     double YMin { get; init; }
   interface IImageSegmenter : IDisposable
-    abstract Task<ImageSegmenterResult> SegmentImageAsync(ImageSegmenterConfig config, CancellationToken cancellationToken = default)
+    Task<ImageSegmenterResult> SegmentImageAsync(ImageSegmenterConfig config, CancellationToken cancellationToken = default)
   sealed class ImageSegmenter : IDisposable, IImageSegmenter
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(ImageSegmenterModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ImageSegmenterModel model)
+    // Segment one image against a prompt — the instance form of the ImageSegmenter.SegmentAsync one-shot, for when you already hold a segmenter. Reach for ImageSegmenter.SegmentImageAsync when the request needs any other ImageSegmenterConfig field.
+    Task<ImageSegmenterResult> SegmentAsync(byte[] imageData, string mimeType, string prompt, CancellationToken cancellationToken = default)
     // One-shot text-prompted segmentation from raw image bytes. The verbose form
     // using var segmenter = new ImageSegmenter(ImageSegmenterModel.Sam31);
     // var result = await segmenter.SegmentImageAsync(new ImageSegmenterConfig
@@ -612,7 +631,7 @@ namespace Ikon.AI.ImageSegmentation
     // });
     // becomes
     // var result = await ImageSegmenter.SegmentAsync(imageData, "image/png", "person");
-    // Defaults to Sam31 (the latest SAM revision at the same price as SAM 3). Override the model via the fourth parameter when the task warrants. Each detected object is in result.Segments with its mask image, score, and bounding box. Reach for the constructor + SegmentImageAsync when the image is a URL instead of bytes, or when you need point/box prompts, multiple masks per object, or any other ImageSegmenterConfig field.
+    // Defaults to ImageSegmenterModel.Sam31 (the latest SAM revision at the same price as SAM 3). Override the model via the fourth parameter when the task warrants. Each detected object is in result.Segments with its mask image, score, and bounding box. Reach for the constructor + ImageSegmenter.SegmentImageAsync when the image is a URL instead of bytes, or when you need point/box prompts, multiple masks per object, or any other ImageSegmenterConfig field.
     static Task<ImageSegmenterResult> SegmentAsync(byte[] imageData, string mimeType, string prompt, ImageSegmenterModel model = Sam31, CancellationToken cancellationToken = default)
     Task<ImageSegmenterResult> SegmentImageAsync(ImageSegmenterConfig config, CancellationToken cancellationToken = default)
   sealed class ImageSegmenterConfig : IEquatable<ImageSegmenterConfig>
@@ -698,7 +717,7 @@ namespace Ikon.AI.Kernel
     ctor(byte[] data, string mimeType)
     byte[] Data { get; }
     string MimeType { get; }
-  // A citation reference detected in the generated text. The refer indices bound the text span that refers to the citation; PositionIndex is the character index of the citation marker itself.
+  // A citation reference detected in the generated text. The refer indices bound the text span that refers to the citation; Citation.PositionIndex is the character index of the citation marker itself.
   sealed class LLMEvent.Citation : LLMEvent, IEquatable<LLMEvent.Citation>
     ctor(string OriginalId, string MappedId, int ReferStartIndex, int ReferEndIndex, int PositionIndex)
     string MappedId { get; init; }
@@ -731,7 +750,7 @@ namespace Ikon.AI.Kernel
     string ParametersJson { get; }
     string ReasoningContent { get; }
     string ThoughtSignature { get; }
-  // Function/tool result carrying media alongside text. Providers that support media inside tool results (Anthropic tool_result image blocks) inline the media so the model actually SEES it; every other consumer degrades to ToString , which summarizes the media without dumping bytes.
+  // Function/tool result carrying media alongside text. Providers that support media inside tool results (Anthropic tool_result image blocks) inline the media so the model actually SEES it; every other consumer degrades to FunctionMediaResult.ToString, which summarizes the media without dumping bytes.
   sealed class FunctionMediaResult
     ctor(string text, params BinaryDataContainer[] media)
     IReadOnlyList<BinaryDataContainer> Media { get; }
@@ -772,7 +791,7 @@ namespace Ikon.AI.Kernel
     string AudioOutputVoiceId { get; init; }
     // When set, providers that support server-side context editing (Anthropic context-management beta) clear OLD tool results once the request's input exceeds this many tokens — after prompt-cache lookup, so cached prefixes survive. The single biggest context sink in long tool-using loops is superseded tool results being re-sent every round; server-side clearing removes them without the cache-busting a client-side history rewrite causes. Null = off. Providers without support ignore it.
     int? ClearToolResultsAfterInputTokens { get; init; }
-    // Tool names whose results are NEVER cleared by ClearToolResultsAfterInputTokens (semantic anchors like verdicts).
+    // Tool names whose results are NEVER cleared by KernelContext.ClearToolResultsAfterInputTokens (semantic anchors like verdicts).
     IReadOnlyList<string>? ClearToolResultsExcludedTools { get; init; }
     bool DisableFunctionCalling { get; init; }
     bool DiscardTextOutputWithFunctionCalls { get; init; }
@@ -802,7 +821,7 @@ namespace Ikon.AI.Kernel
     IAsyncEnumerable<LLMEvent> GenerateAsync(ILLM llm, CancellationToken cancellationToken = default)
     KernelContext KeepMessagesMax(int count)
     KernelContext WithFunctions(IEnumerable<Function>? functions, bool replaceExisting = false)
-  // One event in the typed stream produced by GenerateAsync and its combinators. Consume the stream by switching on the concrete case: TextDelta for incremental text, ToolCallRequested when the model asks for a tool, ToolResult for a tool's output, Usage and Finished for end-of-generation accounting, and so on. Events not relevant to a consumer should be passed through unchanged so downstream consumers still see them.
+  // One event in the typed stream produced by ILLM.GenerateAsync and its combinators. Consume the stream by switching on the concrete case: TextDelta for incremental text, ToolCallRequested when the model asks for a tool, ToolResult for a tool's output, Usage and Finished for end-of-generation accounting, and so on. Events not relevant to a consumer should be passed through unchanged so downstream consumers still see them.
   abstract class LLMEvent : IEquatable<LLMEvent>
     // Name of the pipeline stage that produced this event (e.g. "generate", "generate.reasoning", "Shader.Output.AfterPass"). Combinators re-tag events they transform so the origin of each event stays visible.
     string Source { get; init; }
@@ -860,7 +879,7 @@ namespace Ikon.AI.Kernel
   enum SchemaDialect
     JsonSchema202012
     OpenApi30
-  // A parsed XML-style tag extracted from the text stream by WithParsedTagsAsync .
+  // A parsed XML-style tag extracted from the text stream by AsyncEnumerableExtensions.WithParsedTagsAsync.
   sealed class LLMEvent.Tag : LLMEvent, IEquatable<LLMEvent.Tag>
     ctor(string Name, string Content, IReadOnlyDictionary<string, string>? Attributes)
     IReadOnlyDictionary<string, string>? Attributes { get; init; }
@@ -882,14 +901,14 @@ namespace Ikon.AI.Kernel
   sealed class LLMEvent.ToolPlan : LLMEvent, IEquatable<LLMEvent.ToolPlan>
     ctor(string Text)
     string Text { get; init; }
-  // The output of an executed tool. Value holds the tool's return value; ValueType records its runtime type so the value can be rehydrated to the original type after a JSON round-trip (e.g. over RPC).
+  // The output of an executed tool. ToolResult.Value holds the tool's return value; ToolResult.ValueType records its runtime type so the value can be rehydrated to the original type after a JSON round-trip (e.g. over RPC).
   sealed class LLMEvent.ToolResult : LLMEvent, IEquatable<LLMEvent.ToolResult>
     ctor(string functionName, object? value)
     ctor(string functionName, object? value, string? valueType)
     string FunctionName { get; }
     object? Value { get; }
     string? ValueType { get; }
-  // Token accounting for one generation. CachedInputTokens is the subset of InputTokens served from the provider's prompt cache (Anthropic cache_read_input_tokens, OpenAI cached_tokens, Bedrock CacheReadInputTokens).
+  // Token accounting for one generation. Usage.CachedInputTokens is the subset of Usage.InputTokens served from the provider's prompt cache (Anthropic cache_read_input_tokens, OpenAI cached_tokens, Bedrock CacheReadInputTokens).
   sealed class LLMEvent.Usage : LLMEvent, IEquatable<LLMEvent.Usage>
     ctor(int InputTokens, int CachedInputTokens, int CacheCreationInputTokens, int OutputTokens)
     int CacheCreationInputTokens { get; init; }
@@ -930,7 +949,7 @@ namespace Ikon.AI.LLM
     // Projects the function's parameter list into its provider JSON schema: an object schema with type/properties/required, including parameter descriptions and allowed-value enums.
     static string ToJson(Function function)
   interface ILLM : IDisposable, ILLMInfo
-    abstract IAsyncEnumerable<LLMEvent> GenerateAsync(KernelContext context, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<LLMEvent> GenerateAsync(KernelContext context, CancellationToken cancellationToken = default)
   interface ILLMInfo
     int ContextWindowSize { get; }
     string InlineReasoningTagName { get; }
@@ -944,6 +963,7 @@ namespace Ikon.AI.LLM
     bool SupportsOutputAudio { get; }
     bool SupportsParallelToolCalling { get; }
     bool SupportsReasoning { get; }
+    bool SupportsSingleToolCalling { get; }
     bool SupportsStreaming { get; }
     bool SupportsZeroDataRetention { get; }
     bool UsesInlineReasoning { get; }
@@ -977,7 +997,7 @@ namespace Ikon.AI.LLM
     string InlineReasoningTagName { get; init; }
     SchemaDialect SchemaDialect { get; init; }
     bool SupportsGbnfGrammar { get; init; }
-    // True when the provider binding can inline images INSIDE tool results (Anthropic tool_result image blocks). Distinct from SupportsInputImages : a vision model whose tool results are JSON-only (e.g. Gemini functionResponse) sees images in messages but not in tool results.
+    // True when the provider binding can inline images INSIDE tool results (Anthropic tool_result image blocks). Distinct from LLMCapabilities.SupportsInputImages: a vision model whose tool results are JSON-only (e.g. Gemini functionResponse) sees images in messages but not in tool results.
     bool SupportsImagesInToolResults { get; init; }
     bool SupportsInputAudio { get; init; }
     bool SupportsInputImages { get; init; }
@@ -987,6 +1007,7 @@ namespace Ikon.AI.LLM
     bool SupportsOutputAudio { get; init; }
     bool SupportsParallelToolCalling { get; init; }
     bool SupportsReasoning { get; init; }
+    bool SupportsSingleToolCalling { get; init; }
     bool SupportsStreaming { get; init; }
     bool SupportsZeroDataRetention { get; init; }
     bool UsesInlineReasoning { get; init; }
@@ -1082,7 +1103,7 @@ namespace Ikon.AI.LLM
 
 namespace Ikon.AI.MeshGeneration
   interface IMeshGenerator : IDisposable, IMeshGeneratorInfo
-    abstract Task<MeshGeneratorResult> GenerateMeshAsync(MeshGeneratorConfig config, CancellationToken cancellationToken = default)
+    Task<MeshGeneratorResult> GenerateMeshAsync(MeshGeneratorConfig config, CancellationToken cancellationToken = default)
   interface IMeshGeneratorInfo
     int MaxInputImages { get; }
     bool SupportsImageToMesh { get; }
@@ -1103,12 +1124,14 @@ namespace Ikon.AI.MeshGeneration
     bool SupportsPbr { get; }
     bool SupportsTextToMesh { get; }
     void Dispose()
+    // Generate a mesh from a plain prompt — the instance form of the MeshGenerator.GenerateAsync one-shot, for when you already hold a generator. Reach for MeshGenerator.GenerateMeshAsync when the request needs any other MeshGeneratorConfig field.
+    Task<MeshGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     // One-shot text-to-mesh. The verbose form
     // using var generator = new MeshGenerator(MeshGeneratorModel.Meshy6);
     // var result = await generator.GenerateMeshAsync(new MeshGeneratorConfig { Prompt = prompt });
     // becomes
     // var mesh = await MeshGenerator.GenerateAsync(prompt);
-    // Defaults to Meshy6 (the current Meshy generation at the same per-credit price as Meshy 5). Override the model via the second parameter when the task warrants. Returns signed download URLs per format (.GlbUrl, .FbxUrl, …) that expire roughly three days after generation — download promptly. Reach for the constructor + GenerateMeshAsync when you need image-to-mesh (input images), PBR textures, polycount/topology control, or any other MeshGeneratorConfig field beyond the prompt.
+    // Defaults to MeshGeneratorModel.Meshy6 (the current Meshy generation at the same per-credit price as Meshy 5). Override the model via the second parameter when the task warrants. Returns signed download URLs per format (.GlbUrl, .FbxUrl, …) that expire roughly three days after generation — download promptly. Reach for the constructor + MeshGenerator.GenerateMeshAsync when you need image-to-mesh (input images), PBR textures, polycount/topology control, or any other MeshGeneratorConfig field beyond the prompt.
     static Task<MeshGeneratorResult> GenerateAsync(string prompt, MeshGeneratorModel model = Meshy6, CancellationToken cancellationToken = default)
     Task<MeshGeneratorResult> GenerateMeshAsync(MeshGeneratorConfig config, CancellationToken cancellationToken = default)
     static MeshGeneratorCapabilities GetCapabilities(MeshGeneratorModel model)
@@ -1164,19 +1187,19 @@ namespace Ikon.AI.MeshGeneration
 
 namespace Ikon.AI.MusicGeneration
   interface IMusicGenerator : IDisposable, IMusicGeneratorInfo
-    // Channel count of the PCM samples produced by GenerateMusicAsync .
+    // Channel count of the PCM samples produced by IMusicGenerator.GenerateMusicAsync.
     int ChannelCount { get; }
-    // Sample rate of the PCM samples produced by GenerateMusicAsync .
+    // Sample rate of the PCM samples produced by IMusicGenerator.GenerateMusicAsync.
     int SampleRate { get; }
-    // Streams the generated music as PCM AudioChunk chunks as they are produced. Only supported when SupportsStreaming is true; other models throw a MusicGeneratorException . Use GenerateMusicFileAsync for a buffered, encoded audio file instead.
-    abstract IAsyncEnumerable<AudioChunk> GenerateMusicAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = default)
+    // Streams the generated music as PCM AudioChunk chunks as they are produced. Only supported when IMusicGeneratorInfo.SupportsStreaming is true; other models throw a MusicGeneratorException. Use IMusicGenerator.GenerateMusicFileAsync for a buffered, encoded audio file instead.
+    IAsyncEnumerable<AudioChunk> GenerateMusicAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = default)
     // Generates the music and returns it as a single buffered, encoded audio file. Supported by all models, including those that cannot stream.
-    abstract Task<MusicGeneratorResult> GenerateMusicFileAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = default)
+    Task<MusicGeneratorResult> GenerateMusicFileAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = default)
   interface IMusicGeneratorInfo
-    // Whether DurationSeconds controls the length of the output. When false the model ignores it: it emits a fixed-length clip (e.g. Lyria 2 is always ~30s) or, for audio-to-audio editing, the output length follows the input clip.
+    // Whether MusicGeneratorConfig.DurationSeconds controls the length of the output. When false the model ignores it: it emits a fixed-length clip (e.g. Lyria 2 is always ~30s) or, for audio-to-audio editing, the output length follows the input clip.
     bool SupportsDurationControl { get; }
     bool SupportsEditing { get; }
-    // Whether the model can stream generated audio as it is produced via GenerateMusicAsync . Models without streaming support only expose the buffered GenerateMusicFileAsync result.
+    // Whether the model can stream generated audio as it is produced via IMusicGenerator.GenerateMusicAsync. Models without streaming support only expose the buffered IMusicGenerator.GenerateMusicFileAsync result.
     bool SupportsStreaming { get; }
   // A reference clip fed into a prompt-driven music edit. The model preserves the timing and structure of this audio while the prompt re-styles it (timbre, instrumentation, mood). Mirrors the image-to-image InputImage shape used by the image generator.
   sealed class InputAudio : IEquatable<InputAudio>
@@ -1198,12 +1221,14 @@ namespace Ikon.AI.MusicGeneration
     bool SupportsEditing { get; }
     bool SupportsStreaming { get; }
     void Dispose()
+    // Generate a music file from a plain prompt — the instance form of the MusicGenerator.GenerateAsync one-shot, for when you already hold a generator. Reach for MusicGenerator.GenerateMusicFileAsync when the request needs any other MusicGeneratorConfig field (duration, format, seed).
+    Task<MusicGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     // One-shot music generation. The verbose form
     // using var generator = new MusicGenerator(MusicGeneratorModel.ElevenLabsMusicV2);
     // var result = await generator.GenerateMusicFileAsync(new MusicGeneratorConfig { Prompt = prompt });
     // becomes
     // var music = await MusicGenerator.GenerateAsync(prompt);
-    // Defaults to ElevenLabsMusicV2 (cheap+fast, supports duration control and editing). Override the model via the second parameter when the task warrants. Returns a buffered, encoded audio file (.AudioData / .ContentType / .DurationSeconds). Reach for the constructor + GenerateMusicFileAsync when you need a target duration, input audio (prompt-driven editing), seed, or any other MusicGeneratorConfig field beyond the prompt; use GenerateMusicAsync for streaming PCM chunks.
+    // Defaults to MusicGeneratorModel.ElevenLabsMusicV2 (cheap+fast, supports duration control and editing). Override the model via the second parameter when the task warrants. Returns a buffered, encoded audio file (.AudioData / .ContentType / .DurationSeconds). Reach for the constructor + MusicGenerator.GenerateMusicFileAsync when you need a target duration, input audio (prompt-driven editing), seed, or any other MusicGeneratorConfig field beyond the prompt; use MusicGenerator.GenerateMusicAsync for streaming PCM chunks.
     static Task<MusicGeneratorResult> GenerateAsync(string prompt, MusicGeneratorModel model = ElevenLabsMusicV2, CancellationToken cancellationToken = default)
     IAsyncEnumerable<AudioChunk> GenerateMusicAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = default)
     Task<MusicGeneratorResult> GenerateMusicFileAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = default)
@@ -1214,7 +1239,9 @@ namespace Ikon.AI.MusicGeneration
     bool SupportsDurationControl { get; init; }
     bool SupportsEditing { get; init; }
     bool SupportsStreaming { get; init; }
-  // Configuration for prompt-driven music generation and editing. With an empty InputAudios the model generates from the prompt alone. With one or more InputAudios it performs audio-to-audio editing: the prompt re-styles the reference clips while their timing and structure are preserved.
+  // Configuration for prompt-driven music generation and editing. With an empty MusicGeneratorConfig.InputAudios the model generates from the prompt alone. With one or more MusicGeneratorConfig.InputAudios it performs audio-to-audio editing: the prompt re-styles the reference clips while their timing and structure are preserved.
+  // Remarks:
+  // The underlying music model works on clips of at least 3 seconds. For shorter UI/game sound effects use SoundEffectGenerator instead.
   sealed class MusicGeneratorConfig : IEquatable<MusicGeneratorConfig>
     ctor()
     // Target length in seconds (clamped to the model's supported range). When editing, set this to the source clip's length so the output keeps the original timing.
@@ -1248,8 +1275,8 @@ namespace Ikon.AI.OCR
   enum DocumentType
     General
   interface IOCR : IDisposable, IOCRInfo
-    abstract Task<OCRResult> AnalyzeDocumentAsync(OCRConfig config, CancellationToken cancellationToken = default)
-    abstract IAsyncEnumerable<OCRResult> AnalyzeDocumentStreamingAsync(OCRConfig config, CancellationToken cancellationToken = default)
+    Task<OCRResult> AnalyzeDocumentAsync(OCRConfig config, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<OCRResult> AnalyzeDocumentStreamingAsync(OCRConfig config, CancellationToken cancellationToken = default)
   interface IOCRInfo
     int MaxPagesSupported { get; }
   class NonRetryableOCRException : NonRetryableAIException
@@ -1260,12 +1287,14 @@ namespace Ikon.AI.OCR
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(OCRModel model, IReadOnlyList<ModelRegion>? regions = null)
     int MaxPagesSupported { get; }
+    // Read one document's bytes — the instance form of the OCR.AnalyzeAsync one-shot, for when you already hold an OCR instance. Reach for OCR.AnalyzeDocumentAsync when the request needs any other OCRConfig field (asset uri, url, document type).
+    Task<OCRResult> AnalyzeAsync(byte[] data, CancellationToken cancellationToken = default)
     // One-shot document OCR from raw file bytes (image or PDF). The verbose form
     // using var ocr = new OCR(OCRModel.AzureDocumentIntelligence);
     // var result = await ocr.AnalyzeDocumentAsync(new OCRConfig { Data = data });
     // becomes
     // var result = await OCR.AnalyzeAsync(data);
-    // Defaults to AzureDocumentIntelligence (cheap+robust general document OCR). Override the model via the second parameter when the task warrants. Read the extracted text from result.Text; result.Paragraphs and result.Pages carry the structure. Reach for the constructor + AnalyzeDocumentAsync when the document is a URL or AssetUri instead of bytes, or when you need page selection, word-level bounding boxes, or any other OCRConfig field; use AnalyzeDocumentStreamingAsync for page-by-page streaming.
+    // Defaults to OCRModel.AzureDocumentIntelligence (cheap+robust general document OCR). Override the model via the second parameter when the task warrants. Read the extracted text from result.Text; result.Paragraphs and result.Pages carry the structure. Reach for the constructor + OCR.AnalyzeDocumentAsync when the document is a URL or AssetUri instead of bytes, or when you need page selection, word-level bounding boxes, or any other OCRConfig field; use OCR.AnalyzeDocumentStreamingAsync for page-by-page streaming.
     static Task<OCRResult> AnalyzeAsync(byte[] data, OCRModel model = AzureDocumentIntelligence, CancellationToken cancellationToken = default)
     Task<OCRResult> AnalyzeDocumentAsync(OCRConfig config, CancellationToken cancellationToken = default)
     IAsyncEnumerable<OCRResult> AnalyzeDocumentStreamingAsync(OCRConfig config, CancellationToken cancellationToken = default)
@@ -1323,7 +1352,7 @@ namespace Ikon.AI.Reranking
   interface IReranker : IDisposable
     // Maximum duration of a single rerank request, scaled up internally with the document count. Defaults to 10 seconds.
     TimeSpan Timeout { get; set; }
-    abstract Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, int topN = 0, CancellationToken cancellationToken = default)
+    Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, int topN = 0, CancellationToken cancellationToken = default)
   class NonRetryableRerankerException : NonRetryableAIException
     ctor()
     ctor(string message)
@@ -1352,7 +1381,7 @@ namespace Ikon.AI.Reranking
     // var items = await reranker.RerankAsync(documents, query);
     // becomes
     // var items = await Reranker.RerankAsync(documents, query);
-    // Defaults to CohereRerank4Fast (cheap+fast). Override the model via the third parameter when the task warrants; pass topN to cap how many items are returned (0 returns all). Each RerankItem carries the document's original .Index and its relevance .Score, ordered most relevant first. Reach for the constructor + the instance RerankAsync when you need a custom Timeout or rerank many queries against the same reranker instance.
+    // Defaults to RerankModel.CohereRerank4Fast (cheap+fast). Override the model via the third parameter when the task warrants; pass topN to cap how many items are returned (0 returns all). Each RerankItem carries the document's original .Index and its relevance .Score, ordered most relevant first. Reach for the constructor + the instance Reranker.RerankAsync when you need a custom Reranker.Timeout or rerank many queries against the same reranker instance.
     static Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, RerankModel model = CohereRerank4Fast, int topN = 0, CancellationToken cancellationToken = default)
   class RerankerException : RetryableAIException
     ctor()
@@ -1440,9 +1469,14 @@ namespace Ikon.AI.Retrieving
 
 namespace Ikon.AI.SoundEffectGeneration
   interface ISoundEffectGenerator : IDisposable, ISoundEffectGeneratorInfo
+    // Channel count of the PCM samples produced by ISoundEffectGenerator.GenerateSoundEffectAsync.
     int ChannelCount { get; }
+    // Sample rate of the PCM samples produced by ISoundEffectGenerator.GenerateSoundEffectAsync.
     int SampleRate { get; }
-    abstract IAsyncEnumerable<AudioChunk> GenerateSoundEffectAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
+    // Streams the generated sound effect as PCM AudioChunk chunks as they are produced. Use ISoundEffectGenerator.GenerateSoundEffectFileAsync for a buffered, encoded audio file instead.
+    IAsyncEnumerable<AudioChunk> GenerateSoundEffectAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
+    // Generates the sound effect and returns it as a single buffered, encoded audio file (WAV).
+    Task<SoundEffectFileResult> GenerateSoundEffectFileAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
   interface ISoundEffectGeneratorInfo
     bool SupportsLooping { get; }
   class NonRetryableSoundEffectGeneratorException : NonRetryableAIException
@@ -1450,9 +1484,10 @@ namespace Ikon.AI.SoundEffectGeneration
     ctor(string message)
     ctor(string message, Exception inner)
   sealed class SoundEffectFileResult
-    byte[] AudioData { get; init; }
-    string ContentType { get; init; }
-    double DurationSeconds { get; init; }
+    ctor()
+    required byte[] AudioData { get; init; }
+    required string ContentType { get; init; }
+    required double DurationSeconds { get; init; }
   sealed class SoundEffectGenerator : IDisposable, ISoundEffectGenerator, ISoundEffectGeneratorInfo
     ctor(string modelName)
     ctor(SoundEffectGeneratorModel model)
@@ -1462,12 +1497,14 @@ namespace Ikon.AI.SoundEffectGeneration
     int SampleRate { get; }
     bool SupportsLooping { get; }
     void Dispose()
+    // Generate a sound-effect file from a plain prompt — the instance form of the SoundEffectGenerator.GenerateAsync one-shot, for when you already hold a generator. Reach for SoundEffectGenerator.GenerateSoundEffectFileAsync when the request needs any other SoundEffectGeneratorConfig field.
+    Task<SoundEffectFileResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     // One-shot sound effect generation. The verbose form
     // using var generator = new SoundEffectGenerator(SoundEffectGeneratorModel.ElevenLabsV2);
     // var result = await generator.GenerateSoundEffectFileAsync(new SoundEffectGeneratorConfig { Prompt = prompt });
     // becomes
     // var effect = await SoundEffectGenerator.GenerateAsync(prompt);
-    // Defaults to ElevenLabsV2 (the only sound effect model). Returns a buffered WAV file (.AudioData / .ContentType / .DurationSeconds). Reach for the constructor + GenerateSoundEffectFileAsync when you need a target duration, looping, prompt influence, or any other SoundEffectGeneratorConfig field beyond the prompt; use GenerateSoundEffectAsync for streaming PCM chunks.
+    // Defaults to SoundEffectGeneratorModel.ElevenLabsV2 (the only sound effect model). Returns a buffered WAV file (.AudioData / .ContentType / .DurationSeconds). Reach for the constructor + SoundEffectGenerator.GenerateSoundEffectFileAsync when you need a target duration, looping, prompt influence, or any other SoundEffectGeneratorConfig field beyond the prompt; use SoundEffectGenerator.GenerateSoundEffectAsync for streaming PCM chunks.
     static Task<SoundEffectFileResult> GenerateAsync(string prompt, SoundEffectGeneratorModel model = ElevenLabsV2, CancellationToken cancellationToken = default)
     IAsyncEnumerable<AudioChunk> GenerateSoundEffectAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
     Task<SoundEffectFileResult> GenerateSoundEffectFileAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
@@ -1503,7 +1540,7 @@ namespace Ikon.AI.SpeechGeneration
     int ChannelCount { get; }
     int SampleRate { get; }
     IReadOnlyList<string> VoiceIds { get; }
-    abstract IAsyncEnumerable<AudioChunk> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<AudioChunk> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = default)
   class NonRetryableSpeechGeneratorException : NonRetryableAIException
     ctor()
     ctor(string message)
@@ -1517,6 +1554,8 @@ namespace Ikon.AI.SpeechGeneration
     int SampleRate { get; }
     IReadOnlyList<string> VoiceIds { get; }
     void Dispose()
+    // Speak a line of text and collect it into one audio chunk — the instance form of the SpeechGenerator.GenerateAsync one-shot, for when you already hold a generator. Reach for SpeechGenerator.GenerateSpeechAsync when you want the chunks as they stream, or any other SpeechGeneratorConfig field.
+    Task<AudioChunk> GenerateAsync(string text, string? voice = null, CancellationToken cancellationToken = default)
     // One-shot text-to-speech. The verbose form
     // using var generator = new SpeechGenerator(SpeechGeneratorModel.ElevenFlash25);
     // await foreach (var chunk in generator.GenerateSpeechAsync(new SpeechGeneratorConfig { Text = text }))
@@ -1525,7 +1564,7 @@ namespace Ikon.AI.SpeechGeneration
     // }
     // becomes
     // var audio = await SpeechGenerator.GenerateAsync(text);
-    // Defaults to ElevenFlash25 (cheap+fast). Override the model via the second parameter when the task warrants; pass voice to pick a voice (the model's default voice otherwise). The streamed chunks are concatenated into a single PCM AudioChunk (.Samples / .SampleRate / .ChannelCount). Never returns null — throws a SpeechGeneratorException when generation fails or the model produces no audio, so wrap in try/catch when the app should continue without the audio. Reach for the constructor + GenerateSpeechAsync when you need chunk-by-chunk streaming playback while generation runs, or any other SpeechGeneratorConfig field beyond text+voice (language, instructions, speed).
+    // Defaults to SpeechGeneratorModel.ElevenFlash25 (cheap+fast). Override the model via the second parameter when the task warrants; pass voice to pick a voice (the model's default voice otherwise). The streamed chunks are concatenated into a single PCM AudioChunk (.Samples / .SampleRate / .ChannelCount). Never returns null — throws a SpeechGeneratorException when generation fails or the model produces no audio, so wrap in try/catch when the app should continue without the audio. Reach for the constructor + SpeechGenerator.GenerateSpeechAsync when you need chunk-by-chunk streaming playback while generation runs, or any other SpeechGeneratorConfig field beyond text+voice (language, instructions, speed).
     static Task<AudioChunk> GenerateAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, CancellationToken cancellationToken = default)
     IAsyncEnumerable<AudioChunk> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = default)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(SpeechGeneratorModel model)
@@ -1534,6 +1573,7 @@ namespace Ikon.AI.SpeechGeneration
     ctor()
     string Instructions { get; init; }
     string Language { get; init; }
+    // Speaking-rate multiplier as an invariant-culture decimal string — "1.0" is normal speed, "0.75" slower, "1.5" faster. Empty means "leave the model's default". A string rather than a number for wire-compatibility reasons only. Honored per provider: OpenAI passes it through as speed (an unparseable value silently falls back to 1.0 — no error is raised), Google maps it to speakingRate (an unparseable value is silently ignored), ElevenLabs ignores it.
     string Speed { get; init; }
     string Text { get; init; }
     TimeSpan Timeout { get; init; }
@@ -1578,7 +1618,7 @@ namespace Ikon.AI.SpeechRecognition
     Pronunciation.UnexpectedBreak UnexpectedBreak { get; init; }
   sealed class SpeechRecognizerAdapter.Config
     ctor()
-    // The maximum duration of continuous speech before recognition is forced in SilenceTriggered mode. This prevents indefinite buffering when the speaker doesn't pause. Set to Zero or negative to disable the limit.
+    // The maximum duration of continuous speech before recognition is forced in SilenceTriggered mode. This prevents indefinite buffering when the speaker doesn't pause. Set to TimeSpan.Zero or negative to disable the limit.
     TimeSpan MaxSpeechDuration { get; set; }
     // The recognition mode that determines how audio is segmented and when recognition is triggered.
     SpeechRecognizerAdapter.Mode Mode { get; set; }
@@ -1596,9 +1636,9 @@ namespace Ikon.AI.SpeechRecognition
   interface ISpeechRecognizer : IDisposable, ISpeechRecognizerInfo
     int ChannelCount { get; }
     int SampleRate { get; }
-    abstract Task<Pronunciation.Result> AnalyzePronunciationAsync(AnalyzePronunciationConfig config, CancellationToken cancellationToken = default)
-    abstract Task<string> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
-    abstract IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
+    Task<Pronunciation.Result> AnalyzePronunciationAsync(AnalyzePronunciationConfig config, CancellationToken cancellationToken = default)
+    Task<string> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
   interface ISpeechRecognizerInfo
     bool SupportsBatchRecognition { get; }
     bool SupportsContinuousRecognition { get; }
@@ -1689,6 +1729,8 @@ namespace Ikon.AI.SpeechRecognition
     void Dispose()
     static SpeechRecognizerCapabilities GetCapabilities(SpeechRecognizerModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(SpeechRecognizerModel model)
+    // Transcribe a buffer of samples — the instance form of the SpeechRecognizer.RecognizeAsync one-shot, for when you already hold a recognizer. Reach for SpeechRecognizer.RecognizeBatchSpeechAsync when the request needs any other RecognizeSpeechConfig field (language, prompt, timestamps).
+    Task<string> RecognizeAsync(float[] samples, int sampleRate, int channelCount = 1, CancellationToken cancellationToken = default)
     // One-shot batch transcription. The verbose form
     // using var recognizer = new SpeechRecognizer(SpeechRecognizerModel.WhisperLarge3Turbo);
     // var text = await recognizer.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
@@ -1699,7 +1741,7 @@ namespace Ikon.AI.SpeechRecognition
     // });
     // becomes
     // var text = await SpeechRecognizer.RecognizeAsync(samples, 16000);
-    // Defaults to WhisperLarge3Turbo (cheap+fast). Override the model via the third parameter when the task warrants. Returns the recognized text (empty when nothing was recognized). Reach for the constructor + RecognizeBatchSpeechAsync when you need PCM16 byte input, a language hint, a prompt, or any other RecognizeSpeechConfig field; use RecognizeContinuousSpeechAsync for streaming recognition.
+    // Defaults to SpeechRecognizerModel.WhisperLarge3Turbo (cheap+fast). Override the model via the third parameter when the task warrants. Returns the recognized text (empty when nothing was recognized). Reach for the constructor + SpeechRecognizer.RecognizeBatchSpeechAsync when you need PCM16 byte input, a language hint, a prompt, or any other RecognizeSpeechConfig field; use SpeechRecognizer.RecognizeContinuousSpeechAsync for streaming recognition.
     static Task<string> RecognizeAsync(float[] samples, int sampleRate, SpeechRecognizerModel model = WhisperLarge3Turbo, int channelCount = 1, CancellationToken cancellationToken = default)
     Task<string> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
     IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
@@ -1809,7 +1851,7 @@ namespace Ikon.AI.Utils
 
 namespace Ikon.AI.VideoEnhancement
   interface IVideoEnhancer : IDisposable
-    abstract Task<VideoEnhancerResult> EnhanceVideoAsync(VideoEnhancerConfig config, CancellationToken cancellationToken = default)
+    Task<VideoEnhancerResult> EnhanceVideoAsync(VideoEnhancerConfig config, CancellationToken cancellationToken = default)
   class NonRetryableVideoEnhancerException : NonRetryableAIException
     ctor()
     ctor(string message)
@@ -1818,12 +1860,14 @@ namespace Ikon.AI.VideoEnhancement
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(VideoEnhancerModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
+    // Enhance a video by URL — the instance form of the VideoEnhancer.EnhanceAsync one-shot, for when you already hold an enhancer. Reach for VideoEnhancer.EnhanceVideoAsync when the request needs any other VideoEnhancerConfig field.
+    Task<VideoEnhancerResult> EnhanceAsync(string videoUrl, CancellationToken cancellationToken = default)
     // One-shot video enhancement from a video URL. The verbose form
     // using var enhancer = new VideoEnhancer(VideoEnhancerModel.TensorPixUpscale2xUltra41);
     // var result = await enhancer.EnhanceVideoAsync(new VideoEnhancerConfig { VideoUrl = url });
     // becomes
     // var enhanced = await VideoEnhancer.EnhanceAsync(url);
-    // Defaults to TensorPixUpscale2xUltra41 (the current 2x upscale generation — cheaper than the 4x filter). Override the model via the second parameter when the task warrants. Returns the enhanced video as a download URL in .Url along with .OutputFps and .OutputSizeBytes. Reach for the constructor + EnhanceVideoAsync when you need to enhance raw video bytes (VideoData), trim to a frame range, set a target FPS for TensorPixFpsBoost , or any other VideoEnhancerConfig field beyond the URL.
+    // Defaults to VideoEnhancerModel.TensorPixUpscale2xUltra41 (the current 2x upscale generation — cheaper than the 4x filter). Override the model via the second parameter when the task warrants. Returns the enhanced video as a download URL in .Url along with .OutputFps and .OutputSizeBytes. Reach for the constructor + VideoEnhancer.EnhanceVideoAsync when you need to enhance raw video bytes (VideoData), trim to a frame range, set a target FPS for VideoEnhancerModel.TensorPixFpsBoost, or any other VideoEnhancerConfig field beyond the URL.
     static Task<VideoEnhancerResult> EnhanceAsync(string videoUrl, VideoEnhancerModel model = TensorPixUpscale2xUltra41, CancellationToken cancellationToken = default)
     Task<VideoEnhancerResult> EnhanceVideoAsync(VideoEnhancerConfig config, CancellationToken cancellationToken = default)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(VideoEnhancerModel model)
@@ -1855,7 +1899,7 @@ namespace Ikon.AI.VideoEnhancement
 
 namespace Ikon.AI.VideoGeneration
   interface IVideoGenerator : IDisposable, IVideoGeneratorInfo
-    abstract Task<VideoGeneratorResult> GenerateVideoAsync(VideoGeneratorConfig config, CancellationToken cancellationToken = default)
+    Task<VideoGeneratorResult> GenerateVideoAsync(VideoGeneratorConfig config, CancellationToken cancellationToken = default)
   interface IVideoGeneratorInfo
     int MaxInputImages { get; }
     VideoGeneratorResolutionMode ResolutionMode { get; }
@@ -1892,12 +1936,14 @@ namespace Ikon.AI.VideoGeneration
     bool SupportsTailImage { get; }
     bool SupportsTextToVideo { get; }
     void Dispose()
+    // Generate a video from a plain prompt — the instance form of the VideoGenerator.GenerateAsync one-shot, for when you already hold a generator. Reach for VideoGenerator.GenerateVideoAsync when the request needs any other VideoGeneratorConfig field.
+    Task<VideoGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     // One-shot text-to-video. The verbose form
     // using var generator = new VideoGenerator(VideoGeneratorModel.Veo31Fast);
     // var result = await generator.GenerateVideoAsync(new VideoGeneratorConfig { Prompt = prompt });
     // becomes
     // var video = await VideoGenerator.GenerateAsync(prompt);
-    // Defaults to Veo31Fast (the cheap+fast tier of the strongest general-purpose family). Override the model via the second parameter when the task warrants. Returns the result with the generated clip's .Url. Reach for the constructor + GenerateVideoAsync when you need input images (image-to-video), a specific length, resolution, aspect ratio, negative prompt, audio, or any other VideoGeneratorConfig field beyond the prompt.
+    // Defaults to VideoGeneratorModel.Veo31Fast (the cheap+fast tier of the strongest general-purpose family). Override the model via the second parameter when the task warrants. Returns the result with the generated clip's .Url. Reach for the constructor + VideoGenerator.GenerateVideoAsync when you need input images (image-to-video), a specific length, resolution, aspect ratio, negative prompt, audio, or any other VideoGeneratorConfig field beyond the prompt.
     static Task<VideoGeneratorResult> GenerateAsync(string prompt, VideoGeneratorModel model = Veo31Fast, CancellationToken cancellationToken = default)
     Task<VideoGeneratorResult> GenerateVideoAsync(VideoGeneratorConfig config, CancellationToken cancellationToken = default)
     static VideoGeneratorCapabilities GetCapabilities(VideoGeneratorModel model)
@@ -2007,10 +2053,10 @@ namespace Ikon.AI.WebScraping
     string MimeType { get; init; }
     string Url { get; init; }
   interface IWebScraper : IDisposable, IWebScraperInfo
-    abstract Task<DownloadFileResult> DownloadFileAsync(DownloadFileConfig config, CancellationToken cancellationToken = default)
-    abstract Task<List<PageResult>> ScrapeMultiplePagesAsync(MultiPageScrapeConfig config, CancellationToken cancellationToken = default)
-    abstract Task<PageResult> ScrapeSinglePageAsync(SinglePageScrapeConfig config, CancellationToken cancellationToken = default)
-    abstract Task<ScreenshotResult> TakeScreenshotAsync(ScreenshotConfig config, CancellationToken cancellationToken = default)
+    Task<DownloadFileResult> DownloadFileAsync(DownloadFileConfig config, CancellationToken cancellationToken = default)
+    Task<List<PageResult>> ScrapeMultiplePagesAsync(MultiPageScrapeConfig config, CancellationToken cancellationToken = default)
+    Task<PageResult> ScrapeSinglePageAsync(SinglePageScrapeConfig config, CancellationToken cancellationToken = default)
+    Task<ScreenshotResult> TakeScreenshotAsync(ScreenshotConfig config, CancellationToken cancellationToken = default)
   interface IWebScraperInfo
     bool SupportsFileDownload { get; }
     bool SupportsMultiPageScraping { get; }
@@ -2111,12 +2157,14 @@ namespace Ikon.AI.WebScraping
     Task<DownloadFileResult> DownloadFileAsync(DownloadFileConfig config, CancellationToken cancellationToken = default)
     static WebScraperCapabilities GetCapabilities(WebScraperModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(WebScraperModel model)
+    // Scrape one page by URL — the instance form of the WebScraper.ScrapeAsync one-shot, for when you already hold a scraper. Reach for WebScraper.ScrapeSinglePageAsync when the request needs any other SinglePageScrapeConfig field.
+    Task<PageResult> ScrapeAsync(string url, CancellationToken cancellationToken = default)
     // One-shot single page scrape. The verbose form
     // using var scraper = new WebScraper(WebScraperModel.Jina);
     // var page = await scraper.ScrapeSinglePageAsync(new SinglePageScrapeConfig { Url = url });
     // becomes
     // var page = await WebScraper.ScrapeAsync(url);
-    // Defaults to Jina (cheap+fast hosted reader). Override the model via the second parameter when the task warrants. Returns the page as Markdown in .Content along with .Title and .Url. Reach for the constructor + ScrapeSinglePageAsync when you need a different output format, cookies, custom JavaScript, or any other SinglePageScrapeConfig field beyond the URL; use ScrapeMultiplePagesAsync , TakeScreenshotAsync , or DownloadFileAsync for crawling, screenshots, and file downloads.
+    // Defaults to WebScraperModel.Jina (cheap+fast hosted reader). Override the model via the second parameter when the task warrants. Returns the page as Markdown in .Content along with .Title and .Url. Reach for the constructor + WebScraper.ScrapeSinglePageAsync when you need a different output format, cookies, custom JavaScript, or any other SinglePageScrapeConfig field beyond the URL; use WebScraper.ScrapeMultiplePagesAsync, WebScraper.TakeScreenshotAsync, or WebScraper.DownloadFileAsync for crawling, screenshots, and file downloads.
     static Task<PageResult> ScrapeAsync(string url, WebScraperModel model = Jina, CancellationToken cancellationToken = default)
     Task<List<PageResult>> ScrapeMultiplePagesAsync(MultiPageScrapeConfig config, CancellationToken cancellationToken = default)
     Task<PageResult> ScrapeSinglePageAsync(SinglePageScrapeConfig config, CancellationToken cancellationToken = default)
@@ -2146,8 +2194,8 @@ namespace Ikon.AI.WebScraping
 
 namespace Ikon.AI.WebSearching
   interface IWebSearcher : IDisposable, IWebSearcherInfo
-    abstract Task<List<SearchResult>> SearchImagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
-    abstract Task<List<SearchResult>> SearchPagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
+    Task<List<SearchResult>> SearchImagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
+    Task<List<SearchResult>> SearchPagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
   interface IWebSearcherInfo
     bool SupportsImageSearching { get; }
   class NonRetryableWebSearcherException : NonRetryableAIException
@@ -2177,12 +2225,14 @@ namespace Ikon.AI.WebSearching
     void Dispose()
     static WebSearcherCapabilities GetCapabilities(WebSearcherModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(WebSearcherModel model)
+    // Web page search for a plain query — the instance form of the WebSearcher.SearchAsync one-shot, for when you already hold a searcher. Reach for WebSearcher.SearchPagesAsync when the search needs any other SearchConfig field (site restriction, country, language).
+    Task<List<SearchResult>> SearchAsync(string query, int maxResults = 10, CancellationToken cancellationToken = default)
     // One-shot web page search. The verbose form
     // using var searcher = new WebSearcher(WebSearcherModel.Google);
     // var results = await searcher.SearchPagesAsync(new SearchConfig { Query = query });
     // becomes
     // var results = await WebSearcher.SearchAsync(query);
-    // Defaults to Google (cheap+fast general web search). Override the model via the second parameter when the task warrants. Each SearchResult exposes .Url, .Title, and .Content. Reach for the constructor + SearchPagesAsync when you need site-restricted search, country/language targeting, or any other SearchConfig field beyond query+max results; use SearchImagesAsync (with an image-capable model such as GoogleImages ) for image search.
+    // Defaults to WebSearcherModel.Google (cheap+fast general web search). Override the model via the second parameter when the task warrants. Each SearchResult exposes .Url, .Title, and .Content. Reach for the constructor + WebSearcher.SearchPagesAsync when you need site-restricted search, country/language targeting, or any other SearchConfig field beyond query+max results; use WebSearcher.SearchImagesAsync (with an image-capable model such as WebSearcherModel.GoogleImages) for image search.
     static Task<List<SearchResult>> SearchAsync(string query, WebSearcherModel model = Google, int maxResults = 10, CancellationToken cancellationToken = default)
     Task<List<SearchResult>> SearchImagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
     Task<List<SearchResult>> SearchPagesAsync(SearchConfig config, CancellationToken cancellationToken = default)

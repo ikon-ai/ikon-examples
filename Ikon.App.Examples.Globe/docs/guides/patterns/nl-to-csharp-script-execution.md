@@ -10,6 +10,9 @@ You're building an LLM-driven UI generator, a "show me a chart of X" agent, or a
 ## Snippet
 
 ```csharp
+using Microsoft.CodeAnalysis.CSharp.Scripting;
+using Microsoft.CodeAnalysis.Scripting;
+
 public class UIScriptGlobals
 {
     public UIView view { get; }
@@ -30,7 +33,7 @@ public class SharedState
 }
 
 private static ScriptOptions CreateScriptOptions() => ScriptOptions.Default
-    .AddReferences(/* DynamicUI, Reactive<>, UIView, etc. */)
+    .AddReferences(typeof(UIView).Assembly, typeof(Reactive<int>).Assembly)
     .AddImports("System", "System.Linq", "System.Threading.Tasks",
         "Ikon.Common.Core.Reactive", "Ikon.Parallax",
         "Ikon.Parallax.Components.Standard", "Ikon.Parallax.Theming");

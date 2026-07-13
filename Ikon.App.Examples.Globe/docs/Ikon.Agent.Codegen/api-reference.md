@@ -4,79 +4,104 @@ namespace Ikon.AI.Emergence
   sealed class AgentScope<T> : EmergeScope<T>
     ctor()
     int Index { get; }
+    // This solver's role, prepended to its system prompt so ensemble members actually differentiate. Defaults to Solver{Index}; set it to something meaningful ("the pragmatist", "the security reviewer") to steer each member.
     string? Role { get; set; }
+    // A variation seed for this solver, surfaced to the model as a directive in its system prompt. Same caveat as CandidateScope<T>.Seed: it drives divergence between solvers, it is not a sampler seed and does not make a run reproducible.
     int? Seed { get; set; }
   sealed class BestOfOptions<T> : EmergeScope<T>
     ctor()
+    // Builds the critic's prompt from the winning candidate. The ScoreBreakdown is non-null exactly when BestOfOptions<T>.ScoreDetailed produced one — it is null when ranking with the plain BestOfOptions<T>.Score delegate.
     Func<T, ScoreBreakdown?, string>? BuildCriticFeedback { get; set; }
     Action<CandidateScope<T>>? CandidateConfig { get; set; }
     int Count { get; set; }
     bool CriticMustImprove { get; set; }
     EmergeScope<T> CriticScope { get; }
+    // Run a critic pass over the winning candidate and keep its result if it scores better (see BestOfOptions<T>.CriticMustImprove). The critic's prompt comes from BestOfOptions<T>.BuildCriticFeedback; without one, the best candidate and its score (and its ScoreBreakdown, when BestOfOptions<T>.ScoreDetailed is set) are appended to the critic scope's Command.
     bool EnableCritic { get; set; }
+    // Ranks the candidates. Ignored when BestOfOptions<T>.ScoreDetailed is set.
     Func<T, EmergenceTrace, double>? Score { get; set; }
+    // Ranks the candidates by ScoreBreakdown.TotalScore AND hands the breakdown to BestOfOptions<T>.BuildCriticFeedback, so the critic can be told which axis was weakest instead of just how bad the total was. Build one with ScoreBreakdownBuilder<T>:
+    // var rubric = new ScoreBreakdownBuilder<Answer>()
+    //     .Metric("correctness", 3, a => a.Correctness)
+    //     .Metric("brevity", 1, a => a.Brevity);
+    //
+    // opt.ScoreDetailed = (answer, _) => rubric.Score(answer);
+    // opt.EnableCritic = true;
+    // opt.BuildCriticFeedback = (answer, breakdown) =>
+    //     $"Weakest axis: {breakdown!.Weakest!.Name}. Fix it:\n{breakdown.FormatBreakdown()}";
+    // Takes precedence over BestOfOptions<T>.Score.
+    Func<T, EmergenceTrace, ScoreBreakdown>? ScoreDetailed { get; set; }
     void Candidate(Action<CandidateScope<T>> configure)
     void Critic(Action<EmergeScope<T>> configure)
   sealed class CandidateScope<T> : EmergeScope<T>
     ctor()
     int Index { get; }
+    // A variation seed for this candidate, surfaced to the model as a directive in its system prompt ("attempts with different seeds must explore genuinely different approaches"). It is NOT a sampler seed — the chat models behind Emerge expose none — so it does not make a run reproducible; it makes sibling candidates diverge, which is what BestOf needs.
     int? Seed { get; set; }
+  // Run-completion control a tool body returns to complete the Emerge run right after the current batch of tool calls, instead of sending the tool results back to the model for another turn — for tools whose side effect IS the answer (e.g. a UI action the model triggered on the user's behalf). The executor feeds the completion value into the tool-result message (the model never sees the control itself) and the run then completes with a default result. Create with Emerge.Complete<TValue> or Emerge.Complete; the run observes the completion as a Completed<T> event.
+  class Complete
+  // Typed form of Complete: Complete<TValue>.Value is fed to the model transcript as the tool result before the run completes.
+  sealed class Complete<TValue> : Complete
+    TValue Value { get; }
   sealed class Completed<T> : EmergeEvent<T>, IEquatable<Completed<T>>
-    ctor(T Result, KernelContext Context, EmergenceTrace Trace)
+    ctor(T? Result, KernelContext Context, EmergenceTrace Trace)
     KernelContext Context { get; init; }
-    T Result { get; init; }
+    T? Result { get; init; }
     EmergenceTrace Trace { get; init; }
   static class Emerge
     // One-shot LLM completion that returns the result string. The verbose form
-    // var (reply, _) = await Emerge.Run<string>(
-    //     LLMModel.Claude45Haiku, new KernelContext(),
-    //     pass => pass.Command = command).FinalAsync(ct);
+    // var reply = await Emerge.Run<string>(
+    //     LLMModel.Claude45Haiku,
+    //     pass => pass.Command = command, ct);
     // becomes
     // var reply = await Emerge.AskAsync(command, ct);
-    // Uses Claude45Haiku by default — cheap+fast, the right choice for short transformations (chatbot replies, reformat-as-X, classify, summarize). Override the model via the other overload when the task warrants a stronger tier. Reach for the full Run when you need tools, multi-iteration agentic loops, a populated KernelContext , or fine pass tuning.
+    // Uses LLMModel.Claude45Haiku by default — cheap+fast, the right choice for short transformations (chatbot replies, reformat-as-X, classify, summarize). Override the model via the other overload when the task warrants a stronger tier. Reach for the full Emerge.Run<T> when you need tools, multi-iteration agentic loops, a populated KernelContext, or fine pass tuning. Never returns null, and — exactly like the Emerge.Run<T> form it stands in for — throws EmergenceStoppedException when the run stops or completes without producing a reply.
     static Task<string> AskAsync(string command, CancellationToken ct = default)
-    // Like AskAsync but with an explicit model override.
+    // Like Emerge.AskAsync but with an explicit model override.
     static Task<string> AskAsync(string command, LLMModel model, CancellationToken ct = default)
-    // One-shot structured-output completion. Same shape as the string overload, but the model is asked for a JSON object matching T 's schema. Throws if the model returns nothing or invalid JSON.
+    // One-shot structured-output completion. Same shape as the string overload, but the model is asked for a JSON object matching T's schema. Throws EmergenceStoppedException when the run stops or completes without a result, and on invalid JSON.
     static Task<T> AskAsync<T>(string command, CancellationToken ct = default) where T : class
-    // Like AskAsync but with an explicit model override.
+    // Like Emerge.AskAsync<T> but with an explicit model override.
     static Task<T> AskAsync<T>(string command, LLMModel model, CancellationToken ct = default) where T : class
-    static IAsyncEnumerable<EmergeEvent<T>> BestOf<T>(LLMModel model, KernelContext context, Action<BestOfOptions<T>> configure, CancellationToken ct = default)
-    static IAsyncEnumerable<EmergeEvent<T>> BestOf<T>(LLMModel model, KernelContext context, Action<BestOfOptions<T>> configure, ILLM llm, CancellationToken ct = default)
-    static IAsyncEnumerable<EmergeEvent<T>> EnsembleMerge<T>(LLMModel model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, CancellationToken ct = default)
-    static IAsyncEnumerable<EmergeEvent<T>> EnsembleMerge<T>(LLMModel model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, ILLM llm, CancellationToken ct = default)
-    static IAsyncEnumerable<EmergeEvent<TResult>> MapReduce<TChunk, TResult>(LLMModel model, KernelContext context, Action<MapReduceOptions<TChunk, TResult>> configure, CancellationToken ct = default)
-    static IAsyncEnumerable<EmergeEvent<TResult>> MapReduce<TChunk, TResult>(LLMModel model, KernelContext context, Action<MapReduceOptions<TChunk, TResult>> configure, ILLM llm, CancellationToken ct = default)
-    static IAsyncEnumerable<EmergeEvent<T>> Refine<T>(LLMModel model, KernelContext context, Action<RefineOptions<T>> configure, CancellationToken ct = default)
-    static IAsyncEnumerable<EmergeEvent<T>> Refine<T>(LLMModel model, KernelContext context, Action<RefineOptions<T>> configure, ILLM llm, CancellationToken ct = default)
-    // Like Run but creates a fresh KernelContext internally — the common case where the call carries no prior conversation. Paired with ResultAsync , the verbose form
-    // var (result, _) = await Emerge.Run<Recipe>(
-    //     LLMModel.Claude45Sonnet, new KernelContext(),
-    //     pass => pass.Command = command, ct).FinalAsync(ct);
-    // becomes
-    // var result = await Emerge.Run<Recipe>(
+    static EmergeRun<T> BestOf<T>(LLMModel model, KernelContext context, Action<BestOfOptions<T>> configure, CancellationToken ct = default)
+    static EmergeRun<T> BestOf<T>(LLMModel model, KernelContext context, Action<BestOfOptions<T>> configure, ILLM llm, CancellationToken ct = default)
+    // Run-completion control for a tool body: return this to complete the Emerge run right after the current batch of tool calls, with value fed to the model transcript as the tool result. See Complete.
+    static Complete<TValue> Complete<TValue>(TValue value)
+    // Like Emerge.Complete<TValue> but with no result value — the tool result is recorded as a plain completion marker.
+    static Complete Complete()
+    static EmergeRun<T> EnsembleMerge<T>(LLMModel model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, CancellationToken ct = default)
+    static EmergeRun<T> EnsembleMerge<T>(LLMModel model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, ILLM llm, CancellationToken ct = default)
+    static EmergeRun<TResult> MapReduce<TInput, TMapped, TResult>(LLMModel model, KernelContext context, Action<MapReduceOptions<TInput, TMapped, TResult>> configure, CancellationToken ct = default)
+    static EmergeRun<TResult> MapReduce<TInput, TMapped, TResult>(LLMModel model, KernelContext context, Action<MapReduceOptions<TInput, TMapped, TResult>> configure, ILLM llm, CancellationToken ct = default)
+    static EmergeRun<T> Refine<T>(LLMModel model, KernelContext context, Action<RefineOptions<T>> configure, CancellationToken ct = default)
+    static EmergeRun<T> Refine<T>(LLMModel model, KernelContext context, Action<RefineOptions<T>> configure, ILLM llm, CancellationToken ct = default)
+    // Runs one agentic loop and hands back an EmergeRun<T> — awaitable for the one-shot result, enumerable for the event stream:
+    // var recipe = await Emerge.Run<Recipe>(
     //     LLMModel.Claude45Sonnet,
-    //     pass => pass.Command = command, ct).ResultAsync(ct);
-    // Pass an explicit KernelContext via the other overloads when you seed the call with input (images, prior turns) or carry conversation history across calls.
-    static IAsyncEnumerable<EmergeEvent<T>> Run<T>(LLMModel model, Action<EmergePass<T>> configure, CancellationToken ct = default)
-    // Like Run but with an explicit ILLM (e.g. a mock for testing).
-    static IAsyncEnumerable<EmergeEvent<T>> Run<T>(LLMModel model, Action<EmergePass<T>> configure, ILLM llm, CancellationToken ct = default)
-    static IAsyncEnumerable<EmergeEvent<T>> Run<T>(LLMModel model, KernelContext context, Action<EmergePass<T>> configure, CancellationToken ct = default)
-    static IAsyncEnumerable<EmergeEvent<T>> Run<T>(LLMModel model, KernelContext context, Action<EmergePass<T>> configure, ILLM llm, CancellationToken ct = default)
-    static IAsyncEnumerable<EmergeEvent<T>> TreeSearch<T>(LLMModel model, KernelContext context, Action<TreeSearchOptions<T>> configure, CancellationToken ct = default)
-    static IAsyncEnumerable<EmergeEvent<T>> TreeSearch<T>(LLMModel model, KernelContext context, Action<TreeSearchOptions<T>> configure, ILLM llm, CancellationToken ct = default)
+    //     pass => pass.Command = command, ct);
+    //
+    // await foreach (var ev in Emerge.Run<Recipe>(
+    //     LLMModel.Claude45Sonnet,
+    //     pass => pass.Command = command, ct))
+    // {
+    // }
+    // Awaiting returns a non-null T and throws EmergenceStoppedException when the run stops without a result. Reach for EmergeEventExtensions.FinalAsync<T> when you also need the updated KernelContext back. This overload creates a fresh KernelContext internally — the common case where the call carries no prior conversation. Pass an explicit KernelContext via the other overloads when you seed the call with input (images, prior turns) or carry conversation history across calls.
+    static EmergeRun<T> Run<T>(LLMModel model, Action<EmergePass<T>> configure, CancellationToken ct = default)
+    // Like Emerge.Run<T> but with an explicit ILLM (e.g. a mock for testing).
+    static EmergeRun<T> Run<T>(LLMModel model, Action<EmergePass<T>> configure, ILLM llm, CancellationToken ct = default)
+    static EmergeRun<T> Run<T>(LLMModel model, KernelContext context, Action<EmergePass<T>> configure, CancellationToken ct = default)
+    static EmergeRun<T> Run<T>(LLMModel model, KernelContext context, Action<EmergePass<T>> configure, ILLM llm, CancellationToken ct = default)
+    static EmergeRun<T> TreeSearch<T>(LLMModel model, KernelContext context, Action<TreeSearchOptions<T>> configure, CancellationToken ct = default)
+    static EmergeRun<T> TreeSearch<T>(LLMModel model, KernelContext context, Action<TreeSearchOptions<T>> configure, ILLM llm, CancellationToken ct = default)
   static class EmergeEventExtensions
-    // Drains the stream and returns the completed result together with the updated KernelContext . Reach for this over ResultAsync when you need the context back (conversation continuity) or want to handle a null result yourself.
-    static Task<(T Result, KernelContext Context)> FinalAsync<T>(this IAsyncEnumerable<EmergeEvent<T>> events, CancellationToken ct = default)
-    // Like FinalAsync but also returns the run's EmergenceTrace . Reach for this when you need telemetry (duration, token usage, tool-call history) alongside the result.
-    static Task<(T Result, KernelContext Context, EmergenceTrace Trace)> FinalWithTraceAsync<T>(this IAsyncEnumerable<EmergeEvent<T>> events, CancellationToken ct = default)
-    // Drains the stream and returns the completed result without the tuple ceremony. The verbose form
-    // var (result, _) = await Emerge.Run<Recipe>(
-    //     model, pass => pass.Command = command).FinalAsync(ct);
-    // becomes
+    // Drains the stream and returns the completed result together with the updated KernelContext. Reach for this over plainly awaiting the run when you need the context back (conversation continuity) or want to handle a null result yourself. The result stays nullable: a run can complete without producing one (the case EmergeEventExtensions.ResultAsync<T> turns into an EmergenceStoppedException), so guard it before use.
+    static Task<(T? Result, KernelContext Context)> FinalAsync<T>(this IAsyncEnumerable<EmergeEvent<T>> events, CancellationToken ct = default)
+    // Like EmergeEventExtensions.FinalAsync<T> but also returns the run's EmergenceTrace. Reach for this when you need telemetry (duration, token usage, tool-call history) alongside the result. The result stays nullable, exactly as in EmergeEventExtensions.FinalAsync<T>.
+    static Task<(T? Result, KernelContext Context, EmergenceTrace Trace)> FinalWithTraceAsync<T>(this IAsyncEnumerable<EmergeEvent<T>> events, CancellationToken ct = default)
+    // Drains the stream and returns the completed result. An EmergeRun<T> is awaitable, so a run started by Emerge.Run or a pattern needs no terminal at all —
     // var result = await Emerge.Run<Recipe>(
-    //     model, pass => pass.Command = command).ResultAsync(ct);
-    // Never returns null — if the run completes without producing a result (where FinalAsync would hand back a null result), an EmergenceStoppedException is thrown. Reach for FinalAsync instead when you need the updated KernelContext back (conversation continuity) or want to handle a missing result yourself via a nullable result.
+    //     model, pass => pass.Command = command, ct);
+    // is this method. Call it explicitly only on a stream that is not an EmergeRun<T> (a hand-rolled IAsyncEnumerable<T> of events). Never returns null — if the run completes without producing a result (where EmergeEventExtensions.FinalAsync<T> would hand back a null result), an EmergenceStoppedException is thrown. Reach for EmergeEventExtensions.FinalAsync<T> instead when you need the updated KernelContext back (conversation continuity) or want to handle a missing result yourself via a nullable result.
     static Task<T> ResultAsync<T>(this IAsyncEnumerable<EmergeEvent<T>> events, CancellationToken ct = default)
   abstract class EmergeEvent<T> : IEquatable<EmergeEvent<T>>
   sealed class EmergePass<T>
@@ -116,11 +141,19 @@ namespace Ikon.AI.Emergence
     int? UseLastNMessages { get; set; }
     void Stop(string? reason = null)
     void UseLastMessages(int count, int skipLast = 0)
-  // Optional wrapper a tool body can return to control how Emerge feeds the result back to the model. The executor unwraps Result into the tool-result message (so the model never sees the wrapper), and SkipReprocessing = true completes the run right after the current batch of tool calls instead of sending the results back for another model turn — for tools whose side effect IS the answer (e.g. a UI action the model triggered on the user's behalf); the run then completes with a default result. Plain return values behave as if wrapped with SkipReprocessing = false.
-  sealed class EmergeResult
-    ctor(object? result = null)
-    object? Result { get; }
-    bool SkipReprocessing { get; init; }
+  // The handle returned by Emerge.Run<T> and the emergence patterns. It is both awaitable and enumerable, so the caller picks the shape without a terminal call:
+  // // one-shot — non-null T, throws EmergenceStoppedException on failure
+  // var result = await Emerge.Run<Recipe>(model, pass => pass.Command = command);
+  //
+  // // streaming — every event as it happens
+  // await foreach (var ev in Emerge.Run<Recipe>(model, pass => pass.Command = command))
+  // {
+  // }
+  // Awaiting is exactly EmergeEventExtensions.ResultAsync<T>; reach for EmergeEventExtensions.FinalAsync<T> when you also need the updated KernelContext back, or EmergeEventExtensions.FinalWithTraceAsync<T> for the trace. A run is single-shot: the underlying executor carries per-run state, so it can be consumed exactly once. Awaiting the same run twice hands back the same result rather than calling the model again; mixing the two shapes (enumerating and then awaiting, or the reverse) throws instead of silently running a second time.
+  sealed class EmergeRun<T> : IAsyncEnumerable<EmergeEvent<T>>
+    IAsyncEnumerator<EmergeEvent<T>> GetAsyncEnumerator(CancellationToken cancellationToken = default)
+    // Makes the run directly awaitable (the C# awaitable pattern — no interface required). Drains the stream and returns the completed result, identical in semantics to EmergeEventExtensions.ResultAsync<T>: never null, and an EmergenceStoppedException when the run stops without producing one.
+    TaskAwaiter<T> GetAwaiter()
   abstract class EmergeScopeBase
     string? Command { get; set; }
     bool? IncludeJsonExample { get; set; }
@@ -145,9 +178,11 @@ namespace Ikon.AI.Emergence
     void UseLastMessages(int count, int skipLast = 0)
   class EmergeScope<T> : EmergeScopeBase
     ctor()
+    // Match JSON property names case-insensitively when deserializing the model's response. Defaults to true.
     bool CaseInsensitiveJson { get; set; }
     string JsonExample { get; }
     string JsonSchema { get; }
+    // Ask the model for JSON matching T's schema. Defaults to true for every T except string.
     bool UseJson { get; set; }
   enum EmergenceStatus
     Completed
@@ -192,15 +227,19 @@ namespace Ikon.AI.Emergence
     static IReadOnlyList<FunctionCall> GetFunctionCalls(this KernelContext ctx, int take = 10)
     static IReadOnlyList<FunctionResultPart> GetFunctionResults(this KernelContext ctx, int take = 10)
     static bool HasFunctionResults(this KernelContext ctx)
-  sealed class MapReduceOptions<TChunk, TResult> : EmergeScope<TResult>
+  // MapReduce lanes: each TInput chunk is mapped by its own LLM call into a TMapped, and the mapped results are reduced by one final call into a TResult. Chunks are handed to the map prompt as JSON, so any serializable type works — a plain string per chunk is the common case.
+  sealed class MapReduceOptions<TInput, TMapped, TResult> : EmergeScope<TResult>
     ctor()
-    IReadOnlyList<object>? Chunks { get; set; }
-    object? Input { get; set; }
-    EmergeScope<TChunk> MapScope { get; }
+    // The chunks to map over, one map call each. Set this, or MapReduceOptions<TInput, TMapped, TResult>.Input.
+    IReadOnlyList<TInput>? Chunks { get; set; }
+    // A single input to chunk with MapReduceOptions<TInput, TMapped, TResult>.Split. Without a MapReduceOptions<TInput, TMapped, TResult>.Split it is mapped as one chunk.
+    TInput? Input { get; set; }
+    EmergeScope<TMapped> MapScope { get; }
     int MaxParallel { get; set; }
     EmergeScope<TResult> ReduceScope { get; }
-    Func<object, IEnumerable<object>>? Split { get; set; }
-    void Map(Action<EmergeScope<TChunk>> configure)
+    // Splits MapReduceOptions<TInput, TMapped, TResult>.Input into the chunks to map over.
+    Func<TInput, IEnumerable<TInput>>? Split { get; set; }
+    void Map(Action<EmergeScope<TMapped>> configure)
     void Reduce(Action<EmergeScope<TResult>> configure)
   // MCP (Model Context Protocol) client using Streamable HTTP transport. Connects to an MCP server, discovers tools, and proxies tool calls.
   sealed class McpClient : IDisposable
@@ -209,7 +248,7 @@ namespace Ikon.AI.Emergence
     // Calls an MCP tool by name with the given JSON arguments.
     Task<string> CallToolAsync(string name, JsonElement arguments, CancellationToken ct = default)
     // Calls an MCP tool and returns both content and pagination cursor. Pass a cursor from a previous response to fetch the next page.
-    Task<McpToolResult> CallToolRawAsync(string name, JsonElement arguments, CancellationToken ct = default, string? cursor = null)
+    Task<McpToolResult> CallToolRawAsync(string name, JsonElement arguments, string? cursor = null, CancellationToken ct = default)
     // Initializes the MCP session and discovers available tools.
     Task ConnectAsync(CancellationToken ct = default)
     void Dispose()
@@ -269,6 +308,7 @@ namespace Ikon.AI.Emergence
     ctor(KernelContext Context, string? Reason)
     KernelContext Context { get; init; }
     string? Reason { get; init; }
+  // Token usage for the run so far. The counts are CUMULATIVE running totals across all iterations, not per-iteration deltas — consumers must take the LAST event's values, never sum the events.
   sealed class TokenUpdate<T> : EmergeEvent<T>, IEquatable<TokenUpdate<T>>
     ctor(long InputTokens, long CachedInputTokens, long CacheCreationInputTokens, long OutputTokens)
     long CacheCreationInputTokens { get; init; }
@@ -326,7 +366,7 @@ namespace Ikon.AI.Emergence.Tree
     int? Page { get; init; }
     string Title { get; init; }
   interface IContentReader
-    abstract IAsyncEnumerable<ContentSection> ReadSectionsAsync(CancellationToken ct = default)
+    IAsyncEnumerable<ContentSection> ReadSectionsAsync(CancellationToken ct = default)
   class StringContentReader : IContentReader
     ctor(string content)
     IAsyncEnumerable<ContentSection> ReadSectionsAsync(CancellationToken ct = default)
@@ -334,8 +374,10 @@ namespace Ikon.AI.Emergence.Tree
     ctor()
     ctor(TreeNode root)
     TreeNode Root { get; set; }
-    static IAsyncEnumerable<EmergeEvent<TreeIndex>> BuildAsync(LLMModel model, string content, TreeIndexOptions? options = null, CancellationToken ct = default)
-    static IAsyncEnumerable<EmergeEvent<TreeIndex>> BuildAsync(LLMModel model, IContentReader reader, TreeIndexOptions? options = null, CancellationToken ct = default)
+    // Builds the tree index for a document, as an EmergeRun<T> — awaitable for the finished index, enumerable for the event stream, just like Emerge.TreeSearch<T> and the other Emerge patterns.
+    static EmergeRun<TreeIndex> BuildAsync(LLMModel model, string content, TreeIndexOptions? options = null, CancellationToken ct = default)
+    // Like TreeIndex.BuildAsync but reads the document through an IContentReader.
+    static EmergeRun<TreeIndex> BuildAsync(LLMModel model, IContentReader reader, TreeIndexOptions? options = null, CancellationToken ct = default)
     TreeNode? FindById(string id)
     void RebuildIndex()
     string ToTableOfContents(int maxDepth = -1)
@@ -378,36 +420,36 @@ namespace Ikon.AI
     Escalate
     Obfuscate
     Delay
-  // The pending AI operation presented to the hook. Operation discriminates surface ("ai_call", "tool", "ingest"); Subject is the thing being acted on (model name, tool name, corpus name); Args are call-specific parameters; Ctx carries host-supplied identity / mission / runtime context (mission_id, agent_id, thread_id, user, tenant, time, etc.).
+  // The pending AI operation presented to the hook. GovernanceCall.Operation discriminates surface ("ai_call", "tool", "ingest"); GovernanceCall.Subject is the thing being acted on (model name, tool name, corpus name); GovernanceCall.Args are call-specific parameters; GovernanceCall.Ctx carries host-supplied identity / mission / runtime context (mission_id, agent_id, thread_id, user, tenant, time, etc.).
   sealed class GovernanceCall : IEquatable<GovernanceCall>
     ctor(string Operation, string Subject, IReadOnlyDictionary<string, object?> Args, IReadOnlyDictionary<string, object?> Ctx)
     IReadOnlyDictionary<string, object?> Args { get; init; }
     IReadOnlyDictionary<string, object?> Ctx { get; init; }
     string Operation { get; init; }
     string Subject { get; init; }
-  // What happened after the operation ran (or didn't). Hooks use this in AfterAsync to close out the audit record.
+  // What happened after the operation ran (or didn't). Hooks use this in IGovernanceHook.AfterAsync to close out the audit record.
   sealed class GovernanceCallResult : IEquatable<GovernanceCallResult>
     ctor(bool Failed, string Outcome, string? ErrorMessage = null)
     string? ErrorMessage { get; init; }
     bool Failed { get; init; }
     string Outcome { get; init; }
-  // Thrown by AI primitives when an active IGovernanceHook returns Deny . Carries the decision id so callers can correlate the failure to the audit record.
+  // Thrown by AI primitives when an active IGovernanceHook returns GovernanceAction.Deny. Carries the decision id so callers can correlate the failure to the audit record.
   sealed class GovernanceDeniedException : Exception
     ctor(string decisionId, string ruleId, string policyId, string reason)
     string DecisionId { get; }
     string PolicyId { get; }
     string Reason { get; }
     string RuleId { get; }
-  // Thrown by AI primitives when an active hook returns Escalate . The host runtime is expected to catch this and route to the escalation target rather than retry — the operation is paused, not failed.
+  // Thrown by AI primitives when an active hook returns GovernanceAction.Escalate. The host runtime is expected to catch this and route to the escalation target rather than retry — the operation is paused, not failed.
   sealed class GovernanceEscalatedException : Exception
     ctor(string decisionId, string target, string reason)
     string DecisionId { get; }
     string Reason { get; }
     string Target { get; }
-  // Shared invocation wrapper used by every transport that gates a call through GovernanceScope . Builds the standard Before / Deny / Escalate / invoke / After flow once so HTTP, MCP, and any future transport stay symmetric — the only thing each transport supplies is the GovernanceCall shape and the inner invocation. With no hook active the wrap is a pass-through.
+  // Shared invocation wrapper used by every transport that gates a call through GovernanceScope. Builds the standard Before / Deny / Escalate / invoke / After flow once so HTTP, MCP, and any future transport stay symmetric — the only thing each transport supplies is the GovernanceCall shape and the inner invocation. With no hook active the wrap is a pass-through.
   static class GovernanceInvoker
     static Task<T> RunAsync<T>(GovernanceCall call, Func<Task<T>> invoke, CancellationToken ct = default)
-  // What the hook decided. The host must honour Action : Allow → invoke the operationDeny → throw GovernanceDeniedException Escalate → suspend / route to Target Obfuscate → apply the named transformDelay → wait the named duration then proceed DecisionId is the audit identifier the host can attach to any subsequent telemetry tied to this operation.
+  // What the hook decided. The host must honour GovernanceOutcome.Action: • Allow → invoke the operation • Deny → throw GovernanceDeniedException • Escalate → suspend / route to GovernanceOutcome.Target • Obfuscate → apply the named transform • Delay → wait the named duration then proceed GovernanceOutcome.DecisionId is the audit identifier the host can attach to any subsequent telemetry tied to this operation.
   sealed class GovernanceOutcome : IEquatable<GovernanceOutcome>
     ctor(GovernanceAction Action, string DecisionId, string RuleId, string PolicyId, string Reason, string? Target = null)
     GovernanceAction Action { get; init; }
@@ -416,14 +458,14 @@ namespace Ikon.AI
     string Reason { get; init; }
     string RuleId { get; init; }
     string? Target { get; init; }
-  // AsyncLocal scope carrying the active IGovernanceHook for the duration of an AI-touched operation. Host code wraps work in using var _ = GovernanceScope.Use(hook);; downstream Ikon AI primitives read Current and apply the hook if present. The scope crosses await boundaries naturally; it does NOT cross Task.Run or manually-started threads. Capture the hook into a local before any fork if you need to.
+  // AsyncLocal scope carrying the active IGovernanceHook for the duration of an AI-touched operation. Host code wraps work in using var _ = GovernanceScope.Use(hook);; downstream Ikon AI primitives read GovernanceScope.Current and apply the hook if present. The scope crosses await boundaries naturally; it does NOT cross Task.Run or manually-started threads. Capture the hook into a local before any fork if you need to.
   static class GovernanceScope
     static IGovernanceHook? Current { get; }
     static IDisposable Use(IGovernanceHook hook)
-  // Single hook surface called by every AI-touched primitive in the Ikon platform — LLM calls (Emerge.Run<T>), agent tool dispatch (Ikon.Agent), data ingest steps — before they act. One contract, three surfaces. Host code activates a hook by entering a GovernanceScope ; downstream primitives read Current and consult the hook if it is set. The default — no scope active — is a no-op pass-through and the AI primitives behave exactly as they do without governance.
+  // Single hook surface called by every AI-touched primitive in the Ikon platform — LLM calls (Emerge.Run<T>), agent tool dispatch (Ikon.Agent), data ingest steps — before they act. One contract, three surfaces. Host code activates a hook by entering a GovernanceScope; downstream primitives read GovernanceScope.Current and consult the hook if it is set. The default — no scope active — is a no-op pass-through and the AI primitives behave exactly as they do without governance.
   interface IGovernanceHook
-    abstract Task AfterAsync(GovernanceCall call, GovernanceCallResult result, CancellationToken ct)
-    abstract Task<GovernanceOutcome> BeforeAsync(GovernanceCall call, CancellationToken ct)
+    Task AfterAsync(GovernanceCall call, GovernanceCallResult result, CancellationToken ct)
+    Task<GovernanceOutcome> BeforeAsync(GovernanceCall call, CancellationToken ct)
   // Connecting to the Ikon server timed out or failed. TRANSIENT by nature — a network blip, a server restart, a flaky link — so it is retryable: the RPC layer retries with a forced reconnect, and one that exhausts those attempts still lands as retryable so Emerge's bounded retry (and a host's re-drive) get their shot. A single 15s blip killing a 40-minute codegen run (observed repeatedly on a flaky uplink) is exactly what this classification prevents.
   sealed class IkonServerConnectException : RetryableAIException
     ctor(string message)
@@ -522,9 +564,10 @@ namespace Ikon.AI.Classification
     ctor(ClassificationResult classificationResult)
     ctor(ClassificationResult classificationResult, Exception inner)
     ClassificationResult ClassificationResult { get; }
-  sealed class Classifier : IClassifier, IDisposable
+  sealed class Classifier : IClassifier, IClassifierInfo, IDisposable
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(ClassificationModel model, IReadOnlyList<ModelRegion>? regions = null)
+    bool SupportsImageInput { get; }
     TimeSpan Timeout { get; set; }
     Task<ClassificationResult> ClassifyAsync(IReadOnlyList<ClassificationInput> inputs, CancellationToken cancellationToken = default)
     Task<ClassificationResult> ClassifyAsync(IReadOnlyList<IMessagePart> messageParts, CancellationToken cancellationToken = default)
@@ -534,20 +577,26 @@ namespace Ikon.AI.Classification
     // var result = await classifier.ClassifyAsync(text);
     // becomes
     // var result = await Classifier.ClassifyAsync(text);
-    // Defaults to OpenAIOmniModeration (free to use, the standard moderation model). Override the model via the second parameter when the task warrants. Check result.IsFlagged and the per-label result.Details. Reach for the constructor + the instance ClassifyAsync overloads when you need to classify images or message parts ( ClassificationInput ), set a custom Timeout , or classify many inputs with the same classifier instance.
+    // Defaults to ClassificationModel.OpenAIOmniModeration (free to use, the standard moderation model). Override the model via the second parameter when the task warrants. Check result.IsFlagged and the per-label result.Details. Reach for the constructor + the instance ClassifyAsync overloads when you need to classify images or message parts (ClassificationInput), set a custom Classifier.Timeout, or classify many inputs with the same classifier instance.
     static Task<ClassificationResult> ClassifyAsync(string text, ClassificationModel model = OpenAIOmniModeration, CancellationToken cancellationToken = default)
     void Dispose()
+    static ClassifierCapabilities GetCapabilities(ClassificationModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ClassificationModel model)
+  sealed class ClassifierCapabilities : IClassifierInfo
+    ctor()
+    bool SupportsImageInput { get; init; }
   class ClassifierException : RetryableAIException
     ctor()
     ctor(string message)
     ctor(string message, Exception inner)
-  interface IClassifier : IDisposable
+  interface IClassifier : IClassifierInfo, IDisposable
     // Maximum duration of a single classification request. Defaults to 10 seconds.
     TimeSpan Timeout { get; set; }
-    abstract Task<ClassificationResult> ClassifyAsync(IReadOnlyList<ClassificationInput> inputs, CancellationToken cancellationToken = default)
+    Task<ClassificationResult> ClassifyAsync(IReadOnlyList<ClassificationInput> inputs, CancellationToken cancellationToken = default)
     virtual Task<ClassificationResult> ClassifyAsync(IReadOnlyList<IMessagePart> messageParts, CancellationToken cancellationToken = default)
     virtual Task<ClassificationResult> ClassifyAsync(string text, CancellationToken cancellationToken = default)
+  interface IClassifierInfo
+    bool SupportsImageInput { get; }
   class NonRetryableClassifierException : NonRetryableAIException
     ctor()
     ctor(string message)
@@ -556,11 +605,11 @@ namespace Ikon.AI.Classification
 namespace Ikon.AI.Database
   sealed class BigQueryDbConnection : DbConnection
     ctor(string projectId, string datasetId)
-    string ConnectionString { get; set; }
-    string DataSource { get; }
-    string Database { get; }
-    string ServerVersion { get; }
-    ConnectionState State { get; }
+    override string ConnectionString { get; set; }
+    override string DataSource { get; }
+    override string Database { get; }
+    override string ServerVersion { get; }
+    override ConnectionState State { get; }
     override void ChangeDatabase(string databaseName)
     override void Close()
     override DataTable GetSchema()
@@ -601,10 +650,10 @@ namespace Ikon.AI.Database
     bool? IsForeignKey { get; set; }
     bool? IsPrimaryKey { get; set; }
     List<string>? Values { get; set; }
-  // Creates database connections. Prefer the typed factory methods ( Trino , Postgres , Sqlite , BigQuery ) for app code — host, port, and catalog are not secrets, only the password is. Pass that password from app.Secrets:
+  // Creates database connections. Prefer the typed factory methods (DatabaseConnection.Trino, DatabaseConnection.Postgres, DatabaseConnection.Sqlite, DatabaseConnection.BigQuery) for app code — host, port, and catalog are not secrets, only the password is. Pass that password from app.Secrets:
   // DatabaseConnection.Trino(host: "trino.example.com", port: 443, catalog: "hive",
   //                      user: "ikon", password: app.Secrets["TRINO_PASSWORD"])
-  // CreateAsync remains for shared pipelines that read all of host/port/user/password/etc. from environment variables or space secrets.
+  // DatabaseConnection.CreateAsync remains for shared pipelines that read all of host/port/user/password/etc. from environment variables or space secrets.
   class DatabaseConnection
     ctor()
     string BigQueryDataset { get; set; }
@@ -642,13 +691,15 @@ namespace Ikon.AI.Database
     string Prefix { get; set; }
     string SpaceId { get; set; }
   static class SqlValidator
-    static void ValidateReadOnly(string sql, HashSet<string> allowedTables)
+    static void ValidateReadOnly(string sql, IReadOnlySet<string> allowedTables)
 
 namespace Ikon.AI.DepthEstimation
   sealed class DepthEstimator : IDepthEstimator, IDisposable
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(DepthEstimatorModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
+    // Estimate depth for one image — the instance form of the DepthEstimator.EstimateAsync one-shot, for when you already hold an estimator. Reach for DepthEstimator.EstimateDepthAsync when the request needs any other DepthEstimatorConfig field.
+    Task<DepthEstimatorResult> EstimateAsync(byte[] imageData, string mimeType, CancellationToken cancellationToken = default)
     // One-shot depth estimation from raw image bytes. The verbose form
     // using var depthEstimator = new DepthEstimator(DepthEstimatorModel.DepthAnythingV2);
     // var result = await depthEstimator.EstimateDepthAsync(new DepthEstimatorConfig
@@ -657,7 +708,7 @@ namespace Ikon.AI.DepthEstimation
     // });
     // becomes
     // var result = await DepthEstimator.EstimateAsync(imageData, "image/png");
-    // Defaults to DepthAnythingV2 (cheap+fast). Override the model via the third parameter when the task warrants (Marigold is slower but higher quality). The depth map image is in result.Depth (.Data / .MimeType). Reach for the constructor + EstimateDepthAsync when the image is a URL instead of bytes, or when you need the Marigold tuning fields on DepthEstimatorConfig .
+    // Defaults to DepthEstimatorModel.DepthAnythingV2 (cheap+fast). Override the model via the third parameter when the task warrants (Marigold is slower but higher quality). The depth map image is in result.Depth (.Data / .MimeType). Reach for the constructor + DepthEstimator.EstimateDepthAsync when the image is a URL instead of bytes, or when you need the Marigold tuning fields on DepthEstimatorConfig.
     static Task<DepthEstimatorResult> EstimateAsync(byte[] imageData, string mimeType, DepthEstimatorModel model = DepthAnythingV2, CancellationToken cancellationToken = default)
     Task<DepthEstimatorResult> EstimateDepthAsync(DepthEstimatorConfig config, CancellationToken cancellationToken = default)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(DepthEstimatorModel model)
@@ -682,7 +733,7 @@ namespace Ikon.AI.DepthEstimation
     ctor()
     DepthEstimatorResult.OutputImage Depth { get; init; }
   interface IDepthEstimator : IDisposable
-    abstract Task<DepthEstimatorResult> EstimateDepthAsync(DepthEstimatorConfig config, CancellationToken cancellationToken = default)
+    Task<DepthEstimatorResult> EstimateDepthAsync(DepthEstimatorConfig config, CancellationToken cancellationToken = default)
   sealed class DepthEstimatorConfig.InputImage : IEquatable<DepthEstimatorConfig.InputImage>
     ctor()
     byte[]? Data { get; init; }
@@ -703,24 +754,26 @@ namespace Ikon.AI.Embeddings
   enum EmbeddingEncoding
     Base64
     GzipBase64
-  sealed class EmbeddingGenerator : IDisposable, IEmbeddingGenerator
+  sealed class EmbeddingGenerator : IDisposable, IEmbeddingGenerator, IEmbeddingGeneratorInfo
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(EmbeddingModel model, IReadOnlyList<ModelRegion>? regions = null)
     int EmbeddingVectorSize { get; }
     int MaxInputCount { get; }
     TimeSpan Timeout { get; set; }
     void Dispose()
+    // Embed a batch of texts — the instance form of the EmbeddingGenerator.EmbedAsync one-shot, for when you already hold a generator. Reach for EmbeddingGenerator.GenerateEmbeddingsAsync when you need to cap the batch size per request.
+    Task<List<float[]>> EmbedAsync(IReadOnlyList<string> texts, EmbeddingType type = Generic, CancellationToken cancellationToken = default)
     // One-shot embedding generation. The verbose form
     // using var embeddingGenerator = new EmbeddingGenerator(EmbeddingModel.OpenAI3Small);
     // var embeddings = await embeddingGenerator.GenerateEmbeddingsAsync(texts, EmbeddingType.Generic);
     // becomes
     // var embeddings = await EmbeddingGenerator.EmbedAsync(texts);
-    // Defaults to OpenAI3Small (cheap+fast) and Generic . Override the model via the second parameter when the task warrants; pass an explicit EmbeddingType when embedding documents and queries for asymmetric retrieval. Returns one float[] vector per input, in input order. Reach for the constructor + GenerateEmbeddingsAsync when you need batching control (maxInputCount), a custom Timeout , or the generator's MaxInputCount / EmbeddingVectorSize properties.
+    // Defaults to EmbeddingModel.OpenAI3Small (cheap+fast) and EmbeddingType.Generic. Override the model via the second parameter when the task warrants; pass an explicit EmbeddingType when embedding documents and queries for asymmetric retrieval. Returns one float[] vector per input, in input order. Reach for the constructor + EmbeddingGenerator.GenerateEmbeddingsAsync when you need batching control (maxInputCount), a custom EmbeddingGenerator.Timeout, or the generator's EmbeddingGenerator.MaxInputCount / EmbeddingGenerator.EmbeddingVectorSize properties.
     static Task<List<float[]>> EmbedAsync(IReadOnlyList<string> texts, EmbeddingModel model = OpenAI3Small, EmbeddingType type = Generic, CancellationToken cancellationToken = default)
     Task<List<float[]>> GenerateEmbeddingsAsync(IReadOnlyList<string> inputs, EmbeddingType type, int maxInputCount = 0, CancellationToken cancellationToken = default)
     static EmbeddingGeneratorCapabilities GetCapabilities(EmbeddingModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(EmbeddingModel model)
-  sealed class EmbeddingGeneratorCapabilities
+  sealed class EmbeddingGeneratorCapabilities : IEmbeddingGeneratorInfo
     ctor()
     int EmbeddingVectorSize { get; init; }
     int MaxInputCount { get; init; }
@@ -767,12 +820,13 @@ namespace Ikon.AI.Embeddings
     Query
     Clustering
     Classification
-  interface IEmbeddingGenerator : IDisposable
-    int EmbeddingVectorSize { get; }
-    int MaxInputCount { get; }
+  interface IEmbeddingGenerator : IDisposable, IEmbeddingGeneratorInfo
     // Maximum duration of a single embedding request, scaled up internally with the batch size. Defaults to 10 seconds.
     TimeSpan Timeout { get; set; }
-    abstract Task<List<float[]>> GenerateEmbeddingsAsync(IReadOnlyList<string> inputs, EmbeddingType type, int maxInputCount = 0, CancellationToken cancellationToken = default)
+    Task<List<float[]>> GenerateEmbeddingsAsync(IReadOnlyList<string> inputs, EmbeddingType type, int maxInputCount = 0, CancellationToken cancellationToken = default)
+  interface IEmbeddingGeneratorInfo
+    int EmbeddingVectorSize { get; }
+    int MaxInputCount { get; }
   struct VectorMath.Neighbor
     ctor(int index, float distance)
     float Distance { get; }
@@ -805,12 +859,14 @@ namespace Ikon.AI.FileConversion
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(FileConverterModel model, IReadOnlyList<ModelRegion>? regions = null)
     Task<ConvertedFile> ConvertToPdfAsync(FileConverterConfig config, CancellationToken cancellationToken = default)
+    // Convert one file's bytes to PDF — the instance form of the FileConverter.ConvertToPdfAsync one-shot, for when you already hold a converter. Reach for FileConverter.ConvertToPdfAsync when the request needs any other FileConverterConfig field.
+    Task<ConvertedFile> ConvertToPdfAsync(byte[] data, string fileName, CancellationToken cancellationToken = default)
     // One-shot PDF conversion from raw file bytes. The verbose form
     // using var fileConverter = new FileConverter(FileConverterModel.ConvertApi);
     // var pdf = await fileConverter.ConvertToPdfAsync(new FileConverterConfig { Data = data, FileName = fileName });
     // becomes
     // var pdf = await FileConverter.ConvertToPdfAsync(data, fileName);
-    // Defaults to ConvertApi (the only conversion model). fileName must carry the source extension (e.g. report.docx) — it determines the input format. The converted PDF is in pdf.Data. Reach for the constructor + ConvertToPdfAsync when the source is a URL or AssetUri instead of bytes, or when you need a custom timeout.
+    // Defaults to FileConverterModel.ConvertApi (the only conversion model). fileName must carry the source extension (e.g. report.docx) — it determines the input format. The converted PDF is in pdf.Data. Reach for the constructor + FileConverter.ConvertToPdfAsync when the source is a URL or AssetUri instead of bytes, or when you need a custom timeout.
     static Task<ConvertedFile> ConvertToPdfAsync(byte[] data, string fileName, FileConverterModel model = ConvertApi, CancellationToken cancellationToken = default)
     void Dispose()
     static IReadOnlyList<ModelRegion> GetSupportedRegions(FileConverterModel model)
@@ -830,7 +886,7 @@ namespace Ikon.AI.FileConversion
   static class FileConverterModelExtensions
     static string DisplayName(this FileConverterModel model)
   interface IFileConverter : IDisposable
-    abstract Task<ConvertedFile> ConvertToPdfAsync(FileConverterConfig config, CancellationToken cancellationToken = default)
+    Task<ConvertedFile> ConvertToPdfAsync(FileConverterConfig config, CancellationToken cancellationToken = default)
   class NonRetryableFileConverterException : NonRetryableAIException
     ctor()
     ctor(string message)
@@ -838,7 +894,7 @@ namespace Ikon.AI.FileConversion
 
 namespace Ikon.AI.ImageGeneration
   interface IImageGenerator : IDisposable
-    abstract Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = default)
+    Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = default)
   enum ImageBackground
     Auto
     Opaque
@@ -847,13 +903,15 @@ namespace Ikon.AI.ImageGeneration
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(ImageGeneratorModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
+    // Generate one image from a plain prompt — the instance form of the ImageGenerator.GenerateAsync one-shot, for when you already hold a generator. Reach for ImageGenerator.GenerateImageAsync when the request needs any other ImageGeneratorConfig field (input images, size, image count).
+    Task<ImageGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     // One-shot image generation. The verbose form
     // using var generator = new ImageGenerator(ImageGeneratorModel.Gemini25FlashImage);
     // var results = await generator.GenerateImageAsync(new ImageGeneratorConfig { Prompt = prompt });
     // var image = results.FirstOrDefault();
     // becomes
     // var image = await ImageGenerator.GenerateAsync(prompt);
-    // Defaults to Gemini25FlashImage (cheap+fast). Override the model via the second parameter when the task warrants. Never returns null — throws an ImageGeneratorException when generation fails or the model produces no results, so wrap in try/catch when the app should continue without the image. Reach for the constructor + GenerateImageAsync when you need batch generation, custom width/height, an ImageBackground override, input images, or any other ImageGeneratorConfig field beyond the prompt.
+    // Defaults to ImageGeneratorModel.Gemini25FlashImage (cheap+fast). Override the model via the second parameter when the task warrants. Never returns null — throws an ImageGeneratorException when generation fails or the model produces no results, so wrap in try/catch when the app should continue without the image. Reach for the constructor + ImageGenerator.GenerateImageAsync when you need batch generation, custom width/height, an ImageBackground override, input images, or any other ImageGeneratorConfig field beyond the prompt.
     static Task<ImageGeneratorResult> GenerateAsync(string prompt, ImageGeneratorModel model = Gemini25FlashImage, CancellationToken cancellationToken = default)
     Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = default)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ImageGeneratorModel model)
@@ -861,8 +919,8 @@ namespace Ikon.AI.ImageGeneration
     ctor()
     ImageBackground Background { get; init; }
     int Count { get; init; }
+    // Requested pixel height. See ImageGeneratorConfig.Width.
     int Height { get; init; }
-    string ImageSize { get; init; }
     List<InputImage> InputImages { get; init; }
     string NegativePrompt { get; init; }
     string Prompt { get; init; }
@@ -875,6 +933,7 @@ namespace Ikon.AI.ImageGeneration
     string Style { get; init; }
     TimeSpan Timeout { get; init; }
     bool UpsamplePrompt { get; init; }
+    // Requested pixel width. This is the only way to ask for a size: providers that take exact dimensions get these values, and providers that only offer fixed resolution tiers (Gemini: 1K/2K/4K) round the longer edge up to the nearest tier they support and take the aspect ratio from Width:Height. Ask for 2048x2048 to get a 2K image.
     int Width { get; init; }
   class ImageGeneratorException : RetryableAIException
     ctor()
@@ -959,12 +1018,14 @@ namespace Ikon.AI.ImageSegmentation
     double YMax { get; init; }
     double YMin { get; init; }
   interface IImageSegmenter : IDisposable
-    abstract Task<ImageSegmenterResult> SegmentImageAsync(ImageSegmenterConfig config, CancellationToken cancellationToken = default)
+    Task<ImageSegmenterResult> SegmentImageAsync(ImageSegmenterConfig config, CancellationToken cancellationToken = default)
   sealed class ImageSegmenter : IDisposable, IImageSegmenter
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(ImageSegmenterModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ImageSegmenterModel model)
+    // Segment one image against a prompt — the instance form of the ImageSegmenter.SegmentAsync one-shot, for when you already hold a segmenter. Reach for ImageSegmenter.SegmentImageAsync when the request needs any other ImageSegmenterConfig field.
+    Task<ImageSegmenterResult> SegmentAsync(byte[] imageData, string mimeType, string prompt, CancellationToken cancellationToken = default)
     // One-shot text-prompted segmentation from raw image bytes. The verbose form
     // using var segmenter = new ImageSegmenter(ImageSegmenterModel.Sam31);
     // var result = await segmenter.SegmentImageAsync(new ImageSegmenterConfig
@@ -974,7 +1035,7 @@ namespace Ikon.AI.ImageSegmentation
     // });
     // becomes
     // var result = await ImageSegmenter.SegmentAsync(imageData, "image/png", "person");
-    // Defaults to Sam31 (the latest SAM revision at the same price as SAM 3). Override the model via the fourth parameter when the task warrants. Each detected object is in result.Segments with its mask image, score, and bounding box. Reach for the constructor + SegmentImageAsync when the image is a URL instead of bytes, or when you need point/box prompts, multiple masks per object, or any other ImageSegmenterConfig field.
+    // Defaults to ImageSegmenterModel.Sam31 (the latest SAM revision at the same price as SAM 3). Override the model via the fourth parameter when the task warrants. Each detected object is in result.Segments with its mask image, score, and bounding box. Reach for the constructor + ImageSegmenter.SegmentImageAsync when the image is a URL instead of bytes, or when you need point/box prompts, multiple masks per object, or any other ImageSegmenterConfig field.
     static Task<ImageSegmenterResult> SegmentAsync(byte[] imageData, string mimeType, string prompt, ImageSegmenterModel model = Sam31, CancellationToken cancellationToken = default)
     Task<ImageSegmenterResult> SegmentImageAsync(ImageSegmenterConfig config, CancellationToken cancellationToken = default)
   sealed class ImageSegmenterConfig : IEquatable<ImageSegmenterConfig>
@@ -1060,7 +1121,7 @@ namespace Ikon.AI.Kernel
     ctor(byte[] data, string mimeType)
     byte[] Data { get; }
     string MimeType { get; }
-  // A citation reference detected in the generated text. The refer indices bound the text span that refers to the citation; PositionIndex is the character index of the citation marker itself.
+  // A citation reference detected in the generated text. The refer indices bound the text span that refers to the citation; Citation.PositionIndex is the character index of the citation marker itself.
   sealed class LLMEvent.Citation : LLMEvent, IEquatable<LLMEvent.Citation>
     ctor(string OriginalId, string MappedId, int ReferStartIndex, int ReferEndIndex, int PositionIndex)
     string MappedId { get; init; }
@@ -1093,7 +1154,7 @@ namespace Ikon.AI.Kernel
     string ParametersJson { get; }
     string ReasoningContent { get; }
     string ThoughtSignature { get; }
-  // Function/tool result carrying media alongside text. Providers that support media inside tool results (Anthropic tool_result image blocks) inline the media so the model actually SEES it; every other consumer degrades to ToString , which summarizes the media without dumping bytes.
+  // Function/tool result carrying media alongside text. Providers that support media inside tool results (Anthropic tool_result image blocks) inline the media so the model actually SEES it; every other consumer degrades to FunctionMediaResult.ToString, which summarizes the media without dumping bytes.
   sealed class FunctionMediaResult
     ctor(string text, params BinaryDataContainer[] media)
     IReadOnlyList<BinaryDataContainer> Media { get; }
@@ -1134,7 +1195,7 @@ namespace Ikon.AI.Kernel
     string AudioOutputVoiceId { get; init; }
     // When set, providers that support server-side context editing (Anthropic context-management beta) clear OLD tool results once the request's input exceeds this many tokens — after prompt-cache lookup, so cached prefixes survive. The single biggest context sink in long tool-using loops is superseded tool results being re-sent every round; server-side clearing removes them without the cache-busting a client-side history rewrite causes. Null = off. Providers without support ignore it.
     int? ClearToolResultsAfterInputTokens { get; init; }
-    // Tool names whose results are NEVER cleared by ClearToolResultsAfterInputTokens (semantic anchors like verdicts).
+    // Tool names whose results are NEVER cleared by KernelContext.ClearToolResultsAfterInputTokens (semantic anchors like verdicts).
     IReadOnlyList<string>? ClearToolResultsExcludedTools { get; init; }
     bool DisableFunctionCalling { get; init; }
     bool DiscardTextOutputWithFunctionCalls { get; init; }
@@ -1164,7 +1225,7 @@ namespace Ikon.AI.Kernel
     IAsyncEnumerable<LLMEvent> GenerateAsync(ILLM llm, CancellationToken cancellationToken = default)
     KernelContext KeepMessagesMax(int count)
     KernelContext WithFunctions(IEnumerable<Function>? functions, bool replaceExisting = false)
-  // One event in the typed stream produced by GenerateAsync and its combinators. Consume the stream by switching on the concrete case: TextDelta for incremental text, ToolCallRequested when the model asks for a tool, ToolResult for a tool's output, Usage and Finished for end-of-generation accounting, and so on. Events not relevant to a consumer should be passed through unchanged so downstream consumers still see them.
+  // One event in the typed stream produced by ILLM.GenerateAsync and its combinators. Consume the stream by switching on the concrete case: TextDelta for incremental text, ToolCallRequested when the model asks for a tool, ToolResult for a tool's output, Usage and Finished for end-of-generation accounting, and so on. Events not relevant to a consumer should be passed through unchanged so downstream consumers still see them.
   abstract class LLMEvent : IEquatable<LLMEvent>
     // Name of the pipeline stage that produced this event (e.g. "generate", "generate.reasoning", "Shader.Output.AfterPass"). Combinators re-tag events they transform so the origin of each event stays visible.
     string Source { get; init; }
@@ -1222,7 +1283,7 @@ namespace Ikon.AI.Kernel
   enum SchemaDialect
     JsonSchema202012
     OpenApi30
-  // A parsed XML-style tag extracted from the text stream by WithParsedTagsAsync .
+  // A parsed XML-style tag extracted from the text stream by AsyncEnumerableExtensions.WithParsedTagsAsync.
   sealed class LLMEvent.Tag : LLMEvent, IEquatable<LLMEvent.Tag>
     ctor(string Name, string Content, IReadOnlyDictionary<string, string>? Attributes)
     IReadOnlyDictionary<string, string>? Attributes { get; init; }
@@ -1244,14 +1305,14 @@ namespace Ikon.AI.Kernel
   sealed class LLMEvent.ToolPlan : LLMEvent, IEquatable<LLMEvent.ToolPlan>
     ctor(string Text)
     string Text { get; init; }
-  // The output of an executed tool. Value holds the tool's return value; ValueType records its runtime type so the value can be rehydrated to the original type after a JSON round-trip (e.g. over RPC).
+  // The output of an executed tool. ToolResult.Value holds the tool's return value; ToolResult.ValueType records its runtime type so the value can be rehydrated to the original type after a JSON round-trip (e.g. over RPC).
   sealed class LLMEvent.ToolResult : LLMEvent, IEquatable<LLMEvent.ToolResult>
     ctor(string functionName, object? value)
     ctor(string functionName, object? value, string? valueType)
     string FunctionName { get; }
     object? Value { get; }
     string? ValueType { get; }
-  // Token accounting for one generation. CachedInputTokens is the subset of InputTokens served from the provider's prompt cache (Anthropic cache_read_input_tokens, OpenAI cached_tokens, Bedrock CacheReadInputTokens).
+  // Token accounting for one generation. Usage.CachedInputTokens is the subset of Usage.InputTokens served from the provider's prompt cache (Anthropic cache_read_input_tokens, OpenAI cached_tokens, Bedrock CacheReadInputTokens).
   sealed class LLMEvent.Usage : LLMEvent, IEquatable<LLMEvent.Usage>
     ctor(int InputTokens, int CachedInputTokens, int CacheCreationInputTokens, int OutputTokens)
     int CacheCreationInputTokens { get; init; }
@@ -1292,7 +1353,7 @@ namespace Ikon.AI.LLM
     // Projects the function's parameter list into its provider JSON schema: an object schema with type/properties/required, including parameter descriptions and allowed-value enums.
     static string ToJson(Function function)
   interface ILLM : IDisposable, ILLMInfo
-    abstract IAsyncEnumerable<LLMEvent> GenerateAsync(KernelContext context, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<LLMEvent> GenerateAsync(KernelContext context, CancellationToken cancellationToken = default)
   interface ILLMInfo
     int ContextWindowSize { get; }
     string InlineReasoningTagName { get; }
@@ -1306,6 +1367,7 @@ namespace Ikon.AI.LLM
     bool SupportsOutputAudio { get; }
     bool SupportsParallelToolCalling { get; }
     bool SupportsReasoning { get; }
+    bool SupportsSingleToolCalling { get; }
     bool SupportsStreaming { get; }
     bool SupportsZeroDataRetention { get; }
     bool UsesInlineReasoning { get; }
@@ -1339,7 +1401,7 @@ namespace Ikon.AI.LLM
     string InlineReasoningTagName { get; init; }
     SchemaDialect SchemaDialect { get; init; }
     bool SupportsGbnfGrammar { get; init; }
-    // True when the provider binding can inline images INSIDE tool results (Anthropic tool_result image blocks). Distinct from SupportsInputImages : a vision model whose tool results are JSON-only (e.g. Gemini functionResponse) sees images in messages but not in tool results.
+    // True when the provider binding can inline images INSIDE tool results (Anthropic tool_result image blocks). Distinct from LLMCapabilities.SupportsInputImages: a vision model whose tool results are JSON-only (e.g. Gemini functionResponse) sees images in messages but not in tool results.
     bool SupportsImagesInToolResults { get; init; }
     bool SupportsInputAudio { get; init; }
     bool SupportsInputImages { get; init; }
@@ -1349,6 +1411,7 @@ namespace Ikon.AI.LLM
     bool SupportsOutputAudio { get; init; }
     bool SupportsParallelToolCalling { get; init; }
     bool SupportsReasoning { get; init; }
+    bool SupportsSingleToolCalling { get; init; }
     bool SupportsStreaming { get; init; }
     bool SupportsZeroDataRetention { get; init; }
     bool UsesInlineReasoning { get; init; }
@@ -1444,7 +1507,7 @@ namespace Ikon.AI.LLM
 
 namespace Ikon.AI.MeshGeneration
   interface IMeshGenerator : IDisposable, IMeshGeneratorInfo
-    abstract Task<MeshGeneratorResult> GenerateMeshAsync(MeshGeneratorConfig config, CancellationToken cancellationToken = default)
+    Task<MeshGeneratorResult> GenerateMeshAsync(MeshGeneratorConfig config, CancellationToken cancellationToken = default)
   interface IMeshGeneratorInfo
     int MaxInputImages { get; }
     bool SupportsImageToMesh { get; }
@@ -1465,12 +1528,14 @@ namespace Ikon.AI.MeshGeneration
     bool SupportsPbr { get; }
     bool SupportsTextToMesh { get; }
     void Dispose()
+    // Generate a mesh from a plain prompt — the instance form of the MeshGenerator.GenerateAsync one-shot, for when you already hold a generator. Reach for MeshGenerator.GenerateMeshAsync when the request needs any other MeshGeneratorConfig field.
+    Task<MeshGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     // One-shot text-to-mesh. The verbose form
     // using var generator = new MeshGenerator(MeshGeneratorModel.Meshy6);
     // var result = await generator.GenerateMeshAsync(new MeshGeneratorConfig { Prompt = prompt });
     // becomes
     // var mesh = await MeshGenerator.GenerateAsync(prompt);
-    // Defaults to Meshy6 (the current Meshy generation at the same per-credit price as Meshy 5). Override the model via the second parameter when the task warrants. Returns signed download URLs per format (.GlbUrl, .FbxUrl, …) that expire roughly three days after generation — download promptly. Reach for the constructor + GenerateMeshAsync when you need image-to-mesh (input images), PBR textures, polycount/topology control, or any other MeshGeneratorConfig field beyond the prompt.
+    // Defaults to MeshGeneratorModel.Meshy6 (the current Meshy generation at the same per-credit price as Meshy 5). Override the model via the second parameter when the task warrants. Returns signed download URLs per format (.GlbUrl, .FbxUrl, …) that expire roughly three days after generation — download promptly. Reach for the constructor + MeshGenerator.GenerateMeshAsync when you need image-to-mesh (input images), PBR textures, polycount/topology control, or any other MeshGeneratorConfig field beyond the prompt.
     static Task<MeshGeneratorResult> GenerateAsync(string prompt, MeshGeneratorModel model = Meshy6, CancellationToken cancellationToken = default)
     Task<MeshGeneratorResult> GenerateMeshAsync(MeshGeneratorConfig config, CancellationToken cancellationToken = default)
     static MeshGeneratorCapabilities GetCapabilities(MeshGeneratorModel model)
@@ -1526,19 +1591,19 @@ namespace Ikon.AI.MeshGeneration
 
 namespace Ikon.AI.MusicGeneration
   interface IMusicGenerator : IDisposable, IMusicGeneratorInfo
-    // Channel count of the PCM samples produced by GenerateMusicAsync .
+    // Channel count of the PCM samples produced by IMusicGenerator.GenerateMusicAsync.
     int ChannelCount { get; }
-    // Sample rate of the PCM samples produced by GenerateMusicAsync .
+    // Sample rate of the PCM samples produced by IMusicGenerator.GenerateMusicAsync.
     int SampleRate { get; }
-    // Streams the generated music as PCM AudioChunk chunks as they are produced. Only supported when SupportsStreaming is true; other models throw a MusicGeneratorException . Use GenerateMusicFileAsync for a buffered, encoded audio file instead.
-    abstract IAsyncEnumerable<AudioChunk> GenerateMusicAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = default)
+    // Streams the generated music as PCM AudioChunk chunks as they are produced. Only supported when IMusicGeneratorInfo.SupportsStreaming is true; other models throw a MusicGeneratorException. Use IMusicGenerator.GenerateMusicFileAsync for a buffered, encoded audio file instead.
+    IAsyncEnumerable<AudioChunk> GenerateMusicAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = default)
     // Generates the music and returns it as a single buffered, encoded audio file. Supported by all models, including those that cannot stream.
-    abstract Task<MusicGeneratorResult> GenerateMusicFileAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = default)
+    Task<MusicGeneratorResult> GenerateMusicFileAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = default)
   interface IMusicGeneratorInfo
-    // Whether DurationSeconds controls the length of the output. When false the model ignores it: it emits a fixed-length clip (e.g. Lyria 2 is always ~30s) or, for audio-to-audio editing, the output length follows the input clip.
+    // Whether MusicGeneratorConfig.DurationSeconds controls the length of the output. When false the model ignores it: it emits a fixed-length clip (e.g. Lyria 2 is always ~30s) or, for audio-to-audio editing, the output length follows the input clip.
     bool SupportsDurationControl { get; }
     bool SupportsEditing { get; }
-    // Whether the model can stream generated audio as it is produced via GenerateMusicAsync . Models without streaming support only expose the buffered GenerateMusicFileAsync result.
+    // Whether the model can stream generated audio as it is produced via IMusicGenerator.GenerateMusicAsync. Models without streaming support only expose the buffered IMusicGenerator.GenerateMusicFileAsync result.
     bool SupportsStreaming { get; }
   // A reference clip fed into a prompt-driven music edit. The model preserves the timing and structure of this audio while the prompt re-styles it (timbre, instrumentation, mood). Mirrors the image-to-image InputImage shape used by the image generator.
   sealed class InputAudio : IEquatable<InputAudio>
@@ -1560,12 +1625,14 @@ namespace Ikon.AI.MusicGeneration
     bool SupportsEditing { get; }
     bool SupportsStreaming { get; }
     void Dispose()
+    // Generate a music file from a plain prompt — the instance form of the MusicGenerator.GenerateAsync one-shot, for when you already hold a generator. Reach for MusicGenerator.GenerateMusicFileAsync when the request needs any other MusicGeneratorConfig field (duration, format, seed).
+    Task<MusicGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     // One-shot music generation. The verbose form
     // using var generator = new MusicGenerator(MusicGeneratorModel.ElevenLabsMusicV2);
     // var result = await generator.GenerateMusicFileAsync(new MusicGeneratorConfig { Prompt = prompt });
     // becomes
     // var music = await MusicGenerator.GenerateAsync(prompt);
-    // Defaults to ElevenLabsMusicV2 (cheap+fast, supports duration control and editing). Override the model via the second parameter when the task warrants. Returns a buffered, encoded audio file (.AudioData / .ContentType / .DurationSeconds). Reach for the constructor + GenerateMusicFileAsync when you need a target duration, input audio (prompt-driven editing), seed, or any other MusicGeneratorConfig field beyond the prompt; use GenerateMusicAsync for streaming PCM chunks.
+    // Defaults to MusicGeneratorModel.ElevenLabsMusicV2 (cheap+fast, supports duration control and editing). Override the model via the second parameter when the task warrants. Returns a buffered, encoded audio file (.AudioData / .ContentType / .DurationSeconds). Reach for the constructor + MusicGenerator.GenerateMusicFileAsync when you need a target duration, input audio (prompt-driven editing), seed, or any other MusicGeneratorConfig field beyond the prompt; use MusicGenerator.GenerateMusicAsync for streaming PCM chunks.
     static Task<MusicGeneratorResult> GenerateAsync(string prompt, MusicGeneratorModel model = ElevenLabsMusicV2, CancellationToken cancellationToken = default)
     IAsyncEnumerable<AudioChunk> GenerateMusicAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = default)
     Task<MusicGeneratorResult> GenerateMusicFileAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = default)
@@ -1576,7 +1643,9 @@ namespace Ikon.AI.MusicGeneration
     bool SupportsDurationControl { get; init; }
     bool SupportsEditing { get; init; }
     bool SupportsStreaming { get; init; }
-  // Configuration for prompt-driven music generation and editing. With an empty InputAudios the model generates from the prompt alone. With one or more InputAudios it performs audio-to-audio editing: the prompt re-styles the reference clips while their timing and structure are preserved.
+  // Configuration for prompt-driven music generation and editing. With an empty MusicGeneratorConfig.InputAudios the model generates from the prompt alone. With one or more MusicGeneratorConfig.InputAudios it performs audio-to-audio editing: the prompt re-styles the reference clips while their timing and structure are preserved.
+  // Remarks:
+  // The underlying music model works on clips of at least 3 seconds. For shorter UI/game sound effects use SoundEffectGenerator instead.
   sealed class MusicGeneratorConfig : IEquatable<MusicGeneratorConfig>
     ctor()
     // Target length in seconds (clamped to the model's supported range). When editing, set this to the source clip's length so the output keeps the original timing.
@@ -1610,8 +1679,8 @@ namespace Ikon.AI.OCR
   enum DocumentType
     General
   interface IOCR : IDisposable, IOCRInfo
-    abstract Task<OCRResult> AnalyzeDocumentAsync(OCRConfig config, CancellationToken cancellationToken = default)
-    abstract IAsyncEnumerable<OCRResult> AnalyzeDocumentStreamingAsync(OCRConfig config, CancellationToken cancellationToken = default)
+    Task<OCRResult> AnalyzeDocumentAsync(OCRConfig config, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<OCRResult> AnalyzeDocumentStreamingAsync(OCRConfig config, CancellationToken cancellationToken = default)
   interface IOCRInfo
     int MaxPagesSupported { get; }
   class NonRetryableOCRException : NonRetryableAIException
@@ -1622,12 +1691,14 @@ namespace Ikon.AI.OCR
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(OCRModel model, IReadOnlyList<ModelRegion>? regions = null)
     int MaxPagesSupported { get; }
+    // Read one document's bytes — the instance form of the OCR.AnalyzeAsync one-shot, for when you already hold an OCR instance. Reach for OCR.AnalyzeDocumentAsync when the request needs any other OCRConfig field (asset uri, url, document type).
+    Task<OCRResult> AnalyzeAsync(byte[] data, CancellationToken cancellationToken = default)
     // One-shot document OCR from raw file bytes (image or PDF). The verbose form
     // using var ocr = new OCR(OCRModel.AzureDocumentIntelligence);
     // var result = await ocr.AnalyzeDocumentAsync(new OCRConfig { Data = data });
     // becomes
     // var result = await OCR.AnalyzeAsync(data);
-    // Defaults to AzureDocumentIntelligence (cheap+robust general document OCR). Override the model via the second parameter when the task warrants. Read the extracted text from result.Text; result.Paragraphs and result.Pages carry the structure. Reach for the constructor + AnalyzeDocumentAsync when the document is a URL or AssetUri instead of bytes, or when you need page selection, word-level bounding boxes, or any other OCRConfig field; use AnalyzeDocumentStreamingAsync for page-by-page streaming.
+    // Defaults to OCRModel.AzureDocumentIntelligence (cheap+robust general document OCR). Override the model via the second parameter when the task warrants. Read the extracted text from result.Text; result.Paragraphs and result.Pages carry the structure. Reach for the constructor + OCR.AnalyzeDocumentAsync when the document is a URL or AssetUri instead of bytes, or when you need page selection, word-level bounding boxes, or any other OCRConfig field; use OCR.AnalyzeDocumentStreamingAsync for page-by-page streaming.
     static Task<OCRResult> AnalyzeAsync(byte[] data, OCRModel model = AzureDocumentIntelligence, CancellationToken cancellationToken = default)
     Task<OCRResult> AnalyzeDocumentAsync(OCRConfig config, CancellationToken cancellationToken = default)
     IAsyncEnumerable<OCRResult> AnalyzeDocumentStreamingAsync(OCRConfig config, CancellationToken cancellationToken = default)
@@ -1685,7 +1756,7 @@ namespace Ikon.AI.Reranking
   interface IReranker : IDisposable
     // Maximum duration of a single rerank request, scaled up internally with the document count. Defaults to 10 seconds.
     TimeSpan Timeout { get; set; }
-    abstract Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, int topN = 0, CancellationToken cancellationToken = default)
+    Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, int topN = 0, CancellationToken cancellationToken = default)
   class NonRetryableRerankerException : NonRetryableAIException
     ctor()
     ctor(string message)
@@ -1714,7 +1785,7 @@ namespace Ikon.AI.Reranking
     // var items = await reranker.RerankAsync(documents, query);
     // becomes
     // var items = await Reranker.RerankAsync(documents, query);
-    // Defaults to CohereRerank4Fast (cheap+fast). Override the model via the third parameter when the task warrants; pass topN to cap how many items are returned (0 returns all). Each RerankItem carries the document's original .Index and its relevance .Score, ordered most relevant first. Reach for the constructor + the instance RerankAsync when you need a custom Timeout or rerank many queries against the same reranker instance.
+    // Defaults to RerankModel.CohereRerank4Fast (cheap+fast). Override the model via the third parameter when the task warrants; pass topN to cap how many items are returned (0 returns all). Each RerankItem carries the document's original .Index and its relevance .Score, ordered most relevant first. Reach for the constructor + the instance Reranker.RerankAsync when you need a custom Reranker.Timeout or rerank many queries against the same reranker instance.
     static Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, RerankModel model = CohereRerank4Fast, int topN = 0, CancellationToken cancellationToken = default)
   class RerankerException : RetryableAIException
     ctor()
@@ -1802,9 +1873,14 @@ namespace Ikon.AI.Retrieving
 
 namespace Ikon.AI.SoundEffectGeneration
   interface ISoundEffectGenerator : IDisposable, ISoundEffectGeneratorInfo
+    // Channel count of the PCM samples produced by ISoundEffectGenerator.GenerateSoundEffectAsync.
     int ChannelCount { get; }
+    // Sample rate of the PCM samples produced by ISoundEffectGenerator.GenerateSoundEffectAsync.
     int SampleRate { get; }
-    abstract IAsyncEnumerable<AudioChunk> GenerateSoundEffectAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
+    // Streams the generated sound effect as PCM AudioChunk chunks as they are produced. Use ISoundEffectGenerator.GenerateSoundEffectFileAsync for a buffered, encoded audio file instead.
+    IAsyncEnumerable<AudioChunk> GenerateSoundEffectAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
+    // Generates the sound effect and returns it as a single buffered, encoded audio file (WAV).
+    Task<SoundEffectFileResult> GenerateSoundEffectFileAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
   interface ISoundEffectGeneratorInfo
     bool SupportsLooping { get; }
   class NonRetryableSoundEffectGeneratorException : NonRetryableAIException
@@ -1812,9 +1888,10 @@ namespace Ikon.AI.SoundEffectGeneration
     ctor(string message)
     ctor(string message, Exception inner)
   sealed class SoundEffectFileResult
-    byte[] AudioData { get; init; }
-    string ContentType { get; init; }
-    double DurationSeconds { get; init; }
+    ctor()
+    required byte[] AudioData { get; init; }
+    required string ContentType { get; init; }
+    required double DurationSeconds { get; init; }
   sealed class SoundEffectGenerator : IDisposable, ISoundEffectGenerator, ISoundEffectGeneratorInfo
     ctor(string modelName)
     ctor(SoundEffectGeneratorModel model)
@@ -1824,12 +1901,14 @@ namespace Ikon.AI.SoundEffectGeneration
     int SampleRate { get; }
     bool SupportsLooping { get; }
     void Dispose()
+    // Generate a sound-effect file from a plain prompt — the instance form of the SoundEffectGenerator.GenerateAsync one-shot, for when you already hold a generator. Reach for SoundEffectGenerator.GenerateSoundEffectFileAsync when the request needs any other SoundEffectGeneratorConfig field.
+    Task<SoundEffectFileResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     // One-shot sound effect generation. The verbose form
     // using var generator = new SoundEffectGenerator(SoundEffectGeneratorModel.ElevenLabsV2);
     // var result = await generator.GenerateSoundEffectFileAsync(new SoundEffectGeneratorConfig { Prompt = prompt });
     // becomes
     // var effect = await SoundEffectGenerator.GenerateAsync(prompt);
-    // Defaults to ElevenLabsV2 (the only sound effect model). Returns a buffered WAV file (.AudioData / .ContentType / .DurationSeconds). Reach for the constructor + GenerateSoundEffectFileAsync when you need a target duration, looping, prompt influence, or any other SoundEffectGeneratorConfig field beyond the prompt; use GenerateSoundEffectAsync for streaming PCM chunks.
+    // Defaults to SoundEffectGeneratorModel.ElevenLabsV2 (the only sound effect model). Returns a buffered WAV file (.AudioData / .ContentType / .DurationSeconds). Reach for the constructor + SoundEffectGenerator.GenerateSoundEffectFileAsync when you need a target duration, looping, prompt influence, or any other SoundEffectGeneratorConfig field beyond the prompt; use SoundEffectGenerator.GenerateSoundEffectAsync for streaming PCM chunks.
     static Task<SoundEffectFileResult> GenerateAsync(string prompt, SoundEffectGeneratorModel model = ElevenLabsV2, CancellationToken cancellationToken = default)
     IAsyncEnumerable<AudioChunk> GenerateSoundEffectAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
     Task<SoundEffectFileResult> GenerateSoundEffectFileAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
@@ -1865,7 +1944,7 @@ namespace Ikon.AI.SpeechGeneration
     int ChannelCount { get; }
     int SampleRate { get; }
     IReadOnlyList<string> VoiceIds { get; }
-    abstract IAsyncEnumerable<AudioChunk> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<AudioChunk> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = default)
   class NonRetryableSpeechGeneratorException : NonRetryableAIException
     ctor()
     ctor(string message)
@@ -1879,6 +1958,8 @@ namespace Ikon.AI.SpeechGeneration
     int SampleRate { get; }
     IReadOnlyList<string> VoiceIds { get; }
     void Dispose()
+    // Speak a line of text and collect it into one audio chunk — the instance form of the SpeechGenerator.GenerateAsync one-shot, for when you already hold a generator. Reach for SpeechGenerator.GenerateSpeechAsync when you want the chunks as they stream, or any other SpeechGeneratorConfig field.
+    Task<AudioChunk> GenerateAsync(string text, string? voice = null, CancellationToken cancellationToken = default)
     // One-shot text-to-speech. The verbose form
     // using var generator = new SpeechGenerator(SpeechGeneratorModel.ElevenFlash25);
     // await foreach (var chunk in generator.GenerateSpeechAsync(new SpeechGeneratorConfig { Text = text }))
@@ -1887,7 +1968,7 @@ namespace Ikon.AI.SpeechGeneration
     // }
     // becomes
     // var audio = await SpeechGenerator.GenerateAsync(text);
-    // Defaults to ElevenFlash25 (cheap+fast). Override the model via the second parameter when the task warrants; pass voice to pick a voice (the model's default voice otherwise). The streamed chunks are concatenated into a single PCM AudioChunk (.Samples / .SampleRate / .ChannelCount). Never returns null — throws a SpeechGeneratorException when generation fails or the model produces no audio, so wrap in try/catch when the app should continue without the audio. Reach for the constructor + GenerateSpeechAsync when you need chunk-by-chunk streaming playback while generation runs, or any other SpeechGeneratorConfig field beyond text+voice (language, instructions, speed).
+    // Defaults to SpeechGeneratorModel.ElevenFlash25 (cheap+fast). Override the model via the second parameter when the task warrants; pass voice to pick a voice (the model's default voice otherwise). The streamed chunks are concatenated into a single PCM AudioChunk (.Samples / .SampleRate / .ChannelCount). Never returns null — throws a SpeechGeneratorException when generation fails or the model produces no audio, so wrap in try/catch when the app should continue without the audio. Reach for the constructor + SpeechGenerator.GenerateSpeechAsync when you need chunk-by-chunk streaming playback while generation runs, or any other SpeechGeneratorConfig field beyond text+voice (language, instructions, speed).
     static Task<AudioChunk> GenerateAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, CancellationToken cancellationToken = default)
     IAsyncEnumerable<AudioChunk> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = default)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(SpeechGeneratorModel model)
@@ -1896,6 +1977,7 @@ namespace Ikon.AI.SpeechGeneration
     ctor()
     string Instructions { get; init; }
     string Language { get; init; }
+    // Speaking-rate multiplier as an invariant-culture decimal string — "1.0" is normal speed, "0.75" slower, "1.5" faster. Empty means "leave the model's default". A string rather than a number for wire-compatibility reasons only. Honored per provider: OpenAI passes it through as speed (an unparseable value silently falls back to 1.0 — no error is raised), Google maps it to speakingRate (an unparseable value is silently ignored), ElevenLabs ignores it.
     string Speed { get; init; }
     string Text { get; init; }
     TimeSpan Timeout { get; init; }
@@ -1940,7 +2022,7 @@ namespace Ikon.AI.SpeechRecognition
     Pronunciation.UnexpectedBreak UnexpectedBreak { get; init; }
   sealed class SpeechRecognizerAdapter.Config
     ctor()
-    // The maximum duration of continuous speech before recognition is forced in SilenceTriggered mode. This prevents indefinite buffering when the speaker doesn't pause. Set to Zero or negative to disable the limit.
+    // The maximum duration of continuous speech before recognition is forced in SilenceTriggered mode. This prevents indefinite buffering when the speaker doesn't pause. Set to TimeSpan.Zero or negative to disable the limit.
     TimeSpan MaxSpeechDuration { get; set; }
     // The recognition mode that determines how audio is segmented and when recognition is triggered.
     SpeechRecognizerAdapter.Mode Mode { get; set; }
@@ -1958,9 +2040,9 @@ namespace Ikon.AI.SpeechRecognition
   interface ISpeechRecognizer : IDisposable, ISpeechRecognizerInfo
     int ChannelCount { get; }
     int SampleRate { get; }
-    abstract Task<Pronunciation.Result> AnalyzePronunciationAsync(AnalyzePronunciationConfig config, CancellationToken cancellationToken = default)
-    abstract Task<string> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
-    abstract IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
+    Task<Pronunciation.Result> AnalyzePronunciationAsync(AnalyzePronunciationConfig config, CancellationToken cancellationToken = default)
+    Task<string> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
   interface ISpeechRecognizerInfo
     bool SupportsBatchRecognition { get; }
     bool SupportsContinuousRecognition { get; }
@@ -2051,6 +2133,8 @@ namespace Ikon.AI.SpeechRecognition
     void Dispose()
     static SpeechRecognizerCapabilities GetCapabilities(SpeechRecognizerModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(SpeechRecognizerModel model)
+    // Transcribe a buffer of samples — the instance form of the SpeechRecognizer.RecognizeAsync one-shot, for when you already hold a recognizer. Reach for SpeechRecognizer.RecognizeBatchSpeechAsync when the request needs any other RecognizeSpeechConfig field (language, prompt, timestamps).
+    Task<string> RecognizeAsync(float[] samples, int sampleRate, int channelCount = 1, CancellationToken cancellationToken = default)
     // One-shot batch transcription. The verbose form
     // using var recognizer = new SpeechRecognizer(SpeechRecognizerModel.WhisperLarge3Turbo);
     // var text = await recognizer.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
@@ -2061,7 +2145,7 @@ namespace Ikon.AI.SpeechRecognition
     // });
     // becomes
     // var text = await SpeechRecognizer.RecognizeAsync(samples, 16000);
-    // Defaults to WhisperLarge3Turbo (cheap+fast). Override the model via the third parameter when the task warrants. Returns the recognized text (empty when nothing was recognized). Reach for the constructor + RecognizeBatchSpeechAsync when you need PCM16 byte input, a language hint, a prompt, or any other RecognizeSpeechConfig field; use RecognizeContinuousSpeechAsync for streaming recognition.
+    // Defaults to SpeechRecognizerModel.WhisperLarge3Turbo (cheap+fast). Override the model via the third parameter when the task warrants. Returns the recognized text (empty when nothing was recognized). Reach for the constructor + SpeechRecognizer.RecognizeBatchSpeechAsync when you need PCM16 byte input, a language hint, a prompt, or any other RecognizeSpeechConfig field; use SpeechRecognizer.RecognizeContinuousSpeechAsync for streaming recognition.
     static Task<string> RecognizeAsync(float[] samples, int sampleRate, SpeechRecognizerModel model = WhisperLarge3Turbo, int channelCount = 1, CancellationToken cancellationToken = default)
     Task<string> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
     IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
@@ -2171,7 +2255,7 @@ namespace Ikon.AI.Utils
 
 namespace Ikon.AI.VideoEnhancement
   interface IVideoEnhancer : IDisposable
-    abstract Task<VideoEnhancerResult> EnhanceVideoAsync(VideoEnhancerConfig config, CancellationToken cancellationToken = default)
+    Task<VideoEnhancerResult> EnhanceVideoAsync(VideoEnhancerConfig config, CancellationToken cancellationToken = default)
   class NonRetryableVideoEnhancerException : NonRetryableAIException
     ctor()
     ctor(string message)
@@ -2180,12 +2264,14 @@ namespace Ikon.AI.VideoEnhancement
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(VideoEnhancerModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
+    // Enhance a video by URL — the instance form of the VideoEnhancer.EnhanceAsync one-shot, for when you already hold an enhancer. Reach for VideoEnhancer.EnhanceVideoAsync when the request needs any other VideoEnhancerConfig field.
+    Task<VideoEnhancerResult> EnhanceAsync(string videoUrl, CancellationToken cancellationToken = default)
     // One-shot video enhancement from a video URL. The verbose form
     // using var enhancer = new VideoEnhancer(VideoEnhancerModel.TensorPixUpscale2xUltra41);
     // var result = await enhancer.EnhanceVideoAsync(new VideoEnhancerConfig { VideoUrl = url });
     // becomes
     // var enhanced = await VideoEnhancer.EnhanceAsync(url);
-    // Defaults to TensorPixUpscale2xUltra41 (the current 2x upscale generation — cheaper than the 4x filter). Override the model via the second parameter when the task warrants. Returns the enhanced video as a download URL in .Url along with .OutputFps and .OutputSizeBytes. Reach for the constructor + EnhanceVideoAsync when you need to enhance raw video bytes (VideoData), trim to a frame range, set a target FPS for TensorPixFpsBoost , or any other VideoEnhancerConfig field beyond the URL.
+    // Defaults to VideoEnhancerModel.TensorPixUpscale2xUltra41 (the current 2x upscale generation — cheaper than the 4x filter). Override the model via the second parameter when the task warrants. Returns the enhanced video as a download URL in .Url along with .OutputFps and .OutputSizeBytes. Reach for the constructor + VideoEnhancer.EnhanceVideoAsync when you need to enhance raw video bytes (VideoData), trim to a frame range, set a target FPS for VideoEnhancerModel.TensorPixFpsBoost, or any other VideoEnhancerConfig field beyond the URL.
     static Task<VideoEnhancerResult> EnhanceAsync(string videoUrl, VideoEnhancerModel model = TensorPixUpscale2xUltra41, CancellationToken cancellationToken = default)
     Task<VideoEnhancerResult> EnhanceVideoAsync(VideoEnhancerConfig config, CancellationToken cancellationToken = default)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(VideoEnhancerModel model)
@@ -2217,7 +2303,7 @@ namespace Ikon.AI.VideoEnhancement
 
 namespace Ikon.AI.VideoGeneration
   interface IVideoGenerator : IDisposable, IVideoGeneratorInfo
-    abstract Task<VideoGeneratorResult> GenerateVideoAsync(VideoGeneratorConfig config, CancellationToken cancellationToken = default)
+    Task<VideoGeneratorResult> GenerateVideoAsync(VideoGeneratorConfig config, CancellationToken cancellationToken = default)
   interface IVideoGeneratorInfo
     int MaxInputImages { get; }
     VideoGeneratorResolutionMode ResolutionMode { get; }
@@ -2254,12 +2340,14 @@ namespace Ikon.AI.VideoGeneration
     bool SupportsTailImage { get; }
     bool SupportsTextToVideo { get; }
     void Dispose()
+    // Generate a video from a plain prompt — the instance form of the VideoGenerator.GenerateAsync one-shot, for when you already hold a generator. Reach for VideoGenerator.GenerateVideoAsync when the request needs any other VideoGeneratorConfig field.
+    Task<VideoGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     // One-shot text-to-video. The verbose form
     // using var generator = new VideoGenerator(VideoGeneratorModel.Veo31Fast);
     // var result = await generator.GenerateVideoAsync(new VideoGeneratorConfig { Prompt = prompt });
     // becomes
     // var video = await VideoGenerator.GenerateAsync(prompt);
-    // Defaults to Veo31Fast (the cheap+fast tier of the strongest general-purpose family). Override the model via the second parameter when the task warrants. Returns the result with the generated clip's .Url. Reach for the constructor + GenerateVideoAsync when you need input images (image-to-video), a specific length, resolution, aspect ratio, negative prompt, audio, or any other VideoGeneratorConfig field beyond the prompt.
+    // Defaults to VideoGeneratorModel.Veo31Fast (the cheap+fast tier of the strongest general-purpose family). Override the model via the second parameter when the task warrants. Returns the result with the generated clip's .Url. Reach for the constructor + VideoGenerator.GenerateVideoAsync when you need input images (image-to-video), a specific length, resolution, aspect ratio, negative prompt, audio, or any other VideoGeneratorConfig field beyond the prompt.
     static Task<VideoGeneratorResult> GenerateAsync(string prompt, VideoGeneratorModel model = Veo31Fast, CancellationToken cancellationToken = default)
     Task<VideoGeneratorResult> GenerateVideoAsync(VideoGeneratorConfig config, CancellationToken cancellationToken = default)
     static VideoGeneratorCapabilities GetCapabilities(VideoGeneratorModel model)
@@ -2369,10 +2457,10 @@ namespace Ikon.AI.WebScraping
     string MimeType { get; init; }
     string Url { get; init; }
   interface IWebScraper : IDisposable, IWebScraperInfo
-    abstract Task<DownloadFileResult> DownloadFileAsync(DownloadFileConfig config, CancellationToken cancellationToken = default)
-    abstract Task<List<PageResult>> ScrapeMultiplePagesAsync(MultiPageScrapeConfig config, CancellationToken cancellationToken = default)
-    abstract Task<PageResult> ScrapeSinglePageAsync(SinglePageScrapeConfig config, CancellationToken cancellationToken = default)
-    abstract Task<ScreenshotResult> TakeScreenshotAsync(ScreenshotConfig config, CancellationToken cancellationToken = default)
+    Task<DownloadFileResult> DownloadFileAsync(DownloadFileConfig config, CancellationToken cancellationToken = default)
+    Task<List<PageResult>> ScrapeMultiplePagesAsync(MultiPageScrapeConfig config, CancellationToken cancellationToken = default)
+    Task<PageResult> ScrapeSinglePageAsync(SinglePageScrapeConfig config, CancellationToken cancellationToken = default)
+    Task<ScreenshotResult> TakeScreenshotAsync(ScreenshotConfig config, CancellationToken cancellationToken = default)
   interface IWebScraperInfo
     bool SupportsFileDownload { get; }
     bool SupportsMultiPageScraping { get; }
@@ -2473,12 +2561,14 @@ namespace Ikon.AI.WebScraping
     Task<DownloadFileResult> DownloadFileAsync(DownloadFileConfig config, CancellationToken cancellationToken = default)
     static WebScraperCapabilities GetCapabilities(WebScraperModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(WebScraperModel model)
+    // Scrape one page by URL — the instance form of the WebScraper.ScrapeAsync one-shot, for when you already hold a scraper. Reach for WebScraper.ScrapeSinglePageAsync when the request needs any other SinglePageScrapeConfig field.
+    Task<PageResult> ScrapeAsync(string url, CancellationToken cancellationToken = default)
     // One-shot single page scrape. The verbose form
     // using var scraper = new WebScraper(WebScraperModel.Jina);
     // var page = await scraper.ScrapeSinglePageAsync(new SinglePageScrapeConfig { Url = url });
     // becomes
     // var page = await WebScraper.ScrapeAsync(url);
-    // Defaults to Jina (cheap+fast hosted reader). Override the model via the second parameter when the task warrants. Returns the page as Markdown in .Content along with .Title and .Url. Reach for the constructor + ScrapeSinglePageAsync when you need a different output format, cookies, custom JavaScript, or any other SinglePageScrapeConfig field beyond the URL; use ScrapeMultiplePagesAsync , TakeScreenshotAsync , or DownloadFileAsync for crawling, screenshots, and file downloads.
+    // Defaults to WebScraperModel.Jina (cheap+fast hosted reader). Override the model via the second parameter when the task warrants. Returns the page as Markdown in .Content along with .Title and .Url. Reach for the constructor + WebScraper.ScrapeSinglePageAsync when you need a different output format, cookies, custom JavaScript, or any other SinglePageScrapeConfig field beyond the URL; use WebScraper.ScrapeMultiplePagesAsync, WebScraper.TakeScreenshotAsync, or WebScraper.DownloadFileAsync for crawling, screenshots, and file downloads.
     static Task<PageResult> ScrapeAsync(string url, WebScraperModel model = Jina, CancellationToken cancellationToken = default)
     Task<List<PageResult>> ScrapeMultiplePagesAsync(MultiPageScrapeConfig config, CancellationToken cancellationToken = default)
     Task<PageResult> ScrapeSinglePageAsync(SinglePageScrapeConfig config, CancellationToken cancellationToken = default)
@@ -2508,8 +2598,8 @@ namespace Ikon.AI.WebScraping
 
 namespace Ikon.AI.WebSearching
   interface IWebSearcher : IDisposable, IWebSearcherInfo
-    abstract Task<List<SearchResult>> SearchImagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
-    abstract Task<List<SearchResult>> SearchPagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
+    Task<List<SearchResult>> SearchImagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
+    Task<List<SearchResult>> SearchPagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
   interface IWebSearcherInfo
     bool SupportsImageSearching { get; }
   class NonRetryableWebSearcherException : NonRetryableAIException
@@ -2539,12 +2629,14 @@ namespace Ikon.AI.WebSearching
     void Dispose()
     static WebSearcherCapabilities GetCapabilities(WebSearcherModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(WebSearcherModel model)
+    // Web page search for a plain query — the instance form of the WebSearcher.SearchAsync one-shot, for when you already hold a searcher. Reach for WebSearcher.SearchPagesAsync when the search needs any other SearchConfig field (site restriction, country, language).
+    Task<List<SearchResult>> SearchAsync(string query, int maxResults = 10, CancellationToken cancellationToken = default)
     // One-shot web page search. The verbose form
     // using var searcher = new WebSearcher(WebSearcherModel.Google);
     // var results = await searcher.SearchPagesAsync(new SearchConfig { Query = query });
     // becomes
     // var results = await WebSearcher.SearchAsync(query);
-    // Defaults to Google (cheap+fast general web search). Override the model via the second parameter when the task warrants. Each SearchResult exposes .Url, .Title, and .Content. Reach for the constructor + SearchPagesAsync when you need site-restricted search, country/language targeting, or any other SearchConfig field beyond query+max results; use SearchImagesAsync (with an image-capable model such as GoogleImages ) for image search.
+    // Defaults to WebSearcherModel.Google (cheap+fast general web search). Override the model via the second parameter when the task warrants. Each SearchResult exposes .Url, .Title, and .Content. Reach for the constructor + WebSearcher.SearchPagesAsync when you need site-restricted search, country/language targeting, or any other SearchConfig field beyond query+max results; use WebSearcher.SearchImagesAsync (with an image-capable model such as WebSearcherModel.GoogleImages) for image search.
     static Task<List<SearchResult>> SearchAsync(string query, WebSearcherModel model = Google, int maxResults = 10, CancellationToken cancellationToken = default)
     Task<List<SearchResult>> SearchImagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
     Task<List<SearchResult>> SearchPagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
@@ -2581,10 +2673,27 @@ namespace Ikon.Parallax
     Context ClientContext { get; init; }
     // The deserialized action payload.
     T Value { get; init; }
-  // Per-client theme state created by UseTheme . Holds each client's active theme and switches it: Current is bindable in views, and ToggleAsync can be bound directly to a button's onClick.
+  // The busy/status pattern every async UI handler repeats, as one call. Without this, the standard shape is five lines of ceremony around one line of work:
+  // _busy.Value = true;
+  // _status.Value = null;
+  //
+  // try { await LoadAsync(); }
+  // catch (Exception ex) { _status.Value = ex.Message; }
+  // finally { _busy.Value = false; }
+  // ReactiveBusyExtensions.RunAsync collapses it to:
+  // await _busy.RunAsync(_status, LoadAsync);
+  // For the busy flag alone (no status reactive), use _busy.AsToken() from Ikon.Common.Core.Reactive instead.
+  static class ReactiveBusyExtensions
+    // Runs work with busy raised: clears status, sets the flag for the duration of the work (via ReactiveBoolExtensions.AsToken, so it always returns to false), and routes a failure's message into status instead of throwing. Returns whether the work completed, so callers can add their own failure handling on top:
+    // if (!await _busy.RunAsync(_status, RefreshAsync))
+    // {
+    //     _entries.Value = [];
+    // }
+    static Task<bool> RunAsync(this Reactive<bool> busy, Reactive<string?> status, Func<Task> work)
+  // Per-client theme state created by UI.UseTheme. Holds each client's active theme and switches it: ThemeControl.Current is bindable in views, and ThemeControl.ToggleAsync can be bound directly to a button's onClick.
   sealed class ThemeControl
-    // The calling client's active theme as its wire string, "dark" or "light" (see ToThemeName ). Bindable in views, e.g. name: theme.Current.Value == Theme.Dark.ToThemeName() ? "sun" : "moon".
-    ClientReactive<string> Current { get; }
+    // The calling client's active theme. Bindable in views, e.g. name: theme.Current.Value == Theme.Dark ? "sun" : "moon".
+    ClientReactive<Theme> Current { get; }
     // Sets the calling client's theme and pushes it to that client.
     Task SetAsync(Theme theme)
     // Flips the calling client between dark and light.
@@ -2599,32 +2708,32 @@ namespace Ikon.Parallax
     bool EnableSubtreeCaching { get; set; }
     // Defines the root UI view tree. Call this in a reactive context to re-render when dependencies change.
     void Root(string[]? style = null, Action<UIView>? content = null, string? styleId = null)
-    // One-call per-client theme handling: syncs each joining client's theme, exposes the active theme as a bindable Current , and provides dark/light switching. The verbose form
-    // private readonly ClientReactive<string> _theme = new(Theme.Dark.ToThemeName());
+    // One-call per-client theme handling: syncs each joining client's theme, exposes the active theme as a bindable ThemeControl.Current, and provides dark/light switching. The verbose form
+    // private readonly ClientReactive<Theme> _theme = new(Theme.Dark);
     //
     // // In Main:
     // app.ClientJoinedAsync += async args =>
     // {
     //     if (string.IsNullOrEmpty(args.ClientContext.Theme))
     //     {
-    //         _theme.Value = Theme.Dark.ToThemeName();
+    //         _theme.Value = Theme.Dark;
     //         await ClientFunctions.SetThemeAsync(Theme.Dark);
     //     }
     //     else
     //     {
-    //         _theme.Value = (args.ClientContext.IsDarkTheme() ? Theme.Dark : Theme.Light).ToThemeName();
+    //         _theme.Value = args.ClientContext.IsDarkTheme() ? Theme.Dark : Theme.Light;
     //     }
     // };
     //
     // private async Task ToggleThemeAsync()
     // {
-    //     var next = _theme.Value == Theme.Dark.ToThemeName() ? Theme.Light : Theme.Dark;
+    //     var next = _theme.Value == Theme.Dark ? Theme.Light : Theme.Dark;
     //     await ClientFunctions.SetThemeAsync(next);
-    //     _theme.Value = next.ToThemeName();
+    //     _theme.Value = next;
     // }
     // becomes
     // _theme = UI.UseTheme();
-    // with _theme.Current bindable in views (e.g. a sun/moon icon) and _theme.ToggleAsync bindable to a button's onClick. When followClient is true (the default), a joining client that already has a theme keeps it and clients without one get defaultTheme ; when false, every joining client is forced to defaultTheme . Call once in Main, before clients join.
+    // with _theme.Current bindable in views (e.g. a sun/moon icon) and _theme.ToggleAsync bindable to a button's onClick. When followClient is true (the default), a joining client that already has a theme keeps it and clients without one get defaultTheme; when false, every joining client is forced to defaultTheme. Call once in Main, before clients join.
     ThemeControl UseTheme(Theme defaultTheme = Dark, bool followClient = true)
   // Represents a UI view scope for building the component tree. Extension methods on this type provide the component API (e.g. Text, Button, Input).
   class UIView
@@ -2646,17 +2755,17 @@ namespace Ikon.Parallax
     List<UIViewNode> Children { get; }
     // Lazily computed content signature used for subtree caching and diffing.
     string? ContentFingerprint { get; }
-    // True when StableHint came from an explicit key argument, not from a prop such as value or text.
+    // True when UIViewNode.StableHint came from an explicit key argument, not from a prop such as value or text.
     bool HasExplicitKey { get; }
     // Stable unique identifier for this node.
     string Id { get; }
-    // Precomputed hash of Id for fast lookups.
+    // Precomputed hash of UIViewNode.Id for fast lookups.
     int IdHash { get; }
     // When true, nodes include source file and line markers for debugging.
     static bool IncludeSourceMarkers { get; set; }
     // Component properties passed to the frontend renderer.
     Dictionary<string, object?> Props { get; }
-    // Source file and line marker for debugging, included only when IncludeSourceMarkers is true.
+    // Source file and line marker for debugging, included only when UIViewNode.IncludeSourceMarkers is true.
     string? SourceMarker { get; }
     // Hint string used by the stable ID generator to produce deterministic IDs.
     string? StableHint { get; }
@@ -2850,14 +2959,16 @@ namespace Ikon.Parallax.Components.Charts
     Column
   // A single data point in a line chart series.
   sealed class LineChartPoint : IEquatable<LineChartPoint>
+    ctor()
     // X value — a string label for point scales, or a number for linear/time scales, so the type is genuinely mixed.
-    object X { get; init; }
-    double Y { get; init; }
+    required object X { get; init; }
+    required double Y { get; init; }
   // A named data series for a line chart, containing an ordered collection of points.
   sealed class LineChartSeries : IEquatable<LineChartSeries>
+    ctor()
     string? Color { get; init; }
     IEnumerable<LineChartPoint>? Data { get; init; }
-    string Id { get; init; }
+    required string Id { get; init; }
   // Interpolation curve type for line charts.
   enum LineCurve
     Linear
@@ -2869,10 +2980,11 @@ namespace Ikon.Parallax.Components.Charts
     Basis
   // A single slice in a pie chart.
   sealed class PieChartDatum : IEquatable<PieChartDatum>
+    ctor()
     string? Color { get; init; }
-    string Id { get; init; }
+    required string Id { get; init; }
     string? Label { get; init; }
-    double Value { get; init; }
+    required double Value { get; init; }
   // Scale type for chart axes.
   enum ScaleType
     Point
@@ -2935,13 +3047,44 @@ namespace Ikon.Parallax.Components.DataTable
     bool Wrap { get; init; }
   // Extension methods for rendering paginated data tables.
   static class DataTableExtensions
-    // Renders a paginated data table with configurable columns, rows, actions, and styling.
-    static void DataTable(this UIView view, DataTableColumn[] columns, DataTableRow[] rows, int totalCount, int pageIndex, int pageSize, Func<int, Task>? onPageChange = null, Func<string, Task>? onRowClick = null, Func<string, Task>? onActionClick = null, Action<UIView>? emptyContent = null, int[]? columnWidths = null, Func<string, Task>? onColumnResize = null, string[]? style = null, string[]? headerStyle = null, string[]? rowStyle = null, string[]? cellStyle = null, string[]? headerCellStyle = null, string[]? dataCellStyle = null, string[]? paginationStyle = null, string[]? paginationButtonStyle = null, string[]? pageNumberStyle = null, string[]? pageNumberActiveStyle = null, string[]? emptyStyle = null, string[]? actionButtonStyle = null, string[]? resizeHandleStyle = null, string[]? tooltipStyle = null, string? prevLabel = null, string? nextLabel = null, string? pageLabel = null, string? key = null)
+    // Renders a paginated data table with configurable columns, rows, actions, and styling. Per-slot styling (header, rows, cells, pagination, …) goes through styles; see DataTableStyles for the slots.
+    static void DataTable(this UIView view, DataTableColumn[] columns, DataTableRow[] rows, int totalCount, int pageIndex, int pageSize, Func<int, Task>? onPageChange = null, Func<string, Task>? onRowClick = null, Func<string, Task>? onActionClick = null, Action<UIView>? emptyContent = null, int[]? columnWidths = null, Func<string, Task>? onColumnResize = null, string[]? style = null, DataTableStyles? styles = null, string? prevLabel = null, string? nextLabel = null, string? pageLabel = null, string? key = null)
   // A single row in a data table, identified by a unique ID and containing an array of cells.
   class DataTableRow : IEquatable<DataTableRow>
     ctor(string Id, Cell[] Cells)
     Cell[] Cells { get; init; }
     string Id { get; init; }
+  // Per-slot style overrides for DataTableExtensions.DataTable. Each slot is a Crosswind class array that merges on top of the slot's themed default, exactly like a component's style: parameter. Set only the slots you are changing:
+  // view.DataTable(columns, rows, totalCount, pageIndex, pageSize,
+  //     styles: new DataTableStyles { Header = ["bg-muted"], Row = ["hover:bg-accent"] });
+  sealed class DataTableStyles : IEquatable<DataTableStyles>
+    ctor()
+    // Action buttons rendered from action cells.
+    string[]? ActionButton { get; init; }
+    // Every cell (header and data).
+    string[]? Cell { get; init; }
+    // Data cells only.
+    string[]? DataCell { get; init; }
+    // The empty-state container shown when there are no rows.
+    string[]? Empty { get; init; }
+    // The header row.
+    string[]? Header { get; init; }
+    // Header cells only.
+    string[]? HeaderCell { get; init; }
+    // Page number buttons.
+    string[]? PageNumber { get; init; }
+    // The active page number button.
+    string[]? PageNumberActive { get; init; }
+    // The pagination bar.
+    string[]? Pagination { get; init; }
+    // The previous/next pagination buttons.
+    string[]? PaginationButton { get; init; }
+    // Column resize handles.
+    string[]? ResizeHandle { get; init; }
+    // Every data row.
+    string[]? Row { get; init; }
+    // Truncated-cell hover tooltips.
+    string[]? Tooltip { get; init; }
 
 namespace Ikon.Parallax.Components.ImageEditor
   // Extension methods for the image editor canvas component.
@@ -3118,7 +3261,7 @@ namespace Ikon.Parallax.Components.Standard
   static class BadgeExtensions
     // Small status pill. With zero style args it renders the themed pill for the tone (Theming.Badge.*); caller styles merge on top of the base token, and the literal "unstyled" class opts out of the base entirely.
     static void Badge(this UIView view, string text, SemanticTone tone = Neutral, string[]? style = null, BadgeSize size = Md, bool outline = false, bool dot = false, string[]? dotStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-  // Size of a Badge .
+  // Size of a BadgeExtensions.Badge.
   enum BadgeSize
     Sm
     Md
@@ -3127,7 +3270,7 @@ namespace Ikon.Parallax.Components.Standard
   static class BreadcrumbExtensions
     // Breadcrumb navigation trail. Items with an OnClick render as clickable links; the last item always renders as the non-clickable current page (with aria-current="page"). A chevron separator is placed between items.
     static void Breadcrumb(this UIView view, IReadOnlyList<BreadcrumbItem> items, string[]? style = null, string? separatorIcon = null, string[]? linkStyle = null, string[]? itemStyle = null, string[]? pageStyle = null, string[]? separatorStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-  // One entry in a Breadcrumb trail.
+  // One entry in a BreadcrumbExtensions.Breadcrumb trail.
   sealed class BreadcrumbItem : IEquatable<BreadcrumbItem>
     ctor(string Label, Func<Task>? OnClick = null)
     // Visible text of the crumb.
@@ -3138,7 +3281,7 @@ namespace Ikon.Parallax.Components.Standard
   static class CalendarExtensions
     // Month-grid date selector. Renders a single month with day cells. Dates are ISO yyyy-MM-dd strings.
     static void Calendar(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? month = null, string? defaultMonth = null, string? minDate = null, string? maxDate = null, IReadOnlyList<string>? disabledDates = null, WeekStart weekStart = Monday, string? locale = null, bool? disabled = null, string[]? headerStyle = null, string[]? weekdayStyle = null, string[]? dayStyle = null, string[]? daySelectedStyle = null, string[]? dayTodayStyle = null, string[]? dayOutsideStyle = null, string[]? dayDisabledStyle = null, string[]? navButtonStyle = null, string[]? titleStyle = null, string[]? gridStyle = null, string[]? rowStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onMonthChange = null)
-    // Button that opens a popover containing a Calendar .
+    // Button that opens a popover containing a CalendarExtensions.Calendar.
     static void DatePicker(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, string? format = null, string? minDate = null, string? maxDate = null, IReadOnlyList<string>? disabledDates = null, WeekStart weekStart = Monday, bool? disabled = null, bool? open = null, bool? defaultOpen = null, Side side = Bottom, Align align = Start, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? calendarStyle = null, string[]? headerStyle = null, string[]? weekdayStyle = null, string[]? dayStyle = null, string[]? daySelectedStyle = null, string[]? dayTodayStyle = null, string[]? dayOutsideStyle = null, string[]? dayDisabledStyle = null, string[]? navButtonStyle = null, string[]? titleStyle = null, string[]? gridStyle = null, string[]? rowStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool, Task>? onOpenChange = null, string? label = null)
   // Which physical camera to prefer when starting the capture. Maps to the W3C MediaStream facingMode constraint and is treated as an "ideal" hint — the browser falls back to whatever camera is available if the requested side does not exist (e.g. desktops without a rear camera).
   enum CameraFacing
@@ -3153,18 +3296,18 @@ namespace Ikon.Parallax.Components.Standard
     ClientImageCaptureFormat? Format { get; init; }
     // Desired image height in pixels.
     int? Height { get; init; }
-    // How the capture is presented (native OS camera UI vs. headless silent grab). Defaults to Headless — silent webcam capture via getUserMedia, which works uniformly on desktop and mobile. Set to Native to opt in to the OS camera app on phones (preview + shutter + front/back toggle); on desktop browsers Native transparently falls back to the headless path because the web platform doesn't expose a camera-app launch.
+    // How the capture is presented (native OS camera UI vs. headless silent grab). Defaults to CaptureImageMode.Headless — silent webcam capture via getUserMedia, which works uniformly on desktop and mobile. Set to CaptureImageMode.Native to opt in to the OS camera app on phones (preview + shutter + front/back toggle); on desktop browsers Native transparently falls back to the headless path because the web platform doesn't expose a camera-app launch.
     CaptureImageMode? Mode { get; init; }
     // Image quality (0.0 to 1.0) for lossy formats.
     double? Quality { get; init; }
     // Desired image width in pixels.
     int? Width { get; init; }
-  // Hardware constraints for image capture. Applied directly when Mode is Headless . In Native mode only FacingMode is honored (mapped to the file input's capture attribute); the OS camera UI ignores other constraints.
+  // Hardware constraints for image capture. Applied directly when CaptureImageActionOptions.Mode is CaptureImageMode.Headless. In CaptureImageMode.Native mode only CaptureImageConstraints.FacingMode is honored (mapped to the file input's capture attribute); the OS camera UI ignores other constraints.
   sealed class CaptureImageConstraints : IEquatable<CaptureImageConstraints>
     ctor()
     // Preferred camera device ID. Headless mode only.
     string? DeviceId { get; init; }
-    // Preferred camera side (front vs. rear). Most useful on phones where Environment opens the rear camera by default. On desktops with only a webcam this is ignored.
+    // Preferred camera side (front vs. rear). Most useful on phones where CameraFacing.Environment opens the rear camera by default. On desktops with only a webcam this is ignored.
     CameraFacing? FacingMode { get; init; }
   // How the image capture is presented to the user. Controls whether the OS camera UI is invoked or whether the capture happens silently.
   enum CaptureImageMode
@@ -3199,20 +3342,33 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for Carousel components.
   static class CarouselExtensions
     // Horizontal or vertical carousel with optional navigation arrows and indicator dots.
+    // Remarks:
+    // Provide slides via slides for the simple case, or via the content builder using CarouselExtensions.Slide for fully custom children.
     static void Carousel(this UIView view, string[]? style = null, int? index = null, int? defaultIndex = null, Orientation orientation = Horizontal, CarouselAlign align = Start, bool? loop = null, int? autoPlayMs = null, int? slidesPerView = null, int? slidesPerGroup = null, int? slideGapPx = null, IEnumerable<CarouselBreakpoint>? breakpoints = null, IEnumerable<CarouselSlideItem>? slides = null, bool? showArrows = null, bool? showIndicators = null, string? previousLabel = null, string? nextLabel = null, string? previousIconName = null, string? nextIconName = null, string[]? rootStyle = null, string[]? viewportStyle = null, string[]? slideStyle = null, string[]? previousStyle = null, string[]? nextStyle = null, string[]? indicatorsStyle = null, string[]? indicatorStyle = null, string[]? indicatorActiveStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, Func<int, Task>? onIndexChange = null)
-    // A single slide inside a Carousel . Use when rendering slides manually.
+    // A single slide inside a CarouselExtensions.Carousel. Use when rendering slides manually.
     static void Slide(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-  // Declarative slide definition for Carousel .
+  // Declarative slide definition for CarouselExtensions.Carousel.
   sealed class CarouselSlideItem : IEquatable<CarouselSlideItem>
     ctor(Action<UIView> Content, string? Key = null)
     // Builder function for rendering the slide.
     Action<UIView> Content { get; init; }
     // Optional stable key used for diffing.
     string? Key { get; init; }
-  // Extension methods for the ChatLog primitive — the canonical chat-bubble layout shape: header + scrolling auto-scrolled body + composer. Wraps ScrollColumn with chat-friendly defaults so callers don't have to remember to set autoScroll: true.
+  // Extension methods for the ChatLog primitive — the canonical chat-bubble layout shape: header + scrolling auto-scrolled body + composer. Wraps ScrollColumnExtensions.ScrollColumn with chat-friendly defaults so callers don't have to remember to set autoScroll: true.
   static class ChatLogExtensions
     // Renders a chat-style scrolling region: an optional pinned header (e.g. "Conversation"), a scrollable body that auto-scrolls to the bottom on change, and an optional pinned footer (typically the input row).
-    static void ChatLog(this UIView view, string[]? style = null, int messageCount = 0, Action<UIView>? header = null, Action<UIView>? footer = null, Action<UIView>? content = null, string? styleId = null, string? key = null)
+    // Remarks:
+    // Use this instead of a manual Column(overflow-auto) for chat, transcript, or any other "newest at the bottom, follow when content grows" layout. Avoids the common bug of new messages landing off-screen because the user has scrolled but the framework has no signal to re-engage auto-scroll. autoScrollKey is what tells the framework when to re-anchor to the bottom — pass the message collection itself (any reactive contributes its change version), a count, or any other value that changes when the content does. Example:
+    // view.ChatLog(
+    //     ["h-[480px] w-full"],
+    //     autoScrollKey: messages,
+    //     header: h => h.Text("Conversation"),
+    //     content: body =>
+    //     {
+    //         foreach (var msg in messages) body.Row(...);
+    //     },
+    //     footer: f => f.TextField(bind: _draft, onSubmit: ...));
+    static void ChatLog(this UIView view, string[]? style = null, object? autoScrollKey = null, Action<UIView>? header = null, Action<UIView>? footer = null, Action<UIView>? content = null, string? styleId = null, string? key = null)
   // Represents the checked state for checkbox-like components.
   enum CheckedState
     Unchecked
@@ -3228,7 +3384,7 @@ namespace Ikon.Parallax.Components.Standard
     ClosestCorners
     RectIntersection
     PointerWithin
-  // Output string format for ColorPicker .
+  // Output string format for ColorPickerExtensions.ColorPicker.
   enum ColorFormat
     Hex
     Rgb
@@ -3258,7 +3414,7 @@ namespace Ikon.Parallax.Components.Standard
     static void Column(this UIView view, string[]? style, Action<UIView> children)
     // Container with flexbox layout enabled.
     static void Flex(this UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null)
-    // Flex — positional (style, children) overload (see Box ).
+    // Flex — positional (style, children) overload (see ContainerExtensions.Box).
     static void Flex(this UIView view, string[]? style, Action<UIView> children)
     // Container with CSS grid layout enabled.
     static void Grid(this UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null)
@@ -3266,17 +3422,17 @@ namespace Ikon.Parallax.Components.Standard
     static void Grid(this UIView view, string[]? style, Action<UIView> children)
     // Absolutely positioned layer within a Stack container.
     static void Layer(this UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null)
-    // Layer — positional (style, children) overload (see Box ).
+    // Layer — positional (style, children) overload (see ContainerExtensions.Box).
     static void Layer(this UIView view, string[]? style, Action<UIView> children)
     // Container with horizontal flexbox layout (flex-row).
     static void Row(this UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null)
-    // Row — positional (style, children) overload (see Box ).
+    // Row — positional (style, children) overload (see ContainerExtensions.Box).
     static void Row(this UIView view, string[]? style, Action<UIView> children)
     // Loading spinner — an animated circular indicator for async/pending states. A typed convenience over the spin utility classes (equivalent to a div with the Theming.Icon.Spinner style): render it while waiting on data, e.g. if (_loading.Value) { view.Spinner(); }. Override colour/size via the style array; the default tracks the theme's muted foreground.
     static void Spinner(this UIView view, string[]? style = null, SpinnerSize size = Md, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
     // Container for layering children on top of each other. Use with Layer components as children.
     static void Stack(this UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null)
-    // Stack — positional (style, children) overload (see Box ).
+    // Stack — positional (style, children) overload (see ContainerExtensions.Box).
     static void Stack(this UIView view, string[]? style, Action<UIView> children)
   // Defines a column in a content grid including optional header, width, flex, and alignment.
   class ContentGridColumn : IEquatable<ContentGridColumn>
@@ -3291,8 +3447,9 @@ namespace Ikon.Parallax.Components.Standard
     static void ContentGrid(this UIView view, ContentGridColumn[] columns, Action<UIView>? content = null, string[]? style = null, string[]? headerStyle = null, string? key = null)
   // Options for copying text to the clipboard.
   sealed class CopyToClipboardActionOptions : ActionOptions, IEquatable<CopyToClipboardActionOptions>
+    ctor()
     // The text to copy.
-    string Text { get; init; }
+    required string Text { get; init; }
   // Extension methods for core UI components including buttons, toggles, text inputs, dialogs, and typography.
   static class CoreExtensions
     // Button that triggers a client-side action (e.g., clipboard, download). Supports both text mode and icon mode. In text mode (content is null), text is displayed as visible button text. In icon mode (content is provided), text becomes the accessible aria-label and content is displayed.
@@ -3306,9 +3463,9 @@ namespace Ikon.Parallax.Components.Standard
     // Heading — positional-text-first overload, same rationale as the matching Text overload: view.Heading("Settings", style: [Text.H2]) is the shape models reach for. Parameter is named headingText to avoid ambiguity with callers using text: by name.
     static void Heading(this UIView view, string headingText, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // Renders an icon from an icon library.
-    static void Icon(this UIView view, string[]? style = null, string? name = null, string? library = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
+    static void Icon(this UIView view, string[]? style = null, string? name = null, IconSize? size = null, string? library = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // Icon — positional-name-first overload. Same rationale as the matching Text overload: view.Icon("check", style: [Icon.Sm]) is the shape models reach for. Parameter is named iconName to avoid ambiguity with callers using name: by name.
-    static void Icon(this UIView view, string iconName, string[]? style = null, string? library = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
+    static void Icon(this UIView view, string iconName, string[]? style = null, IconSize? size = null, string? library = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // Inline anchor link — sugar for a `Button` styled like a hyperlink with an `href`. Mirrors HTML anchor semantics. By default opens in the same tab; pass target: "_blank" to open in a new tab (we automatically add `rel="noopener noreferrer"` for `_blank` if no other `rel` is provided). Generated code naturally reaches for `view.Link(text:, href:)`; this gives it the canonical shape rather than forcing every link into `view.Button(href:, …)`.
     static void Link(this UIView view, string[]? style = null, string? text = null, string? href = null, string? target = null, string? rel = null, Delegate? onClick = null, string? icon = null, Align iconPosition = Start, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // Link — positional-text-first overload. Same rationale as the matching Text overload: view.Link("Docs", href: "https://…") is the shape models reach for. Parameter is named linkText to avoid ambiguity with callers using text: by name.
@@ -3360,9 +3517,9 @@ namespace Ikon.Parallax.Components.Standard
     byte[]? Data { get; init; }
     // Suggested filename for the downloaded file.
     string? Filename { get; init; }
-    // MIME type for binary data (e.g. "image/png"). Optional — defaults to "application/octet-stream" when Data is set without a MIME type.
+    // MIME type for binary data (e.g. "image/png"). Optional — defaults to "application/octet-stream" when DownloadFileActionOptions.Data is set without a MIME type.
     string? MimeType { get; init; }
-    // URL to download. Can be a regular URL or a data URL. If Data is provided, this is auto-generated from the binary data using MimeType , falling back to "application/octet-stream" when MimeType is unset so the download still fires.
+    // URL to download. Can be a regular URL or a data URL. If Data is provided, this is auto-generated from the binary data using DownloadFileActionOptions.MimeType, falling back to "application/octet-stream" when MimeType is unset so the download still fires.
     string Url { get; init; }
   // Extension methods for drag and drop components.
   static class DragAndDropExtensions
@@ -3381,6 +3538,12 @@ namespace Ikon.Parallax.Components.Standard
     // Sortable item within a SortableContext.
     static void SortableItem(this UIView view, string[]? style = null, string? id = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // SortableList component that auto-handles reordering.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • listStyle - The container holding all sortable items • itemStyle - Each individual sortable item Example:
+    // view.SortableList(
+    //     items: _items.Value,
+    //     onReorder: async args => _items.Value = args.NewOrder.ToList(),
+    //     itemContent: (v, id) => v.Text([Text.Body], id));
     static void SortableList(this UIView view, IReadOnlyList<string>? items = null, SortStrategy strategy = VerticalList, CollisionDetection collisionDetection = ClosestCenter, Func<SortableReorderArgs, Task>? onReorder = null, Func<DragStartArgs, Task>? onDragStart = null, Action<UIView, string>? itemContent = null, string[]? listStyle = null, string[]? itemStyle = null, int? activationDistance = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
   // Event args for drag cancel in @dnd-kit.
   sealed class DragCancelArgs : IEquatable<DragCancelArgs>
@@ -3409,7 +3572,9 @@ namespace Ikon.Parallax.Components.Standard
   // Event args for escape key down events on overlays.
   sealed class EscapeKeyDownArgs : IEquatable<EscapeKeyDownArgs>
     ctor()
-  // Per-client expanded-node state for TreeView — a reactive set of expanded node ids, so apps don't hand-roll revision counters or per-node booleans.
+  // Per-client expanded-node state for TreeViewExtensions.TreeView<T> — a reactive set of expanded node ids, so apps don't hand-roll revision counters or per-node booleans.
+  // Remarks:
+  // Backed by a ClientReactive<T>: each client expands and collapses independently, and reads during UI rendering are dependency-tracked, so the tree re-renders automatically. Access it where a client scope is active (UI render or event handlers).
   sealed class ExpandedSet
     // Create the set, optionally pre-expanding the given node ids for every client.
     ctor(params string[] expandedIds)
@@ -3432,12 +3597,14 @@ namespace Ikon.Parallax.Components.Standard
     Video
     VideoFull
   // Extension methods for the FeedScroller component — a vertically-snapping, full-viewport feed optimized for media-heavy content (TikTok / Reels / Shorts-style).
+  // Remarks:
+  // Performance model: • Native CSS scroll-snap drives the snap — no JS scroll loop. • Active slide is detected with IntersectionObserver, not scroll events. • Only slides inside [active - preloadBehind, active + preloadAhead] render their content; slides outside the window render as fixed-height spacers that preserve scroll position. • Media declared on FeedScrollerExtensions.FeedSlide is warmed with off-DOM Image/<video> elements as soon as a slide enters the preload window. • Autoplay is gated on the active slide only — neighbour videos are paused.
   static class FeedScrollerExtensions
     // Renders a TikTok-style vertical feed: each slide occupies the viewport and snaps into place.
     static void FeedScroller(this UIView view, IEnumerable<FeedSlide> slides, int? activeIndex = null, int? defaultActiveIndex = null, int preloadAhead = 2, int preloadBehind = 1, bool? autoPlay = null, bool? muted = null, bool? loop = null, int scrollEndThreshold = 2, string[]? style = null, string[]? slideStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<double, Task>? onActiveChange = null, Func<double, Task>? onScrollNearEnd = null, Func<bool, Task>? onMuteChange = null)
-    // A single slide inside a FeedScroller . Use when rendering slides manually rather than via the FeedSlide declarative API.
+    // A single slide inside a FeedScrollerExtensions.FeedScroller. Use when rendering slides manually rather than via the FeedScrollerExtensions.FeedSlide declarative API.
     static void FeedSlide(this UIView view, int index, string[]? style = null, FeedMediaKind mediaKind = None, string? mediaUrl = null, string? mediaPoster = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-  // A single slide in a FeedScroller .
+  // A single slide in a FeedScrollerExtensions.FeedScroller.
   sealed class FeedSlide : IEquatable<FeedSlide>
     ctor(Action<UIView> Content, string? Key = null, FeedMediaKind MediaKind = None, string? MediaUrl = null, string? MediaPoster = null)
     // Builder invoked to render the slide. Only slides inside the render window are realized.
@@ -3448,20 +3615,20 @@ namespace Ikon.Parallax.Components.Standard
     FeedMediaKind MediaKind { get; init; }
     // Optional poster image URL for video slides.
     string? MediaPoster { get; init; }
-    // URL of the media asset matching MediaKind .
+    // URL of the media asset matching MediaKind.
     string? MediaUrl { get; init; }
-  // Extension methods for file picker components. Unlike FileUpload , a FilePicker only opens the native file picker and reports selected file metadata to the server — it does not transfer bytes. The picked File handles are cached on the client and uploaded later by a FileUpload rendered with a matching seedSelectionIds prop.
+  // Extension methods for file picker components. Unlike FileUploadExtensions.FileUpload, a FilePicker only opens the native file picker and reports selected file metadata to the server — it does not transfer bytes. The picked File handles are cached on the client and uploaded later by a FileUploadExtensions.FileUpload rendered with a matching seedSelectionIds prop.
   static class FilePickerExtensions
     // Native file picker. Emits onFileSelected once per selected file with its metadata (name, mime, size, client-generated selection id). The File bytes stay on the client and are not transferred until a FileUpload with matching seedSelectionIds is mounted.
     static void FilePicker(this UIView view, string[]? style = null, string[]? accept = null, bool? multiple = null, long? maxFileSize = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<FilePickerSelectedArgs, Task>? onFileSelected = null, Func<FilePickerValidationErrorArgs, Task>? onValidationError = null, Action<UIView>? content = null)
-  // Metadata for a file chosen in a FilePicker . The file bytes are held on the client until an upload is triggered later via a FileUpload with matching seedSelectionIds.
+  // Metadata for a file chosen in a FilePickerExtensions.FilePicker. The file bytes are held on the client until an upload is triggered later via a FileUpload with matching seedSelectionIds.
   sealed class FilePickerSelectedArgs : IEquatable<FilePickerSelectedArgs>
     ctor(string SelectionId, string FileName, string MimeType, long Size)
     string FileName { get; init; }
     string MimeType { get; init; }
     string SelectionId { get; init; }
     long Size { get; init; }
-  // Reported when client-side validation rejects a picked file (e.g. file too large for maxFileSize). Host UIs should surface Reason to the user — without a handler the rejection is silent and the user just sees "nothing happened" after clicking the picker.
+  // Reported when client-side validation rejects a picked file (e.g. file too large for maxFileSize). Host UIs should surface FilePickerValidationErrorArgs.Reason to the user — without a handler the rejection is silent and the user just sees "nothing happened" after clicking the picker.
   sealed class FilePickerValidationErrorArgs : IEquatable<FilePickerValidationErrorArgs>
     ctor(string FileName, string MimeType, long Size, string Reason)
     string FileName { get; init; }
@@ -3473,6 +3640,14 @@ namespace Ikon.Parallax.Components.Standard
     // File upload component with explicit upload area, button click, drag-drop, and paste support.
     static void FileUpload(this UIView view, string[]? style = null, string[]? accept = null, bool? multiple = null, long? maxFileSize = null, bool? disabled = null, bool? allowPaste = null, string? capture = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<FileUploadPreStartArgs, Task<FileUploadResult>>? onUploadPreStart = null, Func<FileUploadStartArgs, Task<FileUploadResult>>? onUploadStart = null, Func<FileUploadProgressArgs, Task>? onUploadProgress = null, Func<FileUploadCompleteArgs, Task>? onUploadComplete = null, Func<FileUploadErrorArgs, Task>? onUploadError = null, Func<FileUploadChunkArgs, Task>? onChunkReceived = null, string[]? seedSelectionIds = null, Action<UIView>? content = null)
     // Wrapper component that adds file upload capability (drag-drop + paste) to any content. Children define the visual appearance.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • zoneStyle - The drop zone container • activeStyle - Style applied when a file is being dragged over the zone Example:
+    // view.FileUploadZone(
+    //     accept: ["image/*"],
+    //     onUploadComplete: async args => { /* handle uploaded file */ },
+    //     zoneStyle: ["border-2 border-dashed p-8"],
+    //     activeStyle: ["border-primary bg-primary/10"],
+    //     content: v => v.Text([Text.Muted], "Drop files here"));
     static void FileUploadZone(this UIView view, string[]? style = null, bool? multiple = null, long? maxFileSize = null, bool? disabled = null, bool? allowPaste = null, string[]? accept = null, Func<FileUploadPreStartArgs, Task<FileUploadResult>>? onUploadPreStart = null, Func<FileUploadStartArgs, Task<FileUploadResult>>? onUploadStart = null, Func<FileUploadProgressArgs, Task>? onUploadProgress = null, Func<FileUploadCompleteArgs, Task>? onUploadComplete = null, Func<FileUploadErrorArgs, Task>? onUploadError = null, Func<FileUploadChunkArgs, Task>? onChunkReceived = null, Func<bool, Task>? onDragActiveChange = null, Action<UIView>? content = null, string[]? zoneStyle = null, string[]? activeStyle = null, string? activeStyleId = null, string? styleId = null, string? key = null, string[]? seedSelectionIds = null, IReadOnlyDictionary<string, object>? props = null)
   // Extension methods for focus hint management.
   static class FocusHintExtensions
@@ -3499,7 +3674,7 @@ namespace Ikon.Parallax.Components.Standard
     Assertive
   // Extension methods for Form, Checkbox, RadioGroup, Switch, Slider, and Label components.
   static class FormExtensions
-    // Checkbox control with simple boolean state. For tri-state support (indeterminate), use TriStateCheckbox .
+    // Checkbox control with simple boolean state. For tri-state support (indeterminate), use FormExtensions.TriStateCheckbox.
     static void Checkbox(this UIView view, string[]? style = null, bool? value = null, bool? defaultValue = null, bool? required = null, bool? disabled = null, string? name = null, string? formValue = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onValueChange = null, Action<UIView>? content = null, string? label = null, Reactive<bool>? bind = null)
     // Visual indicator for the checkbox state.
     static void CheckboxIndicator(this UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
@@ -3551,10 +3726,17 @@ namespace Ikon.Parallax.Components.Standard
     StepMismatch
     BadInput
     CustomError
-  // Hour display format for TimePicker .
+  // Hour display format for TimePickerExtensions.TimePicker.
   enum HourFormat
     Hour24
     Hour12
+  // Size of an Icon — the size: form of the Theming.Icon.Xs..Xl tokens, so an icon sizes the same way a Spinner does (size: IconSize.Lg). The style-array form (view.Icon([Icon.Lg], name: "check")) stays valid and, being a caller class, still wins over size: when both are given.
+  enum IconSize
+    Xs
+    Sm
+    Md
+    Lg
+    Xl
   // Event returned from an image capture action with the captured image data.
   sealed class ImageCaptureActionEvent : ActionEvent, IEquatable<ImageCaptureActionEvent>
     ctor(bool Success, string? Mime, int Width, int Height, string? Data)
@@ -3590,44 +3772,44 @@ namespace Ikon.Parallax.Components.Standard
     static void PasswordToggleFieldToggle(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // Multi-line text input area.
     static void TextArea(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, int? rows = null, bool? autoResize = null, int? maxRows = null, bool? submitOnEnter = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, Func<Context, Task>? onSubmitWithContext = null, bool? clearOnSubmit = null, Action<UIView>? content = null, bool? autoFocus = null, string? label = null, int? debounceMs = null, Reactive<string>? bind = null)
-    // Single-line text input field.
+    // Single-line text input field. Passing multiline: true or rows: turns it into a multi-line field by delegating to TextArea.
     static void TextField(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, string? type = null, string? step = null, string? min = null, string? max = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, bool? clearOnSubmit = null, Action<UIView>? content = null, bool? autoFocus = null, string? label = null, int? debounceMs = null, Reactive<string>? bind = null, bool? multiline = null, int? rows = null)
   // Event args for interact outside events on overlays (combines pointer and focus).
   sealed class InteractOutsideArgs : IEquatable<InteractOutsideArgs>
     ctor(string? TargetId)
     string? TargetId { get; init; }
-  // String constants for common keyboard key names, matching the browser KeyboardEvent.key specification. Use these with KeyboardListener for type-safe key filtering. Raw strings can also be used for uncommon keys not listed here.
+  // String constants for common keyboard key names, matching the browser KeyboardEvent.key specification. Use these with KeyboardExtensions.KeyboardListener for type-safe key filtering. Raw strings can also be used for uncommon keys not listed here.
   static class Key
-    static string Alt
-    static string ArrowDown
-    static string ArrowLeft
-    static string ArrowRight
-    static string ArrowUp
-    static string Backspace
-    static string Control
-    static string Delete
-    static string End
-    static string Enter
-    static string Escape
-    static string F1
-    static string F10
-    static string F11
-    static string F12
-    static string F2
-    static string F3
-    static string F4
-    static string F5
-    static string F6
-    static string F7
-    static string F8
-    static string F9
-    static string Home
-    static string Meta
-    static string PageDown
-    static string PageUp
-    static string Shift
-    static string Space
-    static string Tab
+    const string Alt
+    const string ArrowDown
+    const string ArrowLeft
+    const string ArrowRight
+    const string ArrowUp
+    const string Backspace
+    const string Control
+    const string Delete
+    const string End
+    const string Enter
+    const string Escape
+    const string F1
+    const string F10
+    const string F11
+    const string F12
+    const string F2
+    const string F3
+    const string F4
+    const string F5
+    const string F6
+    const string F7
+    const string F8
+    const string F9
+    const string Home
+    const string Meta
+    const string PageDown
+    const string PageUp
+    const string Shift
+    const string Space
+    const string Tab
   // Event args for keyboard events, matching the browser KeyboardEvent properties.
   sealed class KeyboardEventArgs : IEquatable<KeyboardEventArgs>
     ctor(string Key, string Code, bool AltKey, bool CtrlKey, bool MetaKey, bool ShiftKey, bool Repeat)
@@ -3649,14 +3831,30 @@ namespace Ikon.Parallax.Components.Standard
     // Provides text direction context (ltr/rtl) to descendants.
     static void DirectionProvider(this UIView view, string[]? style = null, Dir dir = Ltr, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // Infinite scroll view that fires callbacks when user scrolls near the end.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • viewportStyle - The scrollable viewport (use ScrollArea.Viewport) • scrollbarStyle - The scrollbar track (use ScrollArea.Scrollbar) • thumbStyle - The scrollbar thumb (use ScrollArea.Thumb) • rootStyle - The outermost container (rarely needed) Example:
+    // view.InfiniteScrollView(
+    //     hasMore: _hasMoreData.Value,
+    //     loading: _isLoading.Value,
+    //     onNearEnd: async args => await LoadMoreItems(),
+    //     content: v => { /* list items */ });
     static void InfiniteScrollView(this UIView view, string[]? style = null, int threshold = 200, int debounceMs = 100, bool loading = false, bool hasMore = true, ScrollDirection direction = Down, ScrollAreaScrollbars scrollbars = Vertical, Action<UIView>? loadingIndicator = null, Func<ScrollNearEndArgs, Task>? onNearEnd = null, Action<UIView>? content = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    // Progress component that auto-renders the indicator with transform. Success , Warning , and Error tones map to the matching Theming.Progress.Variant tokens; other tones use the default (brand) fill.
+    // Progress component that auto-renders the indicator with transform. SemanticTone.Success, SemanticTone.Warning, and SemanticTone.Error tones map to the matching Theming.Progress.Variant tokens; other tones use the default (brand) fill.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • rootStyle - The progress track/container (use Progress.Root) • indicatorStyle - The filled indicator bar (use Progress.Indicator) Example:
+    // view.Progress(value: 50, max: 100, rootStyle: [Progress.Root]);
+    // view.Progress(indeterminate: true, rootStyle: [Progress.Root]);
     static void Progress(this UIView view, string[]? style = null, double? value = null, double? max = null, SemanticTone tone = Neutral, bool indeterminate = false, Func<double?, string>? getValueLabel = null, string[]? rootStyle = null, string[]? indicatorStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    // Resizable split panel with a drag handle between two panes. Resize is handled entirely on the client — only the final size is sent to the server via onResized .
+    // Resizable split panel with a drag handle between two panes. Resize is handled entirely on the client — only the final size is sent to the server via onResized.
     static void ResizableSplit(this UIView view, Orientation orientation = Horizontal, double initialSize = 200, double minSize = 100, double maxSize = 500, bool reversed = false, Func<double, Task>? onResized = null, Action<UIView>? first = null, Action<UIView>? second = null, string[]? style = null, string[]? handleStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
     // ScrollArea component that auto-renders viewport and scrollbars.
-    static void ScrollArea(this UIView view, string[]? style = null, ScrollAreaScrollbars scrollbars = Vertical, ScrollAreaType type = Hover, int? scrollHideDelay = null, Dir dir = Ltr, bool autoScroll = false, string? autoScrollKey = null, Action<UIView>? content = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string[]? cornerStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    // ScrollArea — positional (style, children) overload (see Box ).
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • viewportStyle - The scrollable viewport (use ScrollArea.Viewport) • scrollbarStyle - The scrollbar track (use ScrollArea.Scrollbar) • thumbStyle - The scrollbar thumb (use ScrollArea.Thumb) • cornerStyle - The corner element when both scrollbars are visible • rootStyle - The outermost container (rarely needed) Example:
+    // view.ScrollArea(
+    //     scrollbars: ScrollAreaScrollbars.Vertical,
+    //     content: v => { /* scrollable content */ });
+    static void ScrollArea(this UIView view, string[]? style = null, ScrollAreaScrollbars scrollbars = Vertical, ScrollAreaType type = Hover, int? scrollHideDelay = null, Dir dir = Ltr, bool autoScroll = false, object? autoScrollKey = null, Action<UIView>? content = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string[]? cornerStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
+    // ScrollArea — positional (style, children) overload (see ContainerExtensions.Box).
     static void ScrollArea(this UIView view, string[]? style, Action<UIView> children)
     // Visual separator between content.
     static void Separator(this UIView view, string[]? style = null, Orientation orientation = Horizontal, bool decorative = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
@@ -3670,7 +3868,7 @@ namespace Ikon.Parallax.Components.Standard
   enum MediaCaptureButtonMode
     Hold
     Toggle
-  // Event data for media capture start/stop callbacks, containing the stream identifier and capture kind. ClientContext identifies the user who initiated the capture and is populated for all capture kinds (audio, camera, screen). Prefer reading ClientSessionId / UserId rather than tracking streamId-to-client mappings yourself.
+  // Event data for media capture start/stop callbacks, containing the stream identifier and capture kind. MediaCaptureEvent.ClientContext identifies the user who initiated the capture and is populated for all capture kinds (audio, camera, screen). Prefer reading MediaCaptureEvent.ClientSessionId / MediaCaptureEvent.UserId rather than tracking streamId-to-client mappings yourself.
   sealed class MediaCaptureEvent : IEquatable<MediaCaptureEvent>
     ctor(string StreamId, MediaCaptureKind Kind)
     // Client context of the user who initiated the capture.
@@ -3692,7 +3890,7 @@ namespace Ikon.Parallax.Components.Standard
     static void AudioUrlPlayer(this UIView view, string[]? style = null, string? url = null, bool? controls = null, bool? autoplay = null, bool? loop = null, bool? muted = null, string? preload = null, string? styleId = null, string? key = null)
     // Button that captures media (audio, camera, or screen) based on the specified kind. Supports both text mode and icon mode. In text mode (content is null), text is displayed as visible button text. In icon mode (content is provided), text becomes the accessible aria-label and content is displayed.
     static void CaptureButton(this UIView view, string[]? style = null, MediaCaptureKind kind = Audio, string? text = null, MediaCaptureButtonMode captureMode = Hold, ClientAudioCaptureOptions? audioOptions = null, ClientVideoCaptureOptions? videoOptions = null, int? holdReleaseDelayMs = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<MediaCaptureEvent, Task>? onCaptureStart = null, Func<MediaCaptureEvent, Task>? onCaptureStop = null, Action<UIView>? content = null)
-    // Push-to-talk microphone button: a CaptureButton(kind: Audio, captureMode: Hold) that integrates with SpeechRecognizedAsync . After enabling speech recognition once (Audio.UseSpeechRecognition(...)), subscribe to Audio.SpeechRecognizedAsync to receive transcriptions when the user releases the button. The user's client context is carried on the event args — no streamId-to-client plumbing needed in the app.
+    // Push-to-talk microphone button: a CaptureButton(kind: Audio, captureMode: Hold) that integrates with Audio.SpeechRecognizedAsync. After enabling speech recognition once (Audio.UseSpeechRecognition(...)), subscribe to Audio.SpeechRecognizedAsync to receive transcriptions when the user releases the button. The user's client context is carried on the event args — no streamId-to-client plumbing needed in the app.
     static void PushToTalkButton(this UIView view, string[]? style = null, string? text = "⏺", int holdReleaseDelayMs = 500, ClientAudioCaptureOptions? audioOptions = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<MediaCaptureEvent, Task>? onCaptureStart = null, Func<MediaCaptureEvent, Task>? onCaptureStop = null, Action<UIView>? content = null)
     // Canvas element for rendering a live video stream.
     static void VideoStreamCanvas(this UIView view, string[]? style = null, string? streamId = null, int? width = null, int? height = null, string? styleId = null, string? key = null)
@@ -3763,18 +3961,71 @@ namespace Ikon.Parallax.Components.Standard
   // Overlay components (Dialog, AlertDialog, Popover, Tooltip, HoverCard, Toast). Each handles Portal/Overlay management automatically.
   static class OverlayExtensions
     // Alert dialog that requires explicit user acknowledgment. Cannot be dismissed by clicking outside.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • overlayStyle - The background overlay (use AlertDialog.Overlay) • contentStyle - The dialog content container (use AlertDialog.Content) • titleStyle - The title text (use AlertDialog.Title) • descriptionStyle - The description text (use AlertDialog.Description) • footerStyle - The button container (use AlertDialog.Footer) • cancelStyle - The cancel button (use AlertDialog.Cancel) • actionStyle - The action button (use AlertDialog.Action) • rootStyle - The outermost container (rarely needed) Example:
+    // view.AlertDialog(
+    //     title: "Are you sure?",
+    //     description: "This action cannot be undone.",
+    //     actionLabel: "Delete",
+    //     onAction: async () => { /* handle delete */ },
+    //     overlayStyle: [AlertDialog.Overlay],
+    //     contentStyle: [AlertDialog.Content],
+    //     trigger: v => v.Button([Button.ErrorMd], text: "Delete"));
     static void AlertDialog(this UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, string? title = null, string? description = null, string? cancelLabel = null, string? actionLabel = null, Func<Task>? onAction = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, string[]? overlayStyle = null, string? overlayStyleId = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? footerStyle = null, string[]? cancelStyle = null, string[]? actionStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null, Action<UIView>? content = null)
     // Modal dialog window.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • overlayStyle - The background overlay (use Dialog.Overlay) • contentStyle - The dialog content container (use Dialog.Content) • rootStyle - The outermost container (rarely needed) Example:
+    // view.Dialog(
+    //     overlayStyle: [Dialog.Overlay],
+    //     contentStyle: [Dialog.Content],
+    //     trigger: v => v.Button([Button.PrimaryMd], text: "Open"),
+    //     contentSlot: v => v.Text([Text.Body], "Dialog content"));
     static void Dialog(this UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, bool? modal = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? overlayStyle = null, string? overlayStyleId = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null, string? title = null, string? description = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? headerStyle = null)
     // Rich content card that appears on hover with configurable delays.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • contentStyle - The hover card content (use HoverCard.Content) • rootStyle - The hover card container (rarely needed) Example:
+    // view.HoverCard(
+    //     contentStyle: [HoverCard.Content],
+    //     trigger: v => v.Text([Text.Link], "@username"),
+    //     contentSlot: v => { ... });
     static void HoverCard(this UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, int? openDelay = null, int? closeDelay = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null)
     // Floating content panel that appears next to a trigger element.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • contentStyle - The popover content container (use Popover.Content) • rootStyle - The outermost container (rarely needed) Example:
+    // view.Popover(
+    //     contentStyle: [Popover.Content],
+    //     trigger: v => v.Button([Button.PrimaryMd], text: "Open"),
+    //     contentSlot: v => v.Text([Text.Body], "Popover content"));
     static void Popover(this UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, bool? modal = null, Side side = Bottom, Align align = Center, double? sideOffset = null, double? alignOffset = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null)
     // Toast notification with built-in provider and viewport.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • toastStyle - The toast container (use Toast.Root) • viewportStyle - The viewport where toasts appear (use Toast.Viewport) • titleStyle - The title text (use Toast.Title) • descriptionStyle - The description text (use Toast.Description) • closeStyle - The close button (use Toast.Close) Example:
+    // view.Toast(
+    //     title: "Saved!",
+    //     description: "Your changes have been saved.",
+    //     toastStyle: [Toast.Root],
+    //     titleStyle: [Toast.Title],
+    //     descriptionStyle: [Toast.Description]);
     static void Toast(this UIView view, string[]? style = null, ToastType type = Foreground, bool? open = null, bool? defaultOpen = null, int? durationMs = null, bool? forceMount = null, ToastSwipeDirection swipeDirection = Right, int? swipeThreshold = null, string? title = null, string? description = null, bool? showClose = null, string? closeLabel = null, Action<UIView>? content = null, string[]? toastStyle = null, string[]? viewportStyle = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? closeStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null, Func<Task>? onEscapeKeyDown = null, Func<Task>? onPause = null, Func<Task>? onResume = null, Func<ToastSwipeArgs, Task>? onSwipeStart = null, Func<ToastSwipeArgs, Task>? onSwipeMove = null, Func<ToastSwipeArgs, Task>? onSwipeEnd = null, Func<ToastSwipeArgs, Task>? onSwipeCancel = null)
     // Brief informational message that appears on hover. Includes built-in provider.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • contentStyle - The tooltip content (use Tooltip.Content) • rootStyle - The tooltip container (rarely needed) Example:
+    // view.Tooltip(
+    //     contentStyle: [Tooltip.Content],
+    //     trigger: v => v.Button([Button.GhostMd], text: "Hover me"),
+    //     contentSlot: v => v.Text([Text.Caption], "Helpful hint"));
     static void Tooltip(this UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, double? delayDuration = null, double? skipDelayDuration = null, bool? disableHoverableContent = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null)
-  // One page of items plus the controls needed to render prev/next buttons. Returned by Paginate .
+  // Composite overlay-menu components built on the Popover/Dialog primitives and the Menu/Combobox/ Command theme tokens — the shadcn Combobox, DropdownMenu, Command-palette, and Kbd, expressed as C# composites (no bespoke node type). Filtering is server-side over the app's reactive search state, matching Parallax's reactive model; client-side typeahead/roving-focus is a later renderer concern, not required for the components to work.
+  static class OverlayMenuExtensions
+    // A searchable Select (the shadcn Combobox): a Popover whose trigger shows the current selection and whose panel is a search field over the filtered options. Filtering is server-side — bind searchValue to a reactive and echo edits via onSearchChange, and the list narrows by case-insensitive label match. Without a bound search value it renders as a Popover-select (no filtering).
+    static void Combobox(this UIView view, IReadOnlyList<SelectOption> options, string? value = null, Func<string, Task>? onValueChange = null, string? searchValue = null, Func<string, Task>? onSearchChange = null, bool? open = null, Func<bool, Task>? onOpenChange = null, string? placeholder = "Select…", string? searchPlaceholder = "Search…", string? emptyText = "No results.", string[]? style = null, string[]? triggerStyle = null, string[]? contentStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
+    // A command palette (the shadcn Command in a dialog): a centred search field over a grouped, filtered action list. Filtering is server-side over searchValue — each group's options narrow by case-insensitive label match, and empty groups drop out. onSelect fires with the chosen option's value.
+    static void CommandPalette(this UIView view, IReadOnlyList<SelectOptionGroup> groups, bool? open = null, Func<bool, Task>? onOpenChange = null, Func<string, Task>? onSelect = null, string? searchValue = null, Func<string, Task>? onSearchChange = null, string? placeholder = "Type a command or search…", string? emptyText = "No results.", string[]? panelStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
+    // A dropdown menu — a Popover preset with the menu content surface. Fill content with view.Button([Menu.Item]) / [Menu.ItemDestructive] rows and Menu.Label / Menu.Separator; the component supplies the trigger wiring and the menu-shaped popover panel.
+    static void DropdownMenu(this UIView view, Action<UIView> trigger, Action<UIView> content, bool? open = null, Side side = Bottom, Align align = Start, string[]? contentStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null)
+    // A keyboard-key chip — the shadcn Kbd. Pass a single text for one key, or keys for a combo (each key its own chip, spaced).
+    static void Kbd(this UIView view, string? text = null, IReadOnlyList<string>? keys = null, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
+  // One page of items plus the controls needed to render prev/next buttons. Returned by PaginationExtensions.Paginate<T>.
   sealed class Page<T> : IEquatable<Page<T>>
     ctor(IReadOnlyList<T> Items, int Index, int TotalPages, int PageSize, bool CanPrev, bool CanNext, Func<Task> Prev, Func<Task> Next, Func<int, Task> JumpTo, Func<Task> First, Func<Task> Last, IReadOnlyList<T> Source)
     // True if there is a next page.
@@ -3785,7 +4036,7 @@ namespace Ikon.Parallax.Components.Standard
     Func<Task> First { get; init; }
     // Zero-based current page index.
     int Index { get; init; }
-    // The slice of Source for the current page.
+    // The slice of Page<T>.Source for the current page.
     IReadOnlyList<T> Items { get; init; }
     // Action that moves to a specific page (0-based). Clamps to valid range.
     Func<int, Task> JumpTo { get; init; }
@@ -3799,9 +4050,9 @@ namespace Ikon.Parallax.Components.Standard
     Func<Task> Prev { get; init; }
     // The full input list, if the caller wants the original.
     IReadOnlyList<T> Source { get; init; }
-    // Total number of pages (always >= 1, even when Source is empty).
+    // Total number of pages (always >= 1, even when Page<T>.Source is empty).
     int TotalPages { get; init; }
-  // Bounded-cursor primitive on top of ClientReactive . Slices an in-memory list, returns the slice + bound actions (Prev/Next/JumpTo/First/Last) the caller binds to whatever UI fits. Holds zero rendering opinion — no tab bars, no default control rows, no opinionated layout. Most Ikon apps don't need pagination at all (live feeds, autoscroll, virtualization handle the common cases via Reactive<List<T>> + ScrollArea(autoScroll: true)). Use this when you have a static list large enough to warrant explicit page navigation. For DB-backed pagination (load only the current page from a backend), drive ClientReactive directly and observe its value in your data-loading code — same per-client semantics, no special helper needed.
+  // Bounded-cursor primitive on top of ClientReactive<T>. Slices an in-memory list, returns the slice + bound actions (Prev/Next/JumpTo/First/Last) the caller binds to whatever UI fits. Holds zero rendering opinion — no tab bars, no default control rows, no opinionated layout. Most Ikon apps don't need pagination at all (live feeds, autoscroll, virtualization handle the common cases via ReactiveList<T> + ScrollArea(autoScroll: true)). Use this when you have a static list large enough to warrant explicit page navigation. For DB-backed pagination (load only the current page from a backend), drive ClientReactive<T> directly and observe its value in your data-loading code — same per-client semantics, no special helper needed.
   static class PaginationExtensions
     // Slice items by pageSize using page as per-client current-page state. Each connected client sees its own page; setting page from one client doesn't shift another client's view.
     static Page<T> Paginate<T>(this UIView view, IReadOnlyList<T> items, ClientReactive<int> page, int pageSize = 20)
@@ -3822,7 +4073,7 @@ namespace Ikon.Parallax.Components.Standard
   static class RichTextEditorExtensions
     // Inline rich-text editor with a configurable toolbar. Values are HTML strings.
     static void RichTextEditor(this UIView view, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, IReadOnlyList<RichTextTool>? tools = null, bool? showToolbar = null, int? minRows = null, int? maxRows = null, string[]? style = null, string[]? toolbarStyle = null, string[]? toolbarButtonStyle = null, string[]? contentStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null)
-  // Formatting action available in the RichTextEditor toolbar.
+  // Formatting action available in the RichTextEditorExtensions.RichTextEditor toolbar.
   enum RichTextTool
     Bold
     Italic
@@ -3843,7 +4094,7 @@ namespace Ikon.Parallax.Components.Standard
     ClearFormatting
     Undo
     Redo
-  // Tiny primitives for using ClientReactive as a signal the app reads to decide what to render. Routes, tabs, modes, panel selections, "which dialog is open" — same shape, same primitives. Intentionally minimal: no opinionated tab bars, no URL coupling, no rendering bias. The signal is the building block; the app decides how to consume it. For URL ↔ signal sync (browser bar, deep links, back/forward), use Navigation on the host app — keeps URL concerns in one place instead of forking them through this layer.
+  // Tiny primitives for using ClientReactive<T> as a signal the app reads to decide what to render. Routes, tabs, modes, panel selections, "which dialog is open" — same shape, same primitives. Intentionally minimal: no opinionated tab bars, no URL coupling, no rendering bias. The signal is the building block; the app decides how to consume it. For URL ↔ signal sync (browser bar, deep links, back/forward), use Navigation on the host app — keeps URL concerns in one place instead of forking them through this layer.
   static class RoutingExtensions
     // Renders the content for the currently-active key. signal holds the active key (per-client); cases maps each known key to a render lambda. Falls back to fallback (or empty) when the active key isn't in the dictionary. private ClientReactive<string> _route = new("home"); ... view.Routed(_route, new() { ["home"] = v => RenderHome(v), ["about"] = v => RenderAbout(v), ["settings"] = v => RenderSettings(v), });
     static void Routed<T>(this UIView view, ClientReactive<T> signal, Dictionary<T, Action<UIView>> cases, Action<UIView>? fallback = null)
@@ -3861,10 +4112,17 @@ namespace Ikon.Parallax.Components.Standard
     Always
     Scroll
     Hover
-  // Extension methods for the ScrollColumn primitive — a header/body/footer dialog pattern where the body scrolls. Wraps a ScrollArea with the correct flex sizing so scrolling engages without ceremony.
+  // Extension methods for the ScrollColumn primitive — a header/body/footer dialog pattern where the body scrolls. Wraps a LayoutExtensions.ScrollArea with the correct flex sizing so scrolling engages without ceremony.
   static class ScrollColumnExtensions
     // Renders a flex column with an optional header, a scrollable body, and an optional footer. The header and footer stay pinned; the body scrolls.
-    static void ScrollColumn(this UIView view, string[]? style = null, Action<UIView>? header = null, Action<UIView>? footer = null, Action<UIView>? content = null, ScrollAreaScrollbars scrollbars = Vertical, ScrollAreaType scrollType = Hover, bool autoScroll = false, string? autoScrollKey = null, string[]? bodyStyle = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string? styleId = null, string? key = null)
+    // Remarks:
+    // This is the canonical shape for dialogs, side panels, and chat-style layouts where you need a fixed chrome around an overflowing region. Using this helper avoids the common pitfall of a flex-1 ScrollArea that won't shrink inside a flex parent (a CSS flexbox quirk: min-height: auto by default). The outer container's height is the caller's responsibility — set it via the style parameter (for example "h-[82vh]") or let a flex-1 parent provide bounds. Example — dialog with header + scrolling body + composer:
+    // view.ScrollColumn(
+    //     style: ["h-[82vh] w-full sm:max-w-[560px] rounded-2xl bg-white"],
+    //     header: h => h.Row(["px-5 py-4 border-b"], content: ...),
+    //     footer: f => f.Row(["p-3 border-t"], content: ...),
+    //     content: body => body.Column(["gap-3"], content: ...));
+    static void ScrollColumn(this UIView view, string[]? style = null, Action<UIView>? header = null, Action<UIView>? footer = null, Action<UIView>? content = null, ScrollAreaScrollbars scrollbars = Vertical, ScrollAreaType scrollType = Hover, bool autoScroll = false, object? autoScrollKey = null, string[]? bodyStyle = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string? styleId = null, string? key = null)
   // Direction for infinite scroll loading.
   enum ScrollDirection
     Down
@@ -3879,6 +4137,8 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for Select components.
   static class SelectExtensions
     // Select dropdown component that auto-renders the full structure with trigger button, dropdown content, and items. Use either options (flat list) or groups (grouped items) - not both.
+    // Remarks:
+    // An Input.* token passed as the Select's own style is ignored (with a dev warning): it would style the outer wrapper, not the field-shaped element. The trigger already carries the field theme — customize it through triggerStyle. For trigger sizing, use Select.Size tokens: triggerStyle: [Select.Size.Sm] for small, triggerStyle: [Select.Size.Lg] for large. The default size is medium.
     static void Select(this UIView view, string[]? style = null, IReadOnlyList<SelectOption>? options = null, IReadOnlyList<SelectOptionGroup>? groups = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, bool? required = null, bool? open = null, string? name = null, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? itemStyle = null, string[]? itemIndicatorStyle = null, string? indicatorIconName = "check", string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool, Task>? onOpenChange = null, string? label = null, Reactive<string>? bind = null)
   // Represents a selectable option in a Select component.
   sealed class SelectOption : IEquatable<SelectOption>
@@ -3920,6 +4180,8 @@ namespace Ikon.Parallax.Components.Standard
   // Extension methods for WebGL shader components.
   static class ShadertoyExtensions
     // Shadertoy-compatible WebGL fragment shader canvas.
+    // Remarks:
+    // Renders GLSL fragment shaders with Shadertoy-compatible uniforms. The shader code must define a mainImage function with signature: void mainImage(out vec4 color, in vec2 fragCoord) Built-in uniforms (automatically provided): • iResolution (vec3) - canvas width, height, and 1.0 • iTime (float) - elapsed time in seconds • iTimeDelta (float) - time since last frame • iFrame (int) - current frame number • iMouse (vec4) - mouse x, y, click x, click y (requires enableMouse=true) • iDate (vec4) - year, month, day, seconds of day Texture channels: Pass image URLs (data URIs or http(s)) via channels to bind them to the Shadertoy channel uniforms, matching Shadertoy's default sampler behavior so shaders copied from shadertoy.com that sample 2D textures render the same way: • iChannel0..iChannel3 (sampler2D) - channel textures, in array order • iChannelResolution[4] (vec3) - per-channel pixel size (0 until loaded) • iChannelTime[4] (float) - always 0 for static images Textures use Shadertoy's defaults: vertical flip on (upright with uv = fragCoord/iResolution), repeat wrap, and mipmap filtering. Sample with texture(iChannel0, uv). Limitations: 2D image channels only - no cubemap (samplerCube), buffer, audio, or video channels; single output only.
     static void ShadertoyCanvas(this UIView view, string[]? style = null, string? shaderSource = null, int? fps = null, IReadOnlyDictionary<string, ShaderUniform>? uniforms = null, IReadOnlyList<string>? channels = null, bool? enableMouse = null, int? width = null, int? height = null, string? styleId = null, string? key = null)
   // Options for the Web Share API action.
   sealed class ShareActionOptions : ActionOptions, IEquatable<ShareActionOptions>
@@ -3932,9 +4194,9 @@ namespace Ikon.Parallax.Components.Standard
     string? Url { get; init; }
   // Slide-over panel composites (Sheet, Drawer) built on the Dialog primitive. The dialog's portal + content styling is repositioned per side via the Theming.Sheet / Theming.Drawer token recipes, including Crosswind slide-in/out motion classes driven by the panel's data-state attribute.
   static class SheetExtensions
-    // Bottom drawer on top of the Dialog primitive — mobile-style rounded panel with a drag handle, per the Theming.Drawer token recipe. Same open/close model as Sheet : in controlled mode pass onOpenChange to actually close.
+    // Bottom drawer on top of the Dialog primitive — mobile-style rounded panel with a drag handle, per the Theming.Drawer token recipe. Same open/close model as SheetExtensions.Sheet: in controlled mode pass onOpenChange to actually close.
     static void Drawer(this UIView view, bool? open = null, Func<bool, Task>? onOpenChange = null, string? title = null, string? description = null, Action<UIView>? trigger = null, Action<UIView>? content = null, Action<UIView>? footer = null, bool? defaultOpen = null, bool? modal = null, bool showHandle = true, string[]? style = null, string[]? overlayStyle = null, string[]? handleStyle = null, string[]? headerStyle = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? footerStyle = null, string? key = null)
-    // Side-anchored slide-over panel on top of the Dialog primitive. With zero style args the panel uses Theming.Sheet.Base plus the side token (position, border, slide animation); caller styles merge on top, and the literal "unstyled" class opts out. In controlled mode ( open set) pass onOpenChange and flip your state to false there, or the built-in close button and outside clicks cannot dismiss the sheet.
+    // Side-anchored slide-over panel on top of the Dialog primitive. With zero style args the panel uses Theming.Sheet.Base plus the side token (position, border, slide animation); caller styles merge on top, and the literal "unstyled" class opts out. In controlled mode (open set) pass onOpenChange and flip your state to false there, or the built-in close button and outside clicks cannot dismiss the sheet.
     static void Sheet(this UIView view, bool? open = null, Func<bool, Task>? onOpenChange = null, Side side = Right, string? title = null, string? description = null, Action<UIView>? trigger = null, Action<UIView>? content = null, Action<UIView>? footer = null, bool? defaultOpen = null, bool? modal = null, bool showClose = true, string[]? style = null, string[]? overlayStyle = null, string[]? headerStyle = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? footerStyle = null, string[]? closeStyle = null, string? key = null)
   // Represents the side for positioning overlays.
   enum Side
@@ -3944,21 +4206,21 @@ namespace Ikon.Parallax.Components.Standard
     Left
   // Extension methods for the Skeleton component.
   static class SkeletonExtensions
-    // Pulsing placeholder block for loading / not-yet-available content — the visual stand-in used while real content is pending, and the default fill for content redacted from the build-time boot snapshot (see SnapshotReveal). A typed convenience over the Skeleton.* theme tokens (a div with animate-pulse styling); size and shape via size / shape , or override freely through style .
+    // Pulsing placeholder block for loading / not-yet-available content — the visual stand-in used while real content is pending, and the default fill for content redacted from the build-time boot snapshot (see SnapshotReveal). A typed convenience over the Skeleton.* theme tokens (a div with animate-pulse styling); size and shape via size / shape, or override freely through style.
     static void Skeleton(this UIView view, string[]? style = null, SkeletonShape shape = Rectangle, SkeletonSize size = Md, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-  // Outline shape of a Skeleton placeholder.
+  // Outline shape of a SkeletonExtensions.Skeleton placeholder.
   enum SkeletonShape
     Rectangle
     Circle
     Square
-  // Height preset for a Skeleton placeholder.
+  // Height preset for a SkeletonExtensions.Skeleton placeholder.
   enum SkeletonSize
     Xs
     Sm
     Md
     Lg
     Xl
-  // Wrappers for controlling how the UI renders into the build-time boot snapshot. The boot snapshot is a public asset painted to everyone before the live connection, so by default the snapshot render replaces every content leaf with a skeleton — per-user content can never leak. These wrappers let the app override that default for specific regions, branching on IsSnapshot at build time so it keeps a single UI.Root definition instead of two separate UIs. On the normal live render path every wrapper is a single bool check plus the content the developer already wrote.
+  // Wrappers for controlling how the UI renders into the build-time boot snapshot. The boot snapshot is a public asset painted to everyone before the live connection, so by default the snapshot render replaces every content leaf with a skeleton — per-user content can never leak. These wrappers let the app override that default for specific regions, branching on UIView.IsSnapshot at build time so it keeps a single UI.Root definition instead of two separate UIs. On the normal live render path every wrapper is a single bool check plus the content the developer already wrote.
   static class SnapshotExtensions
     // Renders content live, but omits it entirely from the boot snapshot — use to keep a region out of the public snapshot without leaving even a skeleton (e.g. interactive controls that are dead before the live connection).
     static void SnapshotHide(this UIView view, Action<UIView> content)
@@ -3983,7 +4245,7 @@ namespace Ikon.Parallax.Components.Standard
     Sm
     Md
     Lg
-  // Trend direction for a StatCard delta.
+  // Trend direction for a CardExtensions.StatCard delta.
   enum StatTrend
     Flat
     Up
@@ -4026,7 +4288,7 @@ namespace Ikon.Parallax.Components.Standard
   //     });
   // });
   static class TableExtensions
-    // Table container (CSS display: table). Compose with TableHeader , TableBody , TableRow , TableHead , and TableCell . Caller styles merge on top of the base token; include the literal "unstyled" class to opt out.
+    // Table container (CSS display: table). Compose with TableExtensions.TableHeader, TableExtensions.TableBody, TableExtensions.TableRow, TableExtensions.TableHead, and TableExtensions.TableCell. Caller styles merge on top of the base token; include the literal "unstyled" class to opt out.
     static void Table(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // Table — positional (style, children) overload.
     static void Table(this UIView view, string[]? style, Action<UIView> children)
@@ -4040,15 +4302,22 @@ namespace Ikon.Parallax.Components.Standard
     static void TableHead(this UIView view, string[]? style = null, string? text = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // TableHead — positional-text-first overload: r.TableHead("Name").
     static void TableHead(this UIView view, string text, string[]? style = null, string? key = null, Action<UIView>? content = null)
-    // Header row group (CSS display: table-header-group). Put one TableRow of TableHead cells inside.
+    // Header row group (CSS display: table-header-group). Put one TableExtensions.TableRow of TableExtensions.TableHead cells inside.
     static void TableHeader(this UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null)
     // Table row (CSS display: table-row) with a bottom border. Rows with onClick also get hover highlight + pointer cursor.
     static void TableRow(this UIView view, string[]? style = null, bool striped = false, Delegate? onClick = null, string? styleId = null, string? key = null, Action<UIView>? content = null)
   // Extension methods for Tabs components.
   static class TabsExtensions
     // Container for Tabs components. Use the 'tabs' parameter to define tab content.
+    // Remarks:
+    // Styling: This component has multiple style parameters for different parts: • listStyle - The tab list container (use Tabs.List) • triggerStyle - Each tab trigger button (use Tabs.Trigger) • contentStyle - Each tab content panel (use Tabs.Content) • rootStyle - The outermost container (rarely needed) Example:
+    // view.Tabs(
+    //     listStyle: [Tabs.List],
+    //     triggerStyle: [Tabs.Trigger],
+    //     contentStyle: [Tabs.Content],
+    //     tabs: [...]);
     static void Tabs(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, Orientation orientation = Horizontal, ActivationMode activationMode = Automatic, IEnumerable<TabItem>? tabs = null, string[]? listContainerStyle = null, string[]? listStyle = null, string[]? triggerStyle = null, string[]? disabledTriggerStyle = null, string[]? contentContainerStyle = null, string[]? contentStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null)
-  // Smallest time unit shown by a TimePicker .
+  // Smallest time unit shown by a TimePickerExtensions.TimePicker.
   enum TimeGranularity
     Hour
     Minute
@@ -4087,6 +4356,17 @@ namespace Ikon.Parallax.Components.Standard
     Foreground
     Background
   // Imperative per-client toast queue so app code never owns notification state.
+  // Remarks:
+  // Wiring: construct one instance as an app field, mount ToastsExtensions.ToastHost once in the root UI, then fire notifications from any event handler:
+  // private readonly Toasts _toasts = new();
+  //
+  // // in UI.Root(...):
+  // view.ToastHost(_toasts);
+  //
+  // // in any handler:
+  // _toasts.Success("Saved");
+  // _toasts.Error("Upload failed", "The file exceeds 10 MB.");
+  // State lives in a ClientReactive<T>, so each client sees only its own toasts and the host re-renders automatically. Methods must therefore be called where a client scope is active (UI render or event handlers) — the normal places notifications originate. Auto-dismiss is client-driven: the toast primitive counts down ToastItem.DurationMs and reports the close, which removes the item from the queue.
   sealed class Toasts
     ctor()
     // Toasts currently visible for the calling client (reactive read).
@@ -4106,16 +4386,18 @@ namespace Ikon.Parallax.Components.Standard
     // Enqueue a warning toast.
     long Warning(string title, string? description = null, int durationMs = 5000)
     // Default auto-dismiss duration in milliseconds.
-    static int DefaultDurationMs
+    const int DefaultDurationMs
   // Host composite that renders a Toasts queue with the toast primitives.
   static class ToastsExtensions
     // Render the toast viewport for a Toasts queue. Mount exactly once in the root UI; every queued toast renders as a themed toast (tone icon, title, description, close button) that the client auto-dismisses after its duration. Both auto-dismiss and the close button report back and remove the item from the queue.
     static void ToastHost(this UIView view, Toasts toasts, string[]? viewportStyle = null, string[]? toastStyle = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? closeStyle = null, bool showClose = true)
   // Recursive tree composite over the Collapsible primitive, styled with the NavPanel/NavItem token recipes.
   static class TreeViewExtensions
-    // Hierarchical tree view. Branch nodes render as Collapsibles whose trigger row toggles expansion (tracked in expanded ) and reports selection; leaf nodes are plain clickable rows. The row matching selectedId renders with the active item style.
+    // Hierarchical tree view. Branch nodes render as Collapsibles whose trigger row toggles expansion (tracked in expanded) and reports selection; leaf nodes are plain clickable rows. The row matching selectedId renders with the active item style.
     static void TreeView<T>(this UIView view, IReadOnlyList<T> roots, Func<T, string> id, Func<T, string> label, Func<T, IReadOnlyList<T>?> children, ExpandedSet expanded, string[]? style = null, Func<T, Task>? onSelect = null, string? selectedId = null, Func<T, string?>? icon = null, string[]? itemStyle = null, string[]? selectedItemStyle = null, string[]? labelStyle = null, string[]? childrenStyle = null, string? styleId = null, string? key = null)
-  // Extension methods for the DOM-virtualized scroll containers VirtualList and VirtualGrid . Items outside the visible window plus an overscan buffer have their content children skipped at the React layer (the wrapper still occupies space via fixed dimensions), so DOM size scales with viewport, not itemCount.
+  // Extension methods for the DOM-virtualized scroll containers VirtualListExtensions.VirtualList and VirtualListExtensions.VirtualGrid. Items outside the visible window plus an overscan buffer have their content children skipped at the React layer (the wrapper still occupies space via fixed dimensions), so DOM size scales with viewport, not itemCount.
+  // Remarks:
+  // Performance model: • Server emits one wrapper node per item up to itemCount; per-item content builders run server-side eagerly. Inexpensive content trees are fine even at large counts. • Client React component watches scroll on the viewport, computes the visible row range from itemHeight/rowHeight + scrollTop, and only mounts children inside [start - overscan, end + overscan]. Out-of-window wrappers render as empty fixed-height placeholders. • onNearEnd fires when the visible window enters the last nearEndThreshold rows. Append more items to grow the list — no special prepend/append API needed.
   static class VirtualListExtensions
     // DOM-virtualized scrollable grid. Items are laid out in a fixed number of columns and rows outside the visible window are not mounted in the DOM.
     static void VirtualGrid(this UIView view, int itemCount, int columns, double rowHeight, Action<UIView, int> onRenderItem, int overscan = 2, int gap = 12, int? minItemWidthPx = null, int? maxColumns = null, double? aspectRatio = null, string? resetScrollKey = null, Func<int, Task>? onNearEnd = null, int nearEndThresholdRows = 2, string[]? style = null, string[]? itemStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
@@ -4129,37 +4411,37 @@ namespace Ikon.Parallax.Components.Standard
 namespace Ikon.Parallax.Theming
   static class Accessibility
     static string RequiredLabel(string baseLabel)
-    static string NotScreenReaderOnly
-    static string ScreenReaderOnly
-    static string SkipLink
+    const string NotScreenReaderOnly
+    const string ScreenReaderOnly
+    const string SkipLink
   static class Accordion
-    static string ChevronIcon
-    static string Content
-    static string ContentInner
-    static string Default
-    static string Header
-    static string Item
-    static string Root
-    static string Trigger
+    const string ChevronIcon
+    const string Content
+    const string ContentInner
+    const string Default
+    const string Header
+    const string Item
+    const string Root
+    const string Trigger
   static class Alert
-    static string Base
-    static string Default
-    static string Description
-    static string Error
-    static string Info
-    static string Success
-    static string Title
-    static string Warning
+    const string Base
+    const string Default
+    const string Description
+    const string Error
+    const string Info
+    const string Success
+    const string Title
+    const string Warning
   static class AlertDialog
-    static string Action
-    static string Cancel
-    static string Content
-    static string Default
-    static string Description
-    static string Footer
-    static string Header
-    static string Overlay
-    static string Title
+    const string Action
+    const string Cancel
+    const string Content
+    const string Default
+    const string Description
+    const string Footer
+    const string Header
+    const string Overlay
+    const string Title
   // One vocabulary entry: an accepted theme key and the canonical variable keys it commits. Targets are always canonical (never other aliases), so expansion is one step.
   sealed class ThemeVocabulary.Alias : IEquatable<ThemeVocabulary.Alias>
     ctor(string Name, IReadOnlyList<string> Targets, ThemeVocabulary.ValueKind Kind)
@@ -4167,412 +4449,429 @@ namespace Ikon.Parallax.Theming
     string Name { get; init; }
     IReadOnlyList<string> Targets { get; init; }
   static class Accessibility.Aria
-    static string Busy
-    static string Checked
-    static string CurrentPage
-    static string CurrentStep
-    static string Disabled
-    static string Expanded
-    static string Invalid
-    static string Required
-    static string Selected
+    const string Busy
+    const string Checked
+    const string CurrentPage
+    const string CurrentStep
+    const string Disabled
+    const string Expanded
+    const string Invalid
+    const string Required
+    const string Selected
   static class AspectRatio
-    static string Base
-    static string Default
-    static string PlaceholderContent
+    const string Base
+    const string Default
+    const string PlaceholderContent
   static class Avatar
-    static string Base
-    static string Default
-    static string Fallback
-    static string Image
-    static string Root
+    const string Base
+    const string Default
+    const string Fallback
+    const string Image
+    const string Root
   static class Badge
-    static string Base
-    static string Brand
-    static string BrandLg
-    static string BrandMd
-    static string BrandSm
-    static string Default
-    static string DefaultLg
-    static string DefaultMd
-    static string DefaultSm
-    static string Error
-    static string ErrorLg
-    static string ErrorMd
-    static string ErrorSm
-    static string IconLeft
-    static string IconRight
-    static string Info
-    static string InfoLg
-    static string InfoMd
-    static string InfoSm
-    static string Neutral
-    static string NeutralLg
-    static string NeutralMd
-    static string NeutralSm
-    static string OutlineBrand
-    static string OutlineBrandLg
-    static string OutlineBrandMd
-    static string OutlineBrandSm
-    static string OutlineError
-    static string OutlineErrorLg
-    static string OutlineErrorMd
-    static string OutlineErrorSm
-    static string OutlineInfo
-    static string OutlineInfoLg
-    static string OutlineInfoMd
-    static string OutlineInfoSm
-    static string OutlineNeutral
-    static string OutlineNeutralLg
-    static string OutlineNeutralMd
-    static string OutlineNeutralSm
-    static string OutlineSuccess
-    static string OutlineSuccessLg
-    static string OutlineSuccessMd
-    static string OutlineSuccessSm
-    static string OutlineWarning
-    static string OutlineWarningLg
-    static string OutlineWarningMd
-    static string OutlineWarningSm
-    static string Success
-    static string SuccessLg
-    static string SuccessMd
-    static string SuccessSm
-    static string Warning
-    static string WarningLg
-    static string WarningMd
-    static string WarningSm
+    const string Base
+    const string Brand
+    const string BrandLg
+    const string BrandMd
+    const string BrandSm
+    const string Default
+    const string DefaultLg
+    const string DefaultMd
+    const string DefaultSm
+    const string Error
+    const string ErrorLg
+    const string ErrorMd
+    const string ErrorSm
+    const string IconLeft
+    const string IconRight
+    const string Info
+    const string InfoLg
+    const string InfoMd
+    const string InfoSm
+    const string Neutral
+    const string NeutralLg
+    const string NeutralMd
+    const string NeutralSm
+    const string OutlineBrand
+    const string OutlineBrandLg
+    const string OutlineBrandMd
+    const string OutlineBrandSm
+    const string OutlineError
+    const string OutlineErrorLg
+    const string OutlineErrorMd
+    const string OutlineErrorSm
+    const string OutlineInfo
+    const string OutlineInfoLg
+    const string OutlineInfoMd
+    const string OutlineInfoSm
+    const string OutlineNeutral
+    const string OutlineNeutralLg
+    const string OutlineNeutralMd
+    const string OutlineNeutralSm
+    const string OutlineSuccess
+    const string OutlineSuccessLg
+    const string OutlineSuccessMd
+    const string OutlineSuccessSm
+    const string OutlineWarning
+    const string OutlineWarningLg
+    const string OutlineWarningMd
+    const string OutlineWarningSm
+    const string Success
+    const string SuccessLg
+    const string SuccessMd
+    const string SuccessSm
+    const string Warning
+    const string WarningLg
+    const string WarningMd
+    const string WarningSm
   static class Tokens.Blur
-    static string Lg
-    static string Md
-    static string Sm
+    const string Lg
+    const string Md
+    const string Sm
   static class Breadcrumb
-    static string Ellipsis
-    static string Item
-    static string Link
-    static string List
-    static string Page
-    static string Root
-    static string Separator
+    const string Ellipsis
+    const string Item
+    const string Link
+    const string List
+    const string Page
+    const string Root
+    const string Separator
   static class Button
-    static string Base
-    static string Default
-    static string DefaultLg
-    static string DefaultMd
-    static string DefaultSm
-    static string Error
-    static string ErrorLg
-    static string ErrorMd
-    static string ErrorSm
-    static string Ghost
-    static string GhostLg
-    static string GhostMd
-    static string GhostSm
-    static string Icon
-    static string IconLeft
-    static string IconRight
-    static string Info
-    static string InfoLg
-    static string InfoMd
-    static string InfoSm
-    static string Link
-    static string LinkLg
-    static string LinkMd
-    static string LinkSm
-    static string Neutral
-    static string NeutralLg
-    static string NeutralMd
-    static string NeutralSm
-    static string Outline
-    static string OutlineLg
-    static string OutlineMd
-    static string OutlineSm
-    static string Primary
-    static string PrimaryLg
-    static string PrimaryMd
-    static string PrimarySm
-    static string Secondary
-    static string SecondaryLg
-    static string SecondaryMd
-    static string SecondarySm
-    static string SolidLg
-    static string SolidMd
-    static string SolidSm
-    static string Success
-    static string SuccessLg
-    static string SuccessMd
-    static string SuccessSm
-    static string Warning
-    static string WarningLg
-    static string WarningMd
-    static string WarningSm
+    const string Base
+    const string Default
+    const string DefaultLg
+    const string DefaultMd
+    const string DefaultSm
+    const string Error
+    const string ErrorLg
+    const string ErrorMd
+    const string ErrorSm
+    const string Ghost
+    const string GhostLg
+    const string GhostMd
+    const string GhostSm
+    const string Icon
+    const string IconLeft
+    const string IconRight
+    const string Info
+    const string InfoLg
+    const string InfoMd
+    const string InfoSm
+    const string Link
+    const string LinkLg
+    const string LinkMd
+    const string LinkSm
+    const string Neutral
+    const string NeutralLg
+    const string NeutralMd
+    const string NeutralSm
+    const string Outline
+    const string OutlineLg
+    const string OutlineMd
+    const string OutlineSm
+    const string Primary
+    const string PrimaryLg
+    const string PrimaryMd
+    const string PrimarySm
+    const string Secondary
+    const string SecondaryLg
+    const string SecondaryMd
+    const string SecondarySm
+    const string SolidLg
+    const string SolidMd
+    const string SolidSm
+    const string Success
+    const string SuccessLg
+    const string SuccessMd
+    const string SuccessSm
+    const string Warning
+    const string WarningLg
+    const string WarningMd
+    const string WarningSm
   static class Calendar
-    static string Day
-    static string DayDisabled
-    static string DayOutside
-    static string DaySelected
-    static string DayToday
-    static string Default
-    static string Grid
-    static string Header
-    static string HeaderTitle
-    static string NavButton
-    static string Root
-    static string Row
-    static string Weekday
+    const string Day
+    const string DayDisabled
+    const string DayOutside
+    const string DaySelected
+    const string DayToday
+    const string Default
+    const string Grid
+    const string Header
+    const string HeaderTitle
+    const string NavButton
+    const string Root
+    const string Row
+    const string Weekday
   static class Card
-    static string Base
-    static string Content
-    static string Default
-    static string Description
-    static string Elevated
-    static string Flat
-    static string Footer
-    static string Ghost
-    static string Glass
-    static string GlassSubtle
-    static string Header
-    static string HeaderRow
-    static string Interactive
-    static string InteractiveFill
-    static string Outline
-    static string Selected
-    static string Strong
-    static string Subtle
-    static string Title
+    const string Base
+    const string Content
+    const string Default
+    const string Description
+    const string Elevated
+    const string Flat
+    const string Footer
+    const string Ghost
+    const string Glass
+    const string GlassSubtle
+    const string Header
+    const string HeaderRow
+    const string Interactive
+    const string InteractiveFill
+    const string Outline
+    const string Selected
+    const string Strong
+    const string Subtle
+    const string Title
   static class OnSurface.Card
-    static string Caption
-    static string Muted
-    static string Subtle
-    static string Text
+    const string Caption
+    const string Muted
+    const string Subtle
+    const string Text
   static class Carousel
-    static string Default
-    static string Indicator
-    static string IndicatorActive
-    static string Indicators
-    static string NavButton
-    static string Next
-    static string Previous
-    static string Root
-    static string Slide
-    static string Track
-    static string TrackVertical
-    static string Viewport
+    const string Default
+    const string Indicator
+    const string IndicatorActive
+    const string Indicators
+    const string NavButton
+    const string Next
+    const string Previous
+    const string Root
+    const string Slide
+    const string Track
+    const string TrackVertical
+    const string Viewport
   static class Chart
-    static string Container
-    static string ContainerLg
-    static string ContainerMd
-    static string ContainerSm
-    static string ContainerXl
-    static string Default
+    const string Container
+    const string ContainerLg
+    const string ContainerMd
+    const string ContainerSm
+    const string ContainerXl
+    const string Default
   static class Checkbox
-    static string Default
-    static string Indicator
-    static string Root
+    const string Default
+    const string Indicator
+    const string Root
   static class CodeEditor
-    static string Body
-    static string Content
-    static string Default
-    static string Gutter
-    static string Header
-    static string LanguageBadge
-    static string Line
-    static string Root
+    const string Body
+    const string Content
+    const string Default
+    const string Gutter
+    const string Header
+    const string LanguageBadge
+    const string Line
+    const string Root
   static class Collapsible
-    static string Content
-    static string Default
-    static string Root
-    static string Trigger
-    static string TriggerIcon
+    const string Content
+    const string Default
+    const string Root
+    const string Trigger
+    const string TriggerIcon
   static class ColorPicker
-    static string AlphaTrack
-    static string Content
-    static string Default
-    static string HexInput
-    static string HueThumb
-    static string HueTrack
-    static string PresetSwatch
-    static string PresetsGrid
-    static string SaturationArea
-    static string Swatch
-    static string SwatchLg
-    static string SwatchSm
-    static string Thumb
-    static string Trigger
+    const string AlphaTrack
+    const string Content
+    const string Default
+    const string HexInput
+    const string HueThumb
+    const string HueTrack
+    const string PresetSwatch
+    const string PresetsGrid
+    const string SaturationArea
+    const string Swatch
+    const string SwatchLg
+    const string SwatchSm
+    const string Thumb
+    const string Trigger
   static class Layout.Column
-    static string Center
-    static string Default
-    static string Lg
-    static string Md
-    static string Sm
-    static string Xl
-    static string Xs
+    const string Center
+    const string Default
+    const string Lg
+    const string Md
+    const string Sm
+    const string Xl
+    const string Xs
+  // Combobox (searchable Select): a Popover whose trigger shows the current value and whose content is a search field over a filtered option list. Slot tokens for the whole surface; the trigger deliberately reuses the outline Button look so a Combobox and a Select read the same in a form.
+  static class Combobox
+    const string Content
+    const string Empty
+    const string Item
+    const string ItemSelected
+    const string List
+    const string Search
+    const string Trigger
   static class Command
-    static string Default
-    static string Dialog
-    static string Empty
-    static string Group
-    static string GroupHeading
-    static string Input
-    static string InputWrapper
-    static string Item
-    static string List
-    static string Root
-    static string Separator
-    static string Shortcut
+    const string Default
+    const string Dialog
+    const string Empty
+    const string Group
+    const string GroupHeading
+    const string Input
+    const string InputWrapper
+    const string Item
+    const string List
+    const string Root
+    const string Separator
+    const string Shortcut
+  // Command palette (the shadcn Command in a dialog): a centred search field over a grouped, filtered action list. Slot tokens for the surface, groups, and rows.
+  static class CommandPalette
+    const string Empty
+    const string GroupLabel
+    const string Item
+    const string List
+    const string Panel
+    const string Search
   static class Container
-    static string Full
-    static string Lg
-    static string Md
-    static string Prose
-    static string Screen
-    static string Sm
-    static string Xl
-    static string Xl2
-    static string Xl3
-    static string Xl4
-    static string Xl5
-    static string Xl6
-    static string Xl7
-    static string Xs
+    const string Full
+    const string Lg
+    const string Md
+    const string Prose
+    const string Screen
+    const string Sm
+    const string Xl
+    const string Xl2
+    const string Xl3
+    const string Xl4
+    const string Xl5
+    const string Xl6
+    const string Xl7
+    const string Xs
   static class ContentGrid
-    static string Bordered
-    static string Cell
-    static string CellMuted
-    static string Default
-    static string Header
+    const string Bordered
+    const string Cell
+    const string CellMuted
+    const string Default
+    const string Header
   static class DataTable
-    static string Cell
-    static string DataCell
-    static string Default
-    static string EmptyState
-    static string Header
-    static string HeaderCell
-    static string PageNumber
-    static string PageNumberActive
-    static string Pagination
-    static string PaginationButton
-    static string ResizeHandle
-    static string Row
-    static string RowClickable
+    const string Cell
+    const string DataCell
+    const string Default
+    const string EmptyState
+    const string Header
+    const string HeaderCell
+    const string PageNumber
+    const string PageNumberActive
+    const string Pagination
+    const string PaginationButton
+    const string ResizeHandle
+    const string Row
+    const string RowClickable
   static class DatePicker
-    static string Content
-    static string Default
-    static string Trigger
-    static string TriggerLg
-    static string TriggerSm
+    const string Content
+    const string Default
+    const string Trigger
+    const string TriggerLg
+    const string TriggerSm
   static class OnSurface.Default
-    static string Caption
-    static string Muted
-    static string Subtle
-    static string Text
+    const string Caption
+    const string Muted
+    const string Subtle
+    const string Text
   static class Dialog
-    static string CloseButton
-    static string Content
-    static string Description
-    static string Footer
-    static string Header
-    static string Overlay
-    static string Title
+    const string CloseButton
+    const string Content
+    const string Description
+    const string Footer
+    const string Header
+    const string Overlay
+    const string Title
   static class DragDrop
-    static string Container
-    static string ContainerHorizontal
-    static string DropZone
-    static string DropZoneActive
-    static string Overlay
-    static string OverlayContent
+    const string Container
+    const string ContainerHorizontal
+    const string DropZone
+    const string DropZoneActive
+    const string Overlay
+    const string OverlayContent
   static class Drawer
-    static string Content
-    static string Default
-    static string Description
-    static string Footer
-    static string Handle
-    static string Header
-    static string Overlay
-    static string Title
+    const string Content
+    const string Default
+    const string Description
+    const string Footer
+    const string Handle
+    const string Header
+    const string Overlay
+    const string Title
   static class DropdownMenu
-    static string CheckboxItem
-    static string Content
-    static string Group
-    static string Item
-    static string Label
-    static string RadioItem
-    static string Separator
-    static string Shortcut
-    static string SubContent
-    static string SubTrigger
+    const string CheckboxItem
+    const string Content
+    const string Group
+    const string Item
+    const string Label
+    const string RadioItem
+    const string Separator
+    const string Shortcut
+    const string SubContent
+    const string SubTrigger
   static class DragDrop.Droppable
-    static string Base
-    static string Default
-    static string Disabled
-    static string Info
-    static string Success
+    const string Base
+    const string Default
+    const string Disabled
+    const string Info
+    const string Success
   static class Tokens.Duration
-    static string Fast
-    static string Instant
-    static string Normal
-    static string Slow
-    static string Slower
+    const string Fast
+    const string Instant
+    const string Normal
+    const string Slow
+    const string Slower
   static class Transition.Ease
-    static string In
-    static string InOut
-    static string Linear
-    static string Out
+    const string In
+    const string InOut
+    const string Linear
+    const string Out
   static class EmptyState
-    static string Actions
-    static string Description
-    static string IconSize
-    static string IconSizeSm
-    static string IconWrap
-    static string IconWrapSm
-    static string IllustrationSize
-    static string IllustrationWrap
-    static string IllustrationWrapSm
-    static string Root
-    static string RootFull
-    static string RootSm
-    static string Title
+    const string Actions
+    const string Description
+    const string IconSize
+    const string IconSizeSm
+    const string IconWrap
+    const string IconWrapSm
+    const string IllustrationSize
+    const string IllustrationWrap
+    const string IllustrationWrapSm
+    const string Root
+    const string RootFull
+    const string RootSm
+    const string Title
   static class FeedScroller
-    static string Default
-    static string MuteToggle
-    static string Root
-    static string Slide
-    static string SlideMedia
-    static string SlideOverlay
+    const string Default
+    const string MuteToggle
+    const string Root
+    const string Slide
+    const string SlideMedia
+    const string SlideOverlay
   static class FileUpload
-    static string FileItem
-    static string FileList
-    static string FileName
-    static string FileSize
-    static string RemoveButton
-    static string TypeIcon
+    const string FileItem
+    const string FileList
+    const string FileName
+    const string FileSize
+    const string RemoveButton
+    const string TypeIcon
   static class Accessibility.Focus
-    static string HighContrast
-    static string None
-    static string Sentinel
-    static string Within
+    const string HighContrast
+    const string None
+    const string Sentinel
+    const string Within
   static class FormField
-    static string ErrorText
-    static string HelpText
-    static string Label
-    static string LabelRequired
-    static string ParamRow
-    static string Root
-    static string SuccessText
-    static string WarningText
+    const string ErrorText
+    const string HelpText
+    const string Label
+    const string LabelRequired
+    const string ParamRow
+    const string Root
+    const string SuccessText
+    const string WarningText
   static class Layout.Grid
-    static string Cols2
-    static string Cols3
-    static string Cols4
+    const string Cols2
+    const string Cols3
+    const string Cols4
   static class Select.Group
-    static string Label
-    static string Root
+    const string Label
+    const string Root
   static class ImageCard.Hover
-    static string Dim
-    static string Zoom
+    const string Dim
+    const string Zoom
   static class HoverCard
-    static string Content
-    static string Default
+    const string Content
+    const string Default
   // Defines a UI theme providing base CSS and a default icon library.
   interface ITheme
     // Global CSS injected into the client as the theme baseline.
@@ -4580,35 +4879,36 @@ namespace Ikon.Parallax.Theming
     // The default icon library name (e.g. "lucide") used when no library is specified on an icon component.
     string DefaultIconLibrary { get; }
   static class Icon
-    static string Default
-    static string Lg
-    static string Md
-    static string Sm
-    static string Spinner
-    static string SpinnerLg
-    static string SpinnerSm
-    static string Xl
-    static string Xs
+    const string Default
+    const string Lg
+    const string Md
+    const string Sm
+    const string Spinner
+    const string SpinnerLg
+    const string SpinnerSm
+    const string Xl
+    const string Xs
   static class FileUpload.Icon
-    static string Base
-    static string Brand
-    static string Disabled
-    static string Error
-    static string Info
-    static string Success
+    const string Base
+    const string Brand
+    const string Disabled
+    const string Error
+    const string Info
+    const string Success
   static class Toggle.Size.Icon
-    static string Lg
-    static string Md
-    static string Sm
-  // Per-app theme configuration. Composes the platform's Ikon CSS baseline with per-token CSS-variable overrides addressed by name. One uniform syntax: an indexer keyed by a vocabulary alias ( ThemeVocabulary ), a CSS variable name (without the leading --), or a Tailwind utility token. The renderer dispatches by key shape: Vocabulary alias (primary, card, radius, density) → its canonical variable clusterTailwind palette step (amber-400) → --color-amber-400 (Ikon scales like neutral-900 also set the bare var)rounded-{rung} → --radius-{rung}shadow-{rung} → --shadow-{rung}font-{role} → --font-{role}spacing → the --spacing density unitAnything else → --{key} (free CSS variable) Values are Crosswind / Tailwind class names, which are resolved to CSS, or raw CSS values (hex, rem, family stacks, gradients), which pass through unchanged. Example — the structural core is a small committed set; expressive decoration (gradients, textures) stays concrete at use points:
+    const string Lg
+    const string Md
+    const string Sm
+  // Per-app theme configuration. Composes the platform's Ikon CSS baseline with per-token CSS-variable overrides addressed by name. One uniform syntax: an indexer keyed by a vocabulary alias (ThemeVocabulary), a CSS variable name (without the leading --), or a Tailwind utility token. The renderer dispatches by key shape: • Vocabulary alias (primary, card, radius, density) → its canonical variable cluster • Tailwind palette step (amber-400) → --color-amber-400 (Ikon scales like neutral-900 also set the bare var) • rounded-{rung} → --radius-{rung} • shadow-{rung} → --shadow-{rung} • font-{role} → --font-{role} • spacing → the --spacing density unit • Anything else → --{key} (free CSS variable) Values are Crosswind / Tailwind class names, which are resolved to CSS, or raw CSS values (hex, rem, family stacks, gradients), which pass through unchanged. Example — the structural core is a small committed set; expressive decoration (gradients, textures) stays concrete at use points:
   // private UI UI { get; } = new(app, new IkonTheme
   // {
+  //     // Base overrides restyle the LIGHT theme; DarkMode restyles the dark one.
   //     ["primary"]    = "amber-400",   // whole brand cluster: fills, CTA, focus ring, brand icons/text
-  //     ["background"] = "zinc-950",
-  //     ["card"]       = "zinc-900",
-  //     ["foreground"] = "amber-50",
-  //     ["muted-foreground"] = "zinc-400",
-  //     ["border"]     = "zinc-800",
+  //     ["background"] = "zinc-50",
+  //     ["card"]       = "white",
+  //     ["foreground"] = "zinc-950",
+  //     ["muted-foreground"] = "zinc-500",
+  //     ["border"]     = "zinc-200",
   //
   //     ["font-heading"] = "Crimson Pro",
   //     ["font-body"]    = "Inter",
@@ -4624,448 +4924,480 @@ namespace Ikon.Parallax.Theming
   //
   //     DarkMode = new IkonTheme
   //     {
-  //         ["background"] = "zinc-50",
-  //         ["foreground"] = "zinc-950",
+  //         ["background"] = "zinc-950",
+  //         ["card"]       = "zinc-900",
+  //         ["foreground"] = "amber-50",
+  //         ["muted-foreground"] = "zinc-400",
+  //         ["border"]     = "zinc-800",
   //     },
   // });
   // Aliases expand to exactly their documented cluster — beyond that there is no magic fan-out and no auto-derived contrast text. A later explicit entry overrides an alias-expanded one (["primary"] then ["bg-brand-button"] re-pins just the CTA).
   sealed class IkonTheme : ITheme
     ctor()
-    // Paired dark-mode theme. Pass another IkonTheme ; its overrides are emitted under [data-theme="dark"], .dark, and prefers-color-scheme: dark. Only meaningful in Adaptive mode.
+    // Paired dark-mode theme. Pass another IkonTheme; its overrides are emitted under [data-theme="dark"], .dark, and prefers-color-scheme: dark. Valid only in ThemeMode.Adaptive mode: combining it with ThemeMode.Fixed — which commits to a single scheme — is a contradiction and throws InvalidOperationException at render time.
     IkonTheme? DarkMode { get; init; }
     // Per-token override addressed by CSS variable name (without the leading --) or by Tailwind utility token. Set during object initialization.
     string this[string token] { get; set; }
-    // How the app relates to light/dark switching. Adaptive (the default) keeps today's behavior: overrides restyle the light theme, DarkMode restyles the dark one, and the client's theme preference picks between them. Fixed commits to ONE scheme: every override is also emitted under the dark selectors, so a client-side theme flip cannot pull the platform's dark palette in under the app's committed colors. For atmospheric, game, or brand-locked looks that should never light/dark switch.
+    // How the app relates to light/dark switching. ThemeMode.Adaptive (the default) keeps today's behavior: overrides restyle the light theme, IkonTheme.DarkMode restyles the dark one, and the client's theme preference picks between them. ThemeMode.Fixed commits to ONE scheme: every override is also emitted under the dark selectors, so a client-side theme flip cannot pull the platform's dark palette in under the app's committed colors. For atmospheric, game, or brand-locked looks that should never light/dark switch.
     ThemeMode Mode { get; init; }
   static class ImageCard
-    static string Caption
-    static string Image
-    static string Root
-    static string Title
+    const string Caption
+    const string Image
+    const string Root
+    const string Title
   static class Input
-    static string Base
-    static string Default
-    static string DefaultLg
-    static string DefaultSm
-    static string Error
-    static string ErrorLg
-    static string ErrorSm
-    static string Ghost
-    static string GhostLg
-    static string GhostSm
-    static string Invalid
-    static string InvalidLg
-    static string InvalidSm
-    static string Success
-    static string SuccessLg
-    static string SuccessSm
-    static string Warning
-    static string WarningLg
-    static string WarningSm
+    const string Base
+    const string Default
+    const string DefaultLg
+    const string DefaultSm
+    const string Error
+    const string ErrorLg
+    const string ErrorSm
+    const string Ghost
+    const string GhostLg
+    const string GhostSm
+    const string Invalid
+    const string InvalidLg
+    const string InvalidSm
+    const string Success
+    const string SuccessLg
+    const string SuccessSm
+    const string Warning
+    const string WarningLg
+    const string WarningSm
   static class Interaction
-    static string HoverCard
-    static string HoverGlow
-    static string HoverLift
+    const string HoverCard
+    const string HoverGlow
+    const string HoverLift
   static class DragDrop.Item
-    static string Base
-    static string Dashed
-    static string Default
-    static string Disabled
-    static string Dragging
+    const string Base
+    const string Dashed
+    const string Default
+    const string Disabled
+    const string Dragging
+  // Keyboard-key display (the shadcn Kbd): a small inset chip for a shortcut key or combo. Complete default-marked composite for view.Kbd; the Kbd.Group wrapper spaces several keys in a combo.
+  static class Kbd
+    const string Default
+    const string Group
   static class Label
-    static string Base
-    static string Default
-    static string Error
-    static string Optional
-    static string Required
+    const string Base
+    const string Default
+    const string Error
+    const string Optional
+    const string Required
   static class Layout
-    static string Center
-    static string Page
-    static string RowWrap
-    static string Section
-    static string SectionBody
-    static string SectionHeader
-    static string Stretch
+    const string Center
+    const string Page
+    const string RowWrap
+    const string Section
+    const string SectionBody
+    const string SectionHeader
+    const string Stretch
   static class Media
-    static string CanvasFill
-    static string Default
-    static string EmptyState
-    static string Fill
-    static string ImageEmptyState
-    static string Mirror
-    static string PlaceholderHint
-    static string PlaceholderIcon
-    static string PlaceholderText
-    static string VideoContainer
+    const string CanvasFill
+    const string Default
+    const string EmptyState
+    const string Fill
+    const string ImageEmptyState
+    const string Mirror
+    const string PlaceholderHint
+    const string PlaceholderIcon
+    const string PlaceholderText
+    const string VideoContainer
+  // Menu-surface primitives (the shadcn DropdownMenuItem / Label / Separator family), for the rows inside popover menus, account menus, and context menus. A menu row is NOT a button look: it rests transparent, fills the row, reads left, and highlights on hover — so these are complete default-marked composites for view.Button rather than additions to the Button tones. Selection/active state stays a caller concern (add bg-brand-selected on the active row).
+  static class Menu
+    const string Item
+    // The destructive row (Log out, Delete) — error text with an error-tinted hover, same geometry as Menu.Item.
+    const string ItemDestructive
+    // A non-interactive section heading between item groups.
+    const string Label
+    // The thin rule between item groups.
+    const string Separator
+    // Right-aligned muted shortcut hint on a menu row (pairs with Kbd).
+    const string Shortcut
   static class Menubar
-    static string Content
-    static string Default
-    static string Item
-    static string Root
-    static string Separator
-    static string Trigger
+    const string Content
+    const string Default
+    const string Item
+    const string Root
+    const string Separator
+    const string Trigger
   static class Accessibility.Motion
-    static string Reduce
-    static string ReduceFade
-    static string Respectful
-    static string Safe
+    const string Reduce
+    const string ReduceFade
+    const string Respectful
+    const string Safe
   static class NavItem
-    static string Active
-    static string ActiveAccent
-    static string ActiveBrand
-    static string ActiveSubtle
-    static string Count
-    static string Default
-    static string Icon
-    static string Label
-    static string Lg
-    static string Md
-    static string Sm
-    static string Subtle
+    const string Active
+    const string ActiveAccent
+    const string ActiveBrand
+    const string ActiveSubtle
+    const string Count
+    const string Default
+    const string Icon
+    const string Label
+    const string Lg
+    const string Md
+    const string Sm
+    const string Subtle
   static class NavPanel
-    static string Base
-    static string Border
-    static string Divided
-    static string Filled
-    static string Ghost
+    const string Base
+    const string Border
+    const string Divided
+    const string Filled
+    const string Ghost
   static class NavSection
-    static string Divider
-    static string Label
-    static string Root
+    const string Divider
+    const string Label
+    const string Root
   static class NavigationMenu
-    static string Content
-    static string ContentNarrow
-    static string ContentPopover
-    static string ContentPopoverSide
-    static string ContentWide
-    static string Default
-    static string Indicator
-    static string Link
-    static string LinkCompact
-    static string List
-    static string ListVertical
-    static string Root
-    static string Trigger
-    static string TriggerDisabled
-    static string TriggerIcon
-    static string TriggerIconRotate180
-    static string TriggerIconRotate90
-    static string TriggerVertical
-    static string Viewport
+    const string Content
+    const string ContentNarrow
+    const string ContentPopover
+    const string ContentPopoverSide
+    const string ContentWide
+    const string Default
+    const string Indicator
+    const string Link
+    const string LinkCompact
+    const string List
+    const string ListVertical
+    const string Root
+    const string Trigger
+    const string TriggerDisabled
+    const string TriggerIcon
+    const string TriggerIconRotate180
+    const string TriggerIconRotate90
+    const string TriggerVertical
+    const string Viewport
   static class OnSurface
   static class Tokens.Opacity
-    static string GlassLg
-    static string GlassMd
-    static string GlassSm
-    static string O10
-    static string O15
-    static string O20
-    static string O25
-    static string O30
-    static string O40
-    static string O5
-    static string O50
+    const string GlassLg
+    const string GlassMd
+    const string GlassSm
+    const string O10
+    const string O15
+    const string O20
+    const string O25
+    const string O30
+    const string O40
+    const string O5
+    const string O50
   static class Separator.Orientation
-    static string Horizontal
-    static string Vertical
+    const string Horizontal
+    const string Vertical
   static class OtpField
-    static string Default
-    static string Input
-    static string Root
+    const string Default
+    const string Input
+    const string Root
   static class ImageCard.Overlay
-    static string Center
-    static string Dim
-    static string Reveal
+    const string Center
+    const string Dim
+    const string Reveal
   static class Page
-    static string Base
-    static string Default
-    static string Plain
+    const string Base
+    const string Default
+    const string Plain
   static class Pagination
-    static string Active
-    static string Disabled
-    static string Ellipsis
-    static string Item
-    static string List
-    static string Next
-    static string Previous
-    static string Root
+    const string Active
+    const string Disabled
+    const string Ellipsis
+    const string Item
+    const string List
+    const string Next
+    const string Previous
+    const string Root
   static class Panel
-    static string Fill
-    static string Side
-    static string Sidebar
-    static string SidebarNarrow
-    static string Wide
+    const string Fill
+    const string Side
+    const string Sidebar
+    const string SidebarNarrow
+    const string Wide
   static class Input.Password
-    static string Input
-    static string Toggle
-    static string Wrapper
+    const string Input
+    const string Toggle
+    const string Wrapper
   static class Popover
-    static string Content
-    static string Default
+    const string Content
+    const string Default
   static class OnSurface.Popover
-    static string Caption
-    static string Muted
-    static string Subtle
-    static string Text
+    const string Caption
+    const string Muted
+    const string Subtle
+    const string Text
   static class Progress
-    // Composes the indicator class list from the base recipe, a fill variant ( Variant , defaulting to the brand fill), the optional indeterminate shimmer, and caller overrides appended last so they win.
+    // Composes the indicator class list from the base recipe, a fill variant (Variant, defaulting to the brand fill), the optional indeterminate shimmer, and caller overrides appended last so they win.
     static string ComposeIndicator(string? variant = null, bool indeterminate = false, params string?[] overrides)
     // Arbitrary-value transform class that fills the indicator to value percent (clamped to 0–100) by translating it left from the fully-filled position.
     static string IndicatorTransform(double value)
-    static string Base
-    static string Default
-    static string Indeterminate
-    static string Indicator
-    static string IndicatorBase
-    static string Label
-    static string Root
-    static string Value
+    const string Base
+    const string Default
+    const string Indeterminate
+    const string Indicator
+    const string IndicatorBase
+    const string Label
+    const string Root
+    const string Value
   static class Transition.Property
-    static string All
-    static string Colors
-    static string Opacity
-    static string Shadow
-    static string Transform
+    const string All
+    const string Colors
+    const string Opacity
+    const string Shadow
+    const string Transform
   static class RadioGroup
-    static string Default
-    static string Indicator
-    static string Item
-    static string Root
-    static string RootHorizontal
+    const string Default
+    const string Indicator
+    const string Item
+    const string Root
+    const string RootHorizontal
   static class Tokens.Radius
-    static string Full
-    static string Lg
-    static string Md
-    static string None
-    static string Sm
-    static string Xl
-    static string Xl2
+    const string Full
+    const string Lg
+    const string Md
+    const string None
+    const string Sm
+    const string Xl
+    const string Xl2
   static class AspectRatio.Ratio
-    static string Photo
-    static string Portrait
-    static string Square
-    static string Video
-    static string Wide
+    const string Photo
+    const string Portrait
+    const string Square
+    const string Video
+    const string Wide
   static class ResizableSplit
-    static string FirstPane
-    static string FirstPaneVertical
-    static string Handle
-    static string HandleVertical
-    static string Root
-    static string SecondPane
-    static string SecondPaneVertical
+    const string FirstPane
+    const string FirstPaneVertical
+    const string Handle
+    const string HandleVertical
+    const string Root
+    const string SecondPane
+    const string SecondPaneVertical
   static class Responsive
-    static string CenterToEnd
-    static string CenterToLeft
-    static string CenterToSpaceBetween
-    static string CenterToStart
-    static string ColToRow
-    static string ColToRowMd
-    static string HiddenDesktop
-    static string HiddenMobile
-    static string HiddenTablet
-    static string LeftToCenter
-    static string RowToCol
-    static string VisibleMobile
-    static string VisibleTablet
+    const string CenterToEnd
+    const string CenterToLeft
+    const string CenterToSpaceBetween
+    const string CenterToStart
+    const string ColToRow
+    const string ColToRowMd
+    const string HiddenDesktop
+    const string HiddenMobile
+    const string HiddenTablet
+    const string LeftToCenter
+    const string RowToCol
+    const string VisibleMobile
+    const string VisibleTablet
   static class RichTextEditor
-    static string Content
-    static string Default
-    static string Root
-    static string Toolbar
-    static string ToolbarButton
-    static string ToolbarSeparator
+    const string Content
+    const string Default
+    const string Root
+    const string Toolbar
+    const string ToolbarButton
+    const string ToolbarSeparator
   static class Layout.Row
-    static string Default
-    static string InlineCenter
-    static string Lg
-    static string Md
-    static string Sm
-    static string SpaceBetween
-    static string Xl
-    static string Xs
+    const string Default
+    const string InlineCenter
+    const string Lg
+    const string Md
+    const string Sm
+    const string SpaceBetween
+    const string Xl
+    const string Xs
   static class ScrollArea
-    static string Bordered
-    static string Default
-    static string Root
-    static string Scrollbar
-    static string Thumb
-    static string Viewport
+    const string Bordered
+    const string Default
+    const string Root
+    const string Scrollbar
+    const string Thumb
+    const string Viewport
   static class Select
-    static string Content
-    static string Default
-    static string Item
-    static string ItemIndicator
-    static string Label
-    static string ScrollButton
-    static string Separator
-    static string Trigger
-    static string TriggerBase
+    const string Content
+    const string Default
+    const string Item
+    const string ItemIndicator
+    const string Label
+    const string ScrollButton
+    const string Separator
+    const string Trigger
+    const string TriggerBase
   static class Separator
-    static string Base
-    static string Horizontal
-    static string Vertical
+    const string Base
+    const string Horizontal
+    const string Vertical
   static class Tokens.Shadow
-    static string Lg
-    static string Md
-    static string None
-    static string Sm
-    static string Xl
-    static string Xl2
+    const string Lg
+    const string Md
+    const string None
+    const string Sm
+    const string Xl
+    const string Xl2
   static class Avatar.Shape
-    static string Circle
-    static string Square
+    const string Circle
+    const string Square
   static class Skeleton.Shape
-    static string Circle
-    static string Rectangle
-    static string Square
+    const string Circle
+    const string Rectangle
+    const string Square
   static class Sheet
-    static string Base
-    static string CloseButton
-    static string Default
-    static string Description
-    static string Footer
-    static string Header
-    static string Overlay
-    static string Title
+    const string Base
+    const string CloseButton
+    const string Default
+    const string Description
+    const string Footer
+    const string Header
+    const string Overlay
+    const string Title
   static class Sheet.Side
-    static string Bottom
-    static string Left
-    static string Right
-    static string Top
+    const string Bottom
+    const string Left
+    const string Right
+    const string Top
   static class Button.Size
-    static string Lg
-    static string Md
-    static string Sm
+    const string Lg
+    const string Md
+    const string Sm
   static class Toggle.Size
-    static string Lg
-    static string Md
-    static string Sm
+    const string Lg
+    const string Md
+    const string Sm
   static class Select.Size
-    static string Lg
-    static string Md
-    static string Sm
+    const string Lg
+    const string Md
+    const string Sm
   static class Progress.Size
-    static string Lg
-    static string Md
-    static string Sm
-    static string Xs
+    const string Lg
+    const string Md
+    const string Sm
+    const string Xs
   static class Avatar.Size
-    static string Lg
-    static string Md
-    static string Sm
-    static string Xl
-    static string Xl2
-    static string Xs
+    const string Lg
+    const string Md
+    const string Sm
+    const string Xl
+    const string Xl2
+    const string Xs
   static class Skeleton.Size
-    static string Lg
-    static string Md
-    static string Sm
-    static string Xl
-    static string Xs
+    const string Lg
+    const string Md
+    const string Sm
+    const string Xl
+    const string Xs
   static class Skeleton
-    static string Avatar
-    static string AvatarLg
-    static string AvatarSm
-    static string Base
-    static string Button
-    static string Card
-    static string Default
-    static string Input
-    static string Text
-    static string TextLg
-    static string TextSm
+    const string Avatar
+    const string AvatarLg
+    const string AvatarSm
+    const string Base
+    const string Button
+    const string Card
+    const string Default
+    const string Input
+    const string Text
+    const string TextLg
+    const string TextSm
   static class Slider
-    static string Default
-    static string Range
-    static string Root
-    static string RootVertical
-    static string Thumb
-    static string Track
-    static string TrackVertical
+    const string Default
+    const string Range
+    const string Root
+    const string RootVertical
+    const string Thumb
+    const string Track
+    const string TrackVertical
   static class Drawer.Snap
-    static string Full
-    static string Half
-    static string Quarter
-    static string ThreeQuarter
+    const string Full
+    const string Half
+    const string Quarter
+    const string ThreeQuarter
   static class Layout.Split
-    static string Detail
-    static string DetailLg
-    static string Gapped
-    static string Main
-    static string Root
-    static string Sidebar
-    static string SidebarLg
-    static string SidebarSm
+    const string Detail
+    const string DetailLg
+    const string Gapped
+    const string Main
+    const string Root
+    const string Sidebar
+    const string SidebarLg
+    const string SidebarSm
   static class StatCard
-    static string Header
-    static string IconBox
-    static string IconBoxBrand
-    static string IconBoxError
-    static string IconBoxInfo
-    static string IconBoxSuccess
-    static string IconBoxWarning
-    static string IconSize
-    static string Label
-    static string Root
-    static string Trend
-    static string TrendIcon
-    static string TrendLabel
-    static string TrendValue
-    static string Value
-    static string ValueRow
+    const string Header
+    const string IconBox
+    const string IconBoxBrand
+    const string IconBoxError
+    const string IconBoxInfo
+    const string IconBoxSuccess
+    const string IconBoxWarning
+    const string IconSize
+    const string Label
+    const string Root
+    const string Trend
+    const string TrendIcon
+    const string TrendLabel
+    const string TrendValue
+    const string Value
+    const string ValueRow
   static class State
-    static string Checked
-    static string Disabled
-    static string Empty
-    static string Focusable
-    static string Indeterminate
-    static string Invalid
-    static string Loading
-    static string Pending
-    static string Pressable
-    static string Readonly
-    static string Selected
-    static string Success
-    static string Validating
-    static string Warning
+    const string Checked
+    const string Disabled
+    const string Empty
+    const string Focusable
+    const string Indeterminate
+    const string Invalid
+    const string Loading
+    const string Pending
+    const string Pressable
+    const string Readonly
+    const string Selected
+    const string Success
+    const string Validating
+    const string Warning
   static class Switch
-    static string Default
-    static string Root
-    static string Thumb
+    const string Default
+    const string Root
+    const string Thumb
   static class Tabs
-    static string Content
-    static string List
-    static string ListVertical
-    static string Trigger
-    static string TriggerDisabled
+    const string Content
+    const string List
+    const string ListVertical
+    const string Trigger
+    const string TriggerDisabled
   static class Text
-    static string Body
-    static string BodySm
-    static string BodyStrong
-    static string Caption
-    static string Code
-    static string Display
-    static string DisplaySm
-    static string H1
-    static string H2
-    static string H3
-    static string H4
-    static string H5
-    static string H6
-    static string Label
-    static string Link
-    static string Muted
-    static string Numeric
-    static string Overline
-    static string Small
-    static string Tabular
+    const string Body
+    const string BodySm
+    const string BodyStrong
+    const string Caption
+    const string Code
+    const string Display
+    const string DisplaySm
+    const string H1
+    const string H2
+    const string H3
+    const string H4
+    const string H5
+    const string H6
+    const string Label
+    const string Link
+    const string Muted
+    const string Numeric
+    const string Overline
+    const string Small
+    const string Tabular
   static class Textarea
-    static string Base
-    static string Default
-    static string DefaultLg
-    static string DefaultSm
-    static string Invalid
+    const string Base
+    const string Default
+    const string DefaultLg
+    const string DefaultSm
+    const string Error
+    const string ErrorLg
+    const string ErrorSm
+    const string Ghost
+    const string GhostLg
+    const string GhostSm
+    const string Invalid
+    const string InvalidLg
+    const string InvalidSm
+    const string Success
+    const string SuccessLg
+    const string SuccessSm
+    const string Warning
+    const string WarningLg
+    const string WarningSm
   // How an app's IkonTheme relates to the client's light/dark preference. Not every app wants two themes: a productivity tool should adapt, but a game, an atmospheric experience, or a brand-locked look is designed as ONE palette — and letting a theme toggle pull the platform's dark (or light) defaults in underneath that palette produces a broken half-switched hybrid.
   enum ThemeMode
     Adaptive
@@ -5075,69 +5407,69 @@ namespace Ikon.Parallax.Theming
     // Every accepted alias, keyed by name.
     static IReadOnlyDictionary<string, ThemeVocabulary.Alias> Aliases { get; }
   static class TimePicker
-    static string Column
-    static string ColumnSeparator
-    static string Content
-    static string Default
-    static string Item
-    static string ItemSelected
-    static string Trigger
+    const string Column
+    const string ColumnSeparator
+    const string Content
+    const string Default
+    const string Item
+    const string ItemSelected
+    const string Trigger
   static class Toast
-    static string Action
-    static string Base
-    static string Close
-    static string Default
-    static string Description
-    static string Title
-    static string Viewport
-    static string ViewportBottomCenter
+    const string Action
+    const string Base
+    const string Close
+    const string Default
+    const string Description
+    const string Title
+    const string Viewport
+    const string ViewportBottomCenter
   static class Toggle
-    static string Base
-    static string Default
-    static string DefaultLg
-    static string DefaultMd
-    static string DefaultSm
-    static string Group
-    static string GroupVertical
-    static string IconDefault
-    static string IconDefaultLg
-    static string IconDefaultMd
-    static string IconDefaultSm
+    const string Base
+    const string Default
+    const string DefaultLg
+    const string DefaultMd
+    const string DefaultSm
+    const string Group
+    const string GroupVertical
+    const string IconDefault
+    const string IconDefaultLg
+    const string IconDefaultMd
+    const string IconDefaultSm
   static class Tokens
   static class Tone
-    static string Error
-    static string Ghost
-    static string Info
-    static string Link
-    static string Muted
-    static string Neutral
-    static string Outline
-    static string Primary
-    static string Solid
-    static string Subtle
-    static string Success
-    static string Warning
+    const string Error
+    const string Ghost
+    const string Info
+    const string Link
+    const string Muted
+    const string Neutral
+    const string Outline
+    const string Primary
+    const string Solid
+    const string Subtle
+    const string Success
+    const string Warning
   static class Toolbar
-    static string Button
-    static string Default
-    static string IconStyle
-    static string Root
-    static string Separator
-    static string ToggleGroup
-    static string ToggleItem
+    const string Button
+    const string Default
+    const string IconStyle
+    const string Root
+    const string Separator
+    const string ToggleGroup
+    const string ToggleItem
   static class Tooltip
-    static string Content
-    static string Default
+    const string Content
+    const string Default
   static class Transition
-    static string Fast
-    static string None
-    static string Normal
-    static string Slow
-    static string Slower
+    const string Fast
+    const string None
+    const string Normal
+    const string Slow
+    const string Slower
   static class StatCard.TrendVariant
-    static string Negative
-    static string Neutral
-    static string Positive
+    const string Negative
+    const string Neutral
+    const string Positive
   // What value shape an alias expects, for docs and tooling.
   enum ThemeVocabulary.ValueKind
     Color
@@ -5147,52 +5479,52 @@ namespace Ikon.Parallax.Theming
     Easing
     Spacing
   static class Separator.Variant
-    static string Default
-    static string Strong
-    static string Subtle
+    const string Default
+    const string Strong
+    const string Subtle
   static class Alert.Variant
-    static string Default
-    static string Error
-    static string Info
-    static string Success
-    static string Warning
+    const string Default
+    const string Error
+    const string Info
+    const string Success
+    const string Warning
   static class Toggle.Variant
-    static string Default
+    const string Default
   static class Progress.Variant
-    static string Default
-    static string Error
-    static string Success
-    static string Warning
+    const string Default
+    const string Error
+    const string Success
+    const string Warning
   static class Tokens.Width
-    static string Dialog
-    static string DialogLg
-    static string DialogMd
-    static string DialogSm
-    static string DialogXl
-    static string Drawer
-    static string Popover
-    static string Sheet
-    static string Toast
+    const string Dialog
+    const string DialogLg
+    const string DialogMd
+    const string DialogSm
+    const string DialogXl
+    const string Drawer
+    const string Popover
+    const string Sheet
+    const string Toast
   static class ZIndex
-    static string Dropdown
-    static string Modal
-    static string Overlay
-    static string Popover
-    static string Sticky
-    static string Toast
-    static string Tooltip
+    const string Dropdown
+    const string Modal
+    const string Overlay
+    const string Popover
+    const string Sticky
+    const string Toast
+    const string Tooltip
   static class FileUpload.Zone
-    static string Active
-    static string ActiveRing
-    static string Base
-    static string Code
-    static string Compact
-    static string Default
-    static string Disabled
-    static string Documents
-    static string DragOverlay
-    static string Images
-    static string Wrapper
+    const string Active
+    const string ActiveRing
+    const string Base
+    const string Code
+    const string Compact
+    const string Default
+    const string Disabled
+    const string Documents
+    const string DragOverlay
+    const string Images
+    const string Wrapper
 
 # Ikon.Crosswind Public API
 
@@ -5253,20 +5585,21 @@ namespace Ikon.Crosswind
     Dictionary<string, CanvasTokenValue<int>> FontWeights { get; init; }
     Dictionary<string, CanvasTypographyScale> Text { get; init; }
     void Validate()
-  // Injectable theme data for the Flutter style resolver. When set (via ThemeSource ) the resolver resolves colour scales and semantic tokens against the app's own theme instead of the hardcoded platform baseline snapshot, so custom brand themes render correctly on native clients. Lookup values may be concrete colours ("#0c0e12", "oklch(...)"), scale references ("neutral-800"), or other semantic tokens ("text-secondary"); the resolver chases references and normalizes concrete colours to hex.
+  // Injectable theme data for the Flutter style resolver. Set it on a TailwindCustomStyleScope (TailwindCustomStyleScope.FlutterTheme) and pin that scope with TailwindCustomStyleRegistry.PushScope: the resolver then resolves colour scales and semantic tokens against the app's own theme instead of the hardcoded platform baseline snapshot, so custom brand themes render correctly on native clients. Lookup values may be concrete colours ("#0c0e12", "oklch(...)"), scale references ("neutral-800"), or other semantic tokens ("text-secondary"); the resolver chases references and normalizes concrete colours to hex.
   sealed class FlutterThemeSource
     ctor(IReadOnlyDictionary<string, string> scaleHex, IReadOnlyDictionary<string, string> darkSemantic, IReadOnlyDictionary<string, string> lightSemantic, double? radiusBasePx = null, IReadOnlyDictionary<string, double>? radiusPx = null, IReadOnlyDictionary<string, string>? fontFamilies = null, double? spacingUnitPx = null)
     IReadOnlyDictionary<string, string> DarkSemantic { get; }
     // Themed font families keyed by role ("body", "display", "heading", …), values are plain family names ("Fraunces") the Flutter client can load.
     IReadOnlyDictionary<string, string> FontFamilies { get; }
     IReadOnlyDictionary<string, string> LightSemantic { get; }
-    // Themed radius base in logical px; rung values derive from it unless RadiusPx pins a rung explicitly. Null = platform default.
+    // Themed radius base in logical px; rung values derive from it unless FlutterThemeSource.RadiusPx pins a rung explicitly. Null = platform default.
     double? RadiusBasePx { get; }
     // Explicit per-rung radius overrides in logical px, keyed by rung name ("lg").
     IReadOnlyDictionary<string, double> RadiusPx { get; }
     IReadOnlyDictionary<string, string> ScaleHex { get; }
     // Themed spacing unit in logical px (the density knob — web multiplies --spacing the same way). Null = platform default (4px).
     double? SpacingUnitPx { get; }
+    // Builds a source from a design-token document, mapping colours only: the colour scales plus the light/dark semantic tokens. The document's radii and typography are NOT mapped — their token shapes don't line up with this type (radii are CSS strings under "radius-*" keys, not rung-named logical px; font families are quoted CSS stacks, not plain family names) — so radius, fonts, and spacing stay at platform defaults unless supplied explicitly via the constructor.
     static FlutterThemeSource FromDesignTokens(CanvasDesignTokenDocument document)
   enum TailwindColorContext
     Generic
@@ -5300,22 +5633,18 @@ namespace Ikon.Crosswind
     IReadOnlyDictionary<string, string> Light { get; }
     string EmitDark()
     string EmitLight()
-  // Static facade the Crosswind compiler resolves custom aliases through. Definitions live in a TailwindCustomStyleScope that the caller pins with PushScope around each compile, so several apps hosted in one process each resolve against their own theme. Lookups fall back to a process-wide scope kept for legacy single-app hosts that still write it via SetDefinitions / MergeDefinitions .
+  // Static facade the Crosswind compiler resolves custom aliases through. Definitions live in a TailwindCustomStyleScope that the caller pins with TailwindCustomStyleRegistry.PushScope around each compile, so several apps hosted in one process each resolve against their own theme. Lookups fall back to a process-wide scope kept for legacy single-app hosts.
   static class TailwindCustomStyleRegistry
     // Flutter theme data of the scope active for the current compile, preferring the ambient scope like the alias lookups do.
     static FlutterThemeSource? CurrentFlutterTheme { get; }
     static bool IsFontFamilyToken(string name)
     static bool IsFontWeightToken(string name)
-    // Compat write path for legacy single-app hosts: merges definitions into the process-wide fallback scope. New code should own a TailwindCustomStyleScope and pin it with PushScope instead.
-    static void MergeDefinitions(TailwindStyleDefinitions definitions)
     // Makes the given scope the ambient alias source for the current async flow until the returned handle is disposed. Compilation call sites stay static, but each caller can pin its own scope for the duration of a compile.
     static IDisposable PushScope(TailwindCustomStyleScope scope)
-    // Compat write path for legacy single-app hosts: replaces the process-wide fallback scope's definitions (null clears them). New code should own a TailwindCustomStyleScope and pin it with PushScope instead.
-    static void SetDefinitions(TailwindStyleDefinitions? definitions)
     static bool TryResolve(string name, TailwindColorContext context, out string value)
     static bool TryResolveFontFamily(string name, out string value)
     static bool TryResolveFontWeight(string name, out string value)
-  // One isolated set of custom color and font alias definitions. Style compilation reads aliases through TailwindCustomStyleRegistry , which prefers the ambient scope pushed via PushScope and falls back to the process-wide scope, so several apps hosted in one process can each compile against their own theme without contaminating the others.
+  // One isolated set of custom color and font alias definitions. Style compilation reads aliases through TailwindCustomStyleRegistry, which prefers the ambient scope pushed via TailwindCustomStyleRegistry.PushScope and falls back to the process-wide scope, so several apps hosted in one process can each compile against their own theme without contaminating the others.
   sealed class TailwindCustomStyleScope
     ctor()
     // Optional Flutter theme data derived from the same app theme as the alias definitions. The Flutter style resolver reads it through the ambient scope so each app in a shared process renders its own brand colors on native clients.
@@ -5363,8 +5692,8 @@ namespace Ikon.Crosswind
     static bool Has(IReadOnlyList<string> variants, string target)
     // Returns a copy of variants with the given target marker removed. The marker has been satisfied by the active renderer and must not become a CSS selector or block Flutter resolution. Returns the original reference unchanged when the marker is absent, to avoid an allocation on the common path.
     static IReadOnlyList<string> Without(IReadOnlyList<string> variants, string target)
-    static string Flutter
-    static string Web
+    const string Flutter
+    const string Web
 
 # Ikon.App Public API
 
@@ -5390,17 +5719,17 @@ namespace Ikon.App
     UserType UserType { get; }
     // Version number of the app
     int Version { get; }
-  // A lightweight HTTP and WebSocket endpoint host built on ASP.NET Core. Construct the host, register routes with MapGet / MapPost / MapWebSocket , and call StartAsync to allocate the relay tunnel and begin serving requests.
+  // A lightweight HTTP and WebSocket endpoint host built on ASP.NET Core. Construct the host, register routes with AppEndpointHost.MapGet / AppEndpointHost.MapPost / AppEndpointHost.MapWebSocket, and call AppEndpointHost.StartAsync to allocate the relay tunnel and begin serving requests.
   sealed class AppEndpointHost : IAsyncDisposable
-    // Creates a new HTTP/WebSocket endpoint host. The relay tunnel is not allocated until StartAsync is called.
+    // Creates a new HTTP/WebSocket endpoint host. The relay tunnel is not allocated until AppEndpointHost.StartAsync is called.
     ctor(IAppBase app, bool secure = true, TimeSpan? webSocketKeepAliveInterval = null, string stablePortName = "")
-    // True once the relay tunnel is allocated and PublicUrl can be read. False before StartAsync , and after it when the relay was unreachable — the host then serves on LocalPort only and retries the allocation in the background; subscribe to PublicUrlAvailable to learn when the tunnel comes up.
+    // True once the relay tunnel is allocated and AppEndpointHost.PublicUrl can be read. False before AppEndpointHost.StartAsync, and after it when the relay was unreachable — the host then serves on AppEndpointHost.LocalPort only and retries the allocation in the background; subscribe to AppEndpointHost.PublicUrlAvailable to learn when the tunnel comes up.
     bool HasPublicUrl { get; }
-    // The local port Kestrel binds to. Available after StartAsync completes.
+    // The local port Kestrel binds to. Available after AppEndpointHost.StartAsync completes.
     int LocalPort { get; }
     // Invoked once per inbound HTTP/WebSocket request before it is routed. Used to mark external activity (e.g. reset the server's idle timer) so an endpoint-served instance isn't reaped while it is serving traffic. Null = no hook.
     Action? OnRequest { get; set; }
-    // The public URL for this endpoint. Available once the relay tunnel is allocated — normally when StartAsync completes; check HasPublicUrl when the relay may be down.
+    // The public URL for this endpoint. Available once the relay tunnel is allocated — normally when AppEndpointHost.StartAsync completes; check AppEndpointHost.HasPublicUrl when the relay may be down.
     string PublicUrl { get; }
     // Stops the host, releases the relay tunnel, and releases all resources.
     ValueTask DisposeAsync()
@@ -5418,13 +5747,13 @@ namespace Ikon.App
     void MapPut(string pattern, Func<HttpContext, Task> handler)
     // Registers a handler for WebSocket connections matching the specified route pattern. The socket is automatically closed and disposed after the handler completes.
     void MapWebSocket(string pattern, Func<HttpContext, WebSocket, Task> handler)
-    // Allocates the relay tunnel, starts Kestrel with the registered routes, and returns immediately while the host continues to run in the background. When the relay tunnel cannot be allocated (relay not configured, backend unreachable), Kestrel still starts on a locally picked port and the tunnel allocation is retried in the background — local traffic keeps working, and PublicUrlAvailable fires once the tunnel comes up.
+    // Allocates the relay tunnel, starts Kestrel with the registered routes, and returns immediately while the host continues to run in the background. When the relay tunnel cannot be allocated (relay not configured, backend unreachable), Kestrel still starts on a locally picked port and the tunnel allocation is retried in the background — local traffic keeps working, and AppEndpointHost.PublicUrlAvailable fires once the tunnel comes up.
     Task StartAsync(CancellationToken cancellationToken = default)
     // Stops the endpoint host gracefully. Waits up to 5 seconds for pending requests to complete.
     Task StopAsync(CancellationToken cancellationToken = default)
-    // Raised with the public URL when the background retry allocates the relay tunnel after StartAsync completed without one. Not raised when the tunnel was allocated during StartAsync itself — read PublicUrl directly in that case.
+    // Raised with the public URL when the background retry allocates the relay tunnel after AppEndpointHost.StartAsync completed without one. Not raised when the tunnel was allocated during AppEndpointHost.StartAsync itself — read AppEndpointHost.PublicUrl directly in that case.
     event Action<string>? PublicUrlAvailable
-  // Typed app↔client custom-message helpers over the app-local Teleport channel. The payload types come from the app's own schema/*.tp files (compiled by ikon app teleport build); each carries its own GROUP_APP_LOCAL opcode and is sent/received as a native type — no JSON marshalling. Delivery is server-controlled and explicit: SendMessageAsync always takes the recipient client session IDs — there is no implicit broadcast to every client. Whether a type travels reliably or unreliably is declared on the .tp schema (unreliable = true), not here.
+  // Typed app↔client custom-message helpers over the app-local Teleport channel. The payload types come from the app's own schema/*.tp files (compiled by ikon app teleport build); each carries its own Opcode.GROUP_APP_LOCAL opcode and is sent/received as a native type — no JSON marshalling. Delivery is server-controlled and explicit: AppMessaging.SendMessageAsync<T> always takes the recipient client session IDs — there is no implicit broadcast to every client. Whether a type travels reliably or unreliably is declared on the .tp schema (unreliable = true), not here.
   static class AppMessaging
     // Subscribe to inbound app messages of type T (filtered by the type's opcode). The handler receives the decoded native payload and the sender's client session ID. Dispose the returned handle to unsubscribe.
     static IDisposable OnMessage<T>(this IMessageChannel app, Func<T, int, ValueTask> handler) where T : IProtocolMessagePayload, new()
@@ -5466,18 +5795,24 @@ namespace Ikon.App
     // }
     // becomes
     // await Audio.SpeakAsync(text);
-    // Each call interrupts the previous one — it fades out whatever is still playing and cancels the previous call's generation, which is what a voice app almost always wants (a new reply supersedes the old one). Uses ElevenFlash25 by default — cheap+fast, the platform's go-to tier for conversational TTS. Hand-roll the SpeechGenerator + SendSpeech loop instead when you need custom mixing (overlapping speakers), speech that must not interrupt what is already playing, raw access to the generated samples (duration math, waveform analysis), or generator config beyond text, voice, instructions, and speed (e.g. language).
-    Task SpeakAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, string? instructions = null, string? speed = null, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null, CancellationToken cancellationToken = default)
-    // Enable speech-to-text on captured audio. After calling this, every captured audio segment (typically initiated by a CaptureButton or PushToTalkButton) is transcribed when the segment ends, and SpeechRecognizedAsync fires with the recognized text and originating client context.
+    // Each call interrupts the previous one — it fades out whatever is still playing and cancels the previous call's generation, which is what a voice app almost always wants (a new reply supersedes the old one). Uses SpeechGeneratorModel.ElevenFlash25 by default — cheap+fast, the platform's go-to tier for conversational TTS. Hand-roll the SpeechGenerator + Audio.SendSpeech loop instead when you need custom mixing (overlapping speakers), speech that must not interrupt what is already playing, raw access to the generated samples (duration math, waveform analysis), or generator config beyond text, voice, instructions, and speed (e.g. language).
+    Task SpeakAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, string? instructions = null, double? speed = null, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null, CancellationToken cancellationToken = default)
+    // Enable speech-to-text on captured audio. After calling this, every captured audio segment (typically initiated by a CaptureButton or PushToTalkButton) is transcribed when the segment ends, and Audio.SpeechRecognizedAsync fires with the recognized text and originating client context.
     void UseSpeechRecognition(SpeechRecognizerModel model, float silenceThresholdRms = 0.01, bool requireCorrelatedStream = true, string language = "", TimeSpan? timeout = null)
+    // Enable open-mic turn detection with speech-to-text — the continuous-listening counterpart of Audio.UseSpeechRecognition: instead of a segment ending on button release, a turn ends when the user stops talking. Each completed turn fires Audio.SpeechRecognizedAsync with the transcript, so an app upgrades from push-to-talk to open mic by swapping this one setup call and keeping its recognition handler unchanged. Optional companion events: Audio.TurnStartedAsync on sustained speech onset and Audio.TurnSpeculativeAsync when a turn has probably ended (its transcript is ready early; the args' token cancels if speech resumes, and a confirmed turn reuses the speculative transcript so no second recognition runs). Turn-end timing is frame-driven: silence windows advance as mic frames arrive, which holds for platform mic capture (it streams continuously while active) — a client mode that stops sending frames during silence would need a wall-clock fallback here.
+    void UseTurnDetection(SpeechRecognizerModel model = WhisperLarge3Turbo, string language = "", TurnDetectorConfig? config = null, bool speculative = true, bool pauseWhileAppSpeaking = true, bool requireCorrelatedStream = true, TimeSpan? timeout = null)
     // Event raised when an incoming audio frame is received and decoded
     event AsyncEventHandler<AudioInputFrameEventArgs> AudioInputFrameAsync
     // Event raised when an incoming audio stream begins
     event AsyncEventHandler<AudioInputStreamBeginEventArgs> AudioInputStreamBeginAsync
     // Event raised when an incoming audio stream ends
     event AsyncEventHandler<AudioInputStreamEndEventArgs> AudioInputStreamEndAsync
-    // Event raised when speech-to-text recognition completes for a captured audio segment. Requires UseSpeechRecognition to be called once during app setup. Each press of a PushToTalkButton (or any other capture-button-initiated stream) produces one recognition event when the user releases. Args carry the recognized text plus the originating client context — no streamId-to-client plumbing needed.
+    // Event raised when speech-to-text recognition completes for a captured audio segment. Requires Audio.UseSpeechRecognition to be called once during app setup. Each press of a PushToTalkButton (or any other capture-button-initiated stream) produces one recognition event when the user releases. Args carry the recognized text plus the originating client context — no streamId-to-client plumbing needed.
     event AsyncEventHandler<SpeechRecognizedEventArgs> SpeechRecognizedAsync
+    // Event raised when a turn has probably ended and its speculative transcript is ready. Requires Audio.UseTurnDetection to be called once during app setup. Start downstream work (e.g. generating a reply) with the args' cancellation token: it is cancelled if the user resumes speaking; otherwise Audio.SpeechRecognizedAsync confirms the turn with the same TurnSpeculativeEventArgs.TurnId.
+    event AsyncEventHandler<TurnSpeculativeEventArgs> TurnSpeculativeAsync
+    // Event raised when a user starts a speech turn on a turn-detected stream. Requires Audio.UseTurnDetection to be called once during app setup. Useful as a barge-in or listening-indicator hook.
+    event AsyncEventHandler<TurnStartedEventArgs> TurnStartedAsync
   // Event arguments raised when an incoming audio frame is received
   class AudioInputFrameEventArgs : EventArgs
     ctor(string streamId, Context clientContext, float[] samples, bool isFirst, bool isLast, TimeSpan totalDuration, string? correlationId)
@@ -5551,14 +5886,22 @@ namespace Ikon.App
     ValueTask<IAsyncDisposable> StartAsync()
     // Signals that one unit of background work has completed. The server is only notified when the last active scope is stopped.
     ValueTask StopAsync()
+  // Options for a client-side microphone capture started with ClientFunctions.StartAudioCaptureAsync. Every property is optional; a null property leaves that setting to the client. Start from ClientAudioCaptureOptions.Default and override what you need.
   sealed class ClientAudioCaptureOptions : IEquatable<ClientAudioCaptureOptions>
     ctor()
+    // Whether the client normalizes the microphone level. Null lets the client choose.
     bool? AutoGainControl { get; init; }
+    // Target encoder bitrate in bits per second. Null lets the client choose.
     int? Bitrate { get; init; }
+    // Sensible speech defaults: 32 kbit/s, auto gain control and noise suppression on, echo cancellation off (nothing is being played back in the common server-transcription case). Device is left to the client, and ClientAudioCaptureOptions.TargetIds is unset, so the server receives the stream.
     static ClientAudioCaptureOptions Default { get; }
+    // Id of a specific microphone to use. Null uses the client's default device.
     string? DeviceId { get; init; }
+    // Whether the client cancels the audio it is playing back out of the microphone signal. Needed for two-way calls on a loudspeaker; pointless — and lossy — when nothing is being played back, which is why ClientAudioCaptureOptions.Default leaves it off. Null lets the client choose.
     bool? EchoCancellation { get; init; }
+    // Whether the client filters steady background noise out of the microphone signal. Null lets the client choose.
     bool? NoiseSuppression { get; init; }
+    // Client session ids the encoded audio is routed to. Leave this null if the server-side app is supposed to receive the audio. Setting it addresses the stream to exactly those client sessions — the app's own audio handlers then never fire, silently: the capture starts, audio flows, and nothing on the server (transcription, recording, analysis) sees it. Set it only for client-to-client streaming where the server deliberately stays out of the media path.
     IReadOnlyList<int>? TargetIds { get; init; }
   // Represents a contact picked from the client's contact list.
   sealed class ClientContact : IEquatable<ClientContact>
@@ -5584,15 +5927,15 @@ namespace Ikon.App
     // Gets the list of available media input devices on the client.
     static Task<IReadOnlyList<ClientMediaDevice>> GetMediaDevicesAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // Gets the current network connection type on the client.
+    // Remarks:
+    // The value is whatever the browser's Network Information API exposes and mixes two vocabularies: a speed class ("slow-2g", "2g", "3g", "4g") where only that is available — note a fast wifi connection commonly reports "4g" — or a connection medium ("wifi", "cellular", "ethernet", "bluetooth", "none", ...) on platforms that expose it. Treat it as an informational hint, not a reliable wifi/cellular discriminator.
     static Task<string?> GetNetworkTypeAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    // Reads the client's current notification permission state.
-    static Task<NotificationPermission> GetNotificationPermissionAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // Gets the browser timezone from the client.
     static Task<string?> GetTimezoneAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // Gets the current browser URL path and query string from the client.
     static Task<string?> GetUrlAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // Gets the current page visibility state on the client.
-    static Task<string?> GetVisibilityAsync(int? targetId = null, CancellationToken cancellationToken = default)
+    static Task<ClientVisibility> GetVisibilityAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // Prevents or allows the screen to sleep on the client.
     static Task<bool> KeepScreenAwakeAsync(bool enabled, int? targetId = null, CancellationToken cancellationToken = default)
     // Prompts the client to show its login UI (deferred login flow).
@@ -5611,12 +5954,10 @@ namespace Ikon.App
     static Task<bool> ScrollToAsync(double x, double y, bool smooth = false, int? targetId = null, CancellationToken cancellationToken = default)
     // Updates the UI theme on the client.
     static Task<bool> SetThemeAsync(Theme theme, bool persist = true, int? targetId = null, CancellationToken cancellationToken = default)
-    // Updates the UI theme on the client by its wire name. Prefer SetThemeAsync for the built-in dark and light themes; this overload exists for custom theme names.
+    // Updates the UI theme on the client by its wire name. Prefer ClientFunctions.SetThemeAsync for the built-in dark and light themes; this overload exists for custom theme names.
     static Task<bool> SetThemeAsync(string themeName, bool persist = true, int? targetId = null, CancellationToken cancellationToken = default)
     // Updates the browser URL without triggering a page reload.
     static Task<bool> SetUrlAsync(string url, bool replace = false, bool preserveQueryParams = false, int? targetId = null, CancellationToken cancellationToken = default)
-    // Shows a notification on the client. The client requests notification permission lazily on the first send before displaying. Returns the client's resulting permission state.
-    static Task<NotificationPermission> ShowNotificationAsync(NotificationContent content, int? targetId = null, CancellationToken cancellationToken = default)
     // Starts audio capture on the client from the microphone.
     static Task<string> StartAudioCaptureAsync(ClientAudioCaptureOptions? options = null, int? targetId = null, CancellationToken cancellationToken = default)
     // Starts video capture on the client from camera or screen.
@@ -5625,27 +5966,43 @@ namespace Ikon.App
     static Task<bool> StopCaptureAsync(string streamId, int? targetId = null, CancellationToken cancellationToken = default)
     // Stops a playing sound on the client.
     static Task<bool> StopSoundAsync(string playbackId, int? targetId = null, CancellationToken cancellationToken = default)
-    // Triggers haptic feedback on supported devices.
+    // Triggers haptic feedback on supported devices for the given duration.
+    static Task<bool> VibrateAsync(int durationMs, int? targetId = null, CancellationToken cancellationToken = default)
+    // Triggers haptic feedback on supported devices with a vibrate/pause pattern. Values alternate between vibration and pause durations in milliseconds, starting with a vibration — so [100, 50, 100] vibrates 100 ms, pauses 50 ms, then vibrates 100 ms again.
+    static Task<bool> VibrateAsync(IReadOnlyList<int> pattern, int? targetId = null, CancellationToken cancellationToken = default)
+    // Triggers haptic feedback on supported devices from a pattern in its wire form. Prefer the typed overloads taking an int duration or an int pattern; this overload exists for pattern strings that already arrive pre-formatted.
     static Task<bool> VibrateAsync(string pattern, int? targetId = null, CancellationToken cancellationToken = default)
+  // Whether the client should prefer a hardware or a software video encoder. This is a preference, not a guarantee — the client falls back to whatever encoder it has.
   enum ClientHardwareAcceleration
     PreferHardware
     PreferSoftware
+  // A single still image captured on a client with ClientFunctions.CaptureImageAsync.
   sealed class ClientImageCapture : IEquatable<ClientImageCapture>
     ctor(string Mime, int Width, int Height, byte[] Data)
+    // The encoded image bytes (a complete JPEG or PNG file, not raw pixels), ready to write to disk or hand to an asset or a vision model.
     byte[] Data { get; init; }
+    // The image's actual height in pixels, which can differ from a requested height the client could not honor.
     int Height { get; init; }
+    // The image's mime type, as encoded by the client: image/jpeg or image/png.
     string Mime { get; init; }
+    // The image's actual width in pixels, which can differ from a requested width the client could not honor.
     int Width { get; init; }
+  // Encoding of a single image captured with ClientFunctions.CaptureImageAsync.
   enum ClientImageCaptureFormat
     Jpeg
     Png
+  // Options for a single still image captured with ClientFunctions.CaptureImageAsync. Every property is optional; a null property leaves that setting to the client. Unlike the video and audio capture options there is no TargetIds: the captured image is always returned to the caller on the server.
   sealed class ClientImageCaptureOptions : IEquatable<ClientImageCaptureOptions>
     ctor()
+    // Image encoding. Null captures JPEG.
     ClientImageCaptureFormat? Format { get; init; }
+    // Target image height in pixels. Null keeps the capture device's own height.
     int? Height { get; init; }
+    // Encoder quality from 0.0 (smallest, most artifacts) to 1.0 (largest, near-lossless). Only meaningful for ClientImageCaptureFormat.Jpeg — PNG is lossless and ignores it. Null lets the client choose.
     double? Quality { get; init; }
+    // Target image width in pixels. Null keeps the capture device's own width.
     int? Width { get; init; }
-  // Event arguments for the ClientJoinedAsync event.
+  // Event arguments for the IAppBase.ClientJoinedAsync event.
   class ClientJoinedEventArgs : EventArgs
     ctor(Context clientContext)
     // Gets the context of the client that joined.
@@ -5654,7 +6011,7 @@ namespace Ikon.App
     int ClientSessionId { get; }
     // Gets the user ID of the client that joined, or an empty string if not authenticated.
     string UserId { get; }
-  // Event arguments for the ClientLeftAsync event.
+  // Event arguments for the IAppBase.ClientLeftAsync event.
   class ClientLeftEventArgs : EventArgs
     ctor(Context clientContext)
     // Gets the context of the client that left.
@@ -5674,15 +6031,20 @@ namespace Ikon.App
     double Longitude { get; init; }
   // Represents a media input device available on the client.
   sealed class ClientMediaDevice : IEquatable<ClientMediaDevice>
-    ctor(string DeviceId, string Kind, string Label, string GroupId)
+    ctor(string DeviceId, ClientMediaDeviceKind Kind, string Label, string GroupId)
     // The unique identifier for the device.
     string DeviceId { get; init; }
     // The group identifier for devices that share the same physical device.
     string GroupId { get; init; }
-    // The type of device (audioinput or videoinput).
-    string Kind { get; init; }
+    // The kind of device (audio input or video input).
+    ClientMediaDeviceKind Kind { get; init; }
     // A human-readable label for the device.
     string Label { get; init; }
+  // The kind of a media input device available on the client.
+  enum ClientMediaDeviceKind
+    Unknown
+    AudioInput
+    VideoInput
   // Read-only view of a client's profile. Use ClientProfiles.UpdateAsync to modify profile data.
   sealed class ClientProfile
     // Address information
@@ -5717,11 +6079,11 @@ namespace Ikon.App
     object? GetAttribute(string key)
     // Get typed custom attributes from profile
     TAttributes GetAttributes<TAttributes>() where TAttributes : IProfileAttributes, new()
-    // Check if user has a specific built-in role. For roles outside UserRole , check Roles directly.
+    // Check if user has a specific built-in role. For roles outside UserRole, check ClientProfile.Roles directly.
     bool HasRole(UserRole role)
     // Require that the user has the specified role. Throws RoleRequiredException if not.
     void RequireRole(UserRole role)
-  // Manages client profiles for an AI app. Profiles are loaded and cached when clients join, and GetProfileAsync loads any uncached profile from the backend on demand.
+  // Manages client profiles for an AI app. Profiles are loaded and cached when clients join, and ClientProfiles.GetProfileAsync loads any uncached profile from the backend on demand.
   class ClientProfiles
     ctor(IAppBase app)
     // Add a role to a client
@@ -5756,63 +6118,84 @@ namespace Ikon.App
     Task SetRolesAsync(Context clientContext, IEnumerable<string> roles)
     // Update profile fields using a typed ProfileData object
     Task UpdateAsync(Context clientContext, Action<ProfileData> update)
+  // A video codec a client may encode a capture with. Listed in ClientVideoCaptureOptions.PreferredCodecs in priority order; the client picks the first one it can actually encode with and falls back to its own default if none are available.
   enum ClientVideoCaptureCodec
     H264
     Vp8
     Vp9
     Av1
+  // Options for a client-side video capture started with ClientFunctions.StartVideoCaptureAsync. Every property is optional; a null property leaves that setting to the client. Start from ClientVideoCaptureOptions.DefaultCamera or ClientVideoCaptureOptions.DefaultScreen and override what you need.
   sealed class ClientVideoCaptureOptions : IEquatable<ClientVideoCaptureOptions>
     ctor()
+    // Target encoder bitrate in bits per second. Null lets the client choose.
     int? Bitrate { get; init; }
+    // Sensible camera defaults: 720p (1280x720) at 30 fps, a key frame every 90 frames (3 s), and a hardware encoder preference. Codec, bitrate, and device are left to the client, and ClientVideoCaptureOptions.TargetIds is unset, so the server receives the stream.
     static ClientVideoCaptureOptions DefaultCamera { get; }
+    // Sensible screen-share defaults: 1080p (1920x1080) at 30 fps, a key frame every 90 frames (3 s), and a hardware encoder preference. Codec and bitrate are left to the client, and ClientVideoCaptureOptions.TargetIds is unset, so the server receives the stream.
     static ClientVideoCaptureOptions DefaultScreen { get; }
+    // Id of a specific capture device to use (a camera; ignored for screen capture). Null uses the client's default device.
     string? DeviceId { get; init; }
+    // Target frames per second. Null lets the client choose.
     int? Framerate { get; init; }
+    // Hardware vs software encoder preference. Null lets the client choose.
     ClientHardwareAcceleration? HardwareAcceleration { get; init; }
+    // Target frame height in pixels. Null lets the client choose.
     int? Height { get; init; }
+    // How many frames apart key frames (full, independently decodable frames) are emitted. A receiver can only start decoding on a key frame, so this is the worst-case join latency for anyone who starts watching mid-stream, and the resync granularity after packet loss. Lower means faster joins and more bandwidth; higher means the opposite. The presets use 90 frames — three seconds at their 30 fps. Null lets the client choose.
     int? KeyFrameIntervalFrames { get; init; }
+    // Codecs to try, in priority order. Null lets the client choose.
     IReadOnlyList<ClientVideoCaptureCodec>? PreferredCodecs { get; init; }
+    // Client session ids the encoded frames are routed to. Leave this null if the server-side app is supposed to receive the media. Setting it addresses every frame to exactly those client sessions — the app's own video handlers then never fire, silently: the capture starts, frames flow, and nothing on the server sees them. Set it only for client-to-client streaming (e.g. a call where one participant's camera goes straight to the other participants) where the server deliberately stays out of the media path.
     IReadOnlyList<int>? TargetIds { get; init; }
+    // Target frame width in pixels. Null lets the client choose.
     int? Width { get; init; }
+  // Where a client-side video capture takes its frames from.
   enum ClientVideoCaptureSource
     Camera
     Screen
+  // The page visibility state reported by a client.
+  enum ClientVisibility
+    Unknown
+    Visible
+    Hidden
   // Marks a method to run on a cron schedule. Unlike HttpMethodAttribute / [Mcp], a cron job is not externally addressable — it has no path and no edge authorization. The platform discovers [Cron] methods at build time, records each in the app bundle manifest, and the backend schedules them; when a tick fires the app is run under the global (empty) session identity and the target function is invoked through the FunctionRegistry.
+  // Remarks:
+  // A [Cron] method behaves like a [Function] in that the trigger resolves it through the FunctionRegistry by name. Applying [Cron] is enough to register the method (as a Local function) — you do not also need [Function], though combining them is fine. The handler takes no caller-supplied arguments. It may optionally accept a host-injected CronContext (fire time + schedule) and/or a CancellationToken that signals app shutdown, in any order — mirroring how an [HttpPost] handler may accept an HttpRequest. Any other parameter fails registration at startup, since the scheduler has nothing to bind it to. Overlap is allowed: a tick fires even if the previous invocation is still running, so guard re-entrancy yourself if it matters.
   sealed class CronAttribute : Attribute
-    // Declares a cron job that runs on schedule .
+    // Declares a cron job that runs on schedule.
     ctor(string schedule)
-    // Optional registry-name override. When null or empty the function is registered (and triggered) under its full member name "{Type.FullName}.{Method}".
+    // Optional registry-name override. When null or empty the function is registered (and triggered) under the full member name of the declaration carrying the attribute, "{DeclaringType.FullName}.{Method}" — the same identity the bundle manifest records, so the backend trigger resolves it even when the method is inherited or overridden.
     string? Name { get; init; }
     // The cron expression that schedules this method (standard 5/6-field cron syntax, e.g. "0 * * * *" for hourly). Evaluated by the backend scheduler.
     string Schedule { get; }
-  // Platform email surface for an Ikon app — sending custom emails through the platform mailer and reading inbound emails delivered to the app's space. Accessed via app.Email. All operations require the app's organisation/space to have the Email feature enabled; calls against a non-entitled space throw FeatureNotEnabledException .
+  // Platform email surface for an Ikon app — sending custom emails through the platform mailer and reading inbound emails delivered to the app's space. Accessed via app.Email. All operations require the app's organisation/space to have the Email feature enabled; calls against a non-entitled space throw FeatureNotEnabledException.
   sealed class EmailService
     // Removes an inbound email and frees its attachment storage. Idempotent — deleting a missing message succeeds silently.
     Task DeleteAsync(string id, CancellationToken ct = default)
     // Streams a decrypted attachment from the platform. The returned EmailAttachmentDownload owns the content stream — dispose it (e.g. await using) when done.
     Task<EmailAttachmentDownload> DownloadAttachmentAsync(string emailId, string attachmentId, CancellationToken ct = default)
-    // Lazily enumerates all received emails matching query , transparently following pages until exhausted. Pages are fetched on demand as the sequence is consumed, so breaking out of the await foreach stops fetching further pages.
+    // Lazily enumerates all received emails matching query, transparently following pages until exhausted. Pages are fetched on demand as the sequence is consumed, so breaking out of the await foreach stops fetching further pages.
     IAsyncEnumerable<InboundEmailSummary> EnumerateInboxAsync(InboxQuery query, CancellationToken ct = default)
-    // Fetches a single page of received emails for the app's space. Paginate by passing the returned NextCursor back as Cursor .
+    // Fetches a single page of received emails for the app's space. Paginate by passing the returned InboxPage.NextCursor back as InboxQuery.Cursor.
     Task<InboxPage> GetInboxPageAsync(InboxQuery query, CancellationToken ct = default)
     // Fetches a single inbound email with decrypted body and parsed envelope.
     Task<InboundEmailDetail> GetMessageAsync(string id, CancellationToken ct = default)
-    // Sends a custom HTML email through the platform mailer. The platform sets the visible From address; pass ReplyTo to direct replies elsewhere. The send is enqueued for asynchronous delivery — a successful return means the platform has accepted the request, not that the recipient has received the message. Transient delivery failures are retried server-side. The total payload size (subject, body, attachments, metadata) is capped at roughly 10 MB.
+    // Sends a custom HTML email through the platform mailer. The platform sets the visible From address; pass EmailSendRequest.ReplyTo to direct replies elsewhere. The send is enqueued for asynchronous delivery — a successful return means the platform has accepted the request, not that the recipient has received the message. Transient delivery failures are retried server-side. The total payload size (subject, body, attachments, metadata) is capped at roughly 10 MB.
     Task SendAsync(EmailSendRequest request, CancellationToken ct = default)
   // Shared base for the two developer-facing inbound HTTP surfaces, [Rest] and [Mcp]. They differ only in the wire protocol (typed HTTP vs MCP JSON-RPC) and the schema advertised to clients; addressing, path templating, identity binding, auth, and abuse-control are identical and live here so there is exactly one place to reason about them.
   abstract class EndpointAttribute : Attribute
-    // Built-in authorization for this endpoint, resolved at the gateway edge before (and without) provisioning the app. Defaults to Grant (a signed grant URL). Set AuthPolicy instead to name a custom /router/ policy.
+    // Built-in authorization for this endpoint, resolved at the gateway edge before (and without) provisioning the app. Defaults to EndpointAuth.Grant (a signed grant URL). Set EndpointAttribute.AuthPolicy instead to name a custom /router/ policy.
     EndpointAuth Auth { get; init; }
-    // Name of a custom /router/ edge policy that authorizes this endpoint (an apiKey/hmac/ipAllow helper you defined in router/index.ts). When set (non-empty) it takes precedence over Auth . Authorization lives in /router/, the single auth surface — not in C#.
+    // Name of a custom /router/ edge policy that authorizes this endpoint (an apiKey/hmac/ipAllow helper you defined in router/index.ts). When set (non-empty) it takes precedence over EndpointAttribute.Auth. Authorization lives in /router/, the single auth surface — not in C#.
     string? AuthPolicy { get; init; }
     // External path under the space domain (after {space}.ikonai.app/api). Optional: when omitted (empty) the path is derived from the method name (kebab-cased) — /{method} on the app class, /{cell-type}/{method} on a cell. A leading-slash path is absolute; a relative form ("bump") is resolved against the owner's auto-derived mount point at build time. Route params use {name} syntax. A {name} whose name matches a field of the owner's SessionIdentity record binds into the routing identity (the extrinsic resource the caller names); other {name} segments bind as ordinary handler parameters. Reserved paths the developer must NOT declare: /.well-known/* (RFC), and the /ikon/* + /api subtrees (platform-owned).
     string Path { get; }
-  // The built-in authorization for an endpoint — the discoverable, no-/router/-needed options. For a custom edge policy (an apiKey/hmac/ipAllow helper you defined in /router/), set AuthPolicy to its name instead.
+  // The built-in authorization for an endpoint — the discoverable, no-/router/-needed options. For a custom edge policy (an apiKey/hmac/ipAllow helper you defined in /router/), set EndpointAttribute.AuthPolicy to its name instead.
   enum EndpointAuth
     Grant
     Public
     Deny
-  // Information about an HTTP endpoint exposed by the app — an [HttpGet]/[HttpPost]/[Mcp] surface. Returned by Endpoints for developer convenience.
+  // Information about an HTTP endpoint exposed by the app — an [HttpGet]/[HttpPost]/[Mcp] surface. Returned by IAppBase.Endpoints for developer convenience.
   sealed class EndpointInfo : IEquatable<EndpointInfo>
     ctor()
     // The cell type for a substrate-cell endpoint (empty for app + AppProcess-cell endpoints). When non-empty, the gateway cell-routes the request to that cell's partitioned instance, keyed by the cell's IdentityFields in the URL; empty means the endpoint resolves to the app instance.
@@ -5821,80 +6204,119 @@ namespace Ikon.App
     string FunctionName { get; init; }
     // The bare public URL for this endpoint under the space domain ({space}.ikonai.app/api/{path}), templated where the path has open {segment}s. It carries NO grant: a public endpoint is callable as-is; a grant/policy endpoint needs a working, identity-bound URL from IApp.MintUrl. The backend reverse-proxies to this instance — cold-starting it in the cloud, or routing to a registered local run.
     string PublicUrl { get; init; }
+  // Passed to the onChunkReceived callback — fired for every chunk as it arrives, with the raw bytes, so an app can stream the upload somewhere (transcode, scan, forward) instead of waiting for the whole file. The platform has already written the chunk itself, so this hook does not have to. The bytes are not yet verified: the SHA-256 check only happens once the last chunk is in, and a mismatch discards the whole upload — never act irreversibly on a chunk.
   sealed class FileUploadChunkArgs : IEquatable<FileUploadChunkArgs>
     ctor(string UploadId, string FileName, string MimeType, long Size, byte[] Data, long BytesWritten)
+    // Total bytes received and written so far, including this chunk.
     long BytesWritten { get; init; }
+    // This chunk's bytes. Only valid for the duration of the callback — copy them if you keep them.
     byte[] Data { get; init; }
+    // The client-supplied file name.
     string FileName { get; init; }
+    // The client-supplied mime type.
     string MimeType { get; init; }
+    // The total file size in bytes the client announced.
     long Size { get; init; }
+    // Id identifying this upload.
     string UploadId { get; init; }
+  // Passed to the onUploadComplete callback — fired once the last chunk is in, the byte count matches, and the recomputed SHA-256 matches the client's declared hash. The file is fully written and closed at this point, and this is the only hook that tells you where it landed.
   sealed class FileUploadCompleteArgs : IEquatable<FileUploadCompleteArgs>
-    ctor(string UploadId, string FileName, string MimeType, long Size, string? LocalTempFilePath, string? AssetUri)
-    string? AssetUri { get; init; }
+    ctor(string UploadId, string FileName, string MimeType, long Size, string? LocalTempFilePath, AssetUri? AssetUri)
+    // The asset the upload was written into, when an earlier hook set FileUploadResult.AssetUri. Null when the file went to a local temp file instead. Exactly one of the two is non-null. It is the same AssetUri every Asset.Instance.* call takes, so it needs no parsing — null-check it and pass .Value straight on.
+    AssetUri? AssetUri { get; init; }
+    // The client-supplied file name.
     string FileName { get; init; }
+    // Path to the received file in a temp directory, when the upload was not redirected to the asset system. Null when AssetUri is set. The temp directory is deleted when the app stops, so move or copy anything you want to keep.
     string? LocalTempFilePath { get; init; }
+    // The client-supplied mime type.
     string MimeType { get; init; }
+    // The file size in bytes.
     long Size { get; init; }
+    // Id identifying this upload.
     string UploadId { get; init; }
+  // Passed to the onUploadError callback — the terminal hook when an upload that had started does not succeed: cancelled, stalled for 60 s, chunks out of sequence, byte count mismatch, SHA-256 mismatch, or a write failure. An upload the app itself rejected from onUploadPreStart or onUploadStart does not reach this hook. Any partially written file or asset has already been deleted by the time this fires, so there is nothing to clean up on disk — only app-side state.
   sealed class FileUploadErrorArgs : IEquatable<FileUploadErrorArgs>
     ctor(string UploadId, string FileName, string MimeType, long Size, string ErrorMessage)
+    // Why the upload failed — the cancellation reason when the app cancelled it, otherwise the platform's description of the failure.
     string ErrorMessage { get; init; }
+    // The client-supplied file name.
     string FileName { get; init; }
+    // The client-supplied mime type.
     string MimeType { get; init; }
+    // The file size in bytes the client announced.
     long Size { get; init; }
+    // Id identifying this upload.
     string UploadId { get; init; }
+  // Passed to the onUploadPreStart callback — the first hook of an upload, fired when the client announces a file but before it has sent a single byte. This is the cheap place to reject an upload: return false (or a FileUploadResult) and nothing is ever transferred. Hook order for one upload: PreStart → Start → Chunk then Progress (repeating, once per received chunk) → Complete on success, or Error on a failure, cancellation, or 60 s stall. An upload the app rejects from PreStart or Start ends there and fires neither Complete nor Error.
   sealed class FileUploadPreStartArgs : IEquatable<FileUploadPreStartArgs>
     ctor(string UploadId, string FileName, string MimeType, long Size, Func<string?, Task> Cancel)
+    // Aborts this upload: deletes whatever was written, fires the error hook with the reason, and tells the client to stop. Usable at any point during the upload, not just from this callback — capture it to cancel later (e.g. from a UI cancel button).
     Func<string?, Task> Cancel { get; init; }
+    // The client-supplied file name. Untrusted — never join it into a path yourself.
     string FileName { get; init; }
+    // The client-supplied mime type. Untrusted — the bytes are not verified against it.
     string MimeType { get; init; }
+    // The file size in bytes the client claims it will send. The upload fails with an error if the actual byte count differs.
     long Size { get; init; }
+    // Id identifying this upload; the same value appears on every later hook's args.
     string UploadId { get; init; }
+  // Passed to the onUploadProgress callback — fired once per received chunk, after the chunk has been written and acknowledged. Meant for driving a progress bar; use onChunkReceived if you need the bytes themselves.
   sealed class FileUploadProgressArgs : IEquatable<FileUploadProgressArgs>
     ctor(string UploadId, string FileName, string MimeType, long Size, double ProgressPercentage, long BytesUploaded)
+    // Bytes received and written so far.
     long BytesUploaded { get; init; }
+    // The client-supplied file name.
     string FileName { get; init; }
+    // The client-supplied mime type.
     string MimeType { get; init; }
+    // Bytes received so far as a percentage of Size, 0 to 100. Zero for the whole upload when the client announced a size of 0.
     double ProgressPercentage { get; init; }
+    // The total file size in bytes the client announced.
     long Size { get; init; }
+    // Id identifying this upload.
     string UploadId { get; init; }
-  // Accept/reject decision returned from the onUploadPreStart and onUploadStart callbacks. Accepted defaults to true; return true; works via the implicit bool conversion. Set AssetUri to write the upload straight into the asset system instead of a local temp file.
+  // Accept/reject decision returned from the onUploadPreStart and onUploadStart callbacks. FileUploadResult.Accepted defaults to true; return true; works via the implicit bool conversion. Set FileUploadResult.AssetUri to write the upload straight into the asset system instead of a local temp file.
   sealed class FileUploadResult : IEquatable<FileUploadResult>
     ctor()
     bool Accepted { get; init; }
-    string? AssetUri { get; init; }
+    AssetUri? AssetUri { get; init; }
+  // Passed to the onUploadStart callback — fired after onUploadPreStart accepted the upload and the client has sent the file's hash, but still before any bytes arrive. This is the last point where the upload can be rejected, and the last point where FileUploadResult.AssetUri can redirect the bytes into the asset system instead of a local temp file. It is the only hook that sees FileUploadStartArgs.Hash, so it is where a duplicate check ("do I already have this content?") goes.
   sealed class FileUploadStartArgs : IEquatable<FileUploadStartArgs>
     ctor(string UploadId, string FileName, string MimeType, long Size, string Hash)
+    // The client-supplied file name. Untrusted — never join it into a path yourself.
     string FileName { get; init; }
+    // The client-declared SHA-256 of the file contents, lowercase hex. The platform recomputes it while receiving and fails the upload with a hash mismatch if the received bytes disagree, so a match here is a genuine content identity — but it is the client's claim, not yet verification, at this point.
     string Hash { get; init; }
+    // The client-supplied mime type. Untrusted — the bytes are not verified against it.
     string MimeType { get; init; }
+    // The file size in bytes the client claims it will send.
     long Size { get; init; }
+    // Id identifying this upload; the same value appears on every other hook's args.
     string UploadId { get; init; }
-  // Marks a method as a DELETE REST endpoint. See EndpointAttribute .
+  // Marks a method as a DELETE REST endpoint. See EndpointAttribute.
   sealed class HttpDeleteAttribute : HttpMethodAttribute
     ctor(string path = "")
-    string Method { get; }
+    override string Method { get; }
   // Marks a method on an app or cell as a GET REST endpoint. The framework mounts a route on the owner's AppEndpointHost, binds the request, invokes the method, and serializes the return value; authorization runs at the gateway edge (the endpoint's Auth/router/ policy), not in-process. See EndpointAttribute for path templating and URL-supplied identity.
   sealed class HttpGetAttribute : HttpMethodAttribute
     ctor(string path = "")
-    string Method { get; }
-  // Shared base for the verb-named REST attributes ([HttpGet], [HttpPost], [HttpPut], [HttpDelete], [HttpPatch]). The verb is baked into the attribute type — there is no verb enum — which mirrors the ASP.NET Core idiom and so generates reliably from LLMs. All of them share the addressing + identity model on EndpointAttribute ; only the HTTP method differs.
+    override string Method { get; }
+  // Shared base for the verb-named REST attributes ([HttpGet], [HttpPost], [HttpPut], [HttpDelete], [HttpPatch]). The verb is baked into the attribute type — there is no verb enum — which mirrors the ASP.NET Core idiom and so generates reliably from LLMs. All of them share the addressing + identity model on EndpointAttribute; only the HTTP method differs.
   abstract class HttpMethodAttribute : EndpointAttribute
     // HTTP verb as an uppercase string (GET / POST / PUT / DELETE / PATCH).
-    string Method { get; }
-  // Marks a method as a PATCH REST endpoint. See EndpointAttribute .
+    abstract string Method { get; }
+  // Marks a method as a PATCH REST endpoint. See EndpointAttribute.
   sealed class HttpPatchAttribute : HttpMethodAttribute
     ctor(string path = "")
-    string Method { get; }
-  // Marks a method as a POST REST endpoint — the common case (third-party webhooks included; verify the signature from the injected request context). See EndpointAttribute .
+    override string Method { get; }
+  // Marks a method as a POST REST endpoint — the common case (third-party webhooks included; verify the signature from the injected request context). See EndpointAttribute.
   sealed class HttpPostAttribute : HttpMethodAttribute
     ctor(string path = "")
-    string Method { get; }
-  // Marks a method as a PUT REST endpoint. See EndpointAttribute .
+    override string Method { get; }
+  // Marks a method as a PUT REST endpoint. See EndpointAttribute.
   sealed class HttpPutAttribute : HttpMethodAttribute
     ctor(string path = "")
-    string Method { get; }
+    override string Method { get; }
   // Serializable view of an inbound HTTP request — its method, path, query, headers, and raw body. The dispatcher constructs one per inbound request; a handler reads it (e.g. via HttpCallContext) for the untrusted inputs the typed binding doesn't surface, such as verifying a webhook signature inline.
   sealed class HttpRequest : IEquatable<HttpRequest>
     ctor(string Method, string Path, IReadOnlyDictionary<string, string> Query, IReadOnlyDictionary<string, string> Headers, string Body)
@@ -5903,7 +6325,7 @@ namespace Ikon.App
     string Method { get; init; }
     string Path { get; init; }
     IReadOnlyDictionary<string, string> Query { get; init; }
-  // Typed return value from an HttpMethodAttribute -annotated method. Endpoints can return any serializable type for an automatic 200 + JSON response, or return an HttpResult when they need control over status code, content type, or custom body serialization.
+  // Typed return value from an HttpMethodAttribute-annotated method. Endpoints can return any serializable type for an automatic 200 + JSON response, or return an HttpResult when they need control over status code, content type, or custom body serialization.
   sealed class HttpResult : IEquatable<HttpResult>
     ctor(int StatusCode, object? Body = null, string ContentType = "application/json")
     object? Body { get; init; }
@@ -5925,21 +6347,21 @@ namespace Ikon.App
     // Gets the background work tracker that prevents server idle shutdown while work is in progress.
     BackgroundWork BackgroundWork { get; }
     // The Context of the client currently being served — the one rendering the UI or firing the current handler, resolved from the active reactive scope. null when no client is in scope (e.g. background work). Use this to identify the current client — never a plugin's own connection context. For the joining client's context use the ClientJoined event args instead.
-    Context? CurrentClientContext { get; }
+    virtual Context? CurrentClientContext { get; }
     // The user id of the client currently being served, or an empty string when no client is in scope. Always populated for a connected client — the real user id for authenticated users, a stable anonymous id otherwise. This is the correct source for a payment customer key, subscription gating, per-user state, etc.
-    string CurrentUserId { get; }
+    virtual string CurrentUserId { get; }
     // Gets the path to the Data directory for this app. Files placed in the Data folder of the app project can be accessed at runtime using this path. Note: in cloud, this directory is read-only and writing to it will throw an exception.
     string DataDirectory { get; }
     // Gets the database connection configurations for this app instance.
     IReadOnlyList<DatabaseConnectionInfo> Databases { get; }
-    // Gets the email service for this app — sending custom emails through the platform mailer and reading inbound emails delivered to this app's space. Requires the Email feature to be enabled on the app's organisation/space; calls against a non-entitled space throw FeatureNotEnabledException .
+    // Gets the email service for this app — sending custom emails through the platform mailer and reading inbound emails delivered to this app's space. Requires the Email feature to be enabled on the app's organisation/space; calls against a non-entitled space throw FeatureNotEnabledException.
     EmailService Email { get; }
     // Gets the HTTP endpoints ([HttpGet]/[HttpPost]/[Mcp] surfaces) exposed by this app instance, including ready-to-use public URLs with the current session identity and signed token prefilled. The list is built once before Main() runs, from the endpoints declared on the app class and on loaded [Cell] types.
     IReadOnlyList<EndpointInfo> Endpoints { get; }
     // Gets the platform-wide shared state from the server containing clients, streams, and space/channel info.
     GlobalState GlobalState { get; }
-    // The loopback endpoint (host + HTTPS port) of THIS instance's own local server, but ONLY when the server's own URL is a localhost address — i.e. local dev WITHOUT --public-access. This lets an in-process client (e.g. a simulated player, a self-test harness) connect directly over loopback to this exact process instead of routing through the relay. It returns null when the instance is exposed via the relay (--public-access) or runs in the cloud — there the server's own URL is the relay/space URL, a direct socket can't (and shouldn't) reach it, and callers should use the normal relay/ApiKey connect path (which routes to this registered serving instance) instead. The default is null for hosts that don't run a local server; IApp overrides it.
-    (string Host, int Port)? LocalLoopbackEndpoint { get; }
+    // The loopback endpoint (host + HTTPS port) of THIS instance's own local server, but ONLY when the server's own URL is a localhost address — i.e. local dev WITHOUT --public-access. This lets an in-process client (e.g. a simulated player, a self-test harness) connect directly over loopback to this exact process instead of routing through the relay. It returns null when the instance is exposed via the relay (--public-access) or runs in the cloud — there the server's own URL is the relay/space URL, a direct socket can't (and shouldn't) reach it, and callers should use the normal relay/ApiKey connect path (which routes to this registered serving instance) instead. The default is null for hosts that don't run a local server; IApp<TSessionIdentity, TClientParameters> overrides it.
+    virtual (string Host, int Port)? LocalLoopbackEndpoint { get; }
     // The maximum number of clients this app instance accepts. Initialized to the server's memory-derived limit (computed from the instance's memory budget), so reading it tells you the default ceiling for this instance. You may set it lower to cap the instance below that default, or higher if you know your app's per-client cost is small enough to support more — once the app sets a value it fully overrides the memory-derived default. Once the limit is reached the server rejects further connections. Changes take effect immediately; the new limit is sent to the server.
     int MaxClients { get; set; }
     // Gets the configured maximum memory limit in megabytes for this server instance.
@@ -5952,33 +6374,31 @@ namespace Ikon.App
     NotificationService Notifications { get; }
     // Gets the payments service for this app — offer plans, take one-off and recurring payments, and react to PaymentReceived events. Set up a provider with ikon app payments enable; the backend drives it and the app holds no payment state.
     PaymentsService Payments { get; }
-    // The app's public URL — the address a browser opens to join this app instance's channel. Replaces the app.ReactiveGlobalState.ChannelUrl.Value incantation; reading it inside UI code subscribes to changes the same way. For a URL with query parameters (e.g. a session join link) use JoinUrl .
-    string PublicUrl { get; }
-    // Gets the reactive wrapper around GlobalState that provides change notifications.
-    ReactiveGlobalState ReactiveGlobalState { get; }
+    // The app's public URL — the address a browser opens to join this app instance's channel. Replaces the app.ReactiveGlobalState.ChannelUrl.Value incantation; reading it inside UI code subscribes to changes the same way. For a URL with query parameters (e.g. a session join link) use IAppBase.JoinUrl.
+    virtual string PublicUrl { get; }
     // Gets the secrets (tokens, API keys, passwords) configured for this app. Values are fetched from the Ikon backend once at app startup and exposed synchronously; changes made via ikon app secret set while the app is running only take effect after a restart.
     Secrets Secrets { get; }
-    // Whether this app instance offers the raw UDP / UDP-DTLS transports to connecting clients. Enabled by default. Set to false to disable them. Like WebRtcEnabled this takes effect for clients that connect after it is set (the transports are no longer advertised); already-connected clients are unaffected until they reconnect.
+    // Whether this app instance offers the raw UDP / UDP-DTLS transports to connecting clients. Enabled by default. Set to false to disable them. Like IAppBase.WebRtcEnabled this takes effect for clients that connect after it is set (the transports are no longer advertised); already-connected clients are unaffected until they reconnect.
     bool UdpEnabled { get; set; }
     // Whether this app instance offers WebRTC transport to connecting clients. Enabled by default. Set to false (e.g. in Main) to disable WebRTC for apps that don't use audio/video or low-latency data — WebRTC peer setup (ICE candidate gathering, DTLS) is a notable per-client memory and allocation cost. Takes effect for clients that connect after it is set: the server stops advertising WebRTC and ignores WebRTC signaling, so no per-client peer state is created. Already-connected clients keep their channels until they reconnect.
     bool WebRtcEnabled { get; set; }
     // Creates a platform-managed eID-backed PAdES signature order for the supplied document(s). The platform navigates the signer's browser to the signing-ceremony URL through the existing client UI surface, awaits the asynchronous packaging completion, and resolves the returned task with the signed PDF and evidence metadata. The returned bytes are the long-term-validation PAdES PDF when the chosen scheme produces it; apps should persist them as the system of record because the platform's session retention is short.
-    abstract Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = default)
-    // Creates a DbConnection for one of the app's configured databases (the Databases list in the app's env-specific ikon-config toml, applied with ikon app config and surfaced via Databases ) by name; the caller opens and disposes it: await using var connection = app.Database("mydb");.
+    Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = default)
+    // Creates a DbConnection for one of the app's configured databases (the Databases list in the app's env-specific ikon-config toml, applied with ikon app config and surfaced via IAppBase.Databases) by name; the caller opens and disposes it: await using var connection = app.Database("mydb");.
     virtual DbConnection Database(string databaseName)
-    // Build a shareable link to this app: PublicUrl plus a query string built from queryParams — an anonymous object (or a string dictionary), following the identity-by-anonymous-object shape of MintUrlAsync . Each readable property becomes a URL-encoded name=value pair; null-valued properties are skipped. So app.JoinUrl(new { id = sessionId }) yields {PublicUrl}?id={sessionId}. Replaces hand-assembling $"{app.ReactiveGlobalState.ChannelUrl.Value}?id={sessionId}". Passing null returns PublicUrl as-is.
+    // Build a shareable link to this app: IAppBase.PublicUrl plus a query string built from queryParams — an anonymous object (or a string dictionary), following the identity-by-anonymous-object shape of IAppBase.MintUrlAsync. Each readable property becomes a URL-encoded name=value pair; null-valued properties are skipped. So app.JoinUrl(new { id = sessionId }) yields {PublicUrl}?id={sessionId}. Replaces hand-assembling $"{app.ReactiveGlobalState.ChannelUrl.Value}?id={sessionId}". Passing null returns IAppBase.PublicUrl as-is.
     virtual string JoinUrl(object? queryParams = null)
-    // Mint a working, identity-bound URL for one endpoint — the single way to get a callable URL for a grant (default) or policy endpoint. You identify the endpoint by its HANDLER (the method name, e.g. nameof(GetDocument)), NOT by its URL path — the path is often derived from the method name (and may be templated), so the path is what minting RETURNS, not what you pass in. The returned URL is the endpoint's PublicUrl with any pinned {placeholder} path segments substituted and a signed ?ikon-grant= appended. identity (an anonymous object, e.g. new { DocumentId = "doc-42" }, or a string dictionary) PINS those identity fields into the grant; fields you omit stay open {captures} for the caller to fill. Omitting identity entirely ( null ) pins THIS instance's own session identity, so the URL routes back to this app instance — the common case. Grants are non-expiring by default — pass expiresIn only for an ephemeral link, and an optional group to revoke a batch together via RevokeGroupAsync . Re-minting the same stable (non-expiring) URL returns an identical URL, so it survives restarts.
+    // Mint a working, identity-bound URL for one endpoint — the single way to get a callable URL for a grant (default) or policy endpoint. You identify the endpoint by its HANDLER (the method name, e.g. nameof(GetDocument)), NOT by its URL path — the path is often derived from the method name (and may be templated), so the path is what minting RETURNS, not what you pass in. The returned URL is the endpoint's EndpointInfo.PublicUrl with any pinned {placeholder} path segments substituted and a signed ?ikon-grant= appended. identity (an anonymous object, e.g. new { DocumentId = "doc-42" }, or a string dictionary) PINS those identity fields into the grant; fields you omit stay open {captures} for the caller to fill. Omitting identity entirely (null) pins THIS instance's own session identity, so the URL routes back to this app instance — the common case. Grants are non-expiring by default — pass expiresIn only for an ephemeral link, and an optional group to revoke a batch together via IAppBase.RevokeGroupAsync. Re-minting the same stable (non-expiring) URL returns an identical URL, so it survives restarts.
     virtual Task<MintedUrl> MintUrlAsync(string endpoint, object? identity = null, TimeSpan? expiresIn = null, string? group = null, CancellationToken ct = default)
-    // Mint working URLs for several endpoints sharing one pinned identity, in a single backend round-trip. Returns a map keyed by the endpoints you passed. See MintUrlAsync .
+    // Mint working URLs for several endpoints sharing one pinned identity, in a single backend round-trip. Returns a map keyed by the endpoints you passed. See IAppBase.MintUrlAsync.
     virtual Task<IReadOnlyDictionary<string, MintedUrl>> MintUrlsAsync(IEnumerable<string> endpoints, object? identity = null, TimeSpan? expiresIn = null, string? group = null, CancellationToken ct = default)
-    // Dynamically requests a raw TCP/TLS/UDP endpoint. Returns a RelayEndpoint whose LocalPort a listener should bind to; the endpoint is reachable from the internet at {PublicHost}:{PublicPort}. Dispose the returned endpoint to release it. For HTTP/HTTPS endpoints use AppEndpointHost .
-    abstract Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", int localPort = 0, CancellationToken ct = default)
-    // Requests a fresh strong-authentication step-up challenge for the current user. Navigates the client browser to the platform's configured identity provider through the existing client UI surface, waits for the user to complete the challenge, and returns the platform-signed step-up assertion JWT. Apps must verify the returned JWT (issuer, audience, signature, expiry) before trusting any of its claims — see AssertionVerifier .
-    abstract Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string>? acrValues = null, string? clientReturnUrl = null, CancellationToken ct = default)
+    // Dynamically requests a raw TCP/TLS/UDP endpoint. Returns a RelayEndpoint whose RelayEndpoint.LocalPort a listener should bind to; the endpoint is reachable from the internet at {PublicHost}:{PublicPort}. Dispose the returned endpoint to release it. For HTTP/HTTPS endpoints use AppEndpointHost.
+    Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", int localPort = 0, CancellationToken ct = default)
+    // Requests a fresh strong-authentication step-up challenge for the current user. Navigates the client browser to the platform's configured identity provider through the existing client UI surface, waits for the user to complete the challenge, and returns the platform-signed step-up assertion JWT. Apps must verify the returned JWT (issuer, audience, signature, expiry) before trusting any of its claims — see AssertionVerifier.
+    Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string>? acrValues = null, string? clientReturnUrl = null, CancellationToken ct = default)
     // Revoke every URL minted under a shared group tag.
     virtual Task RevokeGroupAsync(string group, CancellationToken ct = default)
-    // Revoke a single minted URL by its GrantId .
+    // Revoke a single minted URL by its MintedUrl.GrantId.
     virtual Task RevokeUrlAsync(string grantId, CancellationToken ct = default)
     // Event fired when a client joins the session.
     event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
@@ -5990,31 +6410,31 @@ namespace Ikon.App
     event AsyncEventHandler<StartingEventArgs> StartingAsync
     // Event fired before the plugin disconnects, allowing cleanup of resources.
     event AsyncEventHandler<StoppingEventArgs> StoppingAsync
-  // Convenience subscription helpers for the lifecycle events on IAppBase . The raw event handler shape is AsyncEventHandler<TEventArgs> which expects a single EventArgs parameter — LLM-generated code routinely reaches for app.StartingAsync += async () => ... (zero-arg) or async (sender, args) => ... (two-arg, .NET prior). Both fail to compile against the canonical one-arg delegate. These extension methods accept the LLM-natural shapes directly: app.OnStarting(async () => ...) wires the underlying event; app.OnClientJoined(async ctx => ...) passes the Context straight through so the handler doesn't need to remember to drill into the event-args wrapper.
+  // Convenience subscription helpers for the lifecycle events on IAppBase. The raw event handler shape is AsyncEventHandler<TEventArgs> which expects a single EventArgs parameter — LLM-generated code routinely reaches for app.StartingAsync += async () => ... (zero-arg) or async (sender, args) => ... (two-arg, .NET prior). Both fail to compile against the canonical one-arg delegate. These extension methods accept the LLM-natural shapes directly: app.OnStarting(async () => ...) wires the underlying event; app.OnClientJoined(async ctx => ...) passes the Context straight through so the handler doesn't need to remember to drill into the event-args wrapper.
   static class IAppEventExtensions
-    // Subscribe to ClientJoinedAsync with a handler that receives the joining client's Context directly (SessionId, UserId, etc) — skipping the ClientJoinedEventArgs wrapper the raw event emits.
+    // Subscribe to IAppBase.ClientJoinedAsync with a handler that receives the joining client's Context directly (SessionId, UserId, etc) — skipping the ClientJoinedEventArgs wrapper the raw event emits.
     static void OnClientJoined(this IAppBase app, Func<Context, Task> handler)
-    // Subscribe to ClientJoinedAsync with a handler that receives both the joining client's Context AND its typed TClientParameters . Replaces the awkward app.Clients[ctx.SessionId]!.Parameters drill inside the handler body.
+    // Subscribe to IAppBase.ClientJoinedAsync with a handler that receives both the joining client's Context AND its typed TClientParameters. Replaces the awkward app.Clients[ctx.SessionId]!.Parameters drill inside the handler body.
     static void OnClientJoined<TSessionIdentity, TClientParameters>(this IApp<TSessionIdentity, TClientParameters> app, Func<Context, TClientParameters, Task> handler)
-    // Subscribe to ClientLeftAsync with a handler that receives the departing client's Context directly.
+    // Subscribe to IAppBase.ClientLeftAsync with a handler that receives the departing client's Context directly.
     static void OnClientLeft(this IAppBase app, Func<Context, Task> handler)
-    // Subscribe to ClientLeftAsync with a handler that receives both the departing client's Context AND its typed TClientParameters .
+    // Subscribe to IAppBase.ClientLeftAsync with a handler that receives both the departing client's Context AND its typed TClientParameters.
     static void OnClientLeft<TSessionIdentity, TClientParameters>(this IApp<TSessionIdentity, TClientParameters> app, Func<Context, TClientParameters, Task> handler)
-    // Subscribe to MessageReceivedAsync with a handler that receives the protocol message directly.
+    // Subscribe to IAppBase.MessageReceivedAsync with a handler that receives the protocol message directly.
     static void OnMessageReceived(this IAppBase app, Func<ProtocolMessage, Task> handler)
-    // Subscribe to StartingAsync with a zero-arg async handler. The Starting event carries no data — there's nothing to forward.
+    // Subscribe to IAppBase.StartingAsync with a zero-arg async handler. The Starting event carries no data — there's nothing to forward.
     static void OnStarting(this IAppBase app, Func<Task> handler)
-    // Subscribe to StoppingAsync with a zero-arg async handler.
+    // Subscribe to IAppBase.StoppingAsync with a zero-arg async handler.
     static void OnStopping(this IAppBase app, Func<Task> handler)
   // App host interface providing typed session identity and client parameters.
   interface IApp<TSessionIdentity, TClientParameters> : IAppBase, IMessageChannel
     // Gets the typed parameters for the current client (determined by ReactiveScope). Must be called inside UI.Root() or a ReactiveScope context.
-    TClientParameters ClientParameters { get; }
-    // Gets the collection of connected clients with typed parameters. Automatically synced with GlobalState .
+    virtual TClientParameters ClientParameters { get; }
+    // Gets the collection of connected clients with typed parameters. Automatically synced with IAppBase.GlobalState.
     IClientCollection<TClientParameters> Clients { get; }
     // Gets the typed session identity used to determine app instance routing.
     TSessionIdentity SessionIdentity { get; }
-  // Collection interface for accessing connected clients. Iterable for the common "broadcast / fan-out" pattern (`foreach (var client in app.Clients)`), indexable by session ID for direct lookups, and exposes Ids when only the connected-session-ids are needed.
+  // Collection interface for accessing connected clients. Iterable for the common "broadcast / fan-out" pattern (`foreach (var client in app.Clients)`), indexable by session ID for direct lookups, and exposes IClientCollection<TClientParameters>.Ids when only the connected-session-ids are needed.
   interface IClientCollection<TClientParameters> : IEnumerable, IEnumerable<IClient<TClientParameters>>
     // Gets the number of currently connected clients.
     int Count { get; }
@@ -6026,21 +6446,25 @@ namespace Ikon.App
   interface IClient<TClientParameters>
     // Gets the typed parameters for this client.
     TClientParameters Parameters { get; }
-    // Gets the session id of this client — the same id used to index IClientCollection and to target client-directed APIs.
+    // Gets the session id of this client — the same id used to index IClientCollection<TClientParameters> and to target client-directed APIs.
     int SessionId { get; }
   // Marker interface for custom profile attribute classes. Implement this interface on classes that define custom profile attributes.
   interface IProfileAttributes
   // Marks a method on an app or cell as an MCP tool. The framework discovers these at startup, reflects the method's parameters into a JSON Schema, registers the method on an Ikon.Mcp.McpHost, and routes incoming MCP tools/call requests to it.
+  // Remarks:
+  // Sibling of HttpMethodAttribute: both declare an inbound HTTP endpoint over the shared addressing + identity model (see EndpointAttribute), differing only in the wire protocol (typed HTTP vs MCP JSON-RPC) and the schema advertised to clients. Each tool is reachable two ways: through the owner's fixed JSON-RPC multiplexer ({owner}/mcp — tools/list + tools/call, and the only surface that streams notifications/progress over SSE), and as its own directly-callable POST endpoint whose body IS the tool's arguments object. That per-tool path defaults to the kebab-cased method name and is overridable via EndpointAttribute.Path — the override adjusts only this tool's own endpoint, never the shared multiplexer. The same method may also carry a verb-named REST attribute ([HttpPost] etc.); then that route serves the REST surface and the per-tool MCP endpoint is suppressed. The governance subject id is always the structural "{Type}.{Method}".
   sealed class McpAttribute : EndpointAttribute
     // Declares an MCP tool whose own endpoint path is the kebab-cased method name.
     ctor()
-    // Declares an MCP tool whose own directly-callable endpoint is served at path .
+    // Declares an MCP tool whose own directly-callable endpoint is served at path.
     ctor(string path)
     // Description shown to MCP clients so the agent's LLM can decide when to invoke the tool. Empty values pass through verbatim — there is no XML-summary fallback.
     string Description { get; init; }
     // MCP-wire tool name presented to clients in tools/list. Defaults to the method name when null or empty. The governance subject id is always "{Type}.{Method}" regardless of this.
     string? Name { get; init; }
   // Marks a method on a cell as an MCP-exposed resource — read-only data addressed by a URI. The framework reflects the method's parameters into a URI template, registers the method on an Ikon.Mcp.McpHost, and routes incoming MCP resources/read requests against the matching URI.
+  // Remarks:
+  // Sibling of McpAttribute — same cell-method-as-callable model, different MCP verb shape: • Static resource — method takes no arguments; the URI is the literal McpResourceAttribute.UriTemplate with no placeholders. Lists in resources/list. • Dynamic resource — method takes parameters that map to {placeholder} segments in the URI template by name. Lists in resources/templates/list; the client crafts a concrete URI and reads it. Read-only by spec — authors should not put side effects in resource methods (the same governance hook still fires on every read with Operation = "resource", so policy authors can distinguish read access from tool dispatch).
   sealed class McpResourceAttribute : Attribute
     ctor(string uriTemplate)
     // Description shown to MCP clients so the agent (or user, via the client UI) can decide when to fetch the resource. Empty values pass through verbatim.
@@ -6051,29 +6475,42 @@ namespace Ikon.App
     string? Name { get; init; }
     // URI or URI template (RFC-6570 Level 1: {name} placeholders only). Required. Placeholder names must match the cell method's parameter names exactly. The scheme is author-chosen — common conventions are file:///, {cellname}://, or domain-specific scheme like order://, policy://.
     string UriTemplate { get; }
-  // Event arguments for the MessageReceivedAsync event.
+  // Event arguments for the IAppBase.MessageReceivedAsync event.
   class MessageReceivedEventArgs : EventArgs
     ctor(ProtocolMessage message)
     // Gets the received protocol message.
     ProtocolMessage Message { get; }
-  // A minted endpoint URL: the working Url (the endpoint URL with pinned path placeholders substituted and the signed ?ikon-grant= appended), the GrantId to revoke it by, and the optional ExpiresAt when a TTL was requested (grants are non-expiring by default).
+  // A minted endpoint URL: the working MintedUrl.Url (the endpoint URL with pinned path placeholders substituted and the signed ?ikon-grant= appended), the MintedUrl.GrantId to revoke it by, and the optional MintedUrl.ExpiresAt when a TTL was requested (grants are non-expiring by default).
   sealed class MintedUrl : IEquatable<MintedUrl>
     ctor(string Url, string GrantId, DateTimeOffset? ExpiresAt)
     DateTimeOffset? ExpiresAt { get; init; }
     string GrantId { get; init; }
     string Url { get; init; }
+  // The app's browser-history surface, reached through App.Navigation: reads and drives the URL of a connected client, and reports the navigations the client makes on its own. Navigation is per client, not per app: every path the app sets or reads belongs to one client session. The parameterless overloads act on the client of the ambient ClientScope — the client whose event, function call or reactive render is currently on the stack — so they must be called from a client-scoped context; the targetId overloads name the client session explicitly and work from anywhere (a background task, a timer, another client's handler). Paths under the platform-reserved prefixes /ikon and /api are rejected: the load balancer intercepts them before they ever reach the app, so navigating there would strand the client on a backend route. Navigation.SetPathAsync throws ArgumentException rather than let that happen.
   class Navigation
+    // Asks one client where it currently is. The path is read from the live client, so it round trips over the connection rather than reading server-side state.
     Task<string?> GetPathAsync(int targetId)
+    // Asks the client of the ambient ClientScope where it currently is. Call this from a client-scoped context (an event handler, a function call, a reactive render).
     Task<string?> GetPathAsync()
+    // Navigates one client to path. The client's existing query parameters are carried over unless path brings a query string of its own.
     Task<bool> SetPathAsync(int targetId, string path, bool replace = false)
+    // Navigates the client of the ambient ClientScope to path, carrying over the client's existing query parameters unless path brings a query string of its own. Call this from a client-scoped context (an event handler, a function call, a reactive render); outside one there is no client to navigate.
     Task<bool> SetPathAsync(string path, bool replace = false)
+    // Raised after a client's URL changes, whichever side caused it: the client following a link, pressing back, reloading, or the app calling Navigation.SetPathAsync. Handlers run on a background task inside the navigating client's UserScope and ClientScope, so scoped reactives resolve to that client. An exception thrown by a handler is logged and swallowed — it never propagates back to the client.
     event AsyncEventHandler<NavigationPathChangedEventArgs> PathChangedAsync
+  // Event arguments raised when a client navigates to a different URL — either through the app (Navigation.SetPathAsync) or on its own (a link, the browser's back button, a manual reload).
   class NavigationPathChangedEventArgs : EventArgs
+    // Creates the event arguments, splitting url into path and query
     ctor(string url, Context clientContext)
+    // The client that navigated
     Context ClientContext { get; }
+    // Session id of the client that navigated
     int ClientSessionId { get; }
+    // The new path without its query string (e.g. /orders for /orders?id=7)
     string Path { get; }
+    // The new URL as the client reported it, query string included
     string Url { get; }
+    // Id of the user the navigating client is signed in as
     string UserId { get; }
   // Content of a user-facing notification surfaced on the client device (browser notification on the web, OS notification on Flutter native apps).
   sealed class NotificationContent : IEquatable<NotificationContent>
@@ -6105,7 +6542,7 @@ namespace Ikon.App
     NotificationPermission Permission { get; init; }
     // The target client session id.
     int SessionId { get; init; }
-  // Platform notification surface for an Ikon app — shows user-facing notifications on connected clients. Accessed via app.Notifications. Connected clients receive the notification immediately (foreground). Permission is requested lazily on the client the first time a notification is actually sent, not when the app opens. SendToUserAsync fans out to every connected session for that user; if the user has no connected session it falls back to offline push (an OS notification) through the backend push hub. Offline push is server-orchestrated: when a foreground send is granted, the client's push subscription is fetched and registered with the backend, which then delivers via Web Push / FCM while the user is disconnected.
+  // Platform notification surface for an Ikon app — shows user-facing notifications on connected clients. Accessed via app.Notifications. Connected clients receive the notification immediately (foreground). Permission is requested lazily on the client the first time a notification is actually sent, not when the app opens. NotificationService.SendToUserAsync fans out to every connected session for that user; if the user has no connected session it falls back to offline push (an OS notification) through the backend push hub. Offline push is server-orchestrated: when a foreground send is granted, the client's push subscription is fetched and registered with the backend, which then delivers via Web Push / FCM while the user is disconnected.
   sealed class NotificationService
     // Shows a notification on all currently-connected client sessions. Returns one result per session.
     Task<IReadOnlyList<NotificationSendResult>> BroadcastAsync(NotificationContent content, CancellationToken ct = default)
@@ -6115,7 +6552,18 @@ namespace Ikon.App
     Task<NotificationSendResult> SendToSessionAsync(int sessionId, NotificationContent content, CancellationToken ct = default)
     // Shows a notification on every currently-connected session belonging to userId (a user may be connected from several devices). When the user has no connected session, falls back to offline push — an OS notification delivered through the backend push hub. Returns one result per targeted session (empty when the user was offline and only push was attempted).
     Task<IReadOnlyList<NotificationSendResult>> SendToUserAsync(string userId, NotificationContent content, CancellationToken ct = default)
-  // A ReactiveList persisted globally for the app within its space. Shared across all session identities and users; one list per app deployment.
+  // A ReactiveDictionary<TKey, TValue> persisted globally for the app within its space. Shared across all session identities and users; one dictionary per app deployment.
+  // Remarks:
+  // Same contract as ReactiveDictionary<TKey, TValue> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentReactive<T>. For per-user dictionaries use PersistentUserReactiveDictionary<TKey, TValue>.
+  class PersistentReactiveDictionary<TKey, TValue> : ReactiveDictionary<TKey, TValue>
+    ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    PersistenceBackend Backend { get; }
+    string? PostgresDatabase { get; }
+    string? PublicUrl { get; }
+  // A ReactiveList<T> persisted globally for the app within its space. Shared across all session identities and users; one list per app deployment.
+  // Remarks:
+  // Same contract as ReactiveList<T> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentReactive<T>. For per-user lists use PersistentUserReactiveList<T>.
   class PersistentReactiveList<T> : ReactiveList<T>
     ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
     ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
@@ -6123,12 +6571,25 @@ namespace Ikon.App
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
   // A reactive value persisted globally for the app within its space. Shared across all session identities and users; one value per app deployment.
+  // Remarks:
+  // Use for app-wide configuration the app instance owns. For per-session-identity state (the typical app routing key) use PersistentSessionReactive<T>; for per-user state use PersistentUserReactive<T>.
   class PersistentReactive<T> : Reactive<T>
     ctor(T initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
-  // A ReactiveList persisted per session identity. Apps with the same routing key share the same list; different routing keys have isolated lists.
+  // A ReactiveDictionary<TKey, TValue> persisted per session identity. Apps with the same routing key share the same dictionary; different routing keys have isolated dictionaries.
+  // Remarks:
+  // Same contract as ReactiveDictionary<TKey, TValue> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentSessionReactive<T>, which is the natural choice for dictionary state belonging to a specific app instance.
+  class PersistentSessionReactiveDictionary<TKey, TValue> : ReactiveDictionary<TKey, TValue>
+    ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    PersistenceBackend Backend { get; }
+    string? PostgresDatabase { get; }
+    string? PublicUrl { get; }
+  // A ReactiveList<T> persisted per session identity. Apps with the same routing key share the same list; different routing keys have isolated lists.
+  // Remarks:
+  // Same contract as ReactiveList<T> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentSessionReactive<T>, which is the natural choice for list state belonging to a specific app instance.
   class PersistentSessionReactiveList<T> : ReactiveList<T>
     ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
     ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
@@ -6136,25 +6597,64 @@ namespace Ikon.App
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
   // A reactive value persisted per session identity. Apps with the same routing key share the same value; different routing keys have isolated values.
+  // Remarks:
+  // This is the natural choice for state that belongs to a specific app instance, since the session identity already determines instance routing.
   class PersistentSessionReactive<T> : Reactive<T>
     ctor(T initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
-  // A ReactiveList persisted per user, partitioned at runtime by UserScope . Each user sees their own list across all of their client sessions.
+  // A ReactiveDictionary<TKey, TValue> persisted per user, partitioned at runtime by UserScope. Each user sees their own dictionary across all of their client sessions.
+  // Remarks:
+  // Same contract as ReactiveDictionary<TKey, TValue> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentUserReactive<T>.
+  class PersistentUserReactiveDictionary<TKey, TValue> : ReactiveDictionary<TKey, TValue>
+    ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    PersistenceBackend Backend { get; }
+    string? PostgresDatabase { get; }
+    string? PublicUrl { get; }
+    // Removes all entries from one user's dictionary regardless of which scope — if any — is active.
+    void ClearFor(string userId)
+    // Removes the entry for key from one user's dictionary regardless of which scope — if any — is active. Returns whether it was found.
+    bool RemoveFor(string userId, TKey key)
+    // Adds or replaces one entry in one user's dictionary regardless of which scope — if any — is active. This is the background-task form of this[key] = value: capture the id while the user scope is still active (var userId = ReactiveScope.UserId;), then mutate from anywhere. One notification.
+    void SetFor(string userId, TKey key, TValue value)
+    // Atomically transforms one user's entries under that user's lock, regardless of which scope — if any — is active. Same contract as ReactiveDictionary<TKey, TValue>.Update.
+    void UpdateFor(string userId, Action<Dictionary<TKey, TValue>> transform)
+    // Reads one user's entries regardless of which scope — if any — is active.
+    IReadOnlyDictionary<TKey, TValue> ValueFor(string userId)
+  // A ReactiveList<T> persisted per user, partitioned at runtime by UserScope. Each user sees their own list across all of their client sessions.
+  // Remarks:
+  // Same contract as ReactiveList<T> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentUserReactive<T>.
   class PersistentUserReactiveList<T> : ReactiveList<T>
     ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
     ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
-  // A reactive value persisted per user, partitioned at runtime by UserScope . Each user sees their own value across all of their client sessions.
+    // Appends to one user's list regardless of which scope — if any — is active. This is the background-task form of ReactiveList<T>.Add: capture the id while the user scope is still active (var userId = ReactiveScope.UserId;), then mutate from anywhere. One notification.
+    void AddFor(string userId, T item)
+    // Removes all items from one user's list regardless of which scope — if any — is active.
+    void ClearFor(string userId)
+    // Removes the first occurrence of item from one user's list regardless of which scope — if any — is active. Returns whether it was found.
+    bool RemoveFor(string userId, T item)
+    // Atomically replaces one user's items under that user's lock, regardless of which scope — if any — is active. Same contract as ReactiveList<T>.Update.
+    void UpdateFor(string userId, Func<IReadOnlyList<T>, IEnumerable<T>> transform)
+    // Reads one user's items regardless of which scope — if any — is active.
+    IReadOnlyList<T> ValueFor(string userId)
+  // A reactive value persisted per user, partitioned at runtime by UserScope. Each user sees their own value across all of their client sessions.
   class PersistentUserReactive<T> : Reactive<T, UserScope>
     ctor(T initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
     ctor(Func<string, T> initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
+    // Writes one user's value regardless of which scope — if any — is active. This is the background-task form of Value = x: capture the id while the user scope is still active (var userId = ReactiveScope.UserId;), then write to it from anywhere.
+    void SetFor(string userId, T value)
+    // Atomically read-modify-writes one user's value, under that user's lock, regardless of which scope — if any — is active.
+    void UpdateFor(string userId, Func<T, T> mutator)
+    // Reads one user's value regardless of which scope — if any — is active.
+    T ValueFor(string userId)
   // Read-only view of a client's address.
   sealed class ProfileAddress
     string? City { get; }
@@ -6187,7 +6687,7 @@ namespace Ikon.App
     string? UserId { get; }
   // Event arguments raised when speech has been recognized from a captured audio stream.
   sealed class SpeechRecognizedEventArgs : EventArgs
-    ctor(string text, Context clientContext, string streamId, string? correlationId, TimeSpan duration, int sampleCount)
+    ctor(string text, Context clientContext, string streamId, string? correlationId, TimeSpan duration, int sampleCount, int turnId = 0)
     // Client context of the speaker.
     Context ClientContext { get; }
     // Client session id of the speaker.
@@ -6202,15 +6702,17 @@ namespace Ikon.App
     string StreamId { get; }
     // Recognized speech text.
     string Text { get; }
+    // Identifier of the detected turn when the recognition came from Audio.UseTurnDetection, shared with the matching TurnStartedEventArgs and TurnSpeculativeEventArgs. 0 for push-to-talk recognitions (Audio.UseSpeechRecognition).
+    int TurnId { get; }
     // User id of the speaker.
     string UserId { get; }
-  // Event arguments for the StartingAsync event.
+  // Event arguments for the IAppBase.StartingAsync event.
   class StartingEventArgs : EventArgs
     ctor()
-  // Event arguments for the StoppingAsync event.
+  // Event arguments for the IAppBase.StoppingAsync event.
   class StoppingEventArgs : EventArgs
     ctor()
-  // The built-in client UI themes. The wire protocol carries the theme as a string (custom theme names are allowed via SetThemeAsync ); ToThemeName maps these values to their wire names.
+  // The built-in client UI themes. The wire protocol carries the theme as a string (custom theme names are allowed via ClientFunctions.SetThemeAsync); ThemeExtensions.ToThemeName maps these values to their wire names.
   enum Theme
     Dark
     Light
@@ -6220,6 +6722,38 @@ namespace Ikon.App
     static bool IsDarkTheme(this Context clientContext)
     // Returns the wire name of the theme: "dark" or "light".
     static string ToThemeName(this Theme theme)
+  // Event arguments raised when a turn has probably ended and its speculative transcript is ready (see Audio.UseTurnDetection). Start downstream work (e.g. generating a reply) with TurnSpeculativeEventArgs.CancellationToken: it is cancelled if the user resumes speaking, and the matching SpeechRecognizedEventArgs (same TurnSpeculativeEventArgs.TurnId) confirms the turn otherwise.
+  sealed class TurnSpeculativeEventArgs : EventArgs
+    ctor(int turnId, string text, TimeSpan duration, CancellationToken cancellationToken, string streamId, Context clientContext)
+    // Cancelled if the user resumes speaking, invalidating this speculative transcript.
+    CancellationToken CancellationToken { get; }
+    // Client context of the speaker.
+    Context ClientContext { get; }
+    // Client session id of the speaker.
+    int ClientSessionId { get; }
+    // Duration of the audio the transcript was recognized from.
+    TimeSpan Duration { get; }
+    // Stream id the turn was detected on.
+    string StreamId { get; }
+    // Speculative transcript of the turn so far.
+    string Text { get; }
+    // Identifier of this turn, shared with the matching started and recognized events.
+    int TurnId { get; }
+    // User id of the speaker.
+    string UserId { get; }
+  // Event arguments raised when a user starts a speech turn on a turn-detected stream (see Audio.UseTurnDetection). Useful as a barge-in or listening-indicator hook.
+  sealed class TurnStartedEventArgs : EventArgs
+    ctor(int turnId, string streamId, Context clientContext)
+    // Client context of the speaker.
+    Context ClientContext { get; }
+    // Client session id of the speaker.
+    int ClientSessionId { get; }
+    // Stream id the turn was detected on.
+    string StreamId { get; }
+    // Identifier of this turn, shared with the matching speculative and recognized events.
+    int TurnId { get; }
+    // User id of the speaker.
+    string UserId { get; }
   // Built-in user roles. Maps to role strings stored in profile.
   enum UserRole
     Guest
@@ -6232,7 +6766,7 @@ namespace Ikon.App
     // Closes all video streams.
     ValueTask CloseAllAsync()
     // Closes a video stream and sends the stream end message.
-    ValueTask CloseAsync(string? streamKey = null)
+    ValueTask CloseAsync(string? streamId = null)
     // Gets information about an output stream if it exists.
     VideoOutputStreamInfo? GetOutputStreamInfo(string? streamId = null)
     // Sends a video frame to the Ikon server.
@@ -6326,25 +6860,31 @@ namespace Ikon.App.Cells
   // Marks a class as a cell — a headless app addressed by a SessionIdentity record declared inside the class. Discovered by CellHost at startup via reflection over loaded assemblies.
   sealed class CellAttribute : Attribute
     ctor()
-    // Number of concurrent instances per addressable key. Defaults to 1 (per-key singleton). Values greater than 1 spawn that many instances and round-robin Resolve across them. For globals (parameterless SessionIdentity) the N instances are eager-spawned at host construction — the load-balanced auth-cell pattern. For keyed cells the N instances are spawned together on first access; sharded keyed cells must tolerate eventual consistency between shards (cells should hold no per-instance state, or persist shared state through an external store).
+    // Number of concurrent instances per addressable key. Defaults to 1 (per-key singleton). Values greater than 1 spawn that many instances and round-robin CellHost.Resolve<TInterface> across them. For globals (parameterless SessionIdentity) the N instances are eager-spawned at host construction — the load-balanced auth-cell pattern. For keyed cells the N instances are spawned together on first access; sharded keyed cells must tolerate eventual consistency between shards (cells should hold no per-instance state, or persist shared state through an external store).
     int Capacity { get; init; }
     // How long a keyed cell may remain idle before EvictIdle removes it from the directory. Zero (the default) means no eviction — the instance lives until the host shuts down. Globals (cells whose SessionIdentity is parameterless) are never evicted regardless of this value.
     int IdleTtlSeconds { get; init; }
-    // Where this cell type is hosted. AppProcess (the default) keeps the cell in the app's own `CellHost` — every app process has its own copies, state is not shared across processes. Substrate declares that the cell should be hosted on the platform's cell-deployment substrate, where one instance per (cell-type, SessionIdentity) is shared across all app processes that connect.
+    // Where this cell type is hosted. CellProcessScope.AppProcess (the default) keeps the cell in the app's own `CellHost` — every app process has its own copies, state is not shared across processes. CellProcessScope.Substrate declares that the cell should be hosted on the platform's cell-deployment substrate, where one instance per (cell-type, SessionIdentity) is shared across all app processes that connect.
+    // Remarks:
+    // The substrate is the architectural commitment that makes cell SessionIdentity authoritative for cell deployment (independent of how many app processes exist). See the "cell-substrate + unified HTTP surface" RFC for the full design. Today's shipped behaviour:Cells.Connect<TInterface>(identity) for a CellProcessScope.Substrate cell returns a SubstrateCellProxy that dispatches method calls over HTTP to the cell's [HttpGet]/[HttpPost] endpoint URL. Cross-process Reactive<T> subscriptions are NOT yet plumbed — until the reactive wire protocol lands, reactive state continues to behave per-process. Concrete-class access (Cells.Connect<ConcreteCellType>) returns the local instance unchanged, regardless of CellAttribute.ProcessScope.
     CellProcessScope ProcessScope { get; init; }
-  // Where a CellAttribute -decorated type's instances live.
+  // Where a CellAttribute-decorated type's instances live.
   enum CellProcessScope
     AppProcess
     Substrate
-  // Per-server-scoped accessor (via AsyncLocalInstance — use Cells.Instance) for that server's CellHost plus the wiring substrate-cell proxies need: the endpoint-URL resolver (for [HttpGet]/[HttpPost] methods) and the cell-client factory (for [Function] methods and Reactive<T> state, which ride a standard IkonClient SDK connection to the cell-host).
+  // Per-server-scoped accessor (via AsyncLocalInstance<T> — use Cells.Instance) for that server's CellHost plus the wiring substrate-cell proxies need: the endpoint-URL resolver (for [HttpGet]/[HttpPost] methods) and the cell-client factory (for [Function] methods and Reactive<T> state, which ride a standard IkonClient SDK connection to the cell-host).
+  // Remarks:
+  // Each in-process server runs in its own async-local scope (enabled by the server's InitializeAll()), so Cells.Instance resolves to that server's own host/wiring — multiple servers (Studio + preview + sandbox) no longer share or clobber one process-global host. The framework calls Cells.Initialize once at startup; apps call Cells.Connect<TInterface> for each cell access. Tests construct their own CellHost over a controlled assembly set and re-initialize between scenarios.
   class Cells : AsyncLocalInstance<Cells>
     ctor()
-    // Resolve (or spawn on first call) the cell implementation for TInterface keyed by sessionIdentity . Subsequent calls with an equal SessionIdentity return the same instance.
+    // Resolve (or spawn on first call) the cell implementation for TInterface keyed by sessionIdentity. Subsequent calls with an equal SessionIdentity return the same instance.
+    // Remarks:
+    // For cell types annotated [Cell(ProcessScope = CellProcessScope.Substrate)] AND when TInterface is an interface, returns a SubstrateCellProxy<TInterface> that dispatches per member: [HttpGet]/[HttpPost] methods over stateless HTTP, [Function] methods and Reactive<T> members over a standard SDK connection to the cell-host. Otherwise returns the local cell instance from the process-wide CellHost.
     TInterface Connect<TInterface>(object sessionIdentity) where TInterface : class
     // Dispose every live cell-host connection. Call on app shutdown. Idempotent.
     ValueTask DisposeAsync()
     // Reserved key in an SDK connection's parameters that names the substrate cell type to route to. The cell's SessionIdentity-record fields ride alongside it. MUST stay in sync with the cloud's CELL_TYPE_PARAM in cell-routing.ts — that's what ChannelInstanceService.create keys on to provision a cell-host channel-instance.
-    static string CellTypeParam
+    const string CellTypeParam
   // Framework handle injected into a cell's primary constructor. Exposes the SessionIdentity the cell was instantiated for; future revisions add lifetime, config, etc.
   interface ICell<TSessionIdentity>
     // The SessionIdentity record value this cell instance is keyed by.
@@ -6372,6 +6912,9 @@ namespace Ikon.App.Connectors
     long? Size { get; init; }
     string? WebViewLink { get; init; }
   static class GoogleAuth
+    // Builds a ready-to-use Google API credential from stored refresh-token credentials — the access token is obtained and refreshed automatically on first use.
+    // Remarks:
+    // The returned UserCredential is a third-party type from the Google.Apis.Auth NuGet package (namespace Google.Apis.Auth.OAuth2), which ships transitively with this library. Assign it as the HttpClientInitializer in any Google API service initializer (Drive, Sheets, Gmail, Calendar, ...) from the corresponding Google.Apis.* package.
     static UserCredential CredentialFor(GoogleCredentials credentials, IEnumerable<string> scopes)
     // True when ex is a PERMANENT OAuth failure (revoked/expired refresh token, bad client) that retrying won't fix — the account must be reconnected. Lets connectors stop and surface a distinct "reconnect required" state instead of hammering the token endpoint forever.
     static bool IsAuthFailure(Exception ex)
@@ -6399,7 +6942,7 @@ namespace Ikon.App.Connectors
     Task<string> SendAsync(string to, string text, CancellationToken ct = default)
 
 namespace Ikon.App.Cron
-  // Per-invocation context for a CronAttribute handler currently executing. A cron handler may optionally accept one of these (and/or a CancellationToken ) to learn when and why it fired; a parameterless handler is equally valid. AsyncLocal so handler code (and anything it calls) can read it without threading it through every method signature.
+  // Per-invocation context for a CronAttribute handler currently executing. A cron handler may optionally accept one of these (and/or a CancellationToken) to learn when and why it fired; a parameterless handler is equally valid. AsyncLocal so handler code (and anything it calls) can read it without threading it through every method signature.
   sealed class CronContext : IEquatable<CronContext>
     ctor(DateTime FireTimeUtc, string Schedule)
     // The cron context for the invocation currently running on this async flow, or null.
@@ -6409,7 +6952,7 @@ namespace Ikon.App.Cron
     static IDisposable Use(CronContext context)
 
 namespace Ikon.App.Http
-  // Per-request context for an HttpMethodAttribute handler currently executing. AsyncLocal so handler code (and anything it calls) can read the request's resolved identity without threading the dict through every method signature. Relationship to other "context" concepts on the platform: SessionIdentity (the typed app/cell record): the routing / instance-partition key. Always present — it's what was used to address the channel-instance this handler runs in. Stable across the cell instance's lifetime.Context (Ikon protocol Context for WS clients): the live client *connection* — sessionId, deviceId, AuthSessionId, UserId from the connect-token. Absent for endpoint/MCP dispatches because there is no live client connection.HttpCallContext.Current (this) and McpCallContext .Current: the *request-scoped overlay* that exposes the per-call resolved identity for handler code to read. Set by the wrapper before the handler runs, cleared after. The point is that handlers reading "who is this call for?" get a non-empty answer on endpoint/MCP-dispatched calls, where the connection-level Context.UserId would be empty. The handler's SessionIdentity record (resolved by CellHost.ResolveByCellTypeName before this context is set) and HttpCallContext.Current.SessionIdentity carry the same information in different shapes: the former is typed and tied to the cell's lifetime; the latter is the raw wire dict tied to the call's lifetime. Headers and RawBody are the UNTRUSTED request inputs, exposed so a handler can do its own logic inline (e.g. verify a Stripe-Signature against the raw body) without a separate auth cell. They must never feed identity resolution — the target instance is already chosen from trusted sources (a signed ikon-grant / policy claims / platform-controlled path+query) before the handler runs, so reading a header cannot retarget the call.
+  // Per-request context for an HttpMethodAttribute handler currently executing. AsyncLocal so handler code (and anything it calls) can read the request's resolved identity without threading the dict through every method signature. Relationship to other "context" concepts on the platform: • SessionIdentity (the typed app/cell record): the routing / instance-partition key. Always present — it's what was used to address the channel-instance this handler runs in. Stable across the cell instance's lifetime. • Context (Ikon protocol Context for WS clients): the live client *connection* — sessionId, deviceId, AuthSessionId, UserId from the connect-token. Absent for endpoint/MCP dispatches because there is no live client connection. • HttpCallContext.Current (this) and McpCallContext.Current: the *request-scoped overlay* that exposes the per-call resolved identity for handler code to read. Set by the wrapper before the handler runs, cleared after. The point is that handlers reading "who is this call for?" get a non-empty answer on endpoint/MCP-dispatched calls, where the connection-level Context.UserId would be empty. The handler's SessionIdentity record (resolved by CellHost.ResolveByCellTypeName before this context is set) and HttpCallContext.Current.SessionIdentity carry the same information in different shapes: the former is typed and tied to the cell's lifetime; the latter is the raw wire dict tied to the call's lifetime. Headers and RawBody are the UNTRUSTED request inputs, exposed so a handler can do its own logic inline (e.g. verify a Stripe-Signature against the raw body) without a separate auth cell. They must never feed identity resolution — the target instance is already chosen from trusted sources (a signed ikon-grant / policy claims / platform-controlled path+query) before the handler runs, so reading a header cannot retarget the call.
   sealed class HttpCallContext : IEquatable<HttpCallContext>
     ctor(IReadOnlyDictionary<string, string>? SessionIdentity = null, CancellationToken CancellationToken = default, IReadOnlyDictionary<string, string>? Headers = null, string? RawBody = null)
     CancellationToken CancellationToken { get; init; }
@@ -6424,17 +6967,17 @@ namespace Ikon.App.Http
     static IDisposable Use(HttpCallContext context)
 
 namespace Ikon.App.Mcp
-  // Per-request context for an MCP tools/call or resources/read in flight. AsyncLocal so the bridge can read it from inside parameter binding without threading another argument through every call site. Carries: The request's effective CancellationToken (linked to the transport CT and a per-request CTS the host can trip on notifications/cancelled).An optional progress sink the bridge wires IProgress parameters into. SessionIdentityFields — the authenticated identity for this request (from claims merged by the transport). Bridges pass it to CellHost.ResolveByCellTypeName so keyed cells route to the right instance. Empty / null on the stdio path (single-user process).
+  // Per-request context for an MCP tools/call or resources/read in flight. AsyncLocal so the bridge can read it from inside parameter binding without threading another argument through every call site. Carries: • The request's effective McpCallContext.CancellationToken (linked to the transport CT and a per-request CTS the host can trip on notifications/cancelled). • An optional progress sink the bridge wires IProgress<T> parameters into. • McpCallContext.SessionIdentityFields — the authenticated identity for this request (from claims merged by the transport). Bridges pass it to CellHost.ResolveByCellTypeName so keyed cells route to the right instance. Empty / null on the stdio path (single-user process).
   sealed class McpCallContext : IEquatable<McpCallContext>
     ctor(CancellationToken CancellationToken, Func<ProgressUpdate, Task>? OnProgress, IReadOnlyDictionary<string, string>? SessionIdentityFields = null)
     CancellationToken CancellationToken { get; init; }
     static McpCallContext? Current { get; }
     Func<ProgressUpdate, Task>? OnProgress { get; init; }
     IReadOnlyDictionary<string, string>? SessionIdentityFields { get; init; }
-    // Convenience accessor for the conventional userid field of the request's SessionIdentity. Returns null when no McpCallContext is current or when claims carried no userid. Mirror of UserId — same semantics across both request-scoped contexts.
+    // Convenience accessor for the conventional userid field of the request's SessionIdentity. Returns null when no McpCallContext is current or when claims carried no userid. Mirror of HttpCallContext.UserId — same semantics across both request-scoped contexts.
     string? UserId { get; }
     static IDisposable Use(McpCallContext context)
-  // One progress update emitted by a long-running tool. Progress is a monotonic counter; Total is optional but expected to stay constant across updates so clients can render a percentage. Message is freeform display text.
+  // One progress update emitted by a long-running tool. ProgressUpdate.Progress is a monotonic counter; ProgressUpdate.Total is optional but expected to stay constant across updates so clients can render a percentage. ProgressUpdate.Message is freeform display text.
   sealed class ProgressUpdate : IEquatable<ProgressUpdate>
     ctor(double Progress, double? Total = null, string? Message = null)
     string? Message { get; init; }
@@ -6447,7 +6990,7 @@ namespace Ikon.App.Payments
     Unknown
     Subscription
     OneTime
-  // The price for a created offer. Omit Interval for a one-time offer.
+  // The price for a created offer. Omit OfferPriceSpec.Interval for a one-time offer.
   sealed class OfferPriceSpec : IEquatable<OfferPriceSpec>
     ctor(long AmountMinor, string Currency, PriceKind Kind, PriceInterval? Interval = null, int? IntervalCount = null)
     long AmountMinor { get; init; }
@@ -6455,13 +6998,13 @@ namespace Ikon.App.Payments
     PriceInterval? Interval { get; init; }
     int? IntervalCount { get; init; }
     PriceKind Kind { get; init; }
-  // Defines an offer to create via CreateOfferAsync .
+  // Defines an offer to create via PaymentsService.CreateOfferAsync.
   sealed class OfferSpec : IEquatable<OfferSpec>
     ctor(string OfferId, string Name, OfferPriceSpec Price)
     string Name { get; init; }
     string OfferId { get; init; }
     OfferPriceSpec Price { get; init; }
-  // A single payment record (a one-off charge or a subscription renewal). OfferId is null for ad-hoc charges and records written before offer tracking.
+  // A single payment record (a one-off charge or a subscription renewal). Payment.OfferId is null for ad-hoc charges and records written before offer tracking.
   sealed class Payment : IEquatable<Payment>
     ctor(string Id, PaymentProvider? Provider, PaymentStatus Status, PaymentKind Kind, string? OfferId, long AmountMinor, string Currency, long AmountRefundedMinor, DateTimeOffset? CreatedAt)
     long AmountMinor { get; init; }
@@ -6473,7 +7016,7 @@ namespace Ikon.App.Payments
     string? OfferId { get; init; }
     PaymentProvider? Provider { get; init; }
     PaymentStatus Status { get; init; }
-  // A customer's access to an offer, whether from an active subscription or a one-time purchase. This is the access-control answer the [PaymentsRequireEntitlement] policy gates on. Subscription access carries ExpiresAt (period end plus a grace window) and reports inactive once it has passed; a one-time purchase has no expiry.
+  // A customer's access to an offer, whether from an active subscription or a one-time purchase. This is the access-control answer the [PaymentsRequireEntitlement] policy gates on. Subscription access carries PaymentEntitlement.ExpiresAt (period end plus a grace window) and reports inactive once it has passed; a one-time purchase has no expiry.
   sealed class PaymentEntitlement : IEquatable<PaymentEntitlement>
     ctor(string OfferId, bool Active, DateTimeOffset? ExpiresAt, EntitlementSource Source)
     bool Active { get; init; }
@@ -6491,7 +7034,7 @@ namespace Ikon.App.Payments
     PaymentEventType? Type { get; init; }
     // The normalized projection as a JSON element.
     JsonElement Payload()
-  // The kind of a normalized PaymentEvent .
+  // The kind of a normalized PaymentEvent.
   enum PaymentEventType
     PaymentAuthorized
     PaymentPaid
@@ -6510,7 +7053,7 @@ namespace Ikon.App.Payments
     Unknown
     OneTime
     Subscription
-  // A provider-hosted page the customer is redirected to in order to pay. Send them to Url .
+  // A provider-hosted page the customer is redirected to in order to pay. Send them to PaymentLink.Url.
   sealed class PaymentLink : IEquatable<PaymentLink>
     ctor(string Url, string Reference, PaymentProvider? Provider)
     PaymentProvider? Provider { get; init; }
@@ -6522,7 +7065,7 @@ namespace Ikon.App.Payments
     string Name { get; init; }
     string OfferId { get; init; }
     IReadOnlyList<PaymentPrice> Prices { get; init; }
-  // One price on an offer. Interval and IntervalCount are meaningful only when Kind is Recurring ; a one-time price reports Unknown .
+  // One price on an offer. PaymentPrice.Interval and PaymentPrice.IntervalCount are meaningful only when PaymentPrice.Kind is PriceKind.Recurring; a one-time price reports PriceInterval.Unknown.
   sealed class PaymentPrice : IEquatable<PaymentPrice>
     ctor(long AmountMinor, string Currency, PriceKind Kind, PriceInterval Interval, int? IntervalCount)
     long AmountMinor { get; init; }
@@ -6530,18 +7073,18 @@ namespace Ikon.App.Payments
     PriceInterval Interval { get; init; }
     int? IntervalCount { get; init; }
     PriceKind Kind { get; init; }
-  // The payment provider that moves the money. A command uses the space's enabled provider unless it names one, either per call or by pinning DefaultProvider .
+  // The payment provider that moves the money. A command uses the space's enabled provider unless it names one, either per call or by pinning PaymentsService.DefaultProvider.
   enum PaymentProvider
     Stripe
     Mollie
     Surfboard
-  // A receipt for a completed payment. Url is a provider-hosted receipt page. Pdf holds downloadable PDF bytes only when the provider exposes one; today every provider (Stripe, Surfboard) returns a hosted URL only, so Pdf is null — the field is populated when a provider offers a PDF.
+  // A receipt for a completed payment. PaymentReceipt.Url is a provider-hosted receipt page. PaymentReceipt.Pdf holds downloadable PDF bytes only when the provider exposes one; today every provider (Stripe, Surfboard) returns a hosted URL only, so PaymentReceipt.Pdf is null — the field is populated when a provider offers a PDF.
   sealed class PaymentReceipt : IEquatable<PaymentReceipt>
     ctor(string? Url, byte[]? Pdf, string? PdfContentType)
     byte[]? Pdf { get; init; }
     string? PdfContentType { get; init; }
     string? Url { get; init; }
-  // Result of a ReconcileAsync request. Enqueued counts the provider objects queued for re-processing; their effects arrive asynchronously as normal payment events.
+  // Result of a PaymentsService.ReconcileAsync request. PaymentReconcileResult.Enqueued counts the provider objects queued for re-processing; their effects arrive asynchronously as normal payment events.
   sealed class PaymentReconcileResult : IEquatable<PaymentReconcileResult>
     ctor(PaymentProvider? Provider, int Enqueued)
     int Enqueued { get; init; }
@@ -6551,7 +7094,7 @@ namespace Ikon.App.Payments
     ctor(string Reference, RefundStatus Status)
     string Reference { get; init; }
     RefundStatus Status { get; init; }
-  // The outcome of a Payment .
+  // The outcome of a Payment.
   enum PaymentStatus
     Unknown
     Pending
@@ -6567,13 +7110,13 @@ namespace Ikon.App.Payments
     string? OfferId { get; init; }
     PaymentProvider? Provider { get; init; }
     SubscriptionStatus Status { get; init; }
-  // Declares the function requires the current customer to hold an active entitlement for offerId — access granted by an active subscription or a one-time purchase. Resolves the customer from UserId and reads the entitlement from Instance . On missing access it DENIES with a stable code (payments_entitlement_required); the app's UI catches it and opens a payment link via CreatePaymentLinkAsync . The provider webhook then flips the entitlement and the user retries.
+  // Declares the function requires the current customer to hold an active entitlement for offerId — access granted by an active subscription or a one-time purchase. Resolves the customer from PolicyCallContext.UserId and reads the entitlement from Instance. On missing access it DENIES with a stable code (payments_entitlement_required); the app's UI catches it and opens a payment link via PaymentsService.CreatePaymentLinkAsync. The provider webhook then flips the entitlement and the user retries.
   sealed class PaymentsRequireEntitlementAttribute : PolicyAttribute
     ctor(string offerId)
     // Offer the entitlement is keyed to.
     string OfferId { get; }
     override IFunctionPolicy CreatePolicy()
-  // App-level entry point for payments, reached via app.Payments. The app creates payment links (for an offer or an ad-hoc amount) and reacts to PaymentEventReceived events. Every command accepts an optional per-call provider override; when none is given the backend uses the space's enabled provider. The app holds no payment state. One instance per app (an AsyncLocalInstance singleton).
+  // App-level entry point for payments, reached via app.Payments. The app creates payment links (for an offer or an ad-hoc amount) and reacts to PaymentsService.PaymentEventReceived events. Every command accepts an optional per-call provider override; when none is given the backend uses the space's enabled provider. The app holds no payment state. One instance per app (an AsyncLocalInstance<T> singleton).
   sealed class PaymentsService : AsyncLocalInstance<PaymentsService>
     ctor()
     // Default cancel URL used when a command does not specify one.
@@ -6582,15 +7125,15 @@ namespace Ikon.App.Payments
     PaymentProvider? DefaultProvider { get; set; }
     // Default success URL used when a command does not specify one.
     string? DefaultSuccessUrl { get; set; }
-    // Cancel a subscription at the period end (default) or right away with immediate . The entitlement lapses when the cancellation takes effect.
+    // Cancel a subscription at the period end (default) or right away with immediate. The entitlement lapses when the cancellation takes effect.
     Task CancelSubscriptionAsync(string subscriptionId, bool immediate = false, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
-    // Create (or update) an offer in the app's catalog so customers can pay for it by id. For Stripe this provisions a Product + Price; for providers without a catalog (Mollie, Surfboard) the offer is stored by the platform. Idempotent on OfferId .
+    // Create (or update) an offer in the app's catalog so customers can pay for it by id. For Stripe this provisions a Product + Price; for providers without a catalog (Mollie, Surfboard) the offer is stored by the platform. Idempotent on OfferSpec.OfferId.
     Task<PaymentOffer> CreateOfferAsync(OfferSpec offer, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
-    // Create a provider-hosted payment link for an offer. Recurring offers start a subscription; paying grants an entitlement. customerKey defaults to the current user.
-    Task<PaymentLink> CreatePaymentLinkAsync(string offerId, string? customerKey = null, string? email = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
-    // Create a provider-hosted payment link for an ad-hoc amount (tip, one-off charge). Grants no entitlement — use an offer for that. customerKey defaults to the current user.
-    Task<PaymentLink> CreatePaymentLinkAsync(long amountMinor, string currency, string? customerKey = null, string? description = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
-    // The customer's access to an offer (a backend call). Used by the [PaymentsRequireEntitlement] policy. customerKey defaults to the current user. For gating UI, prefer the synchronous IsEntitled .
+    // Create a provider-hosted payment link for an offer. Recurring offers start a subscription; paying grants an entitlement. customerKey defaults to the current user. allowPromotionCodes lets the customer enter a promotion code on the checkout page (Stripe only — codes are managed in the merchant's Stripe dashboard; other providers ignore it).
+    Task<PaymentLink> CreatePaymentLinkAsync(string offerId, string? customerKey = null, string? email = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, bool allowPromotionCodes = false, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
+    // Create a provider-hosted payment link for an ad-hoc amount (tip, one-off charge). Grants no entitlement — use an offer for that. customerKey defaults to the current user. allowPromotionCodes lets the customer enter a promotion code on the checkout page (Stripe only — codes are managed in the merchant's Stripe dashboard; other providers ignore it).
+    Task<PaymentLink> CreatePaymentLinkAsync(long amountMinor, string currency, string? customerKey = null, string? description = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, bool allowPromotionCodes = false, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
+    // The customer's access to an offer (a backend call). Used by the [PaymentsRequireEntitlement] policy. customerKey defaults to the current user. For gating UI, prefer the synchronous PaymentsService.IsEntitled.
     Task<PaymentEntitlement> GetEntitlementAsync(string offerId, string? customerKey = null, CancellationToken cancellationToken = default)
     // Synchronous, cache-backed access check for gating UI — no backend call, safe to read every render. Reading it inside a UI lambda re-renders when the entitlement changes (after a purchase or a pushed event). customerKey defaults to the current user. The first read for an unseen offer returns false and warms the cache in the background, flipping to the real value on the next render.
     bool IsEntitled(string offerId, string? customerKey = null)
@@ -6600,13 +7143,13 @@ namespace Ikon.App.Payments
     Task<IReadOnlyList<Payment>> ListPaymentsAsync(string? customerKey = null, CancellationToken cancellationToken = default)
     // The customer's subscriptions. customerKey defaults to the current user.
     Task<IReadOnlyList<PaymentSubscription>> ListSubscriptionsAsync(string? customerKey = null, CancellationToken cancellationToken = default)
-    // Ask the backend to re-pull live provider state — the recovery path when a provider webhook was missed or the app was offline when an event was pushed. Eventually consistent: the pulled objects flow through the normal pipeline and surface as ordinary PaymentEventReceived pushes and entitlement refreshes within seconds. With a reference (a payment link's checkout-session reference or a subscription id) only that object is pulled; otherwise the customer's recent objects; with neither and no current user in scope, the space's recent window.
+    // Ask the backend to re-pull live provider state — the recovery path when a provider webhook was missed or the app was offline when an event was pushed. Eventually consistent: the pulled objects flow through the normal pipeline and surface as ordinary PaymentsService.PaymentEventReceived pushes and entitlement refreshes within seconds. With a reference (a payment link's checkout-session reference or a subscription id) only that object is pulled; otherwise the customer's recent objects; with neither and no current user in scope, the space's recent window.
     Task<PaymentReconcileResult> ReconcileAsync(string? customerKey = null, string? reference = null, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
-    // Refund a payment, in full by default or partially via amountMinor . Refunding does not revoke an entitlement the payment granted.
+    // Refund a payment, in full by default or partially via amountMinor. Refunding does not revoke an entitlement the payment granted.
     Task<PaymentRefund> RefundAsync(string paymentId, long? amountMinor = null, string? reason = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
     // Remove an offer from the app's catalog (Stripe archives the Product/Price). Returns false if no such active offer existed.
     Task<bool> RemoveOfferAsync(string offerId, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
-    // Fetch a receipt for a completed payment. Url is a provider-hosted receipt page (present for Stripe and Surfboard). Pdf carries downloadable PDF bytes only when the provider offers one; today both providers return a hosted URL only, so it is null.
+    // Fetch a receipt for a completed payment. PaymentReceipt.Url is a provider-hosted receipt page (present for Stripe and Surfboard). PaymentReceipt.Pdf carries downloadable PDF bytes only when the provider offers one; today both providers return a hosted URL only, so it is null.
     Task<PaymentReceipt> RequestReceiptAsync(string paymentId, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
     // Raised for each normalized payment event the backend pushes (paid, refunded, subscription renewed/canceled). Subscribing registers the receiver on first use.
     event Func<PaymentEvent, Task>? PaymentEventReceived
@@ -6622,13 +7165,13 @@ namespace Ikon.App.Payments
     Unknown
     OneTime
     Recurring
-  // The state of a PaymentRefund .
+  // The state of a PaymentRefund.
   enum RefundStatus
     Unknown
     Pending
     Succeeded
     Failed
-  // The lifecycle state of a PaymentSubscription .
+  // The lifecycle state of a PaymentSubscription.
   enum SubscriptionStatus
     Unknown
     Incomplete
@@ -6654,7 +7197,7 @@ namespace Ikon.App.Connectors
   // Gmail connector. Send and list mail with Google OAuth2 credentials (refresh token). Raw — the agent skill lives in Ikon.Agent.Connectors.
   sealed class Gmail
     ctor(GoogleCredentials credentials)
-    // Fetch the full plain-text body of a message. Returns the text/plain part when present, falling back to the text extracted from the HTML part, then to an empty string.
+    // Fetch the full body of a message. Returns the text/plain part when present, falling back to the raw HTML of the text/html part (MimeKit ships no HTML-to-text converter), then to an empty string.
     Task<string> GetBodyAsync(string id, CancellationToken ct = default)
     // Stream every message matching the query, paging through the whole result set. Use a query with date operators (e.g. "after:2024/01/01") to bound a historical backfill by time.
     IAsyncEnumerable<EmailSummary> ListAllAsync(string? query = null, CancellationToken ct = default)
@@ -6671,26 +7214,31 @@ namespace Ikon.App.Connectors.Browser
     ValueTask DisposeAsync()
     // Evaluate a JavaScript function-expression (e.g. "() => { ...; return 'x'; }") on the current page and return its string result. For light page-state manipulation by non-agentic callers — e.g. the codegen visual gate flipping data-theme so it can screenshot both theme states of the same view.
     Task<string?> EvaluateAsync(string script)
-    Task<(bool Ok, string Selector, string? Extracted, string? Failure)> ExecuteAsync(WebAction action)
+    Task<WebActionResult> ExecuteAsync(WebAction action)
     Task<IReadOnlyList<MarkedElement>> MarkElementsAsync()
     Task NavigateAsync(string url)
     Task<byte[]> ScreenshotAsync()
     // Screenshot as JPEG at the given quality — for callers that put the image into an LLM context, where a PNG's 3-5x larger payload rides along for every later turn.
     Task<byte[]> ScreenshotJpegAsync(int quality = 70)
     Task StartAsync(bool headless, bool captureGrade = false, CancellationToken ct = default)
+  // Click the element Target resolves to, then wait for the page to settle.
   sealed class WebAction.Click : WebAction, IEquatable<WebAction.Click>
     ctor(WebTarget Target)
     WebTarget Target { get; init; }
+  // Read the inner text of the element Target resolves to and record it under OutputName in the run's outputs.
   sealed class WebAction.Extract : WebAction, IEquatable<WebAction.Extract>
     ctor(WebTarget Target, string OutputName)
     string OutputName { get; init; }
     WebTarget Target { get; init; }
+  // Fill the element Target resolves to with Text. Set Secret for credentials: the live fill uses the value, but step traces and distilled flows store Fill.RedactedText in its place, so a replay must re-supply the value through its input slot rather than reusing the captured one. Set InputName to mark the value as a flow input slot that a replay substitutes.
   sealed class WebAction.Fill : WebAction, IEquatable<WebAction.Fill>
     ctor(WebTarget Target, string Text, bool Secret = false, string? InputName = null)
     string? InputName { get; init; }
     bool Secret { get; init; }
     WebTarget Target { get; init; }
     string Text { get; init; }
+    // Placeholder stored anywhere a secret value would otherwise be persisted — the step trace, the distilled flow JSON, logs. Never used for the live fill.
+    const string RedactedText
   // An interactable element discovered on the page, tagged for this observation.
   sealed class MarkedElement : IEquatable<MarkedElement>
     ctor(int Mark, string Role, string Name, string Selector)
@@ -6698,18 +7246,28 @@ namespace Ikon.App.Connectors.Browser
     string Name { get; init; }
     string Role { get; init; }
     string Selector { get; init; }
+  // Go to Url and wait for the page to settle.
   sealed class WebAction.Navigate : WebAction, IEquatable<WebAction.Navigate>
     ctor(string Url)
     string Url { get; init; }
+  // Press a keyboard key (e.g. "Enter", "Escape") on the focused element, then wait for the page to settle.
   sealed class WebAction.Press : WebAction, IEquatable<WebAction.Press>
     ctor(string Key)
     string Key { get; init; }
+  // Scroll the page by Dx/Dy pixels (mouse wheel).
   sealed class WebAction.Scroll : WebAction, IEquatable<WebAction.Scroll>
     ctor(int Dx, int Dy)
     int Dx { get; init; }
     int Dy { get; init; }
   // A single browser action. A tagged union so a flow serializes losslessly and replays exactly.
   abstract class WebAction : IEquatable<WebAction>
+  // The result of executing one WebAction: whether it succeeded, the selector that actually resolved the target, the text an Extract produced, and a caller-actionable diagnosis when it failed.
+  sealed class WebActionResult : IEquatable<WebActionResult>
+    ctor(bool Ok, string Selector, string? Extracted = null, string? Failure = null)
+    string? Extracted { get; init; }
+    string? Failure { get; init; }
+    bool Ok { get; init; }
+    string Selector { get; init; }
   // A distilled, replayable integration: ordered steps with parameterized input slots.
   sealed class WebFlow : IEquatable<WebFlow>
     ctor(string Name, string Origin, IReadOnlyList<WebStep> Steps, IReadOnlyList<string> Inputs)
@@ -6717,17 +7275,17 @@ namespace Ikon.App.Connectors.Browser
     string Name { get; init; }
     string Origin { get; init; }
     IReadOnlyList<WebStep> Steps { get; init; }
-  // Turns a successful WebRun into a replayable WebFlow : keeps the steps that worked and parameterizes each filled field into a named input slot. Pure and deterministic.
+  // Turns a successful WebRun into a replayable WebFlow: keeps the steps that worked and parameterizes each filled field into a named input slot. Pure and deterministic.
   static class WebFlowDistiller
     static WebFlow Distill(WebRun run, string? name = null)
-  // Deterministically replays a distilled WebFlow on a browser session — no LLM — substituting input slots with supplied values.
+  // Deterministically replays a distilled WebFlow on a browser session — no LLM — substituting input slots with supplied values. A secret fill is redacted in the flow, so its slot must be present in inputs; the replay fails upfront when one is missing rather than filling the redaction placeholder.
   static class WebFlowPlayer
     static Task<WebReplay> ReplayAsync(BrowserSession session, WebFlow flow, IReadOnlyDictionary<string, string> inputs, CancellationToken ct = default)
   enum WebOutcome
     Succeeded
     Failed
     BudgetExhausted
-  // The result of replaying a WebFlow .
+  // The result of replaying a WebFlow.
   sealed class WebReplay : IEquatable<WebReplay>
     ctor(bool Ok, IReadOnlyDictionary<string, string> Outputs, bool Healed)
     bool Healed { get; init; }
@@ -6741,9 +7299,9 @@ namespace Ikon.App.Connectors.Browser
     IReadOnlyDictionary<string, string> Outputs { get; init; }
     IReadOnlyList<WebStep> Steps { get; init; }
     string Summary { get; init; }
-  // One executed action, the selector that actually resolved it, and whether it succeeded.
+  // One executed action, the selector that actually resolved it, and whether it succeeded. A secret Fill is stored with its value redacted at construction, so the trace — and everything derived from it (distilled flow JSON, logs) — never carries the credential.
   sealed class WebStep : IEquatable<WebStep>
-    ctor(WebAction Action, string ResolvedSelector, bool Ok)
+    ctor(WebAction action, string resolvedSelector, bool ok)
     WebAction Action { get; init; }
     bool Ok { get; init; }
     string ResolvedSelector { get; init; }
@@ -6756,11 +7314,18 @@ namespace Ikon.App.Connectors.Browser
     string? Selector { get; init; }
 
 namespace Ikon.App.Connectors.Telephony
+  // Thrown when an outbound call never connects — the callee was busy, did not answer, or the carrier rejected/canceled the call. CallFailedException.Outcome carries the specific fate.
+  sealed class CallFailedException : Exception
+    ctor(CallOutcome outcome, string message)
+    CallOutcome Outcome { get; }
   // Raw call tuning: the TTS voice, spoken language, and a hard duration cap. Model/agent choices live in the agent layer (Ikon.Agent.Telephony), not here.
   sealed class CallOptions : IEquatable<CallOptions>
     ctor(string VoiceId = "", string Language = "en-US", TimeSpan? MaxDuration = null)
+    // Spoken language of the call.
     string Language { get; init; }
+    // Hard cap on call length; null means the 10 minute default.
     TimeSpan? MaxDuration { get; init; }
+    // TTS voice for spoken replies; empty uses the speech generator's default.
     string VoiceId { get; init; }
   enum CallOutcome
     Completed
@@ -6783,9 +7348,10 @@ namespace Ikon.App.Connectors.Telephony
     static float[] Decode(ReadOnlySpan<byte> muLaw)
     // Encodes float samples (normalized to [-1.0, 1.0]) to mu-law bytes.
     static byte[] Encode(ReadOnlySpan<float> samples)
-  // A live phone call — the real-time audio engine. Segments caller speech into turns ( Turns ), speaks replies ( SpeakAsync ), and hangs up. No agent logic: the brain is supplied by the consumer (Ikon.Agent.Connectors.Telephony binds a call to a subthread). Supports barge-in: sustained caller speech during a reply cancels TTS and flushes Twilio's buffer. Speech detection uses Silero VAD (falls back to an RMS gate if the model can't load).
+  // A live phone call — the real-time audio engine. Segments caller speech into turns (PhoneCall.Turns), speaks replies (PhoneCall.SpeakAsync), and hangs up. No agent logic: the brain is supplied by the consumer (Ikon.Agent.Connectors.Telephony binds a call to a subthread). Supports barge-in: sustained caller speech during a reply cancels TTS and flushes Twilio's buffer. Speech detection uses Silero VAD (falls back to an RMS gate if the model can't load).
   sealed class PhoneCall : IAsyncDisposable
     TimeSpan Duration { get; }
+    // How the connected call ended: Completed normally, Failed when the audio stream died mid-call. Calls that never connect (busy, no answer, carrier failure) never yield a PhoneCall — they surface as CallFailedException from Telephone.CallAsync.
     CallOutcome Outcome { get; }
     ValueTask DisposeAsync()
     Task HangupAsync()
@@ -6793,6 +7359,16 @@ namespace Ikon.App.Connectors.Telephony
     Task<bool> SpeakAsync(string text, CancellationToken ct = default)
     // Caller utterances as they complete, until the call ends.
     IAsyncEnumerable<CallTurn> Turns(CancellationToken ct = default)
+  // Silero VAD (voice activity detection) over ONNX Runtime — fast (~1-2ms) speech detection, far more robust to line noise / TTS echo than a plain RMS gate. Used for barge-in and utterance segmentation. Ported from the Nanobot voice prototype.
+  sealed class SileroVad : IDisposable
+    float Threshold { get; set; }
+    bool ContainsSpeech(float[] samples)
+    // Create from the embedded ONNX model. Returns null (and logs) if it can't load.
+    static SileroVad? CreateFromEmbeddedResource(int sampleRate = 16000, Action<string>? log = null)
+    void Dispose()
+    float GetSpeechProbability(float[] samples)
+    // Reset model state when starting a new audio stream.
+    void Reset()
   // Places outbound Twilio calls and hosts the Media Streams WebSocket. Each placed call yields a live PhoneCall once the audio stream connects. Raw — no agent logic; credentials come from app.Secrets.
   sealed class Telephone : IAsyncDisposable
     ctor(IAppBase app, TwilioCredentials credentials, CallOptions? options = null)
@@ -6809,38 +7385,28 @@ namespace Ikon.App.Connectors.Telephony
 # Ikon.Resonance Public API
 
 namespace Ikon.Resonance
-  // Audio frame with samples, stream identity, and optional encoding options, analysis results, and target information.
-  struct AudioFrame
-    ctor(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string streamId, TimeSpan totalDuration = default, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null, IReadOnlyList<AudioAnalysisResult>? analysisResults = null, IReadOnlyList<AudioShapeSetDeclaration>? shapeSetDeclarations = null)
-    IReadOnlyList<AudioAnalysisResult>? AnalysisResults { get; }
-    int ChannelCount { get; }
-    AudioEncoderOptions? EncoderOptions { get; }
-    bool IsFirst { get; }
-    bool IsLast { get; }
-    int SampleRate { get; }
-    ReadOnlyMemory<float> Samples { get; }
-    IReadOnlyList<AudioShapeSetDeclaration>? ShapeSetDeclarations { get; }
-    string StreamId { get; }
-    IReadOnlyList<int>? TargetIds { get; }
-    TimeSpan TotalDuration { get; }
-  // Tracks audio stream metrics including packet counts, inter-packet delays, jitter, and encoding times. Supports tracking metrics across multiple streams.
+  // Tracks audio stream metrics including packet counts, inter-packet delays, jitter, and encoding times. Supports tracking metrics across multiple streams. When AudioMetrics.Enabled, an AudioMetricsReport is published to AudioMetrics.Reports once per AudioMetrics.UpdateIntervalSeconds while packets are being recorded.
   class AudioMetrics
     ctor()
-    double AvgEncodeTimeMs { get; }
-    double AvgIpdMs { get; }
-    double CpuUsagePercent { get; }
     bool Enabled { get; set; }
-    double JitterMs { get; }
     bool LogMetrics { get; set; }
-    double MaxIpdMs { get; }
-    double MinIpdMs { get; }
-    int StreamCount { get; }
     double UpdateIntervalSeconds { get; set; }
     void RecordPacket(string streamId, double encodingTimeMs)
     void Remove(string streamId)
+    // The interval snapshots as an async stream. A single-consumer diagnostics stream: only the latest unread report is kept, and concurrent enumerations compete for reports.
+    IAsyncEnumerable<AudioMetricsReport> Reports(CancellationToken cancellationToken = default)
     void Reset(string streamId)
     void ResetAll()
-    event Action? Updated
+  // One interval snapshot of audio stream metrics published by AudioMetrics.
+  sealed class AudioMetricsReport : IEquatable<AudioMetricsReport>
+    ctor(int StreamCount, double MinIpdMs, double AvgIpdMs, double MaxIpdMs, double JitterMs, double AvgEncodeTimeMs, double CpuUsagePercent)
+    double AvgEncodeTimeMs { get; init; }
+    double AvgIpdMs { get; init; }
+    double CpuUsagePercent { get; init; }
+    double JitterMs { get; init; }
+    double MaxIpdMs { get; init; }
+    double MinIpdMs { get; init; }
+    int StreamCount { get; init; }
   // Provides methods for resampling audio between different sample rates and channel configurations. Supports mono and stereo audio using linear interpolation for sample rate conversion.
   static class AudioResampler
     // Calculates the number of output frames after resampling.
@@ -6852,7 +7418,7 @@ namespace Ikon.Resonance
     // Resamples audio from one sample rate and channel configuration to another using linear interpolation.
     static void Resample(ReadOnlySpan<float> source, Span<float> destination, int inputSampleRate, int outputSampleRate, int inputChannelCount, int outputChannelCount)
     // The maximum number of audio channels supported (mono or stereo).
-    static int MaxSupportedChannelCount
+    const int MaxSupportedChannelCount
   // Provides utility methods for measuring audio levels and converting audio samples between PCM 16-bit integer and 32-bit float formats.
   static class AudioUtils
     // Converts 32-bit float samples to 16-bit PCM samples as raw bytes (little-endian). Float values are clamped to [-1.0, 1.0] before conversion.
@@ -6881,36 +7447,54 @@ namespace Ikon.Resonance
   enum FadeMode
     Sequential
     Crossfade
-  // Server-side audio mixer for group voice scenarios (meetings, conferences, multiplayer). Mixes multiple participant audio streams together, producing a personalized output stream for each participant that contains all other participants' audio mixed together but excludes the participant's own audio. Each input stream is tagged with an excludeKey (typically a participant/session ID) to control the exclusion. Participants must be registered with AddParticipant before they can receive mixed output. Streams are added/removed independently via AddStream and RemoveStream . A participant continues to receive output (from other participants' streams) even when they have no active streams of their own. Uses power-preserving normalization (1/sqrt(N)) and tanh soft-clipping to prevent distortion when many participants speak simultaneously.
+  // One personalized output frame from a GroupAudioMixer: the participant it is addressed to plus their mixed audio.
+  struct GroupAudioFrame
+    ctor(int participantId, PcmAudioFrame frame)
+    // The mixed audio frame (all other participants' streams, excluding the participant's own).
+    PcmAudioFrame Frame { get; }
+    // The participant this mix is addressed to.
+    int ParticipantId { get; }
+    void Deconstruct(out int participantId, out PcmAudioFrame frame)
+  // Server-side audio mixer for group voice scenarios (meetings, conferences, multiplayer). Mixes multiple participant audio streams together, producing a personalized output stream for each participant that contains all other participants' audio mixed together but excludes the participant's own audio. Each input stream is tagged with the id of the participant it belongs to (typically a client session id) to control the exclusion. Participants must be registered with GroupAudioMixer.AddParticipant before they can receive mixed output. Streams are added/removed independently via GroupAudioMixer.AddStream and GroupAudioMixer.RemoveStream. A participant continues to receive output (from other participants' streams) even when they have no active streams of their own. Uses power-preserving normalization (1/sqrt(N)) and tanh soft-clipping to prevent distortion when many participants speak simultaneously.
   sealed class GroupAudioMixer : IAsyncDisposable
     ctor(GroupAudioMixerConfig? config = null)
-    // Registers a participant to receive personalized mixed audio output. The participant will receive a mix of all streams except those tagged with their excludeKey.
-    void AddParticipant(string excludeKey)
-    // Registers an input audio stream and tags it with excludeKey so the owning participant never hears their own audio. Adding an already-registered stream id is a no-op.
-    void AddStream(string streamId, string excludeKey)
+    // Registers a participant to receive personalized mixed audio output. The participant will receive a mix of all streams except those tagged with their own id.
+    void AddParticipant(int participantId)
+    // Registers an input audio stream and tags it with the owning participantId so that participant never hears their own audio. Adding an already-registered stream id is a no-op.
+    void AddStream(string streamId, int participantId)
     ValueTask DisposeAsync()
     // Unregisters a participant. They will no longer receive mixed audio output.
-    void RemoveParticipant(string excludeKey)
+    void RemoveParticipant(int participantId)
     // Unregisters an input stream and discards any samples still buffered for it. Removing an unknown stream id is a no-op.
     void RemoveStream(string streamId)
-    // Starts the output loop that paces personalized mixes into onFrame as 20 ms frames (called once per registered participant per tick, with the participant's excludeKey as the first argument). May be called only once per mixer instance; a second call throws so a silently dropped onFrame can never go unnoticed. Buffer-reuse contract: the frames passed to onFrame alias a single reused sample buffer — consume the samples fully before returning from the callback and copy them if you need to store them beyond the call.
-    Task StartAsync(Func<string, AudioFrame, ValueTask> onFrame, CancellationToken cancellationToken = default)
+    // The personalized mixes as a stream of 20 ms frames, paced at best-effort real time. Each tick yields one GroupAudioFrame per registered participant — except a participant whose tick mix would contain only their own audio (e.g. a lone speaker), who is skipped for that tick. The caller owns the loop: run await foreach over the stream and forward each frame to its participant. May be enumerated only once per mixer instance; a second enumeration throws. Buffer-reuse contract: the yielded frames alias a single reused sample buffer — consume the samples fully within the loop body and copy them if you need to store them beyond it. Cancelling cancellationToken (or disposing the mixer) ends the stream gracefully: each participant that received audio gets one final empty frame marked PcmAudioFrame.IsLast so downstream consumers can close their streams, then the enumeration completes without throwing.
+    IAsyncEnumerable<GroupAudioFrame> StreamAsync(CancellationToken cancellationToken = default)
     // Buffers interleaved samples for a registered input stream, resampling to the mixer's native 48 kHz stereo format when needed. When the stream's buffer is full the oldest samples are dropped to make room; writes to an unknown stream are dropped with a throttled warning (stream teardown races with in-flight frames, so this is not an error).
     void WriteSamples(string streamId, ReadOnlySpan<float> samples, int sampleRate, int channelCount)
-  // Configuration for the GroupAudioMixer . Immutable — the mixer captures the values at construction, so construct a new config (and mixer) instead of mutating a shared instance.
+  // Configuration for the GroupAudioMixer. Immutable — the mixer captures the values at construction, so construct a new config (and mixer) instead of mutating a shared instance.
   sealed class GroupAudioMixerConfig : IEquatable<GroupAudioMixerConfig>
     ctor()
     // Maximum buffer size per stream in milliseconds.
     double MaxBufferSizeMs { get; init; }
-  // Represents a source that generates audio frames.
-  interface IAudioSource
-    // Generates a frame of audio into the provided buffer.
-    abstract void GenerateAudio(Span<float> buffer, int samplesPerChannel, int channelCount, int sampleRate)
+  // One in-process frame of raw PCM audio: interleaved float samples plus stream identity and optional encoding options, analysis results, and target information. This is the middle of the three audio currencies. AudioChunk is producer audio flowing INTO a mixer (TTS output, synthesized samples), identified by its speech-event id. PcmAudioFrame is the paced PCM output flowing OUT of the mixers toward the Opus encoder, identified by its output stream id. The encoded result travels on the wire as the protocol type AudioFrame2.
+  struct PcmAudioFrame
+    ctor(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string streamId, TimeSpan totalDuration = default, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null, IReadOnlyList<AudioAnalysisResult>? analysisResults = null, IReadOnlyList<AudioShapeSetDeclaration>? shapeSetDeclarations = null)
+    IReadOnlyList<AudioAnalysisResult>? AnalysisResults { get; }
+    int ChannelCount { get; }
+    AudioEncoderOptions? EncoderOptions { get; }
+    bool IsFirst { get; }
+    bool IsLast { get; }
+    int SampleRate { get; }
+    ReadOnlyMemory<float> Samples { get; }
+    IReadOnlyList<AudioShapeSetDeclaration>? ShapeSetDeclarations { get; }
+    string StreamId { get; }
+    IReadOnlyList<int>? TargetIds { get; }
+    TimeSpan TotalDuration { get; }
   // Specifies the sample format used in the WAV file.
   enum WavFile.SampleFormat
     Short
     Float
-  // Filters silence from an audio chunk stream so that only speech reaches downstream consumers such as speech-to-text models (which tend to hallucinate on silent input). Uses asymmetric EMA for level tracking, an adaptive noise floor, and a circular pre-buffer to ensure speech onsets are never clipped. Designed for real-time audio at typical frame sizes (20 ms). Usage — push-based: call ProcessChunk per audio chunk, forward non-null results. Usage — stream-based: wrap an IAsyncEnumerable source with FilterAsync .
+  // Filters silence from an audio chunk stream so that only speech reaches downstream consumers such as speech-to-text models (which tend to hallucinate on silent input). Uses asymmetric EMA for level tracking, an adaptive noise floor, and a circular pre-buffer to ensure speech onsets are never clipped. Designed for real-time audio at typical frame sizes (20 ms). Usage — push-based: call SilenceRemover.ProcessChunk per audio chunk, forward non-null results. Usage — stream-based: wrap an IAsyncEnumerable<T> source with SilenceRemover.FilterAsync.
   sealed class SilenceRemover
     // Creates a new SilenceRemover for the given audio format.
     ctor(int sampleRate, int channelCount, SilenceRemoverConfig? config = null)
@@ -6920,7 +7504,7 @@ namespace Ikon.Resonance
     float[]? ProcessChunk(ReadOnlySpan<float> chunk)
     // Resets all internal state (EMA level, noise floor, pre-buffer, and state machine) to initial values. Call this when starting a new audio session on the same instance.
     void Reset()
-  // Configuration for SilenceRemover . The silence remover uses asymmetric EMA (exponential moving average) to track audio level, an adaptive noise floor that adjusts to the environment, and a circular pre-buffer that preserves the onset of speech so words are never clipped. The speech threshold is computed as: noiseFloor * NoiseFloorMultiplier + NoiseFloorOffset . Immutable — the remover captures the values at construction, so construct a new config (and remover) instead of mutating a shared instance.
+  // Configuration for SilenceRemover. The silence remover uses asymmetric EMA (exponential moving average) to track audio level, an adaptive noise floor that adjusts to the environment, and a circular pre-buffer that preserves the onset of speech so words are never clipped. The speech threshold is computed as: noiseFloor * SilenceRemoverConfig.NoiseFloorMultiplier + SilenceRemoverConfig.NoiseFloorOffset. Immutable — the remover captures the values at construction, so construct a new config (and remover) instead of mutating a shared instance.
   sealed class SilenceRemoverConfig : IEquatable<SilenceRemoverConfig>
     ctor()
     // EMA smoothing factor for rising audio levels (0..1). Higher values respond faster to speech onset.
@@ -6948,23 +7532,23 @@ namespace Ikon.Resonance
     ctor(SpeechMixerConfig? config = null)
     // Encoder options to use for audio output.
     AudioEncoderOptions? EncoderOptions { get; set; }
-    // Whether output is currently paused (a pending Pause fade-out counts once it completes).
+    // Whether output is currently paused (a pending SpeechMixer.Pause fade-out counts once it completes).
     bool IsPaused { get; }
     // Stable identifier stamped on every output frame this mixer emits.
     string StreamId { get; }
     // Feeds a chunk of speech audio into the mixer, resampling to 48 kHz stereo when needed. The chunk's id identifies the speech event: chunks with the current event's id append to it, while a new id interrupts the current event with the configured fade transition. Effects, analyzers, and target ids are captured from the event's first chunk.
     void AddSamples(AudioChunk chunk, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null)
-    // Immediately discards all speech state — current, pending, and paused — without fading. Use for hard resets (e.g. conversation restart); prefer FadeOut for a graceful stop.
+    // Immediately discards all speech state — current, pending, and paused — without fading. Use for hard resets (e.g. conversation restart); prefer SpeechMixer.FadeOut for a graceful stop.
     void Clear()
     ValueTask DisposeAsync()
     // Starts fading out the current speech event over the configured fade-out duration. The event completes when the fade reaches silence. No-op when nothing is playing or a fade-out is already in progress.
     void FadeOut()
-    // Pauses output by fading the current speech out, then holding it (buffered samples are kept) until Resume . No-op when already paused or pausing.
+    // Pauses output by fading the current speech out, then holding it (buffered samples are kept) until SpeechMixer.Resume. No-op when already paused or pausing.
     void Pause()
     // Resumes paused output, fading the held speech event back in from where it stopped. No-op when not paused.
     void Resume()
-    // Starts the output loop that paces mixed audio into onFrame as 20 ms frames. May be called only once per mixer instance; a second call throws so a silently dropped onFrame can never go unnoticed. Buffer-reuse contract: the frames passed to onFrame alias a single reused sample buffer — consume the samples fully before returning from the callback and copy them if you need to store them beyond the call.
-    Task StartAsync(Func<AudioFrame, ValueTask> onFrame, CancellationToken cancellationToken = default)
+    // The mixed output as a stream of 20 ms frames, paced at best-effort real time. The caller owns the loop: run await foreach over the stream and forward each frame (typically to an encoder). May be enumerated only once per mixer instance; a second enumeration throws. Buffer-reuse contract: the yielded frames alias a single reused sample buffer — consume the samples fully within the loop body and copy them if you need to store them beyond it. Cancelling cancellationToken (or disposing the mixer) ends the stream gracefully: when a speech event had begun playing, one final silent frame marked PcmAudioFrame.IsLast is yielded so downstream consumers can close the stream, then the enumeration completes without throwing.
+    IAsyncEnumerable<PcmAudioFrame> StreamAsync(CancellationToken cancellationToken = default)
   // Configuration options for the SpeechMixer. Immutable — the mixer captures the values at construction, so construct a new config (and mixer) instead of mutating a shared instance.
   sealed class SpeechMixerConfig : IEquatable<SpeechMixerConfig>
     ctor()
@@ -6984,6 +7568,47 @@ namespace Ikon.Resonance
     double MaxPaddingTimeMs { get; init; }
     // RMS threshold below which effect tail padding stops. Default is 0.001 (~-60dB), meaning padding continues until output is essentially silent.
     double PaddingThreshold { get; init; }
+  // Detects conversational turns in a continuous (open-mic) audio stream: speech onset, probable turn end (speculative), speech resumption, and confirmed turn end — the segmentation an always-listening voice app needs between "raw mic frames" and "transcribe and respond". Deterministic: time is counted in received samples, not wall-clock, so the same frame sequence always produces the same events. This assumes the source keeps delivering frames during silence (true for platform mic capture, which streams continuously while active). Usage — push-based: call TurnDetector.Process per audio chunk and act on the returned event. Usage — stream-based: wrap an IAsyncEnumerable<T> source with TurnDetector.DetectAsync.
+  sealed class TurnDetector
+    // Creates a new TurnDetector for the given audio format.
+    ctor(int sampleRate, int channelCount, TurnDetectorConfig? config = null)
+    // Wraps an async audio source, yielding turn events as they occur. When the source completes, a still-open turn is flushed as a final TurnEventKind.TurnEnded event.
+    static IAsyncEnumerable<TurnEvent> DetectAsync(IAsyncEnumerable<float[]> source, int sampleRate, int channelCount, TurnDetectorConfig? config = null, CancellationToken ct = default)
+    // Reports the end of the audio stream. A confirmed turn still in progress is finalized and returned as a TurnEventKind.TurnEnded event; otherwise returns null. The detector is reset either way.
+    TurnEvent? Flush()
+    // Processes one audio chunk (interleaved float samples in [-1, 1]) and returns the transition it caused, or null when nothing changed.
+    TurnEvent? Process(ReadOnlyMemory<float> samples)
+    // Resets all internal state to initial values. Call this when starting a new audio session on the same instance.
+    void Reset()
+  // Configuration for TurnDetector. Immutable — construct a new config (and detector) instead of mutating a shared instance.
+  sealed class TurnDetectorConfig : IEquatable<TurnDetectorConfig>
+    ctor()
+    // Tuning for the built-in level gate and the onset pre-buffer (SilenceRemoverConfig.PreBufferMs). Only the level-tracking and pre-buffer fields apply; the onset/trailing fields belong to SilenceRemover. When null, SilenceRemover defaults are used except SilenceRemoverConfig.ReleaseAlpha is raised to 0.3 — turn detection needs the level to fall promptly when speech stops (the hold-through-pauses role is played by TurnDetectorConfig.TurnEndSilence instead), where the slow default would add noticeable latency to every turn end.
+    SilenceRemoverConfig? GateConfig { get; init; }
+    // Maximum turn length; a turn still running at this point is force-ended.
+    TimeSpan MaxTurnDuration { get; init; }
+    // Minimum cumulative speech required before a turn is confirmed. Shorter bursts (coughs, clicks) are discarded without producing any events.
+    TimeSpan MinSpeechDuration { get; init; }
+    // Silence duration after which the turn has probably ended and a TurnEventKind.SpeculativeTurnEnd fires, letting downstream work start before the turn end is certain. Must be shorter than TurnDetectorConfig.TurnEndSilence. Null disables speculative turn ends.
+    TimeSpan? SpeculativeSilence { get; init; }
+    // Optional external speech classifier (e.g. a neural VAD such as Silero) that replaces the built-in adaptive level gate. Receives one chunk of interleaved float PCM and returns whether it contains speech. Null uses the built-in gate.
+    Func<ReadOnlyMemory<float>, bool>? SpeechClassifier { get; init; }
+    // Silence duration that ends a turn. This window — not the level gate — provides the "hold through natural pauses" behavior, so mid-sentence breaths don't split a turn.
+    TimeSpan TurnEndSilence { get; init; }
+  // A transition reported by TurnDetector. TurnEvent.Samples carries the utterance audio for TurnEventKind.SpeculativeTurnEnd and TurnEventKind.TurnEnded (including pre-buffered onset audio) and is empty for the other kinds.
+  struct TurnEvent
+    // Duration of TurnEvent.Samples; zero when no audio is carried.
+    TimeSpan Duration { get; }
+    // The kind of transition.
+    TurnEventKind Kind { get; }
+    // Utterance samples (interleaved float PCM), or empty for events that carry no audio.
+    float[] Samples { get; }
+  // The kind of transition reported by TurnDetector.
+  enum TurnEventKind
+    SpeechStarted
+    SpeculativeTurnEnd
+    SpeechResumed
+    TurnEnded
   // Creates WAV audio files in memory with support for 16-bit integer or 32-bit float sample formats. Samples are written incrementally and the WAV header is finalized when the file is accessed.
   class WavFile : IDisposable
     // Initializes a new WAV file builder with the specified audio parameters.
@@ -7023,13 +7648,13 @@ namespace Ikon.Resonance.Analysis
     // Gets the shape set declaration for this analyzer. Called once when setting up the audio stream.
     AudioShapeSetDeclaration ShapeSetDeclaration { get; }
     // Creates a stateful analyzer instance bound to the mixer's output format.
-    abstract IAudioAnalyzerInstance Create(int sampleRate, int channelCount)
+    IAudioAnalyzerInstance Create(int sampleRate, int channelCount)
   // Stateful audio analyzer that extracts data from audio buffers without modifying them.
   interface IAudioAnalyzerInstance
     // Analyzes the provided buffer and returns shape set values. The buffer is not modified.
-    abstract AudioAnalysisResult Analyze(ReadOnlySpan<float> buffer)
+    AudioAnalysisResult Analyze(ReadOnlySpan<float> buffer)
     // Resets the analyzer internal state back to its initial values.
-    abstract void Reset()
+    void Reset()
   // Audio analyzer that performs FFT-based spectral analysis for viseme (lip sync) detection. Produces MouthOpenY (0-1) from RMS and MouthForm (-1 to +1) from spectral analysis.
   sealed class VisemeAnalyzer : IAudioAnalyzer
     ctor()
@@ -7055,14 +7680,16 @@ namespace Ikon.Resonance.Effects
   // Stateless definition of an audio effect that can create mixer-ready instances.
   interface IAudioEffect
     // Creates a stateful effect instance bound to the mixer's output format.
-    abstract IAudioEffectInstance Create(int sampleRate, int channelCount)
+    IAudioEffectInstance Create(int sampleRate, int channelCount)
   // Stateful audio effect that can mutate audio buffers in place.
   interface IAudioEffectInstance
     // Processes the provided buffer in place.
-    abstract void Process(Span<float> buffer)
+    void Process(Span<float> buffer)
     // Resets the effect internal state back to its initial values.
-    abstract void Reset()
+    void Reset()
   // Factory for creating reverb effects with configurable delay lines, feedback, mix, and damping.
+  // Remarks:
+  // If you just want a quick, natural-sounding reverb, call the constructor without parameters. The defaults create four delay lines (120ms – 320ms) with moderate feedback and a low-pass damping around 2kHz, which mimics a small room. To tweak the sound: • Delay times control the perceived room size. Longer times feel larger. • Feedback controls tail length. Values close to 1.0 sustain longer. • Mix defines how much of each delay line is blended into the output. • Cutoff damps high frequencies inside the feedback loop for warmer tails. All arrays must have the same length, so each delay line has a matching set of parameters.
   sealed class ReverbAudioEffect : IAudioEffect
     // Creates a reverb with default room parameters (small room).
     ctor()

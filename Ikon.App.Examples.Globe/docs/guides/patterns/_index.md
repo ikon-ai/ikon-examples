@@ -14,7 +14,7 @@
 - `chat-with-tool-calls` — streaming chat handling LLM tool-call event loop.
 - `multi-agent-parallel-discussion` — fan one prompt to N personas via Task.WhenAll.
 - `agent-streaming-with-tool-status` — live status of tool-using agent.
-- `streaming-agent-status` — Threads-style live LiveState block surfacing.
+- `streaming-agent-status` — live status block driven by an `AgentThread`'s own reactives (Status/Activity/ToolCallTimeline/Usage).
 - `quick-reply-options-from-llm` — `<ask>...<option>` pills from LLM output.
 - `clickable-reference-card-in-chat` — LLM tool emits clickable detail cards.
 - `orchestrator-thread-with-tools` — Orchestrator + Persona + tool-providing Skill.

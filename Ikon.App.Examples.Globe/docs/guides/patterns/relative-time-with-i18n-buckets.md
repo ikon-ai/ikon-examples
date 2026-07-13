@@ -11,20 +11,26 @@ Lists where each row needs a "last seen" / "last active" / "last updated" captio
 
 ```csharp
 // Translation table (Finnish)
-["nurse.last_active"] = "viimeksi aktiivinen {0}",
-["nurse.no_activity"] = "ei vielä aktiviteettia",
-["nurse.now"]         = "juuri nyt",
-["nurse.min_ago"]     = "{0} min sitten",
-["nurse.hour_ago"]    = "{0} h sitten",
-["nurse.day_ago"]     = "{0} d sitten",
+private static readonly Dictionary<string, string> Fi = new()
+{
+    ["nurse.last_active"] = "viimeksi aktiivinen {0}",
+    ["nurse.no_activity"] = "ei vielä aktiviteettia",
+    ["nurse.now"]         = "juuri nyt",
+    ["nurse.min_ago"]     = "{0} min sitten",
+    ["nurse.hour_ago"]    = "{0} h sitten",
+    ["nurse.day_ago"]     = "{0} d sitten",
+};
 
 // Translation table (English)
-["nurse.last_active"] = "last active {0}",
-["nurse.no_activity"] = "no activity yet",
-["nurse.now"]         = "just now",
-["nurse.min_ago"]     = "{0} min ago",
-["nurse.hour_ago"]    = "{0} h ago",
-["nurse.day_ago"]     = "{0} d ago",
+private static readonly Dictionary<string, string> En = new()
+{
+    ["nurse.last_active"] = "last active {0}",
+    ["nurse.no_activity"] = "no activity yet",
+    ["nurse.now"]         = "just now",
+    ["nurse.min_ago"]     = "{0} min ago",
+    ["nurse.hour_ago"]    = "{0} h ago",
+    ["nurse.day_ago"]     = "{0} d ago",
+};
 
 // Render in row
 foreach (var p in _unitPatients.Value)
