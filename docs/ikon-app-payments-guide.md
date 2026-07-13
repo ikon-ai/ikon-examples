@@ -134,6 +134,22 @@ subscription, `PriceKind.OneTime` → single charge) — and render your own pri
 > set a Price **lookup key** (or product `metadata.app_plan_id`) to control the `offerId`; otherwise the
 > offer syncs under its Stripe product id.
 
+## Promotion codes
+
+Let customers apply a discount code on the checkout page by passing `allowPromotionCodes: true` when
+creating a payment link — works for one-time and subscription offers, and for ad-hoc charges:
+
+```csharp
+var link = await app.Payments.CreatePaymentLinkAsync("pro", allowPromotionCodes: true);
+```
+
+The hosted checkout then shows an "Add promotion code" field. The codes themselves (and the coupons
+behind them) are created and managed in your provider dashboard, not through Ikon — for Stripe under
+**Product catalog → Coupons**, where each coupon can carry customer-facing promotion codes like `SALE20`.
+
+**Stripe only.** Mollie and Surfboard have no promotion-code concept on their hosted checkouts; they
+ignore the flag and the checkout proceeds at full price.
+
 ## Receiving events
 
 Your app does **not** host a webhook. The backend normalizes every provider webhook and pushes it as a
@@ -245,6 +261,7 @@ usually `null`). Return shape is uniform across providers; a provider with no cu
 | Reach | Global | EU-centric | Nordics (SE/DK/FI/NO) |
 | Onboarding | hosted KYC (v2 Connect accounts) | hosted Client Links + OAuth | hosted KYB (partner merchants) |
 | Subscriptions | native | native | backend-orchestrated (see below) |
+| Promotion codes | native checkout field | — | — |
 
 The app code and the methods above are identical for all three. MobilePay/Vipps, iDEAL, Bancontact, etc.
 are available as ordinary payment methods inside whichever provider you enable — no extra integration.
