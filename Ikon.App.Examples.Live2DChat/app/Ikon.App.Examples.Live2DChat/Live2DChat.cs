@@ -1,6 +1,8 @@
 using Ikon.App.Examples.Live2DChat.Live2D;
 using Ikon.Parallax.Components.Standard;
 
+#pragma warning disable CS0618
+
 return await App.Run(args);
 
 public record SessionIdentity(string UserId);
