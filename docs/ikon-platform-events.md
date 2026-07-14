@@ -1,6 +1,6 @@
 # Ikon Platform Events
 
-Structured events emitted by IkonServer and the core Ikon libraries via `Log.Instance.Event(name, payload)`. They are routed through `LogEventSender` to the Ikon backend and intended for consumption by external monitoring/analytics tooling. Events from the legacy `AIAgentPlugin` and from vertical extensions (Providers, Velory, Learning, TalkToData, etc.) are out of scope here.
+Structured events emitted by IkonServer and the core Ikon libraries via `Log.Instance.Event(name, payload)`. They are routed through `LogEventSender` to the Ikon backend and intended for consumption by external monitoring/analytics tooling. Events from the legacy `AIAgentPlugin` and from vertical extensions (Velory, Learning, TalkToData, etc.) are out of scope here.
 
 ## Server lifecycle
 
