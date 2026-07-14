@@ -289,21 +289,21 @@ namespace Ikon.Crosswind
     Dictionary<string, CanvasTokenValue<int>> FontWeights { get; init; }
     Dictionary<string, CanvasTypographyScale> Text { get; init; }
     void Validate()
-  // Injectable theme data for the Flutter style resolver. Set it on a TailwindCustomStyleScope (TailwindCustomStyleScope.FlutterTheme) and pin that scope with TailwindCustomStyleRegistry.PushScope: the resolver then resolves colour scales and semantic tokens against the app's own theme instead of the hardcoded platform baseline snapshot, so custom brand themes render correctly on native clients. Lookup values may be concrete colours ("#0c0e12", "oklch(...)"), scale references ("neutral-800"), or other semantic tokens ("text-secondary"); the resolver chases references and normalizes concrete colours to hex.
+  // To take effect, assign an instance to TailwindCustomStyleScope.FlutterTheme and pin that scope via TailwindCustomStyleRegistry.PushScope; the resolver then resolves colour scales and semantic tokens against it instead of the platform baseline. Lookup values may be concrete colours, scale references ("neutral-800"), or other semantic tokens — the resolver chases references and normalizes concrete colours to hex.
   sealed class FlutterThemeSource
     ctor(IReadOnlyDictionary<string, string> scaleHex, IReadOnlyDictionary<string, string> darkSemantic, IReadOnlyDictionary<string, string> lightSemantic, double? radiusBasePx = null, IReadOnlyDictionary<string, double>? radiusPx = null, IReadOnlyDictionary<string, string>? fontFamilies = null, double? spacingUnitPx = null)
     IReadOnlyDictionary<string, string> DarkSemantic { get; }
-    // Themed font families keyed by role ("body", "display", "heading", …), values are plain family names ("Fraunces") the Flutter client can load.
+    // Keyed by role ("body", "display", "heading", …); values are plain family names ("Fraunces"), not CSS font stacks.
     IReadOnlyDictionary<string, string> FontFamilies { get; }
     IReadOnlyDictionary<string, string> LightSemantic { get; }
-    // Themed radius base in logical px; rung values derive from it unless FlutterThemeSource.RadiusPx pins a rung explicitly. Null = platform default.
+    // Logical px. Rung values derive from this unless RadiusPx pins a rung explicitly; null means platform default.
     double? RadiusBasePx { get; }
-    // Explicit per-rung radius overrides in logical px, keyed by rung name ("lg").
+    // Values are logical px, keyed by rung name (e.g. "lg"); a pinned rung overrides the value derived from RadiusBasePx.
     IReadOnlyDictionary<string, double> RadiusPx { get; }
     IReadOnlyDictionary<string, string> ScaleHex { get; }
-    // Themed spacing unit in logical px (the density knob — web multiplies --spacing the same way). Null = platform default (4px).
+    // Logical px per spacing unit; scales every numeric spacing utility. Null means platform default (4px).
     double? SpacingUnitPx { get; }
-    // Builds a source from a design-token document, mapping colours only: the colour scales plus the light/dark semantic tokens. The document's radii and typography are NOT mapped — their token shapes don't line up with this type (radii are CSS strings under "radius-*" keys, not rung-named logical px; font families are quoted CSS stacks, not plain family names) — so radius, fonts, and spacing stay at platform defaults unless supplied explicitly via the constructor.
+    // Maps colours only (colour scales plus light/dark semantic tokens). Radii, typography, and spacing are NOT mapped and stay at platform defaults unless supplied via the constructor.
     static FlutterThemeSource FromDesignTokens(CanvasDesignTokenDocument document)
   enum TailwindColorContext
     Generic
@@ -323,11 +323,11 @@ namespace Ikon.Crosswind
     static string AdditionalCss { get; }
     static IReadOnlyDictionary<string, string> DarkVariables { get; }
     static IReadOnlyDictionary<string, string> LightVariables { get; }
-    // The stock Tailwind colour palette parsed once from the authored baseline: every --color-{name}-{step} entry keyed as "{name}-{step}" → its OKLCH value. This is the single source the palette name/step views below derive from, so a token dropped from (or added to) the baseline can never silently disagree with them.
+    // Keyed "{name}-{step}" (e.g. "red-50") → OKLCH value.
     static IReadOnlyDictionary<string, string> PaletteColors { get; }
-    // Palette family names present in the baseline (red, …, stone), first-seen order.
+    // Ordered as first seen in the baseline.
     static IReadOnlyList<string> PaletteNames { get; }
-    // Palette steps present in the baseline (50, …, 950), ascending.
+    // Ascending numeric order.
     static IReadOnlyList<string> PaletteSteps { get; }
     static string GetFullBaseline()
   sealed class TailwindCssVariables
@@ -337,25 +337,22 @@ namespace Ikon.Crosswind
     IReadOnlyDictionary<string, string> Light { get; }
     string EmitDark()
     string EmitLight()
-  // Static facade the Crosswind compiler resolves custom aliases through. Definitions live in a TailwindCustomStyleScope that the caller pins with TailwindCustomStyleRegistry.PushScope around each compile, so several apps hosted in one process each resolve against their own theme. Lookups fall back to a process-wide scope kept for legacy single-app hosts.
+  // Pin a TailwindCustomStyleScope with PushScope around each compile; lookups prefer the ambient scope and fall back to a process-wide scope for legacy single-app hosts.
   static class TailwindCustomStyleRegistry
-    // Flutter theme data of the scope active for the current compile, preferring the ambient scope like the alias lookups do.
     static FlutterThemeSource? CurrentFlutterTheme { get; }
     static bool IsFontFamilyToken(string name)
     static bool IsFontWeightToken(string name)
-    // Makes the given scope the ambient alias source for the current async flow until the returned handle is disposed. Compilation call sites stay static, but each caller can pin its own scope for the duration of a compile.
     static IDisposable PushScope(TailwindCustomStyleScope scope)
     static bool TryResolve(string name, TailwindColorContext context, out string value)
     static bool TryResolveFontFamily(string name, out string value)
     static bool TryResolveFontWeight(string name, out string value)
-  // One isolated set of custom color and font alias definitions. Style compilation reads aliases through TailwindCustomStyleRegistry, which prefers the ambient scope pushed via TailwindCustomStyleRegistry.PushScope and falls back to the process-wide scope, so several apps hosted in one process can each compile against their own theme without contaminating the others.
+  // Compilation resolves aliases against the ambient scope pinned by TailwindCustomStyleRegistry.PushScope, falling back to the process-wide scope; pin an instance around a compile so co-hosted apps stay isolated.
   sealed class TailwindCustomStyleScope
     ctor()
-    // Optional Flutter theme data derived from the same app theme as the alias definitions. The Flutter style resolver reads it through the ambient scope so each app in a shared process renders its own brand colors on native clients.
     FlutterThemeSource? FlutterTheme { get; set; }
     bool IsFontFamilyToken(string name)
     bool IsFontWeightToken(string name)
-    // Merges definitions into this scope. Returns true when the merge added or changed at least one alias, so callers know whether previously compiled styles may now resolve differently and need recompilation.
+    // Returns true when the merge added or changed at least one alias — the signal that already-compiled styles may now resolve differently and need recompilation.
     bool MergeDefinitions(TailwindStyleDefinitions definitions)
     void SetDefinitions(TailwindStyleDefinitions? definitions)
     bool TryResolve(string name, TailwindColorContext context, out string value)
@@ -390,11 +387,10 @@ namespace Ikon.Crosswind
     IReadOnlyDictionary<string, TailwindFontSize> FontSize { get; }
     IReadOnlyDictionary<string, string> FontWeight { get; }
     IReadOnlyDictionary<string, string> ShadowPalette { get; }
-  // Target-scoping Crosswind variants. A class prefixed with flutter: applies only on the Flutter renderer, web: only on the web/CSS renderer, and an unprefixed class applies to both. This lets a single Crosswind class list carry per-target styling — e.g. ["px-3 py-2 rounded-md", "web:bg-background web:text-secondary", "flutter:bg-slate-900 flutter:text-slate-100"] — instead of maintaining a parallel token catalogue. Works with the variant-group syntax too: flutter:(bg-slate-900 text-slate-100) applies the marker to every grouped class. The marker is consumed by whichever renderer is active: the CSS compiler drops flutter: classes and strips the web: marker (emitting the class as base); the Flutter resolver drops web: classes and strips the flutter: marker.
+  // flutter:-prefixed classes apply only on the Flutter renderer, web: only on web/CSS, unprefixed on both; the active renderer strips its own marker and drops the other's classes. Variant-group syntax flutter:(bg-slate-900 text-slate-100) applies the marker to every grouped class.
   static class TargetVariant
-    // True when variants contains the given target marker.
     static bool Has(IReadOnlyList<string> variants, string target)
-    // Returns a copy of variants with the given target marker removed. The marker has been satisfied by the active renderer and must not become a CSS selector or block Flutter resolution. Returns the original reference unchanged when the marker is absent, to avoid an allocation on the common path.
+    // Returns the same reference (no copy) when the marker is absent.
     static IReadOnlyList<string> Without(IReadOnlyList<string> variants, string target)
     const string Flutter
     const string Web

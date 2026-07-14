@@ -17,7 +17,7 @@ public partial class Globe(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<GlobeDataSet?> _currentData = new(null);
     private readonly Reactive<string> _currentDataLabel = new("");
     private readonly Reactive<string> _errorMessage = new("");
-    private readonly Reactive<List<QueryHistoryItem>> _queryHistory = new([]);
+    private readonly ReactiveList<QueryHistoryItem> _queryHistory = new();
     private readonly Reactive<SelectedSpikeData?> _selectedSpike = new(null);
 
     public Task Main()
@@ -47,7 +47,7 @@ public partial class Globe(IApp<SessionIdentity, ClientParams> app)
             _currentData.Value = globeData;
             _currentDataLabel.Value = queryResult.DisplayLabel;
 
-            var history = _queryHistory.Value;
+            var history = _queryHistory.Value.ToList();
             history.Insert(0, new QueryHistoryItem
             {
                 Query = query,
