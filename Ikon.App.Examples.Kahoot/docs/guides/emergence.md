@@ -122,70 +122,53 @@ namespace Ikon.AI.Emergence
   sealed class AgentScope<T> : EmergeScope<T>
     ctor()
     int Index { get; }
-    // This solver's role, prepended to its system prompt so ensemble members actually differentiate. Defaults to Solver{Index}; set it to something meaningful ("the pragmatist", "the security reviewer") to steer each member.
+    // Prepended to the solver's system prompt so ensemble members differentiate. Defaults to Solver{Index}; set a meaningful value (e.g. "the security reviewer") to steer each member.
     string? Role { get; set; }
-    // A variation seed for this solver, surfaced to the model as a directive in its system prompt. Same caveat as CandidateScope<T>.Seed: it drives divergence between solvers, it is not a sampler seed and does not make a run reproducible.
+    // Same as CandidateScope<T>.Seed: drives divergence between solvers, not a sampler seed and not reproducible.
     int? Seed { get; set; }
   sealed class BestOfOptions<T> : EmergeScope<T>
     ctor()
-    // Builds the critic's prompt from the winning candidate. The ScoreBreakdown is non-null exactly when BestOfOptions<T>.ScoreDetailed produced one — it is null when ranking with the plain BestOfOptions<T>.Score delegate.
+    // The ScoreBreakdown is non-null exactly when ScoreDetailed produced one, and null when ranking with the plain Score delegate.
     Func<T, ScoreBreakdown?, string>? BuildCriticFeedback { get; set; }
     Action<CandidateScope<T>>? CandidateConfig { get; set; }
     int Count { get; set; }
     bool CriticMustImprove { get; set; }
     EmergeScope<T> CriticScope { get; }
-    // Run a critic pass over the winning candidate and keep its result if it scores better (see BestOfOptions<T>.CriticMustImprove). The critic's prompt comes from BestOfOptions<T>.BuildCriticFeedback; without one, the best candidate and its score (and its ScoreBreakdown, when BestOfOptions<T>.ScoreDetailed is set) are appended to the critic scope's Command.
+    // Runs a critic pass over the winning candidate and keeps its result when it scores better (see CriticMustImprove). The prompt comes from BuildCriticFeedback; without one, the best candidate and its score are appended to CriticScope's Command.
     bool EnableCritic { get; set; }
-    // Ranks the candidates. Ignored when BestOfOptions<T>.ScoreDetailed is set.
+    // Ignored when ScoreDetailed is set.
     Func<T, EmergenceTrace, double>? Score { get; set; }
-    // Ranks the candidates by ScoreBreakdown.TotalScore AND hands the breakdown to BestOfOptions<T>.BuildCriticFeedback, so the critic can be told which axis was weakest instead of just how bad the total was. Build one with ScoreBreakdownBuilder<T>:
-    // var rubric = new ScoreBreakdownBuilder<Answer>()
-    //     .Metric("correctness", 3, a => a.Correctness)
-    //     .Metric("brevity", 1, a => a.Brevity);
-    //
-    // opt.ScoreDetailed = (answer, _) => rubric.Score(answer);
-    // opt.EnableCritic = true;
-    // opt.BuildCriticFeedback = (answer, breakdown) =>
-    //     $"Weakest axis: {breakdown!.Weakest!.Name}. Fix it:\n{breakdown.FormatBreakdown()}";
-    // Takes precedence over BestOfOptions<T>.Score.
+    // Ranks candidates by ScoreBreakdown.TotalScore and passes the breakdown to BuildCriticFeedback. Takes precedence over Score.
     Func<T, EmergenceTrace, ScoreBreakdown>? ScoreDetailed { get; set; }
     void Candidate(Action<CandidateScope<T>> configure)
     void Critic(Action<EmergeScope<T>> configure)
   sealed class CandidateScope<T> : EmergeScope<T>
     ctor()
     int Index { get; }
-    // A variation seed for this candidate, surfaced to the model as a directive in its system prompt ("attempts with different seeds must explore genuinely different approaches"). It is NOT a sampler seed — the chat models behind Emerge expose none — so it does not make a run reproducible; it makes sibling candidates diverge, which is what BestOf needs.
+    // Not a sampler seed (the chat models expose none), so it does not make a run reproducible — it only drives sibling candidates to diverge.
     int? Seed { get; set; }
-  // Run-completion control a tool body returns to complete the Emerge run right after the current batch of tool calls, instead of sending the tool results back to the model for another turn — for tools whose side effect IS the answer (e.g. a UI action the model triggered on the user's behalf). The executor feeds the completion value into the tool-result message (the model never sees the control itself) and the run then completes with a default result. Create with Emerge.Complete<TValue> or Emerge.Complete; the run observes the completion as a Completed<T> event.
+  // Return this from a tool body to end the run immediately after the current tool batch instead of looping back to the model; the run completes with a default result and the completion surfaces as a Completed<T> event. Create via Emerge.Complete<TValue> or Emerge.Complete.
   class Complete
-  // Typed form of Complete: Complete<TValue>.Value is fed to the model transcript as the tool result before the run completes.
+  // Value is written to the model transcript as the tool result before the run completes.
   sealed class Complete<TValue> : Complete
     TValue Value { get; }
-  sealed class Completed<T> : EmergeEvent<T>, IEquatable<Completed<T>>
+  sealed record Completed<T> : EmergeEvent<T>
     ctor(T? Result, KernelContext Context, EmergenceTrace Trace)
     KernelContext Context { get; init; }
     T? Result { get; init; }
     EmergenceTrace Trace { get; init; }
   static class Emerge
-    // One-shot LLM completion that returns the result string. The verbose form
-    // var reply = await Emerge.Run<string>(
-    //     LLMModel.Claude45Haiku,
-    //     pass => pass.Command = command, ct);
-    // becomes
-    // var reply = await Emerge.AskAsync(command, ct);
-    // Uses LLMModel.Claude45Haiku by default — cheap+fast, the right choice for short transformations (chatbot replies, reformat-as-X, classify, summarize). Override the model via the other overload when the task warrants a stronger tier. Reach for the full Emerge.Run<T> when you need tools, multi-iteration agentic loops, a populated KernelContext, or fine pass tuning. Never returns null, and — exactly like the Emerge.Run<T> form it stands in for — throws EmergenceStoppedException when the run stops or completes without producing a reply.
+    // Defaults to LLMModel.Claude45Haiku (cheap and fast — right for short transformations); use the model overload for a stronger tier. Never returns null; throws EmergenceStoppedException if the run stops or completes without a reply.
     static Task<string> AskAsync(string command, CancellationToken ct = default)
-    // Like Emerge.AskAsync but with an explicit model override.
     static Task<string> AskAsync(string command, LLMModel model, CancellationToken ct = default)
-    // One-shot structured-output completion. Same shape as the string overload, but the model is asked for a JSON object matching T's schema. Throws EmergenceStoppedException when the run stops or completes without a result, and on invalid JSON.
+    // Asks the model for JSON matching T's schema; defaults to LLMModel.Claude45Haiku. Throws EmergenceStoppedException when the run stops, completes without a result, or returns invalid JSON.
     static Task<T> AskAsync<T>(string command, CancellationToken ct = default) where T : class
-    // Like Emerge.AskAsync<T> but with an explicit model override.
     static Task<T> AskAsync<T>(string command, LLMModel model, CancellationToken ct = default) where T : class
     static EmergeRun<T> BestOf<T>(LLMModel model, KernelContext context, Action<BestOfOptions<T>> configure, CancellationToken ct = default)
     static EmergeRun<T> BestOf<T>(LLMModel model, KernelContext context, Action<BestOfOptions<T>> configure, ILLM llm, CancellationToken ct = default)
-    // Run-completion control for a tool body: return this to complete the Emerge run right after the current batch of tool calls, with value fed to the model transcript as the tool result. See Complete.
+    // Return the result from a tool body to complete the run right after the current tool batch, with value fed to the transcript as the tool result.
     static Complete<TValue> Complete<TValue>(TValue value)
-    // Like Emerge.Complete<TValue> but with no result value — the tool result is recorded as a plain completion marker.
+    // Return from a tool body to complete the run after the current tool batch; the tool result is recorded as a plain completion marker with no value.
     static Complete Complete()
     static EmergeRun<T> EnsembleMerge<T>(LLMModel model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, CancellationToken ct = default)
     static EmergeRun<T> EnsembleMerge<T>(LLMModel model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, ILLM llm, CancellationToken ct = default)
@@ -193,35 +176,21 @@ namespace Ikon.AI.Emergence
     static EmergeRun<TResult> MapReduce<TInput, TMapped, TResult>(LLMModel model, KernelContext context, Action<MapReduceOptions<TInput, TMapped, TResult>> configure, ILLM llm, CancellationToken ct = default)
     static EmergeRun<T> Refine<T>(LLMModel model, KernelContext context, Action<RefineOptions<T>> configure, CancellationToken ct = default)
     static EmergeRun<T> Refine<T>(LLMModel model, KernelContext context, Action<RefineOptions<T>> configure, ILLM llm, CancellationToken ct = default)
-    // Runs one agentic loop and hands back an EmergeRun<T> — awaitable for the one-shot result, enumerable for the event stream:
-    // var recipe = await Emerge.Run<Recipe>(
-    //     LLMModel.Claude45Sonnet,
-    //     pass => pass.Command = command, ct);
-    //
-    // await foreach (var ev in Emerge.Run<Recipe>(
-    //     LLMModel.Claude45Sonnet,
-    //     pass => pass.Command = command, ct))
-    // {
-    // }
-    // Awaiting returns a non-null T and throws EmergenceStoppedException when the run stops without a result. Reach for EmergeEventExtensions.FinalAsync<T> when you also need the updated KernelContext back. This overload creates a fresh KernelContext internally — the common case where the call carries no prior conversation. Pass an explicit KernelContext via the other overloads when you seed the call with input (images, prior turns) or carry conversation history across calls.
+    // Awaiting returns a non-null T and throws EmergenceStoppedException if the run stops without a result. This overload creates a fresh KernelContext; pass an explicit one via the other overloads to seed input (images, prior turns) or carry conversation history across calls.
     static EmergeRun<T> Run<T>(LLMModel model, Action<EmergePass<T>> configure, CancellationToken ct = default)
-    // Like Emerge.Run<T> but with an explicit ILLM (e.g. a mock for testing).
     static EmergeRun<T> Run<T>(LLMModel model, Action<EmergePass<T>> configure, ILLM llm, CancellationToken ct = default)
     static EmergeRun<T> Run<T>(LLMModel model, KernelContext context, Action<EmergePass<T>> configure, CancellationToken ct = default)
     static EmergeRun<T> Run<T>(LLMModel model, KernelContext context, Action<EmergePass<T>> configure, ILLM llm, CancellationToken ct = default)
     static EmergeRun<T> TreeSearch<T>(LLMModel model, KernelContext context, Action<TreeSearchOptions<T>> configure, CancellationToken ct = default)
     static EmergeRun<T> TreeSearch<T>(LLMModel model, KernelContext context, Action<TreeSearchOptions<T>> configure, ILLM llm, CancellationToken ct = default)
+  abstract record EmergeEvent<T>
   static class EmergeEventExtensions
-    // Drains the stream and returns the completed result together with the updated KernelContext. Reach for this over plainly awaiting the run when you need the context back (conversation continuity) or want to handle a null result yourself. The result stays nullable: a run can complete without producing one (the case EmergeEventExtensions.ResultAsync<T> turns into an EmergenceStoppedException), so guard it before use.
+    // Returns the result together with the updated KernelContext (for conversation continuity). The result stays nullable — a run can complete without producing one — so guard it before use.
     static Task<(T? Result, KernelContext Context)> FinalAsync<T>(this IAsyncEnumerable<EmergeEvent<T>> events, CancellationToken ct = default)
-    // Like EmergeEventExtensions.FinalAsync<T> but also returns the run's EmergenceTrace. Reach for this when you need telemetry (duration, token usage, tool-call history) alongside the result. The result stays nullable, exactly as in EmergeEventExtensions.FinalAsync<T>.
+    // Like FinalAsync<T> but also returns the EmergenceTrace (duration, token usage, tool-call history). The result stays nullable.
     static Task<(T? Result, KernelContext Context, EmergenceTrace Trace)> FinalWithTraceAsync<T>(this IAsyncEnumerable<EmergeEvent<T>> events, CancellationToken ct = default)
-    // Drains the stream and returns the completed result. An EmergeRun<T> is awaitable, so a run started by Emerge.Run or a pattern needs no terminal at all —
-    // var result = await Emerge.Run<Recipe>(
-    //     model, pass => pass.Command = command, ct);
-    // is this method. Call it explicitly only on a stream that is not an EmergeRun<T> (a hand-rolled IAsyncEnumerable<T> of events). Never returns null — if the run completes without producing a result (where EmergeEventExtensions.FinalAsync<T> would hand back a null result), an EmergenceStoppedException is thrown. Reach for EmergeEventExtensions.FinalAsync<T> instead when you need the updated KernelContext back (conversation continuity) or want to handle a missing result yourself via a nullable result.
+    // Drains the stream and returns the completed result — the same thing awaiting an EmergeRun<T> does. Never returns null; throws EmergenceStoppedException if the run stops or completes without a result. Use FinalAsync<T> when you need the updated KernelContext back or want to handle a missing result yourself.
     static Task<T> ResultAsync<T>(this IAsyncEnumerable<EmergeEvent<T>> events, CancellationToken ct = default)
-  abstract class EmergeEvent<T> : IEquatable<EmergeEvent<T>>
   sealed class EmergePass<T>
     ctor()
     bool CaseInsensitiveJson { get; set; }
@@ -239,10 +208,9 @@ namespace Ikon.AI.Emergence
     int? MaxRetries { get; set; }
     int? MaxToolCalls { get; set; }
     TimeSpan? MaxWallTime { get; set; }
-    // Concrete model for this pass. Callers that sit above the agent layer (Ikon.Agent) usually don't set this directly — there a persona declares an abstract Reasoning (Capability × ModelFamily) and the agent runtime resolves it to the LLMModel placed here.
+    // Null inherits the run's model; set it to override the model for this pass only.
     LLMModel? Model { get; set; }
-    bool? OptimizeContext { get; set; }
-    // Names of tools the caller declares SIDE-EFFECT-FREE (pure read/lookup). The executor runs consecutive calls to these from one model turn CONCURRENTLY — measured on codegen, sequential guide/read batches dominated pass latency. Results are still recorded in the model's original order. Mutating tools stay out of this set and act as barriers.
+    // Tools named here are treated as side-effect-free: the executor runs consecutive calls to them from one model turn concurrently, while results are still recorded in the model's original order. Any tool not listed acts as a barrier and runs alone.
     ISet<string> ReadOnlyToolNames { get; }
     ReasoningEffort? ReasoningEffort { get; set; }
     int? ReasoningTokenBudget { get; set; }
@@ -259,19 +227,19 @@ namespace Ikon.AI.Emergence
     int? UseLastNMessages { get; set; }
     void Stop(string? reason = null)
     void UseLastMessages(int count, int skipLast = 0)
-  // The handle returned by Emerge.Run<T> and the emergence patterns. It is both awaitable and enumerable, so the caller picks the shape without a terminal call:
-  // // one-shot — non-null T, throws EmergenceStoppedException on failure
-  // var result = await Emerge.Run<Recipe>(model, pass => pass.Command = command);
-  //
-  // // streaming — every event as it happens
-  // await foreach (var ev in Emerge.Run<Recipe>(model, pass => pass.Command = command))
-  // {
-  // }
-  // Awaiting is exactly EmergeEventExtensions.ResultAsync<T>; reach for EmergeEventExtensions.FinalAsync<T> when you also need the updated KernelContext back, or EmergeEventExtensions.FinalWithTraceAsync<T> for the trace. A run is single-shot: the underlying executor carries per-run state, so it can be consumed exactly once. Awaiting the same run twice hands back the same result rather than calling the model again; mixing the two shapes (enumerating and then awaiting, or the reverse) throws instead of silently running a second time.
+  // Both awaitable (one-shot non-null result, throws EmergenceStoppedException on failure) and enumerable (event stream). Single-shot: consumed exactly once — awaiting twice hands back the same result, but mixing the two shapes (enumerate then await, or the reverse) throws.
   sealed class EmergeRun<T> : IAsyncEnumerable<EmergeEvent<T>>
     IAsyncEnumerator<EmergeEvent<T>> GetAsyncEnumerator(CancellationToken cancellationToken = default)
-    // Makes the run directly awaitable (the C# awaitable pattern — no interface required). Drains the stream and returns the completed result, identical in semantics to EmergeEventExtensions.ResultAsync<T>: never null, and an EmergenceStoppedException when the run stops without producing one.
+    // Awaiting drains the stream and returns the completed result: never null, and throws EmergenceStoppedException if the run stops without producing one.
     TaskAwaiter<T> GetAwaiter()
+  class EmergeScope<T> : EmergeScopeBase
+    ctor()
+    // Defaults to true.
+    bool CaseInsensitiveJson { get; set; }
+    string JsonExample { get; }
+    string JsonSchema { get; }
+    // Defaults to true for every T except string.
+    bool UseJson { get; set; }
   abstract class EmergeScopeBase
     string? Command { get; set; }
     bool? IncludeJsonExample { get; set; }
@@ -281,7 +249,6 @@ namespace Ikon.AI.Emergence
     int? MaxToolCalls { get; set; }
     TimeSpan? MaxWallTime { get; set; }
     LLMModel? Model { get; set; }
-    bool? OptimizeContext { get; set; }
     ReasoningEffort? ReasoningEffort { get; set; }
     int? ReasoningTokenBudget { get; set; }
     IReadOnlyList<ModelRegion>? Regions { get; set; }
@@ -294,14 +261,6 @@ namespace Ikon.AI.Emergence
     bool? UseCitations { get; set; }
     int? UseLastNMessages { get; set; }
     void UseLastMessages(int count, int skipLast = 0)
-  class EmergeScope<T> : EmergeScopeBase
-    ctor()
-    // Match JSON property names case-insensitively when deserializing the model's response. Defaults to true.
-    bool CaseInsensitiveJson { get; set; }
-    string JsonExample { get; }
-    string JsonSchema { get; }
-    // Ask the model for JSON matching T's schema. Defaults to true for every T except string.
-    bool UseJson { get; set; }
   enum EmergenceStatus
     Completed
     Stopped
@@ -311,7 +270,7 @@ namespace Ikon.AI.Emergence
     ctor(EmergenceStatus status, string? stopReason, Exception innerException)
     EmergenceStatus Status { get; }
     string? StopReason { get; }
-  sealed class EmergenceTrace : IEquatable<EmergenceTrace>
+  sealed record EmergenceTrace
     ctor()
     ctor(int iterations, int toolCalls, TimeSpan duration, IReadOnlyList<FunctionCall>? toolCallHistory = null, string? finishReason = null, Exception? error = null, long inputTokens = 0, long cachedInputTokens = 0, long cacheCreationInputTokens = 0, long outputTokens = 0)
     long CacheCreationInputTokens { get; init; }
@@ -333,8 +292,7 @@ namespace Ikon.AI.Emergence
     int SolverCount { get; set; }
     void Merger(Action<EmergeScope<T>> configure)
     void Solver(Action<AgentScope<T>> configure)
-  // One tree section the navigator marked relevant, with the reason it gave.
-  sealed class FoundSection : IEquatable<FoundSection>
+  sealed record FoundSection
     ctor(string NodeId, string Path, string Content, string Relevance, int? Page = null)
     string Content { get; init; }
     string NodeId { get; init; }
@@ -345,49 +303,47 @@ namespace Ikon.AI.Emergence
     static IReadOnlyList<FunctionCall> GetFunctionCalls(this KernelContext ctx, int take = 10)
     static IReadOnlyList<FunctionResultPart> GetFunctionResults(this KernelContext ctx, int take = 10)
     static bool HasFunctionResults(this KernelContext ctx)
-  // MapReduce lanes: each TInput chunk is mapped by its own LLM call into a TMapped, and the mapped results are reduced by one final call into a TResult. Chunks are handed to the map prompt as JSON, so any serializable type works — a plain string per chunk is the common case.
+    // Keeps the last take message blocks (after ignoring the last skipLast), then advances the start to the next User block so the result never begins on an orphan Model or FunctionResult turn (which providers reject). Instructions and all other fields are preserved.
+    static KernelContext TrimToLastMessages(this KernelContext ctx, int take, int skipLast = 0)
+  // Each TInput chunk is mapped by its own LLM call into a TMapped, then all mapped results are reduced by one final call into the TResult. Chunks are passed to the map prompt as JSON, so any serializable type works (a string per chunk is the common case).
   sealed class MapReduceOptions<TInput, TMapped, TResult> : EmergeScope<TResult>
     ctor()
-    // The chunks to map over, one map call each. Set this, or MapReduceOptions<TInput, TMapped, TResult>.Input.
+    // Set this or Input; each chunk is one map call.
     IReadOnlyList<TInput>? Chunks { get; set; }
-    // A single input to chunk with MapReduceOptions<TInput, TMapped, TResult>.Split. Without a MapReduceOptions<TInput, TMapped, TResult>.Split it is mapped as one chunk.
+    // Split into chunks by Split; without a Split it is mapped as a single chunk. Alternative to Chunks.
     TInput? Input { get; set; }
     EmergeScope<TMapped> MapScope { get; }
     int MaxParallel { get; set; }
     EmergeScope<TResult> ReduceScope { get; }
-    // Splits MapReduceOptions<TInput, TMapped, TResult>.Input into the chunks to map over.
     Func<TInput, IEnumerable<TInput>>? Split { get; set; }
     void Map(Action<EmergeScope<TMapped>> configure)
     void Reduce(Action<EmergeScope<TResult>> configure)
-  // MCP (Model Context Protocol) client using Streamable HTTP transport. Connects to an MCP server, discovers tools, and proxies tool calls.
+  // Call ConnectAsync before reading Tools or calling a tool — it performs the MCP handshake and populates the tool list. Uses Streamable HTTP transport.
   sealed class McpClient : IDisposable
     ctor(string endpoint, Dictionary<string, string>? headers = null)
     IReadOnlyList<McpTool> Tools { get; }
-    // Calls an MCP tool by name with the given JSON arguments.
     Task<string> CallToolAsync(string name, JsonElement arguments, CancellationToken ct = default)
-    // Calls an MCP tool and returns both content and pagination cursor. Pass a cursor from a previous response to fetch the next page.
+    // Returns the content plus a pagination cursor; pass a cursor from a previous response to fetch the next page.
     Task<McpToolResult> CallToolRawAsync(string name, JsonElement arguments, string? cursor = null, CancellationToken ct = default)
-    // Initializes the MCP session and discovers available tools.
     Task ConnectAsync(CancellationToken ct = default)
     void Dispose()
-  class McpTool : IEquatable<McpTool>
+  record McpTool
     ctor(string Name, string? Description, JsonElement? InputSchema)
     string? Description { get; init; }
     JsonElement? InputSchema { get; init; }
     string Name { get; init; }
-  class McpToolResult : IEquatable<McpToolResult>
+  record McpToolResult
     ctor(string Content, string? NextCursor)
     string Content { get; init; }
     string? NextCursor { get; init; }
-  sealed class ModelText<T> : EmergeEvent<T>, IEquatable<ModelText<T>>
+  sealed record ModelText<T> : EmergeEvent<T>
     ctor(string Text)
     string Text { get; init; }
-  // The navigator's structured verdict at the end of a TreeSearch run.
-  sealed class NavigationDecision : IEquatable<NavigationDecision>
+  sealed record NavigationDecision
     ctor(string Reasoning = "", bool Complete = false)
     bool Complete { get; init; }
     string Reasoning { get; init; }
-  sealed class Progress<T> : EmergeEvent<T>, IEquatable<Progress<T>>
+  sealed record Progress<T> : EmergeEvent<T>
     ctor(string Message)
     string Message { get; init; }
   sealed class RefineOptions<T> : EmergeScope<T>
@@ -398,7 +354,7 @@ namespace Ikon.AI.Emergence
     Func<T, EmergenceTrace, Task<bool>>? ShouldContinue { get; set; }
     void Initial(Action<EmergeScope<T>> configure)
     void Refinement(Action<EmergeScope<T>> configure)
-  sealed class Retry<T> : EmergeEvent<T>, IEquatable<Retry<T>>
+  sealed record Retry<T> : EmergeEvent<T>
     ctor(string Reason, int AttemptNumber, int MaxAttempts)
     int AttemptNumber { get; init; }
     int MaxAttempts { get; init; }
@@ -419,24 +375,24 @@ namespace Ikon.AI.Emergence
     double Score { get; init; }
     double Weight { get; init; }
     double WeightedScore { get; }
-  sealed class Stage<T> : EmergeEvent<T>, IEquatable<Stage<T>>
+  sealed record Stage<T> : EmergeEvent<T>
     ctor(string Name)
     string Name { get; init; }
-  sealed class Stopped<T> : EmergeEvent<T>, IEquatable<Stopped<T>>
+  sealed record Stopped<T> : EmergeEvent<T>
     ctor(KernelContext Context, string? Reason)
     KernelContext Context { get; init; }
     string? Reason { get; init; }
-  // Token usage for the run so far. The counts are CUMULATIVE running totals across all iterations, not per-iteration deltas — consumers must take the LAST event's values, never sum the events.
-  sealed class TokenUpdate<T> : EmergeEvent<T>, IEquatable<TokenUpdate<T>>
+  // Counts are cumulative running totals across all iterations, not per-iteration deltas — take the last event's values, never sum them.
+  sealed record TokenUpdate<T> : EmergeEvent<T>
     ctor(long InputTokens, long CachedInputTokens, long CacheCreationInputTokens, long OutputTokens)
     long CacheCreationInputTokens { get; init; }
     long CachedInputTokens { get; init; }
     long InputTokens { get; init; }
     long OutputTokens { get; init; }
-  sealed class ToolCallPlanned<T> : EmergeEvent<T>, IEquatable<ToolCallPlanned<T>>
+  sealed record ToolCallPlanned<T> : EmergeEvent<T>
     ctor(FunctionCall Call)
     FunctionCall Call { get; init; }
-  sealed class ToolCallResult<T> : EmergeEvent<T>, IEquatable<ToolCallResult<T>>
+  sealed record ToolCallResult<T> : EmergeEvent<T>
     ctor(FunctionCall Call, LLMEvent[] Events, object Result)
     FunctionCall Call { get; init; }
     LLMEvent[] Events { get; init; }
@@ -449,36 +405,31 @@ namespace Ikon.AI.Emergence
     EmergeScope<NavigationDecision> NavigatorScope { get; }
     string Query { get; set; }
     void Navigator(Action<EmergeScope<NavigationDecision>> configure)
-  // Result of a TreeSearch run: the sections the navigator marked relevant, plus its final reasoning.
-  sealed class TreeSearchResult : IEquatable<TreeSearchResult>
+  sealed record TreeSearchResult
     ctor(List<FoundSection> Sections, string ReasoningTrace = "")
     string ReasoningTrace { get; init; }
     List<FoundSection> Sections { get; init; }
 
 namespace Ikon.AI.Emergence.Structured
-  // A parsed block from the content
-  sealed class StructuredTagParser.ParsedBlock : IEquatable<StructuredTagParser.ParsedBlock>
+  // Tag matching is case-insensitive and tolerates attributes and formatting variations.
+  static class StructuredTagParser
+    // Returns the first occurrence's inner content, or null if the tag is absent.
+    static string? GetTagContent(string content, string tagName)
+    static bool HasTag(string content, string tagName)
+    static StructuredTagParser.ParsedResponse Parse(string content, params string[] tagNames)
+  sealed record StructuredTagParser.ParsedBlock
     ctor(string TagName, string Content, int StartIndex, int EndIndex)
     string Content { get; init; }
     int EndIndex { get; init; }
     int StartIndex { get; init; }
     string TagName { get; init; }
-  // Complete parsed response with plain text and extracted blocks
-  sealed class StructuredTagParser.ParsedResponse : IEquatable<StructuredTagParser.ParsedResponse>
+  sealed record StructuredTagParser.ParsedResponse
     ctor(string PlainText, IReadOnlyList<StructuredTagParser.ParsedBlock> Blocks)
     IReadOnlyList<StructuredTagParser.ParsedBlock> Blocks { get; init; }
     string PlainText { get; init; }
-  // Generic parser for structured XML-style tags in LLM responses. Handles case mismatches, partial tags, and various formatting variations.
-  static class StructuredTagParser
-    // Extract the content of a specific tag (first occurrence)
-    static string? GetTagContent(string content, string tagName)
-    // Check if content contains a specific tag
-    static bool HasTag(string content, string tagName)
-    // Parse content and extract structured blocks for the specified tag names
-    static StructuredTagParser.ParsedResponse Parse(string content, params string[] tagNames)
 
 namespace Ikon.AI.Emergence.Tree
-  class ContentSection : IEquatable<ContentSection>
+  record ContentSection
     ctor(string Title, string Content, int? Page = null)
     string Content { get; init; }
     int? Page { get; init; }
@@ -492,9 +443,7 @@ namespace Ikon.AI.Emergence.Tree
     ctor()
     ctor(TreeNode root)
     TreeNode Root { get; set; }
-    // Builds the tree index for a document, as an EmergeRun<T> — awaitable for the finished index, enumerable for the event stream, just like Emerge.TreeSearch<T> and the other Emerge patterns.
     static EmergeRun<TreeIndex> BuildAsync(LLMModel model, string content, TreeIndexOptions? options = null, CancellationToken ct = default)
-    // Like TreeIndex.BuildAsync but reads the document through an IContentReader.
     static EmergeRun<TreeIndex> BuildAsync(LLMModel model, IContentReader reader, TreeIndexOptions? options = null, CancellationToken ct = default)
     TreeNode? FindById(string id)
     void RebuildIndex()
