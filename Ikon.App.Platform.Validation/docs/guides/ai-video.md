@@ -67,25 +67,21 @@ var result = await enhancer.EnhanceVideoAsync(new VideoEnhancerConfig
 # Ikon.AI Public API
 namespace Ikon.AI.VideoEnhancement
   interface IVideoEnhancer : IDisposable
-    abstract Task<VideoEnhancerResult> EnhanceVideoAsync(VideoEnhancerConfig config, CancellationToken cancellationToken = default)
+    Task<VideoEnhancerResult> EnhanceVideoAsync(VideoEnhancerConfig config, CancellationToken cancellationToken = default)
   class NonRetryableVideoEnhancerException : NonRetryableAIException
     ctor()
     ctor(string message)
     ctor(string message, Exception inner)
-  sealed class VideoEnhancer : IDisposable, IVideoEnhancer
+  sealed class VideoEnhancer : IVideoEnhancer
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(VideoEnhancerModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
-    // One-shot video enhancement from a video URL. The verbose form
-    // using var enhancer = new VideoEnhancer(VideoEnhancerModel.TensorPixUpscale2xUltra41);
-    // var result = await enhancer.EnhanceVideoAsync(new VideoEnhancerConfig { VideoUrl = url });
-    // becomes
-    // var enhanced = await VideoEnhancer.EnhanceAsync(url);
-    // Defaults to TensorPixUpscale2xUltra41 (the current 2x upscale generation — cheaper than the 4x filter). Override the model via the second parameter when the task warrants. Returns the enhanced video as a download URL in .Url along with .OutputFps and .OutputSizeBytes. Reach for the constructor + EnhanceVideoAsync when you need to enhance raw video bytes (VideoData), trim to a frame range, set a target FPS for TensorPixFpsBoost , or any other VideoEnhancerConfig field beyond the URL.
+    Task<VideoEnhancerResult> EnhanceAsync(string videoUrl, CancellationToken cancellationToken = default)
+    // Static one-shot; constructs and disposes a VideoEnhancer per call. Defaults to VideoEnhancerModel.TensorPixUpscale2xUltra41; override via model. Returns the enhanced video as a download URL in .Url plus .OutputFps/.OutputSizeBytes. Use the constructor + EnhanceVideoAsync for raw bytes (VideoData), frame-range trim, target FPS, or other fields.
     static Task<VideoEnhancerResult> EnhanceAsync(string videoUrl, VideoEnhancerModel model = TensorPixUpscale2xUltra41, CancellationToken cancellationToken = default)
     Task<VideoEnhancerResult> EnhanceVideoAsync(VideoEnhancerConfig config, CancellationToken cancellationToken = default)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(VideoEnhancerModel model)
-  sealed class VideoEnhancerConfig : IEquatable<VideoEnhancerConfig>
+  sealed record VideoEnhancerConfig
     ctor()
     int? EndFrame { get; init; }
     string? MimeType { get; init; }
@@ -105,7 +101,7 @@ namespace Ikon.AI.VideoEnhancement
     TensorPixUpscale4xUltra4
   static class VideoEnhancerModelExtensions
     static string DisplayName(this VideoEnhancerModel model)
-  sealed class VideoEnhancerResult : IEquatable<VideoEnhancerResult>
+  sealed record VideoEnhancerResult
     ctor()
     int? OutputFps { get; init; }
     long? OutputSizeBytes { get; init; }
@@ -113,7 +109,7 @@ namespace Ikon.AI.VideoEnhancement
 
 namespace Ikon.AI.VideoGeneration
   interface IVideoGenerator : IDisposable, IVideoGeneratorInfo
-    abstract Task<VideoGeneratorResult> GenerateVideoAsync(VideoGeneratorConfig config, CancellationToken cancellationToken = default)
+    Task<VideoGeneratorResult> GenerateVideoAsync(VideoGeneratorConfig config, CancellationToken cancellationToken = default)
   interface IVideoGeneratorInfo
     int MaxInputImages { get; }
     VideoGeneratorResolutionMode ResolutionMode { get; }
@@ -126,16 +122,11 @@ namespace Ikon.AI.VideoGeneration
     bool SupportsSeed { get; }
     bool SupportsTailImage { get; }
     bool SupportsTextToVideo { get; }
-  sealed class VideoGeneratorConfig.InputImage : IEquatable<VideoGeneratorConfig.InputImage>
-    ctor()
-    byte[]? Data { get; init; }
-    string? MimeType { get; init; }
-    string? Url { get; init; }
   class NonRetryableVideoGeneratorException : NonRetryableAIException
     ctor()
     ctor(string message)
     ctor(string message, Exception inner)
-  sealed class VideoGenerator : IDisposable, IVideoGenerator, IVideoGeneratorInfo
+  sealed class VideoGenerator : IVideoGenerator
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(VideoGeneratorModel model, IReadOnlyList<ModelRegion>? regions = null)
     int MaxInputImages { get; }
@@ -150,12 +141,8 @@ namespace Ikon.AI.VideoGeneration
     bool SupportsTailImage { get; }
     bool SupportsTextToVideo { get; }
     void Dispose()
-    // One-shot text-to-video. The verbose form
-    // using var generator = new VideoGenerator(VideoGeneratorModel.Veo31Fast);
-    // var result = await generator.GenerateVideoAsync(new VideoGeneratorConfig { Prompt = prompt });
-    // becomes
-    // var video = await VideoGenerator.GenerateAsync(prompt);
-    // Defaults to Veo31Fast (the cheap+fast tier of the strongest general-purpose family). Override the model via the second parameter when the task warrants. Returns the result with the generated clip's .Url. Reach for the constructor + GenerateVideoAsync when you need input images (image-to-video), a specific length, resolution, aspect ratio, negative prompt, audio, or any other VideoGeneratorConfig field beyond the prompt.
+    Task<VideoGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
+    // Static one-shot; constructs and disposes a VideoGenerator per call. Defaults to VideoGeneratorModel.Veo31Fast; override via model. Returns the result with the generated clip's .Url. Use the constructor + GenerateVideoAsync for image-to-video, length, resolution, aspect ratio, negative prompt, audio, or other fields.
     static Task<VideoGeneratorResult> GenerateAsync(string prompt, VideoGeneratorModel model = Veo31Fast, CancellationToken cancellationToken = default)
     Task<VideoGeneratorResult> GenerateVideoAsync(VideoGeneratorConfig config, CancellationToken cancellationToken = default)
     static VideoGeneratorCapabilities GetCapabilities(VideoGeneratorModel model)
@@ -179,11 +166,11 @@ namespace Ikon.AI.VideoGeneration
     bool SupportsSeed { get; init; }
     bool SupportsTailImage { get; init; }
     bool SupportsTextToVideo { get; init; }
-  sealed class VideoGeneratorConfig : IEquatable<VideoGeneratorConfig>
+  sealed record VideoGeneratorConfig
     ctor()
     VideoGeneratorAspectRatio AspectRatio { get; init; }
     bool? GenerateAudio { get; init; }
-    List<VideoGeneratorConfig.InputImage> InputImages { get; init; }
+    List<InputImage> InputImages { get; init; }
     int Length { get; init; }
     string? NegativePrompt { get; init; }
     string? Prompt { get; init; }
@@ -235,6 +222,6 @@ namespace Ikon.AI.VideoGeneration
   enum VideoGeneratorResolutionMode
     Discrete
     AspectRatio
-  sealed class VideoGeneratorResult : IEquatable<VideoGeneratorResult>
+  sealed record VideoGeneratorResult
     ctor()
     string Url { get; init; }

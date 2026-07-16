@@ -1,8 +1,6 @@
-using System.Net.Http;
 using System.Net.Http.Json;
 using System.Net.Security;
 using System.Text.Json;
-using Ikon.App.Auth;
 using Ikon.App.Cells;
 // Same reason as Validation.Mcp.cs — Ikon.Common.DescriptionAttribute is Property|Field only,
 // the BCL one allows AttributeTargets.All. JsonSchemaGenerator now reads both transparently.
@@ -296,7 +294,7 @@ public partial class Validation
     {
         public LabCellIdentity Identity { get; } = ctx.Identity;
         public Reactive<int> Counter { get; } = new(0);
-        public Reactive<List<string>> History { get; } = new([]);
+        public ReactiveList<string> History { get; } = new();
 
         // Internal mutation path — every surface ends up here, so the demo's
         // "same state, different transport" message holds by construction.
@@ -359,19 +357,24 @@ public partial class Validation
     public interface IGlobalLabCell
     {
         Reactive<int> Counter { get; }
+
+        // Stays a plain Reactive<T> (not ReactiveList<T>): the substrate proxy only mirrors
+        // exact Reactive<T> getters — a ReactiveList<T> here would be dispatched as a wire
+        // method and break Cells.Connect<IGlobalLabCell>() at runtime.
+#pragma warning disable IKON002
         Reactive<List<string>> History { get; }
+#pragma warning restore IKON002
         Task IncrementAsync(int delta);
         Task ResetAsync();
     }
 
     /// <summary>
-    /// Sibling cell with a parameterless SessionIdentity, hosted on the cell-substrate
-    /// (<see cref="CellProcessScope.Substrate"/>) — one instance per <c>(CellType, SessionIdentity)</c>
-    /// across the whole deployment. Reached through <see cref="IGlobalLabCell"/>, the
-    /// <c>SubstrateCellProxy</c> mirrors its <c>Reactive&lt;T&gt;</c> state and dispatches its
-    /// <c>[Function]</c> methods over a standard SDK connection to the cell-host.
+    /// Sibling cell with a parameterless SessionIdentity — one shared instance across the whole
+    /// deployment. Reached through <see cref="IGlobalLabCell"/>; in the cloud the cell-host proxy mirrors
+    /// its <c>Reactive&lt;T&gt;</c> state and dispatches its <c>[Function]</c> methods over a standard SDK
+    /// connection to the cell-host (a local run hosts it in-process).
     /// </summary>
-    [Cell(IdleTtlSeconds = 600, ProcessScope = CellProcessScope.Substrate)]
+    [Cell(IdleTtlSeconds = 600)]
     public sealed class GlobalLabCell(ICell<GlobalLabCell.SessionIdentity> ctx) : IGlobalLabCell
     {
         public record SessionIdentity();  // empty → global, eager-spawned at host init
@@ -379,7 +382,12 @@ public partial class Validation
         private readonly ICell<SessionIdentity> _ctx = ctx;
 
         public Reactive<int> Counter { get; } = new(0);
+
+        // Matches IGlobalLabCell.History exactly (interface implementation is invariant) and stays
+        // a plain Reactive<T> so the substrate proxy can mirror it.
+#pragma warning disable IKON002
         public Reactive<List<string>> History { get; } = new([]);
+#pragma warning restore IKON002
 
         // Internal mutation core — every surface (SDK [Function], REST [Rest], MCP [Mcp]) routes
         // through here so they all mutate the same Reactive<T> fields.

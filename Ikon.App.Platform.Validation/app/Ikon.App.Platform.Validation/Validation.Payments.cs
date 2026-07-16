@@ -1,8 +1,5 @@
-using System;
 using System.Globalization;
-using System.Linq;
 using System.Text.Json;
-using System.Threading;
 
 public partial class Validation
 {
@@ -14,6 +11,7 @@ public partial class Validation
     private readonly Reactive<string> _payCurrency = new("eur");
     private readonly Reactive<string> _payChargeDescription = new("Validation charge");
     private readonly Reactive<string> _payCustomerOverride = new("");
+    private readonly Reactive<bool> _payAllowPromo = new(false);
 
     private readonly Reactive<string> _payNewOfferId = new("my_offer");
     private readonly Reactive<string> _payNewOfferName = new("My Offer");
@@ -30,7 +28,7 @@ public partial class Validation
     private readonly Reactive<bool> _payBusy = new(false);
     private readonly Reactive<string> _payEntitlement = new("");
     private readonly Reactive<string> _payGate = new("");
-    private readonly Reactive<List<string>> _payEventLog = new([]);
+    private readonly ReactiveList<string> _payEventLog = new();
     private readonly Reactive<PaymentReceipt?> _payReceipt = new((PaymentReceipt?)null);
 
     private async Task InitPaymentsAsync()
@@ -149,10 +147,16 @@ public partial class Validation
                     });
                 }
 
-                card.Row([Layout.Row.Sm, "flex-wrap"], content: btns =>
+                card.Row([Layout.Row.Sm, "flex-wrap items-center"], content: btns =>
                 {
                     btns.Button([Button.PrimarySm], text: "Refresh offers", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(RefreshOffersAsync));
                     btns.Button([Button.PrimarySm], text: "Create validation offers", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(CreateValidationOffersAsync));
+                    btns.Row([Layout.Row.InlineCenter], content: promo =>
+                    {
+                        promo.Switch([Switch.Default], bind: _payAllowPromo, props: TestId("pay-allow-promo"),
+                            content: v => v.SwitchThumb([Switch.Thumb]));
+                        promo.Text([Text.Caption], text: "Promo codes at checkout (Stripe)");
+                    });
                 });
 
                 card.AccordionSingle([Accordion.Root], collapsible: true, content: acc =>
@@ -211,7 +215,7 @@ public partial class Validation
                             LogPayments("Error: enter a positive amount, e.g. 5.00");
                             return;
                         }
-                        var link = await app.Payments.CreatePaymentLinkAsync(amountMinor, _payCurrency.Value, CustomerOverrideOrNull, description: _payChargeDescription.Value);
+                        var link = await app.Payments.CreatePaymentLinkAsync(amountMinor, _payCurrency.Value, CustomerOverrideOrNull, description: _payChargeDescription.Value, allowPromotionCodes: _payAllowPromo.Value);
                         LogPayments($"Opened a payment page for {amountMinor / 100.0:0.00} {_payCurrency.Value.ToUpperInvariant()}");
                         await OpenLinkAsync(link);
                     }));
@@ -235,13 +239,14 @@ public partial class Validation
                 });
                 if (!string.IsNullOrEmpty(_payEntitlement.Value))
                 {
-                    card.Text([Text.Body], text: $"Backend says: {_payEntitlement.Value}");
+                    card.Text([Text.Body], text: $"Backend says: {_payEntitlement.Value}", props: TestId("pay-entitlement"));
                 }
 
                 // Synchronous, cached gate — safe to read every render, re-renders on change.
                 var entitledNow = app.Payments.IsEntitled(_payOfferId.Value, CustomerOverrideOrNull);
                 card.Text([Text.BodySm, entitledNow ? "text-success" : "text-tertiary", "font-mono"],
-                    text: (entitledNow ? "✓" : "✗") + $" IsEntitled(\"{_payOfferId.Value}\") — live, updates automatically");
+                    text: (entitledNow ? "✓" : "✗") + $" IsEntitled(\"{_payOfferId.Value}\") — live, updates automatically",
+                    props: TestId("pay-entitled-live"));
             });
 
             // 4. The customer's stuff -------------------------------------
@@ -255,7 +260,7 @@ public partial class Validation
                     card.Text([Text.Label, "mt-2"], text: "Subscriptions");
                     if (_paySubs.Value.Count == 0)
                     {
-                        card.Text([Text.BodySm, "text-tertiary"], text: "None.");
+                        card.Text([Text.BodySm, "text-tertiary"], text: "None.", props: TestId("pay-subs-empty"));
                     }
                     foreach (var sub in _paySubs.Value)
                     {
@@ -297,7 +302,7 @@ public partial class Validation
                     card.Text([Text.Label, "mt-2"], text: "Payments");
                     if (_payHistory.Value.Count == 0)
                     {
-                        card.Text([Text.BodySm, "text-tertiary"], text: "None.");
+                        card.Text([Text.BodySm, "text-tertiary"], text: "None.", props: TestId("pay-payments-empty"));
                     }
                     foreach (var pay in _payHistory.Value)
                     {
@@ -340,7 +345,7 @@ public partial class Validation
                 }));
                 if (!string.IsNullOrEmpty(_payGate.Value))
                 {
-                    card.Text([Text.Body], text: _payGate.Value);
+                    card.Text([Text.Body], text: _payGate.Value, props: TestId("pay-gate-result"));
                 }
             });
 
@@ -350,7 +355,7 @@ public partial class Validation
                 card.Text([Text.H3], text: "Testing tools");
                 card.Row(["gap-3 flex-wrap items-end"], content: row =>
                 {
-                    row.TextField(bind: _payCustomerOverride, label: "Customer override", placeholder: "empty = signed-in user", style: [Input.Default, "min-w-[220px]"]);
+                    row.TextField(bind: _payCustomerOverride, label: "Customer override", placeholder: "empty = signed-in user", style: [Input.Default, "min-w-[220px]"], props: TestId("pay-customer-override"));
                 });
 
                 card.Text([Text.Label, "mt-2"], text: "Simulate provider webhooks");
@@ -372,7 +377,7 @@ public partial class Validation
                 }
                 foreach (var line in _payEventLog.Value.Take(20))
                 {
-                    card.Text([Text.BodySm], text: $"• {line}");
+                    card.Text([Text.BodySm], text: $"• {line}", props: TestId("pay-event-line"));
                 }
 
                 card.Button([Button.PrimarySm, "self-start mt-2"], text: "Reconcile", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
@@ -419,8 +424,8 @@ public partial class Validation
 
     private Task PayAsync(string offerId) => RunPaymentsActionAsync(async () =>
     {
-        var link = await app.Payments.CreatePaymentLinkAsync(offerId, CustomerOverrideOrNull);
-        LogPayments($"Opened a payment page for '{offerId}'");
+        var link = await app.Payments.CreatePaymentLinkAsync(offerId, CustomerOverrideOrNull, allowPromotionCodes: _payAllowPromo.Value);
+        LogPayments($"Opened a payment page for '{offerId}'" + (_payAllowPromo.Value ? " with promo codes enabled" : ""));
         await OpenLinkAsync(link);
     });
 

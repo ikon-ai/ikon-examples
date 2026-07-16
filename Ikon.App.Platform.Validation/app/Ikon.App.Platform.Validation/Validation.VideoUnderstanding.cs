@@ -75,6 +75,7 @@ public partial class Validation
                     view.Button(
                         [Button.PrimaryMd],
                         text: "Analyze Sample Video",
+                        props: TestId("ai-video-understanding-sample"),
                         disabled: _videoUnderstandingProcessing.Value,
                         onClick: AnalyzeSampleVideoAsync);
 
@@ -99,7 +100,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_videoUnderstandingResult.Value))
                 {
-                    view.Box([Card.Elevated, "mt-4 p-4 max-h-96 overflow-auto"], content: view =>
+                    view.Box([Card.Elevated, "mt-4 p-4 max-h-96 overflow-auto"], props: TestId("ai-video-understanding-result"), content: view =>
                     {
                         view.Text([Text.BodyStrong, "mb-2"], "Model Response");
                         view.Text([Text.Body, "whitespace-pre-wrap"], _videoUnderstandingResult.Value);

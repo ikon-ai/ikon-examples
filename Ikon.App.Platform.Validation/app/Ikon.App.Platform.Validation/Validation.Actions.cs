@@ -354,7 +354,7 @@ public partial class Validation
                         text: "Vibrate (200ms)",
                         onClick: async () =>
                         {
-                            var success = await ClientFunctions.VibrateAsync("200", targetId: clientSessionId);
+                            var success = await ClientFunctions.VibrateAsync(200, targetId: clientSessionId);
                             _clientFunctionResultText.Value = success ? "Vibrate: Success" : "Vibrate: Failed/Not Supported";
                             _clientFunctionToastOpen.Value = true;
                         });
@@ -363,7 +363,7 @@ public partial class Validation
                         text: "Vibrate Pattern",
                         onClick: async () =>
                         {
-                            var success = await ClientFunctions.VibrateAsync("100,50,100,50,200", targetId: clientSessionId);
+                            var success = await ClientFunctions.VibrateAsync(new[] { 100, 50, 100, 50, 200 }, targetId: clientSessionId);
                             _clientFunctionResultText.Value = success ? "Vibrate: Success (pattern)" : "Vibrate: Failed/Not Supported";
                             _clientFunctionToastOpen.Value = true;
                         });
@@ -413,7 +413,7 @@ public partial class Validation
                         onClick: async () =>
                         {
                             var visibility = await ClientFunctions.GetVisibilityAsync(targetId: clientSessionId);
-                            _clientFunctionResultText.Value = $"Visibility: {visibility ?? "(null)"}";
+                            _clientFunctionResultText.Value = $"Visibility: {visibility}";
                             _clientFunctionToastOpen.Value = true;
                         });
 

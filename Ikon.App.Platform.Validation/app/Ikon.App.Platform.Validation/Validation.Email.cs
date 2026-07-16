@@ -27,7 +27,7 @@ public partial class Validation
     private readonly Reactive<string?> _emailHtmlBodyUrl = new(null);
 
     // Attachment download state — attachment id -> public URL once prepared
-    private readonly Reactive<Dictionary<string, string>> _emailAttachmentUrls = new(new Dictionary<string, string>());
+    private readonly ReactiveDictionary<string, string> _emailAttachmentUrls = new();
     private readonly Reactive<string?> _emailAttachmentBusyId = new(null);
 
     private void RenderEmailSection(UIView view)
@@ -603,7 +603,7 @@ public partial class Validation
 
             if (url != null)
             {
-                _emailAttachmentUrls.Set(attachment.Id, url);
+                _emailAttachmentUrls[attachment.Id] = url;
             }
             else
             {

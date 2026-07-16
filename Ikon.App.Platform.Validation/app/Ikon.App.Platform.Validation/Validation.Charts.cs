@@ -1,7 +1,7 @@
 public partial class Validation
 {
     private ChartTheme GetChartTheme() =>
-        _theme.Current.Value == Theme.Dark.ToThemeName() ? ChartThemes.DefaultDark : ChartThemes.DefaultLight;
+        _theme.Current.Value == Theme.Dark ? ChartThemes.DefaultDark : ChartThemes.DefaultLight;
 
     private static LineChartSeries[] GenerateDenseLineData()
     {

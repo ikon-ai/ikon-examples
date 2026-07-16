@@ -13,7 +13,7 @@ public partial class Validation
                 view.Column([Layout.Column.Md], content: view =>
                 {
                     var cameraDevices = _availableDevices.Value
-                        .Where(d => d.Kind == "videoinput" && !string.IsNullOrEmpty(d.DeviceId) && d.DeviceId != "default" && d.DeviceId != "communications")
+                        .Where(d => d.Kind == ClientMediaDeviceKind.VideoInput && !string.IsNullOrEmpty(d.DeviceId) && d.DeviceId != "default" && d.DeviceId != "communications")
                         .Select(d => new SelectOption(d.DeviceId, string.IsNullOrEmpty(d.Label) ? "Camera" : d.Label))
                         .ToArray();
                     var cameraOptions = new[] { new SelectOption("default", "Default") }.Concat(cameraDevices).ToArray();
@@ -247,7 +247,7 @@ public partial class Validation
                 view.Column([Layout.Column.Md], content: view =>
                 {
                     var imageCameraDevices = _availableDevices.Value
-                        .Where(d => d.Kind == "videoinput" && !string.IsNullOrEmpty(d.DeviceId) && d.DeviceId != "default" && d.DeviceId != "communications")
+                        .Where(d => d.Kind == ClientMediaDeviceKind.VideoInput && !string.IsNullOrEmpty(d.DeviceId) && d.DeviceId != "default" && d.DeviceId != "communications")
                         .Select(d => new SelectOption(d.DeviceId, string.IsNullOrEmpty(d.Label) ? "Camera" : d.Label))
                         .ToArray();
                     var imageCameraOptions = new[] { new SelectOption("default", "Default") }.Concat(imageCameraDevices).ToArray();

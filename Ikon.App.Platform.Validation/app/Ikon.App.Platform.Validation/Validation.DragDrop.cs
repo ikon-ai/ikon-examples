@@ -23,7 +23,7 @@ public partial class Validation
                             slot.Row(["items-center gap-3"], content: row =>
                             {
                                 row.Button(
-                                    ["px-2 py-1 cursor-pointer hover:underline"],
+                                    ["bg-transparent px-2 py-1 cursor-pointer hover:underline"],
                                     onClick: async () => _dndStatus.Value = $"Clicked {id}",
                                     text: id);
                                 row.SortableHandle(
@@ -42,7 +42,7 @@ public partial class Validation
                         itemContent: (slot, id) =>
                         {
                             slot.Button(
-                                ["w-full px-3 py-2 text-left cursor-pointer hover:bg-secondary-hover"],
+                                ["bg-transparent w-full px-3 py-2 text-left cursor-pointer hover:bg-secondary-hover"],
                                 onClick: async () => _dndStatus.Value = $"Clicked {id}",
                                 text: id);
                         });

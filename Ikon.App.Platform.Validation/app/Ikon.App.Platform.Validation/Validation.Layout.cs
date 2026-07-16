@@ -708,7 +708,7 @@ public partial class Validation
                             newItems.Add($"Item {startIndex + i} (loaded in batch {_infiniteScrollPage})");
                         }
 
-                        _infiniteScrollItems.Value = [.._infiniteScrollItems.Value, ..newItems];
+                        _infiniteScrollItems.AddRange(newItems);
 
                         if (_infiniteScrollPage >= 5)
                         {
@@ -1295,7 +1295,7 @@ public partial class Validation
         counter++;
         var timestamp = DateTime.Now.ToString("HH:mm:ss");
         var text = $"Item {counter} — {timestamp}";
-        _autoScrollPoliteItems.Value = [.._autoScrollPoliteItems.Value, text];
-        _autoScrollAssertiveItems.Value = [.._autoScrollAssertiveItems.Value, text];
+        _autoScrollPoliteItems.Add(text);
+        _autoScrollAssertiveItems.Add(text);
     }
 }

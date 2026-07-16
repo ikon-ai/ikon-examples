@@ -228,7 +228,7 @@ public partial class Validation
                 view.Column([Layout.Column.Md], content: view =>
                 {
                     var micDevices = _availableDevices.Value
-                        .Where(d => d.Kind == "audioinput" && !string.IsNullOrEmpty(d.DeviceId) && d.DeviceId != "default" && d.DeviceId != "communications")
+                        .Where(d => d.Kind == ClientMediaDeviceKind.AudioInput && !string.IsNullOrEmpty(d.DeviceId) && d.DeviceId != "default" && d.DeviceId != "communications")
                         .Select(d => new SelectOption(d.DeviceId, string.IsNullOrEmpty(d.Label) ? "Microphone" : d.Label))
                         .ToArray();
                     var micOptions = new[] { new SelectOption("default", "Default") }.Concat(micDevices).ToArray();

@@ -272,10 +272,11 @@ public partial class Validation
                         view.Row([Layout.Row.Sm, "items-center justify-between"], content: view =>
                         {
                             view.Text([Text.BodyStrong], "Collapsible Section");
-                            view.CollapsibleTrigger(content: view =>
+                            // The trigger already renders a <button>; nesting a view.Button inside
+                            // it would produce invalid button-in-button HTML.
+                            view.CollapsibleTrigger([Button.GhostMd, Button.Icon], content: view =>
                             {
-                                view.Button([Button.GhostMd, Button.Icon],
-                                    content: v => v.Icon([Icon.Default], name: _collapsibleOpen.Value ? "chevron-up" : "chevron-down"));
+                                view.Icon([Icon.Default], name: _collapsibleOpen.Value ? "chevron-up" : "chevron-down");
                             });
                         });
                         view.CollapsibleContent([Collapsible.Content, "mt-2"], content: view =>
@@ -507,7 +508,7 @@ public partial class Validation
                                 }
                                 else
                                 {
-                                    view.Button([Breadcrumb.Link, "cursor-pointer hover:underline"],
+                                    view.Button(["bg-transparent", Breadcrumb.Link, "cursor-pointer hover:underline"],
                                         text: segment,
                                         onClick: async () =>
                                         {
@@ -570,7 +571,7 @@ public partial class Validation
                 {
                     view.Box([Pagination.List], content: view =>
                     {
-                        view.Button([currentPage <= 1 ? Pagination.Disabled : Pagination.Previous],
+                        view.Button(["bg-transparent", currentPage <= 1 ? Pagination.Disabled : Pagination.Previous],
                             disabled: currentPage <= 1,
                             onClick: async () => _paginationPage.Value = Math.Max(1, currentPage - 1),
                             content: v => v.Icon([Icon.Sm], name: "chevron-left"));
@@ -581,7 +582,7 @@ public partial class Validation
 
                             if (page == 1 || page == totalPages || Math.Abs(page - currentPage) <= 1)
                             {
-                                view.Button([page == currentPage ? Pagination.Active : Pagination.Item],
+                                view.Button(["bg-transparent", page == currentPage ? Pagination.Active : Pagination.Item],
                                     onClick: async () => _paginationPage.Value = p,
                                     content: v => v.Text(text: p.ToString()));
                             }
@@ -595,7 +596,7 @@ public partial class Validation
                             }
                         }
 
-                        view.Button([currentPage >= totalPages ? Pagination.Disabled : Pagination.Next],
+                        view.Button(["bg-transparent", currentPage >= totalPages ? Pagination.Disabled : Pagination.Next],
                             disabled: currentPage >= totalPages,
                             onClick: async () => _paginationPage.Value = Math.Min(totalPages, currentPage + 1),
                             content: v => v.Icon([Icon.Sm], name: "chevron-right"));

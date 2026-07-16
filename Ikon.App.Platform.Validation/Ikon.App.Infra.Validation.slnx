@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/Config/">
+    <File Path="ikon-config.history2.toml" />
     <File Path="ikon-config.development.toml" />
     <File Path="ikon-config.production.toml" />
   </Folder>

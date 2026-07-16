@@ -94,14 +94,14 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<string> _activeDragId = new("");
     private readonly Reactive<IReadOnlyList<string>> _sortableHandleCards = new(["Card A", "Card B", "Card C", "Card D"]);
     private readonly Reactive<IReadOnlyList<string>> _sortableClickThroughList = new(["Item 1", "Item 2", "Item 3", "Item 4"]);
-    private readonly Reactive<Dictionary<string, string?>> _draggableItemZones = new(
+    private readonly ReactiveDictionary<string, string?> _draggableItemZones = new(
         new Dictionary<string, string?>
         {
             { "drag-1", null },
             { "drag-2", null },
             { "drag-disabled", null }
         });
-    private readonly Reactive<Dictionary<string, string?>> _overlayItemZones = new(
+    private readonly ReactiveDictionary<string, string?> _overlayItemZones = new(
         new Dictionary<string, string?>
         {
             { "overlay-item-1", null },
@@ -254,7 +254,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private readonly ReactiveList<ChatMessageEntry> _chatMessages = new();
 
     // Infinite scroll state
-    private readonly Reactive<List<string>> _infiniteScrollItems = new([]);
+    private readonly ReactiveList<string> _infiniteScrollItems = new();
     private readonly Reactive<bool> _infiniteScrollLoading = new(false);
     private readonly Reactive<bool> _infiniteScrollHasMore = new(true);
     private int _infiniteScrollPage;
@@ -269,8 +269,8 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<string> _selectedCardId = new("card-2");
 
     // Auto-scroll test state
-    private readonly Reactive<List<string>> _autoScrollPoliteItems = new([]);
-    private readonly Reactive<List<string>> _autoScrollAssertiveItems = new([]);
+    private readonly ReactiveList<string> _autoScrollPoliteItems = new();
+    private readonly ReactiveList<string> _autoScrollAssertiveItems = new();
     private CancellationTokenSource? _autoScrollCts;
 
     // Sound playback state
@@ -404,7 +404,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                     {
                         view.Text([Text.Display], "Validation");
 
-                        var isDark = _theme.Current.Value == Theme.Dark.ToThemeName();
+                        var isDark = _theme.Current.Value == Theme.Dark;
                         var iconName = isDark ? "sun" : "moon";
                         view.Button([Button.GhostMd, Button.Icon],
                             onClick: _theme.ToggleAsync,
@@ -480,15 +480,19 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private void SetupAudioMetricsTracking()
     {
         Audio.Metrics.Enabled = true;
-        Audio.Metrics.Updated += () =>
+
+        _ = Task.Run(async () =>
         {
-            _audioStreamCount.Value = Audio.Metrics.StreamCount;
-            _audioMinIpdMs.Value = Audio.Metrics.MinIpdMs;
-            _audioAvgIpdMs.Value = Audio.Metrics.AvgIpdMs;
-            _audioMaxIpdMs.Value = Audio.Metrics.MaxIpdMs;
-            _audioJitterMs.Value = Audio.Metrics.JitterMs;
-            _audioCpuUsagePercent.Value = Audio.Metrics.CpuUsagePercent;
-        };
+            await foreach (var report in Audio.Metrics.Reports())
+            {
+                _audioStreamCount.Value = report.StreamCount;
+                _audioMinIpdMs.Value = report.MinIpdMs;
+                _audioAvgIpdMs.Value = report.AvgIpdMs;
+                _audioMaxIpdMs.Value = report.MaxIpdMs;
+                _audioJitterMs.Value = report.JitterMs;
+                _audioCpuUsagePercent.Value = report.CpuUsagePercent;
+            }
+        });
     }
 
     private void CleanupCameraEcho()

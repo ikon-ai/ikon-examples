@@ -13,7 +13,7 @@ public partial class Validation
     private readonly Reactive<string> _dbAuthor = new("");
     private readonly Reactive<string> _dbMessage = new("");
     private readonly Reactive<string> _dbReadVia = new("ef");
-    private readonly Reactive<List<Entry>> _dbEntries = new([]);
+    private readonly ReactiveList<Entry> _dbEntries = new();
     private readonly Reactive<string> _dbStatus = new("");
     private readonly Reactive<bool> _dbBusy = new(false);
 
@@ -103,8 +103,8 @@ public partial class Validation
                 view.Text([Text.H3, "mb-4"], "Add a row");
                 view.Column([Layout.Column.Md], content: view =>
                 {
-                    view.TextField(bind: _dbAuthor, style: [Input.Default, "w-full"], label: "Author", placeholder: "Your name");
-                    view.TextField(bind: _dbMessage, style: [Input.Default, "w-full"], label: "Message", placeholder: "Say something");
+                    view.TextField(bind: _dbAuthor, style: [Input.Default, "w-full"], label: "Author", placeholder: "Your name", props: TestId("db-author"));
+                    view.TextField(bind: _dbMessage, style: [Input.Default, "w-full"], label: "Message", placeholder: "Say something", props: TestId("db-message"));
 
                     view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                     {
@@ -126,7 +126,7 @@ public partial class Validation
 
                     if (!string.IsNullOrEmpty(_dbStatus.Value))
                     {
-                        view.Text([Text.Caption], _dbStatus.Value);
+                        view.Text([Text.Caption], _dbStatus.Value, props: TestId("db-status"));
                     }
                 });
             });
@@ -136,7 +136,7 @@ public partial class Validation
             {
                 view.Row(["flex items-center justify-between mb-4 flex-wrap gap-3"], content: view =>
                 {
-                    view.Text([Text.H3], $"Entries ({_dbEntries.Value.Count} / {MaxRows})");
+                    view.Text([Text.H3], $"Entries ({_dbEntries.Value.Count} / {MaxRows})", props: TestId("db-entries-header"));
 
                     view.Row([Layout.Row.Sm, "items-center flex-wrap"], content: view =>
                     {
@@ -170,7 +170,7 @@ public partial class Validation
 
                 if (_dbEntries.Value.Count == 0)
                 {
-                    view.Text([Text.Caption], "No entries yet. Add one above.");
+                    view.Text([Text.Caption], "No entries yet. Add one above.", props: TestId("db-empty"));
                 }
                 else
                 {
@@ -184,7 +184,7 @@ public partial class Validation
                                 {
                                     view.Column(["gap-0.5"], content: view =>
                                     {
-                                        view.Text([Text.Body], $"{entry.Author}: {entry.Message}");
+                                        view.Text([Text.Body], $"{entry.Author}: {entry.Message}", props: TestId("db-entry"));
                                         view.Text([Text.Caption], entry.CreatedAt.ToString("u"));
                                     });
 

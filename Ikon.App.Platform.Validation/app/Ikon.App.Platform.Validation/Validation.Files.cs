@@ -269,7 +269,7 @@ public partial class Validation
                             AssetClass.CloudFilePublic,
                             $"validation-uploads/{args.FileName}",
                             spaceId: app.GlobalState.SpaceId);
-                        return new FileUploadResult { AssetUri = assetUri.ToString() };
+                        return new FileUploadResult { AssetUri = assetUri };
                     }
 
                     return true;
@@ -295,7 +295,7 @@ public partial class Validation
                     {
                         try
                         {
-                            var metadata = await Asset.Instance.GetMetadataAsync(new AssetUri(args.AssetUri));
+                            var metadata = await Asset.Instance.GetMetadataAsync(args.AssetUri.Value);
                             _advUploadAssetUrl.Value = metadata.Url;
                         }
                         catch (Exception ex)

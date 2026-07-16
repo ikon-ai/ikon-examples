@@ -71,7 +71,7 @@ public partial class Validation
     private byte[]? _imageGeneratorInputImageData;
     private string? _imageGeneratorInputImageMimeType;
     private readonly Reactive<string> _imageGeneratorInputImageName = new("");
-    private readonly Reactive<List<string>> _imageGeneratorResultDataUrls = new([]);
+    private readonly ReactiveList<string> _imageGeneratorResultDataUrls = new();
 
     // SpeechGenerator state
     private readonly Reactive<string> _speechGeneratorModel = new(nameof(SpeechGeneratorModel.Gpt4OmniMiniTts));
@@ -180,8 +180,43 @@ public partial class Validation
     private readonly Reactive<int> _videoEnhancerEndFrame = new(0);
     private readonly Reactive<string?> _videoEnhancerResultInfo = new(null);
 
+    // ImageSegmenter state
+    private readonly Reactive<string> _imageSegmenterModel = new(nameof(ImageSegmenterModel.Sam31));
+    private readonly Reactive<string> _imageSegmenterPrompt = new("person");
+    private readonly Reactive<bool> _imageSegmenterProcessing = new(false);
+    private readonly Reactive<string?> _imageSegmenterResult = new(null);
+    private readonly Reactive<string?> _imageSegmenterError = new(null);
+    private readonly Reactive<string> _imageSegmenterFileName = new("");
+    private string? _imageSegmenterFilePath;
+    private string? _imageSegmenterFileMimeType;
+    private readonly ReactiveList<string> _imageSegmenterImageDataUrls = new();
+
+    // DepthEstimator state
+    private readonly Reactive<string> _depthEstimatorModel = new(nameof(DepthEstimatorModel.DepthAnythingV2));
+    private readonly Reactive<bool> _depthEstimatorProcessing = new(false);
+    private readonly Reactive<string?> _depthEstimatorResult = new(null);
+    private readonly Reactive<string?> _depthEstimatorError = new(null);
+    private readonly Reactive<string> _depthEstimatorFileName = new("");
+    private string? _depthEstimatorFilePath;
+    private string? _depthEstimatorFileMimeType;
+    private readonly Reactive<string?> _depthEstimatorImageDataUrl = new(null);
+
+    // MeshGenerator state
+    private readonly Reactive<string> _meshGeneratorModel = new(nameof(MeshGeneratorModel.Meshy6));
+    private readonly Reactive<string> _meshGeneratorPrompt = new("A low-poly treasure chest");
+    private readonly Reactive<bool> _meshGeneratorTexture = new(true);
+    private readonly Reactive<bool> _meshGeneratorProcessing = new(false);
+    private readonly Reactive<string?> _meshGeneratorResult = new(null);
+    private readonly Reactive<string?> _meshGeneratorError = new(null);
+    private byte[]? _meshGeneratorInputImageData;
+    private string? _meshGeneratorInputImageMimeType;
+    private readonly Reactive<string> _meshGeneratorInputImageName = new("");
+    private MeshGeneratorResult? _meshGeneratorResultData;
+
     private static List<SelectOption> GetModelOptions<T>() where T : struct, Enum
         => Enum.GetValues<T>().Select(v => new SelectOption(v.ToString(), v.ToString())).ToList();
+
+    private static Dictionary<string, object> TestId(string id) => new() { ["data-testid"] = id };
 
     private static List<SelectOption> GetSpeechRecognizerModelOptions(bool continuousMode)
     {
@@ -293,9 +328,12 @@ public partial class Validation
 
             RenderChatCard(view);
             RenderClassifierCard(view);
+            RenderDepthEstimatorCard(view);
             RenderEmbeddingGeneratorCard(view);
             RenderFileConverterCard(view);
             RenderImageGeneratorCard(view);
+            RenderImageSegmenterCard(view);
+            RenderMeshGeneratorCard(view);
             RenderMusicGeneratorCard(view);
             RenderOCRCard(view);
             RenderRerankerCard(view);
@@ -342,6 +380,7 @@ public partial class Validation
                     view.Button(
                         [Button.PrimaryMd],
                         text: "Classify",
+                        props: TestId("ai-classifier-run"),
                         disabled: _classifierProcessing.Value || string.IsNullOrWhiteSpace(_classifierInput.Value),
                         onClick: ClassifyTextAsync);
 
@@ -361,7 +400,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_classifierResult.Value))
                 {
-                    view.Box([Alert.Success, "mt-4"], content: view =>
+                    view.Box([Alert.Success, "mt-4"], props: TestId("ai-classifier-result"), content: view =>
                     {
                         view.Text([Alert.Title], "Result");
                         view.Text([Alert.Description, "whitespace-pre-wrap"], _classifierResult.Value);
@@ -449,6 +488,7 @@ public partial class Validation
                     view.Button(
                         [Button.PrimaryMd],
                         text: "Generate Embeddings",
+                        props: TestId("ai-embedding-run"),
                         disabled: _embeddingProcessing.Value || string.IsNullOrWhiteSpace(_embeddingInput.Value),
                         onClick: GenerateEmbeddingsAsync);
 
@@ -468,7 +508,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_embeddingResult.Value))
                 {
-                    view.Box([Alert.Success, "mt-4"], content: view =>
+                    view.Box([Alert.Success, "mt-4"], props: TestId("ai-embedding-result"), content: view =>
                     {
                         view.Text([Alert.Title], "Result");
                         view.Text([Alert.Description, "whitespace-pre-wrap"], _embeddingResult.Value);
@@ -557,6 +597,7 @@ public partial class Validation
                     view.Button(
                         [Button.PrimaryMd],
                         text: "Search",
+                        props: TestId("ai-web-searcher-run"),
                         disabled: _webSearcherProcessing.Value || string.IsNullOrWhiteSpace(_webSearcherQuery.Value),
                         onClick: SearchWebAsync);
 
@@ -576,7 +617,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_webSearcherResult.Value))
                 {
-                    view.Box([Alert.Success, "mt-4"], content: view =>
+                    view.Box([Alert.Success, "mt-4"], props: TestId("ai-web-searcher-result"), content: view =>
                     {
                         view.Text([Alert.Title], "Results");
                         view.Text([Alert.Description, "whitespace-pre-wrap"], _webSearcherResult.Value);
@@ -663,6 +704,7 @@ public partial class Validation
                     view.Button(
                         [Button.PrimaryMd],
                         text: "Scrape",
+                        props: TestId("ai-web-scraper-run"),
                         disabled: _webScraperProcessing.Value || string.IsNullOrWhiteSpace(_webScraperUrl.Value),
                         onClick: ScrapeWebAsync);
 
@@ -682,7 +724,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_webScraperResult.Value))
                 {
-                    view.Box([Card.Elevated, "mt-4 p-4 max-h-96 overflow-auto"], content: view =>
+                    view.Box([Card.Elevated, "mt-4 p-4 max-h-96 overflow-auto"], props: TestId("ai-web-scraper-result"), content: view =>
                     {
                         view.Text([Text.BodyStrong, "mb-2"], "Scraped Content");
                         view.Text([Text.Body, "whitespace-pre-wrap font-mono text-sm"], _webScraperResult.Value);
@@ -763,6 +805,7 @@ public partial class Validation
                     view.Button(
                         [Button.PrimaryMd],
                         text: "Rerank",
+                        props: TestId("ai-reranker-run"),
                         disabled: _rerankerProcessing.Value || string.IsNullOrWhiteSpace(_rerankerQuery.Value) || string.IsNullOrWhiteSpace(_rerankerDocuments.Value),
                         onClick: RerankDocumentsAsync);
 
@@ -782,7 +825,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_rerankerResult.Value))
                 {
-                    view.Box([Alert.Success, "mt-4"], content: view =>
+                    view.Box([Alert.Success, "mt-4"], props: TestId("ai-reranker-result"), content: view =>
                     {
                         view.Text([Alert.Title], "Ranked Results");
                         view.Text([Alert.Description, "whitespace-pre-wrap"], _rerankerResult.Value);
@@ -1042,6 +1085,7 @@ public partial class Validation
                     view.Button(
                         [Button.PrimaryMd],
                         text: "Generate Image",
+                        props: TestId("ai-image-generator-run"),
                         disabled: _imageGeneratorProcessing.Value || string.IsNullOrWhiteSpace(_imageGeneratorPrompt.Value),
                         onClick: GenerateImageAsync);
 
@@ -1053,6 +1097,7 @@ public partial class Validation
                     if (!string.IsNullOrEmpty(_imageGeneratorDownloadUrl.Value))
                     {
                         view.Button([Button.PrimaryMd],
+                            props: TestId("ai-image-generator-result"),
                             href: _imageGeneratorDownloadUrl.Value,
                             target: "_blank",
                             content: v =>
@@ -1282,6 +1327,7 @@ public partial class Validation
                     view.Button(
                         [Button.PrimaryMd],
                         text: "Generate Music",
+                        props: TestId("ai-music-run"),
                         disabled: _musicProcessing.Value || string.IsNullOrWhiteSpace(_musicPrompt.Value),
                         onClick: GenerateMusicAsync);
 
@@ -1313,7 +1359,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_musicResult.Value))
                 {
-                    view.Box([Alert.Success, "mt-4"], content: view =>
+                    view.Box([Alert.Success, "mt-4"], props: TestId("ai-music-result"), content: view =>
                     {
                         view.Text([Alert.Title], "Music Generated");
                         view.Text([Alert.Description], _musicResult.Value);
@@ -1359,13 +1405,13 @@ public partial class Validation
 
             var result = await generator.GenerateMusicFileAsync(config);
 
-            if (result.AudioData.Length == 0)
+            if (result.Data.Length == 0)
             {
                 _musicError.Value = "The model returned no audio";
                 return;
             }
 
-            var ext = result.ContentType switch
+            var ext = result.MimeType switch
             {
                 "audio/mpeg" => "mp3",
                 "audio/wav" or "audio/x-wav" => "wav",
@@ -1373,8 +1419,8 @@ public partial class Validation
                 _ => "bin"
             };
 
-            _musicResult.Value = $"Generated {result.DurationSeconds:F1}s of audio ({result.AudioData.Length} bytes, {result.ContentType})";
-            _musicDownloadUrl.Value = await UploadForDownloadAsync($"generated-music.{ext}", result.AudioData, result.ContentType);
+            _musicResult.Value = $"Generated {result.DurationSeconds:F1}s of audio ({result.Data.Length} bytes, {result.MimeType})";
+            _musicDownloadUrl.Value = await UploadForDownloadAsync($"generated-music.{ext}", result.Data, result.MimeType);
         }
         catch (Exception ex)
         {
@@ -1491,6 +1537,7 @@ public partial class Validation
                     view.Button(
                         [Button.PrimaryMd],
                         text: "Generate Speech",
+                        props: TestId("ai-speech-generator-run"),
                         disabled: _speechGeneratorProcessing.Value || string.IsNullOrWhiteSpace(_speechGeneratorText.Value),
                         onClick: GenerateSpeechAsync);
 
@@ -1522,7 +1569,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_speechGeneratorResult.Value))
                 {
-                    view.Box([Alert.Success, "mt-4"], content: view =>
+                    view.Box([Alert.Success, "mt-4"], props: TestId("ai-speech-generator-result"), content: view =>
                     {
                         view.Text([Alert.Title], "Audio Generated");
                         view.Text([Alert.Description], _speechGeneratorResult.Value);
@@ -1686,6 +1733,7 @@ public partial class Validation
                         view.Button(
                             [Button.PrimaryMd],
                             text: "Recognize from Sample Audio",
+                            props: TestId("ai-speech-recognizer-sample"),
                             disabled: _speechRecognizerProcessing.Value || _speechRecognizerRecording.Value,
                             onClick: RecognizeFromSampleAsync);
 
@@ -1730,6 +1778,7 @@ public partial class Validation
                         view.Button(
                             [Button.PrimaryMd],
                             text: "Recognize from Sample Audio",
+                            props: TestId("ai-speech-recognizer-sample"),
                             disabled: _speechRecognizerProcessing.Value || _speechRecognizerRecording.Value,
                             onClick: RecognizeFromSampleAsync);
 
@@ -1750,7 +1799,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_speechRecognizerResult.Value))
                 {
-                    view.Box([Alert.Success, "mt-4"], content: view =>
+                    view.Box([Alert.Success, "mt-4"], props: TestId("ai-speech-recognizer-result"), content: view =>
                     {
                         view.Text([Alert.Title], "Recognized Text");
                         view.Text([Alert.Description], _speechRecognizerResult.Value);
@@ -1957,6 +2006,7 @@ public partial class Validation
                     view.Button(
                         [Button.PrimaryMd],
                         text: "Extract from Sample PDF",
+                        props: TestId("ai-ocr-sample"),
                         disabled: _ocrProcessing.Value,
                         onClick: PerformOCRFromSampleAsync);
 
@@ -1988,7 +2038,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_ocrResult.Value))
                 {
-                    view.Box([Card.Elevated, "mt-4 p-4 max-h-96 overflow-auto"], content: view =>
+                    view.Box([Card.Elevated, "mt-4 p-4 max-h-96 overflow-auto"], props: TestId("ai-ocr-result"), content: view =>
                     {
                         view.Text([Text.BodyStrong, "mb-2"], "Extracted Text");
                         view.Text([Text.Body, "whitespace-pre-wrap"], _ocrResult.Value);
@@ -2129,6 +2179,7 @@ public partial class Validation
                     view.Button(
                         [Button.PrimaryMd],
                         text: "Convert from Sample PPTX",
+                        props: TestId("ai-file-converter-sample"),
                         disabled: _fileConverterProcessing.Value,
                         onClick: async () =>
                         {
@@ -2165,7 +2216,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_fileConverterResult.Value))
                 {
-                    view.Box([Alert.Success, "mt-4"], content: view =>
+                    view.Box([Alert.Success, "mt-4"], props: TestId("ai-file-converter-result"), content: view =>
                     {
                         view.Text([Alert.Title], "Conversion Complete");
                         view.Text([Alert.Description], _fileConverterResult.Value);
@@ -2375,6 +2426,7 @@ public partial class Validation
                     view.Button(
                         [Button.PrimaryMd],
                         text: "Generate Video",
+                        props: TestId("ai-video-generator-run"),
                         disabled: _videoGeneratorProcessing.Value || string.IsNullOrWhiteSpace(_videoGeneratorPrompt.Value),
                         onClick: GenerateVideoAsync);
 
@@ -2455,7 +2507,7 @@ public partial class Validation
 
             if (_videoGeneratorInputImageData != null && _videoGeneratorInputImageMimeType != null)
             {
-                config.InputImages.Add(new VideoGeneratorConfig.InputImage
+                config.InputImages.Add(new InputImage
                 {
                     Data = _videoGeneratorInputImageData,
                     MimeType = _videoGeneratorInputImageMimeType
@@ -2559,6 +2611,7 @@ public partial class Validation
                     view.Button(
                         [Button.PrimaryMd],
                         text: "Generate Sound Effect",
+                        props: TestId("ai-sound-effect-run"),
                         disabled: _soundEffectProcessing.Value || string.IsNullOrWhiteSpace(_soundEffectPrompt.Value),
                         onClick: GenerateSoundEffectAsync);
 
@@ -2590,7 +2643,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_soundEffectResult.Value))
                 {
-                    view.Box([Alert.Success, "mt-4"], content: view =>
+                    view.Box([Alert.Success, "mt-4"], props: TestId("ai-sound-effect-result"), content: view =>
                     {
                         view.Text([Alert.Title], "Sound Effect Generated");
                         view.Text([Alert.Description], _soundEffectResult.Value);
@@ -2736,6 +2789,7 @@ public partial class Validation
                     view.Button(
                         [Button.PrimaryMd],
                         text: "Enhance Sample Video",
+                        props: TestId("ai-video-enhancer-sample"),
                         disabled: _videoEnhancerProcessing.Value,
                         onClick: EnhanceSampleVideoAsync);
 
@@ -2767,7 +2821,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_videoEnhancerResultInfo.Value))
                 {
-                    view.Box([Alert.Success, "mt-4"], content: view =>
+                    view.Box([Alert.Success, "mt-4"], props: TestId("ai-video-enhancer-result"), content: view =>
                     {
                         view.Text([Alert.Title], "Enhancement Result");
                         view.Text([Alert.Description], _videoEnhancerResultInfo.Value);
@@ -2880,6 +2934,499 @@ public partial class Validation
         finally
         {
             _videoEnhancerProcessing.Value = false;
+        }
+    }
+
+    private void RenderImageSegmenterCard(UIView view)
+    {
+        view.Box([Card.Default, "p-6 mb-6"], props: TestId("ai-segmenter-card"), content: view =>
+        {
+            view.Text([Text.H3, "mb-2"], "Image Segmenter");
+            view.Text([Text.Caption, "mb-4"], "Segment objects from an image using a text concept prompt");
+
+            view.Column([Layout.Column.Md], content: view =>
+            {
+                view.Box([FormField.Root], content: view =>
+                {
+                    view.Text([FormField.Label], "Model");
+                    view.Select(
+                        value: _imageSegmenterModel.Value,
+                        options: GetModelOptions<ImageSegmenterModel>(),
+                        onValueChange: async v => _imageSegmenterModel.Value = v ?? _imageSegmenterModel.Value);
+                });
+
+                view.Box([FormField.Root], content: view =>
+                {
+                    view.Text([FormField.Label], "Prompt (concept to segment)");
+                    view.TextField(
+                        [Input.Default],
+                        value: _imageSegmenterPrompt.Value,
+                        onValueChange: async v => _imageSegmenterPrompt.Value = v ?? "");
+                });
+
+                view.FileUpload(
+                    [FileUpload.Zone.Base],
+                    accept: ["image/*"],
+                    multiple: false,
+                    onUploadComplete: async args =>
+                    {
+                        _imageSegmenterFileName.Value = args.FileName;
+                        _imageSegmenterFilePath = args.LocalTempFilePath;
+                        _imageSegmenterFileMimeType = args.MimeType;
+                    },
+                    content: view =>
+                    {
+                        view.Column([Layout.Column.Center], content: view =>
+                        {
+                            view.Icon([Media.PlaceholderIcon], name: "image");
+                            view.Text([Text.Body], string.IsNullOrEmpty(_imageSegmenterFileName.Value) ? "Upload image" : _imageSegmenterFileName.Value);
+                        });
+                    });
+
+                view.Row([Layout.Row.Md, "mt-4 items-center"], content: view =>
+                {
+                    view.Button(
+                        [Button.PrimaryMd],
+                        text: "Segment from Upload",
+                        disabled: _imageSegmenterProcessing.Value || string.IsNullOrEmpty(_imageSegmenterFilePath) || string.IsNullOrWhiteSpace(_imageSegmenterPrompt.Value),
+                        onClick: SegmentImageAsync);
+
+                    view.Button(
+                        [Button.PrimaryMd],
+                        text: "Segment from Sample Image",
+                        props: TestId("ai-segmenter-sample"),
+                        disabled: _imageSegmenterProcessing.Value || string.IsNullOrWhiteSpace(_imageSegmenterPrompt.Value),
+                        onClick: SegmentSampleImageAsync);
+
+                    if (_imageSegmenterProcessing.Value)
+                    {
+                        view.Box([Icon.Spinner]);
+                    }
+                });
+
+                if (!string.IsNullOrEmpty(_imageSegmenterError.Value))
+                {
+                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    {
+                        view.Text([Alert.Description], _imageSegmenterError.Value);
+                    });
+                }
+
+                if (!string.IsNullOrEmpty(_imageSegmenterResult.Value))
+                {
+                    view.Box([Alert.Success, "mt-4"], props: TestId("ai-segmenter-result"), content: view =>
+                    {
+                        view.Text([Alert.Title], "Result");
+                        view.Text([Alert.Description, "whitespace-pre-wrap"], _imageSegmenterResult.Value);
+                    });
+                }
+
+                if (_imageSegmenterImageDataUrls.Count > 0)
+                {
+                    view.Flex(["mt-4 flex-wrap gap-4"], content: view =>
+                    {
+                        foreach (var dataUrl in _imageSegmenterImageDataUrls)
+                        {
+                            view.Image(["max-w-full h-auto max-h-[300px] rounded-lg border border-secondary"],
+                                src: dataUrl,
+                                alt: "Segmentation result");
+                        }
+                    });
+                }
+            });
+        });
+    }
+
+    private async Task SegmentImageAsync()
+    {
+        if (string.IsNullOrEmpty(_imageSegmenterFilePath) || !File.Exists(_imageSegmenterFilePath))
+        {
+            _imageSegmenterError.Value = "File not found";
+            return;
+        }
+
+        await SegmentImageCoreAsync(_imageSegmenterFilePath, _imageSegmenterFileMimeType ?? MimeTypes.ImagePng);
+    }
+
+    private async Task SegmentSampleImageAsync()
+        => await SegmentImageCoreAsync(Path.Combine(app.DataDirectory, "santa.jpg"), MimeTypes.ImageJpeg);
+
+    private async Task SegmentImageCoreAsync(string filePath, string mimeType)
+    {
+        _imageSegmenterProcessing.Value = true;
+        _imageSegmenterError.Value = null;
+        _imageSegmenterResult.Value = null;
+        _imageSegmenterImageDataUrls.Clear();
+
+        try
+        {
+            var model = Enum.Parse<ImageSegmenterModel>(_imageSegmenterModel.Value);
+            using var segmenter = new ImageSegmenter(model);
+
+            var data = await File.ReadAllBytesAsync(filePath);
+            var result = await segmenter.SegmentImageAsync(new ImageSegmenterConfig
+            {
+                Image = new InputImage { Data = data, MimeType = mimeType },
+                Prompt = _imageSegmenterPrompt.Value
+            });
+
+            var output = $"Found {result.Segments.Count} segment(s)";
+
+            foreach (var segment in result.Segments.Where(s => s.Score != null))
+            {
+                output += $"\n  Score: {segment.Score:F3}";
+            }
+
+            _imageSegmenterResult.Value = output;
+
+            var dataUrls = new List<string>();
+
+            if (result.Preview != null)
+            {
+                dataUrls.Add($"data:{result.Preview.MimeType};base64,{Convert.ToBase64String(result.Preview.Data)}");
+            }
+
+            foreach (var segment in result.Segments)
+            {
+                dataUrls.Add($"data:{segment.Mask.MimeType};base64,{Convert.ToBase64String(segment.Mask.Data)}");
+            }
+
+            _imageSegmenterImageDataUrls.ReplaceAll(dataUrls);
+        }
+        catch (Exception ex)
+        {
+            _imageSegmenterError.Value = ex.Message;
+        }
+        finally
+        {
+            _imageSegmenterProcessing.Value = false;
+        }
+    }
+
+    private void RenderDepthEstimatorCard(UIView view)
+    {
+        view.Box([Card.Default, "p-6 mb-6"], props: TestId("ai-depth-card"), content: view =>
+        {
+            view.Text([Text.H3, "mb-2"], "Depth Estimator");
+            view.Text([Text.Caption, "mb-4"], "Estimate a per-pixel depth map from a single image");
+
+            view.Column([Layout.Column.Md], content: view =>
+            {
+                view.Box([FormField.Root], content: view =>
+                {
+                    view.Text([FormField.Label], "Model");
+                    view.Select(
+                        value: _depthEstimatorModel.Value,
+                        options: GetModelOptions<DepthEstimatorModel>(),
+                        onValueChange: async v => _depthEstimatorModel.Value = v ?? _depthEstimatorModel.Value);
+                });
+
+                view.FileUpload(
+                    [FileUpload.Zone.Base],
+                    accept: ["image/*"],
+                    multiple: false,
+                    onUploadComplete: async args =>
+                    {
+                        _depthEstimatorFileName.Value = args.FileName;
+                        _depthEstimatorFilePath = args.LocalTempFilePath;
+                        _depthEstimatorFileMimeType = args.MimeType;
+                    },
+                    content: view =>
+                    {
+                        view.Column([Layout.Column.Center], content: view =>
+                        {
+                            view.Icon([Media.PlaceholderIcon], name: "image");
+                            view.Text([Text.Body], string.IsNullOrEmpty(_depthEstimatorFileName.Value) ? "Upload image" : _depthEstimatorFileName.Value);
+                        });
+                    });
+
+                view.Row([Layout.Row.Md, "mt-4 items-center"], content: view =>
+                {
+                    view.Button(
+                        [Button.PrimaryMd],
+                        text: "Estimate from Upload",
+                        disabled: _depthEstimatorProcessing.Value || string.IsNullOrEmpty(_depthEstimatorFilePath),
+                        onClick: EstimateDepthAsync);
+
+                    view.Button(
+                        [Button.PrimaryMd],
+                        text: "Estimate from Sample Image",
+                        props: TestId("ai-depth-sample"),
+                        disabled: _depthEstimatorProcessing.Value,
+                        onClick: EstimateSampleDepthAsync);
+
+                    if (_depthEstimatorProcessing.Value)
+                    {
+                        view.Box([Icon.Spinner]);
+                    }
+                });
+
+                if (!string.IsNullOrEmpty(_depthEstimatorError.Value))
+                {
+                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    {
+                        view.Text([Alert.Description], _depthEstimatorError.Value);
+                    });
+                }
+
+                if (!string.IsNullOrEmpty(_depthEstimatorResult.Value))
+                {
+                    view.Box([Alert.Success, "mt-4"], props: TestId("ai-depth-result"), content: view =>
+                    {
+                        view.Text([Alert.Title], "Result");
+                        view.Text([Alert.Description], _depthEstimatorResult.Value);
+                    });
+                }
+
+                if (!string.IsNullOrEmpty(_depthEstimatorImageDataUrl.Value))
+                {
+                    view.Image(["mt-4 max-w-full h-auto max-h-[400px] rounded-lg border border-secondary"],
+                        src: _depthEstimatorImageDataUrl.Value,
+                        alt: "Depth map");
+                }
+            });
+        });
+    }
+
+    private async Task EstimateDepthAsync()
+    {
+        if (string.IsNullOrEmpty(_depthEstimatorFilePath) || !File.Exists(_depthEstimatorFilePath))
+        {
+            _depthEstimatorError.Value = "File not found";
+            return;
+        }
+
+        await EstimateDepthCoreAsync(_depthEstimatorFilePath, _depthEstimatorFileMimeType ?? MimeTypes.ImagePng);
+    }
+
+    private async Task EstimateSampleDepthAsync()
+        => await EstimateDepthCoreAsync(Path.Combine(app.DataDirectory, "santa.jpg"), MimeTypes.ImageJpeg);
+
+    private async Task EstimateDepthCoreAsync(string filePath, string mimeType)
+    {
+        _depthEstimatorProcessing.Value = true;
+        _depthEstimatorError.Value = null;
+        _depthEstimatorResult.Value = null;
+        _depthEstimatorImageDataUrl.Value = null;
+
+        try
+        {
+            var model = Enum.Parse<DepthEstimatorModel>(_depthEstimatorModel.Value);
+            using var estimator = new DepthEstimator(model);
+
+            var data = await File.ReadAllBytesAsync(filePath);
+            var result = await estimator.EstimateDepthAsync(new DepthEstimatorConfig
+            {
+                Image = new InputImage { Data = data, MimeType = mimeType }
+            });
+
+            _depthEstimatorResult.Value = $"Depth map {result.Depth.Width}x{result.Depth.Height} ({result.Depth.MimeType})";
+            _depthEstimatorImageDataUrl.Value = $"data:{result.Depth.MimeType};base64,{Convert.ToBase64String(result.Depth.Data)}";
+        }
+        catch (Exception ex)
+        {
+            _depthEstimatorError.Value = ex.Message;
+        }
+        finally
+        {
+            _depthEstimatorProcessing.Value = false;
+        }
+    }
+
+    private void RenderMeshGeneratorCard(UIView view)
+    {
+        view.Box([Card.Default, "p-6 mb-6"], props: TestId("ai-mesh-card"), content: view =>
+        {
+            view.Text([Text.H3, "mb-2"], "Mesh Generator");
+            view.Text([Text.Caption, "mb-4"], "Generate a 3D mesh from text or an image (takes several minutes)");
+
+            view.Column([Layout.Column.Md], content: view =>
+            {
+                view.Box([FormField.Root], content: view =>
+                {
+                    view.Text([FormField.Label], "Model");
+                    view.Select(
+                        value: _meshGeneratorModel.Value,
+                        options: GetModelOptions<MeshGeneratorModel>(),
+                        onValueChange: async v => _meshGeneratorModel.Value = v ?? _meshGeneratorModel.Value);
+                });
+
+                view.Box([FormField.Root], content: view =>
+                {
+                    view.Text([FormField.Label], "Prompt");
+                    view.TextArea(
+                        [Textarea.Default],
+                        value: _meshGeneratorPrompt.Value,
+                        onValueChange: async v => _meshGeneratorPrompt.Value = v ?? "");
+                });
+
+                view.Row([Layout.Row.InlineCenter], content: view =>
+                {
+                    view.Checkbox(
+                        [Checkbox.Default],
+                        value: _meshGeneratorTexture.Value,
+                        onValueChange: async v => _meshGeneratorTexture.Value = v);
+                    view.Text([Text.Body], "Texture");
+                });
+
+                view.Box([FormField.Root], content: view =>
+                {
+                    view.Text([FormField.Label], "Input Image (optional, image-to-mesh)");
+
+                    view.FileUpload(
+                        [FileUpload.Zone.Base],
+                        accept: ["image/*"],
+                        multiple: false,
+                        onUploadComplete: async args =>
+                        {
+                            if (args.LocalTempFilePath == null)
+                            {
+                                return;
+                            }
+
+                            _meshGeneratorInputImageData = await File.ReadAllBytesAsync(args.LocalTempFilePath);
+                            _meshGeneratorInputImageMimeType = args.MimeType;
+                            _meshGeneratorInputImageName.Value = args.FileName;
+                        },
+                        content: view =>
+                        {
+                            view.Column([Layout.Column.Center], content: view =>
+                            {
+                                view.Icon([Media.PlaceholderIcon], name: "image");
+                                view.Text([Text.Body], "Upload input image");
+                            });
+                        });
+
+                    if (!string.IsNullOrEmpty(_meshGeneratorInputImageName.Value))
+                    {
+                        view.Row([Layout.Row.InlineCenter, "mt-2"], content: view =>
+                        {
+                            view.Text([Text.Caption], _meshGeneratorInputImageName.Value);
+                            view.Button(
+                                [Button.GhostMd, Button.Icon],
+                                onClick: async () =>
+                                {
+                                    _meshGeneratorInputImageData = null;
+                                    _meshGeneratorInputImageMimeType = null;
+                                    _meshGeneratorInputImageName.Value = "";
+                                },
+                                content: v => v.Icon([Icon.Default], name: "x"));
+                        });
+                    }
+                });
+
+                view.Row([Layout.Row.Md, "items-center"], content: view =>
+                {
+                    view.Button(
+                        [Button.PrimaryMd],
+                        text: "Generate Mesh",
+                        props: TestId("ai-mesh-run"),
+                        disabled: _meshGeneratorProcessing.Value
+                            || (string.IsNullOrWhiteSpace(_meshGeneratorPrompt.Value) && _meshGeneratorInputImageData == null),
+                        onClick: GenerateMeshAsync);
+
+                    if (_meshGeneratorProcessing.Value)
+                    {
+                        view.Box([Icon.Spinner]);
+                    }
+                });
+
+                if (!string.IsNullOrEmpty(_meshGeneratorError.Value))
+                {
+                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    {
+                        view.Text([Alert.Description], _meshGeneratorError.Value);
+                    });
+                }
+
+                var mesh = _meshGeneratorResultData;
+
+                if (!string.IsNullOrEmpty(_meshGeneratorResult.Value) && mesh != null)
+                {
+                    view.Box([Alert.Success, "mt-4"], props: TestId("ai-mesh-result"), content: view =>
+                    {
+                        view.Text([Alert.Title], "Result");
+                        view.Text([Alert.Description], _meshGeneratorResult.Value);
+                    });
+
+                    if (!string.IsNullOrEmpty(mesh.ThumbnailUrl))
+                    {
+                        view.Image(["mt-4 max-w-full h-auto max-h-[300px] rounded-lg border border-secondary"],
+                            src: mesh.ThumbnailUrl,
+                            alt: "Mesh thumbnail");
+                    }
+
+                    view.Row([Layout.Row.Md, "mt-4 items-center flex-wrap"], content: view =>
+                    {
+                        RenderMeshDownloadButton(view, "GLB", mesh.GlbUrl);
+                        RenderMeshDownloadButton(view, "FBX", mesh.FbxUrl);
+                        RenderMeshDownloadButton(view, "OBJ", mesh.ObjUrl);
+                        RenderMeshDownloadButton(view, "MTL", mesh.MtlUrl);
+                        RenderMeshDownloadButton(view, "USDZ", mesh.UsdzUrl);
+                    });
+                }
+            });
+        });
+    }
+
+    private static void RenderMeshDownloadButton(UIView view, string label, string? url)
+    {
+        if (string.IsNullOrEmpty(url))
+        {
+            return;
+        }
+
+        view.Button([Button.PrimaryMd],
+            href: url,
+            target: "_blank",
+            content: v =>
+            {
+                v.Icon([Icon.Default, "mr-2"], name: "download");
+                v.Text(text: label);
+            });
+    }
+
+    private async Task GenerateMeshAsync()
+    {
+        _meshGeneratorProcessing.Value = true;
+        _meshGeneratorError.Value = null;
+        _meshGeneratorResult.Value = null;
+        _meshGeneratorResultData = null;
+
+        try
+        {
+            var model = Enum.Parse<MeshGeneratorModel>(_meshGeneratorModel.Value);
+            using var generator = new MeshGenerator(model);
+
+            var config = new MeshGeneratorConfig
+            {
+                Prompt = _meshGeneratorPrompt.Value,
+                Texture = _meshGeneratorTexture.Value
+            };
+
+            if (_meshGeneratorInputImageData != null && _meshGeneratorInputImageMimeType != null)
+            {
+                config.InputImages.Add(new InputImage
+                {
+                    Data = _meshGeneratorInputImageData,
+                    MimeType = _meshGeneratorInputImageMimeType
+                });
+            }
+
+            var result = await generator.GenerateMeshAsync(config);
+
+            _meshGeneratorResultData = result;
+            _meshGeneratorResult.Value = result.ExpiresAt != null
+                ? $"Mesh generated (links expire {result.ExpiresAt:u})"
+                : "Mesh generated";
+        }
+        catch (Exception ex)
+        {
+            _meshGeneratorError.Value = ex.Message;
+        }
+        finally
+        {
+            _meshGeneratorProcessing.Value = false;
         }
     }
 }

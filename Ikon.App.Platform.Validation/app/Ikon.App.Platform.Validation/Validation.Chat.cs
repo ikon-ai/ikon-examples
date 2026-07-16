@@ -82,6 +82,7 @@ public partial class Validation
 
                     row.Button([Button.PrimaryMd],
                         text: _chatIsProcessing.Value ? "Sending..." : "Send",
+                        props: TestId("ai-chat-send"),
                         disabled: _chatIsProcessing.Value || string.IsNullOrWhiteSpace(_chatInputText.Value),
                         onClick: async () =>
                         {
@@ -126,7 +127,7 @@ public partial class Validation
                 bubble.Column(content: col =>
                 {
                     col.Text([labelStyle], label);
-                    col.Text([Text.Body], message.Content.Value);
+                    col.Text([Text.Body], message.Content.Value, props: isUser ? null : TestId("ai-chat-reply"));
                 });
             });
         });
@@ -179,8 +180,8 @@ public partial class Validation
                         assistantEntry.Content.Value = responseText.ToString();
                         break;
 
-                    case Completed<ChatReply> completed:
-                        assistantEntry.Content.Value = completed.Result.Response;
+                    case Completed<ChatReply> { Result: { } result }:
+                        assistantEntry.Content.Value = result.Response;
                         break;
                 }
             }
