@@ -56,7 +56,7 @@ public partial class DepthParallaxApp
             using var depthEstimator = new DepthEstimator(_depthModel.Value);
             var depth = await depthEstimator.EstimateDepthAsync(new DepthEstimatorConfig
             {
-                Image = new DepthEstimatorConfig.InputImage
+                Image = new InputImage
                 {
                     Data = image.Data,
                     MimeType = image.MimeType

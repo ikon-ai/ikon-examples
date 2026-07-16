@@ -1,11 +1,12 @@
 // ReSharper disable RedundantUsingDirective.Global
 
+// <ikon-usings> Managed by `ikon app update`. Do not edit; add your own usings below this block.
 global using Ikon.AI.Chat;
 global using Ikon.AI.Classification;
-global using Ikon.AI.DepthEstimation;
 global using Ikon.AI.Embeddings;
 global using Ikon.AI.Emergence;
 global using Ikon.AI.FileConversion;
+global using Ikon.AI;
 global using Ikon.AI.ImageGeneration;
 global using Ikon.AI.Kernel;
 global using Ikon.AI.LLM;
@@ -18,8 +19,8 @@ global using Ikon.AI.VideoGeneration;
 global using Ikon.AI.WebSearching;
 global using Ikon.AI.WebScraping;
 global using Ikon.App;
-global using Ikon.App.Client;
 global using Ikon.App.Http;
+global using Ikon.App.Payments;
 global using Ikon.App.Reactive;
 global using Ikon.Common.Core.Assets;
 global using Ikon.Common.Core.Functions;
@@ -35,8 +36,6 @@ global using Ikon.Parallax.Components.Rive;
 global using Ikon.Parallax.Components.Standard;
 global using Ikon.Parallax.Theming;
 global using Ikon.Parallax;
-global using Ikon.Pipeline.Items;
-global using Ikon.Pipeline;
 global using Ikon.Resonance.Analysis;
 global using Ikon.Resonance.Core;
 global using Ikon.Resonance.Effects;
@@ -47,7 +46,6 @@ global using Ikon.Resonance.Synth.Modulation;
 global using Ikon.Resonance.Synth.Moog;
 global using Ikon.Resonance.Synth.Oscillators;
 global using Ikon.Resonance.Synth.Sequencer;
-global using Ikon.Resonance.Synth.Songs;
 global using Ikon.Resonance.Synth.Voice;
 global using Ikon.Resonance;
 global using Ikon.Server;
@@ -55,6 +53,7 @@ global using System.Collections.Concurrent;
 global using System.Collections.Generic;
 global using System.IO;
 global using System.Linq;
+global using System.Text;
 global using System.Text.Json.Serialization;
 global using System.Text.Json;
 global using System.Threading.Tasks;
@@ -63,3 +62,9 @@ global using System;
 
 // `IView` as a friendly alias for `UIView`
 global using IView = Ikon.Parallax.UIView;
+// </ikon-usings>
+
+global using Ikon.AI.DepthEstimation;
+global using Ikon.App.Client;
+global using Ikon.Pipeline.Items;
+global using Ikon.Pipeline;
