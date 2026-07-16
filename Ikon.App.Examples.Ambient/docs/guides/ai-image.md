@@ -31,33 +31,44 @@ if (results.Count > 0) { var image = results[0]; /* image.Data, image.MimeType *
 
 # Ikon.AI Public API
 namespace Ikon.AI.ImageGeneration
-  interface IImageGenerator : IDisposable
+  interface IImageGenerator : IDisposable, IImageGeneratorInfo
     Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = default)
+  interface IImageGeneratorInfo
+    // True when the model accepts reference input images (image-to-image / editing).
+    bool SupportsInputImage { get; }
+    // True when an InputImageType.Mask gets dedicated inpainting handling rather than being treated as a plain reference image.
+    bool SupportsMask { get; }
+    bool SupportsMultipleOutputs { get; }
+    bool SupportsNegativePrompt { get; }
   enum ImageBackground
     Auto
     Opaque
     Transparent
-  sealed class ImageGenerator : IDisposable, IImageGenerator
+  sealed class ImageGenerator : IImageGenerator
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(ImageGeneratorModel model, IReadOnlyList<ModelRegion>? regions = null)
+    bool SupportsInputImage { get; }
+    bool SupportsMask { get; }
+    bool SupportsMultipleOutputs { get; }
+    bool SupportsNegativePrompt { get; }
     void Dispose()
-    // Generate one image from a plain prompt — the instance form of the ImageGenerator.GenerateAsync one-shot, for when you already hold a generator. Reach for ImageGenerator.GenerateImageAsync when the request needs any other ImageGeneratorConfig field (input images, size, image count).
     Task<ImageGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
-    // One-shot image generation. The verbose form
-    // using var generator = new ImageGenerator(ImageGeneratorModel.Gemini25FlashImage);
-    // var results = await generator.GenerateImageAsync(new ImageGeneratorConfig { Prompt = prompt });
-    // var image = results.FirstOrDefault();
-    // becomes
-    // var image = await ImageGenerator.GenerateAsync(prompt);
-    // Defaults to ImageGeneratorModel.Gemini25FlashImage (cheap+fast). Override the model via the second parameter when the task warrants. Never returns null — throws an ImageGeneratorException when generation fails or the model produces no results, so wrap in try/catch when the app should continue without the image. Reach for the constructor + ImageGenerator.GenerateImageAsync when you need batch generation, custom width/height, an ImageBackground override, input images, or any other ImageGeneratorConfig field beyond the prompt.
+    // Static one-shot; constructs and disposes an ImageGenerator per call. Defaults to ImageGeneratorModel.Gemini25FlashImage (cheap+fast); override via model. Never returns null — throws ImageGeneratorException on failure or empty output, so wrap in try/catch to continue without the image. Use the constructor + GenerateImageAsync for batch/size/input-image or any other ImageGeneratorConfig field.
     static Task<ImageGeneratorResult> GenerateAsync(string prompt, ImageGeneratorModel model = Gemini25FlashImage, CancellationToken cancellationToken = default)
     Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = default)
+    static ImageGeneratorCapabilities GetCapabilities(ImageGeneratorModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ImageGeneratorModel model)
-  sealed class ImageGeneratorConfig : IEquatable<ImageGeneratorConfig>
+  sealed class ImageGeneratorCapabilities : IImageGeneratorInfo
+    ctor()
+    bool SupportsInputImage { get; init; }
+    bool SupportsMask { get; init; }
+    bool SupportsMultipleOutputs { get; init; }
+    bool SupportsNegativePrompt { get; init; }
+  sealed record ImageGeneratorConfig
     ctor()
     ImageBackground Background { get; init; }
     int Count { get; init; }
-    // Requested pixel height. See ImageGeneratorConfig.Width.
+    // Requested pixel height; see Width for how tiered providers treat it.
     int Height { get; init; }
     List<InputImage> InputImages { get; init; }
     string NegativePrompt { get; init; }
@@ -71,7 +82,7 @@ namespace Ikon.AI.ImageGeneration
     string Style { get; init; }
     TimeSpan Timeout { get; init; }
     bool UpsamplePrompt { get; init; }
-    // Requested pixel width. This is the only way to ask for a size: providers that take exact dimensions get these values, and providers that only offer fixed resolution tiers (Gemini: 1K/2K/4K) round the longer edge up to the nearest tier they support and take the aspect ratio from Width:Height. Ask for 2048x2048 to get a 2K image.
+    // The only way to request a size. Providers with fixed resolution tiers (e.g. Gemini 1K/2K/4K) round the longer edge up to the nearest tier and take the aspect ratio from Width:Height — ask for 2048x2048 to get a 2K image.
     int Width { get; init; }
   class ImageGeneratorException : RetryableAIException
     ctor()
@@ -107,7 +118,7 @@ namespace Ikon.AI.ImageGeneration
     GrokImagineImageQuality
   static class ImageGeneratorModelExtensions
     static string DisplayName(this ImageGeneratorModel model)
-  sealed class ImageGeneratorResult : IEquatable<ImageGeneratorResult>
+  sealed record ImageGeneratorResult
     ctor()
     byte[] Data { get; init; }
     int Height { get; init; }
@@ -122,27 +133,16 @@ namespace Ikon.AI.ImageGeneration
   enum ImageResultDelivery
     Data
     Url
-  sealed class InputImage : IEquatable<InputImage>
-    ctor()
-    AssetUri? AssetUri { get; init; }
-    byte[] Data { get; init; }
-    double? MaskDilution { get; init; }
-    string MimeType { get; init; }
-    double? Strength { get; init; }
-    InputImageType Type { get; init; }
-    string? Url { get; init; }
-  enum InputImageType
-    Normal
-    Mask
   class NonRetryableImageGeneratorException : NonRetryableAIException
     ctor()
     ctor(string message)
     ctor(string message, Exception inner)
+  // Provider-mapped moderation strength; Moderate is the default.
   enum SafetyLevel
-    Level0
-    Level1
-    Level2
-    Level3
-    Level4
-    Level5
-    Level6
+    None
+    Minimal
+    Low
+    Moderate
+    High
+    VeryHigh
+    Maximum

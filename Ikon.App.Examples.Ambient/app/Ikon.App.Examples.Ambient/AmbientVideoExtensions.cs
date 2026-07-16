@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using Ikon.Parallax;
 
 namespace Ikon.App.Examples.Ambient;
 

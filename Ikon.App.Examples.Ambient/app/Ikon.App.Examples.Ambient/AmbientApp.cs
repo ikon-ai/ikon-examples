@@ -1,9 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
-using System.Net.Http;
 using Ikon.AI.SoundEffectGeneration;
 using Ikon.AI.VideoEnhancement;
-using Ikon.Common.Core;
 
 return await App.Run(args);
 
@@ -23,14 +21,14 @@ public class AmbientApp
     private readonly Reactive<bool> _isUpscaling = new(false);
     private readonly Reactive<string?> _currentAudioUrl = new(null);
     private readonly Reactive<bool> _isAudioLoading = new(false);
-    private readonly Reactive<List<VideoVersion>> _videoVersions = new([]);
+    private readonly ReactiveList<VideoVersion> _videoVersions = new();
     private readonly Reactive<int> _selectedVersionIndex = new(0);
     private readonly Reactive<string?> _currentVideoPrompt = new(null);
-    private readonly Reactive<List<CustomExperienceData>> _customExperiences = new([]);
+    private readonly ReactiveList<CustomExperienceData> _customExperiences = new();
     private readonly Reactive<bool> _showCreateForm = new(false);
     private readonly Reactive<string> _createDescription = new("");
     private readonly Reactive<bool> _isCreating = new(false);
-    private readonly Reactive<Dictionary<string, string>> _thumbnailUrls = new(new Dictionary<string, string>());
+    private readonly ReactiveDictionary<string, string> _thumbnailUrls = new();
     private readonly Reactive<int> _featuredIndex = new(0);
     private readonly Reactive<int?> _hoveredIndex = new(null);
 
@@ -326,7 +324,7 @@ public class AmbientApp
         _currentVideoUrl.Value = null;
         _currentAudioUrl.Value = null;
         _currentVideoPrompt.Value = null;
-        _videoVersions.Value = [];
+        _videoVersions.Clear();
     }
 
     private async Task<string?> UploadAudioToAssets(byte[] audioData, string hash)
@@ -375,7 +373,7 @@ public class AmbientApp
             });
 
             var hash = GetPromptHash(experience.AudioPrompt);
-            var publicUrl = await UploadAudioToAssets(result.AudioData, hash);
+            var publicUrl = await UploadAudioToAssets(result.Data, hash);
 
             if (publicUrl != null)
             {
@@ -552,7 +550,7 @@ public class AmbientApp
         });
     }
 
-    private void RenderHero(UIView parent, AmbientExperience featured, int index, Dictionary<string, string> thumbnails)
+    private void RenderHero(UIView parent, AmbientExperience featured, int index, IReadOnlyDictionary<string, string> thumbnails)
     {
         var hasThumb = thumbnails.TryGetValue(featured.VideoPrompt, out var thumbUrl);
         var experiences = GetAllExperiences();
@@ -747,7 +745,7 @@ public class AmbientApp
         _ = GenerateAudioForExperience(index, experience);
     }
 
-    private void RenderRail(UIView parent, string title, List<(AmbientExperience exp, int idx)> entries, Dictionary<string, string> thumbnails, int featuredIndex)
+    private void RenderRail(UIView parent, string title, List<(AmbientExperience exp, int idx)> entries, IReadOnlyDictionary<string, string> thumbnails, int featuredIndex)
     {
         parent.Column(["gap-6"], content: section =>
         {
@@ -781,7 +779,7 @@ public class AmbientApp
         });
     }
 
-    private void RenderSceneCard(UIView parent, AmbientExperience exp, int index, Dictionary<string, string> thumbnails, bool isFeatured)
+    private void RenderSceneCard(UIView parent, AmbientExperience exp, int index, IReadOnlyDictionary<string, string> thumbnails, bool isFeatured)
     {
         var hasThumb = thumbnails.TryGetValue(exp.VideoPrompt, out var thumbUrl);
 
@@ -1088,7 +1086,7 @@ public class AmbientApp
                             _isVideoLoading.Value = false;
                             _isAudioLoading.Value = false;
                             _isUpscaling.Value = false;
-                            _videoVersions.Value = [];
+                            _videoVersions.Clear();
                             _selectedVersionIndex.Value = 0;
                         }
                     );
