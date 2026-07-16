@@ -19,16 +19,13 @@ public class VoiceTutor(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<SpeechRecognizerModel> _sttModel = new(SpeechRecognizerModel.WhisperLarge3Turbo);
     private readonly Reactive<string> _sttLanguage = new("en-US");
 
-    private readonly Dictionary<string, TurnDetectionState> _turnStates = new();
     private readonly object _conversationLock = new();
     private readonly List<ConversationTurn> _conversation = new();
     private readonly object _speechLock = new();
     private SpeechGenerator? _speechGenerator;
     private CancellationTokenSource? _speechCts;
+    private (int TurnId, Task<string> Reply)? _speculativeReply;
 
-    private const float SpeechThreshold = 0.008f;
-    private static readonly TimeSpan SpeculativeSilenceTimeout = TimeSpan.FromMilliseconds(350);
-    private static readonly TimeSpan FinalSilenceTimeout = TimeSpan.FromMilliseconds(600);
     private const int MaxConversationTurns = 6;
 
     internal record VoiceConfig(string Name, string VoiceId, SpeechGeneratorModel Model, string Provider);
@@ -60,7 +57,14 @@ public class VoiceTutor(IApp<SessionIdentity, ClientParams> app)
 
     public async Task Main()
     {
-        SetupAudioInputHandlers();
+        Audio.UseTurnDetection(_sttModel.Value, language: _sttLanguage.Value);
+
+        Audio.TurnSpeculativeAsync += async args =>
+        {
+            _speculativeReply = (args.TurnId, GenerateReplyAsync(args.Text, args.CancellationToken));
+        };
+
+        Audio.SpeechRecognizedAsync += OnSpeechRecognized;
 
         UI.Root([Page.Default], content: view =>
         {
@@ -179,107 +183,9 @@ public class VoiceTutor(IApp<SessionIdentity, ClientParams> app)
         });
     }
 
-    private void SetupAudioInputHandlers()
+    private async Task OnSpeechRecognized(SpeechRecognizedEventArgs args)
     {
-        Audio.AudioInputStreamBeginAsync += async args =>
-        {
-            var state = new TurnDetectionState(args.SampleRate, args.ChannelCount, _sttModel.Value, _sttLanguage.Value);
-            _turnStates[args.StreamId.ToString()] = state;
-        };
-
-        Audio.AudioInputFrameAsync += async args =>
-        {
-            if (_isSpeaking.Value || _isThinking.Value)
-            {
-                return;
-            }
-
-            if (!_turnStates.TryGetValue(args.StreamId.ToString(), out var state))
-            {
-                return;
-            }
-
-            var rms = CalculateRms(args.Samples);
-            var now = DateTime.UtcNow;
-
-            if (rms >= SpeechThreshold)
-            {
-                if (state.IsSpeculating)
-                {
-                    state.CancelSpeculation();
-                }
-
-                state.LastSpeechAt = now;
-                state.HasSpeech = true;
-            }
-
-            if (state.HasSpeech)
-            {
-                state.AppendSamples(args.Samples);
-            }
-
-            if (state.ShouldStartSpeculation(now, SpeculativeSilenceTimeout))
-            {
-                _ = StartSpeculativeProcessingAsync(state);
-            }
-
-            if (state.ShouldFinalize(now, FinalSilenceTimeout))
-            {
-                _ = FinalizeAndSpeakAsync(state);
-            }
-        };
-
-        Audio.AudioInputStreamEndAsync += async args =>
-        {
-            if (_turnStates.TryGetValue(args.StreamId.ToString(), out var state))
-            {
-                state.CancelSpeculation();
-                state.Reset();
-                _turnStates.Remove(args.StreamId.ToString());
-            }
-        };
-    }
-
-    private async Task StartSpeculativeProcessingAsync(TurnDetectionState state)
-    {
-        float[] samples;
-        CancellationToken ct;
-
-        if (!state.TryStartSpeculation(out samples, out ct))
-        {
-            return;
-        }
-
-        try
-        {
-            var text = await RecognizeSpeechAsync(samples, state.SampleRate, state.ChannelCount, ct);
-
-            if (ct.IsCancellationRequested || string.IsNullOrWhiteSpace(text))
-            {
-                return;
-            }
-
-            var response = await GenerateReplyAsync(text.Trim(), ct);
-
-            if (ct.IsCancellationRequested || string.IsNullOrWhiteSpace(response))
-            {
-                return;
-            }
-
-            state.SetSpeculativeResult(text.Trim(), response);
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch (Exception ex)
-        {
-            Log.Instance.Warning($"Speculative processing error: {ex.Message}");
-        }
-    }
-
-    private async Task FinalizeAndSpeakAsync(TurnDetectionState state)
-    {
-        if (!state.TryFinalize(out var userText, out var response))
+        if (_isThinking.Value || _isSpeaking.Value)
         {
             return;
         }
@@ -288,32 +194,20 @@ public class VoiceTutor(IApp<SessionIdentity, ClientParams> app)
 
         try
         {
+            var speculative = _speculativeReply;
+            _speculativeReply = null;
+
+            var response = speculative is { } pending && pending.TurnId == args.TurnId
+                ? await pending.Reply
+                : await GenerateReplyAsync(args.Text, CancellationToken.None);
+
             if (string.IsNullOrWhiteSpace(response))
-            {
-                float[] samples;
-
-                if (!state.TryConsumeFinalSamples(out samples))
-                {
-                    return;
-                }
-
-                userText = await RecognizeSpeechAsync(samples, state.SampleRate, state.ChannelCount, CancellationToken.None);
-
-                if (string.IsNullOrWhiteSpace(userText))
-                {
-                    return;
-                }
-
-                response = await GenerateReplyAsync(userText.Trim(), CancellationToken.None);
-            }
-
-            if (string.IsNullOrWhiteSpace(userText) || string.IsNullOrWhiteSpace(response))
             {
                 return;
             }
 
-            _lastUserUtterance.Value = userText;
-            AddConversationTurn(ConversationRole.User, userText);
+            _lastUserUtterance.Value = args.Text;
+            AddConversationTurn(ConversationRole.User, args.Text);
 
             _lastAssistantUtterance.Value = response;
             AddConversationTurn(ConversationRole.Assistant, response);
@@ -322,12 +216,11 @@ public class VoiceTutor(IApp<SessionIdentity, ClientParams> app)
         }
         catch (Exception ex)
         {
-            Log.Instance.Warning($"Finalize error: {ex.Message}");
+            Log.Instance.Warning($"Turn handling error: {ex.Message}");
         }
         finally
         {
             _isThinking.Value = false;
-            state.MarkProcessed();
         }
     }
 
@@ -340,39 +233,6 @@ public class VoiceTutor(IApp<SessionIdentity, ClientParams> app)
     {
         _isMicActive.Value = false;
         InterruptSpeaking();
-    }
-
-    private async Task<string> RecognizeSpeechAsync(float[] samples, int sampleRate, int channelCount, CancellationToken ct)
-    {
-        var rms = CalculateRms(samples);
-
-        if (rms < SpeechThreshold)
-        {
-            return string.Empty;
-        }
-
-        try
-        {
-            using var recognizer = new SpeechRecognizer(_sttModel.Value);
-            var config = new RecognizeSpeechConfig
-            {
-                Samples = samples,
-                SampleRate = sampleRate,
-                ChannelCount = channelCount,
-                Language = _sttLanguage.Value
-            };
-
-            return await recognizer.RecognizeBatchSpeechAsync(config);
-        }
-        catch (OperationCanceledException)
-        {
-            return string.Empty;
-        }
-        catch (Exception ex)
-        {
-            Log.Instance.Warning($"Speech recognition error: {ex.Message}");
-            return string.Empty;
-        }
     }
 
     private async Task<string> GenerateReplyAsync(string userText, CancellationToken ct)
@@ -415,9 +275,9 @@ public class VoiceTutor(IApp<SessionIdentity, ClientParams> app)
                     case ModelText<VoiceTutorReply> text:
                         responseText.Append(text.Text);
                         break;
-                    case Completed<VoiceTutorReply> completed:
+                    case Completed<VoiceTutorReply> { Result: { } result }:
                         responseText.Clear();
-                        responseText.Append(completed.Result.Response);
+                        responseText.Append(result.Response);
                         break;
                 }
             }
@@ -548,209 +408,6 @@ public class VoiceTutor(IApp<SessionIdentity, ClientParams> app)
             Avoid long explanations and avoid lists longer than three items
             Keep responses brief and easy to follow
             """;
-    }
-
-    private static float CalculateRms(ReadOnlySpan<float> samples)
-    {
-        if (samples.IsEmpty)
-        {
-            return 0f;
-        }
-
-        double sumSquares = 0;
-
-        foreach (var sample in samples)
-        {
-            sumSquares += sample * sample;
-        }
-
-        return (float)Math.Sqrt(sumSquares / samples.Length);
-    }
-
-    private sealed class TurnDetectionState
-    {
-        public int SampleRate { get; }
-        public int ChannelCount { get; }
-        public DateTime LastSpeechAt { get; set; }
-        public bool HasSpeech { get; set; }
-        public bool IsSpeculating => _speculationCts != null;
-
-        private readonly SpeechRecognizerModel _sttModel;
-        private readonly string _sttLanguage;
-        private readonly object _lock = new();
-        private readonly List<float> _samples = new();
-        private readonly List<float> _speculativeSamples = new();
-        private bool _isProcessing;
-        private bool _speculationStarted;
-        private CancellationTokenSource? _speculationCts;
-        private string? _speculativeUserText;
-        private string? _speculativeResponse;
-
-        public TurnDetectionState(int sampleRate, int channelCount, SpeechRecognizerModel sttModel, string sttLanguage)
-        {
-            SampleRate = sampleRate;
-            ChannelCount = channelCount;
-            _sttModel = sttModel;
-            _sttLanguage = sttLanguage;
-        }
-
-        public void AppendSamples(ReadOnlySpan<float> samples)
-        {
-            lock (_lock)
-            {
-                var arr = samples.ToArray();
-                _samples.AddRange(arr);
-
-                if (_speculationStarted && _speculationCts != null)
-                {
-                    _speculativeSamples.AddRange(arr);
-                }
-            }
-        }
-
-        public bool ShouldStartSpeculation(DateTime now, TimeSpan timeout)
-        {
-            if (!HasSpeech || _speculationStarted || _isProcessing)
-            {
-                return false;
-            }
-
-            return now - LastSpeechAt > timeout;
-        }
-
-        public bool ShouldFinalize(DateTime now, TimeSpan timeout)
-        {
-            if (!HasSpeech || _isProcessing)
-            {
-                return false;
-            }
-
-            return now - LastSpeechAt > timeout;
-        }
-
-        public bool TryStartSpeculation(out float[] samples, out CancellationToken ct)
-        {
-            lock (_lock)
-            {
-                if (_speculationStarted || _samples.Count == 0)
-                {
-                    samples = Array.Empty<float>();
-                    ct = CancellationToken.None;
-                    return false;
-                }
-
-                _speculationStarted = true;
-                _speculationCts = new CancellationTokenSource();
-                _speculativeSamples.Clear();
-                samples = _samples.ToArray();
-                ct = _speculationCts.Token;
-                return true;
-            }
-        }
-
-        public void CancelSpeculation()
-        {
-            lock (_lock)
-            {
-                _speculationCts?.Cancel();
-                _speculationCts?.Dispose();
-                _speculationCts = null;
-                _speculationStarted = false;
-                _speculativeUserText = null;
-                _speculativeResponse = null;
-                _speculativeSamples.Clear();
-            }
-        }
-
-        public void SetSpeculativeResult(string userText, string response)
-        {
-            lock (_lock)
-            {
-                if (_speculationCts == null || _speculationCts.IsCancellationRequested)
-                {
-                    return;
-                }
-
-                _speculativeUserText = userText;
-                _speculativeResponse = response;
-            }
-        }
-
-        public bool TryFinalize(out string? userText, out string? response)
-        {
-            lock (_lock)
-            {
-                if (_isProcessing)
-                {
-                    userText = null;
-                    response = null;
-                    return false;
-                }
-
-                _isProcessing = true;
-
-                if (_speculativeSamples.Count == 0 && _speculativeResponse != null)
-                {
-                    userText = _speculativeUserText;
-                    response = _speculativeResponse;
-                    HasSpeech = false;
-                    _samples.Clear();
-                    return true;
-                }
-
-                userText = null;
-                response = null;
-                return true;
-            }
-        }
-
-        public bool TryConsumeFinalSamples(out float[] samples)
-        {
-            lock (_lock)
-            {
-                if (_samples.Count == 0)
-                {
-                    samples = Array.Empty<float>();
-                    return false;
-                }
-
-                samples = _samples.ToArray();
-                _samples.Clear();
-                HasSpeech = false;
-                return true;
-            }
-        }
-
-        public void MarkProcessed()
-        {
-            lock (_lock)
-            {
-                _isProcessing = false;
-                _speculationStarted = false;
-                _speculationCts?.Dispose();
-                _speculationCts = null;
-                _speculativeUserText = null;
-                _speculativeResponse = null;
-                _speculativeSamples.Clear();
-            }
-        }
-
-        public void Reset()
-        {
-            lock (_lock)
-            {
-                _samples.Clear();
-                _speculativeSamples.Clear();
-                _isProcessing = false;
-                _speculationStarted = false;
-                _speculationCts?.Cancel();
-                _speculationCts?.Dispose();
-                _speculationCts = null;
-                _speculativeUserText = null;
-                _speculativeResponse = null;
-                HasSpeech = false;
-            }
-        }
     }
 
     private enum ConversationRole

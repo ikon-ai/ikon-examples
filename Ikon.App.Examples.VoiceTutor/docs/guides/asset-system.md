@@ -118,14 +118,17 @@ namespace Ikon.Common.Core.Assets
     Task<AssetContent<T>?> TryGetWithMetadataAsync<T>(AssetUri assetUri) where T : class
     Task<AssetWriteResult> TrySetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
     Task<AssetWriteResult> TrySetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
-  // Asset class determines which storage backend is used to store/retrieve the asset.
   enum AssetClass
+    // Server's local filesystem under a system-managed root; not cloud-persisted.
     LocalFile
+    // Baked into the app assembly as an embedded resource; read-only at runtime.
     EmbeddedFile
+    // Persistent private cloud storage for any file, small or large, binary or text.
     CloudFile
+    // Persistent public cloud storage; the asset is reachable via a public URL.
     CloudFilePublic
+    // Persistent private cloud storage for small JSON text values.
     CloudJson
-    CloudProfile
   sealed class AssetContent<T> : IDisposable
     ctor(T content, AssetMetadata? metaData = null)
     T Content { get; }
@@ -135,11 +138,11 @@ namespace Ikon.Common.Core.Assets
     ctor(AssetUri assetUri, AssetStatus status)
     AssetUri AssetUri { get; }
     AssetStatus Status { get; }
-  struct AssetListingEntry
+  readonly struct AssetListingEntry
     ctor(AssetUri assetUri, AssetMetadata metadata)
     AssetUri AssetUri { get; }
     AssetMetadata Metadata { get; }
-  struct AssetMetadata
+  readonly struct AssetMetadata
     ctor(string? mimeType = null, long? size = null, DateTime? lastModified = null, string? url = null, bool? urlIsTemporal = null, string[]? tags = null, string? internalPath = null, string? storageId = null, string? nativeUri = null, bool? isAppServed = null, DateTime? expiresAt = null)
     DateTime? ExpiresAt { get; }
     string? InternalPath { get; }
@@ -180,8 +183,8 @@ namespace Ikon.Common.Core.Assets
     ctor(AssetUri assetUri, AssetMetadata? metadata)
     AssetUri AssetUri { get; }
     AssetMetadata? Metadata { get; }
-  // AssetUris are used to store and retrieve data on the Ikon platform. Use the asset class to select the storage backend. Space ID, User ID, and Channel ID are optional identifiers to scope the asset. Path is the location of the asset within the storage backend. It may include subdirectories and/or a file name. Query is optional and is not used for now. Example asset URIs: assets://space/12345/user/67890/channel/12345/cloud-file/images/photos/pic1.jpg assets://cloud-json/config/settings.json assets://space/12345/local-file/documents/report.pdf assets://embedded-file/logo.png
-  struct AssetUri : IEquatable<AssetUri>
+  // Grammar: assets://[space/{spaceId}/][user/{userId}/][channel/{channelId}/]{class}/{path}[?query]. {class} is the kebab-case AssetClass (local-file, embedded-file, cloud-file, cloud-file-public, cloud-json) and selects the storage backend; {path} may include subdirectories and a file name. The optional space/user/channel segments scope the asset — omit them for a global asset. Immutable; With returns a modified copy.
+  readonly struct AssetUri : IEquatable<AssetUri>
     ctor(string uriString)
     ctor(AssetClass assetClass, string? path = null, string? spaceId = null, string? userId = null, string? channelId = null, string? query = null)
     string? ChannelId { get; }
@@ -198,12 +201,13 @@ namespace Ikon.Common.Core.Assets
     static bool TryParse(string uriString, out AssetUri assetUri, out string? failureReason)
     static bool TryParse(string uriString, out AssetUri assetUri)
     AssetUri With(AssetClass? assetClass = null, string? path = null, string? spaceId = null, string? userId = null, string? channelId = null, string? query = null)
-  // Serializes AssetUri as its canonical URI string so it round-trips correctly. Without this, System.Text.Json cannot reconstruct the immutable get-only struct and falls back to default(AssetUri) on deserialization (losing the path, class, and scope identifiers).
+    static bool operator ==(AssetUri left, AssetUri right)
+    static bool operator !=(AssetUri left, AssetUri right)
   sealed class AssetUriJsonConverter : JsonConverter<AssetUri>
     ctor()
     override AssetUri Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     override void Write(Utf8JsonWriter writer, AssetUri value, JsonSerializerOptions options)
-  struct AssetWriteResult
+  readonly struct AssetWriteResult
     ctor(AssetWriteStatus status, AssetMetadata? metadata = null)
     bool IsConflict { get; }
     AssetMetadata? Metadata { get; }
@@ -215,16 +219,16 @@ namespace Ikon.Common.Core.Assets
     Skipped
     Success
   interface IHashableStream
-    abstract void SetSha256Hash(string? hash)
+    void SetSha256Hash(string? hash)
   interface IStorage : IAsyncDisposable
-    abstract Task DeleteAsync(AssetUri assetUri)
-    abstract Task<bool> ExistsAsync(AssetUri assetUri)
-    abstract Task<AssetContent<Stream>> GetReadStreamAsync(AssetUri assetUri)
-    abstract Task<Stream> GetWriteStreamAsync(AssetUri assetUri, AssetMetadata? metadata, CancellationToken cancellationToken)
-    abstract Task<IReadOnlyList<AssetListingEntry>> ListAsync(AssetQuery query, CancellationToken cancellationToken)
-    abstract Task StartAsync()
-    abstract Task<AssetMetadata?> TryGetMetadataAsync(AssetUri assetUri)
-    abstract Task WaitUntilQueueEmptyAsync()
+    Task DeleteAsync(AssetUri assetUri)
+    Task<bool> ExistsAsync(AssetUri assetUri)
+    Task<AssetContent<Stream>> GetReadStreamAsync(AssetUri assetUri)
+    Task<Stream> GetWriteStreamAsync(AssetUri assetUri, AssetMetadata? metadata, CancellationToken cancellationToken)
+    Task<IReadOnlyList<AssetListingEntry>> ListAsync(AssetQuery query, CancellationToken cancellationToken)
+    Task StartAsync()
+    Task<AssetMetadata?> TryGetMetadataAsync(AssetUri assetUri)
+    Task WaitUntilQueueEmptyAsync()
     event Func<AssetEventArgs, Task> AssetEventAsync
   static class StorageExtensions
     static Task AddEmbeddedFileStorageAsync(this Asset asset, Assembly? assembly = null, string resourceNamespace = "")
