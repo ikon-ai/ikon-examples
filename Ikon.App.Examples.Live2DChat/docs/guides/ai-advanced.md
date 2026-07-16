@@ -14,19 +14,6 @@ Refer to generated API docs for full details.
 
 # Ikon.AI Public API
 namespace Ikon.AI.Database
-  sealed class BigQueryDbConnection : DbConnection
-    ctor(string projectId, string datasetId)
-    override string ConnectionString { get; set; }
-    override string DataSource { get; }
-    override string Database { get; }
-    override string ServerVersion { get; }
-    override ConnectionState State { get; }
-    override void ChangeDatabase(string databaseName)
-    override void Close()
-    override DataTable GetSchema()
-    override DataTable GetSchema(string collectionName)
-    override DataTable GetSchema(string collectionName, string?[]? restrictionValues)
-    override void Open()
   class DatabaseColumnInfo
     ctor()
     string ColumnName { get; set; }
@@ -140,7 +127,7 @@ namespace Ikon.AI.Storage
     float Score
     T Value
   class VectorDatabase
-    ctor()
+    ctor(VectorStoreConfig? config = null)
     Task CreateCollectionAsync(string collectionName, EmbeddingModel model)
     Task<int> GetDataItemCountAsync(string collectionName)
     Task RemoveAsync(string collectionName, IEnumerable<string> tags)
@@ -150,3 +137,11 @@ namespace Ikon.AI.Storage
     Task<List<Result<T>>> SearchAsync<T>(string collectionName, float[] queryVector, int maxItems, float threshold, Metric metric, Func<IEnumerable<string>, bool>? tagsFilter = null)
     Task<int> SetAsync(string collectionName, int? key, string text, object value, IEnumerable<string>? tags = null)
     Task<int> SetAsync(string collectionName, int? key, float[] vector, object value, IEnumerable<string>? tags = null)
+  enum VectorStoreBackend
+    InMemory
+    PgVector
+  sealed class VectorStoreConfig
+    ctor()
+    VectorStoreBackend Backend { get; init; }
+    Func<DbConnection>? ConnectionFactory { get; init; }
+    string TablePrefix { get; init; }

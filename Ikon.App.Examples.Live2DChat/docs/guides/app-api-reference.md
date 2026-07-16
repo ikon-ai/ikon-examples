@@ -762,69 +762,20 @@ namespace Ikon.App
     int Width { get; init; }
 
 namespace Ikon.App.Cells
+  // A cell is always shared by its SessionIdentity: every caller that Cells.Connects with the same identity reaches the same instance and its Reactive<T> state — the identity IS the sharing scope (parameterless = one global; keyed = one per key). The runtime picks the transport: a local run hosts every cell in-process (a direct object); in the cloud the cell lives in its own cell-host and callers reach it through a proxy ([HttpGet]/[HttpPost] over HTTP, [Function] methods and Reactive<T> members over an SDK connection). App authors never choose or think about placement — they declare [Cell] and a SessionIdentity, and get exactly what those mean.
   sealed class CellAttribute : Attribute
     ctor()
-    // Values above 1 spawn that many instances and round-robin CellHost.Resolve<TInterface> across them. Sharded keyed cells must hold no per-instance state (or persist shared state externally) — the shards are eventually consistent.
     int Capacity { get; init; }
     int IdleTtlSeconds { get; init; }
-    // Cells.Connect<TInterface>(identity) for a CellProcessScope.Substrate cell returns a SubstrateCellProxy that dispatches per member: [HttpGet]/[HttpPost] methods over stateless HTTP, [Function] methods and Reactive<T> members over a standard SDK connection to the cell-host. Concrete-class access (Cells.Connect<ConcreteCellType>) returns the local instance unchanged, regardless of ProcessScope.
-    CellProcessScope ProcessScope { get; init; }
-  enum CellProcessScope
-    AppProcess
-    // Accessed via Cells.Connect<TInterface>, which returns a SubstrateCellProxy: [HttpGet]/[HttpPost] methods dispatch over stateless HTTP, [Function] methods and Reactive<T> members over a standard SDK connection to the cell-host.
-    Substrate
   // Each in-process server runs in its own async-local scope, so Cells.Instance resolves to that server's own host and wiring. The framework calls Initialize once at startup; apps call Connect<TInterface> for each cell access.
   class Cells : AsyncLocalInstance<Cells>
     ctor()
-    // For cell types annotated [Cell(ProcessScope = CellProcessScope.Substrate)] AND when TInterface is an interface, returns a SubstrateCellProxy<TInterface> that dispatches per member: [HttpGet]/[HttpPost] methods over stateless HTTP, [Function] methods and Reactive<T> members over a standard SDK connection to the cell-host. Otherwise returns the local cell instance from the process-wide CellHost.
+    // On a CLOUD run, when TInterface is an interface backed by a [Cell] type, returns a SubstrateCellProxy<TInterface> that dispatches per member: [HttpGet]/[HttpPost] methods over stateless HTTP, [Function] methods and Reactive<T> members over a standard SDK connection to the cell-host. Otherwise — a concrete-type request, or ANY cell on a LOCAL run — returns the local cell instance from the process-wide CellHost. Local runs host every cell in-process (there is no deployed cell-host to proxy to, and a local run is a single process), so every cell behaves as a normal shared instance locally.
     TInterface Connect<TInterface>(object sessionIdentity) where TInterface : class
     ValueTask DisposeAsync()
     const string CellTypeParam
   interface ICell<out TSessionIdentity>
     TSessionIdentity Identity { get; }
-
-namespace Ikon.App.Connectors
-  sealed class ConnectorException : Exception
-    ctor(string provider, string message)
-    string Provider { get; }
-  sealed class Drive
-    ctor(GoogleCredentials credentials)
-    Task<Stream> DownloadAsync(string fileId, CancellationToken ct = default)
-    IAsyncEnumerable<DriveFile> ListAllAsync(string? folderId = null, string? extraQuery = null, CancellationToken ct = default)
-    Task<IReadOnlyList<DriveFile>> ListAsync(string? folderId = null, int limit = 50, CancellationToken ct = default)
-    Task<DriveFile> UploadAsync(string name, string mimeType, Stream content, string? folderId = null, CancellationToken ct = default)
-  sealed record DriveFile
-    ctor(string Id, string Name, string MimeType, long? Size, string? WebViewLink, DateTimeOffset? ModifiedTime = null)
-    string Id { get; init; }
-    string MimeType { get; init; }
-    DateTimeOffset? ModifiedTime { get; init; }
-    string Name { get; init; }
-    long? Size { get; init; }
-    string? WebViewLink { get; init; }
-  static class GoogleAuth
-    // The returned UserCredential is a third-party type from the Google.Apis.Auth NuGet package (namespace Google.Apis.Auth.OAuth2), which ships transitively with this library. Assign it as the HttpClientInitializer in any Google API service initializer (Drive, Sheets, Gmail, Calendar, ...) from the corresponding Google.Apis.* package.
-    static UserCredential CredentialFor(GoogleCredentials credentials, IEnumerable<string> scopes)
-    // Branch on this to stop retrying and surface a "reconnect required" state: it is true only for permanent auth failures (revoked/expired refresh token, bad client), never for transient or network errors.
-    static bool IsAuthFailure(Exception ex)
-  sealed record GoogleCredentials
-    ctor(string ClientId, string ClientSecret, string RefreshToken)
-    string ClientId { get; init; }
-    string ClientSecret { get; init; }
-    string RefreshToken { get; init; }
-  sealed class Slack
-    ctor(string botToken, HttpClient? http = null)
-    Task<IReadOnlyList<SlackMessage>> HistoryAsync(string channel, int limit = 20, CancellationToken ct = default)
-    Task<SlackMessage> PostAsync(string channel, string text, string? threadTs = null, CancellationToken ct = default)
-  sealed record SlackMessage
-    ctor(string Channel, string User, string Text, string Ts, string? ThreadTs = null)
-    string Channel { get; init; }
-    string Text { get; init; }
-    string? ThreadTs { get; init; }
-    string Ts { get; init; }
-    string User { get; init; }
-  sealed class WhatsApp
-    ctor(string accessToken, string phoneNumberId, HttpClient? http = null)
-    Task<string> SendAsync(string to, string text, CancellationToken ct = default)
 
 namespace Ikon.App.Cron
   sealed record CronContext
@@ -1126,15 +1077,13 @@ namespace Ikon.Common
     const string TextPlain
     const string TextXml
     const string VideoMp4
-  static class NameConversions
-    static string ToCamelCase(string input)
-    static string ToDisplayName(string input)
-    static string ToKebabCase(string input)
-    static string ToPascalCase(string input)
-    static string ToSlug(string input, int maxLength)
-    static string ToSnakeCase(string input)
   static class NetworkUtils
     static IPAddress GetFirstIPv4AddressOrLocalhost()
+  sealed class PackageHookException : Exception
+    ctor(string command, string output)
+    string Command { get; }
+  static class PackageHooks
+    static Task RunAsync(IReadOnlyList<string> commands, string appDir, string bundleDir, IReadOnlyDictionary<string, string?>? extraEnv = null, Action<string>? onCommandStart = null, CancellationToken ct = default)
   enum PipelineExecutionMode
     None
     HttpsEndpoint
@@ -1172,6 +1121,56 @@ namespace Ikon.Common
     static string ToUnescapedString(string input, bool unicodeOnly = false)
 
 namespace Ikon.Common.Assets
+  sealed record AssetGcOrphan
+    ctor(string Uri)
+    string Uri { get; init; }
+  sealed record AssetGcPlan
+    ctor(AssetGcScope Scope, IReadOnlyList<AssetGcOrphan> Orphans, int EverReferenced, int Kept)
+    int EverReferenced { get; init; }
+    int Kept { get; init; }
+    IReadOnlyList<AssetGcOrphan> Orphans { get; init; }
+    AssetGcScope Scope { get; init; }
+  enum AssetGcScope
+    History
+    Window
+    Current
+  sealed class AssetLinkManager
+    ctor(IAssetBackend backend, IReadOnlyCollection<string>? publicFolders = null)
+    Task<IReadOnlyDictionary<string, string>> CollectPublicAssetsAsync(string repoDir, CancellationToken ct = default)
+    Task<IReadOnlySet<string>> CollectReferencedUrisAsync(string repoDir, CancellationToken ct = default)
+    Task<(int Deleted, int Failed)> ExecuteGcAsync(AssetGcPlan plan, CancellationToken ct = default)
+    Task<IReadOnlyList<string>> MaterializeAsync(string repoDir, CancellationToken ct = default)
+    Task<IReadOnlyList<string>> NormalizeAsync(string repoDir, CancellationToken ct = default)
+    Task<AssetGcPlan> PlanGcAsync(string repoDir, AssetGcScope scope, int windowDays = 30, CancellationToken ct = default)
+  sealed class AssetMaterializeException : Exception
+    ctor(IReadOnlyList<string> failures)
+    IReadOnlyList<string> Failures { get; }
+  sealed record AssetPointer
+    ctor(string Uri, string Sha256, long Size, string Name, string? PublicUrl = null)
+    string Name { get; init; }
+    string? PublicUrl { get; init; }
+    string Sha256 { get; init; }
+    long Size { get; init; }
+    string Uri { get; init; }
+    static string PointerPathForReal(string realPath)
+    static string RealPathForPointer(string pointerPath)
+    string Serialize()
+    static AssetPointer? TryParse(string text)
+    const string Suffix
+  static class BinaryContent
+    static bool IsBinary(byte[] content)
+    static string Sha256Hex(byte[] content)
+  interface IAssetBackend
+    Task DeleteAsync(string uri, CancellationToken ct = default)
+    Task<byte[]> DownloadAsync(string uri, CancellationToken ct = default)
+    Task<string?> GetPublicUrlAsync(string uri, CancellationToken ct = default)
+    Task<string> UploadAsync(byte[] content, string fileName, bool isPublic, CancellationToken ct = default)
+  sealed class IkonAssetBackend : IAssetBackend
+    ctor(string spaceId)
+    Task DeleteAsync(string uri, CancellationToken ct = default)
+    Task<byte[]> DownloadAsync(string uri, CancellationToken ct = default)
+    Task<string?> GetPublicUrlAsync(string uri, CancellationToken ct = default)
+    Task<string> UploadAsync(byte[] content, string fileName, bool isPublic, CancellationToken ct = default)
   static class StorageExtensions
     static Task AddCloudFilePublicStorageAsync(this Asset asset)
     static Task AddCloudFileStorageAsync(this Asset asset, TimeSpan? uploadTimeout = null)
@@ -1223,6 +1222,20 @@ namespace Ikon.Common.Git
     string? Patch { get; init; }
     string Path { get; init; }
     GitChangeType Type { get; init; }
+  enum GitReconcileOutcome
+    UpToDate
+    Pushed
+    Merged
+    Conflicted
+    NoRemote
+    Detached
+    Failed
+  record GitReconcileResult
+    ctor(GitReconcileOutcome Outcome, string Branch, IReadOnlyList<string> ConflictedFiles, string? Error = null)
+    string Branch { get; init; }
+    IReadOnlyList<string> ConflictedFiles { get; init; }
+    string? Error { get; init; }
+    GitReconcileOutcome Outcome { get; init; }
   class GitRepository
     ctor(string workingDirectory, GitCredentials? credentials = null)
     GitCredentials? Credentials { get; }
@@ -1269,6 +1282,7 @@ namespace Ikon.Common.Git
     static Task<bool> IsGitRepositoryAsync(string directory, CancellationToken ct = default)
     Task<IReadOnlyList<GitWorktreeInfo>> ListWorktreesAsync(CancellationToken ct = default)
     Task PushAsync(bool setUpstream = false, CancellationToken ct = default)
+    Task<GitReconcileResult> ReconcileAndPushAsync(string commitAuthorName = "Ikon", string commitAuthorEmail = "ikon@ikon.local", CancellationToken ct = default)
     Task<bool> RefExistsAsync(string refName, CancellationToken ct = default)
     Task RenameBranchAsync(string oldName, string newName, CancellationToken ct = default)
     Task ResetHardAsync(string target, CancellationToken ct = default)
