@@ -32,3 +32,7 @@ OrganisationId = ""
 SpaceId = ""
 ChannelId = ""
 Name = ""
+[Assets]
+PublicFolders = ["public"]
+[Package]
+PrePackage = []

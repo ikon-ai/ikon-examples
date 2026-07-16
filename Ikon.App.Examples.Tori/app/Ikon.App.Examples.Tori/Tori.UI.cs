@@ -39,7 +39,7 @@ public partial class Tori
 
     private void RenderCreateMeetPage(UIView view)
     {
-        var isDark = _theme.Current.Value == Theme.Dark.ToThemeName();
+        var isDark = _theme.Current.Value == Theme.Dark;
 
         view.Column(["h-full flex flex-col items-center justify-center gap-6 relative"], content: col =>
         {
@@ -77,7 +77,7 @@ public partial class Tori
                     {
                         // Create a meeting for later
                         items.Button(
-                            [DropdownMenu.Item, "w-full justify-start font-sans text-popover-foreground focus:bg-transparent focus:text-popover-foreground focus-visible:bg-transparent hover:bg-accent hover:text-accent-foreground"],
+                            [DropdownMenu.Item, "bg-transparent w-full justify-start font-sans text-popover-foreground focus:bg-transparent focus:text-popover-foreground focus-visible:bg-transparent hover:bg-accent hover:text-accent-foreground"],
                             onClick: async () =>
                             {
                                 _newMeetMenuOpen.Value = false;
@@ -92,7 +92,7 @@ public partial class Tori
 
                         // Start an instant meeting
                         items.Button(
-                            [DropdownMenu.Item, "w-full justify-start font-sans text-popover-foreground focus:bg-transparent focus:text-popover-foreground focus-visible:bg-transparent hover:bg-accent hover:text-accent-foreground"],
+                            [DropdownMenu.Item, "bg-transparent w-full justify-start font-sans text-popover-foreground focus:bg-transparent focus:text-popover-foreground focus-visible:bg-transparent hover:bg-accent hover:text-accent-foreground"],
                             href: $"?id={GenerateMeetId()}",
                             content: btn =>
                             {
@@ -178,7 +178,7 @@ public partial class Tori
 
     private void RenderEnterNamePage(UIView view)
     {
-        var isDark = _theme.Current.Value == Theme.Dark.ToThemeName();
+        var isDark = _theme.Current.Value == Theme.Dark;
         var nameValue = _nameInput.Value.Trim();
         var hasValidName = !string.IsNullOrWhiteSpace(nameValue);
 
@@ -247,7 +247,7 @@ public partial class Tori
 
     private void RenderLeftMeetingPage(UIView view)
     {
-        var isDark = _theme.Current.Value == Theme.Dark.ToThemeName();
+        var isDark = _theme.Current.Value == Theme.Dark;
 
         view.Column(["h-full flex flex-col items-center justify-center gap-6 relative"], content: col =>
         {
@@ -382,7 +382,7 @@ public partial class Tori
         view.Box([Drawer.Overlay], content: overlay =>
         {
             overlay.Button(
-                ["absolute inset-0 w-full h-full bg-transparent"],
+                ["justify-start absolute inset-0 w-full h-full bg-transparent"],
                 onClick: async () => _mobilePanelOpen.Value = false,
                 content: _ => { });
         });
@@ -440,7 +440,7 @@ public partial class Tori
         var isActive = _mobilePanelTab.Value == tabId;
         var activeStyle = isActive
             ? "flex-1 px-2 py-1.5 text-xs font-medium rounded-md bg-background text-foreground shadow-sm"
-            : "flex-1 px-2 py-1.5 text-xs font-medium rounded-md text-muted-foreground hover:text-foreground";
+            : "bg-transparent flex-1 px-2 py-1.5 text-xs font-medium rounded-md text-muted-foreground hover:text-foreground";
 
         view.Button(
             [activeStyle],
@@ -568,7 +568,6 @@ public partial class Tori
 
     private void RenderParticipantGrid(UIView view)
     {
-        _ = _speakingVersion.Value;
         var participants = _participants.Value;
         var count = participants.Count;
 
@@ -642,7 +641,7 @@ public partial class Tori
 
     private void RenderParticipantTile(UIView view, Participant participant)
     {
-        var isDark = _theme.Current.Value == Theme.Dark.ToThemeName();
+        var isDark = _theme.Current.Value == Theme.Dark;
         var gradient = GetParticipantGradient(participant.UserId, isDark);
         var isSpeaking = GetIsSpeaking(participant.ClientSessionId);
         var participantKey = participant.ClientSessionId.ToString();
@@ -694,7 +693,7 @@ public partial class Tori
         var isVideoOn = _isVideoEnabled.Value;
         var isAudioOn = _isAudioEnabled.Value;
         var isScreenShareOn = _isScreenShareEnabled.Value;
-        var isDark = _theme.Current.Value == Theme.Dark.ToThemeName();
+        var isDark = _theme.Current.Value == Theme.Dark;
 
         // Left spacer for centering
         view.Box(["flex-1"], content: _ => { });

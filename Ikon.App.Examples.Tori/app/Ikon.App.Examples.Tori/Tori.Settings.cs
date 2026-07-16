@@ -95,7 +95,11 @@ public partial class Tori
                     if (clientScope != null)
                     {
                         var context = app.GlobalState.GetClientContext(clientScope.Value.Id);
-                        _ = RefreshDevicesAsync(clientScope.Value.Id, context);
+
+                        if (context != null)
+                        {
+                            _ = RefreshDevicesAsync(clientScope.Value.Id, context);
+                        }
                     }
                 }
             },
@@ -283,7 +287,7 @@ public partial class Tori
     private void RenderAudioSettings(UIView view)
     {
         var microphoneDevices = _availableDevices.Value
-            .Where(d => d.Kind == "audioinput" && !string.IsNullOrEmpty(d.DeviceId) && d.DeviceId != "default" && d.DeviceId != "communications")
+            .Where(d => d.Kind == ClientMediaDeviceKind.AudioInput && !string.IsNullOrEmpty(d.DeviceId) && d.DeviceId != "default" && d.DeviceId != "communications")
             .Select(d => new SelectOption(d.DeviceId, string.IsNullOrEmpty(d.Label) ? "Microphone" : d.Label))
             .ToArray();
         var microphoneOptions = new[] { new SelectOption("default", "Default") }.Concat(microphoneDevices).ToArray();
@@ -307,7 +311,11 @@ public partial class Tori
                                 if (clientScope != null)
                                 {
                                     var context = app.GlobalState.GetClientContext(clientScope.Value.Id);
-                                    await RefreshDevicesAsync(clientScope.Value.Id, context);
+
+                                    if (context != null)
+                                    {
+                                        await RefreshDevicesAsync(clientScope.Value.Id, context);
+                                    }
                                 }
                             },
                             content: vv => vv.Icon([Icon.Xs], name: _devicesLoading.Value ? "loader-2" : "refresh-cw")),
@@ -395,7 +403,7 @@ public partial class Tori
     private void RenderCameraSettings(UIView view)
     {
         var cameraDevices = _availableDevices.Value
-            .Where(d => d.Kind == "videoinput" && !string.IsNullOrEmpty(d.DeviceId) && d.DeviceId != "default" && d.DeviceId != "communications")
+            .Where(d => d.Kind == ClientMediaDeviceKind.VideoInput && !string.IsNullOrEmpty(d.DeviceId) && d.DeviceId != "default" && d.DeviceId != "communications")
             .Select(d => new SelectOption(d.DeviceId, string.IsNullOrEmpty(d.Label) ? "Camera" : d.Label))
             .ToArray();
         var cameraOptions = new[] { new SelectOption("default", "Default") }.Concat(cameraDevices).ToArray();
@@ -419,7 +427,11 @@ public partial class Tori
                                 if (clientScope != null)
                                 {
                                     var context = app.GlobalState.GetClientContext(clientScope.Value.Id);
-                                    await RefreshDevicesAsync(clientScope.Value.Id, context);
+
+                                    if (context != null)
+                                    {
+                                        await RefreshDevicesAsync(clientScope.Value.Id, context);
+                                    }
                                 }
                             },
                             content: vv => vv.Icon([Icon.Xs], name: _devicesLoading.Value ? "loader-2" : "refresh-cw")),

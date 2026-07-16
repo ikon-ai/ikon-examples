@@ -60,9 +60,9 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
     private readonly Dictionary<string, AudioStreamState> _audioStreamStates = new();
     private GroupAudioMixer? _groupAudioMixer;
 
-    // Speaking detection state
-    private readonly Dictionary<int, SpeakingState> _speakingStates = new();
-    private readonly Reactive<int> _speakingVersion = new(0);
+    // Speaking detection state. Reads are tracked, so the participant grid re-renders on
+    // changes; in-place IsSpeaking flips are followed by _speakingStates.NotifyUpdate().
+    private readonly ReactiveDictionary<int, SpeakingState> _speakingStates = new();
     private const float SpeakingVolumeThreshold = 0.003f;
     private const float EmaAlphaUp = 0.4f;
     private const float EmaAlphaDown = 0.03f;
@@ -214,7 +214,7 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
 
             if (speakingChanged)
             {
-                _speakingVersion.Value++;
+                _speakingStates.NotifyUpdate();
             }
 
             // Every 60 seconds, check if there's new content and extract summary
@@ -389,7 +389,7 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
 
         app.ClientLeftAsync += async args =>
         {
-            _groupAudioMixer?.RemoveParticipant(args.ClientSessionId.ToString());
+            _groupAudioMixer?.RemoveParticipant(args.ClientSessionId);
             await CleanupClientStreamsAsync(args.ClientSessionId);
 
             _participants.RemoveAll(p => p.ClientSessionId == args.ClientSessionId);
@@ -483,7 +483,7 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
 
         _participants.Add(new Participant(clientSessionId, userId, name, null, null, false, false, IsMobile: isMobile));
 
-        _groupAudioMixer?.AddParticipant(clientSessionId.ToString());
+        _groupAudioMixer?.AddParticipant(clientSessionId);
     }
 
     private void JoinMeeting(string name)
@@ -497,6 +497,12 @@ public partial class Tori(IApp<SessionIdentity, ClientParams> app)
 
         var clientSessionId = clientScope.Value.Id;
         var context = app.GlobalState.GetClientContext(clientSessionId);
+
+        if (context == null)
+        {
+            return;
+        }
+
         var userId = context.UserId;
         var isMobile = context.ClientType is ClientType.MobileWeb or ClientType.MobileApp;
 

@@ -1,5 +1,3 @@
-using AudioFrame = Ikon.Resonance.AudioFrame;
-
 public partial class Tori
 {
     private void SetupAudioInputHandlers()
@@ -15,15 +13,15 @@ public partial class Tori
             if (_groupAudioMixer == null)
             {
                 _groupAudioMixer = new GroupAudioMixer();
-                await _groupAudioMixer.StartAsync(OnGroupAudioMixerOutputAsync);
+                _ = Task.Run(() => PumpGroupAudioMixerAsync(_groupAudioMixer));
 
                 foreach (var p in _participants)
                 {
-                    _groupAudioMixer.AddParticipant(p.ClientSessionId.ToString());
+                    _groupAudioMixer.AddParticipant(p.ClientSessionId);
                 }
             }
 
-            _groupAudioMixer.AddStream(args.StreamId, clientId.ToString());
+            _groupAudioMixer.AddStream(args.StreamId, clientId);
 
             UpdateParticipant(clientId, p => p with { IsAudioEnabled = true });
 
@@ -64,7 +62,6 @@ public partial class Tori
             if (_speakingStates.TryGetValue(args.ClientSessionId, out var speakingState) && speakingState.IsSpeaking)
             {
                 speakingState.IsSpeaking = false;
-                _speakingVersion.Value++;
             }
 
             _speakingStates.Remove(args.ClientSessionId);
@@ -128,7 +125,7 @@ public partial class Tori
         // Trigger UI update if speaking status changed
         if (wasSpeaking != state.IsSpeaking)
         {
-            _speakingVersion.Value++;
+            _speakingStates.NotifyUpdate();
         }
     }
 
@@ -148,14 +145,19 @@ public partial class Tori
         return state.IsSpeaking;
     }
 
-    private async ValueTask OnGroupAudioMixerOutputAsync(string excludeKey, AudioFrame frame)
+    private async Task PumpGroupAudioMixerAsync(GroupAudioMixer groupAudioMixer)
     {
-        if (!int.TryParse(excludeKey, out var targetId))
+        try
         {
-            return;
+            await foreach (var (participantId, frame) in groupAudioMixer.StreamAsync())
+            {
+                await Audio.SendAsync(frame.Samples, frame.SampleRate, frame.ChannelCount,
+                    frame.IsFirst, frame.IsLast, frame.StreamId, targetIds: [participantId]);
+            }
         }
-
-        await Audio.SendAsync(frame.Samples, frame.SampleRate, frame.ChannelCount,
-            frame.IsFirst, frame.IsLast, frame.StreamId, targetIds: [targetId]);
+        catch (Exception ex)
+        {
+            Log.Instance.Error($"Group audio mixer output failed: {ex}");
+        }
     }
 }

@@ -1,10 +1,6 @@
 # Ikon.Pipelines.Public Public API
 
 namespace Ikon.Pipelines.Public.Examples
-  class FullExamplePipeline.Config
-    ctor()
-    int TestValue1 { get; set; }
-    string TestValue2
   static class ExampleProcessors
     static Task<List<Item>> Run(Item inputItem)
     static Task<List<Item>> Run2(Item inputItem, CancellationToken cancellationToken)
@@ -12,18 +8,22 @@ namespace Ikon.Pipelines.Public.Examples
     static Task<List<Item>> Run4(List<Item> inputItems, CancellationToken cancellationToken)
   class FullExamplePipeline
     ctor(IPipelineHost<FullExamplePipeline.Config> host)
-    Task Run(Pipeline<T>.Branch<Item> inputItems, CancellationToken cancellationToken)
+    Task Run(Pipeline<Item>.Branch inputItems, CancellationToken cancellationToken)
+  class FullExamplePipeline.Config
+    ctor()
+    int TestValue1 { get; set; }
+    string TestValue2
   class FullExamplePipeline.Input
+    ctor()
+    int TestValue1 { get; set; }
+    string TestValue2
+  class FullExamplePipeline.Result
     ctor()
     int TestValue1 { get; set; }
     string TestValue2
   class MinimalExamplePipeline
     ctor()
-    Task Run(Pipeline<T>.Branch<Item> inputItems, CancellationToken cancellationToken)
-  class FullExamplePipeline.Result
-    ctor()
-    int TestValue1 { get; set; }
-    string TestValue2
+    Task Run(Pipeline<Item>.Branch inputItems, CancellationToken cancellationToken)
 
 namespace Ikon.Pipelines.Public.Processors.Json
   static class MergeJsonProcessor
@@ -34,33 +34,36 @@ namespace Ikon.Pipelines.Public.Processors.Json
     static Task<List<Item>> Run(Item input, List<string>? fieldsToRemove = null)
 
 namespace Ikon.Pipelines.Public.Processors.OCR
+  static class OCRProcessor
+    static Task<List<Item>> Run(Item input, OCRProcessor.Config config, CancellationToken cancellationToken)
   class OCRProcessor.Config
     ctor()
     OCRModel OCRModel { get; set; }
-  static class OCRProcessor
-    static Task<List<Item>> Run(Item input, OCRProcessor.Config config, CancellationToken cancellationToken)
 
 namespace Ikon.Pipelines.Public.Processors.Pdf
+  static class ExtractPdfProcessor
+    static Task<List<Item>> Run(Item input, ExtractPdfProcessor.Config config, CancellationToken cancellationToken)
   class ExtractPdfProcessor.Config
     ctor()
     int MaxPageImageDimension { get; set; }
-  static class ExtractPdfProcessor
-    static Task<List<Item>> Run(Item input, ExtractPdfProcessor.Config config, CancellationToken cancellationToken)
   interface IPdfDocument : IDisposable
     int PageCount { get; }
-    abstract IPdfPage GetPage(int index)
+    IPdfPage GetPage(int index)
   interface IPdfPage : IDisposable
     double Height { get; }
     int Index { get; }
     double Width { get; }
-    abstract void CreateCopy(Stream output)
-    abstract (byte[] rgba, byte[] rgbaForHash, int width, int height) GetPixels(int maxDimension)
-    abstract (byte[] rgba, byte[] rgbaForHash, int width, int height) GetPixels(int width, int height, bool hasAlpha)
-    abstract string GetText()
+    void CreateCopy(Stream output)
+    (byte[] rgba, byte[] rgbaForHash, int width, int height) GetPixels(int maxDimension)
+    (byte[] rgba, byte[] rgbaForHash, int width, int height) GetPixels(int width, int height, bool hasAlpha)
+    string GetText()
   static class PdfDocument
     static IPdfDocument Load(byte[] bytes, string? password = null)
 
 namespace Ikon.Pipelines.Public.UniversalRag
+  class UniversalRagPipeline
+    ctor(IPipelineHost<UniversalRagPipeline.Config> host)
+    Task Run(Pipeline<Item>.Branch inputItems, CancellationToken cancellationToken)
   class UniversalRagPipeline.Config
     ctor()
     AnalyzePdfDocumentProcessor.Config AnalyzeDocumentType { get; set; }
@@ -72,19 +75,19 @@ namespace Ikon.Pipelines.Public.UniversalRag
     GenerateEmbeddingsProcessor.Config GenerateEmbeddings { get; set; }
     GenerateSummaryProcessor.Config GenerateSummary { get; set; }
     int MaxLLMParallelism { get; set; }
-  class UniversalRagPipeline
-    ctor(IPipelineHost<UniversalRagPipeline.Config> host)
-    Task Run(Pipeline<T>.Branch<Item> inputItems, CancellationToken cancellationToken)
 
 namespace Ikon.Pipelines.Public.UniversalRag.Processors
   static class AnalyzePdfDocumentProcessor
     static Task<List<Item>> Run(List<Item> inputItems, AnalyzePdfDocumentProcessor.Config config, CancellationToken cancellationToken)
-  static class CombineEmbeddingsProcessor
-    static Task<List<Item>> Run(List<Item> inputItems, CancellationToken cancellationToken)
   class AnalyzePdfDocumentProcessor.Config
     ctor()
     LLMModel LLMModel { get; set; }
     int PagesToAnalyze { get; set; }
+  static class CombineEmbeddingsProcessor
+    static Task<List<Item>> Run(List<Item> inputItems, CancellationToken cancellationToken)
+  static class ExtractFullTextAndSectionsProcessor
+    static Task<List<Item>> Run(Item inputItem, ExtractFullTextAndSectionsProcessor.Config config, CancellationToken cancellationToken)
+    static Task<List<Item>> Run(List<Item> inputItems, ExtractFullTextAndSectionsProcessor.Config config, CancellationToken cancellationToken)
   class ExtractFullTextAndSectionsProcessor.Config
     ctor()
     string ExtraCommand { get; set; }
@@ -92,35 +95,32 @@ namespace Ikon.Pipelines.Public.UniversalRag.Processors
     bool ExtractFullText { get; set; }
     bool ExtractSections { get; set; }
     LLMModel LLMModel { get; set; }
+  static class ExtractTextProcessor
+    static Task<List<Item>> Run(List<Item> inputItems, ExtractTextProcessor.Config config, CancellationToken cancellationToken)
   class ExtractTextProcessor.Config
     ctor()
     LLMModel LLMModel { get; set; }
+  static class FormatWebPageProcessor
+    static Task<List<Item>> Run(Item inputItem, FormatWebPageProcessor.Config config, CancellationToken cancellationToken)
   class FormatWebPageProcessor.Config
     ctor()
     string ExtraCommand { get; set; }
     string ExtraContext { get; set; }
     LLMModel LLMModel { get; set; }
-  class GenerateEmbeddingsProcessor.Config
-    ctor()
-    EmbeddingModel EmbeddingModel { get; set; }
-  class GenerateSummaryProcessor.Config
-    ctor()
-    LLMModel LLMModel { get; set; }
-  static class ExtractFullTextAndSectionsProcessor
-    static Task<List<Item>> Run(Item inputItem, ExtractFullTextAndSectionsProcessor.Config config, CancellationToken cancellationToken)
-    static Task<List<Item>> Run(List<Item> inputItems, ExtractFullTextAndSectionsProcessor.Config config, CancellationToken cancellationToken)
-  static class ExtractTextProcessor
-    static Task<List<Item>> Run(List<Item> inputItems, ExtractTextProcessor.Config config, CancellationToken cancellationToken)
-  static class FormatWebPageProcessor
-    static Task<List<Item>> Run(Item inputItem, FormatWebPageProcessor.Config config, CancellationToken cancellationToken)
   static class FullTextPassthroughProcessor
     static Task<List<Item>> Run(Item inputItem, CancellationToken cancellationToken)
   static class GenerateEmbeddingsProcessor
     static Task<List<Item>> Run(List<Item> inputItems, GenerateEmbeddingsProcessor.Config config, CancellationToken cancellationToken)
+  class GenerateEmbeddingsProcessor.Config
+    ctor()
+    EmbeddingModel EmbeddingModel { get; set; }
   static class GenerateRouterProcessor
     static Task<List<Item>> Run(List<Item> inputItems, CancellationToken cancellationToken)
   static class GenerateSummaryProcessor
     static Task<List<Item>> Run(Item inputItem, GenerateSummaryProcessor.Config config, CancellationToken cancellationToken)
+  class GenerateSummaryProcessor.Config
+    ctor()
+    LLMModel LLMModel { get; set; }
   static class WebScraperConfigProcessor
     static Task<List<Item>> Run(List<Item> inputItems, CancellationToken cancellationToken)
   static class WebScraperProcessor
@@ -133,6 +133,10 @@ namespace Ikon.Pipelines.Public.UniversalRag.Shaders
   enum AnalyzePdfDocument.DocumentType
     Document
     Presentation
+  class AnalyzePdfDocument.Result
+    ctor()
+    string Title { get; set; }
+    AnalyzePdfDocument.DocumentType Type { get; set; }
   class ExtractDocumentPageText
     ctor()
     static Task<string> Run(LLMModel llmModel, Item rawTextItem, Item imageItem, CancellationToken cancellationToken = default)
@@ -142,28 +146,24 @@ namespace Ikon.Pipelines.Public.UniversalRag.Shaders
   class ExtractSections
     ctor()
     static Task<ExtractSections.Result> Run(LLMModel llmModel, string documentTextWithLineNumbers, string extraContext, string extraCommand, CancellationToken cancellationToken = default)
-  class FormatWebPage
-    ctor()
-    static Task<FormatWebPage.Result> Run(LLMModel llmModel, string url, string title, string content, string extraContext, string extraCommand, CancellationToken cancellationToken = default)
-  class GenerateSummary
-    ctor()
-    static Task<string> Run(LLMModel llmModel, string content, CancellationToken cancellationToken = default)
-  class AnalyzePdfDocument.Result
-    ctor()
-    string Title { get; set; }
-    AnalyzePdfDocument.DocumentType Type { get; set; }
   class ExtractSections.Result
     ctor()
     List<ExtractSections.Section> Sections { get; set; }
-  class FormatWebPage.Result
-    ctor()
-    string Content { get; set; }
-    bool HasContent { get; set; }
   class ExtractSections.Section
     ctor()
     int EndLine { get; set; }
     int StartLine { get; set; }
     List<string> TitleHierarchy { get; set; }
+  class FormatWebPage
+    ctor()
+    static Task<FormatWebPage.Result> Run(LLMModel llmModel, string url, string title, string content, string extraContext, string extraCommand, CancellationToken cancellationToken = default)
+  class FormatWebPage.Result
+    ctor()
+    string Content { get; set; }
+    bool HasContent { get; set; }
+  class GenerateSummary
+    ctor()
+    static Task<string> Run(LLMModel llmModel, string content, CancellationToken cancellationToken = default)
 
 namespace Ikon.Pipelines.Public.UniversalRag.Utils
   static class TextUtils
@@ -173,34 +173,15 @@ namespace Ikon.Pipelines.Public.VideoImageSafety
   enum CollageSelectionMode
     SceneThreshold
     FixedInterval
+  class ImageSafetyPipeline
+    ctor(IPipelineHost<ImageSafetyPipeline.Config> host)
+    Task Run(Pipeline<Item>.Branch inputItems, CancellationToken cancellationToken)
   class ImageSafetyPipeline.Config
     ctor()
     LLMModel AnalysisModel { get; set; }
     int MaxAnalysisParallelism { get; set; }
     int MaxModerationParallelism { get; set; }
     ClassificationModel ModerationModel { get; set; }
-  class VideoSafetyPipeline.Config
-    ctor()
-    LLMModel AnalysisModel { get; set; }
-    int CollageCount { get; set; }
-    int CollageFrameWidth { get; set; }
-    double CollageIntervalMinutes { get; set; }
-    CollageSelectionMode CollageSelection { get; set; }
-    LLMModel EvaluationModel { get; set; }
-    double FramesPerSecond { get; set; }
-    int MaxAnalysisParallelism { get; set; }
-    int MaxFrames { get; set; }
-    int MaxModerationParallelism { get; set; }
-    ClassificationModel ModerationModel { get; set; }
-    double SceneChangeThreshold { get; set; }
-    int TileColumns { get; set; }
-    int TileRows { get; set; }
-    string TranscriptionLanguage { get; set; }
-    SpeechRecognizerModel TranscriptionModel { get; set; }
-    float TranscriptionTemperature { get; set; }
-  class ImageSafetyPipeline
-    ctor(IPipelineHost<ImageSafetyPipeline.Config> host)
-    Task Run(Pipeline<T>.Branch<Item> inputItems, CancellationToken cancellationToken)
   class ImageSafetyResult
     ctor()
     string ContentCategory { get; set; }
@@ -221,7 +202,26 @@ namespace Ikon.Pipelines.Public.VideoImageSafety
     string Url { get; set; }
   class VideoSafetyPipeline
     ctor(IPipelineHost<VideoSafetyPipeline.Config> host)
-    Task Run(Pipeline<T>.Branch<Item> inputItems, CancellationToken cancellationToken)
+    Task Run(Pipeline<Item>.Branch inputItems, CancellationToken cancellationToken)
+  class VideoSafetyPipeline.Config
+    ctor()
+    LLMModel AnalysisModel { get; set; }
+    int CollageCount { get; set; }
+    int CollageFrameWidth { get; set; }
+    double CollageIntervalMinutes { get; set; }
+    CollageSelectionMode CollageSelection { get; set; }
+    LLMModel EvaluationModel { get; set; }
+    double FramesPerSecond { get; set; }
+    int MaxAnalysisParallelism { get; set; }
+    int MaxFrames { get; set; }
+    int MaxModerationParallelism { get; set; }
+    ClassificationModel ModerationModel { get; set; }
+    double SceneChangeThreshold { get; set; }
+    int TileColumns { get; set; }
+    int TileRows { get; set; }
+    string TranscriptionLanguage { get; set; }
+    SpeechRecognizerModel TranscriptionModel { get; set; }
+    float TranscriptionTemperature { get; set; }
   class VideoSafetyResult
     ctor()
     string ContentCategory { get; set; }
@@ -245,10 +245,6 @@ namespace Ikon.Pipelines.Public.VideoImageSafety
 namespace Ikon.Pipelines.Public.VideoImageSafety.Shaders
   static class AnalyzeImageSafety
     static Task<AnalyzeImageSafety.Result> RunAsync(LLMModel llmModel, byte[] image, string imageMimeType, string sourceName, string sourceDescription, CancellationToken cancellationToken = default)
-  static class AnalyzeVideoFrames
-    static Task<AnalyzeVideoFrames.Result> RunAsync(LLMModel llmModel, byte[] collageImage, string collageImageMimeType, CancellationToken cancellationToken = default)
-  static class EvaluateVideoSafety
-    static Task<EvaluateVideoSafety.Result> RunAsync(LLMModel llmModel, string sourceName, string sourceDescription, string transcript, AnalyzeVideoFrames.Result combinedAnalysis, CancellationToken cancellationToken = default)
   class AnalyzeImageSafety.Result
     ctor()
     string ContentCategory { get; set; }
@@ -261,11 +257,15 @@ namespace Ikon.Pipelines.Public.VideoImageSafety.Shaders
     string RecommendedActions { get; set; }
     string SafetySummary { get; set; }
     string[] TriggeredCategories { get; set; }
+  static class AnalyzeVideoFrames
+    static Task<AnalyzeVideoFrames.Result> RunAsync(LLMModel llmModel, byte[] collageImage, string collageImageMimeType, CancellationToken cancellationToken = default)
   class AnalyzeVideoFrames.Result
     ctor()
     string Facts { get; set; }
     string FramesDescription { get; set; }
     string VideoMeaning { get; set; }
+  static class EvaluateVideoSafety
+    static Task<EvaluateVideoSafety.Result> RunAsync(LLMModel llmModel, string sourceName, string sourceDescription, string transcript, AnalyzeVideoFrames.Result combinedAnalysis, CancellationToken cancellationToken = default)
   class EvaluateVideoSafety.Result
     ctor()
     string ContentCategory { get; set; }
