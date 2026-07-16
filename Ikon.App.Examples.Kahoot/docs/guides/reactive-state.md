@@ -174,6 +174,8 @@ namespace Ikon.Common.Core.Reactive
   class ClientReactiveDictionary<TKey, TValue> : ReactiveDictionary<TKey, TValue>
     ctor()
     ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries)
+    ctor(IEqualityComparer<TKey> comparer)
+    ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries, IEqualityComparer<TKey> comparer)
     void ClearFor(int clientSessionId)
     bool RemoveFor(int clientSessionId, TKey key)
     void SetFor(int clientSessionId, TKey key, TValue value)
@@ -186,6 +188,8 @@ namespace Ikon.Common.Core.Reactive
   class ClientReactiveHashSet<T> : ReactiveHashSet<T>
     ctor()
     ctor(IEnumerable<T> initialItems)
+    ctor(IEqualityComparer<T> comparer)
+    ctor(IEnumerable<T> initialItems, IEqualityComparer<T> comparer)
     bool AddFor(int clientSessionId, T item)
     void ClearFor(int clientSessionId)
     bool RemoveFor(int clientSessionId, T item)
@@ -302,6 +306,8 @@ namespace Ikon.Common.Core.Reactive
   class ReactiveDictionary<TKey, TValue> : Reactive<Dictionary<TKey, TValue>>, IReadOnlyDictionary<TKey, TValue>
     ctor()
     ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries)
+    ctor(IEqualityComparer<TKey> comparer)
+    ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries, IEqualityComparer<TKey> comparer)
     int Count { get; }
     TValue this[TKey key] { get; set; }
     IEnumerable<TKey> Keys { get; }
@@ -330,6 +336,8 @@ namespace Ikon.Common.Core.Reactive
   class ReactiveHashSet<T> : Reactive<HashSet<T>>, IReadOnlyCollection<T>
     ctor()
     ctor(IEnumerable<T> initialItems)
+    ctor(IEqualityComparer<T> comparer)
+    ctor(IEnumerable<T> initialItems, IEqualityComparer<T> comparer)
     int Count { get; }
     IReadOnlyCollection<T> Peek { get; }
     IReadOnlyCollection<T> Value { get; set; }

@@ -1,0 +1,65 @@
+// This app predates Ikon.Parallax.Theming and keeps its own fork of the theme tokens in
+// IkonTheme.cs. The managed global usings block imports Ikon.Parallax.Theming, so every forked token
+// name would otherwise be ambiguous (CS0104). These aliases keep each one resolving to this app's
+// copy, which is what it meant before the block existed.
+
+global using Accessibility = Themes.Ikon.Accessibility;
+global using Accordion = Themes.Ikon.Accordion;
+global using Alert = Themes.Ikon.Alert;
+global using AlertDialog = Themes.Ikon.AlertDialog;
+global using AspectRatio = Themes.Ikon.AspectRatio;
+global using Avatar = Themes.Ikon.Avatar;
+global using Badge = Themes.Ikon.Badge;
+global using Breadcrumb = Themes.Ikon.Breadcrumb;
+global using Button = Themes.Ikon.Button;
+global using Card = Themes.Ikon.Card;
+global using Chart = Themes.Ikon.Chart;
+global using Checkbox = Themes.Ikon.Checkbox;
+global using Collapsible = Themes.Ikon.Collapsible;
+global using Command = Themes.Ikon.Command;
+global using Container = Themes.Ikon.Container;
+global using ContentGrid = Themes.Ikon.ContentGrid;
+global using DataTable = Themes.Ikon.DataTable;
+global using Dialog = Themes.Ikon.Dialog;
+global using DragDrop = Themes.Ikon.DragDrop;
+global using Drawer = Themes.Ikon.Drawer;
+global using DropdownMenu = Themes.Ikon.DropdownMenu;
+global using FileUpload = Themes.Ikon.FileUpload;
+global using FormField = Themes.Ikon.FormField;
+global using HoverCard = Themes.Ikon.HoverCard;
+global using Icon = Themes.Ikon.Icon;
+global using Input = Themes.Ikon.Input;
+global using Interaction = Themes.Ikon.Interaction;
+global using Label = Themes.Ikon.Label;
+global using Layout = Themes.Ikon.Layout;
+global using Media = Themes.Ikon.Media;
+global using Menubar = Themes.Ikon.Menubar;
+global using NavigationMenu = Themes.Ikon.NavigationMenu;
+global using OnSurface = Themes.Ikon.OnSurface;
+global using OtpField = Themes.Ikon.OtpField;
+global using Page = Themes.Ikon.Page;
+global using Pagination = Themes.Ikon.Pagination;
+global using Panel = Themes.Ikon.Panel;
+global using Popover = Themes.Ikon.Popover;
+global using Progress = Themes.Ikon.Progress;
+global using RadioGroup = Themes.Ikon.RadioGroup;
+global using Responsive = Themes.Ikon.Responsive;
+global using ScrollArea = Themes.Ikon.ScrollArea;
+global using Select = Themes.Ikon.Select;
+global using Separator = Themes.Ikon.Separator;
+global using Sheet = Themes.Ikon.Sheet;
+global using Skeleton = Themes.Ikon.Skeleton;
+global using Slider = Themes.Ikon.Slider;
+global using State = Themes.Ikon.State;
+global using Switch = Themes.Ikon.Switch;
+global using Tabs = Themes.Ikon.Tabs;
+global using Text = Themes.Ikon.Text;
+global using Textarea = Themes.Ikon.Textarea;
+global using Toast = Themes.Ikon.Toast;
+global using Toggle = Themes.Ikon.Toggle;
+global using Tokens = Themes.Ikon.Tokens;
+global using Tone = Themes.Ikon.Tone;
+global using Toolbar = Themes.Ikon.Toolbar;
+global using Tooltip = Themes.Ikon.Tooltip;
+global using Transition = Themes.Ikon.Transition;
+global using ZIndex = Themes.Ikon.ZIndex;

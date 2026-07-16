@@ -244,6 +244,13 @@ namespace Ikon.Common.Core
     void AppendFormatted<T>(T value, string format = "", string name = "")
     void AppendFormatted<T>(LogParameter<T> p, string format = "")
     void AppendLiteral(string s)
+  static class NameConversions
+    static string ToCamelCase(string input)
+    static string ToDisplayName(string input)
+    static string ToKebabCase(string input)
+    static string ToPascalCase(string input)
+    static string ToSlug(string input, int maxLength)
+    static string ToSnakeCase(string input)
   sealed class PublicApiDocIgnoreAttribute : Attribute
     ctor()
   class ReactiveGlobalState
@@ -1247,13 +1254,6 @@ namespace Ikon.Common.Core.Protocol
     ACTION_FILE_UPLOAD_RESULT
     ACTION_OPEN_CHANNEL
     ACTION_OPEN_EXTERNAL_URL
-    ACTION_UI_OPEN_VIEW
-    ACTION_UI_CLOSE_VIEW
-    ACTION_UI_BLOCKING_BEGIN
-    ACTION_UI_BLOCKING_END
-    ACTION_UI_UPDATE_TEXT_DELTA
-    ACTION_UI_DELETE_CONTAINER
-    ACTION_UPDATE_GFX_SHADER
     ACTION_FUNCTION_REGISTER
     ACTION_FUNCTION_CALL
     ACTION_FUNCTION_RESULT
@@ -1268,14 +1268,10 @@ namespace Ikon.Common.Core.Protocol
     ACTION_CALL_TEXT
     ACTION_RELOAD_APPLICATION
     ACTION_CANCEL_GENERATION
-    ACTION_UI_SET_CONTAINER_STABLE
     ACTION_SPEECH_RECOGNIZED
     ACTION_CALL_RESULT
     ACTION_DOWNLOAD
-    ACTION_SCROLL_TO_CONTAINER
-    ACTION_UI_CLEAR_STREAM
     ACTION_PLAY_SOUND
-    ACTION_ENTER_FULLSCREEN
     ACTION_STOP_SOUND
     ACTION_START_RECORDING
     ACTION_STOP_RECORDING
@@ -1509,6 +1505,8 @@ namespace Ikon.Common.Core.Reactive
   class ClientReactiveDictionary<TKey, TValue> : ReactiveDictionary<TKey, TValue>
     ctor()
     ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries)
+    ctor(IEqualityComparer<TKey> comparer)
+    ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries, IEqualityComparer<TKey> comparer)
     void ClearFor(int clientSessionId)
     bool RemoveFor(int clientSessionId, TKey key)
     void SetFor(int clientSessionId, TKey key, TValue value)
@@ -1521,6 +1519,8 @@ namespace Ikon.Common.Core.Reactive
   class ClientReactiveHashSet<T> : ReactiveHashSet<T>
     ctor()
     ctor(IEnumerable<T> initialItems)
+    ctor(IEqualityComparer<T> comparer)
+    ctor(IEnumerable<T> initialItems, IEqualityComparer<T> comparer)
     bool AddFor(int clientSessionId, T item)
     void ClearFor(int clientSessionId)
     bool RemoveFor(int clientSessionId, T item)
@@ -1637,6 +1637,8 @@ namespace Ikon.Common.Core.Reactive
   class ReactiveDictionary<TKey, TValue> : Reactive<Dictionary<TKey, TValue>>, IReadOnlyDictionary<TKey, TValue>
     ctor()
     ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries)
+    ctor(IEqualityComparer<TKey> comparer)
+    ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries, IEqualityComparer<TKey> comparer)
     int Count { get; }
     TValue this[TKey key] { get; set; }
     IEnumerable<TKey> Keys { get; }
@@ -1665,6 +1667,8 @@ namespace Ikon.Common.Core.Reactive
   class ReactiveHashSet<T> : Reactive<HashSet<T>>, IReadOnlyCollection<T>
     ctor()
     ctor(IEnumerable<T> initialItems)
+    ctor(IEqualityComparer<T> comparer)
+    ctor(IEnumerable<T> initialItems, IEqualityComparer<T> comparer)
     int Count { get; }
     IReadOnlyCollection<T> Peek { get; }
     IReadOnlyCollection<T> Value { get; set; }

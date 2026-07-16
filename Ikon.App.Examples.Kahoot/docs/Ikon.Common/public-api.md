@@ -86,15 +86,13 @@ namespace Ikon.Common
     const string TextPlain
     const string TextXml
     const string VideoMp4
-  static class NameConversions
-    static string ToCamelCase(string input)
-    static string ToDisplayName(string input)
-    static string ToKebabCase(string input)
-    static string ToPascalCase(string input)
-    static string ToSlug(string input, int maxLength)
-    static string ToSnakeCase(string input)
   static class NetworkUtils
     static IPAddress GetFirstIPv4AddressOrLocalhost()
+  sealed class PackageHookException : Exception
+    ctor(string command, string output)
+    string Command { get; }
+  static class PackageHooks
+    static Task RunAsync(IReadOnlyList<string> commands, string appDir, string bundleDir, IReadOnlyDictionary<string, string?>? extraEnv = null, Action<string>? onCommandStart = null, CancellationToken ct = default)
   enum PipelineExecutionMode
     None
     HttpsEndpoint
@@ -132,6 +130,56 @@ namespace Ikon.Common
     static string ToUnescapedString(string input, bool unicodeOnly = false)
 
 namespace Ikon.Common.Assets
+  sealed record AssetGcOrphan
+    ctor(string Uri)
+    string Uri { get; init; }
+  sealed record AssetGcPlan
+    ctor(AssetGcScope Scope, IReadOnlyList<AssetGcOrphan> Orphans, int EverReferenced, int Kept)
+    int EverReferenced { get; init; }
+    int Kept { get; init; }
+    IReadOnlyList<AssetGcOrphan> Orphans { get; init; }
+    AssetGcScope Scope { get; init; }
+  enum AssetGcScope
+    History
+    Window
+    Current
+  sealed class AssetLinkManager
+    ctor(IAssetBackend backend, IReadOnlyCollection<string>? publicFolders = null)
+    Task<IReadOnlyDictionary<string, string>> CollectPublicAssetsAsync(string repoDir, CancellationToken ct = default)
+    Task<IReadOnlySet<string>> CollectReferencedUrisAsync(string repoDir, CancellationToken ct = default)
+    Task<(int Deleted, int Failed)> ExecuteGcAsync(AssetGcPlan plan, CancellationToken ct = default)
+    Task<IReadOnlyList<string>> MaterializeAsync(string repoDir, CancellationToken ct = default)
+    Task<IReadOnlyList<string>> NormalizeAsync(string repoDir, CancellationToken ct = default)
+    Task<AssetGcPlan> PlanGcAsync(string repoDir, AssetGcScope scope, int windowDays = 30, CancellationToken ct = default)
+  sealed class AssetMaterializeException : Exception
+    ctor(IReadOnlyList<string> failures)
+    IReadOnlyList<string> Failures { get; }
+  sealed record AssetPointer
+    ctor(string Uri, string Sha256, long Size, string Name, string? PublicUrl = null)
+    string Name { get; init; }
+    string? PublicUrl { get; init; }
+    string Sha256 { get; init; }
+    long Size { get; init; }
+    string Uri { get; init; }
+    static string PointerPathForReal(string realPath)
+    static string RealPathForPointer(string pointerPath)
+    string Serialize()
+    static AssetPointer? TryParse(string text)
+    const string Suffix
+  static class BinaryContent
+    static bool IsBinary(byte[] content)
+    static string Sha256Hex(byte[] content)
+  interface IAssetBackend
+    Task DeleteAsync(string uri, CancellationToken ct = default)
+    Task<byte[]> DownloadAsync(string uri, CancellationToken ct = default)
+    Task<string?> GetPublicUrlAsync(string uri, CancellationToken ct = default)
+    Task<string> UploadAsync(byte[] content, string fileName, bool isPublic, CancellationToken ct = default)
+  sealed class IkonAssetBackend : IAssetBackend
+    ctor(string spaceId)
+    Task DeleteAsync(string uri, CancellationToken ct = default)
+    Task<byte[]> DownloadAsync(string uri, CancellationToken ct = default)
+    Task<string?> GetPublicUrlAsync(string uri, CancellationToken ct = default)
+    Task<string> UploadAsync(byte[] content, string fileName, bool isPublic, CancellationToken ct = default)
   static class StorageExtensions
     static Task AddCloudFilePublicStorageAsync(this Asset asset)
     static Task AddCloudFileStorageAsync(this Asset asset, TimeSpan? uploadTimeout = null)
@@ -183,6 +231,20 @@ namespace Ikon.Common.Git
     string? Patch { get; init; }
     string Path { get; init; }
     GitChangeType Type { get; init; }
+  enum GitReconcileOutcome
+    UpToDate
+    Pushed
+    Merged
+    Conflicted
+    NoRemote
+    Detached
+    Failed
+  record GitReconcileResult
+    ctor(GitReconcileOutcome Outcome, string Branch, IReadOnlyList<string> ConflictedFiles, string? Error = null)
+    string Branch { get; init; }
+    IReadOnlyList<string> ConflictedFiles { get; init; }
+    string? Error { get; init; }
+    GitReconcileOutcome Outcome { get; init; }
   class GitRepository
     ctor(string workingDirectory, GitCredentials? credentials = null)
     GitCredentials? Credentials { get; }
@@ -229,6 +291,7 @@ namespace Ikon.Common.Git
     static Task<bool> IsGitRepositoryAsync(string directory, CancellationToken ct = default)
     Task<IReadOnlyList<GitWorktreeInfo>> ListWorktreesAsync(CancellationToken ct = default)
     Task PushAsync(bool setUpstream = false, CancellationToken ct = default)
+    Task<GitReconcileResult> ReconcileAndPushAsync(string commitAuthorName = "Ikon", string commitAuthorEmail = "ikon@ikon.local", CancellationToken ct = default)
     Task<bool> RefExistsAsync(string refName, CancellationToken ct = default)
     Task RenameBranchAsync(string oldName, string newName, CancellationToken ct = default)
     Task ResetHardAsync(string target, CancellationToken ct = default)

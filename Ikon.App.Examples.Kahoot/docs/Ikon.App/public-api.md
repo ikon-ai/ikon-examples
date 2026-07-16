@@ -754,69 +754,20 @@ namespace Ikon.App
     int Width { get; init; }
 
 namespace Ikon.App.Cells
+  // A cell is always shared by its SessionIdentity: every caller that Cells.Connects with the same identity reaches the same instance and its Reactive<T> state — the identity IS the sharing scope (parameterless = one global; keyed = one per key). The runtime picks the transport: a local run hosts every cell in-process (a direct object); in the cloud the cell lives in its own cell-host and callers reach it through a proxy ([HttpGet]/[HttpPost] over HTTP, [Function] methods and Reactive<T> members over an SDK connection). App authors never choose or think about placement — they declare [Cell] and a SessionIdentity, and get exactly what those mean.
   sealed class CellAttribute : Attribute
     ctor()
-    // Values above 1 spawn that many instances and round-robin CellHost.Resolve<TInterface> across them. Sharded keyed cells must hold no per-instance state (or persist shared state externally) — the shards are eventually consistent.
     int Capacity { get; init; }
     int IdleTtlSeconds { get; init; }
-    // Cells.Connect<TInterface>(identity) for a CellProcessScope.Substrate cell returns a SubstrateCellProxy that dispatches per member: [HttpGet]/[HttpPost] methods over stateless HTTP, [Function] methods and Reactive<T> members over a standard SDK connection to the cell-host. Concrete-class access (Cells.Connect<ConcreteCellType>) returns the local instance unchanged, regardless of ProcessScope.
-    CellProcessScope ProcessScope { get; init; }
-  enum CellProcessScope
-    AppProcess
-    // Accessed via Cells.Connect<TInterface>, which returns a SubstrateCellProxy: [HttpGet]/[HttpPost] methods dispatch over stateless HTTP, [Function] methods and Reactive<T> members over a standard SDK connection to the cell-host.
-    Substrate
   // Each in-process server runs in its own async-local scope, so Cells.Instance resolves to that server's own host and wiring. The framework calls Initialize once at startup; apps call Connect<TInterface> for each cell access.
   class Cells : AsyncLocalInstance<Cells>
     ctor()
-    // For cell types annotated [Cell(ProcessScope = CellProcessScope.Substrate)] AND when TInterface is an interface, returns a SubstrateCellProxy<TInterface> that dispatches per member: [HttpGet]/[HttpPost] methods over stateless HTTP, [Function] methods and Reactive<T> members over a standard SDK connection to the cell-host. Otherwise returns the local cell instance from the process-wide CellHost.
+    // On a CLOUD run, when TInterface is an interface backed by a [Cell] type, returns a SubstrateCellProxy<TInterface> that dispatches per member: [HttpGet]/[HttpPost] methods over stateless HTTP, [Function] methods and Reactive<T> members over a standard SDK connection to the cell-host. Otherwise — a concrete-type request, or ANY cell on a LOCAL run — returns the local cell instance from the process-wide CellHost. Local runs host every cell in-process (there is no deployed cell-host to proxy to, and a local run is a single process), so every cell behaves as a normal shared instance locally.
     TInterface Connect<TInterface>(object sessionIdentity) where TInterface : class
     ValueTask DisposeAsync()
     const string CellTypeParam
   interface ICell<out TSessionIdentity>
     TSessionIdentity Identity { get; }
-
-namespace Ikon.App.Connectors
-  sealed class ConnectorException : Exception
-    ctor(string provider, string message)
-    string Provider { get; }
-  sealed class Drive
-    ctor(GoogleCredentials credentials)
-    Task<Stream> DownloadAsync(string fileId, CancellationToken ct = default)
-    IAsyncEnumerable<DriveFile> ListAllAsync(string? folderId = null, string? extraQuery = null, CancellationToken ct = default)
-    Task<IReadOnlyList<DriveFile>> ListAsync(string? folderId = null, int limit = 50, CancellationToken ct = default)
-    Task<DriveFile> UploadAsync(string name, string mimeType, Stream content, string? folderId = null, CancellationToken ct = default)
-  sealed record DriveFile
-    ctor(string Id, string Name, string MimeType, long? Size, string? WebViewLink, DateTimeOffset? ModifiedTime = null)
-    string Id { get; init; }
-    string MimeType { get; init; }
-    DateTimeOffset? ModifiedTime { get; init; }
-    string Name { get; init; }
-    long? Size { get; init; }
-    string? WebViewLink { get; init; }
-  static class GoogleAuth
-    // The returned UserCredential is a third-party type from the Google.Apis.Auth NuGet package (namespace Google.Apis.Auth.OAuth2), which ships transitively with this library. Assign it as the HttpClientInitializer in any Google API service initializer (Drive, Sheets, Gmail, Calendar, ...) from the corresponding Google.Apis.* package.
-    static UserCredential CredentialFor(GoogleCredentials credentials, IEnumerable<string> scopes)
-    // Branch on this to stop retrying and surface a "reconnect required" state: it is true only for permanent auth failures (revoked/expired refresh token, bad client), never for transient or network errors.
-    static bool IsAuthFailure(Exception ex)
-  sealed record GoogleCredentials
-    ctor(string ClientId, string ClientSecret, string RefreshToken)
-    string ClientId { get; init; }
-    string ClientSecret { get; init; }
-    string RefreshToken { get; init; }
-  sealed class Slack
-    ctor(string botToken, HttpClient? http = null)
-    Task<IReadOnlyList<SlackMessage>> HistoryAsync(string channel, int limit = 20, CancellationToken ct = default)
-    Task<SlackMessage> PostAsync(string channel, string text, string? threadTs = null, CancellationToken ct = default)
-  sealed record SlackMessage
-    ctor(string Channel, string User, string Text, string Ts, string? ThreadTs = null)
-    string Channel { get; init; }
-    string Text { get; init; }
-    string? ThreadTs { get; init; }
-    string Ts { get; init; }
-    string User { get; init; }
-  sealed class WhatsApp
-    ctor(string accessToken, string phoneNumberId, HttpClient? http = null)
-    Task<string> SendAsync(string to, string text, CancellationToken ct = default)
 
 namespace Ikon.App.Cron
   sealed record CronContext

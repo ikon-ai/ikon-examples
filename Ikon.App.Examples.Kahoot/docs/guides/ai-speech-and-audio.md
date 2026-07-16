@@ -416,7 +416,9 @@ namespace Ikon.AI.SpeechRecognition
     WhisperLarge3Turbo
     Gpt4OmniTranscribe
     Gpt4OmniMiniTranscribe
+    Gpt4OmniTranscribeDiarize
     DeepgramNova3General
+    DeepgramNova3Medical
     AssemblyAIUniversal3ProStreaming
     AssemblyAIUniversalStreamingEnglish
     AssemblyAIUniversalStreamingMultilingual
