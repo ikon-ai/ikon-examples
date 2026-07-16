@@ -511,7 +511,7 @@ await File.WriteAllBytesAsync("thunder.wav", result.AudioData);
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
-**Local browser-based models need Ikon.AI.Extra:** the LocalPuppeteer and LocalPlaywright implementations (and the Azure speech implementations elsewhere in the library) ship in the optional `Ikon.AI.Extra` package to keep the core library lean. Add a reference to `Ikon.AI.Extra` when your app runs those models with its own API credentials or local browsers; without it they resolve through the Ikon AI service as usual.
+**Local browser-based models need `Ikon.AI.Scrape`:** the LocalPuppeteer and LocalPlaywright implementations ship in the optional `Ikon.AI.Scrape` package (and the Azure speech implementations elsewhere in the library ship in `Ikon.AI.Speech.Azure`) to keep the core library lean. Add a reference to the matching capability package when your app runs those models with its own API credentials or local browsers; without it they resolve through the Ikon AI service as usual.
 
 One-shot single page scrape — defaults to `Jina` (cheap+fast hosted reader) and returns the page as Markdown:
 

@@ -172,6 +172,7 @@ namespace Ikon.AI.Embeddings
     Voyage4
     Voyage4Lite
     Voyage4Large
+    VoyageCode3
   static class EmbeddingModelExtensions
     static string DisplayName(this EmbeddingModel model)
   enum EmbeddingType
@@ -389,8 +390,8 @@ namespace Ikon.AI.Retrieving
     Retriever.ContentMetadata? GetContentMetadata(string metadataId)
     Task<string> GetContentsAsync(string query, Retriever.GetContentsOptions options)
     ContentLink? Ignore(ContentLink link, string detail)
-    Task InitializeAsync(string dataDirectory, EmbeddingModel embeddingModel = OpenAI3Small)
-    Task InitializeAsync(IReadOnlyList<AssetUri> assetUris, EmbeddingModel embeddingModel = OpenAI3Small)
+    Task InitializeAsync(string dataDirectory, EmbeddingModel embeddingModel = OpenAI3Small, VectorStoreConfig? vectorStore = null)
+    Task InitializeAsync(IReadOnlyList<AssetUri> assetUris, EmbeddingModel embeddingModel = OpenAI3Small, VectorStoreConfig? vectorStore = null)
     ContentLink[] Prefer(ContentLink link, string detail)
     ContentLink[] Prefer(ContentLink[] links, string detail)
     Task<ContentLink[]> SearchAsync(string query, int maxLinks = 25, float searchThreshold = 0.1f)

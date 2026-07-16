@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Ikon.App.Examples.Globe.WebGLGlobe;
 
 return await App.Run(args);
 

@@ -10,57 +10,6 @@ namespace Ikon.AI
     ctor(TimeSpan configuredTimeout, string targetName)
     TimeSpan ConfiguredTimeout { get; }
     string TargetName { get; }
-  enum GovernanceAction
-    Allow
-    Deny
-    Escalate
-    Obfuscate
-    Delay
-  // Operation discriminates the surface ("ai_call", "tool", "ingest"); Subject is the acted-on thing (model/tool/corpus name); Args are call-specific; Ctx carries host identity/mission/runtime context.
-  sealed record GovernanceCall
-    ctor(string Operation, string Subject, IReadOnlyDictionary<string, object?> Args, IReadOnlyDictionary<string, object?> Ctx)
-    IReadOnlyDictionary<string, object?> Args { get; init; }
-    IReadOnlyDictionary<string, object?> Ctx { get; init; }
-    string Operation { get; init; }
-    string Subject { get; init; }
-  sealed record GovernanceCallResult
-    ctor(bool Failed, string Outcome, string? ErrorMessage = null)
-    string? ErrorMessage { get; init; }
-    bool Failed { get; init; }
-    string Outcome { get; init; }
-  // Thrown when an active hook returns GovernanceAction.Deny; carries the decision id for correlation with the audit record.
-  sealed class GovernanceDeniedException : Exception
-    ctor(string decisionId, string ruleId, string policyId, string reason)
-    string DecisionId { get; }
-    string PolicyId { get; }
-    string Reason { get; }
-    string RuleId { get; }
-  // Thrown when a hook returns GovernanceAction.Escalate. The host should catch it and route to Target rather than retry — the operation is paused, not failed.
-  sealed class GovernanceEscalatedException : Exception
-    ctor(string decisionId, string target, string reason)
-    string DecisionId { get; }
-    string Reason { get; }
-    string Target { get; }
-  // Runs the standard Before → Deny/Escalate → invoke → After flow around the inner call; a pass-through when no GovernanceScope hook is active.
-  static class GovernanceInvoker
-    static Task<T> RunAsync<T>(GovernanceCall call, Func<Task<T>> invoke, CancellationToken ct = default)
-  // The host must honour Action: Allow → invoke; Deny → throw GovernanceDeniedException; Escalate → suspend/route to Target; Obfuscate → apply the named transform; Delay → wait then proceed. DecisionId is the audit id to attach to later telemetry.
-  sealed record GovernanceOutcome
-    ctor(GovernanceAction Action, string DecisionId, string RuleId, string PolicyId, string Reason, string? Target = null)
-    GovernanceAction Action { get; init; }
-    string DecisionId { get; init; }
-    string PolicyId { get; init; }
-    string Reason { get; init; }
-    string RuleId { get; init; }
-    string? Target { get; init; }
-  // Enter with using var _ = GovernanceScope.Use(hook);. Flows across await but NOT across Task.Run or manually-started threads — capture the hook into a local before forking if you need it there.
-  static class GovernanceScope
-    static IGovernanceHook? Current { get; }
-    static IDisposable Use(IGovernanceHook hook)
-  // Activate a hook by entering a GovernanceScope; downstream primitives read GovernanceScope.Current and consult it. With no scope active the default is a no-op pass-through.
-  interface IGovernanceHook
-    Task AfterAsync(GovernanceCall call, GovernanceCallResult result, CancellationToken ct)
-    Task<GovernanceOutcome> BeforeAsync(GovernanceCall call, CancellationToken ct)
   // Transient (network blip, server restart, flaky link) and therefore retryable — the RPC layer retries with a forced reconnect, and exhausted attempts still surface as retryable.
   sealed class IkonServerConnectException : RetryableAIException
     ctor(string message)
@@ -92,12 +41,6 @@ namespace Ikon.AI
     ctor()
     ctor(string message)
     ctor(string message, Exception inner)
-  // Allows every call and records nothing.
-  sealed class NullGovernanceHook : IGovernanceHook
-    ctor()
-    Task AfterAsync(GovernanceCall call, GovernanceCallResult result, CancellationToken ct)
-    Task<GovernanceOutcome> BeforeAsync(GovernanceCall call, CancellationToken ct)
-    static readonly NullGovernanceHook Instance
   class RegionNotSupportedException : NonRetryableAIException
     ctor()
     ctor(string message)
@@ -184,19 +127,6 @@ namespace Ikon.AI.Classification
     ctor(string message, Exception inner)
 
 namespace Ikon.AI.Database
-  sealed class BigQueryDbConnection : DbConnection
-    ctor(string projectId, string datasetId)
-    override string ConnectionString { get; set; }
-    override string DataSource { get; }
-    override string Database { get; }
-    override string ServerVersion { get; }
-    override ConnectionState State { get; }
-    override void ChangeDatabase(string databaseName)
-    override void Close()
-    override DataTable GetSchema()
-    override DataTable GetSchema(string collectionName)
-    override DataTable GetSchema(string collectionName, string?[]? restrictionValues)
-    override void Open()
   class DatabaseColumnInfo
     ctor()
     string ColumnName { get; set; }
@@ -386,6 +316,7 @@ namespace Ikon.AI.Embeddings
     Voyage4
     Voyage4Lite
     Voyage4Large
+    VoyageCode3
   static class EmbeddingModelExtensions
     static string DisplayName(this EmbeddingModel model)
   enum EmbeddingType
@@ -968,6 +899,9 @@ namespace Ikon.AI.LLM
     Gpt54Pro
     Gpt55
     Gpt55Pro
+    Gpt56Sol
+    Gpt56Terra
+    Gpt56Luna
     O3
     O3Pro
     Claude41Opus
@@ -979,6 +913,7 @@ namespace Ikon.AI.LLM
     Claude47Opus
     Claude48Opus
     Claude5Sonnet
+    Claude5Fable
     Gemini25Flash
     Gemini25FlashLite
     Gemini25Pro
@@ -987,11 +922,16 @@ namespace Ikon.AI.LLM
     Gemini31FlashLite
     Gemini35Flash
     Grok43
+    Grok45
+    GrokBuild01
     Grok420Reasoning
     Grok420NonReasoning
     MistralSmall
     MistralMedium
     MistralLarge
+    Ministral14B
+    Ministral8B
+    Ministral3B
     MagistralSmall
     MagistralMedium
     Codestral
@@ -1330,8 +1270,8 @@ namespace Ikon.AI.Retrieving
     Retriever.ContentMetadata? GetContentMetadata(string metadataId)
     Task<string> GetContentsAsync(string query, Retriever.GetContentsOptions options)
     ContentLink? Ignore(ContentLink link, string detail)
-    Task InitializeAsync(string dataDirectory, EmbeddingModel embeddingModel = OpenAI3Small)
-    Task InitializeAsync(IReadOnlyList<AssetUri> assetUris, EmbeddingModel embeddingModel = OpenAI3Small)
+    Task InitializeAsync(string dataDirectory, EmbeddingModel embeddingModel = OpenAI3Small, VectorStoreConfig? vectorStore = null)
+    Task InitializeAsync(IReadOnlyList<AssetUri> assetUris, EmbeddingModel embeddingModel = OpenAI3Small, VectorStoreConfig? vectorStore = null)
     ContentLink[] Prefer(ContentLink link, string detail)
     ContentLink[] Prefer(ContentLink[] links, string detail)
     Task<ContentLink[]> SearchAsync(string query, int maxLinks = 25, float searchThreshold = 0.1f)
@@ -1667,7 +1607,9 @@ namespace Ikon.AI.SpeechRecognition
     WhisperLarge3Turbo
     Gpt4OmniTranscribe
     Gpt4OmniMiniTranscribe
+    Gpt4OmniTranscribeDiarize
     DeepgramNova3General
+    DeepgramNova3Medical
     AssemblyAIUniversal3ProStreaming
     AssemblyAIUniversalStreamingEnglish
     AssemblyAIUniversalStreamingMultilingual
@@ -1698,7 +1640,7 @@ namespace Ikon.AI.Storage
     float Score
     T Value
   class VectorDatabase
-    ctor()
+    ctor(VectorStoreConfig? config = null)
     Task CreateCollectionAsync(string collectionName, EmbeddingModel model)
     Task<int> GetDataItemCountAsync(string collectionName)
     Task RemoveAsync(string collectionName, IEnumerable<string> tags)
@@ -1708,6 +1650,14 @@ namespace Ikon.AI.Storage
     Task<List<Result<T>>> SearchAsync<T>(string collectionName, float[] queryVector, int maxItems, float threshold, Metric metric, Func<IEnumerable<string>, bool>? tagsFilter = null)
     Task<int> SetAsync(string collectionName, int? key, string text, object value, IEnumerable<string>? tags = null)
     Task<int> SetAsync(string collectionName, int? key, float[] vector, object value, IEnumerable<string>? tags = null)
+  enum VectorStoreBackend
+    InMemory
+    PgVector
+  sealed class VectorStoreConfig
+    ctor()
+    VectorStoreBackend Backend { get; init; }
+    Func<DbConnection>? ConnectionFactory { get; init; }
+    string TablePrefix { get; init; }
 
 namespace Ikon.AI.Utils
   static class ImageUtils

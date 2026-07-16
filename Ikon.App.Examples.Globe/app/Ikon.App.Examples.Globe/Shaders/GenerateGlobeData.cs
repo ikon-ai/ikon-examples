@@ -1,7 +1,3 @@
-using Ikon.AI.Emergence;
-using Ikon.AI.Kernel;
-using Ikon.App.Examples.Globe.DataModels;
-
 namespace Ikon.App.Examples.Globe.Shaders;
 
 internal static class GenerateGlobeDataShader
