@@ -1,6 +1,4 @@
 using Ikon.AI.Emergence;
-using Ikon.AI.Kernel;
-using Ikon.App.Examples.Learning.DataModels;
 
 namespace Ikon.App.Examples.Learning.Shaders;
 

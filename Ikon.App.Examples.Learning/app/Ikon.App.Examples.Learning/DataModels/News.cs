@@ -1,5 +1,3 @@
-using Ikon.Common;
-
 namespace Ikon.App.Examples.Learning.DataModels;
 
 public class News

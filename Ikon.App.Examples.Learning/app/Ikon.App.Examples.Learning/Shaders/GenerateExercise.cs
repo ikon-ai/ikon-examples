@@ -1,5 +1,4 @@
 using Ikon.AI.Emergence;
-using Ikon.AI.Kernel;
 
 namespace Ikon.App.Examples.Learning.Shaders;
 

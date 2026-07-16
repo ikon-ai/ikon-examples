@@ -13,7 +13,7 @@ public class ExerciseMenuState(LearningApp outer) : ILearningState
 
     // State
     private readonly Reactive<(string Id, string Name, string Description)?> _selectedTheme = new(null);
-    private readonly Reactive<List<Scenario>> _scenarios = new([]);
+    private readonly ReactiveList<Scenario> _scenarios = new();
     private readonly Reactive<bool> _isLoadingScenarios = new(false);
     private readonly Reactive<bool> _isGeneratingExercise = new(false);
 

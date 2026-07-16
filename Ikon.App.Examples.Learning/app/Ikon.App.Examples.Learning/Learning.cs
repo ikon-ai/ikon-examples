@@ -1,3 +1,5 @@
+#pragma warning disable CS0618
+
 return await App.Run(args);
 
 public record SessionIdentity(string UserId);
@@ -66,7 +68,7 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
     internal Translations Translations => _translations.Value;
 
     // Audio playback state tracking
-    private readonly Reactive<Dictionary<string, AudioPlaybackState>> _messageAudioStates = new([]);
+    private readonly ReactiveDictionary<string, AudioPlaybackState> _messageAudioStates = new();
     private string? _currentAudioMessageId = null;
     internal IReadOnlyDictionary<string, AudioPlaybackState> MessageAudioStates => _messageAudioStates.Value;
 
