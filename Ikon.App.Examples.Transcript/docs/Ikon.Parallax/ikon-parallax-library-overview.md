@@ -10,7 +10,7 @@ The name "Parallax" reflects the library's core capability: different clients ca
 
 ### Reactive UI Updates
 
-Ikon.Parallax uses the reactive system from `Ikon.Common.Core.Reactive`. When a `Reactive<T>` value changes, only the UI components that depend on that value are re-rendered. The framework tracks dependencies automatically during rendering.
+Ikon.Parallax uses the reactive system from `Ikon.Common.Core.Reactive`. When a reactive value changes, only the UI components that depend on that value are re-rendered. The framework tracks dependencies automatically during rendering — reading `_count.Value` inside a UI lambda registers the dependency; there is no explicit subscription API.
 
 ```csharp
 private readonly Reactive<int> _count = new(0);
@@ -31,45 +31,22 @@ The UI tree is constructed and diffed entirely on the server. When changes occur
 
 This architecture means clients can be thin renderers with minimal logic.
 
-### Scoped Reactive Values
+### Themed Components and Crosswind Styling
 
-Reactive values can be scoped to specific contexts (per-client, per-user, etc.). This enables sending different UI to different clients from the same codebase:
+Styling uses Crosswind, a Tailwind-compatible utility class system, written as `string[]` style arrays. Every styled component ships a themed default, so the minimal call renders a complete, themed control — a `style:` array *merges on top of* that default rather than replacing it (see [Styling](#styling-with-crosswind) below).
 
 ```csharp
-// A value that is unique per client
-private readonly Reactive<int, ClientScope> _clientCounter = new(0);
-
-// A value that is unique per user
-private readonly Reactive<string, UserScope> _userPreference = new("");
+view.Button(text: "Save", onClick: SaveAsync);                  // fully themed as-is
+view.Button([Button.PrimaryMd, "w-full"], text: "Save", onClick: SaveAsync);
 ```
 
-### Crosswind Styling
+## Setting Up a UI
 
-Styling uses Crosswind, a Tailwind-compatible utility class system. Styles are defined as string constants and support:
-
-- Standard Crosswind utility classes (`flex`, `gap-4`, `bg-white`, etc.)
-- Extended motion and animation classes
-- Built-in theme style constants (via `Ikon.Parallax.Theming`)
+Create a `UI` instance with the app host and a theme, and call `Root` to define the UI tree:
 
 ```csharp
-private const string ButtonStyle =
-    "px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition";
-
-view.Button(style: [ButtonStyle], text: "Click me", onClick: async () => { });
-```
-
-## Basic Usage
-
-### Setting Up a UI
-
-Create a `UI` instance with the app host and call `Root` to define the UI tree:
-
-```csharp
-using Ikon.Parallax;
-using Ikon.Parallax.Theming;
-
 [App]
-public class MyApp(IApp<SessionIdentity, ClientParams> app)
+public class MyApp(IApp<SessionIdentity, ClientParameters> app)
 {
     private UI UI { get; } = new(app, new IkonTheme());
 
@@ -77,15 +54,13 @@ public class MyApp(IApp<SessionIdentity, ClientParams> app)
 
     public async Task Main()
     {
-        UI.Root(style: ["min-h-screen bg-slate-950 text-white"], content: view =>
+        UI.Root([Page.Default], content: view =>
         {
-            view.Column(style: ["flex flex-col items-center gap-4 p-6"], content: view =>
+            view.Column(["items-center gap-4 p-6"], content: view =>
             {
-                view.Text(style: ["text-2xl font-bold"], text: "Counter App");
-                view.Text(style: ["text-lg"], text: $"Count: {_counter.Value}");
-                view.Button(
-                    style: ["px-4 py-2 bg-blue-500 rounded hover:bg-blue-600"],
-                    text: "Increment",
+                view.Heading("Counter App", style: [Text.H2]);
+                view.Text([Text.Body], text: $"Count: {_counter.Value}");
+                view.Button([Button.PrimaryMd], text: "Increment",
                     onClick: async () => _counter.Value++);
             });
         });
@@ -95,33 +70,249 @@ public class MyApp(IApp<SessionIdentity, ClientParams> app)
 
 When `_counter.Value` changes, only the Text displaying the count re-renders, and only that diff is sent to clients.
 
-### Component Methods
+Committing to a brand happens in the `IkonTheme` initializer — an indexer-keyed object initializer where each entry sets one theme token:
 
-The `UIView` class provides extension methods for common UI components:
+```csharp
+private UI UI { get; } = new(app, new IkonTheme
+{
+    ["primary"] = "amber-400",
+    ["background"] = "zinc-950",
+});
+```
+
+The full theme key vocabulary, dark-mode pairing (`IkonTheme.DarkMode`), and `ThemeMode.Fixed` for brand-locked looks are covered in the **Ikon Theming Guide** (`ikon-theming-guide.md`).
+
+### Light/Dark Switching with UseTheme
+
+`UI.UseTheme()` wires per-client theme state in one call, replacing the hand-rolled ClientJoined + toggle plumbing apps used to repeat:
+
+```csharp
+private ThemeControl _theme = null!;
+
+public async Task Main()
+{
+    _theme = UI.UseTheme();   // call once, before clients join
+
+    UI.Root([Page.Default], content: view =>
+    {
+        view.Button(
+            icon: _theme.Current.Value == Theme.Dark ? "sun" : "moon",
+            text: "Toggle theme",
+            onClick: _theme.ToggleAsync);
+    });
+}
+```
+
+`ThemeControl.Current` is a `ClientReactive<Theme>` bindable in views; `ToggleAsync`/`SetAsync` flip the calling client and push the change to it. By default a joining client that already has a saved theme keeps it (`followClient: true`).
+
+## Reactive State
+
+### Shared, Per-Client, Per-User, Per-Mount
+
+Reactive values are `private readonly` fields. The scope is picked by type:
+
+| Type | One value per… | Typical use |
+|---|---|---|
+| `Reactive<T>` | app (shared by all clients) | Shared game state, lobby lists |
+| `ClientReactive<T>` | client session | Form input, selected tab, dialog open |
+| `UserReactive<T>` | user (shared across their sessions) | Preferences, cart |
+| `MountReactive<T>` | Parallax mount | Per-mount chat history |
+
+```csharp
+private readonly Reactive<int> _sharedCounter = new(0);
+private readonly ClientReactive<string> _draft = new("");
+private readonly UserReactive<string> _language = new("en");
+```
+
+In UI lambdas and action handlers you just read and write `.Value` — the active scope resolves the right per-client or per-user slot implicitly. This is the "parallax" effect: the same UI code produces different views for different clients.
+
+To seed each scope's initial value from its id, `ClientReactive` and `MountReactive` have a static `Create` factory and `UserReactive` a seeding constructor:
+
+```csharp
+private readonly ClientReactive<string> _welcome =
+    ClientReactive.Create(sessionId => $"Welcome, session {sessionId}!");
+
+private readonly UserReactive<List<string>> _cart =
+    new(userId => LoadCart(userId));
+```
+
+### Reactive Collections: ReactiveList and ReactiveDictionary
+
+List and dictionary state goes in `ReactiveList<T>` / `ReactiveDictionary<TKey, TValue>` — not in a `Reactive<T>` wrapping a mutable collection (that shape is build warning IKON002: in-place mutations bypass change detection). Every mutation method is one change notification, and reads (`Count`, indexer, enumeration, `ContainsKey`, …) are tracked so the UI re-renders on change:
+
+```csharp
+private readonly ReactiveList<TodoItem> _todos = new();
+private readonly ReactiveDictionary<string, int> _scores = new();
+
+_todos.Add(item);                    // also: AddRange, Insert, Remove, RemoveAt,
+_todos.RemoveAll(t => t.Done);       // RemoveAll, Clear, ReplaceAll, Sort
+_todos.Update(list => list.OrderBy(t => t.Priority));  // whole-list transform, one notification
+
+_scores["anna"] = 10;                // add-or-replace, one notification
+_scores.Update(map => map["anna"]++); // atomic read-modify-write under the lock
+
+foreach (var todo in _todos) { ... } // enumerate the reactive directly
+```
+
+Both come in the same scoped variants as the scalars: `ClientReactiveList<T>` / `UserReactiveList<T>` / `MountReactiveList<T>` and `ClientReactiveDictionary<TKey, TValue>` / `UserReactiveDictionary<TKey, TValue>` / `MountReactiveDictionary<TKey, TValue>`.
+
+### Background Work: the *For Methods
+
+`.Value` works wherever the scope is active — inside `UI.Root()`, an action callback, or a `ReactiveScope.Use(new ClientScope(...))` block. Background work (a `Task.Run` loop, a timer, an endpoint handler) carries no client scope, so `.Value` there throws rather than writing to nowhere. Name the target instead with the `*For` methods, capturing the id while the scope is still active:
+
+```csharp
+var clientSessionId = ReactiveScope.ClientId;   // capture inside the callback
+
+_ = Task.Run(async () =>
+{
+    var draft = await LoadDraftAsync();
+    _draft.SetFor(clientSessionId, draft);      // scalar: SetFor / ValueFor / UpdateFor
+    _items.AddFor(clientSessionId, item);       // list: AddFor / RemoveFor / ClearFor / UpdateFor
+});
+```
+
+`ClientReactive` variants key by the `int` client session id, `UserReactive` by the `string` user id, `MountReactive` by the `string` mount id.
+
+### The Busy/Status Pattern
+
+Async handlers that flip a busy flag and surface failures in the UI use the helpers instead of hand-rolled try/catch/finally:
+
+```csharp
+private readonly Reactive<bool> _busy = new(false);
+private readonly Reactive<string?> _status = new(null);
+
+private async Task RefreshAsync()
+{
+    await _busy.RunAsync(_status, async () =>
+    {
+        _entries.Value = await LoadEntriesAsync();
+    });
+}
+```
+
+`RunAsync` clears the status, holds the busy flag for the duration of the work (it always returns to false, even on failure), routes an exception's message into the status reactive, and returns whether the work completed. For a busy flag alone, `using var _ = _busy.AsToken();` covers the flag-with-guaranteed-reset half of the pattern.
+
+### Persistent State
+
+Durable variants — `PersistentSessionReactive<T>` (the default choice), `PersistentUserReactive<T>`, `PersistentReactive<T>`, and the matching `...ReactiveList` / `...ReactiveDictionary` families — persist across app restarts with the same reactive API. See the **Ikon Persistent State Guide** (`ikon-persistent-state.md`).
+
+## Components
+
+The `UIView` class provides extension methods for UI components. One shape for every call: the leading `string[]` style array is the only positional argument, everything else is named (`view.Text` / `view.Button` / `view.Heading` / `view.Icon` / `view.Markdown` also accept their text positionally first).
 
 **Layout:**
-- `view.Row()` - Horizontal flex container
-- `view.Column()` - Vertical flex container
+- `view.Row()` / `view.Column()` / `view.Box()` / `view.Grid()` - Flex and grid containers
 - `view.ScrollArea()` - Scrollable container with optional smart auto-scroll
+- `view.ScrollColumn()` - Header/body/footer column where the body scrolls
+- `view.VirtualList()` / `view.VirtualGrid()` - DOM-virtualized large collections
 - `view.InfiniteScrollView()` - Scroll area with near-end callbacks for lazy loading
 
 **Display:**
-- `view.Text()` - Text content
+- `view.Text()` / `view.Heading()` / `view.Markdown()` - Text content
+- `view.Image()` - Images from URL or bytes
+- `view.Icon()` - Icon library glyphs
+- `view.Spinner()` / `view.Skeleton()` - Loading states
+
+**Inputs:**
 - `view.Button()` - Clickable button
-- `view.Switch()` - Toggle switch
-- `view.TextField()` - Text input
+- `view.TextField()` / `view.TextArea()` - Text input
+- `view.Checkbox()` / `view.Switch()` / `view.Toggle()` - Toggles
+- `view.Select()` / `view.RadioGroup()` - Choice inputs
 - `view.Slider()` - Range slider
+- `view.FileUpload()` - File upload zone
 
 **Overlays:**
-- `view.Dialog()` - Modal dialog
-- `view.Popover()` - Popover content
-- `view.Tooltip()` - Tooltip on hover
+- `view.Dialog()` / `view.AlertDialog()` - Modal dialogs
+- `view.Popover()` / `view.Tooltip()` / `view.HoverCard()` - Anchored overlays
+- `view.Sheet()` / `view.Drawer()` - Edge panels
 
 **Navigation:**
 - `view.Tabs()` - Tabbed interface
 - `view.AccordionSingle()` / `view.AccordionMultiple()` - Collapsible sections
+- `view.TreeView()` - Hierarchical trees
+- `view.Breadcrumb()` - Path navigation
 
-### ScrollArea and Auto-Scroll
+**Data:**
+- `view.DataTable()` - Paginated tables with typed cells, row actions, and column resize (per-slot styling via the `DataTableStyles` record on `styles:`)
+- `view.BarChart()` / `view.LineChart()` / `view.PieChart()` - Interactive charts
+- `view.ChatLog()` - Chat-bubble layout with auto-scroll and composer
+
+### Two-Way Binding
+
+Form controls take a `bind:` parameter as the two-way form — TextField/TextArea/Select/RadioGroup bind a `Reactive<string>`, Checkbox/Switch a `Reactive<bool>`:
+
+```csharp
+view.TextField(["flex-1"], label: "Name", bind: _name);
+view.Switch(bind: _subscribed, label: "Subscribe to newsletter");
+```
+
+Without a reactive at hand, use `value:` + `onValueChange:` explicitly; when both are passed, `bind:` wins.
+
+### App Chrome and SemanticTone
+
+The chrome composites — Badge, Alert, Toasts, StatCard's icon box — share the `SemanticTone` enum (`Neutral`, `Brand`, `Success`, `Warning`, `Error`, `Info`). Tones map to the theme's semantic color tokens, so they are correct in both light and dark mode:
+
+```csharp
+view.Badge("Live", SemanticTone.Success);
+view.Alert("Import failed", SemanticTone.Error, description: "The file is not valid CSV");
+view.StatCard("Revenue", "$12,400", delta: "+8%", trend: StatTrend.Up, icon: "trending-up",
+    iconTone: SemanticTone.Success);
+```
+
+Toasts are a per-client queue rendered by a single `ToastHost` in the root UI:
+
+```csharp
+private readonly Toasts _toasts = new();
+
+// In UI.Root, mount exactly once:
+view.ToastHost(_toasts);
+
+// From any handler:
+_toasts.Success("Saved");
+_toasts.Error("Upload failed", ex.Message);
+```
+
+## Styling with Crosswind
+
+Three layers compose freely in the same style array:
+
+1. **Semantic theme-aware classes** (`bg-card`, `text-primary`, `bg-brand-solid`, `border-secondary`, `bg-background`) — the default path. They resolve through CSS variables that flip between light and dark and respond to per-app `IkonTheme` overrides, so re-theming never touches individual style arrays.
+2. **`Ikon.Parallax.Theming` token classes** (`Button.PrimaryMd`, `Card.Default`, `Text.H1`, `Layout.Page`, `Tone.Solid`, …) — pre-composed bundles of the semantic classes with tested defaults.
+3. **Hardcoded palette classes** (`bg-amber-400`) and raw hex — for looks that intentionally should not change with the theme. These bypass the theme system entirely.
+
+```csharp
+view.Button([Button.PrimaryMd, "mt-4 self-center"], text: "Submit", onClick: SubmitAsync);
+view.Box(["bg-card border border-secondary p-6 rounded-2xl"], content: v => { ... });
+view.Text([Text.Caption], text: "Updated just now");
+```
+
+### Merge Semantics: Defaults, `default`, and `unstyled`
+
+A component's `style:` array **merges with (adds to) its built-in themed default — it does not replace it**. `view.TextField(["w-full"], …)` renders a fully themed input that is also full-width, and your explicit classes win on conflict (`["h-14"]` overrides the default height). Write only the classes you are adding or changing.
+
+Two markers control the merge:
+
+- **`default`** — platform theme token *composites* (`Button.PrimaryMd`, `Input.Default`, `Card.Interactive`, `Badge.SuccessMd`, …) are complete component styles. Each begins with the literal `"default"` marker, which tells the component the constant IS the whole style, so the themed default is not merged underneath it: `[Button.OutlineMd]` renders exactly the outline button. Extra classes in the same array still layer on top and win on conflict (`[Button.OutlineMd, "mt-2 w-full"]`). Fragments (`Button.Base`, `Layout.*`, `Text.*`) carry no marker and merge normally.
+- **`unstyled`** — to restyle a control from scratch with NO themed default, make the literal `"unstyled"` marker the first entry: `view.TextField(["unstyled", "border-4 border-pink-500 …"], …)`. Never prepend `"unstyled"` to a token composite — composites already skip the merge via their `default` marker.
+
+Slot-style parameters with themed defaults (`contentStyle:` on Popover/Tooltip/HoverCard, Dialog's `titleStyle:`/`descriptionStyle:`/`headerStyle:`) follow the same merge rule.
+
+### Default Styling and Auto-Composed Indicators
+
+`style:` is optional. When it is omitted, interactive and input controls fall back to their default theme token, so the minimal call renders a complete, themed control:
+
+```csharp
+view.Checkbox(bind: _done);
+view.Switch(bind: _on);
+view.TextField(bind: _text);
+view.Button(text: "Submit", onClick: async () => { });
+```
+
+Controls that have a visible inner part also compose it automatically when no `content:` is given — Checkbox gets its check indicator, Switch its thumb, Slider its track/range/thumb, Select its trigger and items. You only pass `content:` to customise the inner part, and an explicit `style:` array always merges on top of the default. To render a checkbox with no check mark, opt out explicitly with `content: _ => { }`. Layout primitives (`Box`, `Row`, `Column`, `Grid`, `Stack`) stay unstyled by default — there "no style" is the normal usage.
+
+The Crosswind class vocabulary and the motion/animation system are covered in the **Crosswind Styling and Motion Guide** (`crosswind-styling-and-motion-guide.md`); theme keys and brand palettes in the **Ikon Theming Guide** (`ikon-theming-guide.md`).
+
+## ScrollArea and Auto-Scroll
 
 ScrollArea provides a scrollable container with smart auto-scroll support, ideal for chat interfaces and live feeds:
 
@@ -129,15 +320,17 @@ ScrollArea provides a scrollable container with smart auto-scroll support, ideal
 view.ScrollArea(
     rootStyle: ["h-[400px]"],
     autoScroll: true,
-    autoScrollKey: _messages.Value.Count.ToString(),
+    autoScrollKey: _messages,
     content: view =>
     {
-        foreach (var msg in _messages.Value)
+        foreach (var msg in _messages)
         {
-            view.Text([Text.Body], msg);
+            view.Text([Text.Body], text: msg);
         }
     });
 ```
+
+`autoScrollKey:` takes the thing that changes — the reactive collection itself, a count, or a composite string.
 
 **Auto-scroll behavior (Polite priority):**
 - At bottom: new content auto-scrolls into view
@@ -151,18 +344,11 @@ anchor.FocusHint(new FocusHintProps { Priority = FocusPriority.Assertive },
     key: $"scroll-{version}");
 ```
 
-### Scrolling inside a flex parent
+### Scrolling Inside a Flex Parent
 
-The canonical dialog / side-panel pattern is a `Column` with a fixed height, a
-header + footer, and a scrolling body. `ScrollArea` automatically applies
-`min-h-0 min-w-0` to its root so shrinking inside a flex parent Just Works —
-no ceremony required.
+The canonical dialog / side-panel pattern is a `Column` with a fixed height, a header + footer, and a scrolling body. `ScrollArea` automatically applies `min-h-0 min-w-0` to its root so shrinking inside a flex parent Just Works — no ceremony required.
 
-**Why this matters.** A flex child's `min-height` defaults to `auto` (equal to
-its intrinsic content size), so without `min-h-0` a `flex-1` scroll region
-would grow to fit all its content — pushing siblings off-screen and bypassing
-the inner overflow. The framework handles this for `ScrollArea`. You only need
-to think about it on your own `Column`/`Row` with a manual `overflow-y-auto`.
+**Why this matters.** A flex child's `min-height` defaults to `auto` (equal to its intrinsic content size), so without `min-h-0` a `flex-1` scroll region would grow to fit all its content — pushing siblings off-screen and bypassing the inner overflow. The framework handles this for `ScrollArea`. You only need to think about it on your own `Column`/`Row` with a manual `overflow-y-auto`.
 
 **Canonical recipe — `ScrollArea` inside a flex column:**
 
@@ -180,188 +366,66 @@ view.Column(["h-[82vh] flex flex-col"], content: dialog =>
 });
 ```
 
-**Or use the `ScrollColumn` primitive** that wraps the header/body/footer
-pattern in a single call, so the shape can't be misused:
+**Or use the `ScrollColumn` primitive** that wraps the header/body/footer pattern in a single call, so the shape can't be misused:
 
 ```csharp
 view.ScrollColumn(
-    style: ["h-[82vh] w-full sm:max-w-[560px] rounded-2xl bg-white"],
+    style: ["h-[82vh] w-full sm:max-w-[560px] rounded-2xl bg-card"],
     header: h => h.Row(["px-5 py-4 border-b"], content: title => ...),
     footer: f => f.Row(["p-3 border-t"], content: composer => ...),
     content: body => body.Column(["gap-3"], content: messages => ...));
 ```
 
-**Raw `Column`/`Row` with overflow-auto.** If you're not using `ScrollArea`, you
-still need `min-h-0` (or a fixed height) yourself — the framework fix only
-applies to the `ScrollArea` component:
+For chat specifically, `view.ChatLog()` wraps `ScrollColumn` with chat-friendly defaults (auto-scroll on).
+
+**Raw `Column`/`Row` with overflow-auto.** If you're not using `ScrollArea`, you still need `min-h-0` (or a fixed height) yourself — the framework fix only applies to the `ScrollArea` component:
 
 ```csharp
 view.Column(["flex-1 min-h-0 overflow-y-auto", ...], ...);
 ```
 
-Dev builds (debugger attached or `IKON_DEV_WARNINGS=1`) emit a single
-`Log.Instance.Warning` when they detect a `Column`/`Row`/`Box`/`Flex` with
-`overflow-y-auto` + `flex-1` and no `min-h-0` — with the exact
-`file:line` of the offending callsite.
+Dev builds (debugger attached or `IKON_DEV_WARNINGS=1`) emit a single `Log.Instance.Warning` when they detect a `Column`/`Row`/`Box`/`Flex` with `overflow-y-auto` + `flex-1` and no `min-h-0` — with the exact `file:line` of the offending callsite.
 
 ## Example: Interactive Form
 
 ```csharp
-private readonly Reactive<string> _name = new("");
-private readonly Reactive<bool> _subscribed = new(false);
-private readonly Reactive<int> _volume = new(50);
+private readonly ClientReactive<string> _name = new("");
+private readonly ClientReactive<bool> _subscribed = new(false);
+private readonly Reactive<bool> _busy = new(false);
+private readonly Reactive<string?> _status = new(null);
 
 public async Task Main()
 {
-    UI.Root(style: ["p-8 bg-neutral-900 text-white"], content: view =>
+    UI.Root([Page.Default], content: view =>
     {
-        view.Column(style: ["flex flex-col gap-4 max-w-md"], content: view =>
+        view.Column(["gap-4 max-w-md p-8"], content: view =>
         {
-            // Text input (use value: for controlled mode — clears reliably when set to "")
-            view.TextField(
-                style: ["px-3 py-2 bg-neutral-800 rounded border border-neutral-700"],
-                value: _name.Value,
-                onValueChange: value =>
-                {
-                    _name.Value = value;
-                    return Task.CompletedTask;
-                });
+            view.TextField(label: "Name", placeholder: "Your name", bind: _name);
 
-            // Switch
-            view.Row(style: ["flex items-center gap-3"], content: view =>
+            view.Switch(bind: _subscribed, label: "Subscribe to newsletter");
+
+            view.Button([Button.PrimaryMd], text: "Save",
+                disabled: _busy.Value,
+                onClick: SaveAsync);
+
+            if (_status.Value is { } status)
             {
-                view.Switch(
-                    style: ["w-10 h-5 rounded-full bg-neutral-700 data-[state=checked]:bg-blue-500"],
-                    value: _subscribed.Value,
-                    onValueChange: value =>
-                    {
-                        _subscribed.Value = value;
-                        return Task.CompletedTask;
-                    },
-                    content: view =>
-                    {
-                        view.SwitchThumb(style: ["block w-4 h-4 rounded-full bg-white transition data-[state=checked]:translate-x-5"]);
-                    });
-                view.Text(text: "Subscribe to newsletter");
-            });
-
-            // Slider
-            view.Slider(
-                style: ["w-full"],
-                value: [_volume.Value],
-                onValueChange: values =>
-                {
-                    _volume.Value = (int)values[0];
-                    return Task.CompletedTask;
-                },
-                content: view =>
-                {
-                    view.SliderTrack(style: ["h-2 bg-neutral-700 rounded-full"], content: view =>
-                    {
-                        view.SliderRange(style: ["h-full bg-blue-500 rounded-full"]);
-                    });
-                    view.SliderThumb(style: ["w-4 h-4 bg-white rounded-full"]);
-                });
-            view.Text(style: ["text-sm text-neutral-400"], text: $"Volume: {_volume.Value}%");
-
-            // Display current state
-            view.Text(style: ["mt-4 text-neutral-400"],
-                text: $"Name: {_name.Value}, Subscribed: {_subscribed.Value}");
+                view.Alert("Save failed", SemanticTone.Error, description: status);
+            }
         });
     });
 }
-```
 
-## Styling with Crosswind
-
-Styles are organized into reusable constants. Applications typically define a styles class:
-
-```csharp
-public static class AppStyles
+private async Task SaveAsync()
 {
-    public static class Button
+    await _busy.RunAsync(_status, async () =>
     {
-        public const string Primary =
-            "px-4 py-2 rounded-lg font-medium " +
-            "bg-blue-500 hover:bg-blue-600 active:bg-blue-700 " +
-            "text-white transition-colors";
-
-        public const string Secondary =
-            "px-4 py-2 rounded-lg font-medium " +
-            "bg-neutral-700 hover:bg-neutral-600 " +
-            "text-white transition-colors";
-    }
-
-    public static class Input
-    {
-        public const string Default =
-            "px-3 py-2 rounded-lg " +
-            "bg-neutral-800 border border-neutral-700 " +
-            "focus:border-blue-500 focus:outline-none " +
-            "text-white placeholder:text-neutral-500";
-    }
-
-    public static class Card
-    {
-        public const string Default =
-            "p-4 rounded-xl " +
-            "bg-neutral-900 border border-neutral-800";
-    }
-}
-```
-
-The library ships a set of theme style constants under `Ikon.Parallax.Theming` (e.g. `Button`, `Input`, `Card`, `Text`, `Layout`, `Page`) that compose Crosswind utility classes into ready-to-use named styles:
-
-```csharp
-using Ikon.Parallax.Theming;
-
-// Use theme style constants
-view.Button(style: [Button.PrimaryMd], text: "Submit");
-view.TextField(style: [Input.Default], value: _text.Value, onValueChange: async v => _text.Value = v);
-```
-
-### Default styling and auto-composed indicators
-
-`style:` is optional. When it is omitted, interactive and input controls fall back to
-their default theme token, so the minimal call renders a complete, themed control:
-
-```csharp
-view.Checkbox(value: _done.Value, onValueChange: async v => _done.Value = v);
-view.Switch(value: _on.Value, onValueChange: async v => _on.Value = v);
-view.TextField(value: _text.Value, onValueChange: async v => _text.Value = v);
-view.Button(text: "Submit", onClick: async () => { });
-```
-
-Controls that have a visible inner part also compose it automatically when no `content:`
-is given — Checkbox gets its check indicator, Switch its thumb, Slider its track/range/
-thumb, Select its trigger and items. You only pass `content:` to customise the inner part
-(e.g. a different icon), and an explicit `style:` array always overrides the default. To
-render a checkbox with no check mark, opt out explicitly with `content: _ => { }`. Layout
-primitives (`Box`, `Row`, `Column`, `Grid`, `Stack`) stay unstyled by default — there
-"no style" is the normal usage.
-
-## Per-Client UI with Scopes
-
-The reactive scope system enables different clients to see different UI:
-
-```csharp
-// Counter that is unique per client
-private readonly Reactive<int, ClientScope> _clientCounter = new(0);
-
-public async Task Main()
-{
-    UI.Root(content: view =>
-    {
-        // Each client sees their own counter value
-        view.Text(text: $"Your count: {_clientCounter.Value}");
-        view.Button(
-            text: "Increment",
-            onClick: async () => _clientCounter.Value++);
+        await StoreAsync(_name.Value, _subscribed.Value);
     });
 }
 ```
 
-Without scopes, all clients share the same value. With `ClientScope`, each client has an independent value. This is the "parallax" effect: the same UI code produces different views for different clients.
+Each client edits its own `_name`/`_subscribed` (they are `ClientReactive`), the Save button disables while the shared `_busy` flag is up, and a failure surfaces as an error Alert via `_status`.
 
 ## Boot Snapshot and Privacy
 
@@ -381,14 +445,14 @@ During snapshot capture the flag `view.IsSnapshot` is `true` (it is always `fals
 view.SnapshotReveal(v =>
 {
     v.Image(["h-8"], src: "/logo.svg", alt: "Acme");
-    v.Text([Text.H1], "Welcome to Acme");
+    v.Text([Text.H1], text: "Welcome to Acme");
 });
 
 // Live: real content. Snapshot: nothing (omit entirely — e.g. a control that is dead before connect).
 view.SnapshotHide(v => v.Button(text: "Sign out", onClick: SignOutAsync));
 
 // Live: nothing. Snapshot: snapshot-only filler, rendered as authored (not skeletonized).
-view.SnapshotOnly(v => v.Text([Text.Caption], "Loading your dashboard…"));
+view.SnapshotOnly(v => v.Text([Text.Caption], text: "Loading your dashboard…"));
 ```
 
 - **`SnapshotReveal(content)`** — opts `content` out of automatic skeletonization, so it renders for real in the snapshot. The opt-out covers the whole subtree (nested containers and leaves included). Use only for content you are certain is safe to make public.
@@ -415,9 +479,10 @@ if (view.IsSnapshot) { /* snapshot-only branch */ }
 ## Architecture Summary
 
 1. **Server-side logic**: All UI logic, state, and event handlers run on the server
-2. **Reactive updates**: Changes to `Reactive<T>` values trigger targeted re-renders
+2. **Reactive updates**: Changes to reactive values trigger targeted re-renders
 3. **Differential sync**: Only UI diffs are sent to clients
-4. **Scoped state**: `Reactive<T, TScope>` enables per-client or per-user state
+4. **Scoped state**: `ClientReactive<T>` / `UserReactive<T>` / `MountReactive<T>` (and their `ReactiveList` / `ReactiveDictionary` variants) give per-client, per-user, and per-mount state from the same UI code
 5. **Lightweight clients**: Clients render the UI tree and forward events to the server
-6. **Crosswind styling**: Tailwind-compatible utility classes with motion extensions
-7. **Snapshot privacy**: the boot snapshot is skeletonized by default; `SnapshotReveal` opts safe content back in, `SnapshotHide` / `SnapshotOnly` cover the rest
+6. **Themed components**: Every styled component ships a themed default; `style:` arrays merge on top, with `default`-marked token composites and the `unstyled` opt-out controlling the merge
+7. **Crosswind styling**: Tailwind-compatible utility classes with motion extensions
+8. **Snapshot privacy**: the boot snapshot is skeletonized by default; `SnapshotReveal` opts safe content back in, `SnapshotHide` / `SnapshotOnly` cover the rest

@@ -1,8 +1,5 @@
 using System.Runtime.CompilerServices;
 using System.Text;
-using Ikon.AI.Emergence;
-using Ikon.AI.Kernel;
-using Ikon.AI.LLM;
 
 return await App.Run(args);
 
@@ -549,9 +546,9 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
         var chunks = SplitTranscript(transcriptText, 4000);
         TranscriptAnalysis? analysis = null;
 
-        await foreach (var ev in Emerge.MapReduce<TranscriptChunkSummary, TranscriptAnalysis>(LLMModel.Claude45Sonnet, ctx, mr =>
+        await foreach (var ev in Emerge.MapReduce<string, TranscriptChunkSummary, TranscriptAnalysis>(LLMModel.Claude45Sonnet, ctx, mr =>
                        {
-                           mr.Input = chunks;
+                           mr.Chunks = chunks;
                            mr.MaxParallel = 3;
 
                            mr.Map(map =>

@@ -24,7 +24,7 @@ view.Column(["h-screen"], content: view =>
     // Scrollable message area with auto-scroll
     view.ScrollArea(
         autoScroll: true,
-        autoScrollKey: _messages.Count.ToString(),
+        autoScrollKey: _messages,
         rootStyle: ["flex-1 min-h-0 px-4"],
         content: view =>
         {
