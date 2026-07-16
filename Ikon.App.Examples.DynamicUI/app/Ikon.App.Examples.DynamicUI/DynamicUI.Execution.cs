@@ -1,6 +1,4 @@
 using System.Reflection;
-using Ikon.Common.Core.Reactive;
-using Ikon.Parallax;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;

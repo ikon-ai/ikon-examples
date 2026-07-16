@@ -1,5 +1,3 @@
-using Ikon.Common;
-
 public class ChatResponse
 {
     [Description("Your response to the user", example: "I'll create a counter with increment and decrement buttons for you.")]

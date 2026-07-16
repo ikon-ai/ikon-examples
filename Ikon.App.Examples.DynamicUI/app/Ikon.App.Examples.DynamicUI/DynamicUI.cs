@@ -1,14 +1,3 @@
-using Ikon.App;
-using Ikon.Common.Core.Reactive;
-using Ikon.Common.Core.Scope;
-using Ikon.Parallax;
-using Ikon.Parallax.Components.Standard;
-using Ikon.Server;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-
 return await IkonServerRunner.RunApp(args);
 
 public record SessionIdentity(string UserId);
@@ -26,7 +15,7 @@ public partial class DynamicUI(IApp<SessionIdentity, ClientParams> app)
     // Chat state
     private string _userInputValue = "";
     private readonly Reactive<int> _inputResetKey = new(0);
-    private readonly Reactive<List<ChatMessage>> _messages = new([]);
+    private readonly ReactiveList<ChatMessage> _messages = new();
     private readonly Reactive<bool> _isProcessing = new(false);
     private readonly Reactive<string> _streamingResponse = new("");
 
@@ -74,7 +63,7 @@ public partial class DynamicUI(IApp<SessionIdentity, ClientParams> app)
                 });
 
                 // Theme toggle
-                var isDark = _theme.Current.Value == Theme.Dark.ToThemeName();
+                var isDark = _theme.Current.Value == Theme.Dark;
                 view.Button([Button.GhostMd, Button.Icon],
                     onClick: _theme.ToggleAsync,
                     content: v => v.Icon([Icon.Default], name: isDark ? "sun" : "moon"));

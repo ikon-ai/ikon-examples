@@ -70,6 +70,11 @@ public partial class DynamicUI
 
         _chatContext = newContext;
 
+        if (chatResponse is null)
+        {
+            throw new EmergenceStoppedException(EmergenceStatus.Completed, "the model produced no chat response");
+        }
+
         if (chatResponse.ShouldGenerateUI && !string.IsNullOrEmpty(chatResponse.UIDescription))
         {
             await GenerateAndExecuteUIAsync(chatResponse.UIDescription);
@@ -156,7 +161,7 @@ public partial class DynamicUI
     {
         string? validationError = initialError;
 
-        var (response, _) = await Emerge.Refine<UICodeResponse>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
+        var response = await Emerge.Refine<UICodeResponse>(LLMModel.Claude45Sonnet, new KernelContext(), opt =>
         {
             opt.MaxRefinements = MaxAutoRetries;
             opt.Temperature = 0.3f;
@@ -240,7 +245,7 @@ public partial class DynamicUI
                 validationError = await ValidateSyntaxAsync(result.Code);
                 return validationError != null;
             };
-        }).FinalAsync();
+        });
 
         return (response, validationError);
     }
