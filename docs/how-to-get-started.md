@@ -44,7 +44,7 @@ ikon app new MyFirstAIApp
 
 This creates a `MyFirstAIApp` folder in your current directory with a ready-to-run app, sample code, and configuration.
 
-> If an app already exists on the Ikon platform, you can download it instead with `ikon app load`.
+> If an app already exists on the Ikon platform, you can download it instead with `ikon app get`.
 
 ## Run the Ikon AI App locally
 
@@ -78,7 +78,7 @@ The URL of your deployed app will be printed in the terminal after a successful 
 The Ikon tool has built-in version control. Review your changes and save them:
 
 ```bash
-ikon app changes
+ikon app diff
 ikon app save
 ```
 
@@ -110,9 +110,9 @@ Open the project folder with your preferred coding agent (e.g., [Cursor](https:/
 | ----------- | -------------------- | ------------------------------- |
 | **Login**   | `ikon login`         | Authenticate the CLI            |
 | **Create**  | `ikon app new MyApp` | Create a new Ikon app           |
-| **Load**    | `ikon app load`      | Download an existing app        |
+| **Get**     | `ikon app get`       | Download an existing app        |
 | **Run**     | `ikon app run`       | Start the local dev server      |
 | **Deploy**  | `ikon app deploy`    | Upload the app bundle           |
-| **Changes** | `ikon app changes`   | Show uncommitted changes        |
+| **Diff**    | `ikon app diff`      | Show uncommitted changes        |
 | **Save**    | `ikon app save`      | Save changes to version control |
 | **Update**  | `ikon app update`    | Update Ikon package references  |

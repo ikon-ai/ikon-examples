@@ -204,8 +204,10 @@ One-shot — defaults to `Gemini25FlashImage` (cheap+fast); the result is never 
 using Ikon.AI.ImageGeneration;
 
 var image = await ImageGenerator.GenerateAsync("A santa dancing in the snow");
-await File.WriteAllBytesAsync("santa.png", image.Data);
+await File.WriteAllBytesAsync("santa.png", await image.GetDataAsync());
 ```
+
+**Result delivery:** media results (image, music, sound effect, converted file, segmentation mask, depth map) carry a `Kind` field. Small payloads arrive inline (`Kind == ResultKind.Data`, `Data` non-null); payloads over a few MB are automatically uploaded and arrive as a signed download URL valid for roughly one hour (`Kind == ResultKind.Url`, `Url` non-null, `Data` null) — this keeps results within the protocol's message size limit. `await result.GetDataAsync()` returns the bytes either way, so prefer it over reading `Data` directly. Set `ResultDelivery = ResultDelivery.Url` in the config to always receive a URL.
 
 Use the constructor + config form for negative prompts, resolution, seeding, batches, or input images:
 
@@ -223,7 +225,7 @@ var result = (await imageGenerator.GenerateImageAsync(new ImageGeneratorConfig
     Seed = 42
 })).First();
 
-await File.WriteAllBytesAsync("santa.png", result.Data);
+await File.WriteAllBytesAsync("santa.png", await result.GetDataAsync());
 ```
 
 ## ImageSegmentation
@@ -238,7 +240,7 @@ One-shot from image bytes — defaults to `Sam31` (latest SAM revision):
 using Ikon.AI.ImageSegmentation;
 
 var result = await ImageSegmenter.SegmentAsync(imageBytes, "image/png", "person");
-await File.WriteAllBytesAsync("mask.png", result.Segments[0].Mask.Data);
+await File.WriteAllBytesAsync("mask.png", await result.Segments[0].Mask.GetDataAsync());
 ```
 
 Use the constructor + config form for URL input, point/box prompts, or multiple masks:
@@ -250,17 +252,17 @@ using var segmenter = new ImageSegmenter(ImageSegmenterModel.Sam3);
 
 var result = await segmenter.SegmentImageAsync(new ImageSegmenterConfig
 {
-    Image = new ImageSegmenterConfig.InputImage { Url = "https://example.com/photo.png" },
+    InputImage = new InputImage { Url = "https://example.com/photo.png" },
     Prompt = "person",
     ReturnMultipleMasks = true
 });
 
 foreach (var segment in result.Segments)
 {
-    Log.Instance.Info($"Found segment with score {segment.Score}, mask is {segment.Mask.Data.Length} bytes");
+    Log.Instance.Info($"Found segment with score {segment.Score}");
 }
 
-await File.WriteAllBytesAsync("mask.png", result.Segments[0].Mask.Data);
+await File.WriteAllBytesAsync("mask.png", await result.Segments[0].Mask.GetDataAsync());
 ```
 
 ## DepthEstimation
@@ -275,7 +277,7 @@ One-shot from image bytes — defaults to `DepthAnythingV2` (cheap+fast):
 using Ikon.AI.DepthEstimation;
 
 var result = await DepthEstimator.EstimateAsync(imageBytes, "image/png");
-await File.WriteAllBytesAsync("depth.png", result.Depth.Data);
+await File.WriteAllBytesAsync("depth.png", await result.Depth.GetDataAsync());
 ```
 
 Use the constructor + config form for URL input or the Marigold tuning fields:
@@ -287,10 +289,10 @@ using var depthEstimator = new DepthEstimator(DepthEstimatorModel.DepthAnythingV
 
 var result = await depthEstimator.EstimateDepthAsync(new DepthEstimatorConfig
 {
-    Image = new DepthEstimatorConfig.InputImage { Url = "https://example.com/photo.png" }
+    InputImage = new InputImage { Url = "https://example.com/photo.png" }
 });
 
-await File.WriteAllBytesAsync("depth.png", result.Depth.Data);
+await File.WriteAllBytesAsync("depth.png", await result.Depth.GetDataAsync());
 ```
 
 ## MeshGeneration
@@ -381,7 +383,7 @@ using var enhancer = new VideoEnhancer(VideoEnhancerModel.TensorPixUpscale4xUltr
 
 var result = await enhancer.EnhanceVideoAsync(new VideoEnhancerConfig
 {
-    VideoUrl = "https://example.com/input.mp4"
+    Url = "https://example.com/input.mp4"
 });
 
 Log.Instance.Info($"Enhanced video URL: {result.Url}");
@@ -486,7 +488,7 @@ One-shot — returns a buffered WAV file:
 using Ikon.AI.SoundEffectGeneration;
 
 var effect = await SoundEffectGenerator.GenerateAsync("A thunderstorm with heavy rain");
-await File.WriteAllBytesAsync("thunder.wav", effect.AudioData);
+await File.WriteAllBytesAsync("thunder.wav", await effect.GetDataAsync());
 ```
 
 Use the constructor + config form for duration, looping, prompt influence, or streaming PCM chunks:
@@ -502,7 +504,38 @@ var result = await generator.GenerateSoundEffectFileAsync(new SoundEffectGenerat
     DurationSeconds = 5.0
 });
 
-await File.WriteAllBytesAsync("thunder.wav", result.AudioData);
+await File.WriteAllBytesAsync("thunder.wav", await result.GetDataAsync());
+```
+
+## MusicGeneration
+
+`Ikon.AI.MusicGeneration.MusicGenerator` generates music clips from text prompts, with optional audio-to-audio editing (input clips re-styled by the prompt). For short UI/game sound effects use `SoundEffectGenerator` instead.
+
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+
+One-shot — defaults to `ElevenLabsMusicV2` (supports duration control and editing) and returns a buffered, encoded audio file:
+
+```csharp
+using Ikon.AI.MusicGeneration;
+
+var music = await MusicGenerator.GenerateAsync("An upbeat 8-bit chiptune loop");
+await File.WriteAllBytesAsync("music.mp3", await music.GetDataAsync());
+```
+
+Use the constructor + config form for duration control, input audio (editing), seeding, or streaming PCM chunks via `GenerateMusicAsync`:
+
+```csharp
+using Ikon.AI.MusicGeneration;
+
+using var musicGenerator = new MusicGenerator(MusicGeneratorModel.ElevenLabsMusicV2);
+
+var result = await musicGenerator.GenerateMusicFileAsync(new MusicGeneratorConfig
+{
+    Prompt = "An upbeat 8-bit chiptune loop",
+    DurationSeconds = 10
+});
+
+await File.WriteAllBytesAsync("music.mp3", await result.GetDataAsync());
 ```
 
 ## WebScraping
@@ -511,7 +544,7 @@ await File.WriteAllBytesAsync("thunder.wav", result.AudioData);
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
-**Local browser-based models need `Ikon.AI.Scrape`:** the LocalPuppeteer and LocalPlaywright implementations ship in the optional `Ikon.AI.Scrape` package (and the Azure speech implementations elsewhere in the library ship in `Ikon.AI.Speech.Azure`) to keep the core library lean. Add a reference to the matching capability package when your app runs those models with its own API credentials or local browsers; without it they resolve through the Ikon AI service as usual.
+**Local browser-based models need `Ikon.AI.Scrape`:** the LocalPuppeteer and LocalPlaywright implementations ship in the optional `Ikon.AI.Scrape` package (and the Azure and Google speech implementations elsewhere in the library ship in `Ikon.AI.Speech.Azure` and `Ikon.AI.Speech.Google`) to keep the core library lean. Add a reference to the matching capability package when your app runs those models with its own API credentials or local browsers; without it they resolve through the Ikon AI service as usual.
 
 One-shot single page scrape — defaults to `Jina` (cheap+fast hosted reader) and returns the page as Markdown:
 
@@ -610,7 +643,7 @@ One-shot from raw file bytes (the file name carries the source format):
 using Ikon.AI.FileConversion;
 
 var pdf = await FileConverter.ConvertToPdfAsync(await File.ReadAllBytesAsync("brochure.docx"), "brochure.docx");
-await File.WriteAllBytesAsync("brochure.pdf", pdf.Data);
+await File.WriteAllBytesAsync("brochure.pdf", await pdf.GetDataAsync());
 ```
 
 Use the constructor + config form when the source is a URL or `AssetUri`, or when you need a custom timeout:
@@ -624,7 +657,7 @@ var convertedFile = await fileConverter.ConvertToPdfAsync(new FileConverterConfi
     Url = "https://example.com/brochure.docx",
     FileName = "brochure.docx"
 });
-await File.WriteAllBytesAsync("brochure.pdf", convertedFile.Data);
+await File.WriteAllBytesAsync("brochure.pdf", await convertedFile.GetDataAsync());
 ```
 
 ## OCR
@@ -679,13 +712,13 @@ foreach (var item in items)
 }
 ```
 
-Use the constructor + instance `RerankAsync` for a custom `Timeout` or when reranking many queries with the same instance:
+Use the constructor + instance `RerankAsync` for a custom timeout or when reranking many queries with the same instance:
 
 ```csharp
 using Ikon.AI.Reranking;
 
 using var reranker = new Reranker(RerankModel.CohereRerank4Fast);
-var items = await reranker.RerankAsync(documents, query, topN: 5);
+var items = await reranker.RerankAsync(new RerankerConfig { Documents = documents, Query = query, TopN = 5 });
 ```
 
 ## Classification
@@ -742,17 +775,18 @@ foreach (var embedding in embeddings)
 }
 ```
 
-Use the constructor + `GenerateEmbeddingsAsync` for batching control, a custom `Timeout`, or the generator's `MaxInputCount` / `EmbeddingVectorSize` properties:
+Use the constructor + `GenerateEmbeddingsAsync` for batching control, a custom timeout, or the generator's `MaxInputCount` / `EmbeddingVectorSize` properties:
 
 ```csharp
 using Ikon.AI.Embeddings;
 
 using var embeddingGenerator = new EmbeddingGenerator(EmbeddingModel.OpenAI3Small);
 
-var embeddings = await embeddingGenerator.GenerateEmbeddingsAsync(
-    ["Example sentence 1", "Example sentence 2", "Example sentence 3"],
-    EmbeddingType.Document
-);
+var embeddings = await embeddingGenerator.GenerateEmbeddingsAsync(new EmbeddingGeneratorConfig
+{
+    Inputs = ["Example sentence 1", "Example sentence 2", "Example sentence 3"],
+    Type = EmbeddingType.Document
+});
 ```
 
 ## Kernel
@@ -767,7 +801,7 @@ For large media that lives in the Ikon asset system, pass an `AssetUri` directly
 using Ikon.AI.Kernel;
 using Ikon.Common.Core.Assets;
 
-var assetUri = AssetUri.Parse("assets://space/abc123/cloud-file/clips/demo.mp4");
+var assetUri = new AssetUri("assets://space/abc123/cloud-file/clips/demo.mp4");
 
 var context = new KernelContext();
 context = context.Add(new MessageBlock(MessageBlockRole.User, new IMessagePart[]
@@ -781,7 +815,7 @@ When the target model runs on Google Vertex (current Gemini models) and the asse
 
 ## Chat
 
-`Ikon.AI.Chat.BasicChat` orchestrates multi-turn assistant conversations on top of a shader, with built-in message history (capped by `MaxHistoryLength`), cancellation, and a `RenderedShader` event for inspecting the rendered prompt.
+Multi-turn assistant conversations are built with the Emerge API in `Ikon.AI.Emergence`: carry the `KernelContext` returned by each `Emerge.Run` call (via `FinalAsync`) into the next turn and the model remembers the whole conversation — no manual history bookkeeping.
 
 ## Retrieving
 

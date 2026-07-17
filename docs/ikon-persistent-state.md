@@ -25,6 +25,10 @@ That's it. The framework loads from cloud storage before `Main()` runs and saves
 
 Heuristic: if you can't articulate why it should be `Global` or `User`, it's `Session`. The session identity is what the app already declared as its routing key — using the same key for storage means your data partitions match how your app instances partition.
 
+Each scope also has persistent collection variants — `PersistentReactiveList<T>` / `PersistentSessionReactiveList<T>` / `PersistentUserReactiveList<T>`, and the same trio for `ReactiveHashSet<T>` and `ReactiveDictionary<TKey, TValue>`. Use these instead of wrapping a collection in a `Persistent...Reactive<List<T>>`.
+
+The user-scoped classes additionally expose per-user accessors usable outside an active user scope (background tasks): `ValueFor(userId)`, `SetFor(userId, value)`, and `UpdateFor(userId, ...)` on `PersistentUserReactive<T>`; the collection variants have equivalents like `AddFor` / `RemoveFor` / `ClearFor`.
+
 ## Three backends — pick by what you store
 
 ```csharp
@@ -75,7 +79,7 @@ You almost never need `key:` for fields. Field names are already stable. Only re
 
 ## Save semantics
 
-- **Load**: parallel for all persistent reactives, finishes before `Main()` runs. Your code sees persisted values from the start.
+- **Load**: parallel for all persistent reactives, finishes before `Main()` runs. Your code sees persisted values from the start. (User-scoped reactives load per user: the primary user's partition is preloaded before `Main()`; other users' partitions load lazily the first time their scope is touched.)
 - **Save**: parallel for all persistent reactives, on `StoppingAsync` (graceful shutdown).
 - **Crashes lose unsaved changes.** If a value must survive a crash, also write it through a side-channel (webhook, direct DB, …). Don't try to bolt save-on-every-change on top — for high-write durability, store it in postgres directly through `app.Databases`.
 
@@ -86,7 +90,7 @@ You almost never need `key:` for fields. Field names are already stable. Only re
 - ❌ Using `Public` backend for anything sensitive — assets get a real URL on the open web.
 - ❌ Constructing AssetUris by hand for state that fits a `PersistentXxxReactive`.
 - ❌ Using `Guid.NewGuid()` as `key:` — it changes on restart.
-- ❌ Reading the postgres backend in a tight loop — every read is a roundtrip; cache locally if you need it often.
+- ❌ Assuming the `Postgres` backend reads or writes through on every access — like the other backends, the row is only read at load and written at save; in between, the value lives in memory. For read-your-writes durability, go through `app.Databases` directly.
 
 ## When to drop down to `Asset.Instance` directly
 

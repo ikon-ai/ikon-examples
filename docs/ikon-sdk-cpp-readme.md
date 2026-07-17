@@ -7,6 +7,7 @@ The Ikon AI C++ SDK provides a way to connect to Ikon AI App from C++ applicatio
 - Two authentication modes: API Key, Local Development
 - Connection state management with callbacks
 - Protocol message sending and receiving
+- Function registry for registering and calling shared cross-client functions
 - Configurable timeouts and reconnection
 - Header-only library
 
@@ -217,6 +218,52 @@ payload.someField = "value";
 client.SendMessage(payload);
 ```
 
+## Shared Functions
+
+`FunctionRegistry` lets a client register functions and call functions registered by other clients in the same session. Attach it to a connected client (e.g. in the `Ready` callback); it intercepts `MessageReceived` to handle function-related protocol messages automatically.
+
+```cpp
+FunctionRegistry registry;
+
+client.Ready = [&]()
+{
+    // Attach after the client is connected
+    registry.Attach(client);
+
+    // Register a function that other clients can call
+    registry.RegisterFunction(
+        "Echo",                                       // name
+        "Echoes back the first argument",             // description
+        [](const nlohmann::json& args) -> nlohmann::json
+        {
+            return args.empty() ? nullptr : args[0];
+        },
+        {{"value", "string", "Value to echo back"}},  // parameters
+        "string",                                     // result type name
+        FunctionVisibility::Shared);
+
+    client.SignalReady();
+};
+
+client.Connect();
+
+// Wait for a remote function to become available
+if (registry.WaitForFunction("Add", std::chrono::seconds(15)))
+{
+    // Call it, blocking until the result is received or timeout expires
+    nlohmann::json result = registry.CallRemote("Add", nlohmann::json::array({5, 3}));
+
+    // Or asynchronously via a future
+    std::future<nlohmann::json> future = registry.CallRemoteAsync("Add", nlohmann::json::array({5, 3}));
+}
+
+// Detach before disconnecting (restores the original MessageReceived callback)
+registry.Detach();
+client.Disconnect();
+```
+
+Additional members: `Call` (invoke a local function), `HasFunction`, `GetFunctionNames`, `RemoveFunction`, and the `FunctionRegistered` / `FunctionUnregistered` callbacks.
+
 ## Interface Implementations
 
 The SDK requires you to provide implementations of three interfaces. Example implementations are included in the SDK.
@@ -344,6 +391,8 @@ config.parameters = {
 | `IkonClient` | Main client class for connecting to Ikon servers |
 | `IkonClientConfig` | Configuration struct for the client |
 | `ConnectionState` | Enum: `Idle`, `Connecting`, `Connected`, `Reconnecting`, `Offline` |
+| `FunctionRegistry` | Registry for local and shared (cross-client) functions |
+| `FunctionVisibility` | Enum: `Local`, `Shared` |
 
 ### Configuration Types
 

@@ -5,8 +5,8 @@ harness (`Ikon.Crosswind.Test/Conformance/`, run with
 `IKON_RUN_TAILWIND_CONFORMANCE=1`) that compiles a ~1030-class corpus through
 both Crosswind and the real Tailwind CLI (pinned 4.1.11) and compares output.
 As of 2026-07-05 parity is **98.4%** (631 byte-match + 374 semantically
-equivalent of 1021; 10 Crosswind-only extensions such as the motion syntax are
-excluded). The remaining **16 divergent classes** are all deliberate, listed in
+equivalent of 1021; 10 Crosswind-only extensions such as the `animate-in`/
+`animate-out` enter/exit utilities and the `theme-*:` variants are excluded). The remaining **16 divergent classes** are all deliberate, listed in
 `conformance-allowlist.txt`, and documented here. Anything not on that list
 fails CI.
 

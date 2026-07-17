@@ -19,10 +19,13 @@ Structured events emitted by IkonServer and the core Ikon libraries via `Log.Ins
 
 | Event | When | Payload |
 |---|---|---|
+| `client_rejected_limit` | An external client connect was rejected (HTTP 429) because the server is at its client limit | `count`, `limit` |
 | `client_authenticated` | Connect token authenticated successfully | `user`, `clientSessionId` |
 | `client_authentication_failed` | Connect token rejected | `user`, `clientSessionId` |
 | `user_joined` | A user joins the channel (first session) | `user`, `clientSessionId` |
-| `client_joined` | A client/session joins the channel | `user`, `clientSessionId` |
+| `client_joined` | A client/session joins the channel | `user`, `clientSessionId`, `clientContext` (PascalCase projection: `AuthSessionId`, `Description`, `ProductId`, `VersionId`, `InstallId`, `Locale`, `ContextType`, `UserType`, `PayloadType`) |
+| `client_reconnected` | A soft-disconnected session rejoins (reconnect, not a fresh join) | `user`, `clientSessionId` |
+| `client_soft_disconnected` | A session is soft-disconnected (kept in GlobalState, may reconnect) | `user`, `clientSessionId` |
 | `client_left` | A client/session leaves the channel | `user`, `clientSessionId` |
 | `user_left` | A user leaves the channel (last session) | `user`, `clientSessionId` |
 
@@ -30,7 +33,17 @@ Structured events emitted by IkonServer and the core Ikon libraries via `Log.Ins
 
 | Event | When | Payload |
 |---|---|---|
-| `app_initialized` | Ikon AI App has finished initialising (functions registered, `Main()` done, persistent storage loaded) — fires immediately before `SignalReadyAsync`. Memory snapshot reflects the post-init steady state. | `appType`, `processMemoryMb`, `managedMemoryMb`, `memoryDetails` (single-line GC breakdown from `DiagnosticUtils.BuildMemoryInfo`), `initDurationMs`, `functionCount`, `webhookCount` |
+| `app_initialized` | Ikon AI App has finished initialising (functions registered, `Main()` done, persistent storage loaded) — fires immediately before `SignalReadyAsync`. Memory metrics are intentionally omitted: gathering them cost ~15ms on the cold-start path. | `appType`, `initDurationMs`, `functionCount`, `endpointCount` |
+
+## Connect latency timeline
+
+`*_connect_timeline` events break a single client-triggered server provision/boot into per-tier timings, stitched together on `connectTraceId`. Each tier is emitted only when the client's connect supplied a trace id.
+
+| Event | Source | Payload |
+|---|---|---|
+| `hostagent_connect_timeline` | `HostAgent` — one row per client-triggered provision (cold start or warm prestart swap) | `connectTraceId`, `serverSessionId`, `spaceId`, `appBundleId`, `ikonServerReleaseId`, `path` (`cold` / `warm`), `bundleResolveMs`, `bundleCacheHit`, `bundleDownloaded`, `containerOrSwapMs`, `mountsOrStageMs`, `totalMs` |
+| `server_connect_timeline` | `IkonServer` — warm `CORE_SERVER_INIT` boot cost attributed to the connect that triggered the prestart swap | `connectTraceId`, `serverSessionId`, `bootPath` (`warm`), `serverInitBlockMs`, `pluginInitMs` |
+| `app_connect_timeline` | `Ikon.App` — app-init cost broken down by internal task | `connectTraceId`, `appType`, `initDurationMs`, `ctorMs`, `secretsMs`, `appCreateMs`, `bridgeMs`, `endpointsMs`, `storageLoadMs`, `mainMs` |
 
 ## RPC failures
 
@@ -38,7 +51,7 @@ Structured events emitted by IkonServer and the core Ikon libraries via `Log.Ins
 
 | Event | When | Payload |
 |---|---|---|
-| `rpc_server_call_failed` | A function call was rejected at validation or threw during execution in `FunctionRegistry.Handler` | `callId`, `functionName`, `version` (requested), `versionResolution` (`Exact` / `Greatest` / `Unversioned` / `Other` / `None`), `callerSessionId`, `errorKind`, `errorMessage`, `elapsedMs` |
+| `rpc_server_call_failed` | A function call was rejected at validation or threw during execution in `FunctionRegistry.Handler` | `callId`, `functionName`, `version` (requested), `versionResolution` (`None` / `Exact` / `Floor` / `Greatest` / `Current` / `Unversioned` / `Other`), `callerSessionId`, `errorKind`, `errorMessage`, `elapsedMs` |
 | `rpc_client_call_failed` | An SDK call from `IkonAIConnection.ExecuteWithRetryAsync` succeeded only after a retry, or exhausted all retries and threw. Not emitted on first-attempt success. | `functionName`, `attemptsMade`, `finalOutcome` (`succeeded_after_retry` / `failed`), `lastErrorKind`, `lastErrorMessage`, `totalElapsedMs` |
 
 `errorKind` taxonomy (server side): `Timeout`, `NotFound`, `VersionMismatch`, `PolicyDenied`, `ArgumentBinding`, `Execution`, `InvalidArgument`.
@@ -53,6 +66,7 @@ Top-level crash markers for the platform's CLI / utility processes. All share th
 |---|---|
 | `tool_failed` | `IkonTool` (the `ikon` CLI) |
 | `build_util_failed` | `BuildUtil` |
+| `codegen_docs_gen_failed` | `CodegenDocsGen` |
 | `stress_tester_failed` | `StressTester` |
 | `proxy_server_failed` | `IkonProxyServer` |
 
@@ -64,4 +78,4 @@ Top-level crash markers for the platform's CLI / utility processes. All share th
 - `{eventName}_cancelled`
 - `{eventName}_failed`
 
-Payload (same for all three): `modelName`, `elapsedSeconds`, plus a caller-defined `additionalFields` object, the completion details, the exception (on `_failed` only), `isRemote`, `isUserCredential`. Used primarily to wrap LLM and other model-backed calls.
+Payload (same for all three): `modelName`, `elapsedSeconds`, plus a caller-defined `additionalFields` object, the completion details, the exception (`errorType`, `errorMessage`, `stackTrace` — on `_failed` only), `isRemote`, `isUserCredential`. Used primarily to wrap LLM and other model-backed calls.

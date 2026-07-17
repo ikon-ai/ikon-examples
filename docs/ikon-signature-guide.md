@@ -57,7 +57,7 @@ All documents in a single signing session must share the same MIME type — a mi
 │              │                                                    │                  │
 │              │  5. poll GET /signatures/orders/:id (every 10s)    │                  │
 │              │ ────────────────────────────────────────────────►  │                  │
-│              │  6. status=packaged + signedDocumentBase64 + hash  │                  │
+│              │  6. status=packaged + signedDocumentItemId + hash  │                  │
 │              │ ◄────────────────────────────────────────────────  │                  │
 └──────────────┘                                                    └──────────────────┘
 ```
@@ -90,10 +90,11 @@ The signature flow is always **server-initiated**: only an Ikon app server holdi
                   │     signed       │
                   └──────────────────┘
                            │ PDF/PAdES:  package.completed webhook → backend fetches container
-                           │ Text/XAdES: same handler fetches signature output directly
+                           │ Text/XAdES: no package.completed fires — the signing-session.completed
+                           │             handler fetches the signature output directly
                            ▼
                   ┌──────────────────┐
-                  │    packaged      │  ← terminal SUCCESS (signedDocumentBase64 present)
+                  │    packaged      │  ← terminal SUCCESS (signedDocumentItemId present)
                   └──────────────────┘
 
   Terminal failure modes:
@@ -106,9 +107,9 @@ The helper polls every 10s for up to 1 hour; on `packaged` it returns the `Signe
 
 ## Signed-document verification
 
-The backend ships the signed document bytes as base64 plus a SHA-256 hash (base64url, no padding). The .NET helper:
+The backend ships the signed document as an item reference (`signedDocumentItemId`) plus a SHA-256 hash (base64url, no padding). The .NET helper:
 
-1. Decodes `signedDocumentBase64`.
+1. Resolves `signedDocumentItemId` to a signed download URL and downloads the bytes.
 2. Recomputes SHA-256 over the bytes.
 3. Compares against `signedDocumentHash` — throws on mismatch (transit corruption).
 
@@ -125,7 +126,7 @@ For most "user signs a document" flows, `EidHub` is the right policy. `PkiSignin
 
 ## Cost attribution
 
-`CostAttributionKey` (optional) is an opaque app-defined label that the backend records on the order. Use it to correlate signing cost back to a domain entity (case ID, transaction ID, customer ID) for billing. See [Ikon.App Billing Guide](ikon-app-billing-guide.md) for the broader monetization model.
+`CostAttributionKey` (optional) is an opaque app-defined label that the backend records on the order. Use it to correlate signing cost back to a domain entity (case ID, transaction ID, customer ID) for billing. See [Ikon.App Payments Guide](ikon-app-payments-guide.md) for the broader monetization model.
 
 ## Field reference
 
@@ -138,7 +139,7 @@ For most "user signs a document" flows, `EidHub` is the right policy. `PkiSignin
 | `Signer` | yes | One `SignatureSigner(Policy, Vendor?, IdpNames?, RequestedAttributes?)`. Multi-signer is not supported in this iteration. |
 | `CostAttributionKey` | no | Opaque correlation key for billing. |
 | `Title` | no | Display title for the signing ceremony (Signicat UI). Defaults to `Signature {Purpose}`. |
-| `ClientReturnUrl` | no | URL Signicat redirects the recipient back to after the ceremony. Defaults to the platform's `/signatures/redirect-landing` landing page. |
+| `ClientReturnUrl` | no | URL the platform's `/signatures/redirect-landing` page forwards the recipient's browser to after the ceremony, with `signing=<outcome>&orderId=…` appended. When unset, the landing page shows a plain "you may close this window" page instead. |
 
 ### `SignedDocument` (returned to app)
 
@@ -188,5 +189,4 @@ catch (InvalidOperationException ex) when (ex.Message.Contains("failed"))
 ## Related
 
 - [Asset System Developer Guide](asset-system-developer-guide.md) — how to persist `signed.Bytes` in app storage.
-- [Ikon.App Billing Guide](ikon-app-billing-guide.md) — cost attribution and monetization context.
-- See `tasks/signicat-integration.md` for the full design rationale of the platform-level signature service.
+- [Ikon.App Payments Guide](ikon-app-payments-guide.md) — cost attribution and monetization context.

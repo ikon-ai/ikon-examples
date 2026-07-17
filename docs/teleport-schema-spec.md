@@ -262,13 +262,14 @@ Compilers normalize each `.tp` file into this in-memory shape. A serialized exam
   "type": "AudioStreamBegin",
   "namespace": "Example.Namespace",
   "version": 3,
-  "layoutHash": "0x8fd2c0ea",
+  "opcode": "0x00000001",
+  "layoutHash": "0x50f602c5",
   "fields": [
-    { "name": "Description", "type": "string", "id": "0x5f1c9a6e" },
-    { "name": "Codec", "type": "AudioCodec", "id": "0x7de4e18f" },
-    { "name": "SampleRate", "type": "int32", "id": "0x1ab9c8f2" },
-    { "name": "Channels", "type": "int32", "id": "0x3b1e92c9" },
-    { "name": "BitDepth", "type": "int32", "default": 16, "id": "0x17de889b" }
+    { "name": "Description", "type": "string", "id": "0x5193a16b" },
+    { "name": "Codec", "type": "AudioCodec", "id": "0xc3c9400a" },
+    { "name": "SampleRate", "type": "int32", "id": "0xf47d2c6e" },
+    { "name": "Channels", "type": "int32", "id": "0x90edf947" },
+    { "name": "BitDepth", "type": "int32", "id": "0xadb7a8a5", "default": 16 }
   ]
 }
 ```

@@ -478,7 +478,7 @@ public static class MyMapExtensions
 
 1. **Data classes** use `[JsonPropertyName]` to control the JSON key names — these must match the TypeScript interfaces exactly
 2. **`view.CreateAction<T>(callback)`** registers a typed callback and returns an action ID string. When the frontend calls `dispatchAction(actionId, payload)`, the payload is deserialized as `T` and the callback fires
-3. **`view.AddNode(nodeType, props)`** emits a UI node. The `nodeType` string (`"my-map"`) must match the resolver check in the frontend. Props are a `Dictionary<string, object?>` — null values are omitted from the diff
+3. **`view.AddNode(nodeType, props)`** emits a UI node. The `nodeType` string (`"my-map"`) must match the resolver check in the frontend. Props are a `Dictionary<string, object?>` — a null value is equivalent to an absent prop (the frontend prop helpers treat null as unset, and the diff protocol represents removed props as null)
 
 ## Step 3: Using the Map in Your App
 

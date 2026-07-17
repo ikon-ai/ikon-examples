@@ -6,9 +6,9 @@ The Ikon AI TypeScript SDK provides a way to connect to Ikon AI App from browser
 
 - Three authentication modes: API Key, Local Development, Session Token
 - UI-friendly connection states with automatic slow connection detection
-- Automatic reconnection with exponential backoff
+- Automatic reconnection with fixed-delay retries
 - Web Worker support for off-UI-thread protocol processing
-- Smart endpoint selection (WebTransport → WebSocket → proxied variants)
+- Smart endpoint selection (WebSocket → proxied variants; opt-in WebTransport preferred when enabled)
 - Function registration and remote invocation
 - Audio/video playback and capture pipelines
 - Framework-agnostic UI state management (sdk-ui)
@@ -214,9 +214,8 @@ The SDK automatically attempts to reconnect when the connection is lost unexpect
 const client = new IkonClient({
   // ... authentication config ...
   timeouts: {
-    slowConnectionThresholdMs: 5000,   // Time before 'connectingSlow' state
+    slowConnectionThresholdMs: 5000,   // Slow-connection threshold (drives isConnectingSlow in the React layer)
     connectionTimeoutMs: 180000,        // Connection timeout (3 minutes)
-    keepaliveTimeoutMs: 15000,         // Keepalive timeout
     reconnectBackoffMs: 2000,          // Fixed delay between reconnect attempts
     maxReconnectAttempts: 2,           // Max attempts before going offline
   },
@@ -580,9 +579,9 @@ const client = new IkonClient({
   timeouts: {
     slowConnectionThresholdMs: 5000,   // Default: 5000
     connectionTimeoutMs: 180000,        // Default: 180000 (3 minutes)
-    keepaliveTimeoutMs: 15000,         // Default: 15000
     reconnectBackoffMs: 2000,          // Default: 2000
     maxReconnectAttempts: 2,           // Default: 2
+    actionAckTimeoutMs: 5000,          // Default: 5000 (server ACK window for action calls)
   },
 });
 ```
@@ -701,6 +700,8 @@ The SDK provides typed errors for different failure scenarios:
 | `SpaceNotFoundError` | Space not found for given domain |
 | `NoChannelsError` | No channels available in the space |
 | `AccessDeniedError` | Server denied access (e.g., domain allowlist blocks email domain) |
+| `ServerFullError` | Server at capacity, connection rejected (terminal, no retry) |
+| `BrowserNotSupportedError` | Browser lacks required runtime features (terminal, exposes `missingFeatures`) |
 
 ```typescript
 import { AuthenticationError, MaxRetriesExceededError } from '@ikonai/sdk';
@@ -792,6 +793,8 @@ const client = new IkonClient({
 | `SpaceNotFoundError` | Space not found |
 | `NoChannelsError` | No channels available |
 | `AccessDeniedError` | Server denied access (e.g., domain allowlist) |
+| `ServerFullError` | Server at capacity (terminal, no retry) |
+| `BrowserNotSupportedError` | Browser missing required features (terminal) |
 | `FunctionCallError` | Remote function call failure with error type and stack trace |
 
 ### Utility Functions

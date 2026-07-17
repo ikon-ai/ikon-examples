@@ -119,7 +119,7 @@ or
 ```
 ikon app payments offer create --id pro --name Pro --amount 999 --currency eur --interval month
 ikon app payments offer list
-ikon app payments offer remove --id pro
+ikon app payments offer delete --id pro
 ```
 
 For Stripe this provisions a Product + Price (`lookup_key = offerId`); for providers without a catalog

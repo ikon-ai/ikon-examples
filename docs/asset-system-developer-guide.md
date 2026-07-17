@@ -30,7 +30,6 @@ Key rules:
 | `CloudFile` | `cloud-file` | Private cloud object storage optimized for arbitrary binary payloads. Supports signed URLs, metadata, and optimistic concurrency tokens. |
 | `CloudFilePublic` | `cloud-file-public` | Same backing service as `CloudFile` but exposes public URLs for assets meant to be shared openly. |
 | `CloudJson` | `cloud-json` | JSON documents persisted through the Hub API, suited for low-latency configuration payloads. Supports optimistic concurrency via the `LastModified` timestamp. |
-| `CloudProfile` | `cloud-profile` | Legacy profile projection support. Marked obsolete and scheduled for removal once dependent workloads migrate. |
 
 Each storage reports metadata such as MIME type, byte size, update timestamp, tags, download URL (when applicable), and the backend-specific identifier through `AssetMetadata` so callers can perform fine-grained reconciliation. Storages with a canonical native addressing scheme may also expose it via `AssetMetadata.NativeUri` (for example `gs://bucket/object` on GCS-backed cloud files); downstream consumers that recognise the scheme can use it as a zero-copy fast path, and callers that do not should ignore it.
 
@@ -126,7 +125,7 @@ Console.WriteLine($"Last updated {metadata.LastModified:O}");
 
 ```csharp
 var download = await assets.GetReadStreamAsync(photoUri);
-await using (download)
+using (download)
 {
     await using var destination = File.Create("./downloaded.png");
     await download.Content.CopyToAsync(destination);
@@ -149,7 +148,7 @@ var layout = await assets.GetAsync<DashboardLayout>(
 `GetOrUpdateWithMetadataAsync` wires a callback to an asset. The callback is invoked immediately with the current content and again whenever the underlying storage reports an add, change, or delete event. Provide `onAssetNotFound` to seed defaults before subscribing.
 
 ```csharp
-await assets.GetOrUpdateWithMetadataAsync(
+await assets.GetOrUpdateWithMetadataAsync<Settings>(
     settingsUri,
     async (args, content) =>
     {
