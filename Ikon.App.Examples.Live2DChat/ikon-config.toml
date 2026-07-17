@@ -26,13 +26,24 @@ DomainAllowlist = []
 [BootSnapshot]
 Enabled = false
 
+# Versioned binary data folders for the app. Binaries are stored in the Ikon Asset store and git only
+# tracks small .ikonasset pointer files, so even large data sets keep the repo light. Managed with the
+# 'ikon app assets' commands.
+[Assets]
+# Top-level folders whose files are public: offloaded to public asset storage and loadable by URL from
+# the frontend. Binaries in any other folder stay private and are only readable by the C# app.
+PublicFolders = ["public"]
+
+# Custom packaging steps for 'ikon app bundle' and 'ikon app deploy'
+[Package]
+# Commands run in the app root after the app + frontend build, before the bundle is zipped. The bundle
+# staging directory is exposed as IKON_BUNDLE_DIR, so a command can write processed output straight
+# into the package (e.g. ["python scripts/pack_assets.py"])
+PrePackage = []
+
 # Target information for deployment (automatically configured with 'ikon app config')
 [Target]
 OrganisationId = ""
 SpaceId = ""
 ChannelId = ""
 Name = ""
-[Assets]
-PublicFolders = ["public"]
-[Package]
-PrePackage = []

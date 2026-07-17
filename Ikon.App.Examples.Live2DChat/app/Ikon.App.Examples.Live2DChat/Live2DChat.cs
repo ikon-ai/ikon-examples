@@ -1,8 +1,6 @@
 using Ikon.App.Examples.Live2DChat.Live2D;
 using Ikon.Parallax.Components.Standard;
 
-#pragma warning disable CS0618
-
 return await App.Run(args);
 
 public record SessionIdentity(string UserId);
@@ -47,8 +45,16 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
     private readonly CancellationTokenSource _appCts = new();
     private bool _messageProcessorStarted;
 
-    // LLM Chat
-    private BasicChat Chat { get; } = new(new AssetUri(AssetClass.EmbeddedFile, "Ikon/App/Examples/Live2DChat/mind.shader"));
+    // LLM chat: the KernelContext carried across turns holds the conversation history
+    private const string AssistantSystemPrompt =
+        """
+        You are a friendly and helpful Live2D virtual assistant.
+        You have an expressive animated avatar that users can see.
+        Keep your responses conversational, warm, and concise - typically 1-3 sentences.
+        You can help with questions, have casual conversations, or just be a friendly presence.
+        """;
+
+    private KernelContext _chatContext = new();
 
     private enum ChatRole { User, Assistant }
     private sealed record ChatMessage(ChatRole Role, Reactive<string> Content);
@@ -141,7 +147,6 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
             _messageQueue.Writer.TryComplete();
             StopSpeaking();
             _speechCts?.Dispose();
-            await Chat.DisposeAsync();
             _appCts.Dispose();
         };
 
@@ -644,11 +649,17 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
 
                 try
                 {
-                    // Generate AI response
-                    Chat.AddUserMessage(userText);
-                    var reply = await Chat.GenerateStringAsync(cancellationToken: ct);
+                    // Generate AI response; the returned context carries the updated history
+                    var (reply, context) = await Emerge.Run<string>(LLMModel.Default, _chatContext, pass =>
+                    {
+                        pass.SystemPrompt = AssistantSystemPrompt;
+                        pass.UseLastMessages(10);
+                        pass.Command = userText;
+                    }, ct).FinalAsync(ct);
+
+                    _chatContext = context;
+                    reply ??= "";
                     assistantContent.Value = reply;
-                    Chat.AddModelMessage(reply);
                     _chatMessagesVersion.Value++;
 
                     // Speak the response

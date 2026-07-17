@@ -88,9 +88,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="mind.shader" />
-  </ItemGroup>
-  <ItemGroup>
     <None Include="Data\**\*" CopyToOutputDirectory="Always" />
   </ItemGroup>
 </Project>
