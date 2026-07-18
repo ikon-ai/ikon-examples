@@ -98,6 +98,21 @@ user/org, or when there is no current user in scope: a **background task**, or �
 **`PaymentEventReceived` handler** (a server-side push, not tied to any client). Omitting it there throws a
 clear error telling you to supply it; the event's `Payload()` carries the customer it concerns.
 
+### Anonymous (guest) users — refused by default
+
+A guest (a user who hasn't signed in) still has a valid user id, but it is **device-scoped**: signing in
+later gives them a **different** user id, so a payment taken under the guest id — and any entitlement it
+granted — would not follow them. `CreatePaymentLinkAsync` therefore **throws** when the paying customer
+is a connected guest. Either require sign-in before taking the payment, or opt in explicitly:
+
+```csharp
+app.Payments.AllowAnonymousPayments = true;   // accept guest payments (e.g. anonymous tips)
+```
+
+Opt in only for purchases the app can afford to lose track of — say an ad-hoc tip that grants no
+entitlement. The guard fires only when it can see the payer: an explicit `customerKey` that matches no
+connected client (an offline user, an org/tenant id) passes through.
+
 Statuses and kinds are typed enums (`PriceKind`,
 `SubscriptionStatus`, `PaymentStatus`, `PaymentKind`, `RefundStatus`, `EntitlementSource`), each with an
 `Unknown` fallback.

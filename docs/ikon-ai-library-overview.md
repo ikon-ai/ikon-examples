@@ -207,7 +207,7 @@ var image = await ImageGenerator.GenerateAsync("A santa dancing in the snow");
 await File.WriteAllBytesAsync("santa.png", await image.GetDataAsync());
 ```
 
-**Result delivery:** media results (image, music, sound effect, converted file, segmentation mask, depth map) carry a `Kind` field. Small payloads arrive inline (`Kind == ResultKind.Data`, `Data` non-null); payloads over a few MB are automatically uploaded and arrive as a signed download URL valid for roughly one hour (`Kind == ResultKind.Url`, `Url` non-null, `Data` null) — this keeps results within the protocol's message size limit. `await result.GetDataAsync()` returns the bytes either way, so prefer it over reading `Data` directly. Set `ResultDelivery = ResultDelivery.Url` in the config to always receive a URL.
+**Result delivery:** media results (image, music, sound effect, converted file, segmentation mask, depth map) carry a `Kind` field. By default they arrive inline (`Kind == ResultKind.Data`, `Data` non-null). When a result is returned from a remotely hosted AI function and its payload exceeds a few MB, it is automatically uploaded and arrives as a signed download URL valid for roughly one hour (`Kind == ResultKind.Url`, `Url` non-null, `Data` null) to stay within the protocol's message size limit; consumed locally in-process, large payloads stay inline. `await result.GetDataAsync()` returns the bytes either way, so prefer it over reading `Data` directly. Set `ResultDelivery = ResultDelivery.Url` in the config to always receive a URL.
 
 Use the constructor + config form for negative prompts, resolution, seeding, batches, or input images:
 
