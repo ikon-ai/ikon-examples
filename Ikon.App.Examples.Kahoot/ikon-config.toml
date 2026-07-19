@@ -17,6 +17,11 @@ Enabled = false
 Methods = ["google"]
 # If non-empty, only allow users with email addresses from these domains to authenticate (e.g. ["mycompany.com"])
 DomainAllowlist = []
+# Deferred login: when true (and "guest" is in Methods), visitors connect immediately as a guest
+# session instead of being blocked by a login screen. Branch on Context.IsAnonymous in the app to
+# decide what guests see, and trigger sign-in on demand with ClientFunctions.LoginAsync("google").
+# Combine with [BootSnapshot] Routes to make a login-gated app's landing page SEO-crawlable.
+DeferLogin = false
 
 # Boot snapshot: capture the app's initial UI at build/deploy time so the first paint appears
 # instantly. Off by default. The snapshot is a PUBLIC asset, but it is privacy-safe by default —
@@ -25,6 +30,20 @@ DomainAllowlist = []
 # library overview docs.
 [BootSnapshot]
 Enabled = false
+# Per-route snapshots + prerendered HTML for SEO. List the public routes to capture (e.g. ["/",
+# "/pricing"]); each is rendered to crawlable static HTML at bundle time and a sitemap.xml/robots.txt
+# are generated. Requires a guest-openable app (Auth disabled, or "guest" in Auth.Methods). Content
+# routes (one per listing/article) can be added in app code via app.OnSnapshotRoutes(...). "/" is
+# always captured. See the "Per-route snapshots and SEO" section of the Parallax library overview docs.
+Routes = []
+# Quiet window (ms) treated as "settled" when a route has no ready signal
+SettleMs = 750
+# True = wait for ClientFunctions.SnapshotReadyAsync() before capturing (for async-loading routes)
+WaitForReady = false
+# Per-route cap (ms) on settling
+RouteTimeoutMs = 10000
+# Cap after unioning static + app-provided routes
+MaxRoutes = 50
 
 # Versioned binary data folders for the app. Binaries are stored in the Ikon Asset store and git only
 # tracks small .ikonasset pointer files, so even large data sets keep the repo light. Managed with the

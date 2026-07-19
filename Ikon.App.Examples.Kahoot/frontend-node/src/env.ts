@@ -4,6 +4,7 @@ import type { AuthConfig, LoginMethod } from '@ikonai/sdk-react-ui';
 
 declare const __IKON_AUTH_ENABLED__: boolean | undefined;
 declare const __IKON_AUTH_METHODS__: LoginMethod[] | undefined;
+declare const __IKON_AUTH_DEFER_LOGIN__: boolean | undefined;
 declare const __IKON_AUTH_SPACE_ID__: string | undefined;
 declare const __IKON_BACKEND_URL__: string | undefined;
 declare const __IKON_AUTH_URL__: string | undefined;
@@ -20,6 +21,7 @@ declare global {
       enabled: boolean;
       methods: LoginMethod[];
       spaceId: string;
+      deferLogin?: boolean;
       backendUrl?: string;
       authUrl?: string;
       devLoginToken?: string;
@@ -31,6 +33,7 @@ declare global {
       port: number;
     };
     __IKON_BOOT_SNAPSHOT_FILE__?: string;
+    __IKON_BOOT_SNAPSHOT_ROUTE__?: string;
   }
 }
 
@@ -63,6 +66,8 @@ window.__IKON_AUTH_CONFIG__ = {
   enabled: __IKON_AUTH_ENABLED__,
   methods: __IKON_AUTH_METHODS__,
   spaceId: __IKON_AUTH_SPACE_ID__,
+  // Optional define (older scaffolds don't emit it) — absence means no deferred login.
+  deferLogin: (typeof __IKON_AUTH_DEFER_LOGIN__ !== 'undefined' && __IKON_AUTH_DEFER_LOGIN__) || undefined,
   backendUrl: __IKON_BACKEND_URL__ || undefined,
   authUrl: __IKON_AUTH_URL__ || undefined,
   devLoginToken: (typeof __IKON_DEV_LOGIN_TOKEN__ !== 'undefined' && __IKON_DEV_LOGIN_TOKEN__) || undefined,
@@ -75,6 +80,8 @@ window.__IKON_LOCAL_IKON_SERVER_CONFIG__ = {
   port: __IKON_LOCAL_IKON_SERVER_PORT__,
 };
 
-window.__IKON_BOOT_SNAPSHOT_FILE__ = __IKON_BOOT_SNAPSHOT_FILE__ || '';
+// ||= so a prerendered page's inline script (which pins the exact per-route snapshot file before
+// any module script runs) wins over the build-time define, which only knows the root snapshot.
+window.__IKON_BOOT_SNAPSHOT_FILE__ ||= __IKON_BOOT_SNAPSHOT_FILE__ || '';
 
 export const authConfig = window.__IKON_AUTH_CONFIG__ as AuthConfig;
