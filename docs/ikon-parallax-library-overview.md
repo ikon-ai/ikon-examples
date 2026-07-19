@@ -476,6 +476,104 @@ if (view.IsSnapshot) { /* snapshot-only branch */ }
 
 **Preview the snapshot UI in a browser** by opening the running app with `?ikon-snapshot=true`. The SDK then connects as a snapshot client — the same `Context.IsSnapshot = true` render path the build-time capture uses — so the live page shows exactly what the boot snapshot bakes: every unrevealed element as a skeleton, `SnapshotReveal` regions showing real content, `SnapshotHide` elements gone, `SnapshotOnly` filler present, and only the active tab's panel rendered. It needs no rebuild and works against any running instance — a local `ikon app run` or a deployed URL — so you can confirm at a glance that no per-user or sensitive content leaks into the public first paint.
 
+### Per-route snapshots and SEO
+
+Beyond the single boot view, an app can declare **public routes** to snapshot individually. Each declared route is captured with its own synthetic client (connected with that route as its initial path), rendered to its own snapshot — and, at bundle time, **prerendered to static HTML** through the same React component pipeline the browser uses. The gateway serves that HTML for the route's URL, so crawlers get real, styled, content-bearing markup (whatever `SnapshotReveal` opts in), visitors get an instant first paint, and the live app takes over seamlessly when the WebSocket connects. A `sitemap.xml` and `robots.txt` are generated from the same route set at deploy time (an app-shipped `public/robots.txt` or `sitemap.xml` wins).
+
+```toml
+[BootSnapshot]
+Enabled = true
+Routes = ["/", "/pricing", "/about"]   # static routes; "/" is always captured
+SettleMs = 750                          # capture waits for the UI stream to go quiet
+RouteTimeoutMs = 10000                  # per-route cap on settling
+WaitForReady = false                    # see below
+MaxRoutes = 50                          # cap after unioning static + dynamic routes
+```
+
+Content-driven routes (one per store listing, article, …) are declared in app code and unioned with the static list at capture time:
+
+```csharp
+app.OnSnapshotRoutes(async () => (await store.GetListingsAsync()).Select(l => $"/listing/{l.Id}"));
+```
+
+Two capture-quality tools:
+
+- **Settle signal** — capture normally treats a quiet UI stream (`SettleMs` without updates) as "settled". A route whose content loads asynchronously after a silent gap would quiesce too early and bake its loading skeleton into the snapshot. Set `WaitForReady = true` and call `ClientFunctions.SnapshotReadyAsync()` when the route's content is loaded; capture then waits for the signal (capped by `RouteTimeoutMs`). The call is a harmless no-op for normal browser clients.
+- **Redirect detection** — a route that navigates elsewhere during capture (e.g. bouncing to a login view) is dropped with a warning rather than captured under the wrong URL.
+
+Routes must be app-owned paths: `/`-prefixed, no query/fragment, not under the platform-reserved `/ikon` or `/api` prefixes. Prerendered routes require the app to be openable without login (`[Auth]` disabled, or `guest` among the methods) — the bundle is rejected otherwise, since serving marketing HTML to crawlers in front of a hard login wall is a cloaking pattern.
+
+#### How to use it
+
+Reach for per-route snapshots when an app has **public, content-bearing pages that should rank in search** — a marketing home page, pricing/about pages, a storefront's product pages, a blog's articles. It does nothing for a signed-in dashboard (that content is skeletonized and gated behind login), so enable it only on the public surface.
+
+1. **Make the public routes guest-openable.** In `ikon-config.toml`, either leave `[Auth] Enabled = false`, or keep it enabled with `guest` in `Methods` so a crawler can connect without a login wall. If neither holds, the bundle is rejected.
+
+2. **List the static routes.** Turn the feature on and enumerate the fixed public paths. `/` is always captured, so you only need to add the others:
+
+   ```toml
+   [BootSnapshot]
+   Enabled = true
+   Routes = ["/", "/pricing", "/about"]
+   ```
+
+3. **Add content routes in app code** (optional). For pages generated from data — one per listing, article, or profile — return them from `OnSnapshotRoutes`. They are unioned with the static list and de-duplicated, then capped at `MaxRoutes`:
+
+   ```csharp
+   app.OnSnapshotRoutes(async () =>
+       (await store.GetPublishedArticlesAsync()).Select(a => $"/blog/{a.Slug}"));
+   ```
+
+   The provider runs on the machine doing the bundle/deploy, so the captured set is as fresh as your last deploy — re-deploy to pick up new content.
+
+4. **Decide what's public per route.** Capture skeletonizes everything by default. Wrap the parts that are safe and meaningful for a crawler — the headline, body copy, product name/price, hero image — in `SnapshotReveal` so they render as real HTML. Anything left unrevealed ships as a skeleton and contributes nothing to SEO. Use `SnapshotHide` for controls that are dead before the socket connects, and `SnapshotOnly` for snapshot-specific filler. Sensitive or per-user content should stay skeletonized — never `SnapshotReveal` it.
+
+5. **Handle async content.** If a route paints its real content only after an async load (a fetch, a DB read), the quiescence timer would settle on the loading skeleton. Set `WaitForReady = true` and call `ClientFunctions.SnapshotReadyAsync()` once the route's content is in place; capture waits for that signal (bounded by `RouteTimeoutMs`). It's a no-op for live browser clients, so it's safe to leave in.
+
+6. **Bundle and verify.** Run `ikon app bundle` (locally built ikon tool). In `build/bundle/frontend-node/` you'll find a per-route `boot-snapshot-*.json`, `__routes/*.html`, and `route-manifest.json`. **Open a `__routes/*.html` file with JavaScript disabled** — the revealed content and its styles should be visible with no "JavaScript is required" notice. That is exactly what a crawler sees.
+
+7. **Deploy.** `ikon app deploy` generates `sitemap.xml` and `robots.txt` from the route set and serves each route's prerendered HTML from the gateway. To override the defaults, ship your own `public/robots.txt` or `public/sitemap.xml` — an app-provided file always wins. Per-route `<title>` is derived from the route today; a full per-route meta/OG API is the natural follow-up.
+
+**Preview a route's snapshot without a rebuild** the same way as the boot snapshot: open the running app at that path with `?ikon-snapshot=true` to render the capture path in your browser, confirming what's revealed and that nothing sensitive leaks.
+
+### Deferred login (open-as-guest)
+
+A login-gated app normally blocks the connection behind its sign-in screen — which also means its landing content can't be a server-drawn page, and the SEO pipeline above has nothing to capture. **Deferred login** inverts that: visitors connect **immediately as a guest session**, the app decides what guests see, and real sign-in happens on demand.
+
+```toml
+[Auth]
+Enabled = true
+Methods = ["google", "guest"]   # "guest" is required — it is what visitors connect as
+DeferLogin = true
+```
+
+With `DeferLogin` enabled, the frontend automatically establishes a guest session on first visit (no login wall, no click) and connects. On the server, `Context.IsAnonymous` distinguishes guests from signed-in users — the authoritative flag; guests still carry a valid device-scoped `UserId`. The typical shape is a branch at the top of the UI root:
+
+```csharp
+UI.Root([Page.Default], content: view =>
+{
+    if (_isGuest.Value || view.IsSnapshot)   // _isGuest: ClientReactive set from Context.IsAnonymous at join
+    {
+        RenderLanding(view);                 // public marketing page, wrapped in SnapshotReveal
+        return;
+    }
+    RenderApp(view);                         // the signed-in product
+});
+```
+
+Trigger sign-in from the server-drawn landing with the client login primitive:
+
+```csharp
+view.Button(["..."], text: "Sign in with Google",
+    onClick: async () => await ClientFunctions.LoginAsync("google"));
+```
+
+`LoginAsync` starts the client's OAuth redirect for the given provider (`google`, `microsoft`, …); the user returns authenticated and the client reconnects with its real identity — the guest session is simply abandoned. Guest/email/passkey flows stay client-initiated. Call it from event handlers only (like all client functions), never from the render pass.
+
+Guard your authed-only paths: skip user-backend calls, per-user persistence, and deep-link view restoration for anonymous sessions — a guest must not be able to navigate into the signed-in surface by URL.
+
+**This is how a login-gated app gets a crawlable landing page**: combine `DeferLogin` with `[BootSnapshot] Routes = ["/"]`. The capture client connects as an anonymous session, renders the same guest landing, and the SEO pipeline prerenders it to static HTML — crawlable markup, instant first paint from the static file, and the live guest session connecting invisibly underneath, taking over pixel-identically.
+
 ## Architecture Summary
 
 1. **Server-side logic**: All UI logic, state, and event handlers run on the server
