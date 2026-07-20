@@ -31,6 +31,8 @@ export default defineConfig(({ mode }) => {
   const localIkonServerHost = process.env.VITE_LOCAL_IKON_SERVER_HOST || env.VITE_LOCAL_IKON_SERVER_HOST || 'localhost';
   const localIkonServerPort = Number(process.env.VITE_LOCAL_IKON_SERVER_PORT || env.VITE_LOCAL_IKON_SERVER_PORT || '8443');
   const bootSnapshotFile = process.env.VITE_IKON_BOOT_SNAPSHOT_FILE || env.VITE_IKON_BOOT_SNAPSHOT_FILE || '';
+  const bootSnapshotShellFile = process.env.VITE_IKON_BOOT_SNAPSHOT_SHELL_FILE || env.VITE_IKON_BOOT_SNAPSHOT_SHELL_FILE || '';
+  const bootSnapshotRoutes = process.env.VITE_IKON_BOOT_SNAPSHOT_ROUTES || env.VITE_IKON_BOOT_SNAPSHOT_ROUTES || '';
   const certPath = (process.env.VITE_IKON_SERVER_CERT_PATH || env.VITE_IKON_SERVER_CERT_PATH)?.trim();
   const keyPath = (process.env.VITE_IKON_SERVER_KEY_PATH || env.VITE_IKON_SERVER_KEY_PATH)?.trim();
   const hasCertificate = !isTunneled && certPath && keyPath && existsSync(certPath) && existsSync(keyPath);
@@ -104,6 +106,10 @@ export default defineConfig(({ mode }) => {
       __IKON_LOCAL_IKON_SERVER_HOST__: JSON.stringify(localIkonServerHost),
       __IKON_LOCAL_IKON_SERVER_PORT__: JSON.stringify(localIkonServerPort),
       __IKON_BOOT_SNAPSHOT_FILE__: JSON.stringify(bootSnapshotFile),
+      __IKON_BOOT_SNAPSHOT_SHELL_FILE__: JSON.stringify(bootSnapshotShellFile),
+      // Route -> snapshot-file map (JSON string) so deep links seed the right route snapshot from
+      // the plain SPA index — humans never receive the per-route prerendered HTML and its pins.
+      __IKON_BOOT_SNAPSHOT_ROUTES__: JSON.stringify(bootSnapshotRoutes),
     },
     optimizeDeps: optimizeDepsConfig,
     server: {

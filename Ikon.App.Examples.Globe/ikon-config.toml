@@ -36,6 +36,10 @@ Enabled = false
 # routes (one per listing/article) can be added in app code via app.OnSnapshotRoutes(...). "/" is
 # always captured. See the "Per-route snapshots and SEO" section of the Parallax library overview docs.
 Routes = []
+# Signed-in shell skeleton: route where the app renders its signed-in shell for the snapshot
+# capture client. The skeletonized capture is shown instantly while a signed-in user's instance
+# boots. Never prerendered to HTML, never listed in the route manifest or sitemap.
+# ShellRoute = "/shell"
 # Quiet window (ms) treated as "settled" when a route has no ready signal
 SettleMs = 750
 # True = wait for ClientFunctions.SnapshotReadyAsync() before capturing (for async-loading routes)
