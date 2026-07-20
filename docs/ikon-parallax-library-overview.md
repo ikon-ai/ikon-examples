@@ -478,12 +478,13 @@ if (view.IsSnapshot) { /* snapshot-only branch */ }
 
 ### Per-route snapshots and SEO
 
-Beyond the single boot view, an app can declare **public routes** to snapshot individually. Each declared route is captured with its own synthetic client (connected with that route as its initial path), rendered to its own snapshot — and, at bundle time, **prerendered to static HTML** through the same React component pipeline the browser uses. The gateway serves that HTML for the route's URL, so crawlers get real, styled, content-bearing markup (whatever `SnapshotReveal` opts in), visitors get an instant first paint, and the live app takes over seamlessly when the WebSocket connects. A `sitemap.xml` and `robots.txt` are generated from the same route set at deploy time (an app-shipped `public/robots.txt` or `sitemap.xml` wins).
+Beyond the single boot view, an app can declare **public routes** to snapshot individually. Each declared route is captured with its own synthetic client (connected with that route as its initial path), rendered to its own snapshot — and, at bundle time, **prerendered to static HTML** through the same React component pipeline the browser uses. The gateway serves that HTML **to crawlers** for the route's URL, so search engines and link-preview fetchers get real, styled, content-bearing markup (whatever `SnapshotReveal` opts in). **Human visitors** always get the SPA index instead: the SDK seeds the route's snapshot JSON (the bundle bakes a route→snapshot map into the index) for an instant, pixel-faithful first paint, and the live app takes over seamlessly when the WebSocket connects. A `sitemap.xml` and `robots.txt` are generated from the same route set at deploy time (an app-shipped `public/robots.txt` or `sitemap.xml` wins).
 
 ```toml
 [BootSnapshot]
 Enabled = true
 Routes = ["/", "/pricing", "/about"]   # static routes; "/" is always captured
+ShellRoute = "/shell"                   # optional signed-in shell skeleton; see below
 SettleMs = 750                          # capture waits for the UI stream to go quiet
 RouteTimeoutMs = 10000                  # per-route cap on settling
 WaitForReady = false                    # see below
@@ -535,6 +536,22 @@ Reach for per-route snapshots when an app has **public, content-bearing pages th
 7. **Deploy.** `ikon app deploy` generates `sitemap.xml` and `robots.txt` from the route set and serves each route's prerendered HTML from the gateway. To override the defaults, ship your own `public/robots.txt` or `public/sitemap.xml` — an app-provided file always wins. Per-route `<title>` is derived from the route today; a full per-route meta/OG API is the natural follow-up.
 
 **Preview a route's snapshot without a rebuild** the same way as the boot snapshot: open the running app at that path with `?ikon-snapshot=true` to render the capture path in your browser, confirming what's revealed and that nothing sensitive leaks.
+
+#### Signed-in shell skeleton (`ShellRoute`)
+
+The route snapshots depict the app's **public** entry views, so they are never seeded for a signed-in session — with nothing else cached, a fresh sign-in would stare at a blank page until the instance boots. `ShellRoute` fills that gap: declare a route (conventionally `/shell`) on which the app renders its **signed-in shell** — top bar, navigation, an empty content grid — for the snapshot capture client, and the platform captures it like any route. Because nothing there is wrapped in `SnapshotReveal`, the whole capture skeletonizes into neutral blocks automatically: an app-shaped skeleton with no user data by construction.
+
+The artifact ships separately from the public routes — it is **not** prerendered to HTML and never appears in the route manifest or sitemap — and the SDK seeds it for signed-in loads (a returning user's live-snapshot cache of their own last UI still wins). In the app, gate the route on the capture client so a real visitor can never reach hub chrome through it:
+
+```csharp
+if (view.IsSnapshot && IsShellPath(app.Navigation.CurrentPath))
+{
+    RenderHubShell(root);   // chrome + placeholder grid from local data — no shared state, no SnapshotReveal
+    return;
+}
+```
+
+Render the shell from **local placeholder data** (a fixed heading, a few empty cards) rather than the app's real reactives: the capture client is unauthenticated, and the skeleton only needs the right geometry.
 
 ### Deferred login (open-as-guest)
 
