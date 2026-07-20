@@ -14,6 +14,8 @@ declare const __IKON_LOCAL_IKON_SERVER_ENABLED__: boolean | undefined;
 declare const __IKON_LOCAL_IKON_SERVER_HOST__: string | undefined;
 declare const __IKON_LOCAL_IKON_SERVER_PORT__: number | undefined;
 declare const __IKON_BOOT_SNAPSHOT_FILE__: string | undefined;
+declare const __IKON_BOOT_SNAPSHOT_SHELL_FILE__: string | undefined;
+declare const __IKON_BOOT_SNAPSHOT_ROUTES__: string | undefined;
 
 declare global {
   interface Window {
@@ -34,6 +36,8 @@ declare global {
     };
     __IKON_BOOT_SNAPSHOT_FILE__?: string;
     __IKON_BOOT_SNAPSHOT_ROUTE__?: string;
+    __IKON_BOOT_SNAPSHOT_SHELL_FILE__?: string;
+    __IKON_BOOT_SNAPSHOT_ROUTES__?: Record<string, string>;
   }
 }
 
@@ -80,8 +84,18 @@ window.__IKON_LOCAL_IKON_SERVER_CONFIG__ = {
   port: __IKON_LOCAL_IKON_SERVER_PORT__,
 };
 
+// Keep this block in sync with the per-app copies (e.g. Ikon.App.Studio frontend-node/src/env.ts).
 // ||= so a prerendered page's inline script (which pins the exact per-route snapshot file before
 // any module script runs) wins over the build-time define, which only knows the root snapshot.
 window.__IKON_BOOT_SNAPSHOT_FILE__ ||= __IKON_BOOT_SNAPSHOT_FILE__ || '';
+window.__IKON_BOOT_SNAPSHOT_SHELL_FILE__ ||= (typeof __IKON_BOOT_SNAPSHOT_SHELL_FILE__ !== 'undefined' && __IKON_BOOT_SNAPSHOT_SHELL_FILE__) || '';
+
+if (!window.__IKON_BOOT_SNAPSHOT_ROUTES__ && typeof __IKON_BOOT_SNAPSHOT_ROUTES__ !== 'undefined' && __IKON_BOOT_SNAPSHOT_ROUTES__) {
+  try {
+    window.__IKON_BOOT_SNAPSHOT_ROUTES__ = JSON.parse(__IKON_BOOT_SNAPSHOT_ROUTES__) as Record<string, string>;
+  } catch {
+    // A malformed map only costs deep links their instant seed.
+  }
+}
 
 export const authConfig = window.__IKON_AUTH_CONFIG__ as AuthConfig;
