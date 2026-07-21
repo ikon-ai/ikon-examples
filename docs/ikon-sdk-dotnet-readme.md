@@ -70,7 +70,6 @@ var config = new IkonClientConfig
         ApiKey = "ikon-xxxxx",           // API key from portal
         SpaceId = "...",                  // Space ID
         ExternalUserId = "user-123",      // Your user identifier
-        ChannelKey = "main",              // Optional: specific channel
         SessionId = "session-xyz",        // Optional: target a precomputed session
         BackendType = BackendType.Production,
         UserType = UserType.Human,
@@ -106,7 +105,6 @@ var config = new IkonClientConfig
     {
         SpaceId = "...",
         ExternalUserId = "user-123",     // Your user identifier
-        ChannelKey = "main",             // Optional
         SessionId = "session-xyz",       // Optional: target a precomputed session
         UserType = UserType.Human,
         ClientType = ClientType.DesktopApp

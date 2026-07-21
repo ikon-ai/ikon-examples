@@ -79,7 +79,6 @@ config.apiKey = ApiKeyConfig{
     .apiKey = "ikon-xxxxx",           // API key from portal
     .spaceId = "...",                  // Space ID
     .externalUserId = "user-123",      // Your user identifier
-    .channelKey = "main",              // Optional: specific channel
     .sessionId = "session-xyz",        // Optional: target a precomputed session
     .backendType = BackendType::Production,
     .userType = UserType::Human,

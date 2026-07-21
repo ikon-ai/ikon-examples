@@ -22,12 +22,12 @@ Structured events emitted by IkonServer and the core Ikon libraries via `Log.Ins
 | `client_rejected_limit` | An external client connect was rejected (HTTP 429) because the server is at its client limit | `count`, `limit` |
 | `client_authenticated` | Connect token authenticated successfully | `user`, `clientSessionId` |
 | `client_authentication_failed` | Connect token rejected | `user`, `clientSessionId` |
-| `user_joined` | A user joins the channel (first session) | `user`, `clientSessionId` |
-| `client_joined` | A client/session joins the channel | `user`, `clientSessionId`, `clientContext` (PascalCase projection: `AuthSessionId`, `Description`, `ProductId`, `VersionId`, `InstallId`, `Locale`, `ContextType`, `UserType`, `PayloadType`) |
+| `user_joined` | A user joins the app session (first client session) | `user`, `clientSessionId` |
+| `client_joined` | A client/session joins the app session | `user`, `clientSessionId`, `clientContext` (PascalCase projection: `AuthSessionId`, `Description`, `ProductId`, `VersionId`, `InstallId`, `Locale`, `ContextType`, `UserType`, `PayloadType`) |
 | `client_reconnected` | A soft-disconnected session rejoins (reconnect, not a fresh join) | `user`, `clientSessionId` |
 | `client_soft_disconnected` | A session is soft-disconnected (kept in GlobalState, may reconnect) | `user`, `clientSessionId` |
-| `client_left` | A client/session leaves the channel | `user`, `clientSessionId` |
-| `user_left` | A user leaves the channel (last session) | `user`, `clientSessionId` |
+| `client_left` | A client/session leaves the app session | `user`, `clientSessionId` |
+| `user_left` | A user leaves the app session (last client session) | `user`, `clientSessionId` |
 
 ## App lifecycle
 

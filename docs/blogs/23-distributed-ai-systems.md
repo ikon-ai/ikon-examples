@@ -32,7 +32,6 @@ var sensorClient = new IkonClient(new IkonClientConfig
     Backend = new BackendConfig
     {
         SpaceId = "kids-room",
-        ChannelKey = "room-sensor",
         ExternalUserId = "teddy-bear-app",
         UserType = UserType.Machine
     }

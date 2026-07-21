@@ -9,12 +9,12 @@ The Ikon asset system exposes a uniform abstraction for storing and retrieving f
 All asset identifiers use the `assets://` scheme defined by `AssetUri`. URIs are composed of optional scope segments followed by the asset class and backend-specific path:
 
 ```
-assets://space/{spaceId}/user/{userId}/channel/{channelId}/{asset-class}/{path/to/resource}?{query}
+assets://space/{spaceId}/user/{userId}/{asset-class}/{path/to/resource}?{query}
 ```
 
 Key rules:
 
-- `space`, `user`, and `channel` segments are optional and may appear in that order. They scope the asset inside the storage backend.
+- `space` and `user` segments are optional and may appear in that order. They scope the asset inside the storage backend.
 - The asset class segment must match one of the values defined in `AssetClass` (for example `cloud-file`, `cloud-json`, or `embedded-file`).
 - The remaining path is interpreted by the storage driver and can include nested folders.
 - `AssetUri` instances normalize the file name, expose `With` helpers for cloning with modified components, and provide converters for filesystem paths when assets need to be mirrored locally.

@@ -69,7 +69,6 @@ const client = new IkonClient({
     apiKey: 'ikon-xxxxx',              // API key from portal
     spaceId: '...',                     // Space ID
     externalUserId: 'user-123',         // Your user identifier
-    channelKey: 'main',                 // Optional: specific channel
     backendType: 'production',          // 'production' | 'development'
     userType: UserType.Human,           // Optional: UserType enum
     clientType: ClientType.DesktopWeb,  // Optional: ClientType enum
@@ -100,7 +99,6 @@ const client = new IkonClient({
   sessionToken: {
     token: 'eyJhbGc...',       // JWT token
     spaceId: '...',             // Space ID
-    channelKey: 'lobby',        // Optional: specific channel
     backendType: 'production',  // Optional: backend environment
   },
 });
@@ -695,10 +693,8 @@ The SDK provides typed errors for different failure scenarios:
 | `KeepaliveTimeoutError` | No keepalive received within timeout period |
 | `AuthRejectedError` | Server closed the transport immediately after handshake (e.g. cached auth ticket expired) |
 | `MaxRetriesExceededError` | Maximum reconnection attempts exhausted |
-| `ProvisioningTimeoutError` | Cloud channel provisioning timed out |
-| `ChannelNotFoundError` | Channel with specified key not found |
+| `ProvisioningTimeoutError` | Cloud app session provisioning timed out |
 | `SpaceNotFoundError` | Space not found for given domain |
-| `NoChannelsError` | No channels available in the space |
 | `AccessDeniedError` | Server denied access (e.g., domain allowlist blocks email domain) |
 | `ServerFullError` | Server at capacity, connection rejected (terminal, no retry) |
 | `BrowserNotSupportedError` | Browser lacks required runtime features (terminal, exposes `missingFeatures`) |
@@ -789,9 +785,7 @@ const client = new IkonClient({
 | `AuthRejectedError` | Server closed transport immediately after handshake (auth-rejection signal) |
 | `MaxRetriesExceededError` | Max retries exceeded |
 | `ProvisioningTimeoutError` | Provisioning timeout |
-| `ChannelNotFoundError` | Channel not found |
 | `SpaceNotFoundError` | Space not found |
-| `NoChannelsError` | No channels available |
 | `AccessDeniedError` | Server denied access (e.g., domain allowlist) |
 | `ServerFullError` | Server at capacity (terminal, no retry) |
 | `BrowserNotSupportedError` | Browser missing required features (terminal) |

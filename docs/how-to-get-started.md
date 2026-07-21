@@ -44,7 +44,20 @@ ikon app new MyFirstAIApp
 
 This creates a `MyFirstAIApp` folder in your current directory with a ready-to-run app, sample code, and configuration.
 
-> If an app already exists on the Ikon platform, you can download it instead with `ikon app get`.
+> If an app already exists on the Ikon platform, you can download it instead with `ikon app get` — or with `ikon load <ref>` (see below) when coming from Studio.
+
+## Take a Studio project local
+
+Apps built in Ikon Studio can move to local development with one command. In Studio, open your app and click **Open locally** (also under App settings → Develop locally) to get the exact command with your project's id, or use the space id / project URL directly:
+
+```bash
+ikon load 665f2a3bc9e77a0012ab34cd
+ikon load https://studio.ikonai.app/app/665f2a3bc9e77a0012ab34cd
+```
+
+The command signs you in if needed (add `--env dev` for projects on the development platform), installs Node.js if it's missing, downloads the project with its full history, restores dependencies, and offers to open the project in a detected editor (Claude Code, Cursor, VS Code).
+
+From there the normal loop applies: `ikon app run` runs the app locally, and `ikon app save` publishes your changes back — Studio picks them up the next time you open the project.
 
 ## Run the Ikon AI App locally
 
@@ -111,6 +124,7 @@ Open the project folder with your preferred coding agent (e.g., [Cursor](https:/
 | **Login**   | `ikon login`         | Authenticate the CLI            |
 | **Create**  | `ikon app new MyApp` | Create a new Ikon app           |
 | **Get**     | `ikon app get`       | Download an existing app        |
+| **Load**    | `ikon load <ref>`    | Take a Studio project local     |
 | **Run**     | `ikon app run`       | Start the local dev server      |
 | **Deploy**  | `ikon app deploy`    | Upload the app bundle           |
 | **Diff**    | `ikon app diff`      | Show uncommitted changes        |
