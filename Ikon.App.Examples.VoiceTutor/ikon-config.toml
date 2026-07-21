@@ -24,30 +24,24 @@ DomainAllowlist = []
 DeferLogin = false
 
 # Boot snapshot: capture the app's initial UI at build/deploy time so the first paint appears
-# instantly. Off by default. The snapshot is a PUBLIC asset, but it is privacy-safe by default —
-# every piece of content is automatically replaced with a skeleton, so no sensitive data is baked
-# in. Use SnapshotReveal to opt safe content (logos, static chrome) back in. See the Parallax
-# library overview docs.
+# instantly. The snapshot is a PUBLIC asset, but it is privacy-safe by default — every piece of
+# content is automatically replaced with a skeleton, so no sensitive data is baked in. Use
+# SnapshotReveal to opt safe content (logos, static chrome) back in; a fully public landing-type
+# page opts out wholesale by wrapping its page root in SnapshotReveal. See the Parallax library
+# overview docs.
 [BootSnapshot]
-Enabled = false
-# Per-route snapshots + prerendered HTML for SEO. List the public routes to capture (e.g. ["/",
-# "/pricing"]); each is rendered to crawlable static HTML at bundle time and a sitemap.xml/robots.txt
-# are generated. Requires a guest-openable app (Auth disabled, or "guest" in Auth.Methods). Content
-# routes (one per listing/article) can be added in app code via app.OnSnapshotRoutes(...). "/" is
-# always captured. See the "Per-route snapshots and SEO" section of the Parallax library overview docs.
-Routes = []
-# Signed-in shell skeleton: route where the app renders its signed-in shell for the snapshot
-# capture client. The skeletonized capture is shown instantly while a signed-in user's instance
-# boots. Never prerendered to HTML, never listed in the route manifest or sitemap.
-# ShellRoute = "/shell"
-# Quiet window (ms) treated as "settled" when a route has no ready signal
-SettleMs = 750
-# True = wait for ClientFunctions.SnapshotReadyAsync() before capturing (for async-loading routes)
-WaitForReady = false
-# Per-route cap (ms) on settling
-RouteTimeoutMs = 10000
-# Cap after unioning static + app-provided routes
-MaxRoutes = 50
+# Public routes to snapshot (e.g. ["/", "/pricing"]); an empty list disables boot snapshotting.
+# Each route's snapshot paints instantly on load, and for guest-openable apps (Auth disabled, or
+# "guest" in Auth.Methods) each route is also prerendered to crawlable static HTML with a generated
+# sitemap.xml/robots.txt. Content routes (one per listing/article) can be added in app code via
+# app.OnSnapshotRoutes(...). See the "Per-route snapshots and SEO" section of the Parallax docs.
+Routes = ["/"]
+# Signed-in shell skeleton (only for apps that render different pages per identity on the same
+# path, e.g. a guest landing vs a signed-in hub): route where the app renders its signed-in shell
+# for the snapshot capture client. The skeletonized capture is shown instantly while a signed-in
+# user's instance boots. Never prerendered to HTML, never listed in the route manifest or sitemap.
+# Empty means none.
+ShellRoute = ""
 
 # Versioned binary data folders for the app. Binaries are stored in the Ikon Asset store and git only
 # tracks small .ikonasset pointer files, so even large data sets keep the repo light. Managed with the
@@ -68,5 +62,4 @@ PrePackage = []
 [Target]
 OrganisationId = ""
 SpaceId = ""
-ChannelId = ""
 Name = ""
