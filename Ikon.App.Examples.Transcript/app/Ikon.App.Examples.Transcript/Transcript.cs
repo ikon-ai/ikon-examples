@@ -311,14 +311,6 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
         }
 
         var spaceId = app.GlobalState.SpaceId;
-        var channelId = app.GlobalState.ChannelId;
-
-
-        if (string.IsNullOrWhiteSpace(channelId))
-        {
-            _statusMessage.Value = "Channel id not available";
-            return;
-        }
 
         _isTranscribing.Value = true;
         _statusMessage.Value = "Preparing audio";
@@ -347,15 +339,13 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
             AssetClass.CloudFile,
             $"transcripts/{entryId}/audio{extension}",
             spaceId: spaceId,
-            userId: userId,
-            channelId: channelId);
+            userId: userId);
 
         var transcriptAssetUri = new AssetUri(
             AssetClass.CloudFile,
             $"transcripts/{entryId}/transcript.txt",
             spaceId: spaceId,
-            userId: userId,
-            channelId: channelId);
+            userId: userId);
 
         string? rawAudioPath = null;
 
@@ -651,8 +641,7 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
             AssetClass.CloudJson,
             "transcripts/index.json",
             spaceId: app.GlobalState.SpaceId,
-            userId: userId,
-            channelId: app.GlobalState.ChannelId);
+            userId: userId);
     }
 
     private static double CalculateDurationSeconds(string rawAudioPath, int sampleRate, int channelCount)

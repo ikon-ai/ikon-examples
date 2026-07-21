@@ -16,8 +16,6 @@ interface ImportMetaEnv {
   readonly VITE_IKON_AUTH_METHODS?: string;
   readonly VITE_IKON_AUTH_SPACE_ID?: string;
 
-  readonly VITE_IKON_BOOT_SNAPSHOT_FILE?: string;
-
   readonly VITE_WAIT_FOR_EXTERNAL_CONNECT_URL?: string;
 
   readonly VITE_IKON_BACKEND_URL?: string;
