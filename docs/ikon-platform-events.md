@@ -8,9 +8,7 @@ Structured events emitted by IkonServer and the core Ikon libraries via `Log.Ins
 |---|---|---|
 | `server_initializing` | Core server starts initialising | `isPrestart`, `isHosted` |
 | `server_warmup_complete` | Prestart JIT warmup finished | `elapsedTimeMs` |
-| `server_initialized` | `CORE_SERVER_INIT` message processing finished — plugins + extensions loaded | `durationMs` (block duration), `elapsedTimeMs` (since CoreServer.InitTime) |
-| `server_plugins_initialized` | All plugins initialised | `elapsedTimeMs` |
-| `server_extensions_initialized` | All server extensions initialised | `elapsedTimeMs` |
+| `server_initialized` | `CORE_SERVER_INIT` message processing finished — plugins + extensions loaded | `durationMs` (block duration), `pluginsInitMs`, `extensionsInitMs` |
 | `server_started` | Server is fully started and accepting traffic | `elapsedTimeMs` |
 | `server_stopped` | Server has shut down cleanly | `stopDurationMs` |
 | `server_failed` | Uncaught exception in the server entry point | `type`, `message`, `stackTrace` |
@@ -20,20 +18,20 @@ Structured events emitted by IkonServer and the core Ikon libraries via `Log.Ins
 | Event | When | Payload |
 |---|---|---|
 | `client_rejected_limit` | An external client connect was rejected (HTTP 429) because the server is at its client limit | `count`, `limit` |
-| `client_authenticated` | Connect token authenticated successfully | `user`, `clientSessionId` |
 | `client_authentication_failed` | Connect token rejected | `user`, `clientSessionId` |
-| `user_joined` | A user joins the app session (first client session) | `user`, `clientSessionId` |
-| `client_joined` | A client/session joins the app session | `user`, `clientSessionId`, `clientContext` (PascalCase projection: `AuthSessionId`, `Description`, `ProductId`, `VersionId`, `InstallId`, `Locale`, `ContextType`, `UserType`, `PayloadType`) |
+| `client_joined` | A client/session joins the app session | `user`, `clientSessionId`, `firstSessionOfUser` (no other live session of this user existed), `clientContext` (PascalCase projection: `AuthSessionId`, `Description`, `ProductId`, `VersionId`, `InstallId`, `Locale`, `ContextType`, `UserType`, `PayloadType`) |
 | `client_reconnected` | A soft-disconnected session rejoins (reconnect, not a fresh join) | `user`, `clientSessionId` |
-| `client_soft_disconnected` | A session is soft-disconnected (kept in GlobalState, may reconnect) | `user`, `clientSessionId` |
-| `client_left` | A client/session leaves the app session | `user`, `clientSessionId` |
-| `user_left` | A user leaves the app session (last client session) | `user`, `clientSessionId` |
+| `client_soft_disconnected` | A session is soft-disconnected on transport loss (kept in GlobalState, may reconnect) | `user`, `clientSessionId` |
+| `client_left` | A client/session departs definitively — every `client_joined` eventually pairs with exactly one `client_left` | `user`, `clientSessionId`, `lastSessionOfUser` (no other live or soft-disconnected session of this user remains), `reason` (`explicit` / `beacon` / `graceTimeout` / `serverStopped`) |
+
+Successful authentication is not a separate event — it is implied by `client_joined`, which follows it within milliseconds. User-level lifecycle is derived from the client events: `firstSessionOfUser` on `client_joined` marks a user arriving, `lastSessionOfUser` on `client_left` marks a user leaving.
 
 ## App lifecycle
 
 | Event | When | Payload |
 |---|---|---|
 | `app_initialized` | Ikon AI App has finished initialising (functions registered, `Main()` done, persistent storage loaded) — fires immediately before `SignalReadyAsync`. Memory metrics are intentionally omitted: gathering them cost ~15ms on the cold-start path. | `appType`, `initDurationMs`, `functionCount`, `endpointCount` |
+| `app_failed` | App initialisation failed unrecoverably (`Main()` threw, or a cell-host spawn failed) — distinct from the process-level `server_failed` | `appType`, `errorType`, `errorMessage`, `stackTrace` |
 
 ## Connect latency timeline
 
