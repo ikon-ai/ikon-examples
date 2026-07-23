@@ -192,6 +192,39 @@ var stringResult = await llm.GenerateAsync(context).AsStringAsync();
 Log.Instance.Info($"String result: {stringResult}");
 ```
 
+## Custom Model Endpoints
+
+Run your own model — a self-hosted LLM behind vLLM, Ollama, TGI, or any endpoint speaking a supported provider API — and use it through the normal Ikon.AI APIs. Register the endpoint with `CustomModels` at app startup, then select the model by its registered name anywhere a model name string is accepted:
+
+```csharp
+using Ikon.AI;
+using Ikon.AI.Emergence;
+using Ikon.AI.LLM;
+
+CustomModels.Instance.Register(new CustomLLMModel
+{
+    Name = "my-model",
+    EndpointUrl = "http://gpu-box:8000/v1/chat/completions",
+    Api = CustomLLMApi.OpenAICompletions,
+    ApiModelName = "Qwen/Qwen2.5-32B-Instruct",
+    ApiKey = "sk-local-123",           // omit for keyless endpoints (e.g. local Ollama)
+    ContextWindowSize = 32768,
+    SupportsJsonSchema = true,
+});
+
+var reply = await Emerge.AskAsync("Hello", "my-model");
+using var llm = new LLM.LLM("my-model");
+```
+
+Custom models are supported for LLMs (`CustomLLMModel`), embeddings (`CustomEmbeddingModel`), reranking (`CustomRerankModel`), and classification (`CustomClassificationModel`); each picks one of the category's existing HTTP request formats via its `Api` enum. Other categories (image generation, speech) are not yet supported.
+
+Key behaviors:
+
+- **Always in-process.** Calls to custom models execute locally with your API key and never go through the Ikon RPC mechanism — the platform never sees your endpoint or key.
+- **Flat per-request billing.** Usage is reported with a `.user` suffix and charged as a flat credit fee per successful request (identical for all custom models) instead of per-token provider pricing. Token counts are still reported for analytics. A failed or aborted request is not billed; each successful retry bills its own request.
+- **Register at startup.** The registry is async-local (like credentials): register models on the main flow before spawning parallel work so every flow sees them. Registering the same name again replaces the previous registration.
+- **Names.** A custom model name must not collide with a built-in model name and must not contain dots or whitespace.
+
 ## ImageGeneration
 
 `Ikon.AI.ImageGeneration.ImageGenerator` creates images with negative prompts, seeding, and resolution controls.
