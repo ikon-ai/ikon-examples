@@ -44,7 +44,7 @@ ikon app new MyFirstAIApp
 
 This creates a `MyFirstAIApp` folder in your current directory with a ready-to-run app, sample code, and configuration.
 
-> If an app already exists on the Ikon platform, you can download it instead with `ikon app get` — or with `ikon load <ref>` (see below) when coming from Studio.
+> If an app already exists on the Ikon platform, you can download it instead with `ikon app clone` — or with `ikon load <ref>` (see below) when coming from Studio.
 
 ## Take a Studio project local
 
@@ -123,7 +123,7 @@ Open the project folder with your preferred coding agent (e.g., [Cursor](https:/
 | ----------- | -------------------- | ------------------------------- |
 | **Login**   | `ikon login`         | Authenticate the CLI            |
 | **Create**  | `ikon app new MyApp` | Create a new Ikon app           |
-| **Get**     | `ikon app get`       | Download an existing app        |
+| **Clone**   | `ikon app clone`     | Download an existing app        |
 | **Load**    | `ikon load <ref>`    | Take a Studio project local     |
 | **Run**     | `ikon app run`       | Start the local dev server      |
 | **Deploy**  | `ikon app deploy`    | Upload the app bundle           |
