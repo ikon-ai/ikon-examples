@@ -18,8 +18,7 @@ export default defineConfig(({ mode }) => {
   const frontendUrl = process.env.VITE_SERVER_FRONTEND_URL || env.VITE_SERVER_FRONTEND_URL || `https://${frontendHost}:${frontendPort}`;
   const openBrowser = (process.env.VITE_SERVER_OPEN_BROWSER || env.VITE_SERVER_OPEN_BROWSER) === 'true';
   const isTunneled = (process.env.VITE_SERVER_TUNNELED || env.VITE_SERVER_TUNNELED) === 'true';
-  const authEnabled = (process.env.VITE_IKON_AUTH_ENABLED || env.VITE_IKON_AUTH_ENABLED) === 'true';
-  const authDeferLogin = (process.env.VITE_IKON_AUTH_DEFER_LOGIN || env.VITE_IKON_AUTH_DEFER_LOGIN) === 'true';
+  const authRequireSignIn = (process.env.VITE_IKON_AUTH_REQUIRE_SIGN_IN || env.VITE_IKON_AUTH_REQUIRE_SIGN_IN) === 'true';
   const authMethods = process.env.VITE_IKON_AUTH_METHODS || env.VITE_IKON_AUTH_METHODS ? JSON.parse(process.env.VITE_IKON_AUTH_METHODS || env.VITE_IKON_AUTH_METHODS) : ['google'];
   const authSpaceId = process.env.VITE_IKON_AUTH_SPACE_ID ?? env.VITE_IKON_AUTH_SPACE_ID ?? '';
   const backendUrl = process.env.VITE_IKON_BACKEND_URL || env.VITE_IKON_BACKEND_URL || '';
@@ -83,8 +82,7 @@ export default defineConfig(({ mode }) => {
       format: 'es',
     },
     define: {
-      __IKON_AUTH_ENABLED__: JSON.stringify(authEnabled),
-      __IKON_AUTH_DEFER_LOGIN__: JSON.stringify(authDeferLogin),
+      __IKON_AUTH_REQUIRE_SIGN_IN__: JSON.stringify(authRequireSignIn),
       __IKON_AUTH_METHODS__: JSON.stringify(authMethods),
       __IKON_AUTH_SPACE_ID__: JSON.stringify(authSpaceId),
       __IKON_BACKEND_URL__: JSON.stringify(backendUrl),
