@@ -2,9 +2,8 @@
 
 import type { AuthConfig, LoginMethod } from '@ikonai/sdk-react-ui';
 
-declare const __IKON_AUTH_ENABLED__: boolean | undefined;
 declare const __IKON_AUTH_METHODS__: LoginMethod[] | undefined;
-declare const __IKON_AUTH_DEFER_LOGIN__: boolean | undefined;
+declare const __IKON_AUTH_REQUIRE_SIGN_IN__: boolean | undefined;
 declare const __IKON_AUTH_SPACE_ID__: string | undefined;
 declare const __IKON_BACKEND_URL__: string | undefined;
 declare const __IKON_AUTH_URL__: string | undefined;
@@ -17,10 +16,12 @@ declare const __IKON_LOCAL_IKON_SERVER_PORT__: number | undefined;
 declare global {
   interface Window {
     __IKON_AUTH_CONFIG__?: {
-      enabled: boolean;
       methods: LoginMethod[];
+      requireSignIn?: boolean;
       spaceId: string;
-      deferLogin?: boolean;
+      // Deprecated compat mirror of requireSignIn for app source (app.tsx / auth/*) not yet
+      // migrated to the always-mounted AuthProvider.
+      enabled?: boolean;
       backendUrl?: string;
       authUrl?: string;
       devLoginToken?: string;
@@ -34,8 +35,8 @@ declare global {
   }
 }
 
-if (typeof __IKON_AUTH_ENABLED__ === 'undefined') {
-  throw new Error('__IKON_AUTH_ENABLED__ is not defined');
+if (typeof __IKON_AUTH_REQUIRE_SIGN_IN__ === 'undefined') {
+  throw new Error('__IKON_AUTH_REQUIRE_SIGN_IN__ is not defined');
 }
 if (typeof __IKON_AUTH_METHODS__ === 'undefined') {
   throw new Error('__IKON_AUTH_METHODS__ is not defined');
@@ -60,11 +61,12 @@ if (typeof __IKON_LOCAL_IKON_SERVER_PORT__ === 'undefined') {
 }
 
 window.__IKON_AUTH_CONFIG__ = {
-  enabled: __IKON_AUTH_ENABLED__,
   methods: __IKON_AUTH_METHODS__,
+  requireSignIn: __IKON_AUTH_REQUIRE_SIGN_IN__,
+  // Back-compat for app source still reading `enabled` (an app.tsx not yet migrated to the
+  // always-mounted AuthProvider): mirror requireSignIn so a legacy wall still gates.
+  enabled: __IKON_AUTH_REQUIRE_SIGN_IN__,
   spaceId: __IKON_AUTH_SPACE_ID__,
-  // Optional define (older scaffolds don't emit it) — absence means no deferred login.
-  deferLogin: (typeof __IKON_AUTH_DEFER_LOGIN__ !== 'undefined' && __IKON_AUTH_DEFER_LOGIN__) || undefined,
   backendUrl: __IKON_BACKEND_URL__ || undefined,
   authUrl: __IKON_AUTH_URL__ || undefined,
   devLoginToken: (typeof __IKON_DEV_LOGIN_TOKEN__ !== 'undefined' && __IKON_DEV_LOGIN_TOKEN__) || undefined,

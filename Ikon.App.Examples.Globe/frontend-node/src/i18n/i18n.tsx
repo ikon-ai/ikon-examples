@@ -14,6 +14,7 @@ export interface Translations {
   'auth.welcome.title': string;
   'auth.welcome.subtitle': string;
   'auth.divider': string;
+  'auth.dismiss': string;
 
   // Email login form
   'auth.email.placeholder': string;

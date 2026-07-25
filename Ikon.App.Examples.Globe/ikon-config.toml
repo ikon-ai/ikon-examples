@@ -11,17 +11,16 @@ StopSessions = false
 
 # Authentication configuration for the app frontend
 [Auth]
-# Whether the frontend requires authentication before connection to the app is established
-Enabled = false
-# Available methods: google, microsoft, email, guest
+# Sign-in providers offered by the login UI and ClientFunctions.LoginAsync: google, microsoft, email, guest
 Methods = ["google"]
 # If non-empty, only allow users with email addresses from these domains to authenticate (e.g. ["mycompany.com"])
 DomainAllowlist = []
-# Deferred login: when true (and "guest" is in Methods), visitors connect immediately as a guest
-# session instead of being blocked by a login screen. Branch on Context.IsAnonymous in the app to
-# decide what guests see, and trigger sign-in on demand with ClientFunctions.LoginAsync("google").
-# Combine with [BootSnapshot] Routes to make a login-gated app's landing page SEO-crawlable.
-DeferLogin = false
+# When false (the default) visitors enter immediately as an anonymous session and can sign in on
+# demand — branch on Context.IsAnonymous in the app and trigger sign-in with ClientFunctions.LoginAsync("google").
+# When true the frontend shows a mandatory sign-in wall before the app loads; listing "guest" in
+# Methods adds a "Continue as guest" button to that wall. Anonymous browsing stays SEO-crawlable via
+# [BootSnapshot] Routes regardless.
+RequireSignIn = false
 
 # Boot snapshot: capture the app's initial UI at build/deploy time so the first paint appears
 # instantly. The snapshot is a PUBLIC asset, but it is privacy-safe by default — every piece of
