@@ -29,7 +29,7 @@ export function formatAuthError(error: string): string {
 }
 
 export function AuthGuard({ children, config }: AuthGuardProps) {
-  const { isCheckingAuth, shouldRenderChildren } = useAuthGuard({
+  const { isCheckingAuth, shouldRenderChildren, isLoginPrompt, dismissLoginPrompt } = useAuthGuard({
     config,
     guestUrlParam: 'guest',
   });
@@ -45,7 +45,15 @@ export function AuthGuard({ children, config }: AuthGuardProps) {
   }
 
   if (!shouldRenderChildren) {
-    return <AuthScreen config={config} errorScope={errorScope} setErrorScope={setErrorScope} />;
+    return (
+      <AuthScreen
+        config={config}
+        errorScope={errorScope}
+        setErrorScope={setErrorScope}
+        isLoginPrompt={isLoginPrompt}
+        onDismiss={dismissLoginPrompt}
+      />
+    );
   }
 
   return <>{children}</>;
@@ -55,9 +63,11 @@ interface AuthScreenProps {
   config: AuthConfig;
   errorScope: ErrorScope | null;
   setErrorScope: (scope: ErrorScope) => void;
+  isLoginPrompt: boolean;
+  onDismiss: () => void;
 }
 
-function AuthScreen({ config, errorScope, setErrorScope }: AuthScreenProps) {
+function AuthScreen({ config, errorScope, setErrorScope, isLoginPrompt, onDismiss }: AuthScreenProps) {
   const { t } = useI18n();
   const { state } = useAuth();
 
@@ -128,8 +138,24 @@ function AuthScreen({ config, errorScope, setErrorScope }: AuthScreenProps) {
         {hasGuest && (
           <>
             {errorFor('guest')}
-            <LoginButton provider="guest" disabled={state.isLoading} onAttempt={() => setErrorScope('guest')} />
+            <LoginButton
+              provider="guest"
+              disabled={state.isLoading}
+              onAttempt={() => setErrorScope('guest')}
+              onClick={isLoginPrompt ? onDismiss : undefined}
+            />
           </>
+        )}
+
+        {isLoginPrompt && !hasGuest && (
+          <button
+            type="button"
+            className="ikon-auth-dismiss"
+            onClick={onDismiss}
+            style={{ marginTop: '1rem', background: 'none', border: 'none', color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.875rem', cursor: 'pointer' }}
+          >
+            {t('auth.dismiss')}
+          </button>
         )}
       </section>
     </main>
