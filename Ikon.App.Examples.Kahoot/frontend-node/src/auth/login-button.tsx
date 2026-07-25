@@ -6,6 +6,8 @@ export interface LoginButtonProps {
   provider: LoginMethod;
   disabled?: boolean;
   onAttempt?: () => void;
+  /** Overrides the default login action — e.g. dismissing an on-demand prompt instead of signing in. */
+  onClick?: () => void;
 }
 
 const PROVIDER_CONFIG: Record<LoginMethod, { name: string; bgColor: string; textColor: string }> = {
@@ -80,14 +82,21 @@ const PROVIDER_ICONS: Record<LoginMethod, ReactElement> = {
   ),
 };
 
-export function LoginButton({ provider, disabled, onAttempt }: LoginButtonProps) {
+export function LoginButton({ provider, disabled, onAttempt, onClick }: LoginButtonProps) {
   const { t } = useI18n();
   const { login } = useAuth();
   const config = PROVIDER_CONFIG[provider];
 
   const handleClick = () => {
-    if (!disabled) {
-      onAttempt?.();
+    if (disabled) {
+      return;
+    }
+
+    onAttempt?.();
+
+    if (onClick) {
+      onClick();
+    } else {
       login(provider);
     }
   };

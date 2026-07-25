@@ -8,21 +8,13 @@ import { I18nProvider, useI18n } from './i18n/i18n';
 import { en } from './i18n/en';
 
 function App() {
-  if (authConfig.enabled) {
-    return (
-      <I18nProvider translations={{ en }}>
-        <AuthProvider config={authConfig}>
-          <AuthGuard config={authConfig}>
-            <AuthorizedApp />
-          </AuthGuard>
-        </AuthProvider>
-      </I18nProvider>
-    );
-  }
-
   return (
     <I18nProvider translations={{ en }}>
-      <AuthorizedApp />
+      <AuthProvider config={authConfig}>
+        <AuthGuard config={authConfig}>
+          <AuthorizedApp />
+        </AuthGuard>
+      </AuthProvider>
     </I18nProvider>
   );
 }
