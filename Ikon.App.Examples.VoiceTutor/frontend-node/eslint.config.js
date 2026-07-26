@@ -4,6 +4,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default [
+  { ignores: ['build/**', 'build.prerender.*', 'dist/**', 'src/generated/**'] },
   eslintJs.configs.recommended,
   ...tseslint.configs.recommended,
   eslintReact.configs['recommended-typescript'],
@@ -19,7 +20,16 @@ export default [
         ...globals.browser,
       },
     },
-    rules: {},
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+    },
   },
   {
     files: ['**/*.js'],
