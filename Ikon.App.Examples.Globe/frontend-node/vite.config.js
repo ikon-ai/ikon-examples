@@ -119,8 +119,8 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       target: 'es2019',
-      chunkSizeWarningLimit: '1mb',
-      minify: 'esbuild',
+      chunkSizeWarningLimit: 1024,
+      minify: 'oxc',
       reportCompressedSize: false,
     },
   };
