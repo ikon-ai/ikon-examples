@@ -4,8 +4,8 @@ export const en: Translations = {
   // Connection states
   'connection.connecting': 'Connecting...',
   'connection.reconnecting': 'Reconnecting...',
-  'connection.offline.title': 'App is offline',
-  'connection.offline.message': 'Refresh page to reconnect',
+  'connection.offline.title': 'Connection lost',
+  'connection.offline.message': 'Refresh to continue',
   'connection.serverFull.title': 'App is at capacity',
   'connection.serverFull.message': 'Too many people are using this app right now. Please try again in a little while.',
 

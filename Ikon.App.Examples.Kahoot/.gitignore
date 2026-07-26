@@ -9,9 +9,11 @@
 playwright.config.js
 
 build
+build.prerender.*
 artifacts
 dist
 dist-ssr
 node_modules
 bin
 obj
+.vite
