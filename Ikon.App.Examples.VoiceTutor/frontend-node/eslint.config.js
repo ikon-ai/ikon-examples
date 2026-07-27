@@ -4,7 +4,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default [
-  { ignores: ['build/**', 'build.prerender.*', 'dist/**', 'src/generated/**'] },
+  { ignores: ['build/**', 'dist/**', 'src/generated/**'] },
   eslintJs.configs.recommended,
   ...tseslint.configs.recommended,
   eslintReact.configs['recommended-typescript'],

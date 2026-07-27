@@ -34,13 +34,13 @@ export function AuthGuard({ children, config }: AuthGuardProps) {
     guestUrlParam: 'guest',
   });
   const [errorScope, setErrorScope] = useState<ErrorScope | null>(null);
-  const initialCheckDone = useRef(false);
+  const initialCheckDoneRef = useRef(false);
 
   if (!isCheckingAuth) {
-    initialCheckDone.current = true;
+    initialCheckDoneRef.current = true;
   }
 
-  if (isCheckingAuth && !initialCheckDone.current) {
+  if (isCheckingAuth && !initialCheckDoneRef.current) {
     return null;
   }
 
