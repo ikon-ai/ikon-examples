@@ -1,7 +1,6 @@
 {
   "extends": "./tsconfig.paths.json",
   "compilerOptions": {
-    "baseUrl": "./",
     "target": "ES2022",
     "useDefineForClassFields": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
@@ -21,18 +20,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true,
-
-    /* Path aliases for internal development */
-    "paths": {
-      "@ikonai/sdk": ["../../../platform-typescript/sdk/sdk/src/index.ts"],
-      "@ikonai/sdk-react-ui": ["../../../platform-typescript/sdk/sdk-react-ui/src/index.ts"],
-      "@ikonai/sdk-react-ui-radix": ["../../../platform-typescript/sdk/sdk-react-ui-radix/src/index.ts"],
-      "@ikonai/sdk-react-ui-rive": ["../../../platform-typescript/sdk/sdk-react-ui-rive/src/index.ts"],
-      "@ikonai/sdk-ui": ["../../../platform-typescript/sdk/sdk-ui/src/index.ts"],
-      "@ikonai/configs": ["../../../platform-typescript/shared/configs/src/index.ts"],
-      "@ikonai/protocol": ["../../../platform-typescript/shared/protocol/src/index.ts"]
-    }
+    "noUncheckedSideEffectImports": true
   },
   "include": ["src"]
 }
