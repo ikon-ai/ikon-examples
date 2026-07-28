@@ -30,6 +30,8 @@ RequireSignIn = false
 # overview docs.
 [BootSnapshot]
 # Public routes to snapshot (e.g. ["/", "/pricing"]); an empty list disables boot snapshotting.
+# Routes must be paths the app serves directly — a route the app redirects away from during
+# capture fails the bundle/deploy, so declare the real path (e.g. "/home" instead of "/").
 # Each route's snapshot paints instantly on load, and for guest-openable apps (Auth disabled, or
 # "guest" in Auth.Methods) each route is also prerendered to crawlable static HTML with a generated
 # sitemap.xml/robots.txt. Content routes (one per listing/article) can be added in app code via
