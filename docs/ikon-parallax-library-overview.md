@@ -499,8 +499,8 @@ Beyond the single boot view, an app can declare **public routes** to snapshot in
 
 ```toml
 [BootSnapshot]
-Routes = ["/", "/pricing", "/about"]   # static routes to snapshot
-ShellRoute = "/shell"                   # optional signed-in shell skeleton; see below
+Routes = ["/", "/pricing", "/about"]     # static routes to snapshot
+SignedInSeeds = ["/**:shell"]            # optional seed rules; see below
 ```
 
 Content-driven routes (one per store listing, article, …) are declared in app code and unioned with the static list at capture time:
@@ -550,23 +550,46 @@ Reach for per-route snapshots when an app has **public, content-bearing pages th
 
 **Preview a route's snapshot without a rebuild** the same way as the boot snapshot: open the running app at that path with `?ikon-snapshot=true` to render the capture path in your browser, confirming what's revealed and that nothing sensitive leaks.
 
-#### Signed-in shell skeleton (`ShellRoute`)
+#### Seed rules and snapshot variants (`GuestSeeds` / `SignedInSeeds`)
 
-`ShellRoute` is **opt-in and only for apps that render different pages per identity on the same path** — the deferred-login pattern where `/` is a guest landing for anonymous visitors and a personal hub for signed-in users. Apps without that split never need it: their route snapshots are identity-agnostic and seed correctly for everyone.
+Route snapshots cover concrete paths that exist at deploy time. Two situations need more:
 
-The route snapshots depict the app's **public** entry views, so they are never seeded for a signed-in session — with nothing else cached, a fresh sign-in would stare at a blank page until the instance boots. `ShellRoute` fills that gap: declare a route (conventionally `/shell`) on which the app renders its **signed-in shell** — top bar, navigation, an empty content grid — for the snapshot capture client, and the platform captures it like any route. Because nothing there is wrapped in `SnapshotReveal`, the whole capture skeletonizes into neutral blocks automatically: an app-shaped skeleton with no user data by construction.
+- **Identity-split pages** — the deferred-login pattern where the same path is a guest landing for anonymous visitors and a personal hub for signed-in users. The route snapshots depict the app's **public** entry views, so a signed-in session must not paint them; with nothing else cached, a fresh sign-in would stare at a blank page until the instance boots.
+- **Dynamic paths** — user-created content like `/myapp/my-workshop`, whose slugs exist only in the database. No concrete route can be captured for a slug created after the deploy, so a visitor deep-linking there has nothing to seed.
 
-The artifact ships separately from the public routes — it is **not** prerendered to HTML and never appears in the route manifest or sitemap — and the SDK seeds it for signed-in loads (a returning user's live-snapshot cache of their own last UI still wins). In the app, gate the route on the capture client so a real visitor can never reach hub chrome through it:
+Seed rules cover both. Each entry is `"pattern:variantId"` (the same colon-separated shape as `Databases`), listed per login state, **first match wins** in array order:
+
+```toml
+[BootSnapshot]
+Routes = ["/"]
+GuestSeeds = ["/**:welcome"]
+SignedInSeeds = ["/:admin", "/*:dashboard", "/*/**:experience"]
+```
+
+A pattern segment is a literal (exact match), `*` (exactly one segment, any content), or a final `**` (zero or more remaining segments). So `/` matches only the front page, `/*` any one-segment path, `/*/**` any path two segments or deeper, and `/**` everything. Order matters — `**` means *zero* or more, so `/*/**` also matches one-segment paths; listing `/*:dashboard` first keeps those on the dashboard rule. A `/**` entry anywhere but last fails the bundle (the entries after it could never apply).
+
+On load, the SDK picks the array from the stored-session heuristic (a non-anonymous localStorage session, or an OAuth callback token), then resolves per axis: **guests** seed an exact route snapshot first — real public content beats a generic fallback skeleton — and consult `GuestSeeds` for everything unmapped; **signed-in** visitors consult `SignedInSeeds` first — the rules exist precisely to override the public route snapshots — and fall back to the exact route snapshot, so an app with no rules still paints (route snapshots are skeletonized and identity-free).
+
+Every distinct variant id becomes **one skeleton capture**: a capture client connects with the id in `Context.SnapshotVariant`, and the app branches to the matching skeleton — no magic paths, the toml ids are the `case` labels:
 
 ```csharp
-if (view.IsSnapshot && IsShellPath(app.Navigation.CurrentPath))
+if (view.IsSnapshot)
 {
-    RenderHubShell(root);   // chrome + placeholder grid from local data — no shared state, no SnapshotReveal
+    switch (view.SnapshotVariant)
+    {
+        case "admin":      RenderAdminPanelSkeleton(view); break;
+        case "dashboard":  RenderDashboardSkeleton(view);  break;
+        case "experience": RenderExperienceSkeleton(view); break;
+        default:           RenderWelcomeSkeleton(view);    break;   // "welcome" + route captures
+    }
+
     return;
 }
 ```
 
-Render the shell from **local placeholder data** (a fixed heading, a few empty cards) rather than the app's real reactives: the capture client is unauthenticated, and the skeleton only needs the right geometry.
+Because nothing in a variant skeleton is wrapped in `SnapshotReveal`, the whole capture skeletonizes into neutral blocks automatically: an app-shaped skeleton with no user data by construction. Render it from **local placeholder data** (a fixed heading, a few empty cards) rather than the app's real reactives — the capture client is unauthenticated, and the skeleton only needs the right geometry. Variant artifacts ship separately from the public routes: they are **not** prerendered to HTML and never appear in the route manifest or sitemap (a skeleton standing for unboundedly many URLs is not crawlable content — concrete SEO stays with `Routes` and `OnSnapshotRoutes`). A returning user's live-snapshot cache of their own last UI still wins over any seed rule. A declared variant the capture cannot produce fails the bundle/deploy, exactly like a missing route.
+
+The old single-shell pattern is the simplest rule set: `SignedInSeeds = ["/**:shell"]` seeds one hub skeleton on every path for signed-in visitors, and `view.SnapshotVariant == "shell"` renders it.
 
 ### Deferred login (open-as-guest)
 
