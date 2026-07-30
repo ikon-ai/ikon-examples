@@ -37,12 +37,17 @@ RequireSignIn = false
 # sitemap.xml/robots.txt. Content routes (one per listing/article) can be added in app code via
 # app.OnSnapshotRoutes(...). See the "Per-route snapshots and SEO" section of the Parallax docs.
 Routes = ["/"]
-# Signed-in shell skeleton (only for apps that render different pages per identity on the same
-# path, e.g. a guest landing vs a signed-in hub): route where the app renders its signed-in shell
-# for the snapshot capture client. The skeletonized capture is shown instantly while a signed-in
-# user's instance boots. Never prerendered to HTML, never listed in the route manifest or sitemap.
-# Empty means none.
-ShellRoute = ""
+# Seed rules (only for apps that render different pages per identity or path shape): ordered
+# "pattern:variantId" entries, first match wins. A pattern segment is a literal, "*" (exactly one
+# segment), or a final "**" (any remainder) — so "/*:dashboard" seeds the dashboard skeleton on any
+# one-segment path and "/**:shell" on every path. Each distinct variant id is captured once as a
+# skeleton the app renders by branching on view.SnapshotVariant == "id". Guests seed an exact route
+# snapshot before these rules; signed-in visitors consult these rules first, then fall back to the
+# route snapshot. Variant skeletons are never prerendered to HTML and never listed in the sitemap.
+# GuestSeeds = ["/**:welcome"]
+# SignedInSeeds = ["/**:shell"]
+GuestSeeds = []
+SignedInSeeds = []
 
 # Versioned binary data folders for the app. Binaries are stored in the Ikon Asset store and git only
 # tracks small .ikonasset pointer files, so even large data sets keep the repo light. Managed with the
