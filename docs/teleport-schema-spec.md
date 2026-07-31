@@ -60,6 +60,7 @@ The preprocessor inlines included content before TOML parsing. Circular includes
 | `[enums.*]`      | optional | Enumerations. When `type` is omitted, these enums become namespace-level (global) types. |
 | `[[transforms]]` | optional | Version upgrade logic                                                                    |
 | `[constraints]`  | optional | Numeric/string constraints                                                               |
+| `[obsolete]`     | optional | Marks already-declared fields as deprecated in every generated language.                 |
 
 ### Unreliable Transport Default
 
@@ -143,6 +144,49 @@ fieldId = xxHash32(fieldName.UTF8, seed = 0)
 This ensures reversible mapping between `.tp` and binary `.tpx` - identical to Teleport binary specification section 2.
 
 ---
+
+### Deprecating a Field
+
+Teleport matches fields by the hash of their name, so renaming one is a wire break for any reader still
+expecting the old name, while adding one costs nothing. A rename is therefore done by adding the new
+field and keeping the old one as a mirror the writer also populates.
+
+`[obsolete]` marks those retired fields so they are visible as deprecated to everyone consuming the
+generated code. Keys are field names that must already be declared in `[fields]`; the value is the
+migration note:
+
+```toml
+[fields]
+IkonServerId = "string"
+# Legacy — kept so clients built before the rename still resolve it.
+ServerSessionId = "string"
+
+[obsolete]
+ServerSessionId = "Renamed to IkonServerId"
+```
+
+The marker is an annotation layer only — **the field keeps its ordinary typed declaration in
+`[fields]`**, and `[obsolete]` neither declares a field nor changes its type or wire behaviour. Naming a
+field that is not declared fails the build (`marks unknown field 'X' as obsolete`) rather than being
+ignored, so a later rename cannot leave the marker pointing at nothing.
+
+Each generator emits its own language's marker:
+
+| Language   | Emitted                                          |
+|------------|--------------------------------------------------|
+| C#         | `[Obsolete("<note>")]`                           |
+| TypeScript | `@deprecated <note>` in the field's JSDoc        |
+| Dart       | `@Deprecated('<note>')`                          |
+
+The generated reader, writer and reset necessarily touch every field, retired ones included, so each
+generator also suppresses the deprecation diagnostic within the file it produces (`#pragma warning
+disable CS0618` for C#, `ignore_for_file: deprecated_member_use_from_same_package` for Dart; TypeScript
+needs none, as `@deprecated` is advisory there). The suppression is confined to generated code — use of
+a retired field anywhere else still surfaces, which is the point: where warnings are errors, marking a
+field turns every remaining call site into a build failure to be migrated.
+
+Rust and C++ do not yet emit a marker; their generated files compose their headers elsewhere, so the
+matching file-level suppression has no clean insertion point.
 
 ## 6. Nested Messages
 
@@ -291,6 +335,7 @@ Compilers normalize each `.tp` file into this in-memory shape. A serialized exam
 | Layout hash    | Must be updated on edit                    |
 | Non-zero flags | Invalid                                    |
 | Depth >128     | Invalid                                    |
+| `[obsolete]`   | Every key must name a field declared in `[fields]` |
 
 ## 13. Compilation Workflow
 
