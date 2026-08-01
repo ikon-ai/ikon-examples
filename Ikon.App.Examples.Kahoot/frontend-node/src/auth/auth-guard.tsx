@@ -72,11 +72,14 @@ function AuthScreen({ config, errorScope, setErrorScope, isLoginPrompt, onDismis
   const { state } = useAuth();
 
   const primaryMethods = config.methods.filter(
-    (m): m is Exclude<LoginMethod, 'email' | 'guest' | 'passkey'> => m !== 'email' && m !== 'guest' && m !== 'passkey',
+    (m): m is Exclude<LoginMethod, 'email' | 'guest' | 'global' | 'passkey'> => m !== 'email' && m !== 'guest' && m !== 'global' && m !== 'passkey',
   );
   const hasPasskey = config.methods.includes('passkey');
   const hasEmail = config.methods.includes('email');
-  const hasGuest = config.methods.includes('guest');
+  // Both not-signed-in flavors share the continue-without-signing-in button; the 'global'
+  // flavor wins when a space lists both (the device-scoped identity is an on-demand upgrade)
+  const guestProvider = config.methods.includes('global') ? ('global' as const) : config.methods.includes('guest') ? ('guest' as const) : null;
+  const hasGuest = guestProvider !== null;
 
   const errorFor = (scope: ErrorScope) =>
     state.error && errorScope === scope ? (
@@ -139,7 +142,7 @@ function AuthScreen({ config, errorScope, setErrorScope, isLoginPrompt, onDismis
           <>
             {errorFor('guest')}
             <LoginButton
-              provider="guest"
+              provider={guestProvider ?? 'guest'}
               disabled={state.isLoading}
               onAttempt={() => setErrorScope('guest')}
               onClick={isLoginPrompt ? onDismiss : undefined}
