@@ -520,7 +520,7 @@ Routes must be app-owned paths: `/`-prefixed, no query/fragment, not under the p
 
 Reach for per-route snapshots when an app has **public, content-bearing pages that should rank in search** — a marketing home page, pricing/about pages, a storefront's product pages, a blog's articles. It does nothing for a signed-in dashboard (that content is skeletonized and gated behind login), so enable it only on the public surface.
 
-1. **Make the public routes guest-openable.** In `ikon-config.toml`, either leave `[Auth] Enabled = false`, or keep it enabled with `guest` in `Methods` so a crawler can connect without a login wall. If neither holds, the bundle skips the crawler HTML and ships JSON snapshots only.
+1. **Make the public routes openable without signing in.** In `ikon-config.toml`, either leave `[Auth] RequireSignIn = false` (the default), or set it with `guest` or `global` in `Methods` so a crawler can connect without a login wall. If neither holds, the bundle skips the crawler HTML and ships JSON snapshots only.
 
 2. **List the static routes.** Enumerate the fixed public paths (the scaffold starts you at `["/"]`):
 
@@ -591,18 +591,19 @@ Because nothing in a variant skeleton is wrapped in `SnapshotReveal`, the whole 
 
 The old single-shell pattern is the simplest rule set: `SignedInSeeds = ["/**:shell"]` seeds one hub skeleton on every path for signed-in visitors, and `view.SnapshotVariant == "shell"` renders it.
 
-### Deferred login (open-as-guest)
+### Open-as-guest (the default)
 
-A login-gated app normally blocks the connection behind its sign-in screen — which also means its landing content can't be a server-drawn page, and the SEO pipeline above has nothing to capture. **Deferred login** inverts that: visitors connect **immediately as a guest session**, the app decides what guests see, and real sign-in happens on demand.
+A login-gated app blocks the connection behind its sign-in screen — which also means its landing content can't be a server-drawn page, and the SEO pipeline above has nothing to capture. Leaving `RequireSignIn` off inverts that: visitors connect **immediately as an anonymous session**, the app decides what they see, and real sign-in happens on demand.
 
 ```toml
 [Auth]
-Enabled = true
-Methods = ["google", "guest"]   # "guest" is required — it is what visitors connect as
-DeferLogin = true
+RequireSignIn = false            # the default — no sign-in wall
+Methods = ["google", "guest"]    # "guest" is what visitors connect as
 ```
 
-With `DeferLogin` enabled, the frontend automatically establishes a guest session on first visit (no login wall, no click) and connects. On the server, `Context.IsAnonymous` distinguishes guests from signed-in users — the authoritative flag; guests still carry a valid device-scoped `UserId`. The typical shape is a branch at the top of the UI root:
+The two not-signed-in flavors differ in who shares an identity. `guest` mints a device-scoped anonymous user per visitor, so each drive-by gets their own `UserId` and their own app instance. `global` puts every visitor on one space-wide shared anonymous user — they collapse onto a single instance with no per-visitor database writes, which is the cost-efficient choice for a public landing surface. List both to enter as `global` by default and upgrade a visitor with `login('guest')` when they need an identity of their own.
+
+The frontend establishes the session on first visit (no login wall, no click) and connects. On the server, `Context.IsAnonymous` distinguishes not-signed-in visitors from signed-in users — the authoritative flag; a guest still carries a valid device-scoped `UserId`. `Context.IsGlobal` tells you which flavor you are serving. The typical shape is a branch at the top of the UI root:
 
 ```csharp
 UI.Root([Page.Default], content: view =>
@@ -623,11 +624,11 @@ view.Button(["..."], text: "Sign in with Google",
     onClick: async () => await ClientFunctions.LoginAsync("google"));
 ```
 
-`LoginAsync` starts the client's OAuth redirect for the given provider (`google`, `microsoft`, …); the user returns authenticated and the client reconnects with its real identity — the guest session is simply abandoned. Guest/email/passkey flows stay client-initiated. Call it from event handlers only (like all client functions), never from the render pass.
+`LoginAsync` starts the client's OAuth redirect for the given provider (`google`, `microsoft`, …); the user returns authenticated and the client reconnects with its real identity — the anonymous session is simply abandoned. Guest, global, email and passkey flows stay client-initiated. Call it from event handlers only (like all client functions), never from the render pass.
 
-Guard your authed-only paths: skip user-backend calls, per-user persistence, and deep-link view restoration for anonymous sessions — a guest must not be able to navigate into the signed-in surface by URL.
+Guard your authed-only paths: skip user-backend calls, per-user persistence, and deep-link view restoration for anonymous sessions — a guest must not be able to navigate into the signed-in surface by URL. This matters more under `global`, where every visitor shares one `UserId`: never key per-user state on it.
 
-**This is how a login-gated app gets a crawlable landing page**: combine `DeferLogin` with `[BootSnapshot] Routes = ["/"]`. The capture client connects as an anonymous session, renders the same guest landing, and the SEO pipeline prerenders it to static HTML — crawlable markup, instant first paint from the static file, and the live guest session connecting invisibly underneath, taking over pixel-identically.
+**This is how an app with sign-in gets a crawlable landing page**: combine open-as-guest with `[BootSnapshot] Routes = ["/"]`. The capture client connects as an anonymous session, renders the same landing, and the SEO pipeline prerenders it to static HTML — crawlable markup, instant first paint from the static file, and the live session connecting invisibly underneath, taking over pixel-identically.
 
 ## Architecture Summary
 
