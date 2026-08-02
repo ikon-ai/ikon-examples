@@ -77,3 +77,23 @@ Top-level crash markers for the platform's CLI / utility processes. All share th
 - `{eventName}_failed`
 
 Payload (same for all three): `modelName`, `elapsedSeconds`, plus a caller-defined `additionalFields` object, the completion details, the exception (`errorType`, `errorMessage`, `stackTrace` — on `_failed` only), `isRemote`, `isUserCredential`. Used primarily to wrap LLM and other model-backed calls.
+
+## User data erasure
+
+When a user's data is erased (GDPR erasure — see [User Data Erasure](ikon-user-data-erasure.md)), the backend delivers a durable erasure request to every space the user touched, and the app host raises the `OnUserDataErasure` hook:
+
+```csharp
+app.OnUserDataErasure(async userId =>
+{
+    // Delete app-owned data for this user: rows in your own tables,
+    // personal data embedded in Session/Global scoped values.
+});
+```
+
+Semantics:
+
+- **When it fires** — after the platform has re-erased the user's platform-managed state on the app side (`EraseUserStateAsync` — persistent user-scoped reactives and stored user-scope rows), once per id in the erased user's identity closure (merged accounts included). The user is not connected when it fires and no client/user reactive scope is active.
+- **At-least-once delivery** — the request is stored per space on the backend and redelivered on every session start until a run completes without throwing, so a cold or stopped app processes it whenever it next runs. A crash between completing the handler and acknowledging also results in one extra delivery.
+- **Idempotency is required** — because delivery is at-least-once, the handler must tolerate running again over already-deleted data (`DELETE ... WHERE user_id = @userId` is naturally idempotent).
+- **Failure handling** — let exceptions propagate. A throwing handler leaves the request unacknowledged and it is redelivered on the next session start; swallowing the exception would acknowledge an incomplete erasure.
+- **No handler registered** — the platform-managed erasure still runs and the request is acknowledged; the host logs at info that no handler was registered. App-owned data is the app's documented responsibility either way.

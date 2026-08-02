@@ -52,7 +52,8 @@ The preprocessor inlines included content before TOML parsing. Circular includes
 | `namespace`      | optional | Root namespace applied to every code generator unless `[namespaces]` overrides it.       |
 | `[namespaces]`   | optional | Code generator specific namespaces.                                                      |
 | `version`        | optional | Integer version for message. Required when `type` is present.                            |
-| `opcode`         | optional | Protocol opcode (int or string). Required when `type` is present.                        |
+| `opcode`         | optional | Protocol opcode (int or string). Required when `type` is present, unless `data = true`.  |
+| `data`           | optional | If `true`, the schema defines a pure data type instead of a wire message. See below.     |
 | `unreliable`     | optional | If `true`, generated messages of this type get `MessageFlag.Unreliable` set by default.  |
 | `doc`            | optional | Comment or docstring                                                                     |
 | `[fields]`       | optional | Field names and types. Only allowed when `type` is present.                              |
@@ -60,7 +61,61 @@ The preprocessor inlines included content before TOML parsing. Circular includes
 | `[enums.*]`      | optional | Enumerations. When `type` is omitted, these enums become namespace-level (global) types. |
 | `[[transforms]]` | optional | Version upgrade logic                                                                    |
 | `[constraints]`  | optional | Numeric/string constraints                                                               |
-| `[obsolete]`     | optional | Marks already-declared fields as deprecated in every generated language.                 |
+| `[obsolete]`     | optional | Ledger of removed fields: name → the type the field had when it was live. See section 5. |
+
+### Data Schemas
+
+A root message may declare `data = true` to define a pure data type — configuration files, manifests such as `ikon-bundle.json`, and other structures serialized by ordinary means (JSON, TOML) rather than the Teleport wire format:
+
+```toml
+type    = "AppBundleConfig"
+version = 1
+data    = true
+
+[fields]
+Name    = "string"
+Version = "string"
+```
+
+Rules and generation behavior:
+
+- `opcode` is forbidden — declaring both `data = true` and `opcode` fails the build. `version` remains required (it will drive config-version migration chains).
+- Nested messages inherit data-ness from the root.
+- C# emits plain `public sealed partial class` POCOs: properties with defaults as initializers, doc comments, nested classes, and enums — no `IProtocolMessagePayload`, no serializer registration, no Teleport read/write machinery. The result serializes cleanly with System.Text.Json. A non-optional field of a nested type initializes to a fresh instance (`= new AuthConfig();`), so a default-constructed root is complete.
+- TypeScript emits only `export interface` declarations and enums. Optional fields (`"T?"`) become true optional properties (`Field?: T`). No codecs, no opcode export, no opcode-registry participation.
+- Dart, C++, and Rust generators emit nothing for data schemas — data-schema support is C#/TS-only for now.
+- `string[]` fields may declare a default as a TOML array literal — `Methods = 'string[] = ["google", "email"]'` emits `new List<string> { "google", "email" }` in C#. List defaults are data-schema-only and string-element-only.
+- Every `#` comment line above a field, a `[nested.X]` header, or an `[enums.X]` header is preserved verbatim as that member's doc lines. The XML doc summary is unchanged; the full line list feeds the TOML writer below.
+- The generated type's public surface is deliberately minimal: its properties, `ToToml()` (toml mode), and `ToTeleportBytes`/`FromTeleportBytes` on the root class (binary mode). Loader plumbing — the `ToToml` extras overload, `ReadRetired`, `RetiredKeys` — stays public for cross-assembly loaders but is hidden from IntelliSense and the API docs via `[EditorBrowsable(Never)]`, and section-class codecs are `internal`.
+
+#### TOML Writer (`toml = true`)
+
+A data schema may additionally declare `toml = true` (valid only together with `data = true`) when it describes a commented TOML config file such as `ikon-config.toml`. The generated C# root class then also carries:
+
+```csharp
+public string ToToml(IReadOnlyDictionary<string, IReadOnlyList<string>>? extraLinesBySection = null)
+```
+
+which serializes the instance to TOML with the schema's doc comments emitted as `#` comments: root fields first (one blank line between blocks, each preceded by its doc lines), then one `[FieldName]` section per nested-typed root field in schema order, written compactly with the nested type's doc lines above the header. `extraLinesBySection` appends raw lines per section — key `""` targets the root block, a section field name targets that section, and any other key becomes a trailing `[Key]` block.
+
+The writer supports exactly the flat two-level shape of such configs, enforced at generation time: root fields are `string`, `bool`, `int32`, `int64`, `string[]`, or a non-optional nested type (a section); section fields are the same scalars/lists. Optional fields, enums, lists of nested types, and nesting below sections are rejected.
+
+#### Binary Codecs (`binary = true`)
+
+A data schema may additionally declare `binary = true` (valid only together with `data = true`, composable with `toml = true`) to give every generated C# class — root and nested — Teleport payload codecs without any wire-message machinery:
+
+```csharp
+public void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
+public static X ReadFromTeleport(ReadOnlySpan<byte> data)
+public byte[] ToTeleportBytes()
+public static X FromTeleportBytes(ReadOnlySpan<byte> data)
+```
+
+`ToTeleportBytes`/`FromTeleportBytes` wrap a standalone root object — no opcode, no `ProtocolMessage` attribute, no serializer registration, no version consts (nested object scopes inline the schema version), and no reset path: reads always populate a fresh instance. Field ids are the same xxHash32-of-name computation the wire generator uses, so the binary form of a config is an ordinary Teleport object.
+
+Because the TOML writer and the binary codecs hang off the same object, a `toml = true, binary = true` schema gives a lossless TOML ↔ binary conversion path for free: `FromToml(...)` → `ToTeleportBytes()` → `FromTeleportBytes(...)` → `ToToml()` reproduces the file — handy for debugging payloads and for shipping configs compactly.
+
+Restrictions: external type references (`Foo:type`) are rejected at generation time — their codecs and versions live in other schemas this generator cannot see. Binary codecs are C#-only; TypeScript data emission is unchanged.
 
 ### Unreliable Transport Default
 
@@ -145,48 +200,92 @@ This ensures reversible mapping between `.tp` and binary `.tpx` - identical to T
 
 ---
 
-### Deprecating a Field
+### Removed Fields: the `[obsolete]` Ledger
 
-Teleport matches fields by the hash of their name, so renaming one is a wire break for any reader still
-expecting the old name, while adding one costs nothing. A rename is therefore done by adding the new
-field and keeping the old one as a mirror the writer also populates.
-
-`[obsolete]` marks those retired fields so they are visible as deprecated to everyone consuming the
-generated code. Keys are field names that must already be declared in `[fields]`; the value is the
-migration note:
+`[obsolete]` is the ledger of fields that no longer exist. When a field is removed, its line moves
+from `[fields]` to `[obsolete]`, declared as it was — a default suffix is accepted and ignored. One
+rule, both wire and data schemas:
 
 ```toml
 [fields]
-IkonServerId = "string"
-# Legacy — kept so clients built before the rename still resolve it.
-ServerSessionId = "string"
+RequireSignIn = "bool = false"
 
+# The v1 auth surface, consumed by the v1 -> v2 upgrade (RequireSignIn = Enabled && !DeferLogin)
 [obsolete]
-ServerSessionId = "Renamed to IkonServerId"
+Enabled = "bool"
+DeferLogin = "bool"
 ```
 
-The marker is an annotation layer only — **the field keeps its ordinary typed declaration in
-`[fields]`**, and `[obsolete]` neither declares a field nor changes its type or wire behaviour. Naming a
-field that is not declared fails the build (`marks unknown field 'X' as obsolete`) rather than being
-ignored, so a later rename cannot leave the marker pointing at nothing.
+A ledger entry does three things:
 
-Each generator emits its own language's marker:
+- **Keeps old data readable.** The C# reader recognizes the retired field id (the xxHash32 of the
+  name — the same id the field always had) and decodes the value, typed, into a per-class
+  `RetiredFields` bag instead of skipping it. Truly unknown ids still skip.
+- **Feeds migrations.** The schema lists what existed; upgrade code decides what it means. A TOML
+  config's `UpgradeFrom` step and a wire handler receiving an old peer's payload (detected via the
+  message envelope version) both read the bag and map old values onto the current surface.
+- **Reserves the name and its hash forever.** A new live field whose name (or hash) collides with a
+  ledger entry fails generation, so a retired id can never be silently reused for different data.
 
-| Language   | Emitted                                          |
-|------------|--------------------------------------------------|
-| C#         | `[Obsolete("<note>")]`                           |
-| TypeScript | `@deprecated <note>` in the field's JSDoc        |
-| Dart       | `@Deprecated('<note>')`                          |
+Naming a field that is still declared in `[fields]` is an error — remove it from `[fields]`, or
+delete the entry. There is no deprecation marker feature: while a field is still live, migration
+guidance belongs in its `#` doc comment (which every generator carries into the generated code), and
+removal is the point at which the line moves into the ledger. Nested scopes are addressed as
+`[obsolete.NestedType]`, mirroring `[nested.X]`.
 
-The generated reader, writer and reset necessarily touch every field, retired ones included, so each
-generator also suppresses the deprecation diagnostic within the file it produces (`#pragma warning
-disable CS0618` for C#, `ignore_for_file: deprecated_member_use_from_same_package` for Dart; TypeScript
-needs none, as `@deprecated` is advisory there). The suppression is confined to generated code — use of
-a retired field anywhere else still surfaces, which is the point: where warnings are errors, marking a
-field turns every remaining call site into a build failure to be migrated.
+Entry values are the data-mode scalar set: `string`, `bool`, `int32`, `int64`, `float64` (alias
+`double`), and `string[]`.
 
-Rust and C++ do not yet emit a marker; their generated files compose their headers elsewhere, so the
-matching file-level suppression has no clean insertion point.
+Generated C# per class with ledger entries:
+
+```csharp
+public static readonly IReadOnlyList<string> RetiredKeys;   // the ledger's names
+public RetiredFields? GetRetiredFields();                    // what the last read captured, or null
+public RetiredFields GetOrCreateRetiredFields();             // populate before writing
+public void CopyRetiredFieldsFrom(T source);                 // carry the bag across a non-Teleport clone
+public sealed partial class RetiredFields { public bool? Enabled { get; set; } ... }
+```
+
+Every bag member is nullable — absent means the source carried no value. `GetRetiredFields` is a
+method rather than a property so TOML mapping and JSON serialization never treat the bag as data.
+That invisibility cuts both ways: a clone made by any route other than Teleport — a JSON round trip,
+a hand-written copy — silently arrives with an empty bag and stops emitting the retired fields, which
+is what `CopyRetiredFieldsFrom` is for. Call it on the clone whenever an origin writer's outbound
+value is a copy rather than the instance it populated.
+Data schemas additionally get `public static RetiredFields ReadRetired(Func<string, object?>
+valueLookup)`, a dependency-free typed extractor a TOML loader uses to fill the bag from the raw
+parsed table (raw shapes are coerced; null or a wrong shape leaves the entry absent). Wire messages
+are pooled, so `ResetTeleportState` clears the bag between reads.
+
+The ledger is round-trippable. `WriteToTeleport` emits every populated bag member under its retired
+id — the same hash the field had when it was live, so readers that still resolve the old name see
+bytes identical to before the removal — and an absent bag (the normal case) emits nothing. This is
+how a C# writer keeps sending a removed field during its sunset window
+(`message.GetOrCreateRetiredFields().OldField = value;`), and it means captured retired values
+survive a capture-modify-write cycle: what a read put in the bag goes back out on the next write.
+
+Every SDK carries the same bag on wire messages, shaped to the language:
+
+| Target     | Bag                                                   | Capture | Re-emit |
+|------------|-------------------------------------------------------|---------|---------|
+| C#         | private field, `GetRetiredFields()` / `GetOrCreate...` | yes     | yes     |
+| TypeScript | `retiredFields?: {Name}RetiredFields`                  | yes     | yes     |
+| C++        | `std::optional<RetiredFields> Retired`                 | yes     | yes     |
+| Rust       | `retired_fields: Option<{Name}RetiredFields>`          | yes     | yes     |
+| Dart       | `{Name}RetiredFields? retiredFields`                   | yes     | n/a     |
+
+A schema with no `[obsolete]` section emits none of this in any target. Decode captures retired ids
+into the bag instead of skipping; encode emits every set member under its original id, so a writer
+in any of those languages can keep sending a removed field during its sunset window. An unset bag
+emits nothing. Dart has no generated writers at all — its call sites hand-roll a
+`TeleportObjectWriter` — so it captures on read and exposes `retiredFieldId{Name}` constants, but
+has no write half to extend.
+
+Naming is per-language: TypeScript rejects a field literally named `retiredFields`; C++ nests the
+type as `RetiredFields` and names the member `Retired` (a member cannot share its nested type's
+name); Dart and Rust prefix with the message name because neither nests. The JSON mirror of wire
+messages does not carry retired keys in any target — the bag rides the binary side only, which is
+why the Rust member is `#[serde(skip)]`.
 
 ## 6. Nested Messages
 
@@ -335,7 +434,7 @@ Compilers normalize each `.tp` file into this in-memory shape. A serialized exam
 | Layout hash    | Must be updated on edit                    |
 | Non-zero flags | Invalid                                    |
 | Depth >128     | Invalid                                    |
-| `[obsolete]`   | Every key must name a field declared in `[fields]` |
+| `[obsolete]`   | Every key must name a field **not** declared in `[fields]`; the value is the removed field's scalar type (`string`, `bool`, `int32`, `int64`, `float64`/`double`, `string[]`); `[obsolete.X]` must name a declared nested type; retired names' hash ids must not collide with live field ids |
 
 ## 13. Compilation Workflow
 

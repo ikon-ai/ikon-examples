@@ -70,11 +70,15 @@ next update.
 
 ## The seven-day window
 
-A new dev build is published on **every push to main**, so a fix is on the feed as soon as it lands —
-that immediacy is the whole point of the channel. Retention deletes dev versions older than seven
-days, always keeping the newest few whatever their age, so the channel can never be emptied even if
-nothing is pushed for a while. There is no retention beyond that and no way to recover a deleted
-version.
+A new dev build is published on **every push to main that touches it** — the .NET libraries when the
+push changed .NET sources, the TypeScript SDK when it changed TypeScript sources — so a fix is on the
+feed as soon as it lands, which is the whole point of the channel. A push that changes neither leaves
+the version counter where it is, so dev ordinals skip numbers; the newest version on the feed is
+always the newest state of that half, whatever its ordinal.
+
+A nightly retention job then deletes dev versions older than seven days, always keeping the newest few
+whatever their age, so the channel can never be emptied even if nothing is pushed for a while. There
+is no retention beyond that and no way to recover a deleted version.
 
 What this means in practice:
 
