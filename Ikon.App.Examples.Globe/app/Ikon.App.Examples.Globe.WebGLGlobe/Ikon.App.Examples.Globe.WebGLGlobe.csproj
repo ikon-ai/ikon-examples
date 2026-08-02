@@ -7,7 +7,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <PropertyGroup>
-    <IkonRoot>$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), 'ikon-platform.slnx'))</IkonRoot>
+    <IkonRoot Condition="'$(IkonRoot)' == ''">$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), 'ikon-platform.slnx'))</IkonRoot>
     <IsIkonInternal Condition="'$(IkonRoot)' != ''">true</IsIkonInternal>
   </PropertyGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' != 'true'">
