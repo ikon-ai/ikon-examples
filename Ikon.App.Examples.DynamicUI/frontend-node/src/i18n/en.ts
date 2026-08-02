@@ -8,6 +8,8 @@ export const en: Translations = {
   'connection.offline.message': 'Refresh to continue',
   'connection.serverFull.title': 'App is at capacity',
   'connection.serverFull.message': 'Too many people are using this app right now. Please try again in a little while.',
+  'connection.sessionExpired.title': 'Session expired',
+  'connection.sessionExpired.message': 'The session this link points to has ended. Open the app without the link to start a new one.',
 
   // Auth screen
   'auth.welcome.title': 'Welcome',

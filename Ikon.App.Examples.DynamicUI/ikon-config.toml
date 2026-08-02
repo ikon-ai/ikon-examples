@@ -57,8 +57,8 @@ Routes = ["/"]
 # snapshot before these rules; signed-in visitors consult these rules first, then fall back to the
 # route snapshot. Variant skeletons are never prerendered to HTML and never listed in the sitemap.
 # GuestSeeds = ["/**:welcome"]
-# SignedInSeeds = ["/**:shell"]
 GuestSeeds = []
+# SignedInSeeds = ["/**:shell"]
 SignedInSeeds = []
 
 # Versioned binary data folders for the app. Binaries are stored in the Ikon Asset store and git only
