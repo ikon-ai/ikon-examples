@@ -59,8 +59,11 @@ public partial class Validation
             _tpFromClientUnreliable.Value++;
         }
 
-        long latency = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - sentAtMs;
-        _tpLastFromClient.Value = $"seq={seq} mode={mode} from=#{senderId} latency={latency}ms";
+        // Transit time plus however far the two machines' wall clocks are apart — the
+        // sender stamped SentAtMs from its own clock, so this is not a latency and goes
+        // negative whenever the sender's clock runs ahead. It is a liveness diagnostic.
+        long deltaMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - sentAtMs;
+        _tpLastFromClient.Value = $"seq={seq} mode={mode} from=#{senderId} delta={deltaMs}ms";
     }
 
     private void StartTpStream(int clientSessionId)

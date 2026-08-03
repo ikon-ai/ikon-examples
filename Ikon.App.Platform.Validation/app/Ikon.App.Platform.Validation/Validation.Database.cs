@@ -19,6 +19,46 @@ public partial class Validation
 
     private bool DatabaseAvailable => app.Databases.Any(d => d.Name == DatabaseName);
 
+    private Task? _dbInitTask;
+
+    // Deferred to first use of the Database tab: EF Core + Npgsql (and the System.Private.Xml
+    // they drag in) are ~16 MB of mapped assemblies plus the compiled model, which would
+    // otherwise sit in every fresh app instance that never opens this tab.
+    private Task EnsureDatabaseInitializedAsync()
+    {
+        var existing = _dbInitTask;
+
+        if (existing != null)
+        {
+            return existing;
+        }
+
+        var created = new TaskCompletionSource();
+        existing = Interlocked.CompareExchange(ref _dbInitTask, created.Task, null);
+
+        if (existing != null)
+        {
+            return existing;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await InitDatabaseAsync();
+                created.SetResult();
+            }
+            catch (Exception ex)
+            {
+                Log.Instance.Warning($"Database init failed: {ex}");
+                created.SetException(ex);
+                _ = Interlocked.Exchange(ref _dbInitTask, null);
+            }
+        });
+
+        return created.Task;
+    }
+
     private async Task InitDatabaseAsync()
     {
         if (!DatabaseAvailable)
@@ -29,14 +69,13 @@ public partial class Validation
 
         await using var db = CreateDbContext();
         await db.Database.MigrateAsync();
-        await RefreshEntriesAsync();
     }
 
     // Wipe the demo table on shutdown so each run starts from a clean slate and the capped table
     // never carries stale rows between sessions.
     private async Task ClearDatabaseAsync()
     {
-        if (!DatabaseAvailable)
+        if (!DatabaseAvailable || _dbInitTask == null)
         {
             return;
         }
@@ -83,7 +122,7 @@ public partial class Validation
             {
                 view.Text([Text.H2, "mb-4"], "Database");
                 view.Text([Text.Caption, "mb-2"], "Managed PostgreSQL via the 'validationdb' database declared in ikon-config. The same 'entries' table is exercised through three .NET data-access styles — EF Core, Dapper, and raw ADO.NET/Npgsql — so this tab doubles as a reference for app developers.");
-                view.Text([Text.Caption], "EF Core owns the schema (created by its migration, applied at startup); Dapper and raw SQL read/write the same table.");
+                view.Text([Text.Caption], "EF Core owns the schema (created by its migration, applied on first use of this tab); Dapper and raw SQL read/write the same table.");
             });
 
             if (!DatabaseAvailable)
@@ -218,6 +257,8 @@ public partial class Validation
 
         try
         {
+            await EnsureDatabaseInitializedAsync();
+
             switch (library)
             {
                 case "ef":
@@ -377,6 +418,8 @@ public partial class Validation
 
         try
         {
+            await EnsureDatabaseInitializedAsync();
+
             _dbEntries.Value = _dbReadVia.Value switch
             {
                 "dapper" => await ReadViaDapperAsync(),
@@ -402,6 +445,8 @@ public partial class Validation
 
         try
         {
+            await EnsureDatabaseInitializedAsync();
+
             await using var connection = app.Database(DatabaseName);
             await connection.OpenAsync();
             await using var command = connection.CreateCommand();

@@ -105,16 +105,6 @@ const FunctionTesterRenderer = memo(function FunctionTesterRenderer({ nodeId, co
   const [functions, setFunctions] = useState<RemoteFunction[]>([]);
   const [initialized, setInitialized] = useState(false);
 
-  if (!node) return null;
-
-  if (!initialized && client) {
-    const remoteFns = client.functionRegistry.getRemoteFunctions();
-    if (remoteFns.length > 0) {
-      setFunctions(remoteFns);
-      setInitialized(true);
-    }
-  }
-
   const handleCall = useCallback(
     async (name: string, args: unknown[]): Promise<FunctionCallResult> => {
       if (!client) return { value: null, error: 'Not connected', durationMs: 0 };
@@ -134,6 +124,16 @@ const FunctionTesterRenderer = memo(function FunctionTesterRenderer({ nodeId, co
     setFunctions(client.functionRegistry.getRemoteFunctions());
     setInitialized(true);
   }, [client]);
+
+  if (!node) return null;
+
+  if (!initialized && client) {
+    const remoteFns = client.functionRegistry.getRemoteFunctions();
+    if (remoteFns.length > 0) {
+      setFunctions(remoteFns);
+      setInitialized(true);
+    }
+  }
 
   return (
     <div className={className}>

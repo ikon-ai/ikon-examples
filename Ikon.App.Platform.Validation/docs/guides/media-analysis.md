@@ -8,7 +8,7 @@ How to accept user-uploaded video/audio files and analyze them WITHOUT copying t
 2. `Asset.Instance.GetMetadataAsync(uri)` — its `.Url` is a temporary signed URL to the stored file.
 3. `ffprobe` / `ffmpeg` take that URL as input directly — they stream over HTTP (with range requests for seeking), so metadata probing, frame extraction, audio extraction, and transcoding all run without ever materializing the file locally.
 
-**ffmpeg and ffprobe are preinstalled in every app container** — launch them with `Process.Start`, no packages or setup needed. (`Process`/`ProcessStartInfo` live in `System.Diagnostics` and `JsonDocument` in `System.Text.Json` — not Ikon namespaces, so add them to `GlobalUsings.cs`.)
+**ffmpeg and ffprobe are preinstalled in the standard app containers** (the default runtime plus the workflow/creator images; the browser-scraping runtime is the exception) — launch them with `Process.Start`, no packages or setup needed. (`Process`/`ProcessStartInfo` live in `System.Diagnostics` — not an Ikon namespace and not in `GlobalUsings.cs`, so add it there; `JsonDocument`'s `System.Text.Json` is already in the managed usings block.)
 
 ### Step 1 — upload directly to asset storage
 
@@ -44,7 +44,7 @@ The callbacks hand back the `AssetUri` struct itself (`AssetUri?`), the same typ
 ```csharp
 private static async Task<JsonDocument?> ProbeMediaAsync(AssetUri assetUri)
 {
-    // The signed URL is temporary (.UrlIsTemporal / .ExpiresAt) — fetch it fresh
+    // The signed URL is temporary (.UrlIsTemporal) — fetch it fresh
     // right before each ffprobe/ffmpeg invocation, never persist it
     var metadata = await Asset.Instance.GetMetadataAsync(assetUri);
 
@@ -128,7 +128,7 @@ await using var audioStream = process.StandardOutput.BaseStream;
 // read fixed-size chunks from audioStream — do NOT ReadToEnd a long file
 ```
 
-For byte-level access from C# without ffmpeg, `Asset.Instance.GetReadStreamAsync(uri)` returns a `Stream` over the stored object — process it incrementally the same way.
+For byte-level access from C# without ffmpeg, `Asset.Instance.GetReadStreamAsync(uri)` returns an `AssetContent<Stream>` whose `.Content` is a `Stream` over the stored object — process it incrementally the same way.
 
 ### Anti-patterns (each one exhausts container disk or RAM on real-world media)
 
@@ -213,10 +213,8 @@ namespace Ikon.Common.Core.Assets
   sealed class AssetQuery
     ctor(AssetClass assetClass)
     ctor(AssetUri folderUri)
-    string? ChannelId { get; set; }
     AssetClass Class { get; }
     string? ContinuationToken { get; set; }
-    string? EffectiveChannelId { get; }
     string? EffectiveFolderPrefix { get; }
     string? EffectiveSpaceId { get; }
     string? EffectiveUserId { get; }
@@ -238,11 +236,10 @@ namespace Ikon.Common.Core.Assets
     ctor(AssetUri assetUri, AssetMetadata? metadata)
     AssetUri AssetUri { get; }
     AssetMetadata? Metadata { get; }
-  // Grammar: assets://[space/{spaceId}/][user/{userId}/][channel/{channelId}/]{class}/{path}[?query]. {class} is the kebab-case AssetClass (local-file, embedded-file, cloud-file, cloud-file-public, cloud-json) and selects the storage backend; {path} may include subdirectories and a file name. The optional space/user/channel segments scope the asset — omit them for a global asset. Immutable; With returns a modified copy.
+  // Grammar: assets://[space/{spaceId}/][user/{userId}/]{class}/{path}[?query]. {class} is the kebab-case AssetClass (local-file, embedded-file, cloud-file, cloud-file-public, cloud-json) and selects the storage backend; {path} may include subdirectories and a file name. The optional space/user segments scope the asset — omit them for a global asset. Immutable; With returns a modified copy. A legacy channel/{id}/ segment is still accepted on parse and discarded (read tolerance for pre-migration URIs) — it is never emitted.
   readonly struct AssetUri : IEquatable<AssetUri>
     ctor(string uriString)
-    ctor(AssetClass assetClass, string? path = null, string? spaceId = null, string? userId = null, string? channelId = null, string? query = null)
-    string? ChannelId { get; }
+    ctor(AssetClass assetClass, string? path = null, string? spaceId = null, string? userId = null, string? query = null)
     AssetClass Class { get; }
     string FileName { get; }
     string Path { get; }
@@ -255,7 +252,7 @@ namespace Ikon.Common.Core.Assets
     static string ToFilesystemPath(AssetUri assetUri)
     static bool TryParse(string uriString, out AssetUri assetUri, out string? failureReason)
     static bool TryParse(string uriString, out AssetUri assetUri)
-    AssetUri With(AssetClass? assetClass = null, string? path = null, string? spaceId = null, string? userId = null, string? channelId = null, string? query = null)
+    AssetUri With(AssetClass? assetClass = null, string? path = null, string? spaceId = null, string? userId = null, string? query = null)
     static bool operator ==(AssetUri left, AssetUri right)
     static bool operator !=(AssetUri left, AssetUri right)
   sealed class AssetUriJsonConverter : JsonConverter<AssetUri>
@@ -301,12 +298,12 @@ The Ikon asset system exposes a uniform abstraction for storing and retrieving f
 All asset identifiers use the `assets://` scheme defined by `AssetUri`. URIs are composed of optional scope segments followed by the asset class and backend-specific path:
 
 ```
-assets://space/{spaceId}/user/{userId}/channel/{channelId}/{asset-class}/{path/to/resource}?{query}
+assets://space/{spaceId}/user/{userId}/{asset-class}/{path/to/resource}?{query}
 ```
 
 Key rules:
 
-- `space`, `user`, and `channel` segments are optional and may appear in that order. They scope the asset inside the storage backend.
+- `space` and `user` segments are optional and may appear in that order. They scope the asset inside the storage backend.
 - The asset class segment must match one of the values defined in `AssetClass` (for example `cloud-file`, `cloud-json`, or `embedded-file`).
 - The remaining path is interpreted by the storage driver and can include nested folders.
 - `AssetUri` instances normalize the file name, expose `With` helpers for cloning with modified components, and provide converters for filesystem paths when assets need to be mirrored locally.
@@ -322,7 +319,6 @@ Key rules:
 | `CloudFile` | `cloud-file` | Private cloud object storage optimized for arbitrary binary payloads. Supports signed URLs, metadata, and optimistic concurrency tokens. |
 | `CloudFilePublic` | `cloud-file-public` | Same backing service as `CloudFile` but exposes public URLs for assets meant to be shared openly. |
 | `CloudJson` | `cloud-json` | JSON documents persisted through the Hub API, suited for low-latency configuration payloads. Supports optimistic concurrency via the `LastModified` timestamp. |
-| `CloudProfile` | `cloud-profile` | Legacy profile projection support. Marked obsolete and scheduled for removal once dependent workloads migrate. |
 
 Each storage reports metadata such as MIME type, byte size, update timestamp, tags, download URL (when applicable), and the backend-specific identifier through `AssetMetadata` so callers can perform fine-grained reconciliation. Storages with a canonical native addressing scheme may also expose it via `AssetMetadata.NativeUri` (for example `gs://bucket/object` on GCS-backed cloud files); downstream consumers that recognise the scheme can use it as a zero-copy fast path, and callers that do not should ignore it.
 
@@ -418,7 +414,7 @@ Console.WriteLine($"Last updated {metadata.LastModified:O}");
 
 ```csharp
 var download = await assets.GetReadStreamAsync(photoUri);
-await using (download)
+using (download)
 {
     await using var destination = File.Create("./downloaded.png");
     await download.Content.CopyToAsync(destination);
@@ -441,7 +437,7 @@ var layout = await assets.GetAsync<DashboardLayout>(
 `GetOrUpdateWithMetadataAsync` wires a callback to an asset. The callback is invoked immediately with the current content and again whenever the underlying storage reports an add, change, or delete event. Provide `onAssetNotFound` to seed defaults before subscribing.
 
 ```csharp
-await assets.GetOrUpdateWithMetadataAsync(
+await assets.GetOrUpdateWithMetadataAsync<Settings>(
     settingsUri,
     async (args, content) =>
     {

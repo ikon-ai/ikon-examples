@@ -6,7 +6,7 @@ Ikon.Parallax ships first-class, themed, interactive chart components: `view.Pie
 
 ### Pie / donut chart
 
-`data` is a list of `PieChartDatum { string Id; string Label; double Value; string Color }`. Give `innerRadius` a value above 0 for a donut.
+`data` is a list of `PieChartDatum { string Id; string Label; double Value; string Color }`. A datum's `Color` is honored as its slice color; datums without one fall back to the theme palette. Passing `colors:` overrides per-datum colors. Give `innerRadius` a value above 0 for a donut.
 
 ```csharp
 view.PieChart(
@@ -36,7 +36,7 @@ view.BarChart(
 
 ### Line chart
 
-`data` is a list of `LineChartSeries { string Id; IEnumerable<LineChartPoint> Data; string Color }`; each point is `LineChartPoint { object X; object Y }`.
+`data` is a list of `LineChartSeries { string Id; IEnumerable<LineChartPoint> Data; string Color }`; each point is `LineChartPoint { object X; double Y }`. A series' `Color` is honored as its line color; series without one fall back to the theme palette. Passing `colors:` overrides per-series colors for the whole chart.
 
 ```csharp
 view.LineChart(
@@ -48,7 +48,9 @@ view.LineChart(
     }]);
 ```
 
-All three also accept `colorScheme:` (a `ChartColorScheme` enum value like `ChartColorScheme.Nivo` — NOT a string like `"nivo"`, which is CS1503), `margin:` (`ChartMargin`), `axisBottom:` / `axisLeft:` (`AxisConfig`), `legends:`, `isInteractive:`, and an `onClick:` handler. See the UI API Reference for the full parameter list.
+All three also accept `colorScheme:` (a `ChartColorScheme` enum value like `ChartColorScheme.Nivo` — NOT a string like `"nivo"`, which is CS1503), `margin:` (`ChartMargin`), `legends:`, `isInteractive:`, and an `onClick:` handler. BarChart and LineChart additionally take `axisBottom:` / `axisLeft:` (`AxisConfig`) — PieChart has no axis parameters (CS1739). See the UI API Reference for the full parameter list.
+
+Out of the box, BarChart and LineChart render labelled bottom/left axes with a sensible default margin — you do NOT need to pass `margin:` or axis configs just to see tick labels. Pass `margin:` only to adjust spacing, and `axisBottom:` / `axisLeft:` to customize ticks, legends, or formatting; an empty `new AxisConfig()` keeps the default axis.
 
 When the plotted values carry a unit, pass `valueUnit:` — tooltips and value-axis ticks then render human-scaled unit strings instead of bare numbers. Well-known units are `"milliseconds"`, `"seconds"`, `"bytes"`, `"percent"`, and `"usd"` (auto-scaled: `1333.9` milliseconds renders as `1.33 s`, `2411724` bytes as `2.3 MB`); any other string is appended as a plain suffix (`valueUnit: "credits"` → `12 credits`).
 

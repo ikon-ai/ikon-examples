@@ -78,13 +78,13 @@ Every entry commits one or more CSS variables. The renderer dispatches by **key 
 
 The "smart sniff" inspects the **value** to pick a resolver: `<palette>-<step>` → color ref, `rounded-*` → resolved rem, `font-*` → font ref, `duration-*` → milliseconds, easing keyword → cubic-bezier, anything else (hex, rgb, oklch, rem, ms, gradient, raw family name) → unchanged. So `["primary"] = "amber-400"` and `["primary"] = "#F5A524"` both work.
 
-Mistyped keys and mismatched values (`["radius"] = "amber-400"`) log a warning once per token per process. Silence intentional cases with the `IKON_DEV_WARNINGS=0` environment variable.
+Mistyped keys and mismatched values (`["rounded-lg"] = "amber-400"`) log a warning once per token per process. Silence intentional cases with the `IKON_DEV_WARNINGS=0` environment variable.
 
 ## What's NOT in the system
 
 - **Named token properties.** No `Brand = "amber-400"`. Every token override is an indexer entry; `Mode` and `DarkMode` are the only non-indexer members.
 - **Auto-contrast.** Setting `["background"] = "zinc-950"` does not auto-pick a light text color — set `["foreground"]` yourself. Text on brand fills defaults to white, so `["primary-foreground"]` is only needed for LIGHT brand steps.
-- **Magic value resolution beyond the documented kinds.** `["radius"] = "fluffy"` is not a radius; it lands unresolved and warns.
+- **Magic value resolution beyond the documented kinds.** `["density"] = "fluffy"` is not a density; the override is skipped with a warning so the baseline unit stands.
 
 Committing a full mood takes roughly 10-14 entries: the brand line, the surface/text lines, shape, density, type, motion.
 
@@ -95,7 +95,7 @@ There is ONE contract:
 1. **Apps theme dark exclusively through the theme object** — either `DarkMode = new IkonTheme { ... }` (adaptive: light block + dark block) or `Mode = ThemeMode.Fixed` (one committed palette, pinned in both schemes). Never hand-author dark styling per component.
 2. **Components that use semantic classes get dark for free.** `bg-background`, `bg-card`, `text-foreground`, `border-secondary`, `bg-brand-solid` and every `Ikon.Parallax.Theming` preset resolve through variables that flip with the active scheme.
 3. **`theme-dark:` is the variant for structural dark-only tweaks** (it follows the in-app theme toggle, i.e. `data-theme="dark"`). Rarely needed — reach for it only when a semantic token genuinely can't express the difference.
-4. **`dark:` is discouraged in app code.** It follows the OS preference and never the in-app toggle, so a user flipping the app's theme switch sees `dark:` styles ignore them.
+4. **`dark:` follows the toggle too, plus an OS fallback.** Under the default dual strategy it emits both a rule scoped to the in-app theme (`[data-theme="dark"]` / `.dark`) and a `prefers-color-scheme: dark` fallback that applies only when no explicit theme is set.
 
 Adaptive app — author both palettes in one block:
 

@@ -8,6 +8,8 @@ public partial class Validation
     private readonly Reactive<int> _maxClientsVersion = new(0);
     private readonly Reactive<string> _maxClientsOverride = new("");
     private readonly Reactive<bool> _memoryAllocating = new(false);
+    private readonly Reactive<double> _memoryAfterGcProcessMb = new(0);
+    private readonly Reactive<double> _memoryAfterGcManagedMb = new(0);
     private readonly Reactive<bool> _memoryErrorToastOpen = new(false);
     private readonly Reactive<string> _memoryErrorMessage = new("");
     private readonly List<nint> _memoryUnmanagedAllocations = [];
@@ -31,6 +33,7 @@ public partial class Validation
                 {
                     view.Text([Text.H2], "Memory Info");
                     view.Button([Button.GhostMd, Button.Icon],
+                        text: "Run GC",
                         disabled: allocating,
                         onClick: ForceFullGcAsync,
                         content: v => v.Icon([Icon.Default], name: "refresh-cw"));
@@ -38,6 +41,17 @@ public partial class Validation
                 view.Text([Text.Body], $"Configured limit: {app.MaxMemoryLimitMb} MB");
                 view.Text([Text.Body], $"Process memory: {processMemoryMb:F1} MB");
                 view.Text([Text.Body], $"Managed memory: {managedMemoryMb:F1} MB");
+
+                // Captured inside the GC handler the moment the blocking collection finishes,
+                // BEFORE any re-render/transport churn re-allocates — the live "Managed memory"
+                // figure above can read tens of MB high right after heavy connect/disconnect
+                // traffic even though the retained heap is small. This pair is the stable signal
+                // for footprint comparisons (used by the platform validation memory phase).
+                if (_memoryAfterGcManagedMb.Value > 0)
+                {
+                    view.Text([Text.Body], $"Process after last GC: {_memoryAfterGcProcessMb.Value:F1} MB");
+                    view.Text([Text.Body], $"Managed after last GC: {_memoryAfterGcManagedMb.Value:F1} MB");
+                }
 
                 if (app.MaxMemoryLimitMb > 0 && processMemoryMb > app.MaxMemoryLimitMb)
                 {
@@ -205,6 +219,9 @@ public partial class Validation
                 GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
                 GC.WaitForPendingFinalizers();
                 GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
+
+                _memoryAfterGcProcessMb.Value = DiagnosticUtils.GetProcessMemoryUsedBytes() / 1024.0 / 1024.0;
+                _memoryAfterGcManagedMb.Value = GC.GetTotalMemory(false) / 1024.0 / 1024.0;
             });
         }
         finally

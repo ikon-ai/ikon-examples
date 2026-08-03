@@ -4,15 +4,18 @@ export const en: Translations = {
   // Connection states
   'connection.connecting': 'Connecting...',
   'connection.reconnecting': 'Reconnecting...',
-  'connection.offline.title': 'App is offline',
-  'connection.offline.message': 'Refresh page to reconnect',
+  'connection.offline.title': 'Connection lost',
+  'connection.offline.message': 'Refresh to continue',
   'connection.serverFull.title': 'App is at capacity',
   'connection.serverFull.message': 'Too many people are using this app right now. Please try again in a little while.',
+  'connection.sessionExpired.title': 'Session expired',
+  'connection.sessionExpired.message': 'The session this link points to has ended. Open the app without the link to start a new one.',
 
   // Auth screen
   'auth.welcome.title': 'Welcome',
   'auth.welcome.subtitle': 'Sign in to continue',
   'auth.divider': 'or',
+  'auth.dismiss': 'Not now',
 
   // Email login form
   'auth.email.placeholder': 'Enter your email',

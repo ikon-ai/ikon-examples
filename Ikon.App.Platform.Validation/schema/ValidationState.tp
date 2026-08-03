@@ -1,0 +1,20 @@
+type = "ValidationProfile"
+version = 2
+data = true
+doc = "The Validation \"Versioned State\" tab's persisted profile — the canonical example of a schema-versioned persisted state type. Because this is a data .tp instead of a plain C# record, the persistence layer applies the compat contract: renamed fields survive storage via the [obsolete] ledger and the UpgradeFrom migration chain (see Validation.State.cs), old builds cannot destroy fields written by newer builds, and payloads stored by a newer schema version are never downgraded."
+
+[namespaces]
+csharp = "Ikon.App.Platform.Validation.Protocol"
+typescript = ""
+
+[fields]
+# What the profile shows as the player's name. v1 called this Nickname.
+DisplayName = "string"
+# Incremented from the tab's button; proves scalar state persists across restarts.
+VisitCount = "int32"
+FavoriteColors = 'string[] = ["teal", "amber"]'
+
+# v1 named the display name Nickname. The v1 -> v2 migration (UpgradeFrom1 in
+# Validation.State.cs) maps it onto DisplayName when a v1 payload is loaded.
+[obsolete]
+Nickname = "string"

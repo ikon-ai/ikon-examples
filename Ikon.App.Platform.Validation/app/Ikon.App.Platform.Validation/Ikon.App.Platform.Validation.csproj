@@ -6,7 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <NoWarn>$(NoWarn);1998</NoWarn>
+    <NoWarn>$(NoWarn);1998;9113</NoWarn>
+    <NuGetAuditMode>direct</NuGetAuditMode>
     <Version>1.0.0</Version>
     <IkonApp>true</IkonApp>
     <IsPackable>false</IsPackable>
@@ -14,33 +15,33 @@
     <ValidationAppPassword>$(IKON_VALIDATION_APP_PASSWORD)</ValidationAppPassword>
   </PropertyGroup>
   <PropertyGroup>
-    <IkonRoot>$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), 'ikon-platform.slnx'))</IkonRoot>
+    <IkonRoot Condition="'$(IkonRoot)' == ''">$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), 'ikon-platform.slnx'))</IkonRoot>
     <IsIkonInternal Condition="'$(IkonRoot)' != ''">true</IsIkonInternal>
   </PropertyGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' != 'true'">
-    <PackageReference Include="Ikon.AI" Version="3.2.39" />
-    <PackageReference Include="Ikon.AI.Speech.Azure" Version="3.2.39" />
-    <PackageReference Include="Ikon.AI.Speech.Google" Version="3.2.39" />
-    <PackageReference Include="Ikon.AI.Scrape" Version="3.2.39" />
-    <PackageReference Include="Ikon.AI.Database" Version="3.2.39" />
-    <PackageReference Include="Ikon.AI.Emergence" Version="3.2.39" />
-    <PackageReference Include="Ikon.App" Version="3.2.39" />
-    <PackageReference Include="Ikon.Connectors.Google" Version="3.2.39" />
-    <PackageReference Include="Ikon.Connectors.Telephony" Version="3.2.39" />
-    <PackageReference Include="Ikon.Connectors.Browser" Version="3.2.39" />
-    <PackageReference Include="Ikon.Common" Version="3.2.39" />
-    <PackageReference Include="Ikon.Common.Core" Version="3.2.39" />
-    <PackageReference Include="Ikon.Crosswind" Version="3.2.39" />
-    <PackageReference Include="Ikon.Parallax" Version="3.2.39" />
-    <PackageReference Include="Ikon.Pipeline" Version="3.2.39" />
-    <PackageReference Include="Ikon.Pipelines.Public" Version="3.2.39" />
-    <PackageReference Include="Ikon.Resonance" Version="3.2.39" />
-    <PackageReference Include="Ikon.Resonance.Core" Version="3.2.39" />
-    <PackageReference Include="Ikon.Server" Version="3.2.39" />
-    <PackageReference Include="Ikon.Teleport" Version="3.2.39" />
-    <PackageReference Include="Ikon.Sdk" Version="2.0.22" />
-    <PackageReference Include="Ikon.App.Storage.Postgres" Version="3.2.39" />
-    <PackageReference Include="Ikon.Server.HotReload" Version="3.2.39" />
+    <PackageReference Include="Ikon.AI" Version="3.3.0" />
+    <PackageReference Include="Ikon.AI.Speech.Azure" Version="3.3.0" />
+    <PackageReference Include="Ikon.AI.Speech.Google" Version="3.3.0" />
+    <PackageReference Include="Ikon.AI.Scrape" Version="3.3.0" />
+    <PackageReference Include="Ikon.AI.Database" Version="3.3.0" />
+    <PackageReference Include="Ikon.AI.Emergence" Version="3.3.0" />
+    <PackageReference Include="Ikon.App" Version="3.3.0" />
+    <PackageReference Include="Ikon.Connectors.Google" Version="3.3.0" />
+    <PackageReference Include="Ikon.Connectors.Telephony" Version="3.3.0" />
+    <PackageReference Include="Ikon.Common" Version="3.3.0" />
+    <PackageReference Include="Ikon.Common.Core" Version="3.3.0" />
+    <PackageReference Include="Ikon.Crosswind" Version="3.3.0" />
+    <PackageReference Include="Ikon.Parallax" Version="3.3.0" />
+    <PackageReference Include="Ikon.Pipeline" Version="3.3.0" />
+    <PackageReference Include="Ikon.Pipelines.Public" Version="3.3.0" />
+    <PackageReference Include="Ikon.Resonance" Version="3.3.0" />
+    <PackageReference Include="Ikon.Resonance.Core" Version="3.3.0" />
+    <PackageReference Include="Ikon.Server" Version="3.3.0" />
+    <PackageReference Include="Ikon.Teleport" Version="3.3.0" />
+    <PackageReference Include="Ikon.Sdk" Version="2.0.23" />
+    <PackageReference Include="Ikon.App.Storage.Postgres" Version="3.3.0" />
+    <PackageReference Include="Ikon.Server.HotReload" Version="3.3.0" />
+    <PackageReference Include="StbImageSharp" Version="2.30.15" />
   </ItemGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' == 'true'">
     <ProjectReference Include="$(IkonRoot)\Ikon.AI\Ikon.AI.csproj" />
@@ -52,7 +53,6 @@
     <ProjectReference Include="$(IkonRoot)\Ikon.App\Ikon.App.csproj" />
     <ProjectReference Include="$(IkonRoot)\Ikon.Connectors.Google\Ikon.Connectors.Google.csproj" />
     <ProjectReference Include="$(IkonRoot)\Ikon.Connectors.Telephony\Ikon.Connectors.Telephony.csproj" />
-    <ProjectReference Include="$(IkonRoot)\Ikon.Connectors.Browser\Ikon.Connectors.Browser.csproj" />
     <ProjectReference Include="$(IkonRoot)\Ikon.Common\Ikon.Common.csproj" />
     <ProjectReference Include="$(IkonRoot)\Ikon.Common.Core\Ikon.Common.Core.csproj" />
     <ProjectReference Include="$(IkonRoot)\Ikon.Crosswind\Ikon.Crosswind.csproj" />
@@ -82,7 +82,7 @@
     </ItemGroup>
   </Target>
   <Target Name="IkonAppTeleportBuildExternal" BeforeTargets="BeforeBuild" Condition="'$(IsIkonInternal)' != 'true' And Exists('$(MSBuildProjectDirectory)/../../schema')" Inputs="@(IkonTeleportSchemaFile)" Outputs="$(IntermediateOutputPath)ikon-teleport.stamp">
-    <Exec Command="ikon app teleport build --target-dir &quot;$(MSBuildProjectDirectory)/../..&quot;" EnvironmentVariables="CI=true" ContinueOnError="WarnAndContinue" />
+    <Exec Command="ikon app teleport build --project-dir &quot;$(MSBuildProjectDirectory)/../..&quot;" EnvironmentVariables="CI=true" ContinueOnError="WarnAndContinue" />
     <MakeDir Directories="$(IntermediateOutputPath)" Condition="'$(MSBuildLastTaskResult)' == 'true'" />
     <Touch Files="$(IntermediateOutputPath)ikon-teleport.stamp" AlwaysCreate="true" Condition="'$(MSBuildLastTaskResult)' == 'true'" />
     <ItemGroup>
@@ -90,15 +90,18 @@
     </ItemGroup>
   </Target>
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.3.0" />
-    <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="5.3.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.9" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />
+    <!-- Design-time only (dotnet ef migrations); ExcludeAssets keeps its Roslyn/MSBuildWorkspace
+         dependency tree (incl. the BuildHost folders) out of the app output and the bundle. The two
+         CodeAnalysis pins below resolve EF Design's internally mismatched Roslyn versions (NU1107). -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
       <PrivateAssets>all</PrivateAssets>
+      <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.2" />
-    <PackageReference Include="Dapper" Version="2.1.66" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.6.0" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="5.6.0" ExcludeAssets="runtime;build;buildtransitive;contentfiles;native" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <PackageReference Include="Dapper" Version="2.1.79" />
   </ItemGroup>
   <Target Name="GenerateValidationAppPassword" BeforeTargets="CoreCompile">
     <WriteLinesToFile File="$(IntermediateOutputPath)ValidationAppPassword.g.cs" Overwrite="true" WriteOnlyWhenDifferent="true" Lines="public static partial class BuildConstants { public const string ValidationAppPassword = &quot;$(ValidationAppPassword)&quot;%3B }" />

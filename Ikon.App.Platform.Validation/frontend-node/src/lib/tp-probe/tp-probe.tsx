@@ -34,11 +34,11 @@ interface ModeMetrics {
   gaps: number; // summed (seq - lastSeq - 1) when seq jumps forward → dropped messages
   outOfOrder: number; // seq <= lastSeq → reorder/duplicate (or a server stream restart)
   lastSeq: number;
-  lastLatencyMs: number;
+  lastDeltaMs: number; // transit + however far the sender's clock is from ours; can be negative
 }
 
 function emptyMetrics(): ModeMetrics {
-  return { count: 0, gaps: 0, outOfOrder: 0, lastSeq: 0, lastLatencyMs: 0 };
+  return { count: 0, gaps: 0, outOfOrder: 0, lastSeq: 0, lastDeltaMs: 0 };
 }
 
 function applyMessage(m: ModeMetrics, seq: number, sentAtMs: number): void {
@@ -50,7 +50,7 @@ function applyMessage(m: ModeMetrics, seq: number, sentAtMs: number): void {
   }
   m.lastSeq = seq;
   m.count += 1;
-  m.lastLatencyMs = Date.now() - sentAtMs;
+  m.lastDeltaMs = Date.now() - sentAtMs;
 }
 
 const TpProbeRenderer = memo(function TpProbeRenderer({ context }: UiComponentRendererProps) {
@@ -162,7 +162,7 @@ function MetricCard({ title, testid, m }: { title: string; testid: string; m: Mo
       <MetricRow label="gaps (drops)" value={m.gaps} testid={`tp-${testid}-gaps`} />
       <MetricRow label="out-of-order" value={m.outOfOrder} testid={`tp-${testid}-ooo`} />
       <MetricRow label="last seq" value={m.lastSeq} testid={`tp-${testid}-seq`} />
-      <MetricRow label="last latency (ms)" value={m.lastLatencyMs} testid={`tp-${testid}-latency`} />
+      <MetricRow label="last delta (ms)" value={m.lastDeltaMs} testid={`tp-${testid}-delta`} />
     </div>
   );
 }

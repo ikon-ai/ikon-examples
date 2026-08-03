@@ -4,6 +4,9 @@ public partial class Validation
     {
         view.Column([Layout.Column.Lg], content: view =>
         {
+            RenderMediaCountersSection(view);
+            RenderSyntheticVideoSection(view);
+
             // Camera Capture section
             view.Box([Card.Default, "p-6"], content: view =>
             {
@@ -106,7 +109,6 @@ public partial class Validation
                                 Height = camRes.Height,
                                 Bitrate = ParseBitrateMbps(_cameraBitrate.Value),
                                 DeviceId = GetSelectedDeviceId(_selectedCameraId.Value),
-                                TargetIds = [app.SessionId]
                             },
                             onCaptureStart: async _ =>
                             {
@@ -198,7 +200,6 @@ public partial class Validation
                                 PreferredCodecs = [ParseCodec(_screenCodec.Value)],
                                 Framerate = ParseFramerate(_screenFramerate.Value),
                                 Bitrate = ParseBitrateMbps(_screenBitrate.Value),
-                                TargetIds = [app.SessionId]
                             },
                             onCaptureStart: async _ =>
                             {
@@ -311,6 +312,7 @@ public partial class Validation
                                 _capturedImageMime.Value = img.Mime;
                                 _capturedImageWidth.Value = img.Width;
                                 _capturedImageHeight.Value = img.Height;
+                                RecordClientImage(Convert.FromBase64String(img.Data));
                             }
                         };
 

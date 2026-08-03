@@ -23,10 +23,10 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         "charts",
         "files", "assets", "actions", "notifications",
         "video", "audio", "rive", "shadertoy",
-        "ikon-ai", "mcp", "app-cells",
+        "ikon-ai", "mcp", "app-cells", "cron",
         "virtualization", "drawing",
         "profiling", "memory", "identity", "functions",
-        "payments", "email", "custom-messages", "database"
+        "payments", "email", "custom-messages", "database", "versioned-state"
     ];
 
     // Input states
@@ -354,42 +354,44 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
         await StartAudioGeneratorAsync();
         SetupAudioMetricsTracking();
+        StartMediaCounterPublishing();
         SetupVideoInputHandlers();
         SetupAudioInputHandlers();
         SetupCustomMessageHandlers();
         await StartMcpAsync();
 
-        await InitDatabaseAsync();
         app.OnStopping(ClearDatabaseAsync);
 
-        app.Navigation.PathChangedAsync += async args =>
+        // Exercises the dynamic snapshot-route provider: these ship as route snapshots exactly like
+        // the statically configured ones. The platform validation script asserts both sets reach the
+        // sitemap and prerendered crawler pages.
+        app.OnSnapshotRoutes(() => Task.FromResult<IEnumerable<string>>(["/charts", "/icons"]));
+
+        app.Navigation.PathChangedAsync += args =>
         {
             var tab = args.Path.TrimStart('/');
 
             if (ValidTabs.Contains(tab))
             {
-                _activeTab.Value = tab;
+                ActivateTab(tab);
             }
-            else
-            {
-                await app.Navigation.SetPathAsync(args.ClientSessionId, $"/{_activeTab.Value}", replace: true);
-            }
+
+            return Task.CompletedTask;
         };
 
-        app.ClientJoinedAsync += async args =>
+        app.ClientJoinedAsync += args =>
         {
             var tab = args.ClientContext.InitialPath.TrimStart('/');
 
             if (ValidTabs.Contains(tab))
             {
-                _activeTab.Value = tab;
-            }
-            else
-            {
-                await app.Navigation.SetPathAsync(args.ClientSessionId, $"/{_activeTab.Value}", replace: true);
+                ActivateTab(tab);
             }
 
             _ = RefreshDevicesAsync(args.ClientSessionId);
+            _ = LoadIdentityAsync(args.ClientContext);
+
+            return Task.CompletedTask;
         };
 
         UI.Root([Page.Default],
@@ -411,13 +413,16 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             content: vv => vv.Icon([Icon.Default], name: iconName));
                     });
 
-                    // Main tabs
+                    // Main tabs. lazyPanels keeps only the active tab's panel in each client's
+                    // server-side tree — with this many tabs, shipping all panels costs ~20 MB of
+                    // live heap per connected client.
                     view.Tabs(
                         value: _activeTab.Value,
+                        lazyPanels: true,
                         onValueChange: async value =>
                         {
                             var tab = value ?? "typography";
-                            _activeTab.Value = tab;
+                            ActivateTab(tab);
                             await app.Navigation.SetPathAsync($"/{tab}");
                         },
                         listContainerStyle: [Card.Default, "p-2 mb-4"],
@@ -454,6 +459,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             new TabItem("ikon-ai", "Ikon.AI Library", ProfilingSkippable(RenderIkonAISection), ForceMount: true),
                             new TabItem("mcp", "MCP", RenderMcpSection),
                             new TabItem("app-cells", "App/Cells", RenderLabSection),
+                            new TabItem("cron", "Cron", RenderCronSection),
                             new TabItem("virtualization", "Virtualization", RenderVirtualizationSection),
                             new TabItem("drawing", "Drawing", RenderDrawingSection),
                             new TabItem("profiling", "Profiling", RenderProfilingSection),
@@ -462,17 +468,37 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             new TabItem("functions", "Functions", RenderFunctionsSection),
                             new TabItem("payments", "Payments", ProfilingSkippable(RenderPaymentsSection)),
                             new TabItem("email", "Email", RenderEmailSection),
+                            new TabItem("costs", "Costs", RenderCostsSection),
                             new TabItem("custom-messages", "Custom Msgs", RenderCustomMessagesSection),
                             new TabItem("database", "Database", RenderDatabaseSection),
+                            new TabItem("versioned-state", "Versioned State", RenderVersionedStateSection),
                         ]);
                 });
             });
     }
 
+    private void ActivateTab(string tab)
+    {
+        _activeTab.Value = tab;
+
+        // The Database tab's EF Core + Npgsql stack initializes on first activation instead of at
+        // startup, keeping it out of every instance's fresh memory footprint. Activation is a real
+        // navigation event, so the boot-snapshot capture (which renders content but never navigates)
+        // cannot trigger it, and the refresh runs in handler context where reactive writes are legal.
+        if (tab == "database" && _dbInitTask == null)
+        {
+            _ = RefreshEntriesAsync();
+        }
+    }
+
     private Task StartAudioGeneratorAsync()
     {
         return AudioGenerator.StartAsync(
-            frame => Audio.SendAsync(frame.Samples, frame.SampleRate, frame.ChannelCount, frame.IsFirst, frame.IsLast, frame.StreamId),
+            frame =>
+            {
+                Interlocked.Increment(ref _audioFramesToClients);
+                return Audio.SendImmediateAsync(frame.Samples, frame.SampleRate, frame.ChannelCount, frame.IsFirst, frame.IsLast, frame.StreamId);
+            },
             onStreamEnd: streamId => Audio.CloseAsync(streamId),
             cancellationToken: CancellationToken.None);
     }
@@ -590,6 +616,8 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     {
         Video.VideoInputStreamBeginAsync += async args =>
         {
+            RecordClientVideoStreamBegin(args);
+
             if (_videoEchos.TryGetValue(args.StreamId, out var existing))
             {
                 // Resolution change on existing stream — update dimensions in-place
@@ -629,6 +657,8 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
         Video.VideoInputFrameAsync += async args =>
         {
+            RecordClientVideoFrame(args);
+
             if (!_videoEchos.TryGetValue(args.StreamId, out var echo))
             {
                 return;
@@ -648,7 +678,8 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                 _screenHeight.Value = echo.Height;
             }
 
-            await Video.SendAsync(args.Data, args.FrameNumber, args.IsKey, args.TimestampInUs, args.DurationInUs,
+            Interlocked.Increment(ref _videoFramesToClients);
+            await Video.SendFrameAsync(args.Data, args.FrameNumber, args.IsKey, args.TimestampInUs, args.DurationInUs,
                 echo.Codec, echo.Width, echo.Height, echo.Framerate, echo.EchoStreamId, trackId: echo.InputTrackId);
 
             var outputInfo = Video.GetOutputStreamInfo(echo.EchoStreamId);
@@ -738,6 +769,8 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
         Audio.AudioInputFrameAsync += async args =>
         {
+            RecordClientAudioFrame(args.Samples, args.IsFirst);
+
             // Speech recognizer continuous mode - write samples to channel
             if (_speechRecognizerContinuous.Value && _speechRecognizerChannel != null)
             {
@@ -784,7 +817,8 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                     effect.Process(processedSamples);
                 }
 
-                await Audio.SendAsync(processedSamples, state.SampleRate, state.ChannelCount, args.IsFirst, args.IsLast, args.StreamId);
+                Interlocked.Increment(ref _audioFramesToClients);
+                await Audio.SendImmediateAsync(processedSamples, state.SampleRate, state.ChannelCount, args.IsFirst, args.IsLast, args.StreamId);
             }
         };
 

@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => {
   const frontendUrl = process.env.VITE_SERVER_FRONTEND_URL || env.VITE_SERVER_FRONTEND_URL || `https://${frontendHost}:${frontendPort}`;
   const openBrowser = (process.env.VITE_SERVER_OPEN_BROWSER || env.VITE_SERVER_OPEN_BROWSER) === 'true';
   const isTunneled = (process.env.VITE_SERVER_TUNNELED || env.VITE_SERVER_TUNNELED) === 'true';
-  const authEnabled = (process.env.VITE_IKON_AUTH_ENABLED || env.VITE_IKON_AUTH_ENABLED) === 'true';
+  const authRequireSignIn = (process.env.VITE_IKON_AUTH_REQUIRE_SIGN_IN || env.VITE_IKON_AUTH_REQUIRE_SIGN_IN) === 'true';
   const authMethods = process.env.VITE_IKON_AUTH_METHODS || env.VITE_IKON_AUTH_METHODS ? JSON.parse(process.env.VITE_IKON_AUTH_METHODS || env.VITE_IKON_AUTH_METHODS) : ['google'];
   const authSpaceId = process.env.VITE_IKON_AUTH_SPACE_ID ?? env.VITE_IKON_AUTH_SPACE_ID ?? '';
   const backendUrl = process.env.VITE_IKON_BACKEND_URL || env.VITE_IKON_BACKEND_URL || '';
@@ -29,7 +29,6 @@ export default defineConfig(({ mode }) => {
   const localIkonServerEnabled = (process.env.VITE_LOCAL_IKON_SERVER_ENABLED || env.VITE_LOCAL_IKON_SERVER_ENABLED) === 'true';
   const localIkonServerHost = process.env.VITE_LOCAL_IKON_SERVER_HOST || env.VITE_LOCAL_IKON_SERVER_HOST || 'localhost';
   const localIkonServerPort = Number(process.env.VITE_LOCAL_IKON_SERVER_PORT || env.VITE_LOCAL_IKON_SERVER_PORT || '8443');
-  const bootSnapshotFile = process.env.VITE_IKON_BOOT_SNAPSHOT_FILE || env.VITE_IKON_BOOT_SNAPSHOT_FILE || '';
   const certPath = (process.env.VITE_IKON_SERVER_CERT_PATH || env.VITE_IKON_SERVER_CERT_PATH)?.trim();
   const keyPath = (process.env.VITE_IKON_SERVER_KEY_PATH || env.VITE_IKON_SERVER_KEY_PATH)?.trim();
   const hasCertificate = !isTunneled && certPath && keyPath && existsSync(certPath) && existsSync(keyPath);
@@ -40,13 +39,6 @@ export default defineConfig(({ mode }) => {
 
   if (!hasCertificate && !isTunneled) {
     plugins.push(basicSsl());
-  }
-
-  if (bootSnapshotFile) {
-    plugins.push({
-      name: 'ikon-boot-snapshot-preload',
-      transformIndexHtml: () => [{ tag: 'link', attrs: { rel: 'preload', as: 'fetch', href: `/${bootSnapshotFile}`, crossorigin: 'anonymous' }, injectTo: 'head' }],
-    });
   }
 
   const httpsConfig = isTunneled ? false : hasCertificate ? { cert: readFileSync(certPath), key: readFileSync(keyPath) } : true;
@@ -90,7 +82,7 @@ export default defineConfig(({ mode }) => {
       format: 'es',
     },
     define: {
-      __IKON_AUTH_ENABLED__: JSON.stringify(authEnabled),
+      __IKON_AUTH_REQUIRE_SIGN_IN__: JSON.stringify(authRequireSignIn),
       __IKON_AUTH_METHODS__: JSON.stringify(authMethods),
       __IKON_AUTH_SPACE_ID__: JSON.stringify(authSpaceId),
       __IKON_BACKEND_URL__: JSON.stringify(backendUrl),
@@ -101,7 +93,6 @@ export default defineConfig(({ mode }) => {
       __IKON_LOCAL_IKON_SERVER_ENABLED__: JSON.stringify(localIkonServerEnabled),
       __IKON_LOCAL_IKON_SERVER_HOST__: JSON.stringify(localIkonServerHost),
       __IKON_LOCAL_IKON_SERVER_PORT__: JSON.stringify(localIkonServerPort),
-      __IKON_BOOT_SNAPSHOT_FILE__: JSON.stringify(bootSnapshotFile),
     },
     optimizeDeps: optimizeDepsConfig,
     server: {
@@ -128,8 +119,8 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       target: 'es2019',
-      chunkSizeWarningLimit: '1mb',
-      minify: 'esbuild',
+      chunkSizeWarningLimit: 1024,
+      minify: 'oxc',
       reportCompressedSize: false,
     },
   };

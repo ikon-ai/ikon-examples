@@ -24,14 +24,14 @@
         "invite link"
       ],
       "file": "docs/guides/app-structure.md",
-      "sizeBytes": 18658,
+      "sizeBytes": 18862,
       "alsoInclude": []
     },
     {
       "id": "csharp-primer",
       "title": "C# Language Primer",
       "keywords": [
-        "C# 13",
+        "C# 14",
         "modern C#",
         "dictionary literal",
         "collection expression",
@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 84844,
+      "sizeBytes": 96447,
       "alsoInclude": []
     },
     {
@@ -100,7 +100,7 @@
         "value mutation"
       ],
       "file": "docs/guides/reactive-state.md",
-      "sizeBytes": 34874,
+      "sizeBytes": 42687,
       "alsoInclude": [
         "app-structure",
         "ui-components"
@@ -128,7 +128,7 @@
         "message bubbles"
       ],
       "file": "docs/guides/ui-components.md",
-      "sizeBytes": 14836,
+      "sizeBytes": 15318,
       "alsoInclude": [
         "app-structure"
       ]
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 155008,
+      "sizeBytes": 170631,
       "alsoInclude": []
     },
     {
@@ -173,7 +173,7 @@
         "legend"
       ],
       "file": "docs/guides/charts.md",
-      "sizeBytes": 2731,
+      "sizeBytes": 3479,
       "alsoInclude": []
     },
     {
@@ -190,7 +190,7 @@
         "theme customization"
       ],
       "file": "docs/guides/styling-and-motion.md",
-      "sizeBytes": 13807,
+      "sizeBytes": 14662,
       "alsoInclude": [
         "ui-components",
         "app-structure",
@@ -214,11 +214,10 @@
         "mood",
         "paint a fresh app",
         "palette by hand",
-        "palette from image",
         "dual theme"
       ],
       "file": "docs/guides/ikon-theming-guide.md",
-      "sizeBytes": 32830,
+      "sizeBytes": 32964,
       "alsoInclude": [
         "styling-and-motion"
       ]
@@ -238,7 +237,7 @@
         "scanline"
       ],
       "file": "docs/guides/styling-guide.md",
-      "sizeBytes": 38286,
+      "sizeBytes": 38749,
       "alsoInclude": [
         "styling-and-motion"
       ]
@@ -258,7 +257,7 @@
         "motion syntax grammar"
       ],
       "file": "docs/guides/motion-reference.md",
-      "sizeBytes": 26473,
+      "sizeBytes": 27532,
       "alsoInclude": [
         "styling-and-motion"
       ]
@@ -281,7 +280,7 @@
         "transitions"
       ],
       "file": "docs/guides/tailwind-reference.md",
-      "sizeBytes": 25444,
+      "sizeBytes": 26384,
       "alsoInclude": []
     },
     {
@@ -296,13 +295,12 @@
         "agent",
         "bestof",
         "mapreduce",
-        "taskgraph",
         "patterns",
         "cancellation",
         "timeout"
       ],
       "file": "docs/guides/emergence.md",
-      "sizeBytes": 25279,
+      "sizeBytes": 27958,
       "alsoInclude": [
         "app-structure",
         "ai-models"
@@ -313,20 +311,15 @@
       "title": "Emergence Patterns",
       "keywords": [
         "mapreduce",
-        "taskgraph",
         "treesearch",
-        "tree of thought",
         "solver critic",
-        "debate",
         "refine",
-        "plan and execute",
-        "router",
         "ensemble",
-        "swarm",
+        "bestof",
         "advanced patterns"
       ],
       "file": "docs/guides/emergence-patterns.md",
-      "sizeBytes": 21469,
+      "sizeBytes": 22251,
       "alsoInclude": [
         "emergence"
       ]
@@ -346,7 +339,7 @@
         "AI connection"
       ],
       "file": "docs/guides/ai-models.md",
-      "sizeBytes": 18474,
+      "sizeBytes": 24184,
       "alsoInclude": []
     },
     {
@@ -361,7 +354,7 @@
         "ImageGeneratorConfig"
       ],
       "file": "docs/guides/ai-image.md",
-      "sizeBytes": 5920,
+      "sizeBytes": 7044,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -383,7 +376,7 @@
         "SoundEffectGenerator"
       ],
       "file": "docs/guides/ai-speech-and-audio.md",
-      "sizeBytes": 20547,
+      "sizeBytes": 23352,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -409,7 +402,7 @@
         "show a video"
       ],
       "file": "docs/guides/ai-video.md",
-      "sizeBytes": 8546,
+      "sizeBytes": 8763,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -433,7 +426,7 @@
         "EmbeddingGenerator"
       ],
       "file": "docs/guides/ai-web-and-data.md",
-      "sizeBytes": 29595,
+      "sizeBytes": 31845,
       "alsoInclude": [
         "emergence"
       ]
@@ -444,11 +437,10 @@
       "keywords": [
         "database AI",
         "vector store",
-        "AI policy",
         "storage"
       ],
       "file": "docs/guides/ai-advanced.md",
-      "sizeBytes": 6510,
+      "sizeBytes": 6640,
       "alsoInclude": [
         "emergence"
       ]
@@ -471,7 +463,7 @@
         "filter"
       ],
       "file": "docs/guides/audio-video.md",
-      "sizeBytes": 15998,
+      "sizeBytes": 16637,
       "alsoInclude": []
     },
     {
@@ -488,7 +480,7 @@
         "optimistic concurrency"
       ],
       "file": "docs/guides/asset-system.md",
-      "sizeBytes": 21626,
+      "sizeBytes": 21397,
       "alsoInclude": []
     },
     {
@@ -516,7 +508,7 @@
         "audio file"
       ],
       "file": "docs/guides/media-analysis.md",
-      "sizeBytes": 24108,
+      "sizeBytes": 24070,
       "alsoInclude": []
     },
     {
@@ -543,7 +535,7 @@
         "function"
       ],
       "file": "docs/guides/endpoints-webhooks.md",
-      "sizeBytes": 35766,
+      "sizeBytes": 37309,
       "alsoInclude": []
     },
     {
@@ -560,11 +552,11 @@
         "Entity Framework",
         "DbContext",
         "migrations",
-        "ef-migrate",
+        "db migrate",
         "LINQ"
       ],
       "file": "docs/guides/databases.md",
-      "sizeBytes": 5137,
+      "sizeBytes": 5122,
       "alsoInclude": []
     },
     {
@@ -596,6 +588,7 @@
         "one-off payment",
         "refund",
         "Stripe",
+        "Surfboard",
         "Mollie",
         "app.Payments",
         "CreatePaymentLinkAsync",
@@ -611,7 +604,7 @@
         "cancel subscription"
       ],
       "file": "docs/guides/payments.md",
-      "sizeBytes": 18159,
+      "sizeBytes": 22771,
       "alsoInclude": []
     },
     {
@@ -626,7 +619,6 @@
         "SendToUserAsync",
         "SendToSessionAsync",
         "BroadcastAsync",
-        "NotifyAsync",
         "permission",
         "offline push",
         "web push",
@@ -635,7 +627,7 @@
         "toast"
       ],
       "file": "docs/guides/notifications.md",
-      "sizeBytes": 3030,
+      "sizeBytes": 3018,
       "alsoInclude": []
     },
     {
@@ -650,7 +642,7 @@
         "callable functions"
       ],
       "file": "docs/guides/function-registry.md",
-      "sizeBytes": 9730,
+      "sizeBytes": 9866,
       "alsoInclude": []
     },
     {
@@ -715,7 +707,7 @@
         "emails folder"
       ],
       "file": "docs/guides/frontend-fundamentals.md",
-      "sizeBytes": 18971,
+      "sizeBytes": 19717,
       "alsoInclude": [
         "ui-components"
       ]
@@ -734,7 +726,7 @@
         "targets"
       ],
       "file": "docs/guides/config-and-cli.md",
-      "sizeBytes": 8297,
+      "sizeBytes": 16161,
       "alsoInclude": []
     }
   ]

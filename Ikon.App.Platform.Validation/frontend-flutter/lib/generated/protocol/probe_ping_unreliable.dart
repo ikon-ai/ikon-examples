@@ -1,5 +1,8 @@
 // auto-generated — do not edit
-// ignore_for_file: non_constant_identifier_names
+// ignore_for_file: non_constant_identifier_names, unused_import, deprecated_member_use_from_same_package
+
+import 'dart:typed_data';
+import 'package:ikon_sdk/ikon_sdk.dart';
 
 class ProbePingUnreliable {
     int seq;
@@ -71,7 +74,30 @@ class ProbePingUnreliable {
         return instance;
     }
 
+    Uint8List toTeleport() {
+        final writer = TeleportObjectWriter(version: teleportVersion);
+        writeTo(writer);
+        return writer.finish();
+    }
+
+    void writeTo(TeleportObjectWriter scope) {
+        scope.writeInt64Field(fieldIdSeq, seq);
+        scope.writeStringField(fieldIdMode, mode);
+        scope.writeStringField(fieldIdOrigin, origin);
+        scope.writeInt64Field(fieldIdSentAtMs, sentAtMs);
+        scope.writeStringField(fieldIdNote, note);
+    }
+
     static const int teleportOpcode = 0x40000102;
     static const MessageFlag teleportDefaultFlags = MessageFlag.unreliable;
+
+    ProtocolMessage toProtocolMessage(int senderId, {ProtocolMessageOverrides? overrides}) =>
+        createProtocolMessage(
+            opcode: teleportOpcode,
+            payload: toTeleport(),
+            payloadVersion: teleportVersion,
+            senderId: senderId,
+            overrides: ProtocolMessageOverrides.withAddedFlags(overrides, teleportDefaultFlags.value),
+        );
     static const int teleportVersion = 1;
 }

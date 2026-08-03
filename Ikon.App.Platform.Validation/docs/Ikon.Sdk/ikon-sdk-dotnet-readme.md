@@ -4,7 +4,7 @@ The Ikon AI C# SDK provides a simple way to connect to Ikon AI App from any .NET
 
 ## Features
 
-- Three authentication modes: API Key, Local Development, Backend
+- Four authentication modes: API Key, Local Development, Backend, External Connect URL
 - Automatic reconnection with exponential backoff
 - Audio streaming with Opus encoding/decoding
 - Flexible audio streaming modes
@@ -70,7 +70,6 @@ var config = new IkonClientConfig
         ApiKey = "ikon-xxxxx",           // API key from portal
         SpaceId = "...",                  // Space ID
         ExternalUserId = "user-123",      // Your user identifier
-        ChannelKey = "main",              // Optional: specific channel
         SessionId = "session-xyz",        // Optional: target a precomputed session
         BackendType = BackendType.Production,
         UserType = UserType.Human,
@@ -106,7 +105,6 @@ var config = new IkonClientConfig
     {
         SpaceId = "...",
         ExternalUserId = "user-123",     // Your user identifier
-        ChannelKey = "main",             // Optional
         SessionId = "session-xyz",       // Optional: target a precomputed session
         UserType = UserType.Human,
         ClientType = ClientType.DesktopApp
@@ -219,12 +217,15 @@ var config = new IkonClientConfig
     Timeouts = new TimeoutConfig
     {
         InitialReconnectDelay = TimeSpan.FromMilliseconds(500),  // Initial backoff delay
-        MaxReconnectAttempts = 4                                  // Max attempts (default)
+        MaxReconnectAttempts = 4,                                 // Max attempts (default)
+        MaxReconnectDelay = TimeSpan.FromSeconds(30),             // Backoff delay cap (default)
+        ReconnectAttemptTimeout = TimeSpan.FromSeconds(30),       // Time budget per attempt (default)
+        BackgroundReconnect = true                                // Keep retrying after max attempts (default)
     }
 };
 ```
 
-Reconnection uses exponential backoff starting from `InitialReconnectDelay` (500ms, 1s, 2s, 4s by default).
+Reconnection uses exponential backoff starting from `InitialReconnectDelay` (500ms, 1s, 2s, 4s by default), capped at `MaxReconnectDelay` and jittered. When `BackgroundReconnect` is enabled (the default), the client keeps retrying with capped exponential backoff from the `Offline` state after the fast reconnection attempts are exhausted.
 
 ## Sending Messages
 
@@ -276,20 +277,15 @@ await client.SendAudioAsync(
     isLast: true,
     streamId: "my-audio-stream",              // Unique stream identifier
     totalDuration: TimeSpan.FromSeconds(5),
-    encoderOptions: new AudioEncoderOptions   // Custom encoder settings
-    {
-        Bitrate = 64000,
-        Complexity = 10
-    },
+    encoderOptions: new AudioEncoderOptions(  // Custom encoder settings
+        bitrate: 64000,
+        complexity: 10
+    ),
     targetIds: new[] { 123, 456 }             // Target specific session IDs
 );
 
 // Set default encoder options for all audio
-client.DefaultEncoderOptions = new AudioEncoderOptions
-{
-    Bitrate = 48000,
-    Complexity = 8
-};
+client.DefaultEncoderOptions = new AudioEncoderOptions(bitrate: 48000, complexity: 8);
 ```
 
 ### Receiving Audio
@@ -535,7 +531,10 @@ var config = new IkonClientConfig
     Timeouts = new TimeoutConfig
     {
         InitialReconnectDelay = TimeSpan.FromMilliseconds(500),  // Initial backoff delay
-        MaxReconnectAttempts = 4                                  // Max reconnect attempts (default)
+        MaxReconnectAttempts = 4,                                 // Max reconnect attempts (default)
+        MaxReconnectDelay = TimeSpan.FromSeconds(30),             // Backoff delay cap (default)
+        ReconnectAttemptTimeout = TimeSpan.FromSeconds(30),       // Time budget per attempt (default)
+        BackgroundReconnect = true                                // Keep retrying after max attempts (default)
     }
 };
 ```
@@ -552,7 +551,12 @@ var config = new IkonClientConfig
     OpcodeGroupsToServer = Opcode.GROUP_ALL,
 
     // Payload serialization format
-    PayloadType = PayloadType.Teleport  // Default
+    PayloadType = PayloadType.Teleport,  // Default
+
+    // How this connection identifies to the server.
+    // Default Plugin connects as a backend component (no UI).
+    // Native or Browser connects as a first-class player client that receives streamed UI.
+    ContextType = ContextType.Plugin
 };
 ```
 
@@ -622,8 +626,8 @@ var config = new IkonClientConfig
 | Type | Description |
 |------|-------------|
 | `MessageEventArgs` | Event args containing a `ProtocolMessage` |
-| `ConnectionStateEventArgs` | Event args containing the new `ConnectionState` |
-| `ErrorEventArgs` | Event args containing an `Exception` |
+| `IkonClient.ConnectionStateEventArgs` | Event args containing the new `ConnectionState` |
+| `IkonClient.ErrorEventArgs` | Event args containing an `Exception` |
 
 ## License
 

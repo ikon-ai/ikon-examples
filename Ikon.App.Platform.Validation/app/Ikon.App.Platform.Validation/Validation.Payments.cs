@@ -12,6 +12,8 @@ public partial class Validation
     private readonly Reactive<string> _payChargeDescription = new("Validation charge");
     private readonly Reactive<string> _payCustomerOverride = new("");
     private readonly Reactive<bool> _payAllowPromo = new(false);
+    private readonly Reactive<string> _payPriceOverride = new("");
+    private readonly Reactive<string> _payChangeOfferId = new("");
 
     private readonly Reactive<string> _payNewOfferId = new("my_offer");
     private readonly Reactive<string> _payNewOfferName = new("My Offer");
@@ -157,6 +159,7 @@ public partial class Validation
                             content: v => v.SwitchThumb([Switch.Thumb]));
                         promo.Text([Text.Caption], text: "Promo codes at checkout (Stripe)");
                     });
+                    btns.TextField(bind: _payPriceOverride, label: "Price override", placeholder: "empty = offer price", style: [Input.Default, "w-32"], type: "number", min: "0", step: "0.01", props: TestId("pay-price-override"));
                 });
 
                 card.AccordionSingle([Accordion.Root], collapsible: true, content: acc =>
@@ -244,7 +247,7 @@ public partial class Validation
 
                 // Synchronous, cached gate — safe to read every render, re-renders on change.
                 var entitledNow = app.Payments.IsEntitled(_payOfferId.Value, CustomerOverrideOrNull);
-                card.Text([Text.BodySm, entitledNow ? "text-success" : "text-tertiary", "font-mono"],
+                card.Text([Text.BodySm, entitledNow ? "text-success-primary" : "text-tertiary", "font-mono"],
                     text: (entitledNow ? "✓" : "✗") + $" IsEntitled(\"{_payOfferId.Value}\") — live, updates automatically",
                     props: TestId("pay-entitled-live"));
             });
@@ -253,7 +256,11 @@ public partial class Validation
             col.Column([Card.Default, "p-6 gap-3"], content: card =>
             {
                 card.Text([Text.H3], text: "Subscriptions & payments");
-                card.Button([Button.PrimarySm, "self-start"], text: "Refresh", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(ReloadCustomerAsync));
+                card.Row(["gap-3 flex-wrap items-end"], content: row =>
+                {
+                    row.Button([Button.PrimarySm], text: "Refresh", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(ReloadCustomerAsync));
+                    row.TextField(bind: _payChangeOfferId, label: "New offer ID", placeholder: "for Change offer", style: [Input.Default, "w-48"], props: TestId("pay-change-offer-id"));
+                });
 
                 if (_payCustomerLoaded.Value)
                 {
@@ -295,6 +302,23 @@ public partial class Validation
                                     LogPayments("Canceled a subscription immediately");
                                     await ReloadCustomerAsync();
                                 }));
+                                actions.Button([Button.PrimarySm], text: "Change offer", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
+                                {
+                                    var change = await app.Payments.ChangeSubscriptionOfferAsync(id, _payChangeOfferId.Value);
+                                    LogPayments(change.Changed
+                                        ? $"Plan {change.Direction} ({change.Effective})" + (change.ProratedChargeRef is { } chargeRef ? $" — charged {change.ProrationAmountMinor / 100.0:0.00} {change.Currency?.ToUpperInvariant()} ({chargeRef})" : " — no charge")
+                                        : "Already on that offer");
+                                    await ReloadCustomerAsync();
+                                }));
+                                if (sub.CancelAtPeriodEnd)
+                                {
+                                    actions.Button([Button.PrimarySm], text: "Resume", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
+                                    {
+                                        var resume = await app.Payments.ResumeSubscriptionAsync(id);
+                                        LogPayments(resume.Resumed ? $"Resumed subscription ({resume.SubscriptionId})" : "Resume did nothing");
+                                        await ReloadCustomerAsync();
+                                    }));
+                                }
                             });
                         });
                     }
@@ -424,8 +448,19 @@ public partial class Validation
 
     private Task PayAsync(string offerId) => RunPaymentsActionAsync(async () =>
     {
-        var link = await app.Payments.CreatePaymentLinkAsync(offerId, CustomerOverrideOrNull, allowPromotionCodes: _payAllowPromo.Value);
-        LogPayments($"Opened a payment page for '{offerId}'" + (_payAllowPromo.Value ? " with promo codes enabled" : ""));
+        long? amountMinorOverride = null;
+        if (!string.IsNullOrWhiteSpace(_payPriceOverride.Value))
+        {
+            if (!TryParseAmountMinor(_payPriceOverride.Value, out var overrideMinor))
+            {
+                LogPayments("Error: enter a positive amount, e.g. 5.00");
+                return;
+            }
+            amountMinorOverride = overrideMinor;
+        }
+
+        var link = await app.Payments.CreatePaymentLinkAsync(offerId, CustomerOverrideOrNull, amountMinorOverride: amountMinorOverride, allowPromotionCodes: _payAllowPromo.Value);
+        LogPayments($"Opened a payment page for '{offerId}'" + (amountMinorOverride is { } o ? $" at {o / 100.0:0.00} override" : "") + (_payAllowPromo.Value ? " with promo codes enabled" : ""));
         await OpenLinkAsync(link);
     });
 

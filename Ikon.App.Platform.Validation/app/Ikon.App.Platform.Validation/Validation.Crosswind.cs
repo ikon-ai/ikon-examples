@@ -359,7 +359,7 @@ public partial class Validation
                 view.Column([Layout.Column.Sm, "items-center"], content: view =>
                 {
                     view.Box([
-                        "w-16 h-16 rounded-full bg-success",
+                        "w-16 h-16 rounded-full bg-success-solid",
                         "motion-[0:translate-y-0,50:translate-y-[-8px],100:translate-y-0]",
                         "motion-duration-2500ms motion-loop motion-ease-ease-in-out"
                     ]);
@@ -370,7 +370,7 @@ public partial class Validation
                 view.Column([Layout.Column.Sm, "items-center"], content: view =>
                 {
                     view.Box([
-                        "w-16 h-16 rounded-md bg-warning",
+                        "w-16 h-16 rounded-md bg-warning-solid",
                         "motion-[0:rotate-0,100:rotate-[360deg]]",
                         "motion-duration-3000ms motion-loop motion-ease-linear"
                     ]);
@@ -442,10 +442,10 @@ public partial class Validation
                 view.Column([Layout.Column.Sm, "items-center"], content: view =>
                 {
                     view.Box([
-                        "w-20 h-20 rounded-lg bg-success flex items-center justify-center",
+                        "w-20 h-20 rounded-lg bg-success-solid flex items-center justify-center",
                         "motion-[0:opacity-0_blur-[8px],50:opacity-100_blur-0,100:opacity-0_blur-[8px]]",
                         "motion-duration-2000ms motion-loop"
-                    ], content: v => v.Text([Text.Small, "text-success-foreground"], "Blur"));
+                    ], content: v => v.Text([Text.Small, "text-success-button"], "Blur"));
                     view.Text([Text.Caption], "Blur In");
                 });
 
@@ -453,10 +453,10 @@ public partial class Validation
                 view.Column([Layout.Column.Sm, "items-center"], content: view =>
                 {
                     view.Box([
-                        "w-20 h-20 rounded-lg bg-warning flex items-center justify-center",
+                        "w-20 h-20 rounded-lg bg-warning-solid flex items-center justify-center",
                         "motion-[0:scale-[0.5],25:scale-[1.05],35:scale-[0.95],50:scale-100,75:scale-[0.95],85:scale-[1.05],100:scale-[0.5]]",
                         "motion-duration-3000ms motion-loop"
-                    ], content: v => v.Text([Text.Small, "text-warning-foreground"], "Bounce"));
+                    ], content: v => v.Text([Text.Small, "text-warning-button"], "Bounce"));
                     view.Text([Text.Caption], "Bounce In");
                 });
 
@@ -510,7 +510,7 @@ public partial class Validation
                 {
                     view.Text([Text.Label], "Spin + Float (Independent Tracks)");
                     view.Box([
-                        "w-24 h-24 rounded-md bg-gradient-to-br from-accent to-success",
+                        "w-24 h-24 rounded-md bg-gradient-to-br from-accent to-success-solid",
                         "spin:motion-[0:rotate-0,100:rotate-[360deg]] spin:motion-duration-4000ms spin:motion-loop spin:motion-ease-linear",
                         "float:motion-[0:translate-y-0,50:translate-y-[-12px],100:translate-y-0] float:motion-duration-2000ms float:motion-loop float:motion-ease-ease-in-out"
                     ]);

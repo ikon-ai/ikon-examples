@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 // noinspection JSUnusedGlobalSymbols
 
 export const MinimumHeaderLength = 27;
@@ -76,7 +75,7 @@ export function readProtocolMessageHeaders(raw: ProtocolMessage | ArrayBuffer | 
   const sequenceId = view.getUint32(16, true);
   const targetCount = view.getUint32(20, true);
   const payloadVersion = view.getUint8(24);
-  const payloadType = view.getUint8(25) as PayloadType;
+  const payloadType = view.getUint8(25);
   const flags = view.getUint8(26);
 
   const expectedHeaderSize = MinimumHeaderLength + targetCount * 4;
@@ -261,8 +260,14 @@ async function compressPayloadInternal(data: Uint8Array): Promise<Uint8Array | n
 
   // Copy to ensure we have a standard ArrayBuffer, not SharedArrayBuffer
   const copy = new Uint8Array(data);
-  writer.write(copy);
-  writer.close();
+  // Deliberately not awaited before the read loop: with a compression stream the write only settles
+  // once the readable side is drained, so awaiting here would deadlock on any payload larger than
+  // the internal queue. The reader below reports a compression failure; this catch exists only so
+  // the writer's copy of that same error does not surface as an unhandled rejection.
+  void writer
+    .write(copy)
+    .then(() => writer.close())
+    .catch(() => undefined);
 
   const reader = stream.readable.getReader();
   const chunks: Uint8Array[] = [];
@@ -299,8 +304,14 @@ async function decompressPayloadInternal(data: Uint8Array): Promise<Uint8Array> 
   const writer = stream.writable.getWriter();
   // Copy to ensure we have a standard ArrayBuffer, not SharedArrayBuffer
   const copy = new Uint8Array(data);
-  writer.write(copy);
-  writer.close();
+  // Deliberately not awaited before the read loop: with a compression stream the write only settles
+  // once the readable side is drained, so awaiting here would deadlock on any payload larger than
+  // the internal queue. The reader below reports a compression failure; this catch exists only so
+  // the writer's copy of that same error does not surface as an unhandled rejection.
+  void writer
+    .write(copy)
+    .then(() => writer.close())
+    .catch(() => undefined);
 
   const reader = stream.readable.getReader();
   const chunks: Uint8Array[] = [];
@@ -347,10 +358,9 @@ const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
 
 export class TeleportObjectWriter {
   private readonly buffer = new ByteBuffer();
-  private closed = false;
   private cached?: Uint8Array;
 
-  public constructor(private readonly version = 1) {
+  public constructor(version = 1) {
     this.buffer.writeByte(OBJECT_START);
     this.buffer.writeVarUInt(version >>> 0);
   }
@@ -428,13 +438,13 @@ export class TeleportObjectWriter {
   }
 
   public finish(): Uint8Array {
-    if (!this.closed) {
+    // The cached buffer is the closed signal: once it exists the object has been finished.
+    if (!this.cached) {
       this.buffer.writeByte(OBJECT_END);
-      this.closed = true;
       this.cached = this.buffer.toUint8Array();
     }
 
-    return this.cached!;
+    return this.cached;
   }
 
   private writeFixedField(fieldId: number, type: TeleportType, emit: () => void): void {
@@ -852,7 +862,7 @@ export class TeleportObjectReader {
     const fieldId = readUInt32(this.buffer, this.offset);
     this.offset += 4;
     const descriptor = this.buffer[this.offset++];
-    const type = ((descriptor >> 4) & 0x0f) as TeleportType;
+    const type = ((descriptor >> 4) & 0x0f);
 
     if ((descriptor & 0x0f) !== 0) {
       throw new Error('Teleport field flags must be zero');
@@ -981,7 +991,7 @@ export class TeleportArrayReader {
     }
 
     const descriptor = payload[0];
-    this.elementType = ((descriptor >> 4) & 0x0f) as TeleportType;
+    this.elementType = ((descriptor >> 4) & 0x0f);
 
     if ((descriptor & 0x0f) !== 0) {
       throw new Error('Array flags must be zero');
@@ -1086,8 +1096,8 @@ export class TeleportDictReader {
       throw new Error('Dictionary payload too short');
     }
 
-    this.keyType = ((payload[0] >> 4) & 0x0f) as TeleportType;
-    this.valueType = ((payload[1] >> 4) & 0x0f) as TeleportType;
+    this.keyType = ((payload[0] >> 4) & 0x0f);
+    this.valueType = ((payload[1] >> 4) & 0x0f);
 
     if ((payload[0] & 0x0f) !== 0 || (payload[1] & 0x0f) !== 0) {
       throw new Error('Dictionary key/value flags must be zero');
@@ -1539,7 +1549,7 @@ function consumeArrayPayload(payload: Uint8Array, start: number): number {
   }
 
   const descriptor = payload[start];
-  const elementType = ((descriptor >> 4) & 0x0f) as TeleportType;
+  const elementType = ((descriptor >> 4) & 0x0f);
   if ((descriptor & 0x0f) !== 0) {
     throw new Error('Array flags must be zero');
   }
@@ -1567,8 +1577,8 @@ function consumeDictPayload(payload: Uint8Array, start: number): number {
     throw new Error('Dictionary payload too short');
   }
 
-  const keyType = ((payload[start] >> 4) & 0x0f) as TeleportType;
-  const valueType = ((payload[start + 1] >> 4) & 0x0f) as TeleportType;
+  const keyType = ((payload[start] >> 4) & 0x0f);
+  const valueType = ((payload[start + 1] >> 4) & 0x0f);
 
   if ((payload[start] & 0x0f) !== 0 || (payload[start + 1] & 0x0f) !== 0) {
     throw new Error('Dictionary key/value flags must be zero');

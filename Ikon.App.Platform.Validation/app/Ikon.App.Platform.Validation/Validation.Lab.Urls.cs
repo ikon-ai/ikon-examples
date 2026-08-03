@@ -222,12 +222,12 @@ public partial class Validation
                 : "Endpoint URLs below resolve under the space domain and are space-stable. Each is a bare " +
                   "address: a grant endpoint needs a minted ?ikon-grant=; a public endpoint is callable as-is.");
 
-            string channelUrl = app.GlobalState.ChannelUrl;
+            string spaceUrl = app.GlobalState.SpaceUrl;
 
-            if (!string.IsNullOrEmpty(channelUrl))
+            if (!string.IsNullOrEmpty(spaceUrl))
             {
                 v.Text([Text.Caption, "mt-2 font-mono text-muted-foreground break-all"],
-                    $"ChannelUrl = {channelUrl}");
+                    $"SpaceUrl = {spaceUrl}");
             }
         });
     }

@@ -76,7 +76,7 @@ This guarantees reversibility even without schemas.
 | 0x0D | Binary  | raw bytes      |
 | 0x0E | Guid    | 16 bytes       |
 
-0x00 and 0xF0–0xFF reserved for future use.
+0x00 and 0x0F reserved for future use. (The type code is stored in the descriptor's high nibble, so only values 0x00–0x0F can appear on the wire.)
 
 ---
 
@@ -95,7 +95,7 @@ repeat fields until 0xA2:
 ```
 
 - `objectLength` counts every byte from the first `0xA1` through the closing `0xA2`, including the version varuint and every nested field blob.
-- Unknown or future fields are skipped using the per-field length that precedes each payload (see § 3.3).
+- Unknown or future fields are skipped using the per-field length that precedes each variable-width payload, or the fixed size implied by the type code (see § 3.3).
 
 ### 3.3 Field Layout
 
@@ -107,7 +107,7 @@ length:varuint                  // only for variable-width payloads
 ```
 
 - The descriptor's high nibble stores the type code. Its low nibble (`flags`) is reserved for future use and MUST be zero; writers always emit 0x0 and readers must reject non-zero values.
-- Unknown fields are skipped using their recorded length.
+- Unknown fields are skipped using their recorded length (variable-width types) or the fixed size implied by their type code.
 - All numeric values are little-endian.
 - Fixed-size primitives omit `length` entirely.
 - Variable-width field types are String, Binary, Array, Dict, and Object. Each emits the `length:varuint` before its payload so that readers can deterministically skip, copy, or buffer unknown data.

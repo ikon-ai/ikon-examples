@@ -530,7 +530,7 @@ public partial class Validation
             var type = Enum.Parse<EmbeddingType>(_embeddingType.Value);
             using var generator = new EmbeddingGenerator(model);
 
-            var embeddings = await generator.GenerateEmbeddingsAsync([_embeddingInput.Value], type);
+            var embeddings = await generator.EmbedAsync([_embeddingInput.Value], type);
 
             if (embeddings.Count > 0)
             {
@@ -852,7 +852,7 @@ public partial class Validation
                 .Where(d => !string.IsNullOrEmpty(d))
                 .ToList();
 
-            var items = await reranker.RerankAsync(documents, _rerankerQuery.Value);
+            var items = await reranker.RerankAsync(new RerankerConfig { Documents = documents, Query = _rerankerQuery.Value });
 
             var output = "";
 
@@ -1178,7 +1178,8 @@ public partial class Validation
             if (results.Count > 0)
             {
                 var image = results[0];
-                _imageGeneratorResultData = image.Data;
+                var imageData = await image.GetDataAsync();
+                _imageGeneratorResultData = imageData;
                 _imageGeneratorResultMimeType = image.MimeType;
                 _imageGeneratorResult.Value = $"Generated {results.Count} image(s)";
 
@@ -1186,14 +1187,14 @@ public partial class Validation
 
                 foreach (var r in results)
                 {
-                    dataUrls.Add($"data:{r.MimeType};base64,{Convert.ToBase64String(r.Data)}");
+                    dataUrls.Add($"data:{r.MimeType};base64,{Convert.ToBase64String(await r.GetDataAsync())}");
                 }
 
                 _imageGeneratorResultDataUrls.Value = dataUrls;
                 _imageGeneratorResultDataUrls.NotifyUpdate();
 
                 var ext = image.MimeType == MimeTypes.ImagePng ? "png" : "jpg";
-                _imageGeneratorDownloadUrl.Value = await UploadForDownloadAsync($"generated-image.{ext}", image.Data, image.MimeType);
+                _imageGeneratorDownloadUrl.Value = await UploadForDownloadAsync($"generated-image.{ext}", imageData, image.MimeType);
             }
         }
         catch (Exception ex)
@@ -1404,8 +1405,9 @@ public partial class Validation
             }
 
             var result = await generator.GenerateMusicFileAsync(config);
+            var musicData = await result.GetDataAsync();
 
-            if (result.Data.Length == 0)
+            if (musicData.Length == 0)
             {
                 _musicError.Value = "The model returned no audio";
                 return;
@@ -1419,8 +1421,8 @@ public partial class Validation
                 _ => "bin"
             };
 
-            _musicResult.Value = $"Generated {result.DurationSeconds:F1}s of audio ({result.Data.Length} bytes, {result.MimeType})";
-            _musicDownloadUrl.Value = await UploadForDownloadAsync($"generated-music.{ext}", result.Data, result.MimeType);
+            _musicResult.Value = $"Generated {result.DurationSeconds:F1}s of audio ({musicData.Length} bytes, {result.MimeType})";
+            _musicDownloadUrl.Value = await UploadForDownloadAsync($"generated-music.{ext}", musicData, result.MimeType);
         }
         catch (Exception ex)
         {
@@ -1715,7 +1717,6 @@ public partial class Validation
                                 AutoGainControl = true,
                                 NoiseSuppression = true,
                                 EchoCancellation = true,
-                                TargetIds = [app.SessionId]
                             },
                             onCaptureStart: async e =>
                             {
@@ -1762,7 +1763,6 @@ public partial class Validation
                                 AutoGainControl = true,
                                 NoiseSuppression = true,
                                 EchoCancellation = true,
-                                TargetIds = [app.SessionId]
                             },
                             onCaptureStart: async e =>
                             {
@@ -2247,10 +2247,12 @@ public partial class Validation
             var data = await File.ReadAllBytesAsync(_fileConverterFilePath);
             var result = await converter.ConvertToPdfAsync(new FileConverterConfig { Data = data, FileName = _fileConverterFileName.Value });
 
-            _fileConverterResultData = result.Data;
+            var resultData = await result.GetDataAsync();
+
+            _fileConverterResultData = resultData;
             _fileConverterResultName = result.Name;
-            _fileConverterResult.Value = $"Converted to {result.Name} ({result.Data.Length / 1024} KB)";
-            _fileConverterDownloadUrl.Value = await UploadForDownloadAsync("converted.pdf", result.Data, MimeTypes.ApplicationPdf);
+            _fileConverterResult.Value = $"Converted to {result.Name} ({resultData.Length / 1024} KB)";
+            _fileConverterDownloadUrl.Value = await UploadForDownloadAsync("converted.pdf", resultData, MimeTypes.ApplicationPdf);
         }
         catch (Exception ex)
         {
@@ -2884,7 +2886,7 @@ public partial class Validation
             var model = Enum.Parse<VideoEnhancerModel>(_videoEnhancerModel.Value);
             using var enhancer = new VideoEnhancer(model);
 
-            var config = BuildVideoEnhancerConfig() with { VideoUrl = _videoEnhancerVideoUrl.Value };
+            var config = BuildVideoEnhancerConfig() with { Url = _videoEnhancerVideoUrl.Value };
 
             var result = await enhancer.EnhanceVideoAsync(config);
 
@@ -2918,7 +2920,7 @@ public partial class Validation
 
             var config = BuildVideoEnhancerConfig() with
             {
-                VideoData = videoBytes,
+                Data = videoBytes,
                 MimeType = "video/mp4"
             };
 
@@ -3066,7 +3068,7 @@ public partial class Validation
             var data = await File.ReadAllBytesAsync(filePath);
             var result = await segmenter.SegmentImageAsync(new ImageSegmenterConfig
             {
-                Image = new InputImage { Data = data, MimeType = mimeType },
+                InputImage = new InputImage { Data = data, MimeType = mimeType },
                 Prompt = _imageSegmenterPrompt.Value
             });
 
@@ -3083,12 +3085,12 @@ public partial class Validation
 
             if (result.Preview != null)
             {
-                dataUrls.Add($"data:{result.Preview.MimeType};base64,{Convert.ToBase64String(result.Preview.Data)}");
+                dataUrls.Add($"data:{result.Preview.MimeType};base64,{Convert.ToBase64String(await result.Preview.GetDataAsync())}");
             }
 
             foreach (var segment in result.Segments)
             {
-                dataUrls.Add($"data:{segment.Mask.MimeType};base64,{Convert.ToBase64String(segment.Mask.Data)}");
+                dataUrls.Add($"data:{segment.Mask.MimeType};base64,{Convert.ToBase64String(await segment.Mask.GetDataAsync())}");
             }
 
             _imageSegmenterImageDataUrls.ReplaceAll(dataUrls);
@@ -3217,11 +3219,11 @@ public partial class Validation
             var data = await File.ReadAllBytesAsync(filePath);
             var result = await estimator.EstimateDepthAsync(new DepthEstimatorConfig
             {
-                Image = new InputImage { Data = data, MimeType = mimeType }
+                InputImage = new InputImage { Data = data, MimeType = mimeType }
             });
 
             _depthEstimatorResult.Value = $"Depth map {result.Depth.Width}x{result.Depth.Height} ({result.Depth.MimeType})";
-            _depthEstimatorImageDataUrl.Value = $"data:{result.Depth.MimeType};base64,{Convert.ToBase64String(result.Depth.Data)}";
+            _depthEstimatorImageDataUrl.Value = $"data:{result.Depth.MimeType};base64,{Convert.ToBase64String(await result.Depth.GetDataAsync())}";
         }
         catch (Exception ex)
         {

@@ -39,7 +39,7 @@ In Ikon AI Apps, styles are passed as string arrays to UI components. The `Ikon.
 ```csharp
 view.Button(
     style: ["px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition"],
-    label: "Click me",
+    text: "Click me",
     onClick: async () => { }
 );
 ```
@@ -52,7 +52,7 @@ private const string PrimaryColors = "bg-blue-500 hover:bg-blue-600 text-white";
 
 view.Button(
     style: [BaseButton, PrimaryColors],
-    label: "Primary Action",
+    text: "Primary Action",
     onClick: async () => { }
 );
 ```
@@ -107,7 +107,7 @@ Legacy note: `bg-primary`, `text-primary`, and `border-primary` are older tier n
 ```csharp
 using Ikon.Parallax.Theming;
 
-view.Button(style: [Button.PrimaryMd], label: "Submit");
+view.Button(style: [Button.PrimaryMd], text: "Submit");
 view.TextField(style: [Input.Default], defaultValue: "");
 view.Box(style: [Card.Default], content: view => { ... });
 ```
@@ -115,7 +115,7 @@ view.Box(style: [Card.Default], content: view => { ... });
 **3. Hardcoded Crosswind palette classes and raw hex**. `bg-amber-400`, `text-zinc-950`, `bg-[#F5A524]`, `text-[#0A0A0A]`. Use these when you specifically want a look that **shouldn't** change with the theme — a fixed-brand marketing surface, a decorative gradient, an illustration backdrop. They bypass the theming system, so the trade-off is concrete: if you later add light/dark switching or a brand re-skin, every fixed-color site needs to be revisited by hand.
 
 ```csharp
-view.Button(style: ["px-4 py-2 bg-amber-400 text-zinc-950 rounded-md hover:bg-amber-500 transition-colors"], label: "Submit");
+view.Button(style: ["px-4 py-2 bg-amber-400 text-zinc-950 rounded-md hover:bg-amber-500 transition-colors"], text: "Submit");
 view.Box(style: ["rounded-2xl bg-zinc-900 border border-zinc-800 p-6 shadow-lg"], content: view => { ... });
 ```
 
@@ -387,7 +387,7 @@ Combine motion with data attribute variants for state-driven animations:
 
 ### 3D Transforms in Keyframes
 
-Crosswind supports 3D rotation and translation utilities inside keyframe steps: `rotate-x-[angle]`, `rotate-y-[angle]`, and `translate-z-[length]`. These emit CSS custom properties with auto-registered `@property` rules so they animate smoothly.
+Crosswind supports 3D rotation, translation, and scale utilities inside keyframe steps: `rotate-x-[angle]`, `rotate-y-[angle]`, `rotate-z-[angle]`, `translate-z-[length]`, and `scale-z-[number]`. Transform keyframes compile to direct CSS transform properties — the individual `translate` / `rotate` / `scale` properties when the track animates a single category, or a composed `transform` function list when categories are mixed — so they interpolate smoothly on the compositor.
 
 ```csharp
 // Card flip (Y-axis rotation)
@@ -518,7 +518,7 @@ The following properties animate smoothly in `motion-[...]` keyframe animations:
 
 - **Opacity**: `opacity`
 - **2D transforms**: `translate-x`, `translate-y`, `scale`, `scale-x`, `scale-y`, `rotate`, `skew-x`, `skew-y`
-- **3D transforms**: `rotate-x`, `rotate-y`, `translate-z`
+- **3D transforms**: `rotate-x`, `rotate-y`, `rotate-z`, `translate-z`, `scale-z`
 - **Filter functions**: `blur`, `brightness`, `contrast`, `grayscale`, `hue-rotate`, `invert`, `saturate`, `sepia`
 - **Colors**: `text-*`, `bg-*`, `border-*` (color values)
 - **Text shadow**: `text-shadow-[...]` (arbitrary values)
@@ -526,11 +526,11 @@ The following properties animate smoothly in `motion-[...]` keyframe animations:
 - **Ring and outline**: `ring-{n}`, `outline-offset-{n}`
 - **Box shadow**: `shadow-[...]` (arbitrary values)
 
-Crosswind auto-registers `@property` rules for filter functions, transform variables, and typed custom properties (colors, lengths, angles, numbers). This enables smooth CSS interpolation without manual setup.
+Crosswind auto-registers `@property` rules for filter functions and typed custom properties (colors, lengths, angles, numbers), and compiles transform keyframes to direct `translate` / `rotate` / `scale` / `transform` declarations. This enables smooth CSS interpolation without manual setup.
 
 #### Caveat: `box-shadow` doesn't interpolate smoothly across keyframes
 
-Crosswind's `shadow-*` utilities feed into a composed `box-shadow` via the `--tw-shadow` custom property (registered with syntax `'*'` because shadow values are free-form). Custom properties with `'*'` syntax animate as **discrete swaps** at each keyframe — they do not interpolate, so a `motion-[0:shadow-sm,100:shadow-xl]` track snaps from `sm` to `xl` instead of fading. The same applies to `text-shadow-[...]` (also `'*'` syntax).
+Crosswind's `shadow-*` utilities feed into a composed `box-shadow` via the `--tw-shadow` custom property (registered with syntax `'*'` because shadow values are free-form). Custom properties with `'*'` syntax animate as **discrete swaps** at each keyframe — they do not interpolate, so a `motion-[0:shadow-sm,100:shadow-xl]` track snaps from `sm` to `xl` instead of fading. The same applies to `text-shadow-[...]` (also `'*'` syntax) and to `ring-*`, which feeds the same composed `box-shadow` via `--tw-ring-shadow`.
 
 For a smooth glow/halo effect, animate `scale` and `opacity` on a child layer (e.g. a transparent ring or radial-gradient overlay) instead of animating the shadow itself.
 
@@ -640,7 +640,7 @@ public static class Button
 }
 
 // Usage
-view.Button(style: [Button.Primary], label: "Submit", onClick: async () => { });
+view.Button(style: [Button.Primary], text: "Submit", onClick: async () => { });
 ```
 
 ## Common Pitfalls and Solutions
@@ -749,10 +749,11 @@ Use theme constants or explicit sizes:
 
 | Size | Theme Constant | Classes | Pixels |
 |------|----------------|---------|--------|
-| Extra small | `Icon.Size.Xs` | `w-4 h-4 shrink-0` | 16px |
-| Small | `Icon.Size.Sm` | `w-5 h-5 shrink-0` | 20px |
-| Medium (default) | `Icon.Size.Md` | `w-6 h-6 shrink-0` | 24px |
-| Large | `Icon.Size.Lg` | `w-8 h-8 shrink-0` | 32px |
+| Extra small | `Icon.Xs` | `w-4 h-4 shrink-0` | 16px |
+| Small (`Icon.Default`) | `Icon.Sm` | `w-5 h-5 shrink-0` | 20px |
+| Medium | `Icon.Md` | `w-6 h-6 shrink-0` | 24px |
+| Large | `Icon.Lg` | `w-8 h-8 shrink-0` | 32px |
+| Extra large | `Icon.Xl` | `w-10 h-10 shrink-0` | 40px |
 
 Common gaps: `gap-2` (tight), `gap-3` (normal), `gap-4` (spacious)
 
@@ -811,13 +812,13 @@ Use gradients for primary actions and solid colors for secondary actions:
 // Primary button - gradient with shadow
 view.Button(
     style: ["px-4 py-2 text-sm bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 rounded-xl font-medium transition-all shadow-lg"],
-    label: "Primary Action",
+    text: "Primary Action",
     onClick: async () => { });
 
 // Secondary button - subtle with border
 view.Button(
     style: ["px-4 py-2 text-sm bg-slate-700/50 hover:bg-slate-600/50 text-slate-300 hover:text-white rounded-xl font-medium transition-all border border-slate-600/50"],
-    label: "Secondary",
+    text: "Secondary",
     onClick: async () => { });
 ```
 
