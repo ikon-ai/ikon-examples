@@ -5,35 +5,36 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <NoWarn>$(NoWarn);1998</NoWarn>
+    <NoWarn>$(NoWarn);1998;9113</NoWarn>
+    <NuGetAuditMode>direct</NuGetAuditMode>
     <Version>1.0.0</Version>
     <IkonApp>true</IkonApp>
     <IsPackable>false</IsPackable>
     <Deterministic>true</Deterministic>
   </PropertyGroup>
   <PropertyGroup>
-    <IkonRoot>$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), 'ikon-platform.slnx'))</IkonRoot>
+    <IkonRoot Condition="'$(IkonRoot)' == ''">$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), 'ikon-platform.slnx'))</IkonRoot>
     <IsIkonInternal Condition="'$(IkonRoot)' != ''">true</IsIkonInternal>
   </PropertyGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' != 'true'">
-    <PackageReference Include="Ikon.AI" Version="3.2.39" />
-    <PackageReference Include="Ikon.AI.Emergence" Version="3.2.39" />
-    <PackageReference Include="Ikon.App" Version="3.2.39" />
-    <PackageReference Include="Ikon.Common" Version="3.2.39" />
-    <PackageReference Include="Ikon.Common.Core" Version="3.2.39" />
-    <PackageReference Include="Ikon.Crosswind" Version="3.2.39" />
-    <PackageReference Include="Ikon.Parallax" Version="3.2.39" />
-    <PackageReference Include="Ikon.Pipeline" Version="3.2.39" />
-    <PackageReference Include="Ikon.Pipelines.Public" Version="3.2.39" />
-    <PackageReference Include="Ikon.Resonance" Version="3.2.39" />
-    <PackageReference Include="Ikon.Resonance.Core" Version="3.2.39" />
-    <PackageReference Include="Ikon.Server" Version="3.2.39" />
-    <PackageReference Include="Ikon.Teleport" Version="3.2.39" />
-    <PackageReference Include="Ikon.Sdk" Version="2.0.22" />
-    <PackageReference Include="Ikon.AI.Speech.Azure" Version="3.2.39" />
-    <PackageReference Include="Ikon.AI.Speech.Google" Version="3.2.39" />
-    <PackageReference Include="Ikon.App.Storage.Postgres" Version="3.2.39" />
-    <PackageReference Include="Ikon.Server.HotReload" Version="3.2.39" />
+    <PackageReference Include="Ikon.AI" Version="3.3.0" />
+    <PackageReference Include="Ikon.AI.Emergence" Version="3.3.0" />
+    <PackageReference Include="Ikon.App" Version="3.3.0" />
+    <PackageReference Include="Ikon.Common" Version="3.3.0" />
+    <PackageReference Include="Ikon.Common.Core" Version="3.3.0" />
+    <PackageReference Include="Ikon.Crosswind" Version="3.3.0" />
+    <PackageReference Include="Ikon.Parallax" Version="3.3.0" />
+    <PackageReference Include="Ikon.Pipeline" Version="3.3.0" />
+    <PackageReference Include="Ikon.Pipelines.Public" Version="3.3.0" />
+    <PackageReference Include="Ikon.Resonance" Version="3.3.0" />
+    <PackageReference Include="Ikon.Resonance.Core" Version="3.3.0" />
+    <PackageReference Include="Ikon.Server" Version="3.3.0" />
+    <PackageReference Include="Ikon.Teleport" Version="3.3.0" />
+    <PackageReference Include="Ikon.Sdk" Version="2.0.23" />
+    <PackageReference Include="Ikon.AI.Speech.Azure" Version="3.3.0" />
+    <PackageReference Include="Ikon.AI.Speech.Google" Version="3.3.0" />
+    <PackageReference Include="Ikon.App.Storage.Postgres" Version="3.3.0" />
+    <PackageReference Include="Ikon.Server.HotReload" Version="3.3.0" />
   </ItemGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' == 'true'">
     <ProjectReference Include="$(IkonRoot)\Ikon.AI\Ikon.AI.csproj" />
@@ -70,7 +71,7 @@
     </ItemGroup>
   </Target>
   <Target Name="IkonAppTeleportBuildExternal" BeforeTargets="BeforeBuild" Condition="'$(IsIkonInternal)' != 'true' And Exists('$(MSBuildProjectDirectory)/../../schema')" Inputs="@(IkonTeleportSchemaFile)" Outputs="$(IntermediateOutputPath)ikon-teleport.stamp">
-    <Exec Command="ikon app teleport build --target-dir &quot;$(MSBuildProjectDirectory)/../..&quot;" EnvironmentVariables="CI=true" ContinueOnError="WarnAndContinue" />
+    <Exec Command="ikon app teleport build --project-dir &quot;$(MSBuildProjectDirectory)/../..&quot;" EnvironmentVariables="CI=true" ContinueOnError="WarnAndContinue" />
     <MakeDir Directories="$(IntermediateOutputPath)" Condition="'$(MSBuildLastTaskResult)' == 'true'" />
     <Touch Files="$(IntermediateOutputPath)ikon-teleport.stamp" AlwaysCreate="true" Condition="'$(MSBuildLastTaskResult)' == 'true'" />
     <ItemGroup>

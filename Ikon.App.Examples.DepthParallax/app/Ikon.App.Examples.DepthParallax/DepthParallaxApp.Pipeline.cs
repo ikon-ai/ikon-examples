@@ -43,33 +43,43 @@ public partial class DepthParallaxApp
 
             var image = images.FirstOrDefault();
 
-            if (image is null || image.Data.Length == 0)
+            if (image is null)
             {
                 Fail("Image generation returned no image");
                 return;
             }
 
-            _imageDataUri.Value = ToDataUri(image.MimeType, image.Data);
+            var imageData = await image.GetDataAsync();
+
+            if (imageData.Length == 0)
+            {
+                Fail("Image generation returned no image");
+                return;
+            }
+
+            _imageDataUri.Value = ToDataUri(image.MimeType, imageData);
 
             _stage.Value = Stage.EstimatingDepth;
 
             using var depthEstimator = new DepthEstimator(_depthModel.Value);
             var depth = await depthEstimator.EstimateDepthAsync(new DepthEstimatorConfig
             {
-                Image = new InputImage
+                InputImage = new InputImage
                 {
                     Data = image.Data,
                     MimeType = image.MimeType
                 }
             });
 
-            if (depth.Depth.Data.Length == 0)
+            var depthData = await depth.Depth.GetDataAsync();
+
+            if (depthData.Length == 0)
             {
                 Fail("Depth estimation returned no image");
                 return;
             }
 
-            _depthDataUri.Value = ToDataUri(depth.Depth.MimeType, depth.Depth.Data);
+            _depthDataUri.Value = ToDataUri(depth.Depth.MimeType, depthData);
             _stage.Value = Stage.Ready;
         }
         catch (Exception ex)

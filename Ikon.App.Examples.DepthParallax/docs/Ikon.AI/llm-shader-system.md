@@ -32,7 +32,7 @@ Comments (`//`) explain the purpose of each property.
     UseUserNames: false,          // include user names in messages
     UseAudioOutput: false,        // enable audio output on supported LLMs
     AudioOutputVoiceId: "",       // voice id when UseAudioOutput = true
-    UseCaching: false,            // enable request caching
+    UseCaching: false,            // enable prompt caching on supported LLMs
     DisableFunctionCalling: false,// hard-disable function calls
     DiscardTextOutputWithFunctionCalls: true, // discard text if tool used
     MaxRecursionDepth: 3,         // safety limit for self-recursion
@@ -232,7 +232,7 @@ Controls how the LLM is invoked:
 - UseCitations / ForceCitations: Enable the citation pipeline / force it to assume citations are required.
 - UseUserNames: Include user/assistant names in the message history (for LLMs that support it).
 - UseAudioOutput / AudioOutputVoiceId: Enable text-to-speech generation; transcript is surfaced if the model returns only audio.
-- UseCaching: Deduplicate identical requests.
+- UseCaching: Enable provider-side prompt caching on models that require explicit opt-in (only applied when the model supports caching).
 - DisableFunctionCalling: Force no tools even if functions are provided.
 - DiscardTextOutputWithFunctionCalls: Ignore LLM text if it also called a function.
 - MaxRecursionDepth: Stop after N self-triggered reruns.
@@ -254,13 +254,13 @@ ImplicitJsonExample (see Input) holds a valid example that matches the generated
 
 #### Transforms
 
-Bidirectional post-processing steps (executed in order of appearance). Input transforms run on the concatenated text of the most recent user message before the LLM call; output transforms wrap the streamed LLM response. Both use the configured sliding window.
+Bidirectional post-processing steps (executed in order of appearance). Input transforms run on the concatenated text of the most recent user message before the LLM call (processed as a single window); output transforms wrap the streamed LLM response using the configured sliding window.
 
 - Name: Transform id – "safety" is the built-in moderation filter.
 - ProcessInput / ProcessOutput: Enable for incoming / outgoing text.
 - WindowSize / WindowOverlap: Sliding-window size & overlap in characters.
 - Config: Arbitrary custom values consumed by the transform.
-- The built-in safety transform calls the OpenAI moderation model. Flagged windows emit a `ClassificationResult` streaming event tagged `LLMShader.Model.Transform.Safety` and can short-circuit generation.
+- The built-in safety transform calls the OpenAI moderation model. Flagged windows emit a `ContentFiltered` streaming event (listener key `ClassificationResult`) tagged `LLMShader.Model.Transform.Safety` and can short-circuit generation.
 
 ### History
 
@@ -393,7 +393,7 @@ Every emission updates `ShaderResult`, letting subsequent scripts inspect the ac
 
 - `ShaderInvocationContext.FailureMessage` is set to the resolved failure message of the selected pass (after templating).
 - `ShaderInvocationContext.Reasoning` captures streamed reasoning traces (e.g., OpenAI O-series tool reasoning).
-- After generation finishes the runtime emits `FinalTextResponse` and `FinalModelMessage` streaming results containing the sanitized text reply and the message added back to history.
+- After generation finishes the runtime emits `FinalText` and `FinalModelMessage` events containing the sanitized text reply and the message added back to history.
 
 ---
 
@@ -401,6 +401,7 @@ Every emission updates `ShaderResult`, letting subsequent scripts inspect the ac
 
 - escape: Escapes template delimiters in text.
 
+Any function registered with the name prefix builtin. is exposed to templates under its unprefixed name (escape is registered as builtin.escape).  
 Any function registered with the name prefix filter. becomes available as a template filter (e.g., {{ text | my_filter }}).  
 Template-time functions can be exposed via TemplateFunctions; model-time tools via ModelFunctions.
 

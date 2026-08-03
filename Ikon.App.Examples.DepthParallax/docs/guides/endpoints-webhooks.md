@@ -106,7 +106,7 @@ public class MyApp(IApp<SessionIdentity, ClientParams> app)
 {
     public record SessionIdentity(string UserId);
 
-    // POST by default. The JSON body binds to your typed parameter. The binder is lenient — missing
+    // The JSON body binds to your typed parameter. The binder is lenient — missing
     // fields default, unknown fields are ignored, and bad input returns a 4xx (it never throws a 500).
     [HttpPost("/sum")]
     public HttpResult Sum(SumRequest req) => HttpResult.Ok(new { sum = req.A + req.B });
@@ -142,10 +142,10 @@ public record SumRequest(int A, int B);
 ### `[Mcp]`
 
 Exposes the method as an MCP tool for LLM/agent tool-use, reachable two ways:
-- **The JSON-RPC multiplexer** — all of an owner's tools share **one** endpoint at `https://{space}.ikonai.app/api/{Owner}/mcp` (`tools/list`/`tools/call`); the input/output JSON Schema is reflected from the C# signature.
-- **A per-tool POST endpoint** — each tool is ALSO at its own URL (derived from the method name, or `[Mcp(Path = "/custom")]` to override), with the request body bound the same way `tools/call` binds its arguments. So `[Mcp] int Add(int a, int b)` is callable as `POST /api/add {"a":1,"b":2}` → `3`, not just via JSON-RPC.
+- **The JSON-RPC multiplexer** — all of an owner's tools share **one** endpoint (`tools/list`/`tools/call`): `https://{space}.ikonai.app/api/mcp` when the `[Mcp]` methods are on the app class, or `/api/{kebab-cased-cell-type}/mcp` for a cell (e.g. `LabCell` → `/api/lab-cell/mcp`); the input/output JSON Schema is reflected from the C# signature.
+- **A per-tool POST endpoint** — each tool is ALSO at its own URL (derived from the method name, or `[Mcp("/custom")]` to override), with the request body bound the same way `tools/call` binds its arguments. So `[Mcp] int Add(int a, int b)` is callable as `POST /api/add {"a":1,"b":2}` → `3`, not just via JSON-RPC.
 
-Pair with `[McpResource]` for resources. (A method with both `[Rest]` and `[Mcp]` uses the `[Rest]` route for its direct HTTP surface; the tool still appears in the multiplexer.)
+Pair with `[McpResource]` for resources. (A method with both a verb-named REST attribute (`[HttpGet]`/`[HttpPost]` etc.) and `[Mcp]` uses the REST route for its direct HTTP surface; the tool still appears in the multiplexer.)
 
 ### Public URLs, identity & minting
 
@@ -177,18 +177,16 @@ namespace Ikon.Sdk
     ctor()
     string ApiKey { get; init; }
     BackendType BackendType { get; init; }
-    string? ChannelKey { get; init; }
     ClientType ClientType { get; init; }
     string ExternalUserId { get; init; }
-    string? SessionId { get; init; }
+    string? SessionIdentityHash { get; init; }
     string SpaceId { get; init; }
     UserType UserType { get; init; }
   sealed record BackendConfig
     ctor()
-    string? ChannelKey { get; init; }
     ClientType ClientType { get; init; }
     string ExternalUserId { get; init; }
-    string? SessionId { get; init; }
+    string? SessionIdentityHash { get; init; }
     string SpaceId { get; init; }
     UserType UserType { get; init; }
   enum BackendType
@@ -271,8 +269,11 @@ namespace Ikon.Sdk
     ContextType ContextType { get; init; }
     string Description { get; init; }
     string? DeviceId { get; init; }
+    bool EnableUdpChannel { get; init; }
     // When set, authentication is skipped and the client connects straight through this URL — the same mechanism the TypeScript SDK reads from its query parameter. Mutually exclusive with Local, ApiKey, and Backend.
     string? ExternalConnectUrl { get; init; }
+    // Delivered to the app as Context.InitialPath at join, like a web client opening a deep link. Empty means the app's root.
+    string InitialPath { get; init; }
     string? InstallId { get; init; }
     // Sets Context.IsSnapshot on the server so the app renders its privacy-safe snapshot variant. Only the build-time boot-snapshot capture client sets this; leave false otherwise.
     bool IsSnapshot { get; init; }
@@ -283,8 +284,10 @@ namespace Ikon.Sdk
     Dictionary<string, string>? Parameters { get; init; }
     PayloadType PayloadType { get; init; }
     string? ProductId { get; init; }
+    string SnapshotVariant { get; init; }
     TimeoutConfig Timeouts { get; init; }
     string? UserAgent { get; init; }
+    UserLoginConfig? UserLogin { get; init; }
     string? VersionId { get; init; }
   sealed record LocalConfig
     ctor()
@@ -306,6 +309,11 @@ namespace Ikon.Sdk
     int MaxReconnectAttempts { get; init; }
     TimeSpan MaxReconnectDelay { get; init; }
     TimeSpan ReconnectAttemptTimeout { get; init; }
+  sealed record UserLoginConfig
+    ctor()
+    ClientType ClientType { get; init; }
+    string SpaceId { get; init; }
+    UserType UserType { get; init; }
   static class Version
     const string VersionString
 
@@ -318,7 +326,7 @@ The Ikon AI C# SDK provides a simple way to connect to Ikon AI App from any .NET
 
 ## Features
 
-- Three authentication modes: API Key, Local Development, Backend
+- Four authentication modes: API Key, Local Development, Backend, External Connect URL
 - Automatic reconnection with exponential backoff
 - Audio streaming with Opus encoding/decoding
 - Flexible audio streaming modes
@@ -384,7 +392,6 @@ var config = new IkonClientConfig
         ApiKey = "ikon-xxxxx",           // API key from portal
         SpaceId = "...",                  // Space ID
         ExternalUserId = "user-123",      // Your user identifier
-        ChannelKey = "main",              // Optional: specific channel
         SessionId = "session-xyz",        // Optional: target a precomputed session
         BackendType = BackendType.Production,
         UserType = UserType.Human,
@@ -420,7 +427,6 @@ var config = new IkonClientConfig
     {
         SpaceId = "...",
         ExternalUserId = "user-123",     // Your user identifier
-        ChannelKey = "main",             // Optional
         SessionId = "session-xyz",       // Optional: target a precomputed session
         UserType = UserType.Human,
         ClientType = ClientType.DesktopApp
@@ -533,12 +539,15 @@ var config = new IkonClientConfig
     Timeouts = new TimeoutConfig
     {
         InitialReconnectDelay = TimeSpan.FromMilliseconds(500),  // Initial backoff delay
-        MaxReconnectAttempts = 4                                  // Max attempts (default)
+        MaxReconnectAttempts = 4,                                 // Max attempts (default)
+        MaxReconnectDelay = TimeSpan.FromSeconds(30),             // Backoff delay cap (default)
+        ReconnectAttemptTimeout = TimeSpan.FromSeconds(30),       // Time budget per attempt (default)
+        BackgroundReconnect = true                                // Keep retrying after max attempts (default)
     }
 };
 ```
 
-Reconnection uses exponential backoff starting from `InitialReconnectDelay` (500ms, 1s, 2s, 4s by default).
+Reconnection uses exponential backoff starting from `InitialReconnectDelay` (500ms, 1s, 2s, 4s by default), capped at `MaxReconnectDelay` and jittered. When `BackgroundReconnect` is enabled (the default), the client keeps retrying with capped exponential backoff from the `Offline` state after the fast reconnection attempts are exhausted.
 
 ## Sending Messages
 
@@ -590,20 +599,15 @@ await client.SendAudioAsync(
     isLast: true,
     streamId: "my-audio-stream",              // Unique stream identifier
     totalDuration: TimeSpan.FromSeconds(5),
-    encoderOptions: new AudioEncoderOptions   // Custom encoder settings
-    {
-        Bitrate = 64000,
-        Complexity = 10
-    },
+    encoderOptions: new AudioEncoderOptions(  // Custom encoder settings
+        bitrate: 64000,
+        complexity: 10
+    ),
     targetIds: new[] { 123, 456 }             // Target specific session IDs
 );
 
 // Set default encoder options for all audio
-client.DefaultEncoderOptions = new AudioEncoderOptions
-{
-    Bitrate = 48000,
-    Complexity = 8
-};
+client.DefaultEncoderOptions = new AudioEncoderOptions(bitrate: 48000, complexity: 8);
 ```
 
 ### Receiving Audio
@@ -849,7 +853,10 @@ var config = new IkonClientConfig
     Timeouts = new TimeoutConfig
     {
         InitialReconnectDelay = TimeSpan.FromMilliseconds(500),  // Initial backoff delay
-        MaxReconnectAttempts = 4                                  // Max reconnect attempts (default)
+        MaxReconnectAttempts = 4,                                 // Max reconnect attempts (default)
+        MaxReconnectDelay = TimeSpan.FromSeconds(30),             // Backoff delay cap (default)
+        ReconnectAttemptTimeout = TimeSpan.FromSeconds(30),       // Time budget per attempt (default)
+        BackgroundReconnect = true                                // Keep retrying after max attempts (default)
     }
 };
 ```
@@ -866,7 +873,12 @@ var config = new IkonClientConfig
     OpcodeGroupsToServer = Opcode.GROUP_ALL,
 
     // Payload serialization format
-    PayloadType = PayloadType.Teleport  // Default
+    PayloadType = PayloadType.Teleport,  // Default
+
+    // How this connection identifies to the server.
+    // Default Plugin connects as a backend component (no UI).
+    // Native or Browser connects as a first-class player client that receives streamed UI.
+    ContextType = ContextType.Plugin
 };
 ```
 
@@ -936,8 +948,8 @@ var config = new IkonClientConfig
 | Type | Description |
 |------|-------------|
 | `MessageEventArgs` | Event args containing a `ProtocolMessage` |
-| `ConnectionStateEventArgs` | Event args containing the new `ConnectionState` |
-| `ErrorEventArgs` | Event args containing an `Exception` |
+| `IkonClient.ConnectionStateEventArgs` | Event args containing the new `ConnectionState` |
+| `IkonClient.ErrorEventArgs` | Event args containing an `Exception` |
 
 ## License
 

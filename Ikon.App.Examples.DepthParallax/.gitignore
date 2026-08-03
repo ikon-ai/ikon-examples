@@ -9,6 +9,7 @@
 playwright.config.js
 
 build
+build.prerender.*
 artifacts
 dist
 dist-ssr

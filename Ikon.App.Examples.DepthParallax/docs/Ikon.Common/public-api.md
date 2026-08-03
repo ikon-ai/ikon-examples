@@ -7,6 +7,7 @@ namespace Ikon.Common
     void InitializeAll(IReadOnlyList<Type> explicitTypes)
     void Remove(object owner)
     void Restore(object owner)
+    bool TryRemove(object owner)
     bool TryRestore(object owner)
     static readonly AsyncLocalInstances Instance
   sealed record DatabaseConnectionInfo
@@ -30,6 +31,9 @@ namespace Ikon.Common
     void Dispose()
   static class IkonTaskExtensions
     static void RunParallel(this Task task, Action<Exception>? onException = null)
+  // Used wherever a caller supplies a destination the platform then reaches on their behalf — a TURN peer, a URL handed to an AI tool, a scraped page. Those all share one failure mode: the address is chosen by someone outside, but the connection is made from inside, so anything the host can see becomes reachable. That includes sibling containers, admin ports on the host, and on a cloud VM the metadata service on 169.254.169.254. Deliberately one implementation. Two copies of a rule like this drift, and the copy nobody remembers is the one still reachable.
+  static class InternalAddressFilter
+    static bool IsPublicRoutable(IPAddress? address)
   static class MimeTypes
     static void AddOrUpdate(string mime, string extension)
     static string GetExtensionFromMimeType(string mimeType)

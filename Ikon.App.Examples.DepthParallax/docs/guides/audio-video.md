@@ -7,11 +7,21 @@
 ```csharp
 private Audio Audio { get; } = new(app);
 
-// Send audio to clients immediately (sends all audio at once)
-await Audio.SendAsync(samples, sampleRate, channelCount, isFirst, isLast, streamId);
+// Three ways to send audio — pick by how delivery is paced:
 
-// Send speech (throttles output to real-time playback speed and crossfades between sources)
+// 1. Speech (TTS or AudioChunks through the speech mixer): real-time paced, new speech
+//    interrupts current speech with a fade. The default for spoken replies.
+await Audio.SpeakAsync(text);
 Audio.SendSpeech(audioChunk);
+
+// 2. Complete clip (decoded file, generated music): real-time paced, no mixer interruption.
+//    Await completes when the clip has been fully sent (≈ clip duration).
+await Audio.StreamAsync(samples, sampleRate, channelCount, streamId, cancellationToken: ct);
+
+// 3. Immediate, UNPACED transmit — only for audio already produced in real time (e.g. echoing
+//    mic frames back out) or very short clips. A long clip sent this way arrives all at once
+//    and can overflow client audio buffers — use StreamAsync for clips instead.
+await Audio.SendImmediateAsync(samples, sampleRate, channelCount, isFirst, isLast, streamId);
 
 // Receive audio input from client microphone. args carry args.ClientContext /
 // args.ClientSessionId / args.UserId — use these directly; do NOT plumb state through
@@ -39,8 +49,10 @@ Video.VideoInputStreamBeginAsync += async args => { /* args.StreamId, args.Codec
 Video.VideoInputFrameAsync += async args => { /* args.Data, args.FrameNumber, args.IsKey */ };
 Video.VideoInputStreamEndAsync += async args => { /* cleanup */ };
 
-// Forward/echo video to other clients
-await Video.SendAsync(data, frameNumber, isKey, timestampInUs, durationInUs, codec, width, height, framerate, streamId);
+// Forward/echo video to other clients. Frames are transmitted immediately — call once per
+// frame at the source framerate (e.g. forward each incoming frame as it arrives); never loop
+// over a stored clip's frames without pacing.
+await Video.SendFrameAsync(data, frameNumber, isKey, timestampInUs, durationInUs, codec, width, height, framerate, streamId);
 
 // Stream info and cleanup
 var info = Video.GetOutputStreamInfo(streamId); // StreamId, TrackId, Codec, Width, Height, Framerate
@@ -50,7 +62,7 @@ await Video.CloseAllAsync();
 
 Use `CaptureButton` in the UI to start audio/video capture from the client. Render the captured stream to other clients with `view.VideoStreamCanvas(streamId: ...)`.
 
-**Critical: do NOT set `TargetIds` on `ClientVideoCaptureOptions` / `ClientAudioCaptureOptions`** unless you explicitly want to bypass the server. `TargetIds` restricts the WebRTC route to the listed session IDs only — when set to the originating session (or any subset that excludes the server), the server-side `Video.VideoInputStreamBeginAsync` / `Audio.AudioInputStreamBeginAsync` handler never fires, so server-side analysis, recording, and broadcasting all silently break. The browser tab still shows the camera light because local capture is independent. Leave `TargetIds` unset (the default) for the normal "client streams to server, server fans out" flow.
+Captured media always routes to the app on the server — `Video.VideoInputStreamBeginAsync` / `Audio.AudioInputStreamBeginAsync` fire there, and the other clients never receive the raw capture. The app decides any fan-out (e.g. `Audio.SendSpeech` / `SendVideoAsync` with explicit targets).
 
 ### Audio Effects & Mixer
 
@@ -190,10 +202,12 @@ namespace Ikon.Resonance
     void Clear()
     ValueTask DisposeAsync()
     void FadeOut()
+    TimeSpan GetBufferedDuration(string speechEventId)
     void Pause()
     void Resume()
-    // Enumerable only once per mixer; a second enumeration throws. Yielded frames alias one reused buffer — consume (or copy) each frame's samples within the loop body. Cancelling cancellationToken or disposing the mixer ends the stream gracefully, emitting a final PcmAudioFrame.IsLast frame when a speech event had started.
+    // Single consumer: a concurrent second enumeration throws, but the stream may be re-entered after an enumeration ends. Yielded frames alias one reused buffer — consume (or copy) each frame's samples within the loop body. Cancelling cancellationToken or disposing the mixer ends the stream gracefully, emitting a final PcmAudioFrame.IsLast frame when a speech event had started.
     IAsyncEnumerable<PcmAudioFrame> StreamAsync(CancellationToken cancellationToken = default)
+    Task WaitForCompletionAsync(string speechEventId)
   // Immutable — the mixer captures these values at construction; build a new config (and mixer) to change them.
   sealed record SpeechMixerConfig
     ctor()

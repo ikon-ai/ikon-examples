@@ -17,17 +17,63 @@ namespace Ikon.AI
     ctor(TimeSpan configuredTimeout, string targetName)
     TimeSpan ConfiguredTimeout { get; }
     string TargetName { get; }
+  static class AssetOutputs
+    static Task<byte[]> GetBytesAsync(string url, CancellationToken cancellationToken = default)
+    static Task<byte[]> GetDataAsync(this IResultPayload result, CancellationToken cancellationToken = default)
+  // The name selects the model in the category's string-based APIs (e.g. new LLM("my-model")). An empty ApiKey means the endpoint needs no authentication header.
+  abstract class CustomModel
+    string ApiKey { get; init; }
+    string ApiModelName { get; init; }
+    required string EndpointUrl { get; init; }
+    required string Name { get; init; }
+  // Register a model at app startup, then select it by name anywhere a model name string is accepted:
+  // CustomModels.Instance.Register(new CustomLLMModel
+  // {
+  //     Name = "my-model",
+  //     EndpointUrl = "http://localhost:8000/v1/chat/completions",
+  //     Api = CustomLLMApi.OpenAICompletions,
+  //     ApiKey = "sk-...",
+  //     ContextWindowSize = 32768,
+  // });
+  //
+  // var reply = await Emerge.AskAsync("Hello", "my-model");
+  // Custom models always execute in the local process — calls never go through the Ikon RPC mechanism. Usage is reported with a .user suffix and billed as a flat per-request fee instead of per-token provider pricing. The registry is async-local (like CredentialStorage): register models on the main flow at startup, before spawning parallel work, so every flow sees them. Registering the same name again replaces the previous registration; instances constructed before the replacement keep the configuration they were created with.
+  sealed class CustomModels : AsyncLocalInstance<CustomModels>
+    ctor()
+    bool IsRegistered(string name)
+    void Register(CustomLLMModel model)
+    void Register(CustomEmbeddingModel model)
+    void Register(CustomRerankModel model)
+    void Register(CustomClassificationModel model)
+    bool Unregister(string name)
+  interface IResultPayload
+    byte[]? Data { get; }
+    ResultKind Kind { get; }
+    string? Url { get; }
   // Transient (network blip, server restart, flaky link) and therefore retryable — the RPC layer retries with a forced reconnect, and exhausted attempts still surface as retryable.
   sealed class IkonServerConnectException : RetryableAIException
     ctor(string message)
     ctor(string message, Exception inner)
-  // Supply the image exactly one way: inline via Data (with MimeType), by Url, or by AssetUri. Type, Strength, and MaskDilution apply only to image-editing/inpainting models; depth, segmentation, mesh, and video generation ignore them.
+  // A reference clip for prompt-driven audio editing: the model preserves this clip's timing and structure while the prompt re-styles it. Supply the clip exactly one way: Data (with MimeType), Url, or AssetUri (resolved automatically).
+  sealed record InputAudio
+    ctor()
+    AssetUri? AssetUri { get; init; }
+    byte[]? Data { get; init; }
+    // End of the region to edit, in seconds. null means to the end.
+    double? EndSeconds { get; init; }
+    string? MimeType { get; init; }
+    // Start of the region to edit, in seconds. null means from the beginning.
+    double? StartSeconds { get; init; }
+    // How strongly the output adheres to this reference, in [0, 1]; higher keeps the original melody/timing closer. null defaults to strong adherence.
+    double? Strength { get; init; }
+    string? Url { get; init; }
+  // Supply the image exactly one way: inline via Data (with MimeType), by Url, or by AssetUri — all consumers resolve the asset to a URL. Type, Strength, and MaskDilution apply only to image-editing/inpainting models; depth, segmentation, mesh, and video generation ignore them.
   sealed record InputImage
     ctor()
     AssetUri? AssetUri { get; init; }
-    byte[] Data { get; init; }
+    byte[]? Data { get; init; }
     double? MaskDilution { get; init; }
-    string MimeType { get; init; }
+    string? MimeType { get; init; }
     double? Strength { get; init; }
     InputImageType Type { get; init; }
     string? Url { get; init; }
@@ -48,14 +94,35 @@ namespace Ikon.AI
     ctor()
     ctor(string message)
     ctor(string message, Exception inner)
+  // An image produced by an analysis model (depth map, segmentation mask, preview). Kind tells how it was delivered: inline bytes in Data, or a signed download URL in Url valid for roughly one hour.
+  sealed record OutputImage : IResultPayload
+    ctor()
+    byte[]? Data { get; init; }
+    int Height { get; init; }
+    ResultKind Kind { get; init; }
+    string MimeType { get; init; }
+    string? Url { get; init; }
+    int Width { get; init; }
   class RegionNotSupportedException : NonRetryableAIException
     ctor()
     ctor(string message)
     ctor(string message, Exception inner)
+  // With Auto the payload stays inline in-process; only when the result is returned from a remotely hosted AI function is it uploaded to a short-lived asset URL, and then only if it exceeds an internal size threshold (a few MB), keeping the protocol message small. Url always uploads, in any context. Check the result's ResultKind field to see which delivery was used.
+  enum ResultDelivery
+    Auto
+    Url
+  // Data guarantees the result's Data is non-null; Url guarantees its Url is non-null. Call result.GetDataAsync() (AssetOutputs.GetDataAsync) to get the bytes either way.
+  enum ResultKind
+    Data
+    Url
   class RetryableAIException : AIException
     ctor()
     ctor(string message)
     ctor(string message, Exception inner)
+  // The URLs these clients fetch come from app code, from LLM tool arguments and from provider responses — none of which the platform controls. Checking the URL string is not enough: the name is resolved later, so a host that resolves to 169.254.169.254 passes any check made up front, and a redirect or a second DNS answer moves the target after the check. The decision therefore happens at SocketsHttpHandler.ConnectCallback, on the address actually being connected to. That covers every redirect hop, because each one connects again, and it closes DNS rebinding, because the address checked is the address used.
+  static class SsrfGuard
+    static SocketsHttpHandler CreateHandler()
+    static bool IsAllowedScheme(Uri uri)
 
 namespace Ikon.AI.Kernel
   static class AsyncEnumerableExtensions
@@ -214,7 +281,7 @@ namespace Ikon.AI.Kernel
     string FunctionName { get; }
     object? Value { get; }
     string? ValueType { get; }
-  // CachedInputTokens is a subset of InputTokens (the cache-read portion), not an additional count — do not sum the two.
+  // The buckets are disjoint: total input = InputTokens + CachedInputTokens + CacheCreationInputTokens. A fully cached prompt reports InputTokens=0 with all input in CachedInputTokens.
   sealed record LLMEvent.Usage : LLMEvent
     ctor(int InputTokens, int CachedInputTokens, int CacheCreationInputTokens, int OutputTokens)
     int CacheCreationInputTokens { get; init; }
@@ -303,6 +370,27 @@ namespace Ikon.AI.Kernel
     string Url { get; }
 
 namespace Ikon.AI.LLM
+  enum CustomLLMApi
+    OpenAICompletions
+    OpenAIResponses
+    Anthropic
+    Google
+    Cohere
+  // Capability flags default to what a typical self-hosted OpenAI-compatible model supports; enable more (e.g. SupportsJsonSchema) when the endpoint provides them.
+  sealed class CustomLLMModel : CustomModel
+    ctor()
+    required CustomLLMApi Api { get; init; }
+    required int ContextWindowSize { get; init; }
+    bool SupportsCaching { get; init; }
+    bool SupportsInputImages { get; init; }
+    bool SupportsJsonSchema { get; init; }
+    bool SupportsParallelToolCalling { get; init; }
+    bool SupportsReasoning { get; init; }
+    bool SupportsSingleToolCalling { get; init; }
+    bool SupportsStreaming { get; init; }
+    bool SupportsStrictJsonSchema { get; init; }
+    bool SupportsSystemMessages { get; init; }
+    bool SupportsTemperature { get; init; }
   // Returns the exact JSON schema each provider ships to the model for a Function; use it rather than re-deriving your own projection.
   static class FunctionSchema
     static string ToJson(Function function)
@@ -348,6 +436,7 @@ namespace Ikon.AI.LLM
     IAsyncEnumerable<LLMEvent> GenerateAsync(KernelContext context, CancellationToken cancellationToken = default)
     static LLMCapabilities GetCapabilities(LLMModel model)
     static LLMCapabilities GetCapabilities(LLMModel model, IReadOnlyList<ModelRegion>? regions)
+    static LLMCapabilities GetCapabilities(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(LLMModel model)
   sealed class LLMCapabilities : ILLMInfo
     ctor()
@@ -438,6 +527,7 @@ namespace Ikon.AI.LLM
     KimiK25
     KimiK26
     KimiK27Code
+    KimiK3
     Qwen36
     Qwen37
     Qwen37Max

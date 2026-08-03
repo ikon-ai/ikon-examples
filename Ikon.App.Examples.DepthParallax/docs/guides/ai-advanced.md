@@ -6,7 +6,7 @@
 
 ### AI Database
 
-Database utilities for AI context — vector stores, document retrieval, and semantic search infrastructure.
+Database utilities for AI context — SQL connectivity and schema extraction (`Ikon.AI.Database`: Trino/Postgres/Sqlite/BigQuery connections, text-to-SQL tooling), plus vector stores and semantic search infrastructure (`Ikon.AI.Storage`).
 
 Refer to generated API docs for full details.
 
