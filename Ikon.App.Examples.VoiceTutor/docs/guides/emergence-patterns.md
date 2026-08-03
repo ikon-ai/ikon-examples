@@ -137,7 +137,7 @@ Classification result = await Emerge.AskAsync<Classification>(
 string reply = await Emerge.AskAsync("Hard reasoning question", LLMModel.Claude45Sonnet);
 ```
 
-The structured overload throws `InvalidOperationException` if the model returns nothing or invalid JSON.
+The structured overload throws `EmergenceStoppedException` if the model returns nothing or invalid JSON.
 
 ---
 
@@ -178,7 +178,7 @@ The `EmergePass<T>` configure callback is invoked on every iteration, giving acc
 - `Temperature`, `MaxOutputTokens`, `ReasoningEffort`, `ReasoningTokenBudget` - Model parameters
 - `MaxIterations`, `MaxToolCalls`, `MaxWallTime` - Budget limits
 - `MaxRetries`, `RetryDelay` - Automatic retry on transient failures
-- `Tools` - Available tools (see [Inline Tool Registration](#inline-tool-registration))
+- `Tools` - Available tools (see [Tool Registration](#tool-registration))
 
 ---
 
@@ -426,10 +426,12 @@ await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx,
 **Methods:**
 - `Tool.Of(name, description, lambda)` — sync or async lambda, up to 4 parameters; the schema the LLM sees is derived from the lambda's parameter names and `[Description]` attributes
 - `Tool.OfContext(name, description, (ToolContext toolCtx, ...) => ...)` — like `Tool.Of` but the impl receives the live `ToolContext`; requires an `AgentRunner` scope when invoked
-- `Tool.FromSchema(name, description, parameterSchemaJson, invoke)` — schema-first, for shapes a typed delegate cannot express (MCP-discovered tools, hand-authored schemas); `invoke` receives the raw `JsonElement` arguments
-- `AddTool(Tool)` / `AddTools(params Tool[])` — register on the pass, skipping tools whose name is already present; both return `EmergePass<T>` for chaining
+- `Tool.FromSchema(name, description, parameterSchemaJson, invoke, readOnly = false)` — schema-first, for shapes a typed delegate cannot express (MCP-discovered tools, hand-authored schemas); `invoke` receives the live `ToolContext` and the raw `JsonElement` arguments
+- `AddTool(Tool)` / `AddTools(params Tool[])` — register on the pass, skipping tools whose name is already present; both return `EmergePass<T>` for chaining. A tool marked read-only is also added to `pass.ReadOnlyToolNames`, letting the executor run consecutive calls to it from one model turn concurrently (any tool not listed there acts as a barrier and runs alone)
 - `tool.WithParamDescription(paramName, description)` / `tool.WithAllowedValues(paramName, values)` — per-pass dynamic parameter docs and enums on a copy of the tool
 - Pre-built `Function` objects go directly onto the pass via `pass.Tools.Add(function)`
+
+**Completing the run from a tool body.** Return `Emerge.Complete()` (or `Emerge.Complete(value)` to record `value` as the tool result) from a tool body to end the run right after the current tool batch instead of looping back to the model — for tools whose side effect is the answer. The run completes with a default result, surfaced as a `Completed<T>` event.
 
 **Many-parameter tools — request record.** `Tool.Of` tops out at 4 parameters by design. A tool that needs more takes a single request record; `[property: Description]` documents each field:
 
@@ -490,6 +492,10 @@ Extension methods for inspecting tool call history in a `KernelContext`:
 bool hasFn = ctx.HasFunctionResults();
 var results = ctx.GetFunctionResults(take: 10);  // IReadOnlyList<FunctionResultPart>
 var calls = ctx.GetFunctionCalls(take: 10);       // IReadOnlyList<FunctionCall>
+
+// Keep only the last N message blocks (never starting on an orphan Model
+// or FunctionResult turn); instructions and other fields are preserved
+var trimmed = ctx.TrimToLastMessages(take: 20, skipLast: 0);
 ```
 
 ---
@@ -517,13 +523,12 @@ All pattern options inherit these from `EmergeScopeBase`:
 | `Tools` | `IList<Function>` | Available tools |
 | `UseLastNMessages` | `int?` | Context window limit |
 | `SkipLastNMessages` | `int?` | Skip N most recent messages |
-| `OptimizeContext` | `bool?` | Enable context optimization |
 | `UseCitations` | `bool?` | Enable citations |
 | `IncludeJsonExample` | `bool?` | Include JSON example in prompt (default: true) |
 
 `UseLastMessages(count, skipLast)` is a convenience method for setting both `UseLastNMessages` and `SkipLastNMessages`.
 
-`EmergeScope<T>` adds `UseJson` (default: true), `CaseInsensitiveJson` (default: true), `JsonSchema`, and `JsonExample` (both read-only, auto-generated from `T`).
+`EmergeScope<T>` adds `UseJson` (default: true for every `T` except `string`), `CaseInsensitiveJson` (default: true), `JsonSchema`, and `JsonExample` (both read-only, auto-generated from `T`).
 
 ### EmergenceTrace
 
