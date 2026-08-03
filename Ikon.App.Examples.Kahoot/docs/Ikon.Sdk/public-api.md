@@ -5,18 +5,16 @@ namespace Ikon.Sdk
     ctor()
     string ApiKey { get; init; }
     BackendType BackendType { get; init; }
-    string? ChannelKey { get; init; }
     ClientType ClientType { get; init; }
     string ExternalUserId { get; init; }
-    string? SessionId { get; init; }
+    string? SessionIdentityHash { get; init; }
     string SpaceId { get; init; }
     UserType UserType { get; init; }
   sealed record BackendConfig
     ctor()
-    string? ChannelKey { get; init; }
     ClientType ClientType { get; init; }
     string ExternalUserId { get; init; }
-    string? SessionId { get; init; }
+    string? SessionIdentityHash { get; init; }
     string SpaceId { get; init; }
     UserType UserType { get; init; }
   enum BackendType
@@ -99,8 +97,11 @@ namespace Ikon.Sdk
     ContextType ContextType { get; init; }
     string Description { get; init; }
     string? DeviceId { get; init; }
+    bool EnableUdpChannel { get; init; }
     // When set, authentication is skipped and the client connects straight through this URL — the same mechanism the TypeScript SDK reads from its query parameter. Mutually exclusive with Local, ApiKey, and Backend.
     string? ExternalConnectUrl { get; init; }
+    // Delivered to the app as Context.InitialPath at join, like a web client opening a deep link. Empty means the app's root.
+    string InitialPath { get; init; }
     string? InstallId { get; init; }
     // Sets Context.IsSnapshot on the server so the app renders its privacy-safe snapshot variant. Only the build-time boot-snapshot capture client sets this; leave false otherwise.
     bool IsSnapshot { get; init; }
@@ -111,8 +112,10 @@ namespace Ikon.Sdk
     Dictionary<string, string>? Parameters { get; init; }
     PayloadType PayloadType { get; init; }
     string? ProductId { get; init; }
+    string SnapshotVariant { get; init; }
     TimeoutConfig Timeouts { get; init; }
     string? UserAgent { get; init; }
+    UserLoginConfig? UserLogin { get; init; }
     string? VersionId { get; init; }
   sealed record LocalConfig
     ctor()
@@ -134,5 +137,10 @@ namespace Ikon.Sdk
     int MaxReconnectAttempts { get; init; }
     TimeSpan MaxReconnectDelay { get; init; }
     TimeSpan ReconnectAttemptTimeout { get; init; }
+  sealed record UserLoginConfig
+    ctor()
+    ClientType ClientType { get; init; }
+    string SpaceId { get; init; }
+    UserType UserType { get; init; }
   static class Version
     const string VersionString

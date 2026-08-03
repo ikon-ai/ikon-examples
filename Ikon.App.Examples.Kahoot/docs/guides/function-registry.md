@@ -144,7 +144,8 @@ namespace Ikon.Common.Core.Functions
     Func<int, string?>? AuthSessionIdResolver { get; set; }
     string? CurrentVersion { get; set; }
     IReadOnlyDictionary<string, IReadOnlyList<Function>> Functions { get; }
-    static Action? RemoteCallExecutionStarting { get; set; }
+    Func<int, bool?>? IsAnonymousResolver { get; set; }
+    static bool IsExecutingRemoteCall { get; }
     bool RequireVerifiedCallerSpace { get; set; }
     Func<int, IReadOnlyCollection<string>?>? RolesResolver { get; set; }
     Func<int, IReadOnlyList<IScopeKey>>? ScopeResolver { get; set; }
@@ -180,6 +181,7 @@ namespace Ikon.Common.Core.Functions
     bool RemoveFunction(string name, FunctionVisibility visibility)
     bool RemoveFunction(string name)
     void RemoveFunctionsByClientSessionId(int clientSessionId)
+    static void RemoveRemoteCallExecutionStartingSubscribers(AssemblyLoadContext loadContext)
     Task StartProtocolAsync()
     Task StopProtocolAsync()
     void SyncFunctionsFromGlobalState(GlobalState globalState)
