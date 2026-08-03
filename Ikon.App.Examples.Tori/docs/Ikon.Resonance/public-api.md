@@ -104,10 +104,12 @@ namespace Ikon.Resonance
     void Clear()
     ValueTask DisposeAsync()
     void FadeOut()
+    TimeSpan GetBufferedDuration(string speechEventId)
     void Pause()
     void Resume()
-    // Enumerable only once per mixer; a second enumeration throws. Yielded frames alias one reused buffer — consume (or copy) each frame's samples within the loop body. Cancelling cancellationToken or disposing the mixer ends the stream gracefully, emitting a final PcmAudioFrame.IsLast frame when a speech event had started.
+    // Single consumer: a concurrent second enumeration throws, but the stream may be re-entered after an enumeration ends. Yielded frames alias one reused buffer — consume (or copy) each frame's samples within the loop body. Cancelling cancellationToken or disposing the mixer ends the stream gracefully, emitting a final PcmAudioFrame.IsLast frame when a speech event had started.
     IAsyncEnumerable<PcmAudioFrame> StreamAsync(CancellationToken cancellationToken = default)
+    Task WaitForCompletionAsync(string speechEventId)
   // Immutable — the mixer captures these values at construction; build a new config (and mixer) to change them.
   sealed record SpeechMixerConfig
     ctor()

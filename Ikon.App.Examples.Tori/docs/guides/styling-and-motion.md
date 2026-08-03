@@ -13,7 +13,7 @@ view.Box([Card.Default, "p-6 mb-4"], content: view => { ... });
 
 The `Ikon.Parallax.Theming` namespace ships pre-composed token classes that bundle tested defaults — a Crosswind/Tailwind utility string per role/size combo, built from **semantic theme-aware classes** so they auto-flip with light/dark mode and respond to `IkonTheme` overrides. They're **opt-in shortcuts**, not a requirement: any place a token constant would go, you can pass a raw Crosswind utility string instead.
 
-The full catalog:
+The most-used token classes (a curated subset — the `Ikon.Parallax.Theming` namespace ships many more, e.g. `Menu`, `Combobox`, `Breadcrumb`, `Calendar`, `Carousel`):
 
 - **Text**: `Text.Display`, `Text.H1`–`Text.H4`, `Text.Body`, `Text.BodyStrong`, `Text.Label`, `Text.Caption`, `Text.Muted`, `Text.Small`, `Text.Code`, `Text.Link`
 - **Button**: `Button.SolidSm/Md/Lg`, `Button.PrimarySm/Md/Lg`, `Button.NeutralSm/Md/Lg`, `Button.OutlineSm/Md/Lg`, `Button.GhostSm/Md/Lg`, `Button.ErrorSm/Md/Lg`, `Button.SuccessSm/Md/Lg`, `Button.WarningSm/Md/Lg`, `Button.InfoSm/Md/Lg`, `Button.LinkSm/Md/Lg`, `Button.Icon`
@@ -46,11 +46,11 @@ The full catalog:
 
 The 60-30-10 rule (60% `bg-background`, 30% `bg-card`/`bg-secondary`, 10% brand accents) is a starting balance, not a constraint.
 
-**Coming from shadcn/Tailwind?** This theme uses the **Untitled-UI** vocabulary, where `primary`/`secondary` are emphasis **tiers**, not the brand: `bg-primary`/`bg-secondary` are neutral **surfaces**, `text-primary`/`text-secondary` are **body-text tiers**, and the brand lives in `bg-brand-solid` / `text-brand` / `border-brand`. So shadcn's `bg-primary` (a brand button) maps to Ikon's `bg-brand-solid`, `text-primary-foreground` → `text-primary-on-brand`, `bg-destructive` → `bg-error-solid`, `text-muted-foreground` → `text-tertiary`, generic `border` → `border-secondary`. Don't reach for a bare `bg-primary` expecting a brand colour — use the Ikon name (or `[Button.PrimaryMd]`).
+**Coming from shadcn/Tailwind?** This theme uses the **Untitled-UI** vocabulary, where `primary`/`secondary` are emphasis **tiers**, not the brand: `bg-primary`/`bg-secondary` are neutral **surfaces**, `text-primary`/`text-secondary` are **body-text tiers**, and the brand lives in `bg-brand-solid` / `text-brand-secondary` / `border-brand`. So shadcn's `bg-primary` (a brand button) maps to Ikon's `bg-brand-solid`, `text-primary-foreground` → `text-primary-on-brand`, `bg-destructive` → `bg-error-solid`, `text-muted-foreground` → `text-tertiary`, generic `border` → `border-secondary`. Don't reach for a bare `bg-primary` expecting a brand colour — use the Ikon name (or `[Button.PrimaryMd]`).
 
 ### Theme Customization
 
-For per-app palette overrides without editing the base theme, use `new IkonTheme { ... }` at the top of your app file. **The only configurable surface is the indexer + `DarkMode` property** — there are no named init properties (no `Brand =`, no `Background =`). Every entry sets one CSS variable. Values are Crosswind/Tailwind class names (e.g. `amber-400`, `zinc-950`, `rounded-lg`, `150ms`, `ease-out`) or raw CSS (hex / rem / family stack / gradient). Set as few or as many as you need; unset CSS variables inherit the base theme.
+For per-app palette overrides without editing the base theme, use `new IkonTheme { ... }` at the top of your app file. **The only configurable surface is the indexer plus the `DarkMode` and `Mode` properties** — there are no named init properties for colors (no `Brand =`, no `Background =`). Each entry sets a CSS variable, or — for a vocabulary alias like `primary`/`card`/`radius`/`density` — commits that alias's whole variable cluster. Values are Crosswind/Tailwind class names (e.g. `amber-400`, `zinc-950`, `rounded-lg`, `150ms`, `ease-out`) or raw CSS (hex / rem / family stack / gradient). Set as few or as many as you need; unset CSS variables inherit the base theme.
 
 ```csharp
 private UI UI { get; } = new(app, new IkonTheme
@@ -76,7 +76,7 @@ private UI UI { get; } = new(app, new IkonTheme
     // Per-token Tailwind overrides (optional).
     ["amber-400"]  = "#F5A524",     // re-skin a Tailwind palette step app-wide
     ["rounded-lg"] = "1.25rem",     // tune one radius rung
-    ["hero-glow"]  = "radial-gradient(circle, #F5A52488, transparent 70%)",  // bespoke decorative
+    ["--hero-glow"] = "radial-gradient(circle, #F5A52488, transparent 70%)", // bespoke decorative ("--" declares a custom variable on purpose)
 
     DarkMode = new IkonTheme { ["primary"] = "violet-400", ["background"] = "slate-950" },
 });
@@ -103,13 +103,13 @@ Per-token Tailwind overrides also work — the renderer dispatches by key shape:
 | Radius rung | `["rounded-lg"] = "1.25rem"` | Override one radius rung independently. |
 | Shadow rung | `["shadow-lg"] = "0 8px 16px rgba(0,0,0,.18)"` | Override one shadow rung. |
 | Font role | `["font-mono"] = "JetBrains Mono"` | Override one font slot. |
-| Bespoke token | `["hero-glow"] = "radial-gradient(...)"` | Free CSS variable referenced as `bg-[var(--hero-glow)]`. |
+| Bespoke token | `["--hero-glow"] = "radial-gradient(...)"` | Free CSS variable referenced as `bg-[var(--hero-glow)]`. The `--` prefix is required to declare a custom variable on purpose — an unprefixed unknown key warns as a probable typo. |
 
-The renderer dispatches by key shape: Tailwind palette step → `--color-{name}-{step}`; `rounded-*` → `--radius-*`; `shadow-*` → `--shadow-*`; `font-*` → `--font-*`; `ease-*` → `--ease-*`. Anything else falls through as `--{key}: {value}` (with smart sniff so Tailwind tokens used as values still resolve).
+The renderer dispatches by key shape: vocabulary aliases (`primary`, `brand`, `background`, `foreground`, `card`, `muted`, `border`, `radius`, `density`, `ring`, …) expand to their canonical variable cluster first; then Tailwind palette step → `--color-{name}-{step}`; `rounded-*` → `--radius-*`; `shadow-*` → `--shadow-*`; `font-*` → `--font-*`; `ease-*` → `--ease-*`; `spacing` → `--spacing`. Anything else falls through as `--{key}: {value}` (with smart sniff so Tailwind tokens used as values still resolve).
 
-`new IkonTheme { ... }` is the **only** configurable surface. There is no auto-fan-out and no auto-contrast: setting `["primary"]` does not also set `["bg-brand-solid"]`, and setting `["background"]` does not auto-pick `["text-primary"]`. Spell out each var. Do not invent `.GradientBrand` / `.BorderColor` / `.PrimaryColor` / `.SurfaceColor` either; they never existed. For Tailwind-style gradients, use the utility classes (`bg-gradient-to-br from-{color} to-{color}`) directly on components.
+`new IkonTheme { ... }` is the **only** configurable surface. Vocabulary aliases expand to exactly their documented cluster — setting `["primary"]` repaints the whole brand cluster (`bg-brand-solid`, `border-brand`, `fg-brand-primary`, …) — but beyond that there is no magic fan-out and no auto-contrast: setting `["background"]` does not auto-pick `["text-primary"]`. Spell out each var. Do not invent `.GradientBrand` / `.BorderColor` / `.PrimaryColor` / `.SurfaceColor` either; they never existed. For Tailwind-style gradients, use the utility classes (`bg-gradient-to-br from-{color} to-{color}`) directly on components.
 
-**The platform `IkonTheme` is the only configurable surface — there is no local `IkonTheme.cs` to edit.** The baseline CSS (color scales, radius/shadow tokens, dark-mode overrides, font fallbacks) lives in the platform `Ikon.Parallax.Theming` assembly and is fixed; per-app brand changes go through the indexer above. For an app-specific palette, set the indexer entries you care about — the rest inherit the platform baseline. To re-skin a Tailwind palette step app-wide, set the indexer key for that step (e.g. `["amber-400"] = "#F5A524"`); to swap the brand scale, set the brand-cluster CSS vars (`primary`, `bg-brand-solid`, `text-brand`, `border-brand`, `primary-foreground`). To generate a palette from an image, extract the dominant accent → brand vars, background tone → background var, corner radius → `radius-base`, font choices → `font-heading` / `font-body`.
+**The platform `IkonTheme` is the only configurable surface — there is no local `IkonTheme.cs` to edit.** The baseline CSS (color scales, radius/shadow tokens, dark-mode overrides, font fallbacks) lives in the platform `Ikon.Parallax` assembly (namespace `Ikon.Parallax.Theming`) and is fixed; per-app brand changes go through the indexer above. For an app-specific palette, set the indexer entries you care about — the rest inherit the platform baseline. To re-skin a Tailwind palette step app-wide, set the indexer key for that step (e.g. `["amber-400"] = "#F5A524"`); to swap the brand scale, set the brand-cluster CSS vars (`primary`, `bg-brand-solid`, `text-brand`, `border-brand`, `primary-foreground`). To generate a palette from an image, extract the dominant accent → brand vars, background tone → background var, corner radius → `radius-base`, font choices → `font-heading` / `font-body`.
 
 ### Motion Syntax
 

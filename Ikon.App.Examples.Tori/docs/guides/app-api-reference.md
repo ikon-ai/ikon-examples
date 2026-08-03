@@ -42,6 +42,8 @@ namespace Ikon.App
     // Returns as soon as the host is serving and keeps running in the background — it does not block for the host's lifetime. A failed relay allocation is non-fatal.
     Task StartAsync(CancellationToken cancellationToken = default)
     Task StopAsync(CancellationToken cancellationToken = default)
+    // Only for an app whose endpoints are useless without their public URL, and which would rather start late than start wrong — a relay being redeployed takes a few seconds to come back. Do NOT await this on the app initialization path of an app that renders UI: it blocks first paint on something the app does not need in order to draw.
+    Task<bool> WaitForPublicUrlAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
     // Fires only for the background-retry allocation; not raised when the tunnel was already allocated during StartAsync.
     event Action<string>? PublicUrlAvailable
   static class AppMessaging
@@ -50,8 +52,17 @@ namespace Ikon.App
     // There is no implicit broadcast — you must pass the explicit recipient session IDs. Whether the type travels reliably or unreliably is declared on its .tp schema, not here.
     static ValueTask SendMessageAsync<T>(this IMessageChannel app, T message, IReadOnlyList<int> targetIds) where T : IProtocolMessagePayload
     static ValueTask SendMessageAsync<T>(this IMessageChannel app, T message, int targetClientSessionId) where T : IProtocolMessagePayload
+  sealed class AppServices : AsyncLocalInstance<AppServices>
+    ctor()
+    IAppBase? HostApp { get; }
+    bool IsReady { get; }
+    Secrets Secrets { get; }
+    DbConnection Database(string databaseName)
+    Task<DbConnection> OpenDatabaseAsync(string databaseName, CancellationToken ct = default)
+    Task WhenReadyAsync()
   delegate AsyncEventHandler<in TEventArgs> where TEventArgs : EventArgs
     Task AsyncEventHandler<in TEventArgs>(TEventArgs e)
+  // Three ways to send audio, by pacing: SpeakAsync / SendSpeech are real-time paced by the speech mixer and new speech interrupts current speech with a fade — the default for spoken replies. StreamAsync plays a complete clip (decoded file, generated music) paced to real time, without the mixer's interruption semantics. SendImmediateAsync transmits at once with no pacing — only for audio already produced in real time or very short clips; a long clip sent this way arrives all at once and can overflow client audio buffers.
   class Audio
     ctor(IAppBase app)
     AudioEncoderOptions? DefaultEncoderOptions { get; set; }
@@ -60,17 +71,27 @@ namespace Ikon.App
     ValueTask CloseAllAsync()
     ValueTask CloseAsync(string? streamId = null)
     AudioOutputStreamInfo? GetOutputStreamInfo(string? streamId = null)
-    ValueTask SendAsync(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string? streamId = null, TimeSpan totalDuration = default, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null)
+    AudioPlaybackStatus? GetPlaybackStatus(int clientSessionId, string? streamId = null)
+    // Delivery is unpaced: the client receives everything as fast as it encodes. Callers own the real-time pacing, so feed this method chunks as they are produced, not a whole clip at once.
+    ValueTask SendImmediateAsync(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string? streamId = null, TimeSpan totalDuration = default, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null)
+    // Real-time paced by the speech mixer, so fast producers (typical TTS) cannot overflow client audio buffers; a chunk with a new id interrupts current playback with a fade. Returns immediately — playback happens in the background.
     void SendSpeech(AudioChunk audio, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null)
+    // Completes at end of mixer playout (pause-aware, real-time paced), not at end of generation. Long texts are backpressure-paced against the bounded mixer buffer, so any length is safe. An interruption by a newer Speak call completes the task quietly.
+    Task SpeakAndWaitAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, string? instructions = null, double? speed = null, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null, CancellationToken cancellationToken = default)
     // Each call interrupts the previous one: it fades out whatever is still playing and cancels the prior call's generation, so a new utterance supersedes the old. Defaults to SpeechGeneratorModel.ElevenFlash25. Drive SpeechGenerator + SendSpeech yourself instead when you need overlapping speakers, playback that must not interrupt what is already playing, or raw access to the generated samples.
     Task SpeakAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, string? instructions = null, double? speed = null, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null, CancellationToken cancellationToken = default)
+    // One call streams one whole clip on its stream id. Do not run two concurrent calls on the same stream id — the interleaved frames would corrupt client playback; use distinct stream ids or await the previous call first. Cancelling stops the clip early and closes it with a final end-of-stream frame.
+    Task StreamAsync(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, string? streamId = null, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null, CancellationToken cancellationToken = default)
     // Call once during app setup. Mutually exclusive with UseTurnDetection, and calling it a second time throws — either conflict raises InvalidOperationException.
     void UseSpeechRecognition(SpeechRecognizerModel model, float silenceThresholdRms = 0.01f, bool requireCorrelatedStream = true, string language = "", TimeSpan? timeout = null)
     // Call once during app setup. Mutually exclusive with UseSpeechRecognition, and calling it a second time throws — either conflict raises InvalidOperationException.
     void UseTurnDetection(SpeechRecognizerModel model = WhisperLarge3Turbo, string language = "", TurnDetectorConfig? config = null, bool speculative = true, bool pauseWhileAppSpeaking = true, bool requireCorrelatedStream = true, TimeSpan? timeout = null)
+    // args.Samples are decoded float PCM at the sample rate from the stream's begin event; IsFirst/IsLast bracket one captured segment (e.g. one push-to-talk press).
     event AsyncEventHandler<AudioInputFrameEventArgs> AudioInputFrameAsync
+    // Handlers may set args.StreamingMode to control when the stream's frames are delivered (streamed live, or buffered until the total duration is known / until the last frame).
     event AsyncEventHandler<AudioInputStreamBeginEventArgs> AudioInputStreamBeginAsync
     event AsyncEventHandler<AudioInputStreamEndEventArgs> AudioInputStreamEndAsync
+    event AsyncEventHandler<AudioPlaybackReportEventArgs> PlaybackReportReceivedAsync
     // Fires only after UseSpeechRecognition or UseTurnDetection has been called once at setup; subscribing without one of those means this event never fires.
     event AsyncEventHandler<SpeechRecognizedEventArgs> SpeechRecognizedAsync
     event AsyncEventHandler<TurnSpeculativeEventArgs> TurnSpeculativeAsync
@@ -113,6 +134,18 @@ namespace Ikon.App
     int SampleRate { get; init; }
     string StreamId { get; init; }
     int TrackId { get; init; }
+  class AudioPlaybackReportEventArgs : EventArgs
+    ctor(AudioPlaybackStatus status)
+    AudioPlaybackStatus Status { get; }
+  sealed class AudioPlaybackStatus
+    ctor()
+    TimeSpan BufferedDuration { get; init; }
+    int ClientSessionId { get; init; }
+    uint Epoch { get; init; }
+    TimeSpan? PlayedDuration { get; init; }
+    DateTime ReceivedAtUtc { get; init; }
+    AudioPlaybackState State { get; init; }
+    int TrackId { get; init; }
   class BackgroundWork
     // Calls are ref-counted: the server is notified only on the first StartAsync and the last StopAsync. Dispose the returned scope (or call StopAsync) to release — pair every Start with exactly one release or idle shutdown stays blocked.
     ValueTask<IAsyncDisposable> StartAsync()
@@ -125,8 +158,6 @@ namespace Ikon.App
     string? DeviceId { get; init; }
     bool? EchoCancellation { get; init; }
     bool? NoiseSuppression { get; init; }
-    // Leave null for the server-side app to receive the audio. Setting it routes audio only to the listed client sessions and the app's own audio handlers (transcription, recording, analysis) then never fire — use it only for client-to-client streaming where the server stays out of the media path.
-    IReadOnlyList<int>? TargetIds { get; init; }
   sealed record ClientContact
     ctor(IReadOnlyList<string> Names, IReadOnlyList<string> Emails, IReadOnlyList<string> Phones)
     IReadOnlyList<string> Emails { get; init; }
@@ -146,6 +177,7 @@ namespace Ikon.App
     static Task<string?> GetUrlAsync(int? targetId = null, CancellationToken cancellationToken = default)
     static Task<ClientVisibility> GetVisibilityAsync(int? targetId = null, CancellationToken cancellationToken = default)
     static Task<bool> KeepScreenAwakeAsync(bool enabled, int? targetId = null, CancellationToken cancellationToken = default)
+    static Task<bool> LoginAsync(string provider, int? targetId = null, CancellationToken cancellationToken = default)
     static Task<bool> LoginShowAsync(string? reason = null, int? targetId = null, CancellationToken cancellationToken = default)
     static Task<bool> LogoutAsync(int? targetId = null, CancellationToken cancellationToken = default)
     static Task<bool> OpenExternalUrlAsync(string url, int? targetId = null, CancellationToken cancellationToken = default)
@@ -157,6 +189,7 @@ namespace Ikon.App
     static Task<bool> SetThemeAsync(Theme theme, bool persist = true, int? targetId = null, CancellationToken cancellationToken = default)
     static Task<bool> SetThemeAsync(string themeName, bool persist = true, int? targetId = null, CancellationToken cancellationToken = default)
     static Task<bool> SetUrlAsync(string url, bool replace = false, bool preserveQueryParams = false, int? targetId = null, CancellationToken cancellationToken = default)
+    static Task<bool> SnapshotReadyAsync(int? targetId = null, CancellationToken cancellationToken = default)
     static Task<string> StartAudioCaptureAsync(ClientAudioCaptureOptions? options = null, int? targetId = null, CancellationToken cancellationToken = default)
     static Task<string> StartVideoCaptureAsync(ClientVideoCaptureSource source = Camera, ClientVideoCaptureOptions? options = null, int? targetId = null, CancellationToken cancellationToken = default)
     static Task<bool> StopCaptureAsync(string streamId, int? targetId = null, CancellationToken cancellationToken = default)
@@ -261,8 +294,6 @@ namespace Ikon.App
     int? Height { get; init; }
     int? KeyFrameIntervalFrames { get; init; }
     IReadOnlyList<ClientVideoCaptureCodec>? PreferredCodecs { get; init; }
-    // Leave null for the server-side app to receive the frames. Setting it routes frames only to the listed client sessions and the app's own video handlers then never fire — use it only for client-to-client streaming where the server stays out of the media path.
-    IReadOnlyList<int>? TargetIds { get; init; }
     int? Width { get; init; }
   enum ClientVideoCaptureSource
     Camera
@@ -271,14 +302,35 @@ namespace Ikon.App
     Unknown
     Visible
     Hidden
+  // Dates are inclusive and interpreted in UTC. Category filters to one usage category (e.g. llm, image-generation); EventName filters to one full usage event name (e.g. llm.openai.gpt4o.global.output-text-tokens).
+  sealed record CostQuery
+    ctor(DateOnly StartDate, DateOnly EndDate, string? Category = null, string? EventName = null)
+    string? Category { get; init; }
+    DateOnly EndDate { get; init; }
+    string? EventName { get; init; }
+    DateOnly StartDate { get; init; }
+  // Accessed via app.Costs. Costs are reported per day and per usage event name; credits are the billing unit. Cost data is aggregated in the analytics pipeline, so very recent usage can take a short while to appear.
+  sealed class CostsService
+    // Returns one row per day and usage event name; days without usage produce no rows. The result is ordered by date, then event name.
+    Task<IReadOnlyList<DailyCost>> GetDailyCostsAsync(CostQuery query, CancellationToken ct = default)
+    Task<double> GetTotalCreditsAsync(DateOnly startDate, DateOnly endDate, CancellationToken ct = default)
   // A [Cron] method behaves like a [Function] in that the trigger resolves it through the FunctionRegistry by name. Applying [Cron] is enough to register the method (as a Local function) — you do not also need [Function], though combining them is fine. The handler takes no caller-supplied arguments. It may optionally accept a host-injected CronContext (fire time + schedule) and/or a CancellationToken that signals app shutdown, in any order — mirroring how an [HttpPost] handler may accept an HttpRequest. Any other parameter fails registration at startup, since the scheduler has nothing to bind it to. Overlap is allowed: a tick fires even if the previous invocation is still running, so guard re-entrancy yourself if it matters.
   sealed class CronAttribute : Attribute
     ctor(string schedule)
     string? Name { get; init; }
     string Schedule { get; }
+  // Credits is the cost in platform credits — the unit users are billed in. EventName identifies the AI model and usage kind (e.g. llm.openai.gpt4o.global.output-text-tokens) and Category is its first segment (e.g. llm). TotalUsage is the summed usage amount in the event's native unit (tokens, seconds, generations, ...). RawCostEur is the underlying provider cost in EUR and is null unless the space has raw cost visibility enabled.
+  sealed record DailyCost
+    ctor(DateOnly Date, string Category, string EventName, double TotalUsage, double Credits, double? RawCostEur)
+    string Category { get; init; }
+    double Credits { get; init; }
+    DateOnly Date { get; init; }
+    string EventName { get; init; }
+    double? RawCostEur { get; init; }
+    double TotalUsage { get; init; }
   // Accessed via app.Email. Every operation requires the app's space to have the Email feature enabled; a call against a non-entitled space throws FeatureNotEnabledException.
   sealed class EmailService
-    // Idempotent: deleting an already-missing message succeeds without throwing.
+    // The backend resolves the id before deleting and rejects an unknown one, so a repeated delete throws HttpRequestException carrying a 404 rather than being treated as a no-op. Callers sweeping ids they no longer track should catch it.
     Task DeleteAsync(string id, CancellationToken ct = default)
     // The returned EmailAttachmentDownload owns the content stream; dispose it (e.g. await using) to release the underlying connection.
     Task<EmailAttachmentDownload> DownloadAttachmentAsync(string emailId, string attachmentId, CancellationToken ct = default)
@@ -408,6 +460,8 @@ namespace Ikon.App
     TSessionIdentity SessionIdentity { get; }
   interface IAppBase : IMessageChannel
     BackgroundWork BackgroundWork { get; }
+    // Costs are reported per day and per usage event name; credits are the billing unit. Cost data is aggregated in the analytics pipeline, so very recent usage can take a short while to appear.
+    CostsService Costs { get; }
     // Resolved from the ambient reactive scope: null outside a client scope (e.g. background work, a timer). Identifies the client being served, never this plugin's own connection context.
     virtual Context? CurrentClientContext { get; }
     // Empty string when no client is in scope. This is the correct key for a payment customer key, subscription gating, and per-user state — always populated for a connected client (the real user id when authenticated, else a stable anonymous id).
@@ -419,7 +473,7 @@ namespace Ikon.App
     EmailService Email { get; }
     IReadOnlyList<EndpointInfo> Endpoints { get; }
     GlobalState GlobalState { get; }
-    // null except in local dev on a localhost address (no --public-access), where it lets an in-process client reach this exact process over loopback. Via the relay or in the cloud it is null — connect through the normal relay/ApiKey path instead.
+    // null except in local dev on a localhost address (no --host-public), where it lets an in-process client reach this exact process over loopback. Via the relay or in the cloud it is null — connect through the normal relay/ApiKey path instead.
     virtual (string Host, int Port)? LocalLoopbackEndpoint { get; }
     // Defaults to the server's memory-derived limit; setting any value fully overrides that default and takes effect immediately. New connections are rejected once the limit is reached.
     int MaxClients { get; set; }
@@ -431,6 +485,8 @@ namespace Ikon.App
     virtual string PublicUrl { get; }
     // Values are fetched once at startup and read synchronously; changes made with ikon app secret set while the app runs take effect only after a restart.
     Secrets Secrets { get; }
+    // Consulted only during build-time snapshot capture. Returned routes are unioned with the [BootSnapshot] Routes list from ikon-config.toml, validated, and deduped.
+    Func<Task<IEnumerable<string>>>? SnapshotRoutesProvider { get; set; }
     // Enabled by default. Applies only to clients that connect after it is set; already-connected clients are unaffected until they reconnect.
     bool UdpEnabled { get; set; }
     // Enabled by default. Disable (e.g. in Main) for apps with no audio/video or low-latency data to save per-client peer-setup cost. Applies only to clients that connect afterward; already-connected clients are unaffected until they reconnect.
@@ -439,8 +495,10 @@ namespace Ikon.App
     Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = default)
     // The caller owns the returned connection — open and dispose it (e.g. await using var connection = app.Database("mydb");). Throws ArgumentException when no configured database has that name.
     virtual DbConnection Database(string databaseName)
+    // Completes only when the persisted deletions have finished. Erasure is idempotent — erasing a user with no stored state is a no-op.
+    virtual Task EraseUserStateAsync(string userId)
     virtual string JoinUrl(object? queryParams = null)
-    // Identify the endpoint by its HANDLER (the method name, e.g. nameof(GetDocument)), never by URL path — the path is what minting returns. Omitting identity (null) pins this instance's own session so the URL routes back here. Grants are non-expiring unless you pass expiresIn.
+    // Identify the endpoint by its HANDLER (the method name, e.g. nameof(GetDocument)), never by URL path — the path is what minting returns. Omitting identity (null) pins this instance's own session on an app endpoint so the URL routes back here, and pins nothing on a cell endpoint. Grants are non-expiring unless you pass expiresIn.
     virtual Task<MintedUrl> MintUrlAsync(string endpoint, object? identity = null, TimeSpan? expiresIn = null, string? group = null, CancellationToken ct = default)
     virtual Task<IReadOnlyDictionary<string, MintedUrl>> MintUrlsAsync(IEnumerable<string> endpoints, object? identity = null, TimeSpan? expiresIn = null, string? group = null, CancellationToken ct = default)
     // Bind your listener to the returned RelayEndpoint.LocalPort; the tunnel is reachable from the internet at {PublicHost}:{PublicPort}. Dispose the endpoint to release it.
@@ -455,14 +513,18 @@ namespace Ikon.App
     // Fires after app creation but before Main(). Do not subscribe from inside Main() — it has already fired by then and the handler will never run.
     event AsyncEventHandler<StartingEventArgs> StartingAsync
     event AsyncEventHandler<StoppingEventArgs> StoppingAsync
+    // At-least-once delivery — the handler must be idempotent. Throwing marks the erasure incomplete and it is redelivered on a later session start.
+    event AsyncEventHandler<UserDataErasureEventArgs> UserDataErasureAsync
   static class IAppEventExtensions
     static void OnClientJoined(this IAppBase app, Func<Context, Task> handler)
     static void OnClientJoined<TSessionIdentity, TClientParameters>(this IApp<TSessionIdentity, TClientParameters> app, Func<Context, TClientParameters, Task> handler)
     static void OnClientLeft(this IAppBase app, Func<Context, Task> handler)
     static void OnClientLeft<TSessionIdentity, TClientParameters>(this IApp<TSessionIdentity, TClientParameters> app, Func<Context, TClientParameters, Task> handler)
     static void OnMessageReceived(this IAppBase app, Func<ProtocolMessage, Task> handler)
+    static void OnSnapshotRoutes(this IAppBase app, Func<Task<IEnumerable<string>>> provider)
     static void OnStarting(this IAppBase app, Func<Task> handler)
     static void OnStopping(this IAppBase app, Func<Task> handler)
+    static void OnUserDataErasure(this IAppBase app, Func<string, Task> handler)
   interface IClient<out TClientParameters>
     TClientParameters Parameters { get; }
     int SessionId { get; }
@@ -495,6 +557,7 @@ namespace Ikon.App
     string GrantId { get; init; }
     string Url { get; init; }
   class Navigation
+    string? CurrentPath { get; }
     // Round-trips to the live client over the connection rather than reading server state; returns null when the client doesn't answer or isn't connected.
     Task<string?> GetPathAsync(int targetId)
     // Acts on the client of the ambient ClientScope — call from a client-scoped context. Returns null outside a client scope or when the client doesn't answer.
@@ -539,71 +602,72 @@ namespace Ikon.App
     Task<IReadOnlyList<NotificationSendResult>> SendToUserAsync(string userId, NotificationContent content, CancellationToken ct = default)
   // Use for app-wide configuration the app instance owns. For per-session-identity state (the typical app routing key) use PersistentSessionReactive<T>; for per-user state use PersistentUserReactive<T>.
   class PersistentReactive<T> : Reactive<T>
-    ctor(T initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    ctor(T initialValue, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
   // Same contract as ReactiveDictionary<TKey, TValue> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentReactive<T>. For per-user dictionaries use PersistentUserReactiveDictionary<TKey, TValue>.
   class PersistentReactiveDictionary<TKey, TValue> : ReactiveDictionary<TKey, TValue> where TKey : notnull
-    ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
-    ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    ctor(PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
   // Same contract as ReactiveHashSet<T> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentReactive<T>. For per-user sets use PersistentUserReactiveHashSet<T>.
   class PersistentReactiveHashSet<T> : ReactiveHashSet<T>
-    ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
-    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    ctor(PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
   // Same contract as ReactiveList<T> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentReactive<T>. For per-user lists use PersistentUserReactiveList<T>.
   class PersistentReactiveList<T> : ReactiveList<T>
-    ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
-    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    ctor(PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
   // This is the natural choice for state that belongs to a specific app instance, since the session identity already determines instance routing.
   class PersistentSessionReactive<T> : Reactive<T>
-    ctor(T initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    ctor(T initialValue, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
   // Same contract as ReactiveDictionary<TKey, TValue> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentSessionReactive<T>, which is the natural choice for dictionary state belonging to a specific app instance.
   class PersistentSessionReactiveDictionary<TKey, TValue> : ReactiveDictionary<TKey, TValue> where TKey : notnull
-    ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
-    ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    ctor(PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
   // Same contract as ReactiveHashSet<T> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentSessionReactive<T>, which is the natural choice for set state belonging to a specific app instance.
   class PersistentSessionReactiveHashSet<T> : ReactiveHashSet<T>
-    ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
-    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    ctor(PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
   // Same contract as ReactiveList<T> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentSessionReactive<T>, which is the natural choice for list state belonging to a specific app instance.
   class PersistentSessionReactiveList<T> : ReactiveList<T>
-    ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
-    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    ctor(PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
   class PersistentUserReactive<T> : Reactive<T, UserScope>
-    ctor(T initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
-    ctor(Func<string, T> initialValue, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    ctor(T initialValue, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    ctor(Func<string, T> initialValue, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
+    void ClearFor(string userId)
     void SetFor(string userId, T value)
     void UpdateFor(string userId, Func<T, T> mutator)
     T ValueFor(string userId)
   // Same contract as ReactiveDictionary<TKey, TValue> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentUserReactive<T>.
   class PersistentUserReactiveDictionary<TKey, TValue> : ReactiveDictionary<TKey, TValue>
-    ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
-    ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    ctor(PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
@@ -614,8 +678,8 @@ namespace Ikon.App
     IReadOnlyDictionary<TKey, TValue> ValueFor(string userId)
   // Same contract as ReactiveHashSet<T> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentUserReactive<T>.
   class PersistentUserReactiveHashSet<T> : ReactiveHashSet<T>
-    ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
-    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    ctor(PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
@@ -626,8 +690,8 @@ namespace Ikon.App
     IReadOnlyCollection<T> ValueFor(string userId)
   // Same contract as ReactiveList<T> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentUserReactive<T>.
   class PersistentUserReactiveList<T> : ReactiveList<T>
-    ctor(PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
-    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Private, string? postgresDatabase = null, string? key = null)
+    ctor(PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
@@ -664,6 +728,13 @@ namespace Ikon.App
     ctor(string role, string? userId = null)
     string RequiredRole { get; }
     string? UserId { get; }
+  // Shards do NOT share reactive state — each shard is an independent instance of the same identity. Declare sharding only for surfaces designed for it: stateless or read-mostly apps (public landing pages, broadcast views), or apps that synchronize through external state (database, assets). Clients are not sticky to a shard across reconnects. Example:
+  // [Sharded(2000)]
+  // public record SessionIdentity(string UserId, [property: Sharded(50)] string? Team);
+  sealed class ShardedAttribute : Attribute
+    ctor(int maxClientsPerShard = 100)
+    int MaxClientsPerShard { get; }
+    int MaxShards { get; set; }
   sealed class SpeechRecognizedEventArgs : EventArgs
     ctor(string text, Context clientContext, string streamId, string? correlationId, TimeSpan duration, int sampleCount, int turnId = 0)
     Context ClientContext { get; }
@@ -702,6 +773,9 @@ namespace Ikon.App
     string StreamId { get; }
     int TurnId { get; }
     string UserId { get; }
+  class UserDataErasureEventArgs : EventArgs
+    ctor(string userId)
+    string UserId { get; }
   enum UserRole
     Guest
     User
@@ -712,7 +786,9 @@ namespace Ikon.App
     ValueTask CloseAllAsync()
     ValueTask CloseAsync(string? streamId = null)
     VideoOutputStreamInfo? GetOutputStreamInfo(string? streamId = null)
-    ValueTask SendAsync(byte[] data, int frameNumber, bool isKey, ulong timestampInUs, uint durationInUs, VideoCodec codec, int width, int height, double framerate, string? streamId = null, IReadOnlyList<int>? targetIds = null, int? trackId = null)
+    // Frames are transmitted immediately — the caller owns the pacing. Call once per frame at the source framerate (typically forwarding each incoming frame as it arrives); never loop over a stored clip's frames without pacing.
+    ValueTask SendFrameAsync(byte[] data, int frameNumber, bool isKey, ulong timestampInUs, uint durationInUs, VideoCodec codec, int width, int height, double framerate, string? streamId = null, IReadOnlyList<int>? targetIds = null, int? trackId = null)
+    // args.Data is encoded codec bitstream (see the codec on the stream's begin event), not decoded pixels — forward it as-is (e.g. via SendFrameAsync) or decode it before analysis.
     event AsyncEventHandler<VideoInputFrameEventArgs> VideoInputFrameAsync
     event AsyncEventHandler<VideoInputStreamBeginEventArgs> VideoInputStreamBeginAsync
     event AsyncEventHandler<VideoInputStreamEndEventArgs> VideoInputStreamEndAsync
@@ -770,7 +846,7 @@ namespace Ikon.App.Cells
   // Each in-process server runs in its own async-local scope, so Cells.Instance resolves to that server's own host and wiring. The framework calls Initialize once at startup; apps call Connect<TInterface> for each cell access.
   class Cells : AsyncLocalInstance<Cells>
     ctor()
-    // On a CLOUD run, when TInterface is an interface backed by a [Cell] type, returns a SubstrateCellProxy<TInterface> that dispatches per member: [HttpGet]/[HttpPost] methods over stateless HTTP, [Function] methods and Reactive<T> members over a standard SDK connection to the cell-host. Otherwise — a concrete-type request, or ANY cell on a LOCAL run — returns the local cell instance from the process-wide CellHost. Local runs host every cell in-process (there is no deployed cell-host to proxy to, and a local run is a single process), so every cell behaves as a normal shared instance locally.
+    // On a CLOUD run, when TInterface is an interface backed by a [Cell] type, returns a SubstrateCellProxy<TInterface> that dispatches per member: [HttpGet]/[HttpPost] methods over stateless HTTP, [Function] methods and Reactive<T> members over a standard SDK connection to the cell-host. Otherwise — a concrete-type request, or ANY cell on a LOCAL run — returns the local cell instance from this server's CellHost. Local runs host every cell in-process (there is no deployed cell-host to proxy to, and a local run is a single process), so every cell behaves as a normal shared instance locally.
     TInterface Connect<TInterface>(object sessionIdentity) where TInterface : class
     ValueTask DisposeAsync()
     const string CellTypeParam
@@ -934,17 +1010,21 @@ namespace Ikon.App.Payments
   // Reached via app.Payments; one instance per app. Every command takes an optional per-call provider; with none given it uses DefaultProvider or, failing that, the space's enabled provider. The service holds no payment state — every read hits the backend except the synchronous IsEntitled.
   sealed class PaymentsService : AsyncLocalInstance<PaymentsService>
     ctor()
+    // Off by default: a payment link for a guest throws InvalidOperationException, because the guest's device-scoped user id changes when they sign in, orphaning the payment and its entitlement. Enable only for purchases that may stay behind (e.g. anonymous tips).
+    bool AllowAnonymousPayments { get; set; }
     string? DefaultCancelUrl { get; set; }
     // Leave null (the default) so each command uses the space's enabled provider; set it only to pin one provider for an app with several enabled. A per-call provider argument overrides it.
     PaymentProvider? DefaultProvider { get; set; }
     string? DefaultSuccessUrl { get; set; }
     // Cancels at period end by default; pass immediate to end it now. The entitlement lapses only when the cancellation takes effect.
     Task CancelSubscriptionAsync(string subscriptionId, bool immediate = false, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
+    // Moves subscriptionId to newOfferId (another recurring offer, same currency and interval). On an upgrade (pricier offer) the prorated difference is charged now and the new offer's entitlement is granted immediately; on a downgrade nothing is charged, the current (higher) plan stays available until the next renewal, and renewals then bill the new price. The previous offer's entitlement is left to lapse at its stored expiry. immediateChargeMinor overrides the platform's computed proration for Mollie/Surfboard (developer-owned pricing); it is rejected for Stripe, which prorates natively. Returns a SubscriptionOfferChange whose SubscriptionOfferChange.Changed is false when the subscription was already on the requested offer.
+    Task<SubscriptionOfferChange> ChangeSubscriptionOfferAsync(string subscriptionId, string newOfferId, long? immediateChargeMinor = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
     // Idempotent on OfferSpec.OfferId — calling again updates the offer. Stripe provisions a Product + Price; catalog-less providers (Mollie, Surfboard) store the offer on the platform.
     Task<PaymentOffer> CreateOfferAsync(OfferSpec offer, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
-    // Paying grants the customer an entitlement for the offer; a recurring offer also starts a subscription. customerKey defaults to the current user. allowPromotionCodes is honored by Stripe only; other providers ignore it.
-    Task<PaymentLink> CreatePaymentLinkAsync(string offerId, string? customerKey = null, string? email = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, bool allowPromotionCodes = false, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
-    // Charges an ad-hoc amount and grants NO entitlement — reach for the offer overload when a purchase should unlock access. customerKey defaults to the current user; allowPromotionCodes is Stripe-only.
+    // Paying grants the customer an entitlement for the offer; a recurring offer also starts a subscription. customerKey defaults to the current user. Throws for an anonymous (not signed-in) customer unless AllowAnonymousPayments is set. allowPromotionCodes is honored by Stripe only; other providers ignore it. amountMinorOverride charges the given amount (in minor units) instead of the offer's stored price while still granting the offer's entitlement — for developer-computed pricing such as an upgrade credit. It is supported on one-time offers only; supplying it for a recurring offer is rejected (use ChangeSubscriptionOfferAsync to change a subscription's plan).
+    Task<PaymentLink> CreatePaymentLinkAsync(string offerId, string? customerKey = null, string? email = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, bool allowPromotionCodes = false, long? amountMinorOverride = null, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
+    // Charges an ad-hoc amount and grants NO entitlement — reach for the offer overload when a purchase should unlock access. customerKey defaults to the current user; throws for an anonymous customer unless AllowAnonymousPayments is set. allowPromotionCodes is Stripe-only.
     Task<PaymentLink> CreatePaymentLinkAsync(long amountMinor, string currency, string? customerKey = null, string? description = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, bool allowPromotionCodes = false, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
     // Makes a backend call; customerKey defaults to the current user. For gating UI every render, prefer the synchronous IsEntitled instead.
     Task<PaymentEntitlement> GetEntitlementAsync(string offerId, string? customerKey = null, CancellationToken cancellationToken = default)
@@ -959,7 +1039,13 @@ namespace Ikon.App.Payments
     Task<PaymentRefund> RefundAsync(string paymentId, long? amountMinor = null, string? reason = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
     Task<bool> RemoveOfferAsync(string offerId, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
     Task<PaymentReceipt> RequestReceiptAsync(string paymentId, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
+    // Valid only while the subscription is cancel-at-period-end and its paid period has not ended; an immediate cancel or a fully-ended subscription needs a new checkout. Returns a SubscriptionResume whose SubscriptionResume.SubscriptionId may differ from the input when the provider recreated the subscription (Mollie).
+    Task<SubscriptionResume> ResumeSubscriptionAsync(string subscriptionId, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
     event Func<PaymentEvent, Task>? PaymentEventReceived
+  enum PlanChangeDirection
+    Unknown
+    Upgrade
+    Downgrade
   enum PriceInterval
     Unknown
     Day
@@ -975,6 +1061,20 @@ namespace Ikon.App.Payments
     Pending
     Succeeded
     Failed
+  sealed record SubscriptionOfferChange
+    ctor(bool Changed, PlanChangeDirection? Direction, long ProrationAmountMinor, string? ProratedChargeRef, string? Currency, string? Effective, PaymentProvider? Provider)
+    bool Changed { get; init; }
+    string? Currency { get; init; }
+    PlanChangeDirection? Direction { get; init; }
+    string? Effective { get; init; }
+    string? ProratedChargeRef { get; init; }
+    long ProrationAmountMinor { get; init; }
+    PaymentProvider? Provider { get; init; }
+  sealed record SubscriptionResume
+    ctor(bool Resumed, string? SubscriptionId, PaymentProvider? Provider)
+    PaymentProvider? Provider { get; init; }
+    bool Resumed { get; init; }
+    string? SubscriptionId { get; init; }
   enum SubscriptionStatus
     Unknown
     Incomplete
@@ -998,6 +1098,7 @@ namespace Ikon.Common
     void InitializeAll(IReadOnlyList<Type> explicitTypes)
     void Remove(object owner)
     void Restore(object owner)
+    bool TryRemove(object owner)
     bool TryRestore(object owner)
     static readonly AsyncLocalInstances Instance
   sealed record DatabaseConnectionInfo
@@ -1021,6 +1122,9 @@ namespace Ikon.Common
     void Dispose()
   static class IkonTaskExtensions
     static void RunParallel(this Task task, Action<Exception>? onException = null)
+  // Used wherever a caller supplies a destination the platform then reaches on their behalf — a TURN peer, a URL handed to an AI tool, a scraped page. Those all share one failure mode: the address is chosen by someone outside, but the connection is made from inside, so anything the host can see becomes reachable. That includes sibling containers, admin ports on the host, and on a cloud VM the metadata service on 169.254.169.254. Deliberately one implementation. Two copies of a rule like this drift, and the copy nobody remembers is the one still reachable.
+  static class InternalAddressFilter
+    static bool IsPublicRoutable(IPAddress? address)
   static class MimeTypes
     static void AddOrUpdate(string mime, string extension)
     static string GetExtensionFromMimeType(string mimeType)

@@ -145,19 +145,32 @@ public partial class Tori
         return state.IsSpeaking;
     }
 
+    // The pump is the call's only audio path — restart on failure so one bad frame can't leave
+    // every participant permanently silent for the rest of the session.
     private async Task PumpGroupAudioMixerAsync(GroupAudioMixer groupAudioMixer)
     {
-        try
+        while (true)
         {
-            await foreach (var (participantId, frame) in groupAudioMixer.StreamAsync())
+            try
             {
-                await Audio.SendAsync(frame.Samples, frame.SampleRate, frame.ChannelCount,
-                    frame.IsFirst, frame.IsLast, frame.StreamId, targetIds: [participantId]);
+                await foreach (var (participantId, frame) in groupAudioMixer.StreamAsync())
+                {
+                    await Audio.SendImmediateAsync(frame.Samples, frame.SampleRate, frame.ChannelCount,
+                        frame.IsFirst, frame.IsLast, frame.StreamId, targetIds: [participantId]);
+                }
+
+                return;
             }
-        }
-        catch (Exception ex)
-        {
-            Log.Instance.Error($"Group audio mixer output failed: {ex}");
+            catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                Log.Instance.Error($"Group audio mixer output failed, restarting: {ex}");
+            }
+
+            await Task.Delay(1000);
         }
     }
 }

@@ -108,7 +108,7 @@ await foreach (var ev in Emerge.BestOf<CreativeResponse>(LLMModel.Claude46Sonnet
 }
 ```
 
-Refer to the emergence-patterns guide for advanced patterns (MapReduce, TaskGraph, TreeSearch, etc.) and the ai-models guide for LLM model listings.
+Refer to the emergence-patterns guide for advanced patterns (MapReduce, Refine, EnsembleMerge, TreeSearch, etc.) and the ai-models guide for LLM model listings.
 
 ### Available LLM Models
 
@@ -161,28 +161,44 @@ namespace Ikon.AI.Emergence
     // Defaults to LLMModel.Claude45Haiku (cheap and fast — right for short transformations); use the model overload for a stronger tier. Never returns null; throws EmergenceStoppedException if the run stops or completes without a reply.
     static Task<string> AskAsync(string command, CancellationToken ct = default)
     static Task<string> AskAsync(string command, LLMModel model, CancellationToken ct = default)
+    static Task<string> AskAsync(string command, string model, CancellationToken ct = default)
     // Asks the model for JSON matching T's schema; defaults to LLMModel.Claude45Haiku. Throws EmergenceStoppedException when the run stops, completes without a result, or returns invalid JSON.
     static Task<T> AskAsync<T>(string command, CancellationToken ct = default) where T : class
     static Task<T> AskAsync<T>(string command, LLMModel model, CancellationToken ct = default) where T : class
+    static Task<T> AskAsync<T>(string command, string model, CancellationToken ct = default) where T : class
     static EmergeRun<T> BestOf<T>(LLMModel model, KernelContext context, Action<BestOfOptions<T>> configure, CancellationToken ct = default)
+    static EmergeRun<T> BestOf<T>(string model, KernelContext context, Action<BestOfOptions<T>> configure, CancellationToken ct = default)
     static EmergeRun<T> BestOf<T>(LLMModel model, KernelContext context, Action<BestOfOptions<T>> configure, ILLM llm, CancellationToken ct = default)
+    static EmergeRun<T> BestOf<T>(string model, KernelContext context, Action<BestOfOptions<T>> configure, ILLM llm, CancellationToken ct = default)
     // Return the result from a tool body to complete the run right after the current tool batch, with value fed to the transcript as the tool result.
     static Complete<TValue> Complete<TValue>(TValue value)
     // Return from a tool body to complete the run after the current tool batch; the tool result is recorded as a plain completion marker with no value.
     static Complete Complete()
     static EmergeRun<T> EnsembleMerge<T>(LLMModel model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, CancellationToken ct = default)
+    static EmergeRun<T> EnsembleMerge<T>(string model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, CancellationToken ct = default)
     static EmergeRun<T> EnsembleMerge<T>(LLMModel model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, ILLM llm, CancellationToken ct = default)
+    static EmergeRun<T> EnsembleMerge<T>(string model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, ILLM llm, CancellationToken ct = default)
     static EmergeRun<TResult> MapReduce<TInput, TMapped, TResult>(LLMModel model, KernelContext context, Action<MapReduceOptions<TInput, TMapped, TResult>> configure, CancellationToken ct = default)
+    static EmergeRun<TResult> MapReduce<TInput, TMapped, TResult>(string model, KernelContext context, Action<MapReduceOptions<TInput, TMapped, TResult>> configure, CancellationToken ct = default)
     static EmergeRun<TResult> MapReduce<TInput, TMapped, TResult>(LLMModel model, KernelContext context, Action<MapReduceOptions<TInput, TMapped, TResult>> configure, ILLM llm, CancellationToken ct = default)
+    static EmergeRun<TResult> MapReduce<TInput, TMapped, TResult>(string model, KernelContext context, Action<MapReduceOptions<TInput, TMapped, TResult>> configure, ILLM llm, CancellationToken ct = default)
     static EmergeRun<T> Refine<T>(LLMModel model, KernelContext context, Action<RefineOptions<T>> configure, CancellationToken ct = default)
+    static EmergeRun<T> Refine<T>(string model, KernelContext context, Action<RefineOptions<T>> configure, CancellationToken ct = default)
     static EmergeRun<T> Refine<T>(LLMModel model, KernelContext context, Action<RefineOptions<T>> configure, ILLM llm, CancellationToken ct = default)
+    static EmergeRun<T> Refine<T>(string model, KernelContext context, Action<RefineOptions<T>> configure, ILLM llm, CancellationToken ct = default)
     // Awaiting returns a non-null T and throws EmergenceStoppedException if the run stops without a result. This overload creates a fresh KernelContext; pass an explicit one via the other overloads to seed input (images, prior turns) or carry conversation history across calls.
     static EmergeRun<T> Run<T>(LLMModel model, Action<EmergePass<T>> configure, CancellationToken ct = default)
+    static EmergeRun<T> Run<T>(string model, Action<EmergePass<T>> configure, CancellationToken ct = default)
     static EmergeRun<T> Run<T>(LLMModel model, Action<EmergePass<T>> configure, ILLM llm, CancellationToken ct = default)
+    static EmergeRun<T> Run<T>(string model, Action<EmergePass<T>> configure, ILLM llm, CancellationToken ct = default)
     static EmergeRun<T> Run<T>(LLMModel model, KernelContext context, Action<EmergePass<T>> configure, CancellationToken ct = default)
+    static EmergeRun<T> Run<T>(string model, KernelContext context, Action<EmergePass<T>> configure, CancellationToken ct = default)
     static EmergeRun<T> Run<T>(LLMModel model, KernelContext context, Action<EmergePass<T>> configure, ILLM llm, CancellationToken ct = default)
+    static EmergeRun<T> Run<T>(string model, KernelContext context, Action<EmergePass<T>> configure, ILLM llm, CancellationToken ct = default)
     static EmergeRun<T> TreeSearch<T>(LLMModel model, KernelContext context, Action<TreeSearchOptions<T>> configure, CancellationToken ct = default)
+    static EmergeRun<T> TreeSearch<T>(string model, KernelContext context, Action<TreeSearchOptions<T>> configure, CancellationToken ct = default)
     static EmergeRun<T> TreeSearch<T>(LLMModel model, KernelContext context, Action<TreeSearchOptions<T>> configure, ILLM llm, CancellationToken ct = default)
+    static EmergeRun<T> TreeSearch<T>(string model, KernelContext context, Action<TreeSearchOptions<T>> configure, ILLM llm, CancellationToken ct = default)
   abstract record EmergeEvent<T>
   static class EmergeEventExtensions
     // Returns the result together with the updated KernelContext (for conversation continuity). The result stays nullable — a run can complete without producing one — so guard it before use.
@@ -210,6 +226,7 @@ namespace Ikon.AI.Emergence
     TimeSpan? MaxWallTime { get; set; }
     // Null inherits the run's model; set it to override the model for this pass only.
     LLMModel? Model { get; set; }
+    string? ModelName { get; set; }
     // Tools named here are treated as side-effect-free: the executor runs consecutive calls to them from one model turn concurrently, while results are still recorded in the model's original order. Any tool not listed acts as a barrier and runs alone.
     ISet<string> ReadOnlyToolNames { get; }
     ReasoningEffort? ReasoningEffort { get; set; }
@@ -249,6 +266,7 @@ namespace Ikon.AI.Emergence
     int? MaxToolCalls { get; set; }
     TimeSpan? MaxWallTime { get; set; }
     LLMModel? Model { get; set; }
+    string? ModelName { get; set; }
     ReasoningEffort? ReasoningEffort { get; set; }
     int? ReasoningTokenBudget { get; set; }
     IReadOnlyList<ModelRegion>? Regions { get; set; }
@@ -444,7 +462,9 @@ namespace Ikon.AI.Emergence.Tree
     ctor(TreeNode root)
     TreeNode Root { get; set; }
     static EmergeRun<TreeIndex> BuildAsync(LLMModel model, string content, TreeIndexOptions? options = null, CancellationToken ct = default)
+    static EmergeRun<TreeIndex> BuildAsync(string model, string content, TreeIndexOptions? options = null, CancellationToken ct = default)
     static EmergeRun<TreeIndex> BuildAsync(LLMModel model, IContentReader reader, TreeIndexOptions? options = null, CancellationToken ct = default)
+    static EmergeRun<TreeIndex> BuildAsync(string model, IContentReader reader, TreeIndexOptions? options = null, CancellationToken ct = default)
     TreeNode? FindById(string id)
     void RebuildIndex()
     string ToTableOfContents(int maxDepth = -1)

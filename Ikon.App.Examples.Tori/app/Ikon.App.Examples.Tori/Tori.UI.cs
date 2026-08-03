@@ -1123,7 +1123,6 @@ public partial class Tori
             EchoCancellation = _audioEchoCancellation.Value,
             NoiseSuppression = _audioNoiseSuppression.Value,
             AutoGainControl = _audioAutoGainControl.Value,
-            TargetIds = [app.SessionId],
             DeviceId = deviceId
         };
     }
@@ -1154,7 +1153,6 @@ public partial class Tori
             Framerate = framerate,
             Bitrate = bitrate,
             PreferredCodecs = [codec],
-            TargetIds = [app.SessionId],
             DeviceId = deviceId
         };
     }
@@ -1170,7 +1168,6 @@ public partial class Tori
             Framerate = framerate,
             Bitrate = bitrate,
             PreferredCodecs = [codec],
-            TargetIds = [app.SessionId]
         };
     }
 

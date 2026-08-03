@@ -55,6 +55,20 @@ Audio.SpeechRecognizedAsync += async args =>
 view.PushToTalkButton(style: ["w-16 h-16 rounded-full bg-red-600"]);
 ```
 
+`MicToggleButton` is the tap-to-talk twin: tap opens the microphone, tap again closes it, and the segment in between is transcribed exactly like a PushToTalkButton hold. Prefer it when holding a button is impractical (mobile, hands-busy, long dictation).
+
+```csharp
+view.MicToggleButton();
+```
+
+**Mic button UX rules (important — a mic that gives no feedback reads as broken):**
+
+- **The button must visibly change while the mic is open.** Both buttons ship a themed default (`MicButton.Default`) that already does this: brand-colored circle that turns red with a ring the instant capture starts. With no style array you get correct UX for free.
+- **Feedback must be zero-latency.** The active state keys on the client-stamped `data-ikon-capture-active` attribute — it flips the moment the mic opens, with no server round trip. If you pass a custom style array it REPLACES the default (opt-in rule), so re-add the live state: include the `MicButton.Active` token (`[MicButton.Active, "your classes"]`) or write your own `data-[ikon-capture-active=true]:*` variants. Never rely on `onCaptureStart` alone for press feedback — it round-trips through the server.
+- **Make the interaction model obvious.** Label a PushToTalkButton with a hold affordance ("Hold to talk") and a MicToggleButton with a tap affordance ("Tap to talk") — users cannot tell hold from toggle by looking at a bare mic icon. Use `onCaptureStart`/`onCaptureStop` (server-side, fine for text) to swap the label to "Listening…" while open.
+- **Mobile: make it big and gesture-proof.** Comfortable touch target (h-12+); the themed default already includes `touch-none select-none` so scroll pans and text selection can't break the hold — keep those classes in custom styles.
+- A toggle mic that is open MUST stay visibly red for as long as it is open — an invisible open microphone is recording the user without them knowing.
+
 **Important — do NOT plumb state from `onCaptureStart` into audio frame handlers.** The audio events (`AudioInputStreamBeginAsync`, `AudioInputFrameAsync`) already carry `args.ClientContext` / `args.ClientSessionId`. A pattern like `onCaptureStart: e => _streamToClient[e.StreamId] = clientId` is unnecessary — read `args.ClientSessionId` directly inside the audio handler.
 
 #### Continuous / silence-triggered recognition (advanced)
@@ -97,7 +111,8 @@ One-shot — returns a buffered WAV file:
 
 ```csharp
 var effect = await SoundEffectGenerator.GenerateAsync("Thunder rumbling in the distance");
-// effect.AudioData (WAV bytes), effect.ContentType, effect.DurationSeconds
+var wavBytes = await effect.GetDataAsync();  // inline bytes, or downloaded when a large result was delivered as a URL (effect.Kind)
+// effect.MimeType, effect.DurationSeconds
 ```
 
 Use the constructor + config form to stream the effect to clients as it generates, or to set duration/looping:
@@ -123,18 +138,13 @@ namespace Ikon.AI.SoundEffectGeneration
     int SampleRate { get; }
     // Streams raw PCM chunks; use GenerateSoundEffectFileAsync for a buffered, encoded audio file instead.
     IAsyncEnumerable<AudioChunk> GenerateSoundEffectAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
-    Task<SoundEffectFileResult> GenerateSoundEffectFileAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
+    Task<SoundEffectGeneratorResult> GenerateSoundEffectFileAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
   interface ISoundEffectGeneratorInfo
     bool SupportsLooping { get; }
   class NonRetryableSoundEffectGeneratorException : NonRetryableAIException
     ctor()
     ctor(string message)
     ctor(string message, Exception inner)
-  sealed class SoundEffectFileResult
-    ctor()
-    byte[] Data { get; init; }
-    double DurationSeconds { get; init; }
-    string MimeType { get; init; }
   sealed class SoundEffectGenerator : ISoundEffectGenerator
     ctor(string modelName)
     ctor(SoundEffectGeneratorModel model)
@@ -144,11 +154,11 @@ namespace Ikon.AI.SoundEffectGeneration
     int SampleRate { get; }
     bool SupportsLooping { get; }
     void Dispose()
-    Task<SoundEffectFileResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
+    Task<SoundEffectGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes a SoundEffectGenerator per call. Returns a buffered WAV file (.Data/.MimeType/.DurationSeconds). Use the constructor + GenerateSoundEffectFileAsync for duration/looping/prompt-influence, or GenerateSoundEffectAsync for streaming PCM chunks.
-    static Task<SoundEffectFileResult> GenerateAsync(string prompt, SoundEffectGeneratorModel model = ElevenLabsV2, CancellationToken cancellationToken = default)
+    static Task<SoundEffectGeneratorResult> GenerateAsync(string prompt, SoundEffectGeneratorModel model = ElevenLabsV2, CancellationToken cancellationToken = default)
     IAsyncEnumerable<AudioChunk> GenerateSoundEffectAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
-    Task<SoundEffectFileResult> GenerateSoundEffectFileAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
+    Task<SoundEffectGeneratorResult> GenerateSoundEffectFileAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
     static SoundEffectGeneratorCapabilities GetCapabilities(SoundEffectGeneratorModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(SoundEffectGeneratorModel model)
   sealed class SoundEffectGeneratorCapabilities : ISoundEffectGeneratorInfo
@@ -160,6 +170,8 @@ namespace Ikon.AI.SoundEffectGeneration
     bool Loop { get; init; }
     string Prompt { get; init; }
     double PromptInfluence { get; init; }
+    // Applies to the buffered ISoundEffectGenerator.GenerateSoundEffectFileAsync result; the streaming ISoundEffectGenerator.GenerateSoundEffectAsync chunks are unaffected.
+    ResultDelivery ResultDelivery { get; init; }
     TimeSpan Timeout { get; init; }
   class SoundEffectGeneratorException : RetryableAIException
     ctor()
@@ -169,6 +181,14 @@ namespace Ikon.AI.SoundEffectGeneration
     ElevenLabsV2
   static class SoundEffectGeneratorModelExtensions
     static string DisplayName(this SoundEffectGeneratorModel model)
+  // Kind tells how the audio was delivered: inline bytes in Data, or a signed download URL in Url valid for roughly one hour.
+  sealed record SoundEffectGeneratorResult : IResultPayload
+    ctor()
+    byte[]? Data { get; init; }
+    double DurationSeconds { get; init; }
+    ResultKind Kind { get; init; }
+    string MimeType { get; init; }
+    string? Url { get; init; }
 
 namespace Ikon.AI.SpeechGeneration
   interface ISpeechGenerator : IDisposable
@@ -346,16 +366,21 @@ namespace Ikon.AI.SpeechRecognition
     int ChannelCount { get; init; }
     string Language { get; init; }
     int SampleRate { get; init; }
+  // Supply the audio exactly one way: raw PCM via Samples or SamplesPcm16 (with SampleRate/ChannelCount), or an encoded audio file via Data (with MimeType), Url, or AssetUri (resolved automatically).
   sealed record RecognizeSpeechConfig
     ctor()
+    AssetUri? AssetUri { get; init; }
     int ChannelCount { get; init; }
+    byte[]? Data { get; init; }
     string Language { get; init; }
-    string Prompt { get; init; }
+    string? MimeType { get; init; }
+    string? Prompt { get; init; }
     int SampleRate { get; init; }
     float[] Samples { get; init; }
     byte[] SamplesPcm16 { get; init; }
     double Temperature { get; init; }
     TimeSpan Timeout { get; init; }
+    string? Url { get; init; }
   sealed class SpeechRecognizer : ISpeechRecognizer
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(SpeechRecognizerModel model, IReadOnlyList<ModelRegion>? regions = null)

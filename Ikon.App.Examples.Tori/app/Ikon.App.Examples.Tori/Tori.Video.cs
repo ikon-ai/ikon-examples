@@ -52,7 +52,7 @@ public partial class Tori
 
             if (targetIds.Count > 0)
             {
-                await Video.SendAsync(
+                await Video.SendFrameAsync(
                     args.Data,
                     args.FrameNumber,
                     args.IsKey,
