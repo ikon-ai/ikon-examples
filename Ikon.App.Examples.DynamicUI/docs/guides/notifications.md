@@ -11,7 +11,7 @@ Show a user-facing notification — a browser notification on the web, an OS not
 NotificationSendResult r = await app.Notifications.SendToSessionAsync(
     sessionId, new NotificationContent("Build finished", "Your app deployed successfully."));
 
-// Every device a user is on — userId is a string. Reaches connected sessions AND offline devices (see below).
+// A user's connected sessions — userId is a string. Falls back to offline push when the user has NO connected session (see below).
 await app.Notifications.SendToUserAsync(userId, new NotificationContent("New message", "Alice replied"));
 
 // Everyone currently connected.
@@ -19,9 +19,6 @@ await app.Notifications.BroadcastAsync(new NotificationContent("Maintenance in 5
 
 // Read permission state without sending.
 NotificationPermission p = await app.Notifications.GetPermissionAsync(sessionId);
-
-// Convenience when you already hold a client:
-await app.Clients[sessionId].NotifyAsync("Saved", "Your changes are saved.");
 ```
 
 `NotificationContent` is a record — `new NotificationContent(string Title, string? Body = null, string? IconUrl = null, string? Tag = null, string? LaunchUrl = null, string? Data = null)`. `Title` is required; `Tag` is a collapse key (a later notification with the same tag replaces the earlier one); `LaunchUrl` is the in-app path to open on tap; `Data` is opaque JSON returned to the app on tap.
@@ -31,7 +28,7 @@ await app.Clients[sessionId].NotifyAsync("Saved", "Your changes are saved.");
 You address by **session** (`int`) or **user** (`string`); offline push is transparent — the same call covers both.
 
 - **Foreground (connected):** the notification shows immediately over the live connection.
-- **Offline push:** `SendToUserAsync` fans out to the user's connected sessions and, for devices with **no** connected session, falls back to an OS push notification through the Ikon backend push hub — so it lands even if the app is closed. You write the same `SendToUserAsync` call either way.
+- **Offline push:** `SendToUserAsync` fans out to the user's connected sessions; only when the user has **zero** connected sessions does it fall back to an OS push notification through the Ikon backend push hub — so it lands even if the app is closed (but a user connected on one device gets nothing on their other, offline devices). You write the same `SendToUserAsync` call either way.
 
 ### Permission is lazy (important)
 

@@ -19,7 +19,7 @@ var result = await generator.GenerateVideoAsync(new VideoGeneratorConfig
 {
     Prompt = "A timelapse of a flower blooming",
     AspectRatio = VideoGeneratorAspectRatio.Ratio16x9,
-    Length = 5
+    Length = 6  // Veo31 supports lengths 4, 6, and 8 — unsupported values silently fall back to 4
 });
 // result.Url (string)
 ```
@@ -56,7 +56,7 @@ Reach for the constructor + config form for raw video bytes, frame ranges, or a 
 using var enhancer = new VideoEnhancer(VideoEnhancerModel.TensorPixUpscale2xUltra41);
 var result = await enhancer.EnhanceVideoAsync(new VideoEnhancerConfig
 {
-    VideoData = videoBytes,
+    Data = videoBytes,
     MimeType = "video/mp4"
 });
 // result.Url (string), result.OutputFps, result.OutputSizeBytes
@@ -77,19 +77,21 @@ namespace Ikon.AI.VideoEnhancement
     ctor(VideoEnhancerModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
     Task<VideoEnhancerResult> EnhanceAsync(string videoUrl, CancellationToken cancellationToken = default)
-    // Static one-shot; constructs and disposes a VideoEnhancer per call. Defaults to VideoEnhancerModel.TensorPixUpscale2xUltra41; override via model. Returns the enhanced video as a download URL in .Url plus .OutputFps/.OutputSizeBytes. Use the constructor + EnhanceVideoAsync for raw bytes (VideoData), frame-range trim, target FPS, or other fields.
+    // Static one-shot; constructs and disposes a VideoEnhancer per call. Defaults to VideoEnhancerModel.TensorPixUpscale2xUltra41; override via model. Returns the enhanced video as a download URL in .Url plus .OutputFps/.OutputSizeBytes. Use the constructor + EnhanceVideoAsync for raw bytes (Data), frame-range trim, target FPS, or other fields.
     static Task<VideoEnhancerResult> EnhanceAsync(string videoUrl, VideoEnhancerModel model = TensorPixUpscale2xUltra41, CancellationToken cancellationToken = default)
     Task<VideoEnhancerResult> EnhanceVideoAsync(VideoEnhancerConfig config, CancellationToken cancellationToken = default)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(VideoEnhancerModel model)
+  // Supply the video exactly one way: Data (with MimeType), Url, or AssetUri (resolved to a URL automatically).
   sealed record VideoEnhancerConfig
     ctor()
+    AssetUri? AssetUri { get; init; }
+    byte[]? Data { get; init; }
     int? EndFrame { get; init; }
     string? MimeType { get; init; }
     int? StartFrame { get; init; }
     int? TargetFps { get; init; }
     TimeSpan Timeout { get; init; }
-    byte[]? VideoData { get; init; }
-    string? VideoUrl { get; init; }
+    string? Url { get; init; }
   class VideoEnhancerException : RetryableAIException
     ctor()
     ctor(string message)

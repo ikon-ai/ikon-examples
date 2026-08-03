@@ -48,12 +48,14 @@ namespace Ikon.AI.Classification
     ClassificationLabel Label { get; init; }
     string OriginalCategory { get; init; }
     double Score { get; init; }
+  // Supply Text, Data (with MimeType), Url, or AssetUri (resolved to a URL automatically).
   sealed record ClassificationInput
     ctor()
-    byte[] Data { get; init; }
-    string MimeType { get; init; }
-    string Text { get; init; }
-    string Url { get; init; }
+    AssetUri? AssetUri { get; init; }
+    byte[]? Data { get; init; }
+    string? MimeType { get; init; }
+    string? Text { get; init; }
+    string? Url { get; init; }
     static ClassificationInput FromMessagePart(IMessagePart messagePart)
   enum ClassificationLabel
     Unknown
@@ -73,6 +75,7 @@ namespace Ikon.AI.Classification
   enum ClassificationModel
     OpenAIOmniModeration
     MistralModeration
+    Custom
   static class ClassificationModelExtensions
     static string DisplayName(this ClassificationModel model)
   sealed record ClassificationResult
@@ -103,6 +106,13 @@ namespace Ikon.AI.Classification
     ctor()
     ctor(string message)
     ctor(string message, Exception inner)
+  enum CustomClassificationApi
+    OpenAI
+    Mistral
+  sealed class CustomClassificationModel : CustomModel
+    ctor()
+    required CustomClassificationApi Api { get; init; }
+    bool SupportsImageInput { get; init; }
   interface IClassifier : IClassifierInfo, IDisposable
     // Defaults to 10 seconds.
     TimeSpan Timeout { get; set; }
@@ -117,6 +127,18 @@ namespace Ikon.AI.Classification
     ctor(string message, Exception inner)
 
 namespace Ikon.AI.Embeddings
+  enum CustomEmbeddingApi
+    OpenAI
+    Cohere
+    Mistral
+    Google
+    Jina
+    Voyage
+  sealed class CustomEmbeddingModel : CustomModel
+    ctor()
+    required CustomEmbeddingApi Api { get; init; }
+    required int EmbeddingVectorSize { get; init; }
+    int MaxInputCount { get; init; }
   enum EmbeddingEncoding
     Base64
     GzipBase64
@@ -125,18 +147,25 @@ namespace Ikon.AI.Embeddings
     ctor(EmbeddingModel model, IReadOnlyList<ModelRegion>? regions = null)
     int EmbeddingVectorSize { get; }
     int MaxInputCount { get; }
-    TimeSpan Timeout { get; set; }
     void Dispose()
     Task<List<float[]>> EmbedAsync(IReadOnlyList<string> texts, EmbeddingType type = Generic, CancellationToken cancellationToken = default)
-    // Static one-shot; constructs and disposes an EmbeddingGenerator per call. Defaults to EmbeddingModel.OpenAI3Small and EmbeddingType.Generic; override the model via model, and pass an explicit EmbeddingType when embedding documents vs. queries for asymmetric retrieval. Returns one float[] per input, in input order. Use the constructor + GenerateEmbeddingsAsync for per-request batch caps (maxInputCount) or the size properties.
+    // Static one-shot; constructs and disposes an EmbeddingGenerator per call. Defaults to EmbeddingModel.OpenAI3Small and EmbeddingType.Generic; override the model via model, and pass an explicit EmbeddingType when embedding documents vs. queries for asymmetric retrieval. Returns one float[] per input, in input order. Use the constructor + GenerateEmbeddingsAsync for per-request batch caps or a custom timeout.
     static Task<List<float[]>> EmbedAsync(IReadOnlyList<string> texts, EmbeddingModel model = OpenAI3Small, EmbeddingType type = Generic, CancellationToken cancellationToken = default)
-    Task<List<float[]>> GenerateEmbeddingsAsync(IReadOnlyList<string> inputs, EmbeddingType type, int maxInputCount = 0, CancellationToken cancellationToken = default)
+    Task<List<float[]>> GenerateEmbeddingsAsync(EmbeddingGeneratorConfig config, CancellationToken cancellationToken = default)
     static EmbeddingGeneratorCapabilities GetCapabilities(EmbeddingModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(EmbeddingModel model)
   sealed class EmbeddingGeneratorCapabilities : IEmbeddingGeneratorInfo
     ctor()
     int EmbeddingVectorSize { get; init; }
     int MaxInputCount { get; init; }
+  sealed record EmbeddingGeneratorConfig
+    ctor()
+    List<string> Inputs { get; init; }
+    // Per-request batch cap; larger input lists are split into batches of this size. 0 means the model's maximum.
+    int MaxInputCount { get; init; }
+    // Per-request; scaled up internally with the batch size.
+    TimeSpan Timeout { get; init; }
+    EmbeddingType Type { get; init; }
   class EmbeddingGeneratorException : RetryableAIException
     ctor()
     ctor(string message)
@@ -173,6 +202,7 @@ namespace Ikon.AI.Embeddings
     Voyage4Lite
     Voyage4Large
     VoyageCode3
+    Custom
   static class EmbeddingModelExtensions
     static string DisplayName(this EmbeddingModel model)
   enum EmbeddingType
@@ -182,9 +212,8 @@ namespace Ikon.AI.Embeddings
     Clustering
     Classification
   interface IEmbeddingGenerator : IDisposable, IEmbeddingGeneratorInfo
-    // Scaled up internally with the batch size; defaults to 10 seconds.
-    TimeSpan Timeout { get; set; }
-    Task<List<float[]>> GenerateEmbeddingsAsync(IReadOnlyList<string> inputs, EmbeddingType type, int maxInputCount = 0, CancellationToken cancellationToken = default)
+    // Returns one vector per input, in input order.
+    Task<List<float[]>> GenerateEmbeddingsAsync(EmbeddingGeneratorConfig config, CancellationToken cancellationToken = default)
   interface IEmbeddingGeneratorInfo
     int EmbeddingVectorSize { get; }
     int MaxInputCount { get; }
@@ -205,11 +234,14 @@ namespace Ikon.AI.Embeddings
     int Index { get; }
 
 namespace Ikon.AI.FileConversion
-  sealed class ConvertedFile
+  // Kind tells how the file was delivered: inline bytes in Data, or a signed download URL in Url valid for roughly one hour.
+  sealed record ConvertedFile : IResultPayload
     ctor()
-    byte[] Data { get; init; }
+    byte[]? Data { get; init; }
+    ResultKind Kind { get; init; }
     string MimeType { get; init; }
     string Name { get; init; }
+    string? Url { get; init; }
   sealed class FileConverter : IFileConverter
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(FileConverterModel model, IReadOnlyList<ModelRegion>? regions = null)
@@ -219,13 +251,15 @@ namespace Ikon.AI.FileConversion
     static Task<ConvertedFile> ConvertToPdfAsync(byte[] data, string fileName, FileConverterModel model = ConvertApi, CancellationToken cancellationToken = default)
     void Dispose()
     static IReadOnlyList<ModelRegion> GetSupportedRegions(FileConverterModel model)
-  sealed class FileConverterConfig
+  // Supply the file exactly one way: Data, Url, or AssetUri (resolved to a URL automatically). FileName must carry the source extension (e.g. report.docx) — it determines the input format.
+  sealed record FileConverterConfig
     ctor()
-    AssetUri? AssetUri { get; set; }
-    byte[]? Data { get; set; }
-    string FileName { get; set; }
-    TimeSpan Timeout { get; set; }
-    string? Url { get; set; }
+    AssetUri? AssetUri { get; init; }
+    byte[]? Data { get; init; }
+    string FileName { get; init; }
+    ResultDelivery ResultDelivery { get; init; }
+    TimeSpan Timeout { get; init; }
+    string? Url { get; init; }
   class FileConverterException : RetryableAIException
     ctor()
     ctor(string message)
@@ -265,22 +299,24 @@ namespace Ikon.AI.OCR
     void Dispose()
     static OCRCapabilities GetCapabilities(OCRModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(OCRModel model)
-  sealed class OCRBoundingBox
+  sealed record OCRBoundingBox
     ctor()
     int PageNumber { get; init; }
     List<float> Polygon { get; init; }
   sealed class OCRCapabilities : IOCRInfo
     ctor()
     int MaxPagesSupported { get; init; }
-  sealed class OCRConfig
+  // Supply the document exactly one way: Data (with MimeType; detected from the bytes when unset), Url, or AssetUri (resolved to a URL automatically).
+  sealed record OCRConfig
     ctor()
-    AssetUri? AssetUri { get; set; }
-    byte[]? Data { get; set; }
-    DocumentType DocumentType { get; set; }
-    bool IncludeWords { get; set; }
-    string? Pages { get; set; }
-    TimeSpan Timeout { get; set; }
-    string? Url { get; set; }
+    AssetUri? AssetUri { get; init; }
+    byte[]? Data { get; init; }
+    DocumentType DocumentType { get; init; }
+    bool IncludeWords { get; init; }
+    string? MimeType { get; init; }
+    string? Pages { get; init; }
+    TimeSpan Timeout { get; init; }
+    string? Url { get; init; }
   class OCRException : RetryableAIException
     ctor()
     ctor(string message)
@@ -290,33 +326,40 @@ namespace Ikon.AI.OCR
     MistralOCR
   static class OCRModelExtensions
     static string DisplayName(this OCRModel model)
-  sealed class OCRPage
+  sealed record OCRPage
     ctor()
     float Height { get; init; }
     int PageNumber { get; init; }
     string Unit { get; init; }
     float Width { get; init; }
-  sealed class OCRParagraph
+  sealed record OCRParagraph
     ctor()
     List<OCRBoundingBox> BoundingRegions { get; init; }
     string Content { get; init; }
-  sealed class OCRResult
+  sealed record OCRResult
     ctor()
     List<OCRPage> Pages { get; init; }
     List<OCRParagraph> Paragraphs { get; init; }
     string Text { get; init; }
     List<OCRWord> Words { get; init; }
-  sealed class OCRWord
+  sealed record OCRWord
     ctor()
     OCRBoundingBox BoundingBox { get; init; }
     float Confidence { get; init; }
     string Content { get; init; }
 
 namespace Ikon.AI.Reranking
+  enum CustomRerankApi
+    Cohere
+    Jina
+    Voyage
+    Together
+  sealed class CustomRerankModel : CustomModel
+    ctor()
+    required CustomRerankApi Api { get; init; }
   interface IReranker : IDisposable
-    // Scaled up internally with the document count; defaults to 10 seconds.
-    TimeSpan Timeout { get; set; }
-    Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, int topN = 0, CancellationToken cancellationToken = default)
+    // Returns items ordered most relevant first; RerankItem.Index is the document's position in RerankerConfig.Documents.
+    Task<List<RerankItem>> RerankAsync(RerankerConfig config, CancellationToken cancellationToken = default)
   class NonRetryableRerankerException : NonRetryableAIException
     ctor()
     ctor(string message)
@@ -331,17 +374,25 @@ namespace Ikon.AI.Reranking
     JinaReranker3
     VoyageRerank25
     VoyageRerank25Lite
+    Custom
   static class RerankModelExtensions
     static string DisplayName(this RerankModel model)
   sealed class Reranker : IReranker
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(RerankModel model, IReadOnlyList<ModelRegion>? regions = null)
-    TimeSpan Timeout { get; set; }
     void Dispose()
     static IReadOnlyList<ModelRegion> GetSupportedRegions(RerankModel model)
-    Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, int topN = 0, CancellationToken cancellationToken = default)
-    // Static one-shot; constructs and disposes a Reranker per call. Defaults to RerankModel.CohereRerank4Fast; override via model. Pass topN to cap returned items (0 returns all). Each RerankItem carries the document's original .Index and relevance .Score, ordered most relevant first. Use the constructor + the instance overload for a custom Timeout or reusing one instance across many queries.
+    Task<List<RerankItem>> RerankAsync(RerankerConfig config, CancellationToken cancellationToken = default)
+    // Static one-shot; constructs and disposes a Reranker per call. Defaults to RerankModel.CohereRerank4Fast; override via model. Pass topN to cap returned items (0 returns all). Each RerankItem carries the document's original .Index and relevance .Score, ordered most relevant first. Use the constructor + RerankAsync for a custom timeout or reusing one instance across many queries.
     static Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, RerankModel model = CohereRerank4Fast, int topN = 0, CancellationToken cancellationToken = default)
+  sealed record RerankerConfig
+    ctor()
+    List<string> Documents { get; init; }
+    string Query { get; init; }
+    // Scaled up internally with the document count.
+    TimeSpan Timeout { get; init; }
+    // Caps how many items are returned; 0 returns all.
+    int TopN { get; init; }
   class RerankerException : RetryableAIException
     ctor()
     ctor(string message)
@@ -621,6 +672,7 @@ namespace Ikon.AI.WebSearching
     static WebSearcherCapabilities GetCapabilities(WebSearcherModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(WebSearcherModel model)
     Task<List<SearchResult>> SearchAsync(string query, int maxResults = 10, CancellationToken cancellationToken = default)
+    // Static one-shot; constructs and disposes a WebSearcher per call. Defaults to WebSearcherModel.Google; override via model. Each SearchResult exposes .Url/.Title/.Content. Use the constructor + SearchPagesAsync for site-restricted search, country/language targeting, or other SearchConfig fields, or SearchImagesAsync (with an image-capable model) for image search.
     static Task<List<SearchResult>> SearchAsync(string query, WebSearcherModel model = Google, int maxResults = 10, CancellationToken cancellationToken = default)
     Task<List<SearchResult>> SearchImagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
     Task<List<SearchResult>> SearchPagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
