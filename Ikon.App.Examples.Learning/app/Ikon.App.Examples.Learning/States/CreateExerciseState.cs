@@ -184,7 +184,7 @@ public class CreateExerciseState(LearningApp outer) : ILearningState
                     }
                     else
                     {
-                        col.Button([$"bg-transparent justify-start {LearningApp.Styles.GetAccentGradient(theme)} text-white w-full py-4 rounded-2xl font-semibold text-base shadow-lg hover:shadow-xl hover:opacity-95 active:scale-[0.98] transition-all duration-200"],
+                        col.Button(["default", $"bg-transparent justify-start {LearningApp.Styles.GetAccentGradient(theme)} text-white w-full py-4 rounded-2xl font-semibold text-base shadow-lg hover:shadow-xl hover:opacity-95 active:scale-[0.98] transition-all duration-200"],
                             text: translations.Start,
                             disabled: string.IsNullOrWhiteSpace(_scenarioDescription.Value),
                             onClick: async () =>

@@ -2,14 +2,17 @@
 
 ## AI Image Generation
 
-Generate AI images with the one-shot `ImageGenerator.GenerateAsync(prompt)`. Supports Gemini, GPT Image, Flux models. Returns image bytes and mime type.
+Generate AI images with the one-shot `ImageGenerator.GenerateAsync(prompt)`. Supports Gemini, GPT Image, Flux models.
 
 ```csharp
 var image = await ImageGenerator.GenerateAsync("A neon-lit cyberpunk street");  // Gemini25FlashImage (cheap+fast) by default
-// image.Data, image.MimeType — never null; throws ImageGeneratorException on failure
+var bytes = await image.GetDataAsync();  // payload bytes, downloaded transparently when delivered as a URL
+// image.MimeType — never null; throws ImageGeneratorException on failure
 ```
 
 Pass a model as the second argument to override the default: `ImageGenerator.GenerateAsync(prompt, ImageGeneratorModel.Gemini3ProImage)`.
+
+> **Result delivery (`result.Kind`):** results carry inline bytes by default (`Kind == ResultKind.Data`, `Data` non-null). When a result is returned from a remotely hosted AI function and its payload exceeds a few MB, it is automatically uploaded and comes back as a signed download URL valid for roughly one hour (`Kind == ResultKind.Url`, `Url` non-null, `Data` null) to stay within the protocol message limit; run locally, large payloads stay inline. `await result.GetDataAsync()` returns the bytes either way — prefer it over reading `Data` directly. Set `ResultDelivery = ResultDelivery.Url` in the config to always get a URL. Music, sound-effect, file-conversion, segmentation, and depth results follow the same pattern.
 
 Reach for the constructor + config form only when you need width/height, batch generation, input images, or other `ImageGeneratorConfig` fields:
 
@@ -24,7 +27,7 @@ var results = await imageGenerator.GenerateImageAsync(new ImageGeneratorConfig
     Width = 512,
     Height = 512
 });
-if (results.Count > 0) { var image = results[0]; /* image.Data, image.MimeType */ }
+if (results.Count > 0) { var image = results[0]; /* await image.GetDataAsync(), image.MimeType */ }
 ```
 
 ---
@@ -38,7 +41,9 @@ namespace Ikon.AI.ImageGeneration
     bool SupportsInputImage { get; }
     // True when an InputImageType.Mask gets dedicated inpainting handling rather than being treated as a plain reference image.
     bool SupportsMask { get; }
+    // True when the model can return more than one image from a single request (ImageGeneratorConfig.Count > 1).
     bool SupportsMultipleOutputs { get; }
+    // True when the model honours ImageGeneratorConfig.NegativePrompt.
     bool SupportsNegativePrompt { get; }
   enum ImageBackground
     Auto
@@ -74,7 +79,7 @@ namespace Ikon.AI.ImageGeneration
     string NegativePrompt { get; init; }
     string Prompt { get; init; }
     ImageQuality Quality { get; init; }
-    ImageResultDelivery ResultDelivery { get; init; }
+    ResultDelivery ResultDelivery { get; init; }
     SafetyLevel SafetyLevel { get; init; }
     string SearchPrompt { get; init; }
     int Seed { get; init; }
@@ -118,10 +123,12 @@ namespace Ikon.AI.ImageGeneration
     GrokImagineImageQuality
   static class ImageGeneratorModelExtensions
     static string DisplayName(this ImageGeneratorModel model)
-  sealed record ImageGeneratorResult
+  // Kind tells how the image was delivered: inline bytes in Data, or a signed download URL in Url valid for roughly one hour.
+  sealed record ImageGeneratorResult : IResultPayload
     ctor()
-    byte[] Data { get; init; }
+    byte[]? Data { get; init; }
     int Height { get; init; }
+    ResultKind Kind { get; init; }
     string MimeType { get; init; }
     string? Url { get; init; }
     int Width { get; init; }
@@ -130,9 +137,6 @@ namespace Ikon.AI.ImageGeneration
     Low
     Medium
     High
-  enum ImageResultDelivery
-    Data
-    Url
   class NonRetryableImageGeneratorException : NonRetryableAIException
     ctor()
     ctor(string message)

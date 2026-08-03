@@ -9,21 +9,13 @@ import { I18nProvider, useI18n } from './i18n/i18n';
 import { en } from './i18n/en';
 
 function App() {
-  if (authConfig.enabled) {
-    return (
-      <I18nProvider translations={{ en }}>
-        <AuthProvider config={authConfig}>
-          <AuthGuard config={authConfig}>
-            <AuthorizedApp />
-          </AuthGuard>
-        </AuthProvider>
-      </I18nProvider>
-    );
-  }
-
   return (
     <I18nProvider translations={{ en }}>
-      <AuthorizedApp />
+      <AuthProvider config={authConfig}>
+        <AuthGuard config={authConfig}>
+          <AuthorizedApp />
+        </AuthGuard>
+      </AuthProvider>
     </I18nProvider>
   );
 }
@@ -39,7 +31,7 @@ function AuthorizedApp() {
       {...app}
       connectingOverlay={(isSlow) => (isSlow ? <ConnectingOverlay loadFont={loadFont} /> : null)}
       reconnectingOverlay={<ReconnectingOverlay loadFont={loadFont} />}
-      offlineOverlay={(error) => <OfflineOverlay error={error} isServerFull={app.isServerFull} loadFont={loadFont} />}
+      offlineOverlay={(error) => <OfflineOverlay error={error} isServerFull={app.isServerFull} isSessionExpired={app.isSessionExpired} loadFont={loadFont} />}
       accessDeniedScreen={(reason) => <AccessDeniedScreen reason={reason} loadFont={loadFont} />}
     />
   );
@@ -71,17 +63,18 @@ function ReconnectingOverlay({ loadFont }: { loadFont: () => void }) {
   );
 }
 
-function OfflineOverlay({ error, isServerFull, loadFont }: { error: string | null; isServerFull: boolean; loadFont: () => void }) {
+function OfflineOverlay({ error, isServerFull, isSessionExpired, loadFont }: { error: string | null; isServerFull: boolean; isSessionExpired: boolean; loadFont: () => void }) {
   const { t } = useI18n();
   loadFont();
 
-  const scope = isServerFull ? 'serverFull' : 'offline';
+  const isTerminal = isServerFull || isSessionExpired;
+  const scope = isServerFull ? 'serverFull' : isSessionExpired ? 'sessionExpired' : 'offline';
   return (
     <div className="ikon-offline-overlay">
       <div className="ikon-offline-chip">
         <span className="ikon-offline-title">{t(`connection.${scope}.title`)}</span>
         <span className="ikon-offline-message">{t(`connection.${scope}.message`)}</span>
-        {!isServerFull && error && <span className="ikon-offline-error">{error}</span>}
+        {!isTerminal && error && <span className="ikon-offline-error">{error}</span>}
       </div>
     </div>
   );

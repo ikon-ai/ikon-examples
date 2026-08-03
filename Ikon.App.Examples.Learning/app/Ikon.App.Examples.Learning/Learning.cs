@@ -1,5 +1,3 @@
-#pragma warning disable CS0618
-
 return await App.Run(args);
 
 public record SessionIdentity(string UserId);
@@ -100,8 +98,10 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
     // Callback for custom transcription handling (used by scenario builder etc.)
     internal Action<string>? TranscriptionCallback { get; set; }
 
-    // LLM Chat
-    private BasicChat Chat { get; } = new(new AssetUri(AssetClass.EmbeddedFile, "Ikon/App/Examples/Learning/mind.shader"));
+    // LLM chat: the KernelContext carried across turns holds the conversation history
+    private const string TargetLanguage = "Finnish";
+    private const string TargetLanguageLevel = "A2";
+    private KernelContext _chatContext = new();
 
     private static readonly Live2DModelConfig[] AvailableModels =
     [
@@ -187,7 +187,6 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
             StopSpeaking();
             _speechCts?.Dispose();
             await SaveUserStateAsync();
-            await Chat.DisposeAsync();
         };
 
         SetupAudioInputHandlers();
@@ -240,8 +239,7 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
             var translationsAssetUri = new AssetUri(
                 AssetClass.CloudFile,
                 $"translations/{preferredLang}",
-                spaceId: app.GlobalState.SpaceId,
-                channelId: app.GlobalState.ChannelId
+                spaceId: app.GlobalState.SpaceId
             );
 
             try
@@ -288,7 +286,7 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
     {
         try
         {
-            var uri = new AssetUri(AssetClass.CloudFile, "user_state", app.GlobalState.SpaceId, app.GlobalState.ChannelId, app.CurrentUserId);
+            var uri = new AssetUri(AssetClass.CloudFile, "user_state", app.GlobalState.SpaceId, app.CurrentUserId);
 
             if (await Asset.Instance.ExistsAsync(uri))
             {
@@ -394,7 +392,7 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
         try
         {
             _userState.Value.LastActivityDate = DateTime.UtcNow;
-            var uri = new AssetUri(AssetClass.CloudFile, "user_state", app.GlobalState.SpaceId, app.GlobalState.ChannelId, app.CurrentUserId);
+            var uri = new AssetUri(AssetClass.CloudFile, "user_state", app.GlobalState.SpaceId, app.CurrentUserId);
             await Asset.Instance.SetAsync(uri, _userState.Value);
         }
         catch (Exception ex)
@@ -561,7 +559,7 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
 
         try
         {
-            var assetUri = new AssetUri(AssetClass.CloudFilePublic, $"{prefix}/generated-image-v2-{id}.jpg", app.GlobalState.SpaceId, app.GlobalState.ChannelId);
+            var assetUri = new AssetUri(AssetClass.CloudFilePublic, $"{prefix}/generated-image-v2-{id}.jpg", app.GlobalState.SpaceId);
             var meta = await Asset.Instance.TryGetMetadataAsync(assetUri);
 
             if (meta != null && !string.IsNullOrEmpty(meta.Value.Url))
@@ -590,15 +588,17 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
                 Height = height
             });
 
-            if (images.Count == 0 || images[0].Data == null || images[0].Data.Length < 1000)
+            var imageData = images.Count > 0 ? await images[0].GetDataAsync() : null;
+
+            if (imageData == null || imageData.Length < 1000)
             {
-                Log.Instance.Warning($"[GetOrCreateImageAsync] No valid images generated for {cacheKey} (count={images.Count}, size={images.FirstOrDefault()?.Data?.Length ?? 0})");
+                Log.Instance.Warning($"[GetOrCreateImageAsync] No valid images generated for {cacheKey} (count={images.Count}, size={imageData?.Length ?? 0})");
                 return defaultUrl ?? string.Empty;
             }
 
-            Log.Instance.Info($"[GetOrCreateImageAsync] Image generated ({images[0].Data.Length} bytes), saving to assets for {cacheKey}");
+            Log.Instance.Info($"[GetOrCreateImageAsync] Image generated ({imageData.Length} bytes), saving to assets for {cacheKey}");
 
-            await Asset.Instance.SetAsync(assetUri, images[0].Data);
+            await Asset.Instance.SetAsync(assetUri, imageData);
             var savedMeta = await Asset.Instance.GetMetadataAsync(assetUri);
 
             if (string.IsNullOrEmpty(savedMeta.Url))
@@ -629,7 +629,7 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
 
         try
         {
-            var assetUri = new AssetUri(AssetClass.CloudFilePublic, $"{prefix}/fetched-image-{id}.jpg", app.GlobalState.SpaceId, app.GlobalState.ChannelId);
+            var assetUri = new AssetUri(AssetClass.CloudFilePublic, $"{prefix}/fetched-image-{id}.jpg", app.GlobalState.SpaceId);
             var meta = await Asset.Instance.TryGetMetadataAsync(assetUri);
 
             if (meta != null)
@@ -659,7 +659,7 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
         try
         {
             var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
-            var assetUri = new AssetUri(AssetClass.CloudFile, $"news/daily-news-{today}.json", app.GlobalState.SpaceId, app.GlobalState.ChannelId);
+            var assetUri = new AssetUri(AssetClass.CloudFile, $"news/daily-news-{today}.json", app.GlobalState.SpaceId);
 
             if (await Asset.Instance.ExistsAsync(assetUri))
             {
@@ -681,7 +681,7 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
         try
         {
             var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
-            var assetUri = new AssetUri(AssetClass.CloudFile, $"news/daily-news-{today}.json", app.GlobalState.SpaceId, app.GlobalState.ChannelId);
+            var assetUri = new AssetUri(AssetClass.CloudFile, $"news/daily-news-{today}.json", app.GlobalState.SpaceId);
             await Asset.Instance.SetAsync(assetUri, news);
         }
         catch (Exception ex)
@@ -695,7 +695,7 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
     {
         try
         {
-            var assetUri = new AssetUri(AssetClass.CloudFile, $"themes/{themeId}/scenarios.json", app.GlobalState.SpaceId, app.GlobalState.ChannelId);
+            var assetUri = new AssetUri(AssetClass.CloudFile, $"themes/{themeId}/scenarios.json", app.GlobalState.SpaceId);
 
             if (await Asset.Instance.ExistsAsync(assetUri))
             {
@@ -716,7 +716,7 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
     {
         try
         {
-            var assetUri = new AssetUri(AssetClass.CloudFile, $"themes/{themeId}/scenarios.json", app.GlobalState.SpaceId, app.GlobalState.ChannelId);
+            var assetUri = new AssetUri(AssetClass.CloudFile, $"themes/{themeId}/scenarios.json", app.GlobalState.SpaceId);
             await Asset.Instance.SetAsync(assetUri, scenarios);
         }
         catch (Exception ex)
@@ -730,7 +730,7 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
     {
         try
         {
-            var assetUri = new AssetUri(AssetClass.CloudFile, $"news/exercises/{articleId}.json", app.GlobalState.SpaceId, app.GlobalState.ChannelId);
+            var assetUri = new AssetUri(AssetClass.CloudFile, $"news/exercises/{articleId}.json", app.GlobalState.SpaceId);
 
             if (await Asset.Instance.ExistsAsync(assetUri))
             {
@@ -751,7 +751,7 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
     {
         try
         {
-            var assetUri = new AssetUri(AssetClass.CloudFile, $"news/exercises/{articleId}.json", app.GlobalState.SpaceId, app.GlobalState.ChannelId);
+            var assetUri = new AssetUri(AssetClass.CloudFile, $"news/exercises/{articleId}.json", app.GlobalState.SpaceId);
             await Asset.Instance.SetAsync(assetUri, exercise);
         }
         catch (Exception ex)
@@ -782,12 +782,19 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
 
         try
         {
-            // Set exercise context if in exercise mode
-            UpdateChatContext();
+            // The exercise context (if any) rides in the system prompt; the returned context
+            // carries the updated conversation history
+            var systemPrompt = BuildChatSystemPrompt();
 
-            Chat.AddUserMessage(text);
-            var reply = await Chat.GenerateStringAsync();
-            Chat.AddModelMessage(reply);
+            var (reply, context) = await Emerge.Run<string>(LLMModel.Default, _chatContext, pass =>
+            {
+                pass.SystemPrompt = systemPrompt;
+                pass.UseLastMessages(10);
+                pass.Command = text;
+            }).FinalAsync();
+
+            _chatContext = context;
+            reply ??= "";
 
             // Detect language from response and update current language hint
             _currentLanguage.Value = DetectLanguageFromText(reply);
@@ -805,45 +812,75 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
         }
     }
 
-    private void UpdateChatContext()
+    private string BuildChatSystemPrompt()
     {
+        var builder = new StringBuilder(
+            $"""
+             You are Aino, a friendly language learning assistant with an animated Live2D avatar.
+             You help users learn {TargetLanguage} at the {TargetLanguageLevel} level.
+
+             ABOUT YOURSELF:
+             - You were created by Ikon AI, a platform that makes it super easy to create AI Apps and connect AI models together with sleek interfaces
+             - Ikon AI provides automatic code generation to create AI apps from prompts
+             - The platform is designed to be super safe and secure - all content is streamed from servers to thin clients over high-performance low-latency protocols
+             - If asked about your creation, share these details enthusiastically
+
+             LANGUAGE SWITCHING (CRITICAL):
+             - You are FLUENT in ALL languages - Korean, Japanese, Chinese, Spanish, French, German, etc.
+             - When a user asks you to speak a different language, IMMEDIATELY switch to that language
+             - NEVER say you cannot speak a language - you CAN speak any language fluently
+             - If user says they don't understand {TargetLanguage}, switch to their preferred language right away
+             - Match the user's language if they write in a language other than {TargetLanguage}
+
+             """);
+
         var exercise = CurrentExercise;
         var article = CurrentArticle;
 
         if (exercise != null)
         {
-            Chat.SetState("ExerciseMode", true);
-            Chat.SetState("ExerciseScenario", exercise.Scenario ?? "");
-            Chat.SetState("ExerciseAIRole", exercise.Roles?.AI ?? "Language tutor");
-            Chat.SetState("ExerciseUserRole", exercise.Roles?.User?.Role ?? "Language learner");
+            var aiRole = exercise.Roles?.AI ?? "Language tutor";
 
-            // Build goals string
+            builder.AppendLine();
+            builder.AppendLine("CURRENT EXERCISE/ROLEPLAY:");
+            builder.AppendLine($"- You are playing the role of: {aiRole}");
+            builder.AppendLine($"- The user is playing: {exercise.Roles?.User?.Role ?? "Language learner"}");
+            builder.AppendLine($"- Scenario: {exercise.Scenario ?? ""}");
+
             var goals = exercise.Roles?.User?.SubGoals?
                 .Where(g => !g.Optional)
                 .Select(g => g.Description)
                 .ToList();
-            Chat.SetState("ExerciseGoals", goals != null && goals.Count > 0 ? string.Join("; ", goals) : "");
 
-            // Set article content if this is a news exercise
+            if (goals is { Count: > 0 })
+            {
+                builder.AppendLine($"- Goals for user to achieve: {string.Join("; ", goals)}");
+            }
+
             if (article != null)
             {
-                Chat.SetState("ArticleContent", $"Title: {article.Title}\n\n{article.Content}");
+                builder.AppendLine("ARTICLE/CONTENT TO DISCUSS:");
+                builder.AppendLine($"Title: {article.Title}");
+                builder.AppendLine();
+                builder.AppendLine(article.Content);
             }
-            else
-            {
-                Chat.SetState("ArticleContent", "");
-            }
+
+            builder.AppendLine($"- STAY IN CHARACTER as {aiRole} throughout the conversation");
+            builder.AppendLine("- React naturally to what the user says while maintaining your role");
+            builder.AppendLine("- Help the user practice the scenario naturally");
         }
         else
         {
-            // Free chat mode - clear exercise context
-            Chat.SetState("ExerciseMode", false);
-            Chat.SetState("ExerciseScenario", "");
-            Chat.SetState("ExerciseAIRole", "");
-            Chat.SetState("ExerciseUserRole", "");
-            Chat.SetState("ExerciseGoals", "");
-            Chat.SetState("ArticleContent", "");
+            builder.AppendLine();
+            builder.AppendLine("IMPORTANT GUIDELINES:");
+            builder.AppendLine("- Keep responses SHORT (1-3 sentences max)");
+            builder.AppendLine($"- Start with {TargetLanguage} but switch languages when the user requests or needs it");
+            builder.AppendLine("- Be natural and conversational, like a native speaker chatting");
+            builder.AppendLine("- Jump into conversation quickly without long introductions");
+            builder.AppendLine("- Focus on immersion over explanation");
         }
+
+        return builder.ToString();
     }
 
     internal async Task SpeakAsync(string text)

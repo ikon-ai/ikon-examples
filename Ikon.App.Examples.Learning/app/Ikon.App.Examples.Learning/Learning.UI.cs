@@ -191,7 +191,7 @@ public partial class LearningApp
                             content.Row(["justify-between items-center py-3"], content: headerRow =>
                             {
                                 headerRow.Text(["text-2xl font-semibold text-[#1a1a1a]"], translations.Settings);
-                                headerRow.Button(["w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"],
+                                headerRow.Button(["default", "w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"],
                                     text: "✕",
                                     onClick: () =>
                                     {

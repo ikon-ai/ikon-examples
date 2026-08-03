@@ -99,7 +99,7 @@ public class YourScenariosState(LearningApp outer) : ILearningState
                             textCol.Text(["text-xs md:text-sm text-[#6b7280]"], $"{scenarios.Count} custom scenarios");
                         });
                     });
-                    row.Button([$"bg-transparent {LearningApp.Styles.GetAccentGradient(theme)} text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-md hover:shadow-lg transition-all duration-200"],
+                    row.Button(["default", $"bg-transparent {LearningApp.Styles.GetAccentGradient(theme)} text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-md hover:shadow-lg transition-all duration-200"],
                         text: $"+ {translations.CreateScenario}",
                         onClick: async () => await outer.States.StateMachine.FireAsync(Trigger.CreateExercise));
                 });
@@ -118,7 +118,7 @@ public class YourScenariosState(LearningApp outer) : ILearningState
                         });
                         col.Text(["text-base text-[#6b7280]"], translations.NoScenariosFound);
                         col.Text(["text-sm text-[#9ca3af]"], "Create your first custom practice scenario");
-                        col.Button([$"bg-transparent {LearningApp.Styles.GetAccentGradient(theme)} text-white px-6 py-3 rounded-xl font-semibold text-base shadow-lg hover:shadow-xl transition-all duration-200 mt-2"],
+                        col.Button(["default", $"bg-transparent {LearningApp.Styles.GetAccentGradient(theme)} text-white px-6 py-3 rounded-xl font-semibold text-base shadow-lg hover:shadow-xl transition-all duration-200 mt-2"],
                             text: translations.CreateScenario,
                             onClick: async () => await outer.States.StateMachine.FireAsync(Trigger.CreateExercise));
                     });

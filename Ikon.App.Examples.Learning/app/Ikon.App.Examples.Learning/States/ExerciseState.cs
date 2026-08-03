@@ -638,7 +638,7 @@ public class ExerciseState(LearningApp outer) : ILearningState
 
                                 if (!isUser)
                                 {
-                                    actionsRow.Button(["text-xs font-medium px-3 py-1.5 rounded-full bg-gray-100/80 hover:bg-gray-200/90 text-[#6b7280] hover:text-[#1a1a1a] transition-all duration-200"],
+                                    actionsRow.Button(["default", "text-xs font-medium px-3 py-1.5 rounded-full bg-gray-100/80 hover:bg-gray-200/90 text-[#6b7280] hover:text-[#1a1a1a] transition-all duration-200"],
                                         text: "📖 Details",
                                         onClick: async () =>
                                         {
@@ -756,14 +756,14 @@ public class ExerciseState(LearningApp outer) : ILearningState
                 {
                     var translateLabel = message.IsTranslating.Value ? "⏳" : (message.ShowTranslation.Value ? "🔽 Hide" : "🌐 Translate");
 
-                    actionsRow.Button(["text-xs font-medium px-3 py-1.5 rounded-full bg-gray-100/80 hover:bg-gray-200/90 text-[#6b7280] hover:text-[#1a1a1a] transition-all duration-200"],
+                    actionsRow.Button(["default", "text-xs font-medium px-3 py-1.5 rounded-full bg-gray-100/80 hover:bg-gray-200/90 text-[#6b7280] hover:text-[#1a1a1a] transition-all duration-200"],
                         text: translateLabel,
                         onClick: async () =>
                         {
                             await TranslateMessage(message);
                         });
 
-                    actionsRow.Button(["text-xs font-medium px-3 py-1.5 rounded-full bg-gray-100/80 hover:bg-gray-200/90 text-[#6b7280] hover:text-[#1a1a1a] transition-all duration-200"],
+                    actionsRow.Button(["default", "text-xs font-medium px-3 py-1.5 rounded-full bg-gray-100/80 hover:bg-gray-200/90 text-[#6b7280] hover:text-[#1a1a1a] transition-all duration-200"],
                         text: "📖 Details",
                         onClick: async () =>
                         {
@@ -836,7 +836,7 @@ public class ExerciseState(LearningApp outer) : ILearningState
                             ? $"{LearningApp.Styles.GetAccentGradient(theme)} text-white shadow-md"
                             : "bg-white/60 hover:bg-white/80 text-[#1a1a1a] border border-gray-200";
 
-                        wordsRow.Button([$"bg-transparent px-3 py-1.5 rounded-xl text-sm cursor-pointer transition-all {wordStyle}"],
+                        wordsRow.Button(["default", $"bg-transparent px-3 py-1.5 rounded-xl text-sm cursor-pointer transition-all {wordStyle}"],
                             text: word,
                             onClick: async () =>
                             {
@@ -923,7 +923,7 @@ public class ExerciseState(LearningApp outer) : ILearningState
             {
                 inputColumn.Row(["justify-center"], content: hintRow =>
                 {
-                    hintRow.Button(["bg-transparent text-xs md:text-sm font-medium text-[#6b7280] hover:text-[#1a1a1a] px-3 py-1.5 rounded-lg hover:bg-white/50 transition-colors"],
+                    hintRow.Button(["default", "bg-transparent text-xs md:text-sm font-medium text-[#6b7280] hover:text-[#1a1a1a] px-3 py-1.5 rounded-lg hover:bg-white/50 transition-colors"],
                         text: _isGeneratingHint.Value ? "Generating hint..." : "💡 Need a hint?",
                         disabled: _isGeneratingHint.Value,
                         onClick: async () =>
@@ -1083,14 +1083,14 @@ public class ExerciseState(LearningApp outer) : ILearningState
             // Action buttons
             view.Row(["gap-4 justify-center mt-4"], content: buttonsRow =>
             {
-                buttonsRow.Button(["bg-white/60 hover:bg-white/80 text-[#1a1a1a] px-6 py-3 rounded-xl font-medium border border-gray-200 transition-colors"],
+                buttonsRow.Button(["default", "bg-white/60 hover:bg-white/80 text-[#1a1a1a] px-6 py-3 rounded-xl font-medium border border-gray-200 transition-colors"],
                     text: "Back to Menu",
                     onClick: async () =>
                     {
                         await outer.States.StateMachine.FireAsync(Trigger.ReturnToMainMenu);
                     });
 
-                buttonsRow.Button([$"bg-transparent {LearningApp.Styles.GetAccentGradient(theme)} text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:opacity-90 transition-opacity"],
+                buttonsRow.Button(["default", $"bg-transparent {LearningApp.Styles.GetAccentGradient(theme)} text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:opacity-90 transition-opacity"],
                     text: "Try Again",
                     onClick: async () =>
                     {

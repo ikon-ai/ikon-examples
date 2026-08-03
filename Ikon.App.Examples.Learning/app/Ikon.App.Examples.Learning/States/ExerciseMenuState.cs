@@ -268,7 +268,7 @@ public class ExerciseMenuState(LearningApp outer) : ILearningState
                 var currentTheme = theme;
                 var hasImage = _themeImages.TryGetValue(theme.Id, out var imageUrl);
 
-                themesView.Button(["justify-start overflow-hidden text-left w-full bg-white/90 backdrop-blur-md rounded-2xl shadow-sm border border-white/50 hover:shadow-md hover:bg-white/95 transition-all",
+                themesView.Button(["default", "justify-start overflow-hidden text-left w-full bg-white/90 backdrop-blur-md rounded-2xl shadow-sm border border-white/50 hover:shadow-md hover:bg-white/95 transition-all",
                     "motion-[0:opacity-0_translate-y-[8px],100:opacity-100_translate-y-0] motion-duration-200ms"],
                     onClick: async () => await SelectThemeAsync(currentTheme),
                     content: cardView =>
@@ -313,7 +313,7 @@ public class ExerciseMenuState(LearningApp outer) : ILearningState
         {
             headerView.Column(["gap-3"], content: col =>
             {
-                col.Button(["bg-transparent self-start text-sm font-medium text-[#6b7280] hover:text-[#1a1a1a] px-0 py-0"],
+                col.Button([Button.Base, "bg-transparent self-start text-sm font-medium text-[#6b7280] hover:text-[#1a1a1a] px-0 py-0"],
                     text: "← Takaisin teemoihin",
                     onClick: () =>
                     {
@@ -373,7 +373,7 @@ public class ExerciseMenuState(LearningApp outer) : ILearningState
                     var currentScenario = scenario;
                     var hasImage = _scenarioImages.TryGetValue(scenario.Id, out var imageUrl);
 
-                    scenariosView.Button(["justify-start overflow-hidden text-left w-full bg-white/90 backdrop-blur-md rounded-2xl shadow-sm border border-white/50 hover:shadow-md hover:bg-white/95 transition-all",
+                    scenariosView.Button(["default", "justify-start overflow-hidden text-left w-full bg-white/90 backdrop-blur-md rounded-2xl shadow-sm border border-white/50 hover:shadow-md hover:bg-white/95 transition-all",
                         "motion-[0:opacity-0_translate-y-[8px],100:opacity-100_translate-y-0] motion-duration-200ms"],
                         onClick: async () => await SelectScenarioAsync(currentScenario),
                         content: cardView =>

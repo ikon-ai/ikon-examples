@@ -1,6 +1,14 @@
 # Ikon.Common.Core Public API
 
 namespace Ikon.Common.Core
+  static class AppRoutes
+    static bool IsReservedPath(string path)
+    static bool IsValidVariantId(string? variantId)
+    static bool RoutePatternMatches(string canonicalPattern, string canonicalPath)
+    static bool TryCanonicalizePattern(string? pattern, out string canonical, out string? error)
+    static bool TryCanonicalizeRoute(string? route, out string canonical, out string? error)
+    static bool TryParseSeedRule(string? rule, out string pattern, out string variantId, out string? error)
+    static readonly string[] ReservedPathPrefixes
   sealed class AssertionVerifier
     ctor(string platformBaseUrl, HttpClient? httpClient = null, Func<DateTimeOffset>? clock = null)
     Task<(JsonDocument Claims, DateTimeOffset ExpiresAt)> VerifyAndExtractClaimsAsync(string token, string expectedIssuer, string expectedAudience, CancellationToken ct = default)
@@ -13,11 +21,27 @@ namespace Ikon.Common.Core
     static void SetAsyncLocalInstance(T value)
   sealed class AsyncLocalInstanceAttribute : Attribute
     ctor()
+  static class AsyncLocalInstanceDiagnostics
+    static bool WarnOnGlobalModeAccess
   class BackendQuotaExceededException : UserException
     ctor(string key, int current, int limit, string friendlyMessage)
     int Current { get; }
     string Key { get; }
     int Limit { get; }
+  readonly struct Endpoint : IEquatable<Endpoint>
+    ctor(EndpointKind kind, string cellType, string identityHash)
+    string CellType { get; }
+    string IdentityHash { get; }
+    EndpointKind Kind { get; }
+    static Endpoint ForCell(string cellType, IReadOnlyDictionary<string, string> sessionIdentity)
+    static Endpoint ForClient(string identityHash)
+    static Endpoint ForServer(string identityHash)
+    static bool operator ==(Endpoint left, Endpoint right)
+    static bool operator !=(Endpoint left, Endpoint right)
+  enum EndpointKind
+    Client
+    Cell
+    Server
   static class ExceptionFormatter
     static string FormatException(Exception ex, bool includeFilePaths = true)
   static class ExtendedCast
@@ -154,7 +178,7 @@ namespace Ikon.Common.Core
     static bool RequireInitCall
     bool ShowAsyncFlow
     string TraceFilter
-    static event Log.AsyncFlowFinishedHandler? AsyncFlowFinished
+    event Log.AsyncFlowFinishedHandler? AsyncFlowFinished
     event Log.LogEventHandler? LogEvent
   delegate Log.AsyncFlowFinishedHandler
     void AsyncFlowFinishedHandler(object sender, int asyncFlowId)
@@ -244,6 +268,10 @@ namespace Ikon.Common.Core
     void AppendFormatted<T>(T value, string format = "", string name = "")
     void AppendFormatted<T>(LogParameter<T> p, string format = "")
     void AppendLiteral(string s)
+  static class MachineAuthGuard
+    static bool AllowsInsecureMachineAuth()
+    static bool CanStartWithSecret(string serverName, string configFieldName, string? secretValue)
+    const string AllowInsecureVariable
   static class NameConversions
     static string ToCamelCase(string input)
     static string ToDisplayName(string input)
@@ -255,28 +283,25 @@ namespace Ikon.Common.Core
     ctor()
   class ReactiveGlobalState
     ctor()
-    Reactive<AppSourceType> AppSourceType { get; }
+    Reactive<string> AppSessionId { get; }
     Reactive<Dictionary<string, GlobalState.AudioStreamState>> AudioStreams { get; }
-    Reactive<string> ChannelId { get; }
-    Reactive<string> ChannelName { get; }
-    Reactive<string> ChannelUrl { get; }
     // Keyed by client session id; each Context carries that client's user id, device, viewport, and locale.
     Reactive<Dictionary<int, Context>> Clients { get; }
     Reactive<bool> DebugMode { get; }
     // The current first human user; reassigned when that user leaves. Contrast PrimaryUserId, which is fixed.
     Reactive<string> FirstUserId { get; }
     Reactive<Dictionary<int, List<ActionFunctionRegister>>> Functions { get; }
+    Reactive<string> IkonServerId { get; }
     Reactive<string> OrganisationName { get; }
     // The session owner from server config, fixed for the session's lifetime; used for user-specific asset storage paths.
     Reactive<string> PrimaryUserId { get; }
     Reactive<bool> PublicAccess { get; }
     Reactive<ServerRunType> ServerRunType { get; }
-    Reactive<string> ServerSessionId { get; }
-    Reactive<string> SessionChannelUrl { get; }
-    Reactive<string> SessionHash { get; }
+    Reactive<string> SessionIdentityHash { get; }
+    Reactive<string> SessionUrl { get; }
     Reactive<string> SpaceId { get; }
     Reactive<string> SpaceName { get; }
-    Reactive<Dictionary<string, GlobalState.TrackingStreamState>> TrackingStreams { get; }
+    Reactive<string> SpaceUrl { get; }
     Reactive<Dictionary<string, GlobalState.UIStreamState>> UIStreams { get; }
     Reactive<Dictionary<string, GlobalState.VideoStreamState>> VideoStreams { get; }
     Context? GetClientContext(int clientSessionId)
@@ -301,6 +326,30 @@ namespace Ikon.Common.Core
     T Value { get; }
   enum SensitivityPolicy
     Default
+  static class SessionIdentityHash
+    static string Compute(IReadOnlyDictionary<string, string> sessionIdentity)
+    static string ComputeForCell(string cellType, IReadOnlyDictionary<string, string> sessionIdentity)
+    const string CellTypeKey
+  static class SnapshotCapture
+    static bool IsCaptureProcess { get; }
+    const int CaptureBudgetMs = 600000
+    const string EnabledEnvVar
+    const int MaxRoutes = 50
+    const int MaxVariants = 16
+    const string ReadyFunctionName
+    const int RouteTimeoutMs = 10000
+    const string RoutesEnvVar
+    const string RoutesFunctionName
+    const int SettleMs = 750
+  sealed class SnapshotRoutesFile
+    ctor()
+    List<string> Routes { get; set; }
+    List<string> VariantIds { get; set; }
+  readonly struct StudioProjectRef
+    ctor(string spaceId, IkonBackend.EnvironmentType? environment)
+    IkonBackend.EnvironmentType? Environment { get; }
+    string SpaceId { get; }
+    static StudioProjectRef Parse(string reference)
   static class Throttler
     static bool TryExecute(Action action, TimeSpan? throttleInterval = null, string? extraKey = null)
   static class Toml
@@ -384,10 +433,8 @@ namespace Ikon.Common.Core.Assets
   sealed class AssetQuery
     ctor(AssetClass assetClass)
     ctor(AssetUri folderUri)
-    string? ChannelId { get; set; }
     AssetClass Class { get; }
     string? ContinuationToken { get; set; }
-    string? EffectiveChannelId { get; }
     string? EffectiveFolderPrefix { get; }
     string? EffectiveSpaceId { get; }
     string? EffectiveUserId { get; }
@@ -409,11 +456,10 @@ namespace Ikon.Common.Core.Assets
     ctor(AssetUri assetUri, AssetMetadata? metadata)
     AssetUri AssetUri { get; }
     AssetMetadata? Metadata { get; }
-  // Grammar: assets://[space/{spaceId}/][user/{userId}/][channel/{channelId}/]{class}/{path}[?query]. {class} is the kebab-case AssetClass (local-file, embedded-file, cloud-file, cloud-file-public, cloud-json) and selects the storage backend; {path} may include subdirectories and a file name. The optional space/user/channel segments scope the asset — omit them for a global asset. Immutable; With returns a modified copy.
+  // Grammar: assets://[space/{spaceId}/][user/{userId}/]{class}/{path}[?query]. {class} is the kebab-case AssetClass (local-file, embedded-file, cloud-file, cloud-file-public, cloud-json) and selects the storage backend; {path} may include subdirectories and a file name. The optional space/user segments scope the asset — omit them for a global asset. Immutable; With returns a modified copy. A legacy channel/{id}/ segment is still accepted on parse and discarded (read tolerance for pre-migration URIs) — it is never emitted.
   readonly struct AssetUri : IEquatable<AssetUri>
     ctor(string uriString)
-    ctor(AssetClass assetClass, string? path = null, string? spaceId = null, string? userId = null, string? channelId = null, string? query = null)
-    string? ChannelId { get; }
+    ctor(AssetClass assetClass, string? path = null, string? spaceId = null, string? userId = null, string? query = null)
     AssetClass Class { get; }
     string FileName { get; }
     string Path { get; }
@@ -426,7 +472,7 @@ namespace Ikon.Common.Core.Assets
     static string ToFilesystemPath(AssetUri assetUri)
     static bool TryParse(string uriString, out AssetUri assetUri, out string? failureReason)
     static bool TryParse(string uriString, out AssetUri assetUri)
-    AssetUri With(AssetClass? assetClass = null, string? path = null, string? spaceId = null, string? userId = null, string? channelId = null, string? query = null)
+    AssetUri With(AssetClass? assetClass = null, string? path = null, string? spaceId = null, string? userId = null, string? query = null)
     static bool operator ==(AssetUri left, AssetUri right)
     static bool operator !=(AssetUri left, AssetUri right)
   sealed class AssetUriJsonConverter : JsonConverter<AssetUri>
@@ -622,7 +668,8 @@ namespace Ikon.Common.Core.Functions
     Func<int, string?>? AuthSessionIdResolver { get; set; }
     string? CurrentVersion { get; set; }
     IReadOnlyDictionary<string, IReadOnlyList<Function>> Functions { get; }
-    static Action? RemoteCallExecutionStarting { get; set; }
+    Func<int, bool?>? IsAnonymousResolver { get; set; }
+    static bool IsExecutingRemoteCall { get; }
     bool RequireVerifiedCallerSpace { get; set; }
     Func<int, IReadOnlyCollection<string>?>? RolesResolver { get; set; }
     Func<int, IReadOnlyList<IScopeKey>>? ScopeResolver { get; set; }
@@ -658,6 +705,7 @@ namespace Ikon.Common.Core.Functions
     bool RemoveFunction(string name, FunctionVisibility visibility)
     bool RemoveFunction(string name)
     void RemoveFunctionsByClientSessionId(int clientSessionId)
+    static void RemoveRemoteCallExecutionStartingSubscribers(AssemblyLoadContext loadContext)
     Task StartProtocolAsync()
     Task StopProtocolAsync()
     void SyncFunctionsFromGlobalState(GlobalState globalState)
@@ -734,7 +782,7 @@ namespace Ikon.Common.Core.Functions.Policy
     ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
   interface IUsageLimitChecker
     ValueTask<UsageLimitCheckResult> CheckAsync(PolicyCallContext context, object?[] args)
-  // Checks PolicyCallContext.AuthSessionId — guests (unauthenticated callers) have an empty auth session even though they have a valid UserId (device-scoped). Returns PolicyDecision.Denied with error code "login_required", which the Ikon client runtime catches to drive the deferred-login flow.
+  // Checks PolicyCallContext.IsAnonymous — guests carry a valid UserId (device-scoped) but are marked anonymous by the backend. Callers whose anonymity cannot be resolved (no client context) are denied too. AuthSessionId is deliberately not consulted: it is a per-login correlation id that cloud guests also have. Returns PolicyDecision.Denied with error code "login_required", which the Ikon client runtime catches to drive the deferred-login flow.
   sealed class LoggedInPolicy : IFunctionPolicy
     ctor()
     string Name { get; }
@@ -759,7 +807,7 @@ namespace Ikon.Common.Core.Functions.Policy
     ctor()
     override IFunctionPolicy CreatePolicy()
   sealed class PolicyCallContext
-    ctor(Guid callId, string functionName, int callerSessionId, string? userId, string? tenantId, Guid? instanceId, bool isInternal, CancellationToken cancellationToken, string? authSessionId = null, DateTime? callTimestamp = null, IReadOnlyDictionary<string, object?>? additionalContext = null)
+    ctor(Guid callId, string functionName, int callerSessionId, string? userId, string? tenantId, Guid? instanceId, bool isInternal, CancellationToken cancellationToken, string? authSessionId = null, bool? isAnonymous = null, DateTime? callTimestamp = null, IReadOnlyDictionary<string, object?>? additionalContext = null)
     IReadOnlyDictionary<string, object?>? AdditionalContext { get; }
     string? AuthSessionId { get; }
     Guid CallId { get; }
@@ -768,6 +816,7 @@ namespace Ikon.Common.Core.Functions.Policy
     CancellationToken CancellationToken { get; }
     string FunctionName { get; }
     Guid? InstanceId { get; }
+    bool? IsAnonymous { get; }
     bool IsInternal { get; }
     string? TenantId { get; }
     string? UserId { get; }
@@ -849,7 +898,7 @@ namespace Ikon.Common.Core.Functions.Policy
     static RequireApprovalPolicy ForClient(string reason, int clientSessionId, string? name = null, int priority = 100)
     static RequireApprovalPolicy ForUser(string reason, string userId, string? name = null, int priority = 100)
     PolicyDelegate ToDelegate()
-  // Guest callers (no auth session) are denied with the "login_required" error code. The Ikon client runtime intercepts this and triggers the deferred-login flow.
+  // Guest (anonymous) callers are denied with the "login_required" error code. The Ikon client runtime intercepts this and triggers the deferred-login flow.
   sealed class RequireLoginAttribute : PolicyAttribute
     ctor()
     override IFunctionPolicy CreatePolicy()
@@ -915,14 +964,16 @@ namespace Ikon.Common.Core.Protocol
     int ParameterIndex { get; set; }
     string ParameterName { get; set; }
     string TypeName { get; set; }
-  enum AppSourceType
-    Bundle
-    GitSource
   enum AudioCodec
     Unknown
     Opus
     Mp3
     RawPcm16
+  enum AudioPlaybackState
+    Unknown
+    Playing
+    Blocked
+    Hidden
   sealed class AudioStreamBegin : IProtocolMessagePayload
     ctor()
     ctor(string streamId, string description, string sourceType, AudioCodec codec, string codecDetails, int sampleRate, int channels, List<AudioStreamBegin.AudioShapeSet>? shapeSets, string? correlationId)
@@ -945,21 +996,27 @@ namespace Ikon.Common.Core.Protocol
     List<string> ShapeNames { get; set; }
   sealed class AuthResponse : IProtocolMessagePayload
     ctor()
-    ctor(Context clientContext, Context serverContext, string certHash, List<Entrypoint> entrypoints, Dictionary<string, bool> featureFlags, string spaceId, string channelId, string channelInstanceId, string primaryUserId, string serverSessionId, int keepaliveTimeoutMs, int serverCapability)
+    ctor(Context clientContext, Context serverContext, string certHash, List<Entrypoint> entrypoints, Dictionary<string, bool> featureFlags, string spaceId, string appSessionId, string ikonServerId, string primaryUserId, int keepaliveTimeoutMs, int serverCapability)
+    string AppSessionId { get; set; }
     string CertHash { get; set; }
-    string ChannelId { get; set; }
-    string ChannelInstanceId { get; set; }
     Context ClientContext { get; set; }
     List<Entrypoint> Entrypoints { get; set; }
     Dictionary<string, bool> FeatureFlags { get; set; }
+    string IkonServerId { get; set; }
     int KeepaliveTimeoutMs { get; set; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     string PrimaryUserId { get; set; }
     int ServerCapability { get; set; }
     Context ServerContext { get; set; }
-    string ServerSessionId { get; set; }
     string SpaceId { get; set; }
+    void CopyRetiredFieldsFrom(AuthResponse source)
+    AuthResponse.RetiredFields GetOrCreateRetiredFields()
+    AuthResponse.RetiredFields? GetRetiredFields()
+    static readonly IReadOnlyList<string> RetiredKeys
+  sealed class AuthResponse.RetiredFields
+    ctor()
+    string? ServerSessionId { get; set; }
   sealed class ClientInitialization : IProtocolMessagePayload
     ctor()
     ctor(Dictionary<int, List<ActionFunctionRegister>> functions)
@@ -974,9 +1031,8 @@ namespace Ikon.Common.Core.Protocol
     DesktopApp
   sealed class Context : IProtocolMessagePayload
     ctor()
-    ctor(ContextType contextType, UserType userType, PayloadType payloadType, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, int sessionId, bool isInternal, bool isSnapshot, bool isReady, bool hasInput, string channelLocale, string authSessionId, bool receiveAllMessages, ulong preciseJoinedAt, string userAgent, ClientType clientType, string uniqueSessionId, Dictionary<string, string> parameters, SdkType sdkType, int sdkCapability, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat, bool supportsCompression, bool isSoftDisconnected, ulong softDisconnectAt)
+    ctor(ContextType contextType, UserType userType, PayloadType payloadType, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, int sessionId, bool isInternal, bool isSnapshot, string snapshotVariant, bool isReady, bool hasInput, string authSessionId, bool isAnonymous, bool isGlobal, bool receiveAllMessages, ulong preciseJoinedAt, string userAgent, ClientType clientType, string uniqueSessionId, Dictionary<string, string> parameters, SdkType sdkType, int sdkCapability, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat, bool supportsCompression, bool isSoftDisconnected, ulong softDisconnectAt)
     string AuthSessionId { get; set; }
-    string ChannelLocale { get; set; }
     int ClientSessionId { get; }
     ClientType ClientType { get; set; }
     ContextType ContextType { get; set; }
@@ -985,6 +1041,8 @@ namespace Ikon.Common.Core.Protocol
     bool HasInput { get; set; }
     string InitialPath { get; set; }
     string InstallId { get; set; }
+    bool IsAnonymous { get; set; }
+    bool IsGlobal { get; set; }
     bool IsInternal { get; set; }
     bool IsReady { get; set; }
     bool IsSnapshot { get; set; }
@@ -1001,6 +1059,7 @@ namespace Ikon.Common.Core.Protocol
     int SdkCapability { get; set; }
     SdkType SdkType { get; set; }
     int SessionId { get; set; }
+    string SnapshotVariant { get; set; }
     ulong SoftDisconnectAt { get; set; }
     StyleFormat StyleFormat { get; set; }
     bool SupportsCompression { get; set; }
@@ -1063,16 +1122,14 @@ namespace Ikon.Common.Core.Protocol
     byte[] ValueTeleport { get; set; }
   sealed class GlobalState : ILogInfo, IProtocolMessagePayload
     ctor()
-    ctor(Dictionary<int, Context> clients, Dictionary<int, List<ActionFunctionRegister>> functions, Dictionary<string, GlobalState.UIStreamState> uiStreams, Dictionary<string, GlobalState.AudioStreamState> audioStreams, Dictionary<string, GlobalState.VideoStreamState> videoStreams, Dictionary<string, GlobalState.TrackingStreamState> trackingStreams, string spaceId, string channelId, string serverSessionId, string sessionHash, string channelUrl, string sessionChannelUrl, string firstUserId, string primaryUserId, string organisationName, string spaceName, string channelName, ServerRunType serverRunType, AppSourceType appSourceType, bool publicAccess, bool debugMode)
-    AppSourceType AppSourceType { get; set; }
+    ctor(Dictionary<int, Context> clients, Dictionary<int, List<ActionFunctionRegister>> functions, Dictionary<string, GlobalState.UIStreamState> uiStreams, Dictionary<string, GlobalState.AudioStreamState> audioStreams, Dictionary<string, GlobalState.VideoStreamState> videoStreams, string spaceId, string ikonServerId, string appSessionId, string sessionIdentityHash, string spaceUrl, string sessionUrl, string firstUserId, string primaryUserId, string organisationName, string spaceName, ServerRunType serverRunType, bool publicAccess, bool debugMode)
+    string AppSessionId { get; set; }
     Dictionary<string, GlobalState.AudioStreamState> AudioStreams { get; set; }
-    string ChannelId { get; set; }
-    string ChannelName { get; set; }
-    string ChannelUrl { get; set; }
     Dictionary<int, Context> Clients { get; set; }
     bool DebugMode { get; set; }
     string FirstUserId { get; set; }
     Dictionary<int, List<ActionFunctionRegister>> Functions { get; set; }
+    string IkonServerId { get; set; }
     object LogInfo { get; }
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
@@ -1080,20 +1137,19 @@ namespace Ikon.Common.Core.Protocol
     string PrimaryUserId { get; set; }
     bool PublicAccess { get; set; }
     ServerRunType ServerRunType { get; set; }
-    string ServerSessionId { get; set; }
-    string SessionChannelUrl { get; set; }
-    string SessionHash { get; set; }
+    string SessionIdentityHash { get; set; }
+    string SessionUrl { get; set; }
     string SpaceId { get; set; }
     string SpaceName { get; set; }
-    Dictionary<string, GlobalState.TrackingStreamState> TrackingStreams { get; set; }
+    string SpaceUrl { get; set; }
     Dictionary<string, GlobalState.UIStreamState> UIStreams { get; set; }
     Dictionary<string, GlobalState.VideoStreamState> VideoStreams { get; set; }
     void AddAudioStream(GlobalState.AudioStreamState audioStreamState)
     void AddClient(Context clientContext)
     void AddFunction(int clientSessionId, ActionFunctionRegister function)
-    void AddTrackingStream(GlobalState.TrackingStreamState trackingStreamState)
     void AddUIStream(GlobalState.UIStreamState uiStreamState)
     void AddVideoStream(GlobalState.VideoStreamState videoStreamState)
+    void CopyRetiredFieldsFrom(GlobalState source)
     Context? GetClientContext(int clientSessionId)
     Context? GetClientContext(string userId)
     int GetClientSessionId(string userId)
@@ -1102,17 +1158,19 @@ namespace Ikon.Common.Core.Protocol
     int[] GetClientSessionIdsExcept(int[] clientSessionIds)
     int[] GetHumanClientSessionIds()
     int[] GetMachineClientSessionIds()
+    GlobalState.RetiredFields GetOrCreateRetiredFields()
+    GlobalState.RetiredFields? GetRetiredFields()
     List<string>? GetUserIds(IEnumerable<int> targetIds)
     void RemoveAudioStream(string streamId)
     void RemoveClient(int clientSessionId)
     void RemoveFunction(Guid functionId)
-    void RemoveTrackingStream(string streamId)
     void RemoveUIStream(string streamId)
     void RemoveVideoStream(string streamId)
     void SetReady(int clientSessionId)
     void SetReconnected(int clientSessionId)
     void SetSoftDisconnected(int clientSessionId, ulong softDisconnectAt)
     override string ToString()
+    static readonly IReadOnlyList<string> RetiredKeys
   sealed class GlobalState.AudioStreamState
     ctor()
     ctor(string streamId, int clientSessionId, int trackId, AudioStreamBegin info)
@@ -1120,13 +1178,12 @@ namespace Ikon.Common.Core.Protocol
     AudioStreamBegin Info { get; set; }
     string StreamId { get; set; }
     int TrackId { get; set; }
-  sealed class GlobalState.TrackingStreamState
+  sealed class GlobalState.RetiredFields
     ctor()
-    ctor(string streamId, int clientSessionId, int trackId, TrackingStreamBegin info)
-    int ClientSessionId { get; set; }
-    TrackingStreamBegin Info { get; set; }
-    string StreamId { get; set; }
-    int TrackId { get; set; }
+    string? ChannelUrl { get; set; }
+    string? ServerSessionId { get; set; }
+    string? SessionChannelUrl { get; set; }
+    string? SessionHash { get; set; }
   sealed class GlobalState.UIStreamState
     ctor()
     ctor(string streamId, int clientSessionId, int trackId, UIStreamBegin info)
@@ -1183,18 +1240,15 @@ namespace Ikon.Common.Core.Protocol
     CORE_CLIENT_READY
     CORE_SERVER_INIT
     CORE_ON_PLUGIN_RELOADED
-    CORE_SERVER_START
-    CORE_SERVER_STOP
-    CORE_ON_HOSTED_SERVER_EXIT
     CORE_DYNAMIC_CONFIG
     CORE_PROXY_RPC_AUTH_TICKET
-    CORE_SERVER_INIT2
     CORE_UPDATE_CLIENT_CONTEXT
     CORE_BACKGROUND_WORK_ACTIVE
     CORE_RESET_IDLE
     CORE_CLIENT_DISCONNECTING
     CORE_ON_APP_READY
     CORE_ON_FRONTEND_RELOADED
+    CORE_ON_USER_DATA_ERASED
     CORE_WEBRTC_OFFER
     CORE_WEBRTC_ANSWER
     CORE_WEBRTC_ICE_CANDIDATE
@@ -1224,7 +1278,6 @@ namespace Ikon.Common.Core.Protocol
     KEEPALIVE_RESPONSE
     GROUP_EVENTS
     EVENTS_PROFILE_UPDATE
-    EVENTS_CHANNEL_COMPLETE
     EVENTS_SPEECH_PLAYBACK_COMPLETE
     GROUP_ANALYTICS
     ANALYTICS_LOGS
@@ -1237,6 +1290,7 @@ namespace Ikon.Common.Core.Protocol
     ANALYTICS_IKON_PROXY_SERVER_STATS
     ANALYTICS_IKON_RELAY_SERVER_STATS
     ANALYTICS_IKON_TURN_SERVER_STATS
+    ANALYTICS_IKON_HOST_SERVER_STATS
     GROUP_ACTIONS
     ACTION_CALL
     ACTION_ACTIVE
@@ -1252,21 +1306,16 @@ namespace Ikon.Common.Core.Protocol
     ACTION_FILE_UPLOAD_ACK
     ACTION_FILE_UPLOAD_END
     ACTION_FILE_UPLOAD_RESULT
-    ACTION_OPEN_CHANNEL
     ACTION_OPEN_EXTERNAL_URL
     ACTION_FUNCTION_REGISTER
     ACTION_FUNCTION_CALL
     ACTION_FUNCTION_RESULT
     ACTION_GENERATE_ANSWER
     ACTION_REGENERATE_ANSWER
-    ACTION_CLEAR_CHAT_MESSAGE_HISTORY
     ACTION_CLEAR_STATE
-    ACTION_RELOAD_CHANNELS
-    ACTION_RELOAD_PROFILE
     ACTION_CLASSIFICATION_RESULT
     ACTION_AUDIO_STOP
     ACTION_CALL_TEXT
-    ACTION_RELOAD_APPLICATION
     ACTION_CANCEL_GENERATION
     ACTION_SPEECH_RECOGNIZED
     ACTION_CALL_RESULT
@@ -1287,7 +1336,6 @@ namespace Ikon.Common.Core.Protocol
     UI_UPDATE_ACK
     ACTION_CALL2
     ACTION_FUNCTION_REGISTER_BATCH
-    ACTION_TRIGGER_GIT_PULL
     ACTION_FILE_UPLOAD_CALLBACK
     ACTION_CUSTOM_USER_MESSAGE
     ACTION_URL_CHANGED
@@ -1304,6 +1352,7 @@ namespace Ikon.Common.Core.Protocol
     ACTION_TRIGGER_CRON
     ACTION_RESULT
     UI_RESYNC_REQUEST
+    ACTION_USER_DATA_ERASURE
     GROUP_UI
     UI_STREAM_BEGIN
     UI_STREAM_END
@@ -1319,19 +1368,13 @@ namespace Ikon.Common.Core.Protocol
     AUDIO_FRAME_VOLUME
     AUDIO_FRAME2
     AUDIO_SHAPE_FRAME
+    AUDIO_PLAYBACK_REPORT
     GROUP_VIDEO
     VIDEO_STREAM_BEGIN
     VIDEO_STREAM_END
     VIDEO_FRAME
     VIDEO_REQUEST_IDR_FRAME
     VIDEO_INVALIDATE_FRAME
-    GROUP_TRACKING
-    TRACKING_STREAM_BEGIN
-    TRACKING_STREAM_END
-    TRACKING_FRAME
-    GROUP_SCENE
-    SCENE_MESH
-    SCENE_ARRAY
     GROUP_ALL
     GROUP_APP_LOCAL
     CONSTANT_GROUP_MASK
@@ -1339,7 +1382,8 @@ namespace Ikon.Common.Core.Protocol
     static bool IsOpcodeInAnyGroup(Opcode opcode, Opcode groups)
   static class PayloadCompression
     static (byte[]? Buffer, int Length) Compress(ReadOnlySpan<byte> data)
-    static (byte[] Buffer, int Length) Decompress(ReadOnlySpan<byte> compressedData, int estimatedSize = 0)
+    // The transport bounds the COMPRESSED frame, not what it expands to — a frame of zeros inflates by orders of magnitude. This runs before the sender is authenticated, so without a ceiling a single frame can exhaust the process's memory.
+    static (byte[] Buffer, int Length) Decompress(ReadOnlySpan<byte> compressedData, int estimatedSize = 0, int maxDecompressedSize = 0)
     static void ReturnBuffer(byte[]? buffer)
     static bool ShouldCompress(int payloadSize)
     const int CompressionThreshold = 1024
@@ -1417,19 +1461,6 @@ namespace Ikon.Common.Core.Protocol
   enum StyleFormat
     Css
     Flutter
-  sealed class TrackingStreamBegin : IProtocolMessagePayload
-    ctor()
-    ctor(string category, TrackingType type, List<string> faceBlendshapes)
-    string Category { get; set; }
-    List<string> FaceBlendshapes { get; set; }
-    Opcode MessageOpcode { get; }
-    int MessageVersion { get; }
-    TrackingType Type { get; set; }
-  enum TrackingType
-    Face
-    Hands
-    Pose
-    All
   static class UIElementLabels
     const string Blur
     const string ChatMessage
@@ -1581,6 +1612,7 @@ namespace Ikon.Common.Core.Reactive
     Private
     Public
     Postgres
+    Default
   enum PersistenceScope
     None
     Global

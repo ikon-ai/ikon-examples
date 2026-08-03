@@ -163,7 +163,7 @@ public class ChatState(LearningApp outer) : ILearningState
 
                                         if (!isUser)
                                         {
-                                            actionsRow.Button(["text-sm font-medium px-3 py-1.5 rounded-full bg-gray-100/80 hover:bg-gray-200/90 text-[#6b7280] hover:text-[#1a1a1a] transition-all duration-200"],
+                                            actionsRow.Button(["default", "text-sm font-medium px-3 py-1.5 rounded-full bg-gray-100/80 hover:bg-gray-200/90 text-[#6b7280] hover:text-[#1a1a1a] transition-all duration-200"],
                                                 text: "🔊 Play",
                                                 onClick: async () =>
                                                 {
@@ -232,7 +232,7 @@ public class ChatState(LearningApp outer) : ILearningState
                             }
                         });
 
-                    inputView.Button([$"bg-transparent {LearningApp.Styles.GetAccentGradient(theme)} hover:shadow-lg active:scale-95 text-white px-5 md:px-6 py-3 md:py-3.5 rounded-2xl font-semibold text-sm md:text-base transition-all duration-200 shadow-md"],
+                    inputView.Button(["default", $"bg-transparent {LearningApp.Styles.GetAccentGradient(theme)} hover:shadow-lg active:scale-95 text-white px-5 md:px-6 py-3 md:py-3.5 rounded-2xl font-semibold text-sm md:text-base transition-all duration-200 shadow-md"],
                         text: "Lähetä",
                         onClick: async () =>
                         {
