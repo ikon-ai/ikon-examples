@@ -373,7 +373,7 @@ public class AmbientApp
             });
 
             var hash = GetPromptHash(experience.AudioPrompt);
-            var publicUrl = await UploadAudioToAssets(result.Data, hash);
+            var publicUrl = await UploadAudioToAssets(await result.GetDataAsync(), hash);
 
             if (publicUrl != null)
             {
@@ -1350,7 +1350,7 @@ public class AmbientApp
             using var fpsEnhancer = new VideoEnhancer(VideoEnhancerModel.TensorPixFpsBoost);
             var fpsResult = await fpsEnhancer.EnhanceVideoAsync(new VideoEnhancerConfig
             {
-                VideoUrl = sourceUrl,
+                Url = sourceUrl,
                 TargetFps = 24 * 8,
                 Timeout = TimeSpan.FromMinutes(30)
             });
@@ -1374,7 +1374,7 @@ public class AmbientApp
             using var spatialEnhancer = new VideoEnhancer(VideoEnhancerModel.TensorPixUpscale2xUltra41);
             var spatialResult = await spatialEnhancer.EnhanceVideoAsync(new VideoEnhancerConfig
             {
-                VideoUrl = fpsUrl,
+                Url = fpsUrl,
                 Timeout = TimeSpan.FromMinutes(30)
             });
 

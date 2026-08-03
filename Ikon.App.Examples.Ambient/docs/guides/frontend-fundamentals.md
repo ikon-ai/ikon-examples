@@ -2,13 +2,13 @@
 
 ## Frontend Overview
 
-The frontend is a React app that acts as a thin client. It handles authentication gating, connection to the Ikon server, and renders UI streamed from C#. The main entry point is `app.tsx`.
+The frontend is a React app that acts as a thin client. It handles authentication gating, connection to the Ikon server, and renders UI streamed from C#. The root component lives in `app.tsx` (mounted from the entry module `main.tsx`).
 
 The component hierarchy depends on whether auth is enabled:
-- **Auth enabled:** `I18nProvider` → `AuthProvider` → `AuthGuard` → `ConnectedApp`
-- **Auth disabled:** `I18nProvider` → `ConnectedApp`
+- **Auth enabled:** `I18nProvider` → `AuthProvider` → `AuthGuard` → `AuthorizedApp`
+- **Auth disabled:** `I18nProvider` → `AuthorizedApp`
 
-`ConnectedApp` uses the `useIkonApp` hook and `ConnectionStateRenderer` to manage the connection lifecycle, and `IkonUiSurface` to render the server-driven UI.
+`AuthorizedApp` uses the `useIkonApp` hook to manage the connection lifecycle and renders the `IkonApp` component, which mounts the server-driven UI surface and layers the connection overlays on top.
 
 ### useIkonApp
 
@@ -33,7 +33,7 @@ const app = useIkonApp({
 
 - `modules` — UI component modules to register. The standard module and Lucide icons module are included by default in scaffolded apps. Custom modules can be added here (see Custom UI Components)
 - `audio` / `video` — Enable or disable audio and video playback from the C# app. Enabled by default
-- `webRtc` — Use WebRTC transport for audio/video instead of the default SDK-managed pipeline
+- `webRtc` — WebRTC transport for audio/video is the default; set `false` to fall back to the SDK-managed playback pipeline
 - `backgroundAudio` — Allow audio to continue playing when the browser tab is not focused, on both desktop and mobile
 - `websocket` / `webtransport` / `proxy` — Force a specific transport. By default the SDK uses WebSocket (then proxy variants); WebTransport is off by default and must be explicitly enabled
 - `authConfig` — Override the auto-detected auth configuration. By default read from `window.__IKON_AUTH_CONFIG__` which is injected at build time from `ikon-config.toml`
@@ -53,22 +53,15 @@ const app = useIkonApp({
 | `isReady` | `boolean` | Whether the connection is ready to render |
 | `webRtcVideoStreams` | `Map<number, MediaStream>` | Active WebRTC video streams |
 
-**ConnectionStateRenderer pattern:**
+**IkonApp pattern** (the scaffolded template's `AuthorizedApp`, minus its lazy-font prop threading):
 
 ```typescript
-<ConnectionStateRenderer
+<IkonApp
   {...app}
-  renderIdle={() => null}
-  renderConnecting={() => null}
-  renderConnectingSlow={() => <ConnectingOverlay />}
-  renderConnected={({ stores, registry, client, onAction, isReconnecting }) => (
-    <>
-      {isReconnecting && <ReconnectingOverlay />}
-      <IkonUiSurface stores={stores} registry={registry} onAction={onAction} />
-    </>
-  )}
-  renderOffline={() => <OfflineScreen />}
-  renderError={(error) => <ErrorScreen error={error} />}
+  connectingOverlay={(isSlow) => (isSlow ? <ConnectingOverlay /> : null)}
+  reconnectingOverlay={<ReconnectingOverlay />}
+  offlineOverlay={(error) => <OfflineOverlay error={error} isServerFull={app.isServerFull} />}
+  accessDeniedScreen={(reason) => <AccessDeniedScreen reason={reason} />}
 />
 ```
 
@@ -85,7 +78,7 @@ Connection states: `connecting` → `connected`, with `reconnecting` on temporar
 
 **Transport selection:** By default the SDK uses WebSocket (then proxy variants). WebTransport is off by default (found unreliable on poor networks) and must be opted into via `webtransport: true` on `useIkonApp` or the `?ikon-webtransport=true` query parameter. Override the transport with the `websocket`, `webtransport`, or `proxy` options on `useIkonApp`, or with query parameters.
 
-**Keepalive:** The server sends periodic keepalive messages. The SDK monitors these with a 15s timeout — if no keepalive is received, the connection is considered lost.
+**Keepalive:** The server sends periodic keepalive messages and tells the client its watchdog timeout during the auth handshake (180s for current clients; only legacy clients hard-code 15s). If no keepalive arrives within that window, the connection is considered lost.
 
 **Timeout configuration** via the `timeouts` option:
 
@@ -93,7 +86,6 @@ Connection states: `connecting` → `connected`, with `reconnecting` on temporar
 |---|---|---|
 | `slowConnectionThresholdMs` | 5000 | Time before the slow-connection signal (`isConnectingSlow`) |
 | `connectionTimeoutMs` | 180000 | Max time to establish connection |
-| `keepaliveTimeoutMs` | 15000 | Max gap between keepalive messages |
 | `reconnectBackoffMs` | 2000 | Delay between reconnect attempts |
 | `maxReconnectAttempts` | 2 | Fast reconnect attempts before re-auth |
 
@@ -122,11 +114,13 @@ The frontend acts as an optional auth gate — when auth is enabled, users must 
 
 **Component tree:** `AuthProvider` → `AuthGuard` → app content. `AuthGuard` checks the auth state and renders either the auth screen or the protected content.
 
-**Supported login methods:** google, facebook, apple, microsoft, linkedin, github, email (magic link), passkey (WebAuthn), guest.
+**Supported login methods:** google, facebook, apple, microsoft, signicat (eID), email (magic link), passkey (WebAuthn), plus the two not-signed-in flavors guest and global.
 
-**Guest auto-login:** Add `?guest` to the URL. If `guest` is included in the configured methods, the user is logged in automatically without seeing the auth screen.
+**Not-signed-in entry:** `guest` gives each visitor their own device-scoped anonymous user; `global` puts every visitor on one space-wide shared anonymous user. Both render the same "Continue as Guest" button, and `global` wins when a space lists both — the app can then upgrade a visitor with `login('guest')`. On the server, `Context.IsAnonymous` is true for both and `Context.IsGlobal` tells them apart.
 
-**Session:** Stored in localStorage. Expires after JWT expiry.
+**Guest auto-login:** Add `?guest` to the URL. If either `guest` or `global` is included in the configured methods, the user is logged in automatically without seeing the auth screen.
+
+**Session:** Stored in localStorage. Expires at the earlier of JWT expiry or a hard 7-day client-side window.
 
 **Custom auth:** Two approaches:
 1. **Use the `useAuth()` hook** — provides `login(method)`, `logout()`, `getToken()`, `registerPasskey()`. Build your own auth UI while using the SDK's auth backend
@@ -198,7 +192,7 @@ The template ships with English translations in `i18n/en.ts`. Add languages by c
 
 ### Styling
 
-The frontend is fully user-customizable via CSS. `app.css` contains all connection, auth, and overlay styles using `.ikon-*` class names. Override any `.ikon-*` class in your `app.css` to customize the look.
+The frontend is fully user-customizable via CSS. `app.css` contains the connection and overlay styles, and `src/auth/auth.css` the auth-screen styles — all using `.ikon-*` class names. Override any `.ikon-*` class to customize the look.
 
 Server-driven styles: the C# app streams CSS via Crosswind to clients, and the SDK injects `<style>` elements dynamically. These styles use Crosswind's utility class system (see Crosswind documentation).
 
@@ -379,9 +373,9 @@ Rule of thumb: if your custom component holds state the user can mutate (a code 
 
 ### App icons & branding
 
-`branding/logo.svg` is the single source of truth for every app icon. It is a square SVG scaffolded into each new app — replace its contents with your own square design and run **`ikon app icons`** to regenerate the complete icon set across **all** frontends from it:
+`branding/logo.png` is the single source of truth for every app icon. It is a square 1024×1024 PNG scaffolded into each new app — replace it with your own square design (same size and format; SVG is not supported) and run **`ikon app icons`** to regenerate the complete icon set across **all** frontends from it:
 
 - **frontend-node** — web favicons (`favicon.ico`, `favicon-16/32/192/512.png`, `apple-touch-icon.png`, `maskable-512.png`) and the PWA `manifest.webmanifest` icon entries.
 - **frontend-flutter** (when present) — Android launcher icons (mipmap + adaptive), the iOS `AppIcon.appiconset`, and the Flutter web icons.
 
-You don't hand-create or hand-place any of these PNGs — one square SVG drives them all. `ikon app icons` rewrites only the generated icon files and each manifest's `icons` array, so manual manifest edits (a custom PWA `name`/`short_name`, extra fields) are preserved across runs. The browser tab title is separate from the icons — it lives in `frontend-node/index.html` (`<title>` and `apple-mobile-web-app-title`).
+You don't hand-create or hand-place any of these PNGs — one square source PNG drives them all. `ikon app icons` rewrites the generated icon files, each manifest's `icons` array, the Flutter web manifest's `background_color`/`theme_color`, and the Android launcher background color, so manual manifest edits (a custom PWA `name`/`short_name`, extra fields) are preserved across runs. The browser tab title is separate from the icons — it lives in `frontend-node/index.html` (`<title>` and `apple-mobile-web-app-title`).

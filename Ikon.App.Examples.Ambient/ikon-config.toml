@@ -1,7 +1,11 @@
+# Schema version of this config file. The ikon tool upgrades older files automatically and always
+# saves at its current version; a file newer than the tool refuses to load (update the tool).
+ConfigVersion = 2
+
 # Database configurations for allocating databases for the app (run 'ikon app config' to apply changes)
 # Assigned database connection info is available via app.Databases in the app. Use 'ikon app db' commands to manage databases.
-# Format: "name:type" - valid types: postgres
-# Examples: "mydb:postgres"
+# Format: "name:type" - valid types: postgres (e.g. "mydb:postgres")
+# "app:postgres" is the app's built-in Postgres database - quota-free and provisioned automatically
 Databases = []
 
 # Activation configuration for the app (app activation is separate from deployment)
@@ -11,28 +15,69 @@ StopSessions = false
 
 # Authentication configuration for the app frontend
 [Auth]
-# Whether the frontend requires authentication before connection to the app is established
-Enabled = false
-# Available methods: google, microsoft, email, guest
+# How visitors may enter: real sign-in providers (google, microsoft, email) plus two flavors of
+# not-signed-in entry — "guest" gives each visitor their own device-scoped anonymous user (private
+# per-visitor sessions), while "global" gives ALL visitors one shared space-wide anonymous user
+# (they collapse onto a shared app instance — the cost-efficient mode for public landing surfaces;
+# pair with [Sharded] on the SessionIdentity record to let it scale out; the app can distinguish a
+# global visitor from a guest via Context.IsGlobal). List both to enter as
+# "global" by default and let the app upgrade a visitor to a "guest" identity on demand. Signing
+# in elevates to the real account from either.
 Methods = ["google"]
 # If non-empty, only allow users with email addresses from these domains to authenticate (e.g. ["mycompany.com"])
 DomainAllowlist = []
+# When false (the default) visitors enter immediately as an anonymous session and can sign in on
+# demand — branch on Context.IsAnonymous in the app and trigger sign-in with ClientFunctions.LoginAsync("google").
+# When true the frontend shows a mandatory sign-in wall before the app loads; listing "guest" or
+# "global" in Methods adds a "Continue as guest" button to that wall. Anonymous browsing stays
+# SEO-crawlable via [BootSnapshot] Routes regardless.
+RequireSignIn = false
 
 # Boot snapshot: capture the app's initial UI at build/deploy time so the first paint appears
-# instantly. Off by default. The snapshot is a PUBLIC asset, but it is privacy-safe by default —
-# every piece of content is automatically replaced with a skeleton, so no sensitive data is baked
-# in. Use SnapshotReveal to opt safe content (logos, static chrome) back in. See the Parallax
-# library overview docs.
+# instantly. The snapshot is a PUBLIC asset, but it is privacy-safe by default — every piece of
+# content is automatically replaced with a skeleton, so no sensitive data is baked in. Use
+# SnapshotReveal to opt safe content (logos, static chrome) back in; a fully public landing-type
+# page opts out wholesale by wrapping its page root in SnapshotReveal. See the Parallax library
+# overview docs.
 [BootSnapshot]
-Enabled = false
+# Public routes to snapshot (e.g. ["/", "/pricing"]); an empty list disables boot snapshotting.
+# Routes must be paths the app serves directly — a route the app redirects away from during
+# capture fails the bundle/deploy, so declare the real path (e.g. "/home" instead of "/").
+# Each route's snapshot paints instantly on load, and for apps openable without signing in (no
+# sign-in wall, or "guest"/"global" in Auth.Methods) each route is also prerendered to crawlable
+# static HTML with a generated sitemap.xml/robots.txt. Content routes (one per listing/article)
+# can be added in app code via app.OnSnapshotRoutes(...). See the "Per-route snapshots and SEO"
+# section of the Parallax docs.
+Routes = ["/"]
+# Seed rules (only for apps that render different pages per identity or path shape): ordered
+# "pattern:variantId" entries, first match wins. A pattern segment is a literal, "*" (exactly one
+# segment), or a final "**" (any remainder) — so "/*:dashboard" seeds the dashboard skeleton on any
+# one-segment path and "/**:shell" on every path. Each distinct variant id is captured once as a
+# skeleton the app renders by branching on view.SnapshotVariant == "id". Guests seed an exact route
+# snapshot before these rules; signed-in visitors consult these rules first, then fall back to the
+# route snapshot. Variant skeletons are never prerendered to HTML and never listed in the sitemap.
+# GuestSeeds = ["/**:welcome"]
+GuestSeeds = []
+# SignedInSeeds = ["/**:shell"]
+SignedInSeeds = []
+
+# Versioned binary data folders for the app. Binaries are stored in the Ikon Asset store and git only
+# tracks small .ikonasset pointer files, so even large data sets keep the repo light. Managed with the
+# 'ikon app assets' commands.
+[Assets]
+# Top-level folders whose files are public: offloaded to public asset storage and loadable by URL from
+# the frontend. Binaries in any other folder stay private and are only readable by the C# app.
+PublicFolders = ["public"]
+
+# Custom packaging steps for 'ikon app bundle' and 'ikon app deploy'
+[Package]
+# Commands run in the app root after the app + frontend build, before the bundle is zipped. The bundle
+# staging directory is exposed as IKON_BUNDLE_DIR, so a command can write processed output straight
+# into the package (e.g. ["python scripts/pack_assets.py"])
+PrePackage = []
 
 # Target information for deployment (automatically configured with 'ikon app config')
 [Target]
 OrganisationId = ""
 SpaceId = ""
-ChannelId = ""
 Name = ""
-[Assets]
-PublicFolders = ["public"]
-[Package]
-PrePackage = []

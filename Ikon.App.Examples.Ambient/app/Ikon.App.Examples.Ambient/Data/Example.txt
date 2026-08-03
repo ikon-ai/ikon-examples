@@ -1,1 +1,1 @@
-﻿Files in this directory will be available in the app using the host.DataDirectory path.
+Files in this directory will be available in the app using the app.DataDirectory path.

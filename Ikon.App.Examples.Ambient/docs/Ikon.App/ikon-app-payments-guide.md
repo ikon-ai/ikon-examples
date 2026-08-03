@@ -70,11 +70,13 @@ pinned when more than one is enabled).
 |---|---|
 | `CreateOfferAsync(offer, provider?)` | Create (or update) an offer customers can pay for by id → `PaymentOffer`. |
 | `RemoveOfferAsync(offerId, provider?)` | Remove an offer from the catalog → `bool` (`false` if no such offer existed). |
-| `CreatePaymentLinkAsync(offerId, customerKey?, email?, …)` | A provider-hosted payment link for an offer — a recurring offer starts a subscription, a one-time offer is a single charge. Returns `PaymentLink` (`Url`, `Reference`, `Provider`). |
+| `CreatePaymentLinkAsync(offerId, customerKey?, email?, …, amountMinorOverride?)` | A provider-hosted payment link for an offer — a recurring offer starts a subscription, a one-time offer is a single charge. `amountMinorOverride` charges a custom amount instead of the catalog price (one-time offers only — see Upgrades below). Returns `PaymentLink` (`Url`, `Reference`, `Provider`). |
 | `CreatePaymentLinkAsync(amountMinor, currency, customerKey?, …)` | A payment link for an ad-hoc amount (tips, one-off charges). Grants no entitlement — use an offer for that. |
 | `RefundAsync(paymentId, amountMinor?, reason?)` | Full or partial refund → `PaymentRefund`. |
 | `RequestReceiptAsync(paymentId, provider?)` | Fetch a receipt for a completed payment → `PaymentReceipt` (`Url` hosted receipt page; `Pdf` bytes when the provider offers a downloadable PDF, else `null`). |
 | `CancelSubscriptionAsync(subscriptionId, immediate?)` | Cancel now (`immediate: true`) or at period end (default). |
+| `ChangeSubscriptionOfferAsync(subscriptionId, newOfferId, immediateChargeMinor?)` | Switch a subscription to another recurring offer with proration → `SubscriptionOfferChange` (see Upgrades below). |
+| `ResumeSubscriptionAsync(subscriptionId)` | Re-enable a subscription canceled at period end but not yet lapsed → `SubscriptionResume`. No charge; billing resumes on the original date. |
 | `ReconcileAsync(customerKey?, reference?)` | Re-pull live provider state (missed-webhook recovery) → `PaymentReconcileResult`. Eventually consistent — results arrive as normal payment events (see below). |
 | `IsEntitled(offerId, customerKey?)` | **Synchronous, no backend call** — the fast UI gate (see below). |
 | `GetEntitlementAsync(offerId, customerKey?)` | Does this customer have access to an offer? → `PaymentEntitlement` (`Active`, `ExpiresAt`, `Source`). Access past its `ExpiresAt` reports inactive. A backend call — for gating UI prefer `IsEntitled`. |
@@ -98,6 +100,21 @@ user/org, or when there is no current user in scope: a **background task**, or �
 **`PaymentEventReceived` handler** (a server-side push, not tied to any client). Omitting it there throws a
 clear error telling you to supply it; the event's `Payload()` carries the customer it concerns.
 
+### Anonymous (guest) users — refused by default
+
+A guest (a user who hasn't signed in) still has a valid user id, but it is **device-scoped**: signing in
+later gives them a **different** user id, so a payment taken under the guest id — and any entitlement it
+granted — would not follow them. `CreatePaymentLinkAsync` therefore **throws** when the paying customer
+is a connected guest. Either require sign-in before taking the payment, or opt in explicitly:
+
+```csharp
+app.Payments.AllowAnonymousPayments = true;   // accept guest payments (e.g. anonymous tips)
+```
+
+Opt in only for purchases the app can afford to lose track of — say an ad-hoc tip that grants no
+entitlement. The guard fires only when it can see the payer: an explicit `customerKey` that matches no
+connected client (an offline user, an org/tenant id) passes through.
+
 Statuses and kinds are typed enums (`PriceKind`,
 `SubscriptionStatus`, `PaymentStatus`, `PaymentKind`, `RefundStatus`, `EntitlementSource`), each with an
 `Unknown` fallback.
@@ -119,7 +136,7 @@ or
 ```
 ikon app payments offer create --id pro --name Pro --amount 999 --currency eur --interval month
 ikon app payments offer list
-ikon app payments offer remove --id pro
+ikon app payments offer delete --id pro
 ```
 
 For Stripe this provisions a Product + Price (`lookup_key = offerId`); for providers without a catalog
@@ -133,6 +150,67 @@ subscription, `PriceKind.OneTime` → single charge) — and render your own pri
 > Already have Products/Prices in your Stripe dashboard? Those still sync into the catalog automatically —
 > set a Price **lookup key** (or product `metadata.app_plan_id`) to control the `offerId`; otherwise the
 > offer syncs under its Stripe product id.
+
+## Upgrades, downgrades & resubscribe
+
+### One-time offers — a custom-priced upgrade
+
+For **one-time** (permanent-unlock) offers, charge a developer-computed amount while still granting the
+offer's entitlement by passing `amountMinorOverride` to the offer payment link. The classic case is
+"upgrade from `level1` to `level2`, crediting what was already paid":
+
+```csharp
+// The customer already bought level1; charge only the difference for level2.
+var payments = await app.Payments.ListPaymentsAsync();
+var credit = payments
+    .Where(p => p.OfferId == "level1" && p.Status == PaymentStatus.Paid)
+    .Sum(p => p.AmountMinor - p.AmountRefundedMinor);
+
+var link = await app.Payments.CreatePaymentLinkAsync("level2", amountMinorOverride: level2PriceMinor - credit);
+await ClientFunctions.OpenExternalUrlAsync(link.Url);
+```
+
+Paying grants the `level2` entitlement exactly as at full price — the amount charged never affects the
+grant. The platform fee and the recorded payment follow the overridden amount. **One-time offers only**:
+supplying `amountMinorOverride` for a recurring offer is rejected (subscriptions use
+`ChangeSubscriptionOfferAsync`). After the upgrade the customer holds both `level1` and `level2`; gate your
+premium features on `level2` and hide the buy button with `IsEntitled` as needed.
+
+### Subscriptions — change plan with proration
+
+Switch an active subscription to another **recurring** offer (same currency and interval) with
+`ChangeSubscriptionOfferAsync`:
+
+```csharp
+var change = await app.Payments.ChangeSubscriptionOfferAsync(subscriptionId, "level2");
+```
+
+- **Upgrade** (pricier offer): the **prorated difference** — the price gap scaled to the time left in the
+  current period — is charged immediately, the new plan takes effect now, and renewals continue on the
+  **existing renewal date** at the full new price.
+- **Downgrade** (cheaper/equal offer): **no charge, no credit**. The current (higher) plan stays available
+  until the next renewal, when the new plan takes over and renewals bill the lower price.
+
+The result's `Changed` is `false` when the subscription was already on that offer; `Direction`,
+`ProrationAmountMinor`, `ProratedChargeRef`, and `Effective` (`"immediate"` for an upgrade, `"next_cycle"`
+for a downgrade) describe what happened. The previous offer's entitlement is left to lapse at its stored
+expiry — so on a downgrade the higher plan remains usable until the period ends, and on an upgrade the old
+plan lingering alongside the new one is harmless.
+
+The platform computes the proration. To own the pricing yourself (Mollie/Surfboard), pass
+`immediateChargeMinor` to set the exact upgrade charge; it is rejected for Stripe, which prorates natively.
+
+### Resubscribe (un-cancel)
+
+A subscription canceled at period end but whose paid period hasn't lapsed can be re-enabled — no charge,
+billing resumes on the original renewal date:
+
+```csharp
+var resume = await app.Payments.ResumeSubscriptionAsync(subscriptionId);
+// resume.SubscriptionId may differ from the input when the provider recreated the subscription (Mollie).
+```
+
+An immediately-canceled or fully-ended subscription can't be resumed — start a new checkout instead.
 
 ## Promotion codes
 
