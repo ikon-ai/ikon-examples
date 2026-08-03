@@ -14,8 +14,8 @@ Ikon Parallax apps describe their UI in C# on the server. A button is a button â
 
 ```csharp
 view.Button(
-    style: ["px-4 py-2 bg-blue-500 rounded-lg text-white"],
-    label: "Buzz In!",
+    ["px-4 py-2 bg-blue-500 rounded-lg text-white"],
+    text: "Buzz In!",
     onClick: async () => _buzzedIn.Value = clientId);
 ```
 

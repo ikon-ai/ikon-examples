@@ -81,12 +81,12 @@ Rules and generation behavior:
 
 - `opcode` is forbidden — declaring both `data = true` and `opcode` fails the build. `version` remains required (it will drive config-version migration chains).
 - Nested messages inherit data-ness from the root.
-- C# emits plain `public sealed partial class` POCOs: properties with defaults as initializers, doc comments, nested classes, and enums — no `IProtocolMessagePayload`, no serializer registration, no Teleport read/write machinery. The result serializes cleanly with System.Text.Json. A non-optional field of a nested type initializes to a fresh instance (`= new AuthConfig();`), so a default-constructed root is complete.
+- C# emits `public sealed partial class` POCOs: properties with defaults as initializers, doc comments, nested classes, and enums — no `IProtocolMessagePayload`, no serializer registration, no opcode. The result serializes cleanly with System.Text.Json, and every class additionally carries Teleport payload codecs (see "Binary Codecs" below). A non-optional field of a nested type initializes to a fresh instance (`= new AuthConfig();`), so a default-constructed root is complete.
 - TypeScript emits only `export interface` declarations and enums. Optional fields (`"T?"`) become true optional properties (`Field?: T`). No codecs, no opcode export, no opcode-registry participation.
 - Dart, C++, and Rust generators emit nothing for data schemas — data-schema support is C#/TS-only for now.
 - `string[]` fields may declare a default as a TOML array literal — `Methods = 'string[] = ["google", "email"]'` emits `new List<string> { "google", "email" }` in C#. List defaults are data-schema-only and string-element-only.
 - Every `#` comment line above a field, a `[nested.X]` header, or an `[enums.X]` header is preserved verbatim as that member's doc lines. The XML doc summary is unchanged; the full line list feeds the TOML writer below.
-- The generated type's public surface is deliberately minimal: its properties, `ToToml()` (toml mode), and `ToTeleportBytes`/`FromTeleportBytes` on the root class (binary mode). Loader plumbing — the `ToToml` extras overload, `ReadRetired`, `RetiredKeys` — stays public for cross-assembly loaders but is hidden from IntelliSense and the API docs via `[EditorBrowsable(Never)]`, and section-class codecs are `internal`.
+- The generated type's public surface is deliberately minimal: its properties, `ToToml()` (toml mode), and `ToTeleportBytes`/`FromTeleportBytes` on the root class. Loader plumbing — the `ToToml` extras overload, `ReadRetired`, `RetiredKeys` — stays public for cross-assembly loaders but is hidden from IntelliSense and the API docs via `[EditorBrowsable(Never)]`, and section-class codecs are `internal`.
 
 #### TOML Writer (`toml = true`)
 
@@ -100,9 +100,9 @@ which serializes the instance to TOML with the schema's doc comments emitted as 
 
 The writer supports exactly the flat two-level shape of such configs, enforced at generation time: root fields are `string`, `bool`, `int32`, `int64`, `string[]`, or a non-optional nested type (a section); section fields are the same scalars/lists. Optional fields, enums, lists of nested types, and nesting below sections are rejected.
 
-#### Binary Codecs (`binary = true`)
+#### Binary Codecs
 
-A data schema may additionally declare `binary = true` (valid only together with `data = true`, composable with `toml = true`) to give every generated C# class — root and nested — Teleport payload codecs without any wire-message machinery:
+Every data schema gives every generated C# class — root and nested — Teleport payload codecs without any wire-message machinery (a schema that declares `binary = true` fails the build: binary codecs are always generated for data schemas, so the key does not exist):
 
 ```csharp
 public void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
@@ -113,9 +113,9 @@ public static X FromTeleportBytes(ReadOnlySpan<byte> data)
 
 `ToTeleportBytes`/`FromTeleportBytes` wrap a standalone root object — no opcode, no `ProtocolMessage` attribute, no serializer registration, no version consts (nested object scopes inline the schema version), and no reset path: reads always populate a fresh instance. Field ids are the same xxHash32-of-name computation the wire generator uses, so the binary form of a config is an ordinary Teleport object.
 
-Because the TOML writer and the binary codecs hang off the same object, a `toml = true, binary = true` schema gives a lossless TOML ↔ binary conversion path for free: `FromToml(...)` → `ToTeleportBytes()` → `FromTeleportBytes(...)` → `ToToml()` reproduces the file — handy for debugging payloads and for shipping configs compactly.
+Because the TOML writer and the binary codecs hang off the same object, a `toml = true` schema gives a lossless TOML ↔ binary conversion path for free: `FromToml(...)` → `ToTeleportBytes()` → `FromTeleportBytes(...)` → `ToToml()` reproduces the file — handy for debugging payloads and for shipping configs compactly.
 
-Restrictions: external type references (`Foo:type`) are rejected at generation time — their codecs and versions live in other schemas this generator cannot see. Binary codecs are C#-only; TypeScript data emission is unchanged.
+Restrictions: external type references (`Foo:type`) are rejected in data schemas at generation time — their codecs and versions live in other schemas this generator cannot see. Binary codecs are C#-only; TypeScript data emission is unchanged.
 
 ### Unreliable Transport Default
 

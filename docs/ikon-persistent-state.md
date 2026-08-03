@@ -50,15 +50,17 @@ private readonly PersistentSessionReactive<long> _counter
     = new(0, backend: PersistenceBackend.Postgres, postgresDatabase: "main");
 ```
 
-Every app gets a built-in Postgres database (named `app:postgres`, provisioned automatically at
-activation — nothing to declare). The default backend routes on the storage doctrine — structured
-state belongs in Postgres, asset storage is for binaries and public files:
+Every app gets a built-in Postgres database named `app` — scaffolded configs declare it as the
+ordinary `Databases = ["app:postgres"]` entry, and an app whose manifest declares no databases at
+all gets it injected automatically at activation. Either way it is quota-free. The default backend
+routes on the storage doctrine — structured state belongs in Postgres, asset storage is for
+binaries and public files:
 
 - `Default` (what you get when you name no backend) — structured values (`T` is not `byte[]`) are
-  stored as one row in the `ikon_reactive_storage` table of the built-in `app:postgres` database.
+  stored as one row in the `ikon_reactive_storage` table of the built-in `app` database.
   `byte[]` payloads go to private asset storage. If the session has no database (older backend,
   degraded provisioning, plain local run), everything falls back to asset storage — same behavior,
-  different shelf.
+  different shelf — and the app logs one warning naming the fallback.
 - `Private` — S3-backed private cloud file, explicitly. Pick it only when a structured value must
   stay on asset storage despite the default.
 - `Public` — asset storage with a public URL on `PublicUrl`. **Only** when the value will be
@@ -67,7 +69,7 @@ state belongs in Postgres, asset storage is for binaries and public files:
   in `ikon-config.toml`. If the app has only one declared postgres DB, omit `postgresDatabase`;
   with several, name the one you want.
 
-Existing data migrates by itself: when a structured value first loads from `app:postgres` and finds
+Existing data migrates by itself: when a structured value first loads from the `app` database and finds
 no row, the old asset location is read and the value is copied into Postgres, so the next load hits
 the row. The old asset blob is left in place. Apps already using a declared DB with
 `backend: PersistenceBackend.Postgres` are untouched by all of this.
@@ -76,6 +78,24 @@ Every load and save logs its destination at debug level (member name, scope, and
 database or asset path), so "where is my data?" is answered by the app's logs.
 
 Backend ≠ scope. Scope decides who sees the value; backend decides where it lives. They're chosen independently.
+
+### Database tiers
+
+Every provisioned Postgres database lives on a tier — `shared-dense`, `shared`, or
+`dedicated-small` — which decides how densely it is packed onto an instance and how many
+connections it gets. Your plan maps the default tier; you never pick one at declaration time.
+
+A live database can move to another tier without redeploying:
+
+```
+ikon app db tier set dedicated-small
+```
+
+With several declared databases, name the one to move with `--database <name>`. The platform
+copies the data to an instance of the new tier, verifies it, and switches connections over —
+the database keeps its name and credentials, but expect open connections to drop briefly while
+the data moves (sessions reconnect automatically). `ikon app db list` shows each database's tier
+and the state of an in-flight migration.
 
 ## The `key:` parameter — only for loops
 

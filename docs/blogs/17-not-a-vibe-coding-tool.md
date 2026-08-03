@@ -32,9 +32,9 @@ The earlier posts in this series show the range: video conferencing with live AI
 
 | | **Base44 / Lovable** | **Ikon** |
 |---|---|---|
-| How you build | Describe in chat, AI writes code | Describe in Threads and AI agents build it, or write code directly |
+| How you build | Describe in chat, AI writes code | Describe it in Ikon Studio (or from a brief with the ikon CLI) and AI agents build it, or write code directly |
 | What it produces | React + Supabase web apps | AI-native apps across web, Unity, and native |
-| AI inside the app | API call integrations | 150+ models, multi-agent orchestration, streaming, structured output, tool use |
+| AI inside the app | API call integrations | 200+ models, multi-agent orchestration, streaming, structured output, tool use |
 | Audio and video | Not supported | Native bidirectional streaming, STT, TTS, lip sync, audio effects |
 | Real-time multiplayer | Basic data subscriptions | Automatic. Three tiers of shared state. Zero additional code. |
 | App lifecycle | Stateless, wakes per request | Persistent process. Runs continuously. Background work keeps going when everyone leaves. |
@@ -46,9 +46,9 @@ This is the comparison that makes Ikon look like a different category entirely. 
 
 But this is not the whole story.
 
-## Threads: the part that changes the comparison
+## Ikon Studio: the part that changes the comparison
 
-Ikon has a built-in development environment called Threads. It is itself an Ikon app — built on the same platform, using the same reactive UI, the same AI orchestration, the same persistent process model.
+Ikon has a built-in development environment called Ikon Studio. It is itself an Ikon app — built on the same platform, using the same reactive UI, the same AI orchestration, the same persistent process model.
 
 Here is what happens when you use it: you describe what you want to build. Multiple specialized AI agents collaborate to build it — a planner that designs the app, a coder that implements it, a designer that refines the interface, a critic that evaluates the result, and a "magician" that adds AI-powered intelligence. Each agent has access to the full Ikon platform documentation and knows the correct APIs, patterns, and conventions.
 
@@ -60,7 +60,7 @@ When the coder agent writes code, it compiles the app, launches it, and takes sc
 
 This is not "generate code and hope it works." This is a closed loop: write code, build, run, look at it, interact with it, evaluate it, fix what is wrong, repeat. The AI does not just write your app. It uses your app.
 
-Base44 and Lovable cannot do this. They generate code and show you a preview, but the AI itself does not interact with the running application. It cannot click a button to test whether it works. It cannot take a screenshot and evaluate whether the layout matches the design. The feedback loop runs through you — you look at the preview, describe what is wrong, and the AI tries again. In Threads, the feedback loop runs through the AI itself.
+Base44 and Lovable cannot do this. They generate code and show you a preview, but the AI itself does not interact with the running application. It cannot click a button to test whether it works. It cannot take a screenshot and evaluate whether the layout matches the design. The feedback loop runs through you — you look at the preview, describe what is wrong, and the AI tries again. In Studio, the feedback loop runs through the AI itself.
 
 ### Multiple agents with different expertise
 
@@ -94,29 +94,29 @@ The result is a multiplayer quiz app with AI-generated questions, voice narratio
 
 ### You describe, the agents build
 
-When you use Threads, you describe what you want in natural language -- the same way you would on Lovable or Base44. The agents handle the implementation. The difference is that the code being generated targets the Ikon runtime instead of a traditional web stack -- and the agents writing it have been trained on the platform's documentation, know the correct APIs, and can verify their work by running the result.
+When you use Ikon Studio, you describe what you want in natural language -- the same way you would on Lovable or Base44. The agents handle the implementation. The difference is that the code being generated targets the Ikon runtime instead of a traditional web stack -- and the agents writing it have been trained on the platform's documentation, know the correct APIs, and can verify their work by running the result.
 
 If you want to, you can open the generated code, read it, and modify it directly. The code is yours. But you do not have to. You handle the intent. The agents handle everything else.
 
 ### It builds on the full Ikon runtime
 
-This is the part that creates the widest gap. When Lovable generates a React + Supabase app, the ceiling is what React + Supabase can do. When Threads builds an Ikon app, the ceiling is everything described in this blog series.
+This is the part that creates the widest gap. When Lovable generates a React + Supabase app, the ceiling is what React + Supabase can do. When Studio builds an Ikon app, the ceiling is everything described in this blog series.
 
 The AI agents know the Ikon platform APIs. They can generate apps with real-time multiplayer out of the box. They can add speech recognition, text-to-speech, image generation, and multi-model AI orchestration. They can build apps with persistent background processes, live audio effects, and video streaming. They build on the same runtime that produced the video conferencing app, the animated voice chat, and the ambient cinema generator.
 
-A Lovable-generated app that "uses AI" typically means: a text field, a fetch call to an LLM API, and a response displayed on screen. A Threads-generated Ikon app can have multiple AI models working together in an Emergence pattern -- the platform's library of composable multi-agent workflows like draft-critique-verify loops, parallel best-of-N selection, and debate-then-judge -- streaming results to every connected user in real time, with audio synthesis and reactive UI updating as the AI works.
+A Lovable-generated app that "uses AI" typically means: a text field, a fetch call to an LLM API, and a response displayed on screen. A Studio-generated Ikon app can have multiple AI models working together in an Emergence pattern -- the platform's library of composable multi-agent workflows like draft-critique-verify loops, parallel best-of-N selection, and debate-then-judge -- streaming results to every connected user in real time, with audio synthesis and reactive UI updating as the AI works.
 
 The generated app runs as a persistent process. It handles multiplayer automatically. It can run background tasks. It can stream audio and video. Not because someone manually added these capabilities — because the runtime provides them by default.
 
 ## The updated comparison
 
-| | **Base44 / Lovable** | **Ikon Threads** |
+| | **Base44 / Lovable** | **Ikon Studio** |
 |---|---|---|
 | Describe and build | Yes — chat-driven code generation | Yes — multi-agent orchestrated development |
 | AI tests its own work | No — preview only, human evaluates | Yes — AI runs the app, clicks, screenshots, evaluates |
 | Development agents | Single LLM writing code | Specialized agents: planner, coder, designer, critic, magician |
 | Quality convergence | You decide when it is done | Scored milestones with convergence thresholds |
-| Generated app ceiling | React + Supabase web apps | Full Ikon runtime: real-time multiplayer, audio/video, 150+ AI models, persistent processes, cross-platform |
+| Generated app ceiling | React + Supabase web apps | Full Ikon runtime: real-time multiplayer, audio/video, 200+ AI models, persistent processes, cross-platform |
 | AI inside generated apps | API call integrations | Native multi-model orchestration, streaming, structured output, tool use |
 | Audio/video in generated apps | Not possible | Speech, voice, video, lip sync, audio effects — all available |
 | Multiplayer in generated apps | Requires manual setup | Automatic by default |
@@ -126,7 +126,7 @@ The generated app runs as a persistent process. It handles multiplayer automatic
 
 Speed to a static prototype. If you need a basic admin panel in ten minutes and you are not a developer, Base44 or Lovable will get you there. Their chat interface is simpler. Their learning curve is lower. For a form that reads and writes to a database — the classic CRUD app with no real-time requirements and no AI beyond a single API call — they are fast and accessible.
 
-They are also more mature as "describe and build" tools. Their prompt-to-app pipeline has been refined across hundreds of thousands of users. Threads is newer and the agent orchestration is more complex.
+They are also more mature as "describe and build" tools. Their prompt-to-app pipeline has been refined across hundreds of thousands of users. Studio is newer and the agent orchestration is more complex.
 
 But the moment the brief says "intelligent" — the moment you want the app to listen, summarize, adapt, process in the background, collaborate in real time, or do anything with audio and video — the comparison shifts entirely. An AI-first business tool is not a CRUD app with a chat widget. It is an application where intelligence runs through every interaction. And for that, the runtime matters more than the code generator.
 
@@ -136,7 +136,7 @@ Everything beyond CRUD. The moment you need real-time collaboration that goes de
 
 At that point, Lovable and Base44 hit a wall that is not about their AI's coding ability — it is about the runtime their generated code targets. React + Supabase is a capable stack for a large category of applications. But it is not a stack that can produce a video conferencing app with live AI transcription, an animated character with lip-synced speech, or a game generator that critiques its own output. The limitation is structural, not a matter of better prompts or smarter models.
 
-Ikon's runtime was built for this category. And Threads means you can build for it the same way you would build on Lovable — by describing what you want and letting AI agents handle the implementation. The difference is that those agents can see, run, and interact with what they build, and what they build runs on a platform where intelligence, media, and real-time collaboration are native capabilities rather than external integrations.
+Ikon's runtime was built for this category. And Studio means you can build for it the same way you would build on Lovable — by describing what you want and letting AI agents handle the implementation. The difference is that those agents can see, run, and interact with what they build, and what they build runs on a platform where intelligence, media, and real-time collaboration are native capabilities rather than external integrations.
 
 ## The honest summary
 
@@ -146,4 +146,4 @@ But the world is moving toward AI-first applications, and AI-first is not "a for
 
 For this category -- which includes business tools, internal apps, and customer-facing products alike -- the runtime determines the ceiling. A React + Supabase stack cannot do real-time audio transcription, persistent background AI processing, or automatic multiplayer collaboration. Ikon can, because the platform was built for it.
 
-Threads is vibe coding for applications that need a runtime built for AI-native experiences. You describe what you want. Specialized agents plan, build, design, and evaluate -- running the app themselves, interacting with it, scoring it against the plan. And the result is not a static web page with an API call. It is an application that listens, speaks, thinks, collaborates, and keeps working after everyone goes home.
+Studio is vibe coding for applications that need a runtime built for AI-native experiences. You describe what you want. Specialized agents plan, build, design, and evaluate -- running the app themselves, interacting with it, scoring it against the plan. And the result is not a static web page with an API call. It is an application that listens, speaks, thinks, collaborates, and keeps working after everyone goes home.
