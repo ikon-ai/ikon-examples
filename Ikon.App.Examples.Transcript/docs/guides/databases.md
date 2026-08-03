@@ -60,7 +60,7 @@ await db.SaveChangesAsync();
 var recent = await db.Notes.OrderByDescending(n => n.CreatedAt).Take(20).ToListAsync();
 ```
 
-**Migrations workflow.** Add a design-time factory once so `dotnet ef` can build the context — the `ikon app db ef-migrate-*` commands drive `dotnet ef` and inject the real connection string as `IKON_DB`:
+**Migrations workflow.** Add a design-time factory once so `dotnet ef` can build the context — the `ikon app db migrate *` commands drive `dotnet ef` and inject the real connection string as `IKON_DB`:
 
 ```csharp
 public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
@@ -73,7 +73,7 @@ public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbConte
 }
 ```
 
-After each model change, run `ikon app db ef-migrate-add <Name>` and commit the generated migration — startup `MigrateAsync()` applies it on the next deploy. `ikon app db ef-migrate-apply` applies it now, `ikon app db ef-migrate-list` shows status, `ikon app db ef-migrate-remove` drops the last unapplied one, and `ikon app db reset` drops all data.
+After each model change, run `ikon app db migrate add <Name>` and commit the generated migration — startup `MigrateAsync()` applies it on the next deploy. `ikon app db migrate apply` applies it now, `ikon app db migrate list` shows status, `ikon app db migrate remove` drops the last unapplied one, and `ikon app db reset` drops all data.
 
 ### Raw SQL (lightweight alternative)
 

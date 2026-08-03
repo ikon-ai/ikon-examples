@@ -429,11 +429,11 @@ Each client edits its own `_name`/`_subscribed` (they are `ClientReactive`), the
 
 ## Boot Snapshot and Privacy
 
-The platform can capture an app's **initial UI at build time** and ship it as a static `boot-snapshot.json`, so the first paint appears instantly — before the WebSocket connects. Capture is **opt-in per app** via `ikon-config.toml`: enable the `[BootSnapshot]` section, then `ikon app bundle` / `ikon app deploy` renders the app once for a synthetic snapshot client and serializes the resulting UI tree.
+The platform captures an app's **initial UI at build time** and ships it as a static snapshot asset, so the first paint appears instantly — before the WebSocket connects. Capture is **on by default**: `[BootSnapshot] Routes` lists the routes to snapshot (scaffolded as `["/"]`), and `ikon app bundle` / `ikon app deploy` renders the app once per route for a synthetic snapshot client and serializes the resulting UI tree. An empty list disables boot snapshotting.
 
 ```toml
 [BootSnapshot]
-Enabled = true
+Routes = ["/"]   # the default; [] disables boot snapshotting
 ```
 
 Because that snapshot is a **public asset served to everyone**, anything in your initial UI — a signed-in user's name, a session link, private data — would otherwise be baked into it and shown to every visitor before the live UI loads. So the snapshot is **privacy-safe by default**: during capture, Parallax automatically **replaces every piece of content with a skeleton**. Each text, image, input, and control becomes a pulsing placeholder block while the layout shape (rows, columns, tabs, cards) is preserved — so the first paint looks like your app's skeleton screen and **no per-user content can leak**, with no work from you.
@@ -459,6 +459,23 @@ view.SnapshotOnly(v => v.Text([Text.Caption], text: "Loading your dashboard…")
 - **`SnapshotHide(content)`** — renders `content` live and omits it from the snapshot (not even a skeleton).
 - **`SnapshotOnly(content)`** — renders `content` only in the snapshot (never live), for snapshot-specific filler; it is shown as authored rather than skeletonized.
 
+### Public pages: opting a whole page out of skeletonization
+
+A public landing-type page — marketing copy, docs, pricing — has nothing to protect, and skeletons only cost it SEO content. There is deliberately no config switch for this (the privacy decision belongs next to the content it exposes): wrap the **page root** in a single `SnapshotReveal` and the whole page renders for real in the snapshot. The proven shape is a per-page wrapper, as in Studio's guest pages:
+
+```csharp
+private static void RenderGuestPage(UIView view, Action<UIView> content)
+{
+    // The whole guest page is public marketing content — safe to reveal in the snapshot. Never
+    // route per-user data through this wrapper.
+    view.SnapshotReveal(v => v.Column(["min-h-screen"], content: content));
+}
+```
+
+Everything routed through the wrapper is real HTML for crawlers and an instant real first paint for visitors; every other page in the app keeps the skeleton default. The capture client is an anonymous guest, so only content an anonymous guest may see can ever pass through it — keep it that way.
+
+### Hand-built skeletons
+
 The **`Skeleton`** component is also available directly — a pulsing placeholder block, sized and shaped via `SkeletonShape` / `SkeletonSize` (or any `style:`) — for hand-built loading states anywhere in your UI:
 
 ```csharp
@@ -475,6 +492,143 @@ if (view.IsSnapshot) { /* snapshot-only branch */ }
 ```
 
 **Preview the snapshot UI in a browser** by opening the running app with `?ikon-snapshot=true`. The SDK then connects as a snapshot client — the same `Context.IsSnapshot = true` render path the build-time capture uses — so the live page shows exactly what the boot snapshot bakes: every unrevealed element as a skeleton, `SnapshotReveal` regions showing real content, `SnapshotHide` elements gone, `SnapshotOnly` filler present, and only the active tab's panel rendered. It needs no rebuild and works against any running instance — a local `ikon app run` or a deployed URL — so you can confirm at a glance that no per-user or sensitive content leaks into the public first paint.
+
+### Per-route snapshots and SEO
+
+Beyond the single boot view, an app can declare **public routes** to snapshot individually. Each declared route is captured with its own synthetic client (connected with that route as its initial path), rendered to its own snapshot — and, at bundle time, **prerendered to static HTML** through the same React component pipeline the browser uses. The gateway serves that HTML **to crawlers** for the route's URL, so search engines and link-preview fetchers get real, styled, content-bearing markup (whatever `SnapshotReveal` opts in). **Human visitors** always get the SPA index instead: the SDK seeds the route's snapshot JSON (the bundle bakes a route→snapshot map into the index) for an instant, pixel-faithful first paint, and the live app takes over seamlessly when the WebSocket connects. A `sitemap.xml` and `robots.txt` are generated from the same route set at deploy time (an app-shipped `public/robots.txt` or `sitemap.xml` wins).
+
+```toml
+[BootSnapshot]
+Routes = ["/", "/pricing", "/about"]     # static routes to snapshot
+SignedInSeeds = ["/**:shell"]            # optional seed rules; see below
+```
+
+Content-driven routes (one per store listing, article, …) are declared in app code and unioned with the static list at capture time:
+
+```csharp
+app.OnSnapshotRoutes(async () => (await store.GetListingsAsync()).Select(l => $"/listing/{l.Id}"));
+```
+
+Two capture-quality tools:
+
+- **Settle signal** — capture treats a quiet UI stream as "settled" and additionally listens for an explicit ready signal; whichever arrives first wins, and everything is bounded by a per-route cap. A route whose content loads asynchronously after a silent gap could quiesce too early and bake its loading skeleton into the snapshot — call `ClientFunctions.SnapshotReadyAsync()` when the route's content is loaded and capture snapshots at exactly that moment. Nothing to configure; the call is a harmless no-op for normal browser clients.
+- **Redirect detection** — a route that navigates elsewhere during capture (e.g. bouncing to a login view) is never captured under the wrong URL: the capture fails with an error naming the route and where it settled, and the bundle/deploy fails with it. Declared routes must be paths the app serves directly — if the app rewrites `/` to `/home` on load, either render the page at `/` without rewriting or declare `/home` instead (and fix `OnSnapshotRoutes` results the same way).
+
+Routes must be app-owned paths: `/`-prefixed, no query/fragment, not under the platform-reserved `/ikon` or `/api` prefixes. Prerendered crawler HTML (and the sitemap built from it) requires the app to be openable without login (`[Auth]` disabled, or `guest` among the methods) — serving marketing HTML to crawlers in front of a hard login wall is a cloaking pattern, so for login-only apps the bundle skips the prerender and ships the JSON snapshots alone (the instant skeletonized first paint still works).
+
+#### How to use it
+
+Reach for per-route snapshots when an app has **public, content-bearing pages that should rank in search** — a marketing home page, pricing/about pages, a storefront's product pages, a blog's articles. It does nothing for a signed-in dashboard (that content is skeletonized and gated behind login), so enable it only on the public surface.
+
+1. **Make the public routes openable without signing in.** In `ikon-config.toml`, either leave `[Auth] RequireSignIn = false` (the default), or set it with `guest` or `global` in `Methods` so a crawler can connect without a login wall. If neither holds, the bundle skips the crawler HTML and ships JSON snapshots only.
+
+2. **List the static routes.** Enumerate the fixed public paths (the scaffold starts you at `["/"]`):
+
+   ```toml
+   [BootSnapshot]
+   Routes = ["/", "/pricing", "/about"]
+   ```
+
+3. **Add content routes in app code** (optional). For pages generated from data — one per listing, article, or profile — return them from `OnSnapshotRoutes`. They are unioned with the static list and de-duplicated, then capped at 50 routes per bundle:
+
+   ```csharp
+   app.OnSnapshotRoutes(async () =>
+       (await store.GetPublishedArticlesAsync()).Select(a => $"/blog/{a.Slug}"));
+   ```
+
+   The provider runs on the machine doing the bundle/deploy, so the captured set is as fresh as your last deploy — re-deploy to pick up new content.
+
+4. **Decide what's public per route.** Capture skeletonizes everything by default. Wrap the parts that are safe and meaningful for a crawler — the headline, body copy, product name/price, hero image — in `SnapshotReveal` so they render as real HTML. Anything left unrevealed ships as a skeleton and contributes nothing to SEO. Use `SnapshotHide` for controls that are dead before the socket connects, and `SnapshotOnly` for snapshot-specific filler. Sensitive or per-user content should stay skeletonized — never `SnapshotReveal` it.
+
+5. **Handle async content.** If a route paints its real content only after an async load (a fetch, a DB read), the quiescence timer could settle on the loading skeleton. Call `ClientFunctions.SnapshotReadyAsync()` once the route's content is in place — capture races that signal against quiescence automatically and snapshots as soon as either arrives. It's a no-op for live browser clients, so it's safe to leave in.
+
+   If the app registers **custom UI modules** (`useIkonApp({ modules })`), the prerender needs them too or those elements render as skeletons in the static HTML: create `src/prerender-modules.ts` in the frontend exporting `prerenderModules: IkonUiModuleRegistration[]` with the same registrations, and the prerender build picks it up automatically.
+
+6. **Bundle and verify.** Run `ikon app bundle` (locally built ikon tool). In `build/bundle/frontend-node/` you'll find a per-route `boot-snapshot-*.json`, `ikon/routes/*.html`, and `route-manifest.json`. **Open an `ikon/routes/*.html` file with JavaScript disabled** — the revealed content and its styles should be visible with no "JavaScript is required" notice. That is exactly what a crawler sees.
+
+7. **Deploy.** `ikon app deploy` generates `sitemap.xml` and `robots.txt` from the route set and serves each route's prerendered HTML from the gateway. To override the defaults, ship your own `public/robots.txt` or `public/sitemap.xml` — an app-provided file always wins. Per-route `<title>` is derived from the route today; a full per-route meta/OG API is the natural follow-up.
+
+**Preview a route's snapshot without a rebuild** the same way as the boot snapshot: open the running app at that path with `?ikon-snapshot=true` to render the capture path in your browser, confirming what's revealed and that nothing sensitive leaks.
+
+#### Seed rules and snapshot variants (`GuestSeeds` / `SignedInSeeds`)
+
+Route snapshots cover concrete paths that exist at deploy time. Two situations need more:
+
+- **Identity-split pages** — the deferred-login pattern where the same path is a guest landing for anonymous visitors and a personal hub for signed-in users. The route snapshots depict the app's **public** entry views, so a signed-in session must not paint them; with nothing else cached, a fresh sign-in would stare at a blank page until the instance boots.
+- **Dynamic paths** — user-created content like `/myapp/my-workshop`, whose slugs exist only in the database. No concrete route can be captured for a slug created after the deploy, so a visitor deep-linking there has nothing to seed.
+
+Seed rules cover both. Each entry is `"pattern:variantId"` (the same colon-separated shape as `Databases`), listed per login state, **first match wins** in array order:
+
+```toml
+[BootSnapshot]
+Routes = ["/"]
+GuestSeeds = ["/**:welcome"]
+SignedInSeeds = ["/:admin", "/*:dashboard", "/*/**:experience"]
+```
+
+A pattern segment is a literal (exact match), `*` (exactly one segment, any content), or a final `**` (zero or more remaining segments). So `/` matches only the front page, `/*` any one-segment path, `/*/**` any path two segments or deeper, and `/**` everything. Order matters — `**` means *zero* or more, so `/*/**` also matches one-segment paths; listing `/*:dashboard` first keeps those on the dashboard rule. A `/**` entry anywhere but last fails the bundle (the entries after it could never apply).
+
+On load, the SDK picks the array from the stored-session heuristic (a non-anonymous localStorage session, or an OAuth callback token), then resolves per axis: **guests** seed an exact route snapshot first — real public content beats a generic fallback skeleton — and consult `GuestSeeds` for everything unmapped; **signed-in** visitors consult `SignedInSeeds` first — the rules exist precisely to override the public route snapshots — and fall back to the exact route snapshot, so an app with no rules still paints (route snapshots are skeletonized and identity-free).
+
+Every distinct variant id becomes **one skeleton capture**: a capture client connects with the id in `Context.SnapshotVariant`, and the app branches to the matching skeleton — no magic paths, the toml ids are the `case` labels:
+
+```csharp
+if (view.IsSnapshot)
+{
+    switch (view.SnapshotVariant)
+    {
+        case "admin":      RenderAdminPanelSkeleton(view); break;
+        case "dashboard":  RenderDashboardSkeleton(view);  break;
+        case "experience": RenderExperienceSkeleton(view); break;
+        default:           RenderWelcomeSkeleton(view);    break;   // "welcome" + route captures
+    }
+
+    return;
+}
+```
+
+Because nothing in a variant skeleton is wrapped in `SnapshotReveal`, the whole capture skeletonizes into neutral blocks automatically: an app-shaped skeleton with no user data by construction. Render it from **local placeholder data** (a fixed heading, a few empty cards) rather than the app's real reactives — the capture client is unauthenticated, and the skeleton only needs the right geometry. Variant artifacts ship separately from the public routes: they are **not** prerendered to HTML and never appear in the route manifest or sitemap (a skeleton standing for unboundedly many URLs is not crawlable content — concrete SEO stays with `Routes` and `OnSnapshotRoutes`). A returning user's live-snapshot cache of their own last UI still wins over any seed rule. A declared variant the capture cannot produce fails the bundle/deploy, exactly like a missing route.
+
+The old single-shell pattern is the simplest rule set: `SignedInSeeds = ["/**:shell"]` seeds one hub skeleton on every path for signed-in visitors, and `view.SnapshotVariant == "shell"` renders it.
+
+### Open-as-guest (the default)
+
+A login-gated app blocks the connection behind its sign-in screen — which also means its landing content can't be a server-drawn page, and the SEO pipeline above has nothing to capture. Leaving `RequireSignIn` off inverts that: visitors connect **immediately as an anonymous session**, the app decides what they see, and real sign-in happens on demand.
+
+```toml
+[Auth]
+RequireSignIn = false            # the default — no sign-in wall
+Methods = ["google", "guest"]    # "guest" is what visitors connect as
+```
+
+The two not-signed-in flavors differ in who shares an identity. `guest` mints a device-scoped anonymous user per visitor, so each drive-by gets their own `UserId` and their own app instance. `global` puts every visitor on one space-wide shared anonymous user — they collapse onto a single instance with no per-visitor database writes, which is the cost-efficient choice for a public landing surface. List both to enter as `global` by default and upgrade a visitor with `login('guest')` when they need an identity of their own.
+
+The frontend establishes the session on first visit (no login wall, no click) and connects. On the server, `Context.IsAnonymous` distinguishes not-signed-in visitors from signed-in users — the authoritative flag; a guest still carries a valid device-scoped `UserId`. `Context.IsGlobal` tells you which flavor you are serving. The typical shape is a branch at the top of the UI root:
+
+```csharp
+UI.Root([Page.Default], content: view =>
+{
+    if (_isGuest.Value || view.IsSnapshot)   // _isGuest: ClientReactive set from Context.IsAnonymous at join
+    {
+        RenderLanding(view);                 // public marketing page, wrapped in SnapshotReveal
+        return;
+    }
+    RenderApp(view);                         // the signed-in product
+});
+```
+
+Trigger sign-in from the server-drawn landing with the client login primitive:
+
+```csharp
+view.Button(["..."], text: "Sign in with Google",
+    onClick: async () => await ClientFunctions.LoginAsync("google"));
+```
+
+`LoginAsync` starts the client's OAuth redirect for the given provider (`google`, `microsoft`, …); the user returns authenticated and the client reconnects with its real identity — the anonymous session is simply abandoned. Guest, global, email and passkey flows stay client-initiated. Call it from event handlers only (like all client functions), never from the render pass.
+
+Guard your authed-only paths: skip user-backend calls, per-user persistence, and deep-link view restoration for anonymous sessions — a guest must not be able to navigate into the signed-in surface by URL. This matters more under `global`, where every visitor shares one `UserId`: never key per-user state on it.
+
+**This is how an app with sign-in gets a crawlable landing page**: combine open-as-guest with `[BootSnapshot] Routes = ["/"]`. The capture client connects as an anonymous session, renders the same landing, and the SEO pipeline prerenders it to static HTML — crawlable markup, instant first paint from the static file, and the live session connecting invisibly underneath, taking over pixel-identically.
 
 ## Architecture Summary
 

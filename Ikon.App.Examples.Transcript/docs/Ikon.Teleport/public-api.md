@@ -25,6 +25,9 @@ namespace Ikon.Teleport
     static TeleportArrayReader Create(ReadOnlySpan<byte> data, int parentDepth = 0)
     bool TryGetUnmanagedSpan<T>(out ReadOnlySpan<T> span) where T : unmanaged
     bool TryReadElement(out TeleportArrayElement element)
+  // Serializes instances of the type as their ToString() string; deserializes via the (string) constructor. The wire sees a plain string field, so adding or removing the attribute on a type whose string form is unchanged is wire-compatible.
+  sealed class TeleportAsStringAttribute : Attribute
+    ctor()
   // Serializes every instance property with both a getter and a setter (init counts); a get-only property is silently dropped, and TeleportIgnoreAttribute excludes one explicitly. A field is matched on read by the hash of its property name, so renaming a property silently breaks the wire in both directions (the field is skipped and left at its default) unless the id is pinned with TeleportFieldAttribute; adding or removing a property is safe.
   sealed class TeleportAttribute : Attribute
     ctor(uint version = 1)
