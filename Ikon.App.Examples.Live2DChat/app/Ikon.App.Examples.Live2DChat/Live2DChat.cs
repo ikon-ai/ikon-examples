@@ -188,7 +188,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                     effect.Process(processedSamples);
                 }
 
-                await Audio.SendAsync(processedSamples, state.SampleRate, state.ChannelCount, args.IsFirst, args.IsLast, args.StreamId.ToString());
+                await Audio.SendImmediateAsync(processedSamples, state.SampleRate, state.ChannelCount, args.IsFirst, args.IsLast, args.StreamId.ToString());
             }
 
             if (args.IsLast)
@@ -234,7 +234,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                 _ => currentModel.Portrait
             };
 
-            // Full-screen Live2D avatar (viseme data comes from TrackingFrame, not props)
+            // Full-screen Live2D avatar (viseme data rides GROUP_AUDIO AudioShapeFrame via VisemeTracker, not props)
             view.Live2DCanvas(
                 source: currentModel.Path,
                 isListening: _isListening.Value,

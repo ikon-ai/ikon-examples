@@ -39,9 +39,6 @@ const LIP_SYNC_NOISE_GATE = 0.02;
 // EMA smoothing factor for additional visual polish (0-1, higher = more responsive)
 const LIP_SYNC_SMOOTHING = 0.4;
 
-// Decay rate when no viseme data (how fast to return to idle pose)
-const LIP_SYNC_DECAY_RATE = 0.08;
-
 // Time in ms before starting decay when no new viseme data
 const LIP_SYNC_DECAY_DELAY_MS = 50;
 
@@ -721,7 +718,6 @@ const Live2DCanvasInner = memo(function Live2DCanvasInner(props: Live2DCanvasPro
   const mouthFormValueRef = useRef<number>(0);
   const lastMouthUpdateRef = useRef<number>(0);
   const modelDimensionsRef = useRef<{ width: number; height: number } | null>(null);
-  const transformRef = useRef<{ scale: number; offsetY: number }>({ scale: 1, offsetY: 0 });
   const scaleRef = useRef<number>(1);
   const offsetYRef = useRef<number>(0);
   const baseTransformRef = useRef<{ x: number; y: number; scale: number } | null>(null);

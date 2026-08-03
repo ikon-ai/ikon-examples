@@ -112,7 +112,7 @@ For `ScrollArea` showing live-updating content (chat, logs, streaming), add poli
 Key elements:
 
 - `return await App.Run(args);` - Required entry point; it is the first *statement* in the file, but any `using` directives must appear ABOVE it (a `using` placed after it is CS1529). Prefer putting shared namespaces in `GlobalUsings.cs` so the app file needs no local usings.
-- `[App]` attribute - Mandatory, must appear exactly once. Marks the class whose `Main()` method will be executed. Do NOT explicitly implement `: IApp<>` — the `[App]` attribute handles interface implementation via source generation
+- `[App]` attribute - Mandatory, must appear exactly once. Marks the class whose `Main()` method will be executed. Do NOT explicitly implement `: IApp<>` — the platform discovers the `[App]` class by reflection and passes its own `IApp` implementation in through the primary constructor
 - `IApp<SessionIdentity, ClientParameters> app` - Must specify types for SessionIdentity and ClientParameters. Passed as a primary constructor parameter, not implemented as an interface
 - `private UI UI { get; } = new(app, new IkonTheme());` - Initialize UI with app and theme. For brand customization, use the indexer: `new IkonTheme { ["primary"] = "amber-400", ["background"] = "zinc-950" }` — every entry is one CSS-variable override expressed in Crosswind tokens. **Never redefine `IkonTheme` as a class in your app source** — it is provided by `Ikon.Parallax.Theming` and auto-imported via `global using`.
 - `Reactive<T>` - Reactive state that triggers UI updates when changed
@@ -137,7 +137,6 @@ All files use `public partial class MyApp` and share the same constructor-inject
 Reduce `using` clutter with a GlobalUsings file:
 
 ```csharp
-global using Ikon.AI.Chat;
 global using Ikon.AI.Emergence;
 global using Ikon.AI.ImageGeneration;
 global using Ikon.AI.Kernel;
@@ -183,13 +182,13 @@ Examples:
 
 ### URL Format
 
-- `/s/[sessionId]` - direct session ID, bypasses SessionIdentity calculation
+- `?ikon-session=[sessionIdentityHash]` - joins that exact live session, bypassing SessionIdentity calculation. This is the link `app.GlobalState.SessionUrl` publishes. If no live session has that hash the connect fails — it never falls back to starting a fresh one.
 - Query params (`?key=value`) - mapped to SessionIdentity and ClientParameters
 
 ### Anti-patterns — DO NOT use
 
 - `IApp<NoSession, NoClient>` / `IApp<None, None>` / `IApp<,>` — sentinel "no session/client" types **do not exist**. Always declare concrete `public record SessionIdentity(...)` and `public record ClientParameters(...)` (use empty `()` if you don't need any fields; both MUST be `public` or you get CS0051).
-- Implementing `IApp` as an interface (`class MyApp : IApp<S,C>`) — wrong. The `[App]` attribute generates the interface implementation; you only declare a primary constructor `(IApp<S,C> app)` parameter.
+- Implementing `IApp` as an interface (`class MyApp : IApp<S,C>`) — wrong. The `[App]` attribute only marks the class for discovery; you only declare a primary constructor `(IApp<S,C> app)` parameter and the host's own `IApp` implementation is passed in.
 
 ## Common hallucinations the C# compiler will reject
 
@@ -281,12 +280,11 @@ await app.Navigation.SetPathAsync(args.ClientSessionId, $"/{tab}", replace: true
 
 ```csharp
 app.GlobalState.SpaceId           // Current space ID
-app.GlobalState.ChannelId         // Current channel ID
 app.GlobalState.ServerSessionId   // Id of this Ikon server instance
 app.GlobalState.SessionHash       // Hash of session identity params (logical session id)
-app.PublicUrl                     // The app's public URL (channel access URL)
+app.PublicUrl                     // The app's public URL (space access URL)
 app.JoinUrl(new { id = gameId })  // PublicUrl + URL-encoded query string from an anonymous object
-app.GlobalState.SessionChannelUrl // Session-specific access URL
+app.GlobalState.SessionUrl        // Session-specific access URL
 app.GlobalState.PrimaryUserId     // Static user ID of session owner
 app.GlobalState.FirstUserId       // First human user who joined (dynamically reassigned)
 app.GlobalState.GetClientContext(clientSessionId)  // Get client context; null if no such client is connected
@@ -307,7 +305,7 @@ var joinUrl = app.PublicUrl;
 // with query parameters (URL-encoded name=value pairs from an anonymous object):
 var inviteUrl = app.JoinUrl(new { id = sessionId });
 // or session-specific:
-var sessionUrl = app.ReactiveGlobalState.SessionChannelUrl.Value;
+var sessionUrl = app.ReactiveGlobalState.SessionUrl.Value;
 
 // Render as QR code
 view.QR(["w-48 h-48"], value: joinUrl);

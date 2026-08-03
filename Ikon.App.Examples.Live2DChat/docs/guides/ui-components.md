@@ -2,7 +2,7 @@
 
 ## UI Components
 
-All UI components are called as methods on `UIView` (the `view` parameter in content lambdas). Never reference the `UIView` type directly — just use the `view` parameter provided by content lambdas. (`IView` exists only as a global alias for `UIView` for helper-method signatures; there is no separate `IView` interface.) Style is always the first parameter, using an array of theme constants and/or Crosswind classes.
+All UI components are called as methods on `UIView` (the `view` parameter in content lambdas). Never reference the `UIView` type directly — just use the `view` parameter provided by content lambdas. (`IView` exists only as a global alias for `UIView` for helper-method signatures; there is no separate `IView` interface.) Style is the first parameter on nearly every component (payload-first exceptions like `KeyboardListener` and `SortableList` take `style:` as a named parameter), using an array of theme constants and/or Crosswind classes.
 
 ### Layout
 
@@ -98,10 +98,19 @@ view.Select(bind: _selected, placeholder: "Choose...",
 view.RadioGroup(bind: _radio,
     content: view =>
     {
-        view.RadioGroupItem([RadioGroup.Item], value: "opt1",
-            content: view => view.Text(text: "Option 1"));
-        view.RadioGroupItem([RadioGroup.Item], value: "opt2",
-            content: view => view.Text(text: "Option 2"));
+        // The item is just the radio circle — render the label as a SIBLING, never as item content
+        view.Row([Layout.Row.Sm], content: view =>
+        {
+            view.RadioGroupItem([RadioGroup.Item], value: "opt1",
+                content: v => v.RadioGroupIndicator([RadioGroup.Indicator]));
+            view.Text(text: "Option 1");
+        });
+        view.Row([Layout.Row.Sm], content: view =>
+        {
+            view.RadioGroupItem([RadioGroup.Item], value: "opt2",
+                content: v => v.RadioGroupIndicator([RadioGroup.Indicator]));
+            view.Text(text: "Option 2");
+        });
     });
 view.FileUpload(
     onUploadComplete: async args => { /* args.UploadId, args.FileName, args.MimeType, args.Size, args.LocalTempFilePath, args.AssetUri */ },
@@ -326,8 +335,8 @@ view.CaptureButton([Button.OutlineMd, Button.Icon],
     onCaptureStop: async args => { _streamId.Value = null; },
     content: v => v.Icon([Icon.Default], name: "mic"));
 
-// Video capture (camera). Note: do NOT set TargetIds — see "Critical" warning in
-// the Video section above. Leave it unset so the server receives the stream.
+// Video capture (camera). Capture media always routes to the app on the server,
+// never to the other clients — the app decides any fan-out.
 view.CaptureButton([Button.OutlineMd, Button.Icon],
     kind: MediaCaptureKind.Camera,
     captureMode: MediaCaptureButtonMode.Toggle,

@@ -9,11 +9,14 @@ export interface Translations {
   'connection.offline.message': string;
   'connection.serverFull.title': string;
   'connection.serverFull.message': string;
+  'connection.sessionExpired.title': string;
+  'connection.sessionExpired.message': string;
 
   // Auth screen
   'auth.welcome.title': string;
   'auth.welcome.subtitle': string;
   'auth.divider': string;
+  'auth.dismiss': string;
 
   // Email login form
   'auth.email.placeholder': string;
