@@ -5,6 +5,9 @@ import tseslint from 'typescript-eslint';
 
 export default [
   { ignores: ['build/**', 'dist/**', 'src/generated/**'] },
+  {
+    linterOptions: { reportUnusedDisableDirectives: 'error' },
+  },
   eslintJs.configs.recommended,
   ...tseslint.configs.recommended,
   eslintReact.configs['recommended-typescript'],
@@ -21,6 +24,7 @@ export default [
       },
     },
     rules: {
+      '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-unused-vars': [
         'error',
         {
