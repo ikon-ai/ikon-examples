@@ -5,7 +5,7 @@
 ```csharp
 return await App.Run(args);
 
-public record SessionIdentity(string UserId);
+public record SessionIdentity(string? UserId);
 public record ClientParameters(string Name = "Ikon");
 
 [App]
@@ -164,13 +164,21 @@ SessionIdentity properties determine which users share the same app instance:
 
 - All property values are hashed together to calculate sessionId
 - If sessionId matches a running app instance, user connects to it; otherwise a new instance is created
-- `UserId` is special: cloud provides it automatically
+- `UserId` is special: cloud fills it in for a client that connects and signs in
 - Other properties get values from URL query params (property name = query param key)
 - Available in app via `app.SessionIdentity`
+- **An identity field can be absent, and its declared nullability decides what you get.** An instance
+  started by an HTTP endpoint, a webhook, or a cron tick has no connecting client, so nothing supplies
+  `UserId`. The binder honours the annotation you wrote: `string?` → `null`, `string` → `""`, `int?` →
+  `null`, `int` → `0`. Nothing ever hands a non-nullable field a null.
+- **Prefer `string?` for identity fields.** It is the only spelling that keeps "absent" distinguishable
+  from a real value — with plain `string` an absent field and an empty one look identical. Guard with
+  `string.IsNullOrEmpty(app.SessionIdentity.UserId)` before using it in `Main()`, in an `[HttpX]`
+  handler, or anywhere else a machine-triggered run can reach.
 
 Examples:
 
-- `SessionIdentity(string UserId)` - each user gets their own app instance
+- `SessionIdentity(string? UserId)` - each user gets their own app instance
 - `SessionIdentity()` (empty) - everyone connects to same app instance
 - `SessionIdentity(string Mode)` - `?mode=value1` users share one app instance, `?mode=value2` users share another
 
