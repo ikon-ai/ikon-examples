@@ -3,7 +3,7 @@ return await App.Run(args);
 // Determines which clients share an app instance. `UserId` is auto-filled per authenticated
 // user (so each user gets their own instance); add more fields to partition further, or
 // leave the record empty to have every client share a single instance.
-public record SessionIdentity(string UserId);
+public record SessionIdentity(string? UserId);
 
 // Per-client data, auto-mapped from URL query params (e.g. `?name=Alice` -> `Name`).
 public record ClientParameters();

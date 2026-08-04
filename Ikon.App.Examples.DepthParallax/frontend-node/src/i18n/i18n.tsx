@@ -2,7 +2,6 @@ import { I18nProvider as BaseI18nProvider, useI18n as useBaseI18n, type I18nCont
 import type { ReactNode } from 'react';
 
 export interface Translations {
-  // Connection states
   'connection.connecting': string;
   'connection.reconnecting': string;
   'connection.offline.title': string;
@@ -11,14 +10,10 @@ export interface Translations {
   'connection.serverFull.message': string;
   'connection.sessionExpired.title': string;
   'connection.sessionExpired.message': string;
-
-  // Auth screen
   'auth.welcome.title': string;
   'auth.welcome.subtitle': string;
   'auth.divider': string;
   'auth.dismiss': string;
-
-  // Email login form
   'auth.email.placeholder': string;
   'auth.email.submit': string;
   'auth.email.submitting': string;
@@ -32,13 +27,9 @@ export interface Translations {
   'auth.email.error.sendFailed': string;
   'auth.email.error.codeEmpty': string;
   'auth.email.error.verifyFailed': string;
-
-  // Access denied
   'connection.accessDenied.title': string;
   'connection.accessDenied.message': string;
   'connection.accessDenied.backToLogin': string;
-
-  // Login buttons
   'auth.button.guest': string;
   'auth.button.provider': string;
   'auth.button.registerPasskey': string;
