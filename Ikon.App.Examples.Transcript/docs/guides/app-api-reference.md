@@ -730,7 +730,7 @@ namespace Ikon.App
     string? UserId { get; }
   // Shards do NOT share reactive state — each shard is an independent instance of the same identity. Declare sharding only for surfaces designed for it: stateless or read-mostly apps (public landing pages, broadcast views), or apps that synchronize through external state (database, assets). Clients are not sticky to a shard across reconnects. Example:
   // [Sharded(2000)]
-  // public record SessionIdentity(string UserId, [property: Sharded(50)] string? Team);
+  // public record SessionIdentity(string? UserId, [property: Sharded(50)] string? Team);
   sealed class ShardedAttribute : Attribute
     ctor(int maxClientsPerShard = 100)
     int MaxClientsPerShard { get; }

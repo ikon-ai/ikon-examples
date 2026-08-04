@@ -3,7 +3,7 @@ using System.Text;
 
 return await App.Run(args);
 
-public record SessionIdentity(string UserId);
+public record SessionIdentity(string? UserId);
 public record ClientParams(string Name = "Ikon");
 
 public sealed record PendingUpload(string FileName, string FilePath, string MimeType, long SizeBytes);
