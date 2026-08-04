@@ -1,6 +1,6 @@
 return await IkonServerRunner.RunApp(args);
 
-public record SessionIdentity(string UserId);
+public record SessionIdentity(string? UserId);
 public record ClientParams();
 
 public record ChatMessage(string Role, string Content, DateTime Timestamp);

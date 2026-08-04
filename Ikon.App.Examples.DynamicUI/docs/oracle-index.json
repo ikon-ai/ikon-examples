@@ -24,7 +24,7 @@
         "invite link"
       ],
       "file": "docs/guides/app-structure.md",
-      "sizeBytes": 18862,
+      "sizeBytes": 19646,
       "alsoInclude": []
     },
     {
@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 96447,
+      "sizeBytes": 96448,
       "alsoInclude": []
     },
     {
@@ -535,7 +535,7 @@
         "function"
       ],
       "file": "docs/guides/endpoints-webhooks.md",
-      "sizeBytes": 37309,
+      "sizeBytes": 37310,
       "alsoInclude": []
     },
     {
@@ -726,7 +726,7 @@
         "targets"
       ],
       "file": "docs/guides/config-and-cli.md",
-      "sizeBytes": 16161,
+      "sizeBytes": 16124,
       "alsoInclude": []
     }
   ]

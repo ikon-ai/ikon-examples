@@ -1,6 +1,6 @@
 .ikon-app {
   position: relative;
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -81,8 +81,6 @@
   to { opacity: 1; }
 }
 
-/* Connecting indicator: a floating badge at the top, like the warn/error toast chips. It must NOT
-   cover the boot-snapshot UI underneath — no opaque backdrop, no blur layer, no pointer capture. */
 .ikon-connecting-overlay {
   position: fixed;
   top: 0;

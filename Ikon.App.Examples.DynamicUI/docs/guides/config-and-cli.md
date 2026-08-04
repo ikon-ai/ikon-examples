@@ -199,7 +199,7 @@ the app straight from an IDE resolves the same way (minus the prompt).
 
 These are not under `ikon app` but are part of the everyday loop:
 
-- `ikon login` / `ikon login dev` / `ikon logout`: authenticate / sign out. `ikon login` signs in to production; `ikon login dev` signs in to development **and** production in one browser flow, so both stay available at once. `ikon logout dev` or `ikon logout prod` drops just one.
+- `ikon login` / `ikon logout`: authenticate / sign out. `ikon login` signs in to production, and renews any other environment the machine is already signed in to in the same browser flow. `ikon logout dev` or `ikon logout prod` drops just one.
 - `ikon status`: show login status for both environments — token expiry, default organisation and space, and which one commands use by default
 - `ikon defaults`: set the default environment, organisation and space used by commands. `ikon defaults dev` / `ikon defaults prod` switches the environment on its own, offline and without a browser
 - `ikon version`: print the installed ikon tool version
