@@ -91,7 +91,7 @@ export function LoginButton({ provider, disabled, onAttempt, onClick }: LoginBut
     if (onClick) {
       onClick();
     } else {
-      login(provider);
+      void login(provider);
     }
   };
 
@@ -129,7 +129,7 @@ export function RegisterPasskeyButton({ disabled, onAttempt }: RegisterPasskeyBu
   const handleClick = () => {
     if (!disabled) {
       onAttempt?.();
-      registerPasskey();
+      void registerPasskey();
     }
   };
 
