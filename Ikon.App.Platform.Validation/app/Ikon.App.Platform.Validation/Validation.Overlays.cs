@@ -73,6 +73,17 @@ public partial class Validation
                             view.Text([Text.BodyStrong], "Popover Content");
                             view.Text([Text.Caption], "This is the popover content area.");
                             view.TextField([Input.Default], placeholder: "Enter something...");
+                            // Menu-item-navigates repro: the click switches the section server-side,
+                            // so the UI diff unmounts this popover WHILE Radix still has it open —
+                            // the shape behind "menu click leaves a click-blocker". After clicking,
+                            // the Buttons section must be fully interactive (body pointer-events
+                            // restored). Left in place as a permanent fixture for that regression.
+                            view.Button([Button.GhostMd], text: "Navigate away (unmount while open)",
+                                onClick: async () =>
+                                {
+                                    ActivateTab("buttons");
+                                    await app.Navigation.SetPathAsync("/buttons");
+                                });
                         });
                     });
             });

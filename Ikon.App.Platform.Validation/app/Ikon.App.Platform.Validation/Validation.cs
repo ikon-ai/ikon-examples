@@ -1,6 +1,6 @@
 return await App.Run(args);
 
-public record SessionIdentity(string UserId, string Id);
+public record SessionIdentity(string? UserId, string Id);
 public record ClientParams(string Id, string Test);
 
 [App]

@@ -76,8 +76,6 @@ function AuthScreen({ config, errorScope, setErrorScope, isLoginPrompt, onDismis
   );
   const hasPasskey = config.methods.includes('passkey');
   const hasEmail = config.methods.includes('email');
-  // Both not-signed-in flavors share the continue-without-signing-in button; the 'global'
-  // flavor wins when a space lists both (the device-scoped identity is an on-demand upgrade)
   const guestProvider = config.methods.includes('global') ? ('global' as const) : config.methods.includes('guest') ? ('guest' as const) : null;
   const hasGuest = guestProvider !== null;
 

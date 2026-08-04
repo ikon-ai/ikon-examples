@@ -54,6 +54,8 @@ public partial class Validation
                     view.Text([Text.Caption, "mt-1"], $"Age: {(int)age.TotalMinutes} min", props: TestId("cron-heartbeat-age"));
                 }
             });
+
+            RenderScheduledPipelineCard(view);
         });
     }
 
@@ -68,6 +70,10 @@ public partial class Validation
 
         _ = Task.Run(async () =>
         {
+            // Started from inside a UI render (a reactive callback), whose async-local flows in via
+            // ExecutionContext. Detach, or the seed write below is swallowed as re-entrant.
+            using var reactiveDetach = ReactiveManager.SuppressCallbackTracking();
+
             try
             {
                 var json = await Asset.Instance.GetTextAsync(HeartbeatUri);
