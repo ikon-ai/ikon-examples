@@ -116,7 +116,7 @@ Recurring hallucination + footgun classes from generated Ikon apps. Each compile
 
 ### App structure and platform
 
-- **`IApp` is generic; the records are `public`.** Canonical: `[App] public class MyApp(IApp<SessionIdentity, ClientParameters> app)` with `public record SessionIdentity(string UserId)` / `public record ClientParameters(string Name = "Anonymous")`. Bare `IApp` is CS0305; non-public records are CS0051. The scaffold already has this shape — preserve it.
+- **`IApp` is generic; the records are `public`.** Canonical: `[App] public class MyApp(IApp<SessionIdentity, ClientParameters> app)` with `public record SessionIdentity(string? UserId)` / `public record ClientParameters(string Name = "Anonymous")`. Bare `IApp` is CS0305; non-public records are CS0051. The scaffold already has this shape — preserve it.
 - **`Main()` returns after `UI.Root(...)`** — no `await Task.Delay(Timeout.Infinite)` (a Main that never returns fails the boot at the server start timeout with a TimeoutException naming `<YourApp>.Main()`; ongoing work belongs in event callbacks or background tasks).
 - **Demo/seed content**: shared state (`Reactive`/`PersistentReactive`) seeds in `app.OnStarting` when the store is empty; per-user state (`UserReactive`/`PersistentUserReactive`) MUST seed in `app.OnClientJoined` when that user's store is empty — touching a user-scoped field in `OnStarting` crashes the boot (no user scope exists yet).
 - **Lifecycle via the extension helpers**: `app.OnStarting(async () => …)`, `app.OnStopping`, `app.OnClientJoined(async ctx => …)` (or `(ctx, parameters)` typed overload), `app.OnClientLeft`, `app.OnMessageReceived(async msg => …)`. The `(sender, args)` prior doesn't match (CS1593); the arg types omit the `App` prefix.
@@ -124,6 +124,12 @@ Recurring hallucination + footgun classes from generated Ikon apps. Each compile
 - **Never add `using Ikon.*;`** — the Ikon namespaces an app needs are already in `GlobalUsings.cs`; invented ones are CS0234. The one real exception is `using Ikon.App.Cells;` (nested namespaces aren't imported by `using Ikon.App;`, so `Cells` is CS0103 without it). Third-party NuGet packages DO still need their own `using`.
 - **The message author type is `Author`, not `MessageAuthor`** (CS0246 — `MessageAuthor` does not exist). It is a flat `readonly record struct Author(AuthorKind Kind, string? Name = null)` with equality by (Kind, Name): compare `msg.Author == Author.User` (static field) or switch on `msg.Author.Kind` (`enum AuthorKind { User, Agent }`); an agent author comes from the factory `Author.Agent("researcher")`. Appending takes TWO args and the text rides in `Parts`: `await storage.AppendMessageAsync(threadId, new Message(Author.User, [new Content.Text(reply)]));`.
 - **`using` directives precede the top-level `return await App.Run(args);`** (CS1529) — and never delete that entry-point line (CS5001). Prefer `GlobalUsings.cs` for shared namespaces.
+
+### Color tokens and theming
+
+- **`bg-primary` is NOT the brand fill** — in the Ikon semantic set it is the PAGE SURFACE token (white in light, near-black in dark; shadcn instinct is wrong here). Brand-colored fill is `bg-brand-solid`, tone-tinted text is `text-brand-secondary`, tone border is `border-brand`; `text-primary` is the READING color and `border-primary` the neutral hairline. Using `bg-primary` for a button renders invisible on one scheme and looks fine on the other — the worst kind of bug. Crosswind logs a warning when it sees it.
+- **A hardcoded palette needs `Mode = ThemeMode.Fixed`.** Pinning surface colors (`["background"]`, `["card"]`, `["foreground"]`) while the theme stays Adaptive with no `DarkMode` pair leaves a dark-preference client with the platform's dark TEXT defaults on top of your light surfaces — light-gray on white, unreadable, and invisible on a light-mode dev machine. One committed look → `ThemeMode.Fixed`; both schemes → provide `DarkMode`.
+- **Keep small text at AA contrast.** On light surfaces, `text-muted-foreground` at reduced opacity (`/60`–`/80`) and mid-amber text like `#C8791A` fall under the 4.5:1 floor at 9–13px. Use full-strength muted for small labels, and darken accent TEXT (e.g. amber `#8F5710`) while keeping the brighter accent for borders, dots and fills; white-on-accent button fills need the darker step too (e.g. `#A9640D`).
 
 ### C# string literals
 
