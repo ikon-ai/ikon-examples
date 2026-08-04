@@ -5,7 +5,7 @@ using Ikon.AI.VideoEnhancement;
 
 return await App.Run(args);
 
-public record SessionIdentity(string UserId);
+public record SessionIdentity(string? UserId);
 public record ClientParams(string Name = "Ikon");
 
 [App]

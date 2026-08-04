@@ -104,7 +104,7 @@ Declare these on your `[App]` class (or any `[Cell]` type). They're discovered a
 [App]
 public class MyApp(IApp<SessionIdentity, ClientParams> app)
 {
-    public record SessionIdentity(string UserId);
+    public record SessionIdentity(string? UserId);
 
     // The JSON body binds to your typed parameter. The binder is lenient — missing
     // fields default, unknown fields are ignored, and bad input returns a 4xx (it never throws a 500).
