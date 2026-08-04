@@ -307,7 +307,7 @@ function VisemeDebugPanel({
       return;
     }
 
-    navigator.clipboard.writeText(text).then(() => {
+    void navigator.clipboard.writeText(text).then(() => {
       console.log(`[VisemeDebug] Copied ${label}:`, text);
     });
   }, []);

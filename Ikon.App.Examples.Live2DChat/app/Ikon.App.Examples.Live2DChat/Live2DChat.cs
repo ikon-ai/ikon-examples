@@ -3,7 +3,7 @@ using Ikon.Parallax.Components.Standard;
 
 return await App.Run(args);
 
-public record SessionIdentity(string UserId);
+public record SessionIdentity(string? UserId);
 
 public record ClientParams;
 
