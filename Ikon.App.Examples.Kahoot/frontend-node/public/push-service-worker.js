@@ -1,12 +1,3 @@
-/*
- * Web Push service worker: shows notifications that arrive while the app is
- * closed, and focuses (or opens) the app when one is clicked.
- *
- * The SDK registers this file for you once the user grants notification
- * permission; notifications shown while the app is open never reach it. Edit the
- * handlers below to change how offline notifications look or where a click lands.
- */
-
 /* global self */
 
 self.addEventListener('push', (event) => {
