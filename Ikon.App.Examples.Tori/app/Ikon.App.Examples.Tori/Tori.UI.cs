@@ -344,7 +344,7 @@ public partial class Tori
             audioOptions: GetAudioCaptureOptions(),
             onCaptureStart: OnAudioCaptureStart,
             onCaptureStop: OnAudioCaptureStop,
-            content: vv => vv.Icon([Icon.Default, "w-5 h-5", isAudioOn ? "text-emerald-600 dark:text-success" : "text-danger"], name: isAudioOn ? "mic" : "mic-off"));
+            content: vv => vv.Icon([Icon.Default, "w-5 h-5", isAudioOn ? "text-emerald-600 dark:text-success" : "text-error-primary"], name: isAudioOn ? "mic" : "mic-off"));
 
         // Video toggle
         view.CaptureButton(
@@ -355,7 +355,7 @@ public partial class Tori
             videoOptions: GetCameraCaptureOptions(),
             onCaptureStart: OnVideoCaptureStart,
             onCaptureStop: OnVideoCaptureStop,
-            content: vv => vv.Icon([Icon.Default, "w-5 h-5", isVideoOn ? "text-emerald-600 dark:text-success" : "text-danger"], name: isVideoOn ? "video" : "video-off"));
+            content: vv => vv.Icon([Icon.Default, "w-5 h-5", isVideoOn ? "text-emerald-600 dark:text-success" : "text-error-primary"], name: isVideoOn ? "video" : "video-off"));
 
         // Panel toggle button
         view.Button(
@@ -681,7 +681,7 @@ public partial class Tori
 
                     if (!participant.IsAudioEnabled)
                     {
-                        r.Icon(["text-danger w-3.5 h-3.5 shrink-0"], name: "mic-off", key: $"mic-off-{participantKey}");
+                        r.Icon(["text-error-primary w-3.5 h-3.5 shrink-0"], name: "mic-off", key: $"mic-off-{participantKey}");
                     }
                 });
             });
@@ -712,7 +712,7 @@ public partial class Tori
                     audioOptions: GetAudioCaptureOptions(),
                     onCaptureStart: OnAudioCaptureStart,
                     onCaptureStop: OnAudioCaptureStop,
-                    content: vv => vv.Icon([Icon.Md, isAudioOn ? "text-emerald-600 dark:text-success" : "text-danger"], name: isAudioOn ? "mic" : "mic-off")),
+                    content: vv => vv.Icon([Icon.Md, isAudioOn ? "text-emerald-600 dark:text-success" : "text-error-primary"], name: isAudioOn ? "mic" : "mic-off")),
                 contentSlot: v => v.Text([Text.Caption], isAudioOn ? "Mute" : "Unmute"));
 
             // Video toggle
@@ -726,7 +726,7 @@ public partial class Tori
                     videoOptions: GetCameraCaptureOptions(),
                     onCaptureStart: OnVideoCaptureStart,
                     onCaptureStop: OnVideoCaptureStop,
-                    content: vv => vv.Icon([Icon.Md, isVideoOn ? "text-emerald-600 dark:text-success" : "text-danger"], name: isVideoOn ? "video" : "video-off")),
+                    content: vv => vv.Icon([Icon.Md, isVideoOn ? "text-emerald-600 dark:text-success" : "text-error-primary"], name: isVideoOn ? "video" : "video-off")),
                 contentSlot: v => v.Text([Text.Caption], isVideoOn ? "Turn off camera" : "Turn on camera"));
 
             // Screen share toggle (not available on mobile layout)
@@ -742,7 +742,7 @@ public partial class Tori
                         videoOptions: GetScreenCaptureOptions(),
                         onCaptureStart: OnScreenShareStart,
                         onCaptureStop: OnScreenShareStop,
-                        content: vv => vv.Icon([Icon.Md, isScreenShareOn ? "text-emerald-600 dark:text-success" : "text-danger"], name: isScreenShareOn ? "monitor" : "monitor-off")),
+                        content: vv => vv.Icon([Icon.Md, isScreenShareOn ? "text-emerald-600 dark:text-success" : "text-error-primary"], name: isScreenShareOn ? "monitor" : "monitor-off")),
                     contentSlot: v => v.Text([Text.Caption], isScreenShareOn ? "Stop sharing" : "Share screen"));
             }
 
@@ -931,11 +931,11 @@ public partial class Tori
                                         }
 
                                         var micIcon = participant.IsAudioEnabled ? "mic" : "mic-off";
-                                        var micColor = participant.IsAudioEnabled ? "text-emerald-600 dark:text-success" : "text-danger";
+                                        var micColor = participant.IsAudioEnabled ? "text-emerald-600 dark:text-success" : "text-error-primary";
                                         icons.Icon([micColor, Icon.Xs], name: micIcon);
 
                                         var videoIcon = participant.IsVideoEnabled ? "video" : "video-off";
-                                        var videoColor = participant.IsVideoEnabled ? "text-emerald-600 dark:text-success" : "text-danger";
+                                        var videoColor = participant.IsVideoEnabled ? "text-emerald-600 dark:text-success" : "text-error-primary";
                                         icons.Icon([videoColor, Icon.Xs], name: videoIcon);
 
                                         if (participant.IsScreenSharing)
