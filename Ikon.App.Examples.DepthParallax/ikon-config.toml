@@ -63,7 +63,7 @@ SignedInSeeds = []
 
 # Versioned binary data folders for the app. Binaries are stored in the Ikon Asset store and git only
 # tracks small .ikonasset pointer files, so even large data sets keep the repo light. Managed with the
-# 'ikon app assets' commands.
+# 'ikon app asset' commands.
 [Assets]
 # Top-level folders whose files are public: offloaded to public asset storage and loadable by URL from
 # the frontend. Binaries in any other folder stay private and are only readable by the C# app.
