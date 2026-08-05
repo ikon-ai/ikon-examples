@@ -82,7 +82,7 @@ public partial class Validation
                         });
                     });
 
-                    view.Box([Card.Ghost, "p-4 border border-dashed border-quaternary"], content: view =>
+                    view.Box([Card.Ghost, "p-4 border border-dashed border-tertiary"], content: view =>
                     {
                         view.Text([Text.BodyStrong], "Card.Ghost");
                         view.Text([Text.Caption], "Transparent — structural grouping, drag targets (dashed border for visibility only)");

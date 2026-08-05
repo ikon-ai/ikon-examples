@@ -71,7 +71,7 @@ public partial class Validation
 
             if (cell is null)
             {
-                view.Box(["bg-error/10 border border-error rounded p-3"], content: v =>
+                view.Box(["bg-error-solid/10 border border-error rounded p-3"], content: v =>
                     v.Text([Text.Caption, "font-mono"], $"Cells.Connect failed: {connectError ?? "(unknown)"}"));
                 return;
             }
@@ -139,7 +139,7 @@ public partial class Validation
 
             if (cell is null)
             {
-                view.Box(["bg-error/10 border border-error rounded p-3"], content: v =>
+                view.Box(["bg-error-solid/10 border border-error rounded p-3"], content: v =>
                     v.Text([Text.Caption, "font-mono"], $"Cells.Connect failed: {connectError ?? "(unknown)"}"));
                 return;
             }
@@ -162,7 +162,7 @@ public partial class Validation
 
             if (_globalCellLastError.Value is { } lastError)
             {
-                view.Box(["bg-error/10 border border-error rounded p-3 mt-3"], content: v =>
+                view.Box(["bg-error-solid/10 border border-error rounded p-3 mt-3"], content: v =>
                 {
                     v.Text([Text.Caption, "font-mono whitespace-pre-wrap"], lastError);
                     v.Text([Text.Caption, "mt-1"],

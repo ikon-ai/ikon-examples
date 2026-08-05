@@ -410,7 +410,7 @@ public partial class Validation
 
                     view.Text([Text.BodyStrong], "Screen Reader Only Styles");
                     view.Text([Text.Muted, "mb-2"], "Using Accessibility styles from Default.cs");
-                    view.Box(["p-2 border border-dashed border-quaternary rounded"], content: view =>
+                    view.Box(["p-2 border border-dashed border-tertiary rounded"], content: view =>
                     {
                         view.Text([Text.Caption], "This box contains hidden content:");
                         view.Text([Accessibility.ScreenReaderOnly], "This text is only visible to screen readers");
