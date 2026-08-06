@@ -286,6 +286,7 @@ namespace Ikon.Common.Git
     Task<IReadOnlyList<GitTag>> GetTagsAsync(CancellationToken ct = default)
     Task<bool> HasCommitsAsync(CancellationToken ct = default)
     Task<bool> HasRemoteAsync(string name = "origin", CancellationToken ct = default)
+    Task<bool> HasStagedChangesAsync(CancellationToken ct = default)
     Task<bool> HasUncommittedChangesAsync(CancellationToken ct = default)
     Task<bool> HasUncommittedChangesAsync(string path, CancellationToken ct = default)
     Task<bool> HasUnpushedCommitsAsync(string branch, CancellationToken ct = default)

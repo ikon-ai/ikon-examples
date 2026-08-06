@@ -73,6 +73,14 @@ namespace Ikon.AI
   enum InputImageType
     Normal
     Mask
+  static class ModelFailure
+    static ModelFailureKind Classify(Exception exception)
+  enum ModelFailureKind
+    Unknown
+    Transient
+    Unavailable
+    AccessDenied
+    Quality
   enum ModelRegion
     Global
     Eu
@@ -493,6 +501,8 @@ namespace Ikon.AI.ImageGeneration
     bool SupportsMultipleOutputs { get; }
     // True when the model honours ImageGeneratorConfig.NegativePrompt.
     bool SupportsNegativePrompt { get; }
+    // True when the model can produce output with a transparent background (ImageGeneratorConfig.Background = ImageBackground.Transparent). Requesting transparency from a model without it throws instead of failing at the provider.
+    bool SupportsTransparentBackground { get; }
   enum ImageBackground
     Auto
     Opaque
@@ -504,6 +514,7 @@ namespace Ikon.AI.ImageGeneration
     bool SupportsMask { get; }
     bool SupportsMultipleOutputs { get; }
     bool SupportsNegativePrompt { get; }
+    bool SupportsTransparentBackground { get; }
     void Dispose()
     Task<ImageGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes an ImageGenerator per call. Defaults to ImageGeneratorModel.Gemini25FlashImage (cheap+fast); override via model. Never returns null — throws ImageGeneratorException on failure or empty output, so wrap in try/catch to continue without the image. Use the constructor + GenerateImageAsync for batch/size/input-image or any other ImageGeneratorConfig field.
@@ -517,6 +528,7 @@ namespace Ikon.AI.ImageGeneration
     bool SupportsMask { get; init; }
     bool SupportsMultipleOutputs { get; init; }
     bool SupportsNegativePrompt { get; init; }
+    bool SupportsTransparentBackground { get; init; }
   sealed record ImageGeneratorConfig
     ctor()
     ImageBackground Background { get; init; }
@@ -524,6 +536,8 @@ namespace Ikon.AI.ImageGeneration
     // Requested pixel height; see Width for how tiered providers treat it.
     int Height { get; init; }
     List<InputImage> InputImages { get; init; }
+    // Embed Ikon's imperceptible provenance watermark in the result pixels (EU AI Act Article 50 machine-readable marking, uniform across providers). The XMP metadata mark is always written regardless of this flag; disabling this skips the pixel pass — and, for JPEG results, the one high-quality re-encode it costs.
+    bool InvisibleWatermark { get; init; }
     string NegativePrompt { get; init; }
     string Prompt { get; init; }
     ImageQuality Quality { get; init; }
@@ -535,6 +549,8 @@ namespace Ikon.AI.ImageGeneration
     string Style { get; init; }
     TimeSpan Timeout { get; init; }
     bool UpsamplePrompt { get; init; }
+    // Renders a small corner badge with this text on the result (e.g. "AI"). Empty = no visible mark. Intended as a plan-tier lever, not a compliance requirement — the machine-readable marks above are what Article 50 asks for.
+    string VisibleWatermark { get; init; }
     // The only way to request a size. Providers with fixed resolution tiers (e.g. Gemini 1K/2K/4K) round the longer edge up to the nearest tier and take the aspect ratio from Width:Height — ask for 2048x2048 to get a 2K image.
     int Width { get; init; }
   class ImageGeneratorException : RetryableAIException
@@ -1027,6 +1043,7 @@ namespace Ikon.AI.LLM
     Claude47Opus
     Claude48Opus
     Claude5Sonnet
+    Claude5Opus
     Claude5Fable
     Gemini25Flash
     Gemini25FlashLite
@@ -1035,6 +1052,8 @@ namespace Ikon.AI.LLM
     Gemini31Pro
     Gemini31FlashLite
     Gemini35Flash
+    Gemini35FlashLite
+    Gemini36Flash
     Grok43
     Grok45
     GrokBuild01
@@ -1052,10 +1071,12 @@ namespace Ikon.AI.LLM
     Devstral2
     VoxtralSmall
     CommandR
+    CommandRPlus
     CommandA
     CommandAReasoning
     CommandAPlus
     CommandAVision
+    CommandATranslate
     CommandR7B
     KimiK25
     KimiK26
@@ -1064,6 +1085,7 @@ namespace Ikon.AI.LLM
     Qwen36
     Qwen37
     Qwen37Max
+    Qwen38Max
     GptOss120B
     Glm5
     Glm51
@@ -1082,6 +1104,10 @@ namespace Ikon.AI.LLM
     // In tokens. Returns 0 when the model can't be resolved — treat 0 as "unknown" and skip utilization math rather than dividing by zero.
     static int ContextWindowSize(this LLMModel model)
     static string DisplayName(this LLMModel model)
+  class ModelOutputException : RetryableLLMException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   class NonRetryableLLMException : NonRetryableAIException
     ctor()
     ctor(string message)
@@ -1305,6 +1331,13 @@ namespace Ikon.AI.OCR
     OCRBoundingBox BoundingBox { get; init; }
     float Confidence { get; init; }
     string Content { get; init; }
+
+namespace Ikon.AI.Provenance
+  static class ImageProvenance
+    static byte[] Apply(byte[] data, string model, bool invisibleWatermark = true, string visibleWatermark = "")
+    static double MeasureInvisibleMark(byte[] data)
+    static string? ReadMetadataMark(byte[] data)
+    const double DetectionThreshold = 12.0
 
 namespace Ikon.AI.Reranking
   enum CustomRerankApi

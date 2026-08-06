@@ -181,6 +181,7 @@ namespace Ikon.Common.Core.Functions
     bool RemoveFunction(string name, FunctionVisibility visibility)
     bool RemoveFunction(string name)
     void RemoveFunctionsByClientSessionId(int clientSessionId)
+    // TODO(frozen-abi): exists only to maintain the shim above; delete with it.
     static void RemoveRemoteCallExecutionStartingSubscribers(AssemblyLoadContext loadContext)
     Task StartProtocolAsync()
     Task StopProtocolAsync()

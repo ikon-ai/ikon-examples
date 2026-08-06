@@ -373,9 +373,9 @@ Rule of thumb: if your custom component holds state the user can mutate (a code 
 
 ### App icons & branding
 
-`branding/logo.png` is the single source of truth for every app icon. It is a square 1024×1024 PNG scaffolded into each new app — replace it with your own square design (same size and format; SVG is not supported) and run **`ikon app icons`** to regenerate the complete icon set across **all** frontends from it:
+`branding/logo.png` is the single source of truth for every app icon. It is a square 1024×1024 PNG scaffolded into each new app — replace it with your own square design (same size and format; SVG is not supported) and run **`ikon app icon generate`** to regenerate the complete icon set across **all** frontends from it:
 
 - **frontend-node** — web favicons (`favicon.ico`, `favicon-16/32/192/512.png`, `apple-touch-icon.png`, `maskable-512.png`) and the PWA `manifest.webmanifest` icon entries.
 - **frontend-flutter** (when present) — Android launcher icons (mipmap + adaptive), the iOS `AppIcon.appiconset`, and the Flutter web icons.
 
-You don't hand-create or hand-place any of these PNGs — one square source PNG drives them all. `ikon app icons` rewrites the generated icon files, each manifest's `icons` array, the Flutter web manifest's `background_color`/`theme_color`, and the Android launcher background color, so manual manifest edits (a custom PWA `name`/`short_name`, extra fields) are preserved across runs. The browser tab title is separate from the icons — it lives in `frontend-node/index.html` (`<title>` and `apple-mobile-web-app-title`).
+You don't hand-create or hand-place any of these PNGs — one square source PNG drives them all. `ikon app icon generate` rewrites the generated icon files, each manifest's `icons` array, the Flutter web manifest's `background_color`/`theme_color`, and the Android launcher background color, so manual manifest edits (a custom PWA `name`/`short_name`, extra fields) are preserved across runs. The browser tab title is separate from the icons — it lives in `frontend-node/index.html` (`<title>` and `apple-mobile-web-app-title`).
