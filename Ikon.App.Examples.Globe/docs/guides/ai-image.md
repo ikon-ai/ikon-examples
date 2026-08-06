@@ -45,6 +45,8 @@ namespace Ikon.AI.ImageGeneration
     bool SupportsMultipleOutputs { get; }
     // True when the model honours ImageGeneratorConfig.NegativePrompt.
     bool SupportsNegativePrompt { get; }
+    // True when the model can produce output with a transparent background (ImageGeneratorConfig.Background = ImageBackground.Transparent). Requesting transparency from a model without it throws instead of failing at the provider.
+    bool SupportsTransparentBackground { get; }
   enum ImageBackground
     Auto
     Opaque
@@ -56,6 +58,7 @@ namespace Ikon.AI.ImageGeneration
     bool SupportsMask { get; }
     bool SupportsMultipleOutputs { get; }
     bool SupportsNegativePrompt { get; }
+    bool SupportsTransparentBackground { get; }
     void Dispose()
     Task<ImageGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes an ImageGenerator per call. Defaults to ImageGeneratorModel.Gemini25FlashImage (cheap+fast); override via model. Never returns null — throws ImageGeneratorException on failure or empty output, so wrap in try/catch to continue without the image. Use the constructor + GenerateImageAsync for batch/size/input-image or any other ImageGeneratorConfig field.
@@ -69,6 +72,7 @@ namespace Ikon.AI.ImageGeneration
     bool SupportsMask { get; init; }
     bool SupportsMultipleOutputs { get; init; }
     bool SupportsNegativePrompt { get; init; }
+    bool SupportsTransparentBackground { get; init; }
   sealed record ImageGeneratorConfig
     ctor()
     ImageBackground Background { get; init; }
@@ -76,6 +80,8 @@ namespace Ikon.AI.ImageGeneration
     // Requested pixel height; see Width for how tiered providers treat it.
     int Height { get; init; }
     List<InputImage> InputImages { get; init; }
+    // Embed Ikon's imperceptible provenance watermark in the result pixels (EU AI Act Article 50 machine-readable marking, uniform across providers). The XMP metadata mark is always written regardless of this flag; disabling this skips the pixel pass — and, for JPEG results, the one high-quality re-encode it costs.
+    bool InvisibleWatermark { get; init; }
     string NegativePrompt { get; init; }
     string Prompt { get; init; }
     ImageQuality Quality { get; init; }
@@ -87,6 +93,8 @@ namespace Ikon.AI.ImageGeneration
     string Style { get; init; }
     TimeSpan Timeout { get; init; }
     bool UpsamplePrompt { get; init; }
+    // Renders a small corner badge with this text on the result (e.g. "AI"). Empty = no visible mark. Intended as a plan-tier lever, not a compliance requirement — the machine-readable marks above are what Article 50 asks for.
+    string VisibleWatermark { get; init; }
     // The only way to request a size. Providers with fixed resolution tiers (e.g. Gemini 1K/2K/4K) round the longer edge up to the nearest tier and take the aspect ratio from Width:Height — ask for 2048x2048 to get a 2K image.
     int Width { get; init; }
   class ImageGeneratorException : RetryableAIException

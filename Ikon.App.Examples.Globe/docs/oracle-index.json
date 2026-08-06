@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 96448,
+      "sizeBytes": 97489,
       "alsoInclude": []
     },
     {
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 170631,
+      "sizeBytes": 170894,
       "alsoInclude": []
     },
     {
@@ -339,7 +339,7 @@
         "AI connection"
       ],
       "file": "docs/guides/ai-models.md",
-      "sizeBytes": 24184,
+      "sizeBytes": 24605,
       "alsoInclude": []
     },
     {
@@ -354,7 +354,7 @@
         "ImageGeneratorConfig"
       ],
       "file": "docs/guides/ai-image.md",
-      "sizeBytes": 7044,
+      "sizeBytes": 8062,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -642,7 +642,7 @@
         "callable functions"
       ],
       "file": "docs/guides/function-registry.md",
-      "sizeBytes": 9866,
+      "sizeBytes": 9947,
       "alsoInclude": []
     },
     {
@@ -707,7 +707,7 @@
         "emails folder"
       ],
       "file": "docs/guides/frontend-fundamentals.md",
-      "sizeBytes": 19717,
+      "sizeBytes": 19733,
       "alsoInclude": [
         "ui-components"
       ]
@@ -726,7 +726,7 @@
         "targets"
       ],
       "file": "docs/guides/config-and-cli.md",
-      "sizeBytes": 16124,
+      "sizeBytes": 17851,
       "alsoInclude": []
     }
   ]
