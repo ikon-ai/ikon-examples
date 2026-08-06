@@ -84,6 +84,8 @@ namespace Ikon.App
     event AsyncEventHandler<AudioInputStreamBeginEventArgs> AudioInputStreamBeginAsync
     event AsyncEventHandler<AudioInputStreamEndEventArgs> AudioInputStreamEndAsync
     event AsyncEventHandler<AudioPlaybackReportEventArgs> PlaybackReportReceivedAsync
+    // Exactly one of this and SpeechRecognizedAsync fires per completed segment (neither fires once the app is shutting down). An app that latches busy state when capture stops — a "Transcribing..." spinner, a disabled button — must release it here as well as in SpeechRecognizedAsync; handling only the success event leaves that state stuck on for any press that produces no speech.
+    event AsyncEventHandler<SpeechNotRecognizedEventArgs> SpeechNotRecognizedAsync
     // Fires only after UseSpeechRecognition or UseTurnDetection has been called once at setup; subscribing without one of those means this event never fires.
     event AsyncEventHandler<SpeechRecognizedEventArgs> SpeechRecognizedAsync
     event AsyncEventHandler<TurnSpeculativeEventArgs> TurnSpeculativeAsync
@@ -727,6 +729,20 @@ namespace Ikon.App
     ctor(int maxClientsPerShard = 100)
     int MaxClientsPerShard { get; }
     int MaxShards { get; set; }
+  sealed class SpeechNotRecognizedEventArgs : EventArgs
+    ctor(SpeechNotRecognizedReason reason, Context clientContext, string streamId, string? correlationId, Exception? error = null)
+    Context ClientContext { get; }
+    int ClientSessionId { get; }
+    string? CorrelationId { get; }
+    Exception? Error { get; }
+    SpeechNotRecognizedReason Reason { get; }
+    string StreamId { get; }
+    string UserId { get; }
+  enum SpeechNotRecognizedReason
+    NoAudio
+    Silence
+    NoText
+    Error
   sealed class SpeechRecognizedEventArgs : EventArgs
     ctor(string text, Context clientContext, string streamId, string? correlationId, TimeSpan duration, int sampleCount, int turnId = 0)
     Context ClientContext { get; }

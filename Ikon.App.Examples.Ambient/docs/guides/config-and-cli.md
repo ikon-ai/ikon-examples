@@ -60,7 +60,7 @@ GuestSeeds = []
 SignedInSeeds = []
 
 # Versioned binary data folders for the app. Binaries are stored in the Ikon Asset store and git only
-# tracks small .ikonasset pointer files. Managed with the 'ikon app assets' commands.
+# tracks small .ikonasset pointer files. Managed with the 'ikon app asset' commands.
 [Assets]
 # Top-level folders whose files are public: offloaded to public asset storage and loadable by URL from
 # the frontend. Binaries in any other folder stay private and are only readable by the C# app.
@@ -89,8 +89,8 @@ Name = ""
 - `ikon app copy`: copy an app into a distributable package (zip/folder to hand out) or into a new platform app with its own git, space, and database
   - `--from <dir>` (source app, defaults to the current directory), `--to <zip|dir|platform>` (prompted when omitted), `--name <name>`, `--no-update-libraries`, `--no-verify-build`
   - distributable only: `--output <dir>`
-  - platform only: `--project-dir <dir>`, `--organisation-id <id>` / `--new-org <name>`, `--domain <prefix>`, `--no-commit`, `--no-local`
-- `ikon app clone`: download an existing AI app from the cloud into a target directory (`--organisation-id`, `--space-id`, `--project-dir`)
+  - platform only: `--project-dir <dir>`, `--org-id <id>` / `--new-org <name>`, `--domain <prefix>`, `--no-commit`, `--no-local`
+- `ikon app clone`: download an existing AI app from the cloud into a target directory (`--org-id`, `--space-id`, `--project-dir`)
 - `ikon app delete`: delete the app's cloud space and all its cloud resources (databases, deployed bundles). Local project files are kept. Schedules removal after a grace period by default; `--now` tears it down immediately. Requires `--yes` in non-interactive mode.
 - `ikon app build`: build the app
 - `ikon app clean`: clean build artifacts
@@ -103,7 +103,7 @@ Name = ""
   - `--skip-npm-install`: skip npm install step
 - `ikon app stop`: stop a running app instance
 - `ikon app update [dev|stable]`: update Ikon NuGet and NPM package references to the latest version. With no argument it stays on the channel the app is already pinned to; `dev` moves onto the unstable dev channel and `stable` returns to released packages
-- `ikon app icons`: regenerate every frontend's icon set from `branding/logo.png` — web favicons + PWA manifest icons, and (when a Flutter frontend exists) the Android/iOS/web launcher icons. Only the generated icons and each manifest's icon/color entries are rewritten; manual manifest edits (e.g. a custom PWA `name`) are preserved.
+- `ikon app icon generate`: regenerate every frontend's icon set from `branding/logo.png` — web favicons + PWA manifest icons, and (when a Flutter frontend exists) the Android/iOS/web launcher icons. Only the generated icons and each manifest's icon/color entries are rewritten; manual manifest edits (e.g. a custom PWA `name`) are preserved.
 - `ikon app teleport build`: compile this app's `schema/*.tp` files into C# + configured SDKs (run after editing a `.tp` schema)
 - `ikon app release`: generate release notes and bump the app version (`--bump major|minor|patch`)
 - `ikon app pipeline run <PipelineName>`: build the app and run one of its pipelines from the CLI. Auto-resolves the DLL and uses the space ID from `ikon-config.toml`.
@@ -116,14 +116,14 @@ Name = ""
 
 - `ikon app config`: configure the app for cloud deployment (organisation/space; `--add-database`, `--target <name>`)
 - `ikon app status`: show the app's cloud bindings and running-instance info (URLs, PIDs; `--wait` polls until the app starts, up to `--timeout` seconds, default 30)
-- `ikon app target list`: list all configured targets
+- `ikon app target list`: list all configured targets (`--format table|json|csv`, `--output <file>`)
 - `ikon app secret set <key> [value]`: store/update a secret (token / API key); `--stdin` reads from stdin
-- `ikon app secret list`: list secret keys for this app (values are never shown)
+- `ikon app secret list`: list secret keys for this app (values are never shown) (`--format table|json|csv`, `--output <file>`)
 - `ikon app secret delete <key>`: delete a secret (`--yes` to skip prompt)
 - `ikon app bundle`: create the app bundle without deploying
 - `ikon app deploy`: create the app bundle and deploy it to the cloud
-- `ikon app deploy list`: list deployed app bundles, newest first, with their IDs and state (`--state <state>` to filter, `--json` for machine-readable output)
-- `ikon app deploy show <id>`: show one bundle's full details (`--json`)
+- `ikon app deploy list`: list deployed app bundles, newest first, with their IDs and state (`--state <state>` to filter, `--format table|json|csv`, `--output <file>`)
+- `ikon app deploy show <id>`: show one bundle's full details (`--format table|json`, `--output <file>`)
 - `ikon app deploy activate <id>`: activate a bundle by ID, or the newest with `--latest` (`--yes` to skip prompt)
 - `ikon app deploy delete <id>`: delete a bundle by ID (`--yes` to skip prompt)
 - `ikon app distribute`: build, sign, and push the Flutter app to testers' phones (`--flutter-android` → Firebase App Distribution, `--flutter-ios` → TestFlight, requires macOS; `--notes`, `--testers`, `--channel`)
@@ -133,40 +133,47 @@ Name = ""
 
 ### Database Management
 
-- `ikon app db list`: list databases provisioned for the current space
-- `ikon app db connection-string`: print the database connection string
+- `ikon app db list`: list databases provisioned for the current space (`--format table|json|csv`, `--output <file>`)
+- `ikon app db connection-string show`: print the database connection string (bare string by default; `--format json` wraps it, `--output <file>`)
 - `ikon app db reset`: empty the database — drops all data; the app recreates its schema on next start (`--yes` to skip prompt; required in non-interactive mode)
 - `ikon app db delete`: delete a database from the current space (destructive; `--database <name>` if multiple; `--yes` to skip prompt, required in non-interactive mode)
 - `ikon app db migrate add <name>` (EF Core apps only): create a new EF Core migration
 - `ikon app db migrate apply` (EF Core apps only): apply pending EF Core migrations
 - `ikon app db migrate list` (EF Core apps only): list EF Core migrations and their status
-- `ikon app db migrate remove` (EF Core apps only): remove the last unapplied EF Core migration
+- `ikon app db migrate delete` (EF Core apps only): delete the last unapplied EF Core migration
 
 ### Version Control
 
+These verbs require the app to own its git repository — the app directory must be the repository
+root. An app created inside an existing repository does not get one of its own, so there they would
+act on the enclosing repository instead: `ikon app discard` would clean all of it, `ikon app save`
+would push every sibling app's source into this app's cloud space. They refuse in that case and name
+the repository; use git directly there. `ikon app diff` and `ikon app history` still work, reporting
+the enclosing repository.
+
 - `ikon app save`: save all changes to version control
 - `ikon app pull`: download the latest version from version control
-- `ikon app diff`: show uncommitted changes
-- `ikon app compare [target]`: compare current files with a saved version
+- `ikon app diff [version]`: show uncommitted changes, or changes against a saved version
 - `ikon app discard`: discard all uncommitted changes (`--yes` to skip prompt; required in non-interactive mode)
 - `ikon app history`: list saved versions
-- `ikon app label [name]`: create or update a named label for the current version
-- `ikon app restore [target]`: switch local files to a version (`--yes` to skip prompt; required in non-interactive mode)
-- `ikon app revert [target]`: restore an older version as the new latest in version control (`--yes` to skip prompt; required in non-interactive mode)
+- `ikon app label <name>`: create or update a named label for the current version
+- `ikon app restore [version]`: switch local files to a version (`--yes` to skip prompt; required in non-interactive mode)
+- `ikon app revert [version]`: restore an older version as the new latest in version control (`--yes` to skip prompt; required in non-interactive mode)
+- `ikon app git show`: show the repository this app saves to (`--format table|json`, `--output <file>`)
 - `ikon app git connect`: connect an external git repository that is kept in sync with saves (`--url`, `--provider github|gitlab|azure-devops|generic`, `--create` to create a private GitHub repo)
+- `ikon app git list`: list connected external git repositories
 - `ikon app git sync`: sync connected git repositories both ways
 - `ikon app git disconnect`: disconnect a connected external git repository (`--url` optional when only one is connected)
-- `ikon app repo show`: show the repository this app uses for version control
 
 ### Asset Management
 
-- `ikon app assets normalize`: offload raw binaries to the Asset store, replacing each with a small git-tracked pointer (self-heals binaries committed directly)
-- `ikon app assets materialize`: restore the real binary next to every git-tracked pointer by downloading it from the Asset store
-- `ikon app assets gc`: delete stored binary assets the repo no longer references (dry run by default; `--delete` to delete, `--scope history|window|current`)
+- `ikon app asset normalize`: offload raw binaries to the Asset store, replacing each with a small git-tracked pointer (self-heals binaries committed directly)
+- `ikon app asset materialize`: restore the real binary next to every git-tracked pointer by downloading it from the Asset store
+- `ikon app asset gc`: delete stored binary assets the repo no longer references (dry run by default; `--delete` to delete, `--scope history|window|current`)
 
 ### Testing
 
-- `ikon app test list`: list recorded Playwright tests
+- `ikon app test list`: list recorded Playwright tests (`--format table|json|csv`, `--output <file>`)
 - `ikon app test record <name>`: record a Playwright test for the app
 - `ikon app test play [name]`: play back recorded tests (`--all`, `--headed` to watch in a visible browser)
 
@@ -195,6 +202,11 @@ fallback to the other environment: a command that resolved to development and ha
 login fails saying so. `ikon app run` passes the resolved environment to the Ikon server, and running
 the app straight from an IDE resolves the same way (minus the prompt).
 
+Every `list` and `show` command takes `--format` and `--output <file>`: `table|json|csv` when it
+returns rows, `table|json` when it returns one record. Data goes to stdout, notices and
+pagination hints to stderr, so `--format json > file.json` is always valid JSON. The one
+exception is `ikon app db migrate list`, which streams `dotnet ef` output verbatim.
+
 ### Top-level Ikon CLI
 
 These are not under `ikon app` but are part of the everyday loop:
@@ -202,6 +214,8 @@ These are not under `ikon app` but are part of the everyday loop:
 - `ikon login` / `ikon logout`: authenticate / sign out. `ikon login` signs in to production, and renews any other environment the machine is already signed in to in the same browser flow. `ikon logout dev` or `ikon logout prod` drops just one.
 - `ikon status`: show login status for both environments — token expiry, default organisation and space, and which one commands use by default
 - `ikon defaults`: set the default environment, organisation and space used by commands. `ikon defaults dev` / `ikon defaults prod` switches the environment on its own, offline and without a browser
+- `ikon org list`: list the organisations you belong to, marking the default (`--limit`, `--format table|json|csv`, `--output <file>`)
+- `ikon space list`: list your spaces — every organisation's by default, one organisation's with `--org-id <id>` — marking the default (`--search <term>` to filter by name, `--limit`, `--format table|json|csv`, `--output <file>`). Neither verb ever prompts, so a space id for `ikon app clone --space-id` can be looked up in one non-interactive call
 - `ikon version`: print the installed ikon tool version
 - `ikon update`: update the ikon tool to the latest version
 - `ikon examples open|download`: open or download Ikon example projects
