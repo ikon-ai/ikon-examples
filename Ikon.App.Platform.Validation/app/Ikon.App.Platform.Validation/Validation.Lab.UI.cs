@@ -135,7 +135,7 @@ public partial class Validation
                 "Counter / History are local mirrors fed by an SDK subscription to the cell-host; " +
                 "IncrementAsync / ResetAsync dispatch over the SDK connection. The proxy discovers " +
                 "the cell-host's AppEndpointHost relay URL on first call and POSTs [Rest] endpoints " +
-                "there directly. See docs/private/endpoint-architecture.md.");
+                "there directly. See docs/private/specs/endpoint-spec.md.");
 
             if (cell is null)
             {

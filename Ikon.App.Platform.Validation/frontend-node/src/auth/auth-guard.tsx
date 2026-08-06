@@ -79,8 +79,10 @@ function AuthScreen({ config, errorScope, setErrorScope, isLoginPrompt, onDismis
   const guestProvider = config.methods.includes('global') ? ('global' as const) : config.methods.includes('guest') ? ('guest' as const) : null;
   const hasGuest = guestProvider !== null;
 
+  // An error can arrive with the page itself — an OAuth callback redirecting back after a refused
+  // sign-in — in which case no button click has scoped it yet; show it in the primary slot.
   const errorFor = (scope: ErrorScope) =>
-    state.error && errorScope === scope ? (
+    state.error && (errorScope === scope || (errorScope === null && scope === 'primary')) ? (
       <div className="ikon-auth-error">{formatAuthError(state.error)}</div>
     ) : null;
 

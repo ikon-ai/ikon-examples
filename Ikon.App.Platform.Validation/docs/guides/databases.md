@@ -73,7 +73,7 @@ public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbConte
 }
 ```
 
-After each model change, run `ikon app db migrate add <Name>` and commit the generated migration — startup `MigrateAsync()` applies it on the next deploy. `ikon app db migrate apply` applies it now, `ikon app db migrate list` shows status, `ikon app db migrate remove` drops the last unapplied one, and `ikon app db reset` drops all data.
+After each model change, run `ikon app db migrate add <Name>` and commit the generated migration — startup `MigrateAsync()` applies it on the next deploy. `ikon app db migrate apply` applies it now, `ikon app db migrate list` shows status, `ikon app db migrate delete` drops the last unapplied one, and `ikon app db reset` drops all data.
 
 ### Raw SQL (lightweight alternative)
 

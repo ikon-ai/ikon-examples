@@ -43,7 +43,7 @@
                  <intent-filter><action android:name="com.google.firebase.MESSAGING_EVENT"/></intent-filter>
              </service>
              Foreground notifications (app.Notifications) need none of this — only the
-             POST_NOTIFICATIONS permission above. See docs/private/ikon-notifications-guide.md. -->
+             POST_NOTIFICATIONS permission above. See docs/private/guides/notifications.md. -->
     </application>
     <queries>
         <intent>
