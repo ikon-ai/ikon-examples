@@ -8,6 +8,13 @@ ConfigVersion = 2
 # "app:postgres" is the app's built-in Postgres database - quota-free and provisioned automatically
 Databases = []
 
+# Which of the databases above backs PersistentReactive state. Empty means the built-in "app"
+# database. Name one of your own here when the app has no "app" entry — persistent state then lives
+# there instead of falling back to asset storage. The name must match a database declared above:
+# an unknown name is reported and the app falls back rather than provisioning anything, because
+# creating a database to satisfy this setting is how the existing data would be lost.
+StateDatabase = ""
+
 # Activation configuration for the app (app activation is separate from deployment)
 [Activation]
 # Whether to stop all active sessions of the app when a version of the app is activated
@@ -15,14 +22,14 @@ StopSessions = false
 
 # Authentication configuration for the app frontend
 [Auth]
-# How visitors may enter: real sign-in providers (google, microsoft, email) plus two flavors of
-# not-signed-in entry — "guest" gives each visitor their own device-scoped anonymous user (private
-# per-visitor sessions), while "global" gives ALL visitors one shared space-wide anonymous user
-# (they collapse onto a shared app instance — the cost-efficient mode for public landing surfaces;
-# pair with [Sharded] on the SessionIdentity record to let it scale out; the app can distinguish a
-# global visitor from a guest via Context.IsGlobal). List both to enter as
-# "global" by default and let the app upgrade a visitor to a "guest" identity on demand. Signing
-# in elevates to the real account from either.
+# How visitors may enter: real sign-in providers (google, apple, microsoft, signicat, email,
+# passkey) plus two flavors of not-signed-in entry — "guest" gives each visitor their own
+# device-scoped anonymous user (private per-visitor sessions), while "global" gives ALL visitors
+# one shared space-wide anonymous user (they collapse onto a shared app instance — the
+# cost-efficient mode for public landing surfaces; pair with [Sharded] on the SessionIdentity
+# record to let it scale out; the app can distinguish a global visitor from a guest via
+# Context.IsGlobal). List both to enter as "global" by default and let the app upgrade a visitor
+# to a "guest" identity on demand. Signing in elevates to the real account from either.
 Methods = ["google"]
 # If non-empty, only allow users with email addresses from these domains to authenticate (e.g. ["mycompany.com"])
 DomainAllowlist = []
