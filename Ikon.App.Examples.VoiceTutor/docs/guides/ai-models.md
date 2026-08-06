@@ -80,6 +80,14 @@ namespace Ikon.AI
   enum InputImageType
     Normal
     Mask
+  static class ModelFailure
+    static ModelFailureKind Classify(Exception exception)
+  enum ModelFailureKind
+    Unknown
+    Transient
+    Unavailable
+    AccessDenied
+    Quality
   enum ModelRegion
     Global
     Eu
@@ -494,6 +502,7 @@ namespace Ikon.AI.LLM
     Claude47Opus
     Claude48Opus
     Claude5Sonnet
+    Claude5Opus
     Claude5Fable
     Gemini25Flash
     Gemini25FlashLite
@@ -502,6 +511,8 @@ namespace Ikon.AI.LLM
     Gemini31Pro
     Gemini31FlashLite
     Gemini35Flash
+    Gemini35FlashLite
+    Gemini36Flash
     Grok43
     Grok45
     GrokBuild01
@@ -519,10 +530,12 @@ namespace Ikon.AI.LLM
     Devstral2
     VoxtralSmall
     CommandR
+    CommandRPlus
     CommandA
     CommandAReasoning
     CommandAPlus
     CommandAVision
+    CommandATranslate
     CommandR7B
     KimiK25
     KimiK26
@@ -531,6 +544,7 @@ namespace Ikon.AI.LLM
     Qwen36
     Qwen37
     Qwen37Max
+    Qwen38Max
     GptOss120B
     Glm5
     Glm51
@@ -549,6 +563,10 @@ namespace Ikon.AI.LLM
     // In tokens. Returns 0 when the model can't be resolved — treat 0 as "unknown" and skip utilization math rather than dividing by zero.
     static int ContextWindowSize(this LLMModel model)
     static string DisplayName(this LLMModel model)
+  class ModelOutputException : RetryableLLMException
+    ctor()
+    ctor(string message)
+    ctor(string message, Exception inner)
   class NonRetryableLLMException : NonRetryableAIException
     ctor()
     ctor(string message)
