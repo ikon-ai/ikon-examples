@@ -59,6 +59,38 @@ The command signs you in if needed (add `--env dev` for projects on the developm
 
 From there the normal loop applies: `ikon app run` runs the app locally, and `ikon app save` publishes your changes back — Studio picks them up the next time you open the project.
 
+## What a new app already has
+
+`ikon app new` references these, and imports their namespaces in `GlobalUsings.cs` — you write
+against them with no `using` and no `dotnet add package`:
+
+| Package | What it gives you |
+|---|---|
+| `Ikon.App` | The app itself: reactive state, clients, lifecycle, endpoints, databases, payments, notifications |
+| `Ikon.AI` | Image, speech, video, OCR, embeddings, web search and scraping |
+| `Ikon.AI.Emergence` | `Emerge.Run<T>()` — LLM text and structured output |
+| `Ikon.Agent` | Tools for the model to call (`Tool.Of`, `AddTool`) and agent threads |
+| `Ikon.Agent.Docs` | The embedded documentation corpus `ikon app docs` extracts, version-locked to the libraries above |
+| `Ikon.Parallax` | UI components |
+| `Ikon.Crosswind` | Styling and motion |
+| `Ikon.Resonance` | Audio synthesis and effects |
+| `Ikon.App.Storage.Postgres` | Persistent state backed by Postgres |
+| `Ikon.AI.Speech.Azure`, `Ikon.AI.Speech.Google` | Alternative speech providers |
+
+Everything else is opt-in, because it costs something a typical app should not pay — an external
+service, a credential, or a dependency most apps never load. Add one when you need it:
+
+```bash
+dotnet add package Ikon.Connectors          # GitHub, Slack, WhatsApp
+dotnet add package Ikon.Connectors.Google   # Google APIs
+dotnet add package Ikon.Connectors.Telephony
+dotnet add package Ikon.AI.Scrape           # heavier crawling
+dotnet add package Ikon.AI.Database         # vector stores
+```
+
+Optional packages are not in `GlobalUsings.cs`, so add the namespace yourself — either a
+`global using` there, or a `using` in the file that needs it.
+
 ## Run the Ikon AI App locally
 
 Start the local development server from the project directory:
