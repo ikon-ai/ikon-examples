@@ -191,6 +191,18 @@ public partial class Validation
     private string? _imageSegmenterFileMimeType;
     private readonly ReactiveList<string> _imageSegmenterImageDataUrls = new();
 
+    // ImageUpscaler state
+    private readonly Reactive<string> _imageUpscalerModel = new(nameof(ImageUpscalerModel.SeedVr2));
+    private readonly Reactive<int> _imageUpscalerScaleFactor = new(2);
+    private readonly Reactive<double> _imageUpscalerCreativity = new(0);
+    private readonly Reactive<bool> _imageUpscalerProcessing = new(false);
+    private readonly Reactive<string?> _imageUpscalerResult = new(null);
+    private readonly Reactive<string?> _imageUpscalerError = new(null);
+    private readonly Reactive<string> _imageUpscalerFileName = new("");
+    private string? _imageUpscalerFilePath;
+    private string? _imageUpscalerFileMimeType;
+    private readonly Reactive<string?> _imageUpscalerImageDataUrl = new(null);
+
     // DepthEstimator state
     private readonly Reactive<string> _depthEstimatorModel = new(nameof(DepthEstimatorModel.DepthAnythingV2));
     private readonly Reactive<bool> _depthEstimatorProcessing = new(false);
@@ -333,6 +345,7 @@ public partial class Validation
             RenderFileConverterCard(view);
             RenderImageGeneratorCard(view);
             RenderImageSegmenterCard(view);
+            RenderImageUpscalerCard(view);
             RenderMeshGeneratorCard(view);
             RenderMusicGeneratorCard(view);
             RenderOCRCard(view);
@@ -1122,7 +1135,7 @@ public partial class Validation
                     {
                         foreach (var dataUrl in _imageGeneratorResultDataUrls.Value)
                         {
-                            view.Image(["max-w-full h-auto rounded-lg border border-secondary",
+                            view.Image(["self-start max-w-full h-auto rounded-lg border border-secondary",
                                     _imageGeneratorResultDataUrls.Value.Count > 1 ? "max-h-[400px]" : ""],
                                 src: dataUrl,
                                 alt: "Generated image");
@@ -3029,7 +3042,7 @@ public partial class Validation
                     {
                         foreach (var dataUrl in _imageSegmenterImageDataUrls)
                         {
-                            view.Image(["max-w-full h-auto max-h-[300px] rounded-lg border border-secondary"],
+                            view.Image(["self-start max-w-full h-auto max-h-[300px] rounded-lg border border-secondary"],
                                 src: dataUrl,
                                 alt: "Segmentation result");
                         }
@@ -3102,6 +3115,193 @@ public partial class Validation
         finally
         {
             _imageSegmenterProcessing.Value = false;
+        }
+    }
+
+    private void RenderImageUpscalerCard(UIView view)
+    {
+        // Render must not throw on an unexpected selection, or it takes the whole tab down with it
+        var selectedModel = Enum.TryParse<ImageUpscalerModel>(_imageUpscalerModel.Value, out var parsed)
+            ? parsed
+            : ImageUpscalerModel.SeedVr2;
+        var capabilities = ImageUpscaler.GetCapabilities(selectedModel);
+
+        view.Box([Card.Default, "p-6 mb-6"], props: TestId("ai-upscaler-card"), content: view =>
+        {
+            view.Text([Text.H3, "mb-2"], "Image Upscaler");
+            view.Text([Text.Caption, "mb-4"], $"Raise an image's resolution. This model is {capabilities.Fidelity} — a faithful upscaler reconstructs only what the input supports, a creative one invents detail");
+
+            view.Column([Layout.Column.Md], content: view =>
+            {
+                view.Row([Layout.Row.Md], content: view =>
+                {
+                    view.Box([FormField.Root, "flex-1"], content: view =>
+                    {
+                        view.Text([FormField.Label], "Model");
+                        view.Select(
+                            value: _imageUpscalerModel.Value,
+                            options: GetModelOptions<ImageUpscalerModel>(),
+                            onValueChange: async v => _imageUpscalerModel.Value = v ?? _imageUpscalerModel.Value);
+                    });
+
+                    if (capabilities.SupportsScaleFactor)
+                    {
+                        view.Box([FormField.Root, "flex-1"], content: view =>
+                        {
+                            view.Text([FormField.Label], $"Scale factor (max {capabilities.MaxScaleFactor})");
+                            view.TextField(
+                                [Input.Default],
+                                value: _imageUpscalerScaleFactor.Value.ToString(),
+                                type: "number",
+                                onValueChange: async v =>
+                                {
+                                    if (int.TryParse(v, out var num) && num > 0)
+                                    {
+                                        _imageUpscalerScaleFactor.Value = num;
+                                    }
+                                });
+                        });
+                    }
+
+                    if (capabilities.SupportsCreativity)
+                    {
+                        view.Box([FormField.Root, "flex-1"], content: view =>
+                        {
+                            view.Text([FormField.Label], "Creativity (0-1)");
+                            view.TextField(
+                                [Input.Default],
+                                value: _imageUpscalerCreativity.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                                type: "number",
+                                onValueChange: async v =>
+                                {
+                                    if (double.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var num) && num is >= 0 and <= 1)
+                                    {
+                                        _imageUpscalerCreativity.Value = num;
+                                    }
+                                });
+                        });
+                    }
+                });
+
+                view.FileUpload(
+                    [FileUpload.Zone.Base],
+                    accept: ["image/*"],
+                    multiple: false,
+                    onUploadComplete: async args =>
+                    {
+                        _imageUpscalerFileName.Value = args.FileName;
+                        _imageUpscalerFilePath = args.LocalTempFilePath;
+                        _imageUpscalerFileMimeType = args.MimeType;
+                    },
+                    content: view =>
+                    {
+                        view.Column([Layout.Column.Center], content: view =>
+                        {
+                            view.Icon([Media.PlaceholderIcon], name: "image");
+                            view.Text([Text.Body], string.IsNullOrEmpty(_imageUpscalerFileName.Value) ? "Upload image" : _imageUpscalerFileName.Value);
+                        });
+                    });
+
+                view.Row([Layout.Row.Md, "mt-4 items-center"], content: view =>
+                {
+                    view.Button(
+                        [Button.PrimaryMd],
+                        text: "Upscale from Upload",
+                        disabled: _imageUpscalerProcessing.Value || string.IsNullOrEmpty(_imageUpscalerFilePath),
+                        onClick: UpscaleImageAsync);
+
+                    view.Button(
+                        [Button.PrimaryMd],
+                        text: "Upscale Sample Image",
+                        props: TestId("ai-upscaler-sample"),
+                        disabled: _imageUpscalerProcessing.Value,
+                        onClick: UpscaleSampleImageAsync);
+
+                    if (_imageUpscalerProcessing.Value)
+                    {
+                        view.Box([Icon.Spinner]);
+                    }
+                });
+
+                if (!string.IsNullOrEmpty(_imageUpscalerError.Value))
+                {
+                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    {
+                        view.Text([Alert.Description], _imageUpscalerError.Value);
+                    });
+                }
+
+                if (!string.IsNullOrEmpty(_imageUpscalerResult.Value))
+                {
+                    view.Box([Alert.Success, "mt-4"], props: TestId("ai-upscaler-result"), content: view =>
+                    {
+                        view.Text([Alert.Title], "Result");
+                        view.Text([Alert.Description], _imageUpscalerResult.Value);
+                    });
+                }
+
+                if (!string.IsNullOrEmpty(_imageUpscalerImageDataUrl.Value))
+                {
+                    view.Image(["mt-4 self-start max-w-full h-auto max-h-[400px] rounded-lg border border-secondary"],
+                        src: _imageUpscalerImageDataUrl.Value,
+                        alt: "Upscaled image");
+                }
+            });
+        });
+    }
+
+    private async Task UpscaleImageAsync()
+    {
+        if (string.IsNullOrEmpty(_imageUpscalerFilePath) || !File.Exists(_imageUpscalerFilePath))
+        {
+            _imageUpscalerError.Value = "File not found";
+            return;
+        }
+
+        await UpscaleImageCoreAsync(_imageUpscalerFilePath, _imageUpscalerFileMimeType ?? MimeTypes.ImagePng);
+    }
+
+    private async Task UpscaleSampleImageAsync()
+        => await UpscaleImageCoreAsync(Path.Combine(app.DataDirectory, "santa.jpg"), MimeTypes.ImageJpeg);
+
+    private async Task UpscaleImageCoreAsync(string filePath, string mimeType)
+    {
+        _imageUpscalerProcessing.Value = true;
+        _imageUpscalerError.Value = null;
+        _imageUpscalerResult.Value = null;
+        _imageUpscalerImageDataUrl.Value = null;
+
+        try
+        {
+            var model = Enum.Parse<ImageUpscalerModel>(_imageUpscalerModel.Value);
+            var capabilities = ImageUpscaler.GetCapabilities(model);
+            using var imageUpscaler = new ImageUpscaler(model);
+
+            var data = await File.ReadAllBytesAsync(filePath);
+            var (inputWidth, inputHeight) = ImageUtils.GetImageDimensions(data);
+
+            // A model rejects a knob it does not expose rather than ignoring it, so only send what
+            // this one accepts
+            var result = await imageUpscaler.UpscaleImageAsync(new ImageUpscalerConfig
+            {
+                InputImage = new InputImage { Data = data, MimeType = mimeType },
+                ScaleFactor = capabilities.SupportsScaleFactor ? _imageUpscalerScaleFactor.Value : 0,
+                Creativity = capabilities.SupportsCreativity ? _imageUpscalerCreativity.Value : 0,
+            });
+
+            var marking = ImageProvenance.GetMarkingSupport(await result.Image.GetDataAsync());
+
+            _imageUpscalerResult.Value =
+                $"Upscaled image {inputWidth}x{inputHeight} to {result.Image.Width}x{result.Image.Height} ({result.Image.MimeType}, provenance {marking})";
+            _imageUpscalerImageDataUrl.Value = $"data:{result.Image.MimeType};base64,{Convert.ToBase64String(await result.Image.GetDataAsync())}";
+        }
+        catch (Exception ex)
+        {
+            _imageUpscalerError.Value = ex.Message;
+        }
+        finally
+        {
+            _imageUpscalerProcessing.Value = false;
         }
     }
 
@@ -3182,7 +3382,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_depthEstimatorImageDataUrl.Value))
                 {
-                    view.Image(["mt-4 max-w-full h-auto max-h-[400px] rounded-lg border border-secondary"],
+                    view.Image(["mt-4 self-start max-w-full h-auto max-h-[400px] rounded-lg border border-secondary"],
                         src: _depthEstimatorImageDataUrl.Value,
                         alt: "Depth map");
                 }
@@ -3353,7 +3553,7 @@ public partial class Validation
 
                     if (!string.IsNullOrEmpty(mesh.ThumbnailUrl))
                     {
-                        view.Image(["mt-4 max-w-full h-auto max-h-[300px] rounded-lg border border-secondary"],
+                        view.Image(["mt-4 self-start max-w-full h-auto max-h-[300px] rounded-lg border border-secondary"],
                             src: mesh.ThumbnailUrl,
                             alt: "Mesh thumbnail");
                     }

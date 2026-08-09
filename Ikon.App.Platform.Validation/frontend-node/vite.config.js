@@ -46,6 +46,8 @@ export default defineConfig(({ mode }) => {
 
   if (isIkonInternal && platformTypescriptPath) {
     resolveConfig.alias = {
+      '@ikonai/sdk-react-ui/fonts': resolve(platformTypescriptPath, 'sdk/sdk-react-ui/fonts'),
+      '@ikonai/sdk-react-ui/theme': resolve(platformTypescriptPath, 'sdk/sdk-react-ui/theme'),
       '@ikonai/sdk': resolve(platformTypescriptPath, 'sdk/sdk/src/index.ts'),
       '@ikonai/sdk-libopus': resolve(platformTypescriptPath, 'sdk/sdk-libopus/src/index.ts'),
       '@ikonai/sdk-react-ui': resolve(platformTypescriptPath, 'sdk/sdk-react-ui/src/index.ts'),

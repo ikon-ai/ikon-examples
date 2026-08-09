@@ -143,7 +143,7 @@ public partial class Validation
                         labelSkipWidth: 24,
                         labelSkipHeight: 12,
                         margin: new ChartMargin { Top = 50, Right = 130, Bottom = 70, Left = 60 },
-                        axisBottom: new AxisConfig { Legend = "Month", LegendOffset = 50, TickPadding = 5, TickRotation = -45, TickValues = 12 },
+                        axisBottom: new AxisConfig { Legend = "Month", LegendOffset = 50, TickPadding = 5, TickRotation = -45, TickCount = 12 },
                         axisLeft: new AxisConfig { Legend = "Traffic (K)", LegendOffset = -45, TickPadding = 5 },
                         legends:
                         [
@@ -181,7 +181,7 @@ public partial class Validation
                         crosshairType: CrosshairType.Cross,
                         useMesh: true,
                         lineWidth: 2,
-                        axisBottom: new AxisConfig { Legend = "Month", LegendOffset = 50, TickPadding = 5, TickRotation = -45, TickValues = 12 },
+                        axisBottom: new AxisConfig { Legend = "Month", LegendOffset = 50, TickPadding = 5, TickRotation = -45, TickCount = 12 },
                         axisLeft: new AxisConfig { Legend = "Count (K)", LegendOffset = -55, TickPadding = 5 },
                         legends:
                         [

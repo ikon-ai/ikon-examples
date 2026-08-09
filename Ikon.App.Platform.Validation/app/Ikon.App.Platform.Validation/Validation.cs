@@ -381,7 +381,8 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
         app.ClientJoinedAsync += args =>
         {
-            var tab = args.ClientContext.InitialPath.TrimStart('/');
+            // InitialPath carries the deep link's query string too — tab names are path-only
+            var tab = args.ClientContext.InitialPath.Split('?', 2)[0].TrimStart('/');
 
             if (ValidTabs.Contains(tab))
             {

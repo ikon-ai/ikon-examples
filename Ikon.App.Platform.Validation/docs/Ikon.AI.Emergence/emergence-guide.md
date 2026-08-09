@@ -396,7 +396,7 @@ var result = await Emerge.TreeSearch<TreeSearchResult>(LLMModel.Claude45Sonnet, 
 
 ## Tool Registration
 
-Tools are authored with the `Tool` vocabulary from `Ikon.Agent` and registered on the pass via `AddTool` / `AddTools`. `Tool.Of` infers the parameter schema from the lambda signature — parameter names carry through to the model, and `[Description]` attributes (from `System.ComponentModel`) document individual parameters. Tools are deduplicated by name.
+Tools are authored with the `Tool` vocabulary from `Ikon.Agent` and registered on the pass via `AddTool` / `AddTools`. Both ship with a new app — `Ikon.Agent` is one of the default packages and its namespace is in the scaffold's `GlobalUsings.cs`, so there is nothing to add. `Tool.Of` infers the parameter schema from the lambda signature — parameter names carry through to the model, and `[Description]` attributes (from `System.ComponentModel`) document individual parameters. Tools are deduplicated by name.
 
 ```csharp
 await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx, pass =>

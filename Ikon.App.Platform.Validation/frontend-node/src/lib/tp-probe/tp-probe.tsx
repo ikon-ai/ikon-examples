@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { memo, useEffect, useReducer, useRef, type CSSProperties } from 'react';
 import { type IkonUiComponentResolver, type UiComponentRendererProps } from '@ikonai/sdk-react-ui';
 import { appMessaging, type AppMessageType } from '@ikonai/sdk';
 import {
@@ -57,14 +57,14 @@ const TpProbeRenderer = memo(function TpProbeRenderer({ context }: UiComponentRe
   const client = context.client;
 
   // Metrics live in refs (mutated straight from the message callback, off the
-  // reactive loop); a tick state forces a light re-render so the numbers paint.
-  const reliable = useRef<ModeMetrics>(emptyMetrics());
-  const unreliable = useRef<ModeMetrics>(emptyMetrics());
-  const [, setTick] = useState(0);
+  // reactive loop); a repaint tick forces a light re-render so the numbers paint.
+  const reliableRef = useRef<ModeMetrics>(emptyMetrics());
+  const unreliableRef = useRef<ModeMetrics>(emptyMetrics());
+  const [, repaint] = useReducer((tick: number) => tick + 1, 0);
 
-  const sentReliable = useRef(0);
-  const sentUnreliable = useRef(0);
-  const clientSeq = useRef(0);
+  const sentReliableRef = useRef(0);
+  const sentUnreliableRef = useRef(0);
+  const clientSeqRef = useRef(0);
 
   const messagingRef = useRef<ReturnType<typeof appMessaging> | null>(null);
 
@@ -77,12 +77,12 @@ const TpProbeRenderer = memo(function TpProbeRenderer({ context }: UiComponentRe
     messagingRef.current = messaging;
 
     const subReliable = messaging.on(ProbePingMessage, (p) => {
-      applyMessage(reliable.current, Number(p.Seq), Number(p.SentAtMs));
-      setTick((t) => t + 1);
+      applyMessage(reliableRef.current, Number(p.Seq), Number(p.SentAtMs));
+      repaint();
     });
     const subUnreliable = messaging.on(ProbePingUnreliableMessage, (p) => {
-      applyMessage(unreliable.current, Number(p.Seq), Number(p.SentAtMs));
-      setTick((t) => t + 1);
+      applyMessage(unreliableRef.current, Number(p.Seq), Number(p.SentAtMs));
+      repaint();
     });
 
     return () => {
@@ -96,45 +96,45 @@ const TpProbeRenderer = memo(function TpProbeRenderer({ context }: UiComponentRe
     if (!messagingRef.current) {
       return;
     }
-    clientSeq.current += 1;
+    clientSeqRef.current += 1;
     messagingRef.current.send(ProbePingMessage, {
-      Seq: BigInt(clientSeq.current),
+      Seq: BigInt(clientSeqRef.current),
       SentAtMs: BigInt(Date.now()),
       Origin: 'client',
       Mode: 'reliable',
       Note: 'manual',
     });
-    sentReliable.current += 1;
-    setTick((t) => t + 1);
+    sentReliableRef.current += 1;
+    repaint();
   };
 
   const sendUnreliable = () => {
     if (!messagingRef.current) {
       return;
     }
-    clientSeq.current += 1;
+    clientSeqRef.current += 1;
     messagingRef.current.send(ProbePingUnreliableMessage, {
-      Seq: BigInt(clientSeq.current),
+      Seq: BigInt(clientSeqRef.current),
       SentAtMs: BigInt(Date.now()),
       Origin: 'client',
       Mode: 'unreliable',
       Note: 'manual',
     });
-    sentUnreliable.current += 1;
-    setTick((t) => t + 1);
+    sentUnreliableRef.current += 1;
+    repaint();
   };
 
   const resetMetrics = () => {
-    reliable.current = emptyMetrics();
-    unreliable.current = emptyMetrics();
-    setTick((t) => t + 1);
+    reliableRef.current = emptyMetrics();
+    unreliableRef.current = emptyMetrics();
+    repaint();
   };
 
   return (
     <div style={containerStyle}>
       <div style={cardsRowStyle}>
-        <MetricCard title="Reliable (ProbePing)" testid="reliable" m={reliable.current} />
-        <MetricCard title="Unreliable (ProbePingUnreliable)" testid="unreliable" m={unreliable.current} />
+        <MetricCard title="Reliable (ProbePing)" testid="reliable" m={reliableRef.current} />
+        <MetricCard title="Unreliable (ProbePingUnreliable)" testid="unreliable" m={unreliableRef.current} />
       </div>
       <div style={controlsRowStyle}>
         <button type="button" style={buttonStyle} onClick={sendReliable} data-testid="tp-send-reliable">
@@ -147,7 +147,7 @@ const TpProbeRenderer = memo(function TpProbeRenderer({ context }: UiComponentRe
           Reset metrics
         </button>
         <span style={sentStyle} data-testid="tp-sent">
-          sent: {sentReliable.current} reliable / {sentUnreliable.current} unreliable
+          sent: {sentReliableRef.current} reliable / {sentUnreliableRef.current} unreliable
         </span>
       </div>
     </div>

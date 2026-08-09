@@ -1,6 +1,6 @@
 import './app.css';
 
-import { AuthProvider, IkonApp, useAuthOptional, useIkonApp, useLazyFont } from '@ikonai/sdk-react-ui';
+import { AuthProvider, IkonApp, useAuthOptional, useIkonApp } from '@ikonai/sdk-react-ui';
 import { registerStandardUiModule, registerLucideIconsModule } from '@ikonai/sdk-react-ui-standard';
 import { registerRiveModule } from '@ikonai/sdk-react-ui-rive';
 import { registerFunctionTesterModule } from './lib/function-tester/function-tester-module';
@@ -23,7 +23,6 @@ function App() {
 }
 
 function AuthorizedApp() {
-  const loadFont = useLazyFont('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
   const app = useIkonApp({
     modules: [registerStandardUiModule, registerLucideIconsModule, registerRiveModule, registerFunctionTesterModule, registerTpProbeModule],
   });
@@ -31,17 +30,16 @@ function AuthorizedApp() {
   return (
     <IkonApp
       {...app}
-      connectingOverlay={(isSlow) => (isSlow ? <ConnectingOverlay loadFont={loadFont} /> : null)}
-      reconnectingOverlay={<ReconnectingOverlay loadFont={loadFont} />}
-      offlineOverlay={(error) => <OfflineOverlay error={error} isServerFull={app.isServerFull} isSessionExpired={app.isSessionExpired} loadFont={loadFont} />}
-      accessDeniedScreen={(reason) => <AccessDeniedScreen reason={reason} loadFont={loadFont} />}
+      connectingOverlay={(isSlow) => (isSlow ? <ConnectingOverlay /> : null)}
+      reconnectingOverlay={<ReconnectingOverlay />}
+      offlineOverlay={(error) => <OfflineOverlay error={error} isServerFull={app.isServerFull} isSessionExpired={app.isSessionExpired} isStartupFailed={app.isStartupFailed} />}
+      accessDeniedScreen={(reason) => <AccessDeniedScreen reason={reason} />}
     />
   );
 }
 
-function ConnectingOverlay({ loadFont }: { loadFont: () => void }) {
+function ConnectingOverlay() {
   const { t } = useI18n();
-  loadFont();
   return (
     <div className="ikon-connecting-overlay">
       <div className="ikon-connecting-chip">
@@ -52,9 +50,8 @@ function ConnectingOverlay({ loadFont }: { loadFont: () => void }) {
   );
 }
 
-function ReconnectingOverlay({ loadFont }: { loadFont: () => void }) {
+function ReconnectingOverlay() {
   const { t } = useI18n();
-  loadFont();
   return (
     <div className="ikon-reconnecting-overlay">
       <div className="ikon-reconnecting-chip">
@@ -65,12 +62,11 @@ function ReconnectingOverlay({ loadFont }: { loadFont: () => void }) {
   );
 }
 
-function OfflineOverlay({ error, isServerFull, isSessionExpired, loadFont }: { error: string | null; isServerFull: boolean; isSessionExpired: boolean; loadFont: () => void }) {
+function OfflineOverlay({ error, isServerFull, isSessionExpired, isStartupFailed }: { error: string | null; isServerFull: boolean; isSessionExpired: boolean; isStartupFailed: boolean }) {
   const { t } = useI18n();
-  loadFont();
 
-  const isTerminal = isServerFull || isSessionExpired;
-  const scope = isServerFull ? 'serverFull' : isSessionExpired ? 'sessionExpired' : 'offline';
+  const isTerminal = isServerFull || isSessionExpired || isStartupFailed;
+  const scope = isServerFull ? 'serverFull' : isSessionExpired ? 'sessionExpired' : isStartupFailed ? 'startupFailed' : 'offline';
   return (
     <div className="ikon-offline-overlay">
       <div className="ikon-offline-chip">
@@ -82,18 +78,15 @@ function OfflineOverlay({ error, isServerFull, isSessionExpired, loadFont }: { e
   );
 }
 
-function AccessDeniedScreen({ reason, loadFont }: { reason: string; loadFont: () => void }) {
+function AccessDeniedScreen({ reason }: { reason: string }) {
   const { t } = useI18n();
   const auth = useAuthOptional();
-  loadFont();
   return (
-    <main className="ikon-app">
-      <div className="ikon-aurora-1" />
-      <div className="ikon-aurora-2" />
-      <section className="ikon-hero">
-        <h1>{t('connection.accessDenied.title')}</h1>
-        <p className="ikon-info">{t('connection.accessDenied.message')}</p>
-        <p className="ikon-error">{reason}</p>
+    <main className="ikon-surface ikon-auth-screen">
+      <section className="ikon-auth-container">
+        <h1 className="ikon-auth-title">{t('connection.accessDenied.title')}</h1>
+        <p className="ikon-auth-subtitle">{t('connection.accessDenied.message')}</p>
+        <div className="ikon-auth-error">{reason}</div>
         {auth && (
           <button type="button" className="ikon-auth-email-button" onClick={auth.logout}>
             {t('connection.accessDenied.backToLogin')}

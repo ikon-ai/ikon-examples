@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { type IkonUiComponentResolver, type UiComponentRendererProps, useUiNode } from '@ikonai/sdk-react-ui';
 import type { FunctionRegistry } from '@ikonai/sdk';
 
@@ -52,7 +52,8 @@ function FunctionCard({
   const [result, setResult] = useState<FunctionCallResult | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const args = TEST_ARGS[fn.name] ?? [];
+  // A fresh [] on every render would re-identify the useCallback below each time.
+  const args = useMemo(() => TEST_ARGS[fn.name] ?? [], [fn.name]);
 
   const handleCall = useCallback(async () => {
     setLoading(true);
