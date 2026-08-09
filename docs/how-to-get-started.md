@@ -48,21 +48,19 @@ This creates a `MyFirstAIApp` folder in your current directory with a ready-to-r
 
 ## Take a Studio project local
 
-Apps built in Ikon Studio can move to local development with one command. In Studio, open your app and click **Open locally** (also under App settings → Develop locally) to get the exact command with your project's id, or use the space id / project URL directly:
+Apps built in Ikon Studio move to local development with one command:
 
 ```bash
-ikon load 665f2a3bc9e77a0012ab34cd
-ikon load https://studio.ikonai.app/app/665f2a3bc9e77a0012ab34cd
+ikon load <ref>
 ```
 
-The command signs you in if needed (add `--env dev` for projects on the development platform), installs Node.js if it's missing, downloads the project with its full history, restores dependencies, and offers to open the project in a detected editor (Claude Code, Cursor, VS Code).
+In Studio, open your app and click **Open locally** to get the command with your project's ref already filled in. It downloads the project with its full history, restores dependencies, and offers to open it in a detected editor.
 
 From there the normal loop applies: `ikon app run` runs the app locally, and `ikon app save` publishes your changes back — Studio picks them up the next time you open the project.
 
 ## What a new app already has
 
-`ikon app new` references these, and imports their namespaces in `GlobalUsings.cs` — you write
-against them with no `using` and no `dotnet add package`:
+Every new app references these, with their namespaces already imported in `GlobalUsings.cs`:
 
 | Package | What it gives you |
 |---|---|
@@ -70,26 +68,10 @@ against them with no `using` and no `dotnet add package`:
 | `Ikon.AI` | Image, speech, video, OCR, embeddings, web search and scraping |
 | `Ikon.AI.Emergence` | `Emerge.Run<T>()` — LLM text and structured output |
 | `Ikon.Agent` | Tools for the model to call (`Tool.Of`, `AddTool`) and agent threads |
-| `Ikon.Agent.Docs` | The embedded documentation corpus `ikon app docs` extracts, version-locked to the libraries above |
 | `Ikon.Parallax` | UI components |
 | `Ikon.Crosswind` | Styling and motion |
 | `Ikon.Resonance` | Audio synthesis and effects |
 | `Ikon.App.Storage.Postgres` | Persistent state backed by Postgres |
-| `Ikon.AI.Speech.Azure`, `Ikon.AI.Speech.Google` | Alternative speech providers |
-
-Everything else is opt-in, because it costs something a typical app should not pay — an external
-service, a credential, or a dependency most apps never load. Add one when you need it:
-
-```bash
-dotnet add package Ikon.Connectors          # GitHub, Slack, WhatsApp
-dotnet add package Ikon.Connectors.Google   # Google APIs
-dotnet add package Ikon.Connectors.Telephony
-dotnet add package Ikon.AI.Scrape           # heavier crawling
-dotnet add package Ikon.AI.Database         # vector stores
-```
-
-Optional packages are not in `GlobalUsings.cs`, so add the namespace yourself — either a
-`global using` there, or a `using` in the file that needs it.
 
 ## Run the Ikon AI App locally
 
@@ -110,7 +92,7 @@ When the app starts, its UI will open automatically in your default web browser.
 
 ## Deploy to Ikon Cloud
 
-Bundle and deploy your latest build to the Ikon Cloud:
+Package and deploy your latest build to the Ikon Cloud:
 
 ```bash
 ikon app deploy
@@ -158,7 +140,7 @@ Open the project folder with your preferred coding agent (e.g., [Cursor](https:/
 | **Clone**   | `ikon app clone`     | Download an existing app        |
 | **Load**    | `ikon load <ref>`    | Take a Studio project local     |
 | **Run**     | `ikon app run`       | Start the local dev server      |
-| **Deploy**  | `ikon app deploy`    | Upload the app bundle           |
+| **Deploy**  | `ikon app deploy`    | Deploy the app to Ikon Cloud    |
 | **Diff**    | `ikon app diff`      | Show uncommitted changes        |
 | **Save**    | `ikon app save`      | Save changes to version control |
 | **Update**  | `ikon app update`    | Update Ikon package references  |

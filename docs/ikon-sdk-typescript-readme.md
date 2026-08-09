@@ -649,6 +649,36 @@ const client = new IkonClient({
 });
 ```
 
+### Internal Link Navigation
+
+A plain left-click on a same-origin `<a href>` is turned into an in-place route change: the SDK
+pushes the history entry and tells the server the URL moved — the same signal a back/forward gesture
+sends — so the app switches route without reloading the document, dropping the connection or minting
+a new client session. On the server this arrives as `app.Navigation.PathChangedAsync`, so one router
+serves link clicks, history gestures and cold loads alike.
+
+The `href` stays in the DOM, so new-tab, copy-link, the status-bar preview and crawlers are
+unaffected. These always navigate natively: modified and middle clicks, `target` links, `download`
+links, `rel="external"`, cross-origin URLs, non-HTTP schemes, the platform-reserved `/ikon` and
+`/api` prefixes, fragments on the current page, and any click made while the client has no
+connection.
+
+Opt one link out with an attribute:
+
+```html
+<a href="/legacy-report" data-ikon-navigate="reload">Report</a>
+```
+
+Or turn it off for the whole client — appropriate when the app's internal links address documents it
+does not route:
+
+```typescript
+const client = new IkonClient({
+  // ... authentication config ...
+  interceptInternalLinks: false,
+});
+```
+
 ## Logging
 
 Configure SDK logging:
