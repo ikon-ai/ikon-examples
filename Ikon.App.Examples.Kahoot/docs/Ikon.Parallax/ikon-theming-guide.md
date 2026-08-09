@@ -232,7 +232,7 @@ Every value is one of:
 - **Density keyword** — `compact`, `default`, `comfortable`, `airy`.
 - **Easing keyword** — `linear`, `ease`, `ease-in`, `ease-out`, `ease-in-out`.
 - **Raw CSS** — hex (`#F5A524`), rgb/rgba, hsl/hsla, oklch/oklab, named colors, rems, pixels, durations (`150ms`, `0.2s`), gradients, or any other CSS expression. Pass-through unchanged.
-- **Literal font family name** — `Crimson Pro`, `Fraunces`, `JetBrains Mono`. Wrapped in a quoted family stack with system fallbacks, and imported from Google Fonts automatically.
+- **Literal font family name** — `Crimson Pro`, `Fraunces`, `JetBrains Mono`. Wrapped in a quoted family stack with system fallbacks, and imported from Google Fonts automatically. The four baseline families (Inter, Poppins, Crimson Pro, JetBrains Mono) are self-hosted woff2 bundled into the app frontend, so they load same-origin and work on networks that block Google Fonts; any other family needs `fonts.googleapis.com`/`fonts.gstatic.com` to be reachable.
 
 ## Mood rules
 

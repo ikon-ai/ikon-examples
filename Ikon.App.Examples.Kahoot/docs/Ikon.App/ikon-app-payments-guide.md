@@ -40,7 +40,9 @@ provider's form), get a fresh one with `ikon app payments status`, or just re-ru
 //    app.Payments.DefaultProvider = PaymentProvider.Stripe;   // optional; unset = the space's provider
 // Success/cancel redirects default to your app's own URL — the user returns to the app after paying.
 // Set DefaultSuccessUrl / DefaultCancelUrl only for a custom destination, e.g. app-URL + "/paid" and
-// "/cancel" routes where you render a confirmation (branch on the client's InitialPath in UI.Root).
+// "/cancel" routes where you render a confirmation (branch on the client's InitialPath in UI.Root —
+// strip the query first: InitialPath carries the deep link's query string, and payment providers
+// may append their own params to the return URL: var path = InitialPath.Split('?', 2)[0];).
 
 // 2. React to normalized events the backend pushes — no webhook to host.
 app.Payments.PaymentEventReceived += async evt =>

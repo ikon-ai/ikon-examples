@@ -134,6 +134,7 @@ namespace Ikon.Sdk
     ctor()
     bool BackgroundReconnect { get; init; }
     TimeSpan InitialReconnectDelay { get; init; }
+    int MaxConnectAttempts { get; init; }
     int MaxReconnectAttempts { get; init; }
     TimeSpan MaxReconnectDelay { get; init; }
     TimeSpan ReconnectAttemptTimeout { get; init; }
