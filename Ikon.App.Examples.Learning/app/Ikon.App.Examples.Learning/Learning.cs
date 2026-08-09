@@ -1,3 +1,5 @@
+using Content = Ikon.App.Examples.Learning.DataModels.Content;
+
 return await App.Run(args);
 
 public record SessionIdentity(string? UserId);

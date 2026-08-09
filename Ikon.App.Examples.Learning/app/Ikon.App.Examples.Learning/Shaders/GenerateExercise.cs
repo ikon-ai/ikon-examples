@@ -1,4 +1,5 @@
 using Ikon.AI.Emergence;
+using Content = Ikon.App.Examples.Learning.DataModels.Content;
 
 namespace Ikon.App.Examples.Learning.Shaders;
 

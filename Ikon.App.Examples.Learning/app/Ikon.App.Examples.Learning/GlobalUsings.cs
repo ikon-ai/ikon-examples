@@ -17,6 +17,7 @@ global using Ikon.AI.VideoEnhancement;
 global using Ikon.AI.VideoGeneration;
 global using Ikon.AI.WebSearching;
 global using Ikon.AI.WebScraping;
+global using Ikon.Agent;
 global using Ikon.App;
 global using Ikon.App.Http;
 global using Ikon.App.Payments;
