@@ -116,6 +116,15 @@ namespace Ikon.Common.Core
     bool Indentation { get; }
     bool UseJson5 { get; }
     static readonly JsonOptions Compact
+  // One legacy_usage_observed event per distinct (feature, detail, caller space) key per process, never per call: the question is whether a path is reached at all, so a busy server reporting a thousand old calls says exactly what one report says and costs a thousand times more. Every part of the key comes from a small closed set — a handful of features, per feature a payload version, capability level or type name, and the spaces calling this host — so the bookkeeping is bounded by the shims that exist rather than by traffic. Nothing is emitted when no deprecated path runs, which is the ordinary case.
+  static class LegacyUsage
+    static bool Report(string feature, string detail = "", int sessionId = 0, string callerSpaceId = "")
+    const string PluginConnectAsyncV1
+    const string ProtocolV1ActionCall
+    const string ProtocolV1AudioFrame
+    const string RemovedPluginRequested
+    const string RpcPayloadVersion
+    const string SdkCapabilityLevel
   class Log : AsyncLocalInstance<Log>
     ctor()
     IList<IScopeKey> CurrentScopes { get; }
@@ -1302,11 +1311,6 @@ namespace Ikon.Common.Core.Protocol
     ACTION_TAP
     ACTION_PAN
     ACTION_ZOOM
-    ACTION_FILE_UPLOAD_BEGIN
-    ACTION_FILE_UPLOAD_DATA
-    ACTION_FILE_UPLOAD_ACK
-    ACTION_FILE_UPLOAD_END
-    ACTION_FILE_UPLOAD_RESULT
     ACTION_OPEN_EXTERNAL_URL
     ACTION_FUNCTION_REGISTER
     ACTION_FUNCTION_CALL
@@ -1337,7 +1341,6 @@ namespace Ikon.Common.Core.Protocol
     UI_UPDATE_ACK
     ACTION_CALL2
     ACTION_FUNCTION_REGISTER_BATCH
-    ACTION_FILE_UPLOAD_CALLBACK
     ACTION_CUSTOM_USER_MESSAGE
     ACTION_URL_CHANGED
     ACTION_FILE_UPLOAD_PRE_START2
@@ -1828,6 +1831,13 @@ namespace Ikon.Common.Core.Scope
     ctor(string tenantId)
     string Id { get; }
     string Name { get; }
+  // Machine-triggered work has no ClientScope and no UserScope, so without this its cost lands in the space's totals attached to nothing and a schedule quietly burning credits is indistinguishable from the app's ordinary use. Every log event carries the active scopes, so the cost of an AI call made inside a trigger handler is attributed by the ambient scope alone — call sites need no change. Scoped to the invocation rather than the session on purpose: a session woken by cron goes on to serve clients, and their spend is theirs, not the schedule's. The values match the backend's AppSessionSource spelling, so the trigger a cost row carries reads the same as the source stamped on the session that ran it.
+  readonly struct TriggerScope : IScopeKey
+    ctor(string kind)
+    string Id { get; }
+    string Name { get; }
+    const string Cron
+    const string Endpoint
   // Identifies a logical user across their multiple client sessions. Used by UserReactive<T> to share state across a user's multiple connected clients. Lifecycle: Active during UI rendering inside UI.Root(). Automatically established by the framework alongside ClientScope.
   readonly struct UserScope : IScopeKey
     ctor(string userId)

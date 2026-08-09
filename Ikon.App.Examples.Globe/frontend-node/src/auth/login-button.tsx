@@ -10,16 +10,16 @@ export interface LoginButtonProps {
   onClick?: () => void;
 }
 
-const PROVIDER_CONFIG: Record<LoginMethod, { name: string; bgColor: string; textColor: string }> = {
-  google: { name: 'Google', bgColor: '#ffffff', textColor: '#1f1f1f' },
-  apple: { name: 'Apple', bgColor: '#000000', textColor: '#ffffff' },
-  facebook: { name: 'Facebook', bgColor: '#1877f2', textColor: '#ffffff' },
-  microsoft: { name: 'Microsoft', bgColor: '#2f2f2f', textColor: '#ffffff' },
-  signicat: { name: 'eID', bgColor: '#0a3a66', textColor: '#ffffff' },
-  email: { name: 'Email', bgColor: '#6f8bff', textColor: '#ffffff' },
-  passkey: { name: 'Passkey', bgColor: '#5a4fcf', textColor: '#ffffff' },
-  guest: { name: 'Guest', bgColor: 'transparent', textColor: 'rgba(255, 255, 255, 0.7)' },
-  global: { name: 'Guest', bgColor: 'transparent', textColor: 'rgba(255, 255, 255, 0.7)' },
+const PROVIDER_NAMES: Record<LoginMethod, string> = {
+  google: 'Google',
+  apple: 'Apple',
+  facebook: 'Facebook',
+  microsoft: 'Microsoft',
+  signicat: 'eID',
+  email: 'Email',
+  passkey: 'Passkey',
+  guest: 'Guest',
+  global: 'Guest',
 };
 
 const PROVIDER_ICONS: Record<LoginMethod, ReactElement> = {
@@ -79,7 +79,6 @@ const PROVIDER_ICONS: Record<LoginMethod, ReactElement> = {
 export function LoginButton({ provider, disabled, onAttempt, onClick }: LoginButtonProps) {
   const { t } = useI18n();
   const { login } = useAuth();
-  const config = PROVIDER_CONFIG[provider];
 
   const handleClick = () => {
     if (disabled) {
@@ -95,21 +94,10 @@ export function LoginButton({ provider, disabled, onAttempt, onClick }: LoginBut
     }
   };
 
-  const buttonText = provider === 'guest' || provider === 'global' ? t('auth.button.guest') : t('auth.button.provider', { provider: config.name });
+  const buttonText = provider === 'guest' || provider === 'global' ? t('auth.button.guest') : t('auth.button.provider', { provider: PROVIDER_NAMES[provider] });
 
   return (
-    <button
-      type="button"
-      className={`ikon-auth-login-button ikon-auth-login-button-${provider}`}
-      style={{
-        backgroundColor: config.bgColor,
-        color: config.textColor,
-        opacity: disabled ? 0.6 : 1,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-      }}
-      onClick={handleClick}
-      disabled={disabled}
-    >
+    <button type="button" className={`ikon-auth-login-button ikon-auth-login-button-${provider}`} onClick={handleClick} disabled={disabled}>
       {PROVIDER_ICONS[provider]}
       {buttonText}
     </button>
@@ -124,7 +112,6 @@ export interface RegisterPasskeyButtonProps {
 export function RegisterPasskeyButton({ disabled, onAttempt }: RegisterPasskeyButtonProps) {
   const { t } = useI18n();
   const { registerPasskey } = useAuth();
-  const config = PROVIDER_CONFIG.passkey;
 
   const handleClick = () => {
     if (!disabled) {
@@ -134,18 +121,7 @@ export function RegisterPasskeyButton({ disabled, onAttempt }: RegisterPasskeyBu
   };
 
   return (
-    <button
-      type="button"
-      className="ikon-auth-login-button ikon-auth-login-button-passkey-register"
-      style={{
-        backgroundColor: config.bgColor,
-        color: config.textColor,
-        opacity: disabled ? 0.6 : 1,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-      }}
-      onClick={handleClick}
-      disabled={disabled}
-    >
+    <button type="button" className="ikon-auth-login-button ikon-auth-login-button-passkey-register" onClick={handleClick} disabled={disabled}>
       {PROVIDER_ICONS.passkey}
       {t('auth.button.registerPasskey')}
     </button>
