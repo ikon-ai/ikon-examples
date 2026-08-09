@@ -1,6 +1,4 @@
 using System.Text.Json;
-using Ikon.AI.Emergence;
-using Ikon.Common.Core.Functions;
 using Ikon.Parallax.Components.Standard;
 
 public partial class Emergence
@@ -106,7 +104,7 @@ public partial class Emergence
                     {
                         if (state.IsRunning.Value)
                         {
-                            view.Button([Button.ErrorMd], label: "Stop", onClick: async () =>
+                            view.Button([Button.ErrorMd], text: "Stop", onClick: async () =>
                             {
                                 _cts?.Cancel();
                                 state.IsRunning.Value = false;
@@ -114,7 +112,7 @@ public partial class Emergence
                         }
                         else
                         {
-                            view.Button([Button.PrimaryMd], label: "Start Coding", onClick: async () =>
+                            view.Button([Button.PrimaryMd], text: "Start Coding", onClick: async () =>
                             {
                                 state.Clear();
                                 _virtualFiles.Clear();
@@ -124,7 +122,7 @@ public partial class Emergence
                             });
                         }
 
-                        view.Button([Button.OutlineMd], label: "Clear All", onClick: async () =>
+                        view.Button([Button.OutlineMd], text: "Clear All", onClick: async () =>
                         {
                             state.Clear();
                             _virtualFiles.Clear();
@@ -172,8 +170,8 @@ public partial class Emergence
                                     var isSelected = _selectedFile.Value == file;
                                     var bgStyle = isSelected ? "bg-primary/20" : "bg-transparent hover:bg-muted";
 
-                                    view.Button([$"w-full justify-start py-1.5 px-2 rounded text-left {bgStyle}"],
-                                        label: $"{GetFileIcon(file)} {file}",
+                                    view.Button(["default", $"bg-transparent w-full justify-start py-1.5 px-2 rounded text-left {bgStyle}"],
+                                        text: $"{GetFileIcon(file)} {file}",
                                         onClick: async () => _selectedFile.Value = file);
                                 }
                             }
@@ -257,16 +255,16 @@ public partial class Emergence
             await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx, pass =>
             {
                 // Add file system tools
-                pass.AddTool("write_file", "Write content to a file. Creates the file if it doesn't exist, overwrites if it does.",
-                    (string path, string content) => WriteFile(state, path, content))
-                   .AddTool("read_file", "Read the contents of a file",
-                    (string path) => ReadFile(state, path))
-                   .AddTool("list_files", "List all files in the virtual file system",
-                    () => ListFiles(state))
-                   .AddTool("delete_file", "Delete a file from the virtual file system",
-                    (string path) => DeleteFile(state, path))
-                   .AddTool("search_in_files", "Search for a pattern in all files",
-                    (string pattern) => SearchInFiles(state, pattern));
+                pass.AddTool(Tool.Of("write_file", "Write content to a file. Creates the file if it doesn't exist, overwrites if it does.",
+                    (string path, string content) => WriteFile(state, path, content)))
+                   .AddTool(Tool.Of("read_file", "Read the contents of a file",
+                    (string path) => ReadFile(state, path)))
+                   .AddTool(Tool.Of("list_files", "List all files in the virtual file system",
+                    () => ListFiles(state)))
+                   .AddTool(Tool.Of("delete_file", "Delete a file from the virtual file system",
+                    (string path) => DeleteFile(state, path)))
+                   .AddTool(Tool.Of("search_in_files", "Search for a pattern in all files",
+                    (string pattern) => SearchInFiles(state, pattern)));
 
                 var filesList = _virtualFiles.Count > 0
                     ? $"\n\nCurrent files:\n{string.Join("\n", _virtualFiles.Keys.Select(f => $"- {f}"))}"
@@ -306,16 +304,16 @@ public partial class Emergence
             {
                 LogCoderEvent(state, ev);
 
-                if (ev is Completed<CoderResponse> completed)
+                if (ev is Completed<CoderResponse> { Result: { } result })
                 {
-                    state.SetResult(completed.Result);
+                    state.SetResult(result);
                     var filesCount = _virtualFiles.Count;
                     state.CurrentStage.Value = $"Complete - {filesCount} files created";
-                    state.Log($"Task completed: {completed.Result.Summary}", LogLevel.Result);
+                    state.Log($"Task completed: {result.Summary}", LogLevel.Result);
 
-                    if (completed.Result.FilesCreated.Count > 0)
+                    if (result.FilesCreated.Count > 0)
                     {
-                        state.Log($"Files created: {string.Join(", ", completed.Result.FilesCreated)}", LogLevel.Result);
+                        state.Log($"Files created: {string.Join(", ", result.FilesCreated)}", LogLevel.Result);
                     }
                 }
             }

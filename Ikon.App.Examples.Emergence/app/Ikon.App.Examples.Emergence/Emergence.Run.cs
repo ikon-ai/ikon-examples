@@ -1,6 +1,3 @@
-using System.Text.Json;
-using Ikon.AI.Emergence;
-using Ikon.Common.Core.Functions;
 using Ikon.Parallax.Components.Standard;
 
 public partial class Emergence
@@ -76,7 +73,7 @@ public partial class Emergence
                         var isSelected = _selectedRunExample.Value == key;
                         view.Button(
                             [isSelected ? Button.PrimaryMd : Button.OutlineMd],
-                            label: label,
+                            text: label,
                             onClick: async () => _selectedRunExample.Value = key);
                     }
                 });
@@ -192,7 +189,7 @@ public partial class Emergence
                     {
                         if (state.IsRunning.Value)
                         {
-                            view.Button([Button.ErrorMd], label: "Stop", onClick: async () =>
+                            view.Button([Button.ErrorMd], text: "Stop", onClick: async () =>
                             {
                                 _cts?.Cancel();
                                 state.IsRunning.Value = false;
@@ -200,7 +197,7 @@ public partial class Emergence
                         }
                         else
                         {
-                            view.Button([Button.PrimaryMd], label: "Run Research", onClick: async () =>
+                            view.Button([Button.PrimaryMd], text: "Run Research", onClick: async () =>
                             {
                                 state.Clear();
                                 _cts = new CancellationTokenSource();
@@ -208,7 +205,7 @@ public partial class Emergence
                             });
                         }
 
-                        view.Button([Button.OutlineMd], label: "Clear", onClick: async () => state.Clear());
+                        view.Button([Button.OutlineMd], text: "Clear", onClick: async () => state.Clear());
                     });
                 });
             });
@@ -355,8 +352,8 @@ public partial class Emergence
 
             await foreach (var ev in Emerge.Run<ResearchResponse>(LLMModel.Claude45Sonnet, ctx, pass =>
             {
-                pass.AddTool("search_web", "Search the web for information on a topic", (string query) => SearchWeb(query))
-                    .AddTool("get_statistics", "Get statistics and data about a topic", (string t) => GetStatistics(t));
+                pass.AddTool(Tool.Of("search_web", "Search the web for information on a topic", (string query) => SearchWeb(query)))
+                    .AddTool(Tool.Of("get_statistics", "Get statistics and data about a topic", (string t) => GetStatistics(t)));
 
                 pass.Command = $"""
                     Research the topic: "{topic}"

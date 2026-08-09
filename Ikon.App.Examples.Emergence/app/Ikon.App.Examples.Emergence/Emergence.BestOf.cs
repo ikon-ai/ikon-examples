@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Ikon.Parallax.Components.Standard;
 
 public partial class Emergence
@@ -22,28 +21,12 @@ public partial class Emergence
         {
             view.Box([Card.Default, "p-4 mb-4"], content: view =>
             {
-                view.Text([Text.H2, "mb-2"], "BestOf & Sampling Patterns");
+                view.Text([Text.H2, "mb-2"], "BestOf");
                 view.Text([Text.Body, "text-muted-foreground"],
-                    "Generate multiple candidates and pick one: score-and-select (BestOf), parallelized score-and-select (ParallelBestOf), or majority voting (SelfConsistency).");
+                    "Generate multiple candidates, score each one, and pick the best.");
             });
 
-            RenderExampleSelector(view, _selectedBestOfExample,
-                ("basic", "BestOf"),
-                ("parallel", "ParallelBestOf"),
-                ("selfconsistency", "SelfConsistency"));
-
-            switch (_selectedBestOfExample.Value)
-            {
-                case "basic":
-                    RenderBasicBestOfExample(view);
-                    break;
-                case "parallel":
-                    RenderParallelBestOfExample(view);
-                    break;
-                case "selfconsistency":
-                    RenderSelfConsistencyExample(view);
-                    break;
-            }
+            RenderBasicBestOfExample(view);
         });
     }
 
@@ -129,7 +112,7 @@ public partial class Emergence
                     {
                         if (state.IsRunning.Value)
                         {
-                            view.Button([Button.ErrorMd], label: "Stop", onClick: async () =>
+                            view.Button([Button.ErrorMd], text: "Stop", onClick: async () =>
                             {
                                 _cts?.Cancel();
                                 state.IsRunning.Value = false;
@@ -137,7 +120,7 @@ public partial class Emergence
                         }
                         else
                         {
-                            view.Button([Button.PrimaryMd], label: "Generate & Compare", onClick: async () =>
+                            view.Button([Button.PrimaryMd], text: "Generate & Compare", onClick: async () =>
                             {
                                 state.Clear();
                                 _cts = new CancellationTokenSource();
@@ -145,7 +128,7 @@ public partial class Emergence
                             });
                         }
 
-                        view.Button([Button.OutlineMd], label: "Clear", onClick: async () => state.Clear());
+                        view.Button([Button.OutlineMd], text: "Clear", onClick: async () => state.Clear());
                     });
                 });
             });

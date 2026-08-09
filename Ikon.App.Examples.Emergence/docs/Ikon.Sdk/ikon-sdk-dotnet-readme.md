@@ -4,7 +4,7 @@ The Ikon AI C# SDK provides a simple way to connect to Ikon AI App from any .NET
 
 ## Features
 
-- Three authentication modes: API Key, Local Development, Backend
+- Four authentication modes: API Key, Local Development, Backend, External Connect URL
 - Automatic reconnection with exponential backoff
 - Audio streaming with Opus encoding/decoding
 - Flexible audio streaming modes
@@ -39,13 +39,13 @@ var config = new IkonClientConfig
 // Create and connect the client
 await using var client = new IkonClient(config);
 
-client.ReadyAsync += async (sender, e) =>
+client.ReadyAsync += async e =>
 {
     Console.WriteLine("Connected!");
     await client.SignalReadyAsync();
 };
 
-client.MessageReceivedAsync += async (sender, e) =>
+client.MessageReceivedAsync += async e =>
 {
     Console.WriteLine($"Received: {e.Message.Opcode}");
 };
@@ -55,7 +55,8 @@ await client.ConnectAsync();
 
 ## Authentication Modes
 
-The SDK supports three authentication modes. Exactly one must be configured.
+The SDK supports four authentication modes. Exactly one must be configured:
+`ApiKey`, `Local`, `Backend`, or `ExternalConnectUrl`.
 
 ### API Key Authentication
 
@@ -69,7 +70,6 @@ var config = new IkonClientConfig
         ApiKey = "ikon-xxxxx",           // API key from portal
         SpaceId = "...",                  // Space ID
         ExternalUserId = "user-123",      // Your user identifier
-        ChannelKey = "main",              // Optional: specific channel
         SessionId = "session-xyz",        // Optional: target a precomputed session
         BackendType = BackendType.Production,
         UserType = UserType.Human,
@@ -105,11 +105,24 @@ var config = new IkonClientConfig
     {
         SpaceId = "...",
         ExternalUserId = "user-123",     // Your user identifier
-        ChannelKey = "main",             // Optional
         SessionId = "session-xyz",       // Optional: target a precomputed session
         UserType = UserType.Human,
         ClientType = ClientType.DesktopApp
     }
+};
+```
+
+### External Connect URL
+
+Connect through a pre-minted connect URL (`{serverUrl}/connect?token=...`) issued by a trusted
+host — for example an embedded in-process app server minting URLs for its own clients. The
+authentication step is skipped entirely and the client connects straight through the URL. This
+mode is mutually exclusive with the other three; a config that combines them is rejected.
+
+```csharp
+var config = new IkonClientConfig
+{
+    ExternalConnectUrl = connectUrl
 };
 ```
 
@@ -136,38 +149,38 @@ Helper extension methods are available:
 
 ```csharp
 // Connection state changes
-client.StateChangedAsync += async (sender, e) =>
+client.StateChangedAsync += async e =>
 {
     Console.WriteLine($"State: {e.State}");
 };
 
 // Connection established and ready
-client.ReadyAsync += async (sender, e) =>
+client.ReadyAsync += async e =>
 {
     // Perform initialization here
     await client.SignalReadyAsync();  // Signal that this client is ready (mandatory)
 };
 
 // Server is stopping (can still send messages)
-client.StoppingAsync += async (sender, e) =>
+client.StoppingAsync += async e =>
 {
     Console.WriteLine("Server stopping...");
 };
 
 // Disconnected from server
-client.DisconnectedAsync += async (sender, e) =>
+client.DisconnectedAsync += async e =>
 {
     Console.WriteLine("Disconnected");
 };
 
 // Error occurred
-client.ErrorOccurredAsync += async (sender, e) =>
+client.ErrorOccurredAsync += async e =>
 {
     Console.WriteLine($"Error: {e.Error.Message}");
 };
 
 // Protocol message received
-client.MessageReceivedAsync += async (sender, e) =>
+client.MessageReceivedAsync += async e =>
 {
     Console.WriteLine($"Message: {e.Message.Opcode}");
 };
@@ -204,12 +217,15 @@ var config = new IkonClientConfig
     Timeouts = new TimeoutConfig
     {
         InitialReconnectDelay = TimeSpan.FromMilliseconds(500),  // Initial backoff delay
-        MaxReconnectAttempts = 4                                  // Max attempts (default)
+        MaxReconnectAttempts = 4,                                 // Max attempts (default)
+        MaxReconnectDelay = TimeSpan.FromSeconds(30),             // Backoff delay cap (default)
+        ReconnectAttemptTimeout = TimeSpan.FromSeconds(30),       // Time budget per attempt (default)
+        BackgroundReconnect = true                                // Keep retrying after max attempts (default)
     }
 };
 ```
 
-Reconnection uses exponential backoff starting from `InitialReconnectDelay` (500ms, 1s, 2s, 4s by default).
+Reconnection uses exponential backoff starting from `InitialReconnectDelay` (500ms, 1s, 2s, 4s by default), capped at `MaxReconnectDelay` and jittered. When `BackgroundReconnect` is enabled (the default), the client keeps retrying with capped exponential backoff from the `Offline` state after the fast reconnection attempts are exhausted.
 
 ## Sending Messages
 
@@ -261,20 +277,15 @@ await client.SendAudioAsync(
     isLast: true,
     streamId: "my-audio-stream",              // Unique stream identifier
     totalDuration: TimeSpan.FromSeconds(5),
-    encoderOptions: new AudioEncoderOptions   // Custom encoder settings
-    {
-        Bitrate = 64000,
-        Complexity = 10
-    },
+    encoderOptions: new AudioEncoderOptions(  // Custom encoder settings
+        bitrate: 64000,
+        complexity: 10
+    ),
     targetIds: new[] { 123, 456 }             // Target specific session IDs
 );
 
 // Set default encoder options for all audio
-client.DefaultEncoderOptions = new AudioEncoderOptions
-{
-    Bitrate = 48000,
-    Complexity = 8
-};
+client.DefaultEncoderOptions = new AudioEncoderOptions(bitrate: 48000, complexity: 8);
 ```
 
 ### Receiving Audio
@@ -282,7 +293,7 @@ client.DefaultEncoderOptions = new AudioEncoderOptions
 Subscribe to audio events to receive incoming audio streams:
 
 ```csharp
-client.AudioInputStreamBeginAsync += async (sender, e) =>
+client.AudioInputStreamBeginAsync += async e =>
 {
     Console.WriteLine($"Audio stream started: {e.StreamId}");
     Console.WriteLine($"  Codec: {e.Codec}");
@@ -296,7 +307,7 @@ client.AudioInputStreamBeginAsync += async (sender, e) =>
     // e.StreamingMode = AudioInputStreamingMode.DelayUntilTotalDurationKnown;
 };
 
-client.AudioInputFrameAsync += async (sender, e) =>
+client.AudioInputFrameAsync += async e =>
 {
     // e.Samples contains decoded PCM float samples
     float[] samples = e.Samples;
@@ -310,7 +321,7 @@ client.AudioInputFrameAsync += async (sender, e) =>
     // Process or play the audio samples...
 };
 
-client.AudioInputStreamEndAsync += async (sender, e) =>
+client.AudioInputStreamEndAsync += async e =>
 {
     Console.WriteLine($"Audio stream ended: {e.StreamId}");
 };
@@ -329,7 +340,7 @@ Control how audio frames are delivered:
 Set the streaming mode in the `AudioInputStreamBeginAsync` event handler:
 
 ```csharp
-client.AudioInputStreamBeginAsync += async (sender, e) =>
+client.AudioInputStreamBeginAsync += async e =>
 {
     // Buffer audio for UI timeline display
     e.StreamingMode = AudioInputStreamingMode.DelayUntilTotalDurationKnown;
@@ -520,7 +531,10 @@ var config = new IkonClientConfig
     Timeouts = new TimeoutConfig
     {
         InitialReconnectDelay = TimeSpan.FromMilliseconds(500),  // Initial backoff delay
-        MaxReconnectAttempts = 4                                  // Max reconnect attempts (default)
+        MaxReconnectAttempts = 4,                                 // Max reconnect attempts (default)
+        MaxReconnectDelay = TimeSpan.FromSeconds(30),             // Backoff delay cap (default)
+        ReconnectAttemptTimeout = TimeSpan.FromSeconds(30),       // Time budget per attempt (default)
+        BackgroundReconnect = true                                // Keep retrying after max attempts (default)
     }
 };
 ```
@@ -537,7 +551,12 @@ var config = new IkonClientConfig
     OpcodeGroupsToServer = Opcode.GROUP_ALL,
 
     // Payload serialization format
-    PayloadType = PayloadType.Teleport  // Default
+    PayloadType = PayloadType.Teleport,  // Default
+
+    // How this connection identifies to the server.
+    // Default Plugin connects as a backend component (no UI).
+    // Native or Browser connects as a first-class player client that receives streamed UI.
+    ContextType = ContextType.Plugin
 };
 ```
 
@@ -585,10 +604,10 @@ var config = new IkonClientConfig
 
 | Type | Description |
 |------|-------------|
-| `AudioInputStreamingMode` | Enum: `Streaming`, `DelayUntilTotalDurationKnown`, `DelayUntilIsLast` |
-| `AudioInputStreamBeginEventArgs` | Event args for audio stream start |
-| `AudioInputFrameEventArgs` | Event args for audio frame |
-| `AudioInputStreamEndEventArgs` | Event args for audio stream end |
+| `AudioInputStreamingMode` | Enum (from `Ikon.Resonance.Core`): `Streaming`, `DelayUntilTotalDurationKnown`, `DelayUntilIsLast` |
+| `IkonClient.AudioInputStreamBeginEventArgs` | Event args for audio stream start |
+| `IkonClient.AudioInputFrameEventArgs` | Event args for audio frame |
+| `IkonClient.AudioInputStreamEndEventArgs` | Event args for audio stream end |
 | `AudioEncoderOptions` | Options for configuring the Opus encoder |
 
 ### Function Types
@@ -607,8 +626,8 @@ var config = new IkonClientConfig
 | Type | Description |
 |------|-------------|
 | `MessageEventArgs` | Event args containing a `ProtocolMessage` |
-| `ConnectionStateEventArgs` | Event args containing the new `ConnectionState` |
-| `ErrorEventArgs` | Event args containing an `Exception` |
+| `IkonClient.ConnectionStateEventArgs` | Event args containing the new `ConnectionState` |
+| `IkonClient.ErrorEventArgs` | Event args containing an `Exception` |
 
 ## License
 

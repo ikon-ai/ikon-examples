@@ -16,9 +16,10 @@ A Tailwind-inspired, class-based DSL to describe visual motion timelines and aud
 * **Easings:** keywords (`linear`, `ease-in`, `ease-out`, `ease-in-out`) or `cubic-bezier(a,b,c,d)` with `a..d` numbers.
 * **Identifiers:** `[a-z][a-z0-9_-]*`.
 * **Negative utilities:** Tailwind-style minus prefix is allowed: `-translate-x-1`.
-* **Transform variables:** transform utilities with track prefixes emit CSS custom properties of the form `--tw-xform-<hash>`.
-  The `<hash>` is a deterministic value derived from the track label and transform payload, ensuring variables remain unique
-  across components and tracks.
+* **Transform emission:** transform utilities inside `motion-[...]` steps compile to direct CSS in the emitted keyframes —
+  the individual `translate`, `rotate`, or `scale` property when a track animates a single transform category, or a canonical
+  `transform` function-list (missing components filled with identity values) when categories are mixed. Tracks animating
+  different individual properties compose on the same element without colliding.
 
 ---
 
@@ -31,13 +32,13 @@ A **class token** may be preceded by zero or more prefixes in this order:
 ```
 
 * **Variant prefixes (reserved keyword forms):**
-  * Element pseudo-classes: `hover`, `focus`, `active`, `visited`, `disabled`, `enabled`, `required`, `optional`, `invalid`, `valid`, `autofill`, `placeholder-shown`, `read-only`, `read-write`, `target`, `empty`, `focus-visible`, `focus-within`, `checked`, `indeterminate`, `in-range`, `out-of-range`, `default`, `first`, `last`, `first-of-type`, `last-of-type`, `only`, `only-child`, `only-of-type`, `odd`, `even`, `open`.
-  * Pseudo-elements: `before`, `after`, `first-letter`, `first-line`, `selection`, `marker`, `placeholder`, `file`, `backdrop`.
+  * Element pseudo-classes: `hover`, `focus`, `active`, `visited`, `disabled`, `enabled`, `required`, `optional`, `invalid`, `valid`, `autofill`, `placeholder-shown`, `read-only`, `read-write`, `target`, `empty`, `focus-visible`, `focus-within`, `checked`, `indeterminate`, `in-range`, `out-of-range`, `default`, `first`, `last`, `first-of-type`, `last-of-type`, `only`, `only-child`, `only-of-type`, `odd`, `even`, `open`, `user-valid`, `user-invalid`, `popover-open`, `inert`.
+  * Pseudo-elements: `before`, `after`, `first-letter`, `first-line`, `selection`, `marker`, `placeholder`, `file`, `backdrop`, `details-content`, `emoji` (targets emoji glyph spans).
   * Group/peer scopes: `group-<state>` and `peer-<state>` where `<state>` is a pseudo-class, pseudo-element, or explicit selector in brackets `[selector]`.
   * Attribute/state forms: `aria-<name>[-<value>]`, `data-<name>[-<value>]`, `lang-[<tag>]`, `has-[<selector>]`.
   * Theme scoping: `theme-<name>` (if theme variants are enabled).
 * **Track prefix:** any identifier **not** matching a reserved variant. Tracks may refer to:
-  * Responsive/media contexts: `sm`, `md`, `lg`, `xl`, `2xl`, `print`, `portrait`, `landscape`, `motion-reduce`, `motion-safe`, `pointer-hover`, `pointer-none`, `pointer-coarse`, `pointer-fine`, `any-pointer-hover`, `any-pointer-none`, `any-pointer-coarse`, `any-pointer-fine`, `contrast-more`, `contrast-less`.
+  * Responsive/media contexts: `sm`, `md`, `lg`, `xl`, `2xl`, `print`, `portrait`, `landscape`, `motion-reduce`, `motion-safe`, `pointer-hover`, `pointer-none`, `pointer-coarse`, `pointer-fine`, `any-pointer-hover`, `any-pointer-none`, `any-pointer-coarse`, `any-pointer-fine`, `contrast-more`, `contrast-less`, `forced-colors`, `inverted-colors`, `noscript`. A `not-` prefix on a media context (`not-print`, `not-sm`, `not-supports-[<condition>]`) negates the condition.
   * Container queries: `min-<breakpoint>` / `max-<breakpoint>` (Tailwind breakpoint tokens) and `supports-[<condition>]` (underscores → spaces; appends `: var(--tw)` if missing a colon).
   * Color/direction scopes: `dark`, `light`, `rtl`, `ltr`.
   * Custom parent selectors: anything else (e.g., `.prose`, `#panel`, `[data-mode=hero]`).
@@ -228,6 +229,7 @@ scroll-timeline-[<value>]
 * Emits the `scroll-timeline` shorthand on the current element.
 * Payloads can combine timeline names and axes (e.g., `scroll-timeline-[--hero x]`) or function-style definitions (`scroll()`, `view()`).
 * Multiple values are supported via comma-separated payloads inside the brackets.
+* Longhand utilities are also available and map to the matching CSS properties: `scroll-timeline-name-[...]`, `scroll-timeline-axis-<axis>`, `view-timeline-name-[...]`, `view-timeline-axis-<axis>`, `view-timeline-inset-[...]`, and `timeline-scope-[...]`.
 
 ### 2.5 Audio: Sources, Triggers, Automation
 
@@ -300,6 +302,8 @@ sfx:source-[<uri>] <variant>:sfx:play
   ```
 
   A macro token that expands (outside this spec’s scope) into one or more `motion-*` and/or `motion-[...]` directives.
+
+  > **Note:** Like the audio directives, preset expansion is not currently processed by the Crosswind compiler; only the syntax is reserved (`motion-track-delay-*` is the exception — it is a real timing utility, see §2.2).
 
 * **Named track timelines (inline)**
 
@@ -499,9 +503,11 @@ pseudo-class-variant ::= "hover" | "focus" | "active" | "visited" | "disabled" |
                        | "indeterminate" | "in-range" | "out-of-range" | "default"
                        | "first" | "last" | "first-of-type" | "last-of-type"
                        | "only" | "only-child" | "only-of-type" | "odd" | "even" | "open"
+                       | "user-valid" | "user-invalid" | "popover-open" | "inert"
 
 pseudo-element-variant ::= "before" | "after" | "first-letter" | "first-line"
                          | "selection" | "marker" | "placeholder" | "file" | "backdrop"
+                         | "details-content" | "emoji"
 
 group-variant ::= "group-" ( identifier | bracket-value | pseudo-class-variant | pseudo-element-variant )
 

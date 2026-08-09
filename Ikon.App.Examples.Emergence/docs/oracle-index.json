@@ -23,15 +23,15 @@
         "multi-user session",
         "invite link"
       ],
-      "file": "docs/guides/app-structure.md",
-      "sizeBytes": 18523,
+      "file": "docs/Ikon.Agent.Docs/guides/app-structure.md",
+      "sizeBytes": 19646,
       "alsoInclude": []
     },
     {
       "id": "csharp-primer",
       "title": "C# Language Primer",
       "keywords": [
-        "C# 13",
+        "C# 14",
         "modern C#",
         "dictionary literal",
         "collection expression",
@@ -64,8 +64,8 @@
         "CS8917",
         "CS0234"
       ],
-      "file": "docs/guides/csharp-primer.md",
-      "sizeBytes": 5903,
+      "file": "docs/Ikon.Agent.Docs/guides/csharp-primer.md",
+      "sizeBytes": 5882,
       "alsoInclude": []
     },
     {
@@ -79,8 +79,8 @@
         "session",
         "common utilities"
       ],
-      "file": "docs/guides/app-api-reference.md",
-      "sizeBytes": 262138,
+      "file": "docs/Ikon.Agent.Docs/guides/app-api-reference.md",
+      "sizeBytes": 97531,
       "alsoInclude": []
     },
     {
@@ -99,8 +99,8 @@
         "reactive scope",
         "value mutation"
       ],
-      "file": "docs/guides/reactive-state.md",
-      "sizeBytes": 34830,
+      "file": "docs/Ikon.Agent.Docs/guides/reactive-state.md",
+      "sizeBytes": 44132,
       "alsoInclude": [
         "app-structure",
         "ui-components"
@@ -127,8 +127,8 @@
         "chat interface",
         "message bubbles"
       ],
-      "file": "docs/guides/ui-components.md",
-      "sizeBytes": 14926,
+      "file": "docs/Ikon.Agent.Docs/guides/ui-components.md",
+      "sizeBytes": 15318,
       "alsoInclude": [
         "app-structure"
       ]
@@ -143,8 +143,8 @@
         "component parameters",
         "props"
       ],
-      "file": "docs/guides/ui-api-reference.md",
-      "sizeBytes": 201865,
+      "file": "docs/Ikon.Agent.Docs/guides/ui-api-reference.md",
+      "sizeBytes": 171106,
       "alsoInclude": []
     },
     {
@@ -172,8 +172,8 @@
         "axis",
         "legend"
       ],
-      "file": "docs/guides/charts.md",
-      "sizeBytes": 2731,
+      "file": "docs/Ikon.Agent.Docs/guides/charts.md",
+      "sizeBytes": 3479,
       "alsoInclude": []
     },
     {
@@ -189,8 +189,8 @@
         "UI guidelines",
         "theme customization"
       ],
-      "file": "docs/guides/styling-and-motion.md",
-      "sizeBytes": 13803,
+      "file": "docs/Ikon.Agent.Docs/guides/styling-and-motion.md",
+      "sizeBytes": 14662,
       "alsoInclude": [
         "ui-components",
         "app-structure",
@@ -214,11 +214,10 @@
         "mood",
         "paint a fresh app",
         "palette by hand",
-        "palette from image",
         "dual theme"
       ],
-      "file": "docs/guides/ikon-theming-guide.md",
-      "sizeBytes": 32816,
+      "file": "docs/Ikon.Agent.Docs/guides/ikon-theming-guide.md",
+      "sizeBytes": 33244,
       "alsoInclude": [
         "styling-and-motion"
       ]
@@ -237,8 +236,8 @@
         "CRT",
         "scanline"
       ],
-      "file": "docs/guides/styling-guide.md",
-      "sizeBytes": 37479,
+      "file": "docs/Ikon.Agent.Docs/guides/styling-guide.md",
+      "sizeBytes": 38749,
       "alsoInclude": [
         "styling-and-motion"
       ]
@@ -257,8 +256,8 @@
         "animatable properties",
         "motion syntax grammar"
       ],
-      "file": "docs/guides/motion-reference.md",
-      "sizeBytes": 26473,
+      "file": "docs/Ikon.Agent.Docs/guides/motion-reference.md",
+      "sizeBytes": 27532,
       "alsoInclude": [
         "styling-and-motion"
       ]
@@ -280,8 +279,8 @@
         "shadows",
         "transitions"
       ],
-      "file": "docs/guides/tailwind-reference.md",
-      "sizeBytes": 107099,
+      "file": "docs/Ikon.Agent.Docs/guides/tailwind-reference.md",
+      "sizeBytes": 26384,
       "alsoInclude": []
     },
     {
@@ -296,13 +295,12 @@
         "agent",
         "bestof",
         "mapreduce",
-        "taskgraph",
         "patterns",
         "cancellation",
         "timeout"
       ],
-      "file": "docs/guides/emergence.md",
-      "sizeBytes": 41075,
+      "file": "docs/Ikon.Agent.Docs/guides/emergence.md",
+      "sizeBytes": 28023,
       "alsoInclude": [
         "app-structure",
         "ai-models"
@@ -313,20 +311,15 @@
       "title": "Emergence Patterns",
       "keywords": [
         "mapreduce",
-        "taskgraph",
         "treesearch",
-        "tree of thought",
         "solver critic",
-        "debate",
         "refine",
-        "plan and execute",
-        "router",
         "ensemble",
-        "swarm",
+        "bestof",
         "advanced patterns"
       ],
-      "file": "docs/guides/emergence-patterns.md",
-      "sizeBytes": 30538,
+      "file": "docs/Ikon.Agent.Docs/guides/emergence-patterns.md",
+      "sizeBytes": 22410,
       "alsoInclude": [
         "emergence"
       ]
@@ -345,8 +338,8 @@
         "KernelContext",
         "AI connection"
       ],
-      "file": "docs/guides/ai-models.md",
-      "sizeBytes": 27576,
+      "file": "docs/Ikon.Agent.Docs/guides/ai-models.md",
+      "sizeBytes": 24588,
       "alsoInclude": []
     },
     {
@@ -358,10 +351,14 @@
         "AI image",
         "photo",
         "generate image",
-        "ImageGeneratorConfig"
+        "ImageGeneratorConfig",
+        "upscale",
+        "upscaling",
+        "super resolution",
+        "ImageUpscaler"
       ],
-      "file": "docs/guides/ai-image.md",
-      "sizeBytes": 5066,
+      "file": "docs/Ikon.Agent.Docs/guides/ai-image.md",
+      "sizeBytes": 16139,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -382,8 +379,8 @@
         "SpeechRecognizer",
         "SoundEffectGenerator"
       ],
-      "file": "docs/guides/ai-speech-and-audio.md",
-      "sizeBytes": 19330,
+      "file": "docs/Ikon.Agent.Docs/guides/ai-speech-and-audio.md",
+      "sizeBytes": 23352,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -408,8 +405,8 @@
         "poster",
         "show a video"
       ],
-      "file": "docs/guides/ai-video.md",
-      "sizeBytes": 7339,
+      "file": "docs/Ikon.Agent.Docs/guides/ai-video.md",
+      "sizeBytes": 8766,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -432,8 +429,8 @@
         "WebSearcher",
         "EmbeddingGenerator"
       ],
-      "file": "docs/guides/ai-web-and-data.md",
-      "sizeBytes": 25841,
+      "file": "docs/Ikon.Agent.Docs/guides/ai-web-and-data.md",
+      "sizeBytes": 31845,
       "alsoInclude": [
         "emergence"
       ]
@@ -444,11 +441,10 @@
       "keywords": [
         "database AI",
         "vector store",
-        "AI policy",
         "storage"
       ],
-      "file": "docs/guides/ai-advanced.md",
-      "sizeBytes": 6416,
+      "file": "docs/Ikon.Agent.Docs/guides/ai-advanced.md",
+      "sizeBytes": 6640,
       "alsoInclude": [
         "emergence"
       ]
@@ -470,8 +466,8 @@
         "oscillator",
         "filter"
       ],
-      "file": "docs/guides/audio-video.md",
-      "sizeBytes": 45355,
+      "file": "docs/Ikon.Agent.Docs/guides/audio-video.md",
+      "sizeBytes": 16637,
       "alsoInclude": []
     },
     {
@@ -487,8 +483,8 @@
         "URI",
         "optimistic concurrency"
       ],
-      "file": "docs/guides/asset-system.md",
-      "sizeBytes": 22055,
+      "file": "docs/Ikon.Agent.Docs/guides/asset-system.md",
+      "sizeBytes": 21397,
       "alsoInclude": []
     },
     {
@@ -515,8 +511,8 @@
         "video file",
         "audio file"
       ],
-      "file": "docs/guides/media-analysis.md",
-      "sizeBytes": 24576,
+      "file": "docs/Ikon.Agent.Docs/guides/media-analysis.md",
+      "sizeBytes": 24070,
       "alsoInclude": []
     },
     {
@@ -542,8 +538,8 @@
         "AppEndpointHost",
         "function"
       ],
-      "file": "docs/guides/endpoints-webhooks.md",
-      "sizeBytes": 41749,
+      "file": "docs/Ikon.Agent.Docs/guides/endpoints-webhooks.md",
+      "sizeBytes": 37352,
       "alsoInclude": []
     },
     {
@@ -554,16 +550,17 @@
         "PostgreSQL",
         "SQL",
         "db",
+        "app.Database",
         "AppDatabaseConnection",
         "EF Core",
         "Entity Framework",
         "DbContext",
         "migrations",
-        "ef-migrate",
+        "db migrate",
         "LINQ"
       ],
-      "file": "docs/guides/databases.md",
-      "sizeBytes": 5168,
+      "file": "docs/Ikon.Agent.Docs/guides/databases.md",
+      "sizeBytes": 5122,
       "alsoInclude": []
     },
     {
@@ -578,7 +575,7 @@
         "app.Secrets",
         "ikon app secret"
       ],
-      "file": "docs/guides/secrets.md",
+      "file": "docs/Ikon.Agent.Docs/guides/secrets.md",
       "sizeBytes": 1975,
       "alsoInclude": []
     },
@@ -595,6 +592,7 @@
         "one-off payment",
         "refund",
         "Stripe",
+        "Surfboard",
         "Mollie",
         "app.Payments",
         "CreatePaymentLinkAsync",
@@ -609,8 +607,8 @@
         "payment events",
         "cancel subscription"
       ],
-      "file": "docs/guides/payments.md",
-      "sizeBytes": 17153,
+      "file": "docs/Ikon.Agent.Docs/guides/payments.md",
+      "sizeBytes": 22964,
       "alsoInclude": []
     },
     {
@@ -625,7 +623,6 @@
         "SendToUserAsync",
         "SendToSessionAsync",
         "BroadcastAsync",
-        "NotifyAsync",
         "permission",
         "offline push",
         "web push",
@@ -633,8 +630,8 @@
         "alert",
         "toast"
       ],
-      "file": "docs/guides/notifications.md",
-      "sizeBytes": 3030,
+      "file": "docs/Ikon.Agent.Docs/guides/notifications.md",
+      "sizeBytes": 3018,
       "alsoInclude": []
     },
     {
@@ -648,8 +645,8 @@
         "LLM tools",
         "callable functions"
       ],
-      "file": "docs/guides/function-registry.md",
-      "sizeBytes": 32736,
+      "file": "docs/Ikon.Agent.Docs/guides/function-registry.md",
+      "sizeBytes": 9947,
       "alsoInclude": []
     },
     {
@@ -663,8 +660,8 @@
         "error",
         "diagnostics"
       ],
-      "file": "docs/guides/logging.md",
-      "sizeBytes": 741,
+      "file": "docs/Ikon.Agent.Docs/guides/logging.md",
+      "sizeBytes": 849,
       "alsoInclude": []
     },
     {
@@ -678,7 +675,7 @@
         "scheduled",
         "cron"
       ],
-      "file": "docs/guides/pipelines.md",
+      "file": "docs/Ikon.Agent.Docs/guides/pipelines.md",
       "sizeBytes": 1713,
       "alsoInclude": []
     },
@@ -691,8 +688,8 @@
         "processor",
         "pipeline guide"
       ],
-      "file": "docs/guides/pipelines-reference.md",
-      "sizeBytes": 83681,
+      "file": "docs/Ikon.Agent.Docs/guides/pipelines-reference.md",
+      "sizeBytes": 67891,
       "alsoInclude": []
     },
     {
@@ -713,8 +710,8 @@
         "magic link login email template",
         "emails folder"
       ],
-      "file": "docs/guides/frontend-fundamentals.md",
-      "sizeBytes": 18971,
+      "file": "docs/Ikon.Agent.Docs/guides/frontend-fundamentals.md",
+      "sizeBytes": 19733,
       "alsoInclude": [
         "ui-components"
       ]
@@ -732,8 +729,8 @@
         "activation",
         "targets"
       ],
-      "file": "docs/guides/config-and-cli.md",
-      "sizeBytes": 8297,
+      "file": "docs/Ikon.Agent.Docs/guides/config-and-cli.md",
+      "sizeBytes": 17851,
       "alsoInclude": []
     }
   ]

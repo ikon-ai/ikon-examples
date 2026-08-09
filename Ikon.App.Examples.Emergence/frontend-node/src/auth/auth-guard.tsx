@@ -29,23 +29,31 @@ export function formatAuthError(error: string): string {
 }
 
 export function AuthGuard({ children, config }: AuthGuardProps) {
-  const { isCheckingAuth, shouldRenderChildren } = useAuthGuard({
+  const { isCheckingAuth, shouldRenderChildren, isLoginPrompt, dismissLoginPrompt } = useAuthGuard({
     config,
     guestUrlParam: 'guest',
   });
   const [errorScope, setErrorScope] = useState<ErrorScope | null>(null);
-  const initialCheckDone = useRef(false);
+  const initialCheckDoneRef = useRef(false);
 
   if (!isCheckingAuth) {
-    initialCheckDone.current = true;
+    initialCheckDoneRef.current = true;
   }
 
-  if (isCheckingAuth && !initialCheckDone.current) {
+  if (isCheckingAuth && !initialCheckDoneRef.current) {
     return null;
   }
 
   if (!shouldRenderChildren) {
-    return <AuthScreen config={config} errorScope={errorScope} setErrorScope={setErrorScope} />;
+    return (
+      <AuthScreen
+        config={config}
+        errorScope={errorScope}
+        setErrorScope={setErrorScope}
+        isLoginPrompt={isLoginPrompt}
+        onDismiss={dismissLoginPrompt}
+      />
+    );
   }
 
   return <>{children}</>;
@@ -55,29 +63,29 @@ interface AuthScreenProps {
   config: AuthConfig;
   errorScope: ErrorScope | null;
   setErrorScope: (scope: ErrorScope) => void;
+  isLoginPrompt: boolean;
+  onDismiss: () => void;
 }
 
-function AuthScreen({ config, errorScope, setErrorScope }: AuthScreenProps) {
+function AuthScreen({ config, errorScope, setErrorScope, isLoginPrompt, onDismiss }: AuthScreenProps) {
   const { t } = useI18n();
   const { state } = useAuth();
 
   const primaryMethods = config.methods.filter(
-    (m): m is Exclude<LoginMethod, 'email' | 'guest' | 'passkey'> => m !== 'email' && m !== 'guest' && m !== 'passkey',
+    (m): m is Exclude<LoginMethod, 'email' | 'guest' | 'global' | 'passkey'> => m !== 'email' && m !== 'guest' && m !== 'global' && m !== 'passkey',
   );
   const hasPasskey = config.methods.includes('passkey');
   const hasEmail = config.methods.includes('email');
-  const hasGuest = config.methods.includes('guest');
+  const guestProvider = config.methods.includes('global') ? ('global' as const) : config.methods.includes('guest') ? ('guest' as const) : null;
+  const hasGuest = guestProvider !== null;
 
   const errorFor = (scope: ErrorScope) =>
-    state.error && errorScope === scope ? (
+    state.error && (errorScope === scope || (errorScope === null && scope === 'primary')) ? (
       <div className="ikon-auth-error">{formatAuthError(state.error)}</div>
     ) : null;
 
   return (
-    <main className="ikon-auth-screen">
-      <div className="ikon-aurora-1" />
-      <div className="ikon-aurora-2" />
-
+    <main className="ikon-surface ikon-auth-screen">
       <section className="ikon-auth-container">
         <h1 className="ikon-auth-title">{t('auth.welcome.title')}</h1>
         <p className="ikon-auth-subtitle">{t('auth.welcome.subtitle')}</p>
@@ -128,8 +136,19 @@ function AuthScreen({ config, errorScope, setErrorScope }: AuthScreenProps) {
         {hasGuest && (
           <>
             {errorFor('guest')}
-            <LoginButton provider="guest" disabled={state.isLoading} onAttempt={() => setErrorScope('guest')} />
+            <LoginButton
+              provider={guestProvider ?? 'guest'}
+              disabled={state.isLoading}
+              onAttempt={() => setErrorScope('guest')}
+              onClick={isLoginPrompt ? onDismiss : undefined}
+            />
           </>
+        )}
+
+        {isLoginPrompt && !hasGuest && (
+          <button type="button" className="ikon-auth-dismiss" onClick={onDismiss}>
+            {t('auth.dismiss')}
+          </button>
         )}
       </section>
     </main>

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Ikon.Parallax.Components.Standard;
 
 public partial class Emergence
@@ -93,7 +92,7 @@ Disappointed with the battery - doesn't last a full day for me.
                         var isSelected = _selectedMapReduceExample.Value == key;
                         view.Button(
                             [isSelected ? Button.PrimaryMd : Button.OutlineMd],
-                            label: label,
+                            text: label,
                             onClick: async () => _selectedMapReduceExample.Value = key);
                     }
                 });
@@ -205,7 +204,7 @@ Disappointed with the battery - doesn't last a full day for me.
                     {
                         if (state.IsRunning.Value)
                         {
-                            view.Button([Button.ErrorMd], label: "Stop", onClick: async () =>
+                            view.Button([Button.ErrorMd], text: "Stop", onClick: async () =>
                             {
                                 _cts?.Cancel();
                                 state.IsRunning.Value = false;
@@ -213,7 +212,7 @@ Disappointed with the battery - doesn't last a full day for me.
                         }
                         else
                         {
-                            view.Button([Button.PrimaryMd], label: "Summarize Document", onClick: async () =>
+                            view.Button([Button.PrimaryMd], text: "Summarize Document", onClick: async () =>
                             {
                                 state.Clear();
                                 _cts = new CancellationTokenSource();
@@ -221,7 +220,7 @@ Disappointed with the battery - doesn't last a full day for me.
                             });
                         }
 
-                        view.Button([Button.OutlineMd], label: "Clear", onClick: async () => state.Clear());
+                        view.Button([Button.OutlineMd], text: "Clear", onClick: async () => state.Clear());
                     });
                 });
             });
@@ -360,7 +359,7 @@ Disappointed with the battery - doesn't last a full day for me.
                     {
                         if (state.IsRunning.Value)
                         {
-                            view.Button([Button.ErrorMd], label: "Stop", onClick: async () =>
+                            view.Button([Button.ErrorMd], text: "Stop", onClick: async () =>
                             {
                                 _cts?.Cancel();
                                 state.IsRunning.Value = false;
@@ -368,7 +367,7 @@ Disappointed with the battery - doesn't last a full day for me.
                         }
                         else
                         {
-                            view.Button([Button.PrimaryMd], label: "Analyze Reviews", onClick: async () =>
+                            view.Button([Button.PrimaryMd], text: "Analyze Reviews", onClick: async () =>
                             {
                                 state.Clear();
                                 _cts = new CancellationTokenSource();
@@ -376,7 +375,7 @@ Disappointed with the battery - doesn't last a full day for me.
                             });
                         }
 
-                        view.Button([Button.OutlineMd], label: "Clear", onClick: async () => state.Clear());
+                        view.Button([Button.OutlineMd], text: "Clear", onClick: async () => state.Clear());
                     });
                 });
             });
@@ -456,9 +455,9 @@ Disappointed with the battery - doesn't last a full day for me.
             var mapTemp = _mapTemperature.Value;
             var reduceTemp = _reduceTemperature.Value;
 
-            await foreach (var ev in Emerge.MapReduce<ChunkSummary, DocumentSummary>(LLMModel.Claude45Sonnet, ctx, mr =>
+            await foreach (var ev in Emerge.MapReduce<string, ChunkSummary, DocumentSummary>(LLMModel.Claude45Sonnet, ctx, mr =>
             {
-                mr.Input = documentChunks;
+                mr.Chunks = documentChunks;
                 mr.MaxParallel = parallel;
 
                 mr.Map(map =>
@@ -495,10 +494,10 @@ Disappointed with the battery - doesn't last a full day for me.
                     state.CurrentIteration.Value++;
                 }
 
-                if (ev is Completed<DocumentSummary> completed)
+                if (ev is Completed<DocumentSummary> { Result: { } result })
                 {
-                    state.SetResult(completed.Result);
-                    state.CurrentStage.Value = $"Complete - {completed.Result.ChunksProcessed} chunks summarized";
+                    state.SetResult(result);
+                    state.CurrentStage.Value = $"Complete - {result.ChunksProcessed} chunks summarized";
                 }
             }
         }
@@ -535,9 +534,9 @@ Disappointed with the battery - doesn't last a full day for me.
             var mapTemp = _mapTemperature.Value;
             var reduceTemp = _reduceTemperature.Value;
 
-            await foreach (var ev in Emerge.MapReduce<ReviewAnalysis, ProductReport>(LLMModel.Claude45Sonnet, ctx, mr =>
+            await foreach (var ev in Emerge.MapReduce<string, ReviewAnalysis, ProductReport>(LLMModel.Claude45Sonnet, ctx, mr =>
             {
-                mr.Input = reviews;
+                mr.Chunks = reviews;
                 mr.MaxParallel = parallel;
 
                 mr.Map(map =>
@@ -576,10 +575,10 @@ Disappointed with the battery - doesn't last a full day for me.
                     state.CurrentIteration.Value++;
                 }
 
-                if (ev is Completed<ProductReport> completed)
+                if (ev is Completed<ProductReport> { Result: { } result })
                 {
-                    state.SetResult(completed.Result);
-                    state.CurrentStage.Value = $"Complete - Rating: {completed.Result.OverallRating:F1}/5";
+                    state.SetResult(result);
+                    state.CurrentStage.Value = $"Complete - Rating: {result.OverallRating:F1}/5";
                 }
             }
         }

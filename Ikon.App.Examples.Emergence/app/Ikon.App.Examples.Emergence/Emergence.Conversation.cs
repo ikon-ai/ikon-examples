@@ -1,4 +1,3 @@
-using Ikon.AI.Emergence;
 using Ikon.Parallax.Components.Standard;
 
 public partial class Emergence
@@ -12,7 +11,7 @@ public partial class Emergence
 
     // A single KernelContext carried across turns is what gives the model its memory of the conversation.
     private KernelContext _chatContext = new();
-    private readonly Reactive<List<ChatTurn>> _chatMessages = new([]);
+    private readonly ReactiveList<ChatTurn> _chatMessages = new();
     private readonly Reactive<string> _chatInput = new("");
     private readonly Reactive<bool> _chatBusy = new(false);
 
@@ -44,7 +43,7 @@ public partial class Emergence
                 view.Row(["justify-between items-center mb-2 shrink-0"], content: view =>
                 {
                     view.Text([Text.H3], "Chat");
-                    view.Button([Button.OutlineMd], label: "Reset", onClick: async () =>
+                    view.Button([Button.OutlineMd], text: "Reset", onClick: async () =>
                     {
                         _chatContext = new KernelContext();
                         _chatMessages.Value = [];
@@ -91,7 +90,7 @@ public partial class Emergence
                         onSubmit: async _ => await SendChatAsync(),
                         clearOnSubmit: true);
 
-                    view.Button([Button.PrimaryMd], label: _chatBusy.Value ? "..." : "Send", disabled: _chatBusy.Value, onClick: async () => await SendChatAsync());
+                    view.Button([Button.PrimaryMd], text: _chatBusy.Value ? "..." : "Send", disabled: _chatBusy.Value, onClick: async () => await SendChatAsync());
                 });
             });
         });

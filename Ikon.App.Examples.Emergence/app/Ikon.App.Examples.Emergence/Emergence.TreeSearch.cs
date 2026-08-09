@@ -1,4 +1,3 @@
-using Ikon.AI.Emergence;
 using Ikon.AI.Emergence.Tree;
 using Ikon.Parallax.Components.Standard;
 
@@ -124,7 +123,7 @@ public partial class Emergence
                         var isSelected = _selectedTreeSearchExample.Value == key;
                         view.Button(
                             [isSelected ? Button.PrimaryMd : Button.OutlineMd],
-                            label: label,
+                            text: label,
                             onClick: async () => _selectedTreeSearchExample.Value = key);
                     }
                 });
@@ -187,7 +186,7 @@ public partial class Emergence
                     {
                         if (state.IsRunning.Value)
                         {
-                            view.Button([Button.ErrorMd], label: "Stop", onClick: async () =>
+                            view.Button([Button.ErrorMd], text: "Stop", onClick: async () =>
                             {
                                 _cts?.Cancel();
                                 state.IsRunning.Value = false;
@@ -195,7 +194,7 @@ public partial class Emergence
                         }
                         else
                         {
-                            view.Button([Button.PrimaryMd], label: "Build Index", onClick: async () =>
+                            view.Button([Button.PrimaryMd], text: "Build Index", onClick: async () =>
                             {
                                 state.Clear();
                                 _cts = new CancellationTokenSource();
@@ -203,7 +202,7 @@ public partial class Emergence
                             });
                         }
 
-                        view.Button([Button.OutlineMd], label: "Clear", onClick: async () => state.Clear());
+                        view.Button([Button.OutlineMd], text: "Clear", onClick: async () => state.Clear());
                     });
                 });
             });
@@ -328,7 +327,7 @@ public partial class Emergence
                     {
                         if (state.IsRunning.Value)
                         {
-                            view.Button([Button.ErrorMd], label: "Stop", onClick: async () =>
+                            view.Button([Button.ErrorMd], text: "Stop", onClick: async () =>
                             {
                                 _cts?.Cancel();
                                 state.IsRunning.Value = false;
@@ -336,7 +335,7 @@ public partial class Emergence
                         }
                         else
                         {
-                            view.Button([Button.PrimaryMd], label: "Build & Search", onClick: async () =>
+                            view.Button([Button.PrimaryMd], text: "Build & Search", onClick: async () =>
                             {
                                 state.Clear();
                                 _cts = new CancellationTokenSource();
@@ -344,12 +343,12 @@ public partial class Emergence
                             });
                         }
 
-                        view.Button([Button.OutlineMd], label: "Clear", onClick: async () => state.Clear());
+                        view.Button([Button.OutlineMd], text: "Clear", onClick: async () => state.Clear());
 
                         // Toggle source document view
                         view.Button(
                             [_showSourceDocument.Value ? Button.NeutralMd : Button.OutlineMd],
-                            label: _showSourceDocument.Value ? "Hide Source" : "Show Source",
+                            text: _showSourceDocument.Value ? "Hide Source" : "Show Source",
                             onClick: async () => _showSourceDocument.Value = !_showSourceDocument.Value);
                     });
                 });
@@ -426,11 +425,11 @@ public partial class Emergence
                 {
                     view.Button(
                         [!_useCustomDocument.Value ? Button.PrimarySm : Button.OutlineSm],
-                        label: "Sample Doc",
+                        text: "Sample Doc",
                         onClick: async () => _useCustomDocument.Value = false);
                     view.Button(
                         [_useCustomDocument.Value ? Button.PrimarySm : Button.OutlineSm],
-                        label: "Custom",
+                        text: "Custom",
                         onClick: async () => _useCustomDocument.Value = true);
                 });
             });
@@ -485,12 +484,12 @@ public partial class Emergence
                 {
                     state.Log(progress.Message, LogLevel.Info);
                 }
-                else if (ev is Completed<TreeIndex> completed)
+                else if (ev is Completed<TreeIndex> { Result: { } result })
                 {
-                    index = completed.Result;
+                    index = result;
                     state.CurrentStage.Value = "Complete";
 
-                    var nodeCount = index.Traverse().Count();
+                    var nodeCount = result.Traverse().Count();
                     state.Log($"Tree built with {nodeCount} nodes", LogLevel.Result);
 
                     // Show the table of contents as result
@@ -536,10 +535,10 @@ public partial class Emergence
                 GenerateSummaries = true
             }).WithCancellation(_cts!.Token))
             {
-                if (ev is Completed<TreeIndex> completed)
+                if (ev is Completed<TreeIndex> { Result: { } result })
                 {
-                    index = completed.Result;
-                    var nodeCount = index.Traverse().Count();
+                    index = result;
+                    var nodeCount = result.Traverse().Count();
                     state.Log($"Tree index built with {nodeCount} nodes", LogLevel.Result);
                 }
             }
@@ -568,13 +567,13 @@ public partial class Emergence
             {
                 LogEvent(state, ev);
 
-                if (ev is Completed<TreeSearchResult> completed)
+                if (ev is Completed<TreeSearchResult> { Result: { } result })
                 {
-                    state.SetResult(completed.Result);
+                    state.SetResult(result);
                     state.CurrentStage.Value = "Complete";
 
-                    state.Log($"Found {completed.Result.Sections.Count} relevant sections", LogLevel.Result);
-                    foreach (var section in completed.Result.Sections)
+                    state.Log($"Found {result.Sections.Count} relevant sections", LogLevel.Result);
+                    foreach (var section in result.Sections)
                     {
                         state.Log($"  - {section.Path}: {section.Relevance}", LogLevel.Info);
                     }

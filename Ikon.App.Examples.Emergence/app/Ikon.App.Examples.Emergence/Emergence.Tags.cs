@@ -57,11 +57,11 @@ public partial class Emergence
                         view.Text([Text.Body], "View mode:");
                         view.Button(
                             [_tagsShowParsed.Value ? Button.PrimaryMd : Button.OutlineMd],
-                            label: "Parsed",
+                            text: "Parsed",
                             onClick: async () => _tagsShowParsed.Value = true);
                         view.Button(
                             [!_tagsShowParsed.Value ? Button.PrimaryMd : Button.OutlineMd],
-                            label: "Raw",
+                            text: "Raw",
                             onClick: async () => _tagsShowParsed.Value = false);
                     });
                 });

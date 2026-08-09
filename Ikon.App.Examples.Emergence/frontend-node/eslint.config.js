@@ -4,6 +4,10 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default [
+  { ignores: ['build/**', 'dist/**', 'src/generated/**'] },
+  {
+    linterOptions: { reportUnusedDisableDirectives: 'error' },
+  },
   eslintJs.configs.recommended,
   ...tseslint.configs.recommended,
   eslintReact.configs['recommended-typescript'],
@@ -19,7 +23,17 @@ export default [
         ...globals.browser,
       },
     },
-    rules: {},
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+    },
   },
   {
     files: ['**/*.js'],

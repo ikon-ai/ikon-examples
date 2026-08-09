@@ -119,25 +119,25 @@ Below is a clean, exhaustive list of Tailwind CSS v4.x utility families, organiz
 * **Border radius**: `rounded`, `rounded-{none|sm|md|lg|xl|2xl|3xl|full}`, edge/corner variants `rounded-{t|r|b|l|s|e}-{...}`, `rounded-{tl|tr|br|bl|ss|se|es|ee}-{...}`
 * **Outline**: `outline-*` family — dedicated width/color/style/offset utilities in v4.
   * Width: `outline-{n}` or `outline-[{length}]`, also `outline-width-{...}`
-  * Style: `outline-{solid|dashed|dotted|double|none|hidden}`, also `outline-style-{...}`. **Bare `outline` does not set `outline-style: solid`** — Tailwind's `outline-style: solid` only lands when you write `outline-solid` (or another explicit style). On its own `outline` only sets `outline-width`, so the outline will be invisible until a style is added.
+  * Style: `outline-{solid|dashed|dotted|double|none|hidden}`, also `outline-style-{...}`. Width utilities (including bare `outline`) emit `outline-style: var(--tw-outline-style, solid)` alongside `outline-width`, so the outline renders solid on its own, and an explicit style utility (e.g. `outline-dashed`) still wins regardless of class order.
   * Color: `outline-{color}`, also `outline-color-{...}`
   * Offset: `outline-offset-{n}` or `outline-offset-[{length}]`
-  * Shorthand reset: `outline-none` and `outline-hidden` both emit `outline: 2px solid transparent; outline-offset: 2px;` (transparent outline retained for forced-colors / a11y).
+  * Shorthand reset: `outline-none` and `outline-hidden` both emit `--tw-outline-style: none; outline-style: none`; `outline-hidden` additionally renders a `2px solid transparent` outline with `outline-offset: 2px` under `@media (forced-colors: active)` for a11y.
   * Arbitrary full shorthand: `outline-[2px_dashed_red]` → `outline: 2px dashed red`.
 
 ## 8) Effects (shadows, rings, blend, opacity)
 
-* **Box shadow**: `shadow`, `shadow-{2xs|xs|sm|md|lg|xl|2xl}`, `shadow-none`, `shadow-inner`, `shadow-{color}`
+* **Box shadow**: `shadow`, `shadow-{2xs|xs|sm|md|lg|xl|2xl}`, `shadow-none`, `shadow-inner`, `shadow-{color}`, plus inset shadows `inset-shadow-{2xs|xs|sm}`, `inset-shadow-none`, `inset-shadow-{color}`
 * **Rings** (implemented via shadow):
   `ring-{n}` (width), `ring-{color}`, `ring-inset`, plus inset rings `inset-ring-{n}`, `inset-ring-{color}`, and ring offset: `ring-offset-{n}`, `ring-offset-{color}`.
 * **Mix / background blend**: `mix-blend-{mode}`, `bg-blend-{mode}`
 * **Opacity** (element): `opacity-{0..100}`
-* **Text shadow**: `text-shadow`, `text-shadow-{xs|sm|md|lg|xl|2xl}`, `text-shadow-none` (added in v4.1).
+* **Text shadow**: `text-shadow`, `text-shadow-{2xs|xs|sm|md|lg|xl|2xl}`, `text-shadow-none`, `text-shadow-{color}` (added in v4.1; the `xl`/`2xl` sizes are Crosswind extensions beyond Tailwind's scale).
 
 ## 9) Filters & Backdrop filters
 
 * **Filter primitives** (auto-emitting `filter`):
-  `blur-{xs|sm|md|lg|xl|2xl|3xl|[length]}`, `brightness-{value}`, `contrast-{value}`, `drop-shadow`, `drop-shadow-{sm|md|lg|xl|2xl}`, `grayscale`, `hue-rotate-{deg}`, `invert`, `saturate-{value}`, `sepia`
+  `blur-{xs|sm|md|lg|xl|2xl|3xl|[length]}`, `brightness-{value}`, `contrast-{value}`, `drop-shadow`, `drop-shadow-{xs|sm|md|lg|xl|2xl}`, `drop-shadow-none`, `drop-shadow-{color}`, `grayscale`, `hue-rotate-{deg}`, `invert`, `saturate-{value}`, `sepia`
 * **Optional filter toggle**: `filter`, `filter-none`
 * **Backdrop primitives**:
   `backdrop-blur-{...}`, `backdrop-brightness-{...}`, `backdrop-contrast-{...}`, `backdrop-grayscale`, `backdrop-hue-rotate-{deg}`, `backdrop-invert`, `backdrop-opacity-{...}`, `backdrop-saturate-{...}`, `backdrop-sepia`
@@ -154,7 +154,7 @@ Below is a clean, exhaustive list of Tailwind CSS v4.x utility families, organiz
 
 * **Transition**: `transition` (all), `transition-none`, `transition-{property}`
 * **Timing**: `duration-{ms}`, `ease-{linear|in|out|in-out|[cubic-bezier]}`, `delay-{ms}`
-* **Behavior**: `transition-behavior-{normal|allow-discrete}` (added in v4.1). The shorthand `transition-behavior-discrete` is also accepted and maps to `allow-discrete`.
+* **Behavior**: `transition-normal`, `transition-discrete` (Tailwind v4 names), plus the explicit `transition-behavior-{normal|allow-discrete}`. The shorthand `transition-behavior-discrete` is also accepted and maps to `allow-discrete`.
 * **Animation**: `animate-{spin|ping|pulse|bounce|none|[custom]}`
 * **`tailwindcss-animate` enter/exit primitives**: `animate-in` / `animate-out` bind the built-in `enter` / `exit` keyframes; layer shorthands set `--tw-enter-*` / `--tw-exit-*` CSS vars the keyframe consumes:
   * Fade: `fade-in-{n}`, `fade-out-{n}` (0–100 → opacity 0.0–1.0)
@@ -166,14 +166,14 @@ Below is a clean, exhaustive list of Tailwind CSS v4.x utility families, organiz
 
 * **Transform (composite/toggle)**: `transform`, `transform-none`
 * **Transform style / GPU promotion**: `transform-3d` (preserve-3d), `transform-flat`, `transform-gpu`, `transform-cpu`
-* **Transform box**: `transform-box-{border|content|fill|stroke|view}`
+* **Transform box**: `transform-{border|content|fill|stroke|view}` (map to `transform-box: border-box|content-box|fill-box|stroke-box|view-box`)
 * **Individual transforms**:
   `scale-{n}`, `scale-x-{n}`, `scale-y-{n}`, `scale-z-{n}`;
   `rotate-{deg}`, `rotate-x-{deg}`, `rotate-y-{deg}`, `rotate-z-{deg}`;
   `translate-{value}`, `translate-x-{value}`, `translate-y-{value}`, `translate-z-{value}`, `-translate-{value}`, `-translate-x-{value}`, `-translate-y-{value}`;
   `skew-x-{deg}`, `skew-y-{deg}`;
   **Transform origin**: `origin-{center|top|top-right|...}`
-* **Perspective**: `perspective-{none|near|normal|midrange|distant|[length]}`, `perspective-origin-{center|top|top-left|...}`
+* **Perspective**: `perspective-{none|dramatic|near|normal|midrange|distant|[length]}`, `perspective-origin-{center|top|top-left|...}`
 * **Backface visibility**: `backface-{visible|hidden}`
 
 ## 13) Interactivity
@@ -215,5 +215,7 @@ Below is a clean, exhaustive list of Tailwind CSS v4.x utility families, organiz
 * **Mask origin**: `mask-origin-{border|padding|content}` — maps to `border-box`, `padding-box`, `content-box`
 * **Mask clip**: `mask-clip-{border|padding|content|text}` — maps to box values or `text`
 * **Mask composite**: `mask-composite-{add|subtract|intersect|exclude}` — sets `mask-composite`
+* **Composable gradient masks** (v4.1): `mask-linear-{angle}`, `mask-radial`, `mask-radial-at-{position}`, `mask-conic-{angle}`, with stops `mask-{linear|radial|conic}-{from|to}-{value}` and edge fades `mask-{t|r|b|l|x|y}-{from|to}-{value}`; layers combine via `mask-composite: intersect`
+* **Mask mode / type**: `mask-mode-{alpha|luminance|match-source}`; `mask-type-{alpha|luminance}` (targets SVG `<mask>` elements, no `-webkit-` prefix)
 
-> All mask utilities automatically emit both standard `mask-*` and vendor-prefixed `-webkit-mask-*` declarations for cross-browser compatibility.
+> All mask utilities automatically emit both standard `mask-*` and vendor-prefixed `-webkit-mask-*` declarations for cross-browser compatibility (except `mask-type-*`, which is SVG-only).

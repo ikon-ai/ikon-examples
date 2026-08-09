@@ -1,16 +1,15 @@
 using System.Text.Json;
-using Ikon.Common.Core.Functions;
 using Ikon.Parallax.Components.Standard;
 
 return await App.Run(args);
 
-public record SessionIdentity(string UserId);
+public record SessionIdentity(string? UserId);
 public record ClientParams;
 
 [App]
 public partial class Emergence(IApp<SessionIdentity, ClientParams> app)
 {
-    private UI UI { get; } = new(app, new Theme());
+    private UI UI { get; } = new(app, new IkonTheme());
 
     // Tab state
     private readonly Reactive<string> _activeTab = new("ask");
@@ -20,9 +19,7 @@ public partial class Emergence(IApp<SessionIdentity, ClientParams> app)
 
     // Example selection per tab
     private readonly Reactive<string> _selectedRunExample = new("simple");
-    private readonly Reactive<string> _selectedBestOfExample = new("basic");
     private readonly Reactive<string> _selectedMapReduceExample = new("document");
-    private readonly Reactive<string> _selectedAdvancedExample = new("solver-critic");
 
     // Current cancellation token
     private CancellationTokenSource? _cts;
@@ -65,10 +62,8 @@ public partial class Emergence(IApp<SessionIdentity, ClientParams> app)
                             new TabItem("run", "Run<T>", RenderRunSection),
                             new TabItem("bestof", "BestOf", RenderBestOfSection),
                             new TabItem("mapreduce", "MapReduce", RenderMapReduceSection),
-                            new TabItem("taskgraph", "TaskGraph", RenderTaskGraphSection),
                             new TabItem("refine", "Refine", RenderRefineSection),
-                            new TabItem("orchestration", "Orchestration", RenderOrchestrationSection),
-                            new TabItem("advanced", "Advanced", RenderAdvancedSection),
+                            new TabItem("ensemble", "EnsembleMerge", RenderEnsembleMergeSection),
                             new TabItem("coder", "Agentic Coder", RenderAgenticCoderSection),
                             new TabItem("treesearch", "TreeSearch", RenderTreeSearchSection),
                             new TabItem("tags", "Structured Tags", RenderTagsSection)
@@ -127,7 +122,7 @@ public partial class Emergence(IApp<SessionIdentity, ClientParams> app)
                     {
                         if (state.IsRunning.Value)
                         {
-                            view.Button([Button.ErrorMd], label: "Stop", onClick: async () =>
+                            view.Button([Button.ErrorMd], text: "Stop", onClick: async () =>
                             {
                                 _cts?.Cancel();
                                 state.IsRunning.Value = false;
@@ -136,7 +131,7 @@ public partial class Emergence(IApp<SessionIdentity, ClientParams> app)
                         }
                         else
                         {
-                            view.Button([Button.PrimaryMd], label: "Run Example", onClick: async () =>
+                            view.Button([Button.PrimaryMd], text: "Run Example", onClick: async () =>
                             {
                                 state.Clear();
                                 _cts = new CancellationTokenSource();
@@ -144,7 +139,7 @@ public partial class Emergence(IApp<SessionIdentity, ClientParams> app)
                             });
                         }
 
-                        view.Button([Button.OutlineMd], label: "Clear", onClick: async () =>
+                        view.Button([Button.OutlineMd], text: "Clear", onClick: async () =>
                         {
                             state.Clear();
                         });
@@ -321,7 +316,7 @@ public class ExampleState
     public Reactive<string> CurrentStage { get; } = new("Ready");
     public Reactive<int> CurrentIteration { get; } = new(0);
     public Reactive<int> ToolCallCount { get; } = new(0);
-    public Reactive<List<LogEntry>> Logs { get; } = new([]);
+    public ReactiveList<LogEntry> Logs { get; } = new();
     public Reactive<string> ResultJson { get; } = new("");
 
     public void Log(string message, LogLevel level = LogLevel.Info)
