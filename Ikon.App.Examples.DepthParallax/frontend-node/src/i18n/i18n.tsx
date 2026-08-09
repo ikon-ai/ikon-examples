@@ -10,6 +10,8 @@ export interface Translations {
   'connection.serverFull.message': string;
   'connection.sessionExpired.title': string;
   'connection.sessionExpired.message': string;
+  'connection.startupFailed.title': string;
+  'connection.startupFailed.message': string;
   'auth.welcome.title': string;
   'auth.welcome.subtitle': string;
   'auth.divider': string;
