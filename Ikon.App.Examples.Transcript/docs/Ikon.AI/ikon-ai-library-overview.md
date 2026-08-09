@@ -240,7 +240,7 @@ var image = await ImageGenerator.GenerateAsync("A santa dancing in the snow");
 await File.WriteAllBytesAsync("santa.png", await image.GetDataAsync());
 ```
 
-**Result delivery:** media results (image, music, sound effect, converted file, segmentation mask, depth map) carry a `Kind` field. By default they arrive inline (`Kind == ResultKind.Data`, `Data` non-null). When a result is returned from a remotely hosted AI function and its payload exceeds a few MB, it is automatically uploaded and arrives as a signed download URL valid for roughly one hour (`Kind == ResultKind.Url`, `Url` non-null, `Data` null) to stay within the protocol's message size limit; consumed locally in-process, large payloads stay inline. `await result.GetDataAsync()` returns the bytes either way, so prefer it over reading `Data` directly. Set `ResultDelivery = ResultDelivery.Url` in the config to always receive a URL.
+**Result delivery:** media results (image, music, sound effect, converted file, segmentation mask, depth map, upscaled image) carry a `Kind` field. By default they arrive inline (`Kind == ResultKind.Data`, `Data` non-null). When a result is returned from a remotely hosted AI function and its payload exceeds a few MB, it is automatically uploaded and arrives as a signed download URL valid for roughly one hour (`Kind == ResultKind.Url`, `Url` non-null, `Data` null) to stay within the protocol's message size limit; consumed locally in-process, large payloads stay inline. `await result.GetDataAsync()` returns the bytes either way, so prefer it over reading `Data` directly. Set `ResultDelivery = ResultDelivery.Url` in the config to always receive a URL.
 
 Use the constructor + config form for negative prompts, resolution, seeding, batches, or input images:
 
@@ -297,6 +297,43 @@ foreach (var segment in result.Segments)
 
 await File.WriteAllBytesAsync("mask.png", await result.Segments[0].Mask.GetDataAsync());
 ```
+
+## ImageUpscaling
+
+`Ikon.AI.ImageUpscaling.ImageUpscaler` raises the resolution of a single input image (super-resolution). The result is one larger image. Useful for rescuing low-resolution source material, printing or presenting a generated image at a larger size, and recovering detail from compressed photos.
+
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps). SeedVR2 is the default and scales up to 10x; Topaz is the premium option at up to 4x and is the only model that can restore faces; Recraft Crisp upscales by a fixed amount with no controls and returns WebP; Crystal is the one model that will invent detail.
+
+Some models cap how large an output they will produce, reported as `MaxOutputMegapixels` in the capabilities (Topaz is capped at 48; the rest are uncapped). A request whose input size and scale factor would exceed the cap is refused before the provider is called, rather than running up a charge at a price tier above the one the platform bills.
+
+**Faithful vs. creative:** upscalers differ in whether they invent detail, and every model's `Fidelity` says which it is. A `Faithful` model reconstructs only what the input supports, so its output can still be read as evidence of the original. A `Creative` model synthesizes plausible detail that was never there. A `Tunable` model moves between the two as `Creativity` rises (0 to 1) and sits at the faithful end when it is left at 0. Every model here defaults to faithful behaviour, and asking a faithful model for `Creativity` above 0 throws rather than being quietly ignored — so nothing hallucinates unless you ask it to. Check `ImageUpscaler.GetCapabilities(model)` when the distinction matters.
+
+One-shot from image bytes — defaults to `SeedVr2`, and to the model's own scale factor:
+
+```csharp
+using Ikon.AI.ImageUpscaling;
+
+var result = await ImageUpscaler.UpscaleAsync(imageBytes, "image/png", scaleFactor: 4);
+await File.WriteAllBytesAsync("upscaled.png", await result.Image.GetDataAsync());
+```
+
+Use the constructor + config form for URL input, a target resolution, or creative upscaling:
+
+```csharp
+using Ikon.AI.ImageUpscaling;
+
+using var imageUpscaler = new ImageUpscaler(ImageUpscalerModel.SeedVr2);
+
+var result = await imageUpscaler.UpscaleImageAsync(new ImageUpscalerConfig
+{
+    InputImage = new InputImage { Url = "https://example.com/photo.png" },
+    TargetResolution = UpscaleTargetResolution.Uhd2160
+});
+
+await File.WriteAllBytesAsync("upscaled.png", await result.Image.GetDataAsync());
+```
+
+`ScaleFactor` and `TargetResolution` are mutually exclusive, and a model rejects either one it does not support rather than silently ignoring it. Output is PNG unless `OutputFormat` says otherwise, so a freshly recovered image is not immediately thrown away to JPEG.
 
 ## DepthEstimation
 
