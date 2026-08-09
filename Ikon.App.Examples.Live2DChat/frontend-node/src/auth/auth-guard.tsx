@@ -80,15 +80,12 @@ function AuthScreen({ config, errorScope, setErrorScope, isLoginPrompt, onDismis
   const hasGuest = guestProvider !== null;
 
   const errorFor = (scope: ErrorScope) =>
-    state.error && errorScope === scope ? (
+    state.error && (errorScope === scope || (errorScope === null && scope === 'primary')) ? (
       <div className="ikon-auth-error">{formatAuthError(state.error)}</div>
     ) : null;
 
   return (
-    <main className="ikon-auth-screen">
-      <div className="ikon-aurora-1" />
-      <div className="ikon-aurora-2" />
-
+    <main className="ikon-surface ikon-auth-screen">
       <section className="ikon-auth-container">
         <h1 className="ikon-auth-title">{t('auth.welcome.title')}</h1>
         <p className="ikon-auth-subtitle">{t('auth.welcome.subtitle')}</p>
@@ -149,12 +146,7 @@ function AuthScreen({ config, errorScope, setErrorScope, isLoginPrompt, onDismis
         )}
 
         {isLoginPrompt && !hasGuest && (
-          <button
-            type="button"
-            className="ikon-auth-dismiss"
-            onClick={onDismiss}
-            style={{ marginTop: '1rem', background: 'none', border: 'none', color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.875rem', cursor: 'pointer' }}
-          >
+          <button type="button" className="ikon-auth-dismiss" onClick={onDismiss}>
             {t('auth.dismiss')}
           </button>
         )}

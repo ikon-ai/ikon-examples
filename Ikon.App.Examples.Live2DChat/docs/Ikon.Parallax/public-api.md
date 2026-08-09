@@ -50,10 +50,10 @@ namespace Ikon.Parallax.Components.Charts
     string? Format { get; init; }
     string? Legend { get; init; }
     int? LegendOffset { get; init; }
+    int? TickCount { get; init; }
     int? TickPadding { get; init; }
     int? TickRotation { get; init; }
     int? TickSize { get; init; }
-    int? TickValues { get; init; }
     int? TruncateTickAt { get; init; }
   enum BarGroupMode
     Stacked
@@ -295,7 +295,7 @@ namespace Ikon.Parallax.Components.DataTable
 namespace Ikon.Parallax.Components.ImageEditor
   static class ImageEditorExtensions
     // triggerSave/triggerUndo/triggerRedo are edge-triggered — increment the value to fire that action. highResolution keeps the canvas at native resolution (sharp zoom, full-quality export, but capped undo history); when false the canvas is downscaled to fit its container.
-    static void ImageEditorCanvas(this UIView view, string[]? style = null, string? src = null, int? brushWidth = null, string? brushColor = null, ImageEditorTool? tool = null, double? zoom = null, bool? highResolution = null, int? textMaxLength = null, int? textFontSize = null, int? textPadding = null, Func<ImageEditorSaveArgs, Task>? onSave = null, Func<ImageEditorHistoryArgs, Task>? onHistoryChange = null, int? triggerSave = null, int? triggerUndo = null, int? triggerRedo = null, string? styleId = null, string? key = null)
+    static void ImageEditorCanvas(this UIView view, string[]? style = null, string? src = null, int? brushWidth = null, string? brushColor = null, ImageEditorTool? tool = null, double? zoom = null, bool? highResolution = null, bool? fitContainer = null, int? textMaxLength = null, int? textFontSize = null, int? textPadding = null, Func<ImageEditorSaveArgs, Task>? onSave = null, Func<ImageEditorHistoryArgs, Task>? onHistoryChange = null, int? triggerSave = null, int? triggerUndo = null, int? triggerRedo = null, string? styleId = null, string? key = null)
   sealed record ImageEditorHistoryArgs
     ctor(bool CanUndo, bool CanRedo)
     bool CanRedo { get; init; }
@@ -309,6 +309,7 @@ namespace Ikon.Parallax.Components.ImageEditor
     Text
     Arrow
     Region
+    Lasso
 
 namespace Ikon.Parallax.Components.Rive
   enum RiveAlignment
@@ -758,7 +759,7 @@ namespace Ikon.Parallax.Components.Standard
     bool Repeat { get; init; }
     bool ShiftKey { get; init; }
   static class KeyboardExtensions
-    static void KeyboardListener(this UIView view, Func<KeyboardEventArgs, Task>? onKeyDown = null, Func<KeyboardEventArgs, Task>? onKeyUp = null, IReadOnlyList<string>? keys = null, bool? global = true, bool? preventDefault = null, bool? stopPropagation = null, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
+    static void KeyboardListener(this UIView view, Func<KeyboardEventArgs, Task>? onKeyDown = null, Func<KeyboardEventArgs, Task>? onKeyUp = null, IReadOnlyList<string>? keys = null, bool? global = true, bool? requireCtrlOrMeta = null, bool? preventDefault = null, bool? stopPropagation = null, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
   static class LayoutExtensions
     static void AspectRatio(this UIView view, string[]? style = null, double ratio = 1.0, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     static void DirectionProvider(this UIView view, string[]? style = null, Dir dir = Ltr, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
@@ -1672,6 +1673,12 @@ namespace Ikon.Parallax.Theming
     const string Sidebar
     const string SidebarLg
     const string SidebarSm
+  static class Markdown
+    const string Blocks
+    const string Code
+    const string Default
+    const string Headings
+    const string Table
   static class Media
     const string CanvasFill
     const string Default

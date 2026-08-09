@@ -481,6 +481,7 @@ namespace Ikon.App
     Secrets Secrets { get; }
     // Consulted only during build-time snapshot capture. Returned routes are unioned with the [BootSnapshot] Routes list from ikon-config.toml, validated, and deduped.
     Func<Task<IEnumerable<string>>>? SnapshotRoutesProvider { get; set; }
+    virtual string StateDatabase { get; }
     // Enabled by default. Applies only to clients that connect after it is set; already-connected clients are unaffected until they reconnect.
     bool UdpEnabled { get; set; }
     // Enabled by default. Disable (e.g. in Main) for apps with no audio/video or low-latency data to save per-client peer-setup cost. Applies only to clients that connect afterward; already-connected clients are unaffected until they reconnect.
