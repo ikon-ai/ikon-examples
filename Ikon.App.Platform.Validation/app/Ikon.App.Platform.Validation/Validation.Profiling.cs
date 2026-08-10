@@ -31,6 +31,8 @@ public partial class Validation
     {
         view.Column([Layout.Column.Lg], content: view =>
         {
+            RenderCpuBurnSection(view);
+
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 view.Text([Text.H2, "mb-4"], "UI Profiling");
