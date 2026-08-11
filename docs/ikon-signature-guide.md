@@ -151,8 +151,11 @@ For most "user signs a document" flows, `EidHub` is the right policy. `PkiSignin
 | `SignedAt` | Server-recorded completion timestamp. |
 | `SignedDocumentHash` | SHA-256 (base64url) of `Bytes`, already verified by the helper. |
 | `IdentityScheme` | eID scheme used (e.g. `nbid`, `ftn`, `bankid-se`). |
-| `SignerNameHash` | Optional HMAC of the signer's legal name. |
+| `SignerName` | The signer's legal name as the eID reported it, when the order asked for the `name` attribute (the default). Null otherwise. This is what you show a user and check against the signer you expected. |
+| `SignerNameHash` | Optional HMAC of the signer's legal name, keyed by a platform secret. Usable as an opaque fingerprint for correlating two ceremonies; it cannot be recomputed by your app, so it can neither be displayed nor compared against a name you hold — use `SignerName` for both. |
 | `EvidenceLevel` | Optional `loa:` level reported by Signicat. |
+
+`IdentityScheme` and `EvidenceLevel` describe *how strongly* somebody authenticated, never *who*. If your app hands out a link that anyone holding the URL can complete, compare `SignerName` against the party you addressed it to — otherwise a completed ceremony proves only that some real identity signed, not that it was the intended one. Platform retention for `SignerName` matches the session retention above; persist it yourself if you need it long-term.
 
 ## Webhook configuration
 

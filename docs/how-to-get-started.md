@@ -144,3 +144,5 @@ Open the project folder with your preferred coding agent (e.g., [Cursor](https:/
 | **Diff**    | `ikon app diff`      | Show uncommitted changes        |
 | **Save**    | `ikon app save`      | Save changes to version control |
 | **Update**  | `ikon app update`    | Update Ikon package references  |
+
+Deploying from CI rather than your own terminal needs a credential that does not involve a browser — see the [CI authentication guide](ikon-ci-authentication-guide.md).
