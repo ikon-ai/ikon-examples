@@ -9,6 +9,17 @@ import { defineConfig, loadEnv } from 'vite';
 
 const __dirname = import.meta.dirname;
 
+const ikonEmbedHeaders = {
+  name: 'ikon-embed-headers',
+  configureServer(server) {
+    server.middlewares.use((_req, res, next) => {
+      res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      next();
+    });
+  },
+};
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
 
@@ -35,7 +46,7 @@ export default defineConfig(({ mode }) => {
   const isIkonInternal = (process.env.VITE_IS_IKON_INTERNAL || env.VITE_IS_IKON_INTERNAL) === 'true';
   const platformTypescriptPath = process.env.VITE_IKON_PLATFORM_TYPESCRIPT_PATH || env.VITE_IKON_PLATFORM_TYPESCRIPT_PATH;
 
-  const plugins = [react()];
+  const plugins = [ikonEmbedHeaders, react()];
 
   if (!hasCertificate && !isTunneled) {
     plugins.push(basicSsl());
