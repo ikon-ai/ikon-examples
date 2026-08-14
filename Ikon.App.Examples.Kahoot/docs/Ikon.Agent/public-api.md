@@ -95,6 +95,7 @@ namespace Ikon.Agent
     Reactive<string?> Stage { get; }
     Reactive<ThreadStatus> Status { get; }
     IStorage Storage { get; }
+    StreamedContent Streamed { get; }
     Reactive<IReadOnlyList<ToolCallEntry>> ToolCallTimeline { get; }
     Reactive<ThreadUsage> Usage { get; }
     // Returns a Reference to embed in a Message in place of the raw bytes, keeping subsequent LLM prompts small; the agent fetches the data via tool calls when it needs it.
@@ -289,6 +290,7 @@ namespace Ikon.Agent
     Func<Reasoning, LLMModel>? ModelResolverHook { get; set; }
     Reactive<IReadOnlyList<Persona>> Personas { get; }
     IStorage Storage { get; }
+    bool StreamProgress { get; set; }
     Reactive<IReadOnlyList<AgentThread>> Threads { get; }
     Orchestrator AddPersona(Persona persona)
     // Omit id and each call mints a new app; pass a host-recomputable id (a space id, a workspace key) and the same call after ResumeAsync re-uses the persisted app — same plans, threads, and artifacts.
@@ -433,6 +435,11 @@ namespace Ikon.Agent
     ThreadTransition? StatusOverride { get; init; }
   static class Storages
     static IStorage InMemory()
+  readonly record struct StreamedContent
+    ctor(long TextCharacters, long ReasoningCharacters, long ToolArgumentCharacters)
+    long ReasoningCharacters { get; init; }
+    long TextCharacters { get; init; }
+    long ToolArgumentCharacters { get; init; }
   sealed record ThreadCheckpoint
     ctor(string Label, DateTime CapturedAt, ThreadSnapshot Thread, PlanSnapshot Plan, IReadOnlyList<Message> Messages, IReadOnlyList<Artifact> Artifacts)
     IReadOnlyList<Artifact> Artifacts { get; init; }
