@@ -209,6 +209,7 @@ CustomModels.Instance.Register(new CustomLLMModel
     ApiModelName = "Qwen/Qwen2.5-32B-Instruct",
     ApiKey = "sk-local-123",           // omit for keyless endpoints (e.g. local Ollama)
     ContextWindowSize = 32768,
+    MaxOutputTokens = 8192,            // omit when the endpoint caps nothing
     SupportsJsonSchema = true,
 });
 
@@ -224,6 +225,7 @@ Key behaviors:
 - **Flat per-request billing.** Usage is reported with a `.user` suffix and charged as a flat credit fee per successful request (identical for all custom models) instead of per-token provider pricing. Token counts are still reported for analytics. A failed or aborted request is not billed; each successful retry bills its own request.
 - **Register at startup.** The registry is async-local (like credentials): register models on the main flow before spawning parallel work so every flow sees them. Registering the same name again replaces the previous registration.
 - **Names.** A custom model name must not collide with a built-in model name and must not contain dots or whitespace.
+- **Output budget.** `MaxOutputTokens` is the largest response the endpoint will produce. `LLM` lowers `KernelContext.MaxOutputTokens` to it before sending, so a caller running the 16000-token default against a smaller model gets a shorter answer instead of a rejected request. Leave it at 0 when the endpoint caps nothing and the caller's value goes out unchanged. Built-in models carry the limit their provider publishes; read it with `LLM.GetCapabilities(model).MaxOutputTokens` or `model.MaxOutputTokens()`.
 
 ## ImageGeneration
 
