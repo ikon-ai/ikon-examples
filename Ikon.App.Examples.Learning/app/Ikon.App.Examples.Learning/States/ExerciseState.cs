@@ -968,7 +968,7 @@ public class ExerciseState(LearningApp outer) : ILearningState
                             await Task.CompletedTask;
                         });
 
-                    inputView.TextField(["unstyled flex-1 bg-transparent border-0 outline-none px-2 py-1.5 md:px-3 md:py-2 text-[#1a1a1a] placeholder-[#9ca3af] text-[15px]"],
+                    inputView.TextField(["flex-1 bg-transparent border-0 outline-none px-2 py-1.5 md:px-3 md:py-2 text-[#1a1a1a] placeholder-[#9ca3af] text-[15px]"],
                         value: outer.InputText.Value,
                         placeholder: _hasConversationEnded ? "Harjoitus valmis!" : "Kirjoita vastauksesi...",
                         disabled: _hasConversationEnded,

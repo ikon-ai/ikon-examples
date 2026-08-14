@@ -331,7 +331,7 @@ namespace Ikon.App
     IAsyncEnumerable<InboundEmailSummary> EnumerateInboxAsync(InboxQuery query, CancellationToken ct = default)
     Task<InboxPage> GetInboxPageAsync(InboxQuery query, CancellationToken ct = default)
     Task<InboundEmailDetail> GetMessageAsync(string id, CancellationToken ct = default)
-    // The platform sets the visible From address — set EmailSendRequest.ReplyTo to redirect replies. The send is enqueued: a successful return means the platform accepted the request, not that the recipient received it (transient delivery failures are retried server-side). Total payload is capped at ~10 MB.
+    // A request that names a sender identity needs a verified sending domain: when the space has none, or the requested EmailSendRequest.SenderDomain is not one of the space's verified sending domains, the send throws EmailSenderNotAvailableException — catch it and resend without the sender fields to deliver from the platform's own address. Invalid field values throw ArgumentException before anything is sent, and a space without the Email feature throws FeatureNotEnabledException.
     Task SendAsync(EmailSendRequest request, CancellationToken ct = default)
   abstract class EndpointAttribute : Attribute
     // Defaults to EndpointAuth.Grant; setting AuthPolicy overrides it.
@@ -344,6 +344,8 @@ namespace Ikon.App
     Grant
     Public
     Deny
+    // Unlike Grant, nothing here is minted by the app or pasted into a URL: the client discovers the space's authorization server, the human signs in with the space's own [Auth] Methods, and the client holds a short-lived token it refreshes itself. Anonymous sign-in methods (guest, global) cannot satisfy this — a global visitor is one shared space-wide user, so honouring it would hand every client the same identity and the same data. A space declaring only anonymous methods cannot host a User endpoint.
+    User
   sealed record EndpointInfo
     ctor()
     string CellType { get; init; }
@@ -496,6 +498,8 @@ namespace Ikon.App
     // Identify the endpoint by its HANDLER (the method name, e.g. nameof(GetDocument)), never by URL path — the path is what minting returns. Omitting identity (null) pins this instance's own session on an app endpoint so the URL routes back here, and pins nothing on a cell endpoint. Grants are non-expiring unless you pass expiresIn.
     virtual Task<MintedUrl> MintUrlAsync(string endpoint, object? identity = null, TimeSpan? expiresIn = null, string? group = null, CancellationToken ct = default)
     virtual Task<IReadOnlyDictionary<string, MintedUrl>> MintUrlsAsync(IEnumerable<string> endpoints, object? identity = null, TimeSpan? expiresIn = null, string? group = null, CancellationToken ct = default)
+    // The counterpart to MintUrlAsync when the caller is a person rather than a registered machine. The result is NOT a URL — send it as Authorization: Bearer {token}, never as a query parameter. It is bound to this one endpoint, expires (15 minutes by default), and a call made with it runs under that user's UserScope.
+    virtual Task<MintedUserToken> MintUserTokenAsync(string endpoint, string userId, TimeSpan? expiresIn = null, IEnumerable<string>? scopes = null, CancellationToken ct = default)
     // Bind your listener to the returned RelayEndpoint.LocalPort; the tunnel is reachable from the internet at {PublicHost}:{PublicPort}. Dispose the endpoint to release it.
     Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", int localPort = 0, CancellationToken ct = default)
     // Verify the returned JWT (issuer, audience, signature, expiry) before trusting any of its claims — see AssertionVerifier. Blocks until the user completes the challenge in their browser.
@@ -528,13 +532,15 @@ namespace Ikon.App
     IEnumerable<int> Ids { get; }
     IClient<TClientParameters>? this[int clientSessionId] { get; }
   interface IProfileAttributes
-  // Sibling of HttpMethodAttribute: both declare an inbound HTTP endpoint over the shared addressing + identity model (see EndpointAttribute), differing only in the wire protocol (typed HTTP vs MCP JSON-RPC) and the schema advertised to clients. Each tool is reachable two ways: through the owner's fixed JSON-RPC multiplexer ({owner}/mcp — tools/list + tools/call, and the only surface that streams notifications/progress over SSE), and as its own directly-callable POST endpoint whose body IS the tool's arguments object. That per-tool path defaults to the kebab-cased method name and is overridable via EndpointAttribute.Path — the override adjusts only this tool's own endpoint, never the shared multiplexer. The same method may also carry a verb-named REST attribute ([HttpPost] etc.); then that route serves the REST surface and the per-tool MCP endpoint is suppressed. The governance subject id is always the structural "{Type}.{Method}".
+  // Sibling of HttpMethodAttribute: both declare an inbound HTTP endpoint over the shared addressing + identity model (see EndpointAttribute), differing only in the wire protocol (typed HTTP vs MCP JSON-RPC) and the schema advertised to clients. Each tool is reachable two ways: through the owner's fixed JSON-RPC multiplexer ({owner}/mcp — tools/list + tools/call, and the only surface that streams notifications/progress over SSE), and as its own directly-callable POST endpoint whose body IS the tool's arguments object. That per-tool path defaults to the kebab-cased method name and is overridable via EndpointAttribute.Path — the override adjusts only this tool's own endpoint, never the shared multiplexer. The same method may also carry a verb-named REST attribute ([HttpPost] etc.); then that route serves the REST surface and the per-tool MCP endpoint is suppressed. The governance subject id is always the structural "{Type}.{Method}". The one place it parts company with its sibling is the default EndpointAttribute.Auth, which is EndpointAuth.User here rather than EndpointAuth.Grant. A grant is a signed URL handed to something the app provisioned, and an MCP client is the opposite of that: it arrives from outside, on behalf of a person, through a flow that ends in a token. Defaulting a tool to a credential no MCP client can obtain would make every tool either unreachable or, once someone widened it to get past that, wider than intended. Set Auth explicitly for a tool that really is reachable without a user.
   sealed class McpAttribute : EndpointAttribute
     ctor()
     ctor(string path)
     // Set this explicitly; the method's XML doc summary is never used as a fallback.
     string Description { get; init; }
     string? Name { get; init; }
+    // Scopes narrow WITHIN an authorization; they do not replace it. A tool that names a scope must also be reachable — an EndpointAuth.User tool is the case this exists for, because only a token carries scopes at all. Naming one on a Public tool would be meaningless and is ignored. A caller whose token lacks the scope gets 403 with error="insufficient_scope", which is the one refusal an MCP client will re-authorize for. That is why it is a 403 and not a 401: a bare 401 says "who are you", and the client already knows.
+    string Scope { get; init; }
   // Sibling of McpAttribute — same cell-method-as-callable model, different MCP verb shape: • Static resource — method takes no arguments; the URI is the literal UriTemplate with no placeholders. Lists in resources/list. • Dynamic resource — method takes parameters that map to {placeholder} segments in the URI template by name. Lists in resources/templates/list; the client crafts a concrete URI and reads it. Read-only by spec — authors should not put side effects in resource methods (the same governance hook still fires on every read with Operation = "resource", so policy authors can distinguish read access from tool dispatch).
   sealed class McpResourceAttribute : Attribute
     ctor(string uriTemplate)
@@ -551,6 +557,12 @@ namespace Ikon.App
     DateTimeOffset? ExpiresAt { get; init; }
     string GrantId { get; init; }
     string Url { get; init; }
+  // Deliberately not a URL. An access token in a query string is forbidden by the MCP specification and leaks into connector lists, access logs and proxies; this one belongs in a header and nowhere else.
+  sealed record MintedUserToken
+    ctor(string Token, string Resource, DateTimeOffset ExpiresAt)
+    DateTimeOffset ExpiresAt { get; init; }
+    string Resource { get; init; }
+    string Token { get; init; }
   class Navigation
     string? CurrentPath { get; }
     // Round-trips to the live client over the connection rather than reading server state; returns null when the client doesn't answer or isn't connected.
