@@ -55,6 +55,7 @@ The preprocessor inlines included content before TOML parsing. Circular includes
 | `opcode`         | optional | Protocol opcode (int or string). Required when `type` is present, unless `data = true`.  |
 | `data`           | optional | If `true`, the schema defines a pure data type instead of a wire message. See below.     |
 | `unreliable`     | optional | If `true`, generated messages of this type get `MessageFlag.Unreliable` set by default.  |
+| `sparse`         | optional | If `true`, writers omit fields holding the zero value instead of emitting them. See below.|
 | `doc`            | optional | Comment or docstring                                                                     |
 | `[fields]`       | optional | Field names and types. Only allowed when `type` is present.                              |
 | `[nested.*]`     | optional | Nested subtypes                                                                          |
@@ -132,6 +133,25 @@ Caller-supplied flags OR-merge with this default — adding `SendBackToSender` a
 
 ---
 
+### Sparse Payloads (`sparse = true`)
+
+A root message may declare `sparse = true` to have every generated **writer** skip a field that holds the zero value rather than emit an empty one. Framing a field costs a 4-byte id, a type byte and (for variable types) a length before any content, so a message that is mostly empty for a given caller pays for a great deal of nothing. It is worth turning on where the payload is size-sensitive — something carried in a URL, or sent per connection.
+
+```toml
+type = "ConnectToken"
+version = 4
+opcode = "NONE"
+sparse = true
+```
+
+Readers need no change and none was made: every generated reader starts from a defaulted instance and applies only the fields present, so an absent field simply keeps its starting value. This is what makes the key safe to turn on unilaterally — a sparse writer's output is decoded correctly by readers built before the flag existed, and a dense payload keeps decoding afterwards.
+
+**Fields whose declared default is not the zero value are always written**, whatever they hold. This is not an optimization gap, it is the correctness boundary: the C++ reader value-initializes its struct and the Rust reader derives `Default`, so neither materializes a declared default. Omitting a `bool = true` would read back as `false` there — a silent wrong value rather than a decode failure. `Ikon.Teleport.CodeGen\TeleportSparse.cs` holds the rule, and it is deliberately conservative in the same direction: anything it cannot prove omittable is written, because being wrong that way costs bytes while being wrong the other way corrupts a value.
+
+Optional fields are unaffected — they already write nothing when null. The key is only valid when `type` is present, and it is opt-in per type, so no existing message changes shape until its schema asks for it.
+
+---
+
 ## 5. Field Definitions
 
 ### Example
@@ -197,6 +217,13 @@ fieldId = xxHash32(fieldName.UTF8, seed = 0)
 ```
 
 This ensures reversible mapping between `.tp` and binary `.tpx` - identical to Teleport binary specification section 2.
+
+Because identity is the name hash, the order fields appear in `[fields]` does not affect the wire
+layout, and reordering is free to group a schema for readability. It is not free for the generated
+**APIs**: the C# positional constructor takes its parameters in schema order, and the C++ struct is
+a plain aggregate, so a reorder silently changes what a positional call means. Dart, TypeScript and
+Rust construct by name and are unaffected. Before reordering, confirm nothing constructs the type
+positionally.
 
 ---
 
