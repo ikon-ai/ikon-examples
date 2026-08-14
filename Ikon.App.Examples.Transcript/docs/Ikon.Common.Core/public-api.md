@@ -28,6 +28,29 @@ namespace Ikon.Common.Core
     int Current { get; }
     string Key { get; }
     int Limit { get; }
+  // None of it is authoritative. The client picked every value, and forging one only misdescribes or misconfigures the forger's own session — so a signature would buy nothing while making the connect token several hundred characters longer, which is exactly what it used to do. What keeps "copy the whole thing" safe is the shape of ClientEnvironment: it has no field worth forging, and cannot express UserId, IsInternal, opcode groups or anything else that authorizes. That is a property to preserve, not a coincidence.
+  static class ClientEnvironmentCodec
+    static string Encode(ClientEnvironment environment)
+    static ClientEnvironment FromConnectToken(ConnectToken token)
+    static ClientEnvironment Resolve(string? presented, ConnectToken token)
+    static bool TryDecode(string? presented, out ClientEnvironment? environment)
+    const string QueryParam
+  // This replaced a JWT whose payload was the whole ConnectToken as JSON. The token is opaque to every SDK — they carry it in a URL and hand it back — so nothing outside this type needs to parse it, and the JSON bought nothing but size: PascalCase field names, every field present including the empty ones, then base64 over the lot. The MAC is HMAC-SHA256 truncated to 128 bits, the standard floor for a truncated HMAC (RFC 2104 §5). The key is the caller's per-server ConnectToken secret, never the platform secret.
+  static class ConnectTokenCodec
+    static string Encode(ConnectToken token, byte[] key)
+    static uint ExpiresIn(TimeSpan lifetime)
+    static long ToUnixSeconds(DateTime utc)
+    static ConnectTokenStatus TryDecode(string presented, byte[] key, DateTime nowUtc, out ConnectToken? token)
+    static readonly TimeSpan DefaultLifetime
+  enum ConnectTokenStatus
+    Valid
+    Malformed
+    BadSignature
+    Expired
+  class EmailSenderNotAvailableException : UserException
+    ctor(string friendlyMessage, string? senderDomain = null, string? hint = null)
+    string? Hint { get; }
+    string? SenderDomain { get; }
   readonly struct Endpoint : IEquatable<Endpoint>
     ctor(EndpointKind kind, string cellType, string identityHash)
     string CellType { get; }
@@ -121,7 +144,6 @@ namespace Ikon.Common.Core
     static bool Report(string feature, string detail = "", int sessionId = 0, string callerSpaceId = "")
     const string PluginConnectAsyncV1
     const string ProtocolV1ActionCall
-    const string ProtocolV1AudioFrame
     const string RemovedPluginRequested
     const string RpcPayloadVersion
     const string SdkCapabilityLevel
@@ -288,6 +310,11 @@ namespace Ikon.Common.Core
     static string ToPascalCase(string input)
     static string ToSlug(string input, int maxLength)
     static string ToSnakeCase(string input)
+  sealed class PortLease : IDisposable
+    ctor()
+    void Dispose()
+    int Take(int startPort)
+    void TakeSpecific(int port)
   sealed class PublicApiDocIgnoreAttribute : Attribute
     ctor()
   class ReactiveGlobalState
@@ -335,6 +362,10 @@ namespace Ikon.Common.Core
     T Value { get; }
   enum SensitivityPolicy
     Default
+  static class ServiceTokenExchanger
+    static string? GetServiceToken()
+    static IkonBackend.LoginInfo? TryExchange(IkonBackend.EnvironmentType environment)
+    const string ServiceTokenVariable
   static class SessionIdentityHash
     static string Compute(IReadOnlyDictionary<string, string> sessionIdentity)
     static string ComputeForCell(string cellType, IReadOnlyDictionary<string, string> sessionIdentity)
@@ -361,6 +392,12 @@ namespace Ikon.Common.Core
     static StudioProjectRef Parse(string reference)
   static class Throttler
     static bool TryExecute(Action action, TimeSpan? throttleInterval = null, string? extraKey = null)
+  static class TokenRenewer
+    static DateTimeOffset GetTokenExpiry(string token)
+    static bool IsRenewalDue(DateTimeOffset expiry, DateTimeOffset now)
+    static Task RenewIfDueAsync(IkonBackend.EnvironmentType environment, CancellationToken cancellationToken)
+    static bool TryRecoverExpiredToken(IkonBackend.EnvironmentType environment)
+    static IkonBackend.LoginInfo? TryRenewDueToken(IkonBackend.EnvironmentType environment)
   static class Toml
     static T From<T>(string toml) where T : class, new()
     static string To<T>(T obj) where T : class
@@ -559,14 +596,23 @@ namespace Ikon.Common.Core.Email
     string Name { get; init; }
     string Value { get; init; }
   sealed record EmailSendRequest
-    ctor(string To, string Subject, string HtmlBody, string? TextBody = null, string? ReplyTo = null, IReadOnlyList<EmailAttachment>? Attachments = null, IReadOnlyDictionary<string, string>? Metadata = null)
+    ctor(string To, string Subject, string HtmlBody, string? TextBody = null, string? ReplyTo = null, IReadOnlyList<EmailAttachment>? Attachments = null, IReadOnlyDictionary<string, string>? Metadata = null, string? SenderLocalPart = null, string? SenderDisplayName = null, string? SenderDomain = null)
     IReadOnlyList<EmailAttachment>? Attachments { get; init; }
     string HtmlBody { get; init; }
     IReadOnlyDictionary<string, string>? Metadata { get; init; }
     string? ReplyTo { get; init; }
+    string? SenderDisplayName { get; init; }
+    string? SenderDomain { get; init; }
+    string? SenderLocalPart { get; init; }
     string Subject { get; init; }
     string? TextBody { get; init; }
     string To { get; init; }
+  static class EmailSenderIdentity
+    static bool IsReservedLocalPart(string localPart)
+    static bool IsValidLocalPart(string localPart)
+    static string? NormalizeLocalPart(string? localPart)
+    const int MaxDisplayNameCodePoints = 64
+    const int MaxLocalPartLength = 64
   sealed record InboundAttachmentInfo
     ctor(string Id, string Filename, string MimeType, long Size)
     string Filename { get; init; }
@@ -1041,7 +1087,7 @@ namespace Ikon.Common.Core.Protocol
     DesktopApp
   sealed class Context : IProtocolMessagePayload
     ctor()
-    ctor(ContextType contextType, UserType userType, PayloadType payloadType, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, int sessionId, bool isInternal, bool isSnapshot, string snapshotVariant, bool isReady, bool hasInput, string authSessionId, bool isAnonymous, bool isGlobal, bool receiveAllMessages, ulong preciseJoinedAt, string userAgent, ClientType clientType, string uniqueSessionId, Dictionary<string, string> parameters, SdkType sdkType, int sdkCapability, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, StyleFormat styleFormat, bool supportsCompression, bool isSoftDisconnected, ulong softDisconnectAt)
+    ctor(ContextType contextType, UserType userType, PayloadType payloadType, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, int sessionId, bool isInternal, bool isSnapshot, string snapshotVariant, bool isReady, bool hasInput, string authSessionId, bool isAnonymous, bool isGlobal, bool receiveAllMessages, ulong preciseJoinedAt, string userAgent, ClientType clientType, string uniqueSessionId, Dictionary<string, string> parameters, SdkType sdkType, int sdkCapability, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, string initialUrl, StyleFormat styleFormat, bool supportsCompression, bool isSoftDisconnected, ulong softDisconnectAt)
     string AuthSessionId { get; set; }
     int ClientSessionId { get; }
     ClientType ClientType { get; set; }
@@ -1050,6 +1096,7 @@ namespace Ikon.Common.Core.Protocol
     string DeviceId { get; set; }
     bool HasInput { get; set; }
     string InitialPath { get; set; }
+    string InitialUrl { get; set; }
     string InstallId { get; set; }
     bool IsAnonymous { get; set; }
     bool IsGlobal { get; set; }
@@ -1301,6 +1348,7 @@ namespace Ikon.Common.Core.Protocol
     ANALYTICS_IKON_RELAY_SERVER_STATS
     ANALYTICS_IKON_TURN_SERVER_STATS
     ANALYTICS_IKON_HOST_SERVER_STATS
+    ANALYTICS_TRAFFIC_USAGE
     GROUP_ACTIONS
     ACTION_CALL
     ACTION_ACTIVE
@@ -1368,9 +1416,8 @@ namespace Ikon.Common.Core.Protocol
     GROUP_AUDIO
     AUDIO_STREAM_BEGIN
     AUDIO_STREAM_END
-    AUDIO_FRAME
     AUDIO_FRAME_VOLUME
-    AUDIO_FRAME2
+    AUDIO_FRAME
     AUDIO_SHAPE_FRAME
     AUDIO_PLAYBACK_REPORT
     GROUP_VIDEO
@@ -1438,8 +1485,10 @@ namespace Ikon.Common.Core.Protocol
   static class ProtocolVersion
     static int Version { get; }
   static class SdkCapabilities
+    const int ClientEnvironmentOnConnect = 5
     const int ClientInitializationMessage = 4
     const int ClientLifecycleBatching = 3
+    // Deliberately still ClientInitializationMessage: this constant is what the C# SDK and plugins advertise, and they do not yet send a ClientEnvironment on connect. Advertising a level a build does not implement is how a client talks itself out of data it needs — here it would tell the minter to omit an environment nobody then supplies. It moves when the C# side sends one.
     const int Current = 4
     const int FunctionRegistryOutsideGlobalState = 1
     const int KeepaliveTimeoutNegotiation = 2
@@ -1877,4 +1926,5 @@ namespace Ikon.Common.Core.Signing
     string OrderId { get; init; }
     DateTimeOffset SignedAt { get; init; }
     string SignedDocumentHash { get; init; }
+    string? SignerName { get; init; }
     string? SignerNameHash { get; init; }
