@@ -377,7 +377,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                 view.Row(style: ["flex gap-3 items-center bg-white/90 backdrop-blur-2xl rounded-3xl px-6 py-4 shadow-2xl border border-gray-200"], content: view =>
                 {
                     view.TextField(
-                        style: ["unstyled flex-1 bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 focus:border-0 focus:border-transparent shadow-none text-gray-800 text-xl placeholder-gray-400 font-medium [&]:border-0 [&]:outline-0"],
+                        style: ["flex-1 bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 focus:border-0 focus:border-transparent shadow-none text-gray-800 text-xl placeholder-gray-400 font-medium [&]:border-0 [&]:outline-0"],
                         value: _ttsText.Value,
                         placeholder: "Type a message...",
                         props: new Dictionary<string, object>
