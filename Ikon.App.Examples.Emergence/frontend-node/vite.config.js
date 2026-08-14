@@ -63,7 +63,6 @@ export default defineConfig(({ mode }) => {
       '@ikonai/sdk-libopus': resolve(platformTypescriptPath, 'sdk/sdk-libopus/src/index.ts'),
       '@ikonai/sdk-react-ui': resolve(platformTypescriptPath, 'sdk/sdk-react-ui/src/index.ts'),
       '@ikonai/sdk-react-ui-standard': resolve(platformTypescriptPath, 'sdk/sdk-react-ui-standard/src/index.ts'),
-      '@ikonai/sdk-react-ui-rive': resolve(platformTypescriptPath, 'sdk/sdk-react-ui-rive/src/index.ts'),
       '@ikonai/sdk-ui': resolve(platformTypescriptPath, 'sdk/sdk-ui/src/index.ts'),
       '@ikonai/configs': resolve(platformTypescriptPath, 'shared/configs/src/index.ts'),
       '@ikonai/protocol': resolve(platformTypescriptPath, 'shared/protocol/src/index.ts'),

@@ -175,6 +175,7 @@ Detailed API docs are available in `docs/Ikon.Agent.Docs/guides/`. Each guide co
 - **secrets** (`docs/Ikon.Agent.Docs/guides/secrets.md`): secrets, tokens, API keys, credentials, passwords, app.Secrets, ikon app secret
 - **payments** (`docs/Ikon.Agent.Docs/guides/payments.md`): payments, charge end users, monetize, paywall, subscription, recurring, one-off payment, refund, Stripe, Surfboard, Mollie, app.Payments, CreatePaymentLinkAsync, ListOffersAsync, offers, GetEntitlementAsync, entitlement, PaymentsRequireEntitlement, CreateOfferAsync, create offer, PaymentEventReceived, payment events, cancel subscription
 - **notifications** (`docs/Ikon.Agent.Docs/guides/notifications.md`): notifications, push, push notification, app.Notifications, NotificationContent, SendToUserAsync, SendToSessionAsync, BroadcastAsync, permission, offline push, web push, FCM, alert, toast
+- **email** (`docs/Ikon.Agent.Docs/guides/email.md`): email, send email, app.Email, EmailSendRequest, EmailAttachment, sender identity, senderLocalPart, senderDisplayName, senderDomain, verified sending domain, reply-to, attachments, inbox, inbound email, EmailSenderNotAvailableException
 - **function-registry** (`docs/Ikon.Agent.Docs/guides/function-registry.md`): function registry, registration, attribute, visibility, LLM tools, callable functions
 - **logging** (`docs/Ikon.Agent.Docs/guides/logging.md`): log, logging, debug, warning, error, diagnostics
 - **pipelines** (`docs/Ikon.Agent.Docs/guides/pipelines.md`): pipeline, background processing, transform, processor, scheduled, cron

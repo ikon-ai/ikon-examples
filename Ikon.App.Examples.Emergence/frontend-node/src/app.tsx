@@ -2,7 +2,6 @@ import './app.css';
 
 import { AuthProvider, IkonApp, useAuthOptional, useIkonApp } from '@ikonai/sdk-react-ui';
 import { registerStandardUiModule, registerLucideIconsModule } from '@ikonai/sdk-react-ui-standard';
-import { registerRiveModule } from '@ikonai/sdk-react-ui-rive';
 import { AuthGuard } from './auth/auth-guard';
 import { authConfig } from './env';
 import { I18nProvider, useI18n } from './i18n/i18n';
@@ -22,7 +21,7 @@ function App() {
 
 function AuthorizedApp() {
   const app = useIkonApp({
-    modules: [registerStandardUiModule, registerLucideIconsModule, registerRiveModule],
+    modules: [registerStandardUiModule, registerLucideIconsModule],
   });
 
   return (
