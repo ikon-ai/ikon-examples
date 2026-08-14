@@ -219,6 +219,8 @@ namespace Ikon.AI.Kernel
     ImmutableList<MessageBlock> Messages { get; init; }
     ReasoningEffort ReasoningEffort { get; init; }
     int ReasoningTokenBudget { get; init; }
+    // Travels with the context over RPC, so the process that actually talks to the provider honours it — which is the only way a remote generation can report progress at all.
+    bool StreamProgress { get; init; }
     double Temperature { get; init; }
     TimeSpan Timeout { get; init; }
     string ToolPlan { get; init; }
@@ -265,6 +267,10 @@ namespace Ikon.AI.Kernel
   sealed record LLMEvent.Finished : LLMEvent
     ctor(string Reason)
     string Reason { get; init; }
+  sealed record LLMEvent.GenerationProgress : LLMEvent
+    ctor(LlmStreamKind Kind, int Characters)
+    int Characters { get; init; }
+    LlmStreamKind Kind { get; init; }
   sealed record LLMEvent.Reasoning : LLMEvent
     ctor(string Text)
     string Text { get; init; }
@@ -389,6 +395,7 @@ namespace Ikon.AI.LLM
     ctor()
     required CustomLLMApi Api { get; init; }
     required int ContextWindowSize { get; init; }
+    int MaxOutputTokens { get; init; }
     bool SupportsCaching { get; init; }
     bool SupportsInputImages { get; init; }
     bool SupportsJsonSchema { get; init; }
@@ -407,6 +414,8 @@ namespace Ikon.AI.LLM
   interface ILLMInfo
     int ContextWindowSize { get; }
     string InlineReasoningTagName { get; }
+    // In tokens. 0 means "no published limit", not "no output allowed".
+    int MaxOutputTokens { get; }
     SchemaDialect SchemaDialect { get; }
     bool SupportsGbnfGrammar { get; }
     bool SupportsInputAudio { get; }
@@ -426,6 +435,7 @@ namespace Ikon.AI.LLM
     ctor(LLMModel model, IReadOnlyList<ModelRegion>? regions = null)
     int ContextWindowSize { get; }
     string InlineReasoningTagName { get; }
+    int MaxOutputTokens { get; }
     SchemaDialect SchemaDialect { get; }
     bool SupportsGbnfGrammar { get; }
     bool SupportsInputAudio { get; }
@@ -450,6 +460,7 @@ namespace Ikon.AI.LLM
     ctor()
     int ContextWindowSize { get; init; }
     string InlineReasoningTagName { get; init; }
+    int MaxOutputTokens { get; init; }
     SchemaDialect SchemaDialect { get; init; }
     bool SupportsGbnfGrammar { get; init; }
     // Distinct from SupportsInputImages: a vision model whose tool results are JSON-only (e.g. Gemini functionResponse) accepts images in messages but not inside tool_result blocks.
@@ -562,6 +573,8 @@ namespace Ikon.AI.LLM
     // In tokens. Returns 0 when the model can't be resolved — treat 0 as "unknown" and skip utilization math rather than dividing by zero.
     static int ContextWindowSize(this LLMModel model)
     static string DisplayName(this LLMModel model)
+    // In tokens. Returns 0 when the limit is unknown (unresolvable model, or a provider that publishes none) — treat 0 as "no cap known", not as a zero budget.
+    static int MaxOutputTokens(this LLMModel model)
   class ModelOutputException : RetryableLLMException
     ctor()
     ctor(string message)

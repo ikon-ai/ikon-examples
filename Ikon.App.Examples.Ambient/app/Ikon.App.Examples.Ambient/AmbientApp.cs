@@ -963,7 +963,7 @@ public class AmbientApp
 
                     form.TextArea(
                         [
-                            "unstyled w-full h-44 px-5 py-4 rounded-2xl backdrop-blur-2xl",
+                            "w-full h-44 px-5 py-4 rounded-2xl backdrop-blur-2xl",
                             "bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.015))]",
                             "shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)]",
                             "text-white/90 placeholder:text-white/30 text-base leading-relaxed",
