@@ -224,6 +224,14 @@ This enables forward/backward compatibility.
 Forward: new readers handle old data (missing → defaults).
 Backward: old readers skip unknown fields.
 
+"Missing → defaults" is a requirement on the reader, not merely a consequence of version skew: a
+writer may legitimately omit a field it has nothing to say about, and the schema key `sparse = true`
+makes that the norm for a type. A decoder must therefore start from a fully defaulted instance and
+apply only the fields present, never assume a field appears. Note that the default it lands on is the
+one that implementation materializes — a language whose struct is zero-initialized does not
+reconstruct a schema-declared non-zero default, which is why the schema spec restricts omission to
+fields whose default is the zero value.
+
 Example:
 
 ```

@@ -24,7 +24,7 @@
         "invite link"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/app-structure.md",
-      "sizeBytes": 19646,
+      "sizeBytes": 20544,
       "alsoInclude": []
     },
     {
@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/app-api-reference.md",
-      "sizeBytes": 97531,
+      "sizeBytes": 100290,
       "alsoInclude": []
     },
     {
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ui-api-reference.md",
-      "sizeBytes": 171106,
+      "sizeBytes": 177549,
       "alsoInclude": []
     },
     {
@@ -339,7 +339,7 @@
         "AI connection"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ai-models.md",
-      "sizeBytes": 24588,
+      "sizeBytes": 25409,
       "alsoInclude": []
     },
     {
@@ -632,6 +632,30 @@
       ],
       "file": "docs/Ikon.Agent.Docs/guides/notifications.md",
       "sizeBytes": 3018,
+      "alsoInclude": []
+    },
+    {
+      "id": "email",
+      "title": "Email",
+      "keywords": [
+        "email",
+        "send email",
+        "app.Email",
+        "EmailSendRequest",
+        "EmailAttachment",
+        "sender identity",
+        "senderLocalPart",
+        "senderDisplayName",
+        "senderDomain",
+        "verified sending domain",
+        "reply-to",
+        "attachments",
+        "inbox",
+        "inbound email",
+        "EmailSenderNotAvailableException"
+      ],
+      "file": "docs/Ikon.Agent.Docs/guides/email.md",
+      "sizeBytes": 8795,
       "alsoInclude": []
     },
     {

@@ -60,7 +60,6 @@ export default defineConfig(({ mode }) => {
       ['@ikonai/sdk-libopus', 'sdk/sdk-libopus/src/index.ts'],
       ['@ikonai/sdk-react-ui', 'sdk/sdk-react-ui/src/index.ts'],
       ['@ikonai/sdk-react-ui-standard', 'sdk/sdk-react-ui-standard/src/index.ts'],
-      ['@ikonai/sdk-react-ui-rive', 'sdk/sdk-react-ui-rive/src/index.ts'],
       ['@ikonai/sdk-ui', 'sdk/sdk-ui/src/index.ts'],
       ['@ikonai/configs', 'shared/configs/src/index.ts'],
       ['@ikonai/protocol', 'shared/protocol/src/index.ts'],
