@@ -148,13 +148,15 @@ namespace Ikon.Common.Assets
     Window
     Current
   sealed class AssetLinkManager
-    ctor(IAssetBackend backend, IReadOnlyCollection<string>? publicFolders = null)
-    Task<IReadOnlyDictionary<string, string>> CollectPublicAssetsAsync(string repoDir, CancellationToken ct = default)
+    ctor(IAssetBackend backend)
     Task<IReadOnlySet<string>> CollectReferencedUrisAsync(string repoDir, CancellationToken ct = default)
     Task<(int Deleted, int Failed)> ExecuteGcAsync(AssetGcPlan plan, CancellationToken ct = default)
     Task<IReadOnlyList<string>> MaterializeAsync(string repoDir, CancellationToken ct = default)
     Task<IReadOnlyList<string>> NormalizeAsync(string repoDir, CancellationToken ct = default)
     Task<AssetGcPlan> PlanGcAsync(string repoDir, AssetGcScope scope, int windowDays = 30, CancellationToken ct = default)
+    static Task RehomeAsync(IAssetBackend source, IAssetBackend target, string repoDir, CancellationToken ct = default)
+    static Task UpdateManagedGitignoreAsync(string repoDir, CancellationToken ct = default)
+    const string PublicFolderName
   sealed class AssetMaterializeException : Exception
     ctor(IReadOnlyList<string> failures)
     IReadOnlyList<string> Failures { get; }
@@ -173,6 +175,7 @@ namespace Ikon.Common.Assets
   static class BinaryContent
     static bool IsBinary(byte[] content)
     static string Sha256Hex(byte[] content)
+    const int DetectionWindowBytes = 8000
   interface IAssetBackend
     Task DeleteAsync(string uri, CancellationToken ct = default)
     Task<byte[]> DownloadAsync(string uri, CancellationToken ct = default)

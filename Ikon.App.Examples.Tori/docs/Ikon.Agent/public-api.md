@@ -75,6 +75,9 @@ namespace Ikon.Agent
     Task RestoreAsync()
     Task<PlanSection> UpdateContentAsync(string name, string content)
     Task<PlanSection> UpdateScoreAsync(string name, double score)
+  // Every usage row an Ikon.AI call reports carries the ambient scope stack, and the platform's cost reporting can filter and group on it. Stamping the run here is what lets a host ask the platform what one agent run actually cost in credits, instead of reconstructing a number from token counts and a private price table. The value is always the root thread id, so a run's sub-threads — a validator, a browser operator, an ad-hoc sub-agent — fall under the run that spawned them rather than costing themselves separately.
+  static class AgentScopes
+    const string AgentRun
   sealed class AgentThread : IAsyncDisposable
     Reactive<IReadOnlyList<ToolInfo>> ActiveTools { get; }
     Reactive<Activity> Activity { get; }
@@ -92,6 +95,8 @@ namespace Ikon.Agent
     AgentPlan Plan { get; }
     string PlanId { get; }
     Reactive<BudgetRemaining> RemainingBudget { get; }
+    // Walks ParentId through the orchestrator's live registry. A parent the registry no longer holds — archived, or not yet re-hydrated — ends the walk at that parent's id rather than throwing, because attribution must never be able to fail a run. Naming the unreachable ancestor, rather than the last one still resolvable, is what keeps a run's id stable: archiving the root mid-run would otherwise re-point every descendant at the deepest surviving thread and split one run's cost across two ids. Every descendant stops at the same unreachable ancestor, so the tree stays agreed on one id either way.
+    string RootId { get; }
     Reactive<string?> Stage { get; }
     Reactive<ThreadStatus> Status { get; }
     IStorage Storage { get; }
@@ -281,6 +286,9 @@ namespace Ikon.Agent
     Grok
     DeepSeek
     Glm
+  static class ModelResolver
+    static LLMModel Resolve(Reasoning reasoning)
+    static LLMModel Resolve(Capability capability, ModelFamily family)
   // Constructed synchronously; call ResumeAsync once at startup to re-hydrate persisted apps, plans, and threads before driving any thread.
   sealed class Orchestrator : IAsyncDisposable
     ctor(IStorage? storage = null, Budget? hostBudget = null, ILLM? llm = null)
@@ -401,6 +409,8 @@ namespace Ikon.Agent
     static RunLog Attach(Orchestrator orchestrator, string jsonlPath)
     ValueTask DisposeAsync()
     static IAsyncEnumerable<PassRecord> ReadAsync(string jsonlPath, CancellationToken ct = default)
+  static class RuntimeMessages
+    const string NudgePayloadKind
   abstract class Skill
     virtual string Instructions { get; }
     abstract string Name { get; }
