@@ -4,6 +4,59 @@
 
 The Ikon Flutter SDK enables Flutter apps to render Parallax UI from a C# server — the same server that drives web frontends. One codebase, two renderers. The app developer writes zero platform-specific code.
 
+## Why native Flutter rather than a WebView wrapper
+
+Wrapping the web frontend in a WebView would have been the cheaper-looking mobile story, and it
+was rejected deliberately:
+
+- **The capabilities people expect from an app are compromised inside a WebView.** Background
+  audio, microphone capture, and camera access — all core Ikon features (server-streamed audio,
+  live capture) — are restricted, permission-fragmented, or outright broken across WebView
+  implementations, and behave differently per Android vendor and OS version. The platform's
+  later WebRTC work narrowed parts of this gap, but it postdates the decision and leaves the
+  background-audio and permission stories untouched.
+- **Whole use cases need the device itself.** Local camera pipelines, motion and environment
+  sensors, and whatever the next hardware capability is — apps that treat the phone as a sensor
+  package are first-class targets, and a WebView offers at best a lagging, permission-gated
+  subset of that surface. Going native keeps every device capability reachable the day a use
+  case needs it.
+- **App-store submission risk.** A repackaged website runs into minimum-functionality review
+  (Apple guideline 4.2); a Flutter build is a real native app with native navigation, scroll
+  physics, text input, and accessibility.
+- **WebView fragmentation cannot be fixed from the server.** The one WebView note elsewhere in
+  these docs is a known failure mode (ancient WebViews silently dropping modern CSS — see the
+  Crosswind/Tailwind divergences doc). A server-driven UI cannot control which WebView engine a
+  device ships.
+- **The architecture makes native cheap — and that is the point.** Parallax sends a component
+  tree, not HTML, so the second renderer maps the same tree to native widgets. The usual reason
+  to wrap a WebView — native being expensive — does not apply here. Platforms whose output is a
+  web app have no native path at all; real native performance and real native support for
+  background tasks, audio, microphone, sensors, and payments is a capability this architecture
+  uniquely affords, and a deliberate advantage.
+
+### The middle option: a Capacitor-style hybrid shell
+
+A third rung sits between the two — a Capacitor/Cordova-style shell, WebView UI plus a native
+plugin bridge. It fixes *reachability* of device APIs, and it is not the primary mobile path
+for three reasons:
+
+- **The bridge only moves the boundary.** What a maintained plugin covers is easy — one-shot
+  camera capture, geolocation, share sheets, basic sensors. Anything deeper means writing the
+  per-OS native code yourself anyway, now split across a JS bridge: background audio behaviour,
+  streaming sensor data, live camera pipelines, Apple Wallet / PassKit beyond adding a simple
+  pass, HealthKit, and whatever the next OS capability is.
+- **The UI still lives in the WebView**, so every fragmentation quirk and permission oddity of
+  the plain wrap remains. First-hand experience with WebView shells was that a large share of
+  the time went to testing, polishing, and working around strange engine bugs rather than
+  building the product.
+- **It buys back a cost this platform doesn't pay.** The hybrid pitch is avoiding a native UI
+  rewrite — but Parallax has no UI rewrite to avoid, since the server drives the UI either way.
+  The middle rung's main saving was worth nothing here while its WebView costs remained whole.
+
+A wrapped-WebView frontend option may still be offered alongside `frontend-flutter` for less
+demanding apps that just need a quick store presence — the hybrid rung is a convenience tier,
+not the native story.
+
 ## Architecture
 
 ```

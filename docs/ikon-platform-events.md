@@ -79,6 +79,29 @@ on `client_joined` marks a user arriving, `lastSessionOfUser` on `client_left` m
 | `app_initialized` | Ikon AI App has finished initialising (functions registered, `Main()` done, persistent storage loaded) — fires immediately before `SignalReadyAsync`. Memory metrics are intentionally omitted: gathering them cost ~15ms on the cold-start path. | `appType`, `initDurationMs`, `functionCount`, `endpointCount` |
 | `app_failed` | App initialisation failed unrecoverably (`Main()` threw, or a cell-host spawn failed) — distinct from the process-level `server_failed` | `appType`, `errorType`, `errorMessage`, `stackTrace` |
 
+## Page arrivals
+
+| Event | When | Payload |
+|---|---|---|
+| `app_page_served` | Periodic count of pages the frontend router served, one row per country | `tenant`, `country`, `served`, `rttMsecSum`, `rttSamples`, `windowSeconds` |
+
+Your app's `index.html` is served `no-store`, so **every** page load reaches the platform even when
+the CDN holds every other file. That makes this a count of everyone who arrived — including the
+visitors who gave up before your app started and so never emitted `client_joined` or anything else.
+The gap between `app_page_served` and `client_joined` is how many you are losing during the load.
+
+Aggregated over a window rather than emitted per page, so `served` is a count and not a row per
+visitor. `rttMsecSum` and `rttSamples` are summed rather than averaged so they stay correct when you
+re-aggregate across countries or days: divide the two yourself, at whatever grouping you want. Not
+every request can be measured, which is why the sample count is separate from `served`.
+
+Crawlers are excluded — a large share of what reaches the router is vulnerability scanners, and
+counting them would inflate the denominator of any completion rate built on this.
+
+`country` is resolved at the network edge from the connection, never from an IP address, and is
+`unknown` when the edge could not place the client. `tenant` is your app's domain; the space is on
+the row itself.
+
 ## Client placement
 
 | Event | When | Payload |
@@ -137,15 +160,34 @@ supplied a trace id, so an event with no trace id produces no rows at all.
 
 | Event | Source | Payload |
 |---|---|---|
-| `client_connect_timeline` | TypeScript SDK in the browser, flushed at the first live UI update | `connectTraceId`, `firstPaintMs`, `cdnHtmlMs`, `domContentLoadedMs`, `authMs`, `initMs`, `connectMs`, `snapshotSeeded` |
+| `client_connect_timeline` | TypeScript SDK in the browser, flushed at the first live UI update | `connectTraceId`, `firstPaintMs`, `cdnHtmlMs`, `domContentLoadedMs`, `authMs`, `initMs`, `connectMs`, `snapshotSeeded`, plus the asset fields below |
 | `backend_connect_timeline` | Backend `/init` | `connectTraceId`, `status`, `prestarted`, `pollCount`, `resolveMs`, `profileMs`, `startMs`, `waitMs`, `configMs`, `totalMs`, `serverSessionId` |
 | `hostagent_connect_timeline` | `HostAgent` — one row per client-triggered provision (cold start or warm prestart swap) | `connectTraceId`, `serverSessionId`, `spaceId`, `appBundleId`, `ikonServerReleaseId`, `path` (`cold` / `warm`), `bundleResolveMs`, `bundleCacheHit`, `bundleDownloaded`, `containerOrSwapMs`, `mountsOrStageMs`, `totalMs` |
 | `server_connect_timeline` | `IkonServer` — warm `CORE_SERVER_INIT` boot cost attributed to the connect that triggered the prestart swap | `connectTraceId`, `serverSessionId`, `bootPath` (`warm`), `serverInitBlockMs`, `pluginInitMs` |
 | `app_connect_timeline` | `Ikon.App` — app-init cost broken down by internal task | `connectTraceId`, `appType`, `initDurationMs`, `ctorMs`, `secretsMs`, `appCreateMs`, `bridgeMs`, `endpointsMs`, `storageLoadMs`, `mainMs` |
 
 These measure the platform's own startup path. `cdnHtmlMs` covers fetching the **HTML document**
-only; no event measures how long an app's images, media or other assets take to reach the browser
-from the CDN.
+only.
+
+`client_connect_timeline` also summarises everything else the page fetched — your app's own files,
+as the browser experienced them:
+
+| Field | Meaning |
+|---|---|
+| `assetCount` | Assets fetched during the load |
+| `assetBytes` | Bytes actually transferred, so a served-from-cache asset adds none |
+| `assetSlowestMs` | The single slowest asset |
+| `assetP95Ms` | 95th percentile duration, nearest-rank |
+| `assetCachedCount` | Served from the browser's own cache |
+| `assetOpaqueCount` | Cross-origin assets whose timing the browser withheld |
+
+A non-zero `assetOpaqueCount` means an asset host did not send `Timing-Allow-Origin`, so those
+assets are missing from the byte and cache counts. It is reported separately rather than assumed to
+be cached, because a withheld timing and a cache hit look identical — both report zero bytes — and
+folding them together would show a perfect cache rate for assets being downloaded in full.
+
+This describes only visitors whose page load finished; someone who gave up part-way never runs the
+code that reports it. See `app_page_served` for the count that includes them.
 
 `server_connect_timeline` and `app_connect_timeline` exist only on the warm prestart-swap path, so a
 cold connect stitches at most three tiers.
