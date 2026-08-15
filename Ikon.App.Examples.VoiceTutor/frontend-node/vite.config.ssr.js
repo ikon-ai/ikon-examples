@@ -69,6 +69,9 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
+    // The app folder contract: static web files live in the app root's public/, one level above
+    // frontend-node. An app not yet migrated (and the template project itself) keeps the default.
+    publicDir: existsSync(resolve(__dirname, '../public')) ? resolve(__dirname, '../public') : 'public',
     plugins: [react()],
     resolve: {
       alias,

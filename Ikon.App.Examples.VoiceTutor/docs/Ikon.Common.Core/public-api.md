@@ -35,7 +35,7 @@ namespace Ikon.Common.Core
     static ClientEnvironment Resolve(string? presented, ConnectToken token)
     static bool TryDecode(string? presented, out ClientEnvironment? environment)
     const string QueryParam
-  // This replaced a JWT whose payload was the whole ConnectToken as JSON. The token is opaque to every SDK — they carry it in a URL and hand it back — so nothing outside this type needs to parse it, and the JSON bought nothing but size: PascalCase field names, every field present including the empty ones, then base64 over the lot. The MAC is HMAC-SHA256 truncated to 128 bits, the standard floor for a truncated HMAC (RFC 2104 §5). The key is the caller's per-server ConnectToken secret, never the platform secret.
+  // This replaced a JWT whose payload was the whole ConnectToken as JSON. The token is opaque to every SDK — they carry it in a URL and hand it back — so nothing outside this type needs to parse it, and the JSON bought nothing but size: PascalCase field names, every field present including the empty ones, then base64 over the lot. The envelope — Teleport body, truncated HMAC-SHA256, base64url — is SignedTokenCodec, shared with the route token a fleet proxy gateway verifies. The key is the caller's per-server ConnectToken secret, never the platform secret.
   static class ConnectTokenCodec
     static string Encode(ConnectToken token, byte[] key)
     static uint ExpiresIn(TimeSpan lifetime)
@@ -351,6 +351,19 @@ namespace Ikon.Common.Core
     bool Equals(Dictionary<TKey, TValue>? x, Dictionary<TKey, TValue>? y)
     int GetHashCode(Dictionary<TKey, TValue> obj)
     static readonly ReactiveGlobalState.DictionaryComparer<TKey, TValue> Instance
+  // Same envelope as ConnectTokenCodec — see SignedTokenCodec — but a different key and a much shorter life. The gateway verifies locally, so a dial target never costs a backend round trip and a caller-supplied targetHost never enters the picture. The token authorizes a target; it does not authenticate a session. The ikon server still validates the connect token and the auth ticket, exactly as it does behind the on-host proxy.
+  static class RouteTokenCodec
+    static string Encode(RouteToken token, byte[] key)
+    static uint ExpiresIn(TimeSpan lifetime)
+    // The port range is checked here rather than at the dial site so that every caller gets it. The range is the same one the on-host proxy confines auth-ticket ports to: a token is signed by us, but a bug that minted port 22 should still not become an SSRF.
+    static RouteTokenStatus TryDecode(string presented, byte[] key, DateTime nowUtc, int portRangeStart, int portRangeEnd, out RouteToken? token)
+    static readonly TimeSpan DefaultLifetime
+  enum RouteTokenStatus
+    Valid
+    Malformed
+    BadSignature
+    Expired
+    InvalidTarget
   sealed class Secrets
     string this[string key] { get; }
     IReadOnlyCollection<string> Keys { get; }
@@ -394,10 +407,18 @@ namespace Ikon.Common.Core
     static bool TryExecute(Action action, TimeSpan? throttleInterval = null, string? extraKey = null)
   static class TokenRenewer
     static DateTimeOffset GetTokenExpiry(string token)
+    static bool HasLiveRefreshToken(IkonBackend.LoginInfo? login)
     static bool IsRenewalDue(DateTimeOffset expiry, DateTimeOffset now)
-    static Task RenewIfDueAsync(IkonBackend.EnvironmentType environment, CancellationToken cancellationToken)
-    static bool TryRecoverExpiredToken(IkonBackend.EnvironmentType environment)
+    static Task<TokenRenewer.RenewalOutcome> RenewIfDueAsync(IkonBackend.EnvironmentType environment, CancellationToken cancellationToken)
+    static TokenRenewer.RenewalOutcome TryRecoverExpiredToken(IkonBackend.EnvironmentType environment)
     static IkonBackend.LoginInfo? TryRenewDueToken(IkonBackend.EnvironmentType environment)
+  enum TokenRenewer.RenewalOutcome
+    NotDue
+    Renewed
+    NotSignedIn
+    NoRefreshToken
+    ChainExpired
+    Unavailable
   static class Toml
     static T From<T>(string toml) where T : class, new()
     static string To<T>(T obj) where T : class
@@ -471,6 +492,7 @@ namespace Ikon.Common.Core.Assets
     DateTime? LastModified { get; }
     string? MimeType { get; }
     string? NativeUri { get; }
+    string? SameOriginUrl { get; init; }
     long? Size { get; }
     string? StorageId { get; }
     string[]? Tags { get; }

@@ -24,7 +24,7 @@
         "invite link"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/app-structure.md",
-      "sizeBytes": 20544,
+      "sizeBytes": 21352,
       "alsoInclude": []
     },
     {
@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/app-api-reference.md",
-      "sizeBytes": 100290,
+      "sizeBytes": 103242,
       "alsoInclude": []
     },
     {
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ui-api-reference.md",
-      "sizeBytes": 177549,
+      "sizeBytes": 174747,
       "alsoInclude": []
     },
     {
@@ -217,7 +217,7 @@
         "dual theme"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ikon-theming-guide.md",
-      "sizeBytes": 33244,
+      "sizeBytes": 34353,
       "alsoInclude": [
         "styling-and-motion"
       ]
@@ -484,7 +484,7 @@
         "optimistic concurrency"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/asset-system.md",
-      "sizeBytes": 21397,
+      "sizeBytes": 22018,
       "alsoInclude": []
     },
     {
@@ -512,7 +512,7 @@
         "audio file"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/media-analysis.md",
-      "sizeBytes": 24070,
+      "sizeBytes": 24691,
       "alsoInclude": []
     },
     {
@@ -754,7 +754,7 @@
         "targets"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/config-and-cli.md",
-      "sizeBytes": 17851,
+      "sizeBytes": 17756,
       "alsoInclude": []
     }
   ]
