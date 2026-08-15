@@ -32,7 +32,6 @@ global using Ikon.Common;
 global using Ikon.Parallax.Components.Charts;
 global using Ikon.Parallax.Components.DataTable;
 global using Ikon.Parallax.Components.ImageEditor;
-global using Ikon.Parallax.Components.Rive;
 global using Ikon.Parallax.Components.Standard;
 global using Ikon.Parallax.Theming;
 global using Ikon.Parallax;
