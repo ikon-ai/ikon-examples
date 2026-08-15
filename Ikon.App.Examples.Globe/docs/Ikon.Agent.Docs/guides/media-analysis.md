@@ -205,6 +205,7 @@ namespace Ikon.Common.Core.Assets
     DateTime? LastModified { get; }
     string? MimeType { get; }
     string? NativeUri { get; }
+    string? SameOriginUrl { get; init; }
     long? Size { get; }
     string? StorageId { get; }
     string[]? Tags { get; }
@@ -321,6 +322,8 @@ Key rules:
 | `CloudJson` | `cloud-json` | JSON documents persisted through the Hub API, suited for low-latency configuration payloads. Supports optimistic concurrency via the `LastModified` timestamp. |
 
 Each storage reports metadata such as MIME type, byte size, update timestamp, tags, download URL (when applicable), and the backend-specific identifier through `AssetMetadata` so callers can perform fine-grained reconciliation. Storages with a canonical native addressing scheme may also expose it via `AssetMetadata.NativeUri` (for example `gs://bucket/object` on GCS-backed cloud files); downstream consumers that recognise the scheme can use it as a zero-copy fast path, and callers that do not should ignore it.
+
+Public cloud files additionally report `AssetMetadata.SameOriginUrl`: the same asset as a root-relative path on your app's own origin. Prefer it whenever the URL is going to a browser — being same-origin, it needs no CORS and reaches visitors on networks that allow only the origin they are already on. `view.Image` already prefers it for you, so an `AssetUri` rendered through the UI needs nothing extra. Anything fetching from *outside* a browser — your own app process, an external service, a webhook — has nothing to resolve a relative path against and must use `Url`.
 
 ## Asset metadata helpers
 
