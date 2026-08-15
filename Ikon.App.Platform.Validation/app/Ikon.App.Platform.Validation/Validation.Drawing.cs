@@ -10,15 +10,15 @@ public partial class Validation
     private readonly Reactive<string?> _drawingSavedImage = new(null);
     private readonly Reactive<bool> _drawingCanUndo = new(false);
     private readonly Reactive<bool> _drawingCanRedo = new(false);
-    private readonly Reactive<string> _drawingSourceUrl = new("https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900");
+    private readonly Reactive<string> _drawingSourceUrl = new("/test-images/landscape.svg");
     private readonly Reactive<bool> _drawingHighResolution = new(true);
 
     private static readonly (string Url, string Label)[] DrawingSources =
     [
-        ("https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900", "Landscape"),
-        ("https://images.unsplash.com/photo-1518770660439-4636190af475?w=900", "Tech"),
-        ("https://images.unsplash.com/photo-1554080353-a576cf803bda?w=900", "Wide aspect"),
-        ("https://images.unsplash.com/photo-1517816743773-6e0fd518b4a6?w=600&h=800&fit=crop", "Portrait")
+        ("/test-images/landscape.svg", "Landscape"),
+        ("/test-images/tech.svg", "Tech"),
+        ("/test-images/wide.svg", "Wide aspect"),
+        ("/test-images/portrait.svg", "Portrait")
     ];
 
     private static readonly string[] DrawingPalette =

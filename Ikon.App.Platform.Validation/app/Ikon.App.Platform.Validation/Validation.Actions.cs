@@ -105,7 +105,7 @@ public partial class Validation
                         action: ActionKind.DownloadFile,
                         options: new DownloadFileActionOptions
                         {
-                            Url = "https://via.placeholder.com/150",
+                            Url = "/test-images/square-a.svg",
                             Filename = "sample.png"
                         },
                         onActionComplete: async e =>
@@ -123,7 +123,7 @@ public partial class Validation
                         action: ActionKind.DownloadFile,
                         options: new DownloadFileActionOptions
                         {
-                            Url = "https://example.com/sample.pdf"
+                            Url = "/test-media/sample.pdf"
                         },
                         content: v =>
                         {

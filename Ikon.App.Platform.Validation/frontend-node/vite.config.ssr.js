@@ -60,7 +60,6 @@ export default defineConfig(({ mode }) => {
       ['@ikonai/sdk-libopus', 'sdk/sdk-libopus/src/index.ts'],
       ['@ikonai/sdk-react-ui', 'sdk/sdk-react-ui/src/index.ts'],
       ['@ikonai/sdk-react-ui-standard', 'sdk/sdk-react-ui-standard/src/index.ts'],
-      ['@ikonai/sdk-react-ui-rive', 'sdk/sdk-react-ui-rive/src/index.ts'],
       ['@ikonai/sdk-ui', 'sdk/sdk-ui/src/index.ts'],
       ['@ikonai/configs', 'shared/configs/src/index.ts'],
       ['@ikonai/protocol', 'shared/protocol/src/index.ts'],
@@ -70,6 +69,9 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
+    // The app folder contract: static web files live in the app root's public/, one level above
+    // frontend-node. An app not yet migrated (and the template project itself) keeps the default.
+    publicDir: existsSync(resolve(__dirname, '../public')) ? resolve(__dirname, '../public') : 'public',
     plugins: [react()],
     resolve: {
       alias,

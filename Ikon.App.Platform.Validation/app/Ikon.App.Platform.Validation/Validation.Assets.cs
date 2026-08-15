@@ -75,12 +75,6 @@ public partial class Validation
                     _assetCloudFileDownloaded.Value = bytes;
                 });
 
-                view.Button([Button.PrimaryMd], text: "Show via URL", onClick: async () =>
-                {
-                    var metadata = await Asset.Instance.GetMetadataAsync(uri);
-                    _assetCloudFileUrl.Value = metadata.Url;
-                });
-
                 view.Button([Button.ErrorMd], text: "Delete", onClick: async () =>
                 {
                     await Asset.Instance.DeleteAsync(uri);
@@ -88,7 +82,6 @@ public partial class Validation
                     _assetCloudFileMetadata.Value = "";
                     _assetCloudFileBackingUrl.Value = "";
                     _assetCloudFileDownloaded.Value = null;
-                    _assetCloudFileUrl.Value = null;
                 });
             });
 
@@ -110,11 +103,10 @@ public partial class Validation
                 view.Image(["max-w-xs h-auto rounded-lg mt-1"], data: _assetCloudFileDownloaded.Value, mimeType: MimeTypes.ImageJpeg);
             }
 
-            if (_assetCloudFileUrl.Value != null)
-            {
-                view.Text([Text.Caption, "mt-2"], "Via URL:");
-                view.Image(["max-w-xs h-auto rounded-lg mt-1"], src: _assetCloudFileUrl.Value);
-            }
+            // No image drawn from the signed URL. A private asset's URL is a bearer credential
+            // pointing at storage.googleapis.com, so rendering it puts a third-party origin in the
+            // page and the credential in the DOM; the downloaded bytes above show the same picture
+            // over the app's own connection.
         });
     }
 
@@ -155,10 +147,11 @@ public partial class Validation
                     _assetCloudFilePublicDownloaded.Value = bytes;
                 });
 
-                view.Button([Button.PrimaryMd], text: "Show via URL", onClick: async () =>
+                view.Button([Button.PrimaryMd], text: "Show via AssetUri", onClick: async () =>
                 {
                     var metadata = await Asset.Instance.GetMetadataAsync(uri);
-                    _assetCloudFilePublicUrl.Value = metadata.Url;
+                    _assetCloudFilePublicSameOriginUrl.Value = metadata.SameOriginUrl ?? "(none — backend reported no same-origin path)";
+                    _assetCloudFilePublicShowByUri.Value = true;
                 });
 
                 view.Button([Button.ErrorMd], text: "Delete", onClick: async () =>
@@ -168,7 +161,8 @@ public partial class Validation
                     _assetCloudFilePublicMetadata.Value = "";
                     _assetCloudFilePublicBackingUrl.Value = "";
                     _assetCloudFilePublicDownloaded.Value = null;
-                    _assetCloudFilePublicUrl.Value = null;
+                    _assetCloudFilePublicSameOriginUrl.Value = "";
+                    _assetCloudFilePublicShowByUri.Value = false;
                 });
             });
 
@@ -190,10 +184,14 @@ public partial class Validation
                 view.Image(["max-w-xs h-auto rounded-lg mt-1"], data: _assetCloudFilePublicDownloaded.Value, mimeType: MimeTypes.ImageJpeg);
             }
 
-            if (_assetCloudFilePublicUrl.Value != null)
+            if (_assetCloudFilePublicShowByUri.Value)
             {
-                view.Text([Text.Caption, "mt-2"], "Via URL:");
-                view.Image(["max-w-xs h-auto rounded-lg mt-1"], src: _assetCloudFilePublicUrl.Value);
+                // The AssetUri form, not a URL the app resolved itself: Parallax asks the backend for
+                // the asset's same-origin path and draws that, which is what keeps a public asset on
+                // the app's own origin without every app having to know the distinction exists.
+                view.Text([Text.Caption, "mt-2"], "Via AssetUri (same-origin):");
+                view.Text([Text.Caption, "font-mono mt-1 break-all"], _assetCloudFilePublicSameOriginUrl.Value);
+                view.Image(["max-w-xs h-auto rounded-lg mt-1"], assetUri: uri);
             }
         });
     }

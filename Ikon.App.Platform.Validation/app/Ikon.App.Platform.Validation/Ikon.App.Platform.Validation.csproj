@@ -19,30 +19,30 @@
     <IsIkonInternal Condition="'$(IkonRoot)' != ''">true</IsIkonInternal>
   </PropertyGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' != 'true'">
-    <PackageReference Include="Ikon.AI" Version="3.5.0" />
-    <PackageReference Include="Ikon.AI.Speech.Azure" Version="3.5.0" />
-    <PackageReference Include="Ikon.AI.Speech.Google" Version="3.5.0" />
-    <PackageReference Include="Ikon.AI.Scrape" Version="3.5.0" />
-    <PackageReference Include="Ikon.AI.Database" Version="3.5.0" />
-    <PackageReference Include="Ikon.AI.Emergence" Version="3.5.0" />
-    <PackageReference Include="Ikon.App" Version="3.5.0" />
-    <PackageReference Include="Ikon.Connectors.Google" Version="3.5.0" />
-    <PackageReference Include="Ikon.Connectors.Telephony" Version="3.5.0" />
-    <PackageReference Include="Ikon.Common" Version="3.5.0" />
-    <PackageReference Include="Ikon.Common.Core" Version="3.5.0" />
-    <PackageReference Include="Ikon.Crosswind" Version="3.5.0" />
-    <PackageReference Include="Ikon.Parallax" Version="3.5.0" />
-    <PackageReference Include="Ikon.Pipeline" Version="3.5.0" />
-    <PackageReference Include="Ikon.Pipelines.Public" Version="3.5.0" />
-    <PackageReference Include="Ikon.Resonance" Version="3.5.0" />
-    <PackageReference Include="Ikon.Resonance.Core" Version="3.5.0" />
-    <PackageReference Include="Ikon.Server" Version="3.5.0" />
-    <PackageReference Include="Ikon.Teleport" Version="3.5.0" />
-    <PackageReference Include="Ikon.Sdk" Version="2.0.30" />
-    <PackageReference Include="Ikon.App.Storage.Postgres" Version="3.5.0" />
-    <PackageReference Include="Ikon.Server.HotReload" Version="3.5.0" />
-    <PackageReference Include="Ikon.Agent" Version="3.5.0" />
-    <PackageReference Include="Ikon.Agent.Docs" Version="3.5.0" />
+    <PackageReference Include="Ikon.AI" Version="3.5.3" />
+    <PackageReference Include="Ikon.AI.Speech.Azure" Version="3.5.3" />
+    <PackageReference Include="Ikon.AI.Speech.Google" Version="3.5.3" />
+    <PackageReference Include="Ikon.AI.Scrape" Version="3.5.3" />
+    <PackageReference Include="Ikon.AI.Database" Version="3.5.3" />
+    <PackageReference Include="Ikon.AI.Emergence" Version="3.5.3" />
+    <PackageReference Include="Ikon.App" Version="3.5.3" />
+    <PackageReference Include="Ikon.Connectors.Google" Version="3.5.3" />
+    <PackageReference Include="Ikon.Connectors.Telephony" Version="3.5.3" />
+    <PackageReference Include="Ikon.Common" Version="3.5.3" />
+    <PackageReference Include="Ikon.Common.Core" Version="3.5.3" />
+    <PackageReference Include="Ikon.Crosswind" Version="3.5.3" />
+    <PackageReference Include="Ikon.Parallax" Version="3.5.3" />
+    <PackageReference Include="Ikon.Pipeline" Version="3.5.3" />
+    <PackageReference Include="Ikon.Pipelines.Public" Version="3.5.3" />
+    <PackageReference Include="Ikon.Resonance" Version="3.5.3" />
+    <PackageReference Include="Ikon.Resonance.Core" Version="3.5.3" />
+    <PackageReference Include="Ikon.Server" Version="3.5.3" />
+    <PackageReference Include="Ikon.Teleport" Version="3.5.3" />
+    <PackageReference Include="Ikon.Sdk" Version="2.0.33" />
+    <PackageReference Include="Ikon.App.Storage.Postgres" Version="3.5.3" />
+    <PackageReference Include="Ikon.Server.HotReload" Version="3.5.3" />
+    <PackageReference Include="Ikon.Agent" Version="3.5.3" />
+    <PackageReference Include="Ikon.Agent.Docs" Version="3.5.3" />
     <PackageReference Include="StbImageSharp" Version="2.30.15" />
   </ItemGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' == 'true'">
@@ -120,6 +120,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Data\**\*" CopyToOutputDirectory="Always" />
+    <None Include="..\..\data\**\*" CopyToOutputDirectory="Always" Link="Data\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

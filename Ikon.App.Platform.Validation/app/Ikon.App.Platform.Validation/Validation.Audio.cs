@@ -499,7 +499,7 @@ public partial class Validation
                             text: "Play from URL",
                             onClick: async () =>
                             {
-                                var playbackId = await ClientFunctions.PlaySoundAsync("https://cdn.freesound.org/previews/256/256113_3263906-lq.mp3", volume: 0.6, targetId: clientSessionId);
+                                var playbackId = await ClientFunctions.PlaySoundAsync("/test-media/chime.wav", volume: 0.6, targetId: clientSessionId);
                                 _lastSoundPlaybackId.Value = playbackId ?? "(failed)";
                                 _soundToastMessage.Value = playbackId != null ? $"Playing from URL: {playbackId}" : "Failed to play sound";
                                 _soundToastOpen.Value = true;

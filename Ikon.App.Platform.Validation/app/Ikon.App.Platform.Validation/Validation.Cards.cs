@@ -296,7 +296,7 @@ public partial class Validation
                     {
                         view.Box([ImageCard.Root, "w-48 h-48"], content: view =>
                         {
-                            view.Image([ImageCard.Image, ImageCard.Hover.Zoom], src: "https://picsum.photos/seed/a/192/192", alt: "Zoom");
+                            view.Image([ImageCard.Image, ImageCard.Hover.Zoom], src: "/test-images/square-a.svg", alt: "Zoom");
                             view.Box([ImageCard.Overlay.Dim]);
                         });
                         view.Text([Text.Caption], "Zoom + Dim");
@@ -307,7 +307,7 @@ public partial class Validation
                     {
                         view.Box([ImageCard.Root, "w-48 h-48"], content: view =>
                         {
-                            view.Image([ImageCard.Image, ImageCard.Hover.Zoom], src: "https://picsum.photos/seed/b/192/192", alt: "Reveal");
+                            view.Image([ImageCard.Image, ImageCard.Hover.Zoom], src: "/test-images/square-b.svg", alt: "Reveal");
                             view.Box([ImageCard.Overlay.Reveal], content: view =>
                             {
                                 view.Text([ImageCard.Title], "Image Title");
@@ -322,7 +322,7 @@ public partial class Validation
                     {
                         view.Box([ImageCard.Root, "w-48 h-48"], content: view =>
                         {
-                            view.Image([ImageCard.Image], src: "https://picsum.photos/seed/c/192/192", alt: "Center");
+                            view.Image([ImageCard.Image], src: "/test-images/square-c.svg", alt: "Center");
                             view.Box([ImageCard.Overlay.Center], content: view =>
                             {
                                 view.Icon(["text-white w-10 h-10"], name: "play");
@@ -336,7 +336,7 @@ public partial class Validation
                     {
                         view.Box([ImageCard.Root, "w-48 h-48"], content: view =>
                         {
-                            view.Image([ImageCard.Image, ImageCard.Hover.Dim], src: "https://picsum.photos/seed/d/192/192", alt: "Dim");
+                            view.Image([ImageCard.Image, ImageCard.Hover.Dim], src: "/test-images/square-d.svg", alt: "Dim");
                         });
                         view.Text([Text.Caption], "Dim only");
                     });
@@ -446,7 +446,7 @@ public partial class Validation
                         {
                             view.Box([EmptyState.IllustrationWrap], content: view =>
                                 view.Image([EmptyState.IllustrationSize],
-                                    src: "https://picsum.photos/seed/empty/160/160",
+                                    src: "/test-images/square-a.svg",
                                     alt: "Empty state illustration"));
                             view.Text([EmptyState.Title], "No data available");
                             view.Text([EmptyState.Description], "Connect a data source to start seeing your metrics here.");
@@ -482,7 +482,7 @@ public partial class Validation
                 view.Column([Layout.Column.Md], content: view =>
                 {
                     view.Image(["w-32 h-32 rounded-lg border border-gray-300 object-cover"],
-                        src: "https://picsum.photos/128/128",
+                        src: "/test-images/square-d.svg",
                         alt: "Clickable sample image",
                         onClick: async () =>
                         {

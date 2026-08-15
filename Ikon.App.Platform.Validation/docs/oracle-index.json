@@ -24,7 +24,7 @@
         "invite link"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/app-structure.md",
-      "sizeBytes": 19646,
+      "sizeBytes": 21352,
       "alsoInclude": []
     },
     {
@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/app-api-reference.md",
-      "sizeBytes": 97531,
+      "sizeBytes": 103242,
       "alsoInclude": []
     },
     {
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ui-api-reference.md",
-      "sizeBytes": 171106,
+      "sizeBytes": 174747,
       "alsoInclude": []
     },
     {
@@ -217,7 +217,7 @@
         "dual theme"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ikon-theming-guide.md",
-      "sizeBytes": 33244,
+      "sizeBytes": 34353,
       "alsoInclude": [
         "styling-and-motion"
       ]
@@ -339,7 +339,7 @@
         "AI connection"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ai-models.md",
-      "sizeBytes": 24588,
+      "sizeBytes": 25409,
       "alsoInclude": []
     },
     {
@@ -484,7 +484,7 @@
         "optimistic concurrency"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/asset-system.md",
-      "sizeBytes": 21397,
+      "sizeBytes": 22018,
       "alsoInclude": []
     },
     {
@@ -512,7 +512,7 @@
         "audio file"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/media-analysis.md",
-      "sizeBytes": 24070,
+      "sizeBytes": 24691,
       "alsoInclude": []
     },
     {
@@ -635,6 +635,30 @@
       "alsoInclude": []
     },
     {
+      "id": "email",
+      "title": "Email",
+      "keywords": [
+        "email",
+        "send email",
+        "app.Email",
+        "EmailSendRequest",
+        "EmailAttachment",
+        "sender identity",
+        "senderLocalPart",
+        "senderDisplayName",
+        "senderDomain",
+        "verified sending domain",
+        "reply-to",
+        "attachments",
+        "inbox",
+        "inbound email",
+        "EmailSenderNotAvailableException"
+      ],
+      "file": "docs/Ikon.Agent.Docs/guides/email.md",
+      "sizeBytes": 8795,
+      "alsoInclude": []
+    },
+    {
       "id": "function-registry",
       "title": "Function Registry",
       "keywords": [
@@ -730,7 +754,7 @@
         "targets"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/config-and-cli.md",
-      "sizeBytes": 17851,
+      "sizeBytes": 17756,
       "alsoInclude": []
     }
   ]

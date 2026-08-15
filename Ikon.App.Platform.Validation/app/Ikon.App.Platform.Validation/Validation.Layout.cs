@@ -858,7 +858,7 @@ public partial class Validation
                     view.Column([Layout.Column.Xs], content: view =>
                     {
                         view.Image(["w-24 h-24 rounded-md object-cover"],
-                            src: "https://picsum.photos/seed/small/200/200",
+                            src: "/test-images/square-a.svg",
                             alt: "Small placeholder image");
                         view.Text([Text.Caption], "Small (96px)");
                     });
@@ -866,7 +866,7 @@ public partial class Validation
                     view.Column([Layout.Column.Xs], content: view =>
                     {
                         view.Image(["w-32 h-32 rounded-md object-cover"],
-                            src: "https://picsum.photos/seed/medium/200/200",
+                            src: "/test-images/square-b.svg",
                             alt: "Medium placeholder image");
                         view.Text([Text.Caption], "Medium (128px)");
                     });
@@ -874,7 +874,7 @@ public partial class Validation
                     view.Column([Layout.Column.Xs], content: view =>
                     {
                         view.Image(["w-48 h-48 rounded-lg object-cover"],
-                            src: "https://picsum.photos/seed/large/300/300",
+                            src: "/test-images/square-c.svg",
                             alt: "Large placeholder image");
                         view.Text([Text.Caption], "Large (192px)");
                     });
@@ -886,7 +886,7 @@ public partial class Validation
                     view.Column([Layout.Column.Xs], content: view =>
                     {
                         view.Image(["w-24 h-24 rounded-full object-cover"],
-                            src: "https://picsum.photos/seed/circle/200/200",
+                            src: "/test-images/square-d.svg",
                             alt: "Circular image");
                         view.Text([Text.Caption], "Circle");
                     });
@@ -894,7 +894,7 @@ public partial class Validation
                     view.Column([Layout.Column.Xs], content: view =>
                     {
                         view.Image(["w-24 h-24 rounded-none object-cover"],
-                            src: "https://picsum.photos/seed/square/200/200",
+                            src: "/test-images/square-a.svg",
                             alt: "Square image");
                         view.Text([Text.Caption], "Square");
                     });
@@ -902,7 +902,7 @@ public partial class Validation
                     view.Column([Layout.Column.Xs], content: view =>
                     {
                         view.Image(["w-24 h-24 rounded-xl object-cover"],
-                            src: "https://picsum.photos/seed/rounded/200/200",
+                            src: "/test-images/square-c.svg",
                             alt: "Rounded image");
                         view.Text([Text.Caption], "Rounded XL");
                     });
@@ -916,7 +916,7 @@ public partial class Validation
                         view.AspectRatio([AspectRatio.Base], ratio: 16.0 / 9.0, content: view =>
                         {
                             view.Image(["w-full h-full object-cover rounded-md"],
-                                src: "https://picsum.photos/seed/video/400/225",
+                                src: "/test-images/landscape.svg",
                                 alt: "16:9 landscape image");
                         });
                         view.Text([Text.Caption], "16:9");
@@ -927,7 +927,7 @@ public partial class Validation
                         view.AspectRatio([AspectRatio.Base], ratio: 1, content: view =>
                         {
                             view.Image(["w-full h-full object-cover rounded-md"],
-                                src: "https://picsum.photos/seed/square2/200/200",
+                                src: "/test-images/square-b.svg",
                                 alt: "1:1 square image");
                         });
                         view.Text([Text.Caption], "1:1");
@@ -938,7 +938,7 @@ public partial class Validation
                         view.AspectRatio([AspectRatio.Base], ratio: 3.0 / 4.0, content: view =>
                         {
                             view.Image(["w-full h-full object-cover rounded-md"],
-                                src: "https://picsum.photos/seed/portrait/150/200",
+                                src: "/test-images/portrait.svg",
                                 alt: "3:4 portrait image");
                         });
                         view.Text([Text.Caption], "3:4");
@@ -1228,7 +1228,7 @@ public partial class Validation
                         view.Column([Layout.Column.Xs, "items-center"], content: view =>
                         {
                             view.Image(["w-28 h-16 rounded-md border border-secondary", fit],
-                                src: "https://picsum.photos/seed/objectfit/300/150", alt: label);
+                                src: "/test-images/wide.svg", alt: label);
                             view.Text([Text.Caption], label);
                         });
                     }

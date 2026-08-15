@@ -46,6 +46,18 @@ namespace Ikon.App
     Task<bool> WaitForPublicUrlAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
     // Fires only for the background-retry allocation; not raised when the tunnel was already allocated during StartAsync.
     event Action<string>? PublicUrlAvailable
+  // Read precedence: a runtime-written file wins over a repo-seeded file at the same path. Writes always go to cloud storage (never the local disk), so they persist across deploys; repo-seeded files change by changing the repo. The public tree cannot READ repo-seeded files (in the cloud they live with the frontend, not the app) — it reads and writes runtime files, and GetUrlAsync covers seeded files by returning the path URL the frontend serves.
+  sealed class AppFileTree
+    Task DeleteAsync(string path, CancellationToken ct = default)
+    Task<bool> ExistsAsync(string path, CancellationToken ct = default)
+    Task<string> GetUrlAsync(string path, CancellationToken ct = default)
+    Task<byte[]> ReadBytesAsync(string path, CancellationToken ct = default)
+    Task<string> ReadTextAsync(string path, CancellationToken ct = default)
+    Task WriteBytesAsync(string path, byte[] bytes, string? mimeType = null, CancellationToken ct = default)
+    Task WriteTextAsync(string path, string text, CancellationToken ct = default)
+  sealed class AppFiles
+    AppFileTree Data { get; }
+    AppFileTree Public { get; }
   static class AppMessaging
     // Filtered by the type's opcode; the handler receives the decoded payload and the sender's client session id. Dispose the returned handle to unsubscribe.
     static IDisposable OnMessage<T>(this IMessageChannel app, Func<T, int, ValueTask> handler) where T : IProtocolMessagePayload, new()
@@ -304,16 +316,25 @@ namespace Ikon.App
     Unknown
     Visible
     Hidden
-  // Dates are inclusive and interpreted in UTC. Category filters to one usage category (e.g. llm, image-generation); EventName filters to one full usage event name (e.g. llm.openai.gpt4o.global.output-text-tokens).
+  // Dates are inclusive and interpreted in UTC. Category filters to one usage category (e.g. llm, image-generation); EventName filters to one full usage event name (e.g. llm.openai.gpt4o.global.output-text-tokens); Scopes narrows to usage carrying the given scopes, and GroupByScopeType breaks the result down by the id of one scope type.
   sealed record CostQuery
-    ctor(DateOnly StartDate, DateOnly EndDate, string? Category = null, string? EventName = null)
+    ctor(DateOnly StartDate, DateOnly EndDate, string? Category = null, string? EventName = null, IReadOnlyList<CostScopeFilter>? Scopes = null, string? GroupByScopeType = null)
     string? Category { get; init; }
     DateOnly EndDate { get; init; }
     string? EventName { get; init; }
+    string? GroupByScopeType { get; init; }
+    IReadOnlyList<CostScopeFilter>? Scopes { get; init; }
     DateOnly StartDate { get; init; }
+  // Scopes are the app's own attribution: whatever the app pushed with Log.Instance.UseScope(new CustomScope(name, id)) around a piece of work is stamped on every usage that work emits, and can be filtered and grouped on here. Several filters are ANDed — usage must carry all of them.
+  sealed record CostScopeFilter
+    ctor(string Type, string? Value = null)
+    string Type { get; init; }
+    string? Value { get; init; }
   // Accessed via app.Costs. Costs are reported per day and per usage event name; credits are the billing unit. Cost data is aggregated in the analytics pipeline, so very recent usage can take a short while to appear.
   sealed class CostsService
-    // Returns one row per day and usage event name; days without usage produce no rows. The result is ordered by date, then event name.
+    // The date range still has to cover when the work ran: usage is stored by day, and a query is only as cheap as the range it scans. An operation that emitted no priced usage sums to zero, which is indistinguishable from one whose usage has not landed yet — see the note on aggregation delay on CostsService before showing the number as final.
+    Task<double> GetCreditsForScopeAsync(string scopeType, string scopeId, DateOnly startDate, DateOnly endDate, CancellationToken ct = default)
+    // Returns one row per day and usage event name; days without usage produce no rows. Under CostQuery.GroupByScopeType the breakdown is per scope id as well. The result is ordered by date, then event name.
     Task<IReadOnlyList<DailyCost>> GetDailyCostsAsync(CostQuery query, CancellationToken ct = default)
     Task<double> GetTotalCreditsAsync(DateOnly startDate, DateOnly endDate, CancellationToken ct = default)
   // A [Cron] method behaves like a [Function] in that the trigger resolves it through the FunctionRegistry by name. Applying [Cron] is enough to register the method (as a Local function) — you do not also need [Function], though combining them is fine. The handler takes no caller-supplied arguments. It may optionally accept a host-injected CronContext (fire time + schedule) and/or a CancellationToken that signals app shutdown, in any order — mirroring how an [HttpPost] handler may accept an HttpRequest. Any other parameter fails registration at startup, since the scheduler has nothing to bind it to. Overlap is allowed: a tick fires even if the previous invocation is still running, so guard re-entrancy yourself if it matters.
@@ -321,14 +342,15 @@ namespace Ikon.App
     ctor(string schedule)
     string? Name { get; init; }
     string Schedule { get; }
-  // Credits is the cost in platform credits — the unit users are billed in. EventName identifies the AI model and usage kind (e.g. llm.openai.gpt4o.global.output-text-tokens) and Category is its first segment (e.g. llm). TotalUsage is the summed usage amount in the event's native unit (tokens, seconds, generations, ...). RawCostEur is the underlying provider cost in EUR and is null unless the space has raw cost visibility enabled.
+  // Credits is the cost in platform credits — the unit users are billed in. EventName identifies the AI model and usage kind (e.g. llm.openai.gpt4o.global.output-text-tokens) and Category is its first segment (e.g. llm). TotalUsage is the summed usage amount in the event's native unit (tokens, seconds, generations, ...). RawCostEur is the underlying provider cost in EUR and is null unless the space has raw cost visibility enabled. ScopeId is populated only under CostQuery.GroupByScopeType, and is null for usage carrying no scope of that type.
   sealed record DailyCost
-    ctor(DateOnly Date, string Category, string EventName, double TotalUsage, double Credits, double? RawCostEur)
+    ctor(DateOnly Date, string Category, string EventName, double TotalUsage, double Credits, double? RawCostEur, string? ScopeId = null)
     string Category { get; init; }
     double Credits { get; init; }
     DateOnly Date { get; init; }
     string EventName { get; init; }
     double? RawCostEur { get; init; }
+    string? ScopeId { get; init; }
     double TotalUsage { get; init; }
   // Accessed via app.Email. Every operation requires the app's space to have the Email feature enabled; a call against a non-entitled space throws FeatureNotEnabledException.
   sealed class EmailService
@@ -339,7 +361,7 @@ namespace Ikon.App
     IAsyncEnumerable<InboundEmailSummary> EnumerateInboxAsync(InboxQuery query, CancellationToken ct = default)
     Task<InboxPage> GetInboxPageAsync(InboxQuery query, CancellationToken ct = default)
     Task<InboundEmailDetail> GetMessageAsync(string id, CancellationToken ct = default)
-    // The platform sets the visible From address — set EmailSendRequest.ReplyTo to redirect replies. The send is enqueued: a successful return means the platform accepted the request, not that the recipient received it (transient delivery failures are retried server-side). Total payload is capped at ~10 MB.
+    // A request that names a sender identity needs a verified sending domain: when the space has none, or the requested EmailSendRequest.SenderDomain is not one of the space's verified sending domains, the send throws EmailSenderNotAvailableException — catch it and resend without the sender fields to deliver from the platform's own address. Invalid field values throw ArgumentException before anything is sent, and a space without the Email feature throws FeatureNotEnabledException.
     Task SendAsync(EmailSendRequest request, CancellationToken ct = default)
   abstract class EndpointAttribute : Attribute
     // Defaults to EndpointAuth.Grant; setting AuthPolicy overrides it.
@@ -352,6 +374,8 @@ namespace Ikon.App
     Grant
     Public
     Deny
+    // Unlike Grant, nothing here is minted by the app or pasted into a URL: the client discovers the space's authorization server, the human signs in with the space's own [Auth] Methods, and the client holds a short-lived token it refreshes itself. Anonymous sign-in methods (guest, global) cannot satisfy this — a global visitor is one shared space-wide user, so honouring it would hand every client the same identity and the same data. A space declaring only anonymous methods cannot host a User endpoint.
+    User
   sealed record EndpointInfo
     ctor()
     string CellType { get; init; }
@@ -468,12 +492,14 @@ namespace Ikon.App
     virtual Context? CurrentClientContext { get; }
     // Empty string when no client is in scope. This is the correct key for a payment customer key, subscription gating, and per-user state — always populated for a connected client (the real user id when authenticated, else a stable anonymous id).
     virtual string CurrentUserId { get; }
-    // Read-only in the cloud — writing to it throws. Use it for reading app-bundled data files, not for runtime writes.
+    // An escape hatch for libraries that need a real filesystem path. Prefer Files (Files.Data) — same seeded files, plus runtime writes that persist. Read-only in the cloud — writing to it throws.
     string DataDirectory { get; }
     IReadOnlyList<DatabaseConnectionInfo> Databases { get; }
     // Requires the Email feature enabled on the app's organisation/space; calls from a non-entitled space throw FeatureNotEnabledException.
     EmailService Email { get; }
     IReadOnlyList<EndpointInfo> Endpoints { get; }
+    // The default implementation throws so hand-rolled test doubles keep compiling; the real app host always provides it.
+    virtual AppFiles Files { get; }
     GlobalState GlobalState { get; }
     // null except in local dev on a localhost address (no --host-public), where it lets an in-process client reach this exact process over loopback. Via the relay or in the cloud it is null — connect through the normal relay/ApiKey path instead.
     virtual (string Host, int Port)? LocalLoopbackEndpoint { get; }
@@ -504,6 +530,8 @@ namespace Ikon.App
     // Identify the endpoint by its HANDLER (the method name, e.g. nameof(GetDocument)), never by URL path — the path is what minting returns. Omitting identity (null) pins this instance's own session on an app endpoint so the URL routes back here, and pins nothing on a cell endpoint. Grants are non-expiring unless you pass expiresIn.
     virtual Task<MintedUrl> MintUrlAsync(string endpoint, object? identity = null, TimeSpan? expiresIn = null, string? group = null, CancellationToken ct = default)
     virtual Task<IReadOnlyDictionary<string, MintedUrl>> MintUrlsAsync(IEnumerable<string> endpoints, object? identity = null, TimeSpan? expiresIn = null, string? group = null, CancellationToken ct = default)
+    // The counterpart to MintUrlAsync when the caller is a person rather than a registered machine. The result is NOT a URL — send it as Authorization: Bearer {token}, never as a query parameter. It is bound to this one endpoint, expires (15 minutes by default), and a call made with it runs under that user's UserScope.
+    virtual Task<MintedUserToken> MintUserTokenAsync(string endpoint, string userId, TimeSpan? expiresIn = null, IEnumerable<string>? scopes = null, CancellationToken ct = default)
     // Bind your listener to the returned RelayEndpoint.LocalPort; the tunnel is reachable from the internet at {PublicHost}:{PublicPort}. Dispose the endpoint to release it.
     Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", int localPort = 0, CancellationToken ct = default)
     // Verify the returned JWT (issuer, audience, signature, expiry) before trusting any of its claims — see AssertionVerifier. Blocks until the user completes the challenge in their browser.
@@ -536,13 +564,15 @@ namespace Ikon.App
     IEnumerable<int> Ids { get; }
     IClient<TClientParameters>? this[int clientSessionId] { get; }
   interface IProfileAttributes
-  // Sibling of HttpMethodAttribute: both declare an inbound HTTP endpoint over the shared addressing + identity model (see EndpointAttribute), differing only in the wire protocol (typed HTTP vs MCP JSON-RPC) and the schema advertised to clients. Each tool is reachable two ways: through the owner's fixed JSON-RPC multiplexer ({owner}/mcp — tools/list + tools/call, and the only surface that streams notifications/progress over SSE), and as its own directly-callable POST endpoint whose body IS the tool's arguments object. That per-tool path defaults to the kebab-cased method name and is overridable via EndpointAttribute.Path — the override adjusts only this tool's own endpoint, never the shared multiplexer. The same method may also carry a verb-named REST attribute ([HttpPost] etc.); then that route serves the REST surface and the per-tool MCP endpoint is suppressed. The governance subject id is always the structural "{Type}.{Method}".
+  // Sibling of HttpMethodAttribute: both declare an inbound HTTP endpoint over the shared addressing + identity model (see EndpointAttribute), differing only in the wire protocol (typed HTTP vs MCP JSON-RPC) and the schema advertised to clients. Each tool is reachable two ways: through the owner's fixed JSON-RPC multiplexer ({owner}/mcp — tools/list + tools/call, and the only surface that streams notifications/progress over SSE), and as its own directly-callable POST endpoint whose body IS the tool's arguments object. That per-tool path defaults to the kebab-cased method name and is overridable via EndpointAttribute.Path — the override adjusts only this tool's own endpoint, never the shared multiplexer. The same method may also carry a verb-named REST attribute ([HttpPost] etc.); then that route serves the REST surface and the per-tool MCP endpoint is suppressed. The governance subject id is always the structural "{Type}.{Method}". The one place it parts company with its sibling is the default EndpointAttribute.Auth, which is EndpointAuth.User here rather than EndpointAuth.Grant. A grant is a signed URL handed to something the app provisioned, and an MCP client is the opposite of that: it arrives from outside, on behalf of a person, through a flow that ends in a token. Defaulting a tool to a credential no MCP client can obtain would make every tool either unreachable or, once someone widened it to get past that, wider than intended. Set Auth explicitly for a tool that really is reachable without a user.
   sealed class McpAttribute : EndpointAttribute
     ctor()
     ctor(string path)
     // Set this explicitly; the method's XML doc summary is never used as a fallback.
     string Description { get; init; }
     string? Name { get; init; }
+    // Scopes narrow WITHIN an authorization; they do not replace it. A tool that names a scope must also be reachable — an EndpointAuth.User tool is the case this exists for, because only a token carries scopes at all. Naming one on a Public tool would be meaningless and is ignored. A caller whose token lacks the scope gets 403 with error="insufficient_scope", which is the one refusal an MCP client will re-authorize for. That is why it is a 403 and not a 401: a bare 401 says "who are you", and the client already knows.
+    string Scope { get; init; }
   // Sibling of McpAttribute — same cell-method-as-callable model, different MCP verb shape: • Static resource — method takes no arguments; the URI is the literal UriTemplate with no placeholders. Lists in resources/list. • Dynamic resource — method takes parameters that map to {placeholder} segments in the URI template by name. Lists in resources/templates/list; the client crafts a concrete URI and reads it. Read-only by spec — authors should not put side effects in resource methods (the same governance hook still fires on every read with Operation = "resource", so policy authors can distinguish read access from tool dispatch).
   sealed class McpResourceAttribute : Attribute
     ctor(string uriTemplate)
@@ -559,6 +589,12 @@ namespace Ikon.App
     DateTimeOffset? ExpiresAt { get; init; }
     string GrantId { get; init; }
     string Url { get; init; }
+  // Deliberately not a URL. An access token in a query string is forbidden by the MCP specification and leaks into connector lists, access logs and proxies; this one belongs in a header and nowhere else.
+  sealed record MintedUserToken
+    ctor(string Token, string Resource, DateTimeOffset ExpiresAt)
+    DateTimeOffset ExpiresAt { get; init; }
+    string Resource { get; init; }
+    string Token { get; init; }
   class Navigation
     string? CurrentPath { get; }
     // Round-trips to the live client over the connection rather than reading server state; returns null when the client doesn't answer or isn't connected.
@@ -1256,13 +1292,15 @@ namespace Ikon.Common.Assets
     Window
     Current
   sealed class AssetLinkManager
-    ctor(IAssetBackend backend, IReadOnlyCollection<string>? publicFolders = null)
-    Task<IReadOnlyDictionary<string, string>> CollectPublicAssetsAsync(string repoDir, CancellationToken ct = default)
+    ctor(IAssetBackend backend)
     Task<IReadOnlySet<string>> CollectReferencedUrisAsync(string repoDir, CancellationToken ct = default)
     Task<(int Deleted, int Failed)> ExecuteGcAsync(AssetGcPlan plan, CancellationToken ct = default)
     Task<IReadOnlyList<string>> MaterializeAsync(string repoDir, CancellationToken ct = default)
     Task<IReadOnlyList<string>> NormalizeAsync(string repoDir, CancellationToken ct = default)
     Task<AssetGcPlan> PlanGcAsync(string repoDir, AssetGcScope scope, int windowDays = 30, CancellationToken ct = default)
+    static Task RehomeAsync(IAssetBackend source, IAssetBackend target, string repoDir, CancellationToken ct = default)
+    static Task UpdateManagedGitignoreAsync(string repoDir, CancellationToken ct = default)
+    const string PublicFolderName
   sealed class AssetMaterializeException : Exception
     ctor(IReadOnlyList<string> failures)
     IReadOnlyList<string> Failures { get; }
@@ -1281,6 +1319,7 @@ namespace Ikon.Common.Assets
   static class BinaryContent
     static bool IsBinary(byte[] content)
     static string Sha256Hex(byte[] content)
+    const int DetectionWindowBytes = 8000
   interface IAssetBackend
     Task DeleteAsync(string uri, CancellationToken ct = default)
     Task<byte[]> DownloadAsync(string uri, CancellationToken ct = default)

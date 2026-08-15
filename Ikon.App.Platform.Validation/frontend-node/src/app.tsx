@@ -2,7 +2,6 @@ import './app.css';
 
 import { AuthProvider, IkonApp, useAuthOptional, useIkonApp } from '@ikonai/sdk-react-ui';
 import { registerStandardUiModule, registerLucideIconsModule } from '@ikonai/sdk-react-ui-standard';
-import { registerRiveModule } from '@ikonai/sdk-react-ui-rive';
 import { registerFunctionTesterModule } from './lib/function-tester/function-tester-module';
 import { registerTpProbeModule } from './lib/tp-probe/tp-probe-module';
 import { AuthGuard } from './auth/auth-guard';
@@ -24,7 +23,7 @@ function App() {
 
 function AuthorizedApp() {
   const app = useIkonApp({
-    modules: [registerStandardUiModule, registerLucideIconsModule, registerRiveModule, registerFunctionTesterModule, registerTpProbeModule],
+    modules: [registerStandardUiModule, registerLucideIconsModule, registerFunctionTesterModule, registerTpProbeModule],
   });
 
   return (

@@ -22,7 +22,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         "crosswind", "brand",
         "charts",
         "files", "assets", "actions", "notifications",
-        "video", "audio", "rive", "shadertoy",
+        "video", "audio", "shadertoy",
         "ikon-ai", "mcp", "app-cells", "cron",
         "virtualization", "drawing",
         "profiling", "memory", "identity", "functions",
@@ -111,28 +111,6 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     // NavigationMenu states
     private readonly Reactive<string> _navMenuValue = new("");
     private readonly Reactive<string> _navMenuStatus = new("");
-
-    // Rive state - Layout options
-    private readonly Reactive<RiveFit> _riveFit = new(RiveFit.Contain);
-    private readonly Reactive<RiveAlignment> _riveAlignment = new(RiveAlignment.Center);
-
-    // Rive state - Rating.riv event test
-    private readonly Reactive<string> _riveLastEventName = new("(no event)");
-    private readonly Reactive<string> _riveLastEventRating = new("");
-    private readonly Reactive<string> _riveLastEventMessage = new("");
-
-    // Rive state - Person databinding test
-    private readonly Reactive<string> _rivePersonName = new("John Doe");
-    private readonly Reactive<double> _rivePersonAge = new(25);
-    private readonly Reactive<bool> _rivePersonAgreedToTerms = new(false);
-    private readonly RiveTrigger _riveSubmitTrigger = new("onFormSubmit");
-    private readonly RiveTrigger _riveResetTrigger = new("onFormReset");
-
-    // Rive state - Color and enum testing (person_databinding_test.riv)
-    private readonly Reactive<int> _riveFavColorR = new(255);
-    private readonly Reactive<int> _riveFavColorG = new(128);
-    private readonly Reactive<int> _riveFavColorB = new(0);
-    private readonly Reactive<int> _riveCountry = new(0);
 
     // Additional input states
     private readonly Reactive<string> _numericIntValue = new("50");
@@ -329,14 +307,14 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<string> _assetCloudFileMetadata = new("");
     private readonly Reactive<string> _assetCloudFileBackingUrl = new("");
     private readonly Reactive<byte[]?> _assetCloudFileDownloaded = new(null);
-    private readonly Reactive<string?> _assetCloudFileUrl = new(null);
 
     private readonly Reactive<bool> _assetCloudFilePublicUploading = new(false);
     private readonly Reactive<string> _assetCloudFilePublicStatus = new("Not uploaded");
     private readonly Reactive<string> _assetCloudFilePublicMetadata = new("");
     private readonly Reactive<string> _assetCloudFilePublicBackingUrl = new("");
     private readonly Reactive<byte[]?> _assetCloudFilePublicDownloaded = new(null);
-    private readonly Reactive<string?> _assetCloudFilePublicUrl = new(null);
+    private readonly Reactive<string> _assetCloudFilePublicSameOriginUrl = new("");
+    private readonly Reactive<bool> _assetCloudFilePublicShowByUri = new(false);
 
     private readonly Reactive<string> _assetCloudJsonStatus = new("Not uploaded");
     private readonly Reactive<string> _assetCloudJsonMetadata = new("");
@@ -455,7 +433,6 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             new TabItem("notifications", "Notifications", RenderNotificationsSection),
                             new TabItem("video", "Video", RenderVideoSection),
                             new TabItem("audio", "Audio", RenderAudioSection),
-                            new TabItem("rive", "Rive", RenderRiveSection),
                             new TabItem("shadertoy", "Shadertoy", RenderShadertoySection),
                             new TabItem("ikon-ai", "Ikon.AI Library", ProfilingSkippable(RenderIkonAISection), ForceMount: true),
                             new TabItem("mcp", "MCP", RenderMcpSection),

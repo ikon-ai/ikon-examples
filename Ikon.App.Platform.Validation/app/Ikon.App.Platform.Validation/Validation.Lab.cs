@@ -329,7 +329,9 @@ public partial class Validation
         // Surface 2: MCP — auto-derived input + output schema from the C# signature. Served through the
         // cell's one JSON-RPC multiplexer (/lab-cell/mcp), not a per-tool POST; the Workspace identity
         // rides the request query just like REST.
-        [Mcp(Description = "Increment the Lab counter for the supplied workspace identity")]
+        // [Mcp] defaults to EndpointAuth.User. These predate that default and are reached with a
+        // grant, so they say Grant explicitly rather than silently changing who may call them.
+        [Mcp(Auth = EndpointAuth.Grant, Description = "Increment the Lab counter for the supplied workspace identity")]
         public LabSnapshot IncrementMcp([Description("How much to add")] int delta = 1)
         {
             Increment(delta);
@@ -421,7 +423,7 @@ public partial class Validation
             return HttpResult.Ok(Snapshot());
         }
 
-        [Mcp(Name = "IncrementGlobalMcp", Description = "Increment the shared global Lab counter (no per-call identity)")]
+        [Mcp(Auth = EndpointAuth.Grant, Name = "IncrementGlobalMcp", Description = "Increment the shared global Lab counter (no per-call identity)")]
         public GlobalLabSnapshot IncrementMcp([Description("How much to add")] int delta = 1)
         {
             IncrementCore(delta);

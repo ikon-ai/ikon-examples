@@ -234,7 +234,7 @@ app.OnStopping(async () => { /* app stopping, cleanup */ });
 app.OnClientJoined(async ctx =>
 {
     // ctx IS the Context: ctx.ClientSessionId (alias of ctx.SessionId), ctx.UserId,
-    // ctx.Theme, ctx.Timezone, ctx.ClientType, ctx.InitialPath, ctx.ViewportWidth
+    // ctx.Theme, ctx.Timezone, ctx.ClientType, ctx.InitialPath, ctx.InitialUrl, ctx.ViewportWidth
     var client = app.Clients[ctx.ClientSessionId];
 });
 app.OnClientLeft(async ctx => { /* cleanup client state */ });
@@ -279,10 +279,34 @@ await app.Navigation.SetPathAsync($"/{tab}");
 await app.Navigation.SetPathAsync(args.ClientSessionId, $"/{tab}", replace: true);
 ```
 
-### App Data and Public Folders
+**Which host the client came in on: `ctx.InitialUrl`.** `InitialPath` is path + query, so it cannot
+tell a visitor on a custom customer domain from one on the space's own hostname, and `app.PublicUrl`
+is derived from the space rather than the request — it always names the platform subdomain.
+`ctx.InitialUrl` is the absolute URL the browser loaded (same `ikon-*` params stripped, so its path
+and query match `InitialPath` exactly), which is how a multi-tenant app brands or scopes itself per
+domain:
 
-- **`app/<ProjectName>/Data/` folder**: Files placed here are included in the app bundle. Available at runtime via `app.DataDirectory` for reading from the C# app
-- **`frontend-node/public/` folder**: Files placed here are included in the app bundle and served by the frontend. Accessible by the browser (e.g., for images, fonts, static assets)
+```csharp
+app.OnClientJoined(async ctx =>
+{
+    // Empty for every non-browser client, and client-supplied like InitialPath — treat the host as
+    // a hint that selects what to show, and authorize the result server-side as usual.
+    if (Uri.TryCreate(ctx.InitialUrl, UriKind.Absolute, out var url))
+    {
+        _host.SetFor(ctx.ClientSessionId, url.Host);
+    }
+});
+```
+
+### App Files: public/ and data/
+
+Two folders at the app root, and one API over both:
+
+- **`public/` folder**: static web files, served by the frontend at their path (`public/hero.png` → `<img src="/hero.png">`). For images, fonts, videos — anything a browser loads.
+- **`data/` folder**: private files the C# app reads. Never served.
+- **`app.Files`** is the runtime API: `await app.Files.Data.ReadTextAsync("rules.md")` reads a seeded or runtime-written file; `await app.Files.Public.WriteBytesAsync($"thumbnails/{id}.png", bytes, "image/png")` then `await app.Files.Public.GetUrlAsync(...)` stores and serves generated content. Runtime writes persist across deploys; repo files redeploy with the app. Paths are plain relative paths, no leading slash.
+- Binaries in these folders offload to the Asset store automatically (git keeps small `.ikonasset` pointers; `app save`/`bundle`/`deploy` upload, `run`/`clone`/`restore` download). Nothing to run by hand.
+- `app.DataDirectory` remains as an escape hatch when a library needs a real filesystem path (read-only in cloud). Older apps with `frontend-node/public/` and `app/<ProjectName>/Data/` migrate by running `ikon app update`.
 
 ### Other Host Services
 
