@@ -33,6 +33,8 @@ Key rules:
 
 Each storage reports metadata such as MIME type, byte size, update timestamp, tags, download URL (when applicable), and the backend-specific identifier through `AssetMetadata` so callers can perform fine-grained reconciliation. Storages with a canonical native addressing scheme may also expose it via `AssetMetadata.NativeUri` (for example `gs://bucket/object` on GCS-backed cloud files); downstream consumers that recognise the scheme can use it as a zero-copy fast path, and callers that do not should ignore it.
 
+Public cloud files additionally report `AssetMetadata.SameOriginUrl`: the same asset as a root-relative path on your app's own origin. Prefer it whenever the URL is going to a browser — being same-origin, it needs no CORS and reaches visitors on networks that allow only the origin they are already on. `view.Image` already prefers it for you, so an `AssetUri` rendered through the UI needs nothing extra. Anything fetching from *outside* a browser — your own app process, an external service, a webhook — has nothing to resolve a relative path against and must use `Url`.
+
 ## Asset metadata helpers
 
 Most read and write operations accept or return an `AssetMetadata` instance. Populate `MimeType`, `Tags`, or `LastModified` when writing so that storage drivers can set headers or enforce optimistic concurrency. `Get*WithMetadataAsync` helpers pair the payload with the metadata in an `AssetContent<T>`, disposing underlying streams automatically when needed.

@@ -69,7 +69,7 @@ Every entry commits one or more CSS variables. The renderer dispatches by **key 
 | Tailwind palette step (`amber-400`, `zinc-950`) | `--color-{key}` (families that are also Ikon scales, e.g. `neutral-900`, additionally set `--{key}` so semantic tokens move too) | color |
 | Ikon scale step (`brand-500`, `accent-300`, `error-600`) | `--{key}` | color |
 | `rounded-{rung}` | `--radius-{rung}` | radius |
-| `shadow-{rung}` | `--shadow-{rung}` | rung name re-points at another rung; raw box-shadow CSS passes through |
+| `shadow-{rung}` | `--shadow-{rung}` | currently INEFFECTIVE (logged as a warning): shadow utilities bake their Tailwind values so per-element recoloring (`shadow-lg shadow-red-500`) keeps working |
 | `font-{role}` | `--font-{role}` | family stack; literal family names auto-import from Google Fonts |
 | `ease-{kind}` | `--ease-{kind}` | easing |
 | any other baseline variable name (`bg-brand-solid`, `text-primary-on-brand`, `spacing`) | `--{key}` | smart sniff |
@@ -158,7 +158,7 @@ Each key commits the listed canonical CSS variables. One value fans out to the w
 | `text-brand` | `--text-brand-secondary`, `--text-brand-tertiary` | brand-tinted copy only (already inside the `primary` cluster — prefer `primary`) | `"amber-300"` |
 | `destructive` | `--bg-error-solid`, `--bg-error-solid-hover`, `--bg-error-button`, `--bg-error-button-hover`, `--border-error` | destructive buttons and error chrome | `"red-600"` |
 | `destructive-foreground` | `--text-error-button` | text on destructive fills | `"#ffffff"` |
-| `radius` (alias: `radius-base`) | `--radius-base` | every `rounded-*` rung shifts proportionally via `calc()`; reaches Flutter | `"rounded-2xl"` |
+| `radius` (alias: `radius-base`) | `--radius-base` | every `rounded-*` rung shifts proportionally via `calc()`; reaches Flutter. The DEFAULT ramp is stock Tailwind (sm 4px, md 6px, lg 8px, xl 12px, 2xl 16px, 3xl 24px, 4xl 32px at a 16px root), so Tailwind-authored designs render value-identical without any radius keys | `"rounded-2xl"` |
 | `density` (alias: `spacing`) | `--spacing` | the unit every numeric spacing utility multiplies — whole-app whitespace; reaches Flutter | `"airy"` |
 | `font-heading`, `font-display`, `font-body`, `font-sans`, `font-serif`, `font-mono` | `--font-{role}` | type roles; literal family names auto-import from Google Fonts; `font-heading` also moves `--font-display` (headings consume the display role); reaches Flutter | `"Crimson Pro"` |
 | `motion-duration-base` | `--default-transition-duration` | default speed of every `transition-*` utility | `"200ms"` |
@@ -199,16 +199,34 @@ The platform consumes exactly two accent steps: `["accent-300"]` is the light-sc
 
 Emits `--color-amber-400: #F5A524` and `--color-zinc-950: #0a0a0f`. Every `bg-amber-400`, `text-amber-400`, `border-amber-400` in the app picks them up. Ikon scale steps work the same way — `["neutral-900"] = "#101014"` moves BOTH the raw `bg-neutral-900` utilities and every semantic token derived from the neutral ramp.
 
-### Per-rung radius / shadow overrides
+### Per-rung radius overrides
 
 ```csharp
 ["rounded-lg"] = "1.25rem",      // tune one rung
 ["rounded-xl"] = "rounded-3xl",  // re-point one rung at another
-["shadow-lg"]  = "0 8px 16px rgba(0,0,0,.18)",
-["shadow-lg"]  = "shadow-xl",    // or re-point a rung at another rung
 ```
 
 `["radius"]` moves all rungs at once; per-rung overrides are for exceptions.
+
+Shadows are NOT themable: `shadow-{rung}` keys are accepted for forward compatibility but
+currently have no visible effect (a warning is logged). Shadow utilities bake their stock
+Tailwind values so that per-element recoloring — `shadow-lg shadow-red-500` — keeps working;
+a `:root`-resolved shadow variable would swallow the color override.
+
+### Porting an existing Tailwind design (Replit, Lovable, v0, hand-written)
+
+The baseline is value-identical to stock Tailwind for spacing, type, and every radius rung —
+classes copied from a Tailwind design render the same geometry here with no theme keys at all.
+One mapping remains, because Crosswind tracks Tailwind v4 while most existing sources were
+authored against v3's shadow names:
+
+| Source says (v3) | Write (v4) |
+|---|---|
+| `shadow-sm` | `shadow-xs` |
+| `shadow` | `shadow-sm` (or keep `shadow` — it still resolves) |
+| `shadow-md` and larger | unchanged |
+
+Everything else ports verbatim.
 
 ### Custom variables (expressive-layer escape hatch)
 

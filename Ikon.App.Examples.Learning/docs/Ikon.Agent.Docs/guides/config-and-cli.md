@@ -59,13 +59,6 @@ Routes = ["/"]
 GuestSeeds = []
 SignedInSeeds = []
 
-# Versioned binary data folders for the app. Binaries are stored in the Ikon Asset store and git only
-# tracks small .ikonasset pointer files. Managed with the 'ikon app asset' commands.
-[Assets]
-# Top-level folders whose files are public: offloaded to public asset storage and loadable by URL from
-# the frontend. Binaries in any other folder stay private and are only readable by the C# app.
-PublicFolders = ["public"]
-
 # Custom packaging steps for 'ikon app bundle' and 'ikon app deploy'
 [Package]
 # Commands run in the app root after the app + frontend build, before the bundle is zipped. The bundle
@@ -167,8 +160,9 @@ the enclosing repository.
 
 ### Asset Management
 
-- `ikon app asset normalize`: offload raw binaries to the Asset store, replacing each with a small git-tracked pointer (self-heals binaries committed directly)
-- `ikon app asset materialize`: restore the real binary next to every git-tracked pointer by downloading it from the Asset store
+- Binary offloading is automatic: `ikon app save`, `app bundle`, and `app deploy` offload raw binaries to the Asset store (git tracks a small `.ikonasset` pointer, the working copy stays on disk), and `app run`, `app clone`, and `app restore` restore the real bytes wherever pointers lack them. Files under root `public/` upload as public (URL-loadable); everything else stays private. The verbs below exist as manual overrides:
+- `ikon app asset normalize`: offload raw binaries now (self-heals binaries committed directly)
+- `ikon app asset materialize`: download the real binary next to every git-tracked pointer
 - `ikon app asset gc`: delete stored binary assets the repo no longer references (dry run by default; `--delete` to delete, `--scope history|window|current`)
 
 ### Testing
