@@ -88,6 +88,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     cacheDir: 'node_modules/.ikon-vite-cache',
+    // The app folder contract: static web files live in the app root's public/, one level above
+    // frontend-node. An app not yet migrated keeps Vite's local default.
+    publicDir: existsSync(resolve(__dirname, '../public')) ? resolve(__dirname, '../public') : 'public',
     plugins,
     resolve: resolveConfig,
     worker: {
