@@ -46,6 +46,18 @@ namespace Ikon.App
     Task<bool> WaitForPublicUrlAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
     // Fires only for the background-retry allocation; not raised when the tunnel was already allocated during StartAsync.
     event Action<string>? PublicUrlAvailable
+  // Read precedence: a runtime-written file wins over a repo-seeded file at the same path. Writes always go to cloud storage (never the local disk), so they persist across deploys; repo-seeded files change by changing the repo. The public tree cannot READ repo-seeded files (in the cloud they live with the frontend, not the app) — it reads and writes runtime files, and GetUrlAsync covers seeded files by returning the path URL the frontend serves.
+  sealed class AppFileTree
+    Task DeleteAsync(string path, CancellationToken ct = default)
+    Task<bool> ExistsAsync(string path, CancellationToken ct = default)
+    Task<string> GetUrlAsync(string path, CancellationToken ct = default)
+    Task<byte[]> ReadBytesAsync(string path, CancellationToken ct = default)
+    Task<string> ReadTextAsync(string path, CancellationToken ct = default)
+    Task WriteBytesAsync(string path, byte[] bytes, string? mimeType = null, CancellationToken ct = default)
+    Task WriteTextAsync(string path, string text, CancellationToken ct = default)
+  sealed class AppFiles
+    AppFileTree Data { get; }
+    AppFileTree Public { get; }
   static class AppMessaging
     // Filtered by the type's opcode; the handler receives the decoded payload and the sender's client session id. Dispose the returned handle to unsubscribe.
     static IDisposable OnMessage<T>(this IMessageChannel app, Func<T, int, ValueTask> handler) where T : IProtocolMessagePayload, new()
@@ -304,16 +316,25 @@ namespace Ikon.App
     Unknown
     Visible
     Hidden
-  // Dates are inclusive and interpreted in UTC. Category filters to one usage category (e.g. llm, image-generation); EventName filters to one full usage event name (e.g. llm.openai.gpt4o.global.output-text-tokens).
+  // Dates are inclusive and interpreted in UTC. Category filters to one usage category (e.g. llm, image-generation); EventName filters to one full usage event name (e.g. llm.openai.gpt4o.global.output-text-tokens); Scopes narrows to usage carrying the given scopes, and GroupByScopeType breaks the result down by the id of one scope type.
   sealed record CostQuery
-    ctor(DateOnly StartDate, DateOnly EndDate, string? Category = null, string? EventName = null)
+    ctor(DateOnly StartDate, DateOnly EndDate, string? Category = null, string? EventName = null, IReadOnlyList<CostScopeFilter>? Scopes = null, string? GroupByScopeType = null)
     string? Category { get; init; }
     DateOnly EndDate { get; init; }
     string? EventName { get; init; }
+    string? GroupByScopeType { get; init; }
+    IReadOnlyList<CostScopeFilter>? Scopes { get; init; }
     DateOnly StartDate { get; init; }
+  // Scopes are the app's own attribution: whatever the app pushed with Log.Instance.UseScope(new CustomScope(name, id)) around a piece of work is stamped on every usage that work emits, and can be filtered and grouped on here. Several filters are ANDed — usage must carry all of them.
+  sealed record CostScopeFilter
+    ctor(string Type, string? Value = null)
+    string Type { get; init; }
+    string? Value { get; init; }
   // Accessed via app.Costs. Costs are reported per day and per usage event name; credits are the billing unit. Cost data is aggregated in the analytics pipeline, so very recent usage can take a short while to appear.
   sealed class CostsService
-    // Returns one row per day and usage event name; days without usage produce no rows. The result is ordered by date, then event name.
+    // The date range still has to cover when the work ran: usage is stored by day, and a query is only as cheap as the range it scans. An operation that emitted no priced usage sums to zero, which is indistinguishable from one whose usage has not landed yet — see the note on aggregation delay on CostsService before showing the number as final.
+    Task<double> GetCreditsForScopeAsync(string scopeType, string scopeId, DateOnly startDate, DateOnly endDate, CancellationToken ct = default)
+    // Returns one row per day and usage event name; days without usage produce no rows. Under CostQuery.GroupByScopeType the breakdown is per scope id as well. The result is ordered by date, then event name.
     Task<IReadOnlyList<DailyCost>> GetDailyCostsAsync(CostQuery query, CancellationToken ct = default)
     Task<double> GetTotalCreditsAsync(DateOnly startDate, DateOnly endDate, CancellationToken ct = default)
   // A [Cron] method behaves like a [Function] in that the trigger resolves it through the FunctionRegistry by name. Applying [Cron] is enough to register the method (as a Local function) — you do not also need [Function], though combining them is fine. The handler takes no caller-supplied arguments. It may optionally accept a host-injected CronContext (fire time + schedule) and/or a CancellationToken that signals app shutdown, in any order — mirroring how an [HttpPost] handler may accept an HttpRequest. Any other parameter fails registration at startup, since the scheduler has nothing to bind it to. Overlap is allowed: a tick fires even if the previous invocation is still running, so guard re-entrancy yourself if it matters.
@@ -321,14 +342,15 @@ namespace Ikon.App
     ctor(string schedule)
     string? Name { get; init; }
     string Schedule { get; }
-  // Credits is the cost in platform credits — the unit users are billed in. EventName identifies the AI model and usage kind (e.g. llm.openai.gpt4o.global.output-text-tokens) and Category is its first segment (e.g. llm). TotalUsage is the summed usage amount in the event's native unit (tokens, seconds, generations, ...). RawCostEur is the underlying provider cost in EUR and is null unless the space has raw cost visibility enabled.
+  // Credits is the cost in platform credits — the unit users are billed in. EventName identifies the AI model and usage kind (e.g. llm.openai.gpt4o.global.output-text-tokens) and Category is its first segment (e.g. llm). TotalUsage is the summed usage amount in the event's native unit (tokens, seconds, generations, ...). RawCostEur is the underlying provider cost in EUR and is null unless the space has raw cost visibility enabled. ScopeId is populated only under CostQuery.GroupByScopeType, and is null for usage carrying no scope of that type.
   sealed record DailyCost
-    ctor(DateOnly Date, string Category, string EventName, double TotalUsage, double Credits, double? RawCostEur)
+    ctor(DateOnly Date, string Category, string EventName, double TotalUsage, double Credits, double? RawCostEur, string? ScopeId = null)
     string Category { get; init; }
     double Credits { get; init; }
     DateOnly Date { get; init; }
     string EventName { get; init; }
     double? RawCostEur { get; init; }
+    string? ScopeId { get; init; }
     double TotalUsage { get; init; }
   // Accessed via app.Email. Every operation requires the app's space to have the Email feature enabled; a call against a non-entitled space throws FeatureNotEnabledException.
   sealed class EmailService
@@ -470,12 +492,14 @@ namespace Ikon.App
     virtual Context? CurrentClientContext { get; }
     // Empty string when no client is in scope. This is the correct key for a payment customer key, subscription gating, and per-user state — always populated for a connected client (the real user id when authenticated, else a stable anonymous id).
     virtual string CurrentUserId { get; }
-    // Read-only in the cloud — writing to it throws. Use it for reading app-bundled data files, not for runtime writes.
+    // An escape hatch for libraries that need a real filesystem path. Prefer Files (Files.Data) — same seeded files, plus runtime writes that persist. Read-only in the cloud — writing to it throws.
     string DataDirectory { get; }
     IReadOnlyList<DatabaseConnectionInfo> Databases { get; }
     // Requires the Email feature enabled on the app's organisation/space; calls from a non-entitled space throw FeatureNotEnabledException.
     EmailService Email { get; }
     IReadOnlyList<EndpointInfo> Endpoints { get; }
+    // The default implementation throws so hand-rolled test doubles keep compiling; the real app host always provides it.
+    virtual AppFiles Files { get; }
     GlobalState GlobalState { get; }
     // null except in local dev on a localhost address (no --host-public), where it lets an in-process client reach this exact process over loopback. Via the relay or in the cloud it is null — connect through the normal relay/ApiKey path instead.
     virtual (string Host, int Port)? LocalLoopbackEndpoint { get; }
@@ -1268,13 +1292,15 @@ namespace Ikon.Common.Assets
     Window
     Current
   sealed class AssetLinkManager
-    ctor(IAssetBackend backend, IReadOnlyCollection<string>? publicFolders = null)
-    Task<IReadOnlyDictionary<string, string>> CollectPublicAssetsAsync(string repoDir, CancellationToken ct = default)
+    ctor(IAssetBackend backend)
     Task<IReadOnlySet<string>> CollectReferencedUrisAsync(string repoDir, CancellationToken ct = default)
     Task<(int Deleted, int Failed)> ExecuteGcAsync(AssetGcPlan plan, CancellationToken ct = default)
     Task<IReadOnlyList<string>> MaterializeAsync(string repoDir, CancellationToken ct = default)
     Task<IReadOnlyList<string>> NormalizeAsync(string repoDir, CancellationToken ct = default)
     Task<AssetGcPlan> PlanGcAsync(string repoDir, AssetGcScope scope, int windowDays = 30, CancellationToken ct = default)
+    static Task RehomeAsync(IAssetBackend source, IAssetBackend target, string repoDir, CancellationToken ct = default)
+    static Task UpdateManagedGitignoreAsync(string repoDir, CancellationToken ct = default)
+    const string PublicFolderName
   sealed class AssetMaterializeException : Exception
     ctor(IReadOnlyList<string> failures)
     IReadOnlyList<string> Failures { get; }
@@ -1293,6 +1319,7 @@ namespace Ikon.Common.Assets
   static class BinaryContent
     static bool IsBinary(byte[] content)
     static string Sha256Hex(byte[] content)
+    const int DetectionWindowBytes = 8000
   interface IAssetBackend
     Task DeleteAsync(string uri, CancellationToken ct = default)
     Task<byte[]> DownloadAsync(string uri, CancellationToken ct = default)

@@ -1,6 +1,6 @@
 # Schema version of this config file. The ikon tool upgrades older files automatically and always
 # saves at its current version; a file newer than the tool refuses to load (update the tool).
-ConfigVersion = 2
+ConfigVersion = 3
 
 # Database configurations for allocating databases for the app (run 'ikon app config' to apply changes)
 # Assigned database connection info is available via app.Databases in the app. Use 'ikon app db' commands to manage databases.
@@ -67,14 +67,6 @@ Routes = ["/"]
 GuestSeeds = []
 # SignedInSeeds = ["/**:shell"]
 SignedInSeeds = []
-
-# Versioned binary data folders for the app. Binaries are stored in the Ikon Asset store and git only
-# tracks small .ikonasset pointer files, so even large data sets keep the repo light. Managed with the
-# 'ikon app asset' commands.
-[Assets]
-# Top-level folders whose files are public: offloaded to public asset storage and loadable by URL from
-# the frontend. Binaries in any other folder stay private and are only readable by the C# app.
-PublicFolders = ["public"]
 
 # Custom packaging steps for 'ikon app bundle' and 'ikon app deploy'
 [Package]

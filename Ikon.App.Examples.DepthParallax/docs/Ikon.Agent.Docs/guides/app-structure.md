@@ -298,10 +298,15 @@ app.OnClientJoined(async ctx =>
 });
 ```
 
-### App Data and Public Folders
+### App Files: public/ and data/
 
-- **`app/<ProjectName>/Data/` folder**: Files placed here are included in the app bundle. Available at runtime via `app.DataDirectory` for reading from the C# app
-- **`frontend-node/public/` folder**: Files placed here are included in the app bundle and served by the frontend. Accessible by the browser (e.g., for images, fonts, static assets)
+Two folders at the app root, and one API over both:
+
+- **`public/` folder**: static web files, served by the frontend at their path (`public/hero.png` → `<img src="/hero.png">`). For images, fonts, videos — anything a browser loads.
+- **`data/` folder**: private files the C# app reads. Never served.
+- **`app.Files`** is the runtime API: `await app.Files.Data.ReadTextAsync("rules.md")` reads a seeded or runtime-written file; `await app.Files.Public.WriteBytesAsync($"thumbnails/{id}.png", bytes, "image/png")` then `await app.Files.Public.GetUrlAsync(...)` stores and serves generated content. Runtime writes persist across deploys; repo files redeploy with the app. Paths are plain relative paths, no leading slash.
+- Binaries in these folders offload to the Asset store automatically (git keeps small `.ikonasset` pointers; `app save`/`bundle`/`deploy` upload, `run`/`clone`/`restore` download). Nothing to run by hand.
+- `app.DataDirectory` remains as an escape hatch when a library needs a real filesystem path (read-only in cloud). Older apps with `frontend-node/public/` and `app/<ProjectName>/Data/` migrate by running `ikon app update`.
 
 ### Other Host Services
 
