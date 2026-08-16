@@ -5,14 +5,16 @@ ConfigVersion = 3
 # Database configurations for allocating databases for the app (run 'ikon app config' to apply changes)
 # Assigned database connection info is available via app.Databases in the app. Use 'ikon app db' commands to manage databases.
 # Format: "name:type" - valid types: postgres (e.g. "mydb:postgres")
-# "app:postgres" is the app's built-in Postgres database - quota-free and provisioned automatically
+# Leave this empty unless the app wants a database under a name of its own: the built-in
+# "app:postgres" database is quota-free and created the first time the app asks for one, so an app
+# that never touches a database is never given one. Declare it here to have it ready up front.
 Databases = []
 
-# Which of the databases above backs PersistentReactive state. Empty means the built-in "app"
-# database. Name one of your own here when the app has no "app" entry — persistent state then lives
-# there instead of falling back to asset storage. The name must match a database declared above:
-# an unknown name is reported and the app falls back rather than provisioning anything, because
-# creating a database to satisfy this setting is how the existing data would be lost.
+# Which of the databases above backs PersistentReactive state. Empty means the platform picks — the
+# built-in "app" database, or your own when the app declares exactly one — and records the choice so
+# it does not move when the list above changes. Name one here only to override that. The name must
+# match a database declared above; an unknown name is reported and the app falls back to asset
+# storage rather than provisioning anything.
 StateDatabase = ""
 
 # Activation configuration for the app (app activation is separate from deployment)
