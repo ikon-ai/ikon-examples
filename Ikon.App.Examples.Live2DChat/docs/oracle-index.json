@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/app-api-reference.md",
-      "sizeBytes": 103242,
+      "sizeBytes": 109548,
       "alsoInclude": []
     },
     {
@@ -217,7 +217,7 @@
         "dual theme"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ikon-theming-guide.md",
-      "sizeBytes": 34353,
+      "sizeBytes": 34892,
       "alsoInclude": [
         "styling-and-motion"
       ]
@@ -467,7 +467,7 @@
         "filter"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/audio-video.md",
-      "sizeBytes": 16637,
+      "sizeBytes": 16961,
       "alsoInclude": []
     },
     {
@@ -659,6 +659,29 @@
       "alsoInclude": []
     },
     {
+      "id": "telephony",
+      "title": "Telephony",
+      "keywords": [
+        "sms",
+        "text message",
+        "send sms",
+        "phone call",
+        "voice call",
+        "app.Telephony",
+        "SmsSendResult",
+        "PlacedCall",
+        "TelephonyStatus",
+        "phone number",
+        "E.164",
+        "replyable",
+        "hang up",
+        "inbound sms"
+      ],
+      "file": "docs/Ikon.Agent.Docs/guides/telephony.md",
+      "sizeBytes": 12857,
+      "alsoInclude": []
+    },
+    {
       "id": "function-registry",
       "title": "Function Registry",
       "keywords": [
@@ -754,7 +777,7 @@
         "targets"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/config-and-cli.md",
-      "sizeBytes": 17756,
+      "sizeBytes": 18285,
       "alsoInclude": []
     }
   ]
