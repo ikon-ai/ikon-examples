@@ -215,6 +215,8 @@ These are not under `ikon app` but are part of the everyday loop:
 - `ikon examples open|download`: open or download Ikon example projects
 - `ikon networks`: list local network interfaces with their IPv4 addresses (handy with `ikon app run --host`)
 - `ikon install dotnet|flutter|node`: install the pinned .NET SDK / the Flutter SDK / the Node.js toolchain (needed for `ikon app config --flutter` and `ikon app distribute`)
+- `ikon install android|ios`: install one mobile toolchain on its own — the Android SDK and its JDK, or Xcode, CocoaPods and the iOS platform (macOS only). `ikon install flutter` runs both after the SDK, so these are for resuming whichever half stopped at a manual step, or for a machine that only ever ships one of the two
+- `ikon install claude|codex`: install the Claude Code CLI or the Codex CLI, so the app can be developed with a coding agent. Installs the latest via npm — these are not pinned, they update themselves
 - `ikon asset download|upload|metadata <source> [destination]`: download, upload, or inspect an individual Ikon asset (print text to console, save to file, or show mime type/size/tags)
 - `ikon release-notes <target>`: print platform release notes for `ikon-tool`, `ikon-dotnet-libs`, `ikon-sdk-dotnet`, or `ikon-sdk-typescript` (`--count`, `--summary` for an AI summary) — handy after `ikon app update`
 

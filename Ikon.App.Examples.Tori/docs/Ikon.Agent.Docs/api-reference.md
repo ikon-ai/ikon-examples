@@ -5060,8 +5060,8 @@ namespace Ikon.App
     IAppBase? HostApp { get; }
     bool IsReady { get; }
     Secrets Secrets { get; }
-    DbConnection Database(string databaseName)
-    Task<DbConnection> OpenDatabaseAsync(string databaseName, CancellationToken ct = default)
+    Task<DbConnection> DatabaseAsync(string? databaseName = null)
+    Task<DbConnection> OpenDatabaseAsync(string? databaseName = null, CancellationToken ct = default)
     Task WhenReadyAsync()
   delegate AsyncEventHandler<in TEventArgs> where TEventArgs : EventArgs
     Task AsyncEventHandler<in TEventArgs>(TEventArgs e)
@@ -5507,14 +5507,17 @@ namespace Ikon.App
     // Consulted only during build-time snapshot capture. Returned routes are unioned with the [BootSnapshot] Routes list from ikon-config.toml, validated, and deduped.
     Func<Task<IEnumerable<string>>>? SnapshotRoutesProvider { get; set; }
     virtual string StateDatabase { get; }
+    // Call TelephonyService.GetStatusAsync to find out whether the space has telephony, or TelephonyService.GetNumbersAsync for the numbers themselves, rather than discovering either from a failed send.
+    TelephonyService Telephony { get; }
     // Enabled by default. Applies only to clients that connect after it is set; already-connected clients are unaffected until they reconnect.
     bool UdpEnabled { get; set; }
     // Enabled by default. Disable (e.g. in Main) for apps with no audio/video or low-latency data to save per-client peer-setup cost. Applies only to clients that connect afterward; already-connected clients are unaffected until they reconnect.
     bool WebRtcEnabled { get; set; }
     // Persist the returned bytes as your system of record — the platform's session retention is short. Blocks until the signer completes the ceremony and the platform packages the signed PDF.
     Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = default)
-    // The caller owns the returned connection — open and dispose it (e.g. await using var connection = app.Database("mydb");). Throws ArgumentException when no configured database has that name.
-    virtual DbConnection Database(string databaseName)
+    // Name nothing and you get the app's default database — the built-in app one, or the app's own database when it declares exactly one. Naming is only needed to pick between several, and the name is the one from the Databases list in the app's env-specific ikon-config toml, applied with ikon app config and surfaced via Databases. The built-in database is provisioned on demand: an app that never asks for one is never given one, so the first call may wait while it is created. A database the app declares itself is provisioned at activation and is already there.
+    virtual Task<DbConnection> DatabaseAsync(string? databaseName = null)
+    virtual Task<DatabaseConnectionInfo> EnsureDefaultDatabaseAsync()
     // Completes only when the persisted deletions have finished. Erasure is idempotent — erasing a user with no stored state is a no-op.
     virtual Task EraseUserStateAsync(string userId)
     virtual string JoinUrl(object? queryParams = null)
@@ -5555,6 +5558,25 @@ namespace Ikon.App
     IEnumerable<int> Ids { get; }
     IClient<TClientParameters>? this[int clientSessionId] { get; }
   interface IProfileAttributes
+  // The two streaming members are shaped to plug straight into Ikon.AI: ListenAsync yields what ISpeechRecognizer.RecognizeContinuousSpeechAsync consumes, and SpeakAsync takes what ISpeechGenerator.GenerateSpeechAsync produces. So a conversational loop needs no adapter between them:
+  // await call.SpeakAsync(ai.SpeechGenerator.GenerateSpeechAsync(new("How can I help?")));
+  //
+  // await foreach (var heard in ai.SpeechRecognizer.RecognizeContinuousSpeechAsync(config, call.ListenAsync()))
+  // {
+  //     await call.SpeakAsync(ai.SpeechGenerator.GenerateSpeechAsync(new(await Reply(heard))));
+  // }
+  // Sample rates are handled here: the provider's telephony audio and whatever rate the model wants are resampled to meet, so an app never has to know that 8 kHz exists.
+  interface IVoiceCall : IAsyncDisposable
+    string CallId { get; }
+    string From { get; }
+    bool IsConnected { get; }
+    string To { get; }
+    Task HangUpAsync(CancellationToken ct = default)
+    Task InterruptAsync(CancellationToken ct = default)
+    IAsyncEnumerable<float[]> ListenAsync(int sampleRate = 16000, CancellationToken ct = default)
+    // Returns once every chunk has been sent, which is before the caller has finished hearing it — the provider buffers and plays at its own rate. Use WaitForPlaybackAsync to wait for the audio to actually land, and InterruptAsync to abandon it.
+    Task SpeakAsync(IAsyncEnumerable<AudioChunk> audio, CancellationToken ct = default)
+    Task WaitForPlaybackAsync(CancellationToken ct = default)
   // Sibling of HttpMethodAttribute: both declare an inbound HTTP endpoint over the shared addressing + identity model (see EndpointAttribute), differing only in the wire protocol (typed HTTP vs MCP JSON-RPC) and the schema advertised to clients. Each tool is reachable two ways: through the owner's fixed JSON-RPC multiplexer ({owner}/mcp — tools/list + tools/call, and the only surface that streams notifications/progress over SSE), and as its own directly-callable POST endpoint whose body IS the tool's arguments object. That per-tool path defaults to the kebab-cased method name and is overridable via EndpointAttribute.Path — the override adjusts only this tool's own endpoint, never the shared multiplexer. The same method may also carry a verb-named REST attribute ([HttpPost] etc.); then that route serves the REST surface and the per-tool MCP endpoint is suppressed. The governance subject id is always the structural "{Type}.{Method}". The one place it parts company with its sibling is the default EndpointAttribute.Auth, which is EndpointAuth.User here rather than EndpointAuth.Grant. A grant is a signed URL handed to something the app provisioned, and an MCP client is the opposite of that: it arrives from outside, on behalf of a person, through a flow that ends in a token. Defaulting a tool to a credential no MCP client can obtain would make every tool either unreachable or, once someone widened it to get past that, wider than intended. Set Auth explicitly for a tool that really is reachable without a user.
   sealed class McpAttribute : EndpointAttribute
     ctor()
@@ -5794,6 +5816,25 @@ namespace Ikon.App
     ctor()
   class StoppingEventArgs : EventArgs
     ctor()
+  // Accessed via app.Telephony. The space needs a number first (ikon app telephony create --country se); until then every operation throws TelephonyNumberNotAvailableException, which names that command. A space may hold several numbers, in different markets and on different providers — omit from and the platform picks one, or name one to send as it. Sending is metered, so a space out of credits is suspended like any other overspend.
+  sealed class TelephonyService
+    // The binding outlives this process: it pins an identity, not an instance, so if this one is reaped the next message provisions a fresh instance with the same identity rather than being lost. That is what makes an app wake up when someone texts it. Running locally is the exception. There the binding also carries this machine's instance id, which is minted fresh on every run and cannot outlive it — so a local binding is reverted automatically when the app shuts down, rather than leaving the number pointed at a dead process. It applies to every number the space holds: one number cannot serve two identities, so an app wanting inbound per user needs a number per user.
+    Task BindInboundToThisInstanceAsync(CancellationToken ct = default)
+    // The same IVoiceCall an incoming call gives, so a conversation reads the same whichever end started it — and plugs into Ikon.AI the same way:
+    // await using var call = await app.Telephony.CallAsync("+358401234567");
+    // await call.SpeakAsync(ai.SpeechGenerator.GenerateSpeechAsync(new("Your build finished")));
+    // Returns only once the call is connected and audio can flow; it throws if nobody answers before ringTimeout. Dispose it — or call IVoiceCall.HangUpAsync — to end the call. The call is metered and bounded like any other: it counts against the space's concurrent-call limit, carries the platform duration cap, and is refused for a destination the platform does not allow.
+    Task<IVoiceCall> CallAsync(string to, TimeSpan? ringTimeout = null, string? from = null, CancellationToken ct = default)
+    // Worth reading when the app wants to choose a sender itself rather than let the platform pick one — to answer as the same number a user last saw, say. Most apps never need it: omitting from already sends from a number local to the recipient.
+    Task<IReadOnlyList<TelephonyNumber>> GetNumbersAsync(CancellationToken ct = default)
+    Task<TelephonyStatus> GetStatusAsync(CancellationToken ct = default)
+    // The caller's audio reaches the handler as it is spoken and the app can speak back over the same call; see IVoiceCall for the conversational loop. Nothing else has to be configured. Calling this tells the platform that this app answers calls, which is when the provider side is wired up — so an app can start answering the phone without anyone touching a number, and a call that arrives while the app is not running starts it, exactly as an incoming message does.
+    Task HandleCallsAsync(Func<IVoiceCall, Task> handler, CancellationToken ct = default)
+    Task ResetInboundAsync(CancellationToken ct = default)
+    // Check SmsSendResult.Replyable on the result: when it is false the recipient received the message but cannot answer it, because the space holds no number local to their market and a foreign sender is stripped in transit. Long messages are split into billable segments; SmsSendResult.Parts reports how many were charged.
+    Task<SmsSendResult> SendSmsAsync(string to, string text, string? from = null, CancellationToken ct = default)
+    // The app declares no webhook: the platform owns the endpoint the provider posts to and delivers the message here, so a message reaches whichever instance inbound is bound to — starting one if none is running. Reply by calling SendSmsAsync with SmsMessage.From. There is deliberately no "return a string to reply" shortcut: a reply the provider sends on our behalf is billed inside the provider, where nothing can meter it or refuse it for a space out of credit.
+    event Func<SmsMessage, Task>? SmsReceived
   enum Theme
     Dark
     Light
@@ -6230,18 +6271,6 @@ namespace Ikon.Connectors
     override string Instructions { get; }
     override string Name { get; }
     override IEnumerable<Tool> Tools()
-  sealed class WhatsApp
-    ctor(string accessToken, string phoneNumberId, HttpClient? http = null)
-    Task<string> SendAsync(string to, string text, CancellationToken ct = default)
-  sealed record WhatsAppSendRequest
-    ctor(string To, string Text)
-    string Text { get; init; }
-    string To { get; init; }
-  sealed class WhatsAppSkill : Skill
-    ctor(WhatsApp whatsApp)
-    override string Instructions { get; }
-    override string Name { get; }
-    override IEnumerable<Tool> Tools()
 
 # Ikon.Connectors.Google Public API
 
@@ -6311,72 +6340,6 @@ namespace Ikon.Connectors.Google
     string ClientId { get; init; }
     string ClientSecret { get; init; }
     string RefreshToken { get; init; }
-
-# Ikon.Connectors.Telephony Public API
-
-namespace Ikon.Connectors.Telephony
-  // Thrown when an outbound call never connects (busy, no answer, or carrier rejection); Outcome carries the specific fate.
-  sealed class CallFailedException : Exception
-    ctor(CallOutcome outcome, string message)
-    CallOutcome Outcome { get; }
-  // Empty VoiceId uses the speech generator's default voice; null MaxDuration caps the call at 10 minutes.
-  sealed record CallOptions
-    ctor(string VoiceId = "", string Language = "en-US", TimeSpan? MaxDuration = null)
-    string Language { get; init; }
-    TimeSpan? MaxDuration { get; init; }
-    string VoiceId { get; init; }
-  enum CallOutcome
-    Completed
-    NoAnswer
-    Busy
-    Failed
-  sealed record CallResult
-    ctor(string Transcript, CallOutcome Outcome, TimeSpan Duration)
-    TimeSpan Duration { get; init; }
-    CallOutcome Outcome { get; init; }
-    string Transcript { get; init; }
-  sealed record CallTurn
-    ctor(string Transcript, byte[] AudioMuLaw)
-    byte[] AudioMuLaw { get; init; }
-    string Transcript { get; init; }
-  sealed record HangupRequest
-    ctor(string Reason = "")
-    string Reason { get; init; }
-  static class MuLawCodec
-    static float[] Decode(ReadOnlySpan<byte> muLaw)
-    static byte[] Encode(ReadOnlySpan<float> samples)
-  // No agent logic — the consumer supplies the brain, reading caller utterances from Turns and replying with SpeakAsync. Supports barge-in: sustained caller speech during a reply cancels the TTS. Speech detection defaults to an RMS gate; inject a custom detector for better accuracy.
-  sealed class PhoneCall : IAsyncDisposable
-    TimeSpan Duration { get; }
-    // CallOutcome.Completed normally, or CallOutcome.Failed if the audio stream died mid-call. Calls that never connect never yield a PhoneCall.
-    CallOutcome Outcome { get; }
-    ValueTask DisposeAsync()
-    Task HangupAsync()
-    // Streams synthesized speech to the caller as 8 kHz mu-law. Returns true when the caller barged in mid-reply (stop voicing the rest); returns false immediately when text is blank or the media stream is not ready.
-    Task<bool> SpeakAsync(string text, CancellationToken ct = default)
-    IAsyncEnumerable<CallTurn> Turns(CancellationToken ct = default)
-  // Credentials come from app.Secrets. Each placed call yields a live PhoneCall once its audio stream connects; raw, with no agent logic.
-  sealed class Telephone : IAsyncDisposable
-    ctor(IAppBase app, TwilioCredentials credentials, CallOptions? options = null)
-    // number must be E.164. Resolves once the call's audio connects; throws CallFailedException on busy/no-answer/carrier failure, or TimeoutException if no status callback arrives within 90 seconds.
-    Task<PhoneCall> CallAsync(string number, CancellationToken ct = default)
-    ValueTask DisposeAsync()
-  static class TelephonyAgent
-    static Task<CallResult> CallAsync(AgentThread parent, Telephone telephone, string number, string objective, string personaName = "phone-callee", CancellationToken ct = default)
-  static class TelephonyPersona
-    static Persona Create(string name = "phone-callee", string? systemPrompt = null)
-    const string DefaultName
-  sealed class TelephonySkill : Skill
-    ctor()
-    override string Instructions { get; }
-    override string Name { get; }
-    override IEnumerable<Tool> Tools()
-    const string HangupArtifact
-  sealed record TwilioCredentials
-    ctor(string AccountSid, string AuthToken, string FromNumber)
-    string AccountSid { get; init; }
-    string AuthToken { get; init; }
-    string FromNumber { get; init; }
 
 # Ikon.Connectors.Browser Public API
 
@@ -6556,6 +6519,10 @@ namespace Ikon.Resonance
     static float[] ConvertPcm16ToFloat(ReadOnlySpan<byte> input)
     // For input normalized to [-1, 1] the result is in [0, 1]. Returns 0 for an empty span; channel layout does not matter.
     static float Rms(ReadOnlySpan<float> samples)
+  sealed class BargeInDetector
+    ctor(int sustainedFrames = 3, double graceMs = 300.0)
+    void Reset()
+    bool ShouldInterrupt(bool isSpeech, bool agentSpeaking, double msSinceSpeakStart)
   enum CrossfadeCurve
     Linear
     EqualPower
