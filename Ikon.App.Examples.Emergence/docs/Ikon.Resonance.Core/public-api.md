@@ -19,3 +19,6 @@ namespace Ikon.Resonance.Core
     Streaming
     DelayUntilTotalDurationKnown
     DelayUntilIsLast
+  static class MuLawCodec
+    static float[] Decode(ReadOnlySpan<byte> muLaw)
+    static byte[] Encode(ReadOnlySpan<float> samples)
