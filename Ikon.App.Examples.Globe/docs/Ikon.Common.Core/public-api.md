@@ -403,6 +403,11 @@ namespace Ikon.Common.Core
     IkonBackend.EnvironmentType? Environment { get; }
     string SpaceId { get; }
     static StudioProjectRef Parse(string reference)
+  // A UserException so the app developer sees the sentence and not a stack trace. Before this existed the backend threw a bare error, which arrived as a 500 and surfaced as an HttpRequestException carrying a URL, a status code and a response body — none of which say what to do about it. Hint names the command that does.
+  sealed class TelephonyNumberNotAvailableException : UserException
+    ctor(string friendlyMessage, string? number = null, string? hint = null)
+    string? Hint { get; }
+    string? Number { get; }
   static class Throttler
     static bool TryExecute(Action action, TimeSpan? throttleInterval = null, string? extraKey = null)
   static class TokenRenewer
@@ -1950,3 +1955,33 @@ namespace Ikon.Common.Core.Signing
     string SignedDocumentHash { get; init; }
     string? SignerName { get; init; }
     string? SignerNameHash { get; init; }
+
+namespace Ikon.Common.Core.Telephony
+  sealed record SmsMessage
+    ctor(string From, string To, string Text, string MessageId)
+    string From { get; init; }
+    string MessageId { get; init; }
+    string Text { get; init; }
+    string To { get; init; }
+  sealed record SmsSendResult
+    ctor(string MessageId, string From, int Parts, double? Cost, string Currency, string Status, bool Replyable)
+    double? Cost { get; init; }
+    string Currency { get; init; }
+    string From { get; init; }
+    string MessageId { get; init; }
+    int Parts { get; init; }
+    bool Replyable { get; init; }
+    string Status { get; init; }
+  sealed record TelephonyNumber
+    ctor(string Number, string Country, string Provider, IReadOnlyList<string> Capabilities, bool IsDefault, IReadOnlyDictionary<string, string> SessionIdentity)
+    IReadOnlyList<string> Capabilities { get; init; }
+    string Country { get; init; }
+    bool IsDefault { get; init; }
+    string Number { get; init; }
+    string Provider { get; init; }
+    IReadOnlyDictionary<string, string> SessionIdentity { get; init; }
+  // There is no single provider for a space: it may hold numbers on more than one at once, so each number names its own.
+  sealed record TelephonyStatus
+    ctor(bool Enabled, IReadOnlyList<TelephonyNumber> Numbers)
+    bool Enabled { get; init; }
+    IReadOnlyList<TelephonyNumber> Numbers { get; init; }
