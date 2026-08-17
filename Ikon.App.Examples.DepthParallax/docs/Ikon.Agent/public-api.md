@@ -249,6 +249,7 @@ namespace Ikon.Agent
     IAsyncEnumerable<ThreadSnapshot> ListNonTerminalAsync(CancellationToken ct = default)
     IAsyncEnumerable<PlanSnapshot> ListPlansAsync(CancellationToken ct = default)
     IAsyncEnumerable<ThreadSnapshot> ListTerminalAsync(CancellationToken ct = default)
+    Task PruneThreadLogAsync(string threadId, CancellationToken ct = default)
     Task<AppSnapshot?> ReadAppAsync(string id, CancellationToken ct = default)
     Task<Artifact?> ReadArtifactByNameAsync(string threadId, string name, CancellationToken ct = default)
     IAsyncEnumerable<Artifact> ReadArtifactsByThreadAsync(string threadId, CancellationToken ct = default)
