@@ -205,20 +205,23 @@ currently have no visible effect (a warning is logged). Shadow utilities bake th
 Tailwind values so that per-element recoloring — `shadow-lg shadow-red-500` — keeps working;
 a `:root`-resolved shadow variable would swallow the color override.
 
-### Porting an existing Tailwind design (Replit, Lovable, v0, hand-written)
+### Porting an existing Tailwind design (Replit, Lovable, Base44, v0, hand-written)
+
+Author **Tailwind v4** names in all new code — Crosswind tracks the v4 scale, and the
+baseline renders v4 classes at exactly their Tailwind values.
 
 The baseline is value-identical to stock Tailwind for spacing, type, and every radius rung —
 classes copied from a Tailwind design render the same geometry here with no theme keys at all.
-One mapping remains, because Crosswind tracks Tailwind v4 while most existing sources were
-authored against v3's shadow names:
+Most existing sources are v3-era, where several utilities were renamed a step down in v4:
+`shadow-sm`→`shadow-xs`, `shadow`→`shadow-sm`, the same one-step-down rename for
+`rounded` (all corner forms), `blur`, `drop-shadow`, and `backdrop-blur`, plus
+`outline-none`→`outline-hidden`, `ring`→`ring-3`, and removed `*-opacity-*` utilities
+becoming slash syntax (`bg-black/50`).
 
-| Source says (v3) | Write (v4) |
-|---|---|
-| `shadow-sm` | `shadow-xs` |
-| `shadow` | `shadow-sm` (or keep `shadow` — it still resolves) |
-| `shadow-md` and larger | unchanged |
-
-Everything else ports verbatim.
+Apply that mapping **as you transcribe** — porting is a rewrite, so the translation
+happens in flight and there is nothing to run afterwards; the same goes for any files
+copied in verbatim. Verify the result by measurement: run the original next to the
+port and diff computed styles on matched elements. Everything else ports verbatim.
 
 ### Custom variables (expressive-layer escape hatch)
 
