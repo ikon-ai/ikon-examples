@@ -139,6 +139,10 @@ namespace Ikon.Resonance
     static float[] ConvertPcm16ToFloat(ReadOnlySpan<byte> input)
     // For input normalized to [-1, 1] the result is in [0, 1]. Returns 0 for an empty span; channel layout does not matter.
     static float Rms(ReadOnlySpan<float> samples)
+  sealed class BargeInDetector
+    ctor(int sustainedFrames = 3, double graceMs = 300.0)
+    void Reset()
+    bool ShouldInterrupt(bool isSpeech, bool agentSpeaking, double msSinceSpeakStart)
   enum CrossfadeCurve
     Linear
     EqualPower
@@ -341,3 +345,6 @@ namespace Ikon.Resonance.Core
     Streaming
     DelayUntilTotalDurationKnown
     DelayUntilIsLast
+  static class MuLawCodec
+    static float[] Decode(ReadOnlySpan<byte> muLaw)
+    static byte[] Encode(ReadOnlySpan<float> samples)

@@ -19,31 +19,30 @@
     <IsIkonInternal Condition="'$(IkonRoot)' != ''">true</IsIkonInternal>
   </PropertyGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' != 'true'">
-    <PackageReference Include="Ikon.AI" Version="3.5.3" />
-    <PackageReference Include="Ikon.AI.Speech.Azure" Version="3.5.3" />
-    <PackageReference Include="Ikon.AI.Speech.Google" Version="3.5.3" />
-    <PackageReference Include="Ikon.AI.Scrape" Version="3.5.3" />
-    <PackageReference Include="Ikon.AI.Database" Version="3.5.3" />
-    <PackageReference Include="Ikon.AI.Emergence" Version="3.5.3" />
-    <PackageReference Include="Ikon.App" Version="3.5.3" />
-    <PackageReference Include="Ikon.Connectors.Google" Version="3.5.3" />
-    <PackageReference Include="Ikon.Connectors.Telephony" Version="3.5.3" />
-    <PackageReference Include="Ikon.Common" Version="3.5.3" />
-    <PackageReference Include="Ikon.Common.Core" Version="3.5.3" />
-    <PackageReference Include="Ikon.Crosswind" Version="3.5.3" />
-    <PackageReference Include="Ikon.Parallax" Version="3.5.3" />
-    <PackageReference Include="Ikon.Pipeline" Version="3.5.3" />
-    <PackageReference Include="Ikon.Pipelines.Public" Version="3.5.3" />
-    <PackageReference Include="Ikon.Resonance" Version="3.5.3" />
-    <PackageReference Include="Ikon.Resonance.Core" Version="3.5.3" />
-    <PackageReference Include="Ikon.Server" Version="3.5.3" />
-    <PackageReference Include="Ikon.Teleport" Version="3.5.3" />
-    <PackageReference Include="Ikon.Sdk" Version="2.0.33" />
-    <PackageReference Include="Ikon.App.Storage.Postgres" Version="3.5.3" />
-    <PackageReference Include="Ikon.Server.HotReload" Version="3.5.3" />
-    <PackageReference Include="Ikon.Agent" Version="3.5.3" />
-    <PackageReference Include="Ikon.Agent.Docs" Version="3.5.3" />
-    <PackageReference Include="StbImageSharp" Version="2.30.15" />
+    <PackageReference Include="Ikon.AI" Version="3.5.5" />
+    <PackageReference Include="Ikon.AI.Speech.Azure" Version="3.5.5" />
+    <PackageReference Include="Ikon.AI.Speech.Google" Version="3.5.5" />
+    <PackageReference Include="Ikon.AI.Scrape" Version="3.5.5" />
+    <PackageReference Include="Ikon.AI.Database" Version="3.5.5" />
+    <PackageReference Include="Ikon.AI.Emergence" Version="3.5.5" />
+    <PackageReference Include="Ikon.App" Version="3.5.5" />
+    <PackageReference Include="Ikon.Connectors.Google" Version="3.5.5" />
+    <PackageReference Include="Ikon.Common" Version="3.5.5" />
+    <PackageReference Include="Ikon.Common.Core" Version="3.5.5" />
+    <PackageReference Include="Ikon.Crosswind" Version="3.5.5" />
+    <PackageReference Include="Ikon.Parallax" Version="3.5.5" />
+    <PackageReference Include="Ikon.Pipeline" Version="3.5.5" />
+    <PackageReference Include="Ikon.Pipelines.Public" Version="3.5.5" />
+    <PackageReference Include="Ikon.Resonance" Version="3.5.5" />
+    <PackageReference Include="Ikon.Resonance.Core" Version="3.5.5" />
+    <PackageReference Include="Ikon.Server" Version="3.5.5" />
+    <PackageReference Include="Ikon.Teleport" Version="3.5.5" />
+    <PackageReference Include="Ikon.Sdk" Version="2.0.35" />
+    <PackageReference Include="Ikon.App.Storage.Postgres" Version="3.5.5" />
+    <PackageReference Include="Ikon.Server.HotReload" Version="3.5.5" />
+    <PackageReference Include="Ikon.Agent" Version="3.5.5" />
+    <PackageReference Include="Ikon.Agent.Docs" Version="3.5.5" />
+    <PackageReference Include="StbImageSharp" Version="2.30.16" />
   </ItemGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' == 'true'">
     <ProjectReference Include="$(IkonRoot)\Ikon.AI\Ikon.AI.csproj" />
@@ -54,7 +53,6 @@
     <ProjectReference Include="$(IkonRoot)\Ikon.AI.Emergence\Ikon.AI.Emergence.csproj" />
     <ProjectReference Include="$(IkonRoot)\Ikon.App\Ikon.App.csproj" />
     <ProjectReference Include="$(IkonRoot)\Ikon.Connectors.Google\Ikon.Connectors.Google.csproj" />
-    <ProjectReference Include="$(IkonRoot)\Ikon.Connectors.Telephony\Ikon.Connectors.Telephony.csproj" />
     <ProjectReference Include="$(IkonRoot)\Ikon.Common\Ikon.Common.csproj" />
     <ProjectReference Include="$(IkonRoot)\Ikon.Common.Core\Ikon.Common.Core.csproj" />
     <ProjectReference Include="$(IkonRoot)\Ikon.Crosswind\Ikon.Crosswind.csproj" />
@@ -94,11 +92,11 @@
     </ItemGroup>
   </Target>
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
     <!-- Design-time only (dotnet ef migrations); ExcludeAssets keeps its Roslyn/MSBuildWorkspace
          dependency tree (incl. the BuildHost folders) out of the app output and the bundle. The two
          CodeAnalysis pins below resolve EF Design's internally mismatched Roslyn versions (NU1107). -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
       <PrivateAssets>all</PrivateAssets>
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>

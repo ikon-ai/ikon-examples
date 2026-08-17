@@ -82,7 +82,7 @@ public partial class Validation
 
         try
         {
-            await using var connection = app.Database(DatabaseName);
+            await using var connection = await app.DatabaseAsync(DatabaseName);
             await connection.OpenAsync();
             await using var command = connection.CreateCommand();
             command.CommandText = "DELETE FROM entries";
@@ -324,7 +324,7 @@ public partial class Validation
 
     private async Task AddViaDapperAsync(string author, string message)
     {
-        await using var connection = app.Database(DatabaseName);
+        await using var connection = await app.DatabaseAsync(DatabaseName);
         await connection.OpenAsync();
 
         var count = await connection.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM entries");
@@ -343,7 +343,7 @@ public partial class Validation
 
     private async Task<List<Entry>> ReadViaDapperAsync()
     {
-        await using var connection = app.Database(DatabaseName);
+        await using var connection = await app.DatabaseAsync(DatabaseName);
         await connection.OpenAsync();
 
         var rows = await connection.QueryAsync<Entry>(
@@ -356,7 +356,7 @@ public partial class Validation
 
     private async Task AddViaRawAsync(string author, string message)
     {
-        await using var connection = app.Database(DatabaseName);
+        await using var connection = await app.DatabaseAsync(DatabaseName);
         await connection.OpenAsync();
 
         await using (var countCommand = connection.CreateCommand())
@@ -383,7 +383,7 @@ public partial class Validation
 
     private async Task<List<Entry>> ReadViaRawAsync()
     {
-        await using var connection = app.Database(DatabaseName);
+        await using var connection = await app.DatabaseAsync(DatabaseName);
         await connection.OpenAsync();
 
         await using var command = connection.CreateCommand();
@@ -447,7 +447,7 @@ public partial class Validation
         {
             await EnsureDatabaseInitializedAsync();
 
-            await using var connection = app.Database(DatabaseName);
+            await using var connection = await app.DatabaseAsync(DatabaseName);
             await connection.OpenAsync();
             await using var command = connection.CreateCommand();
             command.CommandText = "DELETE FROM entries";
