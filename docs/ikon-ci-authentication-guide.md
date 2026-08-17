@@ -58,18 +58,21 @@ Pick the shortest lifetime you are willing to renew. Nothing rotates this creden
 
 ## Using it
 
-Set two environment variables in your CI configuration:
+Set three environment variables in your CI configuration:
 
 | Variable | Value |
 |---|---|
 | `IKON_SERVICE_TOKEN` | The token you just created. **Store it as a secret**, never in a committed file. |
 | `IKON_SPACE_ID` | The space to act on. |
+| `IKON_BACKEND_ENV` | `dev` or `prod` — which platform the pipeline runs against. |
 
 `IKON_SPACE_ID` is needed because the organisation and space defaults that `ikon defaults` sets live in the login file on your own machine, and a CI runner has no login file. You can pass `--space-id` on each command instead.
 
+`IKON_BACKEND_ENV` tells the tool which platform to authenticate against. The token itself does not say: the environment is chosen **before** the token is exchanged, and it decides which service the exchange goes to. On your own machine that choice comes from your login or `ikon defaults`; a CI runner has neither. The tool then looks at your app project's `ikon-config` files, which answers the question only when exactly one environment's config is present — so an app that deploys to both dev and prod has nothing to go on. You can pass `--dev` / `--prod` on each command instead.
+
 Every command then works as usual — `ikon app deploy`, `ikon app bundle`, and so on. No browser, no prompts.
 
-The token is only valid for the environment it was created against. Create it while signed in to the environment your pipeline deploys to, or pass `--prod` / `--dev` to be explicit.
+The token is only valid for the environment it was created against, so `IKON_BACKEND_ENV` must name that same environment.
 
 ### GitHub Actions
 
@@ -78,6 +81,7 @@ The token is only valid for the environment it was created against. Create it wh
   env:
     IKON_SERVICE_TOKEN: ${{ secrets.IKON_SERVICE_TOKEN }}
     IKON_SPACE_ID: ${{ vars.IKON_SPACE_ID }}
+    IKON_BACKEND_ENV: prod
   run: ikon app deploy
 ```
 
@@ -115,6 +119,10 @@ A service token acts as **you**. It carries the same access to the platform your
 **`The service token in IKON_SERVICE_TOKEN was refused`** — the token has been revoked, or has passed its expiry. Create a new one and update the secret.
 
 **`Not logged in to the Ikon platform. Set IKON_SERVICE_TOKEN ...`** — the variable is not reaching the tool. In most CI systems a secret has to be named explicitly in the step's `env` block; check it is not only defined at the repository level.
+
+**`Could not tell which platform environment to use`** — set `IKON_BACKEND_ENV` to `dev` or `prod`, or pass `--dev` / `--prod`. Your token is fine; the tool does not know which platform to present it to.
+
+**`NU1101: Unable to find package Ikon.…`** — the build could not authenticate to the private package feed. Almost always the same cause as above: without an environment the tool cannot exchange your service token, so it has no feed credential to pass on. Check `IKON_BACKEND_ENV` is set and reaching the step.
 
 **`This command needs a target space ...`** — set `IKON_SPACE_ID`, or pass `--space-id`.
 

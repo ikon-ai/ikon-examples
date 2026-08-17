@@ -131,6 +131,15 @@ ikon examples download
 
 Open the project folder with your preferred coding agent (e.g., [Cursor](https://cursor.com/), [Claude Code](https://github.com/anthropics/claude-code), [Codex CLI](https://github.com/openai/codex)) and start coding or ask questions. The project contains documentation files (e.g., `AGENTS.md`) to help the agent understand the codebase.
 
+If you don't have one installed yet, the CLI installs the latest of either:
+
+```bash
+ikon install claude
+ikon install codex
+```
+
+Both then sign in against your own Claude or OpenAI account the first time you run them.
+
 ## Quick reference
 
 | Step        | Command              | Purpose                         |
