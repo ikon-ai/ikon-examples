@@ -4,19 +4,25 @@
 
 Managed PostgreSQL database connections.
 
-**One command sets up both the toml entry AND the platform provisioning** if your code uses a database named `"mydb"` (whether via EF Core's `app.Databases` or `app.Database("mydb")`):
+**Every app already has one.** `app.DatabaseAsync()` with no name gives you the built-in `app`
+database, created the first time you ask for it. Nothing needs configuring, and an app that never
+asks is never given one.
+
+Create a second only when the app wants one under a name of its own — `app.Database("mydb")`:
 
 ```
-ikon app config --add-database mydb:postgres
+ikon app db create --name mydb --yes
 ```
 
-That adds `"mydb:postgres"` to `Databases` in `ikon-config.development.toml` (preserving the rest of the file — `[Target]`, `[Auth]`, `[Activation]`), then triggers normal provisioning so the database comes online. Idempotent — repeat the flag for additional databases or re-run safely.
+Databases are **not** declared in `ikon-config.toml`. They belong to the space, so they survive
+deploys and are never removed by editing a file; `ikon app db list` shows what the space holds and
+`ikon app db delete --name mydb --yes` gives one up. Nothing is per-environment: each target has its
+own space, so create the database against the target you mean (`--target staging`).
 
-For staging/production envs, repeat with `--target staging` / `--target production` — there is no inheritance across env-specific tomls.
-
-Manual two-step path (only if you need to inspect/edit the toml first): `read` the env-specific toml → `edit` the `Databases = []` line to add `"mydb:postgres"` → `ikon app config`. NEVER `write` the toml end-to-end — that destroys the `[Target]` section and `ikon app config` will revert it.
-
-Code that references a database but skips this setup leaves the app broken at runtime. The Critic should reject any pass where the C# uses a database `"X"` — EF Core's `app.Databases.First(d => d.Name == "X")`, `app.Database("X")`, or the older `AppDatabaseConnection.Create(app, "X")` — but `ikon-config.development.toml` doesn't declare `"X:postgres"` in `Databases`.
+Code that references a database the space does not hold leaves the app broken at runtime. The Critic
+should reject any pass where the C# uses a database `"X"` — EF Core's
+`app.Databases.First(d => d.Name == "X")`, `app.Database("X")`, or the older
+`AppDatabaseConnection.Create(app, "X")` — without an `ikon app db create --name X` to match.
 
 ### Data access — prefer EF Core
 

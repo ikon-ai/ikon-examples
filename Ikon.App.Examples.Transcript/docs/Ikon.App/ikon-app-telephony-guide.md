@@ -14,10 +14,10 @@ what lets calls happen at all. Allocating one is a single command:
 ikon app telephony create --country se
 ```
 
-It picks a number in that market, wires it to your app, and prints it along with what the first
-period cost. A number **rents monthly** for as long as the app holds it, charged to the app's
-credits, so the command asks for confirmation before allocating (`--yes` skips the prompt, and is
-required when nothing can answer a prompt — in CI, or when an agent runs it).
+It picks a number in that market and wires it to your app. A number **rents monthly** for as long as
+the app holds it, charged to the app's credits, so the command asks for confirmation before
+allocating (`--yes` skips the prompt, and is required when nothing can answer a prompt — in CI, or
+when an agent runs it). What it came to shows up in `ikon app costs` like any other usage.
 
 You choose the market and nothing else about the number. Neither provider will sell a *named*
 number, so there is no area code to ask for and no list to pick from.
@@ -81,7 +81,6 @@ spaces, dashes or leading zeroes. `+358401234567`, never `040 123 4567`.
 | `MessageId` | The provider's id, for correlating delivery reports |
 | `From` | The number the message was sent from |
 | `Parts` | Billable segments — a long message is split, and non-GSM characters roughly halve what fits in one |
-| `Cost` / `Currency` | What the provider charged, when it can say at send time |
 | `Replyable` | Whether the recipient can answer — see below |
 
 ## Markets, and why `Replyable` matters
@@ -220,13 +219,14 @@ own machine; that binding is reverted when the process stops.
 
 ## What it costs
 
-Sending is metered at the provider's real cost and charged to the app's credits like any other
-platform usage, so an expensive destination costs what it costs rather than an average. There is no
-markup table to look up and no rate card to keep in sync.
+Everything is charged in **platform credits**, and credits are the only figure the API and the CLI
+report — read what a space has spent with `ikon app costs`. Metering follows the real cost of each
+message and call rather than an average, so an expensive destination costs more than a cheap one
+instead of being smoothed into a single rate.
 
-A number is charged **by rental period, in full**, exactly as the provider charges for it: at
-allocation, and again at each renewal. Giving one up part-way through a period refunds nothing, so
-allocating and releasing repeatedly costs a full period each time.
+A number is charged **by rental period, in full**: at allocation, and again at each renewal. Giving
+one up part-way through a period refunds nothing, so allocating and releasing repeatedly costs a
+full period each time.
 
 A space that runs out of credits is suspended, which stops telephony along with everything else.
 
