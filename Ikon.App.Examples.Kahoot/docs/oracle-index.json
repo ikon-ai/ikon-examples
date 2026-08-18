@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/app-api-reference.md",
-      "sizeBytes": 109548,
+      "sizeBytes": 110019,
       "alsoInclude": []
     },
     {
@@ -100,7 +100,7 @@
         "value mutation"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/reactive-state.md",
-      "sizeBytes": 44132,
+      "sizeBytes": 44024,
       "alsoInclude": [
         "app-structure",
         "ui-components"
@@ -406,7 +406,7 @@
         "show a video"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ai-video.md",
-      "sizeBytes": 8766,
+      "sizeBytes": 8781,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -560,7 +560,7 @@
         "LINQ"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/databases.md",
-      "sizeBytes": 5122,
+      "sizeBytes": 4865,
       "alsoInclude": []
     },
     {
@@ -678,7 +678,7 @@
         "inbound sms"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/telephony.md",
-      "sizeBytes": 12857,
+      "sizeBytes": 12972,
       "alsoInclude": []
     },
     {
@@ -777,7 +777,7 @@
         "targets"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/config-and-cli.md",
-      "sizeBytes": 18285,
+      "sizeBytes": 18062,
       "alsoInclude": []
     }
   ]
