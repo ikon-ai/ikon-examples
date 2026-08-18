@@ -361,13 +361,14 @@ namespace Ikon.Agent
     string Result { get; init; }
   // Set NudgeOnAssistantStall true only for agents that must keep working when the drive re-invokes a thread whose last turn was their own tool-less message (the runner appends a bounded user continuation to unstall them); leave it false for agents that legitimately conclude with a text turn, or nudging makes them loop forever.
   sealed record Persona
-    ctor(string Name, string SystemPrompt, IReadOnlyList<Skill> Skills, Reasoning Reasoning, Budget? Budget = null, bool NudgeOnAssistantStall = false)
+    ctor(string Name, string SystemPrompt, IReadOnlyList<Skill> Skills, Reasoning Reasoning, Budget? Budget = null, bool NudgeOnAssistantStall = false, IReadOnlySet<string>? TranscriptOnlyPayloadKinds = null)
     Budget? Budget { get; init; }
     string Name { get; init; }
     bool NudgeOnAssistantStall { get; init; }
     Reasoning Reasoning { get; init; }
     IReadOnlyList<Skill> Skills { get; init; }
     string SystemPrompt { get; init; }
+    IReadOnlySet<string>? TranscriptOnlyPayloadKinds { get; init; }
   sealed record PlanSection
     ctor(string Content, double? Score = null)
     string Content { get; init; }
