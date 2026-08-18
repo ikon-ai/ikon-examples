@@ -1432,6 +1432,8 @@ namespace Ikon.Common.Core.Protocol
     ACTION_RESULT
     UI_RESYNC_REQUEST
     ACTION_USER_DATA_ERASURE
+    ACTION_FILE_UPLOAD_RESUME2
+    ACTION_FILE_UPLOAD_RESUME_RESPONSE2
     GROUP_UI
     UI_STREAM_BEGIN
     UI_STREAM_END
@@ -1963,10 +1965,9 @@ namespace Ikon.Common.Core.Telephony
     string MessageId { get; init; }
     string Text { get; init; }
     string To { get; init; }
+  // Carries no price. A send is charged to the space in platform credits, which is the only cost an app is quoted — what the carrier behind it charged is not the app's to see. Read what a space has spent with ikon app costs.
   sealed record SmsSendResult
-    ctor(string MessageId, string From, int Parts, double? Cost, string Currency, string Status, bool Replyable)
-    double? Cost { get; init; }
-    string Currency { get; init; }
+    ctor(string MessageId, string From, int Parts, string Status, bool Replyable)
     string From { get; init; }
     string MessageId { get; init; }
     int Parts { get; init; }

@@ -199,6 +199,7 @@ namespace Ikon.AI.VideoGeneration
     Seedance20
     Seedance20Fast
     Seedance20Mini
+    Seedance25
     Sora2
     Sora2Pro
     Veo31
