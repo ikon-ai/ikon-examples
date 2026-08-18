@@ -47,16 +47,15 @@ private readonly PersistentSessionReactive<byte[]> _logo
 // Then read the URL after first save:
 var url = _logo.PublicUrl;  // null until first save completes
 
-// Explicitly target a postgres DB the app declares itself
+// Explicitly target a postgres DB of the app's own
 private readonly PersistentSessionReactive<long> _counter
     = new(0, backend: PersistenceBackend.Postgres, postgresDatabase: "main");
 ```
 
-Every app gets a built-in Postgres database named `app` — scaffolded configs declare it as the
-ordinary `Databases = ["app:postgres"]` entry, and an app whose manifest declares no databases at
-all gets it injected automatically at activation. Either way it is quota-free. The default backend
-routes on the storage doctrine — structured state belongs in Postgres, asset storage is for
-binaries and public files:
+Every app gets a built-in Postgres database named `app`. Nothing declares it and nothing has to
+create it: the platform provisions it the first time the app asks for a database, and it is
+quota-free. The default backend routes on the storage doctrine — structured state belongs in
+Postgres, asset storage is for binaries and public files:
 
 - `Default` (what you get when you name no backend) — structured values (`T` is not `byte[]`) are
   stored as one row in the `ikon_reactive_storage` table of the built-in `app` database.
@@ -67,9 +66,9 @@ binaries and public files:
   stay on asset storage despite the default.
 - `Public` — asset storage with a public URL on `PublicUrl`. **Only** when the value will be
   linked to from the open web. Don't use for anything sensitive.
-- `Postgres` — a row in a postgres DB the app declares itself with `Databases = ["name:postgres"]`
-  in `ikon-config.toml`. If the app has only one declared postgres DB, omit `postgresDatabase`;
-  with several, name the one you want.
+- `Postgres` — a row in a postgres DB of the app's own, created with
+  `ikon app db create --name <name>`. If the space holds only one such database, omit
+  `postgresDatabase`; with several, name the one you want.
 
 Existing data migrates by itself: when a structured value first loads from the `app` database and finds
 no row, the old asset location is read and the value is copied into Postgres, so the next load hits

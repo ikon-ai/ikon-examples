@@ -1356,6 +1356,9 @@ namespace Ikon.AI.MusicGeneration
     ElevenLabsMusicV2
     FalStableAudio
     FalLyria2
+    // The platform provides the Suno key, so these behave like every other model here and need no per-app secret. An app may still override it with its own subscription by setting IKON_SUNO_API_KEY (ikon app secret set IKON_SUNO_API_KEY <key>), which is then billed as bring-your-own-key usage.
+    SunoV5
+    SunoV55
   static class MusicGeneratorModelExtensions
     static string DisplayName(this MusicGeneratorModel model)
   // Kind tells how the audio was delivered: inline bytes in Data, or a signed download URL in Url valid for roughly one hour.
@@ -2092,6 +2095,7 @@ namespace Ikon.AI.VideoGeneration
     Seedance20
     Seedance20Fast
     Seedance20Mini
+    Seedance25
     Sora2
     Sora2Pro
     Veo31
