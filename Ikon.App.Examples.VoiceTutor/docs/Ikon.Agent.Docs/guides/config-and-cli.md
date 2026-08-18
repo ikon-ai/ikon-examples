@@ -3,12 +3,6 @@
 ## ikon-config.toml
 
 ```toml
-# Database configurations for allocating databases for the app (run 'ikon app config' to apply changes)
-# Assigned database connection info is available via app.Databases in the app. Use 'ikon app db' commands to manage databases.
-# Format: "name:type" - valid types: postgres
-# Examples: "mydb:postgres"
-Databases = []
-
 # Activation configuration for the app (app activation is separate from deployment)
 [Activation]
 # Whether to stop all active sessions of the app when a version of the app is activated
@@ -107,7 +101,8 @@ Name = ""
 
 ### Configuration & Deployment
 
-- `ikon app config`: configure the app for cloud deployment (organisation/space; `--add-database`, `--target <name>`)
+- `ikon app config`: configure the app for cloud deployment (organisation/space; `--target <name>`)
+- `ikon app db create|list|delete`: the space's databases (`--name`, `--type`, `--tier`); see the Databases section
 - `ikon app status`: show the app's cloud bindings and running-instance info (URLs, PIDs; `--wait` polls until the app starts, up to `--timeout` seconds, default 30)
 - `ikon app target list`: list all configured targets (`--format table|json|csv`, `--output <file>`)
 - `ikon app secret set <key> [value]`: store/update a secret (token / API key); `--stdin` reads from stdin
