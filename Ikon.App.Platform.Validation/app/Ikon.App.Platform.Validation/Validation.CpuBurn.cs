@@ -31,19 +31,19 @@ public partial class Validation
 
             view.Column([Layout.Column.Md], content: view =>
             {
-                view.Row([Layout.Row.InlineCenter, "mb-2"], content: view =>
+                view.Row([Layout.Row.InlineCenter, "mb-2 flex-wrap"], content: view =>
                 {
                     view.Text([Text.BodyStrong, "w-32"], "Status");
                     view.Text([Text.Body], _cpuBurnStatus.Value);
                 });
 
-                view.Row([Layout.Row.InlineCenter, "mb-2"], content: view =>
+                view.Row([Layout.Row.InlineCenter, "mb-2 flex-wrap"], content: view =>
                 {
                     view.Text([Text.BodyStrong, "w-32"], "Budget");
                     view.Text([Text.Body], $"{_cpuBurnSpentSeconds.Value} of {CpuBurnSessionBudgetSeconds} core-seconds used");
                 });
 
-                view.Row([Layout.Row.Md], content: view =>
+                view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     bool exhausted = _cpuBurnSpentSeconds.Value + CpuBurnRunSeconds > CpuBurnSessionBudgetSeconds;
 

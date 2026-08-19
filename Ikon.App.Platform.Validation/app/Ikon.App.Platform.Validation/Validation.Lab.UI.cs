@@ -78,7 +78,7 @@ public partial class Validation
 
             view.Text([Text.Display], cell.Counter.Value.ToString());
 
-            view.Row([Layout.Row.Md, "items-center mt-4"], content: view =>
+            view.Row([Layout.Row.Md, "items-center mt-4 flex-wrap"], content: view =>
             {
                 view.Button([Button.PrimaryMd], text: "+1", onClick: async () => { cell.Increment(1); });
                 view.Button([Button.PrimaryMd], text: "+5", onClick: async () => { cell.Increment(5); });
@@ -150,7 +150,7 @@ public partial class Validation
             // pushes the new value over the subscription, so the button must NOT await the remote
             // round-trip — awaiting it here blocks the handler (and the app's message loop while it
             // waits for the response), which is what made these buttons feel slow/frozen.
-            view.Row([Layout.Row.Md, "items-center mt-4"], content: view =>
+            view.Row([Layout.Row.Md, "items-center mt-4 flex-wrap"], content: view =>
             {
                 view.Button([Button.PrimaryMd], text: "+1",
                     onClick: async () => FireGlobalCommand(() => cell.IncrementAsync(1)));
@@ -212,7 +212,7 @@ public partial class Validation
             view.Text([Text.Caption], """POST { "Delta": <int> } to /api/lab/{workspace}/increment — Workspace identity comes from the URL path — Auth: public — Body: LabSnapshot""");
             RenderUrlDiagnostics(view, resolvedUrl, isRelay: false);
 
-            view.Row([Layout.Row.Md, "items-center mt-3"], content: view =>
+            view.Row([Layout.Row.Md, "items-center mt-3 flex-wrap"], content: view =>
             {
                 view.Button([Button.PrimaryMd],
                     text: _labRestInvoking.Value ? "Sending…" : "Send POST { Delta: 1 }",
@@ -241,7 +241,7 @@ public partial class Validation
             view.Text([Text.BodyStrong], "[HttpPost · grant] LabCell.IncrementSecureHttp");
             view.Text([Text.Caption], """The same surface behind Auth = Grant: the bare /api/lab/{workspace}/increment-secure 401s. Mint a URL with app.MintUrl — it pins the Workspace and embeds a signed ?ikon-grant= (decoded below).""");
 
-            view.Row([Layout.Row.Md, "items-center mt-3"], content: view =>
+            view.Row([Layout.Row.Md, "items-center mt-3 flex-wrap"], content: view =>
             {
                 view.Button([Button.OutlineMd], text: "Mint grant URL", onClick: async () => { await EnsureLabGrantUrlAsync(); });
 
@@ -288,9 +288,9 @@ public partial class Validation
                     "All of the cell's [Mcp] tools share this one endpoint. Workspace rides the query to " +
                     "target a keyed instance, same as the REST call.");
 
-                view.Row([Layout.Row.Md, "items-center mt-3"], content: view =>
+                view.Row([Layout.Row.Md, "items-center mt-3 flex-wrap"], content: view =>
                 {
-                    view.Button([Button.PrimaryMd],
+                    view.Button([Button.PrimaryMd, "h-auto whitespace-normal text-left"],
                         text: _labMcpInvoking.Value ? "Sending…" : "Call tools/call IncrementMcp {delta:1}",
                         disabled: _labMcpInvoking.Value,
                         onClick: InvokeLabMcpAsync);
@@ -330,7 +330,7 @@ public partial class Validation
             view.Text([Text.Caption], """POST { "Delta": <int> } — no Workspace query needed, identity is empty. The gateway reverse-proxies to the cell-host's relay URL (no client-visible redirect).""");
             RenderUrlDiagnostics(view, resolvedUrl, isRelay: false);
 
-            view.Row([Layout.Row.Md, "items-center mt-3"], content: view =>
+            view.Row([Layout.Row.Md, "items-center mt-3 flex-wrap"], content: view =>
             {
                 view.Button([Button.PrimaryMd],
                     text: _globalRestInvoking.Value ? "Sending…" : "Send POST { Delta: 1 }",
@@ -366,9 +366,9 @@ public partial class Validation
             {
                 RenderUrlDiagnostics(view, url, isRelay: false);
 
-                view.Row([Layout.Row.Md, "items-center mt-3"], content: view =>
+                view.Row([Layout.Row.Md, "items-center mt-3 flex-wrap"], content: view =>
                 {
-                    view.Button([Button.PrimaryMd],
+                    view.Button([Button.PrimaryMd, "h-auto whitespace-normal text-left"],
                         text: _globalMcpInvoking.Value ? "Sending…" : "Call tools/call IncrementGlobalMcp {delta:1}",
                         disabled: _globalMcpInvoking.Value,
                         onClick: InvokeGlobalMcpAsync);

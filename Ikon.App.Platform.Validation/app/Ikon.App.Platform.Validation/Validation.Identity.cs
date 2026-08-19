@@ -131,7 +131,7 @@ public partial class Validation
             style: [ContentGrid.Bordered],
             columns:
             [
-                new ContentGridColumn(null, "12rem"),
+                new ContentGridColumn(null, "8rem"),
                 new ContentGridColumn(null, Flex: 1),
             ],
             content: grid =>
@@ -139,7 +139,7 @@ public partial class Validation
                 foreach (var (label, value) in rows)
                 {
                     grid.Box([ContentGrid.CellMuted], content: cell => cell.Text([Text.Body], label));
-                    grid.Box([ContentGrid.Cell, "min-w-0 overflow-hidden"], content: value);
+                    grid.Box([ContentGrid.Cell, "min-w-0 break-words"], content: value);
                 }
             });
     }

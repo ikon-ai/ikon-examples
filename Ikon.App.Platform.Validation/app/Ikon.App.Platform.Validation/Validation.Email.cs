@@ -133,7 +133,7 @@ public partial class Validation
                         onValueChange: async v => _emailBody.Value = v ?? "");
                 });
 
-                view.Row([Layout.Row.InlineCenter], content: view =>
+                view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
                 {
                     view.Checkbox(
                         [Checkbox.Default],
@@ -142,7 +142,7 @@ public partial class Validation
                     view.Text([Text.Body], "Attach sample image (santa.jpg)");
                 });
 
-                view.Row([Layout.Row.Md, "items-center"], content: view =>
+                view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                 {
                     view.Button(
                         [Button.PrimaryMd],
@@ -262,7 +262,7 @@ public partial class Validation
         var id = email.Id;
         var isSelected = _selectedEmailId.Value == id;
 
-        view.Row([Layout.Row.Md, "items-center"], content: view =>
+        view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
         {
             view.Box([isSelected ? Card.Selected : Card.Interactive, "p-3 flex-1 min-w-0"],
                 onClick: async () => await LoadEmailDetailAsync(id),

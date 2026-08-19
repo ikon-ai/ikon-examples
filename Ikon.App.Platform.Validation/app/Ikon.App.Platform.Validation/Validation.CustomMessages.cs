@@ -176,7 +176,7 @@ public partial class Validation
                 view.Text([Text.BodySm, "text-tertiary mb-4"],
                     "A server-side loop streams the selected message type to THIS client at the chosen rate.");
 
-                view.Row([Layout.Row.InlineCenter, "mb-2"], content: view =>
+                view.Row([Layout.Row.InlineCenter, "mb-2 flex-wrap"], content: view =>
                 {
                     view.Text([Text.BodyStrong, "w-32"], "Mode");
                     view.Select(
@@ -190,7 +190,7 @@ public partial class Validation
                         onValueChange: async v => _tpStreamMode.Value = v);
                 });
 
-                view.Row([Layout.Row.InlineCenter, "mb-2"], content: view =>
+                view.Row([Layout.Row.InlineCenter, "mb-2 flex-wrap"], content: view =>
                 {
                     view.Text([Text.BodyStrong, "w-32"], "Rate (ms)");
                     view.TextField(
@@ -203,7 +203,7 @@ public partial class Validation
                         onValueChange: async v => _tpStreamRateMs.Value = v);
                 });
 
-                view.Row([Layout.Row.InlineCenter, "mb-3"], content: view =>
+                view.Row([Layout.Row.InlineCenter, "mb-3 flex-wrap"], content: view =>
                 {
                     view.Text([Text.BodyStrong, "w-32"], "Status");
                     view.Text([Text.Body], _tpStreamStatus.Value);
@@ -242,19 +242,19 @@ public partial class Validation
                 view.Text([Text.BodySm, "text-tertiary mb-4"],
                     "These update from the server's app.OnMessage<T> handler when you click Send above — proving the server received the browser-originated messages.");
 
-                view.Row([Layout.Row.InlineCenter, "mb-2"], content: view =>
+                view.Row([Layout.Row.InlineCenter, "mb-2 flex-wrap"], content: view =>
                 {
                     view.Text([Text.BodyStrong, "w-48"], "Reliable received");
                     view.Text([Text.Body], _tpFromClientReliable.Value.ToString());
                 });
 
-                view.Row([Layout.Row.InlineCenter, "mb-2"], content: view =>
+                view.Row([Layout.Row.InlineCenter, "mb-2 flex-wrap"], content: view =>
                 {
                     view.Text([Text.BodyStrong, "w-48"], "Unreliable received");
                     view.Text([Text.Body], _tpFromClientUnreliable.Value.ToString());
                 });
 
-                view.Row([Layout.Row.InlineCenter], content: view =>
+                view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
                 {
                     view.Text([Text.BodyStrong, "w-48"], "Last");
                     view.Text([Text.Body], _tpLastFromClient.Value);

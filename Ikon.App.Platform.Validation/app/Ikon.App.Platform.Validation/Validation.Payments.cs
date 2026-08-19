@@ -124,9 +124,9 @@ public partial class Validation
                 {
                     var offerId = offer.OfferId;
                     var price = offer.Prices.FirstOrDefault();
-                    card.Row([Card.Default, "p-3 items-center justify-between"], key: $"offer-{offerId}", content: r =>
+                    card.Row([Card.Default, "p-3 items-center justify-between gap-3 flex-wrap"], key: $"offer-{offerId}", content: r =>
                     {
-                        r.Column([Layout.Column.Xs], content: c =>
+                        r.Column([Layout.Column.Xs, "min-w-0"], content: c =>
                         {
                             c.Text([Text.Body, "font-medium"], text: offer.Name);
                             c.Row(["gap-4 flex-wrap"], content: facts =>
@@ -136,7 +136,7 @@ public partial class Validation
                                 RenderOfferFact(facts, "Amount", price is null ? "—" : $"{price.AmountMinor / 100.0:0.00} {price.Currency.ToUpperInvariant()}" + (price.Kind == PriceKind.Recurring ? $" / {IntervalLabel(price)}" : ""));
                             });
                         });
-                        r.Row([Layout.Row.Xs], content: actions =>
+                        r.Row([Layout.Row.Xs, "flex-wrap"], content: actions =>
                         {
                             actions.Button([Button.PrimarySm], text: "Take payment", disabled: _payBusy.Value, onClick: () => PayAsync(offerId));
                             actions.Button([Button.PrimarySm], text: "Remove", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
@@ -153,7 +153,7 @@ public partial class Validation
                 {
                     btns.Button([Button.PrimarySm], text: "Refresh offers", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(RefreshOffersAsync));
                     btns.Button([Button.PrimarySm], text: "Create validation offers", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(CreateValidationOffersAsync));
-                    btns.Row([Layout.Row.InlineCenter], content: promo =>
+                    btns.Row([Layout.Row.InlineCenter, "flex-wrap"], content: promo =>
                     {
                         promo.Switch([Switch.Default], bind: _payAllowPromo, props: TestId("pay-allow-promo"),
                             content: v => v.SwitchThumb([Switch.Thumb]));
@@ -275,12 +275,12 @@ public partial class Validation
                         var isSimulated = id.StartsWith(SimulatedSubscriptionPrefix, StringComparison.Ordinal);
                         card.Row([Card.Default, "p-3 items-center justify-between"], key: $"sub-{id}", content: r =>
                         {
-                            r.Column([Layout.Column.Xs], content: c =>
+                            r.Column([Layout.Column.Xs, "min-w-0"], content: c =>
                             {
                                 c.Text([Text.Body, "font-medium"], text: OfferLabel(sub.OfferId) ?? "Subscription");
                                 c.Text([Text.Caption], text: $"{id} · {sub.Status}" + (sub.CurrentPeriodEnd is { } d ? $" · {(sub.CancelAtPeriodEnd ? "ends" : "renews")} {d:yyyy-MM-dd}" : "") + (isSimulated ? " · simulated" : ""));
                             });
-                            r.Row([Layout.Row.Xs], content: actions =>
+                            r.Row([Layout.Row.Xs, "flex-wrap"], content: actions =>
                             {
                                 if (isSimulated)
                                 {
@@ -334,12 +334,12 @@ public partial class Validation
                         var paidFor = OfferLabel(pay.OfferId) ?? (pay.Kind == PaymentKind.Subscription ? "Subscription payment" : "Custom charge");
                         card.Row([Card.Default, "p-3 items-center justify-between"], key: $"pay-{id}", content: r =>
                         {
-                            r.Column([Layout.Column.Xs], content: c =>
+                            r.Column([Layout.Column.Xs, "min-w-0"], content: c =>
                             {
                                 c.Text([Text.Body, "font-medium"], text: $"{paidFor} — {pay.AmountMinor / 100.0:0.00} {pay.Currency.ToUpperInvariant()}");
                                 c.Text([Text.Caption], text: $"{pay.Status}" + (pay.CreatedAt is { } d ? $" · {d:yyyy-MM-dd}" : "") + (pay.OfferId is { } payOfferId ? $" · {payOfferId}" : ""));
                             });
-                            r.Row([Layout.Row.Xs], content: actions =>
+                            r.Row([Layout.Row.Xs, "flex-wrap"], content: actions =>
                             {
                                 actions.Button([Button.PrimarySm], text: "Receipt", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(() => RequestReceiptAsync(id)));
                                 actions.Button([Button.PrimarySm], text: "Refund", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
@@ -482,10 +482,10 @@ public partial class Validation
 
     private static void RenderOfferFact(UIView view, string label, string value)
     {
-        view.Row(["gap-1 items-baseline"], content: fact =>
+        view.Row(["gap-1 items-baseline min-w-0"], content: fact =>
         {
             fact.Text([Text.Caption, "text-tertiary"], text: $"{label}:");
-            fact.Text([Text.Caption], text: value);
+            fact.Text([Text.Caption, "min-w-0 break-all"], text: value);
         });
     }
 

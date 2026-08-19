@@ -388,7 +388,7 @@ public partial class Validation
                         onValueChange: async v => _classifierInput.Value = v ?? "");
                 });
 
-                view.Row([Layout.Row.Md, "items-center"], content: view =>
+                view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                 {
                     view.Button(
                         [Button.PrimaryMd],
@@ -496,7 +496,7 @@ public partial class Validation
                         onValueChange: async v => _embeddingInput.Value = v ?? "");
                 });
 
-                view.Row([Layout.Row.Md, "items-center"], content: view =>
+                view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                 {
                     view.Button(
                         [Button.PrimaryMd],
@@ -605,7 +605,7 @@ public partial class Validation
                         });
                 });
 
-                view.Row([Layout.Row.Md, "items-center"], content: view =>
+                view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                 {
                     view.Button(
                         [Button.PrimaryMd],
@@ -712,7 +712,7 @@ public partial class Validation
                         onValueChange: async v => _webScraperOutputFormat.Value = v ?? _webScraperOutputFormat.Value);
                 });
 
-                view.Row([Layout.Row.Md, "items-center"], content: view =>
+                view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                 {
                     view.Button(
                         [Button.PrimaryMd],
@@ -813,7 +813,7 @@ public partial class Validation
                         onValueChange: async v => _rerankerDocuments.Value = v ?? "");
                 });
 
-                view.Row([Layout.Row.Md, "items-center"], content: view =>
+                view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                 {
                     view.Button(
                         [Button.PrimaryMd],
@@ -922,7 +922,7 @@ public partial class Validation
                         onValueChange: async v => _imageGeneratorNegativePrompt.Value = v ?? "");
                 });
 
-                view.Row([Layout.Row.Md], content: view =>
+                view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Box([FormField.Root, "flex-1"], content: view =>
                     {
@@ -973,7 +973,7 @@ public partial class Validation
                     });
                 });
 
-                view.Row([Layout.Row.Md], content: view =>
+                view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Box([FormField.Root, "flex-1"], content: view =>
                     {
@@ -1010,7 +1010,7 @@ public partial class Validation
                     });
                 });
 
-                view.Row([Layout.Row.Md], content: view =>
+                view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Box([FormField.Root, "flex-1"], content: view =>
                     {
@@ -1038,7 +1038,7 @@ public partial class Validation
                     });
                 });
 
-                view.Row([Layout.Row.InlineCenter], content: view =>
+                view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
                 {
                     view.Checkbox(
                         [Checkbox.Default],
@@ -1077,7 +1077,7 @@ public partial class Validation
 
                     if (!string.IsNullOrEmpty(_imageGeneratorInputImageName.Value))
                     {
-                        view.Row([Layout.Row.InlineCenter, "mt-2"], content: view =>
+                        view.Row([Layout.Row.InlineCenter, "mt-2 flex-wrap"], content: view =>
                         {
                             view.Text([Text.Caption], _imageGeneratorInputImageName.Value);
                             view.Button(
@@ -1093,7 +1093,7 @@ public partial class Validation
                     }
                 });
 
-                view.Row([Layout.Row.Md, "items-center"], content: view =>
+                view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                 {
                     view.Button(
                         [Button.PrimaryMd],
@@ -1247,7 +1247,7 @@ public partial class Validation
                         onValueChange: async v => _musicPrompt.Value = v ?? "");
                 });
 
-                view.Row([Layout.Row.Md], content: view =>
+                view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Box([FormField.Root, "flex-1"], content: view =>
                     {
@@ -1320,7 +1320,7 @@ public partial class Validation
 
                     if (!string.IsNullOrEmpty(_musicInputAudioName.Value))
                     {
-                        view.Row([Layout.Row.InlineCenter, "mt-2"], content: view =>
+                        view.Row([Layout.Row.InlineCenter, "mt-2 flex-wrap"], content: view =>
                         {
                             view.Text([Text.Caption], _musicInputAudioName.Value);
                             view.Button(
@@ -1336,7 +1336,7 @@ public partial class Validation
                     }
                 });
 
-                view.Row([Layout.Row.Md, "items-center"], content: view =>
+                view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                 {
                     view.Button(
                         [Button.PrimaryMd],
@@ -1513,7 +1513,7 @@ public partial class Validation
                         onValueChange: async v => _speechGeneratorText.Value = v ?? "");
                 });
 
-                view.Row([Layout.Row.Md], content: view =>
+                view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Box([FormField.Root, "flex-1"], content: view =>
                     {
@@ -1547,7 +1547,7 @@ public partial class Validation
                         onValueChange: async v => _speechGeneratorInstructions.Value = v ?? "");
                 });
 
-                view.Row([Layout.Row.Md, "items-center"], content: view =>
+                view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                 {
                     view.Button(
                         [Button.PrimaryMd],
@@ -1695,7 +1695,7 @@ public partial class Validation
                         onValueChange: async v => _speechRecognizerLanguage.Value = v ?? "");
                 });
 
-                view.Row([Layout.Row.InlineCenter, "mb-4"], content: view =>
+                view.Row([Layout.Row.InlineCenter, "mb-4 flex-wrap"], content: view =>
                 {
                     view.Switch(
                         [Switch.Default],
@@ -1718,7 +1718,7 @@ public partial class Validation
 
                 if (isContinuous)
                 {
-                    view.Row([Layout.Row.Md, "items-center"], content: view =>
+                    view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                     {
                         view.CaptureButton(
                             [_speechRecognizerRecording.Value ? Button.ErrorMd : Button.PrimaryMd],
@@ -1764,7 +1764,7 @@ public partial class Validation
                 }
                 else
                 {
-                    view.Row([Layout.Row.Md, "items-center"], content: view =>
+                    view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                     {
                         view.CaptureButton(
                             [_speechRecognizerRecording.Value ? Button.ErrorMd : Button.PrimaryMd],
@@ -2008,7 +2008,7 @@ public partial class Validation
                         });
                     });
 
-                view.Row([Layout.Row.Md, "mt-4 items-center"], content: view =>
+                view.Row([Layout.Row.Md, "mt-4 items-center flex-wrap"], content: view =>
                 {
                     view.Button(
                         [Button.PrimaryMd],
@@ -2181,7 +2181,7 @@ public partial class Validation
                         });
                     });
 
-                view.Row([Layout.Row.Md, "mt-4 items-center"], content: view =>
+                view.Row([Layout.Row.Md, "mt-4 items-center flex-wrap"], content: view =>
                 {
                     view.Button(
                         [Button.PrimaryMd],
@@ -2319,7 +2319,7 @@ public partial class Validation
                     });
                 }
 
-                view.Row([Layout.Row.Md], content: view =>
+                view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Box([FormField.Root, "flex-1"], content: view =>
                     {
@@ -2377,7 +2377,7 @@ public partial class Validation
 
                 if (videoCapabilities.SupportsAudio)
                 {
-                    view.Row([Layout.Row.InlineCenter], content: view =>
+                    view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
                     {
                         view.Checkbox(
                             [Checkbox.Default],
@@ -2419,7 +2419,7 @@ public partial class Validation
 
                         if (!string.IsNullOrEmpty(_videoGeneratorInputImageName.Value))
                         {
-                            view.Row([Layout.Row.InlineCenter, "mt-2"], content: view =>
+                            view.Row([Layout.Row.InlineCenter, "mt-2 flex-wrap"], content: view =>
                             {
                                 view.Text([Text.Caption], _videoGeneratorInputImageName.Value);
                                 view.Button(
@@ -2436,7 +2436,7 @@ public partial class Validation
                     });
                 }
 
-                view.Row([Layout.Row.Md, "items-center"], content: view =>
+                view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                 {
                     view.Button(
                         [Button.PrimaryMd],
@@ -2573,7 +2573,7 @@ public partial class Validation
                         onValueChange: async v => _soundEffectPrompt.Value = v ?? "");
                 });
 
-                view.Row([Layout.Row.Md], content: view =>
+                view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Box([FormField.Root, "flex-1"], content: view =>
                     {
@@ -2611,7 +2611,7 @@ public partial class Validation
 
                 if (sfxCapabilities.SupportsLooping)
                 {
-                    view.Row([Layout.Row.InlineCenter], content: view =>
+                    view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
                     {
                         view.Checkbox(
                             [Checkbox.Default],
@@ -2621,7 +2621,7 @@ public partial class Validation
                     });
                 }
 
-                view.Row([Layout.Row.Md, "items-center"], content: view =>
+                view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                 {
                     view.Button(
                         [Button.PrimaryMd],
@@ -2742,7 +2742,7 @@ public partial class Validation
                         onValueChange: async v => _videoEnhancerVideoUrl.Value = v ?? "");
                 });
 
-                view.Row([Layout.Row.Md], content: view =>
+                view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Box([FormField.Root, "flex-1"], content: view =>
                     {
@@ -2793,7 +2793,7 @@ public partial class Validation
                     });
                 });
 
-                view.Row([Layout.Row.Md, "items-center"], content: view =>
+                view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                 {
                     view.Button(
                         [Button.PrimaryMd],
@@ -2998,7 +2998,7 @@ public partial class Validation
                         });
                     });
 
-                view.Row([Layout.Row.Md, "mt-4 items-center"], content: view =>
+                view.Row([Layout.Row.Md, "mt-4 items-center flex-wrap"], content: view =>
                 {
                     view.Button(
                         [Button.PrimaryMd],
@@ -3133,7 +3133,7 @@ public partial class Validation
 
             view.Column([Layout.Column.Md], content: view =>
             {
-                view.Row([Layout.Row.Md], content: view =>
+                view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Box([FormField.Root, "flex-1"], content: view =>
                     {
@@ -3202,7 +3202,7 @@ public partial class Validation
                         });
                     });
 
-                view.Row([Layout.Row.Md, "mt-4 items-center"], content: view =>
+                view.Row([Layout.Row.Md, "mt-4 items-center flex-wrap"], content: view =>
                 {
                     view.Button(
                         [Button.PrimaryMd],
@@ -3342,7 +3342,7 @@ public partial class Validation
                         });
                     });
 
-                view.Row([Layout.Row.Md, "mt-4 items-center"], content: view =>
+                view.Row([Layout.Row.Md, "mt-4 items-center flex-wrap"], content: view =>
                 {
                     view.Button(
                         [Button.PrimaryMd],
@@ -3462,7 +3462,7 @@ public partial class Validation
                         onValueChange: async v => _meshGeneratorPrompt.Value = v ?? "");
                 });
 
-                view.Row([Layout.Row.InlineCenter], content: view =>
+                view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
                 {
                     view.Checkbox(
                         [Checkbox.Default],
@@ -3501,7 +3501,7 @@ public partial class Validation
 
                     if (!string.IsNullOrEmpty(_meshGeneratorInputImageName.Value))
                     {
-                        view.Row([Layout.Row.InlineCenter, "mt-2"], content: view =>
+                        view.Row([Layout.Row.InlineCenter, "mt-2 flex-wrap"], content: view =>
                         {
                             view.Text([Text.Caption], _meshGeneratorInputImageName.Value);
                             view.Button(
@@ -3517,7 +3517,7 @@ public partial class Validation
                     }
                 });
 
-                view.Row([Layout.Row.Md, "items-center"], content: view =>
+                view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                 {
                     view.Button(
                         [Button.PrimaryMd],

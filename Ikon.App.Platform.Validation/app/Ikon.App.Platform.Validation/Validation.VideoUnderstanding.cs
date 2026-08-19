@@ -64,7 +64,7 @@ public partial class Validation
                         });
                     });
 
-                view.Row([Layout.Row.Md, "mt-4 items-center"], content: view =>
+                view.Row([Layout.Row.Md, "mt-4 items-center flex-wrap"], content: view =>
                 {
                     view.Button(
                         [Button.PrimaryMd],

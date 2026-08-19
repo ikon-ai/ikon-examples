@@ -45,13 +45,13 @@ public partial class Validation
                         view.Text([Text.Caption, "mb-2"], tool.Description);
 
                         view.Text([Text.Caption, "mt-2"], "inputSchema:");
-                        view.Box(["bg-surface rounded p-2 mt-1"], content: v =>
+                        view.Box(["bg-surface rounded p-2 mt-1 overflow-x-auto"], content: v =>
                             v.Text([Text.Caption, "font-mono whitespace-pre"], PrettyJson(tool.InputSchema)));
 
                         if (tool.OutputSchema is { } outSchema)
                         {
                             view.Text([Text.Caption, "mt-2"], "outputSchema:");
-                            view.Box(["bg-surface rounded p-2 mt-1"], content: v =>
+                            view.Box(["bg-surface rounded p-2 mt-1 overflow-x-auto"], content: v =>
                                 v.Text([Text.Caption, "font-mono whitespace-pre"], PrettyJson(outSchema)));
                         }
                     });
@@ -82,7 +82,7 @@ public partial class Validation
                         onValueChange: async v => _mcpArgsJson.Value = v ?? "");
                 });
 
-                view.Row([Layout.Row.Md, "items-center mt-3"], content: view =>
+                view.Row([Layout.Row.Md, "items-center mt-3 flex-wrap"], content: view =>
                 {
                     view.Button(
                         [Button.PrimaryMd],
@@ -113,7 +113,7 @@ public partial class Validation
                     "Mints a 15-minute bearer token for YOU, bound to this app's /api/mcp endpoint. Send it as "
                     + "Authorization: Bearer <token> to call McpWhoAmI, which runs inside your own UserScope.");
 
-                view.Row([Layout.Row.Md, "items-center"], content: view =>
+                view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                 {
                     view.Button(
                         [Button.PrimaryMd],

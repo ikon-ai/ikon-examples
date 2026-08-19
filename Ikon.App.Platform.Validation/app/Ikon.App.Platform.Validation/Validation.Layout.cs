@@ -390,7 +390,7 @@ public partial class Validation
                     view.Text([Text.Caption, "mb-3"], "Classic nav layout.");
                     view.Box(["h-40 rounded-lg overflow-hidden border border-secondary flex flex-row min-h-0"], content: view =>
                     {
-                        view.Box([Layout.Split.Sidebar, "bg-surface border-r border-secondary p-2"], content: view =>
+                        view.Box([Layout.Split.Sidebar, "w-32 sm:w-56 bg-surface border-r border-secondary p-2"], content: view =>
                         {
                             view.Text([Text.Caption, "text-tertiary mb-3"], "Sidebar");
                             view.Column(["gap-0.5"], content: view =>
@@ -419,7 +419,7 @@ public partial class Validation
                             view.Text([Text.Caption, "text-tertiary mb-1"], "Main content");
                             view.Text([Text.Small, "text-quaternary"], "flex-1 min-w-0");
                         });
-                        view.Box([Layout.Split.Detail, "bg-surface p-3"], content: view =>
+                        view.Box([Layout.Split.Detail, "w-28 sm:w-72 bg-surface p-3"], content: view =>
                         {
                             view.Text([Text.Caption, "text-tertiary mb-1"], "Detail panel");
                             view.Text([Text.Small, "text-quaternary"], "w-72 shrink-0");
@@ -433,7 +433,7 @@ public partial class Validation
                     view.Text([Text.Caption, "mb-3"], "Full IDE / dashboard layout.");
                     view.Box(["h-40 rounded-lg overflow-hidden border border-secondary flex flex-row min-h-0"], content: view =>
                     {
-                        view.Box([Layout.Split.SidebarSm, "bg-surface border-r border-secondary p-2"], content: view =>
+                        view.Box([Layout.Split.SidebarSm, "w-24 sm:w-48 bg-surface border-r border-secondary p-2"], content: view =>
                         {
                             view.Text([Text.Caption, "text-tertiary mb-1"], "Sidebar");
                             view.Text([Text.Small, "text-quaternary"], "w-48");
@@ -443,7 +443,7 @@ public partial class Validation
                             view.Text([Text.Caption, "text-tertiary mb-1"], "Main");
                             view.Text([Text.Small, "text-quaternary"], "flex-1");
                         });
-                        view.Box([Layout.Split.Detail, "bg-surface p-3"], content: view =>
+                        view.Box([Layout.Split.Detail, "w-28 sm:w-72 bg-surface p-3"], content: view =>
                         {
                             view.Text([Text.Caption, "text-tertiary mb-1"], "Detail");
                             view.Text([Text.Small, "text-quaternary"], "w-72");
@@ -459,7 +459,7 @@ public partial class Validation
                     {
                         if (_splitSidebarOpen.Value)
                         {
-                            view.Box([Layout.Split.Sidebar, "bg-surface border-r border-secondary p-2"], content: view =>
+                            view.Box([Layout.Split.Sidebar, "w-32 sm:w-56 bg-surface border-r border-secondary p-2"], content: view =>
                             {
                                 view.Text([Text.Caption, "text-tertiary mb-3"], "Sidebar");
                                 view.Column(["gap-0.5"], content: view =>

@@ -173,15 +173,17 @@ export function createFunctionTesterResolver(): IkonUiComponentResolver {
 }
 
 const cardStyle: React.CSSProperties = {
-  border: '1px solid hsl(var(--border))',
+  border: '1px solid var(--border-border)',
   borderRadius: '0.5rem',
   overflow: 'hidden',
+  background: 'var(--bg-card)',
+  minWidth: 0,
 };
 
 const cardHeaderStyle: React.CSSProperties = {
   padding: '0.75rem 1rem',
-  borderBottom: '1px solid hsl(var(--border))',
-  background: 'hsl(var(--muted))',
+  borderBottom: '1px solid var(--border-border)',
+  background: 'var(--bg-surface)',
   display: 'flex',
   flexDirection: 'column',
   gap: '0.25rem',
@@ -195,7 +197,7 @@ const fnNameStyle: React.CSSProperties = {
 
 const fnDescStyle: React.CSSProperties = {
   fontSize: '0.8rem',
-  color: 'hsl(var(--muted-foreground))',
+  color: 'var(--text-quaternary)',
 };
 
 const cardBodyStyle: React.CSSProperties = {
@@ -207,19 +209,23 @@ const cardBodyStyle: React.CSSProperties = {
 
 const argsRowStyle: React.CSSProperties = {
   display: 'flex',
-  alignItems: 'center',
+  alignItems: 'baseline',
+  flexWrap: 'wrap',
   gap: '0.5rem',
   fontSize: '0.85rem',
+  minWidth: 0,
 };
 
 const labelStyle: React.CSSProperties = {
   fontWeight: 500,
-  color: 'hsl(var(--muted-foreground))',
+  color: 'var(--text-quaternary)',
 };
 
 const codeStyle: React.CSSProperties = {
   fontSize: '0.8rem',
-  background: 'hsl(var(--muted))',
+  minWidth: 0,
+  wordBreak: 'break-all',
+  background: 'var(--bg-muted)',
   padding: '0.15rem 0.4rem',
   borderRadius: '0.25rem',
   fontFamily: 'monospace',
@@ -235,8 +241,8 @@ const buttonStyle: React.CSSProperties = {
   padding: '0.4rem 1rem',
   borderRadius: '0.375rem',
   border: 'none',
-  background: 'hsl(var(--primary))',
-  color: 'hsl(var(--primary-foreground))',
+  background: 'var(--bg-brand-solid)',
+  color: 'var(--text-white)',
   cursor: 'pointer',
   fontSize: '0.85rem',
   fontWeight: 500,
@@ -249,7 +255,7 @@ const buttonDisabledStyle: React.CSSProperties = {
 };
 
 const successResultStyle: React.CSSProperties = {
-  background: 'hsl(var(--muted))',
+  background: 'var(--bg-muted)',
   borderRadius: '0.375rem',
   padding: '0.5rem 0.75rem',
   fontSize: '0.85rem',
@@ -257,8 +263,9 @@ const successResultStyle: React.CSSProperties = {
 
 const errorResultStyle: React.CSSProperties = {
   ...successResultStyle,
-  background: 'hsl(var(--destructive) / 0.1)',
-  border: '1px solid hsl(var(--destructive) / 0.3)',
+  background: 'var(--bg-error-primary)',
+  border: '1px solid var(--border-error)',
+  color: 'var(--text-error-primary)',
 };
 
 const resultHeaderStyle: React.CSSProperties = {
@@ -270,7 +277,7 @@ const resultHeaderStyle: React.CSSProperties = {
 };
 
 const timingStyle: React.CSSProperties = {
-  color: 'hsl(var(--muted-foreground))',
+  color: 'var(--text-quaternary)',
   fontSize: '0.75rem',
 };
 
@@ -286,19 +293,21 @@ const toolbarStyle: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
+  flexWrap: 'wrap',
+  gap: '0.5rem',
   marginBottom: '0.75rem',
 };
 
 const countStyle: React.CSSProperties = {
   fontSize: '0.85rem',
-  color: 'hsl(var(--muted-foreground))',
+  color: 'var(--text-quaternary)',
 };
 
 const refreshButtonStyle: React.CSSProperties = {
   padding: '0.3rem 0.75rem',
   borderRadius: '0.375rem',
-  border: '1px solid hsl(var(--border))',
-  background: 'transparent',
+  border: '1px solid var(--border-border)',
+  background: 'var(--bg-card)',
   cursor: 'pointer',
   fontSize: '0.8rem',
 };
@@ -306,14 +315,14 @@ const refreshButtonStyle: React.CSSProperties = {
 const emptyStyle: React.CSSProperties = {
   textAlign: 'center',
   padding: '2rem',
-  color: 'hsl(var(--muted-foreground))',
+  color: 'var(--text-quaternary)',
   fontSize: '0.9rem',
 };
 
 const linkButtonStyle: React.CSSProperties = {
   background: 'none',
   border: 'none',
-  color: 'hsl(var(--primary))',
+  color: 'var(--text-brand-primary)',
   cursor: 'pointer',
   textDecoration: 'underline',
   fontSize: 'inherit',
@@ -322,6 +331,6 @@ const linkButtonStyle: React.CSSProperties = {
 
 const gridStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(min(350px, 100%), 1fr))',
   gap: '0.75rem',
 };

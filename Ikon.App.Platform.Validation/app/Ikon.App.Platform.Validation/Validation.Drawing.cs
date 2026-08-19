@@ -66,7 +66,7 @@ public partial class Validation
                     // Row 2: brush size + colors
                     rows.Row(["flex flex-row flex-wrap items-center gap-3"], content: row2 =>
                     {
-                        row2.Row([Layout.Row.Xs, "items-center gap-1"], content: brushRow =>
+                        row2.Row([Layout.Row.Xs, "items-center gap-1 flex-wrap"], content: brushRow =>
                         {
                             brushRow.Text([Text.Caption, "text-tertiary whitespace-nowrap mr-1"], "Brush");
                             foreach (var size in DrawingBrushSizes)
@@ -96,7 +96,7 @@ public partial class Validation
                     // Row 3: zoom + history + save
                     rows.Row(["flex flex-row flex-wrap items-center gap-3"], content: row3 =>
                     {
-                        row3.Row([Layout.Row.Xs, "items-center gap-1"], content: zoomRow =>
+                        row3.Row([Layout.Row.Xs, "items-center gap-1 flex-wrap"], content: zoomRow =>
                         {
                             zoomRow.Button([Button.NeutralSm, Button.Icon], text: "Zoom out",
                                 onClick: async () => _drawingZoom.Value = Math.Max(0.5, _drawingZoom.Value - 0.25),
@@ -111,7 +111,7 @@ public partial class Validation
 
                         row3.Box(["w-px h-8 bg-secondary"]);
 
-                        row3.Row([Layout.Row.Xs, "items-center gap-1"], content: histRow =>
+                        row3.Row([Layout.Row.Xs, "items-center gap-1 flex-wrap"], content: histRow =>
                         {
                             histRow.Button([Button.NeutralSm, Button.Icon], text: "Undo",
                                 disabled: !_drawingCanUndo.Value,
@@ -179,7 +179,7 @@ public partial class Validation
                 {
                     savedCard.Column([Layout.Column.Sm], content: c =>
                     {
-                        c.Row([Layout.Row.SpaceBetween, "items-center"], content: header =>
+                        c.Row([Layout.Row.SpaceBetween, "items-center flex-wrap"], content: header =>
                         {
                             header.Text([Text.Label], "Last saved image");
                             header.Button([Button.GhostSm],

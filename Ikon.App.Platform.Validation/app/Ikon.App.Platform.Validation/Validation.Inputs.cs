@@ -266,7 +266,7 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "Checkbox");
                 view.Column([Layout.Column.Md], content: view =>
                 {
-                    view.Row([Layout.Row.Sm], content: view =>
+                    view.Row([Layout.Row.Sm, "flex-wrap"], content: view =>
                     {
                         view.Checkbox([Checkbox.Root],
                             value: _checkboxChecked.Value,
@@ -275,7 +275,7 @@ public partial class Validation
                         view.Label([Label.Base], content: v => v.Text(text: "Unchecked/Checked"));
                     });
 
-                    view.Row([Layout.Row.Sm], content: view =>
+                    view.Row([Layout.Row.Sm, "flex-wrap"], content: view =>
                     {
                         view.TriStateCheckbox([Checkbox.Root],
                             value: CheckedState.Indeterminate,
@@ -283,7 +283,7 @@ public partial class Validation
                         view.Label([Label.Base], content: v => v.Text(text: "Indeterminate"));
                     });
 
-                    view.Row([Layout.Row.Sm], content: view =>
+                    view.Row([Layout.Row.Sm, "flex-wrap"], content: view =>
                     {
                         view.Checkbox([Checkbox.Root],
                             value: true, disabled: true,
@@ -299,7 +299,7 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "Switch");
                 view.Column([Layout.Column.Md], content: view =>
                 {
-                    view.Row([Layout.Row.Sm], content: view =>
+                    view.Row([Layout.Row.Sm, "flex-wrap"], content: view =>
                     {
                         view.Switch([Switch.Root],
                             value: _switchChecked.Value,
@@ -307,14 +307,14 @@ public partial class Validation
                         view.Label([Label.Base], content: v => v.Text(text: _switchChecked.Value ? "On" : "Off"));
                     });
 
-                    view.Row([Layout.Row.Sm], content: view =>
+                    view.Row([Layout.Row.Sm, "flex-wrap"], content: view =>
                     {
                         view.Switch([Switch.Root],
                             value: true, disabled: true, content: view => view.SwitchThumb([Switch.Thumb]));
                         view.Label([Label.Base, "opacity-50"], content: v => v.Text(text: "Disabled on"));
                     });
 
-                    view.Row([Layout.Row.Sm], content: view =>
+                    view.Row([Layout.Row.Sm, "flex-wrap"], content: view =>
                     {
                         view.Switch([Switch.Root],
                             value: false, disabled: true, content: view => view.SwitchThumb([Switch.Thumb]));
@@ -331,19 +331,19 @@ public partial class Validation
                     value: _radioValue.Value,
                     onValueChange: async v => _radioValue.Value = v ?? "option1", content: view =>
                     {
-                        view.Row([Layout.Row.Sm], content: view =>
+                        view.Row([Layout.Row.Sm, "flex-wrap"], content: view =>
                         {
                             view.RadioGroupItem([RadioGroup.Item],
                                 value: "option1", content: v => v.RadioGroupIndicator([RadioGroup.Indicator]));
                             view.Label([Label.Base], content: v => v.Text(text: "Option 1"));
                         });
-                        view.Row([Layout.Row.Sm], content: view =>
+                        view.Row([Layout.Row.Sm, "flex-wrap"], content: view =>
                         {
                             view.RadioGroupItem([RadioGroup.Item],
                                 value: "option2", content: v => v.RadioGroupIndicator([RadioGroup.Indicator]));
                             view.Label([Label.Base], content: v => v.Text(text: "Option 2"));
                         });
-                        view.Row([Layout.Row.Sm], content: view =>
+                        view.Row([Layout.Row.Sm, "flex-wrap"], content: view =>
                         {
                             view.RadioGroupItem([RadioGroup.Item],
                                 value: "option3", content: v => v.RadioGroupIndicator([RadioGroup.Indicator]));
@@ -362,19 +362,19 @@ public partial class Validation
                     orientation: Orientation.Horizontal,
                     onValueChange: async v => _radioHorizontalValue.Value = v ?? "h-opt1", content: view =>
                     {
-                        view.Row([Layout.Row.Sm], content: view =>
+                        view.Row([Layout.Row.Sm, "flex-wrap"], content: view =>
                         {
                             view.RadioGroupItem([RadioGroup.Item],
                                 value: "h-opt1", content: v => v.RadioGroupIndicator([RadioGroup.Indicator]));
                             view.Label([Label.Base], content: v => v.Text(text: "Small"));
                         });
-                        view.Row([Layout.Row.Sm], content: view =>
+                        view.Row([Layout.Row.Sm, "flex-wrap"], content: view =>
                         {
                             view.RadioGroupItem([RadioGroup.Item],
                                 value: "h-opt2", content: v => v.RadioGroupIndicator([RadioGroup.Indicator]));
                             view.Label([Label.Base], content: v => v.Text(text: "Medium"));
                         });
-                        view.Row([Layout.Row.Sm], content: view =>
+                        view.Row([Layout.Row.Sm, "flex-wrap"], content: view =>
                         {
                             view.RadioGroupItem([RadioGroup.Item],
                                 value: "h-opt3", content: v => v.RadioGroupIndicator([RadioGroup.Indicator]));
@@ -419,7 +419,7 @@ public partial class Validation
             {
                 view.Text([Text.H2, "mb-4"], "Slider - Vertical");
                 view.Text([Text.Caption, "mb-4"], "Vertical slider orientation");
-                view.Row([Layout.Row.Lg, "h-48"], content: view =>
+                view.Row([Layout.Row.Lg, "h-48 flex-wrap"], content: view =>
                 {
                     view.Column(["items-center w-12"], content: view =>
                     {
@@ -689,7 +689,7 @@ public partial class Validation
                         format: ColorFormat.Hex,
                         presets: ["#ef4444", "#f97316", "#eab308", "#22c55e", "#14b8a6", "#3b82f6", "#6366f1", "#9d76ed"],
                         onValueChange: async v => _colorPickerValue.Value = v ?? "#000000");
-                    view.Row([Layout.Row.Sm], content: v =>
+                    view.Row([Layout.Row.Sm, "flex-wrap"], content: v =>
                     {
                         v.Text([Text.Caption], $"Hex: {_colorPickerValue.Value}");
                     });
@@ -886,7 +886,7 @@ public partial class Validation
                         onMuteChange: async m => _feedMuted.Value = m);
                 });
 
-                view.Row([Layout.Row.Md, "mt-3"], content: v =>
+                view.Row([Layout.Row.Md, "mt-3 flex-wrap"], content: v =>
                 {
                     v.Text([Text.Caption], $"Active: {_feedActiveIndex.Value + 1}");
                     v.Text([Text.Caption], $"Pages loaded: {_feedPagesLoaded.Value}");
@@ -941,6 +941,36 @@ public partial class Validation
                             view.Text([Text.Caption], $"Last scoped key: {_scopedKeyDownEvent.Value}");
                         });
                     });
+            });
+
+            // Themed defaults - every component below is written bare, with no slot styles
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "Themed defaults");
+                view.Text([Text.Caption, "mb-4"], "No explicit styles are passed; each part must still carry its theme");
+                view.Column([Layout.Column.Lg], content: view =>
+                {
+                    view.Text([Text.Body], "DatePicker");
+                    view.DatePicker(placeholder: "Select a date");
+
+                    view.Text([Text.Body], "TimePicker");
+                    view.TimePicker();
+
+                    view.Text([Text.Body], "ColorPicker");
+                    view.ColorPicker();
+
+                    view.Text([Text.Body], "Calendar");
+                    view.Calendar();
+
+                    view.Text([Text.Body], "RichTextEditor");
+                    view.RichTextEditor(placeholder: "Write something…");
+
+                    view.Text([Text.Body], "CodeEditor");
+                    view.CodeEditor(language: "csharp", defaultValue: "var x = 1;");
+
+                    view.Text([Text.Body], "FileUpload");
+                    view.FileUpload();
+                });
             });
         });
     }

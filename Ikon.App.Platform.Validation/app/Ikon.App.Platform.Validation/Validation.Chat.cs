@@ -9,7 +9,7 @@ public partial class Validation
 
             view.Column([Layout.Column.Md], content: view =>
             {
-                view.Row([Layout.Row.Md], content: view =>
+                view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Box([FormField.Root, "flex-1"], content: view =>
                     {
@@ -55,7 +55,7 @@ public partial class Validation
                     }
                 });
 
-                view.Row([Layout.Row.Md, "mt-4"], content: row =>
+                view.Row([Layout.Row.Md, "mt-4 flex-wrap"], content: row =>
                 {
                     row.TextField([Input.Default, "flex-1"],
                         value: _chatInputText.Value,
@@ -96,7 +96,7 @@ public partial class Validation
                         });
                 });
 
-                view.Row([Layout.Row.Md, "mt-4"], content: row =>
+                view.Row([Layout.Row.Md, "mt-4 flex-wrap"], content: row =>
                 {
                     row.Button([Button.NeutralMd],
                         text: "Add Test Message",

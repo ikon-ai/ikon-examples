@@ -378,12 +378,12 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
             {
                 AddColorScaleCss();
 
-                view.Column([Container.Xl4, "py-8 px-4"], content: view =>
+                view.Column([Container.Xl4, "py-4 px-3 sm:py-8 sm:px-4"], content: view =>
                 {
                     // Header with title and theme toggle
-                    view.Row(["flex justify-between items-center mb-6"], content: view =>
+                    view.Row(["flex justify-between items-center mb-4 sm:mb-6"], content: view =>
                     {
-                        view.Text([Text.Display], "Validation");
+                        view.Text([Text.Display, "text-3xl sm:text-5xl"], "Validation");
 
                         var isDark = _theme.Current.Value == Theme.Dark;
                         var iconName = isDark ? "sun" : "moon";
@@ -406,7 +406,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                         },
                         listContainerStyle: [Card.Default, "p-2 mb-4"],
                         listStyle: [Tabs.List, "flex-wrap bg-transparent"],
-                        triggerStyle: [Tabs.Trigger],
+                        triggerStyle: [Tabs.Trigger, "px-2 text-xs sm:px-3 sm:text-sm"],
                         contentStyle: [Tabs.Content],
                         tabs: [
                             // Basic UI building blocks, ordered simple -> complex. The

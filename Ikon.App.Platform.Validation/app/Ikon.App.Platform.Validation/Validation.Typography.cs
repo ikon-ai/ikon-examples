@@ -68,7 +68,7 @@ public partial class Validation
                 view.Column([Layout.Column.Md], content: view =>
                 {
                     view.Text([Text.Caption], "Row.Xs (gap-1)");
-                    view.Row([Layout.Row.Xs], content: view =>
+                    view.Row([Layout.Row.Xs, "flex-wrap"], content: view =>
                     {
                         view.Box([Badge.Default], content: v => v.Text(text: "A"));
                         view.Box([Badge.Default], content: v => v.Text(text: "B"));
@@ -76,7 +76,7 @@ public partial class Validation
                     });
 
                     view.Text([Text.Caption], "Row.Sm (gap-2)");
-                    view.Row([Layout.Row.Sm], content: view =>
+                    view.Row([Layout.Row.Sm, "flex-wrap"], content: view =>
                     {
                         view.Box([Badge.Default], content: v => v.Text(text: "A"));
                         view.Box([Badge.Default], content: v => v.Text(text: "B"));
@@ -84,7 +84,7 @@ public partial class Validation
                     });
 
                     view.Text([Text.Caption], "Row.Md (gap-3)");
-                    view.Row([Layout.Row.Md], content: view =>
+                    view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                     {
                         view.Box([Badge.Default], content: v => v.Text(text: "A"));
                         view.Box([Badge.Default], content: v => v.Text(text: "B"));
@@ -92,7 +92,7 @@ public partial class Validation
                     });
 
                     view.Text([Text.Caption], "Row.Lg (gap-4)");
-                    view.Row([Layout.Row.Lg], content: view =>
+                    view.Row([Layout.Row.Lg, "flex-wrap"], content: view =>
                     {
                         view.Box([Badge.Default], content: v => v.Text(text: "A"));
                         view.Box([Badge.Default], content: v => v.Text(text: "B"));
@@ -100,7 +100,7 @@ public partial class Validation
                     });
 
                     view.Text([Text.Caption], "Row.Xl (gap-6)");
-                    view.Row([Layout.Row.Xl], content: view =>
+                    view.Row([Layout.Row.Xl, "flex-wrap"], content: view =>
                     {
                         view.Box([Badge.Default], content: v => v.Text(text: "A"));
                         view.Box([Badge.Default], content: v => v.Text(text: "B"));
@@ -176,7 +176,7 @@ public partial class Validation
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 view.Text([Text.H2, "mb-4"], "Icon Spinners");
-                view.Row([Layout.Row.Lg], content: view =>
+                view.Row([Layout.Row.Lg, "flex-wrap"], content: view =>
                 {
                     view.Column([Layout.Column.Sm, "items-center"], content: view =>
                     {

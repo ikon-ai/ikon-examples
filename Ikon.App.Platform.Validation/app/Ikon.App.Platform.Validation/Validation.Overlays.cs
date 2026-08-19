@@ -94,7 +94,7 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "Tooltip");
                 view.Text([Text.Caption, "mb-4"], "A popup that displays information on hover");
 
-                view.Row([Layout.Row.Md], content: view =>
+                view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Tooltip(
                         contentStyle: [Tooltip.Content],
@@ -121,7 +121,7 @@ public partial class Validation
                     {
                         view.Column([Layout.Column.Sm], content: view =>
                         {
-                            view.Row([Layout.Row.Sm], content: view =>
+                            view.Row([Layout.Row.Sm, "flex-wrap"], content: view =>
                             {
                                 view.Box(["w-10 h-10 rounded-full bg-tertiary"]);
                                 view.Column([Layout.Column.Xs], content: view =>

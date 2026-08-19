@@ -29,7 +29,7 @@ public partial class Validation
         {
             view.Box([Card.Default, "p-6"], content: view =>
             {
-                view.Row(["flex items-center gap-2 mb-4"], content: view =>
+                view.Row(["flex items-center gap-2 mb-4 flex-wrap"], content: view =>
                 {
                     view.Text([Text.H2], "Memory Info");
                     view.Button([Button.GhostMd, Button.Icon],
@@ -69,9 +69,9 @@ public partial class Validation
                 view.Text([Text.Body], $"Max clients: {(app.MaxClients > 0 ? app.MaxClients.ToString() : "unlimited")}");
                 view.Text([Text.Body], $"Connected clients: {connectedClients}");
 
-                view.Row(["flex items-center gap-4 mt-4"], content: view =>
+                view.Row(["flex items-center gap-4 mt-4 flex-wrap"], content: view =>
                 {
-                    view.Text([Text.Body], "Override max clients:");
+                    view.Text([Text.Body, "whitespace-nowrap"], "Override max clients:");
                     view.TextField([Input.Default, "w-32"], value: _maxClientsOverride.Value, type: "number",
                         step: "1", min: "0", placeholder: app.MaxClients.ToString(),
                         onValueChange: async v => _maxClientsOverride.Value = v ?? "");
@@ -87,9 +87,9 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "Memory Allocation Test");
                 view.Text([Text.Caption, "mb-4"], "Allocate memory to test memory warnings and container kills");
 
-                view.Row(["flex items-center gap-4"], content: view =>
+                view.Row(["flex items-center gap-4 flex-wrap"], content: view =>
                 {
-                    view.Text([Text.Body], "MB to allocate:");
+                    view.Text([Text.Body, "whitespace-nowrap"], "MB to allocate:");
                     view.TextField([Input.Default, "w-32"], value: _memoryAllocateMb.Value, type: "number",
                         step: "1", min: "1", max: "4096",
                         onValueChange: async v => _memoryAllocateMb.Value = v ?? "10");

@@ -59,9 +59,9 @@ public partial class Validation
             {
                 view.Text([Text.H2, "mb-4"], "Bar Chart");
                 view.Text([Text.Caption, "mb-4"], "12 categories with 6 grouped keys");
-                view.Box(["h-80"], content: v =>
+                view.Box(["h-80 overflow-x-auto"], content: v =>
                 {
-                    v.BarChart([Chart.Container],
+                    v.BarChart([Chart.Container, "min-w-[36rem] h-full"],
                         theme: chartTheme,
                         data:
                         [
@@ -106,9 +106,9 @@ public partial class Validation
             {
                 view.Text([Text.H2, "mb-4"], "Stacked Bar Chart");
                 view.Text([Text.Caption, "mb-4"], "24 months with 6 stacked categories");
-                view.Box(["h-80"], content: v =>
+                view.Box(["h-80 overflow-x-auto"], content: v =>
                 {
-                    v.BarChart([Chart.Container],
+                    v.BarChart([Chart.Container, "min-w-[36rem] h-full"],
                         theme: chartTheme,
                         data:
                         [
@@ -165,9 +165,9 @@ public partial class Validation
             {
                 view.Text([Text.H2, "mb-4"], "Line Chart");
                 view.Text([Text.Caption, "mb-4"], "8 series x 48 data points with crosshair");
-                view.Box(["h-96"], content: v =>
+                view.Box(["h-96 overflow-x-auto"], content: v =>
                 {
-                    v.LineChart([Chart.Container],
+                    v.LineChart([Chart.Container, "min-w-[36rem] h-full"],
                         theme: chartTheme,
                         data: GenerateDenseLineData(),
                         curve: LineCurve.MonotoneX,
@@ -203,9 +203,9 @@ public partial class Validation
             {
                 view.Text([Text.H2, "mb-4"], "Pie Chart");
                 view.Text([Text.Caption, "mb-4"], "15 slices with arc link labels");
-                view.Box(["h-96"], content: v =>
+                view.Box(["h-96 overflow-x-auto"], content: v =>
                 {
-                    v.PieChart([Chart.Container],
+                    v.PieChart([Chart.Container, "min-w-[36rem] h-full"],
                         theme: chartTheme,
                         data:
                         [
@@ -251,9 +251,9 @@ public partial class Validation
             {
                 view.Text([Text.H2, "mb-4"], "Donut Chart");
                 view.Text([Text.Caption, "mb-4"], "12 segments with many small slices");
-                view.Box(["h-96"], content: v =>
+                view.Box(["h-96 overflow-x-auto"], content: v =>
                 {
-                    v.PieChart([Chart.Container],
+                    v.PieChart([Chart.Container, "min-w-[36rem] h-full"],
                         theme: chartTheme,
                         data:
                         [
@@ -300,7 +300,7 @@ public partial class Validation
                 view.Column([Layout.Column.Lg], content: view =>
                 {
                     view.Text([Text.H3, "mb-2"], "Icon Box Variants");
-                    view.Box(["grid grid-cols-3 gap-4"], content: view =>
+                    view.Box(["grid grid-cols-1 sm:grid-cols-3 gap-4"], content: view =>
                     {
                         view.Box([StatCard.Root], content: view =>
                         {
@@ -424,7 +424,7 @@ public partial class Validation
                     });
 
                     view.Text([Text.H3, "mb-2"], "Minimal (no icon, no trend)");
-                    view.Box(["grid grid-cols-3 gap-4"], content: view =>
+                    view.Box(["grid grid-cols-1 sm:grid-cols-3 gap-4"], content: view =>
                     {
                         view.Box([StatCard.Root], content: view =>
                         {

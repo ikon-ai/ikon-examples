@@ -415,7 +415,7 @@ public partial class Validation
 
                     view.Row([Layout.Row.Md, "flex-wrap mb-4"], content: view =>
                     {
-                        view.Row([Layout.Row.InlineCenter], content: view =>
+                        view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
                         {
                             view.Switch(
                                 [Switch.Default],
@@ -429,7 +429,7 @@ public partial class Validation
                             view.Text([Text.Caption], "Loop");
                         });
 
-                        view.Row([Layout.Row.InlineCenter], content: view =>
+                        view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
                         {
                             view.Switch(
                                 [Switch.Default],
@@ -443,7 +443,7 @@ public partial class Validation
                             view.Text([Text.Caption], "Muted");
                         });
 
-                        view.Row([Layout.Row.InlineCenter], content: view =>
+                        view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
                         {
                             view.Switch(
                                 [Switch.Default],

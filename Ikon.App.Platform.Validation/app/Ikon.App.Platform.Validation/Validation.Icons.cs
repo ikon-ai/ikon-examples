@@ -338,11 +338,11 @@ public partial class Validation
                         ? $"Showing {displayed.Length} of {matched.Length} icons"
                         : $"Showing {matched.Length} of {AllIcons.Length} icons");
 
-                view.Box(["flex flex-wrap gap-2"], content: view =>
+                view.Box(["grid grid-cols-[repeat(auto-fill,minmax(5rem,1fr))] gap-2"], content: view =>
                 {
                     foreach (var name in displayed)
                     {
-                        view.Column(["w-24 items-center gap-1 p-2 rounded hover:bg-muted"], content: view =>
+                        view.Column(["min-w-0 items-center gap-1 p-2 rounded hover:bg-muted"], content: view =>
                         {
                             view.Icon([Icon.Md], name: name);
                             view.Text([Text.Caption, "text-center truncate w-full"], name);
@@ -364,14 +364,14 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "Aliases");
                 view.Text([Text.Muted, "mb-4"], "Legacy and shorthand names that map to icons");
 
-                view.Box(["flex flex-wrap gap-2"], content: view =>
+                view.Box(["grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2"], content: view =>
                 {
                     foreach (var (alias, target) in IconAliases)
                     {
                         if (!string.IsNullOrEmpty(search) && !alias.Contains(search) && !target.Contains(search))
                             continue;
 
-                        view.Column(["w-32 items-center gap-1 p-2 rounded hover:bg-muted"], content: view =>
+                        view.Column(["min-w-0 items-center gap-1 p-2 rounded hover:bg-muted"], content: view =>
                         {
                             view.Icon([Icon.Md], name: alias);
                             view.Text([Text.Caption, "text-center font-medium"], alias);

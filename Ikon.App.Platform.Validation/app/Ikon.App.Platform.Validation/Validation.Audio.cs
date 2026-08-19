@@ -28,22 +28,22 @@ public partial class Validation
 
                 view.Column([Layout.Column.Sm], content: view =>
                 {
-                    view.Row([Layout.Row.Md], content: view =>
+                    view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                     {
                         view.Text([Text.BodyStrong, "w-32"], "Streams");
                         view.Text([Text.Body], _audioStreamCount.Value.ToString());
                     });
-                    view.Row([Layout.Row.Md], content: view =>
+                    view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                     {
                         view.Text([Text.BodyStrong, "w-32"], "CPU");
                         view.Text([Text.Body], $"{_audioCpuUsagePercent.Value:F1}%");
                     });
-                    view.Row([Layout.Row.Md], content: view =>
+                    view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                     {
                         view.Text([Text.BodyStrong, "w-32"], "IPD");
                         view.Text([Text.Body], $"{_audioMinIpdMs.Value:F1} / {_audioAvgIpdMs.Value:F1} / {_audioMaxIpdMs.Value:F1} ms (min/avg/max)");
                     });
-                    view.Row([Layout.Row.Md], content: view =>
+                    view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                     {
                         view.Text([Text.BodyStrong, "w-32"], "Jitter");
                         view.Text([Text.Body], $"{_audioJitterMs.Value:F2} ms");
@@ -268,7 +268,7 @@ public partial class Validation
 
                     view.Row([Layout.Row.Md, "flex-wrap mb-4"], content: view =>
                     {
-                        view.Row([Layout.Row.InlineCenter], content: view =>
+                        view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
                         {
                             view.Switch(
                                 [Switch.Default],
@@ -282,7 +282,7 @@ public partial class Validation
                             view.Text([Text.Caption], "Echo Cancellation");
                         });
 
-                        view.Row([Layout.Row.InlineCenter], content: view =>
+                        view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
                         {
                             view.Switch(
                                 [Switch.Default],
@@ -296,7 +296,7 @@ public partial class Validation
                             view.Text([Text.Caption], "Noise Suppression");
                         });
 
-                        view.Row([Layout.Row.InlineCenter], content: view =>
+                        view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
                         {
                             view.Switch(
                                 [Switch.Default],
@@ -402,7 +402,7 @@ public partial class Validation
                         }
                     });
 
-                    view.Row([Layout.Row.InlineCenter, "mb-4"], content: view =>
+                    view.Row([Layout.Row.InlineCenter, "mb-4 flex-wrap"], content: view =>
                     {
                         view.Switch(
                             [Switch.Default],
@@ -549,7 +549,7 @@ public partial class Validation
 
                 view.Column([Layout.Column.Md], content: view =>
                 {
-                    view.Row([Layout.Row.InlineCenter, "mb-2"], content: view =>
+                    view.Row([Layout.Row.InlineCenter, "mb-2 flex-wrap"], content: view =>
                     {
                         view.Text([Text.BodyStrong, "w-32"], "Mode");
                         view.Select(
@@ -596,7 +596,7 @@ public partial class Validation
                         view.Text([Text.Caption, "text-muted-foreground mb-2"], "Sound mode plays the whole whoosh.mp3 clip (~5s) each cycle — play duration is ignored");
                     }
 
-                    view.Row([Layout.Row.InlineCenter, "mb-2"], content: view =>
+                    view.Row([Layout.Row.InlineCenter, "mb-2 flex-wrap"], content: view =>
                     {
                         view.Text([Text.BodyStrong, "w-32"], "Status");
                         view.Text([Text.Body], _intervalStatus.Value);

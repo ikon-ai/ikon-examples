@@ -85,7 +85,7 @@ public partial class Validation
                                 var bg = VirtualGridCellPalette[index % VirtualGridCellPalette.Length];
                                 cellView.Box([$"h-full w-full rounded-md border border-secondary shadow-sm flex flex-col p-3 {bg}"], content: cell =>
                                 {
-                                    cell.Row([Layout.Row.SpaceBetween, "items-center w-full"], content: header =>
+                                    cell.Row([Layout.Row.SpaceBetween, "items-center w-full flex-wrap"], content: header =>
                                     {
                                         header.Text([Text.BodyStrong, "text-white"], $"Cell {index}");
                                         header.Text([Text.Caption, "text-white/80 font-mono"], $"#{index:D5}");

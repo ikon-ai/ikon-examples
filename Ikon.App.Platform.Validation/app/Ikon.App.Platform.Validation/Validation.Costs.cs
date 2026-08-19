@@ -46,7 +46,7 @@ public partial class Validation
                 view.Box([FormField.Root], content: view =>
                 {
                     view.Text([FormField.Label], "Days");
-                    view.Row([Layout.Row.Sm], content: view =>
+                    view.Row([Layout.Row.Sm, "flex-wrap"], content: view =>
                     {
                         foreach (var days in CostsDayOptions)
                         {

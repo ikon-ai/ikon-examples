@@ -40,7 +40,7 @@ public partial class Validation
 
                 view.Column([Layout.Column.Md], content: view =>
                 {
-                    view.Row([Layout.Row.Md, "items-center"], content: view =>
+                    view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                     {
                         view.Text([Text.Body], "Updates per second:");
                         view.Slider([Slider.Root, "flex-1"],
@@ -61,7 +61,7 @@ public partial class Validation
                         view.Text([Text.Body, "w-12"], $"{_profilingUpdatesPerSecond.Value}");
                     });
 
-                    view.Row([Layout.Row.Md], content: view =>
+                    view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                     {
                         if (!_profilingRunning.Value)
                         {
@@ -80,7 +80,7 @@ public partial class Validation
                         view.Text([Text.Caption], "Expensive tabs (Memory, Payments, Charts, Icons, Ikon.AI) are disabled while profiling runs");
                     }
 
-                    view.Row([Layout.Row.Md, "items-center"], content: view =>
+                    view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                     {
                         view.Checkbox([Checkbox.Root],
                             value: _profilingSubtreeCaching.Value,
@@ -94,7 +94,7 @@ public partial class Validation
                         view.Text([Text.Body], "Subtree caching");
                     });
 
-                    view.Row([Layout.Row.Md, "items-center"], content: view =>
+                    view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                     {
                         view.Checkbox([Checkbox.Root],
                             value: _profilingSubtreeRendering.Value,

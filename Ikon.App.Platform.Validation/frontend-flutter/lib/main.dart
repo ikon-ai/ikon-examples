@@ -31,12 +31,16 @@ class IkonFlutterApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The app's own appearance comes from the Ikon theme it streams, so the shell must not
+    // impose one: a light-themed app forced onto a dark Material theme renders white-on-white
+    // wherever the streamed styles do not paint a colour themselves. Following the platform
+    // keeps Material's own chrome (text selection, scrollbars, dialogs) legible either way,
+    // and leaving scaffoldBackgroundColor unset lets the streamed page background paint.
     return MaterialApp(
       title: 'Ikon App',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark(useMaterial3: true).copyWith(
-        scaffoldBackgroundColor: const Color(0xFF0F172A),
-      ),
+      theme: ThemeData(brightness: Brightness.light, useMaterial3: true),
+      darkTheme: ThemeData(brightness: Brightness.dark, useMaterial3: true),
       home: const IkonAppScreen(),
     );
   }

@@ -171,7 +171,7 @@ public partial class Validation
                         value: _colorPrompt.Value,
                         onValueChange: async v => _colorPrompt.Value = v ?? "");
 
-                    view.Row([Layout.Row.Md, "items-center"], content: view =>
+                    view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                     {
                         if (_colorPromptGenerating.Value)
                         {

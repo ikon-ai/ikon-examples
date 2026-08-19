@@ -13,7 +13,7 @@ public partial class Validation
                 view.Tabs(
                     value: _nestedTabValue.Value,
                     onValueChange: async v => _nestedTabValue.Value = v ?? "nested1",
-                    listStyle: [Tabs.List, "mb-4"],
+                    listStyle: [Tabs.List, "mb-4 flex-wrap"],
                     triggerStyle: [Tabs.Trigger],
                     contentStyle: [Tabs.Content],
                     tabs: [
@@ -67,7 +67,7 @@ public partial class Validation
                     value: _manualTabValue.Value,
                     activationMode: ActivationMode.Manual,
                     onValueChange: async v => _manualTabValue.Value = v ?? "manual1",
-                    listStyle: [Tabs.List, "mb-4"],
+                    listStyle: [Tabs.List, "mb-4 flex-wrap"],
                     triggerStyle: [Tabs.Trigger],
                     contentStyle: [Tabs.Content],
                     tabs: [
@@ -84,7 +84,7 @@ public partial class Validation
                 view.Text([Text.Caption, "mb-4"], "Some tabs can be disabled");
 
                 view.Tabs(
-                    listStyle: [Tabs.List, "mb-4"],
+                    listStyle: [Tabs.List, "mb-4 flex-wrap"],
                     triggerStyle: [Tabs.Trigger],
                     disabledTriggerStyle: [Tabs.TriggerDisabled],
                     contentStyle: [Tabs.Content],
@@ -269,7 +269,7 @@ public partial class Validation
                     onOpenChange: async open => _collapsibleOpen.Value = open,
                     content: view =>
                     {
-                        view.Row([Layout.Row.Sm, "items-center justify-between"], content: view =>
+                        view.Row([Layout.Row.Sm, "items-center justify-between flex-wrap"], content: view =>
                         {
                             view.Text([Text.BodyStrong], "Collapsible Section");
                             // The trigger already renders a <button>; nesting a view.Button inside
@@ -420,7 +420,7 @@ public partial class Validation
                 view.Text([Text.H2, "mb-4"], "Toolbar");
                 view.Text([Text.Caption, "mb-4"], "A container for grouping buttons and controls");
 
-                view.Toolbar([Toolbar.Root], content: view =>
+                view.Toolbar([Toolbar.Root, "flex-wrap min-w-0"], content: view =>
                 {
                     view.ToolbarToggleGroupSingle([Toolbar.ToggleGroup], content: view =>
                     {
@@ -520,7 +520,7 @@ public partial class Validation
                     });
                 });
 
-                view.Row([Layout.Row.Sm, "mt-4"], content: view =>
+                view.Row([Layout.Row.Sm, "mt-4 flex-wrap"], content: view =>
                 {
                     view.Button([Button.OutlineSm], text: "Add Segment", onClick: async () =>
                     {

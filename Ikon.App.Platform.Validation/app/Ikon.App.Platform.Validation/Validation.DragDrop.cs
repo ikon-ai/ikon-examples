@@ -235,7 +235,7 @@ public partial class Validation
                             {
                                 if (!string.IsNullOrEmpty(_activeDragId.Value))
                                 {
-                                    view.Row([Layout.Row.InlineCenter], content: v =>
+                                    view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: v =>
                                     {
                                         v.Icon([Icon.Default], name: "hand");
                                         v.Text([Text.BodyStrong], $"Moving: {_activeDragId.Value}");
@@ -276,7 +276,7 @@ public partial class Validation
                                         disabled: isDisabled,
                                         content: v =>
                                         {
-                                            v.Row([Layout.Row.InlineCenter], content: v =>
+                                            v.Row([Layout.Row.InlineCenter, "flex-wrap"], content: v =>
                                             {
                                                 v.Icon([Icon.Default], name: isDisabled ? "lock" : "drag-handle-horizontal");
                                                 v.Text([Text.Body], item);
@@ -315,7 +315,7 @@ public partial class Validation
             data: itemId == "drag-2" ? new { type = "special", priority = 1 } : null,
             content: v =>
             {
-                v.Row([Layout.Row.InlineCenter], content: v =>
+                v.Row([Layout.Row.InlineCenter, "flex-wrap"], content: v =>
                 {
                     var icon = itemId switch
                     {

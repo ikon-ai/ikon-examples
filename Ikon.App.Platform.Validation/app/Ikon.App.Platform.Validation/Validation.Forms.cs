@@ -333,7 +333,7 @@ public partial class Validation
                         }
                     });
 
-                    view.Row([Layout.Row.Md], content: view =>
+                    view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                     {
                         view.Button([Button.PrimaryMd], onClick: async () =>
                         {
@@ -367,19 +367,19 @@ public partial class Validation
                 {
                     view.Text([Text.BodyStrong], "AccessibleIcon");
                     view.Text([Text.Muted, "mb-2"], "Icons with accessible labels for screen readers");
-                    view.Row([Layout.Row.Md, "items-center"], content: view =>
+                    view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                     {
                         view.AccessibleIcon(label: "Close dialog", content: v =>
                             v.Icon([Icon.Default], name: "x"));
                         view.Text([Text.Caption], "Close icon with label 'Close dialog'");
                     });
-                    view.Row([Layout.Row.Md, "items-center"], content: view =>
+                    view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                     {
                         view.AccessibleIcon(label: "Settings", content: v =>
                             v.Icon([Icon.Default], name: "gear"));
                         view.Text([Text.Caption], "Settings icon with label 'Settings'");
                     });
-                    view.Row([Layout.Row.Md, "items-center"], content: view =>
+                    view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                     {
                         view.AccessibleIcon(label: "Delete item", content: v =>
                             v.Icon([Icon.Default], name: "trash-2"));
@@ -390,7 +390,7 @@ public partial class Validation
 
                     view.Text([Text.BodyStrong], "VisuallyHidden");
                     view.Text([Text.Muted, "mb-2"], "Content hidden visually but accessible to screen readers");
-                    view.Row([Layout.Row.Md, "items-center"], content: view =>
+                    view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                     {
                         view.Button([Button.PrimaryMd], content: view =>
                         {
@@ -400,7 +400,7 @@ public partial class Validation
                         });
                         view.Text([Text.Caption], "Button reads 'Add new item to the list' to screen readers");
                     });
-                    view.Row([Layout.Row.Md, "items-center"], content: view =>
+                    view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                     {
                         view.VisuallyHidden(content: v => v.Text(text: "Navigation section starts here"));
                         view.Text([Text.Body], "Landmark text hidden from visual users");

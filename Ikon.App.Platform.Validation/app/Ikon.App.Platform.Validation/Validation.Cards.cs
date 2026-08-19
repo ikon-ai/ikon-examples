@@ -115,14 +115,14 @@ public partial class Validation
                 view.Text([Text.H2, "mb-1"], "Selectable Cards");
                 view.Text([Text.BodySm, "text-tertiary mb-4"], "Toggle between Card.Interactive (unselected) and Card.Selected (active). Click a card to select it.");
 
-                view.Box(["grid grid-cols-3 gap-3"], content: view =>
+                view.Box(["grid grid-cols-1 sm:grid-cols-3 gap-3"], content: view =>
                 {
                     var items = new[]
                     {
                         ("card-1", "Design System",   "Tokens, components, and patterns",  "layout"),
                         ("card-2", "Navigation",      "Menus, sidebars, and breadcrumbs",  "compass"),
-                        ("card-3", "Data & Charts",   "Tables, stat cards, and graphs",    "bar-chart-2"),
-                        ("card-4", "Forms & Inputs",  "Text fields, selects, and toggles", "edit-3"),
+                        ("card-3", "Data & Charts",   "Tables, stat cards, and graphs",    "chart-bar"),
+                        ("card-4", "Forms & Inputs",  "Text fields, selects, and toggles", "square-pen"),
                         ("card-5", "Overlays",        "Dialogs, popovers, and toasts",     "layers"),
                         ("card-6", "Layout",          "Split panels, grids, and spacing",  "grid"),
                     };

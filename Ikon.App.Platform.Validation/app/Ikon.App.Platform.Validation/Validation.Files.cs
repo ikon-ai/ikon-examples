@@ -226,7 +226,7 @@ public partial class Validation
             view.Text([Text.Caption, "mb-4"], "Tests all file upload callbacks with status tracking.");
 
             // Controls
-            view.Row([Layout.Row.Md, "mb-4 items-end"], content: view =>
+            view.Row([Layout.Row.Md, "mb-4 items-end flex-wrap"], content: view =>
             {
                 view.Box(["flex-1"], content: view =>
                 {

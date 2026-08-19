@@ -17,7 +17,7 @@ public partial class Validation
                     onValueChange: async v => _navMenuValue.Value = v,
                     content: view =>
                     {
-                        view.NavigationMenuList([NavigationMenu.List], content: view =>
+                        view.NavigationMenuList([NavigationMenu.List, "flex-wrap"], content: view =>
                         {
                             // Menu item with content
                             view.NavigationMenuItem(["relative"], value: "getting-started", content: view =>
@@ -29,7 +29,7 @@ public partial class Validation
                                 });
 
                                 view.NavigationMenuContent(
-                                    [NavigationMenu.ContentPopover, "w-[400px]"],
+                                    [NavigationMenu.ContentPopover, "static w-full sm:absolute sm:w-[400px]"],
                                     content: view =>
                                     {
                                         view.Column(["gap-1"], content: view =>
@@ -76,7 +76,7 @@ public partial class Validation
                                 });
 
                                 view.NavigationMenuContent(
-                                    [NavigationMenu.ContentPopover, "w-[500px]"],
+                                    [NavigationMenu.ContentPopover, "static w-full sm:absolute sm:w-[500px]"],
                                     content: view =>
                                     {
                                         view.Row(["gap-4"], content: view =>
@@ -155,7 +155,7 @@ public partial class Validation
                             {
                                 view.NavigationMenuTrigger([NavigationMenu.TriggerVertical], content: view =>
                                 {
-                                    view.Row([Layout.Row.InlineCenter], content: view =>
+                                    view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
                                     {
                                         view.Icon([Icon.Default], name: "layout-dashboard");
                                         view.Text(text: "Dashboard");
@@ -164,7 +164,7 @@ public partial class Validation
                                 });
 
                                 view.NavigationMenuContent(
-                                    [NavigationMenu.ContentPopoverSide, "w-[200px]"],
+                                    [NavigationMenu.ContentPopoverSide, "static w-full sm:absolute sm:w-[200px]"],
                                     content: view =>
                                     {
                                         view.Column(["gap-1"], content: view =>
@@ -186,7 +186,7 @@ public partial class Validation
                             {
                                 view.NavigationMenuTrigger([NavigationMenu.TriggerVertical], content: view =>
                                 {
-                                    view.Row([Layout.Row.InlineCenter], content: view =>
+                                    view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
                                     {
                                         view.Icon([Icon.Default], name: "gear");
                                         view.Text(text: "Settings");
@@ -195,7 +195,7 @@ public partial class Validation
                                 });
 
                                 view.NavigationMenuContent(
-                                    [NavigationMenu.ContentPopoverSide, "w-[200px]"],
+                                    [NavigationMenu.ContentPopoverSide, "static w-full sm:absolute sm:w-[200px]"],
                                     content: view =>
                                     {
                                         view.Column(["gap-1"], content: view =>
@@ -217,7 +217,7 @@ public partial class Validation
                                     onSelect: async () => _navMenuStatus.Value = "Selected: Help",
                                     content: view =>
                                     {
-                                        view.Row([Layout.Row.InlineCenter], content: view =>
+                                        view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
                                         {
                                             view.Icon([Icon.Default], name: "question-mark-circled");
                                             view.Text(text: "Help");
@@ -240,7 +240,7 @@ public partial class Validation
                     skipDelayDuration: 100,
                     content: view =>
                     {
-                        view.NavigationMenuList([NavigationMenu.List], content: view =>
+                        view.NavigationMenuList([NavigationMenu.List, "flex-wrap"], content: view =>
                         {
                             view.NavigationMenuItem(["relative"], value: "fast", content: view =>
                             {
@@ -251,7 +251,7 @@ public partial class Validation
                                 });
 
                                 view.NavigationMenuContent(
-                                    [NavigationMenu.ContentPopover, "w-[200px]"],
+                                    [NavigationMenu.ContentPopover, "static w-full sm:absolute sm:w-[200px]"],
                                     content: view => view.Text([Text.Body], "Opens quickly with 200ms delay"));
                             });
                         });
@@ -268,7 +268,7 @@ public partial class Validation
                     ["relative flex items-center justify-center"],
                     content: view =>
                     {
-                        view.NavigationMenuList([NavigationMenu.List], content: view =>
+                        view.NavigationMenuList([NavigationMenu.List, "flex-wrap"], content: view =>
                         {
                             view.NavigationMenuItem(["relative"], value: "viewport-1", content: view =>
                             {
@@ -278,7 +278,7 @@ public partial class Validation
                                     view.Icon(["ml-1", NavigationMenu.TriggerIconRotate180], name: "chevron-down");
                                 });
 
-                                view.NavigationMenuContent(["w-[300px] p-4"], content: view =>
+                                view.NavigationMenuContent(["w-full sm:w-[300px] p-4"], content: view =>
                                 {
                                     view.Column(["gap-2"], content: view =>
                                     {
@@ -296,7 +296,7 @@ public partial class Validation
                                     view.Icon(["ml-1", NavigationMenu.TriggerIconRotate180], name: "chevron-down");
                                 });
 
-                                view.NavigationMenuContent(["w-[400px] p-4"], content: view =>
+                                view.NavigationMenuContent(["w-full sm:w-[400px] p-4"], content: view =>
                                 {
                                     view.Column(["gap-2"], content: view =>
                                     {
@@ -367,7 +367,7 @@ public partial class Validation
                     view.Column([Layout.Column.Xs], content: view =>
                     {
                         view.Text([Text.Caption, "mb-2"], "NavPanel.Border (composable bg)");
-                        view.Row([Layout.Row.Sm, "items-start"], content: view =>
+                        view.Row([Layout.Row.Sm, "items-start flex-wrap"], content: view =>
                         {
                             // bg-card → white, use Default / Active
                             view.Box([NavPanel.Border, "bg-card", "w-36"], content: view =>

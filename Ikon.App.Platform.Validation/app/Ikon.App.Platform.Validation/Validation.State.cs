@@ -48,19 +48,19 @@ public partial class Validation
             {
                 view.Text([Text.H2, "mb-4"], "Current profile");
 
-                view.Row([Layout.Row.InlineCenter, "mb-2"], content: view =>
+                view.Row([Layout.Row.InlineCenter, "mb-2 flex-wrap"], content: view =>
                 {
                     view.Text([Text.BodyStrong, "w-40"], "DisplayName");
                     view.Text([Text.Body], profile.DisplayName.Length > 0 ? profile.DisplayName : "(empty)");
                 });
 
-                view.Row([Layout.Row.InlineCenter, "mb-2"], content: view =>
+                view.Row([Layout.Row.InlineCenter, "mb-2 flex-wrap"], content: view =>
                 {
                     view.Text([Text.BodyStrong, "w-40"], "VisitCount");
                     view.Text([Text.Body], profile.VisitCount.ToString());
                 });
 
-                view.Row([Layout.Row.InlineCenter], content: view =>
+                view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
                 {
                     view.Text([Text.BodyStrong, "w-40"], "FavoriteColors");
                     view.Text([Text.Body], string.Join(", ", profile.FavoriteColors));
@@ -71,7 +71,7 @@ public partial class Validation
             {
                 view.Text([Text.H2, "mb-4"], "Update");
 
-                view.Row([Layout.Row.InlineCenter, "mb-3"], content: view =>
+                view.Row([Layout.Row.InlineCenter, "mb-3 flex-wrap"], content: view =>
                 {
                     view.Text([Text.BodyStrong, "w-40"], "New display name");
                     view.TextField(

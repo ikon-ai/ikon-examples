@@ -30,7 +30,7 @@ public partial class Validation
                 // Must match what the viewer's WebRTC peer connection negotiated: the server
                 // packetizes every outbound track with that one codec and does not transcode, so
                 // a stream in the other one arrives in full and decodes to a black rectangle.
-                view.Row([Layout.Row.InlineCenter, "mb-2"], content: view =>
+                view.Row([Layout.Row.InlineCenter, "mb-2 flex-wrap"], content: view =>
                 {
                     view.Text([Text.BodyStrong, "w-32"], "Codec");
                     view.Select(
@@ -44,7 +44,7 @@ public partial class Validation
                         onValueChange: async v => _syntheticVideoCodec.Value = v);
                 });
 
-                view.Row([Layout.Row.InlineCenter, "mb-2"], content: view =>
+                view.Row([Layout.Row.InlineCenter, "mb-2 flex-wrap"], content: view =>
                 {
                     view.Text([Text.BodyStrong, "w-32"], "Status");
                     view.Text([Text.Body], _syntheticVideoStatus.Value);
