@@ -310,6 +310,7 @@ namespace Ikon.Parallax.Components.ImageEditor
     Arrow
     Region
     Lasso
+    Line
 
 namespace Ikon.Parallax.Components.Standard
   static class AccessibilityExtensions
