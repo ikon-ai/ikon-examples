@@ -80,6 +80,13 @@ namespace Ikon.AI
   enum InputImageType
     Normal
     Mask
+  // A reference clip for video generation: footage the model is shown rather than asked to invent, addressed from the prompt the way reference images are. What it is *for* is the prompt's business — carrying a subject's appearance across a cut, holding a camera move, or regenerating a stretch of an existing film with one thing changed. Supply the clip exactly one way: Data (with MimeType), Url, or AssetUri (resolved automatically). Providers impose their own length and size limits.
+  sealed record InputVideo
+    ctor()
+    AssetUri? AssetUri { get; init; }
+    byte[]? Data { get; init; }
+    string? MimeType { get; init; }
+    string? Url { get; init; }
   static class ModelFailure
     static ModelFailureKind Classify(Exception exception)
   enum ModelFailureKind
