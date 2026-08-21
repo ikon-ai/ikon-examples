@@ -39,7 +39,7 @@ This isn't just convenience. The library knows the capabilities of every model �
 
 Language models are just the beginning. Ikon.AI provides unified access across:
 
-- **Image generation** — DALL-E, Imagen, FLUX, Gemini (21 models)
+- **Image generation** — DALL-E, FLUX, Gemini, Grok Imagine (23 models)
 - **Video generation** — Sora, Veo, Runway, Kling, Luma, and more (18 models)
 - **Speech synthesis** — OpenAI TTS, ElevenLabs, Google Chirp (13 models)
 - **Speech recognition** — Whisper, Deepgram, AssemblyAI (9 models)

@@ -4,7 +4,7 @@ The Ikon AI C# SDK provides a simple way to connect to Ikon AI App from any .NET
 
 ## Features
 
-- Four authentication modes: API Key, Local Development, Backend, External Connect URL
+- Five authentication modes: API Key, Local Development, Backend, External Connect URL, and UserLogin (developer CLI login, for dev tooling)
 - Automatic reconnection with exponential backoff
 - Audio streaming with Opus encoding/decoding
 - Flexible audio streaming modes
@@ -53,10 +53,18 @@ client.MessageReceivedAsync += async e =>
 await client.ConnectAsync();
 ```
 
+`ContextType` defaults to `ContextType.Plugin` — a headless backend component that
+receives no UI and gets no per-connection `ClientScope`. That is correct for a bot or
+service, but an interactive player client that expects to render UI or hold client state
+must set `ContextType = ContextType.Native` (or `Browser`); otherwise it connects with no
+error yet never receives a `ClientScope`.
+
 ## Authentication Modes
 
-The SDK supports four authentication modes. Exactly one must be configured:
-`ApiKey`, `Local`, `Backend`, or `ExternalConnectUrl`.
+The SDK supports five authentication modes. Exactly one must be configured:
+`ApiKey`, `Local`, `Backend`, `ExternalConnectUrl`, or `UserLogin`. `UserLogin` authenticates as the
+developer logged in on this machine (the ikon CLI's stored login) and is intended for dev tooling and
+headless tests; production clients use `ApiKey` or `Backend`.
 
 ### API Key Authentication
 
@@ -70,7 +78,7 @@ var config = new IkonClientConfig
         ApiKey = "ikon-xxxxx",           // API key from portal
         SpaceId = "...",                  // Space ID
         ExternalUserId = "user-123",      // Your user identifier
-        SessionId = "session-xyz",        // Optional: target a precomputed session
+        SessionIdentityHash = "...",      // Optional: attach to a specific live session (connect fails if none owns this hash)
         BackendType = BackendType.Production,
         UserType = UserType.Human,
         ClientType = ClientType.DesktopApp
@@ -105,7 +113,7 @@ var config = new IkonClientConfig
     {
         SpaceId = "...",
         ExternalUserId = "user-123",     // Your user identifier
-        SessionId = "session-xyz",       // Optional: target a precomputed session
+        SessionIdentityHash = "...",     // Optional: attach to a specific live session (connect fails if none owns this hash)
         UserType = UserType.Human,
         ClientType = ClientType.DesktopApp
     }
@@ -117,12 +125,30 @@ var config = new IkonClientConfig
 Connect through a pre-minted connect URL (`{serverUrl}/connect?token=...`) issued by a trusted
 host — for example an embedded in-process app server minting URLs for its own clients. The
 authentication step is skipped entirely and the client connects straight through the URL. This
-mode is mutually exclusive with the other three; a config that combines them is rejected.
+mode is mutually exclusive with the other four; a config that combines them is rejected.
 
 ```csharp
 var config = new IkonClientConfig
 {
     ExternalConnectUrl = connectUrl
+};
+```
+
+### UserLogin
+
+Authenticate as the developer logged in on this machine (the ikon CLI's stored login), connecting
+through the cloud gateway like a browser client. Intended for dev tooling, spikes, and headless
+tests — production clients use `ApiKey` or `Backend`. Mutually exclusive with the other four modes.
+
+```csharp
+var config = new IkonClientConfig
+{
+    UserLogin = new UserLoginConfig
+    {
+        SpaceId = "...",              // required
+        UserType = UserType.Human,
+        ClientType = ClientType.DesktopApp
+    }
 };
 ```
 
@@ -143,7 +169,8 @@ The client tracks its connection state via the `State` property:
 Helper extension methods are available:
 - `state.IsConnecting()` - True if `Connecting` or `Reconnecting`
 - `state.IsConnected()` - True if `Connected`
-- `state.IsOffline()` - True if `Idle` or `Offline`
+- `state.IsOffline()` - True if `Idle` or `Offline` (covers the pristine initial state too, not just failures)
+- `state.IsFaulted()` - True only for `Offline` (a genuine failure) — use this, not `IsOffline`, to detect a dropped/failed connection
 
 ### Events
 
@@ -231,9 +258,13 @@ Reconnection uses exponential backoff starting from `InitialReconnectDelay` (500
 
 ### Raw Protocol Messages
 
+`ClientContext` is `null` until the client is connected, so read it only after
+`ReadyAsync` has fired (or guard it). The `!` below is safe because a raw send happens
+on a connected client:
+
 ```csharp
-// Send a raw protocol message
-var message = ProtocolMessage.Create(client.ClientContext.SessionId, payload);
+// Send a raw protocol message (on a connected client)
+var message = ProtocolMessage.Create(client.ClientContext!.SessionId, payload);
 await client.SendMessageAsync(message);
 ```
 
