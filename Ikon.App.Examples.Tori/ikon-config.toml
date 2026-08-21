@@ -1,6 +1,6 @@
 # Schema version of this config file. The ikon tool upgrades older files automatically and always
 # saves at its current version; a file newer than the tool refuses to load (update the tool).
-ConfigVersion = 4
+ConfigVersion = 5
 
 # Which of the space's databases backs PersistentReactive state. Empty means the platform picks — the
 # built-in "app" database, or your own when the space holds exactly one — and records the choice so
@@ -71,6 +71,5 @@ PrePackage = []
 
 # Target information for deployment (automatically configured with 'ikon app config')
 [Target]
-OrganisationId = ""
 SpaceId = ""
 Name = ""
