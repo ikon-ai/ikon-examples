@@ -371,6 +371,57 @@ view.AddNode(
 
 Rule of thumb: if your custom component holds state the user can mutate (a code editor's text buffer, a video's playhead, a canvas-game's frame state), and the C# side can swap which underlying entity it represents, **always pass a `key:` keyed on that entity's ID.** Without this, switching entities will appear to do nothing — the old buffer stays put.
 
+### Media in custom components — sibling connections, capture, video tiles
+
+Some custom components carry live media on a **second connection** — the canonical case is a
+call/huddle room hosted by a keyed cell, where every participant's media must terminate at ONE
+process (the cell's host) rather than each user's own app instance. `@ikonai/sdk-react-ui`
+ships hooks and a view for the whole leg, so a component never manages `IkonClient` lifecycles
+or capture handles by hand:
+
+```tsx
+import {
+  VideoStreamView,
+  useCameraCapture,
+  useMicrophoneCapture,
+  useScreenCapture,
+  useSiblingClient,
+} from '@ikonai/sdk-react-ui';
+
+const ROOM_MEDIA = { audio: { enabled: true }, video: { enabled: true } };
+
+function RoomMedia({ context, roomId, muted, cameraOn, screenOn, tiles }) {
+  // Opens a sibling connection next to the app connection (same auth/transport, the cell's
+  // identity parameters). Connects while roomId is non-null; unmount = leave the room.
+  const { client } = useSiblingClient(
+    context.client,
+    roomId ? { 'ikon-cell-type': 'RoomCell', RoomId: roomId } : null,
+    ROOM_MEDIA,
+  );
+
+  // Capture runs while the flag is true; flipping it off (or unmounting) stops it.
+  useMicrophoneCapture(client, !muted, { userGesture: true });
+  useCameraCapture(client, cameraOn, { userGesture: true });
+  useScreenCapture(client, screenOn, { userGesture: true });
+
+  return tiles.map((tile) => (
+    <VideoStreamView key={tile.streamId} client={client} streamId={tile.streamId} />
+  ));
+}
+```
+
+**Always render incoming streams with `VideoStreamView`** (or the built-in
+`view.VideoStreamCanvas`, which uses it). The SDK carries video over two transports — WebRTC
+`MediaStream`s by default, encoded frames over the protocol channel as the fallback — and
+which one is active is per connection, decided at runtime. A hand-rolled
+`media.video.attachCanvas(...)` implements only the fallback path and renders a permanently
+black tile whenever WebRTC carries the media; `VideoStreamView` handles both, plus the retry
+needed because the fallback pipeline builds lazily behind a dynamic import. Incoming **audio**
+needs no component at all — the client plays the connection's audio automatically.
+
+Reference app: **Ikon.App.Buzz** (`frontend-node/src/lib/huddle/`) — a Slack-style huddle
+whose media leg is exactly this pattern against a `HuddleCell` room.
+
 ### App icons & branding
 
 `branding/logo.png` is the single source of truth for every app icon. It is a square 1024×1024 PNG scaffolded into each new app — replace it with your own square design (same size and format; SVG is not supported) and run **`ikon app icon generate`** to regenerate the complete icon set across **all** frontends from it:

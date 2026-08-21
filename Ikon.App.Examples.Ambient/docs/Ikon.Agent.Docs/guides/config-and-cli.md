@@ -63,7 +63,6 @@ PrePackage = []
 # Target information for deployment (automatically configured with 'ikon app config')
 # Use environment-specific config files: ikon-config.development.toml, ikon-config.production.toml
 [Target]
-OrganisationId = ""
 SpaceId = ""
 Name = ""
 ```
