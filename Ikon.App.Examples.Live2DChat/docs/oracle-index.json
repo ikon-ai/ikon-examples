@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ui-api-reference.md",
-      "sizeBytes": 174747,
+      "sizeBytes": 177079,
       "alsoInclude": []
     },
     {
@@ -339,7 +339,7 @@
         "AI connection"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ai-models.md",
-      "sizeBytes": 25409,
+      "sizeBytes": 26074,
       "alsoInclude": []
     },
     {
@@ -406,7 +406,7 @@
         "show a video"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ai-video.md",
-      "sizeBytes": 8781,
+      "sizeBytes": 9389,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -758,7 +758,7 @@
         "emails folder"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/frontend-fundamentals.md",
-      "sizeBytes": 19733,
+      "sizeBytes": 22112,
       "alsoInclude": [
         "ui-components"
       ]
@@ -777,7 +777,7 @@
         "targets"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/config-and-cli.md",
-      "sizeBytes": 18062,
+      "sizeBytes": 18042,
       "alsoInclude": []
     }
   ]
