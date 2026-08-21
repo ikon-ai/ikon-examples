@@ -318,6 +318,7 @@ namespace Ikon.Parallax.Components.ImageEditor
     Arrow
     Region
     Lasso
+    Line
 
 namespace Ikon.Parallax.Components.Standard
   static class AccessibilityExtensions
@@ -2448,7 +2449,37 @@ Cursor and the focus ring are *not* on that list: those come from the platform's
 
 The rule of thumb: **adding to a control → start the array with `"default"`; replacing its look → don't.**
 
-Slot-style parameters with themed defaults (`contentStyle:` on Popover/Tooltip/HoverCard, Dialog's `titleStyle:`/`descriptionStyle:`/`headerStyle:`) follow the same rule.
+**Slots follow the same rule as `style:`.** A component built from several parts exposes one array per part —
+`triggerStyle:`, `contentStyle:`, `dayStyle:`, `toolbarStyle:`, `gutterStyle:` and so on. Each carries its own
+themed default, each renders exactly what you pass, and each takes `"default"` to merge the theme back under it.
+Style one part and the rest stay themed:
+
+```csharp
+view.DatePicker();                                        // fully themed trigger + popover + calendar
+view.DatePicker(triggerStyle: ["default", "w-full"]);     // themed trigger, full width; popover untouched
+view.DatePicker(triggerStyle: ["w-full"]);                // an unstyled trigger; popover still themed
+```
+
+A slot you never mention is themed, so a popover keeps the background, border, shadow and stacking that make it
+readable over the content behind it — leaving `contentStyle:` out is not the same as asking for a bare one.
+
+Note that `style:` on a composite is the **outermost container**, not the control: on `DatePicker`, `TimePicker`,
+`ColorPicker` and `Select` it is the wrapper, and the thing that looks like the control is `triggerStyle:`.
+
+**Some bases always apply.** A handful of components carry classes they cannot function without — the layout
+primitives (`Row`, `Column`, `Grid`, `Stack`), `ScrollArea` and its viewport/scrollbar/thumb, `Select`'s parts,
+`ResizableSplit`, and size classes a component derives from its own parameters (`Spinner`, `Skeleton`, `Icon`).
+There your array is *appended* to that base rather than replacing it, and later classes win:
+
+```csharp
+view.Column(["gap-4"]);                    // flex flex-col gap-4 — the flex base is not droppable
+view.ScrollArea(viewportStyle: ["px-8"]);  // h-full w-full px-8 — the viewport still fills, and scrolls
+```
+
+You never need `"default"` on these, and you cannot remove the base — override it instead (`min-h-[300px]` beats
+the base's `min-h-0` by coming later). The distinction is what the base *is*: a complete look you may replace
+(`Button`, `Card`, `Badge`, `Input`, and every slot above) versus structure the part needs to work. Dropping
+`h-full` from a scroll viewport would not restyle it — it would stop it scrolling.
 
 ### Default Styling and Auto-Composed Indicators
 
@@ -2461,7 +2492,7 @@ view.TextField(bind: _text);
 view.Button(text: "Submit", onClick: async () => { });
 ```
 
-Controls that have a visible inner part also compose it automatically when no `content:` is given — Checkbox gets its check indicator, Switch its thumb, Slider its track/range/thumb, Select its trigger and items. You only pass `content:` to customise the inner part. To render a checkbox with no check mark, opt out explicitly with `content: _ => { }`. Layout primitives (`Box`, `Row`, `Column`, `Grid`, `Stack`) stay unstyled by default — there "no style" is the normal usage.
+Controls that have a visible inner part also compose it automatically when no `content:` is given — Checkbox gets its check indicator, Switch its thumb, Slider its track/range/thumb, Select its trigger and items. You only pass `content:` to customise the inner part. To render a checkbox with no check mark, opt out explicitly with `content: _ => { }`. Layout primitives (`Box`, `Row`, `Column`, `Grid`, `Stack`) carry no *themed* default — no colours, no spacing, no chrome — so "no style" is the normal usage there. They are not blank, though: all but `Box` keep the display class that makes them what they are (`Column` is `flex flex-col`), and that base is not droppable — see [Some bases always apply](#merge-semantics-the-default-marker).
 
 ### Icon Buttons
 
