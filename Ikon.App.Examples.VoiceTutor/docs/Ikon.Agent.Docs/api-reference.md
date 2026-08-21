@@ -446,6 +446,13 @@ namespace Ikon.AI
   enum InputImageType
     Normal
     Mask
+  // A reference clip for video generation: footage the model is shown rather than asked to invent, addressed from the prompt the way reference images are. What it is *for* is the prompt's business — carrying a subject's appearance across a cut, holding a camera move, or regenerating a stretch of an existing film with one thing changed. Supply the clip exactly one way: Data (with MimeType), Url, or AssetUri (resolved automatically). Providers impose their own length and size limits.
+  sealed record InputVideo
+    ctor()
+    AssetUri? AssetUri { get; init; }
+    byte[]? Data { get; init; }
+    string? MimeType { get; init; }
+    string? Url { get; init; }
   static class ModelFailure
     static ModelFailureKind Classify(Exception exception)
   enum ModelFailureKind
@@ -2382,7 +2389,9 @@ namespace Ikon.AI.VideoGeneration
   interface IVideoGenerator : IDisposable, IVideoGeneratorInfo
     Task<VideoGeneratorResult> GenerateVideoAsync(VideoGeneratorConfig config, CancellationToken cancellationToken = default)
   interface IVideoGeneratorInfo
+    int MaxInputAudios { get; }
     int MaxInputImages { get; }
+    int MaxInputVideos { get; }
     VideoGeneratorResolutionMode ResolutionMode { get; }
     IReadOnlyList<int> SupportedLengths { get; }
     IReadOnlyList<VideoGeneratorResolution> SupportedResolutions { get; }
@@ -2400,7 +2409,9 @@ namespace Ikon.AI.VideoGeneration
   sealed class VideoGenerator : IVideoGenerator
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(VideoGeneratorModel model, IReadOnlyList<ModelRegion>? regions = null)
+    int MaxInputAudios { get; }
     int MaxInputImages { get; }
+    int MaxInputVideos { get; }
     VideoGeneratorResolutionMode ResolutionMode { get; }
     IReadOnlyList<int> SupportedLengths { get; }
     IReadOnlyList<VideoGeneratorResolution> SupportedResolutions { get; }
@@ -2426,7 +2437,9 @@ namespace Ikon.AI.VideoGeneration
     Ratio1x1
   sealed class VideoGeneratorCapabilities : IVideoGeneratorInfo
     ctor()
+    int MaxInputAudios { get; init; }
     int MaxInputImages { get; init; }
+    int MaxInputVideos { get; init; }
     VideoGeneratorResolutionMode ResolutionMode { get; init; }
     IReadOnlyList<int> SupportedLengths { get; init; }
     IReadOnlyList<VideoGeneratorResolution> SupportedResolutions { get; init; }
@@ -2441,7 +2454,11 @@ namespace Ikon.AI.VideoGeneration
     ctor()
     VideoGeneratorAspectRatio AspectRatio { get; init; }
     bool? GenerateAudio { get; init; }
+    // Reference audio, for models that accept it. Addressed from the prompt as @Audio1 and so on, in prompt order.
+    List<InputAudio> InputAudios { get; init; }
     List<InputImage> InputImages { get; init; }
+    // Reference footage, for models that accept it. Addressed from the prompt in the provider's own notation — fal's Seedance uses @Video1, @Video2 in prompt order.
+    List<InputVideo> InputVideos { get; init; }
     int Length { get; init; }
     string? NegativePrompt { get; init; }
     string? Prompt { get; init; }
@@ -2469,6 +2486,7 @@ namespace Ikon.AI.VideoGeneration
     Seedance20Fast
     Seedance20Mini
     Seedance25
+    Seedance25Reference
     Sora2
     Sora2Pro
     Veo31
@@ -3030,6 +3048,7 @@ namespace Ikon.Parallax.Components.ImageEditor
     Arrow
     Region
     Lasso
+    Line
 
 namespace Ikon.Parallax.Components.Standard
   static class AccessibilityExtensions
