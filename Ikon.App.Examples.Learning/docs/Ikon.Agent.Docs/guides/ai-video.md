@@ -113,7 +113,9 @@ namespace Ikon.AI.VideoGeneration
   interface IVideoGenerator : IDisposable, IVideoGeneratorInfo
     Task<VideoGeneratorResult> GenerateVideoAsync(VideoGeneratorConfig config, CancellationToken cancellationToken = default)
   interface IVideoGeneratorInfo
+    int MaxInputAudios { get; }
     int MaxInputImages { get; }
+    int MaxInputVideos { get; }
     VideoGeneratorResolutionMode ResolutionMode { get; }
     IReadOnlyList<int> SupportedLengths { get; }
     IReadOnlyList<VideoGeneratorResolution> SupportedResolutions { get; }
@@ -131,7 +133,9 @@ namespace Ikon.AI.VideoGeneration
   sealed class VideoGenerator : IVideoGenerator
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(VideoGeneratorModel model, IReadOnlyList<ModelRegion>? regions = null)
+    int MaxInputAudios { get; }
     int MaxInputImages { get; }
+    int MaxInputVideos { get; }
     VideoGeneratorResolutionMode ResolutionMode { get; }
     IReadOnlyList<int> SupportedLengths { get; }
     IReadOnlyList<VideoGeneratorResolution> SupportedResolutions { get; }
@@ -157,7 +161,9 @@ namespace Ikon.AI.VideoGeneration
     Ratio1x1
   sealed class VideoGeneratorCapabilities : IVideoGeneratorInfo
     ctor()
+    int MaxInputAudios { get; init; }
     int MaxInputImages { get; init; }
+    int MaxInputVideos { get; init; }
     VideoGeneratorResolutionMode ResolutionMode { get; init; }
     IReadOnlyList<int> SupportedLengths { get; init; }
     IReadOnlyList<VideoGeneratorResolution> SupportedResolutions { get; init; }
@@ -172,7 +178,11 @@ namespace Ikon.AI.VideoGeneration
     ctor()
     VideoGeneratorAspectRatio AspectRatio { get; init; }
     bool? GenerateAudio { get; init; }
+    // Reference audio, for models that accept it. Addressed from the prompt as @Audio1 and so on, in prompt order.
+    List<InputAudio> InputAudios { get; init; }
     List<InputImage> InputImages { get; init; }
+    // Reference footage, for models that accept it. Addressed from the prompt in the provider's own notation — fal's Seedance uses @Video1, @Video2 in prompt order.
+    List<InputVideo> InputVideos { get; init; }
     int Length { get; init; }
     string? NegativePrompt { get; init; }
     string? Prompt { get; init; }
@@ -200,6 +210,7 @@ namespace Ikon.AI.VideoGeneration
     Seedance20Fast
     Seedance20Mini
     Seedance25
+    Seedance25Reference
     Sora2
     Sora2Pro
     Veo31
