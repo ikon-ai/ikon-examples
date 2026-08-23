@@ -638,6 +638,44 @@ if (isDebugModeEnabled()) {
 }
 ```
 
+### Query Parameters
+
+The SDK reads `ikon-*` query parameters from the page URL at startup. They are diagnostic and
+testing affordances — nothing an app needs in normal operation — and they override the matching
+constructor options. Both the hyphen form (`?ikon-proxy`) and the underscore form (`?ikon_proxy`)
+are accepted. All of them are stripped before the URL is handed to the app, so they never appear as
+app state.
+
+| Parameter | Values | What it does |
+|---|---|---|
+| `ikon-transport` | `ws`, `wt`, `http`, `http-binary`, `http-sse`, `http-poll` | Pin one transport, and for the HTTP stream its downstream encoding. Long forms (`websocket`, `webtransport`, `httpstream`) also work |
+| `ikon-proxy` | `false`, `true`, `lb` | Pin the connect tier: the server's own host and port, the on-host proxy on 443, or the app's own origin through the fleet gateway (`stream` is an alias for `lb`) |
+| `ikon-connect` | token, `<port>~<token>`, or a URL | Connect to a specific Ikon server, for shareable preview links. Carries a credential — treat the link like one |
+| `ikon-session` | session identity hash | Join a specific live session instead of resolving one by identity |
+| `ikon-same-origin` | `true`, `false` | Route API and auth calls through the app's own origin. On by default for deployed apps |
+| `ikon-debug` | `true` | Verbose SDK logging, and the devtools extension |
+| `ikon-debug-overlay` | `true` | The on-screen debug panel. `ikon-debug` does not imply it |
+| `ikon-inspect` | `true` | The element inspection overlay |
+| `ikon-lang` | e.g. `en`, `fi` | Override language detection |
+| `ikon-audio`, `ikon-video`, `ikon-webrtc` | `true`, `false` | Force audio, video or WebRTC on or off |
+| `ikon-ice-transport` | `relay`, `all` | Force the WebRTC ICE policy. `relay` gathers TURN candidates only, which is how the relay path gets verified |
+| `ikon-retry` | `false` | Fail fast instead of retrying auth and channel connects |
+| `ikon-snapshot` | `true` | Connect as a build-time snapshot client |
+
+An unrecognised value is ignored rather than guessed at, so a typo leaves the default behaviour in
+place instead of silently pinning something slow.
+
+Pinning is how a fallback path gets exercised before a customer's network exercises it for you:
+
+```
+https://your-app.ikonai.app/?ikon-transport=http-poll&ikon-debug=true
+```
+
+If a pin names something the server did not offer — `?ikon-proxy=lb&ikon-transport=wt`, where the
+gateway advertises no WebTransport — the connect **fails** with `NoMatchingEndpointTypeError` rather
+than falling back. A pin exists to make one path measurable, so connecting over a different one and
+reporting success would defeat the point.
+
 ### Browser Functions
 
 By default, the SDK auto-registers browser convenience functions (getTheme, setTheme, getLocation, etc.) when running in a browser. Disable this if needed:
@@ -728,6 +766,7 @@ The SDK provides typed errors for different failure scenarios:
 | `AccessDeniedError` | Server denied access (e.g., domain allowlist blocks email domain) |
 | `ServerFullError` | Server at capacity, connection rejected (terminal, no retry) |
 | `BrowserNotSupportedError` | Browser lacks required runtime features (terminal, exposes `missingFeatures`) |
+| `NoMatchingEndpointTypeError` | `?ikon-transport` / `?ikon-proxy` pin a combination the server did not offer (terminal, exposes `pinnedTransport`, `pinnedTier`, `offeredTypes`) |
 
 ```typescript
 import { AuthenticationError, MaxRetriesExceededError } from '@ikonai/sdk';

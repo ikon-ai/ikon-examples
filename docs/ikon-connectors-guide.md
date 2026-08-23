@@ -89,11 +89,18 @@ var commentUrl = await gitHub.CommentAsync("ikon-ai/examples", 42, "Reproduced o
 
 `GitHubIssue.UpdatedAt` is the raw ISO-8601 string exactly as GitHub returned it. It is an **opaque cursor**: feed it back as the next `since` without parsing or reformatting it — a round-trip through `DateTime` can change the text and break resume-from-cursor paging.
 
+`since` is boundary-**inclusive** (it returns items updated at-or-after it), so resuming with the last item's `UpdatedAt` re-returns every item that shares that exact second. Dedupe on `GitHubIssue.Number` across calls — do not assume the resumed page is all new. (This differs from Slack's `HistorySinceAsync`, whose `oldestTs` is exclusive.)
+
 ```csharp
 var updated = await gitHub.ListIssuesSinceAsync("ikon-ai/examples", since: cursor);
 
 foreach (var item in updated.Where(i => !i.IsPullRequest))
 {
+    if (!seenIssueNumbers.Add(item.Number))
+    {
+        continue;   // already processed on a previous page — since is inclusive
+    }
+
     await ProcessIssueAsync(item);
 }
 

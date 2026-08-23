@@ -355,7 +355,7 @@ await foreach (var ev in TreeIndex.BuildAsync(LLMModel.Claude45Sonnet, documentC
 }
 
 // Step 2: Search the tree
-var result = await Emerge.TreeSearch(LLMModel.Claude45Sonnet, ctx, opt =>
+TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude45Sonnet, ctx, opt =>
 {
     opt.Index = index;
     opt.Query = "How does authentication work?";
@@ -370,7 +370,8 @@ var result = await Emerge.TreeSearch(LLMModel.Claude45Sonnet, ctx, opt =>
     });
 });
 
-// result.Sections contains found sections with NodeId, Path, Content, Relevance, Page
+// result.Sections is a List<FoundSection>, each with NodeId, Path, Content, Relevance, Page;
+// result.ReasoningTrace carries the navigator's final reasoning
 ```
 
 **Options:**
@@ -425,7 +426,7 @@ await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx,
 - `tool.WithParamDescription(paramName, description)` / `tool.WithAllowedValues(paramName, values)` — per-pass dynamic parameter docs and enums on a copy of the tool
 - Pre-built `Function` objects go directly onto the pass via `pass.Tools.Add(function)`
 
-**Ending the run from a tool body.** Return `Emerge.EndRun()` (or `Emerge.EndRun(toolResult)` to record `toolResult` as this tool's result) from a tool body to end the run right after the current tool batch instead of looping back to the model — for tools whose side effect is the answer. `toolResult` is fed to the model transcript as this tool's result; the run itself completes with a **default** `T` result — `EndRun` does not set the run result. Consume it by enumerating the run and reading the `Completed<T>` event (whose `Result` is the default); do not `await Emerge.Run<T>(...)` expecting `toolResult` back, since an `EndRun` path produces no `T` result.
+**Ending the run from a tool body.** Return `Emerge.EndRun()` (or `Emerge.EndRun(toolResult)` to record `toolResult` as this tool's result) from a tool body to end the run right after the current tool batch instead of looping back to the model — for tools whose side effect is the answer. `toolResult` is fed to the model transcript as this tool's result and — when its type is assignable to the run's result type `T` — it also becomes the run's result, so `await Emerge.Run<T>(...)` on an `EndRun` path yields it. `EndRun()` with no value, or a value of an unrelated type, completes with `default(T)`. Enumerating the run and reading the `Completed<T>` event observes the same result.
 
 **Many-parameter tools — request record.** `Tool.Of` tops out at 4 parameters by design. A tool that needs more takes a single request record; `[property: Description]` documents each field:
 

@@ -59,6 +59,28 @@ service, but an interactive player client that expects to render UI or hold clie
 must set `ContextType = ContextType.Native` (or `Browser`); otherwise it connects with no
 error yet never receives a `ClientScope`.
 
+## Transports
+
+The SDK opens one reliable connection to the server — TCP with TLS against a hosted app, plain TCP
+against a local one — and, alongside it, an unreliable UDP side channel used for messages the app
+flags unreliable.
+
+Set `EnableUdpChannel = false` to run over the reliable connection alone. Unreliable-flagged messages
+then fall back to it, so nothing is lost; they just stop being able to overtake a queued reliable
+message. Turn it off when the network between the client and the server drops or blocks UDP outright
+(a corporate egress filter is the usual case, where the SDK would otherwise spend the DTLS handshake
+timeout on every connect before giving up), or when you are connecting many clients from one process
+and want each to cost as little server memory as possible — the side channel is a second socket, a
+DTLS session and a second pair of send queues per client on both ends.
+
+```csharp
+var config = new IkonClientConfig
+{
+    // ... authentication ...
+    EnableUdpChannel = false,
+};
+```
+
 ## Authentication Modes
 
 The SDK supports five authentication modes. Exactly one must be configured:
