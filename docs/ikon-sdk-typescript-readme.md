@@ -104,6 +104,29 @@ const client = new IkonClient({
 });
 ```
 
+An access token expires while the app is still running. It is a connect-time credential — an open
+connection is already authenticated and never presents it again — so hand a renewed one to the
+running client instead of building a new one:
+
+```typescript
+// Same user, fresher credential. A token for a different user is refused;
+// that needs a new client, because the connection was resolved from the old identity.
+client.updateAuthToken(renewedToken);
+```
+
+The React layer (`useIkonApp`) already does this for you: it rebuilds the client when the identity
+behind the connection changes and pushes the token through when only the credential did.
+
+To open a second session next to the app connection — a media leg to a cell room, say — use
+`createSibling`, which keeps the sibling's credential in step with this client's:
+
+```typescript
+const sibling = client.createSibling({ 'ikon-cell-type': 'room', RoomId: 'r1' });
+```
+
+`deriveConfig` still exists for building a config by hand, but the credential it returns is a
+snapshot that will not follow renewals.
+
 ## Connection Lifecycle
 
 ### Connection States
@@ -221,6 +244,8 @@ const client = new IkonClient({
 ```
 
 Reconnection uses a fixed delay between attempts (2s by default).
+
+Renewing the access token is not a reason to reconnect — see `updateAuthToken` above.
 
 ## Message Handling
 
