@@ -219,7 +219,9 @@ class _IkonScreenState extends State<IkonScreen> {
 ```bash
 # Terminal 1: Start the C# server with Flutter support
 cd Ikon.App.MyApp
-ikon app run --flutter
+ikon app run --flutter            # Flutter app in Chrome
+ikon app run --flutter-ios        # ... on the iOS simulator (macOS)
+ikon app run --flutter-android    # ... on an Android emulator
 
 # Or manually in two terminals:
 # Terminal 1: C# server
@@ -229,6 +231,13 @@ ikon app run
 cd frontend-flutter
 flutter run -d chrome --dart-define=IKON_PORT=8446
 ```
+
+The `--flutter-*` flags combine, so `--flutter --flutter-ios` opens both. `--flutter-ios` and
+`--flutter-android` use the simulator or emulator that is already running, boot one when none is
+(`flutter emulators --launch`), and fall back to a plugged-in phone of that platform. They also pass
+the right server host for the device — the Android emulator reaches the host machine at `10.0.2.2`,
+not `localhost`. A device-only run (`--flutter-ios` or `--flutter-android` without `--flutter`) also
+skips opening the web frontend in a browser tab; the web frontend still serves.
 
 ## Running on Different Platforms
 
@@ -251,8 +260,8 @@ flutter run -d macos --dart-define=IKON_PORT=8446
 Requires Android SDK. For the emulator, use `10.0.2.2` instead of `localhost`:
 
 ```bash
-# Emulator
-flutter run -d android --dart-define=IKON_PORT=8446
+# Emulator — ikon app run --flutter-android does this for you
+flutter run -d android --dart-define=IKON_PORT=8446 --dart-define=IKON_SERVER_HOST=10.0.2.2
 
 # Physical device — run server on LAN
 ikon app run --host-lan
@@ -264,12 +273,18 @@ ikon app run --host-lan
 Requires Xcode + Apple Developer account:
 
 ```bash
-# Simulator (localhost works)
+# Simulator (localhost works) — ikon app run --flutter-ios does this for you
 flutter run -d ios --dart-define=IKON_PORT=8446
 
 # Physical device — run server on LAN
 ikon app run --host-lan
 ```
+
+The dev server's certificate is self-signed; `IkonClient.connectLocal` trusts it for the host it
+connects to, so simulators, emulators and phones on the LAN connect without installing anything.
+On an Apple Silicon Mac the simulator build links against a copy of the `opus_flutter_ios` plugin
+that carries the arm64 simulator slice the published package lacks; inside the ikon-platform
+repo the ikon tool writes that override into `pubspec_overrides.yaml` for you.
 
 ### Release Builds
 
