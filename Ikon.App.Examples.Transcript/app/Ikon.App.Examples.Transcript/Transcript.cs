@@ -1,3 +1,5 @@
+using Process = System.Diagnostics.Process;
+using ProcessStartInfo = System.Diagnostics.ProcessStartInfo;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -7,6 +9,19 @@ public record SessionIdentity(string? UserId);
 public record ClientParams(string Name = "Ikon");
 
 public sealed record PendingUpload(string FileName, string FilePath, string MimeType, long SizeBytes);
+
+public sealed class LiveRecording(string streamId, int clientSessionId, int sampleRate, int channelCount, string fileName, string filePath, string mimeType, Process encoder)
+{
+    public string StreamId { get; } = streamId;
+    public int ClientSessionId { get; } = clientSessionId;
+    public int SampleRate { get; } = sampleRate;
+    public int ChannelCount { get; } = channelCount;
+    public string FileName { get; } = fileName;
+    public string FilePath { get; } = filePath;
+    public string MimeType { get; } = mimeType;
+    public Process Encoder { get; } = encoder;
+    public long SampleCount { get; set; }
+}
 
 public sealed record TranscriptEntry(
     string Id,
@@ -36,6 +51,7 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
 {
     private UI UI { get; } = new(app, new IkonTheme());
     private SpeechRecognizer SpeechRecognizer { get; } = new(SpeechRecognizerModel.WhisperLarge3Turbo);
+    private Audio Audio { get; } = new(app);
 
     private readonly Reactive<PendingUpload?> _pendingUpload = new(null);
     private readonly Reactive<IReadOnlyList<TranscriptEntry>> _transcripts = new([]);
@@ -49,14 +65,53 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<double> _transcriptionProgress = new(0);
     private readonly Reactive<bool> _isTranscribing = new(false);
     private readonly Reactive<bool> _generateSummary = new(true);
+    private readonly Reactive<bool> _isRecording = new(false);
+    private readonly Reactive<int> _recordingSeconds = new(0);
 
     private readonly object _transcriptsLock = new();
+    private readonly object _recordingLock = new();
+    private readonly Dictionary<string, (int SampleRate, int ChannelCount)> _streamFormats = new();
+    private LiveRecording? _recording;
+    private static bool? _hasOpusEncoder;
 
     public async Task Main()
     {
         await LoadTranscriptHistoryAsync();
 
-        app.StoppingAsync += async _ => SpeechRecognizer.Dispose();
+        app.StoppingAsync += async _ =>
+        {
+            DiscardRecording();
+            SpeechRecognizer.Dispose();
+        };
+
+        Audio.AudioInputStreamBeginAsync += OnRecordingStreamBeginAsync;
+        Audio.AudioInputFrameAsync += OnRecordingFrameAsync;
+        Audio.AudioInputStreamEndAsync += async args =>
+        {
+            await FinishRecordingAsync(args.StreamId);
+
+            lock (_recordingLock)
+            {
+                _streamFormats.Remove(args.StreamId);
+            }
+        };
+
+        // A tab closed an hour into a discussion must still yield the recording: the stream end
+        // event does not arrive for a client that vanished, so the client leaving stands in for it
+        app.OnClientLeft(async ctx =>
+        {
+            string? streamId;
+
+            lock (_recordingLock)
+            {
+                streamId = _recording?.ClientSessionId == ctx.SessionId ? _recording.StreamId : null;
+            }
+
+            if (streamId != null)
+            {
+                await FinishRecordingAsync(streamId);
+            }
+        });
 
         UI.Root([Page.Default], content: view =>
         {
@@ -65,7 +120,7 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
                 view.Column([Layout.Column.Lg], content: view =>
                 {
                     view.Text([Text.Display], "Transcript Studio");
-                    view.Text([Text.Body, "text-muted-foreground"], "Upload audio or video files and get searchable transcripts with summaries");
+                    view.Text([Text.Body, "text-muted-foreground"], "Record a discussion or upload audio or video files and get searchable transcripts with summaries");
                 });
 
                 view.Row([Layout.Row.Lg, "flex-col lg:flex-row"], content: view =>
@@ -75,7 +130,38 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
                         view.Box([Card.Default, "p-6"], content: view =>
                         {
                             view.Text([Text.H2, "mb-2"], "New transcript");
-                            view.Text([Text.Caption, "mb-4"], "Supports .ogg, .mp4, .wav, .mp3 and long recordings");
+                            view.Text([Text.Caption, "mb-4"], "Record directly from your microphone, or upload .ogg, .mp4, .wav, .mp3 and long recordings");
+
+                            view.Row([Layout.Row.Md, "items-center mb-4"], content: view =>
+                            {
+                                view.MicToggleButton(
+                                    ["default", "w-14 h-14 rounded-full flex items-center justify-center shrink-0"],
+                                    text: _isRecording.Value ? "Stop recording" : "Start recording",
+                                    audioOptions: new ClientAudioCaptureOptions
+                                    {
+                                        AutoGainControl = true,
+                                        NoiseSuppression = true,
+                                        EchoCancellation = false,
+                                    },
+                                    disabled: _isTranscribing.Value,
+                                    content: view => view.Icon([Icon.Default], name: _isRecording.Value ? "square" : "mic"));
+
+                                view.Column([Layout.Column.Sm], content: view =>
+                                {
+                                    if (_isRecording.Value)
+                                    {
+                                        view.Text([Text.Body, "font-semibold text-destructive"], $"Recording {FormatDuration(_recordingSeconds.Value)}");
+                                        view.Text([Text.Caption, "text-muted-foreground"], "Keep this page open. Tap the button again to stop and prepare the transcript");
+                                    }
+                                    else
+                                    {
+                                        view.Text([Text.Body, "font-semibold"], "Record a discussion");
+                                        view.Text([Text.Caption, "text-muted-foreground"], "Tap to start. Recordings of an hour or more are fine");
+                                    }
+                                });
+                            });
+
+                            view.Text([Text.Caption, "text-muted-foreground mb-2"], "Or upload a file");
 
                             view.FileUpload(
                                 [FileUpload.Zone.Base],
@@ -151,13 +237,13 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
                                 view.Button(
                                     [Button.PrimaryMd],
                                     text: _isTranscribing.Value ? "Transcribing..." : "Transcribe",
-                                    disabled: _isTranscribing.Value || _pendingUpload.Value == null,
+                                    disabled: _isTranscribing.Value || _isRecording.Value || _pendingUpload.Value == null,
                                     onClick: async () => await StartTranscriptionAsync());
 
                                 view.Button(
                                     [Button.OutlineMd],
                                     text: "Clear",
-                                    disabled: _isTranscribing.Value,
+                                    disabled: _isTranscribing.Value || _isRecording.Value,
                                     onClick: async () => ClearCurrentTranscript());
                             });
 
@@ -424,6 +510,7 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
 
             await SaveTranscriptEntryAsync(entry);
             _activeTranscriptId.Value = entry.Id;
+            _statusMessage.Value = "Transcript saved";
         }
         catch (Exception ex)
         {
@@ -460,6 +547,229 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
 
         builder.Append(text.Trim());
         _transcriptText.Value = builder.ToString();
+    }
+
+    private async Task OnRecordingStreamBeginAsync(AudioInputStreamBeginEventArgs args)
+    {
+        lock (_recordingLock)
+        {
+            _streamFormats[args.StreamId] = (args.SampleRate, args.ChannelCount);
+        }
+    }
+
+    private async Task OnRecordingFrameAsync(AudioInputFrameEventArgs args)
+    {
+        // One capture stream stays open for the whole session; every press of the mic button is
+        // a segment bracketed by IsFirst and IsLast, so those edges are what start and stop a recording
+        if (args.IsFirst)
+        {
+            await StartRecordingAsync(args);
+        }
+
+        int elapsedSeconds;
+
+        lock (_recordingLock)
+        {
+            var recording = _recording;
+
+            if (recording == null || recording.StreamId != args.StreamId)
+            {
+                return;
+            }
+
+            var bytes = new byte[args.Samples.Length * sizeof(float)];
+            Buffer.BlockCopy(args.Samples, 0, bytes, 0, bytes.Length);
+
+            try
+            {
+                recording.Encoder.StandardInput.BaseStream.Write(bytes, 0, bytes.Length);
+            }
+            catch (IOException ex)
+            {
+                // The encoder died under us; the stream keeps flowing, so drop this recording once
+                // rather than failing on every remaining frame
+                _recording = null;
+                recording.Encoder.Dispose();
+                _isRecording.Value = false;
+                _statusMessage.Value = "Recording could not be saved, please try again";
+                Log.Instance.Warning($"Writing to the encoder for recording stream {args.StreamId} failed: {ex.Message}");
+                return;
+            }
+
+            recording.SampleCount += args.Samples.Length;
+            elapsedSeconds = (int)(recording.SampleCount / (recording.SampleRate * (double)recording.ChannelCount));
+        }
+
+        // Re-rendering on every 20 ms frame would swamp the client; the timer only needs seconds
+        if (elapsedSeconds != _recordingSeconds.Value)
+        {
+            _recordingSeconds.Value = elapsedSeconds;
+        }
+
+        if (args.IsLast)
+        {
+            await FinishRecordingAsync(args.StreamId);
+        }
+    }
+
+    private async Task StartRecordingAsync(AudioInputFrameEventArgs args)
+    {
+        var useOpus = await HasOpusEncoderAsync();
+
+        lock (_recordingLock)
+        {
+            // A second segment (another tab, or a retry before the previous IsLast landed) must not
+            // interleave with the one already being encoded
+            if (_recording != null || !_streamFormats.TryGetValue(args.StreamId, out var format))
+            {
+                return;
+            }
+
+            try
+            {
+                _recording = StartEncoder(args.StreamId, args.ClientSessionId, format.SampleRate, format.ChannelCount, useOpus);
+            }
+            catch (Exception ex)
+            {
+                _statusMessage.Value = "Recording could not be started, please try again";
+                Log.Instance.Warning($"Starting the encoder for recording stream {args.StreamId} failed: {ex.Message}");
+                return;
+            }
+        }
+
+        _isRecording.Value = true;
+        _recordingSeconds.Value = 0;
+        _pendingUpload.Value = null;
+        _uploadProgress.Value = 0;
+        _statusMessage.Value = "Recording";
+    }
+
+    private async Task FinishRecordingAsync(string streamId)
+    {
+        LiveRecording? recording;
+
+        lock (_recordingLock)
+        {
+            recording = _recording;
+
+            if (recording == null || recording.StreamId != streamId)
+            {
+                return;
+            }
+
+            _recording = null;
+        }
+
+        _isRecording.Value = false;
+        _statusMessage.Value = "Preparing recording";
+
+        try
+        {
+            var stderr = await FinishEncoderAsync(recording);
+
+            if (recording.SampleCount == 0)
+            {
+                _statusMessage.Value = "No audio was captured";
+                File.Delete(recording.FilePath);
+                return;
+            }
+
+            if (recording.Encoder.ExitCode != 0 || !File.Exists(recording.FilePath))
+            {
+                throw new InvalidOperationException(string.IsNullOrWhiteSpace(stderr) ? "ffmpeg failed" : stderr.Trim());
+            }
+
+            var pending = new PendingUpload(recording.FileName, recording.FilePath, recording.MimeType, new FileInfo(recording.FilePath).Length);
+            _pendingUpload.Value = pending;
+            _uploadProgress.Value = 100;
+            _transcriptionProgress.Value = 0;
+            _statusMessage.Value = $"Ready to transcribe {pending.FileName}";
+        }
+        catch (Exception ex)
+        {
+            _statusMessage.Value = "Recording could not be saved, please try again";
+            Log.Instance.Warning($"Encoding recording {recording.StreamId} failed: {ex.Message}");
+        }
+        finally
+        {
+            recording.Encoder.Dispose();
+        }
+    }
+
+    private void DiscardRecording()
+    {
+        LiveRecording? recording;
+
+        lock (_recordingLock)
+        {
+            recording = _recording;
+            _recording = null;
+        }
+
+        if (recording == null)
+        {
+            return;
+        }
+
+        try
+        {
+            recording.Encoder.Kill();
+        }
+        catch (InvalidOperationException)
+        {
+            // The encoder already exited on its own; there is nothing left to stop
+        }
+
+        recording.Encoder.Dispose();
+
+        if (File.Exists(recording.FilePath))
+        {
+            File.Delete(recording.FilePath);
+        }
+    }
+
+    private static LiveRecording StartEncoder(string streamId, int clientSessionId, int sampleRate, int channelCount, bool useOpus)
+    {
+        var baseName = $"Recording {DateTime.Now:yyyy-MM-dd HH-mm}";
+        var extension = useOpus ? ".ogg" : ".wav";
+        var mimeType = useOpus ? "audio/ogg" : "audio/wav";
+        var filePath = Path.Combine(Path.GetTempPath(), $"ikon-transcript-rec-{Guid.NewGuid():N}{extension}");
+
+        // Opus keeps an hour of speech around 15 MB on the container's small disk; WAV is the
+        // fallback for ffmpeg builds without libopus
+        var codec = useOpus ? "-c:a libopus -b:a 32k -application voip" : "-c:a pcm_s16le";
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "ffmpeg",
+            Arguments = $"-loglevel warning -f f32le -ar {sampleRate} -ac {channelCount} -i pipe:0 {codec} \"{filePath}\"",
+            RedirectStandardInput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+
+        var encoder = Process.Start(startInfo) ?? throw new InvalidOperationException("ffmpeg could not be started");
+        return new LiveRecording(streamId, clientSessionId, sampleRate, channelCount, $"{baseName}{extension}", filePath, mimeType, encoder);
+    }
+
+    private static async Task<string> FinishEncoderAsync(LiveRecording recording)
+    {
+        var stderrTask = recording.Encoder.StandardError.ReadToEndAsync();
+        recording.Encoder.StandardInput.Close();
+        await recording.Encoder.WaitForExitAsync();
+        return await stderrTask;
+    }
+
+    private static async Task<bool> HasOpusEncoderAsync()
+    {
+        if (_hasOpusEncoder.HasValue)
+        {
+            return _hasOpusEncoder.Value;
+        }
+
+        var result = await ProcessRunner.RunAsync("ffmpeg -hide_banner -encoders", ignoreErrors: true);
+        _hasOpusEncoder = result.Success && result.StdOut.Contains("libopus", StringComparison.Ordinal);
+        return _hasOpusEncoder.Value;
     }
 
     private async Task SaveAudioAssetAsync(AssetUri assetUri, string filePath, string mimeType)
