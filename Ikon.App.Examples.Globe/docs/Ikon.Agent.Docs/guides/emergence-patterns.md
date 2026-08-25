@@ -109,7 +109,7 @@ await Emerge.Refine<T>(model, ctx, opt =>
 Patterns handle context in two ways:
 
 - **Shared context**: Sequential stages (Refine iterations, EnsembleMerge merger) share context. Each stage's output is automatically added to context before the next stage runs.
-- **Isolated context**: Parallel runs (BestOf candidates, MapReduce chunks, EnsembleMerge solvers) use isolated derived contexts to ensure deterministic parallel execution.
+- **Isolated context**: Independent runs (BestOf candidates, MapReduce chunks, EnsembleMerge solvers) use isolated derived contexts. MapReduce chunks and EnsembleMerge solvers run in parallel; BestOf candidates run sequentially, so budget wall time for `Count` full calls.
 
 ---
 
@@ -184,7 +184,7 @@ The `EmergePass<T>` configure callback is invoked on every iteration, giving acc
 
 ### BestOf — Score and Select Best
 
-Run N independent attempts and select the best result based on a scoring function.
+Run N independent attempts (sequentially, one after another) and select the best result based on a scoring function. Always provide `opt.Score` or `opt.ScoreDetailed` — without one, every candidate scores 0 and the first candidate is returned after paying for all N runs.
 
 ```csharp
 var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
@@ -207,7 +207,7 @@ var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
 - `ScoreDetailed` - Multi-axis scoring `Func<T, EmergenceTrace, ScoreBreakdown>`; ranks by `TotalScore` and passes the breakdown to `BuildCriticFeedback` (takes precedence over `Score`)
 - `Candidate(Action<CandidateScope<T>>)` - Configure each candidate (has `Index`, `Seed`)
 - `EnableCritic` - Run a critic pass over the winning candidate (default: false). On its own it works: the winner and its score are appended to the critic scope's `Command`
-- `Critic(Action<EmergeScope<T>>)` - Configure the critic scope
+- `Critic(Action<EmergeScope<T>>)` - Configure the critic scope. Calling this also sets `EnableCritic = true`, so a configured critic always runs; set `EnableCritic = false` afterward only if you are pre-configuring a critic to toggle on later
 - `BuildCriticFeedback` - Custom function `Func<T, ScoreBreakdown?, string>` to build the critic's prompt. The breakdown is non-null exactly when `ScoreDetailed` produced one
 - `CriticMustImprove` - Require critic to improve on the current best (default: true)
 
@@ -363,20 +363,23 @@ await foreach (var ev in TreeIndex.BuildAsync(LLMModel.Claude45Sonnet, documentC
 }
 
 // Step 2: Search the tree
-var result = await Emerge.TreeSearch<TreeSearchResult>(LLMModel.Claude45Sonnet, ctx, opt =>
+TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude45Sonnet, ctx, opt =>
 {
     opt.Index = index;
     opt.Query = "How does authentication work?";
     opt.MaxSteps = 10;
     opt.MaxResults = 3;
 
+    // The executor owns the navigator's Command and MaxIterations and overwrites them
+    // every step — configure only model-level knobs (Model, Temperature, MaxOutputTokens)
     opt.Navigator(n =>
     {
-        n.Command = "Navigate the document tree to find sections relevant to the query.";
+        n.Temperature = 0.2;
     });
 });
 
-// result.Sections contains found sections with NodeId, Path, Content, Relevance, Page
+// result.Sections is a List<FoundSection>, each with NodeId, Path, Content, Relevance, Page;
+// result.ReasoningTrace carries the navigator's final reasoning
 ```
 
 **Options:**
@@ -431,7 +434,7 @@ await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx,
 - `tool.WithParamDescription(paramName, description)` / `tool.WithAllowedValues(paramName, values)` — per-pass dynamic parameter docs and enums on a copy of the tool
 - Pre-built `Function` objects go directly onto the pass via `pass.Tools.Add(function)`
 
-**Completing the run from a tool body.** Return `Emerge.Complete()` (or `Emerge.Complete(value)` to record `value` as the tool result) from a tool body to end the run right after the current tool batch instead of looping back to the model — for tools whose side effect is the answer. The run completes with a default result, surfaced as a `Completed<T>` event.
+**Ending the run from a tool body.** Return `Emerge.EndRun()` (or `Emerge.EndRun(toolResult)` to record `toolResult` as this tool's result) from a tool body to end the run right after the current tool batch instead of looping back to the model — for tools whose side effect is the answer. `toolResult` is fed to the model transcript as this tool's result and — when its type is assignable to the run's result type `T` — it also becomes the run's result, so `await Emerge.Run<T>(...)` on an `EndRun` path yields it. `EndRun()` with no value, or a value of an unrelated type, completes with `default(T)`. Enumerating the run and reading the `Completed<T>` event observes the same result.
 
 **Many-parameter tools — request record.** `Tool.Of` tops out at 4 parameters by design. A tool that needs more takes a single request record; `[property: Description]` documents each field:
 
