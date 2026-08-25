@@ -18,26 +18,26 @@
     <IsIkonInternal Condition="'$(IkonRoot)' != ''">true</IsIkonInternal>
   </PropertyGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' != 'true'">
-    <PackageReference Include="Ikon.AI" Version="3.8.0" />
-    <PackageReference Include="Ikon.AI.Emergence" Version="3.8.0" />
-    <PackageReference Include="Ikon.App" Version="3.8.0" />
-    <PackageReference Include="Ikon.Common" Version="3.8.0" />
-    <PackageReference Include="Ikon.Common.Core" Version="3.8.0" />
-    <PackageReference Include="Ikon.Crosswind" Version="3.8.0" />
-    <PackageReference Include="Ikon.Parallax" Version="3.8.0" />
-    <PackageReference Include="Ikon.Pipeline" Version="3.8.0" />
-    <PackageReference Include="Ikon.Pipelines.Public" Version="3.8.0" />
-    <PackageReference Include="Ikon.Resonance" Version="3.8.0" />
-    <PackageReference Include="Ikon.Resonance.Core" Version="3.8.0" />
-    <PackageReference Include="Ikon.Server" Version="3.8.0" />
-    <PackageReference Include="Ikon.Teleport" Version="3.8.0" />
-    <PackageReference Include="Ikon.Sdk" Version="2.0.38" />
-    <PackageReference Include="Ikon.AI.Speech.Azure" Version="3.8.0" />
-    <PackageReference Include="Ikon.AI.Speech.Google" Version="3.8.0" />
-    <PackageReference Include="Ikon.App.Storage.Postgres" Version="3.8.0" />
-    <PackageReference Include="Ikon.Server.HotReload" Version="3.8.0" />
-    <PackageReference Include="Ikon.Agent" Version="3.8.0" />
-    <PackageReference Include="Ikon.Agent.Docs" Version="3.8.0" />
+    <PackageReference Include="Ikon.AI" Version="3.9.0" />
+    <PackageReference Include="Ikon.AI.Emergence" Version="3.9.0" />
+    <PackageReference Include="Ikon.App" Version="3.9.0" />
+    <PackageReference Include="Ikon.Common" Version="3.9.0" />
+    <PackageReference Include="Ikon.Common.Core" Version="3.9.0" />
+    <PackageReference Include="Ikon.Crosswind" Version="3.9.0" />
+    <PackageReference Include="Ikon.Parallax" Version="3.9.0" />
+    <PackageReference Include="Ikon.Pipeline" Version="3.9.0" />
+    <PackageReference Include="Ikon.Pipelines.Public" Version="3.9.0" />
+    <PackageReference Include="Ikon.Resonance" Version="3.9.0" />
+    <PackageReference Include="Ikon.Resonance.Core" Version="3.9.0" />
+    <PackageReference Include="Ikon.Server" Version="3.9.0" />
+    <PackageReference Include="Ikon.Teleport" Version="3.9.0" />
+    <PackageReference Include="Ikon.Sdk" Version="2.0.39" />
+    <PackageReference Include="Ikon.AI.Speech.Azure" Version="3.9.0" />
+    <PackageReference Include="Ikon.AI.Speech.Google" Version="3.9.0" />
+    <PackageReference Include="Ikon.App.Storage.Postgres" Version="3.9.0" />
+    <PackageReference Include="Ikon.Server.HotReload" Version="3.9.0" />
+    <PackageReference Include="Ikon.Agent" Version="3.9.0" />
+    <PackageReference Include="Ikon.Agent.Docs" Version="3.9.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Ikon.App.Examples.Live2DChat.Live2D\Ikon.App.Examples.Live2DChat.Live2D.csproj" />

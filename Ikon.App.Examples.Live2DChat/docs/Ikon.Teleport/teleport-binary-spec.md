@@ -2,21 +2,23 @@
 
 ## Overview
 
-Teleport is a deterministic, schema-optional binary format for hierarchical data.
-It defines a single canonical binary encoding and a 1:1 reversible JSON mirror.
-Conversion between binary and JSON is always lossless — no external schema required.
+Teleport is a schema-optional binary format for hierarchical data. It defines a single binary
+encoding and a one-way JSON mirror for debugging. The runtime ships the binary→JSON direction only
+(there is no JSON→binary decoder), and without a schema the JSON form loses field names (they become
+8-hex-digit ids) and cannot be distinguished from strings for Binary/Guid values — see §5. Field
+order is writer-defined, so two encodings of the same message are not guaranteed byte-identical (§6).
 
 | Property    | Value                    |
 |-------------|--------------------------|
 | Extension   | `.tpx`                   |
 | MIME Type   | `application/x-teleport` |
 | Encoding    | Little-endian binary     |
-| JSON Mirror | Direct, lossless mapping |
+| JSON Mirror | One-way (binary→JSON), for debugging |
 
 ### Design goals
 
 - Minimal — one format, no optional features.
-- Deterministic — canonical ordering and fixed little-endian layout.
+- Fixed little-endian layout. (Field order is writer-defined, not canonical — see §6.)
 - Schema-optional — field names are optional; IDs are 32-bit hashes.
 - Fast — flat, bounded layouts for zero-copy parsing.
 
@@ -51,7 +53,7 @@ fieldId = xxHash32(fieldName.UTF8, seed = 0)
   - If a name mapping exists, emit the name.
   - Otherwise, emit the 8-digit lowercase hex of fieldId (e.g. "5f1c9a6e").
 
-This guarantees reversibility even without schemas.
+Without a schema the emitted hex ids cannot be turned back into field names, so the JSON is a readable projection, not a lossless source the binary can be rebuilt from.
 
 ---
 
@@ -186,7 +188,8 @@ Example: `00112233-4455-6677-8899-aabbccddeeff` encodes as
 
 ## 5. JSON Mirror
 
-Binary ↔ JSON mapping is direct and reversible.
+Binary → JSON mapping is direct. The runtime ships the binary→JSON direction only
+(`TeleportJsonMirror.ToJson`); there is no JSON→binary entry point.
 
 | Teleport type | JSON form                                              |
 |---------------|--------------------------------------------------------|
@@ -201,14 +204,18 @@ Rules:
 - Every object includes _v for version.
 - Field order is semantically irrelevant.
 - Dict keys are serialized as strings (canonical JSON of the key).
-- Conversion is always lossless and reversible.
+- Without a schema document, field names render as 8-hex-digit field ids, and Binary/Guid
+  values render as plain strings indistinguishable from String fields — the JSON form is a
+  debugging mirror, not a lossless round-trip format.
 - null in JSON maps to type 0x01 (Null).
 
 ---
 
 ## 6. Determinism
 
-1. Object fields sorted by fieldId (unsigned u32) ascending.
+1. Object field order is writer-defined: the runtime writer emits fields in call order and
+   never sorts. Readers must accept any order, and byte-equality of two encodings of
+   semantically equal messages is not guaranteed.
 2. Dict key order non-semantic but preserved when writing.
 3. All numeric values little-endian.
 4. Maximum nesting depth = 128.
@@ -352,7 +359,7 @@ When names are unknown:
 { "_v": 1, "5f1c9a6e": 1500, "2f7a6b8c": true }
 ```
 
-Round-trips identically back to binary, as fieldIds are exact hash values.
+The runtime does not provide a JSON→binary decoder; this projection is for inspection, not round-tripping.
 
 ---
 
