@@ -1,6 +1,6 @@
 import './app.css';
 
-import { AuthProvider, IkonApp, useAuthOptional, useIkonApp } from '@ikonai/sdk-react-ui';
+import { AuthProvider, IkonApp, getConnectionRecovery, useAuthOptional, useIkonApp } from '@ikonai/sdk-react-ui';
 import { registerStandardUiModule, registerLucideIconsModule } from '@ikonai/sdk-react-ui-standard';
 import { registerAmbientVideoModule } from './lib/ambient-video';
 import { AuthGuard } from './auth/auth-guard';
@@ -65,12 +65,16 @@ function OfflineOverlay({ error, isServerFull, isSessionExpired, isStartupFailed
 
   const isTerminal = isServerFull || isSessionExpired || isStartupFailed;
   const scope = isServerFull ? 'serverFull' : isSessionExpired ? 'sessionExpired' : isStartupFailed ? 'startupFailed' : 'offline';
+  const recovery = getConnectionRecovery({ isSessionExpired });
   return (
     <div className="ikon-offline-overlay">
       <div className="ikon-offline-chip">
         <span className="ikon-offline-title">{t(`connection.${scope}.title`)}</span>
         <span className="ikon-offline-message">{t(`connection.${scope}.message`)}</span>
         {!isTerminal && error && <span className="ikon-offline-error">{error}</span>}
+        <button type="button" className="ikon-offline-action" onClick={recovery.run}>
+          <span className="ikon-offline-action-label">{t(`connection.${scope}.action`)}</span>
+        </button>
       </div>
     </div>
   );
