@@ -173,6 +173,7 @@ namespace Ikon.Common.Core.Assets
     Task<AssetContent<T>?> TryGetWithMetadataAsync<T>(AssetUri assetUri) where T : class
     Task<AssetWriteResult> TrySetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
     Task<AssetWriteResult> TrySetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
+  // Asset class determines which storage backend is used to store/retrieve the asset.
   enum AssetClass
     // Server's local filesystem under a system-managed root; not cloud-persisted.
     LocalFile
@@ -256,6 +257,7 @@ namespace Ikon.Common.Core.Assets
     AssetUri With(AssetClass? assetClass = null, string? path = null, string? spaceId = null, string? userId = null, string? query = null)
     static bool operator ==(AssetUri left, AssetUri right)
     static bool operator !=(AssetUri left, AssetUri right)
+  // Serializes AssetUri as its canonical URI string so it round-trips correctly. Without this, System.Text.Json cannot reconstruct the immutable get-only struct and falls back to default(AssetUri) on deserialization (losing the path, class, and scope identifiers).
   sealed class AssetUriJsonConverter : JsonConverter<AssetUri>
     ctor()
     override AssetUri Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)

@@ -64,7 +64,6 @@ global using System;
 global using IView = Ikon.Parallax.UIView;
 // </ikon-usings>
 
-global using Ikon.AI.Shader;
 global using Ikon.App.Client;
 global using Ikon.App.Examples.Learning.Shaders;
 global using Ikon.Pipeline.Items;
