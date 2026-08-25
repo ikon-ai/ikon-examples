@@ -76,6 +76,7 @@ namespace Ikon.AI.VideoEnhancement
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(VideoEnhancerModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
+    // Enhance a video by URL — the instance form of the EnhanceAsync one-shot, for when you already hold an enhancer. Reach for EnhanceVideoAsync when the request needs any other VideoEnhancerConfig field.
     Task<VideoEnhancerResult> EnhanceAsync(string videoUrl, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes a VideoEnhancer per call. Defaults to VideoEnhancerModel.TensorPixUpscale2xUltra41; override via model. Returns the enhanced video as a download URL in .Url plus .OutputFps/.OutputSizeBytes. Use the constructor + EnhanceVideoAsync for raw bytes (Data), frame-range trim, target FPS, or other fields.
     static Task<VideoEnhancerResult> EnhanceAsync(string videoUrl, VideoEnhancerModel model = TensorPixUpscale2xUltra41, CancellationToken cancellationToken = default)
@@ -113,7 +114,9 @@ namespace Ikon.AI.VideoGeneration
   interface IVideoGenerator : IDisposable, IVideoGeneratorInfo
     Task<VideoGeneratorResult> GenerateVideoAsync(VideoGeneratorConfig config, CancellationToken cancellationToken = default)
   interface IVideoGeneratorInfo
+    int MaxInputAudios { get; }
     int MaxInputImages { get; }
+    int MaxInputVideos { get; }
     VideoGeneratorResolutionMode ResolutionMode { get; }
     IReadOnlyList<int> SupportedLengths { get; }
     IReadOnlyList<VideoGeneratorResolution> SupportedResolutions { get; }
@@ -131,7 +134,9 @@ namespace Ikon.AI.VideoGeneration
   sealed class VideoGenerator : IVideoGenerator
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(VideoGeneratorModel model, IReadOnlyList<ModelRegion>? regions = null)
+    int MaxInputAudios { get; }
     int MaxInputImages { get; }
+    int MaxInputVideos { get; }
     VideoGeneratorResolutionMode ResolutionMode { get; }
     IReadOnlyList<int> SupportedLengths { get; }
     IReadOnlyList<VideoGeneratorResolution> SupportedResolutions { get; }
@@ -143,6 +148,7 @@ namespace Ikon.AI.VideoGeneration
     bool SupportsTailImage { get; }
     bool SupportsTextToVideo { get; }
     void Dispose()
+    // Generate a video from a plain prompt — the instance form of the GenerateAsync one-shot, for when you already hold a generator. Reach for GenerateVideoAsync when the request needs any other VideoGeneratorConfig field.
     Task<VideoGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes a VideoGenerator per call. Defaults to VideoGeneratorModel.Veo31Fast; override via model. Returns the result with the generated clip's .Url. Use the constructor + GenerateVideoAsync for image-to-video, length, resolution, aspect ratio, negative prompt, audio, or other fields.
     static Task<VideoGeneratorResult> GenerateAsync(string prompt, VideoGeneratorModel model = Veo31Fast, CancellationToken cancellationToken = default)
@@ -157,7 +163,9 @@ namespace Ikon.AI.VideoGeneration
     Ratio1x1
   sealed class VideoGeneratorCapabilities : IVideoGeneratorInfo
     ctor()
+    int MaxInputAudios { get; init; }
     int MaxInputImages { get; init; }
+    int MaxInputVideos { get; init; }
     VideoGeneratorResolutionMode ResolutionMode { get; init; }
     IReadOnlyList<int> SupportedLengths { get; init; }
     IReadOnlyList<VideoGeneratorResolution> SupportedResolutions { get; init; }
@@ -172,7 +180,11 @@ namespace Ikon.AI.VideoGeneration
     ctor()
     VideoGeneratorAspectRatio AspectRatio { get; init; }
     bool? GenerateAudio { get; init; }
+    // Reference audio, for models that accept it. Addressed from the prompt as @Audio1 and so on, in prompt order.
+    List<InputAudio> InputAudios { get; init; }
     List<InputImage> InputImages { get; init; }
+    // Reference footage, for models that accept it. Addressed from the prompt in the provider's own notation — fal's Seedance uses @Video1, @Video2 in prompt order.
+    List<InputVideo> InputVideos { get; init; }
     int Length { get; init; }
     string? NegativePrompt { get; init; }
     string? Prompt { get; init; }
@@ -200,6 +212,7 @@ namespace Ikon.AI.VideoGeneration
     Seedance20Fast
     Seedance20Mini
     Seedance25
+    Seedance25Reference
     Sora2
     Sora2Pro
     Veo31

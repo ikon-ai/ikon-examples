@@ -555,7 +555,7 @@ public partial class Emergence
 
             var ctx = CreateContext();
 
-            await foreach (var ev in Emerge.TreeSearch<TreeSearchResult>(LLMModel.Claude45Sonnet, ctx, options =>
+            await foreach (var ev in Emerge.TreeSearch(LLMModel.Claude45Sonnet, ctx, options =>
             {
                 options.Index = index;
                 options.Query = query;

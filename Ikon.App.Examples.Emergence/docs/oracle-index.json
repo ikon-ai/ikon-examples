@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/app-api-reference.md",
-      "sizeBytes": 110019,
+      "sizeBytes": 217943,
       "alsoInclude": []
     },
     {
@@ -100,7 +100,7 @@
         "value mutation"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/reactive-state.md",
-      "sizeBytes": 44024,
+      "sizeBytes": 69985,
       "alsoInclude": [
         "app-structure",
         "ui-components"
@@ -128,7 +128,7 @@
         "message bubbles"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ui-components.md",
-      "sizeBytes": 15318,
+      "sizeBytes": 15408,
       "alsoInclude": [
         "app-structure"
       ]
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ui-api-reference.md",
-      "sizeBytes": 174747,
+      "sizeBytes": 410150,
       "alsoInclude": []
     },
     {
@@ -280,7 +280,7 @@
         "transitions"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/tailwind-reference.md",
-      "sizeBytes": 26384,
+      "sizeBytes": 28672,
       "alsoInclude": []
     },
     {
@@ -300,7 +300,7 @@
         "timeout"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/emergence.md",
-      "sizeBytes": 28023,
+      "sizeBytes": 33690,
       "alsoInclude": [
         "app-structure",
         "ai-models"
@@ -319,7 +319,7 @@
         "advanced patterns"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/emergence-patterns.md",
-      "sizeBytes": 22410,
+      "sizeBytes": 23396,
       "alsoInclude": [
         "emergence"
       ]
@@ -339,7 +339,7 @@
         "AI connection"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ai-models.md",
-      "sizeBytes": 25409,
+      "sizeBytes": 32603,
       "alsoInclude": []
     },
     {
@@ -358,7 +358,7 @@
         "ImageUpscaler"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ai-image.md",
-      "sizeBytes": 16139,
+      "sizeBytes": 16540,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -380,7 +380,7 @@
         "SoundEffectGenerator"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ai-speech-and-audio.md",
-      "sizeBytes": 23352,
+      "sizeBytes": 24608,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -406,7 +406,7 @@
         "show a video"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ai-video.md",
-      "sizeBytes": 8781,
+      "sizeBytes": 9824,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -430,7 +430,7 @@
         "EmbeddingGenerator"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ai-web-and-data.md",
-      "sizeBytes": 31845,
+      "sizeBytes": 35818,
       "alsoInclude": [
         "emergence"
       ]
@@ -444,7 +444,7 @@
         "storage"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ai-advanced.md",
-      "sizeBytes": 6640,
+      "sizeBytes": 8421,
       "alsoInclude": [
         "emergence"
       ]
@@ -467,7 +467,7 @@
         "filter"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/audio-video.md",
-      "sizeBytes": 16961,
+      "sizeBytes": 45128,
       "alsoInclude": []
     },
     {
@@ -484,7 +484,7 @@
         "optimistic concurrency"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/asset-system.md",
-      "sizeBytes": 22018,
+      "sizeBytes": 22371,
       "alsoInclude": []
     },
     {
@@ -512,7 +512,7 @@
         "audio file"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/media-analysis.md",
-      "sizeBytes": 24691,
+      "sizeBytes": 25044,
       "alsoInclude": []
     },
     {
@@ -539,7 +539,7 @@
         "function"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/endpoints-webhooks.md",
-      "sizeBytes": 37352,
+      "sizeBytes": 53203,
       "alsoInclude": []
     },
     {
@@ -655,7 +655,7 @@
         "EmailSenderNotAvailableException"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/email.md",
-      "sizeBytes": 8795,
+      "sizeBytes": 14674,
       "alsoInclude": []
     },
     {
@@ -678,7 +678,7 @@
         "inbound sms"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/telephony.md",
-      "sizeBytes": 12972,
+      "sizeBytes": 16304,
       "alsoInclude": []
     },
     {
@@ -693,7 +693,7 @@
         "callable functions"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/function-registry.md",
-      "sizeBytes": 9947,
+      "sizeBytes": 24400,
       "alsoInclude": []
     },
     {
@@ -736,7 +736,7 @@
         "pipeline guide"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/pipelines-reference.md",
-      "sizeBytes": 67891,
+      "sizeBytes": 113166,
       "alsoInclude": []
     },
     {
@@ -758,7 +758,7 @@
         "emails folder"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/frontend-fundamentals.md",
-      "sizeBytes": 19733,
+      "sizeBytes": 23085,
       "alsoInclude": [
         "ui-components"
       ]
@@ -777,7 +777,7 @@
         "targets"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/config-and-cli.md",
-      "sizeBytes": 18062,
+      "sizeBytes": 18412,
       "alsoInclude": []
     }
   ]
