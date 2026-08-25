@@ -63,7 +63,6 @@ PrePackage = []
 # Target information for deployment (automatically configured with 'ikon app config')
 # Use environment-specific config files: ikon-config.development.toml, ikon-config.production.toml
 [Target]
-OrganisationId = ""
 SpaceId = ""
 Name = ""
 ```
@@ -114,7 +113,7 @@ Name = ""
 - `ikon app deploy show <id>`: show one bundle's full details (`--format table|json`, `--output <file>`)
 - `ikon app deploy activate <id>`: activate a bundle by ID, or the newest with `--latest` (`--yes` to skip prompt)
 - `ikon app deploy delete <id>`: delete a bundle by ID (`--yes` to skip prompt)
-- `ikon app distribute`: build, sign, and push the Flutter app to testers' phones (`--flutter-android` → Firebase App Distribution, `--flutter-ios` → TestFlight, requires macOS; `--notes`, `--testers`, `--channel`)
+- `ikon app distribute`: build, sign, and push the Flutter app to testers' phones (`--flutter-android` → Firebase App Distribution, `--flutter-ios` → TestFlight, requires macOS; `--notes`, `--testers`, `--channel`). The upload is irreversible and goes to a shared tester group, so the run prints its plan and asks first — `--yes` to skip the prompt (required non-interactively), `--dry-run` to build and sign but upload nothing
 - `ikon app payments enable|disable|list|status`: manage the app's payment provider (`enable --provider stripe|surfboard|mollie` auto-stores provider secrets; `status` shows merchant onboarding state)
 - `ikon app payments offer create|delete|list`: manage the payment offers customers can pay for by id
 - `ikon app docs`: (re)generate app documentation under `docs/` and update `AGENTS.md`
@@ -213,6 +212,6 @@ These are not under `ikon app` but are part of the everyday loop:
 - `ikon install android|ios`: install one mobile toolchain on its own — the Android SDK and its JDK, or Xcode, CocoaPods and the iOS platform (macOS only). `ikon install flutter` runs both after the SDK, so these are for resuming whichever half stopped at a manual step, or for a machine that only ever ships one of the two
 - `ikon install claude|codex`: install the Claude Code CLI or the Codex CLI, so the app can be developed with a coding agent. Installs the latest via npm — these are not pinned, they update themselves
 - `ikon asset download|upload|metadata <source> [destination]`: download, upload, or inspect an individual Ikon asset (print text to console, save to file, or show mime type/size/tags)
-- `ikon release-notes <target>`: print platform release notes for `ikon-tool`, `ikon-dotnet-libs`, `ikon-sdk-dotnet`, or `ikon-sdk-typescript` (`--count`, `--summary` for an AI summary) — handy after `ikon app update`
+- `ikon release-notes <target>`: print platform release notes for `ikon-tool`, `ikon-dotnet-libs`, `ikon-sdk-dotnet`, or `ikon-sdk-typescript` (`--limit`, `--order`, `--format json|csv`, `--summary` for an AI summary) — handy after `ikon app update`. `ikon release-notes list` names every target, `ikon release-notes versions <target>` lists the versions one has published
 
 Note: during development, there is no need to run `ikon app build` if app is running because the Ikon server also hot reloads all C# changes. To see any compilation errors, search for latest `ikon-server-*.log` under the root `build/app/artifacts/` directory.

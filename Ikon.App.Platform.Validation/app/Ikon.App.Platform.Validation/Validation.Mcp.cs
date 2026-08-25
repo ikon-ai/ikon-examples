@@ -28,6 +28,7 @@ public partial class Validation
         [Description("The topic to research")] string topic,
         [Description("Depth: 1=quick, 3=thorough")] int depth = 2)
     {
+        #region docsnippet:emerge-typed-run
         var brief = await Emerge.Run<TopicBrief>(
             LLMModel.Claude45Sonnet,
             pass =>
@@ -41,6 +42,7 @@ public partial class Validation
                 pass.Temperature = 0.2;
                 pass.MaxIterations = depth;
             }).ResultAsync();
+        #endregion
 
         return brief;
     }

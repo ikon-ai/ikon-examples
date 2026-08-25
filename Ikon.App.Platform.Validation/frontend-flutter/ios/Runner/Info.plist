@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Ikon App Platform Validation</string>
+	<string>Validation</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -65,6 +65,23 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>Allow camera access to capture photos and video in the app</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Allow microphone access for voice input and calls</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Allow photo library access to select and upload images</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Allow location access to enable location-based features</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Allow location access to enable location-based features</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>voip</string>
 	</array>
 </dict>
 </plist>

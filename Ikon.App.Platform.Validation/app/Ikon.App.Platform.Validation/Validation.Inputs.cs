@@ -881,7 +881,7 @@ public partial class Validation
                         preloadBehind: 1,
                         scrollEndThreshold: 2,
                         muted: _feedMuted.Value,
-                        onActiveChange: async i => _feedActiveIndex.Value = (int)i,
+                        onActiveChange: async i => _feedActiveIndex.Value = i,
                         onScrollNearEnd: async _ => _feedPagesLoaded.Value = _feedPagesLoaded.Value + 1,
                         onMuteChange: async m => _feedMuted.Value = m);
                 });

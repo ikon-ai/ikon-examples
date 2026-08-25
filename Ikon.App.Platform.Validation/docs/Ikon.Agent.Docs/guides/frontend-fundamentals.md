@@ -76,7 +76,7 @@ Connection states: `connecting` → `connected`, with `reconnecting` on temporar
 4. **On disconnect:** enters `reconnecting` state — attempt 1 is immediate, attempt 2 after 2s delay. After 2 failed attempts, falls back to full re-authentication
 5. **Stability:** after 5s of stable connection, the reconnect counter resets
 
-**Transport selection:** By default the SDK uses WebSocket (then proxy variants). WebTransport is off by default (found unreliable on poor networks) and must be opted into via `webtransport: true` on `useIkonApp` or the `?ikon-webtransport=true` query parameter. Override the transport with the `websocket`, `webtransport`, or `proxy` options on `useIkonApp`, or with query parameters.
+**Transport selection:** By default the SDK uses WebSocket, then the proxy variants, then the HTTP stream as the rung that survives a network blocking the WebSocket upgrade. WebTransport is off by default (found unreliable on poor networks) and must be opted into via `webtransport: true` on `useIkonApp` or `?ikon-transport=wt`. Pin one transport with `?ikon-transport=` and one connect tier with `?ikon-proxy=`; a pin no offered entrypoint satisfies fails the connect rather than quietly using another transport.
 
 **Keepalive:** The server sends periodic keepalive messages and tells the client its watchdog timeout during the auth handshake (180s for current clients; only legacy clients hard-code 15s). If no keepalive arrives within that window, the connection is considered lost.
 
@@ -95,17 +95,22 @@ The SDK reads `ikon-*` URL query parameters at startup. Both hyphenated (`ikon-p
 
 | Parameter | Type | Description |
 |---|---|---|
-| `ikon-proxy` | boolean | Force proxy mode on/off |
-| `ikon-websocket` | boolean | Force WebSocket transport on/off |
-| `ikon-webtransport` | boolean | Force WebTransport transport on/off |
+| `ikon-proxy` | `false` \| `true` \| `lb` | Pin the connect tier: direct, the on-host proxy, or the fleet gateway (`stream` is an alias for `lb`) |
+| `ikon-transport` | enum | Pin the transport: `ws`, `wt`, `http`, `http-binary`, `http-sse`, `http-poll`. A pin nothing satisfies fails the connect rather than falling back |
+| `ikon-connect` | string | External connect target for shareable previews: a token, `<port>~<token>`, or a full URL. Carries a credential |
+| `ikon-session` | string | Join the live session with this `sessionIdentityHash`; no live session is an error |
+| `ikon-same-origin` | boolean | Route API and auth through the app's own origin. On by default for deployed apps |
+| `ikon-debug` | boolean | Enable SDK debug logging |
+| `ikon-debug-overlay` | boolean | Show the on-screen debug overlay (`ikon-debug` does not imply it) |
+| `ikon-inspect` | boolean | Enable the element inspection overlay |
+| `ikon-lang` | string | Override UI language (e.g. `en`, `fi`) |
 | `ikon-audio` | boolean | Force audio on/off |
 | `ikon-video` | boolean | Force video on/off |
 | `ikon-webrtc` | boolean | Force WebRTC on/off |
-| `ikon-debug` | boolean | Enable SDK debug logging |
-| `ikon-lang` | string | Override UI language (e.g. `en`, `fi`) |
-| `ikon-server-url` | string | External connect URL for shareable previews |
-| `ikon-git-source` | boolean | Enable Git source deployment mode |
-| `ikon-git-branch` | string | Git branch for deployment |
+| `ikon-ice-transport` | `relay` \| `all` | Force the WebRTC ICE transport policy |
+| `ikon-retry` | boolean | Retry loops in auth/channel connect; `false` fails fast |
+| `ikon-snapshot` | boolean | Connect as a build-time snapshot client (sets `Context.IsSnapshot`) |
+| `ikon-signed-out` | flag | Present after an explicit sign-out; suppresses auto-login for this load |
 | `guest` | — | Auto-login as guest (not `ikon-` prefixed) |
 
 ### Authentication
@@ -370,6 +375,57 @@ view.AddNode(
 ```
 
 Rule of thumb: if your custom component holds state the user can mutate (a code editor's text buffer, a video's playhead, a canvas-game's frame state), and the C# side can swap which underlying entity it represents, **always pass a `key:` keyed on that entity's ID.** Without this, switching entities will appear to do nothing — the old buffer stays put.
+
+### Media in custom components — sibling connections, capture, video tiles
+
+Some custom components carry live media on a **second connection** — the canonical case is a
+call/huddle room hosted by a keyed cell, where every participant's media must terminate at ONE
+process (the cell's host) rather than each user's own app instance. `@ikonai/sdk-react-ui`
+ships hooks and a view for the whole leg, so a component never manages `IkonClient` lifecycles
+or capture handles by hand:
+
+```tsx
+import {
+  VideoStreamView,
+  useCameraCapture,
+  useMicrophoneCapture,
+  useScreenCapture,
+  useSiblingClient,
+} from '@ikonai/sdk-react-ui';
+
+const ROOM_MEDIA = { audio: { enabled: true }, video: { enabled: true } };
+
+function RoomMedia({ context, roomId, muted, cameraOn, screenOn, tiles }) {
+  // Opens a sibling connection next to the app connection (same auth/transport, the cell's
+  // identity parameters). Connects while roomId is non-null; unmount = leave the room.
+  const { client } = useSiblingClient(
+    context.client,
+    roomId ? { 'ikon-cell-type': 'RoomCell', RoomId: roomId } : null,
+    ROOM_MEDIA,
+  );
+
+  // Capture runs while the flag is true; flipping it off (or unmounting) stops it.
+  useMicrophoneCapture(client, !muted, { userGesture: true });
+  useCameraCapture(client, cameraOn, { userGesture: true });
+  useScreenCapture(client, screenOn, { userGesture: true });
+
+  return tiles.map((tile) => (
+    <VideoStreamView key={tile.streamId} client={client} streamId={tile.streamId} />
+  ));
+}
+```
+
+**Always render incoming streams with `VideoStreamView`** (or the built-in
+`view.VideoStreamCanvas`, which uses it). The SDK carries video over two transports — WebRTC
+`MediaStream`s by default, encoded frames over the protocol channel as the fallback — and
+which one is active is per connection, decided at runtime. A hand-rolled
+`media.video.attachCanvas(...)` implements only the fallback path and renders a permanently
+black tile whenever WebRTC carries the media; `VideoStreamView` handles both, plus the retry
+needed because the fallback pipeline builds lazily behind a dynamic import. Incoming **audio**
+needs no component at all — the client plays the connection's audio automatically.
+
+Reference app: **Ikon.App.Buzz** (`frontend-node/src/lib/huddle/`) — a Slack-style huddle
+whose media leg is exactly this pattern against a `HuddleCell` room.
 
 ### App icons & branding
 

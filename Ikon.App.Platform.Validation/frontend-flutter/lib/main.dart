@@ -14,13 +14,12 @@ void main() {
 /// frontend with `--dart-define=IKON_PORT=<port>`).
 ///
 /// When bundled with `ikon app bundle --flutter-*`, the tool injects the
-/// org/space identity and server host as dart-defines, so [isDeployed]
+/// space identity and server host as dart-defines, so [isDeployed]
 /// is true and the app connects to its deployed space.
 class IkonAppConfig {
   static const String serverHost = String.fromEnvironment('IKON_SERVER_HOST', defaultValue: 'localhost');
   static const int port = int.fromEnvironment('IKON_PORT', defaultValue: 8443);
   static const String spaceId = String.fromEnvironment('IKON_SPACE_ID');
-  static const String orgId = String.fromEnvironment('IKON_ORG_ID');
   static const String authUrl = String.fromEnvironment('IKON_AUTH_URL');
 
   static bool get isDeployed => spaceId.isNotEmpty;
@@ -103,7 +102,6 @@ class _IkonAppScreenState extends State<IkonAppScreen> {
                 serverHost: IkonAppConfig.serverHost,
                 spaceId: IkonAppConfig.spaceId,
                 authUrl: IkonAppConfig.authUrl,
-                orgId: IkonAppConfig.orgId,
               )
             : await IkonClient.connectLocal(
                 host: IkonAppConfig.serverHost,

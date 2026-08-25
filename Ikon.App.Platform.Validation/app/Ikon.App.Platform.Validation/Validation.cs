@@ -434,7 +434,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             new TabItem("video", "Video", RenderVideoSection),
                             new TabItem("audio", "Audio", RenderAudioSection),
                             new TabItem("shadertoy", "Shadertoy", RenderShadertoySection),
-                            new TabItem("ikon-ai", "Ikon.AI Library", ProfilingSkippable(RenderIkonAISection), ForceMount: true),
+                            new TabItem("ikon-ai", "Ikon.AI Library", ProfilingSkippable(RenderIkonAISection)),
                             new TabItem("mcp", "MCP", RenderMcpSection),
                             new TabItem("app-cells", "App/Cells", RenderLabSection),
                             new TabItem("cron", "Cron", RenderCronSection),

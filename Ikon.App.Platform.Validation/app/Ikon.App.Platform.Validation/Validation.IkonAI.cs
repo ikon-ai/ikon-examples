@@ -60,8 +60,6 @@ public partial class Validation
     private readonly Reactive<string?> _imageGeneratorResult = new(null);
     private readonly Reactive<string?> _imageGeneratorError = new(null);
     private readonly Reactive<string?> _imageGeneratorDownloadUrl = new(null);
-    private byte[]? _imageGeneratorResultData;
-    private string? _imageGeneratorResultMimeType;
     private readonly Reactive<int> _imageGeneratorSteps = new(0);
     private readonly Reactive<string> _imageGeneratorQuality = new(nameof(ImageQuality.Auto));
     private readonly Reactive<string> _imageGeneratorBackground = new(nameof(ImageBackground.Auto));
@@ -125,8 +123,6 @@ public partial class Validation
     private readonly Reactive<string?> _fileConverterError = new(null);
     private readonly Reactive<string> _fileConverterFileName = new("");
     private string? _fileConverterFilePath;
-    private byte[]? _fileConverterResultData;
-    private string? _fileConverterResultName;
     private readonly Reactive<string?> _fileConverterDownloadUrl = new(null);
 
     // VideoGenerator state
@@ -1152,8 +1148,6 @@ public partial class Validation
         _imageGeneratorError.Value = null;
         _imageGeneratorResult.Value = null;
         _imageGeneratorDownloadUrl.Value = null;
-        _imageGeneratorResultData = null;
-        _imageGeneratorResultMimeType = null;
         _imageGeneratorResultDataUrls.Value = [];
 
         try
@@ -1192,8 +1186,6 @@ public partial class Validation
             {
                 var image = results[0];
                 var imageData = await image.GetDataAsync();
-                _imageGeneratorResultData = imageData;
-                _imageGeneratorResultMimeType = image.MimeType;
                 _imageGeneratorResult.Value = $"Generated {results.Count} image(s)";
 
                 var dataUrls = new List<string>();
@@ -2167,8 +2159,6 @@ public partial class Validation
                     {
                         _fileConverterFileName.Value = args.FileName;
                         _fileConverterFilePath = args.LocalTempFilePath;
-                        _fileConverterResultData = null;
-                        _fileConverterResultName = null;
                         _fileConverterResult.Value = null;
                     },
                     content: view =>
@@ -2262,8 +2252,6 @@ public partial class Validation
 
             var resultData = await result.GetDataAsync();
 
-            _fileConverterResultData = resultData;
-            _fileConverterResultName = result.Name;
             _fileConverterResult.Value = $"Converted to {result.Name} ({resultData.Length / 1024} KB)";
             _fileConverterDownloadUrl.Value = await UploadForDownloadAsync("converted.pdf", resultData, MimeTypes.ApplicationPdf);
         }
