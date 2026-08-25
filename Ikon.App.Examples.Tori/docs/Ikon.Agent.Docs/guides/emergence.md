@@ -110,9 +110,28 @@ await foreach (var ev in Emerge.BestOf<CreativeResponse>(LLMModel.Claude46Sonnet
 
 Refer to the emergence-patterns guide for advanced patterns (MapReduce, Refine, EnsembleMerge, TreeSearch, etc.) and the ai-models guide for LLM model listings.
 
+### Canonical typed run
+
+The canonical structured `Emerge.Run<T>` call, extracted verbatim from the platform validation app so it is always real, compiling code:
+```csharp
+var brief = await Emerge.Run<TopicBrief>(
+    LLMModel.Claude45Sonnet,
+    pass =>
+    {
+        pass.SystemPrompt = """
+            Research the given topic. Return JSON matching the output schema.
+            Be concrete — named entities, dates, numbers. Confidence reflects
+            how grounded your facts are; lower it if you're guessing.
+            """;
+        pass.Command = $"Topic: {topic}\nDepth: {depth}";
+        pass.Temperature = 0.2;
+        pass.MaxIterations = depth;
+    }).ResultAsync();
+```
+
 ### Available LLM Models
 
-`LLMModel.Claude46Sonnet`, `LLMModel.Claude45Sonnet`, `LLMModel.Claude45Haiku`, `LLMModel.Gemini25Flash`, `LLMModel.Gemini25Pro`, `LLMModel.Gpt5Mini`, `LLMModel.Gpt5`, `LLMModel.Grok420Reasoning`, and many more. All models use the same `Emerge.Run<T>` API — just change the model enum.
+All models use the same `Emerge.Run<T>` API — just change the model enum. The complete, authoritative set of `LLMModel` values is generated from the enum itself below, so it can never drift from the code.
 
 ---
 
@@ -136,22 +155,18 @@ namespace Ikon.AI.Emergence
     EmergeScope<T> CriticScope { get; }
     // Runs a critic pass over the winning candidate and keeps its result when it scores better (see CriticMustImprove). The prompt comes from BuildCriticFeedback; without one, the best candidate and its score are appended to CriticScope's Command.
     bool EnableCritic { get; set; }
-    // Ignored when ScoreDetailed is set.
+    // Set this or ScoreDetailed — with neither, every candidate scores 0.0 and the FIRST candidate always wins after paying for all Count runs. Ignored when ScoreDetailed is set. Candidates run sequentially, so budget wall time for Count full calls.
     Func<T, EmergenceTrace, double>? Score { get; set; }
     // Ranks candidates by ScoreBreakdown.TotalScore and passes the breakdown to BuildCriticFeedback. Takes precedence over Score.
     Func<T, EmergenceTrace, ScoreBreakdown>? ScoreDetailed { get; set; }
     void Candidate(Action<CandidateScope<T>> configure)
+    // Configuring the critic also enables it — an explicitly configured critic that silently never ran was the trap; set EnableCritic back to false afterward for the rare case of pre-configuring a critic to toggle later.
     void Critic(Action<EmergeScope<T>> configure)
   sealed class CandidateScope<T> : EmergeScope<T>
     ctor()
     int Index { get; }
     // Not a sampler seed (the chat models expose none), so it does not make a run reproducible — it only drives sibling candidates to diverge.
     int? Seed { get; set; }
-  // Return this from a tool body to end the run immediately after the current tool batch instead of looping back to the model; the run completes with a default result and the completion surfaces as a Completed<T> event. Create via Emerge.Complete<TValue> or Emerge.Complete.
-  class Complete
-  // Value is written to the model transcript as the tool result before the run completes.
-  sealed class Complete<TValue> : Complete
-    TValue Value { get; }
   sealed record Completed<T> : EmergeEvent<T>
     ctor(T? Result, KernelContext Context, EmergenceTrace Trace)
     KernelContext Context { get; init; }
@@ -160,20 +175,24 @@ namespace Ikon.AI.Emergence
   static class Emerge
     // Defaults to LLMModel.Claude45Haiku (cheap and fast — right for short transformations); use the model overload for a stronger tier. Never returns null; throws EmergenceStoppedException if the run stops or completes without a reply.
     static Task<string> AskAsync(string command, CancellationToken ct = default)
+    // Like AskAsync but with an explicit model override.
     static Task<string> AskAsync(string command, LLMModel model, CancellationToken ct = default)
+    // Like AskAsync but with the model given by name string — resolves user-registered custom models (see CustomModels) as well as built-in ones.
     static Task<string> AskAsync(string command, string model, CancellationToken ct = default)
     // Asks the model for JSON matching T's schema; defaults to LLMModel.Claude45Haiku. Throws EmergenceStoppedException when the run stops, completes without a result, or returns invalid JSON.
     static Task<T> AskAsync<T>(string command, CancellationToken ct = default) where T : class
+    // Like AskAsync<T> but with an explicit model override.
     static Task<T> AskAsync<T>(string command, LLMModel model, CancellationToken ct = default) where T : class
+    // Like AskAsync<T> but with the model given by name string — resolves user-registered custom models (see CustomModels) as well as built-in ones.
     static Task<T> AskAsync<T>(string command, string model, CancellationToken ct = default) where T : class
     static EmergeRun<T> BestOf<T>(LLMModel model, KernelContext context, Action<BestOfOptions<T>> configure, CancellationToken ct = default)
     static EmergeRun<T> BestOf<T>(string model, KernelContext context, Action<BestOfOptions<T>> configure, CancellationToken ct = default)
     static EmergeRun<T> BestOf<T>(LLMModel model, KernelContext context, Action<BestOfOptions<T>> configure, ILLM llm, CancellationToken ct = default)
     static EmergeRun<T> BestOf<T>(string model, KernelContext context, Action<BestOfOptions<T>> configure, ILLM llm, CancellationToken ct = default)
-    // Return the result from a tool body to complete the run right after the current tool batch, with value fed to the transcript as the tool result.
-    static Complete<TValue> Complete<TValue>(TValue value)
-    // Return from a tool body to complete the run after the current tool batch; the tool result is recorded as a plain completion marker with no value.
-    static Complete Complete()
+    // Return this from a tool body to end the run right after the current tool batch, with toolResult fed to the transcript as the tool result. The run completes with a default result.
+    static EndRun<TValue> EndRun<TValue>(TValue toolResult)
+    // Return from a tool body to end the run after the current tool batch; the completion is recorded as a plain marker with no value.
+    static EndRun EndRun()
     static EmergeRun<T> EnsembleMerge<T>(LLMModel model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, CancellationToken ct = default)
     static EmergeRun<T> EnsembleMerge<T>(string model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, CancellationToken ct = default)
     static EmergeRun<T> EnsembleMerge<T>(LLMModel model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, ILLM llm, CancellationToken ct = default)
@@ -188,17 +207,20 @@ namespace Ikon.AI.Emergence
     static EmergeRun<T> Refine<T>(string model, KernelContext context, Action<RefineOptions<T>> configure, ILLM llm, CancellationToken ct = default)
     // Awaiting returns a non-null T and throws EmergenceStoppedException if the run stops without a result. This overload creates a fresh KernelContext; pass an explicit one via the other overloads to seed input (images, prior turns) or carry conversation history across calls.
     static EmergeRun<T> Run<T>(LLMModel model, Action<EmergePass<T>> configure, CancellationToken ct = default)
+    // Like Run<T> but with the model given by name string — resolves user-registered custom models (see CustomModels) as well as built-in ones.
     static EmergeRun<T> Run<T>(string model, Action<EmergePass<T>> configure, CancellationToken ct = default)
+    // Like Run<T> but with an explicit ILLM (e.g. a mock for testing).
     static EmergeRun<T> Run<T>(LLMModel model, Action<EmergePass<T>> configure, ILLM llm, CancellationToken ct = default)
     static EmergeRun<T> Run<T>(string model, Action<EmergePass<T>> configure, ILLM llm, CancellationToken ct = default)
     static EmergeRun<T> Run<T>(LLMModel model, KernelContext context, Action<EmergePass<T>> configure, CancellationToken ct = default)
     static EmergeRun<T> Run<T>(string model, KernelContext context, Action<EmergePass<T>> configure, CancellationToken ct = default)
     static EmergeRun<T> Run<T>(LLMModel model, KernelContext context, Action<EmergePass<T>> configure, ILLM llm, CancellationToken ct = default)
     static EmergeRun<T> Run<T>(string model, KernelContext context, Action<EmergePass<T>> configure, ILLM llm, CancellationToken ct = default)
-    static EmergeRun<T> TreeSearch<T>(LLMModel model, KernelContext context, Action<TreeSearchOptions<T>> configure, CancellationToken ct = default)
-    static EmergeRun<T> TreeSearch<T>(string model, KernelContext context, Action<TreeSearchOptions<T>> configure, CancellationToken ct = default)
-    static EmergeRun<T> TreeSearch<T>(LLMModel model, KernelContext context, Action<TreeSearchOptions<T>> configure, ILLM llm, CancellationToken ct = default)
-    static EmergeRun<T> TreeSearch<T>(string model, KernelContext context, Action<TreeSearchOptions<T>> configure, ILLM llm, CancellationToken ct = default)
+    // Navigates a document tree to find the sections relevant to the context, returning a TreeSearchResult — the sections the navigator marked relevant plus its final reasoning.
+    static EmergeRun<TreeSearchResult> TreeSearch(LLMModel model, KernelContext context, Action<TreeSearchOptions> configure, CancellationToken ct = default)
+    static EmergeRun<TreeSearchResult> TreeSearch(string model, KernelContext context, Action<TreeSearchOptions> configure, CancellationToken ct = default)
+    static EmergeRun<TreeSearchResult> TreeSearch(LLMModel model, KernelContext context, Action<TreeSearchOptions> configure, ILLM llm, CancellationToken ct = default)
+    static EmergeRun<TreeSearchResult> TreeSearch(string model, KernelContext context, Action<TreeSearchOptions> configure, ILLM llm, CancellationToken ct = default)
   abstract record EmergeEvent<T>
   static class EmergeEventExtensions
     // Returns the result together with the updated KernelContext (for conversation continuity). The result stays nullable — a run can complete without producing one — so guard it before use.
@@ -226,6 +248,7 @@ namespace Ikon.AI.Emergence
     TimeSpan? MaxWallTime { get; set; }
     // Null inherits the run's model; set it to override the model for this pass only.
     LLMModel? Model { get; set; }
+    // Model by name string for this pass — resolves user-registered custom models (see CustomModels) as well as built-in ones. Wins over Model when both are set; null inherits the run's model.
     string? ModelName { get; set; }
     // Tools named here are treated as side-effect-free: the executor runs consecutive calls to them from one model turn concurrently, while results are still recorded in the model's original order. Any tool not listed acts as a barrier and runs alone.
     ISet<string> ReadOnlyToolNames { get; }
@@ -260,12 +283,18 @@ namespace Ikon.AI.Emergence
   abstract class EmergeScopeBase
     string? Command { get; set; }
     bool? IncludeJsonExample { get; set; }
+    // Null does NOT mean unbounded — the executor caps at 10 iterations and stops the run with "MaxIterationsExceeded", which an awaited run surfaces as EmergenceStoppedException. Raise this explicitly for long tool loops.
     int? MaxIterations { get; set; }
+    // Default when null: 16000.
     int? MaxOutputTokens { get; set; }
+    // Default when null: 3 retries.
     int? MaxRetries { get; set; }
+    // Default when null: 50 tool calls, then the run stops with "MaxToolCallsExceeded".
     int? MaxToolCalls { get; set; }
+    // Default when null: 5 minutes of wall time, then the run stops with "MaxWallTimeExceeded".
     TimeSpan? MaxWallTime { get; set; }
     LLMModel? Model { get; set; }
+    // Model by name string — resolves user-registered custom models (see CustomModels) as well as built-in ones. Wins over Model when both are set.
     string? ModelName { get; set; }
     ReasoningEffort? ReasoningEffort { get; set; }
     int? ReasoningTokenBudget { get; set; }
@@ -273,7 +302,9 @@ namespace Ikon.AI.Emergence
     TimeSpan? RetryDelay { get; set; }
     int? SkipLastNMessages { get; set; }
     string? SystemPrompt { get; set; }
+    // Default when null: 0.7.
     double? Temperature { get; set; }
+    // Default when null: 15 minutes.
     TimeSpan? Timeout { get; set; }
     IList<Function> Tools { get; }
     bool? UseCitations { get; set; }
@@ -302,6 +333,11 @@ namespace Ikon.AI.Emergence
     long OutputTokens { get; init; }
     IReadOnlyList<FunctionCall> ToolCallHistory { get; init; }
     int ToolCalls { get; init; }
+  // Return this from a tool body to end the run immediately after the current tool batch instead of looping back to the model. The value (if any) is fed to the model transcript as this tool's result AND becomes the run's result when it is assignable to T; EndRun() with no value, or a value of an unrelated type, completes with default(T). Both await Emerge.Run<T>(...) and enumerating for the Completed<T> event observe that result. Create via Emerge.EndRun<TValue> or Emerge.EndRun.
+  class EndRun
+  // ToolResult is written to the model transcript as the tool result and becomes the run's result when assignable to the run's result type.
+  sealed class EndRun<TValue> : EndRun
+    TValue ToolResult { get; }
   sealed class EnsembleMergeOptions<T> : EmergeScope<T>
     ctor()
     int MaxParallel { get; set; }
@@ -310,6 +346,7 @@ namespace Ikon.AI.Emergence
     int SolverCount { get; set; }
     void Merger(Action<EmergeScope<T>> configure)
     void Solver(Action<AgentScope<T>> configure)
+  // One tree section the navigator marked relevant, with the reason it gave.
   sealed record FoundSection
     ctor(string NodeId, string Path, string Content, string Relevance, int? Page = null)
     string Content { get; init; }
@@ -333,6 +370,7 @@ namespace Ikon.AI.Emergence
     EmergeScope<TMapped> MapScope { get; }
     int MaxParallel { get; set; }
     EmergeScope<TResult> ReduceScope { get; }
+    // Splits Input into the chunks to map over.
     Func<TInput, IEnumerable<TInput>>? Split { get; set; }
     void Map(Action<EmergeScope<TMapped>> configure)
     void Reduce(Action<EmergeScope<TResult>> configure)
@@ -340,9 +378,11 @@ namespace Ikon.AI.Emergence
   sealed class McpClient : IDisposable
     ctor(string endpoint, Dictionary<string, string>? headers = null)
     IReadOnlyList<McpTool> Tools { get; }
+    // Calls an MCP tool by name with the given JSON arguments.
     Task<string> CallToolAsync(string name, JsonElement arguments, CancellationToken ct = default)
     // Returns the content plus a pagination cursor; pass a cursor from a previous response to fetch the next page.
     Task<McpToolResult> CallToolRawAsync(string name, JsonElement arguments, string? cursor = null, CancellationToken ct = default)
+    // Initializes the MCP session and discovers available tools.
     Task ConnectAsync(CancellationToken ct = default)
     void Dispose()
   record McpTool
@@ -357,6 +397,7 @@ namespace Ikon.AI.Emergence
   sealed record ModelText<T> : EmergeEvent<T>
     ctor(string Text)
     string Text { get; init; }
+  // The navigator's structured verdict at the end of a TreeSearch run.
   sealed record NavigationDecision
     ctor(string Reasoning = "", bool Complete = false)
     bool Complete { get; init; }
@@ -415,7 +456,7 @@ namespace Ikon.AI.Emergence
     FunctionCall Call { get; init; }
     LLMEvent[] Events { get; init; }
     object Result { get; init; }
-  sealed class TreeSearchOptions<T> : EmergeScope<T>
+  sealed class TreeSearchOptions : EmergeScope<TreeSearchResult>
     ctor()
     TreeIndex? Index { get; set; }
     int MaxResults { get; set; }
@@ -423,6 +464,7 @@ namespace Ikon.AI.Emergence
     EmergeScope<NavigationDecision> NavigatorScope { get; }
     string Query { get; set; }
     void Navigator(Action<EmergeScope<NavigationDecision>> configure)
+  // Result of a TreeSearch run: the sections the navigator marked relevant, plus its final reasoning.
   sealed record TreeSearchResult
     ctor(List<FoundSection> Sections, string ReasoningTrace = "")
     string ReasoningTrace { get; init; }
@@ -433,14 +475,18 @@ namespace Ikon.AI.Emergence.Structured
   static class StructuredTagParser
     // Returns the first occurrence's inner content, or null if the tag is absent.
     static string? GetTagContent(string content, string tagName)
+    // Check if content contains a specific tag
     static bool HasTag(string content, string tagName)
+    // Parse content and extract structured blocks for the specified tag names
     static StructuredTagParser.ParsedResponse Parse(string content, params string[] tagNames)
+  // A parsed block from the content
   sealed record StructuredTagParser.ParsedBlock
     ctor(string TagName, string Content, int StartIndex, int EndIndex)
     string Content { get; init; }
     int EndIndex { get; init; }
     int StartIndex { get; init; }
     string TagName { get; init; }
+  // Complete parsed response with plain text and extracted blocks
   sealed record StructuredTagParser.ParsedResponse
     ctor(string PlainText, IReadOnlyList<StructuredTagParser.ParsedBlock> Blocks)
     IReadOnlyList<StructuredTagParser.ParsedBlock> Blocks { get; init; }
@@ -461,8 +507,11 @@ namespace Ikon.AI.Emergence.Tree
     ctor()
     ctor(TreeNode root)
     TreeNode Root { get; set; }
+    // Builds the tree index for a document, as an EmergeRun<T> — awaitable for the finished index, enumerable for the event stream, just like Emerge.TreeSearch and the other Emerge patterns.
     static EmergeRun<TreeIndex> BuildAsync(LLMModel model, string content, TreeIndexOptions? options = null, CancellationToken ct = default)
+    // Like BuildAsync but with the model given by name string — resolves user-registered custom models (see CustomModels) as well as built-in ones.
     static EmergeRun<TreeIndex> BuildAsync(string model, string content, TreeIndexOptions? options = null, CancellationToken ct = default)
+    // Like BuildAsync but reads the document through an IContentReader.
     static EmergeRun<TreeIndex> BuildAsync(LLMModel model, IContentReader reader, TreeIndexOptions? options = null, CancellationToken ct = default)
     static EmergeRun<TreeIndex> BuildAsync(string model, IContentReader reader, TreeIndexOptions? options = null, CancellationToken ct = default)
     TreeNode? FindById(string id)
@@ -488,3 +537,106 @@ namespace Ikon.AI.Emergence.Tree
     void AddChild(TreeNode child)
     string GetPath()
     IEnumerable<TreeNode> Traverse()
+
+
+---
+
+  enum LLMModel
+    Gpt4OmniMini
+    Gpt41
+    Gpt41Mini
+    Gpt5
+    Gpt5Mini
+    Gpt5Nano
+    Gpt51
+    Gpt52
+    Gpt5Pro
+    Gpt52Pro
+    Gpt53Codex
+    Gpt54
+    Gpt54Mini
+    Gpt54Nano
+    Gpt54Pro
+    Gpt55
+    Gpt55Pro
+    Gpt56Sol
+    Gpt56Terra
+    Gpt56Luna
+    O3
+    O3Pro
+    Claude45Haiku
+    Claude45Sonnet
+    Claude45Opus
+    Claude46Opus
+    Claude46Sonnet
+    Claude47Opus
+    Claude48Opus
+    Claude5Sonnet
+    Claude5Opus
+    Claude5Fable
+    Gemini25Flash
+    Gemini25FlashLite
+    Gemini25Pro
+    Gemini3Flash
+    Gemini31Pro
+    Gemini31FlashLite
+    Gemini35Flash
+    Gemini35FlashLite
+    Gemini36Flash
+    Grok43
+    Grok45
+    GrokBuild01
+    Grok420Reasoning
+    Grok420NonReasoning
+    MistralSmall
+    MistralMedium
+    MistralLarge
+    Ministral14B
+    Ministral8B
+    Ministral3B
+    MagistralSmall
+    MagistralMedium
+    Codestral
+    Devstral2
+    VoxtralSmall
+    CommandR
+    CommandRPlus
+    CommandA
+    CommandAReasoning
+    CommandAPlus
+    CommandAVision
+    CommandR7B
+    KimiK25
+    KimiK26
+    KimiK27Code
+    KimiK3
+    Qwen36
+    Qwen37
+    Qwen37Max
+    Qwen38Max
+    Qwen37Flash
+    Qwen3827B
+    GptOss120B
+    Glm5
+    Glm51
+    Glm52
+    Glm53
+    Glm5VTurbo
+    MiniMaxM25
+    MiniMaxM27
+    MiniMaxM3
+    DeepSeekV32
+    DeepSeekV4Pro
+    DeepSeekV4Flash
+    DeepSeekV4FlashVision
+    Seed21Turbo
+    Seed20Code
+    Seed20Lite
+    Seed20Mini
+    MiMoV25
+    MiMoV25Pro
+    Step37Flash
+    NovaPro
+    NovaLite
+    NovaMicro
+    Nova2Lite

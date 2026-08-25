@@ -75,6 +75,7 @@ namespace Ikon.AI.Classification
   enum ClassificationModel
     OpenAIOmniModeration
     MistralModeration
+    // Sentinel for user-registered custom models (see CustomModels); not directly usable — select custom models by their registered name string.
     Custom
   static class ClassificationModelExtensions
     static string DisplayName(this ClassificationModel model)
@@ -106,12 +107,18 @@ namespace Ikon.AI.Classification
     ctor()
     ctor(string message)
     ctor(string message, Exception inner)
+  // Request/response format a custom classification endpoint speaks.
   enum CustomClassificationApi
+    // OpenAI moderations format (/v1/moderations).
     OpenAI
+    // Mistral moderations format.
     Mistral
+  // Configuration for a user-provided custom classification endpoint, registered via CustomModels.Register and selected by name with new Classifier(name).
   sealed class CustomClassificationModel : CustomModel
     ctor()
+    // Request/response format the endpoint speaks.
     required CustomClassificationApi Api { get; init; }
+    // True when the endpoint accepts image inputs.
     bool SupportsImageInput { get; init; }
   interface IClassifier : IClassifierInfo, IDisposable
     // Defaults to 10 seconds.
@@ -127,17 +134,28 @@ namespace Ikon.AI.Classification
     ctor(string message, Exception inner)
 
 namespace Ikon.AI.Embeddings
+  // Request/response format a custom embedding endpoint speaks.
   enum CustomEmbeddingApi
+    // OpenAI embeddings format (/v1/embeddings) — also spoken by most self-hosted embedding servers.
     OpenAI
+    // Cohere embed format.
     Cohere
+    // Mistral embeddings format.
     Mistral
+    // Google Vertex prediction format.
     Google
+    // Jina embeddings format.
     Jina
+    // Voyage embeddings format.
     Voyage
+  // Configuration for a user-provided custom embedding endpoint, registered via CustomModels.Register and selected by name with new EmbeddingGenerator(name).
   sealed class CustomEmbeddingModel : CustomModel
     ctor()
+    // Request/response format the endpoint speaks.
     required CustomEmbeddingApi Api { get; init; }
+    // Dimension of the returned embedding vectors.
     required int EmbeddingVectorSize { get; init; }
+    // Maximum number of inputs per request; larger batches are split automatically.
     int MaxInputCount { get; init; }
   enum EmbeddingEncoding
     Base64
@@ -148,6 +166,7 @@ namespace Ikon.AI.Embeddings
     int EmbeddingVectorSize { get; }
     int MaxInputCount { get; }
     void Dispose()
+    // Embed a batch of texts — the instance form of the EmbedAsync one-shot, for when you already hold a generator. Reach for GenerateEmbeddingsAsync when the request needs any other EmbeddingGeneratorConfig field (batch cap, timeout).
     Task<List<float[]>> EmbedAsync(IReadOnlyList<string> texts, EmbeddingType type = Generic, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes an EmbeddingGenerator per call. Defaults to EmbeddingModel.OpenAI3Small and EmbeddingType.Generic; override the model via model, and pass an explicit EmbeddingType when embedding documents vs. queries for asymmetric retrieval. Returns one float[] per input, in input order. Use the constructor + GenerateEmbeddingsAsync for per-request batch caps or a custom timeout.
     static Task<List<float[]>> EmbedAsync(IReadOnlyList<string> texts, EmbeddingModel model = OpenAI3Small, EmbeddingType type = Generic, CancellationToken cancellationToken = default)
@@ -202,6 +221,7 @@ namespace Ikon.AI.Embeddings
     Voyage4Lite
     Voyage4Large
     VoyageCode3
+    // Sentinel for user-registered custom models (see CustomModels); not directly usable — select custom models by their registered name string.
     Custom
   static class EmbeddingModelExtensions
     static string DisplayName(this EmbeddingModel model)
@@ -222,11 +242,21 @@ namespace Ikon.AI.Embeddings
     ctor(string message)
     ctor(string message, Exception inner)
   static class VectorMath
+    // Calculates the element-wise average embedding from a list of embeddings. Each embedding must be a float array of the same length.
+    // embeddings: List of embeddings (each as a float array)
     static float[] CalculateAverageEmbedding(IList<float[]> embeddings)
+    // Calculates the cosine similarity between two vectors.
+    // throws ArgumentException: The vectors differ in length, or either vector has zero magnitude (e.g. a blank or failed embedding), for which cosine similarity is undefined. Guard degenerate vectors before calling when scoring in a loop.
     static float CalculateCosineSimilarity(ReadOnlySpan<float> vectorA, ReadOnlySpan<float> vectorB)
+    // Calculates the dot product of two vectors.
     static float CalculateDotProduct(ReadOnlySpan<float> vectorA, ReadOnlySpan<float> vectorB)
+    // Calculates the Euclidean distance between two vectors.
     static float CalculateEuclideanDistance(ReadOnlySpan<float> vectorA, ReadOnlySpan<float> vectorB)
+    // For each embedding in the list, finds the k nearest neighbors (using Euclidean distance).
+    // embeddings: List of embeddings (each as a float array)
+    // k: Number of neighbors to retrieve for each embedding
     static List<List<VectorMath.Neighbor>> CalculateKNearestNeighbors(IList<float[]> embeddings, int k)
+    // Calculates the magnitude (L2 norm) of a vector.
     static float GetMagnitude(ReadOnlySpan<float> vector)
   readonly struct VectorMath.Neighbor
     ctor(int index, float distance)
@@ -246,6 +276,7 @@ namespace Ikon.AI.FileConversion
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(FileConverterModel model, IReadOnlyList<ModelRegion>? regions = null)
     Task<ConvertedFile> ConvertToPdfAsync(FileConverterConfig config, CancellationToken cancellationToken = default)
+    // Convert one file's bytes to PDF — the instance form of the ConvertToPdfAsync one-shot, for when you already hold a converter. Reach for ConvertToPdfAsync when the request needs any other FileConverterConfig field.
     Task<ConvertedFile> ConvertToPdfAsync(byte[] data, string fileName, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes a FileConverter per call. fileName must carry the source extension (e.g. report.docx) — it determines the input format. The PDF is in result.Data. Use the constructor + ConvertToPdfAsync for a URL or AssetUri source, or a custom timeout.
     static Task<ConvertedFile> ConvertToPdfAsync(byte[] data, string fileName, FileConverterModel model = ConvertApi, CancellationToken cancellationToken = default)
@@ -291,6 +322,7 @@ namespace Ikon.AI.OCR
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(OCRModel model, IReadOnlyList<ModelRegion>? regions = null)
     int MaxPagesSupported { get; }
+    // Read one document's bytes — the instance form of the AnalyzeAsync one-shot, for when you already hold an OCR instance. Reach for AnalyzeDocumentAsync when the request needs any other OCRConfig field (asset uri, url, document type).
     Task<OCRResult> AnalyzeAsync(byte[] data, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes an OCR per call. Accepts image or PDF bytes. Defaults to OCRModel.AzureDocumentIntelligence; override via model. Extracted text is in result.Text; result.Paragraphs/result.Pages carry structure. Use the constructor + AnalyzeDocumentAsync for a URL/AssetUri source or other fields, or AnalyzeDocumentStreamingAsync for page-by-page streaming.
     static Task<OCRResult> AnalyzeAsync(byte[] data, OCRModel model = AzureDocumentIntelligence, CancellationToken cancellationToken = default)
@@ -349,13 +381,20 @@ namespace Ikon.AI.OCR
     string Content { get; init; }
 
 namespace Ikon.AI.Reranking
+  // Request/response format a custom rerank endpoint speaks.
   enum CustomRerankApi
+    // Cohere rerank format.
     Cohere
+    // Jina rerank format.
     Jina
+    // Voyage rerank format.
     Voyage
+    // Together rerank format.
     Together
+  // Configuration for a user-provided custom rerank endpoint, registered via CustomModels.Register and selected by name with new Reranker(name).
   sealed class CustomRerankModel : CustomModel
     ctor()
+    // Request/response format the endpoint speaks.
     required CustomRerankApi Api { get; init; }
   interface IReranker : IDisposable
     // Returns items ordered most relevant first; RerankItem.Index is the document's position in RerankerConfig.Documents.
@@ -374,6 +413,7 @@ namespace Ikon.AI.Reranking
     JinaReranker3
     VoyageRerank25
     VoyageRerank25Lite
+    // Sentinel for user-registered custom models (see CustomModels); not directly usable — select custom models by their registered name string.
     Custom
   static class RerankModelExtensions
     static string DisplayName(this RerankModel model)
@@ -417,7 +457,7 @@ namespace Ikon.AI.Retrieving
     override int GetHashCode()
     override string ToString()
     static bool operator ==(ContentLink? lhs, ContentLink? rhs)
-    static bool operator !=(ContentLink lhs, ContentLink rhs)
+    static bool operator !=(ContentLink? lhs, ContentLink? rhs)
     readonly string Link
     readonly float Score
     readonly List<string> Segments
@@ -609,6 +649,7 @@ namespace Ikon.AI.WebScraping
     Task<DownloadFileResult> DownloadFileAsync(DownloadFileConfig config, CancellationToken cancellationToken = default)
     static WebScraperCapabilities GetCapabilities(WebScraperModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(WebScraperModel model)
+    // Scrape one page by URL — the instance form of the ScrapeAsync one-shot, for when you already hold a scraper. Reach for ScrapeSinglePageAsync when the request needs any other SinglePageScrapeConfig field.
     Task<PageResult> ScrapeAsync(string url, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes a WebScraper per call. Defaults to WebScraperModel.Jina; override via model. Returns the page as Markdown in .Content plus .Title/.Url. Use the constructor + ScrapeSinglePageAsync for output format/cookies/JS or other fields, or ScrapeMultiplePagesAsync/TakeScreenshotAsync/DownloadFileAsync for crawling, screenshots, and downloads.
     static Task<PageResult> ScrapeAsync(string url, WebScraperModel model = Jina, CancellationToken cancellationToken = default)
@@ -671,6 +712,7 @@ namespace Ikon.AI.WebSearching
     void Dispose()
     static WebSearcherCapabilities GetCapabilities(WebSearcherModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(WebSearcherModel model)
+    // Web page search for a plain query — the instance form of the SearchAsync one-shot, for when you already hold a searcher. Reach for SearchPagesAsync when the search needs any other SearchConfig field (site restriction, country, language).
     Task<List<SearchResult>> SearchAsync(string query, int maxResults = 10, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes a WebSearcher per call. Defaults to WebSearcherModel.Google; override via model. Each SearchResult exposes .Url/.Title/.Content. Use the constructor + SearchPagesAsync for site-restricted search, country/language targeting, or other SearchConfig fields, or SearchImagesAsync (with an image-capable model) for image search.
     static Task<List<SearchResult>> SearchAsync(string query, WebSearcherModel model = Google, int maxResults = 10, CancellationToken cancellationToken = default)

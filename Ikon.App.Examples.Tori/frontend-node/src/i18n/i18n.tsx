@@ -6,12 +6,16 @@ export interface Translations {
   'connection.reconnecting': string;
   'connection.offline.title': string;
   'connection.offline.message': string;
+  'connection.offline.action': string;
   'connection.serverFull.title': string;
   'connection.serverFull.message': string;
+  'connection.serverFull.action': string;
   'connection.sessionExpired.title': string;
   'connection.sessionExpired.message': string;
+  'connection.sessionExpired.action': string;
   'connection.startupFailed.title': string;
   'connection.startupFailed.message': string;
+  'connection.startupFailed.action': string;
   'auth.welcome.title': string;
   'auth.welcome.subtitle': string;
   'auth.divider': string;

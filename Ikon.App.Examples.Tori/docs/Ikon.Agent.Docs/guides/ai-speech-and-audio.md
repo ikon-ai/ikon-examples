@@ -134,10 +134,13 @@ await foreach (var audio in generator.GenerateSoundEffectAsync(new SoundEffectGe
 # Ikon.AI Public API
 namespace Ikon.AI.SoundEffectGeneration
   interface ISoundEffectGenerator : IDisposable, ISoundEffectGeneratorInfo
+    // Channel count of the PCM samples produced by GenerateSoundEffectAsync.
     int ChannelCount { get; }
+    // Sample rate of the PCM samples produced by GenerateSoundEffectAsync.
     int SampleRate { get; }
     // Streams raw PCM chunks; use GenerateSoundEffectFileAsync for a buffered, encoded audio file instead.
     IAsyncEnumerable<AudioChunk> GenerateSoundEffectAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
+    // Generates the sound effect and returns it as a single buffered, encoded audio file (WAV).
     Task<SoundEffectGeneratorResult> GenerateSoundEffectFileAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
   interface ISoundEffectGeneratorInfo
     bool SupportsLooping { get; }
@@ -154,6 +157,7 @@ namespace Ikon.AI.SoundEffectGeneration
     int SampleRate { get; }
     bool SupportsLooping { get; }
     void Dispose()
+    // Generate a sound-effect file from a plain prompt — the instance form of the GenerateAsync one-shot, for when you already hold a generator. Reach for GenerateSoundEffectFileAsync when the request needs any other SoundEffectGeneratorConfig field.
     Task<SoundEffectGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes a SoundEffectGenerator per call. Returns a buffered WAV file (.Data/.MimeType/.DurationSeconds). Use the constructor + GenerateSoundEffectFileAsync for duration/looping/prompt-influence, or GenerateSoundEffectAsync for streaming PCM chunks.
     static Task<SoundEffectGeneratorResult> GenerateAsync(string prompt, SoundEffectGeneratorModel model = ElevenLabsV2, CancellationToken cancellationToken = default)
@@ -209,6 +213,7 @@ namespace Ikon.AI.SpeechGeneration
     int SampleRate { get; }
     IReadOnlyList<string> VoiceIds { get; }
     void Dispose()
+    // Speak a line of text and collect it into one audio chunk — the instance form of the GenerateAsync one-shot, for when you already hold a generator. Reach for GenerateSpeechAsync when you want the chunks as they stream, or any other SpeechGeneratorConfig field.
     Task<AudioChunk> GenerateAsync(string text, string? voice = null, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes a SpeechGenerator per call. Defaults to SpeechGeneratorModel.ElevenFlash25; override via model. Pass voice to pick a voice (model default otherwise). Streamed chunks are concatenated into one PCM AudioChunk. Never returns null — throws SpeechGeneratorException on failure or empty output. Use the constructor + GenerateSpeechAsync for chunk-by-chunk streaming or other fields.
     static Task<AudioChunk> GenerateAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, CancellationToken cancellationToken = default)
@@ -393,6 +398,7 @@ namespace Ikon.AI.SpeechRecognition
     void Dispose()
     static SpeechRecognizerCapabilities GetCapabilities(SpeechRecognizerModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(SpeechRecognizerModel model)
+    // Transcribe a buffer of samples — the instance form of the RecognizeAsync one-shot, for when you already hold a recognizer. Reach for RecognizeBatchSpeechAsync when the request needs any other RecognizeSpeechConfig field (language, prompt, timestamps).
     Task<string> RecognizeAsync(float[] samples, int sampleRate, int channelCount = 1, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes a SpeechRecognizer per call. Defaults to SpeechRecognizerModel.WhisperLarge3Turbo; override via model. Returns the recognized text (empty when nothing was recognized). Use the constructor + RecognizeBatchSpeechAsync for a language hint, prompt, or other fields, or RecognizeContinuousSpeechAsync for streaming.
     static Task<string> RecognizeAsync(float[] samples, int sampleRate, SpeechRecognizerModel model = WhisperLarge3Turbo, int channelCount = 1, CancellationToken cancellationToken = default)
@@ -417,9 +423,11 @@ namespace Ikon.AI.SpeechRecognition
     SpeechRecognizerAdapter.Mode Mode { get; set; }
     // Used only in GrowingWindow/SlidingWindow modes (GrowingWindow recognizes all accumulated audio, SlidingWindow only audio since the last run); defaults to 5s.
     TimeSpan RecognitionInterval { get; set; }
+    // The timeout for individual speech recognition API requests.
     TimeSpan RequestTimeout { get; set; }
     // SilenceTriggered mode only: a pause of this length flushes accumulated speech for recognition. Defaults to 750ms.
     TimeSpan SilenceDuration { get; set; }
+    // The amplitude threshold below which audio is considered silence. Sample values with absolute amplitude below this threshold are treated as silent.
     float SilenceThreshold { get; set; }
   enum SpeechRecognizerAdapter.Mode
     GrowingWindow
