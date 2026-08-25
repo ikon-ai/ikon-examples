@@ -82,7 +82,8 @@ view.TextArea(bind: _text, style: ["min-h-[100px]"], placeholder: "Type a messag
 // IMPORTANT — onSubmit's parameter is the submitted value. Always use it. Do NOT re-read the bound reactive
 // (`_text.Value`) inside onSubmit: onValueChange is a separate round-trip and may not have landed when
 // onSubmit fires for a fast typist, so the reactive can be one keystroke behind.
-// Note: clearOnSubmit defaults to true when onSubmit is set. Pass clearOnSubmit: false to keep the value.
+// Note: both TextField and TextArea clear on submit only when an onSubmit handler is set; a bound field
+// with no onSubmit keeps its value. Pass clearOnSubmit: true/false to override either way.
 // Checkbox / Switch / Slider / RadioGroup / Toggle auto-render their inner part (the
 // check mark, the switch thumb, the slider track+thumb, the radio dot) AND their default
 // styling — the bare call below is all you need; you do NOT have to compose a

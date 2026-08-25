@@ -65,6 +65,7 @@ private object ReadFile(ExampleState state, string path)
 - Return `{success: false, error: "..."}` rather than throwing on missing-file — the model handles structured errors better than exceptions.
 - The dictionary doubles as the UI source: render the files panel directly from `_virtualFiles.Keys.OrderBy(f => f)`.
 - Cap `MaxIterations` and `MaxToolCalls` — coder loops can run away on ambiguous tasks.
+- For a terminal tool — a `submit`/`done` whose side effect IS the answer — return `Emerge.EndRun(value)` from the tool body instead of a string. The run ends right after the current tool batch rather than looping the result back to the model for another turn, and `value` becomes the run's result when it is assignable to the run's `T`. That is the deliberate exit; `MaxIterations` is only the backstop.
 
 ## See also
 
