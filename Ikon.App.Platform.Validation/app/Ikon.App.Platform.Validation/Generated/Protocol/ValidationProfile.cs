@@ -9,7 +9,7 @@ using Ikon.Teleport;
 
 namespace Ikon.App.Platform.Validation.Protocol;
 
-/// <summary>The Validation "Versioned State" tab's persisted profile — the canonical example of a schema-versioned persisted state type. Because this is a data .tp instead of a plain C# record, the persistence layer applies the compat contract: renamed fields survive storage via the [obsolete] ledger and the UpgradeFrom migration chain (see Validation.State.cs), old builds cannot destroy fields written by newer builds, and payloads stored by a newer schema version are never downgraded.</summary>
+/// <remarks>The Validation "Versioned State" tab's persisted profile — the canonical example of a schema-versioned persisted state type. Because this is a data .tp instead of a plain C# record, the persistence layer applies the compat contract: renamed fields survive storage via the [obsolete] ledger and the UpgradeFrom migration chain (see Validation.State.cs), old builds cannot destroy fields written by newer builds, and payloads stored by a newer schema version are never downgraded.</remarks>
 public sealed partial class ValidationProfile : IVersionedTeleportData
 {
     private const uint VisitCountFieldId = 0x746290CEu;
@@ -17,9 +17,9 @@ public sealed partial class ValidationProfile : IVersionedTeleportData
     private const uint FavoriteColorsFieldId = 0xF72C24BFu;
     private const uint NicknameRetiredFieldId = 0x59108DB4u;
 
-    /// <summary>What the profile shows as the player's name. v1 called this Nickname.</summary>
+    /// <remarks>What the profile shows as the player's name. v1 called this Nickname.</remarks>
     public string DisplayName { get; set; } = string.Empty;
-    /// <summary>Incremented from the tab's button; proves scalar state persists across restarts.</summary>
+    /// <remarks>Incremented from the tab's button; proves scalar state persists across restarts.</remarks>
     public int VisitCount { get; set; }
     public List<string> FavoriteColors { get; set; } = new List<string> { "teal", "amber" };
 
@@ -234,10 +234,10 @@ public sealed partial class ValidationProfile : IVersionedTeleportData
         return ReadFromTeleport(data);
     }
 
-    /// <summary>
+    /// <remarks>
     /// v1 named the display name Nickname. The v1 -&gt; v2 migration (UpgradeFrom1 in
     /// Validation.State.cs) maps it onto DisplayName when a v1 payload is loaded.
-    /// </summary>
+    /// </remarks>
     public sealed partial class RetiredFields
     {
         public string? Nickname { get; set; }
