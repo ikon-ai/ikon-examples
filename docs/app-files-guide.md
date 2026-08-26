@@ -15,7 +15,7 @@ One law and two folders cover everything:
   `public/hero.png` is `<img src="/hero.png">` or `view.Image(["w-full"], src: "/hero.png")`.
 - **`data/`** (at the app root) — files your app's code *reads*. Never served to anyone.
 
-At runtime, `app.Files` is the one API over both folders:
+At runtime, `app.Files` (an `AppFiles`) is the one API over both folders, each side an `AppFileTree`:
 
 ```csharp
 // Read a shipped (or previously written) private file.
