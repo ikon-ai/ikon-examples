@@ -51,26 +51,29 @@ private void LogEvent<T>(ExampleState state, EmergeEvent<T> ev)
 }
 
 // Render — color per level
-foreach (var log in state.Logs.TakeLast(100))
+private void Render(IView view)
 {
-    var (bg, text) = log.Level switch
+    foreach (var log in state.Logs.TakeLast(100))
     {
-        LogLevel.Tool      => ("bg-purple-500/10", "text-purple-400"),
-        LogLevel.Result    => ("bg-green-500/10",  "text-green-400"),
-        LogLevel.Error     => ("bg-red-500/10",    "text-red-400"),
-        LogLevel.Stage     => ("bg-yellow-500/10", "text-yellow-400"),
-        LogLevel.Iteration => ("bg-cyan-500/10",   "text-cyan-400"),
-        _                  => ("",                 "text-foreground")
-    };
-    view.Box([$"py-1 px-2 mb-1 rounded {bg}"], content: view =>
-    {
-        view.Row([Layout.Row.Sm], content: view =>
+        var (bg, text) = log.Level switch
         {
-            view.Text([Text.Caption, "text-muted-foreground w-20 shrink-0"], log.Timestamp.ToString("HH:mm:ss.fff"));
-            view.Text([$"font-semibold {text}"], $"[{log.Level}]");
-            view.Text([Text.Caption, "break-all"], log.Message);
+            LogLevel.Tool      => ("bg-purple-500/10", "text-purple-400"),
+            LogLevel.Result    => ("bg-green-500/10",  "text-green-400"),
+            LogLevel.Error     => ("bg-red-500/10",    "text-red-400"),
+            LogLevel.Stage     => ("bg-yellow-500/10", "text-yellow-400"),
+            LogLevel.Iteration => ("bg-cyan-500/10",   "text-cyan-400"),
+            _                  => ("",                 "text-foreground")
+        };
+        view.Box([$"py-1 px-2 mb-1 rounded {bg}"], content: view =>
+        {
+            view.Row([Layout.Row.Sm], content: view =>
+            {
+                view.Text([Text.Caption, "text-muted-foreground w-20 shrink-0"], log.Timestamp.ToString("HH:mm:ss.fff"));
+                view.Text([$"font-semibold {text}"], $"[{log.Level}]");
+                view.Text([Text.Caption, "break-all"], log.Message);
+            });
         });
-    });
+    }
 }
 ```
 
@@ -81,9 +84,9 @@ foreach (var log in state.Logs.TakeLast(100))
 - Don't log every `ModelText<T>` chunk — it's per-token and floods the feed; use `chatbot-streaming` for that.
 - Track `_cts` so the same UI can show a "Stop" button that cancels mid-run; the feed will show the `Stopped<T>` event.
 - For MapReduce/TreeSearch, increment `CurrentIteration` on `Progress<T>` to show "chunks processed" alongside the feed.
+- **`TokenUpdate` counts are CUMULATIVE running totals, not per-iteration deltas.** Take the LAST event's values; summing every event multiplies the reported usage by the number of iterations. `EmergenceStatus` carries the run's phase alongside them.
 
 ## See also
 
 - `streaming-agent-status`
-- `agent-streaming-with-tool-status`
 - `orchestrator-thread-with-tools`

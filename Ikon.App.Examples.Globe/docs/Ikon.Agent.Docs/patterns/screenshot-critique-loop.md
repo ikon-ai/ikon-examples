@@ -11,30 +11,38 @@ Any "AI iterates on something visual" loop: generated games, generated UI, image
 
 ```csharp
 // Capture: hidden node inside the rendered preview region
-view.Box(["flex-1 p-4 relative"], content: uiView =>
+private void RenderPreview(UIView view)
 {
-    var onCaptureDoneId = uiView.CreateAction<ScreenCaptureArgs>(async args =>
+    view.Box(["flex-1 p-4 relative"], content: uiView =>
     {
-        _lastScreenshotBase64 = args.Value.ImageBase64;
-        if (_pendingCritiqueRequest)
+        var onCaptureDoneId = uiView.CreateAction<ScreenCaptureArgs>(async args =>
         {
-            _pendingCritiqueRequest = false;
-            await CritiqueUIAsync();
-        }
+            _lastScreenshotBase64 = args.Value.ImageBase64;
+
+            if (_pendingCritiqueRequest)
+            {
+                _pendingCritiqueRequest = false;
+                await CritiqueUIAsync();
+            }
+        });
+        uiView.AddNode("preview-capture", new Dictionary<string, object?>
+        {
+            ["captureRequestId"] = _captureRequestId.Value,
+            ["onCaptureDoneId"] = onCaptureDoneId,
+        });
+        ExecuteCodeSync(_lastGeneratedCode.Value, uiView);
     });
-    uiView.AddNode("preview-capture", new Dictionary<string, object?>
-    {
-        ["captureRequestId"] = _captureRequestId.Value,
-        ["onCaptureDoneId"] = onCaptureDoneId,
-    });
-    ExecuteCodeSync(_lastGeneratedCode.Value, uiView);
-});
+}
 
 // Trigger: bump the request id to capture
 private async Task CritiqueUIAsync()
 {
     _captureRequestId.Value++;
-    if (_lastScreenshotBase64 == null) return;
+
+    if (_lastScreenshotBase64 == null)
+    {
+        return;
+    }
 
     List<IMessagePart> parts = [
         new TextPart("Score each plan section 0-100% on how the implementation matches the plan."),

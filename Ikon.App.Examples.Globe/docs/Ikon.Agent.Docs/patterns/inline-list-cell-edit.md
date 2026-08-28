@@ -10,58 +10,61 @@ Anywhere editing should feel like Notion or a spreadsheet — single short field
 ## Snippet
 
 ```csharp
-// _states is a ReactiveList<CharacterState>
-for (var i = 0; i < _states.Count; i++)
+private void Render(IView view)
 {
-    var index = i;
-    var state = _states[i];
-    var stateId = state.Id;
-    view.Column([Card.Default, "p-3", Layout.Column.Sm], content: view =>
+    // _states is a ReactiveList<CharacterState>
+    for (var i = 0; i < _states.Count; i++)
     {
-        // Name field — edits in place, saves on every keystroke (debounced inside SaveProjectAsync)
-        view.TextField(
-            [Input.Default, "font-medium"],
-            placeholder: "State name",
-            value: state.Name,
-            onValueChange: async value =>
-            {
-                state.Name = value;
-                _states[index] = state;
-                _ = SaveProjectAsync();
-            });
-
-        // Image upload / thumbnail
-        if (state.ImageData != null && state.ImageMime != null)
+        var index = i;
+        var state = _states[i];
+        var stateId = state.Id;
+        view.Column([Card.Default, "p-3", Layout.Column.Sm], content: view =>
         {
-            view.Row(["gap-2 items-center"], content: view =>
+            // Name field — edits in place, saves on every keystroke (debounced inside SaveProjectAsync)
+            view.TextField(
+                [Input.Default, "font-medium"],
+                placeholder: "State name",
+                value: state.Name,
+                onValueChange: async value =>
+                {
+                    state.Name = value;
+                    _states[index] = state;
+                    _ = SaveProjectAsync();
+                });
+
+            // Image upload / thumbnail
+            if (state.ImageData != null && state.ImageMime != null)
             {
-                view.Image(
-                    style: ["w-16 h-16 object-cover", Tokens.Radius.Md],
-                    data: state.ImageData,
-                    mimeType: state.ImageMime,
-                    alt: state.Name);
+                view.Row(["gap-2 items-center"], content: view =>
+                {
+                    view.Image(
+                        style: ["w-16 h-16 object-cover", Tokens.Radius.Md],
+                        data: state.ImageData,
+                        mimeType: state.ImageMime,
+                        alt: state.Name);
 
-                view.FileUpload(
-                    accept: ["image/*"],
-                    multiple: false,
-                    maxFileSize: 20_000_000,
-                    onUploadComplete: async args => await HandleImageUpload(stateId, args),
-                    content: v => v.Text(["text-xs cursor-pointer text-primary underline"], "Replace"));
+                    view.FileUpload(
+                        accept: ["image/*"],
+                        multiple: false,
+                        maxFileSize: 20_000_000,
+                        onUploadComplete: async args => await HandleImageUpload(stateId, args),
+                        content: v => v.Text(["text-xs cursor-pointer text-primary underline"], "Replace"));
+                });
+            }
+
+            // Action row — generate button uses the captured stateId from the closure
+            view.Row(["gap-2"], content: view =>
+            {
+                view.Button([Button.SecondaryMd, "flex-1 text-sm"], statusLabel,
+                    disabled: !canGenerate,
+                    onClick: async () => { _ = GenerateLoopVideoAsync(stateId); });
+
+                view.Button([Button.GhostMd, Button.Icon, "text-destructive"],
+                    onClick: async () => { RemoveState(stateId); },
+                    content: v => v.Icon([Icon.Default], name: "trash-2"));
             });
-        }
-
-        // Action row — generate button uses the captured stateId from the closure
-        view.Row(["gap-2"], content: view =>
-        {
-            view.Button([Button.SecondaryMd, "flex-1 text-sm"], statusLabel,
-                disabled: !canGenerate,
-                onClick: async () => { _ = GenerateLoopVideoAsync(stateId); });
-
-            view.Button([Button.GhostMd, Button.Icon, "text-destructive"],
-                onClick: async () => { RemoveState(stateId); },
-                content: v => v.Icon([Icon.Default], name: "trash-2"));
         });
-    });
+    }
 }
 ```
 
@@ -72,7 +75,3 @@ for (var i = 0; i < _states.Count; i++)
 - Loop by index (`for (var i = 0; i < _states.Count; i++)`) so the handler has an `index` to write back through; `Count` and `[i]` are tracked reads. Capture `var stateId = state.Id;` and `var index = i;` outside the lambdas so the closures capture values, not the loop variable.
 - Use `_ = SaveProjectAsync();` (fire-and-forget) on every keystroke; debounce inside the save function or use a periodic timer instead. Don't `await` it — that re-renders the field and breaks focus.
 - Skip an explicit "Edit" button entirely. Modes are friction.
-
-## See also
-
-- `agent-roster-card-grid` — for boolean per-item state instead of text
