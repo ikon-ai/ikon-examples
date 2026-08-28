@@ -135,7 +135,7 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
                             view.Row([Layout.Row.Md, "items-center mb-4"], content: view =>
                             {
                                 view.MicToggleButton(
-                                    ["default", "w-14 h-14 rounded-full flex items-center justify-center shrink-0"],
+                                    ["default", "group w-14 h-14 rounded-full flex items-center justify-center shrink-0"],
                                     text: _isRecording.Value ? "Stop recording" : "Start recording",
                                     audioOptions: new ClientAudioCaptureOptions
                                     {
@@ -144,7 +144,11 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
                                         EchoCancellation = false,
                                     },
                                     disabled: _isTranscribing.Value,
-                                    content: view => view.Icon([Icon.Default], name: _isRecording.Value ? "square" : "mic"));
+                                    content: view =>
+                                    {
+                                        view.Icon([Icon.Default, "group-data-[ikon-capture-state=pressed]:hidden group-data-[ikon-capture-state=live]:hidden"], name: "mic");
+                                        view.Icon([Icon.Default, "hidden group-data-[ikon-capture-state=pressed]:block group-data-[ikon-capture-state=live]:block"], name: "square");
+                                    });
 
                                 view.Column([Layout.Column.Sm], content: view =>
                                 {

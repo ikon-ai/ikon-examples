@@ -80,80 +80,56 @@ To expose a method as a public HTTP endpoint (a REST route or a third-party webh
 
 # Ikon.Common.Core Public API
 namespace Ikon.Common.Core.Functions
-  // The type of callback a registered function uses.
   enum CallbackType
-    // Synchronous callback returning a value directly.
     Sync
-    // Asynchronous callback returning Task or Task<T>.
     Async
-    // Async enumerable callback returning IAsyncEnumerable<T>.
     AsyncEnumerable
-  // Immutable representation of a function with metadata and optional callbacks. Consolidates FunctionInfo, RegisteredFunction, and KernelContext.Function into a single type.
   readonly struct Function
-    // The type of callback (Sync, Async, or AsyncEnumerable).
     CallbackType CallbackType { get; }
-    // The clientSessionId of the client who registered this function. Null means this is a local function (registered in this process).
+    // Null means this is a local function (registered in this process).
     int? ClientSessionId { get; }
-    // Description of what the function does. Passed to LLM for tool description.
     string Description { get; }
-    // True if this function has a callback that can be invoked locally.
     bool HasCallback { get; }
-    // True if this function has a policy attached.
     bool HasPolicy { get; }
-    // Unique identifier for this function.
     Guid Id { get; }
-    // True if this function is local (registered in this process).
     bool IsLocal { get; }
-    // True if this function is remote (registered by another client).
     bool IsRemote { get; }
-    // If true, the LLM can only call this function once per generation pass.
     bool LlmCallOnlyOnce { get; }
-    // If true, the LLM can inline the function result directly without tool call overhead.
     bool LlmInlineResult { get; }
-    // The MethodInfo for the underlying method. Exposed so external introspection (e.g. the startup auth-marker audit in Ikon.App) can read method-level attributes. Null for delegate-based registrations, constructors, or remote functions.
+    // Null for delegate-based registrations, constructors, or remote functions.
     MethodInfo? MethodInfo { get; }
-    // The name of the function (used for lookup and LLM tool name).
     string Name { get; }
-    // The parameters of the function.
     Ikon.Common.Core.Functions.FunctionParameter[] Parameters { get; }
-    // Optional policy delegate for evaluating whether this function can be called. If null, the function is allowed to execute without policy checks.
+    // Null means the function is allowed to execute without policy checks.
     PolicyDelegate? Policy { get; }
-    // True if this function requires an instance to be invoked. When true and no callback is set, the function is metadata-only and can only be invoked with a provided InstanceId.
+    // When true and no callback is set, the function is metadata-only and can only be invoked with a provided InstanceId.
     bool RequiresInstance { get; }
-    // The return type of the function. Stored directly for performance. For async functions, this is the inner type (e.g., string for Task<string>). For async enumerable functions, this is the item type.
+    // For async functions this is the inner type (e.g. string for Task<string>); for async enumerable functions, the item type.
     Type ReturnType { get; }
-    // The full name of the return type. Computed from ReturnType for JSON serialization.
     string ReturnTypeName { get; }
-    // The version of the library that registered this function. Empty string means unversioned (legacy or latest).
+    // Empty string means unversioned (legacy or latest).
     string Version { get; }
-    // Whether the function should be distributed to other clients.
     FunctionVisibility Visibility { get; }
-    // Calls the function synchronously. Only valid for local sync functions.
+    // Only valid for local sync functions.
     object? Call(object?[] args)
-    // Calls the function asynchronously. Only valid for local async functions.
+    // Only valid for local async functions.
     Task<object?> CallAsync(object?[] args)
-    // Calls the function as an async enumerable call. Only valid for local async enumerable functions.
+    // Only valid for local async enumerable functions.
     IAsyncEnumerable<object?> CallAsyncEnumerable(object?[] args)
-    // Calls the function synchronously and returns an enumerable result. Only valid for local sync functions whose result implements IEnumerable.
+    // Only valid for local sync functions whose result implements IEnumerable.
     IEnumerable<object?> CallEnumerable(object?[] args)
     override string ToString()
-  // Marks a method as a registerable function for the FunctionRegistry. Used for auto-registration via RegisterFromInstance/RegisterFromType/RegisterFromAssembly.
   class FunctionAttribute : Attribute
     ctor()
     ctor(string description, bool llmInlineResult = false, bool llmCallOnlyOnce = false)
-    // Description of what the function does. Passed to LLM for tool description.
     string Description { get; set; }
-    // If true, the LLM can only call this function once per generation pass.
     bool LlmCallOnlyOnce { get; set; }
-    // If true, the LLM can inline the function result directly without tool call overhead.
     bool LlmInlineResult { get; set; }
-    // Override the function name. If null, the full type name plus method name is used.
+    // Null uses the full type name plus method name.
     string? Name { get; set; }
-    // Override the inherited TypeId property with JsonIgnore for serialization.
     override object TypeId { get; }
-    // Whether the function should be distributed to other clients. If not set, defaults to Local for standalone functions, or inherits from [RegisterAll] for methods in a class with that attribute.
+    // If not set, defaults to Local for standalone functions, or inherits from [RegisterAll] for methods in a class with that attribute.
     FunctionVisibility Visibility { get; set; }
-  // Per-call ambient context exposed to the body of a function dispatched by FunctionRegistry. Set by the registry's inbound dispatch path before invoking the function and cleared after.
   static class FunctionCallContext
     // The session id of the client that issued the current function call, or null when the call did not originate from a remote client (e.g. local in-process invocation).
     static int? CallerSessionId { get; }
@@ -163,54 +139,41 @@ namespace Ikon.Common.Core.Functions
     string RemoteStackTrace { get; }
     string RemoteTypeName { get; }
     const string RemoteFunctionCallerNotSetTypeName
-  // Metadata about a function parameter.
   readonly struct FunctionParameter
-    // Primary constructor with Type directly.
     ctor(int index, string name, string description, Type type, bool hasDefaultValue, object? defaultValue, IReadOnlyList<string>? allowedValues = null)
-    // JSON deserialization constructor. Resolves Type from TypeName string.
     ctor(int index, string name, string description, string typeName, bool hasDefaultValue, object? defaultValue, IReadOnlyList<string>? allowedValues = null)
-    // Optional override for the JSON-schema enum field emitted to the LLM. When non-null, the schema uses these values instead of Enum.GetNames(Type). Lets callers narrow a static enum at registration time (e.g. "of these 7 enum members, only these 3 are valid right now") or attach an enum to a non-enum parameter type (e.g. a string field whose allowed values come from runtime state). Pair with Description rebuilds for dynamic per-call documentation.
+    // Optional override for the JSON-schema enum field emitted to the LLM. When non-null, the schema uses these values instead of Enum.GetNames(Type): narrow a static enum at registration time, or attach an enum to a non-enum parameter type whose allowed values come from runtime state. Pair with Description rebuilds for dynamic per-call documentation.
     IReadOnlyList<string>? AllowedValues { get; }
-    // The default value if HasDefaultValue is true.
     object? DefaultValue { get; }
-    // Description of the parameter. Used by LLM for tool parameter descriptions.
     string Description { get; }
-    // Whether the parameter has a default value.
     bool HasDefaultValue { get; }
-    // The position of the parameter in the parameter list (0-based).
     int Index { get; }
-    // Whether the parameter type is a nullable value type (e.g. int?, bool?).
     bool IsNullableValueType { get; }
-    // The name of the parameter.
     string Name { get; }
-    // The CLR type of the parameter. Stored directly for performance.
     Type Type { get; }
-    // The full name of the parameter type. Computed from Type for JSON serialization. Nullable value types are unwrapped to their underlying type for remote schema compatibility.
+    // Nullable value types are unwrapped to their underlying type for remote schema compatibility.
     string TypeName { get; }
     override string ToString()
-  // Central registry for functions that can be called locally or remotely. Supports both local and shared (distributed) function scopes.
   class FunctionRegistry : AsyncLocalInstance<FunctionRegistry>
     ctor()
-    // Optional resolver that maps a caller session id to the auth session id — a per-login correlation identifier, not an authentication flag (cloud logins, including anonymous ones, always carry one). For guest detection use IsAnonymousResolver.
+    // Maps a caller session id to the auth session id — a per-login correlation identifier, not an authentication flag (cloud logins, including anonymous ones, always carry one). For guest detection use IsAnonymousResolver.
     Func<int, string?>? AuthSessionIdResolver { get; set; }
-    // The version of the live/current registered implementation. When set, a caller that sends no version resolves to this version's functions instead of the greatest registered version. Hosts serving multiple versions side by side (e.g. the Ikon.AI library) set this so unversioned callers always reach the current build — in a local/dev build the current version is stamped low (1.0.0) and would otherwise lose to a higher-numbered preserved snapshot. Null keeps the greatest fallback.
+    // The version of the live/current registered implementation. When set, a caller that sends no version resolves to this version's functions instead of the greatest registered version; null keeps the greatest-version fallback.
     string? CurrentVersion { get; set; }
-    // All registered functions grouped by name.
     IReadOnlyDictionary<string, IReadOnlyList<Function>> Functions { get; }
-    // Optional resolver that maps a caller session id to whether the caller is an anonymous (guest) user: true for a guest, false for an authenticated user or machine, null for unknown sessions. Wired by the host (e.g. Ikon.App.App) from Context.IsAnonymous; consumed by LoggedInPolicy.
+    // Maps a caller session id to whether the caller is an anonymous (guest) user: true for a guest, false for an authenticated user or machine, null for unknown sessions.
     Func<int, bool?>? IsAnonymousResolver { get; set; }
     // True while this call stack is executing a function on behalf of a remote caller. Flow-local, so concurrent local calls are unaffected.
     static bool IsExecutingRemoteCall { get; }
-    // When set, the dispatcher rejects any remote call whose restored scopes carry no BackendTokenScope with a space claim. Turned on by delegating proxy hosts (e.g. the Ikon.AI library) that make platform-key calls on behalf of a caller and must never execute for an unidentified caller. Off by default so ordinary RPC hosts are unaffected.
+    // When set, the dispatcher rejects any remote call whose restored scopes carry no BackendTokenScope with a space claim. Off by default, so ordinary RPC hosts are unaffected.
     bool RequireVerifiedCallerSpace { get; set; }
-    // Optional resolver that maps a caller session id to the set of roles the caller holds. Wired by the host (e.g. Ikon.App.App) so that RequireRoleAttribute / RoleBasedPolicy can gate calls. Returns an empty/null collection for callers without any roles. The dispatcher copies the result into PolicyCallContext.AdditionalContext under the key RoleBasedPolicy.RolesContextKey.
+    // Returns an empty/null collection for callers without roles. The dispatcher copies the result into PolicyCallContext.AdditionalContext under RoleBasedPolicy.RolesContextKey.
     Func<int, IReadOnlyCollection<string>?>? RolesResolver { get; set; }
-    // Optional resolver that maps a caller session id to the reactive scopes that should be active during the function body's execution — typically [ClientScope, UserScope] derived from the caller's Context. Wired by the host (e.g. Ikon.App.App) so that ClientReactive<T> and UserReactive<T> resolve naturally without the function body having to push scopes manually via FunctionCallContext.CallerSessionId + ReactiveScope.Use.
+    // Maps a caller session id to the reactive scopes active during the function body's execution — typically [ClientScope, UserScope] from the caller's Context. Wired by the host so ClientReactive<T> and UserReactive<T> resolve without the function body pushing scopes manually.
     Func<int, IReadOnlyList<IScopeKey>>? ScopeResolver { get; set; }
-    // Optional resolver that maps a caller session id to the user id associated with that session. Wired by the host (e.g. Ikon.App.App) so that policy evaluation has access to the caller's identity. Returns null for unknown sessions or unauthenticated (guest) callers.
+    // Returns null for unknown sessions or unauthenticated (guest) callers.
     Func<int, string?>? UserIdResolver { get; set; }
     void AddFunction(Function function, FunctionVisibility? visibilityOverride = null)
-    // Hooks the registry to a protocol channel so that remote function calls and registrations are handled automatically.
     Task AttachProtocolAsync(IProtocolMessageChannel channel, int senderId)
     TResult Call<TResult>(string name, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
     // The async overloads take cancellationToken second and args third, unlike the synchronous Call<TResult> which takes args second. Pass the arguments by name when omitting the token: CallAsync<int>("Add", args: [2, 3]).
@@ -218,95 +181,72 @@ namespace Ikon.Common.Core.Functions
     Task CallAsync(string name, CancellationToken cancellationToken = default, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
     IAsyncEnumerable<TItem> CallAsyncEnumerable<TItem>(string name, CancellationToken cancellationToken = default, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
     IEnumerable<TItem> CallEnumerable<TItem>(string name, object?[]? args = null)
-    // Removes all locally registered functions. Remote functions are preserved.
+    // Remote functions are preserved.
     void ClearLocalFunctions()
-    // Removes every remote function, keeping only this registry's own local functions. Called on protocol detach (disconnect): remote functions were mirrored from the now-gone peer and are re-synced fresh from the peer's ClientInitialization/GlobalState on reconnect. Without this, reconnecting to a RESTARTED peer (new FunctionIds / new session id) leaves the pre-disconnect remote functions behind, so the same name ends up registered by two client sessions and a name-only call throws "Multiple remote clients (...) have registered function '...'". Local functions are preserved — the client re-advertises them to the peer via StartProtocolAsync.
+    // Removes every remote function, keeping this registry's own local functions (the client re-advertises them via StartProtocolAsync). Called on protocol detach: remote functions were mirrored from the now-gone peer and are re-synced fresh on reconnect.
     void ClearRemoteFunctions()
-    // Stops protocol handling and detaches the registry from the channel.
     void DetachProtocol()
-    // Disposes a remote instance.
     Task DisposeInstanceAsync(Guid instanceId, int? targetId = null)
-    // Gets all client session IDs that have registered a function with the given name.
     IReadOnlyCollection<int> GetClientSessionsWithFunction(string name)
-    // Gets the function with the given name. Throws if multiple functions with the same name are registered (use Call/CallAsync with targetId parameter instead).
+    // Throws if multiple functions with the same name are registered (use Call/CallAsync with the targetId parameter instead).
     Function? GetFunction(string name)
-    // Gets the function with the given name, using argument types to resolve overloads.
     Function? GetFunction(string name, object?[] args)
-    // Gets the function with the given name, using protocol parameter type names to resolve overloads. Used by the protocol handler when receiving remote calls.
     Function? GetFunction(string name, IReadOnlyList<Ikon.Common.Core.Protocol.FunctionParameter> protocolParameters)
-    // Gets a local function with the given name and version, using protocol parameter type names to resolve overloads. If version is non-empty, tries exact version match first, then falls back to greatest version. If version is empty, selects the greatest versioned function or falls back to unversioned.
+    // A non-empty version tries an exact version match first, then falls back to the greatest version; an empty version selects the greatest versioned function or falls back to unversioned.
     Function? GetFunction(string name, IReadOnlyList<Ikon.Common.Core.Protocol.FunctionParameter> protocolParameters, string version)
-    // Gets a function with the given name from a specific client session.
     Function? GetFunction(string name, int clientSessionId)
-    // Gets all functions with the given name.
     IReadOnlyList<Function> GetFunctions(string name)
-    // Checks if a function with the given name exists.
     bool HasFunction(string name)
-    // Checks if a function with the given name exists for a specific client session.
     bool HasFunction(string name, int clientSessionId)
-    // Invoke an already-resolved local function with a pre-built positional argument array, bypassing the argument-type resolution that CallAsync performs. The args must already line up with the function's parameter list — used by callers that inject host-supplied parameters (e.g. a cron trigger building the array from Function.MethodInfo to inject a context object). Returns the result, if any.
+    // Bypasses the argument-type resolution that CallAsync performs: args must already line up with the function's parameter list. For callers that inject host-supplied parameters (e.g. a cron trigger building the array from Function.MethodInfo).
     Task<object?> InvokeLocalAsync(Function function, object?[] args)
-    // Scans an assembly for types with [RegisterAll] or methods with [Function] attributes and registers them.
     void RegisterFromAssembly(Assembly assembly, FunctionVisibility? visibilityOverride = null, string? version = null)
-    // Scans an instance for [RegisterAll] attribute or methods with [Function] attribute and registers them.
     void RegisterFromInstance(object instance, FunctionVisibility? visibilityOverride = null, string? version = null)
-    // Scans a type for [RegisterAll] attribute or methods with [Function] attribute and registers them. For instance methods, you need to use RegisterFromInstance instead.
+    // Instance methods require RegisterFromInstance instead.
     void RegisterFromType<T>(FunctionVisibility? visibilityOverride = null, string? version = null)
-    // Scans a type for [RegisterAll] attribute or methods with [Function] attribute and registers them. For instance methods, you need to use RegisterFromInstance instead.
+    // Instance methods require RegisterFromInstance instead.
     void RegisterFromType(Type type, FunctionVisibility? visibilityOverride = null, string? version = null)
-    // Registers a single method as a function unless one is already registered under the same name. Used by the app layer to register [Cron] methods, which are registrable like [Function] even when they carry no [Function] attribute. Idempotent: a method already registered (e.g. because it also carries [Function] under the same name) is left untouched. When name is null or empty the full member name ("{Type.FullName}.{Method}") is used.
+    // Idempotent: a method already registered under the same name is left untouched. When name is null or empty the full member name ("{Type.FullName}.{Method}") is used.
     void RegisterFunctionMethod(object instance, MethodInfo method, string? name = null, FunctionVisibility visibility = Local)
     void RegisterFunctionsFromClientInitialization(ClientInitialization? clientInitialization)
-    // Registers a remote function (from another client via protocol).
     void RegisterRemoteFunction(Guid id, string name, Ikon.Common.Core.Functions.FunctionParameter[] parameters, Type returnType, string description, FunctionVisibility visibility, bool llmInlineResult, bool llmCallOnlyOnce, CallbackType callbackType, int clientSessionId, bool requiresInstance = false)
     bool RemoveFunction(string name, FunctionVisibility visibility)
-    // Removes all local functions with the given name. Remote functions with the same name are preserved. Returns true if any functions were removed.
+    // Removes local functions only — remote functions with the same name are preserved. Returns true if any were removed.
     bool RemoveFunction(string name)
-    // Removes all functions registered by a specific client session (when client disconnects).
     void RemoveFunctionsByClientSessionId(int clientSessionId)
     // TODO(frozen-abi): exists only to maintain the shim above; delete with it.
     static void RemoveRemoteCallExecutionStartingSubscribers(AssemblyLoadContext loadContext)
-    // Sends registrations for all functions and processes pending registrations.
     Task StartProtocolAsync()
-    // Stops protocol handling but keeps the channel attached. Pending registrations are cleared.
+    // Keeps the channel attached, unlike DetachProtocol; pending registrations are cleared.
     Task StopProtocolAsync()
     void SyncFunctionsFromGlobalState(GlobalState globalState)
-    // Tries to get the single function registered under name, returning false rather than throwing when the name is unknown or resolves ambiguously (multiple overloads or multiple remote clients). Use GetFunction to resolve an overload by argument types.
+    // Returns false rather than throwing when the name is unknown or resolves ambiguously (multiple overloads or multiple remote clients). Use GetFunction to resolve an overload by argument types.
     bool TryGetFunction(string name, out Function? function)
-    // Waits for a function with the given name to be registered.
     // functionName: Name of the function to wait for.
     // timeout: How long to wait before giving up. Defaults to 30 seconds when null.
     // ct: Cancellation token.
     Task<bool> WaitForFunctionAsync(string functionName, TimeSpan? timeout = null, CancellationToken ct = default)
-    // Fired when an approval flow completes (approved or rejected). Use this event for audit logging of approval decisions.
     event Action<ApprovalAuditEntry>? ApprovalCompleted
-    // Fired when all of a client session's functions are removed because it disconnected (RemoveFunctionsByClientSessionId). Lets services that track per-session state — e.g. ReactiveSubscriptionService's subscriber set — release it promptly instead of discovering the dead session only when a later push fails.
+    // Fired when all of a client session's functions are removed because it disconnected (RemoveFunctionsByClientSessionId), so services tracking per-session state can release it promptly instead of discovering the dead session when a later push fails.
     event Action<int>? ClientSessionRemoved
-    // Fired when a function is registered.
     event Action<Function>? FunctionRegistered
-    // Fired when a function is unregistered.
     event Action<string>? FunctionUnregistered
-    // Fired when a policy is evaluated for a function call.
     event Action<PolicyEvaluationResult>? PolicyEvaluated
   sealed class FunctionResultWithData<T>
     ctor(T value, byte[] data)
     byte[] Data { get; }
     T Value { get; }
-  // Determines whether a function is advertised over the protocol so remote clients can call it. This is a dispatch-scope axis only — auth gating is a separate concern declared via policy attributes ([RequireLogin], [AllowAnonymous], [RequireRole], ...).
+  // A dispatch-scope axis only — auth gating is a separate concern declared via policy attributes ([RequireLogin], [AllowAnonymous], [RequireRole], ...).
   enum FunctionVisibility
-    // Function is not advertised. Only callable within the server process.
     Local
-    // Function is advertised over the protocol; remote clients can call it. External functions must declare their auth posture with [RequireLogin] or [AllowAnonymous] — a startup audit warns when neither is present.
+    // External functions must declare their auth posture with [RequireLogin] or [AllowAnonymous] — a startup audit warns when neither is present.
     External
   sealed class InstanceNotFoundException : Exception
     ctor(Guid instanceId)
     Guid InstanceId { get; }
-  // Marks a class for automatic registration of all public members (methods, properties, constructors). Used for auto-registration via RegisterFromInstance/RegisterFromType/RegisterFromAssembly. Function names are automatically generated using the full type name (e.g., Namespace.Class.MethodName). Individual members can use [Function] to override defaults.
+  // Function names are generated from the full type name (e.g. Namespace.Class.MethodName); individual members can use [Function] to override defaults.
   class RegisterAllAttribute : Attribute
     ctor()
-    // If true, the LLM can only call each function once per generation pass. Individual members can override this with [Function].
     bool LlmCallOnlyOnce { get; set; }
-    // If true, the LLM can inline function results directly without tool call overhead. Individual members can override this with [Function].
     bool LlmInlineResult { get; set; }
-    // Whether the functions should be distributed to other clients. Default is Local (not distributed).
     FunctionVisibility Visibility { get; set; }

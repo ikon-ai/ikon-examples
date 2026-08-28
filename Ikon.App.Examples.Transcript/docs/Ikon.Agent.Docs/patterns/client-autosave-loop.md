@@ -12,7 +12,6 @@ Editors with non-trivial state (workshop builders, form wizards, prompt editors)
 ```csharp
 private readonly ConcurrentDictionary<int, CancellationTokenSource?> _autoSaveCts = new();
 
-// On client join:
 private void StartAutoSaveLoop(int clientId)
 {
     var cts = new CancellationTokenSource();
@@ -20,13 +19,27 @@ private void StartAutoSaveLoop(int clientId)
     _ = RunAutoSaveLoopAsync(clientId, cts.Token);
 }
 
-// On client leave:
 private void StopAutoSaveLoop(int clientId)
 {
     if (_autoSaveCts.TryRemove(clientId, out var cts) && cts != null)
     {
-        try { cts.Cancel(); } catch (ObjectDisposedException) { }
-        try { cts.Dispose(); } catch (ObjectDisposedException) { }
+        try
+        {
+            cts.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Racing disconnect paths may have already disposed this CTS
+        }
+
+        try
+        {
+            cts.Dispose();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Already disposed by a concurrent leave — nothing to clean up
+        }
     }
 }
 
@@ -40,14 +53,29 @@ private async Task RunAutoSaveLoopAsync(int clientId, CancellationToken cancella
 
             using var _ = ReactiveScope.Use(new ClientScope(clientId));
 
-            if (_currentPage.Value != AppPage.ManageWorkshop) continue;
-            if (_wsEditorId.Value == null) continue;
-            if (!HasUnsavedChanges()) { ClearStaleAutoSaveStatus(); continue; }
+            if (_currentPage.Value != AppPage.ManageWorkshop)
+            {
+                continue;
+            }
+
+            if (_wsEditorId.Value == null)
+            {
+                continue;
+            }
+
+            if (!HasUnsavedChanges())
+            {
+                ClearStaleAutoSaveStatus();
+                continue;
+            }
 
             await PerformAutoSaveAsync();
         }
     }
-    catch (OperationCanceledException) { }
+    catch (OperationCanceledException)
+    {
+        // Expected when the client disconnects and the loop's token is cancelled
+    }
     catch (Exception ex)
     {
         Log.Instance.Warning($"Auto-save loop terminated unexpectedly: {ex.Message}");
@@ -61,7 +89,9 @@ private async Task PerformAutoSaveAsync()
         _wsAutoSaveStatus.Value = "Auto-save paused: Workshop name is required";
         return;
     }
+
     // ... validate, then persist via EF, then update _wsAutoSaveStatus.Value with last-saved time
+    await Task.CompletedTask;
 }
 ```
 

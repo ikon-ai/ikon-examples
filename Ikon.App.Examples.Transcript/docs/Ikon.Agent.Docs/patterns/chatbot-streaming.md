@@ -21,7 +21,11 @@ private KernelContext _ctx = new();
 private async Task SendAsync()
 {
     var text = _draft.Value.Trim();
-    if (string.IsNullOrEmpty(text) || _busy.Value) return;
+
+    if (string.IsNullOrEmpty(text) || _busy.Value)
+    {
+        return;
+    }
 
     _transcript.Add(new ChatMessage("You", text));
     _draft.Value = "";
@@ -49,7 +53,12 @@ private async Task SendAsync()
             else if (ev is Completed<ChatReply> done)
             {
                 _ctx = done.Context;
-                _transcript.Add(new ChatMessage("Assistant", done.Result.Reply));
+
+                if (done.Result != null)
+                {
+                    _transcript.Add(new ChatMessage("Assistant", done.Result.Reply));
+                }
+
                 _streaming.Value = "";
             }
         }
@@ -61,36 +70,39 @@ private async Task SendAsync()
     }
 }
 
-// Inside UI.Root:
-view.ScrollArea(rootStyle: ["flex-1 min-h-0"], viewportStyle: ["p-4"], content: view =>
+private void Render(IView view)
 {
-    view.Column(["gap-3"], content: view =>
+    view.ScrollArea(rootStyle: ["flex-1 min-h-0"], viewportStyle: ["p-4"], content: view =>
     {
-        foreach (var msg in _transcript)
+        view.Column(["gap-3"], content: view =>
         {
-            var isUser = msg.Role == "You";
-            view.Box([isUser ? "self-end bg-primary" : "self-start bg-surface", "rounded-lg p-3 max-w-[80%]"], content: v =>
-                v.Text(text: msg.Text));
-        }
-        // In-flight streaming bubble: reading _streaming.Value here
-        // registers a dependency, so this re-renders on every ModelText
-        // event. Empties when Completed fires above.
-        if (!string.IsNullOrEmpty(_streaming.Value))
-        {
-            view.Box(["self-start bg-surface rounded-lg p-3 max-w-[80%] opacity-80"], content: v =>
-                v.Text(text: _streaming.Value));
-        }
+            foreach (var msg in _transcript)
+            {
+                var isUser = msg.Role == "You";
+                view.Box([isUser ? "self-end bg-primary" : "self-start bg-surface", "rounded-lg p-3 max-w-[80%]"], content: v =>
+                    v.Text(text: msg.Text));
+            }
+
+            // In-flight streaming bubble: reading _streaming.Value here
+            // registers a dependency, so this re-renders on every ModelText
+            // event. Empties when Completed fires above.
+            if (!string.IsNullOrEmpty(_streaming.Value))
+            {
+                view.Box(["self-start bg-surface rounded-lg p-3 max-w-[80%] opacity-80"], content: v =>
+                    v.Text(text: _streaming.Value));
+            }
+        });
     });
-});
-view.Row(["p-4 gap-2 border-t"], content: view =>
-{
-    view.TextField([Input.Default, "flex-1"], value: _draft.Value, placeholder: "Type a message…",
-        onValueChange: async v => _draft.Value = v,
-        onSubmit: async _ => await SendAsync());
-    view.Button(style: [Button.Default, _busy.Value ? "opacity-50" : ""],
-        disabled: _busy.Value, onClick: SendAsync,
-        content: v => v.Text(text: _busy.Value ? "Thinking…" : "Send"));
-});
+    view.Row(["p-4 gap-2 border-t"], content: view =>
+    {
+        view.TextField([Input.Default, "flex-1"], value: _draft.Value, placeholder: "Type a message…",
+            onValueChange: async v => _draft.Value = v,
+            onSubmit: async _ => await SendAsync());
+        view.Button(style: [Button.Default, _busy.Value ? "opacity-50" : ""],
+            disabled: _busy.Value, onClick: SendAsync,
+            content: v => v.Text(text: _busy.Value ? "Thinking…" : "Send"));
+    });
+}
 ```
 
 ## Notes

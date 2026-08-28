@@ -24,7 +24,7 @@
         "invite link"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/app-structure.md",
-      "sizeBytes": 21352,
+      "sizeBytes": 22116,
       "alsoInclude": []
     },
     {
@@ -80,7 +80,7 @@
         "common utilities"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/app-api-reference.md",
-      "sizeBytes": 217943,
+      "sizeBytes": 198115,
       "alsoInclude": []
     },
     {
@@ -100,7 +100,7 @@
         "value mutation"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/reactive-state.md",
-      "sizeBytes": 69985,
+      "sizeBytes": 51614,
       "alsoInclude": [
         "app-structure",
         "ui-components"
@@ -144,7 +144,7 @@
         "props"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ui-api-reference.md",
-      "sizeBytes": 410150,
+      "sizeBytes": 248406,
       "alsoInclude": []
     },
     {
@@ -190,7 +190,7 @@
         "theme customization"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/styling-and-motion.md",
-      "sizeBytes": 14662,
+      "sizeBytes": 14899,
       "alsoInclude": [
         "ui-components",
         "app-structure",
@@ -217,7 +217,7 @@
         "dual theme"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ikon-theming-guide.md",
-      "sizeBytes": 34892,
+      "sizeBytes": 35165,
       "alsoInclude": [
         "styling-and-motion"
       ]
@@ -280,7 +280,7 @@
         "transitions"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/tailwind-reference.md",
-      "sizeBytes": 28672,
+      "sizeBytes": 30579,
       "alsoInclude": []
     },
     {
@@ -300,7 +300,7 @@
         "timeout"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/emergence.md",
-      "sizeBytes": 33690,
+      "sizeBytes": 32521,
       "alsoInclude": [
         "app-structure",
         "ai-models"
@@ -339,7 +339,7 @@
         "AI connection"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ai-models.md",
-      "sizeBytes": 32603,
+      "sizeBytes": 29290,
       "alsoInclude": []
     },
     {
@@ -358,7 +358,7 @@
         "ImageUpscaler"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ai-image.md",
-      "sizeBytes": 16540,
+      "sizeBytes": 16157,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -380,7 +380,7 @@
         "SoundEffectGenerator"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ai-speech-and-audio.md",
-      "sizeBytes": 24608,
+      "sizeBytes": 23352,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -406,7 +406,7 @@
         "show a video"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ai-video.md",
-      "sizeBytes": 9824,
+      "sizeBytes": 9487,
       "alsoInclude": [
         "app-structure",
         "emergence"
@@ -430,7 +430,7 @@
         "EmbeddingGenerator"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ai-web-and-data.md",
-      "sizeBytes": 35818,
+      "sizeBytes": 34315,
       "alsoInclude": [
         "emergence"
       ]
@@ -444,7 +444,7 @@
         "storage"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/ai-advanced.md",
-      "sizeBytes": 8421,
+      "sizeBytes": 7861,
       "alsoInclude": [
         "emergence"
       ]
@@ -467,7 +467,7 @@
         "filter"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/audio-video.md",
-      "sizeBytes": 45128,
+      "sizeBytes": 35240,
       "alsoInclude": []
     },
     {
@@ -484,7 +484,7 @@
         "optimistic concurrency"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/asset-system.md",
-      "sizeBytes": 22371,
+      "sizeBytes": 23067,
       "alsoInclude": []
     },
     {
@@ -512,7 +512,7 @@
         "audio file"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/media-analysis.md",
-      "sizeBytes": 25044,
+      "sizeBytes": 25740,
       "alsoInclude": []
     },
     {
@@ -539,7 +539,7 @@
         "function"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/endpoints-webhooks.md",
-      "sizeBytes": 53203,
+      "sizeBytes": 50121,
       "alsoInclude": []
     },
     {
@@ -608,7 +608,7 @@
         "cancel subscription"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/payments.md",
-      "sizeBytes": 22964,
+      "sizeBytes": 23200,
       "alsoInclude": []
     },
     {
@@ -628,10 +628,24 @@
         "web push",
         "FCM",
         "alert",
-        "toast"
+        "toast",
+        "NotificationInbox",
+        "inbox",
+        "in-app notifications",
+        "unread",
+        "NotificationRoute",
+        "NotificationReach",
+        "all devices",
+        "multidevice",
+        "INotificationChannel",
+        "email notification",
+        "SMS notification",
+        "Telegram",
+        "WhatsApp",
+        "mute"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/notifications.md",
-      "sizeBytes": 3018,
+      "sizeBytes": 14071,
       "alsoInclude": []
     },
     {
@@ -655,7 +669,7 @@
         "EmailSenderNotAvailableException"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/email.md",
-      "sizeBytes": 14674,
+      "sizeBytes": 10882,
       "alsoInclude": []
     },
     {
@@ -678,7 +692,36 @@
         "inbound sms"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/telephony.md",
-      "sizeBytes": 16304,
+      "sizeBytes": 14545,
+      "alsoInclude": []
+    },
+    {
+      "id": "location",
+      "title": "Location \u0026 Background GPS",
+      "keywords": [
+        "location",
+        "gps",
+        "geolocation",
+        "app.Locations",
+        "LocationService",
+        "StartTrackingAsync",
+        "StopTrackingAsync",
+        "OnUpdate",
+        "LocationUpdate",
+        "LocationTrackingOptions",
+        "background location",
+        "continuous location",
+        "live tracking",
+        "tracker app",
+        "courier tracking",
+        "delivery tracking",
+        "ride tracking",
+        "foreground service",
+        "background mode",
+        "GetLocationAsync"
+      ],
+      "file": "docs/Ikon.Agent.Docs/guides/location.md",
+      "sizeBytes": 3217,
       "alsoInclude": []
     },
     {
@@ -693,7 +736,7 @@
         "callable functions"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/function-registry.md",
-      "sizeBytes": 24400,
+      "sizeBytes": 15705,
       "alsoInclude": []
     },
     {
@@ -736,7 +779,7 @@
         "pipeline guide"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/pipelines-reference.md",
-      "sizeBytes": 113166,
+      "sizeBytes": 94358,
       "alsoInclude": []
     },
     {
@@ -777,7 +820,7 @@
         "targets"
       ],
       "file": "docs/Ikon.Agent.Docs/guides/config-and-cli.md",
-      "sizeBytes": 18412,
+      "sizeBytes": 18944,
       "alsoInclude": []
     }
   ]

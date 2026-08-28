@@ -52,6 +52,7 @@ private void RenderTabButton(UIView view, string tabId, string label)
     content: view =>
     {
         view.Text([active ? "text-white" : "text-slate-400", "text-[11px] uppercase font-semibold"], label);
+
         if (hasAttention && !active)
         {
             view.Box(["absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-amber-500"]);
@@ -66,8 +67,8 @@ private void RenderTabButton(UIView view, string tabId, string label)
 - Dot only shows when the tab is NOT active (otherwise the user is already looking at it).
 - Per-tab attention condition is computed inline from existing reactive state — no separate "unread" counter to maintain.
 - Marker click on a feed item can `_rightTab.Value = "details"` and `_selectedDetectionId.Value = ...` to deep-link.
+- These tabs stretch (`flex-1`) because they label a fixed-width rail, where equal segments read as one control. Page-level navigation is the opposite case — content-width rows on a shared rail — so do not carry this treatment into an app header.
 
 ## See also
 
-- `bottom-tab-bar-nav`
-- `expandable-detail-card`
+- `nav-and-menu-rows` — the tokens for page tabs, sidebar rows and menu rows, and when equal-width is wrong.

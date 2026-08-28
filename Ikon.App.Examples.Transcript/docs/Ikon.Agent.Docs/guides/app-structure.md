@@ -279,6 +279,16 @@ await app.Navigation.SetPathAsync($"/{tab}");
 await app.Navigation.SetPathAsync(args.ClientSessionId, $"/{tab}", replace: true);
 ```
 
+**`/ikon` and `/api` are reserved — an app cannot own a route under them.** `AppRoutes` holds the one
+canonical form of an app route, shared by navigation, boot-snapshot capture and the bundler so the
+same string matches at every layer; `AppRoutes.IsReservedPath` is the check, and picking a path it
+rejects fails later at the gateway rather than at the call site.
+
+**What kind of client joined: `ctx.Environment`.** A `ClientEnvironment` carries `ClientType` plus
+`Locale`, `UserAgent`, `DeviceId`, `InstallId` and the product/version ids — enough to branch a
+layout for a phone, pick a language, or skip a browser-only affordance. Like `InitialPath` it is
+client-supplied, so treat it as a hint that selects what to show and authorize server-side as usual.
+
 **Which host the client came in on: `ctx.InitialUrl`.** `InitialPath` is path + query, so it cannot
 tell a visitor on a custom customer domain from one on the space's own hostname, and `app.PublicUrl`
 is derived from the space rather than the request — it always names the platform subdomain.
