@@ -65,7 +65,7 @@ private async Task<TranscriptAnalysis> SummarizeTranscriptAsync(string transcrip
 
 private static IReadOnlyList<string> SplitTranscript(string text, int chunkSize)
 {
-    if (string.IsNullOrWhiteSpace(text)) return [];
+    if (string.IsNullOrWhiteSpace(text)) { return []; }
 
     var chunks = new List<string>();
     var start = 0;
@@ -86,6 +86,7 @@ private static IReadOnlyList<string> SplitTranscript(string text, int chunkSize)
 - Interpolate `map.JsonSchema` / `reduce.JsonSchema` into the prompt — Emerge fills in the schema string from the generic type, so prompt and parser stay in sync.
 - Listen for `Completed<TFinal>` — there are intermediate events you can also UI-stream (per-chunk progress) but only `Completed` carries the merged result.
 - Naive char-split is fine for transcripts; for prose prefer paragraph or sentence boundaries to avoid mid-clause cuts.
+- **Not every per-chunk decision needs an LLM.** For a fixed label set a `Classifier` returns a `ClassificationResult` far cheaper and more consistently than a generation call, and `EmbeddingGenerator` lets you rank chunks by similarity to the question and summarise only the ones that matter — turning a map over everything into a map over the relevant part.
 
 ## See also
 

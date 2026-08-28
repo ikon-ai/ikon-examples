@@ -37,10 +37,14 @@ private async Task RunWizardAiPrefillAsync()
 
         // Only fill empty fields — never overwrite what the user has typed.
         if (string.IsNullOrWhiteSpace(_newCaseName.Value) && !string.IsNullOrEmpty(result.SuggestedCaseName))
+        {
             _newCaseName.Value = result.SuggestedCaseName;
+        }
 
         if (string.IsNullOrWhiteSpace(_wizardClientName.Value) && !string.IsNullOrEmpty(result.ClientName))
+        {
             _wizardClientName.Value = result.ClientName;
+        }
 
         if (result.ContactPersons.Count > 0 && _wizardContactPersons.Count == 0)
         {
@@ -71,5 +75,4 @@ private async Task RunWizardAiPrefillAsync()
 
 ## See also
 
-- `multi-step-wizard` — the wizard host this prefill plugs into at step 0.
 - `emergence` (top-level guide) — full `Emerge.Run<T>` signatures and structured-output patterns.
