@@ -14,7 +14,7 @@ private async Task RunGameLoopAsync(CancellationToken ct)
 {
     for (int questionIndex = 0; questionIndex < _totalQuestions.Value; questionIndex++)
     {
-        if (ct.IsCancellationRequested) break;
+        if (ct.IsCancellationRequested) { break; }
 
         _questionNumber.Value = questionIndex + 1;
 
@@ -41,7 +41,7 @@ private async Task RunGameLoopAsync(CancellationToken ct)
 
         while (_countdown.Value > 0 && !ct.IsCancellationRequested)
         {
-            if (AllPlayersAnswered()) break;
+            if (AllPlayersAnswered()) { break; }
 
             await timer.WaitForNextTickAsync(ct);
             _countdown.Value--;
@@ -73,4 +73,3 @@ private async Task RunGameLoopAsync(CancellationToken ct)
 
 - `multi-user-game`
 - `single-processor-channel-queue`
-- `state-machine-cards-and-transitions`

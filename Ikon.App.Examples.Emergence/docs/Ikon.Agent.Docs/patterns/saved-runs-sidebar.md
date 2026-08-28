@@ -25,10 +25,18 @@ private AssetUri BuildTranscriptIndexUri(string userId) => new(
 private async Task LoadTranscriptHistoryAsync()
 {
     var userId = ResolveUserId();
-    if (string.IsNullOrWhiteSpace(userId)) return;
+
+    if (string.IsNullOrWhiteSpace(userId))
+    {
+        return;
+    }
 
     var entries = await Asset.Instance.TryGetAsync<List<TranscriptEntry>>(BuildTranscriptIndexUri(userId));
-    if (entries == null) return;
+
+    if (entries == null)
+    {
+        return;
+    }
 
     _transcripts.ReplaceAll(entries);
 }
@@ -39,31 +47,40 @@ private async Task SaveTranscriptEntryAsync(TranscriptEntry entry)
     var updated = new List<TranscriptEntry>(_transcripts.Peek);
 
     var userId = ResolveUserId();
-    if (string.IsNullOrWhiteSpace(userId)) return;
+
+    if (string.IsNullOrWhiteSpace(userId))
+    {
+        return;
+    }
+
     await Asset.Instance.SetAsync(BuildTranscriptIndexUri(userId), updated, new AssetMetadata(mimeType: MimeTypes.ApplicationJson));
 }
 
-view.Column(["w-full lg:w-[320px] shrink-0"], content: view =>
+private void Render(IView view)
 {
-    view.Box([Card.Default, "p-6"], content: view =>
+    view.Column(["w-full lg:w-[320px] shrink-0"], content: view =>
     {
-        view.Text([Text.H2, "mb-2"], "Saved transcripts");
-        foreach (var entry in _transcripts)
+        view.Box([Card.Default, "p-6"], content: view =>
         {
-            var isActive = entry.Id == _activeTranscriptId.Value;
-            var cardStyle = isActive
-                ? "border border-brand-primary/60 bg-brand-primary/10"
-                : "border border-transparent";
-            view.Box([Card.Default, "p-4", cardStyle], content: view =>
+            view.Text([Text.H2, "mb-2"], "Saved transcripts");
+
+            foreach (var entry in _transcripts)
             {
-                view.Text([Text.Body, "font-semibold"], entry.FileName);
-                view.Text([Text.Caption], entry.CreatedAt.ToLocalTime().ToString("g"));
-                view.Button([Button.OutlineSm, "mt-3"], text: "Load",
-                    onClick: async () => await LoadTranscriptAsync(entry));
-            });
-        }
+                var isActive = entry.Id == _activeTranscriptId.Value;
+                var cardStyle = isActive
+                    ? "border border-brand-primary/60 bg-brand-primary/10"
+                    : "border border-transparent";
+                view.Box([Card.Default, "p-4", cardStyle], content: view =>
+                {
+                    view.Text([Text.Body, "font-semibold"], entry.FileName);
+                    view.Text([Text.Caption], entry.CreatedAt.ToLocalTime().ToString("g"));
+                    view.Button([Button.OutlineSm, "mt-3"], text: "Load",
+                        onClick: async () => await LoadTranscriptAsync(entry));
+                });
+            }
+        });
     });
-});
+}
 ```
 
 ## Notes
@@ -76,4 +93,3 @@ view.Column(["w-full lg:w-[320px] shrink-0"], content: view =>
 ## See also
 
 - `persistent-user-preferences` — for small key-value user state instead of an index of entries
-- `expandable-detail-card` — alternative for inline preview rather than load-into-editor

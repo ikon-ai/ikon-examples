@@ -15,7 +15,10 @@ private readonly ClientReactive<string> _systemTab = new("character");
 
 private void RenderSystemPanel(UIView view)
 {
-    if (!_systemPanelOpen.Value) return;
+    if (!_systemPanelOpen.Value)
+    {
+        return;
+    }
 
     // Backdrop
     view.Box(["absolute inset-0 bg-black/30 pointer-events-auto"],
@@ -85,5 +88,4 @@ private void RenderSystemPanel(UIView view)
 
 ## See also
 
-- `bottom-tab-bar-nav` — different shape: persistent bottom nav, not a drawer
 - `collapsible-sidebar-nav` — different shape: docks beside content rather than overlaying

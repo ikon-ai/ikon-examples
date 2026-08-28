@@ -13,24 +13,27 @@ Walkie-talkie UIs, voice chat in noisy environments where you don't trust auto-d
 private readonly ClientReactive<bool> _isPttActive = new(false);
 private readonly ClientReactive<string> _statusMessage = new("");
 
-view.CaptureButton(
-    [Button.OutlineMd, "px-3 py-1.5 text-xs",
-     _isPttActive.Value
-        ? "bg-[#330033] border-[#ff00ff] text-[#ff00ff]"
-        : "border-[#666666] text-[#888888]"],
-    kind: MediaCaptureKind.Audio,
-    captureMode: MediaCaptureButtonMode.Hold,
-    onCaptureStart: async args =>
-    {
-        _isPttActive.Value = true;
-        _statusMessage.Value = "Transmitting audio";
-    },
-    onCaptureStop: async args =>
-    {
-        _isPttActive.Value = false;
-        _statusMessage.Value = "Talk released";
-    },
-    content: v => v.Text(["text-xs"], _isPttActive.Value ? "TRANSMITTING" : "TALK (Hold)"));
+private void Render(IView view)
+{
+    view.CaptureButton(
+        [Button.OutlineMd, "px-3 py-1.5 text-xs",
+         _isPttActive.Value
+            ? "bg-[#330033] border-[#ff00ff] text-[#ff00ff]"
+            : "border-[#666666] text-[#888888]"],
+        kind: MediaCaptureKind.Audio,
+        captureMode: MediaCaptureButtonMode.Hold,
+        onCaptureStart: async args =>
+        {
+            _isPttActive.Value = true;
+            _statusMessage.Value = "Transmitting audio";
+        },
+        onCaptureStop: async args =>
+        {
+            _isPttActive.Value = false;
+            _statusMessage.Value = "Talk released";
+        },
+        content: v => v.Text(["text-xs"], _isPttActive.Value ? "TRANSMITTING" : "TALK (Hold)"));
+}
 ```
 
 ## Notes
@@ -45,4 +48,3 @@ view.CaptureButton(
 ## See also
 
 - `voice-loop` — the seed pattern; STT + TTS round-trip on top of capture
-- `video-wall-grid` — render the captured stream once it starts flowing

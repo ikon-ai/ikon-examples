@@ -50,7 +50,7 @@ namespace Ikon.Pipelines.Public.Processors.Pdf
     static Task<List<Item>> Run(Item input, ExtractPdfProcessor.Config config, CancellationToken cancellationToken)
   class ExtractPdfProcessor.Config
     ctor()
-    // Longest side, in PIXELS, of each rendered page image. Default 1024; must be greater than zero.
+    // Longest side, in pixels, of each rendered page image. Default 1024; must be greater than zero.
     int MaxPageImageDimension { get; set; }
   interface IPdfDocument : IDisposable
     int PageCount { get; }
@@ -189,7 +189,7 @@ namespace Ikon.Pipelines.Public.VideoImageSafety
   // Safety analysis for images. Do not construct this pipeline or call Run directly — run it through PipelineRunner.Initialize<ImageSafetyPipeline> or the ikon pipeline run CLI, which supplies the input branch.
   class ImageSafetyPipeline
     ctor(IPipelineHost<ImageSafetyPipeline.Config> host)
-    // Runs the pipeline. Each input Item's content must deserialize to a ImageSource (the pipeline's inputSchema) — post JSON matching ImageSource as the item content; non-conforming input causes a per-item processing failure (non-JSON content fails to deserialize, and a JSON object missing the required Url field fails downloading downstream), not a silent empty result.
+    // Each input Item's content must deserialize to a ImageSource (the pipeline's inputSchema) — post JSON matching ImageSource as the item content; non-conforming input causes a per-item processing failure (non-JSON content fails to deserialize, and a JSON object missing the required Url field fails downloading downstream), not a silent empty result.
     Task Run(Pipeline<Item>.Branch inputItems, CancellationToken cancellationToken)
   class ImageSafetyPipeline.Config
     ctor()
@@ -236,7 +236,7 @@ namespace Ikon.Pipelines.Public.VideoImageSafety
   // Safety analysis for video clips. Do not construct this pipeline or call Run directly — run it through PipelineRunner.Initialize<VideoSafetyPipeline> or the ikon pipeline run CLI, which supplies the input branch.
   class VideoSafetyPipeline
     ctor(IPipelineHost<VideoSafetyPipeline.Config> host)
-    // Runs the pipeline, orchestrating parallel extraction of audio and frames, transcription, moderation, and analysis. Each input Item's content must deserialize to a VideoSource (the pipeline's inputSchema) — post JSON matching VideoSource as the item content; non-conforming input causes a per-item processing failure (non-JSON content fails to deserialize, and a JSON object missing the required Url field fails downloading downstream), not a silent empty result. ffmpeg/ffprobe must be on PATH for extraction.
+    // Each input Item's content must deserialize to a VideoSource (the pipeline's inputSchema) — post JSON matching VideoSource as the item content; non-conforming input causes a per-item processing failure (non-JSON content fails to deserialize, and a JSON object missing the required Url field fails downloading downstream), not a silent empty result. ffmpeg/ffprobe must be on PATH for extraction.
     // inputItems: Branch containing video source items to analyze.
     // cancellationToken: Token to cancel the operation.
     Task Run(Pipeline<Item>.Branch inputItems, CancellationToken cancellationToken)

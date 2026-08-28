@@ -69,7 +69,7 @@ namespace Ikon.AI.ImageGeneration
     bool SupportsMultipleOutputs { get; }
     // True when the model honours ImageGeneratorConfig.NegativePrompt.
     bool SupportsNegativePrompt { get; }
-    // True when the model can produce output with a transparent background (ImageGeneratorConfig.Background = ImageBackground.Transparent). Requesting transparency from a model without it throws instead of failing at the provider.
+    // True when the model can produce output with a transparent background (ImageGeneratorConfig.Background = ImageBackground.Transparent). Check this first: only the OpenAI implementation rejects an unsupported request, and the others ignore ImageGeneratorConfig.Background outright, so the image comes back opaque with no error.
     bool SupportsTransparentBackground { get; }
   enum ImageBackground
     Auto
@@ -84,7 +84,6 @@ namespace Ikon.AI.ImageGeneration
     bool SupportsNegativePrompt { get; }
     bool SupportsTransparentBackground { get; }
     void Dispose()
-    // Generate one image from a plain prompt — the instance form of the GenerateAsync one-shot, for when you already hold a generator. Reach for GenerateImageAsync when the request needs any other ImageGeneratorConfig field (input images, size, image count).
     Task<ImageGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes an ImageGenerator per call. Defaults to ImageGeneratorModel.Gemini25FlashImage (cheap+fast); override via model. Never returns null — throws ImageGeneratorException on failure or empty output, so wrap in try/catch to continue without the image. Use the constructor + GenerateImageAsync for batch/size/input-image or any other ImageGeneratorConfig field.
     static Task<ImageGeneratorResult> GenerateAsync(string prompt, ImageGeneratorModel model = Gemini25FlashImage, CancellationToken cancellationToken = default)
@@ -135,7 +134,6 @@ namespace Ikon.AI.ImageGeneration
     Gemini31FlashImage
     Gemini31FlashLiteImage
     Flux1Dev
-    Flux1Schnell
     Flux11Pro
     Flux11ProUltra
     Flux11ProUltraRaw
@@ -215,7 +213,6 @@ namespace Ikon.AI.ImageUpscaling
     // Read ImageUpscalerCapabilities.Fidelity before picking a model when it matters whether the result may contain detail the input never had.
     static ImageUpscalerCapabilities GetCapabilities(ImageUpscalerModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ImageUpscalerModel model)
-    // Upscale one image — the instance form of the UpscaleAsync one-shot, for when you already hold an upscaler. Reach for UpscaleImageAsync when the request needs any other ImageUpscalerConfig field.
     Task<ImageUpscalerResult> UpscaleAsync(byte[] imageData, string mimeType, double scaleFactor = 0.0, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes an ImageUpscaler per call. Defaults to ImageUpscalerModel.SeedVr2, which reconstructs detail faithfully and bills per output megapixel. scaleFactor of 0 leaves the model's own default in place. Every default model is UpscaleFidelity.Faithful — reach for ImageUpscalerModel.Crystal and ImageUpscalerConfig.Creativity to let a model invent detail. The upscaled image is in result.Image (.Data/.MimeType). Use the constructor + UpscaleImageAsync for a URL source or any other config field.
     static Task<ImageUpscalerResult> UpscaleAsync(byte[] imageData, string mimeType, ImageUpscalerModel model = SeedVr2, double scaleFactor = 0.0, CancellationToken cancellationToken = default)
