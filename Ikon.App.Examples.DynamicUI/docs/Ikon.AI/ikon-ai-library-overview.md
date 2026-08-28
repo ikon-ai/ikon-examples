@@ -734,7 +734,7 @@ await File.WriteAllBytesAsync("brochure.pdf", await convertedFile.GetDataAsync()
 
 ## OCR
 
-`Ikon.AI.OCR.OCR` extracts selectable text and structural metadata from images or PDFs.
+`Ikon.AI.OCR.OCR` extracts selectable text and structural metadata from images, PDFs and Office documents.
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
@@ -756,11 +756,25 @@ var ocr = new OCR(OCRModel.AzureDocumentIntelligence);
 var result = await ocr.AnalyzeDocumentAsync(new OCRConfig
 {
     Url = "https://example.com/invoice.pdf",
+    Pages = "1-5",
     IncludeWords = true
 });
 
 Log.Instance.Info(result.Text);
 ```
+
+**Page selection** is 1-based and inclusive on every model — `"1-5"`, `"2"`, `"1-3,7"` all mean the same pages whichever model reads them, and `result.Pages[].PageNumber` numbers them the same way. A range whose syntax is wrong is rejected before the provider is called rather than being silently read as the whole document.
+
+**Limits** come from `OCR.GetCapabilities(model)`, so a caller can size a request before making it:
+
+| | What it says |
+|---|---|
+| `MaxPagesSupported` | Most pages the model reads in one request. Split a longer document across several requests with `Pages`. |
+| `MaxDocumentSizeBytes` | Largest document the model accepts. A `Data` request over the limit is refused before the provider is called; the size behind a `Url` or `AssetUri` is not known up front, so it is not checked. |
+| `SupportedMimeTypes` | What the provider documents as readable input. Advisory — a type outside the list is still passed through, because the provider is the authority on what it will read. |
+| `SupportsWordLevelText` | Whether `IncludeWords` fills `result.Words`. Asking a model that reports `false` is refused rather than answered with an empty list, so check this before branching on word geometry. |
+
+A `0` on either numeric limit means the provider publishes no limit — not a zero budget.
 
 ## Reranking
 

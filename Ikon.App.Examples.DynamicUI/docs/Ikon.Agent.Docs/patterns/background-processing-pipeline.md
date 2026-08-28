@@ -10,14 +10,12 @@ Whenever the work after an action is multi-second and benefits from progressive 
 ## Snippet
 
 ```csharp
-using Ikon.Common.Core.Protocol;
-
 private async Task HandleFileUploadCompleteAsync(
     Guid caseId, string uploadId, Guid caseFileId,
     string fileName, string mimeType, long fileSize, AssetUri assetUri, string hash)
 {
-    // GetClientContext returns null once that client is gone; the background work still has to finish
-    var clientContext = app.GlobalState.GetClientContext(ReactiveScope.ClientId) ?? new Context();
+    // GetClientContext returns null once that client is gone; the background work still has to finish.
+    var clientContext = app.GlobalState.GetClientContext(ReactiveScope.ClientId) ?? new Ikon.Common.Core.Protocol.Context();
     var capturedTenantId = _currentTenantId;
     var capturedUserId = _currentUserId;
 
@@ -27,6 +25,7 @@ private async Task HandleFileUploadCompleteAsync(
         _backgroundUserId.Value = capturedUserId;
         using var scope = ReactiveScope.Use(new UserScope(clientContext), new ClientScope(clientContext));
         await using var work = await app.BackgroundWork.StartAsync();
+
         try
         {
             await ProcessFileAsync(caseFileId, caseId, assetUri, fileName, mimeType, fileSize);
@@ -74,4 +73,3 @@ private async Task ProcessFileAsync(Guid caseFileId, Guid caseId, AssetUri asset
 ## See also
 
 - `file-upload-with-progress` — the upload front half this pipeline runs after.
-- `status-badge-from-enum` — how to render the status changes the pipeline emits.

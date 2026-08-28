@@ -10,17 +10,20 @@ Power-user dashboards where keyboard navigation is the primary interaction (secu
 ## Snippet
 
 ```csharp
-view.Column(["h-screen w-full bg-zinc-950"], content: view =>
+private void Render(IView view)
 {
-    view.KeyboardListener(
-        global: true,
-        keys: ["a", "d", "f", "j", "k", "m", "s", "i", "e", "?", "/", "Escape"],
-        onKeyDown: HandleKeyDown);
+    view.Column(["h-screen w-full bg-zinc-950"], content: view =>
+    {
+        view.KeyboardListener(
+            global: true,
+            keys: ["a", "d", "f", "j", "k", "m", "s", "i", "e", "?", "/", "Escape"],
+            onKeyDown: HandleKeyDown);
 
-    RenderTopStrip(view);
-    RenderAlertBanner(view);
-    // ... main UI ...
-});
+        RenderTopStrip(view);
+        RenderAlertBanner(view);
+        // ... main UI ...
+    });
+}
 
 private async Task HandleKeyDown(KeyboardEventArgs args)
 {

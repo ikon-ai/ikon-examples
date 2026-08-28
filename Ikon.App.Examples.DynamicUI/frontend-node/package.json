@@ -11,11 +11,11 @@
     "build:prerender": "vite build --config vite.config.ssr.js"
   },
   "dependencies": {
-    "@ikonai/sdk": "1.6.0",
-    "@ikonai/sdk-libopus": "1.6.0",
-    "@ikonai/sdk-react-ui": "1.6.0",
-    "@ikonai/sdk-react-ui-standard": "1.6.0",
-    "@ikonai/sdk-ui": "1.6.0",
+    "@ikonai/sdk": "1.7.0",
+    "@ikonai/sdk-libopus": "1.7.0",
+    "@ikonai/sdk-react-ui": "1.7.0",
+    "@ikonai/sdk-react-ui-standard": "1.7.0",
+    "@ikonai/sdk-ui": "1.7.0",
     "@simplewebauthn/browser": "13.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"

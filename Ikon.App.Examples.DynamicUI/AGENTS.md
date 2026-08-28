@@ -50,6 +50,70 @@ The three compose freely in the same array (`[Button.PrimaryMd, "mt-4 self-cente
 - Only modify frontend-node when integrating custom React UI components
 - Developers can freely add any NuGet packages to C# app or npm packages to frontend
 
+## What the app must contain
+
+Before writing UI, name what KIND of product this is and what its ordinary workflow needs. Users
+notice a missing standard control faster than a missing feature, because every product they have
+used has it — and being asked for one after the first build is the failure this section prevents.
+
+Established convention decides these, not the request:
+
+| The app is… | It needs, from the first build |
+|---|---|
+| records people accumulate (contacts, invoices, tasks, recipes) | search · sort · filters on the high-value fields · a date range when time changes which records matter · export where taking data out is a real task |
+| messaging or comments | reply · copy · edit and delete for the author · a per-message action row that works on touch |
+| a board or pipeline | move by drag AND a non-drag path · a card detail |
+| a dashboard | the summary numbers first · a chart matched to the question · drill-down to the rows |
+| an editor or canvas | undo/redo · select · delete · duplicate · zoom by wheel and pinch where the surface scales |
+| media playback | play/pause · seek · elapsed and total time |
+| a queue someone reviews | the review verbs themselves — Approve · Reject · Request changes — never a bare Yes/No · the evidence needed to decide, in one place |
+| a builder of multi-step automations | one stated trigger · labelled branches with a default path · per-step test · a run log |
+
+**Reversal is not an editor's privilege.** Anything that changes user-visible state either undoes —
+including AI-made changes, on the same terms as the user's own — or says plainly, before the act,
+that it cannot be undone. Where an action can be deferred, a time-bounded Undo beats a confirmation
+dialog; keep the dialog for what is genuinely irreversible.
+
+This is the conventional MINIMUM for the workflow already asked for — **not a feature list**.
+Anything the request did not ask for and the workflow runs fine without is a feature: leave it out.
+Three controls a user would miss beats ten that pad the screen.
+
+**Only build a control that works.** A Filter chip that filters nothing, an Export button with an
+empty handler, a Sort header that reorders nothing — each ships as a promise the app breaks. A
+visible control either works, is disabled with a visible reason, or does not exist. A control with
+no distinct meaning is dead too: an app that saves on every change does not also get a Save button.
+Where the user's own permission is what blocks it, explain that and offer Request access if the app
+has somewhere to send the request — asking is not being granted.
+
+**A control that narrows a collection must not lose data.** Derive filter and grouping options from
+the values actually present, show a value with no current items as empty with a count rather than
+dropping it, and make Clear always return the whole collection. This failure is silent — the control
+works, results render, and the missing item produces no state the user can see.
+
+**Reconcile before you add.** On a later pass, an equivalent control that already exists is repaired
+in place — never given a second implementation beside it. Keep its value, bindings and permissions,
+and remove the one it replaces only once the replacement works.
+
+**Completeness is not clutter.** High-frequency controls visible; selection-specific ones
+contextual; the rest in a menu or overflow. On a narrow viewport they move into a compact surface —
+they do not vanish.
+
+**Separate the surfaces.** How content is made does not decide how it is read. Authoring controls
+(drag handles, resize grips, edit affordances) belong to the authoring surface and must not leak
+into the reading one, and interactive does not mean editable — a reader may filter a chart or run a
+simulation without gaining the right to change it.
+
+**Consequential actions need a human act.** When the app can reach outside itself — `app.Payments`,
+`app.Email`, `app.Telephony`, `app.Notifications`, a publish, a permanent delete — a person presses
+something that names the action. Never as a side effect of an AI turn: an LLM may draft the email,
+price the order, or pick what to delete, but a person confirms the send, the charge, or the
+deletion. Reversible in-app work (generate, draft, preview, rearrange) needs no confirmation and
+should not ask for one.
+
+Recipes for the common cases are in the pattern corpus — `record-list-toolbar`,
+`message-action-row`, `board-move-without-drag`, `form-field-discipline`, `chart-for-the-question`,
+`zero-results-state`, `overlay-selection`.
+
 ## Common Pitfalls
 
 Recurring hallucination + footgun classes from generated Ikon apps. Each compiles or runs cleanly in the wrong shape and silently breaks the app. Rules only — each with its canonical form.
@@ -77,7 +141,7 @@ Recurring hallucination + footgun classes from generated Ikon apps. Each compile
 - **`Emerge.AskAsync` is PROMPT-FIRST** — `AskAsync(userPrompt)` or `AskAsync(userPrompt, LLMModel.Claude45Haiku)`; model-first is CS1503. Returns plain `string`; for typed JSON use `Run<T>`.
 - **`LLMModel.Default` is `Claude45Haiku`** — the cheap+fast model the one-shots (`Emerge.AskAsync`) already run on; pass it wherever a model is asked for and you have not decided. Name a concrete value when the task warrants: `Claude46Sonnet` (reasoning/chat), `Claude45Haiku` (fast/cheap), `Gemini25Flash`, `Gemini25Pro`, `Gpt5Mini`, `Gpt5`, `Grok420Reasoning`.
 - **AI one-shots never return null — no guards, use try/catch (CS8602 never applies).** Every one-shot (`ImageGenerator.GenerateAsync`, `SpeechGenerator.GenerateAsync`, `VideoGenerator.GenerateAsync`, `MusicGenerator.GenerateAsync`, `WebSearcher.SearchAsync`, …) returns non-null and throws on failure. Two DISTINCT exception types: the standalone AI services throw `AIException`; `await Emerge.Run<T>(…)` throws `EmergenceStoppedException`, which does NOT derive from `AIException` — `catch (AIException)` will not catch it. Catch the matching type when the app should continue without the result: `catch (AIException) { _error.Value = "Generation failed"; }` for the services, `catch (EmergenceStoppedException) { … }` for Emerge. Use `?.`/`??` when rendering from state.
-- **What the catch RENDERS is part of the rule — never the exception.** A cloud AI call fails at runtime on a perfectly built app, and the person looking at it is not a developer. Render a short human sentence plus a way to try again (`_imageError.Value = "Couldn't create the image — try again."` beside a retry button); never `ex.Message`, `ex.ToString()`, a provider or model name (`google.gemini-25-flash-image.global`), or a socket/HTTP error. Observed shipped failure: a post studio drew `SocketException: Connection reset by peer` across the half of the canvas where the photograph belonged, with no empty state behind it. Every surface that can show a generated result needs all three renderings — waiting, failed-with-retry, and empty.
+- **What the catch RENDERS is part of the rule — never the exception.** A cloud AI call fails at runtime on a perfectly built app, and the person looking at it is not a developer. Render a short human sentence plus a way to try again (`_imageError.Value = "Couldn't create the image — try again."` beside a retry button); never `ex.Message`, `ex.ToString()`, a provider or model name (`google.gemini-25-flash-image.global`), or a socket/HTTP error. Observed shipped failure: a post studio drew `SocketException: Connection reset by peer` across the half of the canvas where the photograph belonged, with no empty state behind it. Every surface that can show a generated result needs all three renderings — waiting, failed-with-retry, and empty. **A failure must not destroy the work that produced it**: the prompt, the uploaded file, the form the user filled and any earlier output all survive, so Retry means press-again, never type-it-all-again — clearing the input on failure is the same defect as swallowing the error. When one part of a multi-part generation fails, retry only that part.
 - **`WebSearcher.SearchAsync(q, maxResults: 5)` is the one-shot — static AND instance.** `await WebSearcher.SearchAsync(q, maxResults: 5)` with no instance; `await searcher.SearchAsync(q, maxResults: 5)` when you hold one. `SearchPagesAsync(new SearchConfig { ... })` is for site-restricted / country / language targeting; `SearchImagesAsync` for images. `SearchResult` has `Url`, `Title`, `Content` (no `Snippet`). The other AI facades mirror the same pair (`ImageGenerator.GenerateAsync`, `OCR.AnalyzeAsync`, `SpeechRecognizer.RecognizeAsync`, …).
 
 ### The view-call shape
@@ -144,7 +208,7 @@ Recurring hallucination + footgun classes from generated Ikon apps. Each compile
   | `backdrop-blur-sm` / `backdrop-blur` | `backdrop-blur-xs` / `backdrop-blur-sm` | `outline-none` | `outline-hidden` |
   | `ring` | `ring-3` | `bg-opacity-50` (removed) | `bg-black/50` slash syntax |
 
-  When porting a v3-era Tailwind codebase (Replit/Lovable/Base44/v0 exports), apply this mapping ON THE FLY as you transcribe — every class you WRITE is v4, whatever the source said. The same applies to any source files you copy in verbatim: translate their class strings as part of bringing them over. Verify by rendering, not by trust: compare computed styles against the original running side by side. Shadows are not themable: a `shadow-{rung}` theme key logs a warning and has no visible effect, because shadow utilities bake their values to keep `shadow-lg shadow-red-500` recoloring working.
+  When porting a v3-era Tailwind codebase (Replit/Lovable/Base44/v0 exports), apply this mapping ON THE FLY as you transcribe — every class you WRITE is v4, whatever the source said. The same applies to any source files you copy in verbatim: translate their class strings as part of bringing them over. Verify by rendering, not by trust: compare computed styles against the original running side by side. Shadow rungs are themable (`["shadow-lg"] = "0 2px 4px rgb(0 0 0 / 0.07)"`, at most two layers) and `shadow-lg shadow-red-500` recoloring keeps working on top of the themed rung.
 - **TextField `label:` renders a VISIBLE label above the field.** When the design has no label, omit it — the `placeholder:` already provides the findable handle; passing `label:` anyway paints stray text the design never asked for (the classic symptom: a floating "Message" above a chat composer).
 - **Keep small text at AA contrast.** On light surfaces, `text-muted-foreground` at reduced opacity (`/60`–`/80`) and mid-amber text like `#C8791A` fall under the 4.5:1 floor at 9–13px. Use full-strength muted for small labels, and darken accent TEXT (e.g. amber `#8F5710`) while keeping the brighter accent for borders, dots and fills; white-on-accent button fills need the darker step too (e.g. `#A9640D`).
 
@@ -189,9 +253,10 @@ Detailed API docs are available in `docs/Ikon.Agent.Docs/guides/`. Each guide co
 - **databases** (`docs/Ikon.Agent.Docs/guides/databases.md`): databases, PostgreSQL, SQL, db, app.Database, AppDatabaseConnection, EF Core, Entity Framework, DbContext, migrations, db migrate, LINQ
 - **secrets** (`docs/Ikon.Agent.Docs/guides/secrets.md`): secrets, tokens, API keys, credentials, passwords, app.Secrets, ikon app secret
 - **payments** (`docs/Ikon.Agent.Docs/guides/payments.md`): payments, charge end users, monetize, paywall, subscription, recurring, one-off payment, refund, Stripe, Surfboard, Mollie, app.Payments, CreatePaymentLinkAsync, ListOffersAsync, offers, GetEntitlementAsync, entitlement, PaymentsRequireEntitlement, CreateOfferAsync, create offer, PaymentEventReceived, payment events, cancel subscription
-- **notifications** (`docs/Ikon.Agent.Docs/guides/notifications.md`): notifications, push, push notification, app.Notifications, NotificationContent, SendToUserAsync, SendToSessionAsync, BroadcastAsync, permission, offline push, web push, FCM, alert, toast
+- **notifications** (`docs/Ikon.Agent.Docs/guides/notifications.md`): notifications, push, push notification, app.Notifications, NotificationContent, SendToUserAsync, SendToSessionAsync, BroadcastAsync, permission, offline push, web push, FCM, alert, toast, NotificationInbox, inbox, in-app notifications, unread, NotificationRoute, NotificationReach, all devices, multidevice, INotificationChannel, email notification, SMS notification, Telegram, WhatsApp, mute
 - **email** (`docs/Ikon.Agent.Docs/guides/email.md`): email, send email, app.Email, EmailSendRequest, EmailAttachment, sender identity, senderLocalPart, senderDisplayName, senderDomain, verified sending domain, reply-to, attachments, inbox, inbound email, EmailSenderNotAvailableException
 - **telephony** (`docs/Ikon.Agent.Docs/guides/telephony.md`): sms, text message, send sms, phone call, voice call, app.Telephony, SmsSendResult, PlacedCall, TelephonyStatus, phone number, E.164, replyable, hang up, inbound sms
+- **location** (`docs/Ikon.Agent.Docs/guides/location.md`): location, gps, geolocation, app.Locations, LocationService, StartTrackingAsync, StopTrackingAsync, OnUpdate, LocationUpdate, LocationTrackingOptions, background location, continuous location, live tracking, tracker app, courier tracking, delivery tracking, ride tracking, foreground service, background mode, GetLocationAsync
 - **function-registry** (`docs/Ikon.Agent.Docs/guides/function-registry.md`): function registry, registration, attribute, visibility, LLM tools, callable functions
 - **logging** (`docs/Ikon.Agent.Docs/guides/logging.md`): log, logging, debug, warning, error, diagnostics
 - **pipelines** (`docs/Ikon.Agent.Docs/guides/pipelines.md`): pipeline, background processing, transform, processor, scheduled, cron

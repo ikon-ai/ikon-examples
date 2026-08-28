@@ -10,10 +10,10 @@ Multi-user games, collaborative drawing prompts, group polling — anywhere the 
 ## Snippet
 
 ```csharp
-private readonly Reactive<Dictionary<int, string>> _pendingActions = new(new Dictionary<int, string>());
+private readonly ReactiveDictionary<int, string> _pendingActions = new();
 private readonly Reactive<int> _batchCountdownMs = new(0);
 private readonly Reactive<int> _batchTotalMs = new(20000);
-private readonly Reactive<HashSet<int>> _typingClients = new(new HashSet<int>());
+private readonly ReactiveHashSet<int> _typingClients = new();
 private const int BatchWindowMs = 20000;
 private const int ExtendTimeMs = 10000;
 private const int TypingIdleMs = 3000;
@@ -23,18 +23,18 @@ private readonly ConcurrentDictionary<int, DateTimeOffset> _lastTypingTime = new
 private async Task SubmitPlayerActionAsync(string action)
 {
     int clientId = ReactiveScope.ClientId;
-    var pending = new Dictionary<int, string>(_pendingActions.Value) { [clientId] = action };
-    _pendingActions.Value = pending;
+    _pendingActions[clientId] = action;
 
     int totalPlayers = _players.Count(p => p.Character != null);
-    if (pending.Count >= totalPlayers)
+
+    if (_pendingActions.Count >= totalPlayers)
     {
         _batchTimerCts?.Cancel();
         await ProcessBatchedActionsAsync();
         return;
     }
 
-    if (pending.Count == 1)
+    if (_pendingActions.Count == 1)
     {
         _batchTotalMs.Value = BatchWindowMs;
         _batchCountdownMs.Value = BatchWindowMs;
@@ -50,9 +50,9 @@ private async Task RunBatchTimerAsync(CancellationToken ct)
     {
         await Task.Delay(500, ct);
 
-        // Pause if someone who hasn't submitted is typing
-        bool anyoneTyping = _typingClients.Value
-            .Any(cid => !_pendingActions.Value.ContainsKey(cid) &&
+        // Pause the clock while an unsubmitted player is actively typing — pure wall time would feel unfair.
+        bool anyoneTyping = _typingClients
+            .Any(cid => !_pendingActions.ContainsKey(cid) &&
                         _lastTypingTime.TryGetValue(cid, out var lt) &&
                         (DateTimeOffset.UtcNow - lt).TotalMilliseconds < TypingIdleMs);
 
@@ -61,12 +61,20 @@ private async Task RunBatchTimerAsync(CancellationToken ct)
             _batchCountdownMs.Value = Math.Max(0, _batchCountdownMs.Value - 500);
         }
     }
-    if (!ct.IsCancellationRequested) await ProcessBatchedActionsAsync();
+
+    if (!ct.IsCancellationRequested)
+    {
+        await ProcessBatchedActionsAsync();
+    }
 }
 
 private void ExtendBatchTime()
 {
-    if (_batchCountdownMs.Value <= 0) return;
+    if (_batchCountdownMs.Value <= 0)
+    {
+        return;
+    }
+
     _batchCountdownMs.Value = Math.Min(_batchCountdownMs.Value + ExtendTimeMs, _batchTotalMs.Value + ExtendTimeMs);
     _batchTotalMs.Value = Math.Max(_batchTotalMs.Value, _batchCountdownMs.Value);
 }

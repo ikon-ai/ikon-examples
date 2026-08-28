@@ -39,11 +39,19 @@ public Task Main()
 
     Audio.AudioInputStreamEndAsync += async args =>
     {
-        if (!_streams.TryGetValue(args.StreamId.ToString(), out var samples)) return;
+        if (!_streams.TryGetValue(args.StreamId.ToString(), out var samples))
+        {
+            return;
+        }
+
         var (sampleRate, channelCount) = _streamMeta[args.StreamId.ToString()];
         _streams.Remove(args.StreamId.ToString());
         _streamMeta.Remove(args.StreamId.ToString());
-        if (samples.Count == 0) return;
+
+        if (samples.Count == 0)
+        {
+            return;
+        }
 
         _processing.Value = true;
         try
@@ -55,7 +63,12 @@ public Task Main()
                 SampleRate = sampleRate,
                 ChannelCount = channelCount,
             });
-            if (string.IsNullOrWhiteSpace(heard)) return;
+
+            if (string.IsNullOrWhiteSpace(heard))
+            {
+                return;
+            }
+
             _turns.Add(new VoiceTurn("You", heard));
 
             var transcript = string.Join("\n", _turns.Select(t => $"{t.Role}: {t.Text}"));
@@ -110,6 +123,7 @@ public Task Main()
 - `ClientFunctions.PlaySoundAsync(byte[] bytes, string mimeType)` is for playing already-encoded sound files (MP3, WAV); use `Audio.SpeakAsync` / `Audio.SendSpeech` for generated speech.
 - Wrap STT + LLM + TTS in try/finally so `_processing` always resets.
 - The transcript is a `ReactiveList<VoiceTurn>` — `_turns.Add(turn)` notifies once; enumerate and LINQ the reactive directly (`foreach (var t in _turns)`). The per-stream sample buffers stay plain `Dictionary`s: they are server-side bookkeeping, not UI state.
+- **Interrupting the agent is its own decision.** `BargeInDetector` gates it properly — the caller must produce sustained speech across several consecutive frames, and only after a short grace period from when the agent started speaking, so a cough or the agent's own echo does not cut it off. Trim dead air with `SilenceRemover`, whose threshold is derived from the measured noise floor rather than a fixed level, and mix concurrent speakers with `SpeechMixer`.
 
 ## See also
 

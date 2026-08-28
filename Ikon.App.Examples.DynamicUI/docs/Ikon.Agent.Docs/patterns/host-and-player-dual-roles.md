@@ -12,8 +12,7 @@ Multiplayer experiences where one device is a "stage" and others are controllers
 ```csharp
 public record ClientParams(string Id = "", bool Host = false);
 
-[App]
-public partial class Kahoot(IApp<SessionIdentity, ClientParams> app)
+public class Kahoot(IApp<SessionIdentity, ClientParams> app)
 {
     private bool IsHost()
     {
@@ -66,5 +65,4 @@ public partial class Kahoot(IApp<SessionIdentity, ClientParams> app)
 ## See also
 
 - `multi-user-game`
-- `seat-grid-picker`
 - `typical-app-structure`

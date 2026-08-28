@@ -17,15 +17,25 @@ public async Task Main()
     app.Navigation.PathChangedAsync += async args =>
     {
         var path = args.Path.TrimStart('/');
+
         if (path.StartsWith("dashboard/"))
         {
             var id = path["dashboard/".Length..];
             _activePage.Value = $"dashboard:{id}";
             await LoadDashboardDataAsync(id);
         }
-        else if (path == "explore")    { _activePage.Value = "explore"; }
-        else if (path == "settings")   { _activePage.Value = "settings"; }
-        else                           { _activePage.Value = "dashboards"; }
+        else if (path == "explore")
+        {
+            _activePage.Value = "explore";
+        }
+        else if (path == "settings")
+        {
+            _activePage.Value = "settings";
+        }
+        else
+        {
+            _activePage.Value = "dashboards";
+        }
     };
 }
 
@@ -36,22 +46,34 @@ private async Task NavigateToDashboardAsync(string id)
     await LoadDashboardDataAsync(id);
 }
 
-// Render switch:
-if (_activePage.Value == "explore")
-    RenderExplorePage(view);
-else if (_activePage.Value == "settings")
-    RenderSettingsPage(view);
-else if (_activePage.Value.StartsWith("dashboard:"))
+// Render switch: one reactive holds both "which page" and "which entity".
+private void Render(IView view)
 {
-    var id = _activePage.Value["dashboard:".Length..];
-    RenderDashboardView(view, id);
+    if (_activePage.Value == "explore")
+    {
+        RenderExplorePage(view);
+    }
+    else if (_activePage.Value == "settings")
+    {
+        RenderSettingsPage(view);
+    }
+    else if (_activePage.Value.StartsWith("dashboard:"))
+    {
+        var id = _activePage.Value["dashboard:".Length..];
+        RenderDashboardView(view, id);
+    }
+    else
+    {
+        RenderDashboardList(view);
+    }
 }
-else
-    RenderDashboardList(view);
 
-// Sidebar nav highlight:
-var isActive = _activePage.Value == page
-    || (page == "dashboards" && _activePage.Value.StartsWith("dashboard:"));
+// Sidebar nav highlight: all dashboard sub-pages light up the same item.
+private bool IsNavItemActive(string page)
+{
+    return _activePage.Value == page
+        || (page == "dashboards" && _activePage.Value.StartsWith("dashboard:"));
+}
 ```
 
 ## Notes
@@ -64,6 +86,4 @@ var isActive = _activePage.Value == page
 
 ## See also
 
-- `role-based-screen-router`
-- `bottom-tab-bar-nav`
 - `collapsible-sidebar-nav`

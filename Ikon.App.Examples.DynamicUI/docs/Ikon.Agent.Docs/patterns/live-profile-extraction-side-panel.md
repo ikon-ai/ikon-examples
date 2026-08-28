@@ -46,8 +46,11 @@ private async Task ExtractProfileAsync()
     _profile.NotifyUpdate();
 }
 
-// Fired after each Completed event:
-_ = ExtractProfileAsync();
+private void OnCompleted()
+{
+    // Fired after each Completed event:
+    _ = ExtractProfileAsync();
+}
 ```
 
 ## Notes
