@@ -20,9 +20,17 @@ private void ShowToast(string text, string tone = "success")
 
 private void RenderToast(UIView view)
 {
-    if (_toast.Value is not { } t) return;
+    if (_toast.Value is not { } t)
+    {
+        return;
+    }
+
     var ageMs = (DateTime.UtcNow - t.At).TotalMilliseconds;
-    if (ageMs > 3000) return;
+
+    if (ageMs > 3000)
+    {
+        return;
+    }
 
     var (bg, ring, accent, icon) = t.Tone switch
     {
@@ -46,11 +54,14 @@ private void RenderToast(UIView view)
 }
 
 // Mount once at the top level:
-view.Column(["h-screen w-full"], content: view =>
+private void Render(IView view)
 {
-    // ... main UI ...
-    RenderToast(view);
-});
+    view.Column(["h-screen w-full"], content: view =>
+    {
+        // ... main UI ...
+        RenderToast(view);
+    });
+}
 ```
 
 ## Notes
@@ -64,4 +75,3 @@ view.Column(["h-screen w-full"], content: view =>
 ## See also
 
 - `busy-flag-loading` — confirm async ops by clearing the busy flag and firing `ShowToast("Saved")` in the `finally` block
-- `alert-banner-dismissable` — for persistent, action-required notices

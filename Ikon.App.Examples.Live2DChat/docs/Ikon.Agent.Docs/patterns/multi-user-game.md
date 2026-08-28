@@ -159,16 +159,10 @@ And (4) the C# side: `view.AddNode("viperboard", new Dictionary<string, object?>
 ## Snippet
 
 ```csharp
-// `Context` (the OnClientJoined/OnClientLeft payload) lives here — the scaffold does NOT import it.
-using Ikon.Common.Core.Protocol;
-
-return await App.Run(args);
-
 // Host detection lives in ClientParams. The host client connects with `?host=true` query param.
 public record SessionIdentity(string Id);
 public record ClientParams(string Id = "", bool Host = false);
 
-[App]
 public partial class LiveQuizApp(IApp<SessionIdentity, ClientParams> app)
 {
     private UI UI { get; } = new(app, new IkonTheme());
@@ -200,7 +194,7 @@ public partial class LiveQuizApp(IApp<SessionIdentity, ClientParams> app)
     private void RenderUI(UIView view) =>
         view.Text([Text.H1], text: $"Stage: {_stage.Value}");
 
-    private async Task OnClientJoinedAsync(Context ctx)
+    private async Task OnClientJoinedAsync(Ikon.Common.Core.Protocol.Context ctx)
     {
         // ReactiveScope inside event handlers needs an explicit ClientScope —
         // ctx.ClientSessionId is the int identity for this client.
@@ -208,7 +202,7 @@ public partial class LiveQuizApp(IApp<SessionIdentity, ClientParams> app)
         // Now ClientReactive<T>.Value reads/writes for THIS specific client.
     }
 
-    private async Task OnClientLeftAsync(Context ctx)
+    private async Task OnClientLeftAsync(Ikon.Common.Core.Protocol.Context ctx)
     {
         _players.RemoveAll(p => p.ClientId == ctx.ClientSessionId);   // one notification
         _playerAnswers.TryRemove(ctx.ClientSessionId, out _);
@@ -275,10 +269,10 @@ public record Question(string Prompt, string[] Choices, int CorrectIndex);
 - **Don't iterate `app.Clients` to reset per-client state.** `IClientCollection<T>` exposes only `Count` and the indexer. To touch every client's `ClientReactive` value, walk your shared `_players` list and write to each id: `_selectedAnswer.SetFor(p.ClientId, null)`.
 - **`Reactive<T>` constructor must take an explicit initial value** — `new Reactive<GameStage>(GameStage.Lobby)`, `new Reactive<int>(0)`, `new ClientReactive<int?>((int?)null)`. Bare `new Reactive<T>()` produces CS0121 ambiguous-call. The `ReactiveList<T>` family is the exception: it starts empty, so `private readonly ReactiveList<Player> _players = new();` takes no argument.
 - **Game flow as a state machine via `Reactive<GameStage>`**: Lobby → Question → Reveal → Leaderboard → (next round or GameOver). UI branches on `_stage.Value`; transitions happen in host-only handlers.
+- Addressing is by session id throughout. `Endpoint` is the logical fabric address underneath — what a message is *for*, independent of where it currently lives — and its `EndpointKind` says whether that is a client, a cell or a server. App code stays on session ids; the directory does the mapping.
 
 ## See also
 
 - `chatbot-streaming` — the single-LLM-conversation single-client variant.
-- `kanban-multi-column` — shared state with mutation buttons (no host role).
 - `app-structure` (top-level guide) — `[App]`, partial class, `IApp<TSessionIdentity, TClientParameters>`, ClientParameters via query-param.
 - `reactive-state` (top-level guide) — `Reactive<T>` vs `ClientReactive<T>` mechanics, `SetFor` / `ReactiveScope.Use`.

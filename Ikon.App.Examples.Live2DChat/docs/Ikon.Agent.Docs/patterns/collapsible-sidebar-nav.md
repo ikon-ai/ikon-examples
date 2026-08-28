@@ -44,7 +44,11 @@ private void RenderSidebar(UIView view)
                 content: btn =>
                 {
                     btn.Icon(["w-3.5 h-3.5"], name: collapsed ? "chevrons-right" : "chevrons-left");
-                    if (!collapsed) btn.Text([], "Collapse");
+
+                    if (!collapsed)
+                    {
+                        btn.Text([], "Collapse");
+                    }
                 });
         });
     });
@@ -63,15 +67,18 @@ private void RenderSidebarItem(UIView view, string sectionKey, string iconName, 
             btn.Box(["relative flex-shrink-0"], content: iconBox =>
             {
                 iconBox.Icon(["w-4 h-4"], name: iconName);
+
                 if (collapsed && badge is { } b)
                 {
                     var dotColor = b.Tone == "amber" ? "bg-amber-400" : "bg-rose-500";
                     iconBox.Box([$"absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ring-1 ring-zinc-925 {dotColor}"]);
                 }
             });
+
             if (!collapsed)
             {
                 btn.Text(["truncate flex-1"], label);
+
                 if (badge is { } b)
                 {
                     btn.Box(["px-1.5 py-0 rounded-full ring-1 ring-rose-500/40 bg-rose-500/15 text-xs font-semibold text-rose-300"], content: c => c.Text([], b.Text));
@@ -89,5 +96,4 @@ private void RenderSidebarItem(UIView view, string sectionKey, string iconName, 
 
 ## See also
 
-- `bottom-tab-bar-nav` — mobile-tab-bar counterpart, often paired with this on the same page via responsive `hidden md:flex` / `md:hidden`
 - `command-palette-jump` — keyboard-driven navigation across the same sections

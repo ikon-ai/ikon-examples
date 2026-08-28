@@ -55,7 +55,6 @@ namespace Ikon.AI.Database
   class DatabaseInfoExtractor
     ctor(DatabaseConnection databaseConnection)
     Task<DatabaseInfo> ExtractAsync(DatabaseInfoExtractor.Config config, CancellationToken cancellationToken)
-  // Configuration for database info extraction.
   class DatabaseInfoExtractor.Config
     ctor()
     // Regex patterns matched against the three-part schema.table.column name.
@@ -67,7 +66,6 @@ namespace Ikon.AI.Database
     int NonTextSampleRowLimit { get; set; }
     // When empty the default depends on the database type (e.g. public for PostgreSQL).
     List<string>? Schemas { get; set; }
-    // Regex patterns for table names to exclude.
     List<string>? TableExcludeRegex { get; set; }
     Dictionary<string, string> TableExtraInfo { get; set; }
     // Regex patterns matched against schema.table (or just table); an empty/null list includes all.
@@ -93,9 +91,9 @@ namespace Ikon.AI.Database
   sealed class ResultRow
     ctor(IReadOnlyList<ResultCell> cells)
     IReadOnlyList<ResultCell> Cells { get; }
-    // Value of the named column, or null. Null is returned both for a genuine SQL NULL and for a column that is not present — use TryGetValue to tell the two apart.
+    // Null is returned both for a genuine SQL NULL and for a column that is not present — use TryGetValue to tell the two apart.
     object? this[string column] { get; }
-    // Looks up a column by name. Returns false only when no such column exists; a column present but holding SQL NULL returns true with value set to null.
+    // Returns false only when no such column exists; a column present but holding SQL NULL returns true with value set to null.
     bool TryGetValue(string column, out object? value)
   sealed class ResultSet
     ctor(IReadOnlyList<string> columns, IReadOnlyList<ResultRow> rows, int limitedRowCount, int totalRowCount, CultureInfo culture)
@@ -108,7 +106,7 @@ namespace Ikon.AI.Database
     string ToJson()
     string ToMarkdown()
   static class SqlValidator
-    // Best-effort guard that rejects LLM-authored SQL carrying a write/side-effect keyword or a table outside allowedTables. It is a keyword blocklist plus a FROM/JOIN allowlist, NOT a dialect-aware parser, so it does not prove the statement is side-effect free. Where the query runs against real data, back it with a read-only transaction or role.
+    // Rejects SQL carrying a write/side-effect keyword or a table outside allowedTables. It is a keyword blocklist plus a FROM/JOIN allowlist, NOT a dialect-aware parser, so it does not prove the statement is side-effect free. Where the query runs against real data, back it with a read-only transaction or role.
     static void ValidateReadOnly(string sql, IReadOnlySet<string> allowedTables)
 
 namespace Ikon.AI.Storage
@@ -145,15 +143,12 @@ namespace Ikon.AI.Storage
     Task<int> SetAsync(string collectionName, int? key, string text, object value, IEnumerable<string>? tags = null)
     Task<int> SetAsync(string collectionName, int? key, float[] vector, object value, IEnumerable<string>? tags = null)
   enum VectorStoreBackend
-    // Brute-force in-process store. The default — no external dependency.
     InMemory
-    // Postgres + pgvector, with an HNSW index. Scales past what an in-RAM linear scan can.
     PgVector
-  // Chooses the backing store for a VectorDatabase. The default (or a null config) keeps the in-memory store, so existing callers are unaffected; pass one with VectorStoreBackend.PgVector to persist and scale.
+  // The default (or a null config) keeps the in-memory store, so existing callers are unaffected; pass one with VectorStoreBackend.PgVector to persist and scale.
   sealed class VectorStoreConfig
     ctor()
     VectorStoreBackend Backend { get; init; }
-    // Opens a fresh connection for a pgvector operation (each op opens and disposes its own, as PgVectorCorpus does), so the call belongs inside the factory: () => DatabaseConnection.Postgres(...).DbConnection. Required when Backend is VectorStoreBackend.PgVector.
+    // Each operation opens and disposes its own connection, so the call belongs inside the factory: () => DatabaseConnection.Postgres(...).DbConnection. Required when Backend is VectorStoreBackend.PgVector.
     Func<DbConnection>? ConnectionFactory { get; init; }
-    // Table-name prefix, so several vector databases can share one Postgres database.
     string TablePrefix { get; init; }

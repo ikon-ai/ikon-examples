@@ -14,9 +14,14 @@ private readonly Reactive<string?> _error = new(null);
 
 private async Task DoWorkAsync()
 {
-    if (_busy.Value) return;
+    if (_busy.Value)
+    {
+        return;
+    }
+
     _error.Value = null;
     using var _ = _busy.AsToken(); // flips _busy true here, false on dispose
+
     try
     {
         await SlowOperationAsync();
@@ -27,17 +32,19 @@ private async Task DoWorkAsync()
     }
 }
 
-// In UI:
-view.Button(
-    style: [Button.Default, "transition-colors duration-150 hover:opacity-90", _busy.Value ? "opacity-50 cursor-wait" : ""],
-    disabled: _busy.Value,
-    onClick: DoWorkAsync,
-    content: v => v.Text(text: _busy.Value ? "Working…" : "Do thing"));
-
-if (_error.Value is string err)
+private void Render(IView view)
 {
-    view.Box(["bg-destructive/10 text-destructive border border-destructive/30 rounded-lg p-3"], content: v =>
-        v.Text(text: $"Failed: {err}"));
+    view.Button(
+        style: [Button.Default, "transition-colors duration-150 hover:opacity-90", _busy.Value ? "opacity-50 cursor-wait" : ""],
+        disabled: _busy.Value,
+        onClick: DoWorkAsync,
+        content: v => v.Text(text: _busy.Value ? "Working…" : "Do thing"));
+
+    if (_error.Value is string err)
+    {
+        view.Box(["bg-destructive/10 text-destructive border border-destructive/30 rounded-lg p-3"], content: v =>
+            v.Text(text: $"Failed: {err}"));
+    }
 }
 ```
 
@@ -47,9 +54,9 @@ if (_error.Value is string err)
 - `_busy.AsToken()` returns an `IDisposable` that flips the flag to `true` on acquire and back to `false` on dispose, even if the wrapped block throws. Replaces the `try/finally` boilerplate; you only need a `try/catch` to surface the error message.
 - `_error` is `Reactive<string?>` — `null` means no error. Surface via an Alert / inline box. Never silent catches.
 - Re-entry guard: `if (_busy.Value) return` at the top.
+- **Catch the right exception type.** The standalone AI services (`ImageGenerator`, `SpeechGenerator`, `WebSearcher`, …) throw `AIException`, with `AITimeoutException` for the deadline case; `Emerge.Run<T>` throws `EmergenceStoppedException`, which does NOT derive from `AIException`. A single `catch (AIException)` around an Emerge call silently misses every failure it was written for.
 
 ## See also
 
 - `chatbot-streaming` — busy flag specialised for AI conversation.
-- `image-gallery` — busy flag specialised for image generation.
 - `shared-list-ai-cleanup` — busy flag specialised for AI list transformation.

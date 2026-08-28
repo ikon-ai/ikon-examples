@@ -10,16 +10,14 @@ Chat agents that mention referenceable records and you want to hang real UI off 
 ## Snippet
 
 ```csharp
-using System.Text.RegularExpressions;
-
 private async Task<List<VehicleImages>?> ExtractVehicleImagesAsync(string message)
 {
-    var matches = Regex.Matches(message, @"\[vehicle:([^\]]+)\]");
+    var matches = System.Text.RegularExpressions.Regex.Matches(message, @"\[vehicle:([^\]]+)\]");
     if (matches.Count == 0) { return null; }
 
     var vehicles = new List<VehicleImages>();
 
-    foreach (Match m in matches)
+    foreach (System.Text.RegularExpressions.Match m in matches)
     {
         var id = m.Groups[1].Value;
         var alreadyShown = _shownVehicles.ContainsKey(id);
@@ -36,7 +34,7 @@ private async Task<List<VehicleImages>?> ExtractVehicleImagesAsync(string messag
             {
                 foreach (var img in images.EnumerateArray())
                 {
-                    if (img.TryGetProperty("url", out var url)) urls.Add(url.GetString()!);
+                    if (img.TryGetProperty("url", out var url)) { urls.Add(url.GetString()!); }
                 }
             }
 
@@ -52,10 +50,13 @@ private async Task<List<VehicleImages>?> ExtractVehicleImagesAsync(string messag
     return vehicles.Count > 0 ? vehicles : null;
 }
 
-// In the Completed handler:
-var vehicles = await ExtractVehicleImagesAsync(finalMessage);
-finalMessage = Regex.Replace(finalMessage, @"\[vehicle:[^\]]+\]", "").Trim();
-_messages.Add(new ChatMessage("assistant", finalMessage, DateTime.UtcNow, vehicles));
+private async Task Demo()
+{
+    // In the Completed handler:
+    var vehicles = await ExtractVehicleImagesAsync(finalMessage);
+    finalMessage = System.Text.RegularExpressions.Regex.Replace(finalMessage, @"\[vehicle:[^\]]+\]", "").Trim();
+    _messages.Add(new ChatMessage("assistant", finalMessage, DateTime.UtcNow, vehicles));
+}
 ```
 
 ## Notes

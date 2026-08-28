@@ -10,10 +10,6 @@ Any structured-output use case where there's a real validator: code generation (
 ## Snippet
 
 ```csharp
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Scripting;
-using Microsoft.CodeAnalysis.Scripting;
-
 private const int MaxAutoRetries = 2;
 
 private async Task<(UICodeResponse Response, string? ValidationError)> GenerateUIWithRefinementAsync(
@@ -68,9 +64,9 @@ private async Task<(UICodeResponse Response, string? ValidationError)> GenerateU
 
 private async Task<string?> ValidateSyntaxAsync(string code)
 {
-    var script = CSharpScript.Create(code, CreateScriptOptions(), typeof(UIScriptGlobals));
+    var script = Microsoft.CodeAnalysis.CSharp.Scripting.CSharpScript.Create(code, CreateScriptOptions(), typeof(UIScriptGlobals));
     var diagnostics = script.Compile();
-    var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).Select(d => d.ToString()).ToList();
+    var errors = diagnostics.Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error).Select(d => d.ToString()).ToList();
     return errors.Count > 0 ? string.Join("\n", errors) : null;
 }
 ```
@@ -84,6 +80,4 @@ private async Task<string?> ValidateSyntaxAsync(string code)
 
 ## See also
 
-- `nl-to-csharp-script-execution`
 - `plan-then-code-iteration`
-- `retry-with-status-text`

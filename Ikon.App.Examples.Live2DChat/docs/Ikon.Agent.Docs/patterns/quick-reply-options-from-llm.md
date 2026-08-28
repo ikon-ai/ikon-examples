@@ -11,32 +11,35 @@ Anywhere you want the LLM to drive a *bounded* clarification turn (multiple-choi
 
 ```csharp
 // In RenderThreadMessage — assistant branch
-var hasAsk = content.Contains("<ask ");
-
-if (hasAsk)
+private void RenderAssistantMessage(IView view)
 {
-    var (textBefore, question, options) = ParseAskContent(content);
+    var hasAsk = content.Contains("<ask ");
 
-    if (!string.IsNullOrEmpty(textBefore))
-        view.Text(["text-sm text-black/45 leading-relaxed font-light"], textBefore);
-
-    if (!string.IsNullOrEmpty(question))
-        view.Text(["text-sm text-black/55 font-medium mt-1"], question);
-
-    if (options.Count > 0)
+    if (hasAsk)
     {
-        view.Row(["flex-wrap gap-2 mt-2"], content: view =>
+        var (textBefore, question, options) = ParseAskContent(content);
+
+        if (!string.IsNullOrEmpty(textBefore))
+            view.Text(["text-sm text-black/45 leading-relaxed font-light"], textBefore);
+
+        if (!string.IsNullOrEmpty(question))
+            view.Text(["text-sm text-black/55 font-medium mt-1"], question);
+
+        if (options.Count > 0)
         {
-            foreach (var option in options)
+            view.Row(["flex-wrap gap-2 mt-2"], content: rowView =>
             {
-                var capturedThreadId = _activeThreadId.Value!;
-                view.Button([
-                    "bg-black/[0.04] hover:bg-black/[0.08] border border-black/[0.06] rounded-lg px-4 py-2",
-                    "text-sm text-black/50 hover:text-black/70 transition-colors duration-200"],
-                    onClick: async () => await HandleAskReplyAsync(capturedThreadId, option),
-                    content: v => v.Text(text: option));
-            }
-        });
+                foreach (var option in options)
+                {
+                    var capturedThreadId = _activeThreadId.Value!;
+                    rowView.Button([
+                        "bg-black/[0.04] hover:bg-black/[0.08] border border-black/[0.06] rounded-lg px-4 py-2",
+                        "text-sm text-black/50 hover:text-black/70 transition-colors duration-200"],
+                        onClick: async () => await HandleAskReplyAsync(capturedThreadId, option),
+                        content: v => v.Text(text: option));
+                }
+            });
+        }
     }
 }
 

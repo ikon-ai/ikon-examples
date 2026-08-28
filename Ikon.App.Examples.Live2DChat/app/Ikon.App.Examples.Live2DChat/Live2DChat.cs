@@ -113,7 +113,6 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<bool> _sttPlaybackEnabled = new(false);
     private readonly Reactive<string> _sttRecognizedText = new("");
     private readonly Reactive<bool> _sttIsHoldRecording = new(false);
-    private readonly Reactive<bool> _sttIsToggleRecording = new(false);
     private readonly List<EffectEntry> _sttEffects = [];
     private readonly Reactive<int> _sttEffectsCount = new(0);
     private readonly Dictionary<string, SttStreamState> _sttStreamStates = new();
@@ -415,9 +414,13 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
 
                     // Mic button
                     view.CaptureButton(
-                        style: [_sttIsToggleRecording.Value
-                            ? "w-14 h-14 rounded-full bg-red-500 text-white text-2xl flex items-center justify-center shadow-lg animate-pulse"
-                            : "w-14 h-14 rounded-full bg-gray-100 hover:bg-gray-200 hover:scale-105 text-gray-600 text-2xl flex items-center justify-center shadow-lg border border-gray-300 transition-all duration-200"],
+                        style: [
+                            "w-14 h-14 rounded-full bg-gray-100 hover:bg-gray-200 hover:scale-105 text-gray-600 text-2xl flex items-center justify-center shadow-lg border border-gray-300 transition-all duration-200",
+                            // Red while the mic is hot, from the press itself rather than a round
+                            // trip after the first frame.
+                            "data-[ikon-capture-state=pressed]:bg-red-500 data-[ikon-capture-state=pressed]:text-white data-[ikon-capture-state=pressed]:animate-pulse",
+                            "data-[ikon-capture-state=live]:bg-red-500 data-[ikon-capture-state=live]:text-white data-[ikon-capture-state=live]:animate-pulse",
+                        ],
                         kind: MediaCaptureKind.Audio,
                         text: "🎤",
                         captureMode: MediaCaptureButtonMode.Hold,
@@ -426,12 +429,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                             // Fade out any ongoing speech when recording starts for natural transition
                             Audio.SpeechMixer.FadeOut();
                             StopSpeaking();
-                            _sttIsToggleRecording.Value = true;
                             _sttRecognizedText.Value = "";
-                        },
-                        onCaptureStop: async _ =>
-                        {
-                            _sttIsToggleRecording.Value = false;
                         });
                 });
             });

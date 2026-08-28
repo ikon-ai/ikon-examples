@@ -96,9 +96,8 @@ if (thread is not null && thread.Status.Value == ThreadStatus.Active)
 - `ThreadUsage` keeps token kinds independent (`InputTokens`, `CachedInputTokens`, `CacheCreationInputTokens`, `OutputTokens`) — add only the ones you mean to display, and use `Turns` for "which iteration are we on".
 - `PrecedingAgentMessages` is how many agent messages had landed when the call started — use it to interleave tool rows with `thread.Messages.Value` in a Claude-Code-style transcript instead of stacking them in a separate box.
 - `bg-gradient-to-r from-muted/40 to-muted/20` makes the live block visually distinct from finished messages.
+- When a run stops on a cap rather than finishing, `ThreadEvent.BudgetExceeded` carries a `BudgetSnapshot` naming *which* cap tripped — surface that instead of a generic "stopped", or the user cannot tell a token ceiling from a turn limit. `PassRecord` holds the per-pass detail behind it.
 
 ## See also
 
 - `chatbot-streaming` — token-level streaming for the final answer; this pattern wraps that
-- `agent-streaming-with-tool-status` — the transcript-interleaved variant
-- `multi-agent-parallel-discussion` — when several threads run and each needs its own status block
