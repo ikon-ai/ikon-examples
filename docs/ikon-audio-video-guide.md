@@ -70,6 +70,31 @@ Audio.SpeechMixer.Clear();     // hard reset: discard current, pending, and paus
 
 Capture starts client-side. In the UI, `view.PushToTalkButton()` (hold to talk), `view.MicToggleButton()` (tap to open/close), or a `CaptureButton` starts a microphone stream; the server can also start one programmatically with `ClientFunctions.StartAudioCaptureAsync()`. Captured media always routes to the app on the server — other clients never receive the raw capture; the app decides any fan-out.
 
+Pick one of the two mic buttons per microphone — offering both hold and toggle for the same mic is the ambiguity users report as "is it on?".
+
+### The microphone permission is a separate press
+
+Until the browser has granted a microphone, a capture button renders itself as an **"Enable microphone"** pill, and pressing it *only* asks for the permission — it never also starts a capture. Do not build a permission flow of your own around it.
+
+The separation is what makes push-to-talk work at all. A permission dialog takes focus, and the page sees that as the button being released: a hold that doubles as the ask is cancelled behind the dialog, so the user grants access and finds that nothing was captured, on a button that now looks idle. After the grant the button flashes a green **ready** ring for two seconds, so "is it on now?" is answered before it is asked, and the next press is unambiguously a talk press.
+
+A refusal (or a machine with no microphone) switches the button to a **"Microphone blocked"** state that stays pressable so it can explain itself, and fires `onPermissionChanged`:
+
+```csharp
+view.PushToTalkButton(
+    text: "Hold to talk",
+    onPermissionChanged: async args =>
+    {
+        _micBlocked.Value = args.State != MediaPermissionState.Granted;
+    });
+```
+
+Handle it — offer typing instead, or point at the browser's site settings. And never gate a mic button behind `disabled:` for permission reasons: a disabled button cannot ask, so the user has no way out of the state. `disabled:` means "the app is busy".
+
+Every state is stamped on the client as `data-ikon-capture-state` (`idle`, `pressed`, `live`, `ready`, `prompt`, `requesting`, `denied`, `unavailable`), so the feedback lands in the frame of the press rather than a server round trip later — `pressed` fires before the microphone has even finished opening. `Theming.MicButton.Default` renders all of them; a custom style array replaces it, so include `MicButton.States` (or lead with `"default"`) to keep them. Mirroring capture state into a `ClientReactive<bool>` from `onCaptureStart` is the wrong way round and is visibly late.
+
+Flutter frontends run the same state machine against the OS permission dialog, so a mic button means the same thing in a browser and on a phone.
+
 For transcription, prefer `UseSpeechRecognition` (next section). For raw PCM access:
 
 ```csharp
