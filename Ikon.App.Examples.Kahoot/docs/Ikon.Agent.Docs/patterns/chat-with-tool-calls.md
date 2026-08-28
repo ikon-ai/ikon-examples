@@ -39,38 +39,59 @@ private async Task SendChatMessageAsync(string userMessage, Guid caseId)
             switch (ev)
             {
                 case ModelText<ChatResponse> text:
+                {
+                    // Model text before a tool call is planning narration; the real answer comes after.
                     if (afterToolCall)
                     {
                         responseText.Clear();
                         afterToolCall = false;
                     }
+
                     responseText.Append(text.Text);
                     assistantEntry.Content.Value = responseText.ToString();
                     break;
+                }
 
                 case ToolCallPlanned<ChatResponse>:
+                {
                     assistantEntry.IsProcessing.Value = true;
                     break;
+                }
 
                 case ToolCallResult<ChatResponse>:
+                {
                     afterToolCall = true;
                     assistantEntry.IsProcessing.Value = false;
                     break;
+                }
 
                 case Completed<ChatResponse> completed:
+                {
                     assistantEntry.IsProcessing.Value = false;
+
                     if (completed.Result != null && !string.IsNullOrEmpty(completed.Result.Response))
+                    {
                         assistantEntry.Content.Value = completed.Result.Response;
+                    }
 
                     var finalMessages = completed.Context.Messages;
                     session.Replace(finalMessages);
+
+                    // Persist only the messages this run added so tool memory survives a refresh.
                     for (int i = preRunCount; i < finalMessages.Count; i++)
+                    {
                         await PersistMessageBlockAsync(caseId, finalMessages[i], userId: null);
+                    }
+
                     break;
+                }
             }
         }
     }
-    finally { _chatIsProcessing.Value = false; }
+    finally
+    {
+        _chatIsProcessing.Value = false;
+    }
 }
 ```
 

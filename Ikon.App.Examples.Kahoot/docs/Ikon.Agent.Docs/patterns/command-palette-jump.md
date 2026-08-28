@@ -35,6 +35,7 @@ private List<PaletteItem> BuildPaletteItems()
             _focusedStreamId.Value = sid;
         }));
     }
+
     return items;
 }
 
@@ -64,7 +65,11 @@ private void RenderCommandPalette(UIView view)
                     onValueChange: async v => _paletteQuery.Value = v ?? "",
                     onSubmit: async _ =>
                     {
-                        if (matches.Count > 0) { matches[0].OnSelect(); _paletteOpen.Value = false; }
+                        if (matches.Count > 0)
+                        {
+                            matches[0].OnSelect();
+                            _paletteOpen.Value = false;
+                        }
                     });
             });
 
@@ -72,14 +77,20 @@ private void RenderCommandPalette(UIView view)
             for (var i = 0; i < matches.Count && i < 40; i++)
             {
                 var item = matches[i];
+
                 if (item.Group != lastGroup)
                 {
                     dview.Text(["px-4 pt-2 pb-1 text-xs text-zinc-500 font-medium"], item.Group);
                     lastGroup = item.Group;
                 }
+
                 var captured = item;
                 dview.Button([$"w-full px-4 py-2 flex items-center gap-3 hover:bg-zinc-900/60"],
-                    onClick: async () => { captured.OnSelect(); _paletteOpen.Value = false; },
+                    onClick: async () =>
+                    {
+                        captured.OnSelect();
+                        _paletteOpen.Value = false;
+                    },
                     content: btn =>
                     {
                         btn.Icon(["w-3.5 h-3.5 text-zinc-400"], name: item.Icon);

@@ -49,8 +49,6 @@ sb.Append($"<ellipse cx='{cx}' cy='{bottomY + 8}' rx='{rx * 0.7:F0}' ry='7' fill
 ## Snippet — circular progress ring (stroke-dasharray arc)
 
 ```csharp
-using System.Text;
-
 // remaining/total in [0,1] of the ring is filled. strokeColor is any CSS color.
 private static byte[] RingSvg(double fraction, string strokeColor, string label)
 {

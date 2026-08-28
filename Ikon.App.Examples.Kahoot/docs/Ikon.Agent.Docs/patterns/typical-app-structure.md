@@ -9,7 +9,7 @@ Always — every app file uses this shape. If you're starting from a stub, repla
 ## Snippet
 
 ```csharp
-return await App.Run(args);
+// Program entry, a top-level statement in Program.cs (one per app):  return await App.Run(args);
 
 public sealed record SessionIdentity(string? UserId);
 public sealed record ClientParameters(string ClientName);

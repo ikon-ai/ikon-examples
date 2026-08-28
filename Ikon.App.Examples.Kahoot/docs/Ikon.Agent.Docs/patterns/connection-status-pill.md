@@ -63,6 +63,7 @@ private void RenderTopStatusPill(UIView view)
         if (_autoSchedule.Value)
         {
             var (nextMode, nextAt) = ComputeNextScheduleFlip();
+
             if (nextAt is { } at)
             {
                 var rem = at - DateTime.Now;
@@ -82,8 +83,3 @@ private void RenderTopStatusPill(UIView view)
 - The sub-detail (`· auto → Vac 2h`) is hidden on small screens (`hidden md:inline`) — pill must fit on a phone navbar without wrapping.
 - The pill is *derived* state — there is no `_systemState` reactive. The renderer recomputes from primitive reactives (`_facilityBlackoutSince`, `_drillUntil`, `_globalPauseAll`, `_streams`) on every render. This keeps the truth in the source reactives and the pill always correct.
 - For a chat / agent app, the equivalent state-precedence might be: "Disconnected > Reconnecting > Token limit reached > Idle (N agents) > Idle".
-
-## See also
-
-- `alert-banner-dismissable` — fires when the system *needs action*, this pill just reports
-- `kpi-card-grid` — for showing many numbers; this pill is the one-sentence summary above them
