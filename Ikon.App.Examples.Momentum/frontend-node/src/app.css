@@ -1,0 +1,45 @@
+/* Your app's styles.
+
+   The Ikon app shell — the connecting, reconnecting and offline overlays, the toast strip and the
+   hero layout — is styled by @ikonai/sdk-react-ui/theme/ikon-app.css, imported in main.tsx. That
+   file is part of the package, so `ikon app update` keeps it current.
+
+   Anything you write here wins over it. The shell's rules live in a `@layer ikon` cascade layer and
+   yours do not, so an unlayered rule always takes precedence — no !important, no specificity
+   contest, and the order of the imports does not matter:
+
+     .ikon-offline-title { font-size: 20px; }
+
+   To restyle the whole shell rather than one rule, override the design tokens instead:
+
+     :root {
+       --ikon-bg-card: #101c2e;
+       --ikon-text-primary: #eef2f7;
+       --ikon-radius-base: 0.75rem;
+     }
+
+   The full token list is in @ikonai/sdk-react-ui/theme/ikon-tokens.css. */
+
+/* Momentum: the shell overlays take the app's charcoal-and-magenta palette so a reconnect chip never
+   looks like it came from somewhere else. */
+:root {
+  --ikon-bg-card: #1c1c1f;
+  --ikon-text-primary: #f7f7f7;
+  --ikon-radius-base: 0.25rem;
+}
+
+.leaflet-container {
+  font-family: inherit;
+  background: #161618;
+}
+
+.momentum-here,
+.momentum-dot {
+  background: transparent;
+  border: 0;
+}
+
+@keyframes momentumPulse {
+  0% { transform: scale(0.5); opacity: 0.65; }
+  100% { transform: scale(1.3); opacity: 0; }
+}

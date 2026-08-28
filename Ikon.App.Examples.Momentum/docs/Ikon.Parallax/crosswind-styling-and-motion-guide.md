@@ -1,0 +1,913 @@
+# Crosswind Styling and Motion Guide
+
+## Overview
+
+Crosswind is Ikon's utility-first styling and animation system. The name comes from being Tailwind-inspired while extending it with additional features, particularly a motion language for declarative animations.
+
+The library lives in `Ikon.Crosswind` and provides:
+
+- **Tailwind-compatible syntax**: Standard Tailwind utility classes work as expected (`flex`, `gap-4`, `bg-blue-500`, `hover:bg-blue-600`, etc.)
+- **Motion language**: Extended syntax for declarative keyframe animations, staggered text effects, and input-bound timelines
+- **Server-side compilation**: Classes are parsed and compiled to CSS on the server, with only the resulting styles sent to clients
+
+## How It Works
+
+When you pass style strings to UI components, Crosswind processes them through a compilation pipeline:
+
+1. **Parsing**: Class strings are tokenized, handling variant chains (`hover:`, `focus:`, `data-[state=open]:`), arbitrary values (`bg-[#ff0000]`), negative prefixes (`-translate-y-1`), and importance modifiers (`!mt-4`)
+
+2. **Normalization**: Canonical forms are resolved (e.g., `flex-grow` becomes `grow`, `content-start` becomes `content-align-start`)
+
+3. **Deduplication**: Duplicate utilities are eliminated, and related properties (transforms, filters) are combined
+
+4. **CSS Generation**: Final CSS rules are emitted with unique identifiers. For motion utilities, keyframe animations and `@property` rules are also generated
+
+5. **Delivery**: The compiled CSS is sent to clients as part of the UI stream. Clients receive only the styles they need
+
+## Usage in Applications
+
+In Ikon AI Apps, styles are passed as string arrays to UI components. The `Ikon.Parallax` UI system handles the integration with Crosswind automatically.
+
+```csharp
+view.Button(
+    style: ["px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition"],
+    text: "Click me",
+    onClick: async () => { }
+);
+```
+
+Multiple style strings can be combined:
+
+```csharp
+private const string BaseButton = "px-4 py-2 rounded-lg font-medium transition-colors";
+private const string PrimaryColors = "bg-blue-500 hover:bg-blue-600 text-white";
+
+view.Button(
+    style: [BaseButton, PrimaryColors],
+    text: "Primary Action",
+    onClick: async () => { }
+);
+```
+
+### Organizing Styles
+
+Applications typically organize styles into static classes with constants:
+
+```csharp
+public static class AppStyles
+{
+    public static class Button
+    {
+        public const string Primary =
+            "px-4 py-2 rounded-lg font-medium " +
+            "bg-blue-500 hover:bg-blue-600 active:bg-blue-700 " +
+            "text-white transition-colors";
+
+        public const string Secondary =
+            "px-4 py-2 rounded-lg font-medium " +
+            "bg-neutral-700 hover:bg-neutral-600 " +
+            "text-white transition-colors";
+    }
+
+    public static class Card
+    {
+        public const string Default =
+            "p-4 rounded-xl " +
+            "bg-neutral-900 border border-neutral-800";
+
+        public const string Interactive =
+            Default + " " +
+            "hover:border-neutral-700 transition-colors cursor-pointer";
+    }
+}
+```
+
+### Three styling layers, all valid in the same style array
+
+Crosswind supports three ways to style a component. They compose freely in the same array — the right choice depends on whether you want the surface to follow the active theme (light/dark mode, per-app brand overrides) or not.
+
+**1. Semantic theme-aware classes** (the default). `bg-card`, `text-foreground`, `text-muted-foreground`, `bg-background`, `bg-brand-solid`, `border-secondary`, etc. resolve through CSS variables that the platform baseline defines for both light and dark modes and that `IkonTheme` overrides target. Switching `data-theme="dark"` re-paints the UI automatically; a per-app brand re-skin propagates to every semantic site — no style-array refactor needed.
+
+```csharp
+view.Box(style: ["rounded-2xl bg-card border border-secondary p-6 text-foreground"], content: view => { ... });
+```
+
+Legacy note: `bg-primary`, `text-primary`, and `border-primary` are older tier names for the page surface, body text, and default hairline. They render unchanged forever, but do not write them in new code — their names collide with the shadcn reading where "primary" means brand. Write `bg-background` / `text-foreground` / `border-secondary` instead.
+
+**2. `Ikon.Parallax.Theming` token shortcuts**. Pre-composed bundles of layer 1 — Crosswind utility strings packaged into named constants per role/size. Use them as ergonomic shortcuts when their defaults fit; ignore them when you want a different look. They follow the theme because they're built from semantic classes.
+
+```csharp
+using Ikon.Parallax.Theming;
+
+view.Button(style: [Button.PrimaryMd], text: "Submit");
+view.TextField(style: [Input.Default], defaultValue: "");
+view.Box(style: [Card.Default], content: view => { ... });
+```
+
+**3. Hardcoded Crosswind palette classes and raw hex**. `bg-amber-400`, `text-zinc-950`, `bg-[#F5A524]`, `text-[#0A0A0A]`. Use these when you specifically want a look that **shouldn't** change with the theme — a fixed-brand marketing surface, a decorative gradient, an illustration backdrop. They bypass the theming system, so the trade-off is concrete: if you later add light/dark switching or a brand re-skin, every fixed-color site needs to be revisited by hand.
+
+```csharp
+view.Button(style: ["px-4 py-2 bg-amber-400 text-zinc-950 rounded-md hover:bg-amber-500 transition-colors"], text: "Submit");
+view.Box(style: ["rounded-2xl bg-zinc-900 border border-zinc-800 p-6 shadow-lg"], content: view => { ... });
+```
+
+The three layers compose freely (`[Button.PrimaryMd, "mt-4 self-center", "bg-[#F5A524]"]`) — pick whichever shape best matches what you're building, but default to layer 1 for surfaces that should follow the theme.
+
+This split is deliberate — Ikon styling is two-tier. The structural core (surfaces, text, borders, radius, fonts, density) lives in semantic classes and the committed `IkonTheme`, so it re-themes and dark-flips in one place. Everything with personality — gradients, textures, glows, decorative colors — is ENCOURAGED as concrete classes and arbitrary values right at the use point, with no token obligation. Coherence of the expressive layer is judged against the app's DESIGN brief, not enforced by token discipline.
+
+## Hover only applies on devices that can hover
+
+`hover:` (and `group-hover:`, `peer-hover:`, `in-hover:`, `has-hover:`) rules are emitted inside `@media (hover: hover)`, so they apply only on devices with a real pointer — on touch-only devices they never fire (this is what prevents "sticky hover", where a tapped element stays in its hover state). Design accordingly:
+
+- Hover styles are an *enhancement*, never the only path to something. A control revealed purely by hover (`opacity-0 group-hover:opacity-100`) is invisible on phones and tablets.
+- For reveal patterns, pair the hover rule with a touch-visible fallback: `pointer-coarse:opacity-100` keeps the control always visible on touch devices, or use `focus-within:opacity-100` so tapping reveals it.
+
+```csharp
+// Nav arrows: hover-revealed on desktop, always visible on touch
+view.Box(style: ["opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 transition-opacity"], ...);
+```
+
+### Theme Activation
+
+The active theme determines what semantic tokens like `text-foreground`, `bg-background`, `text-muted-foreground` resolve to. **If you don't set a theme explicitly, the runtime picks one from the browser's `prefers-color-scheme`, falling back to light.**
+
+This matters because Parallax button styles use semantic tokens. `Button.GhostMd`, `Button.OutlineMd`, `Button.NeutralMd` all set `text-primary`, which is dark in the light theme and light in the dark theme. If you build a custom dark UI with **fixed** Crosswind palette classes (`bg-slate-950`, `bg-zinc-900`, etc.) without setting the theme, ghost and outline buttons will render dark text on your dark background — invisible.
+
+Two ways to avoid this:
+
+1. **Use semantic background tokens** that follow the theme: `bg-background`, `bg-card`, `bg-muted`, `bg-tertiary`. These flip automatically with the theme, so `text-primary` always contrasts.
+2. **Set the theme explicitly** to match the UI you're rendering. The canonical form is one `UI.UseTheme()` call in `Main`:
+   ```csharp
+   private ThemeControl _theme = null!;
+
+   public async Task Main()
+   {
+       _theme = UI.UseTheme(); // defaults: dark, and follows a client's own saved theme
+       ...
+   }
+   ```
+   `UseTheme(Theme defaultTheme = Theme.Dark, bool followClient = true)` syncs every joining client — with `followClient: true` a client that already has a theme keeps it and clients without one get `defaultTheme`; with `followClient: false` every client is forced to `defaultTheme`. It returns a `ThemeControl` whose `Current` (`ClientReactive<Theme>`) is bindable in views and whose `ToggleAsync` / `SetAsync` switch the calling client's theme:
+   ```csharp
+   view.Button([Button.GhostMd, Button.Icon],
+       onClick: _theme.ToggleAsync,
+       content: v => v.Icon([Icon.Default], name: _theme.Current.Value == Theme.Dark ? "sun" : "moon"));
+   ```
+   Do not hand-roll the `ClientJoinedAsync` + `ClientFunctions.SetThemeAsync` ceremony this replaces — and if you rewrite the app body and drop the `UseTheme` call, you re-introduce the trap. Keep it in any app that uses fixed dark Crosswind palette classes for surfaces.
+
+The same applies in reverse for a fixed-light UI: don't strand `text-primary` on a fixed-white background while the theme is dark.
+
+### Customizing the Theme
+
+For per-app palette / radius / density / font / motion overrides, see the [Ikon Theming Guide](ikon-theming-guide.md). It documents the `new IkonTheme { ... }` configurable surface — an indexer-keyed object initializer where each entry commits one theme key (a key like `["primary"]` fans out to its whole documented variable cluster; there is no factory and no auto-contrast).
+
+## Utility Classes
+
+Crosswind supports the standard Tailwind utility classes:
+
+| Category | Examples |
+|----------|----------|
+| Spacing | `p-4`, `mx-auto`, `gap-3`, `space-y-2` |
+| Sizing | `w-full`, `h-screen`, `max-w-md`, `min-h-0` |
+| Layout | `flex`, `grid`, `block`, `hidden`, `grid-cols-3` |
+| Flexbox | `items-center`, `justify-between`, `flex-1`, `flex-wrap` |
+| Typography | `text-sm`, `font-bold`, `tracking-wide`, `leading-tight` |
+| Colors | `text-white`, `bg-blue-500`, `border-neutral-700` |
+| Borders | `border`, `rounded-lg`, `border-2`, `divide-y` |
+| Effects | `shadow-lg`, `opacity-50`, `blur-sm` |
+| Transforms | `scale-105`, `rotate-45`, `-translate-y-1` |
+| Transitions | `transition`, `duration-200`, `ease-in-out` |
+| Interactivity | `cursor-pointer`, `select-none`, `pointer-events-none` |
+
+### Variants
+
+Standard Crosswind variants are supported:
+
+```csharp
+// Pseudo-classes
+"hover:bg-blue-600 focus:ring-2 active:scale-95 disabled:opacity-50"
+
+// Responsive breakpoints
+"sm:flex md:grid lg:hidden"
+
+// Dark mode
+"dark:bg-neutral-900 dark:text-white"
+
+// Data attributes
+"data-[state=open]:bg-blue-500 data-[disabled]:opacity-50"
+
+// Group and peer
+"group-hover:visible peer-focus:ring-2"
+```
+
+### Variant Groups
+
+Apply one variant to several classes at once with the parenthesised group form
+`variant:(class class …)`. The variant is applied to every space-separated class inside,
+so you write the prefix once instead of repeating it:
+
+```csharp
+// These two are equivalent:
+"hover:bg-blue-600 hover:text-white hover:shadow-lg"
+"hover:(bg-blue-600 text-white shadow-lg)"
+```
+
+Groups nest — a class inside a group keeps any further variant of its own:
+
+```csharp
+"md:(flex gap-4 hover:bg-blue-600)"   // md: applies to all three; hover: also to the last
+```
+
+### Target Variants (web vs Flutter)
+
+The same C# UI renders to web (CSS) and to Flutter (native widgets). Most Crosswind
+classes resolve on both. When you need styling that applies to **only one** renderer,
+scope it with a target variant:
+
+- `web:` — applies only on the web/CSS renderer
+- `flutter:` — applies only on the Flutter renderer
+- unprefixed — applies to both
+
+```csharp
+// Shared layout, per-target colours. Use the group form so the target prefix is written once:
+["px-3 py-2 rounded-md",
+ "web:(bg-background text-secondary border border-input)",
+ "flutter:(bg-slate-900 text-slate-100 border border-slate-700)"]
+```
+
+A `web:` class emits no Flutter styling and a `flutter:` class emits no CSS. Reach for
+these where the renderers genuinely differ — e.g. browser-only effects (focus rings,
+`hover:`, `data-[state]`) that Flutter doesn't render, or concrete colours you want on
+Flutter instead of theme semantic colours. Unprefixed classes (including the theme's
+semantic colours like `bg-background`) already resolve on both, so most styling needs no
+target prefix at all.
+
+### Arbitrary Values
+
+Use brackets for custom values:
+
+```csharp
+// Custom colors
+"bg-[#ff6b6b] text-[rgb(255,255,255)]"
+
+// Custom spacing
+"p-[13px] gap-[0.875rem]"
+
+// Custom properties
+"shadow-[0_0_20px_rgba(0,255,65,0.3)]"
+```
+
+## Motion Language
+
+Crosswind extends Tailwind with a motion system for declarative animations. Motion utilities compile to CSS keyframe animations with proper `@property` rules for animatable custom properties.
+
+### Keyframe Timelines
+
+Define animations with the `motion-[...]` syntax. Steps are specified as `percentage:utilities` pairs.
+
+Within `motion-[...]`, keyframe steps are comma-separated. Within each step, multiple utilities are separated by underscores (`_`). Underscores outside of brackets and parentheses are converted to spaces during parsing, so `opacity-0_translate-y-[12px]` is equivalent to `opacity-0 translate-y-[12px]`.
+
+```csharp
+// Fade in and slide up
+"motion-[0:opacity-0_translate-y-[12px],100:opacity-100_translate-y-0]"
+
+// Scale pulse
+"motion-[0:scale-100,50:scale-[1.05],100:scale-100]"
+
+// Complex multi-step animation
+"motion-[0:opacity-0_blur-[4px],30:opacity-60_blur-[2px],100:opacity-100_blur-0]"
+```
+
+### Timing Controls
+
+Control animation timing with dedicated utilities:
+
+```csharp
+// Duration and delay
+"motion-duration-300ms motion-delay-100ms"
+
+// Easing
+"motion-ease-[cubic-bezier(0.25,1,0.35,1)]"
+
+// Fill mode
+"motion-fill-both motion-fill-forwards"
+
+// Iteration
+"motion-once motion-loop motion-ping-pong"
+
+// Step easing (discrete/glitch effects)
+"motion-ease-[steps(1)]"   // instant jumps between keyframes
+"motion-ease-[steps(4)]"   // four evenly-spaced steps
+
+// Playback rate multiplier
+"motion-rate-150"           // 150% speed
+```
+
+### Staggered Text Animations
+
+Animate text character by character, word by word, or line by line:
+
+```csharp
+// Typewriter effect - letters appear one at a time
+"motion-[0:opacity-0,100:opacity-100] " +
+"motion-duration-80ms motion-stagger-50ms motion-per-letter motion-fill-both"
+
+// Words fade in sequentially
+"motion-[0:opacity-0_translate-y-[8px],100:opacity-100_translate-y-0] " +
+"motion-duration-200ms motion-stagger-120ms motion-per-word motion-fill-both"
+
+// Lines reveal one by one
+"motion-[0:opacity-0,100:opacity-100] " +
+"motion-duration-300ms motion-stagger-200ms motion-per-line motion-fill-both"
+```
+
+#### Per-Element Modes and Compound Variants
+
+Base modes split text (or children) into individually animated segments:
+
+- `motion-per-letter` — each character
+- `motion-per-word` — each word
+- `motion-per-line` — each line (split on `\n`)
+- `motion-per-paragraph` — each paragraph
+- `motion-per-children` — each child element
+
+Each base mode supports compound suffixes that combine the split with a playback modifier:
+
+| Suffix | Effect | Example |
+|--------|--------|---------|
+| `-loop` | Infinite iteration | `motion-per-letter-loop` |
+| `-ping-pong` | Alternate direction + infinite | `motion-per-word-ping-pong` |
+| `-reverse` | Stagger from last element backward | `motion-per-line-reverse` |
+| `-reverse-loop` | Reverse stagger + infinite | `motion-per-letter-reverse-loop` |
+
+These compound variants are available for `per-letter`, `per-word`, and `per-line`.
+
+```csharp
+// Looping wave — each letter bounces continuously
+"wave:motion-[0:translate-y-0,50:translate-y-[-10px],100:translate-y-0] " +
+"wave:motion-duration-1200ms wave:motion-stagger-80ms wave:motion-per-letter-loop wave:motion-ease-ease-in-out"
+
+// Reverse loop — stagger starts from the last letter
+"wave:motion-[0:translate-y-0,50:translate-y-[-10px],100:translate-y-0] " +
+"wave:motion-duration-1200ms wave:motion-stagger-80ms wave:motion-per-letter-reverse-loop wave:motion-ease-ease-in-out"
+
+// Ping-pong — alternating direction per word
+"motion-[0:opacity-70_scale-[0.95],100:opacity-100_scale-100] " +
+"motion-duration-500ms motion-stagger-150ms motion-per-word-ping-pong"
+```
+
+### Track Prefixes
+
+Scope motion parameters to named tracks for independent control:
+
+```csharp
+// 'title' track for text, 'glow' track for background effect
+"title:motion-[0:opacity-0,100:opacity-100] title:motion-duration-300ms title:motion-per-letter " +
+"glow:motion-[0:scale-100,50:scale-[1.02],100:scale-100] glow:motion-duration-2000ms glow:motion-loop"
+```
+
+### State-Based Animations
+
+Combine motion with data attribute variants for state-driven animations:
+
+```csharp
+// Dialog content animation
+"data-[state=open]:motion-[0:opacity-0_scale-[0.95],100:opacity-100_scale-100] " +
+"data-[state=open]:motion-duration-200ms data-[state=open]:motion-fill-both " +
+"data-[state=closed]:motion-[0:opacity-100,100:opacity-0] " +
+"data-[state=closed]:motion-duration-150ms data-[state=closed]:motion-fill-both"
+```
+
+### 3D Transforms in Keyframes
+
+Crosswind supports 3D rotation, translation, and scale utilities inside keyframe steps: `rotate-x-[angle]`, `rotate-y-[angle]`, `rotate-z-[angle]`, `translate-z-[length]`, and `scale-z-[number]`. Transform keyframes compile to direct CSS transform properties — the individual `translate` / `rotate` / `scale` properties when the track animates a single category, or a composed `transform` function list when categories are mixed — so they interpolate smoothly on the compositor.
+
+```csharp
+// Card flip (Y-axis rotation)
+"motion-[0:rotate-y-0,50:rotate-y-[180deg],100:rotate-y-[360deg]] " +
+"motion-duration-3000ms motion-loop motion-ease-ease-in-out"
+
+// Depth pop with translate-z
+"motion-[0:translate-z-[-50px]_blur-[3px]_opacity-50_scale-[0.95]," +
+"50:translate-z-[10px]_blur-0_opacity-100_scale-[1.02]," +
+"100:translate-z-0_blur-0_opacity-100_scale-100] " +
+"motion-duration-600ms motion-stagger-40ms motion-per-letter-loop motion-ease-ease-out"
+
+// Cube face rotation (combined X + Y)
+"motion-[0:rotate-x-0_rotate-y-0," +
+"25:rotate-x-[90deg]_rotate-y-0," +
+"50:rotate-x-[90deg]_rotate-y-[90deg]," +
+"75:rotate-x-0_rotate-y-[90deg]," +
+"100:rotate-x-0_rotate-y-0] " +
+"motion-duration-4000ms motion-loop motion-ease-ease-in-out"
+```
+
+### Filter Animations in Keyframes
+
+Filter functions animate smoothly inside `motion-[...]` keyframes. Crosswind auto-registers `@property` rules for filter-related custom properties, enabling proper interpolation.
+
+Supported filter utilities: `blur`, `brightness`, `contrast`, `hue-rotate`, `saturate`, `grayscale`, `sepia`, `invert`.
+
+```csharp
+// Hue rotation cycle — rainbow color shifting
+"motion-[0:hue-rotate-0,100:hue-rotate-[360deg]] " +
+"motion-duration-3000ms motion-loop motion-ease-linear"
+
+// Brightness flash
+"motion-[0:brightness-100,15:brightness-[2],30:brightness-100,100:brightness-100] " +
+"motion-duration-2000ms motion-loop"
+
+// Saturate pulse
+"motion-[0:saturate-100,50:saturate-[2],100:saturate-100] " +
+"motion-duration-1500ms motion-loop motion-ease-ease-in-out"
+
+// Grayscale fade
+"motion-[0:grayscale-0,50:grayscale-100,100:grayscale-0] " +
+"motion-duration-4000ms motion-loop motion-ease-ease-in-out"
+
+// Combined filters (blur + brightness + hue-rotate)
+"motion-[0:blur-0_brightness-100_hue-rotate-0," +
+"25:blur-[2px]_brightness-[1.2]_hue-rotate-[45deg]," +
+"50:blur-[4px]_brightness-[1.5]_hue-rotate-[90deg]," +
+"75:blur-[2px]_brightness-[1.2]_hue-rotate-[135deg]," +
+"100:blur-0_brightness-100_hue-rotate-[180deg]] " +
+"motion-duration-4000ms motion-loop motion-ease-ease-in-out"
+```
+
+### Text Shadow Animations in Keyframes
+
+`text-shadow-[...]` can be used inside keyframe steps for chromatic aberration and glow effects. Since text-shadow values are arbitrary, they use `'*'` syntax in `@property` and interpolate as whole values.
+
+```csharp
+// Chromatic aberration glitch
+"glitch:motion-[0:text-shadow-[0_0_0_transparent,0_0_0_transparent]," +
+"20:text-shadow-[3px_0_0_rgba(255,0,0,0.8),-3px_0_0_rgba(0,255,255,0.8)]," +
+"40:text-shadow-[-2px_1px_0_rgba(255,0,0,0.6),2px_-1px_0_rgba(0,255,255,0.6)]," +
+"60:text-shadow-[2px_0_0_rgba(255,0,0,0.8),-2px_0_0_rgba(0,255,255,0.8)]," +
+"80:text-shadow-[-1px_-1px_0_rgba(255,0,0,0.5),1px_1px_0_rgba(0,255,255,0.5)]," +
+"100:text-shadow-[0_0_0_transparent,0_0_0_transparent]] " +
+"glitch:motion-duration-150ms glitch:motion-loop glitch:motion-ease-[steps(1)]"
+
+// Neon glow pulse
+"glow:motion-[0:text-shadow-[0_0_0_rgba(0,0,0,0)]," +
+"25:text-shadow-[0_0_0.5em_rgba(255,0,128,0.5)]," +
+"50:text-shadow-[0_0_0.8em_rgba(255,100,150,0.4)]," +
+"75:text-shadow-[0.1em_0_0_rgba(255,0,100,0.6),-0.1em_0_0_rgba(255,150,200,0.6)]," +
+"100:text-shadow-[0_0_0_rgba(0,0,0,0)]] " +
+"glow:motion-duration-3000ms glow:motion-loop"
+```
+
+### Common Animation Patterns
+
+Entry animations:
+
+```csharp
+public static class Enter
+{
+    public const string FadeUp =
+        "motion-[0:opacity-0_translate-y-[12px],100:opacity-100_translate-y-0] " +
+        "motion-duration-300ms motion-ease-[cubic-bezier(0.25,1,0.35,1)] motion-fill-both";
+
+    public const string ScaleIn =
+        "motion-[0:opacity-0_scale-[0.95],100:opacity-100_scale-100] " +
+        "motion-duration-300ms motion-ease-[cubic-bezier(0.25,1,0.35,1)] motion-fill-both";
+}
+```
+
+Hover effects (CSS transitions are often better for hover states):
+
+```csharp
+public static class Hover
+{
+    // CSS transition - smoother for hover
+    public const string Lift =
+        "hover:-translate-y-[2px] hover:shadow-lg transition-all duration-200";
+
+    // Motion-based hover (for complex sequences)
+    public const string Glitch =
+        "hover:motion-[0:translate-x-0,30:translate-x-[2px],60:translate-x-[-1px],100:translate-x-0] " +
+        "hover:motion-duration-200ms";
+}
+```
+
+Looping effects:
+
+```csharp
+public static class Loop
+{
+    public const string Pulse =
+        "motion-[0:opacity-70,50:opacity-100,100:opacity-70] " +
+        "motion-duration-2000ms motion-loop motion-ease-ease-in-out";
+
+    public const string Breathe =
+        "motion-[0:scale-100,50:scale-[1.02],100:scale-100] " +
+        "motion-duration-3000ms motion-loop motion-ease-ease-in-out";
+}
+```
+
+### Animatable Properties
+
+The following properties animate smoothly in `motion-[...]` keyframe animations:
+
+- **Opacity**: `opacity`
+- **2D transforms**: `translate-x`, `translate-y`, `scale`, `scale-x`, `scale-y`, `rotate`, `skew-x`, `skew-y`
+- **3D transforms**: `rotate-x`, `rotate-y`, `rotate-z`, `translate-z`, `scale-z`
+- **Filter functions**: `blur`, `brightness`, `contrast`, `grayscale`, `hue-rotate`, `invert`, `saturate`, `sepia`
+- **Colors**: `text-*`, `bg-*`, `border-*` (color values)
+- **Text shadow**: `text-shadow-[...]` (arbitrary values)
+- **Border properties**: `border-{n}` (width), `border-{color}`, `rounded-*` (border-radius)
+- **Ring and outline**: `ring-{n}`, `outline-offset-{n}`
+- **Box shadow**: `shadow-[...]` (arbitrary values)
+
+Crosswind auto-registers `@property` rules for filter functions and typed custom properties (colors, lengths, angles, numbers), and compiles transform keyframes to direct `translate` / `rotate` / `scale` / `transform` declarations. This enables smooth CSS interpolation without manual setup.
+
+#### Caveat: `box-shadow` doesn't interpolate smoothly across keyframes
+
+Crosswind's `shadow-*` utilities feed into a composed `box-shadow` via the `--tw-shadow` custom property (registered with syntax `'*'` because shadow values are free-form). Custom properties with `'*'` syntax animate as **discrete swaps** at each keyframe — they do not interpolate, so a `motion-[0:shadow-sm,100:shadow-xl]` track snaps from `sm` to `xl` instead of fading. The same applies to `text-shadow-[...]` (also `'*'` syntax) and to `ring-*`, which feeds the same composed `box-shadow` via `--tw-ring-shadow`.
+
+For a smooth glow/halo effect, animate `scale` and `opacity` on a child layer (e.g. a transparent ring or radial-gradient overlay) instead of animating the shadow itself.
+
+#### Caveat: bare `outline` leaves `outline-style: none`
+
+In Tailwind v4 (and Crosswind), bare `outline` only sets `outline-width` — it does **not** set `outline-style: solid`. Because the default `outline-style` is `none`, the outline is invisible until you also specify a style. Always pair `outline` with `outline-solid` (or `outline-dashed`, `outline-dotted`, etc.) when you want it to render.
+
+```csharp
+// WRONG — outline-style stays `none`, nothing renders
+style: ["outline outline-2 outline-blue-500"]
+
+// CORRECT — explicit style
+style: ["outline outline-solid outline-2 outline-blue-500"]
+```
+
+### Advanced Motion Utilities
+
+Crosswind supports CSS Animations Level 2 properties for scroll-driven animations, composition control, and playback management.
+
+#### Scroll Timelines
+
+Declare a scroll timeline on a scroll container, then bind an animation track to it:
+
+```csharp
+// On the scroll container
+"scroll-timeline-[--hero_y]"
+
+// On the animated element
+"lead:motion-[0:opacity-0,100:opacity-100] lead:motion-timeline-[--hero]"
+```
+
+#### Animation Composition
+
+Control how multiple animations combine on the same element:
+
+```csharp
+// Additive composition — transforms blend instead of replacing
+"pulse:motion-[0:scale-100,100:scale-110] pulse:motion-composition-add"
+```
+
+Values: `replace` (default), `add`, `accumulate`.
+
+#### Play State Control
+
+Pause and resume animations programmatically:
+
+```csharp
+"lead:motion-play-state-paused"    // starts paused
+"lead:motion-play-state-running"   // resumes
+```
+
+#### Animation Range
+
+Clamp animation playback to a portion of a scroll timeline:
+
+```csharp
+"halo:motion-range-[entry_0%_exit_60%]"
+"halo:motion-range-start-[entry_10%]"
+"halo:motion-range-end-[exit_90%]"
+```
+
+#### Motion Priority
+
+Control stagger ordering with a priority hint (0–999):
+
+```csharp
+"motion-priority-0"     // default
+"motion-priority-100"   // higher priority staggers first
+```
+
+#### GPU Promotion (`will-change`)
+
+Crosswind auto-emits `will-change: <props>` for continuous motion tracks (loop / ping-pong / scroll-bound) so the first frame doesn't hitch while the browser promotes the element to its own GPU layer. Override the heuristic explicitly when needed:
+
+```csharp
+// Force promotion even for one-shot animations (e.g. a critical entry effect)
+"intro:motion-[0:opacity-0,100:opacity-100] intro:motion-once intro:motion-promote"
+
+// Suppress promotion for continuous animations on plentiful elements
+// (e.g. a looping pulse on hundreds of list items where GPU-layer cost dominates)
+"pulse:motion-[0:opacity-70,100:opacity-100] pulse:motion-loop pulse:motion-no-promote"
+```
+
+## Complete Example
+
+A button component combining multiple style aspects:
+
+```csharp
+public static class Button
+{
+    private const string Base =
+        "px-4 py-2 rounded-lg font-medium " +
+        "transition-all duration-200";
+
+    private const string PrimaryColors =
+        "bg-blue-500 hover:bg-blue-600 active:bg-blue-700 " +
+        "text-white border border-blue-400/50";
+
+    private const string HoverEffect =
+        "hover:-translate-y-[1px] hover:shadow-lg";
+
+    private const string ActivePress =
+        "active:motion-[0:scale-100,50:scale-[0.97],100:scale-100] " +
+        "active:motion-duration-150ms";
+
+    public const string Primary = Base + " " + PrimaryColors + " " + HoverEffect + " " + ActivePress;
+}
+
+// Usage
+view.Button(style: [Button.Primary], text: "Submit", onClick: async () => { });
+```
+
+## Common Pitfalls and Solutions
+
+### Full-Screen Layouts with Padding
+
+Both approaches work correctly because Crosswind includes `box-sizing: border-box` in its preflight (like Tailwind):
+
+```csharp
+// Option 1: Padding on Root (preferred for semantic clarity)
+UI.Root(style: ["h-screen bg-slate-950 p-4"], content: view =>
+{
+    view.Column(style: ["w-full h-full"], content: col => { ... });
+});
+
+// Option 2: Padding on inner container (also works)
+UI.Root(style: ["h-screen bg-slate-950"], content: view =>
+{
+    view.Column(style: ["w-full h-full p-4"], content: col => { ... });
+});
+```
+
+With `border-box`, padding is included in the element's dimensions, so `h-full p-4` means "100% height with padding inside" rather than "100% + padding".
+
+### Width and Sizing Context
+
+Design width with padding, alignment, and flex proportions — never hardcoded pixel widths for layout containers.
+
+**Percentage widths need context:** Classes like `w-1/4` or `w-1/3` resolve against the parent's computed width. If the parent is `position: absolute` with no explicit width, or has `width: auto` without flex constraints, the percentage resolves to zero. The element with the percentage class must be a direct child of a flex/grid container or a parent with an explicit width.
+
+```csharp
+// WRONG — percentage on child of auto-width absolute element
+view.Box(["absolute"], content: view =>
+{
+    view.Column(["w-1/4"], ...); // Collapses to zero!
+});
+
+// RIGHT — percentage on child of flex container
+view.Row(["flex-1 min-w-0"], content: view =>
+{
+    view.Column(["w-1/4 flex-shrink-0"], ...); // 25% of parent flex item
+    view.Column(["flex-1 min-w-0"], ...);      // Remaining space
+});
+```
+
+**Panel pattern:** Use `Panel.*` theme constants for side panels — they bundle proportional width + minimum + `flex-shrink-0`:
+
+| Constant | Value | Use case |
+|---|---|---|
+| `Panel.Sidebar` | `w-1/4 min-w-48 flex-shrink-0` | Standard sidebar |
+| `Panel.SidebarNarrow` | `w-1/5 min-w-40 flex-shrink-0` | Compact sidebar |
+| `Panel.Side` | `w-1/3 min-w-48 flex-shrink-0` | Log/artifact/detail panels |
+| `Panel.Wide` | `w-2/5 min-w-64 flex-shrink-0` | Wide side panel |
+| `Panel.Fill` | `flex-1 min-w-0` | Fluid content area |
+
+**When pixel widths are acceptable:** Floating overlays (popovers, tooltips, dropdowns), small decorative elements (status dots, avatars), and fixed-size interactive controls. Never use pixel widths for layout-level containers like sidebars or content areas.
+
+### Icon Sizing
+
+Icons automatically size and center their SVG content. Just set width and height:
+
+```csharp
+row.Icon(style: ["w-4 h-4"], name: "message-circle");  // 16x16
+row.Icon(style: ["w-5 h-5"], name: "settings");        // 20x20
+```
+
+Note: The Icon component internally uses `display: inline-flex` to ensure width/height CSS properties work correctly (CSS width/height don't apply to inline elements by default).
+
+### Canonical Icon + Text Pattern
+
+This is the robust, clean pattern that works everywhere:
+
+```csharp
+// Button with icon and text
+view.Button(
+    style: ["text-white bg-blue-600 px-4 py-2 rounded-lg"],  // Always set text color!
+    content: btn =>
+    {
+        btn.Row(style: ["flex items-center gap-3"], content: row =>
+        {
+            row.Icon(style: ["w-4 h-4"], name: "play");
+            row.Text(text: "Activate");
+        });
+    });
+```
+
+**Key rules:**
+1. **Button**: Always set `text-white` (or appropriate color) - icons inherit text color
+2. **Row**: Use `flex items-center gap-3` for alignment and spacing
+3. **Icon**: Just `w-4 h-4` for size - no other classes needed
+4. **Text**: No style needed - inherits from parent
+
+### Common Mistakes
+
+```csharp
+// WRONG: Missing text color = black/invisible icons
+style: ["bg-blue-600 ..."]
+
+// CORRECT: Always include text color
+style: ["text-white bg-blue-600 ..."]
+```
+
+### Standard Sizes
+
+Use theme constants or explicit sizes:
+
+| Size | Theme Constant | Classes | Pixels |
+|------|----------------|---------|--------|
+| Extra small | `Icon.Xs` | `w-4 h-4 shrink-0` | 16px |
+| Small (`Icon.Default`) | `Icon.Sm` | `w-5 h-5 shrink-0` | 20px |
+| Medium | `Icon.Md` | `w-6 h-6 shrink-0` | 24px |
+| Large | `Icon.Lg` | `w-8 h-8 shrink-0` | 32px |
+| Extra large | `Icon.Xl` | `w-10 h-10 shrink-0` | 40px |
+
+Common gaps: `gap-2` (tight), `gap-3` (normal), `gap-4` (spacious)
+
+### Fullscreen Effects and Overflow
+
+Animations that translate elements outside their container bounds (e.g. a sweep band animating `translate-y` from `-100px` to `900px`) will trigger unwanted scrollbars. Always add `overflow-hidden` to the container that holds such overlay elements:
+
+```csharp
+// WRONG: sweep band moves outside bounds, creates scrollbar
+view.Column(style: ["absolute inset-0 pointer-events-none"], content: overlay =>
+{
+    overlay.Box(style: ["absolute w-full h-[2px] bg-white/10 " +
+        "motion-[0:translate-y-[-100px],100:translate-y-[900px]] motion-duration-4000ms motion-loop"]);
+});
+
+// CORRECT: overflow-hidden prevents scrollbar
+view.Column(style: ["absolute inset-0 pointer-events-none overflow-hidden"], content: overlay =>
+{
+    overlay.Box(style: ["absolute w-full h-[2px] bg-white/10 " +
+        "motion-[0:translate-y-[-100px],100:translate-y-[900px]] motion-duration-4000ms motion-loop"]);
+});
+```
+
+This applies to any fullscreen overlay effect: scan lines, sweep bands, CRT overlays, vignettes with scale animations, etc.
+
+### Responsive Breakpoints
+
+**All UIs must be built responsively using breakpoint prefixes.** Never use server-side viewport detection or ad-hoc mechanisms — always use CSS breakpoints (`sm:`, `md:`, `lg:`, `xl:`, `2xl:`) for responsive behavior. Mobile-first means unprefixed styles apply to all sizes, then larger breakpoints override:
+
+```csharp
+// Padding: 12px on mobile, 16px on sm+, 24px on md+
+view.Column(style: ["p-3 sm:p-4 md:p-6"], content: col => { ... });
+
+// Hidden on mobile, visible on sm+
+row.Text(text: "Projects", style: ["hidden sm:block"]);
+
+// Different layouts per breakpoint
+view.Column(style: ["flex flex-col sm:flex-row"], content: col => { ... });
+
+// Sidebar: overlay on mobile, inline on desktop
+view.Box(style: ["absolute inset-y-0 left-0 z-50 md:static md:z-auto"], ...);
+
+// Backdrop: visible on mobile only
+view.Box(style: ["absolute inset-0 bg-black/50 z-40 md:hidden"], ...);
+```
+
+Never hardcode sizes on content elements. Use responsive grids (`grid-cols-[repeat(auto-fill,minmax(220px,1fr))]`) for card layouts and `truncate` for text overflow instead of relying on fixed container widths.
+
+## Sophisticated UI Design Patterns
+
+### Visual Hierarchy with Gradients
+
+Use gradients for primary actions and solid colors for secondary actions:
+
+```csharp
+// Primary button - gradient with shadow
+view.Button(
+    style: ["px-4 py-2 text-sm bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 rounded-xl font-medium transition-all shadow-lg"],
+    text: "Primary Action",
+    onClick: async () => { });
+
+// Secondary button - subtle with border
+view.Button(
+    style: ["px-4 py-2 text-sm bg-slate-700/50 hover:bg-slate-600/50 text-slate-300 hover:text-white rounded-xl font-medium transition-all border border-slate-600/50"],
+    text: "Secondary",
+    onClick: async () => { });
+```
+
+### Icon Containers with Gradient Backgrounds
+
+Wrap icons in styled containers for visual weight:
+
+```csharp
+container.Column(style: ["w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center flex-shrink-0 border border-slate-600/30"], content: iconWrap =>
+{
+    iconWrap.Icon(style: ["w-4 h-4 text-blue-400"], name: "wrench");
+});
+```
+
+### Cards and Containers
+
+Use semi-transparent backgrounds with subtle borders:
+
+```csharp
+// Card with hover state
+list.Column(style: [
+    "bg-slate-800/50 rounded-2xl p-4 cursor-pointer transition-all border",
+    isSelected ? "border-blue-500/50 bg-slate-800/80" : "border-slate-700/50 hover:bg-slate-700/50 hover:border-slate-600/50"
+], content: card => { ... });
+
+// Nested content container
+details.Row(style: ["flex items-start gap-3 bg-slate-900/50 p-3 rounded-xl border border-slate-700/30"], content: row => { ... });
+```
+
+### Badges and Pills
+
+Use rounded-full for pill-shaped badges:
+
+```csharp
+// Status badge with gradient
+titleRow.Text(text: "● ACTIVE", style: ["text-xs px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 font-medium shadow-sm"]);
+
+// Tag badge - solid color
+titleRow.Text(text: "manual", style: ["text-xs px-2.5 py-1 rounded-full bg-slate-600 font-medium"]);
+
+// Trigger pills in a horizontal list
+container.Row(style: ["flex flex-wrap gap-2"], content: list =>
+{
+    list.Row(style: ["flex items-center gap-2 text-xs text-slate-300 bg-slate-800/80 px-3 py-1.5 rounded-full border border-slate-600/50"], content: pill =>
+    {
+        pill.Icon(style: ["w-3 h-3 text-purple-400"], name: "hash");
+        pill.Text(text: "keyword");
+    });
+});
+```
+
+### Color Consistency
+
+Maintain a cohesive color palette throughout the app:
+
+| Role | Classes |
+|------|---------|
+| Primary accent | `from-blue-600 to-purple-600` (gradient) |
+| Backgrounds | `slate-800/30`, `slate-900/50` (semi-transparent) |
+| Borders | `slate-700/50`, `slate-600/50` (subtle) |
+| Primary text | `text-white` |
+| Secondary text | `text-slate-300` |
+| Muted text | `text-slate-400`, `text-slate-500` |
+| Accent icons | `text-blue-400`, `text-purple-400` |
+| Neutral icons | `text-slate-400` |
+
+### Spacing Scale
+
+Use consistent spacing throughout:
+
+```csharp
+// Container padding (responsive)
+"p-3 sm:p-4 md:p-6"
+
+// Gap between items
+"gap-2" // tight (8px)
+"gap-3" // comfortable (12px)
+"gap-4" // spacious (16px)
+
+// Vertical spacing in lists
+"space-y-2" // tight
+"space-y-3" // comfortable
+"space-y-4" // spacious
+```
+
+### Transitions and Interactions
+
+Add subtle transitions for polished interactions:
+
+```csharp
+"transition-all duration-200" // for color and transform changes
+"hover:bg-slate-700/50"       // subtle hover background
+"hover:text-white"            // brighten text on hover
+"hover:border-slate-600/50"   // subtle border change
+```
+
+## Related Documentation
+
+- [Crosswind Motion Spec](crosswind-motion-spec.md) — formal grammar and syntax specification for the motion language
+- [Crosswind Tailwind Spec](crosswind-tailwind-spec.md) — complete reference of all supported Crosswind utility classes
