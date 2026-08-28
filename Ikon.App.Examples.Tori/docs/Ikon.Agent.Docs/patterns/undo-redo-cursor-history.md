@@ -31,7 +31,11 @@ private void ReplaceBot(string id, Func<Bot, Bot> update) =>
 private Task SaveActiveBotAsync()
 {
     var active = ResolveActiveBot();
-    if (active == null || !HasUnsavedChanges(active)) return Task.CompletedTask;
+
+    if (active == null || !HasUnsavedChanges(active))
+    {
+        return Task.CompletedTask;
+    }
 
     // Truncate any "redo" tail past the current cursor before appending
     var keep = active.Cursor < 0
@@ -40,7 +44,9 @@ private Task SaveActiveBotAsync()
     keep.Add(new BotVersion(active.DraftCode, DateTime.UtcNow.Ticks));
 
     if (keep.Count > MaxHistoryVersions)
+    {
         keep = keep.Skip(keep.Count - MaxHistoryVersions).ToList();
+    }
 
     var newCursor = keep.Count - 1;
     var newPub = active.PublishedIndex < 0 ? -1 : Math.Min(active.PublishedIndex, newCursor);
@@ -56,7 +62,12 @@ private Task SaveActiveBotAsync()
 private Task UndoActiveBotAsync()
 {
     var active = ResolveActiveBot();
-    if (active == null || active.Cursor <= 0) return Task.CompletedTask;
+
+    if (active == null || active.Cursor <= 0)
+    {
+        return Task.CompletedTask;
+    }
+
     var newCursor = active.Cursor - 1;
     ReplaceBot(active.Id, b => b with
     {
@@ -68,15 +79,22 @@ private Task UndoActiveBotAsync()
 
 private static bool HasUnsavedChanges(Bot bot)
 {
-    if (bot.Cursor < 0) return !string.IsNullOrWhiteSpace(bot.DraftCode);
+    if (bot.Cursor < 0)
+    {
+        return !string.IsNullOrWhiteSpace(bot.DraftCode);
+    }
+
     return bot.History[bot.Cursor].Code != bot.DraftCode;
 }
 
 // Disable buttons based on cursor position
-actions.Button([Button.GhostSm], disabled: bot.Cursor <= 0,
-    onClick: UndoActiveBotAsync, content: v => v.Text(text: "↶ Undo"));
-actions.Button([Button.GhostSm], disabled: bot.Cursor < 0 || bot.Cursor >= bot.History.Count - 1,
-    onClick: RedoActiveBotAsync, content: v => v.Text(text: "↷ Redo"));
+private void RenderUndoRedoActions(IView actions, Bot bot)
+{
+    actions.Button([Button.GhostSm], disabled: bot.Cursor <= 0,
+        onClick: UndoActiveBotAsync, content: v => v.Text(text: "↶ Undo"));
+    actions.Button([Button.GhostSm], disabled: bot.Cursor < 0 || bot.Cursor >= bot.History.Count - 1,
+        onClick: RedoActiveBotAsync, content: v => v.Text(text: "↷ Redo"));
+}
 ```
 
 ## Notes

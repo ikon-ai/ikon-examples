@@ -23,6 +23,7 @@ internal sealed class ChatMessageEntry
 
 private void RenderChatMessage(UIView view, ChatMessageEntry message)
 {
+    // A filled EntityReferenceId flips the entry into card mode; otherwise it renders as a normal bubble.
     if (message.EntityReferenceId.Value.HasValue)
     {
         RenderEntityReferenceCard(view, message);
@@ -58,9 +59,12 @@ private void RenderEntityReferenceCard(UIView view, ChatMessageEntry message)
                         col.Row(["flex items-center gap-2"], content: meta =>
                         {
                             meta.Text(["text-xs opacity-75"], entityType);
+
                             if (message.EntityReferenceConfidence.Value.HasValue)
+                            {
                                 meta.Text(["text-xs opacity-75"],
                                     T(GetConfidenceLabel(message.EntityReferenceConfidence.Value.Value)));
+                            }
                         });
                     });
                     row.Icon([Icon.Default, "w-4 h-4 opacity-50"], name: "chevron-right");
@@ -69,11 +73,13 @@ private void RenderEntityReferenceCard(UIView view, ChatMessageEntry message)
     });
 }
 
-// In RegisterChatTools:
-pass.AddTool(Tool.Of("refer_entities",
-    "Display interactive entity reference cards in the chat for one or more entities. " +
-    "Use this when discussing specific entities to let the user click through to their full details.",
-    async (string[] entityNames) => await ReferEntitiesAsync(caseId, entityNames)));
+private void RegisterReferTool()
+{
+    pass.AddTool(Tool.Of("refer_entities",
+        "Display interactive entity reference cards in the chat for one or more entities. " +
+        "Use this when discussing specific entities to let the user click through to their full details.",
+        async (string[] entityNames) => await ReferEntitiesAsync(caseId, entityNames)));
+}
 ```
 
 ## Notes
@@ -87,4 +93,3 @@ pass.AddTool(Tool.Of("refer_entities",
 ## See also
 
 - `chat-with-tool-calls` — the streaming-chat host this card-tool plugs into.
-- `expandable-detail-card` — the dialog that opens when the card is clicked.

@@ -63,6 +63,7 @@ gives one number up.
 ## Send an SMS
 
 ```csharp
+// app.Telephony is a TelephonyService — no construction, no provider account of your own.
 var result = await app.Telephony.SendSmsAsync("+358401234567", "Your table is ready.");
 
 if (!result.Replyable)
