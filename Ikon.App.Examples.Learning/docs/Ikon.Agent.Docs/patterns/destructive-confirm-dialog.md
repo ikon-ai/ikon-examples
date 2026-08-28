@@ -13,14 +13,17 @@ Delete/destroy/abort buttons in lists where each row can trigger the dialog. Avo
 private readonly ClientReactive<string?> _deleteBotId = new(null);
 
 // Trigger from any row
-actionRow.Button(
-    [Button.GhostSm, "text-[10px] py-0.5 px-1.5 text-rose-300/80"],
-    onClick: () =>
-    {
-        _deleteBotId.Value = bot.Id;
-        return Task.CompletedTask;
-    },
-    content: v => v.Text(text: "×"));
+private void RenderDeleteTrigger(IView view)
+{
+    actionRow.Button(
+        [Button.GhostSm, "text-[10px] py-0.5 px-1.5 text-rose-300/80"],
+        onClick: () =>
+        {
+            _deleteBotId.Value = bot.Id;
+            return Task.CompletedTask;
+        },
+        content: v => v.Text(text: "×"));
+}
 
 // Render the dialog — its open state is derived from the id
 private void RenderDeleteBotDialog(UIView view)

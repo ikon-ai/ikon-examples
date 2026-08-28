@@ -939,12 +939,12 @@ public class ExerciseState(LearningApp outer) : ILearningState
                 inputCard.Row(["gap-2 md:gap-3 items-center"], content: inputView =>
                 {
                     // Microphone button - round and large for easy mobile press
-                    var micStyle = outer.IsRecording.Value
-                        ? "w-12 h-12 md:w-14 md:h-14 rounded-full bg-red-500 text-white flex items-center justify-center animate-pulse shadow-lg text-xl"
-                        : "w-12 h-12 md:w-14 md:h-14 rounded-full bg-white/80 hover:bg-white text-[#6b7280] hover:text-[#1a1a1a] flex items-center justify-center transition-all duration-200 border border-gray-200/50 shadow-sm text-xl";
+                    // Red while hot, from the press itself — outer.IsRecording still
+                    // drives the surrounding copy, a round trip later.
+                    var micStyle = "w-12 h-12 md:w-14 md:h-14 rounded-full bg-white/80 hover:bg-white text-[#6b7280] hover:text-[#1a1a1a] flex items-center justify-center transition-all duration-200 border border-gray-200/50 shadow-sm text-xl";
 
                     inputView.CaptureButton(
-                        [micStyle],
+                        [micStyle, "data-[ikon-capture-state=pressed]:bg-red-500 data-[ikon-capture-state=pressed]:text-white data-[ikon-capture-state=pressed]:animate-pulse data-[ikon-capture-state=live]:bg-red-500 data-[ikon-capture-state=live]:text-white data-[ikon-capture-state=live]:animate-pulse"],
                         kind: MediaCaptureKind.Audio,
                         text: "🎤",
                         captureMode: MediaCaptureButtonMode.Hold,

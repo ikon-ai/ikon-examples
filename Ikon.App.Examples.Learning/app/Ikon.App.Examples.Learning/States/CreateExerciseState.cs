@@ -128,12 +128,10 @@ public class CreateExerciseState(LearningApp outer) : ILearningState
                     {
                         voiceBox.Row(["items-center gap-4"], content: row =>
                         {
-                            var micStyle = outer.IsRecording.Value
-                                ? "w-14 h-14 rounded-full bg-red-500 text-white flex items-center justify-center animate-pulse shadow-lg text-xl"
-                                : $"w-14 h-14 rounded-full bg-white hover:bg-gray-50 text-[#6b7280] hover:text-[#1a1a1a] flex items-center justify-center transition-all duration-200 border border-gray-200/50 shadow-sm text-xl";
+                            var micStyle = "w-14 h-14 rounded-full bg-white hover:bg-gray-50 text-[#6b7280] hover:text-[#1a1a1a] flex items-center justify-center transition-all duration-200 border border-gray-200/50 shadow-sm text-xl";
 
                             row.CaptureButton(
-                                [micStyle],
+                                [micStyle, "data-[ikon-capture-state=pressed]:bg-red-500 data-[ikon-capture-state=pressed]:text-white data-[ikon-capture-state=pressed]:animate-pulse data-[ikon-capture-state=live]:bg-red-500 data-[ikon-capture-state=live]:text-white data-[ikon-capture-state=live]:animate-pulse"],
                                 kind: MediaCaptureKind.Audio,
                                 text: "🎤",
                                 captureMode: MediaCaptureButtonMode.Hold,

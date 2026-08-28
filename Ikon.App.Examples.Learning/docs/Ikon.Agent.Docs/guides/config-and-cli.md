@@ -114,6 +114,7 @@ Name = ""
 - `ikon app deploy activate <id>`: activate a bundle by ID, or the newest with `--latest` (`--yes` to skip prompt)
 - `ikon app deploy delete <id>`: delete a bundle by ID (`--yes` to skip prompt)
 - `ikon app distribute`: build, sign, and push the Flutter app to testers' phones (`--flutter-android` → Firebase App Distribution, `--flutter-ios` → TestFlight, requires macOS; `--notes`, `--testers`, `--channel`). The upload is irreversible and goes to a shared tester group, so the run prints its plan and asks first — `--yes` to skip the prompt (required non-interactively), `--dry-run` to build and sign but upload nothing
+- `ikon app install ios|android`: build the Flutter app and install it on a phone plugged into this computer — your own phone, not testers'. A release build carrying the same dart-defines and the same bundle id a deploy uses, so repeat installs replace the app instead of adding a second copy; signed by Xcode's automatic signing (pick the team in Xcode once) or the Android debug keystore. `--device` picks between several connected phones. Nothing is uploaded anywhere — `ikon app distribute` is the one that ships to testers
 - `ikon app payments enable|disable|list|status`: manage the app's payment provider (`enable --provider stripe|surfboard|mollie` auto-stores provider secrets; `status` shows merchant onboarding state)
 - `ikon app payments offer create|delete|list`: manage the payment offers customers can pay for by id
 - `ikon app docs`: (re)generate app documentation under `docs/` and update `AGENTS.md`

@@ -10,40 +10,43 @@ You have functionality the platform's components can't express — a code editor
 ## Snippet
 
 ```csharp
-col.Box(["flex-1 min-h-0"], content: editorBox =>
+private void Render(IView view)
 {
-    editorBox.AddNode(
-        type: "custom.lua-editor",
-        key: $"editor:{active.Id}",
+    col.Box(["flex-1 min-h-0"], content: editorBox =>
+    {
+        editorBox.AddNode(
+            type: "custom.lua-editor",
+            key: $"editor:{active.Id}",
+            props: new Dictionary<string, object?>
+            {
+                ["value"] = active.DraftCode,
+                ["onValueChangeId"] = editorBox.CreateAction<string>(args =>
+                {
+                    UpdateActiveDraftCode(args.Value ?? "");
+                    return Task.CompletedTask;
+                }),
+            });
+    });
+
+    // ... and a richer node with multiple action callbacks
+    arenaBox.AddNode(
+        type: "custom.brainrot-arena",
         props: new Dictionary<string, object?>
         {
-            ["value"] = active.DraftCode,
-            ["onValueChangeId"] = editorBox.CreateAction<string>(args =>
-            {
-                UpdateActiveDraftCode(args.Value ?? "");
-                return Task.CompletedTask;
-            }),
+            ["code"] = active?.DraftCode ?? "",
+            ["opponentCode"] = opponentCode,
+            ["runId"] = _runId.Value,
+            ["levelId"] = _levelId.Value,
+            ["playerLabel"] = (active != null
+                ? $"{DisplayName()}'s {active.Name}"
+                : DisplayName()).ToUpperInvariant(),
+            ["opponentLabel"] = opponentLabel,
+            ["onResultId"] = arenaBox.CreateAction<string>(args =>
+                HandlePlayerFightResultAsync(args.Value)),
+            ["onConsoleId"] = arenaBox.CreateAction<string>(args =>
+                HandleConsoleEventAsync(args.Value)),
         });
-});
-
-// ... and a richer node with multiple action callbacks
-arenaBox.AddNode(
-    type: "custom.brainrot-arena",
-    props: new Dictionary<string, object?>
-    {
-        ["code"] = active?.DraftCode ?? "",
-        ["opponentCode"] = opponentCode,
-        ["runId"] = _runId.Value,
-        ["levelId"] = _levelId.Value,
-        ["playerLabel"] = (active != null
-            ? $"{DisplayName()}'s {active.Name}"
-            : DisplayName()).ToUpperInvariant(),
-        ["opponentLabel"] = opponentLabel,
-        ["onResultId"] = arenaBox.CreateAction<string>(args =>
-            HandlePlayerFightResultAsync(args.Value)),
-        ["onConsoleId"] = arenaBox.CreateAction<string>(args =>
-            HandleConsoleEventAsync(args.Value)),
-    });
+}
 ```
 
 ## Notes
