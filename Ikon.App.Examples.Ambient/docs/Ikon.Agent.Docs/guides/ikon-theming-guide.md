@@ -69,7 +69,7 @@ Every entry commits one or more CSS variables. The renderer dispatches by **key 
 | Tailwind palette step (`amber-400`, `zinc-950`) | `--color-{key}` (families that are also Ikon scales, e.g. `neutral-900`, additionally set `--{key}` so semantic tokens move too) | color |
 | Ikon scale step (`brand-500`, `accent-300`, `error-600`) | `--{key}` | color |
 | `rounded-{rung}` | `--radius-{rung}` | radius |
-| `shadow-{rung}` | `--shadow-{rung}` | currently INEFFECTIVE (logged as a warning): shadow utilities bake their Tailwind values so per-element recoloring (`shadow-lg shadow-red-500`) keeps working |
+| `shadow-{rung}` | `--shadow-{rung}` plus the per-layer `--shadow-{rung}-{1,2}` / `--shadow-{rung}-{1,2}-color` pairs the sized utilities read | box-shadow value (up to two layers), or another rung name to re-point |
 | `font-{role}` | `--font-{role}` | family stack; literal family names auto-import from Google Fonts |
 | `ease-{kind}` | `--ease-{kind}` | easing |
 | any other baseline variable name (`bg-brand-solid`, `text-primary-on-brand`, `spacing`) | `--{key}` | smart sniff |
@@ -208,10 +208,13 @@ Emits `--color-amber-400: #F5A524` and `--color-zinc-950: #0a0a0f`. Every `bg-am
 
 `["radius"]` moves all rungs at once; per-rung overrides are for exceptions.
 
-Shadows are NOT themable: `shadow-{rung}` keys are accepted for forward compatibility but
-currently have no visible effect (a warning is logged). Shadow utilities bake their stock
-Tailwind values so that per-element recoloring — `shadow-lg shadow-red-500` — keeps working;
-a `:root`-resolved shadow variable would swallow the color override.
+Shadow rungs are themable per layer: `["shadow-lg"] = "0 2px 4px rgb(0 0 0 / 0.07)"` restyles
+every `shadow-lg`, and `["shadow-lg"] = "shadow-xl"` re-points one rung at another. The renderer
+splits each layer into geometry and colour variables that the utility composes on the element,
+so per-element recoloring — `shadow-lg shadow-red-500` — still wins over the themed colour. A
+value may carry at most two layers (Tailwind's own scale never has more); extra layers are
+dropped with a warning. A key that is not a rung (`shadow-sticker`) is a plain variable for
+`shadow-[var(--shadow-sticker)]`.
 
 ### Porting an existing Tailwind design (Replit, Lovable, Base44, v0, hand-written)
 

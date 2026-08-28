@@ -12,34 +12,40 @@ Demos and benchmarks of agentic coders, in-app code playgrounds, "build me a pro
 ```csharp
 private readonly Dictionary<string, string> _virtualFiles = new();
 
-await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx, pass =>
+private async Task RunCoderAgentAsync()
 {
-    pass.AddTool(Tool.Of("write_file", "Write content to a file. Creates the file if it doesn't exist, overwrites if it does.",
-            (string path, string content) => WriteFile(state, path, content)))
-        .AddTool(Tool.Of("read_file", "Read the contents of a file",
-            (string path) => ReadFile(state, path)))
-        .AddTool(Tool.Of("list_files", "List all files in the virtual file system",
-            () => ListFiles(state)))
-        .AddTool(Tool.Of("delete_file", "Delete a file from the virtual file system",
-            (string path) => DeleteFile(state, path)))
-        .AddTool(Tool.Of("search_in_files", "Search for a pattern in all files",
-            (string pattern) => SearchInFiles(state, pattern)));
+    await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx, pass =>
+    {
+        pass.AddTool(Tool.Of("write_file", "Write content to a file. Creates the file if it doesn't exist, overwrites if it does.",
+                (string path, string content) => WriteFile(state, path, content)))
+            .AddTool(Tool.Of("read_file", "Read the contents of a file",
+                (string path) => ReadFile(state, path)))
+            .AddTool(Tool.Of("list_files", "List all files in the virtual file system",
+                () => ListFiles(state)))
+            .AddTool(Tool.Of("delete_file", "Delete a file from the virtual file system",
+                (string path) => DeleteFile(state, path)))
+            .AddTool(Tool.Of("search_in_files", "Search for a pattern in all files",
+                (string pattern) => SearchInFiles(state, pattern)));
 
-    var filesList = _virtualFiles.Count > 0
-        ? $"\n\nCurrent files:\n{string.Join("\n", _virtualFiles.Keys.Select(f => $"- {f}"))}"
-        : "\n\nNo files created yet.";
+        var filesList = _virtualFiles.Count > 0
+            ? $"\n\nCurrent files:\n{string.Join("\n", _virtualFiles.Keys.Select(f => $"- {f}"))}"
+            : "\n\nNo files created yet.";
 
-    pass.Command = $"""
-        You are an expert software developer. Complete the following task:
-        {task}
-        Current workspace state:{filesList}
-        Return a JSON summary when done:
-        {pass.JsonSchema}
-        """;
+        pass.Command = $"""
+            You are an expert software developer. Complete the following task:
+            {task}
+            Current workspace state:{filesList}
+            Return a JSON summary when done:
+            {pass.JsonSchema}
+            """;
 
-    pass.MaxIterations = maxIterations;
-    pass.MaxToolCalls = 50;
-}).WithCancellation(_cts!.Token)) { /* log events, update _selectedFile, etc. */ }
+        pass.MaxIterations = maxIterations;
+        pass.MaxToolCalls = 50;
+    }).WithCancellation(_cts!.Token))
+    {
+        // log events, update _selectedFile, etc.
+    }
+}
 
 private object WriteFile(ExampleState state, string path, string content)
 {
@@ -47,14 +53,22 @@ private object WriteFile(ExampleState state, string path, string content)
     _virtualFiles[path] = content;
     var lines = content.Split('\n').Length;
     state.Log($"{(isNew ? "Created" : "Updated")} file: {path} ({lines} lines)", LogLevel.Event);
-    if (string.IsNullOrEmpty(_selectedFile.Value)) _selectedFile.Value = path;
+
+    if (string.IsNullOrEmpty(_selectedFile.Value))
+    {
+        _selectedFile.Value = path;
+    }
+
     return new { success = true, action = isNew ? "Created" : "Updated", path, lines };
 }
 
 private object ReadFile(ExampleState state, string path)
 {
     if (_virtualFiles.TryGetValue(path, out var content))
+    {
         return new { success = true, path, content };
+    }
+
     return new { success = false, error = $"File not found: {path}" };
 }
 ```

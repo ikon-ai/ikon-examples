@@ -37,7 +37,11 @@ private void RenderThreadTree(UIView view, List<ThreadInfo> threads, List<Thread
         });
 
         var children = allThreads.Where(t => t.ParentId == capturedThread.Id).ToList();
-        if (children.Count == 0) continue;
+
+        if (children.Count == 0)
+        {
+            continue;
+        }
 
         var childrenExpanded = _expandedChildrenIds.Contains(capturedThread.Id);
 
@@ -81,8 +85,3 @@ private void RenderThreadTree(UIView view, List<ThreadInfo> threads, List<Thread
 - Indent via `pl-[{n}px]` arbitrary value; this is one of the few cases where it's idiomatic to compute the value at render time. Crosswind handles the dynamic class string.
 - For very deep trees (depth >5), cap the indent at a max so the rightmost nodes don't disappear off-screen: `Math.Min(depth, 5) * 12`.
 - Pass the *full* `allThreads` list down so each level can find its own children with `Where(t => t.ParentId == ...)` — don't pre-build a parent→children dictionary; the linear scan is fast enough for normal hierarchies and avoids stale-cache bugs.
-
-## See also
-
-- `kanban-multi-column` — the flat list counterpart when hierarchy doesn't matter
-- `expandable-detail-card` — single row that opens to show its detail (no recursion)

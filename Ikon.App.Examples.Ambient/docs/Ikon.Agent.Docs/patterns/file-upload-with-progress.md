@@ -16,7 +16,7 @@ private sealed class UploadTracker
     public string FileName = "";
     public double Progress;
     public string Hash = "";
-    public Guid? CaseFileId;
+    public Guid? CaseFileId = null;
 }
 
 private readonly ReactiveList<UploadTracker> _activeUploads = new();
