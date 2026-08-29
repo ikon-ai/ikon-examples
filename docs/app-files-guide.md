@@ -55,6 +55,22 @@ Files under `public/` upload as public (loadable by URL); everything else stays 
 `ikon app asset normalize` / `materialize` / `gc` verbs exist as manual overrides — normal
 development never needs them. `ikon app copy` re-homes stored binaries to the copy's own space.
 
+## A shared app's node_modules
+
+`node_modules` is bound to the machine that installed it: npm fetches only the native binaries
+(rolldown, esbuild, fsevents, the @napi-rs packages) matching that OS and architecture, and nothing
+in the tree says which one it was. Zip an app folder with Finder's **Compress** or Explorer's
+**Send to > Zip** — neither reads `.gitignore` — and the tree travels to a machine it cannot run on,
+where every presence check passes and the first native call fails inside the bundler.
+
+`ikon app run` detects this and reinstalls: the platform stamps the tree with the machine that
+installed it and compares that stamp on the way up. The repair is a deletion, not an install: npm treats
+a populated tree's optional dependencies as already resolved and never fetches the missing binary
+([npm/cli#4828](https://github.com/npm/cli/issues/4828)).
+
+Share an app with `ikon app share` or `ikon app copy --to zip` and none of this arises — they
+package the app without carrying one machine's install to another.
+
 ## Older apps
 
 Apps created before this layout keep files in `frontend-node/public/` and `app/<Project>/Data/`.
