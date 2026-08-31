@@ -207,6 +207,7 @@ The `UIView` class provides extension methods for UI components. One shape for e
 - `view.ScrollColumn()` - Header/body/footer column where the body scrolls
 - `view.VirtualList()` / `view.VirtualGrid()` - DOM-virtualized large collections
 - `view.InfiniteScrollView()` - Scroll area with near-end callbacks for lazy loading
+- `view.PanZoom()` - Viewport the user pans and zooms by wheel, pinch and drag; the offset stays client-side
 
 **Display:**
 - `view.Text()` / `view.Heading()` / `view.Markdown()` - Text content
@@ -272,6 +273,32 @@ view.ToastHost(_toasts);
 _toasts.Success("Saved");
 _toasts.Error("Upload failed", ex.Message);
 ```
+
+### Forms and Dialogs with FormState
+
+`FormState<T>` holds everything one editing form needs per client — open, busy, dirty, the draft, and form-level and field-level errors — so a dialog is one declared field rather than a hand-written set of `ClientReactive` flags. Declare it as an app field with a factory for a fresh draft; the composites `FormDialog`, `FormField`, `FormError` and `FormSubmit` bind Dialog, Form, FormField and a submit Button to it:
+
+```csharp
+private sealed record PresetDraft(string Name = "", bool Public = false);
+private readonly FormState<PresetDraft> _preset = new(() => new PresetDraft());
+
+// Open on a fresh draft, or on a copy of the record being edited:
+_preset.Show();
+_preset.Show(new PresetDraft(existing.Name, existing.IsPublic));
+
+// In the UI:
+view.FormDialog(_preset, title: "New preset", content: form =>
+{
+    form.FormField(_preset, "Name", content: f =>
+        f.TextField(value: _preset.Draft.Name,
+            onValueChange: v => { _preset.Edit(d => d with { Name = v }); return Task.CompletedTask; }));
+    form.FormError(_preset);
+    form.FormSubmit(_preset, "Save", SavePresetAsync,
+        validate: d => string.IsNullOrWhiteSpace(d.Name) ? [new FormFieldError("Name", "Required")] : []);
+});
+```
+
+`SubmitAsync` runs the validator, then the handler under the busy flag, and closes on success. A `FormException` thrown from the handler becomes a field or form-level error; any other exception becomes a form-level error with its message, and the form stays open with the draft intact.
 
 ## Styling with Crosswind
 
@@ -481,6 +508,27 @@ view.Row(["overflow-x-auto gap-2", Scrollbar.Thin], content: chips => ...);
 ```
 
 It sizes both axes on purpose. Styling only the width leaves a *horizontal* bar at its default height, which is the usual way this lands half-applied — and a horizontally scrolling row is exactly where it is most often needed.
+
+## PanZoom: Viewing Something Larger Than the Screen
+
+`view.PanZoom()` (`PanZoomExtensions`) is a clipped viewport whose content the user moves and scales in the client: scrolling pans, Ctrl/⌘+scroll or a pinch zooms about the pointer, dragging pans. The pan offset and every in-gesture frame stay in the browser; the app hears only the scale at the end of a gesture, so a wheel burst or a pinch costs one round trip rather than one per event. Use it for a floor plan, a board of cards, a diagram, a large image — anything laid out at its natural size that has to be *looked at* rather than edited.
+
+```csharp
+view.PanZoom(
+    ["h-96 w-full rounded-lg border border-secondary bg-secondary"],
+    scale: _scale.Value,
+    minScale: 0.25,
+    maxScale: 4,
+    onScaleChange: async scale => _scale.Value = scale,
+    content: canvas =>
+    {
+        canvas.Box(["w-[1600px] p-6 flex flex-wrap gap-4"], content: sheet => { /* the large thing */ });
+    });
+```
+
+Give the viewport a size with its style array — it clips, so without a height it collapses. `scale:` + `onScaleChange:` is the controlled pair, which is what lets preset buttons (`_scale.Value = 1`) drive the view; a server-written scale zooms about the viewport centre. Omit both and pass `defaultScale:` for a purely client-side zoom. A `scale:` with no handler renders read-only, like every other controlled axis.
+
+What it is not: an editor surface. Nothing inside a `PanZoom` knows it is scaled — a `DndContext` or a click handler in the content still works, but its coordinates are screen-space. For a canvas with selection, marquee or drag in document space, build a custom node with its own `.tp` transport (see `custom-map-component-guide.md`); `PanZoom` is the viewer, not the workbench.
 
 ## Example: Interactive Form
 

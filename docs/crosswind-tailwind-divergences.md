@@ -4,9 +4,9 @@ Crosswind's Tailwind compatibility is measured by a differential conformance
 harness (`Ikon.Crosswind.Test/Conformance/`, run with
 `IKON_RUN_TAILWIND_CONFORMANCE=1`) that compiles a ~1030-class corpus through
 both Crosswind and the real Tailwind CLI (pinned 4.1.11) and compares output.
-As of 2026-07-05 parity is **98.4%** (631 byte-match + 374 semantically
+As of 2026-08-30 parity is **98.5%** (623 byte-match + 383 semantically
 equivalent of 1021; 10 Crosswind-only extensions such as the `animate-in`/
-`animate-out` enter/exit utilities and the `theme-*:` variants are excluded). The remaining **16 divergent classes** are all deliberate, listed in
+`animate-out` enter/exit utilities and the `theme-*:` variants are excluded). The remaining **15 divergent classes** are all deliberate, listed in
 `conformance-allowlist.txt`, and documented here. Anything not on that list
 fails CI.
 
@@ -16,12 +16,10 @@ the emission matches Tailwind.
 
 ## The divergences and their reasoning
 
-**1. `h-screen` family → `100dvh` (Tailwind: `100vh`)** — 3 classes.
-`100vh` on mobile includes the area under the collapsing browser toolbar, so
-"full-screen" layouts get their bottom cut off — the most common mobile layout
-bug. `dvh` tracks the real viewport. Tailwind kept `100vh` for backwards
-compatibility and offers `h-dvh` as opt-in; Crosswind makes the correct-on-
-mobile behavior the default. Trade-off: none in practice (desktop identical).
+**1. `rounded-full` family → `9999px` (Tailwind: `calc(infinity * 1px)`)** — 2
+classes. `calc(infinity * 1px)` is Chromium 99; an older engine drops the
+declaration and every pill squares off. `9999px` is indistinguishable from it
+below a 20000px element, which no layout has. Trade-off: none in practice.
 
 **2. Dual `dark:` strategy** — `dark:*`, `not-dark:*`.
 Crosswind emits both the `[data-theme="dark"]`/`.dark` selector rule *and* a
@@ -66,3 +64,14 @@ emits width-only breakpoints and expects `mx-auto px-*` alongside. A dev
 following v4 docs and adding those classes gets the same result (the
 additions are idempotent), so the divergence rarely bites and the one-class
 form is what app authors want.
+
+## Not a divergence: physical fallbacks beside logical properties
+
+`px`/`py`/`mx`/`my` and `inset-x`/`inset-y` emit the physical longhands
+(`padding-left`/`padding-right` and kin) *before* the logical shorthand
+Tailwind emits alone. The logical form is Chromium 87, and an engine that
+lacks it drops the declaration and the element loses its padding entirely; an
+engine that has both takes the later, logical declaration and so stays correct
+under RTL. The observable result on any browser that supports Tailwind's own
+output is identical, which is why the harness reads these as equivalent rather
+than divergent — there is no allowlist entry for them.

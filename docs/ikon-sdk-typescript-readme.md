@@ -681,6 +681,7 @@ app state.
 | `ikon-debug` | `true` | Verbose SDK logging, and the devtools extension |
 | `ikon-debug-overlay` | `true` | The on-screen debug panel. `ikon-debug` does not imply it |
 | `ikon-inspect` | `true` | The element inspection overlay |
+| `ikon-logs` | present | Mirror the console onto the screen. Read by the app's own `index.html` rather than the SDK, so it works even when the bundle never loads — which is how a device with no developer tools reports a blank screen |
 | `ikon-lang` | e.g. `en`, `fi` | Override language detection |
 | `ikon-audio`, `ikon-video`, `ikon-webrtc` | `true`, `false` | Force audio, video or WebRTC on or off |
 | `ikon-ice-transport` | `relay`, `all` | Force the WebRTC ICE policy. `relay` gathers TURN candidates only, which is how the relay path gets verified |
