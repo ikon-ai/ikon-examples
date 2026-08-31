@@ -80,6 +80,7 @@ export default defineConfig(({ mode }) => {
   const optimizeDepsConfig = {
     include: ['react', 'react-dom'],
     entries: ['src/main.tsx'],
+    rolldownOptions: { transform: { target: 'es2019' } },
   };
 
   if (!isIkonInternal) {
