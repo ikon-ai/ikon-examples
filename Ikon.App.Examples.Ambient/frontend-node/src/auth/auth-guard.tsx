@@ -29,7 +29,7 @@ export function formatAuthError(error: string): string {
 }
 
 export function AuthGuard({ children, config }: AuthGuardProps) {
-  const { isCheckingAuth, shouldRenderChildren, isLoginPrompt, dismissLoginPrompt } = useAuthGuard({
+  const { isCheckingAuth, shouldRenderChildren, isLoginPrompt, dismissLoginPrompt, loginPromptReason } = useAuthGuard({
     config,
     guestUrlParam: 'guest',
   });
@@ -52,6 +52,7 @@ export function AuthGuard({ children, config }: AuthGuardProps) {
         setErrorScope={setErrorScope}
         isLoginPrompt={isLoginPrompt}
         onDismiss={dismissLoginPrompt}
+        loginPromptReason={loginPromptReason}
       />
     );
   }
@@ -65,9 +66,10 @@ interface AuthScreenProps {
   setErrorScope: (scope: ErrorScope) => void;
   isLoginPrompt: boolean;
   onDismiss: () => void;
+  loginPromptReason: string | null;
 }
 
-function AuthScreen({ config, errorScope, setErrorScope, isLoginPrompt, onDismiss }: AuthScreenProps) {
+function AuthScreen({ config, errorScope, setErrorScope, isLoginPrompt, onDismiss, loginPromptReason }: AuthScreenProps) {
   const { t } = useI18n();
   const { state } = useAuth();
 
@@ -88,7 +90,9 @@ function AuthScreen({ config, errorScope, setErrorScope, isLoginPrompt, onDismis
     <main className="ikon-surface ikon-auth-screen">
       <section className="ikon-auth-container">
         <h1 className="ikon-auth-title">{t('auth.welcome.title')}</h1>
-        <p className="ikon-auth-subtitle">{t('auth.welcome.subtitle')}</p>
+        {/* Whoever raised the prompt said why; that beats the generic welcome, which tells someone
+            sent here by another application nothing about what they are about to agree to. */}
+        <p className="ikon-auth-subtitle">{loginPromptReason ?? t('auth.welcome.subtitle')}</p>
 
         {errorFor('primary')}
 
