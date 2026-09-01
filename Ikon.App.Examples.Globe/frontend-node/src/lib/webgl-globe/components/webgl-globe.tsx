@@ -440,6 +440,7 @@ const WebGLGlobeInner = memo(function WebGLGlobeInner(props: GlobeProps) {
       atmosphereMaterial.dispose();
       container.removeChild(renderer.domElement);
     };
+  // eslint-disable-next-line @eslint-react/exhaustive-deps -- the WebGL context is created once; depending on the whole props object would tear it down on any prop change
   }, [props.globeColor, props.atmosphereColor, props.onSpikeClickId, props.dispatchAction]);
 
   useEffect(() => {
