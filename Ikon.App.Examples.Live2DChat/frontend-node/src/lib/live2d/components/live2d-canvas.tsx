@@ -555,7 +555,7 @@ function VisemeDebugPanel({
           </summary>
           <div style={{ maxHeight: '200px', overflowY: 'auto', fontSize: '10px' }}>
             {parameterNames.map((name, i) => (
-              <div key={i} style={{ padding: '2px 0' }}>
+              <div key={name} style={{ padding: '2px 0' }}>
                 [{i}] {name}: {parameterValues ? parameterValues[i]?.toFixed(3) : 'N/A'}
               </div>
             ))}
