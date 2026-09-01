@@ -12,7 +12,7 @@ dependencies:
   # The map on mobile. The web frontend draws the same `momentum-map` node with Leaflet; both take
   # their track, their emphasis and their markers from one call in the C# app.
   flutter_map: ^8.2.2
-  latlong2: ^0.9.1
+  latlong2: ^0.10.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

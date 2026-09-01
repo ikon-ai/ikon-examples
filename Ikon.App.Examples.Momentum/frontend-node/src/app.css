@@ -4,9 +4,9 @@
    hero layout — is styled by @ikonai/sdk-react-ui/theme/ikon-app.css, imported in main.tsx. That
    file is part of the package, so `ikon app update` keeps it current.
 
-   Anything you write here wins over it. The shell's rules live in a `@layer ikon` cascade layer and
-   yours do not, so an unlayered rule always takes precedence — no !important, no specificity
-   contest, and the order of the imports does not matter:
+   The shell's rules are imported before this file, so at equal specificity what you write here
+   wins — no !important needed. A few of them are more specific than one class (`.ikon-hero h1`,
+   the `:hover` and `:focus` states); match that shape to override those:
 
      .ikon-offline-title { font-size: 20px; }
 

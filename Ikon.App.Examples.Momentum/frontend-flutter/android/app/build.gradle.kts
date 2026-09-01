@@ -6,7 +6,10 @@ plugins {
 
 android {
     namespace = "com.ikonai.momentum"
-    compileSdk = flutter.compileSdkVersion
+    // flutter_secure_storage (an ikon_sdk dependency) declares compileSdk 37 in its AAR metadata,
+    // which the build refuses to go below. maxOf rather than 37 outright, so this lapses on its own
+    // once Flutter's own pin catches up.
+    compileSdk = maxOf(flutter.compileSdkVersion, 37)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
