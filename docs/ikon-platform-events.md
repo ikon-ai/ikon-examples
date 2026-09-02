@@ -272,6 +272,14 @@ Emitted by the backend, not by the server.
 | `profile_removed` | A profile was removed | `user` |
 | `lead_created` | A profile was forwarded to a CRM integration | `user`, `integration` |
 
+## Session issue analysis
+
+Space-scoped, emitted by the backend for spaces with session analysis enabled.
+
+| Event | When | Payload |
+|---|---|---|
+| `session_issue_opened` | The analysis opened a new issue from this space's session logs | `issue`, `fingerprint`, `severity`, and `title` when the issue was classified |
+
 ## Billing
 
 Organisation-scoped, emitted by the backend. All carry `organisation`.

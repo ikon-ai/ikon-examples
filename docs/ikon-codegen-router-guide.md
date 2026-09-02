@@ -51,15 +51,42 @@ connection asks you to confirm the app's space id. Useful options:
 Running the app locally with `ikon app run`? Plain `ikon codegen router` from the app folder finds
 the local instance on its own.
 
-## Watching a device screen
+## Phones, simulators and emulators
 
-If the machine can screenshot a running phone — a booted iOS simulator (macOS) or a connected
-Android device/emulator (`adb`) — the task view offers **Watch device**: the router captures the
-screen every few seconds and the board shows it live beside the task. The watch stops on request
-and times out on its own after ten minutes.
+If the machine has phone tooling — Xcode's simulators (macOS) or `adb` for Android — the app's
+workspace grows a **Devices** tab listing every phone-shaped run target on every connected
+machine: iOS simulators, Android emulators and plugged-in devices, and emulator images that are
+not running yet. Two verbs per device:
+
+- **Open the app** boots the device if needed and opens the running preview's app on it, signed
+  in — the same app instance the Preview tab shows, on real phone glass. Android emulators get
+  the host-loopback rewrite (`10.0.2.2`) automatically, and a remote machine's devices get your
+  machine's LAN address instead of `localhost`.
+- **Live Preview** mirrors the device's screen into Studio. When the machine can encode — an
+  Android device encodes on-device, an iOS simulator needs ffmpeg installed beside it — the
+  mirror is a live H.264 video stream, fanned out to viewers over the platform's normal video
+  path; otherwise it falls back to a ~1.5 s screenshot cadence. Either way a device on another
+  machine — or one whose window is buried — is visible where you work.
+
+The task view offers the same mirror as **Watch device**: the router captures the screen every
+few seconds and the board shows it live beside the task. A watch stops on request and times out
+on its own after ten minutes.
 
 ## 3. Pick the agent when creating a task
 
 The machine appears on the app's board within a few seconds, and its agents join the "Build with"
 choice when you create a task. Each task runs on the machine chosen at creation, in a worktree
 beside your repository, and the choice is remembered for your next task.
+
+### Tapping the mirrored screen
+
+With Live Preview on, clicks on the mirror are forwarded to the device itself, and Home/Lock
+(plus Back on Android) sit beside the toggle. Android needs adb, which ships with the emulator
+tooling. The iOS simulator needs idb:
+
+```bash
+brew install facebook/fb/idb-companion
+pip install fb-idb
+```
+
+Without it, a tap answers with that install hint instead of failing silently.

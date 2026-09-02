@@ -40,127 +40,6 @@ Region support is available via `pass.Regions`:
 pass.Regions = [ModelRegion.Eu, ModelRegion.Global];
 ```
 
-## Shaders
-
-> **Note:** For new development, prefer using [Emergence](#emergence) which provides a simpler, code-first API for structured AI outputs.
-
-`Ikon.AI.Shader` provides declarative orchestration for prompt-driven automation. Shaders encapsulate model selection, context policies, and schema expectations while allowing reuse across applications. Shaders can target any model listed in the [LLM](#llm) section.
-
-### Text Generation
-
-Generate structured text using a shader definition stored in code, files, or embedded resources.
-
-```csharp
-using Ikon.AI.Kernel;
-using Ikon.AI.Shader;
-using Ikon.Common.Core;
-
-string shaderSource = @"
-{
-  ShaderVersion: 2,
-  Model: {
-    Name: 'Gpt5Mini',
-    RequestTimeoutSeconds: 60,
-    MaxOutputTokens: 4000,
-    ReasoningEffort: 'Medium',
-  },
-  History: {
-    Max: 10,
-  },
-  Input: {
-    AssistantName: 'IkonBot',
-  },
-  Intents: [
-    {
-      Id: 'ExampleIntent',
-      Passes: [
-        {
-          Id: 'ExamplePass',
-          Context: 'You are a helpful assistant. Your name is {{ AssistantName }}.',
-          Command: 'Please answer the user question.',
-        }
-      ]
-    }
-  ]
-}";
-
-var shader = new Shader.Shader(shaderSource);
-var context = new KernelContext();
-context = context.Add(new MessageBlock(MessageBlockRole.User, "Hello! What is your name?"));
-
-var stringResult = await shader.GenerateStringAsync(context);
-Log.Instance.Info($"Shader string result: {stringResult}");
-```
-
-### Object Generation
-
-Emit strongly typed results when the shader is configured for JSON output.
-
-```csharp
-using Ikon.AI.Shader;
-using Ikon.Common.Core;
-
-string shaderSource = @"
-{
-  ShaderVersion: 2,
-  Model: {
-    Name: 'Gpt5Mini',
-    RequestTimeoutSeconds: 60,
-    MaxOutputTokens: 4000,
-    ReasoningEffort: 'Medium',
-    LogRenderedShader: true,
-    UseJson: true,
-  },
-  History: {
-    Max: 10,
-  },
-  Input: {
-    RequestedName: null,
-  },
-  Intents: [
-    {
-      Id: 'ExampleIntent',
-      Passes: [
-        {
-          Id: 'ExamplePass',
-          Command: 'Return a JSON object with invented personal details about {{ RequestedName }}. Please give the output in JSON format like this:\n{{ ImplicitJsonExample }}',
-        }
-      ]
-    }
-  ]
-}";
-
-var shader = new Shader.Shader(shaderSource);
-var state = new Dictionary<string, object?>
-{
-    ["RequestedName"] = "John Smith"
-};
-
-var result = await shader.GenerateObjectAsync<ExampleResponse>(state: state);
-Log.Instance.Info($"Shader object result: {Json.To(result)}");
-
-private class ExampleResponse
-{
-    public string Name { get; set; } = string.Empty;
-    public int Age { get; set; }
-    public string Occupation { get; set; } = string.Empty;
-}
-```
-
-### Implicit Shaders
-
-Implicit shaders load their source from embedded resources that share the class name. Save the shader used in `ShaderObjectExampleTest` as `<ClassName>.shader` alongside the corresponding `<ClassName>.cs` file, set the build action to **Embedded Resource**, and access it through `ShaderCache`.
-
-```csharp
-var result = await ShaderCache.Instance.GetImplicitShader().GenerateObjectAsync<ExampleResponse>(
-    contexts: null,
-    cancellationToken: CancellationToken.None,
-    ("RequestedName", "John Smith")
-);
-
-Log.Instance.Info($"Implicit shader object result: {Json.To(result)}");
-```
-
 ## LLM
 
 > **Note:** For most use cases, prefer using [Emergence](#emergence) which provides structured outputs and higher-level patterns on top of the LLM layer.
@@ -527,7 +406,8 @@ using Ikon.AI.SpeechRecognition;
 string text = await SpeechRecognizer.RecognizeAsync(samples, 16000);
 ```
 
-Use the constructor + config form for PCM16 byte input, language hints, prompts, or continuous recognition:
+Use the constructor + config form for PCM16 byte input, language hints, prompts, timings, or
+continuous recognition. `RecognizeBatchSpeechAsync` returns a `Transcript`, not a string:
 
 ```csharp
 using Ikon.AI.SpeechRecognition;
@@ -537,7 +417,7 @@ var speechRecognizer = new SpeechRecognizer(SpeechRecognizerModel.Whisper2);
 
 var audioBytes = await File.ReadAllBytesAsync("audio.raw");
 
-string text = await speechRecognizer.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
+var transcript = await speechRecognizer.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
 {
     Language = "en-US",
     SampleRate = 16000,
@@ -545,7 +425,69 @@ string text = await speechRecognizer.RecognizeBatchSpeechAsync(new RecognizeSpee
     Samples = AudioUtils.ConvertPcm16ToFloat(audioBytes)
 });
 
-Log.Instance.Info($"Recognized speech: '{text}'");
+Log.Instance.Info($"Recognized speech: '{transcript.Text}'");
+```
+
+### Timestamps, speakers and confidence
+
+`Transcript` carries `Text`, the detected `Language`, the audio `Duration`, a `Confidence` where the
+provider reports one, and — when you ask for them — `Words` (a list of `SpeechWord`) and `Segments`
+(a list of `TranscriptSegment`). Both record types carry `Text`, `Start`, `End`, `Confidence` and
+`Speaker`. Timings are always `TimeSpan` relative to the start of the submitted audio, whatever units
+the provider reported.
+
+```csharp
+var transcript = await speechRecognizer.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
+{
+    SampleRate = 16000,
+    ChannelCount = 1,
+    Samples = samples,
+    Timestamps = SpeechTimestamps.Word | SpeechTimestamps.Segment,
+    Diarize = true
+});
+
+foreach (var word in transcript.Words)
+{
+    Log.Instance.Info($"[{word.Start.TotalSeconds:F2}-{word.End.TotalSeconds:F2}] {word.Text} ({word.Speaker})");
+}
+```
+
+`Timestamps` defaults to `None`, so an unchanged request costs exactly what it did before. **Asking
+for a granularity the model does not support throws** rather than returning an empty list — an empty
+`Words` would otherwise mean both "not supported" and "no speech". Check first with
+`SpeechRecognizer.GetCapabilities(model)`, which reports `SupportsWordTimestamps`,
+`SupportsSegmentTimestamps` and `SupportsDiarization` alongside the existing flags.
+
+Two provider limits are worth knowing because they surface as exceptions rather than as quietly
+missing fields:
+
+- The GPT-4o transcribe models have no timings at all; the diarizing variant reports speaker
+  segments but never words.
+- Voxtral accepts **one** granularity per request, and rejects a language hint together with
+  timestamps — ask for `Word` or `Segment`, and leave `Language` empty when you do.
+
+Continuous recognition yields `TranscriptEvent` instead of a string. `IsFinal` separates a
+provider's revisable interim hypothesis from text it will not change, and only final events carry
+`Words` — no provider attaches word timings to an interim result. `Start`/`End` are relative to the
+start of the stream, so they keep growing for the life of the recognition. Interim events are off
+unless `InterimResults` asks for them:
+
+```csharp
+var config = new RecognizeContinuousSpeechConfig
+{
+    SampleRate = 16000,
+    ChannelCount = 1,
+    Timestamps = SpeechTimestamps.Word,
+    InterimResults = true
+};
+
+await foreach (var transcriptEvent in speechRecognizer.RecognizeContinuousSpeechAsync(config, samples))
+{
+    if (transcriptEvent.IsFinal)
+    {
+        Log.Instance.Info($"[{transcriptEvent.Start.TotalSeconds:F2}] {transcriptEvent.Text}");
+    }
+}
 ```
 
 ## SoundEffectGeneration
@@ -877,7 +819,7 @@ var embeddings = await embeddingGenerator.GenerateEmbeddingsAsync(new EmbeddingG
 
 ## Kernel
 
-`Ikon.AI.Kernel` supplies shared primitives such as `KernelContext`, `MessageBlock`, and `Instruction` that underpin shaders and direct LLM calls.
+`Ikon.AI.Kernel` supplies shared primitives such as `KernelContext`, `MessageBlock`, and `Instruction` that underpin Emergence passes and direct LLM calls.
 
 ### Attaching media from the asset system
 

@@ -134,6 +134,11 @@ Audio.SpeechNotRecognizedAsync += async args =>
 };
 ```
 
+`SpeechRecognizedEventArgs.Transcript` carries the full result — pass
+`timestamps: SpeechTimestamps.Word` (or `Segment`) to `UseSpeechRecognition` / `UseTurnDetection` and
+`args.Transcript.Words` is populated, with offsets relative to the start of the recognized segment
+rather than of the stream. It defaults to `None`, and `args.Text` is unchanged either way.
+
 Exactly one of `SpeechRecognizedAsync` / `SpeechNotRecognizedAsync` fires per completed segment. If you latch busy state when capture stops (a "Transcribing..." spinner, a disabled button), release it in **both** handlers — handling only the success event leaves the spinner stuck for any press that produced no speech.
 
 `SpeechRecognizedAsync` never fires unless `UseSpeechRecognition` (or `UseTurnDetection`) was called once at setup. Calling either twice, or both, throws `InvalidOperationException`.
@@ -242,7 +247,7 @@ Rules that bite:
 
 ## Video
 
-Video is input-driven: clients capture camera or screen (a `CaptureButton`, or `ClientFunctions.StartVideoCaptureAsync`), the app receives the stream, and decides any fan-out. Render an outgoing stream on clients with `view.VideoStreamCanvas(streamId: ...)`.
+Video is input-driven: clients capture camera or screen (a `CaptureButton`, or `ClientFunctions.StartVideoCaptureAsync`), the app receives the stream, and decides any fan-out. Render an outgoing stream on clients with `view.VideoStreamCanvas(streamId: ...)`. The canvas takes an optional `onTap` handler called with `VideoTapArgs` — the tap position normalized to the rendered frame (0..1 on both axes), useful when the stream mirrors an interactive surface such as a device screen.
 
 ```csharp
 // The frame event carries no codec or geometry — those arrive once on the BEGIN event,
