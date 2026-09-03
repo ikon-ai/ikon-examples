@@ -41,7 +41,7 @@ public sealed record GaitSegment(Gait Gait, double StartSeconds, double EndSecon
 /// measured fact, and expect the boundaries to move once real rides can be checked against it. What
 /// is deliberately avoided is the alternative — classifying on speed bands, which is not a weaker
 /// version of this but simply the wrong instrument.
-/// See docs/private/research/horse-gait-from-rider-phone-research.md.
+/// See platform-dotnet/Ikon.App.Examples.Momentum/horse-gait-from-rider-phone-research.md.
 /// </remarks>
 public static class GaitAnalysis
 {

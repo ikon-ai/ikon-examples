@@ -138,7 +138,7 @@ public class AnalysisTests
         // rhythm from a phone rattling around. It does NOT separate a trot from a canter: an
         // unevenly divided stride is still perfectly periodic, so both score alike. Telling those
         // apart needs beat structure and labelled rides to check it against; see
-        // docs/private/research/horse-gait-from-rider-phone-research.md.
+        // platform-dotnet/Ikon.App.Examples.Momentum/horse-gait-from-rider-phone-research.md.
         var clean = Impulses([0.0, 0.5], strideSeconds: 1.0, evenBeats: true);
         var noisy = Noisy(clean, seed: 7);
 

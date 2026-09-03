@@ -295,7 +295,7 @@ public static class MotionAnalysis
     /// **This does not classify gaits.** Separating ravi from laukka needs the beat STRUCTURE —
     /// how a stride divides — and the honest position is that a classifier for it cannot be written
     /// without labelled rides to check it against, which is the gap
-    /// docs/private/research/horse-gait-from-rider-phone-research.md is about. What is here is the
+    /// platform-dotnet/Ikon.App.Examples.Momentum/horse-gait-from-rider-phone-research.md is about. What is here is the
     /// input such a classifier would take, measured and testable, and nothing beyond it.
     /// </remarks>
     public static (double PerMinute, double Strength) Rhythm(IReadOnlyList<MotionSample> accel)
