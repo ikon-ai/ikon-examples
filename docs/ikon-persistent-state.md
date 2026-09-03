@@ -4,10 +4,16 @@ How to persist app state across restarts. Read this before reaching for files or
 
 ## TL;DR — what to pick
 
+<!-- ikon-code: persistent-default -->
 ```csharp
 // Default for almost everything you want to persist:
 private readonly PersistentSessionReactive<MyState> _state = new(new MyState());
+```
 
+Then from any method:
+
+<!-- ikon-code: persistent-read-write -->
+```csharp
 // Read and write like any reactive:
 _state.Value = next;
 var current = _state.Value;
@@ -39,9 +45,10 @@ The user-scoped classes additionally expose per-user accessors usable outside an
 
 ## Backends — the default does the right thing
 
+<!-- ikon-code: persistent-backends -->
 ```csharp
 // Default — structured state lands in the app's built-in postgres database
-new PersistentSessionReactive<Prefs>(new Prefs());
+private readonly PersistentSessionReactive<Prefs> _prefs = new(new Prefs());
 
 // byte[] payloads stay on asset storage automatically — no backend parameter needed
 private readonly PersistentSessionReactive<byte[]> _snapshot = new([]);
@@ -50,12 +57,16 @@ private readonly PersistentSessionReactive<byte[]> _snapshot = new([]);
 private readonly PersistentSessionReactive<byte[]> _logo
     = new([], backend: PersistenceBackend.Public);
 
-// Then read the URL after first save:
-var url = _logo.PublicUrl;  // null until first save completes
-
 // Explicitly target a postgres DB of the app's own
 private readonly PersistentSessionReactive<long> _counter
     = new(0, backend: PersistenceBackend.Postgres, postgresDatabase: "main");
+```
+
+Read the public URL from a method, once a save has happened:
+
+<!-- ikon-code: persistent-public-url -->
+```csharp
+var url = _logo.PublicUrl;  // null until first save completes
 ```
 
 Every app gets a built-in Postgres database named `app`. Nothing declares it and nothing has to
@@ -106,6 +117,7 @@ and the state of an in-flight migration.
 
 ## The `key:` parameter — only for loops
 
+<!-- ikon-code: persistent-dynamic-keys -->
 ```csharp
 // WRONG — every loop iteration creates a reactive with the SAME stable id.
 foreach (var camera in cameras)
@@ -138,6 +150,7 @@ You almost never need `key:` for fields. Field names are already stable. Only re
 
 To erase everything the app has persisted about a user — a user-data-erasure (GDPR) request — use the app-level helper:
 
+<!-- ikon-code: persistent-erase-user -->
 ```csharp
 await app.EraseUserStateAsync(userId);
 ```
@@ -169,6 +182,7 @@ Nickname = "string"
 Bumping `version` obliges you to say what the old data means — the generated code calls a
 migration you write in your partial class, so forgetting it is a compile error, not a data loss:
 
+<!-- ikon-code: persistent-schema-migration -->
 ```csharp
 public sealed partial class PlayerProfile
 {

@@ -4,6 +4,9 @@ Server-initiated eID-backed document signing for Ikon apps. Drive a signing cere
 
 ## TL;DR — what you wire
 
+The signing types live in `Ikon.Common.Core.Signing`, which the scaffold's global usings do not carry — add `using Ikon.Common.Core.Signing;` to the file.
+
+<!-- ikon-code: signature-order -->
 ```csharp
 // In an app method that has the signer's client session id (int)
 var pdfBytes = File.ReadAllBytes("contract.pdf");
@@ -195,6 +198,7 @@ Each signing provider calls its own platform-side webhook route when an order tr
 
 The helper throws on every terminal failure:
 
+<!-- ikon-code: signature-failures -->
 ```csharp
 try
 {

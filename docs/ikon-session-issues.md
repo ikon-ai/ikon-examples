@@ -45,7 +45,7 @@ evidence.
 ## Where issues appear
 
 - **CLI** — `ikon app issues` lists what is wrong right now; `--state likely-fixed` is the review
-  queue, `--app-bundle-version` answers "did my deploy break this". `ikon app issues show <id>`
+  queue, `--deployment-version` answers "did my deploy break this". `ikon app issues show <id>`
   has the full detail and sample; `ikon app issues set <id> --state …` changes the state.
 - **Platform events** — a `session_issue_opened` event accompanies every new issue, so you can
   drive your own alerting from `ikon app events` or the events API.

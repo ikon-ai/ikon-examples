@@ -17,6 +17,7 @@ One law and two folders cover everything:
 
 At runtime, `app.Files` (an `AppFiles`) is the one API over both folders, each side an `AppFileTree`:
 
+<!-- ikon-code: app-files -->
 ```csharp
 // Read a shipped (or previously written) private file.
 var rules = await app.Files.Data.ReadTextAsync("rules.md");
@@ -94,3 +95,20 @@ files that should become part of the app's own tree, write them through `app.Fil
 `AssetUri`, and the storage classes. The
 [Asset System Developer Guide](asset-system-developer-guide.md) documents that layer for advanced
 use (optimistic concurrency, metadata, streams, custom storage paths).
+
+The pointer scheme itself is `AssetLinkManager`, which the tooling drives over a repository:
+`NormalizeAsync` converts raw binaries to pointers (upload the bytes, write the `.ikonasset`,
+git-ignore the real path) and `MaterializeAsync` puts the real files back, hash-checked and
+idempotent, throwing `AssetMaterializeException` — whose `Failures` lists `path: reason` — when some
+blob is simply gone. Storage is behind `IAssetBackend` (upload, download, delete, public URL), whose
+platform implementation is `IkonAssetBackend`: public assets to a frontend-loadable class, private
+ones readable only by the app, everything content-addressed by SHA-256 so identical bytes upload
+once and a pointer's URI is immutable.
+
+Reclaiming space is a two-step, plan-then-execute reachability GC. `PlanGcAsync(repoDir, scope)`
+returns an `AssetGcPlan` — the `Scope`, how many URIs were `EverReferenced`, how many are `Kept`,
+and the `Orphans` (each an `AssetGcOrphan` holding one URI) — without touching the store.
+`AssetGcScope` is the safety dial: `History` keeps everything any reachable commit references and so
+deletes nothing, `Window` keeps the working tree plus a recent day window, and `Current` keeps only
+what the working tree references, reclaiming every historical version. `ExecuteGcAsync(plan)` then
+deletes, best-effort, returning deleted and failed counts.

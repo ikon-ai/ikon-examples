@@ -357,6 +357,7 @@ const app = useIkonApp({
 
 Create a file in your C# app (e.g. `MyMapExtensions.cs`):
 
+<!-- ikon-code: custom-map-csharp -->
 ```csharp
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -482,79 +483,76 @@ public static class MyMapExtensions
 
 ## Step 3: Using the Map in Your App
 
+On the app class:
+
+<!-- ikon-code: custom-map-usage -->
 ```csharp
-[App]
-public class MyApp(IApp<SessionIdentity, ClientParameters> app)
+private readonly ReactiveList<MapPin> _pins = new();
+private readonly Reactive<string?> _selectedPinId = new(null);
+private readonly Reactive<string?> _lastClickInfo = new(null);
+
+public async Task Main()
 {
-    private UI UI { get; } = new(app, new IkonTheme());
+    // Seed some example pins — one AddRange, one change notification
+    _pins.AddRange(
+    [
+        new MapPin { Id = "hq", Lat = 51.505, Lon = -0.09, Label = "HQ", Color = "#00ff88" },
+        new MapPin { Id = "depot", Lat = 51.51, Lon = -0.08, Label = "Depot", Color = "#ff6600" }
+    ]);
 
-    private readonly ReactiveList<MapPin> _pins = new();
-    private readonly Reactive<string?> _selectedPinId = new(null);
-    private readonly Reactive<string?> _lastClickInfo = new(null);
-
-    public async Task Main()
+    UI.Root([Page.Default], content: view =>
     {
-        // Seed some example pins — one AddRange, one change notification
-        _pins.AddRange(
-        [
-            new MapPin { Id = "hq", Lat = 51.505, Lon = -0.09, Label = "HQ", Color = "#00ff88" },
-            new MapPin { Id = "depot", Lat = 51.51, Lon = -0.08, Label = "Depot", Color = "#ff6600" }
-        ]);
-
-        UI.Root([Page.Default], content: view =>
+        view.Column(["flex-1"], content: view =>
         {
-            view.Column(["flex-1"], content: view =>
+            view.Row(["flex-1"], content: view =>
             {
-                view.Row(["flex-1"], content: view =>
-                {
-                    // The map takes up most of the space
-                    view.MyMap(
-                        pins: _pins.Value,
-                        areas:
-                        [
-                            new AreaOverlay
-                            {
-                                Id = "zone1",
-                                Lat = 51.505, Lon = -0.09,
-                                RadiusMeters = 500,
-                                Color = "#33D17A",
-                                FillOpacity = 0.1f,
-                                Label = "Safe Zone"
-                            }
-                        ],
-                        centerLat: 51.505,
-                        centerLon: -0.09,
-                        zoom: 14,
-                        onPinClick: async data =>
+                // The map takes up most of the space
+                view.MyMap(
+                    pins: _pins.Value,
+                    areas:
+                    [
+                        new AreaOverlay
                         {
-                            _selectedPinId.Value = data.Id;
-                            _lastClickInfo.Value = $"Pin: {data.Id} at ({data.Lat:F4}, {data.Lon:F4})";
-                        },
-                        onMapClick: async data =>
-                        {
-                            _lastClickInfo.Value = $"Map click: ({data.Lat:F4}, {data.Lon:F4})";
-                        },
-                        style: ["flex-1"]);
-
-                    // Side panel
-                    view.Column(["w-64 p-4 border-l border-gray-700 bg-gray-900"], content: view =>
+                            Id = "zone1",
+                            Lat = 51.505, Lon = -0.09,
+                            RadiusMeters = 500,
+                            Color = "#33D17A",
+                            FillOpacity = 0.1f,
+                            Label = "Safe Zone"
+                        }
+                    ],
+                    centerLat: 51.505,
+                    centerLon: -0.09,
+                    zoom: 14,
+                    onPinClick: async data =>
                     {
-                        view.Text(["text-sm font-bold text-gray-300"], "MAP INFO");
+                        _selectedPinId.Value = data.Id;
+                        _lastClickInfo.Value = $"Pin: {data.Id} at ({data.Lat:F4}, {data.Lon:F4})";
+                    },
+                    onMapClick: async data =>
+                    {
+                        _lastClickInfo.Value = $"Map click: ({data.Lat:F4}, {data.Lon:F4})";
+                    },
+                    style: ["flex-1"]);
 
-                        if (_lastClickInfo.Value != null)
-                        {
-                            view.Text(["text-xs text-gray-400 mt-2"], _lastClickInfo.Value);
-                        }
+                // Side panel
+                view.Column(["w-64 p-4 border-l border-gray-700 bg-gray-900"], content: view =>
+                {
+                    view.Text(["text-sm font-bold text-gray-300"], "MAP INFO");
 
-                        if (_selectedPinId.Value != null)
-                        {
-                            view.Text(["text-xs text-green-400 mt-2"], $"Selected: {_selectedPinId.Value}");
-                        }
-                    });
+                    if (_lastClickInfo.Value != null)
+                    {
+                        view.Text(["text-xs text-gray-400 mt-2"], _lastClickInfo.Value);
+                    }
+
+                    if (_selectedPinId.Value != null)
+                    {
+                        view.Text(["text-xs text-green-400 mt-2"], $"Selected: {_selectedPinId.Value}");
+                    }
                 });
             });
         });
-    }
+    });
 }
 ```
 
@@ -586,6 +584,7 @@ marker.on('click', (e: L.LeafletMouseEvent) => {
 
 **C#** — add the corresponding data class, parameter, and action wiring:
 
+<!-- ikon-code: custom-map-pin-drag-data -->
 ```csharp
 public class PinDragData
 {
@@ -593,18 +592,39 @@ public class PinDragData
     [JsonPropertyName("lat")] public double Lat { get; set; }
     [JsonPropertyName("lon")] public double Lon { get; set; }
 }
+```
 
-// In the extension method, add a parameter:
-Func<PinDragData, Task>? onPinDrag = null,
+The extension method gains the parameter, the action wiring and the prop — the same three steps every
+new callback needs:
 
-// Wire it:
-if (onPinDrag != null)
+<!-- ikon-code: custom-map-pin-drag-wiring -->
+```csharp
+public static void MyMapWithDrag(
+    this UIView view,
+    IReadOnlyList<MapPin>? pins = null,
+    Func<PinDragData, Task>? onPinDrag = null,
+    string[]? style = null,
+    [CallerFilePath] string file = "",
+    [CallerLineNumber] int line = 0)
 {
-    onPinDragId = view.CreateAction<PinDragData>(args => onPinDrag(args.Value));
-}
+    string? onPinDragId = null;
 
-// Pass in the node props:
-["onPinDragId"] = onPinDragId,
+    if (onPinDrag != null)
+    {
+        onPinDragId = view.CreateAction<PinDragData>(args => onPinDrag(args.Value));
+    }
+
+    view.AddNode(
+        MyMapNodeTypes.MyMap,
+        new Dictionary<string, object?>
+        {
+            ["pins"] = pins is null ? null : JsonSerializer.Serialize(pins),
+            ["onPinDragId"] = onPinDragId,
+        },
+        style: style,
+        file: file,
+        line: line);
+}
 ```
 
 ### Adding new props
@@ -629,12 +649,22 @@ if (area.vertices && area.vertices.length >= 3) {
 }
 ```
 
+<!-- ikon-code: custom-map-polygon-overlay -->
 ```csharp
-// C# data class
-[JsonPropertyName("vertices")] public List<double[]>? Vertices { get; set; }
+public class PolygonOverlay
+{
+    [JsonPropertyName("vertices")] public List<double[]>? Vertices { get; set; }
+}
+```
 
-// Building vertex data from GeoPoints
-Vertices = points.Select(p => new double[] { p.Latitude, p.Longitude }).ToList()
+Building the vertex data from a list of points:
+
+<!-- ikon-code: custom-map-polygon-vertices -->
+```csharp
+var overlay = new PolygonOverlay
+{
+    Vertices = points.Select(p => new double[] { p.Latitude, p.Longitude }).ToList()
+};
 ```
 
 ## File Structure Summary

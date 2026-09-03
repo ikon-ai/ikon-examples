@@ -15,6 +15,7 @@ All four are default-implemented on the app interface and throw `NotSupportedExc
 
 Location answers *where*. Motion answers *how it is moving*, which is the thing a position trace cannot tell you: a speed trace cannot separate a collected canter from a fast trot, and it cannot see a swing, a gesture or a single step at all. Stride and rotation are in the accelerometer.
 
+<!-- ikon-code: device-motion -->
 ```csharp
 app.Motion.OnBatch(batch =>
 {
@@ -60,6 +61,7 @@ still.
 
 A fix that fails to send in a tunnel or on a flat cell is gone. No server-side durability recovers it, because it never arrived. `app.Recordings` has the device write its own fixes and motion to local storage and upload the file when the activity ends.
 
+<!-- ikon-code: device-recordings -->
 ```csharp
 app.Recordings.OnArchive(archive => Repair(archive));
 
@@ -83,6 +85,7 @@ Archives arrive through the upload transport under the fixed id `RecordingArchiv
 
 `app.LiveActivity` puts a banner on the iOS lock screen and in the Dynamic Island while something is running, updating in place with nobody looking at the app.
 
+<!-- ikon-code: device-live-activity -->
 ```csharp
 await app.LiveActivity.StartAsync("Momentum", "#db176e",
     [new LiveMetric("0.00 km", "distance"), new LiveMetric("0:00", "moving")], "Run");
@@ -106,6 +109,7 @@ Every call answers `false` rather than throwing where a banner cannot be shown â
 
 `view.FileUpload` covers a person picking a file, and registers itself as it renders. `app.Uploads` is the same transport for the case where nothing is on screen: a client sending what it recorded while the app was in a pocket, a background sync, a device catching up on work it did offline. Both paths share one handler, so an upload behaves identically whichever asked for it.
 
+<!-- ikon-code: device-uploads -->
 ```csharp
 app.Uploads.Register("my-app.telemetry",
     onStart: args => Task.FromResult(new FileUploadResult

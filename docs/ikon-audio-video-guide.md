@@ -6,13 +6,12 @@ How an Ikon AI app's C# app class plays audio to clients, receives microphone an
 
 `Audio` and `Video` are app services. Declare each as a property initialized from the app parameter of your app class's primary constructor:
 
+On the app class:
+
+<!-- ikon-code: av-accessors -->
 ```csharp
-[App]
-public partial class MyApp(IApp<SessionIdentity, ClientParameters> app)
-{
-    private Audio Audio { get; } = new(app);
-    private Video Video { get; } = new(app);
-}
+private Audio Audio { get; } = new(app);
+private Video Video { get; } = new(app);
 ```
 
 **The field initializer is mandatory, not a style choice.** The `Audio` constructor subscribes to the app's `StartingAsync` event, and the speech-mixer pump — the loop that actually plays everything sent through `SpeakAsync` and `SendSpeech` — is only started from that handler. Field initializers run before the framework raises `StartingAsync`; code inside `Main()` runs after it. An `Audio` constructed in `Main()` has missed the event, its pump never starts, and every `SpeakAsync` call is silently swallowed — no exception, no sound.
@@ -21,6 +20,7 @@ All Ikon namespaces are auto-imported through the app scaffold's `GlobalUsings.c
 
 ## Sending audio: three ways, chosen by pacing
 
+<!-- ikon-code: av-send -->
 ```csharp
 // 1. Speech — real-time paced through the speech mixer; new speech interrupts
 //    current speech with a fade. The default for spoken replies.
@@ -45,6 +45,7 @@ Don't run two concurrent `StreamAsync` calls on the same stream id — the inter
 
 Every send method takes `IReadOnlyList<int>? targetIds` of client session ids. **`null` — the default — broadcasts to ALL connected clients.** In a multi-user app this is a privacy trap: an app instance is shared by every client connected to it, so a "reply" spoken without `targetIds` is heard by every user in the session, not just the one who asked.
 
+<!-- ikon-code: av-reply-to-speaker -->
 ```csharp
 Audio.SpeechRecognizedAsync += async args =>
 {
@@ -59,6 +60,7 @@ Also note: **interruption is instance-global, not per-target.** All speech flows
 
 `Audio.CloseAsync()` is **not** how you stop speech — it tears down an output stream, and the speech mixer's stream is the app's default output. Stop speech through the mixer:
 
+<!-- ikon-code: av-mixer-control -->
 ```csharp
 Audio.SpeechMixer.FadeOut();   // graceful: fade out the current utterance
 Audio.SpeechMixer.Clear();     // hard reset: discard current, pending, and paused speech
@@ -80,6 +82,7 @@ The separation is what makes push-to-talk work at all. A permission dialog takes
 
 A refusal (or a machine with no microphone) switches the button to a **"Microphone blocked"** state that stays pressable so it can explain itself, and fires `onPermissionChanged`:
 
+<!-- ikon-code: av-push-to-talk -->
 ```csharp
 view.PushToTalkButton(
     text: "Hold to talk",
@@ -97,6 +100,7 @@ Flutter frontends run the same state machine against the OS permission dialog, s
 
 For transcription, prefer `UseSpeechRecognition` (next section). For raw PCM access:
 
+<!-- ikon-code: av-audio-input -->
 ```csharp
 Audio.AudioInputStreamBeginAsync += async args =>
 {
@@ -119,6 +123,7 @@ The event args carry `args.ClientSessionId` / `args.UserId` / `args.ClientContex
 
 One call during app setup wires capture → transcription → routing:
 
+<!-- ikon-code: av-speech-recognition -->
 ```csharp
 Audio.UseSpeechRecognition(SpeechRecognizerModel.WhisperLarge3Turbo);
 
@@ -153,6 +158,7 @@ Exactly one of `SpeechRecognizedAsync` / `SpeechNotRecognizedAsync` fires per co
 
 For an always-listening voice app, `UseTurnDetection` segments a continuous stream into conversational turns instead of transcribing per button press:
 
+<!-- ikon-code: av-turn-detection -->
 ```csharp
 Audio.UseTurnDetection(SpeechRecognizerModel.WhisperLarge3Turbo);
 
@@ -177,6 +183,7 @@ Notable parameters: `speculative` (default true) starts transcription at the pro
 
 When feeding your own audio into `SendSpeech` (or a `SpeechMixer`), **always use the full constructor**:
 
+<!-- ikon-code: av-audio-chunk -->
 ```csharp
 var chunk = new AudioChunk(
     id: Guid.NewGuid().ToString(),   // one unique id per utterance
@@ -197,16 +204,22 @@ Two traps:
 
 For meetings, huddles, and multiplayer voice, `GroupAudioMixer` (from `Ikon.Resonance`) mixes every participant's microphone into a personalized output per participant — each hears everyone **except themselves**:
 
+<!-- ikon-code: av-group-mixer-fields -->
 ```csharp
 private readonly GroupAudioMixer _mixer = new();
-
-// Wire participants and streams:
-app.OnClientJoined(async ctx => _mixer.AddParticipant(ctx.ClientSessionId));
-app.OnClientLeft(async ctx => _mixer.RemoveParticipant(ctx.ClientSessionId));
 
 // The frame event carries only StreamId/Samples/IsFirst/IsLast — the format lives on the
 // BEGIN event, so stash it per stream:
 private readonly Dictionary<string, (int SampleRate, int ChannelCount)> _streamFormats = new();
+```
+
+Then from Main:
+
+<!-- ikon-code: av-group-mixer -->
+```csharp
+// Wire participants and streams:
+app.OnClientJoined(async ctx => _mixer.AddParticipant(ctx.ClientSessionId));
+app.OnClientLeft(async ctx => _mixer.RemoveParticipant(ctx.ClientSessionId));
 
 Audio.AudioInputStreamBeginAsync += async args =>
 {
@@ -249,11 +262,17 @@ Rules that bite:
 
 Video is input-driven: clients capture camera or screen (a `CaptureButton`, or `ClientFunctions.StartVideoCaptureAsync`), the app receives the stream, and decides any fan-out. Render an outgoing stream on clients with `view.VideoStreamCanvas(streamId: ...)`. The canvas takes an optional `onTap` handler called with `VideoTapArgs` — the tap position normalized to the rendered frame (0..1 on both axes), useful when the stream mirrors an interactive surface such as a device screen.
 
+<!-- ikon-code: av-video-streams-field -->
 ```csharp
 // The frame event carries no codec or geometry — those arrive once on the BEGIN event,
 // so stash them per stream:
 private readonly Dictionary<string, VideoInputStreamBeginEventArgs> _videoStreams = new();
+```
 
+Then from Main:
+
+<!-- ikon-code: av-video-forward -->
+```csharp
 Video.VideoInputStreamBeginAsync += async args => _videoStreams[args.StreamId] = args;
 
 Video.VideoInputFrameAsync += async args =>

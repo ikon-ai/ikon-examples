@@ -83,8 +83,12 @@ erase:
   scoped values — those are shared state, not per-user state, so the platform cannot know what
   inside them belongs to whom.
 
-Subscribe to the app-side erasure hook to clean this data when one of your users is erased:
+Subscribe to the app-side erasure hook to clean this data when one of your users is erased. The
+helper hands you the user id directly; the underlying event carries a `UserDataErasureEventArgs`
+with the same `UserId` on it, which is what to subscribe to if you attach a handler by hand. (This
+example uses Dapper's `ExecuteAsync`, so it needs the `Dapper` package and `using Dapper;`.)
 
+<!-- ikon-code: user-data-erasure-database -->
 ```csharp
 app.OnUserDataErasure(async userId =>
 {

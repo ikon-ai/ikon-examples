@@ -17,6 +17,7 @@ Key capabilities:
 
 Create a pipeline class and annotate it with `[Pipeline]`. Implement a `Run` method with the required signature and compose processing steps using branch operations. Annotate processor methods with `[Processor]`.
 
+<!-- ikon-code: pipeline-simple -->
 ```csharp
 using Ikon.Common;
 using Ikon.Common.Core;
@@ -24,7 +25,7 @@ using Ikon.Pipeline;
 using Ikon.Pipeline.Items;
 
 [Pipeline]
-private class SimplePipeline
+internal class SimplePipeline
 {
     // Pipelines must have a Run method with this signature
     // The cancellation token is optional and can be omitted
@@ -52,12 +53,11 @@ private class SimplePipeline
 
 ### Running the Pipeline
 
-Instantiate a `PipelineRunner`, initialize it with the pipeline type, and submit items for processing.
+Instantiate a `PipelineRunner`, initialize it with the pipeline type, and submit items for processing
+(the `Ikon.Pipeline` and `Ikon.Pipeline.Items` usings above cover this too).
 
+<!-- ikon-code: pipeline-run -->
 ```csharp
-using Ikon.Pipeline;
-using Ikon.Pipeline.Items;
-
 using var pipelineRunner = new PipelineRunner();
 await pipelineRunner.Initialize<SimplePipeline>();
 
@@ -82,6 +82,7 @@ foreach (var outputItem in outputItems)
 
 `RunAsEnumerable` streams results as soon as processors emit them, which is useful for long-running workflows.
 
+<!-- ikon-code: pipeline-run-enumerable -->
 ```csharp
 using var pipelineRunner = new PipelineRunner();
 await pipelineRunner.Initialize<SimplePipeline>();
@@ -105,6 +106,7 @@ await foreach (var outputItem in pipelineRunner.RunAsEnumerable(inputItems))
 
 `PipelineRunner.Initialize` accepts a `PipelineRunner.Config` object for fine-grained control over processor retry limits, metadata output, type discovery, and more.
 
+<!-- ikon-code: pipeline-run-config -->
 ```csharp
 using var pipelineRunner = new PipelineRunner();
 
@@ -135,10 +137,24 @@ foreach (var outputItem in outputItems)
 }
 ```
 
+`Config.ContentCacheType` takes a `CacheType`: `FileSystem` (the default) keeps item content on
+disk between runs, `InMemory` discards it with the process. State and content cache must agree —
+an in-memory run cannot point at a persistent content cache.
+
+### Reading What a Run Did
+
+A run reports through `PipelineStatus`: item counts in, processed and out; per-stage cache hits and
+misses; `ProcessFailureCount` and `ProcessRetryCount`; `ErrorLogCount` and `WarningLogCount`;
+`Duration`, `HasCompleted`, `HasFaulted`, `WasCancelled`; and the accumulated `Usages` map that
+carries whatever the processors metered. A pipeline that fails structurally — a malformed graph, a
+processor that cannot be constructed — throws `PipelineException` rather than reporting through the
+status.
+
 ### Cancellation Support
 
 Pass a `CancellationToken` when invoking the pipeline to halt execution cooperatively.
 
+<!-- ikon-code: pipeline-run-cancel -->
 ```csharp
 using var pipelineRunner = new PipelineRunner();
 await pipelineRunner.Initialize<SimplePipeline>();
@@ -178,6 +194,7 @@ Pipelines operate on immutable `Item` instances that carry content, metadata, an
 
 Initial items are created outside a pipeline run (but after pipeline initialization) and are meant to be given as input to a pipeline. Initial items do not have any parent item(s) and must not be created inside a processor.
 
+<!-- ikon-code: pipeline-create-initial-items -->
 ```csharp
 List<Item> inputItems = [];
 
@@ -204,8 +221,9 @@ inputItems.Add(await Item.CreateInitialFromObject("object_item_name", exampleDat
 
 The examples rely on a simple data transfer object for object-based items:
 
+<!-- ikon-code: pipeline-example-data -->
 ```csharp
-private class ExampleData
+internal class ExampleData
 {
     public string Name { get; set; } = string.Empty;
     public int Age { get; set; }
@@ -217,9 +235,8 @@ private class ExampleData
 
 Non-`Item.CreateInitial*` functions are meant to be used inside processors and (almost) always take in a parent item. The `name` parameter specifies the full item name. Use string interpolation to derive names from parent items. It is also possible, though uncommon, to create items without parents.
 
+<!-- ikon-code: pipeline-create-items -->
 ```csharp
-Item parentItem = /* existing pipeline item */;
-Item anotherParentItem = /* another pipeline item */;
 List<Item> outputItems = [];
 
 // Create an item from a string with single parent
@@ -252,9 +269,8 @@ outputItems.Add(await Item.CreateFromObject(parentItem, $"{parentItem.Name}.name
 
 Items provide asynchronous helpers for working with content in multiple representations.
 
+<!-- ikon-code: pipeline-read-content -->
 ```csharp
-Item parentItem = /* existing pipeline item */;
-
 var stringItem = await Item.Create(parentItem, $"{parentItem.Name}.string", "This is a string content", mimeTypeOverride: MimeTypes.TextPlain);
 var byteItem = await Item.Create(parentItem, $"{parentItem.Name}.bytes", new byte[1024]);
 await using var stream = new MemoryStream(1024);
@@ -279,12 +295,38 @@ ExampleData objectContent = await objectItem.GetContentAsObject<ExampleData>();
 Log.Instance.Info($"Object content: Name={objectContent.Name}, Age={objectContent.Age}, Occupation={objectContent.Occupation}");
 ```
 
+### Item Metadata, Lineage and the Item Interface
+
+Alongside its content an item carries an `ItemMetadata` — the document title and type, the title
+hierarchy, page number and count, original path and name, created/updated timestamps, a free
+`Properties` map and a `CustomJson` escape hatch. It is a `readonly struct` and immutable by design:
+build a derived one by passing the parent to the constructor, which inherits every value you do not
+override. Unless the runner's `DisableMetadataOutput` is set, an item written out is accompanied by
+its metadata as a `.meta.json` sidecar.
+
+`Item` implements `IItem<Item>`, which is what a generic helper takes when it needs to work over
+items without binding to the concrete struct.
+
+Because `Item` is a struct, `FirstOrDefault` on a sequence of items yields a default `Item` that a
+null check cannot detect. `ItemExtensions.FirstOrNull` — with or without a predicate — returns a
+genuine `Item?` instead, and is what to reach for:
+
+<!-- ikon-code: pipeline-first-or-null -->
+```csharp
+Item? match = outputItems.FirstOrNull(item => item.MimeType == MimeTypes.ApplicationJson);
+
+if (match is { } found)
+{
+    Log.Instance.Info($"Found {found.Name}");
+}
+```
+
 ## Working with Local Files
 
 Use `LocalFile` to interoperate with APIs that require filesystem access. Temporary files are cleaned up automatically when the `LocalFile` is disposed.
 
+<!-- ikon-code: pipeline-local-file -->
 ```csharp
-Item parentItem = /* existing pipeline item */;
 var sourceItem = await Item.Create(parentItem, $"{parentItem.Name}.bytes", new byte[1024]);
 
 // Copy any item to a temporary local file system file
@@ -310,12 +352,13 @@ using (var localFile = new LocalFile(MimeTypes.TextPlain))
 
 Pipelines can accept strongly typed configuration through dependency injection of `IPipelineHost<TConfig>` and provide rich branching primitives for filtering, batching, streaming, grouping, and observation.
 
+<!-- ikon-code: pipeline-advanced -->
 ```csharp
 // If a config object is desired, the pipeline class can take in an IPipelineHost<TConfig> parameter
 // The user supplies the config either as an object or JSON when running the pipeline
 // The config will be accessible via the host.Config property
 [Pipeline]
-private class AdvancedPipeline(IPipelineHost<AdvancedPipeline.Config> host)
+internal class AdvancedPipeline(IPipelineHost<AdvancedPipeline.Config> host)
 {
     // The config object is a user-defined POD class
     public class Config
@@ -443,6 +486,7 @@ private class AdvancedPipeline(IPipelineHost<AdvancedPipeline.Config> host)
 
 Supply a configuration instance, enable persistent caching, and provide rich input collections including tagged items and binary payloads.
 
+<!-- ikon-code: pipeline-run-advanced -->
 ```csharp
 using var pipelineRunner = new PipelineRunner();
 
@@ -490,6 +534,7 @@ alongside `host.Config`:
 
 Use `EmptyPipelineConfig` when the pipeline has no user-defined configuration:
 
+<!-- ikon-code: pipeline-secret -->
 ```csharp
 [Pipeline]
 public class FetchFromGithub(IPipelineHost<EmptyPipelineConfig> host)
@@ -513,6 +558,7 @@ public class FetchFromGithub(IPipelineHost<EmptyPipelineConfig> host)
 
 Pipelines that already have a config type get the same accessors:
 
+<!-- ikon-code: pipeline-config-secret -->
 ```csharp
 [Pipeline]
 public class TranscribeAudio(IPipelineHost<TranscribeAudio.Config> host)
@@ -539,6 +585,22 @@ value with `ikon app secret set` takes effect on the next pipeline run.
 
 Use `ikon pipeline run` to execute a pipeline outside your application code, or `ikon app pipeline run` from inside an Ikon AI app project for the common case where the DLL and space ID can be auto-resolved from the project.
 
+## Reading PDFs
+
+`Ikon.Pipelines.Public` carries the PDF reader the document pipelines are built on, and it is usable
+on its own. `PdfDocument.Load(bytes, password)` returns an `IPdfDocument` — a `PageCount` and
+`GetPage(index)` — and each `IPdfPage` gives `Index`, `Width`, `Height`, `GetText()`, `CreateCopy`
+to split one page into its own file, and two `GetPixels` overloads that render it as a row-major
+RGBA buffer: one caps the longest side and preserves aspect ratio, the other renders at an exact
+size. Both the document and the pages are `IDisposable` and hold native handles, so dispose them.
+
+### Exposing a Pipeline You Did Not Write
+
+`[ExposePipeline(typeof(MyPipeline))]` publishes a pipeline that lives in a framework assembly as
+one of your app's own — put it on the `[App]` class, or on an empty marker class, once per pipeline.
+`name:` overrides the name in the endpoint URL, and `executionMode:` and `schedule:` override what
+the original `[Pipeline]` declared (the same five-minute minimum interval applies).
+
 ### From an Ikon AI app project
 
 Run from the app project root:
@@ -555,6 +617,8 @@ ikon app pipeline run MyPipeline --target production
 ```
 
 `ikon app pipeline run` builds the app, locates the output assembly, resolves the pipeline type, reads `Target.SpaceId` from `ikon-config.toml`, and exchanges for a space token automatically. All `ikon pipeline run` flags below pass through.
+
+Pipeline runs executed on the Ikon cloud are billed for the CPU time and network traffic their container uses, on the same meters as app sessions.
 
 ### Common Options
 
@@ -595,8 +659,12 @@ Before running distributed pipelines:
 
 ### Defining Remote Processors
 
-Mark processors for remote execution using the `isRemote` parameter in the `[Processor]` attribute:
+Mark processors for remote execution using the `isRemote` parameter in the `[Processor]` attribute.
+A stage can also declare what it needs from the machine that runs it through `ProcessorTags` — `Gpu`
+is the one tag today — passed as `tags:` on the `Transform*` builders, so a client that advertises no
+GPU is never handed that stage.
 
+<!-- ikon-code: pipeline-distributed -->
 ```csharp
 [Pipeline]
 public class DistributedPipeline(IPipelineHost<DistributedPipeline.Config> host)
@@ -766,6 +834,7 @@ ikon pipeline run \
 
 Use `PipelineRunner.RunRemote` to orchestrate distributed execution from code:
 
+<!-- ikon-code: pipeline-run-remote -->
 ```csharp
 var config = new PipelineRunner.Config
 {
@@ -779,7 +848,7 @@ var config = new PipelineRunner.Config
 
 await PipelineRunner.RunRemote(config, status =>
 {
-    Console.WriteLine($"Processed: {status.ProcessedItemCount}, Failures: {status.ProcessFailureCount}");
+    Log.Instance.Info($"Processed: {status.ProcessedItemCount}, Failures: {status.ProcessFailureCount}");
 }, cancellationToken);
 ```
 

@@ -45,6 +45,7 @@ Most read and write operations accept or return an `AssetMetadata` instance. Pop
 
 `GetWriteStreamAsync` returns a writable stream bound to the storage driver identified by the URI. The write is committed when the stream is disposed, allowing each storage to finalize uploads (for example by issuing signed PUT requests).
 
+<!-- ikon-code: asset-guide-write-stream -->
 ```csharp
 var assets = Asset.Instance;
 var photoUri = new AssetUri(
@@ -63,6 +64,7 @@ await fileStream.CopyToAsync(writeStream);
 
 Use `SetTextAsync` to persist UTF-8 encoded text to any storage class that accepts textual payloads (for example `CloudJson`). Provide `AssetMetadata.LastModified` when you need optimistic concurrency: the driver validates the value against the current revision and throws `AssetUpdateConflictException` (or returns `AssetWriteStatus.Conflict` from `TrySetTextAsync`).
 
+<!-- ikon-code: asset-guide-set-text -->
 ```csharp
 var settingsUri = new AssetUri(AssetClass.CloudJson, "config/app.json", spaceId: "space-42");
 var payload = JsonSerializer.Serialize(settingsObject);
@@ -74,6 +76,7 @@ await assets.SetTextAsync(
 
 `TrySetTextAsync` mirrors the behavior but returns an `AssetWriteResult` so you can branch without exceptions:
 
+<!-- ikon-code: asset-guide-try-set-text -->
 ```csharp
 var write = await assets.TrySetTextAsync(settingsUri, payload);
 if (write.IsConflict)
@@ -86,6 +89,7 @@ if (write.IsConflict)
 
 `SetBytesAsync` uploads byte arrays that are already materialized in memory. `TrySetBytesAsync` exposes the same optimistic concurrency semantics as the text helper.
 
+<!-- ikon-code: asset-guide-set-bytes -->
 ```csharp
 var thumbnailUri = new AssetUri(AssetClass.CloudFile, "thumbnails/card.jpg", spaceId: "space-42");
 await assets.SetBytesAsync(thumbnailUri, thumbnailBytes, new AssetMetadata(mimeType: "image/jpeg"));
@@ -95,6 +99,7 @@ await assets.SetBytesAsync(thumbnailUri, thumbnailBytes, new AssetMetadata(mimeT
 
 `SetAsync<T>` serializes arbitrary reference types to JSON (unless the value is already `string` or `byte[]`) and writes the result using `SetTextAsync`. This is a convenient way to persist strongly typed settings without manual serialization.
 
+<!-- ikon-code: asset-guide-set-typed -->
 ```csharp
 await assets.SetAsync(
     new AssetUri(AssetClass.CloudJson, "layouts/dashboard.json", spaceId: "space-42"),
@@ -109,6 +114,7 @@ await assets.SetAsync(
 - `GetMetadataAsync` returns metadata or throws if the asset is missing.
 - `TryGetMetadataAsync` returns `null` when metadata is unavailable.
 
+<!-- ikon-code: asset-guide-exists -->
 ```csharp
 if (!await assets.ExistsAsync(settingsUri))
 {
@@ -116,7 +122,7 @@ if (!await assets.ExistsAsync(settingsUri))
 }
 
 var metadata = await assets.GetMetadataAsync(settingsUri);
-Console.WriteLine($"Last updated {metadata.LastModified:O}");
+Log.Instance.Info($"Last updated {metadata.LastModified:O}");
 ```
 
 ### Streams and primitives
@@ -125,6 +131,7 @@ Console.WriteLine($"Last updated {metadata.LastModified:O}");
 - `GetTextWithMetadataAsync` / `GetTextAsync` read UTF-8 text by default and support explicit encodings. `TryGet*` variants avoid throwing.
 - `GetBytesWithMetadataAsync` / `GetBytesAsync` materialize the asset into memory as a byte array.
 
+<!-- ikon-code: asset-guide-read-stream -->
 ```csharp
 var download = await assets.GetReadStreamAsync(photoUri);
 using (download)
@@ -140,6 +147,7 @@ var script = await assets.GetTextAsync(new AssetUri(AssetClass.EmbeddedFile, "Sc
 
 `GetWithMetadataAsync<T>` deserializes JSON payloads into the requested type (with fast paths for `string` and `byte[]`) and surfaces metadata. `GetAsync<T>` and `TryGetAsync<T>` return just the content.
 
+<!-- ikon-code: asset-guide-get-typed -->
 ```csharp
 var layout = await assets.GetAsync<DashboardLayout>(
     new AssetUri(AssetClass.CloudJson, "layouts/dashboard.json", spaceId: "space-42"));
@@ -149,6 +157,7 @@ var layout = await assets.GetAsync<DashboardLayout>(
 
 `GetOrUpdateWithMetadataAsync` wires a callback to an asset. The callback is invoked immediately with the current content and again whenever the underlying storage reports an add, change, or delete event. Provide `onAssetNotFound` to seed defaults before subscribing.
 
+<!-- ikon-code: asset-guide-subscribe -->
 ```csharp
 await assets.GetOrUpdateWithMetadataAsync<Settings>(
     settingsUri,
@@ -169,6 +178,7 @@ await assets.GetOrUpdateWithMetadataAsync<Settings>(
 
 Use `ListAsync` with an `AssetQuery` to enumerate folders, filter by tags, and paginate through large collections. Listing is currently supported by the `LocalFile` and `EmbeddedFile` backends only. Cloud backends (`CloudFile`, `CloudFilePublic`, `CloudJson`) do not yet support listing and will throw `NotSupportedException`.
 
+<!-- ikon-code: asset-guide-list -->
 ```csharp
 var folderUri = new AssetUri(AssetClass.LocalFile, "albums/2024/");
 var query = new AssetQuery(folderUri)
@@ -180,7 +190,7 @@ var query = new AssetQuery(folderUri)
 var entries = await assets.ListAsync(query);
 foreach (var entry in entries)
 {
-    Console.WriteLine($"{entry.AssetUri.Path} updated {entry.Metadata.LastModified:O}");
+    Log.Instance.Info($"{entry.AssetUri.Path} updated {entry.Metadata.LastModified:O}");
 }
 
 var nextPageToken = query.NextContinuationToken;

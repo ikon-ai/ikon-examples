@@ -11,7 +11,7 @@ sends commands and reacts to events: there is no webhook to host and no payment 
 ## Enable a provider (once per app)
 
 ```bash
-ikon app payments enable --provider stripe      # Stripe is the generally-available provider
+ikon app payments enable stripe      # Stripe is the generally-available provider
 ikon app payments status                        # check onboarding / charges-enabled
 ```
 
@@ -34,6 +34,7 @@ provider's form), get a fresh one with `ikon app payments status`, or just re-ru
 
 `app.Payments` (a `PaymentsService`) is the entry point — no construction needed.
 
+<!-- ikon-code: payments-setup -->
 ```csharp
 // 1. No provider setup needed — commands charge with the provider you enabled for the app.
 //    Pin a default ONLY if you enabled more than one and want to skip passing provider: each call:
@@ -109,6 +110,7 @@ later gives them a **different** user id, so a payment taken under the guest id 
 granted — would not follow them. `CreatePaymentLinkAsync` therefore **throws** when the paying customer
 is a connected guest. Either require sign-in before taking the payment, or opt in explicitly:
 
+<!-- ikon-code: payments-anonymous -->
 ```csharp
 app.Payments.AllowAnonymousPayments = true;   // accept guest payments (e.g. anonymous tips)
 ```
@@ -127,6 +129,7 @@ An offer is an **Ikon-level catalog entry** (`offerId` → a price) that custome
 from code or the CLI — no provider dashboard required — and it works the same across Stripe, Mollie, and
 Surfboard:
 
+<!-- ikon-code: payments-create-offer -->
 ```csharp
 await app.Payments.CreateOfferAsync(new OfferSpec("pro", "Pro",
     new OfferPriceSpec(AmountMinor: 999, Currency: "eur", Kind: PriceKind.Recurring, Interval: PriceInterval.Month)));
@@ -136,9 +139,9 @@ await app.Payments.CreateOfferAsync(new OfferSpec("pro", "Pro",
 or
 
 ```
-ikon app payments offer create --id pro --name Pro --amount 999 --currency eur --interval month
+ikon app payments offer create pro --name Pro --amount 999 --currency eur --interval month
 ikon app payments offer list
-ikon app payments offer delete --id pro
+ikon app payments offer delete pro
 ```
 
 For Stripe this provisions a Product + Price (`lookup_key = offerId`); for providers without a catalog
@@ -161,6 +164,7 @@ For **one-time** (permanent-unlock) offers, charge a developer-computed amount w
 offer's entitlement by passing `amountMinorOverride` to the offer payment link. The classic case is
 "upgrade from `level1` to `level2`, crediting what was already paid":
 
+<!-- ikon-code: payments-upgrade-credit -->
 ```csharp
 // The customer already bought level1; charge only the difference for level2.
 var payments = await app.Payments.ListPaymentsAsync();
@@ -183,6 +187,7 @@ premium features on `level2` and hide the buy button with `IsEntitled` as needed
 Switch an active subscription to another **recurring** offer (same currency and interval) with
 `ChangeSubscriptionOfferAsync`:
 
+<!-- ikon-code: payments-change-offer -->
 ```csharp
 var change = await app.Payments.ChangeSubscriptionOfferAsync(subscriptionId, "level2");
 ```
@@ -207,6 +212,7 @@ The platform computes the proration. To own the pricing yourself (Mollie/Surfboa
 A subscription canceled at period end but whose paid period hasn't lapsed can be re-enabled — no charge,
 billing resumes on the original renewal date:
 
+<!-- ikon-code: payments-resume -->
 ```csharp
 var resume = await app.Payments.ResumeSubscriptionAsync(subscriptionId);
 // resume.SubscriptionId may differ from the input when the provider recreated the subscription (Mollie).
@@ -219,6 +225,7 @@ An immediately-canceled or fully-ended subscription can't be resumed — start a
 Let customers apply a discount code on the checkout page by passing `allowPromotionCodes: true` when
 creating a payment link — works for one-time and subscription offers, and for ad-hoc charges:
 
+<!-- ikon-code: payments-promotion-codes -->
 ```csharp
 var link = await app.Payments.CreatePaymentLinkAsync("pro", allowPromotionCodes: true);
 ```
@@ -236,6 +243,7 @@ Your app does **not** host a webhook. The backend normalizes every provider webh
 `PaymentEventReceived` event over the existing protocol-message channel. Handle the normalized types;
 delivery is deduped on `EventId`:
 
+<!-- ikon-code: payments-route-events -->
 ```csharp
 app.Payments.PaymentEventReceived += evt => evt.Type switch
 {
@@ -271,8 +279,11 @@ as the authority.
 
 Gate a server `[Function]` on an active entitlement declaratively:
 
+<!-- ikon-code: payments-gating -->
 ```csharp
+[Function(Visibility = FunctionVisibility.External)]
 [PaymentsRequireEntitlement("pro")]   // deny code: payments_entitlement_required
+public string ProOnlyReport() => "the paid-tier report";
 ```
 
 The call is denied unless the caller holds an active entitlement for the offer (resolved from the caller's
@@ -296,6 +307,7 @@ Inside a UI render you can't `await`, and you must not make a backend call every
 `app.Payments.IsEntitled(offerId)` — a **synchronous, cached, no-backend-call** check safe to read every
 render:
 
+<!-- ikon-code: payments-entitlement -->
 ```csharp
 if (app.Payments.IsEntitled("pro"))
 {
@@ -314,6 +326,7 @@ everywhere else.
 Hand a customer a receipt for a completed payment with `RequestReceiptAsync(paymentId)` — the same
 `paymentId` you'd refund with:
 
+<!-- ikon-code: payments-receipt -->
 ```csharp
 var receipt = await app.Payments.RequestReceiptAsync(paymentId);
 if (!string.IsNullOrEmpty(receipt.Url))
@@ -370,7 +383,7 @@ Mollie application fee, Surfboard Flow service-provider split), so the cut settl
 
 ```bash
 ikon app payments disable                    # remove every provider from the app
-ikon app payments disable --provider mollie  # remove just one
+ikon app payments disable mollie  # remove just one
 ```
 
 ## How it works (the mental model)

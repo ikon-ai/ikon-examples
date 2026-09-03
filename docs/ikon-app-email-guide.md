@@ -7,6 +7,7 @@ platform mailer, with no SMTP credentials, provider account, or DNS setup in the
 
 ## Send an email
 
+<!-- ikon-code: email-send -->
 ```csharp
 await app.Email.SendAsync(new EmailSendRequest(
     To: "customer@example.com",
@@ -60,6 +61,7 @@ has none — or the requested `SenderDomain` is not a verified sending domain of
 fails with `EmailSenderNotAvailableException`. Nothing is sent in that case, so decide what matters
 more, the identity or the delivery:
 
+<!-- ikon-code: email-sender-fallback -->
 ```csharp
 try
 {
@@ -79,9 +81,10 @@ domain when one exists and from the platform's default address otherwise.
 
 Inbound email delivered to the app's space is available as pages or as a lazy stream:
 
+<!-- ikon-code: email-inbox -->
 ```csharp
 // One page at a time
-var page = await app.Email.GetInboxPageAsync(new InboxQuery(Limit: 50));
+var page = await app.Email.GetInboxPageAsync(new InboxQuery { Limit = 50 });
 
 // Or enumerate across pages; breaking out stops fetching
 await foreach (var summary in app.Email.EnumerateInboxAsync(new InboxQuery()))

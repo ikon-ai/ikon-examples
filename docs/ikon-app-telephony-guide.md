@@ -55,13 +55,14 @@ lists every number the app holds — market, provider, which is the default send
 one's incoming traffic goes. `--format json` or `--format csv` gives the same answer to a script.
 
 ```
-ikon app telephony delete --number +46766861234
+ikon app telephony delete +46766861234
 ```
 
 gives one number up.
 
 ## Send an SMS
 
+<!-- ikon-code: telephony-send-sms -->
 ```csharp
 // app.Telephony is a TelephonyService — no construction, no provider account of your own.
 var result = await app.Telephony.SendSmsAsync("+358401234567", "Your table is ready.");
@@ -110,6 +111,7 @@ for reaching people, and `SmsSendResult.From` always says which number was used.
 
 Name one when it matters — replying as the same number a user last saw, for instance:
 
+<!-- ikon-code: telephony-numbers -->
 ```csharp
 var numbers = await app.Telephony.GetNumbersAsync();
 
@@ -130,6 +132,7 @@ ikon app telephony default set +46766861234
 A call is a live audio stream in both directions from the moment it connects — you listen to the
 caller and speak back, rather than handing the provider a script to play.
 
+<!-- ikon-code: telephony-call -->
 ```csharp
 await using var call = await app.Telephony.CallAsync("+358401234567");
 
@@ -164,6 +167,7 @@ race the caller hanging up.
 You declare no webhook. The platform owns the endpoints an incoming message and an incoming call
 arrive at, so what you write is a handler:
 
+<!-- ikon-code: telephony-inbound -->
 ```csharp
 app.Telephony.SmsReceived += async message =>
 {
@@ -234,7 +238,7 @@ A space that runs out of credits is suspended, which stops telephony along with 
 ## Giving a number up
 
 ```
-ikon app telephony delete --number +46766861234
+ikon app telephony delete +46766861234
 ```
 
 gives up one number. To give up telephony entirely:
@@ -252,6 +256,7 @@ normal removal grace period.
 
 ## Checking availability before you offer it
 
+<!-- ikon-code: telephony-status -->
 ```csharp
 var status = await app.Telephony.GetStatusAsync();
 

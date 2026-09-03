@@ -10,13 +10,14 @@ Every entry point returns an `EmergeRun<T>` — a handle that is both awaitable 
 enumerable. Await it for the result, or `await foreach` it to watch the run unfold.
 There is no terminal call to remember.
 
+<!-- ikon-code: emx-awaitable-and-streaming -->
 ```csharp
 // Just get the result (never null; throws EmergenceStoppedException
 // if the run stops or completes without one)
-var result = await Emerge.Run<MyType>(model, pass => { ... });
+var result = await Emerge.Run<MyType>(model, pass => { pass.Command = task; });
 
 // Streaming - observe progress
-await foreach (var ev in Emerge.Run<MyType>(model, ctx, pass => { ... }))
+await foreach (var ev in Emerge.Run<MyType>(model, ctx, pass => { pass.Command = task; }))
 {
     switch (ev)
     {
@@ -27,10 +28,10 @@ await foreach (var ev in Emerge.Run<MyType>(model, ctx, pass => { ... }))
 }
 
 // Get the (nullable) result plus the updated KernelContext
-var (result, context) = await Emerge.Run<MyType>(model, ctx, pass => { ... }).FinalAsync();
+var (withContext, context) = await Emerge.Run<MyType>(model, ctx, pass => { pass.Command = task; }).FinalAsync();
 
 // Get the result with trace info
-var (result, context, trace) = await Emerge.Run<MyType>(model, ctx, pass => { ... }).FinalWithTraceAsync();
+var (withTrace, tracedContext, trace) = await Emerge.Run<MyType>(model, ctx, pass => { pass.Command = task; }).FinalWithTraceAsync();
 ```
 
 A run is single-shot: pick one shape. Awaiting a run that has already been
@@ -55,6 +56,7 @@ than calling the model a second time.
 
 All patterns produce typed results. The library automatically generates JSON schemas and examples for your types:
 
+<!-- ikon-code: emergence-analysis-result -->
 ```csharp
 public class AnalysisResult
 {
@@ -62,7 +64,10 @@ public class AnalysisResult
     public List<string> KeyPoints { get; set; } = [];
     public float Confidence { get; set; }
 }
+```
 
+<!-- ikon-code: emergence-structured -->
+```csharp
 var result = await Emerge.Run<AnalysisResult>(model, pass =>
 {
     pass.Command = "Analyze the following text and provide structured output.";
@@ -75,8 +80,9 @@ var result = await Emerge.Run<AnalysisResult>(model, pass =>
 
 Pattern options inherit from `EmergeScopeBase`. Child scopes (like `InitialScope`, `RefinementScope`) inherit settings from the parent unless overridden:
 
+<!-- ikon-code: emx-configuration-inheritance -->
 ```csharp
-await Emerge.Refine<T>(model, ctx, opt =>
+await Emerge.Refine<Draft>(model, ctx, opt =>
 {
     // Parent settings - inherited by all scopes
     opt.Temperature = 0.3f;
@@ -111,22 +117,26 @@ Patterns handle context in two ways:
 
 The simplest entry point: a one-shot LLM call with no `KernelContext`, no tools, no streaming. Defaults to `LLMModel.Claude45Haiku` — cheap and fast for short transformations (chatbot replies, reformat-as-X, classify, summarize). Reach for `Run<T>` when you need tools, multi-iteration loops, a populated context, or pass tuning.
 
+<!-- ikon-code: emergence-classification -->
 ```csharp
-// String response
-string reply = await Emerge.AskAsync("Summarize this in one sentence: ...");
-
-// Structured response (T must be a reference type)
 public class Classification
 {
     public string Category { get; set; } = "";
     public float Confidence { get; set; }
 }
+```
 
+<!-- ikon-code: emergence-ask -->
+```csharp
+// String response
+string reply = await Emerge.AskAsync("Summarize this in one sentence: ...");
+
+// Structured response (T must be a reference type)
 Classification result = await Emerge.AskAsync<Classification>(
     "Classify this support ticket: \"My laptop won't turn on\"");
 
 // Explicit model override
-string reply = await Emerge.AskAsync("Hard reasoning question", LLMModel.Claude45Sonnet);
+string harder = await Emerge.AskAsync("Hard reasoning question", LLMModel.Claude45Sonnet);
 ```
 
 The structured overload throws `EmergenceStoppedException` if the model returns nothing or invalid JSON.
@@ -137,6 +147,7 @@ The structured overload throws `EmergenceStoppedException` if the model returns 
 
 The core pattern. Generates a typed JSON result with optional tool use.
 
+<!-- ikon-code: emergence-with-tools -->
 ```csharp
 var result = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, pass =>
 {
@@ -151,6 +162,7 @@ var result = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, pass =>
 
 A fresh `KernelContext` is created internally. Pass your own when you seed the call with input (images, prior turns), and add `.FinalAsync()` when you need the updated context back for conversation continuity or want a nullable result instead of a throw:
 
+<!-- ikon-code: emergence-final -->
 ```csharp
 var (result, ctx) = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, context, pass =>
 {
@@ -178,6 +190,7 @@ The `EmergePass<T>` configure callback is invoked on every iteration, giving acc
 
 Run N independent attempts (sequentially, one after another) and select the best result based on a scoring function. Always provide `opt.Score` or `opt.ScoreDetailed` — without one, every candidate scores 0 and the first candidate is returned after paying for all N runs.
 
+<!-- ikon-code: emergence-bestof -->
 ```csharp
 var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
 {
@@ -205,6 +218,7 @@ var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
 
 Multi-axis scoring with a critic that is told which axis was weakest:
 
+<!-- ikon-code: emergence-rubric -->
 ```csharp
 var rubric = new ScoreBreakdownBuilder<Answer>()
     .Metric("correctness", 3, a => a.Correctness)
@@ -233,6 +247,7 @@ from the other seeds, which is what makes the candidates diverge.
 
 Split input into chunks, process each in parallel, then reduce to a final result.
 
+<!-- ikon-code: emergence-mapreduce -->
 ```csharp
 var report = await Emerge.MapReduce<string, ChunkSummary, FinalReport>(LLMModel.Claude45Sonnet, ctx, opt =>
 {
@@ -268,8 +283,9 @@ var report = await Emerge.MapReduce<string, ChunkSummary, FinalReport>(LLMModel.
 
 Generate an initial result, then iteratively improve it based on feedback.
 
+<!-- ikon-code: emergence-refine -->
 ```csharp
-var final = await Emerge.Refine<Code>(LLMModel.Claude45Sonnet, ctx, opt =>
+var final = await Emerge.Refine<Implementation>(LLMModel.Claude45Sonnet, ctx, opt =>
 {
     opt.MaxRefinements = 3;
 
@@ -306,6 +322,7 @@ var final = await Emerge.Refine<Code>(LLMModel.Claude45Sonnet, ctx, opt =>
 
 Run multiple diverse solvers in parallel, then merge their outputs into a coherent result.
 
+<!-- ikon-code: emergence-ensemble -->
 ```csharp
 var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, ctx, opt =>
 {
@@ -342,9 +359,12 @@ var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, ctx, 
 
 Navigate a hierarchical document index to find relevant sections without vector embeddings.
 
+The tree types live in `Ikon.AI.Emergence.Tree`, which the scaffold's global usings do not carry — add `using Ikon.AI.Emergence.Tree;`.
+
+<!-- ikon-code: emergence-tree-search -->
 ```csharp
 // Step 1: Build a tree index from content
-TreeIndex index = null;
+TreeIndex? index = null;
 await foreach (var ev in TreeIndex.BuildAsync(LLMModel.Claude45Sonnet, documentContent,
     new TreeIndexOptions { MaxDepth = 4, GenerateSummaries = true }))
 {
@@ -401,6 +421,7 @@ TreeSearchResult result = await Emerge.TreeSearch(LLMModel.Claude45Sonnet, ctx, 
 
 Tools are authored with the `Tool` vocabulary from `Ikon.Agent` and registered on the pass via `AddTool` / `AddTools`. Both ship with a new app — `Ikon.Agent` is one of the default packages and its namespace is in the scaffold's `GlobalUsings.cs`, so there is nothing to add. `Tool.Of` infers the parameter schema from the lambda signature — parameter names carry through to the model, and `[Description]` attributes (from `System.ComponentModel`) document individual parameters. Tools are deduplicated by name.
 
+<!-- ikon-code: emx-tool-registration -->
 ```csharp
 await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx, pass =>
 {
@@ -415,7 +436,9 @@ await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx,
     pass.MaxIterations = 10;
     pass.MaxToolCalls = 50;
 }))
-{ ... }
+{
+    if (ev is Completed<CoderResponse> done) { Log.Instance.Info($"{done.Result}"); }
+}
 ```
 
 **Methods:**
@@ -430,6 +453,7 @@ await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx,
 
 **Many-parameter tools — request record.** `Tool.Of` tops out at 4 parameters by design. A tool that needs more takes a single request record; `[property: Description]` documents each field:
 
+<!-- ikon-code: emergence-tool-request -->
 ```csharp
 public sealed record CreateEventRequest(
     [property: Description("Event title shown in the calendar")] string Title,
@@ -437,13 +461,17 @@ public sealed record CreateEventRequest(
     [property: Description("ISO-8601 end time")] string End,
     [property: Description("Optional location")] string? Location,
     [property: Description("Attendee emails")] string[]? Attendees);
+```
 
+<!-- ikon-code: emergence-tool-request-use -->
+```csharp
 pass.AddTool(Tool.Of("create_event", "Create a calendar event",
     (CreateEventRequest request) => CreateEvent(request)));
 ```
 
 **MCP tools.** Wrap a connected `McpClient` in an `McpSkill` — it yields one `Tool.FromSchema` per tool the server advertises, proxying calls back through the client:
 
+<!-- ikon-code: emx-tool-registration-2 -->
 ```csharp
 var mcpClient = new McpClient("https://example.com/mcp");
 await mcpClient.ConnectAsync();
@@ -464,9 +492,10 @@ pass.AddTools(skill.Tools().ToArray());
 
 `StructuredTagParser` extracts XML-style tags from LLM responses, useful for structured output outside of JSON mode.
 
-```csharp
-using Ikon.AI.Emergence.Structured;
+Add `using Ikon.AI.Emergence.Structured;`.
 
+<!-- ikon-code: emergence-structured-tags -->
+```csharp
 var parsed = StructuredTagParser.Parse(content, "reasoning", "answer");
 
 // parsed.PlainText — text outside tags
@@ -483,6 +512,7 @@ string? text = StructuredTagParser.GetTagContent(content, "answer");
 
 Extension methods for inspecting tool call history in a `KernelContext`:
 
+<!-- ikon-code: emergence-context-helpers -->
 ```csharp
 bool hasFn = ctx.HasFunctionResults();
 var results = ctx.GetFunctionResults(take: 10);  // IReadOnlyList<FunctionResultPart>
@@ -543,16 +573,20 @@ Returned with `Completed<T>` events:
 | `Error` | `Exception?` | Error if one occurred |
 | `IsTruncated` | `bool` | True when `FinishReason` indicates output was cut short |
 
-## Testing with Mock LLM
+## Testing with a substitute model
 
-All pattern methods have an overload accepting `ILLM` for testing:
+Every pattern method has an overload taking a `ModelStream` — a delegate from a `KernelContext` to
+the model's event stream — so a test can stand in for the provider. It carries no capabilities:
+those describe the model, which the same call already names.
 
+`Emerge.Scripted` builds one that replays fixed texts; anything more specific is a lambda of your
+own.
+
+<!-- ikon-code: ems-testing-with-mock-llm -->
 ```csharp
-var mockLlm = new MockLLM(responses);
-
 var result = await Emerge.Run<MyType>(
     LLMModel.Claude45Sonnet,
-    pass => { ... },
-    mockLlm  // Injected for testing
+    pass => { pass.Command = task; },
+    Emerge.Scripted(responses)  // Replays the given texts in order; no provider call
 );
 ```

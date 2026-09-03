@@ -8,6 +8,7 @@ Each connector is a **raw** client for one external service: a thin, typed wrapp
 
 All connectors report failures with `ConnectorException` (from `Ikon.Connectors`). It carries `Provider` (`"slack"`, `"github"`, `"gmail"`, `"drive"`, `"browser"`) and, when the failure was an HTTP error, `StatusCode`. Branch on `StatusCode` to distinguish a permanent `401`/`403` — the credential is bad or revoked, so surface a "reconnect required" state instead of retrying — from a transient failure worth retrying:
 
+<!-- ikon-code: connectors-errors -->
 ```csharp
 try
 {
@@ -29,12 +30,14 @@ The Slack and GitHub connectors honor rate limits on their JSON API calls: a `42
 
 Construct `Slack` with a **bot token** (`xoxb-...`). An optional `HttpClient` can be injected; otherwise a shared one is used.
 
+<!-- ikon-code: connectors-slack-client -->
 ```csharp
 var slack = new Slack(botToken);
 ```
 
 ### Posting
 
+<!-- ikon-code: connectors-slack-post -->
 ```csharp
 var posted = await slack.PostAsync("C0123456789", "Deploy finished", threadTs: rootTs);
 ```
@@ -47,6 +50,7 @@ Slack timestamps (`Ts`, `ThreadTs`, `oldestTs`) are **raw Slack `ts` strings** (
 
 `HistoryAsync(channel, limit)` fetches one page of recent messages. `HistorySinceAsync(channel, oldestTs)` fetches every message with `ts > oldestTs`, following pagination to completion and returning the result **oldest-first**, so a caller that advances a cursor per message never leaves a gap:
 
+<!-- ikon-code: connectors-slack-history -->
 ```csharp
 var messages = await slack.HistorySinceAsync(channelId, oldestTs: lastSeenTs);
 
@@ -61,12 +65,13 @@ Paging is bounded by `maxPages` (default 50 pages of `pageLimit` 200). Because S
 
 ### Conversations and files
 
-`ListConversationsAsync` returns every public and private channel the token can see, paged to completion; `GetConversationAsync(channelId)` fetches one. `DownloadFileAsync(url)` downloads a shared file's `url_private_download`; the bot token is attached only for Slack-owned hosts, so a URL parsed out of untrusted message text can never leak the token to another server.
+`ListConversationsAsync` returns every public and private channel the token can see, paged to completion; `GetConversationAsync(channelId)` fetches one. Both hand back `SlackConversation` records — `Id`, `Name`, `IsMember`, and the three shape flags `IsPrivate`, `IsIm` and `IsMpim` that separate a channel from a DM or a group DM. A file shared into a message arrives as a `SlackFile` (`Id`, `MimeType`, and a `DownloadUrl` that is null when the token cannot fetch it). `DownloadFileAsync(url)` downloads a shared file's `url_private_download`; the bot token is attached only for Slack-owned hosts, so a URL parsed out of untrusted message text can never leak the token to another server.
 
 ### Socket Mode
 
 `OpenSocketUrlAsync` requests a Socket Mode URL (`apps.connections.open`) and returns it — the library ships no Socket Mode client, so the WebSocket handshake, envelope acknowledgements, hello/disconnect handling, and reconnection on the URL's short expiry are yours to implement. It requires an **app-level token** (`xapp-...`) passed as its argument — the bot token compiles fine here but fails at runtime with `invalid_auth`. These are two different credentials from the same Slack app:
 
+<!-- ikon-code: connectors-slack-socket -->
 ```csharp
 var wsUrl = await slack.OpenSocketUrlAsync(appToken);   // xapp-..., not the xoxb- bot token
 ```
@@ -77,6 +82,7 @@ var wsUrl = await slack.OpenSocketUrlAsync(appToken);   // xapp-..., not the xox
 
 Construct `GitHub` with a token. The constructor **throws `ArgumentException` on an empty or whitespace token** — an empty token would otherwise degrade silently to unauthenticated requests, where private repositories answer 404 instead of 401. Every `repo` parameter is the `"owner/name"` form:
 
+<!-- ikon-code: connectors-github -->
 ```csharp
 var gitHub = new GitHub(token);
 var issue = await gitHub.GetIssueAsync("ikon-ai/examples", 42);
@@ -91,6 +97,7 @@ var commentUrl = await gitHub.CommentAsync("ikon-ai/examples", 42, "Reproduced o
 
 `since` is boundary-**inclusive** (it returns items updated at-or-after it), so resuming with the last item's `UpdatedAt` re-returns every item that shares that exact second. Dedupe on `GitHubIssue.Number` across calls — do not assume the resumed page is all new. (This differs from Slack's `HistorySinceAsync`, whose `oldestTs` is exclusive.)
 
+<!-- ikon-code: connectors-github-since -->
 ```csharp
 var updated = await gitHub.ListIssuesSinceAsync("ikon-ai/examples", since: cursor);
 
@@ -114,12 +121,13 @@ if (updated.Count > 0)
 
 `MergePullRequestAsync` treats a refused merge (HTTP 405/409 — not mergeable, head changed) as an **answer, not an error**: it returns `GitHubMergeResult` with `Merged: false` and GitHub's reason in `Message` instead of throwing. Always branch on `.Merged`; other HTTP failures still throw `ConnectorException`.
 
+<!-- ikon-code: connectors-github-merge -->
 ```csharp
 var result = await gitHub.MergePullRequestAsync("ikon-ai/examples", 42, commitTitle: "Add retry policy");
 
 if (!result.Merged)
 {
-    logger.LogWarning("PR #42 not merged: {Reason}", result.Message);
+    Log.Instance.Warning($"PR #42 not merged: {result.Message}");
 }
 ```
 
@@ -131,6 +139,7 @@ Both connectors authenticate with `GoogleCredentials(ClientId, ClientSecret, Ref
 
 `Drive` and `Gmail` are **`IDisposable` and own an `HttpClient`**: construct one instance per credential and reuse it for the credential's lifetime, rather than constructing per call.
 
+<!-- ikon-code: connectors-google-clients -->
 ```csharp
 var credentials = new GoogleCredentials(clientId, clientSecret, refreshToken);
 using var drive = new Drive(credentials);
@@ -141,6 +150,7 @@ Google failures surface two ways: a failed upload, download, or Gmail metadata f
 
 ### Drive
 
+<!-- ikon-code: connectors-drive-transfer -->
 ```csharp
 await using var content = File.OpenRead("./report.pdf");
 var uploaded = await drive.UploadAsync("report.pdf", "application/pdf", content, folderId);
@@ -150,24 +160,26 @@ await using var download = await drive.DownloadAsync(uploaded.Id);
 
 `ListAsync(folderId, limit)` fetches a **single page**: `limit` is a per-page maximum, not a guarantee that everything under the folder is returned, and the results **include trashed files**. Use it only for a bounded "recent files" peek. For a complete or filtered listing use `ListAllAsync`, which pages through the entire result set and accepts an extra Drive query clause:
 
+<!-- ikon-code: connectors-drive-list -->
 ```csharp
 await foreach (var file in drive.ListAllAsync(folderId, extraQuery: "trashed = false"))
 {
-    Console.WriteLine($"{file.Name} ({file.MimeType}, modified {file.ModifiedTime:O})");
+    Log.Instance.Info($"{file.Name} ({file.MimeType}, modified {file.ModifiedTime:O})");
 }
 ```
 
-The `extraQuery` clause is Drive query syntax — `"trashed = false"` excludes trashed files, `"modifiedTime > '2024-01-01T00:00:00'"` bounds a historical backfill by time.
+Either listing yields `DriveFile` records: `Id`, `Name`, `MimeType`, an optional `Size` and `ModifiedTime`, and a `WebViewLink` for opening the file in Drive. The `extraQuery` clause is Drive query syntax — `"trashed = false"` excludes trashed files, `"modifiedTime > '2024-01-01T00:00:00'"` bounds a historical backfill by time.
 
 ### Gmail
 
+<!-- ikon-code: connectors-gmail -->
 ```csharp
 var unread = await gmail.ListAsync("is:unread", limit: 10);
 
 foreach (var email in unread)
 {
     var body = await gmail.GetBodyAsync(email.Id);
-    Console.WriteLine($"{email.From}: {email.Subject}");
+    Log.Instance.Info($"{email.From}: {email.Subject}");
 }
 
 var sentId = await gmail.SendAsync("someone@example.com", "Weekly summary", bodyText, cc: "team@example.com");
@@ -194,6 +206,7 @@ Two field contracts to respect:
 
 Register the persona `BrowserOperatorPersona.Create()` returns on your app's orchestrator (its default name, `"browser-operator"`, matches `OperateAsync`'s default `personaName`). Then hand the agent an objective:
 
+<!-- ikon-code: connectors-web-agent -->
 ```csharp
 var run = await WebAgent.OperateAsync(
     thread,                                    // an AgentThread from Ikon.Agent
@@ -213,6 +226,7 @@ if (run.Outcome == WebOutcome.Succeeded)
 
 `BrowserSession` owns the browser lifecycle: start once, dispose to release the process. `WebTarget` resolution tries the perception mark first, then accessibility role + name, then a CSS/XPath selector — populate whichever you know.
 
+<!-- ikon-code: connectors-browser-session -->
 ```csharp
 await using var session = new BrowserSession();
 await session.StartAsync(headless: true);
@@ -224,8 +238,8 @@ var result = await session.ExecuteAsync(
 
 if (!result.Ok)
 {
-    Console.WriteLine(result.Failure);       // caller-actionable diagnosis
-    Console.WriteLine(string.Join("\n", session.ConsoleTail));   // the page's own account
+    Log.Instance.Warning($"Action failed: {result.Failure}");            // caller-actionable diagnosis
+    Log.Instance.Warning(string.Join("\n", session.ConsoleTail));       // the page's own account
 }
 ```
 
@@ -235,6 +249,7 @@ The action vocabulary is a tagged union: `Navigate`, `Click`, `Fill`, `Press`, `
 
 A successful `WebRun` can be **distilled** into a `WebFlow` — a deterministic, replayable integration — and replayed **without an LLM**:
 
+<!-- ikon-code: connectors-replay -->
 ```csharp
 var flow = WebAgent.Distill(run, name: "portal-balance");
 // ... persist flow (it serializes losslessly), later:
@@ -253,3 +268,14 @@ if (replay.Ok)
 Distillation keeps only the steps that succeeded and parameterizes each filled field into a named input slot (`WebFlow.Inputs`); slot names are slugs of the field's accessible name (`"Password"` becomes `password`). A `Fill` marked `Secret` is stored **redacted** everywhere the trace is persisted — the step trace, the distilled flow JSON, logs — so the flow never carries the credential. That means every secret slot **must** be supplied in `inputs` at replay: a missing one fails upfront with `ConnectorException` rather than typing the redaction placeholder into the field. Replay failures are ordinary results, not exceptions — check `WebReplay.Ok`.
 
 `WebFlowDistiller.Distill` and `WebFlowPlayer.ReplayAsync` are the underlying pieces if you need to replay on a `BrowserSession` you manage yourself.
+
+### What the browser hands back
+
+A run's trace is a list of `WebStep` — the `WebAction` attempted, the `ResolvedSelector` it actually
+landed on, and whether it was `Ok`. Resolution tries the perception mark id first, then accessibility
+role and name, then a CSS or XPath selector, which is what lets a distilled flow still find an
+element after the marks have gone stale. Driving the page manually returns a `WebActionResult`
+instead: `Ok`, the `Selector` used, whatever was `Extracted`, and a `Failure` string when it did not
+work — a failed action is a result, not an exception. Perception returns `MarkedElement` records, one
+per interactive element, each with the numeric `Mark` the model refers to it by plus the `Role`,
+`Name` and `Selector` behind it.

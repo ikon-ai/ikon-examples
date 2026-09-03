@@ -51,10 +51,12 @@ Options:
 
 | Flag | Meaning |
 |---|---|
-| `--expires-days <n>` | Lifetime in days, 1 to 90. Defaults to 30. |
+| `--expires-days <n>` | Lifetime in days, 1 to 90. Defaults to 30. A platform administrator can issue up to 365. |
 | `--format json` | Machine-readable output, for scripting the setup. |
 
 Pick the shortest lifetime you are willing to renew. Nothing rotates this credential, so its lifetime is exactly how long a leaked copy stays useful.
+
+If a dedicated account runs your pipelines, a platform administrator can create the token for that account on its behalf; the token then carries that account's access, not the administrator's. Ask them rather than sharing a person's token.
 
 ## Using it
 
@@ -117,6 +119,8 @@ A service token acts as **you**. It carries the same access to the platform your
 ## Troubleshooting
 
 **`The service token in IKON_SERVICE_TOKEN was refused`** — the token has been revoked, or has passed its expiry. Create a new one and update the secret.
+
+**`The ... service token in IKON_SERVICE_TOKEN expires on ...`** — advisory, printed once per run inside the token's last 14 days. Nothing is wrong yet: create the replacement and update the secret before that date.
 
 **`Not logged in to the Ikon platform. Set IKON_SERVICE_TOKEN ...`** — the variable is not reaching the tool. In most CI systems a secret has to be named explicitly in the step's `env` block; check it is not only defined at the repository level.
 

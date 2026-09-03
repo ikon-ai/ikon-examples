@@ -89,6 +89,7 @@ When you need styling that differs by renderer, scope it with the **target varia
 `flutter:` applies only on Flutter, `web:` only on the web/CSS renderer, and unprefixed
 applies to both. Use the variant-group form to scope many classes with one prefix:
 
+<!-- ikon-code: flutter-target-variants -->
 ```csharp
 view.Box(
     style: [
@@ -96,7 +97,7 @@ view.Box(
         "web:(bg-background text-secondary border border-input)",// web only
         "flutter:(bg-slate-900 text-slate-100 border border-slate-700)" // Flutter only
     ],
-    content: ...);
+    content: view => view.Text(text: "Adapts per target"));
 ```
 
 See the **Crosswind Styling and Motion Guide** for the full variant and variant-group

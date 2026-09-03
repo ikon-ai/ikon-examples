@@ -35,6 +35,35 @@ No event records a client IP address. Where a client connected from is reported 
 and city by `client_geo` below, resolved at the network edge — the address itself is never read into
 the platform, so it cannot appear in an event or be retained anywhere.
 
+## Reading a failure event
+
+Every event that reports something going wrong carries a `class` parameter, so you can separate the
+ones that need someone's attention from the ones that are the platform working as designed. The name
+of an event tells you what happened; `class` tells you whose problem it is.
+
+| `class` | Meaning | What to do |
+|---|---|---|
+| `user_error` | The caller asked for something impossible or malformed, and was told so | Nothing — this is the platform refusing bad input |
+| `expected` | Not a failure: a confirmation the caller has to give, a deliberate stop, a retry that then succeeded, a limit enforced on purpose | Nothing |
+| `dependency` | Something we call refused or did not answer — a model provider, the backend, a spawned toolchain | Watch the rate; act when it moves |
+| `defect` | An unhandled exception reached the top of a process | Fix it. This bucket should be near zero |
+
+**Count `defect` and `dependency`; ignore the rest.** A dashboard built on event *names* alone
+counts a missing `--yes` flag the same as a crash.
+
+Your own events can join the same taxonomy — `Ikon.Common.Core.EventFailureClass` holds the four
+values as constants, so a failure your app records reads the same way as one the platform did:
+
+<!-- ikon-code: platform-events-own-failure -->
+```csharp
+Log.Instance.Event("invoice_export_failed", new
+{
+    @class = EventFailureClass.Dependency,
+    invoiceId,
+    errorMessage = ex.Message,
+});
+```
+
 ## Server lifecycle
 
 | Event | When | Payload |
@@ -44,7 +73,7 @@ the platform, so it cannot appear in an event or be retained anywhere.
 | `server_initialized` | `CORE_SERVER_INIT` message processing finished — plugins + extensions loaded | `durationMs` (block duration), `pluginsInitMs`, `extensionsInitMs` |
 | `server_started` | Server is fully started and accepting traffic | `elapsedTimeMs` |
 | `server_stopped` | Server has shut down cleanly | `stopDurationMs` |
-| `server_failed` | Uncaught exception in the server entry point | `type`, `message`, `stackTrace` |
+| `server_failed` | Uncaught exception in the server entry point | `class`, `type`, `message`, `stackTrace` |
 
 ## Client / session lifecycle
 
@@ -77,7 +106,7 @@ on `client_joined` marks a user arriving, `lastSessionOfUser` on `client_left` m
 | Event | When | Payload |
 |---|---|---|
 | `app_initialized` | Ikon AI App has finished initialising (functions registered, `Main()` done, persistent storage loaded) — fires immediately before `SignalReadyAsync`. Memory metrics are intentionally omitted: gathering them cost ~15ms on the cold-start path. | `appType`, `initDurationMs`, `functionCount`, `endpointCount` |
-| `app_failed` | App initialisation failed unrecoverably (`Main()` threw, or a cell-host spawn failed) — distinct from the process-level `server_failed` | `appType`, `errorType`, `errorMessage`, `stackTrace` |
+| `app_failed` | App initialisation failed unrecoverably (`Main()` threw, or a cell-host spawn failed) — distinct from the process-level `server_failed` | `class`, `appType`, `errorType`, `errorMessage`, `stackTrace` |
 
 ## Page arrivals
 
@@ -199,15 +228,17 @@ zero of them. Successful calls are not tracked individually.
 
 | Event | When | Payload |
 |---|---|---|
-| `rpc_server_call_failed` | A function call was rejected at validation, or threw while executing | `callId`, `functionName`, `version` (requested), `versionResolution`, `callerSessionId`, `errorKind`, `errorMessage`, `elapsedMs` |
-| `rpc_client_call_failed` | An SDK call succeeded only after a retry, or exhausted its retries and threw. Not emitted on first-attempt success. | `functionName`, `attemptsMade`, `finalOutcome` (`succeeded_after_retry` / `failed`), `lastErrorKind`, `lastErrorMessage`, `totalElapsedMs` |
+| `rpc_server_call_failed` | A function call was rejected at validation, or threw while executing | `class`, `callId`, `functionName`, `version` (requested), `versionResolution`, `callerSessionId`, `errorKind`, `errorMessage`, `elapsedMs` |
+| `rpc_client_call_failed` | An SDK call succeeded only after a retry, or exhausted its retries and threw. Not emitted on first-attempt success. | `class`, `functionName`, `attemptsMade`, `finalOutcome` (`succeeded_after_retry` / `failed`), `lastErrorKind`, `lastErrorMessage`, `totalElapsedMs` |
 | `rpc_server_version_resolved` | A hosted function version served a call for the first time, once per version and calling space. Hosts that register no versions stay silent, so an ordinary app emits none. | `functionName`, `version` (requested), `hostedVersion`, `versionResolution`, `callerSpaceId`, `callerSessionId` |
 
 `versionResolution` taxonomy: `None`, `Exact`, `Floor`, `Greatest`, `Current`, `Unversioned`,
 `Other`. `Floor` means the caller asked for something older than anything hosted.
 
 `errorKind` taxonomy (server side): `Timeout`, `NotFound`, `VersionMismatch`, `PolicyDenied`,
-`ArgumentBinding`, `Execution`, `InvalidArgument`.
+`ArgumentBinding`, `Execution`, `InvalidArgument`. `class` follows from it: the four kinds that mean
+the caller asked wrongly are `user_error`, `PolicyDenied` is `expected` (a limit enforced on
+purpose), and the rest are `dependency`.
 
 `lastErrorKind` taxonomy (client side): `Timeout`, `ConnectionFailed`, `InstanceNotFound`,
 `RemoteError`, `IOError`, `Other`.
@@ -231,10 +262,21 @@ a fixed set of events, derived from the `eventName` argument the caller supplies
 - `{eventName}_failed`
 
 Payload (same for all three): `modelName`, `elapsedSeconds`, plus a caller-defined
-`additionalFields` object, the completion details, the exception (`errorType`, `errorMessage`,
-`stackTrace` — on `_failed` only), `isRemote`, `isUserCredential`. For LLM calls the completion
-details carry the token counts (`InputTokens`, `OutputTokens`, `InputCachedTokens`,
+`additionalFields` object, the completion details, the exception (`class`, `errorType`,
+`errorMessage`, `stackTrace` — on `_failed` only), `isRemote`, `isUserCredential`. For LLM calls the
+completion details carry the token counts (`InputTokens`, `OutputTokens`, `InputCachedTokens`,
 `OutputReasoningTokens`, `FinishReason`, …).
+
+**One failed operation is one `_failed` event, recorded where it happened.** When the operation runs
+in another process, the failure is recorded there, by the process that saw it, with the exception it
+actually threw — the calling side stays silent rather than adding a second row saying
+`FunctionCallException`. What the caller experienced is in `rpc_client_call_failed`, which reports
+once per call with `attemptsMade` and `finalOutcome`, so a call that succeeded on its second attempt
+is one `expected` row and not a failure at all.
+
+`errorType` is the type the operation threw. Where that reached us over the wire it is the *remote*
+type, unwrapped from the transport exception that carried it, and `stackTrace` is the remote stack —
+the wrapper's own type and stack name the RPC layer, never the cause.
 
 The prefixes in use are `llm`, `classification`, `embedding_generation`, `reranking`,
 `image_generation`, `image_segmentation`, `image_upscaling`, `depth_estimation`, `mesh_generation`,
@@ -299,8 +341,8 @@ Organisation-scoped, emitted by the backend. All carry `organisation`.
 
 ## Tool errors
 
-Top-level crash markers for the platform's CLI / utility processes. All share the same payload
-shape: `type`, `message`, `stackTrace`.
+Top-level crash markers for the platform's CLI / utility processes. All carry `class` (always
+`defect` — an unhandled exception reached the entry point), `type`, `message`, `stackTrace`.
 
 | Event | Source |
 |---|---|
@@ -310,6 +352,26 @@ shape: `type`, `message`, `stackTrace`.
 | `stress_tester_failed` | `StressTester` |
 | `proxy_server_failed` | `IkonProxyServer` |
 | `host_server_failed` | `IkonHostServer` |
+
+### The `ikon` CLI's own outcomes
+
+The CLI splits what used to be one event three ways, because a command that told you your input was
+wrong is not a command that broke:
+
+| Event | When | `class` |
+|---|---|---|
+| `tool_failed` | An unhandled exception, or a backend request that failed | `defect`, or `dependency` for the backend case |
+| `tool_rejected` | The command refused the input and said why | `user_error` |
+| *(nothing)* | The command asked for `--yes` and did not get it | — |
+| `app_run_stopped` | `ikon app run`'s app was killed by a signal — which is what `ikon app stop` does | `expected` |
+
+Both `tool_failed` and `tool_rejected` carry the run context, so a command's failures can be found
+without matching on message text: `verb` (the verb that was running, or `(unresolved)` when it
+failed before one was picked), `toolVersion`, `os`, `isCi` and `isInteractive`.
+
+When the backend is what failed, `tool_failed` also carries `statusCode`, `requestId`, and `route` —
+the path with its ids replaced by `:id`, so every caller of one broken endpoint groups into one row
+rather than into as many rows as there were ids.
 
 ## Metered usage is not an event
 
@@ -325,6 +387,7 @@ as diagnostics, not as a billing record.
 
 When a user's data is erased (GDPR erasure — see [User Data Erasure](ikon-user-data-erasure.md)), the backend delivers a durable erasure request to every space the user touched, and the app host raises the `OnUserDataErasure` hook:
 
+<!-- ikon-code: user-data-erasure -->
 ```csharp
 app.OnUserDataErasure(async userId =>
 {
