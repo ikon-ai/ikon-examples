@@ -116,7 +116,7 @@ if (!await assets.ExistsAsync(settingsUri))
 }
 
 var metadata = await assets.GetMetadataAsync(settingsUri);
-Console.WriteLine($"Last updated {metadata.LastModified:O}");
+Log.Instance.Info($"Last updated {metadata.LastModified:O}");
 ```
 
 ### Streams and primitives
@@ -180,7 +180,7 @@ var query = new AssetQuery(folderUri)
 var entries = await assets.ListAsync(query);
 foreach (var entry in entries)
 {
-    Console.WriteLine($"{entry.AssetUri.Path} updated {entry.Metadata.LastModified:O}");
+    Log.Instance.Info($"{entry.AssetUri.Path} updated {entry.Metadata.LastModified:O}");
 }
 
 var nextPageToken = query.NextContinuationToken;

@@ -49,7 +49,7 @@ namespace Ikon.Sdk
     // Returns true only for ConnectionState.Offline — the connection failed (auto-reconnect exhausted or the server shut down), as opposed to the intentional ConnectionState.Idle state before connect or after a requested disconnect.
     static bool IsFaulted(this ConnectionState state)
   sealed class IkonClient : IAsyncDisposable
-    // config: Client configuration. Exactly one of ExternalConnectUrl, Local, ApiKey, Backend, or UserLogin must be specified.
+    // config: Client configuration. Exactly one of ExternalConnectUrl, Local, ApiKey, Backend, UserLogin, or ResumeAuthResponse must be specified.
     // throws ArgumentException: Thrown when configuration is invalid.
     ctor(IkonClientConfig config)
     // Null until the connection is established.
@@ -61,9 +61,10 @@ namespace Ikon.Sdk
     FunctionRegistry FunctionRegistry { get; }
     // Null until the connection is established.
     GlobalState? GlobalState { get; }
+    // Null until connected. Hand it to another client's IkonClientConfig.ResumeAuthResponse to have that client join this one's session. The auth ticket inside is a bearer credential for the session: give it only to a client you started yourself.
+    AuthResponse? LastAuthResponse { get; }
     ConnectionState State { get; }
     // Valid only from ConnectionState.Idle or ConnectionState.Offline; throws InvalidOperationException if already connecting or connected. Calling it from ConnectionState.Offline while the background reconnect loop is still running stops that loop first, so the connection this call makes is the one the client keeps (if the loop happened to finish connecting meanwhile, the call returns with that connection). On failure the client returns to ConnectionState.Offline and the exception is rethrown. The same failure is also delivered to the ErrorOccurredAsync event before it is rethrown, so a caller that both handles that event and catches this call sees the failure twice — guard against double handling if both paths are wired.
-    // ct: Cancellation token.
     // throws InvalidOperationException: Thrown if already connected or connecting.
     // throws Exception: Thrown on connection failure.
     Task ConnectAsync(CancellationToken ct = default)
@@ -126,7 +127,7 @@ namespace Ikon.Sdk
   class IkonClient.ErrorEventArgs : EventArgs
     ctor(Exception error)
     Exception Error { get; }
-  // Exactly one authentication mode — ExternalConnectUrl, Local, ApiKey, Backend, or UserLogin — must be set; the constructor rejects zero or multiple.
+  // Exactly one authentication mode — ExternalConnectUrl, Local, ApiKey, Backend, UserLogin, or ResumeAuthResponse — must be set; the constructor rejects zero or multiple.
   sealed record IkonClientConfig
     ctor()
     ApiKeyConfig? ApiKey { get; init; }
@@ -157,6 +158,8 @@ namespace Ikon.Sdk
     // Default: Teleport
     PayloadType PayloadType { get; init; }
     string? ProductId { get; init; }
+    // No authentication request is made; the transport opens straight from the response's entrypoints and auth ticket, so the server resumes that connection's client session — same session id and per-client state. Take it from IkonClient.LastAuthResponse. On a session minted with ikon-shared-session the original connection stays up beside this one; otherwise the server treats this as its replacement. There is nothing to re-authenticate with, so a lost transport is only recovered within the server's soft-disconnect grace.
+    AuthResponse? ResumeAuthResponse { get; init; }
     // Boot-snapshot variant id this capture client asks the app to render, carried into Context.SnapshotVariant. Empty for route captures and all live clients; only variant captures set this (together with IsSnapshot).
     string SnapshotVariant { get; init; }
     TimeoutConfig Timeouts { get; init; }

@@ -14,7 +14,7 @@ Always — every app file uses this shape. If you're starting from a stub, repla
 public sealed record SessionIdentity(string? UserId);
 public sealed record ClientParameters(string ClientName);
 
-[App]
+// The app class carries the attribute:  [App]
 public class MyApp(IApp<SessionIdentity, ClientParameters> app)
 {
     private UI UI { get; } = new(app, new IkonTheme());

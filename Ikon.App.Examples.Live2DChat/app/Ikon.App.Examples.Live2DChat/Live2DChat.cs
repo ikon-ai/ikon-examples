@@ -1,4 +1,4 @@
-using Ikon.App.Examples.Live2DChat.Live2D;
+﻿using Ikon.App.Examples.Live2DChat.Live2D;
 using Ikon.Parallax.Components.Standard;
 
 return await App.Run(args);
@@ -969,7 +969,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                 Language = _sttLanguage.Value
             };
 
-            var result = await recognizer.RecognizeBatchSpeechAsync(config);
+            var result = (await recognizer.RecognizeBatchSpeechAsync(config)).Text;
             _sttRecognizedText.Value = result;
             if (!string.IsNullOrWhiteSpace(result))
             {
@@ -998,10 +998,10 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
             string lastText = "";
             if (recognizer.SupportsContinuousRecognition)
             {
-                await foreach (var text in recognizer.RecognizeContinuousSpeechAsync(config, state.GetSamplesAsync()))
+                await foreach (var transcriptEvent in recognizer.RecognizeContinuousSpeechAsync(config, state.GetSamplesAsync()))
                 {
-                    _sttRecognizedText.Value = text;
-                    lastText = text;
+                    _sttRecognizedText.Value = transcriptEvent.Text;
+                    lastText = transcriptEvent.Text;
                 }
             }
             else
@@ -1013,10 +1013,10 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                     SilenceThreshold = 0.01f
                 });
 
-                await foreach (var text in adapter.RecognizeContinuousSpeechAsync(config, state.GetSamplesAsync()))
+                await foreach (var transcriptEvent in adapter.RecognizeContinuousSpeechAsync(config, state.GetSamplesAsync()))
                 {
-                    _sttRecognizedText.Value = text;
-                    lastText = text;
+                    _sttRecognizedText.Value = transcriptEvent.Text;
+                    lastText = transcriptEvent.Text;
                 }
             }
 

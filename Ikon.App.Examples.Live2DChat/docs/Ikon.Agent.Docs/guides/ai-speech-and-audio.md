@@ -11,14 +11,17 @@ Text-to-speech with `Audio.SpeakAsync(text)`, speech-to-text with `SpeechRecogni
 ```csharp
 // Generate speech and play it to clients — one call. A new call fades out and
 // replaces whatever is still playing (the interrupt behavior a voice app wants).
-await Audio.SpeakAsync("Hello world");
+// Name a voice that fits the product: the bare default ("Aria") is a mature, hard read
+// that suits few apps — "Sarah" is a softer, modern one to reach for. Other voices:
+// Jessica, Lily, Matilda, Charlotte (female); George, Brian, Will (male).
+await Audio.SpeakAsync("Hello world", voice: "Sarah");
 
-// Pick a model/voice, shape the delivery, or target specific clients:
-await Audio.SpeakAsync("Hello world", SpeechGeneratorModel.Eleven3, voice: "Aria", targetIds: [clientSessionId]);
-await Audio.SpeakAsync("Hello world", instructions: "Whisper, as if sharing a secret", speed: 1.2);  // speed is a double, 1.0 = normal
+// Pick a model, shape the delivery, or target specific clients:
+await Audio.SpeakAsync("Hello world", SpeechGeneratorModel.Eleven3, voice: "Sarah",
+    instructions: "Soft and warm, almost a whisper", speed: 0.96, targetIds: [clientSessionId]);  // speed is a double, 1.0 = normal
 ```
 
-To get the audio WITHOUT playing it (e.g. to store or post-process a clip), use the one-shot `SpeechGenerator.GenerateAsync(text)` — it returns a single PCM `AudioChunk` (never null; throws `SpeechGeneratorException` on failure):
+To get the audio WITHOUT playing it (e.g. to store or post-process a clip), use the one-shot `SpeechGenerator.GenerateAsync(text)` — it returns a single PCM `AudioChunk` (never null; throws `AIException` on failure):
 
 ```csharp
 var audio = await SpeechGenerator.GenerateAsync("Hello world");  // ElevenFlash25 (cheap+fast) by default
@@ -55,7 +58,46 @@ Audio.SpeechRecognizedAsync += async args =>
 view.PushToTalkButton(style: ["w-16 h-16 rounded-full bg-red-600"]);
 ```
 
-`MicToggleButton` is the tap-to-talk twin: tap opens the microphone, tap again closes it, and the segment in between is transcribed exactly like a PushToTalkButton hold. Prefer it when holding a button is impractical (mobile, hands-busy, long dictation).
+#### Timestamps, speakers and confidence
+
+`RecognizeBatchSpeechAsync` returns a `Transcript` — `Text`, `Language`, `Duration`, `Confidence` —
+not a string, and `RecognizeContinuousSpeechAsync` yields `TranscriptEvent`. Ask for timings with
+`Timestamps`; they are off by default, so an unchanged request costs what it always did.
+
+```csharp
+using var recognizer = new SpeechRecognizer(SpeechRecognizerModel.WhisperLarge3Turbo);
+
+var transcript = await recognizer.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
+{
+    Samples = samples,
+    SampleRate = 16000,
+    ChannelCount = 1,
+    Timestamps = SpeechTimestamps.Word,
+});
+
+foreach (var word in transcript.Words)   // SpeechWord: Text, Start, End, Confidence, Speaker
+{
+    Log.Instance.Info($"[{word.Start.TotalSeconds:F2}] {word.Text}");
+}
+```
+
+`Words` and `Segments` (`TranscriptSegment`) are `TimeSpan` offsets from the start of the submitted
+audio, normalised from whatever unit the provider reported. Both are empty unless asked for.
+
+**Asking for a granularity the model does not support throws** — it does not return an empty list,
+because an empty `Words` would otherwise mean both "not supported" and "no speech". Check
+`SpeechRecognizer.GetCapabilities(model)` (`SupportsWordTimestamps`, `SupportsSegmentTimestamps`,
+`SupportsDiarization`) before asking. Two provider limits surface as exceptions rather than as
+quietly missing fields: the GPT-4o transcribe models have no timings at all (the diarizing variant
+reports speaker segments but never words), and Voxtral takes **one** granularity per request and
+rejects a language hint together with timestamps.
+
+For the app-level events, pass `timestamps:` to `UseSpeechRecognition` / `UseTurnDetection` and read
+`args.Transcript`; `args.Text` is unchanged. Continuous recognition only puts words on events where
+`IsFinal` is true — no provider attaches word timings to an interim hypothesis — and interim events
+arrive only when `InterimResults` asks for them.
+
+`MicToggleButton` is the tap-to-talk twin: tap opens the microphone, tap again closes it, and the segment in between is transcribed exactly like a PushToTalkButton hold. Prefer it when holding a button is impractical (mobile, hands-busy, long dictation). Pick ONE for a given microphone — offering both hold and toggle for the same mic is the ambiguity users report as "is it on?".
 
 ```csharp
 view.MicToggleButton();
@@ -63,9 +105,12 @@ view.MicToggleButton();
 
 **Mic button UX rules (important — a mic that gives no feedback reads as broken):**
 
-- **The button must visibly change while the mic is open.** Both buttons ship a themed default (`MicButton.Default`) that already does this: brand-colored circle that turns red with a ring the instant capture starts. With no style array you get correct UX for free.
-- **Feedback must be zero-latency.** The active state keys on the client-stamped `data-ikon-capture-active` attribute — it flips the moment the mic opens, with no server round trip. If you pass a custom style array it REPLACES the default (opt-in rule), so re-add the live state: include the `MicButton.Active` token (`[MicButton.Active, "your classes"]`) or write your own `data-[ikon-capture-active=true]:*` variants. Never rely on `onCaptureStart` alone for press feedback — it round-trips through the server.
-- **Make the interaction model obvious.** Label a PushToTalkButton with a hold affordance ("Hold to talk") and a MicToggleButton with a tap affordance ("Tap to talk") — users cannot tell hold from toggle by looking at a bare mic icon. Use `onCaptureStart`/`onCaptureStop` (server-side, fine for text) to swap the label to "Listening…" while open.
+- **The microphone permission is the button's job, and it is a SEPARATE press.** Until the browser has granted a mic, both buttons render themselves as an "Enable microphone" pill and a press only asks — it never also starts a capture. Do not build your own permission flow, and do not defeat this one. The reason it is separate: a permission dialog takes focus, which the page reads as the button being released, so a hold that doubles as the ask is cancelled behind the dialog and captures nothing. The user grants, comes back to an idle-looking button, and reasonably concludes the app is broken. After a grant the button flashes a green "ready" ring for two seconds, so the answer to "is it on now?" is on screen before it is asked.
+- **NEVER put a mic button behind `disabled:` for permission reasons.** A disabled button cannot ask, so the user has no way out of the state. `disabled:` means "the app is busy", nothing else.
+- **Handle a refusal.** `onPermissionChanged` fires with the answer; when it is not `MediaPermissionState.Granted`, offer typing instead or say where the browser's site settings are. The button itself switches to a "Microphone blocked" state and stays pressable so it can explain itself.
+- **The button must visibly change while the mic is open.** Both buttons ship a themed default (`MicButton.Default`) that already does this, plus the whole state sequence. With no style array you get correct UX for free.
+- **Feedback must be zero-latency.** Every state keys on the client-stamped `data-ikon-capture-state` attribute (`idle`, `pressed`, `live`, `ready`, `prompt`, `requesting`, `denied`, `unavailable`), so it lands in the frame of the press — including `pressed`, which fires before the mic has finished opening. If you pass a custom style array it REPLACES the default (opt-in rule), so re-add the states: include the `MicButton.States` token (`[MicButton.States, "your classes"]`) or write your own `data-[ikon-capture-state=*]:*` variants. Never mirror capture state into a `ClientReactive<bool>` from `onCaptureStart` — that is a server round trip per press and it is visibly late.
+- **Make the interaction model obvious.** Label a PushToTalkButton with a hold affordance ("Hold to talk") and a MicToggleButton with a tap affordance ("Tap to talk") — users cannot tell hold from toggle by looking at a bare mic icon.
 - **Mobile: make it big and gesture-proof.** Comfortable touch target (h-12+); the themed default already includes `touch-none select-none` so scroll pans and text selection can't break the hold — keep those classes in custom styles.
 - A toggle mic that is open MUST stay visibly red for as long as it is open — an invisible open microphone is recording the user without them knowing.
 
@@ -88,13 +133,13 @@ var adapter = new SpeechRecognizerAdapter(recognizer, new SpeechRecognizerAdapte
 
 #### Custom raw audio handling (advanced)
 
-If you need direct access to PCM samples (e.g., custom DSP, your own VAD), subscribe to the audio events and **register per-stream state inside `AudioInputStreamBeginAsync` using `args.ClientSessionId`** — that fires reliably before any frame handler observes a frame from the stream. To transcribe samples you already hold, use the one-shot `var text = await SpeechRecognizer.RecognizeAsync(samples, sampleRate);` (WhisperLarge3Turbo, cheap+fast, by default).
+If you need direct access to PCM samples (e.g., custom DSP, your own VAD), subscribe to the audio events and **register per-stream state inside `AudioInputStreamBeginAsync` using `args.ClientSessionId`** — that fires reliably before any frame handler observes a frame from the stream. To transcribe samples you already hold, use the one-shot `var text = await SpeechRecognizer.RecognizeAsync(samples, sampleRate);` (WhisperLarge3Turbo, cheap+fast, by default) — that one still returns a plain string. Reach for `RecognizeBatchSpeechAsync` when you want the `Transcript` with timings.
 
 ```csharp
 Audio.AudioInputStreamBeginAsync += async args =>
 {
     // Snapshot per-stream state here. args.ClientSessionId / args.UserId identify the client.
-    _myStreamStates[args.StreamId] = new MyState(args.ClientContext);
+    _myStreamStates[args.StreamId] = new MyStreamState(args.ClientContext);
 };
 
 Audio.AudioInputFrameAsync += async args =>
@@ -141,10 +186,6 @@ namespace Ikon.AI.SoundEffectGeneration
     Task<SoundEffectGeneratorResult> GenerateSoundEffectFileAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
   interface ISoundEffectGeneratorInfo
     bool SupportsLooping { get; }
-  class NonRetryableSoundEffectGeneratorException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed class SoundEffectGenerator : ISoundEffectGenerator
     ctor(string modelName)
     ctor(SoundEffectGeneratorModel model)
@@ -173,10 +214,6 @@ namespace Ikon.AI.SoundEffectGeneration
     // Applies to the buffered ISoundEffectGenerator.GenerateSoundEffectFileAsync result; the streaming ISoundEffectGenerator.GenerateSoundEffectAsync chunks are unaffected.
     ResultDelivery ResultDelivery { get; init; }
     TimeSpan Timeout { get; init; }
-  class SoundEffectGeneratorException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum SoundEffectGeneratorModel
     ElevenLabsV2
   static class SoundEffectGeneratorModelExtensions
@@ -196,10 +233,6 @@ namespace Ikon.AI.SpeechGeneration
     int SampleRate { get; }
     IReadOnlyList<string> VoiceIds { get; }
     IAsyncEnumerable<AudioChunk> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = default)
-  class NonRetryableSpeechGeneratorException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed class SpeechGenerator : ISpeechGenerator
     ctor(string modelName)
     ctor(SpeechGeneratorModel model)
@@ -210,7 +243,7 @@ namespace Ikon.AI.SpeechGeneration
     IReadOnlyList<string> VoiceIds { get; }
     void Dispose()
     Task<AudioChunk> GenerateAsync(string text, string? voice = null, CancellationToken cancellationToken = default)
-    // Static one-shot; constructs and disposes a SpeechGenerator per call. Defaults to SpeechGeneratorModel.ElevenFlash25; override via model. Pass voice to pick a voice (model default otherwise). Streamed chunks are concatenated into one PCM AudioChunk. Never returns null — throws SpeechGeneratorException on failure or empty output. Use the constructor + GenerateSpeechAsync for chunk-by-chunk streaming or other fields.
+    // Static one-shot; constructs and disposes a SpeechGenerator per call. Defaults to SpeechGeneratorModel.ElevenFlash25; override via model. Pass voice to pick a voice (model default otherwise). Streamed chunks are concatenated into one PCM AudioChunk. Never returns null — throws RetryableAIException on failure or empty output. Use the constructor + GenerateSpeechAsync for chunk-by-chunk streaming or other fields.
     static Task<AudioChunk> GenerateAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, CancellationToken cancellationToken = default)
     IAsyncEnumerable<AudioChunk> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = default)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(SpeechGeneratorModel model)
@@ -224,10 +257,6 @@ namespace Ikon.AI.SpeechGeneration
     string Text { get; init; }
     TimeSpan Timeout { get; init; }
     string VoiceId { get; init; }
-  class SpeechGeneratorException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum SpeechGeneratorModel
     AzureSpeechService
     OpenAITts1
@@ -237,20 +266,13 @@ namespace Ikon.AI.SpeechGeneration
     ElevenMultilingual2
     ElevenFlash25
     Eleven3
+    Eleven3Conversational
     GoogleChirp3
     Gemini25FlashTts
     Gemini25ProTts
     Gemini31FlashTts
   static class SpeechGeneratorModelExtensions
     static string DisplayName(this SpeechGeneratorModel model)
-  static class TextFilter
-    static string Filter(string text, TextFilter.Config config)
-  sealed class TextFilter.Config
-    ctor()
-    int MaxTextLength { get; set; }
-    bool RemoveEmojis { get; set; }
-    bool SimplifyUrls { get; set; }
-    bool SpeakOnlyFirstParagraph { get; set; }
 
 namespace Ikon.AI.SpeechRecognition
   sealed record AnalyzePronunciationConfig
@@ -266,16 +288,15 @@ namespace Ikon.AI.SpeechRecognition
     int ChannelCount { get; }
     int SampleRate { get; }
     Task<Pronunciation.Result> AnalyzePronunciationAsync(AnalyzePronunciationConfig config, CancellationToken cancellationToken = default)
-    Task<string> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
-    IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
+    Task<Transcript> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<TranscriptEvent> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
   interface ISpeechRecognizerInfo
     bool SupportsBatchRecognition { get; }
     bool SupportsContinuousRecognition { get; }
+    bool SupportsDiarization { get; }
     bool SupportsPronunciationAnalysis { get; }
-  class NonRetryableSpeechRecognizerException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
+    bool SupportsSegmentTimestamps { get; }
+    bool SupportsWordTimestamps { get; }
   sealed record Pronunciation.Break
     ctor()
     int BreakLength { get; init; }
@@ -364,14 +385,22 @@ namespace Ikon.AI.SpeechRecognition
     ctor()
     string[] CandidateLanguages { get; init; }
     int ChannelCount { get; init; }
+    // Label each word and segment with a speaker. Throws on a model that cannot diarize.
+    bool Diarize { get; init; }
+    // Emit revisable interim hypotheses as well as final results. Defaults to false, so only TranscriptEvent.IsFinal events arrive.
+    bool InterimResults { get; init; }
     string Language { get; init; }
     int SampleRate { get; init; }
+    // Which timings to ask for; defaults to SpeechTimestamps.None. Only events with TranscriptEvent.IsFinal ever carry words.
+    SpeechTimestamps Timestamps { get; init; }
   // Supply the audio exactly one way: raw PCM via Samples or SamplesPcm16 (with SampleRate/ChannelCount), or an encoded audio file via Data (with MimeType), Url, or AssetUri (resolved automatically).
   sealed record RecognizeSpeechConfig
     ctor()
     AssetUri? AssetUri { get; init; }
     int ChannelCount { get; init; }
     byte[]? Data { get; init; }
+    // Label each word and segment with a speaker. Throws on a model that cannot diarize.
+    bool Diarize { get; init; }
     string Language { get; init; }
     string? MimeType { get; init; }
     string? Prompt { get; init; }
@@ -380,6 +409,8 @@ namespace Ikon.AI.SpeechRecognition
     byte[] SamplesPcm16 { get; init; }
     double Temperature { get; init; }
     TimeSpan Timeout { get; init; }
+    // Which timings to ask for; defaults to SpeechTimestamps.None, so an unchanged request costs what it always did. Asking for a granularity the model does not support throws rather than returning empty lists.
+    SpeechTimestamps Timestamps { get; init; }
     string? Url { get; init; }
   sealed class SpeechRecognizer : ISpeechRecognizer
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
@@ -388,7 +419,10 @@ namespace Ikon.AI.SpeechRecognition
     int SampleRate { get; }
     bool SupportsBatchRecognition { get; }
     bool SupportsContinuousRecognition { get; }
+    bool SupportsDiarization { get; }
     bool SupportsPronunciationAnalysis { get; }
+    bool SupportsSegmentTimestamps { get; }
+    bool SupportsWordTimestamps { get; }
     Task<Pronunciation.Result> AnalyzePronunciationAsync(AnalyzePronunciationConfig config, CancellationToken cancellationToken = default)
     void Dispose()
     static SpeechRecognizerCapabilities GetCapabilities(SpeechRecognizerModel model)
@@ -396,19 +430,22 @@ namespace Ikon.AI.SpeechRecognition
     Task<string> RecognizeAsync(float[] samples, int sampleRate, int channelCount = 1, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes a SpeechRecognizer per call. Defaults to SpeechRecognizerModel.WhisperLarge3Turbo; override via model. Returns the recognized text (empty when nothing was recognized). Use the constructor + RecognizeBatchSpeechAsync for a language hint, prompt, or other fields, or RecognizeContinuousSpeechAsync for streaming.
     static Task<string> RecognizeAsync(float[] samples, int sampleRate, SpeechRecognizerModel model = WhisperLarge3Turbo, int channelCount = 1, CancellationToken cancellationToken = default)
-    Task<string> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
-    IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
+    Task<Transcript> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<TranscriptEvent> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
   sealed class SpeechRecognizerAdapter : ISpeechRecognizer
     ctor(ISpeechRecognizer speechRecognizer, SpeechRecognizerAdapter.Config? config = null)
     int ChannelCount { get; }
     int SampleRate { get; }
     bool SupportsBatchRecognition { get; }
     bool SupportsContinuousRecognition { get; }
+    bool SupportsDiarization { get; }
     bool SupportsPronunciationAnalysis { get; }
+    bool SupportsSegmentTimestamps { get; }
+    bool SupportsWordTimestamps { get; }
     Task<Pronunciation.Result> AnalyzePronunciationAsync(AnalyzePronunciationConfig config, CancellationToken cancellationToken = default)
     void Dispose()
-    Task<string> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
-    IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
+    Task<Transcript> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<TranscriptEvent> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
   sealed class SpeechRecognizerAdapter.Config
     ctor()
     // SilenceTriggered mode only: forces recognition after this much continuous speech without a pause. TimeSpan.Zero or negative disables the limit. Defaults to 30s.
@@ -429,11 +466,10 @@ namespace Ikon.AI.SpeechRecognition
     ctor()
     bool SupportsBatchRecognition { get; init; }
     bool SupportsContinuousRecognition { get; init; }
+    bool SupportsDiarization { get; init; }
     bool SupportsPronunciationAnalysis { get; init; }
-  class SpeechRecognizerException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
+    bool SupportsSegmentTimestamps { get; init; }
+    bool SupportsWordTimestamps { get; init; }
   enum SpeechRecognizerModel
     AzureSpeechService
     Whisper2
@@ -442,11 +478,55 @@ namespace Ikon.AI.SpeechRecognition
     Gpt4OmniTranscribe
     Gpt4OmniMiniTranscribe
     Gpt4OmniTranscribeDiarize
+    GptTranscribe
     DeepgramNova3General
     DeepgramNova3Medical
     AssemblyAIUniversal3ProStreaming
+    AssemblyAIUniversal35Pro
     AssemblyAIUniversalStreamingEnglish
     AssemblyAIUniversalStreamingMultilingual
+    ElevenScribe2
     VoxtralMiniTranscribe2
   static class SpeechRecognizerModelExtensions
     static string DisplayName(this SpeechRecognizerModel model)
+  // Which timings to ask the provider for. Timestamps cost a larger response and, on some providers, extra processing, so the default is None. Requesting a granularity the model does not support throws — check SpeechRecognizer.GetCapabilities first.
+  enum SpeechTimestamps
+    None
+    Segment
+    Word
+  // Start and End are relative to the start of the submitted audio, whatever units the provider reported. Speaker is empty unless RecognizeSpeechConfig.Diarize was set and the model supports it.
+  sealed record SpeechWord
+    ctor()
+    double Confidence { get; init; }
+    TimeSpan End { get; init; }
+    string Speaker { get; init; }
+    TimeSpan Start { get; init; }
+    string Text { get; init; }
+  // The result of one batch transcription. Segments and Words are empty unless RecognizeSpeechConfig.Timestamps asked for them. Language is the language the provider reported detecting, empty when it reported none. Confidence is 0 when the provider does not report one — it is not a score of zero, and no provider that reports confidence reports exactly 0 for real speech.
+  sealed record Transcript
+    ctor()
+    double Confidence { get; init; }
+    TimeSpan Duration { get; init; }
+    string Language { get; init; }
+    IReadOnlyList<TranscriptSegment> Segments { get; init; }
+    string Text { get; init; }
+    IReadOnlyList<SpeechWord> Words { get; init; }
+  // One result from a continuous recognition. IsFinal separates a provider's revisable interim hypothesis from text it will not change: only final events carry Words, because no provider attaches word timings to an interim result. Start and End are relative to the start of the audio stream, so they keep growing for the life of the recognition.
+  sealed record TranscriptEvent
+    ctor()
+    double Confidence { get; init; }
+    TimeSpan End { get; init; }
+    bool IsFinal { get; init; }
+    string Language { get; init; }
+    string Speaker { get; init; }
+    TimeSpan Start { get; init; }
+    string Text { get; init; }
+    IReadOnlyList<SpeechWord> Words { get; init; }
+  // One provider-chosen span of speech — a Whisper segment, a Deepgram utterance, a diarized speaker turn. Start and End are relative to the start of the submitted audio. Speaker is empty unless diarization was requested and supported.
+  sealed record TranscriptSegment
+    ctor()
+    double Confidence { get; init; }
+    TimeSpan End { get; init; }
+    string Speaker { get; init; }
+    TimeSpan Start { get; init; }
+    string Text { get; init; }
