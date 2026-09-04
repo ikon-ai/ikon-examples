@@ -3,8 +3,9 @@
    The screen itself is styled by @ikonai/sdk-react-ui/theme/ikon-auth.css, imported in main.tsx.
    That file is part of the package, so `ikon app update` keeps it current.
 
-   Anything you write here wins over it — its rules live in a `@layer ikon` cascade layer and yours
-   do not, so an unlayered rule always takes precedence regardless of specificity or import order:
+   Its rules are imported before this file, so at equal specificity what you write here wins. A
+   few of them are more specific than one class (`.ikon-auth-divider span`, the `::placeholder`
+   rules, the `:hover` and `:focus` states); match that shape to override those:
 
      .ikon-auth-container { max-width: 460px; }
      .ikon-auth-title { font-size: 28px; }

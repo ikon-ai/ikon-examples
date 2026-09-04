@@ -7,7 +7,11 @@ How to persist app state across restarts. Read this before reaching for files or
 ```csharp
 // Default for almost everything you want to persist:
 private readonly PersistentSessionReactive<MyState> _state = new(new MyState());
+```
 
+Then from any method:
+
+```csharp
 // Read and write like any reactive:
 _state.Value = next;
 var current = _state.Value;
@@ -27,7 +31,13 @@ Heuristic: if you can't articulate why it should be `Global` or `User`, it's `Se
 
 **Composer drafts and other "the user's words in progress" belong in USER scope** (`UserReactive<string>`, or `PersistentUserReactive<string>` to survive app restarts) — never `ClientReactive`. A page reload mints a NEW client session, so per-client state evaporates with it by design: a draft bound to `ClientReactive` is lost on every reload. User scope survives reloads and follows the user across tabs. Do NOT reach for browser storage (localStorage/sessionStorage in a custom component) to patch this — draft persistence is server state's job on this platform.
 
-Each scope also has persistent collection variants — `PersistentReactiveList<T>` / `PersistentSessionReactiveList<T>` / `PersistentUserReactiveList<T>`, and the same trio for `ReactiveHashSet<T>` and `ReactiveDictionary<TKey, TValue>`. Use these instead of wrapping a collection in a `Persistent...Reactive<List<T>>`.
+Each scope also has persistent collection variants — the durable counterparts of `ReactiveList<T>`, `ReactiveHashSet<T>` and `ReactiveDictionary<TKey, TValue>`. Use these instead of wrapping a collection in a `Persistent...Reactive<List<T>>`:
+
+| Collection | App-wide | Per session identity | Per user |
+|---|---|---|---|
+| list | `PersistentReactiveList<T>` | `PersistentSessionReactiveList<T>` | `PersistentUserReactiveList<T>` |
+| set | `PersistentReactiveHashSet<T>` | `PersistentSessionReactiveHashSet<T>` | `PersistentUserReactiveHashSet<T>` |
+| dictionary | `PersistentReactiveDictionary<TKey, TValue>` | `PersistentSessionReactiveDictionary<TKey, TValue>` | `PersistentUserReactiveDictionary<TKey, TValue>` |
 
 The user-scoped classes additionally expose per-user accessors usable outside an active user scope (background tasks): `ValueFor(userId)`, `SetFor(userId, value)`, and `UpdateFor(userId, ...)` on `PersistentUserReactive<T>`; the collection variants have equivalents like `AddFor` / `RemoveFor` / `ClearFor`.
 
@@ -35,7 +45,7 @@ The user-scoped classes additionally expose per-user accessors usable outside an
 
 ```csharp
 // Default — structured state lands in the app's built-in postgres database
-new PersistentSessionReactive<Prefs>(new Prefs());
+private readonly PersistentSessionReactive<Prefs> _prefs = new(new Prefs());
 
 // byte[] payloads stay on asset storage automatically — no backend parameter needed
 private readonly PersistentSessionReactive<byte[]> _snapshot = new([]);
@@ -44,12 +54,15 @@ private readonly PersistentSessionReactive<byte[]> _snapshot = new([]);
 private readonly PersistentSessionReactive<byte[]> _logo
     = new([], backend: PersistenceBackend.Public);
 
-// Then read the URL after first save:
-var url = _logo.PublicUrl;  // null until first save completes
-
 // Explicitly target a postgres DB of the app's own
 private readonly PersistentSessionReactive<long> _counter
     = new(0, backend: PersistenceBackend.Postgres, postgresDatabase: "main");
+```
+
+Read the public URL from a method, once a save has happened:
+
+```csharp
+var url = _logo.PublicUrl;  // null until first save completes
 ```
 
 Every app gets a built-in Postgres database named `app`. Nothing declares it and nothing has to

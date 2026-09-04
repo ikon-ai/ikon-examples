@@ -46,26 +46,22 @@ view.Button(["default", "w-full"], text: "Save", onClick: SaveAsync);   // same:
 Create a `UI` instance with the app host and a theme, and call `Root` to define the UI tree:
 
 ```csharp
-[App]
-public class MyApp(IApp<SessionIdentity, ClientParameters> app)
+private UI UI { get; } = new(app, new IkonTheme());
+
+private readonly Reactive<int> _counter = new(0);
+
+public async Task Main()
 {
-    private UI UI { get; } = new(app, new IkonTheme());
-
-    private readonly Reactive<int> _counter = new(0);
-
-    public async Task Main()
+    UI.Root([Page.Default], content: view =>
     {
-        UI.Root([Page.Default], content: view =>
+        view.Column(["items-center gap-4 p-6"], content: view =>
         {
-            view.Column(["items-center gap-4 p-6"], content: view =>
-            {
-                view.Heading("Counter App", style: [Text.H2]);
-                view.Text([Text.Body], text: $"Count: {_counter.Value}");
-                view.Button([Button.PrimaryMd], text: "Increment",
-                    onClick: async () => _counter.Value++);
-            });
+            view.Heading("Counter App", style: [Text.H2]);
+            view.Text([Text.Body], text: $"Count: {_counter.Value}");
+            view.Button([Button.PrimaryMd], text: "Increment",
+                onClick: async () => _counter.Value++);
         });
-    }
+    });
 }
 ```
 
@@ -104,7 +100,7 @@ public async Task Main()
 }
 ```
 
-`ThemeControl.Current` is a `ClientReactive<Theme>` bindable in views; `ToggleAsync`/`SetAsync` flip the calling client and push the change to it. By default a joining client that already has a saved theme keeps it (`followClient: true`).
+`ThemeExtensions` reads the calling client's choice off a `Context` — `clientContext.IsDarkTheme()`, which is false for the light theme, for custom theme names, and for a client that has not reported one, and `theme.ToThemeName()` for the string form. `ThemeControl.Current` is a `ClientReactive<Theme>` bindable in views; `ToggleAsync`/`SetAsync` flip the calling client and push the change to it. By default a joining client that already has a saved theme keeps it (`followClient: true`).
 
 ## Reactive State
 
@@ -133,7 +129,7 @@ To seed each scope's initial value from its id, `ClientReactive` and `MountReact
 private readonly ClientReactive<string> _welcome =
     ClientReactive.Create(sessionId => $"Welcome, session {sessionId}!");
 
-private readonly UserReactive<List<string>> _cart =
+private readonly UserReactiveList<string> _cart =
     new(userId => LoadCart(userId));
 ```
 
@@ -144,7 +140,11 @@ List and dictionary state goes in `ReactiveList<T>` / `ReactiveDictionary<TKey, 
 ```csharp
 private readonly ReactiveList<TodoItem> _todos = new();
 private readonly ReactiveDictionary<string, int> _scores = new();
+```
 
+Every mutation notifies once, from anywhere in the app:
+
+```csharp
 _todos.Add(item);                    // also: AddRange, Insert, Remove, RemoveAt,
 _todos.RemoveAll(t => t.Done);       // RemoveAll, Clear, ReplaceAll, Sort
 _todos.Update(list => list.OrderBy(t => t.Priority));  // whole-list transform, one notification
@@ -152,7 +152,7 @@ _todos.Update(list => list.OrderBy(t => t.Priority));  // whole-list transform, 
 _scores["anna"] = 10;                // add-or-replace, one notification
 _scores.Update(map => map["anna"]++); // atomic read-modify-write under the lock
 
-foreach (var todo in _todos) { ... } // enumerate the reactive directly
+foreach (var todo in _todos) { Render(todo); } // enumerate the reactive directly
 ```
 
 Both come in the same scoped variants as the scalars: `ClientReactiveList<T>` / `UserReactiveList<T>` / `MountReactiveList<T>` and `ClientReactiveDictionary<TKey, TValue>` / `UserReactiveDictionary<TKey, TValue>` / `MountReactiveDictionary<TKey, TValue>`.
@@ -207,6 +207,7 @@ The `UIView` class provides extension methods for UI components. One shape for e
 - `view.ScrollColumn()` - Header/body/footer column where the body scrolls
 - `view.VirtualList()` / `view.VirtualGrid()` - DOM-virtualized large collections
 - `view.InfiniteScrollView()` - Scroll area with near-end callbacks for lazy loading
+- `view.PanZoom()` - Viewport the user pans and zooms by wheel, pinch and drag; the offset stays client-side
 
 **Display:**
 - `view.Text()` / `view.Heading()` / `view.Markdown()` - Text content
@@ -237,6 +238,45 @@ The `UIView` class provides extension methods for UI components. One shape for e
 - `view.DataTable()` - Paginated tables with typed cells, row actions, and column resize (per-slot styling via the `DataTableStyles` record on `styles:`)
 - `view.BarChart()` / `view.LineChart()` / `view.PieChart()` - Interactive charts
 - `view.ChatLog()` - Chat-bubble layout with auto-scroll and composer
+- `view.Composer()` - The standard message input bar (`ComposerExtensions`): attachment chips with drag-drop/paste upload, auto-growing text, optional push-to-talk; pending files as `ComposerAttachment` records, per-slot styling and label overrides
+- `view.ContentGrid()` - Column-defined grid taking `ContentGridColumn[]`, for card and media layouts a `DataTable` would over-structure
+- `view.Paginate()` - Not a component: slices a list against a field-level `ClientReactive<int>` page and returns a `Page<T>` snapshot. Style the controls you draw with the `Pagination` slots
+
+**Editors:**
+- `view.CodeEditor()` - Syntax-highlighted code with a language badge, line numbers and Ctrl+Enter `onSubmit`; a controlled `value` with no write-back handler renders read-only
+- `view.RichTextEditor()` - HTML-valued editor whose toolbar you can narrow with `RichTextTool` (`Bold`, `Italic`, …); same read-only rule as `CodeEditor`
+- `view.ImageEditorCanvas()` - Brush, shape and text annotation over an image, driven by `ImageEditorTool`; `onSave` yields `ImageEditorSaveArgs` and `onHistoryChange` an `ImageEditorHistoryArgs` for undo/redo affordances
+- `view.ShadertoyCanvas()` - A GLSL fragment shader as a live surface, with named `ShaderUniform` values and optional pointer input
+
+**Command and menus:**
+- `view.CommandPalette()` - ⌘K palette over `SelectOptionGroup` groups, with its own search field and empty state; prefer it over hand-building a `Dialog` for jump-to menus
+- `view.Kbd()` - Keycap glyphs, from `text` or a `keys` list
+- `view.Menubar()` - Application menu bar, built from `MenubarMenu` / `MenubarTrigger` / `MenubarContent` / `MenubarItem`, plus `MenubarCheckboxItem`, `MenubarRadioGroup` / `MenubarRadioItem`, `MenubarSub` / `MenubarSubTrigger` / `MenubarSubContent`, `MenubarSeparator` and `MenubarItemIndicator`
+- `view.ToolbarButton()` / `view.ToolbarLink()` / `view.ToolbarSeparator()` / `view.ToolbarToggleGroupSingle()` / `view.ToolbarToggleGroupMultiple()` / `view.ToolbarToggleItem()` - Toolbar parts
+- `view.ToggleGroupSingle()` / `view.ToggleGroupMultiple()` with `view.ToggleGroupItem()` - Segmented single- or multi-select
+- `view.NavigationMenuIndicator()` / `view.NavigationMenuViewport()` - The moving indicator and shared viewport of a navigation menu
+
+**Media and feeds:**
+- `view.FeedScroller()` - Full-height snap feed over `FeedSlide` items, with `FeedMediaKind` media, preload windows and an `onScrollNearEnd` hook for paging
+- `view.FilePicker()` - Native file chooser wrapping your own trigger content; `onFileSelected` yields `FilePickerSelectedArgs` and rejections arrive as `FilePickerValidationErrorArgs`
+- `view.AudioUrlPlayer()` - Plain audio playback over a URL, for the cases that need no mixer
+- `view.AvatarImage()` / `view.AvatarFallback()` - Avatar image with an initials fallback
+
+**Tables and forms, part by part:**
+- `view.TableHeader()` / `view.TableBody()` / `view.TableRow()` / `view.TableHead()` / `view.TableCell()` - Hand-built tables, for what `DataTable` does not cover
+- `view.FormControl()` / `view.FormLabel()` / `view.FormMessage()` - Field parts that wire label, control and validation message together
+- `view.SliderRange()` / `view.SliderThumb()` - Slider parts, for a two-thumb range
+- `view.OtpField()` with `view.OtpFieldInput()` - One-time-code entry, with `autoSubmit` on the last digit
+- `view.PasswordToggleField()` with `view.PasswordToggleFieldInput()` / `view.PasswordToggleFieldToggle()` / `view.PasswordToggleFieldIcon()` - Password field with a reveal toggle
+
+**Drag and drop:**
+- `view.SortableContext()` with `view.SortableItem()` and `view.SortableHandle()` - Reorderable lists; `SortStrategy` picks the axis and reorders arrive as `SortableReorderArgs`
+
+**Structure:**
+- `view.Routed()` - Renders one of a `Dictionary<T, Action<UIView>>` cases by a `ClientReactive<T>` signal
+- `view.DirectionProvider()` - Sets `Dir` (LTR/RTL) for the subtree
+- `view.VisuallyHidden()` - Content for screen readers only
+- `view.AccessibleIcon()` - An icon with a required `label`, so it is not silent to assistive technology
 
 ### Two-Way Binding
 
@@ -264,7 +304,9 @@ Toasts are a per-client queue rendered by a single `ToastHost` in the root UI:
 
 ```csharp
 private readonly Toasts _toasts = new();
+```
 
+```csharp
 // In UI.Root, mount exactly once:
 view.ToastHost(_toasts);
 
@@ -272,6 +314,34 @@ view.ToastHost(_toasts);
 _toasts.Success("Saved");
 _toasts.Error("Upload failed", ex.Message);
 ```
+
+### Forms and Dialogs with FormState
+
+`FormState<T>` holds everything one editing form needs per client — open, busy, dirty, the draft, and form-level and field-level errors — so a dialog is one declared field rather than a hand-written set of `ClientReactive` flags. Declare it as an app field with a factory for a fresh draft; the composites `FormDialog`, `FormField`, `FormError` and `FormSubmit` bind Dialog, Form, FormField and a submit Button to it:
+
+```csharp
+private sealed record PresetDraft(string Name = "", bool Public = false);
+private readonly FormState<PresetDraft> _preset = new(() => new PresetDraft());
+```
+
+```csharp
+// Open on a fresh draft, or on a copy of the record being edited:
+_preset.Show();
+_preset.Show(new PresetDraft(existing.Name, existing.IsPublic));
+
+// In the UI:
+view.FormDialog(_preset, title: "New preset", content: form =>
+{
+    form.FormField(_preset, "Name", content: f =>
+        f.TextField(value: _preset.Draft.Name,
+            onValueChange: v => { _preset.Edit(d => d with { Name = v }); return Task.CompletedTask; }));
+    form.FormError(_preset);
+    form.FormSubmit(_preset, "Save", SavePresetAsync,
+        validate: d => string.IsNullOrWhiteSpace(d.Name) ? [new FormFieldError("Name", "Required")] : []);
+});
+```
+
+`SubmitAsync` runs the validator, then the handler under the busy flag, and closes on success. A `FormException` thrown from the handler becomes a field or form-level error; any other exception becomes a form-level error with its message, and the form stays open with the draft intact.
 
 ## Styling with Crosswind
 
@@ -283,7 +353,7 @@ Three layers compose freely in the same style array:
 
 ```csharp
 view.Button([Button.PrimaryMd, "mt-4 self-center"], text: "Submit", onClick: SubmitAsync);
-view.Box(["bg-card border border-secondary p-6 rounded-2xl"], content: v => { ... });
+view.Box(["bg-card border border-secondary p-6 rounded-2xl"], content: v => { });
 view.Text([Text.Caption], text: "Updated just now");
 ```
 
@@ -443,14 +513,14 @@ The canonical dialog / side-panel pattern is a `Column` with a fixed height, a h
 ```csharp
 view.Column(["h-[82vh] flex flex-col"], content: dialog =>
 {
-    dialog.Row(["items-center px-5 py-4 border-b"], content: header => ...);
+    dialog.Row(["items-center px-5 py-4 border-b"], content: header => { });
 
     dialog.ScrollArea(
         rootStyle: ["flex-1"],              // min-h-0 is injected automatically
         scrollbars: ScrollAreaScrollbars.Vertical,
-        content: body => ...);
+        content: body => { });
 
-    dialog.Row(["items-center px-3 py-2 border-t"], content: composer => ...);
+    dialog.Row(["items-center px-3 py-2 border-t"], content: composer => { });
 });
 ```
 
@@ -459,9 +529,9 @@ view.Column(["h-[82vh] flex flex-col"], content: dialog =>
 ```csharp
 view.ScrollColumn(
     style: ["h-[82vh] w-full sm:max-w-[560px] rounded-2xl bg-card"],
-    header: h => h.Row(["px-5 py-4 border-b"], content: title => ...),
-    footer: f => f.Row(["p-3 border-t"], content: composer => ...),
-    content: body => body.Column(["gap-3"], content: messages => ...));
+    header: h => h.Row(["px-5 py-4 border-b"], content: title => { }),
+    footer: f => f.Row(["p-3 border-t"], content: composer => { }),
+    content: body => body.Column(["gap-3"], content: messages => { }));
 ```
 
 For chat specifically, `view.ChatLog()` wraps `ScrollColumn` with chat-friendly defaults (auto-scroll on).
@@ -469,7 +539,7 @@ For chat specifically, `view.ChatLog()` wraps `ScrollColumn` with chat-friendly 
 **Raw `Column`/`Row` with overflow-auto.** If you're not using `ScrollArea`, you still need `min-h-0` (or a fixed height) yourself — the framework fix only applies to the `ScrollArea` component:
 
 ```csharp
-view.Column(["flex-1 min-h-0 overflow-y-auto", ...], ...);
+view.Column(["flex-1 min-h-0 overflow-y-auto", Scrollbar.Thin], content: rows => { });
 ```
 
 Dev builds (debugger attached or `IKON_DEV_WARNINGS=1`) emit a single `Log.Instance.Warning` when they detect a `Column`/`Row`/`Box`/`Flex` with `overflow-y-auto` + `flex-1` and no `min-h-0` — with the exact `file:line` of the offending callsite.
@@ -477,10 +547,31 @@ Dev builds (debugger attached or `IKON_DEV_WARNINGS=1`) emit a single `Log.Insta
 **Theme the native scrollbar when you scroll a container yourself.** A bare `overflow-auto` shows the OS scrollbar — on Windows a wide grey slab that matches no theme and shifts the layout when it appears. `Theming.Scrollbar.Thin` is the themed thin bar (`Scrollbar.Hidden` removes it entirely, for a strip whose overflow is visually obvious):
 
 ```csharp
-view.Row(["overflow-x-auto gap-2", Scrollbar.Thin], content: chips => ...);
+view.Row(["overflow-x-auto gap-2", Scrollbar.Thin], content: chips => { });
 ```
 
 It sizes both axes on purpose. Styling only the width leaves a *horizontal* bar at its default height, which is the usual way this lands half-applied — and a horizontally scrolling row is exactly where it is most often needed.
+
+## PanZoom: Viewing Something Larger Than the Screen
+
+`view.PanZoom()` (`PanZoomExtensions`) is a clipped viewport whose content the user moves and scales in the client: scrolling pans, Ctrl/⌘+scroll or a pinch zooms about the pointer, dragging pans. The pan offset and every in-gesture frame stay in the browser; the app hears only the scale at the end of a gesture, so a wheel burst or a pinch costs one round trip rather than one per event. Use it for a floor plan, a board of cards, a diagram, a large image — anything laid out at its natural size that has to be *looked at* rather than edited.
+
+```csharp
+view.PanZoom(
+    ["h-96 w-full rounded-lg border border-secondary bg-secondary"],
+    scale: _scale.Value,
+    minScale: 0.25,
+    maxScale: 4,
+    onScaleChange: async scale => _scale.Value = scale,
+    content: canvas =>
+    {
+        canvas.Box(["w-[1600px] p-6 flex flex-wrap gap-4"], content: sheet => { /* the large thing */ });
+    });
+```
+
+Give the viewport a size with its style array — it clips, so without a height it collapses. `scale:` + `onScaleChange:` is the controlled pair, which is what lets preset buttons (`_scale.Value = 1`) drive the view; a server-written scale zooms about the viewport centre. Omit both and pass `defaultScale:` for a purely client-side zoom. A `scale:` with no handler renders read-only, like every other controlled axis.
+
+What it is not: an editor surface. Nothing inside a `PanZoom` knows it is scaled — a `DndContext` or a click handler in the content still works, but its coordinates are screen-space. For a canvas with selection, marquee or drag in document space, build a custom node with its own `.tp` transport (see `custom-map-component-guide.md`); `PanZoom` is the viewer, not the workbench.
 
 ## Example: Interactive Form
 
@@ -627,10 +718,10 @@ Reach for per-route snapshots when an app has **public, content-bearing pages th
 
 3. **Add content routes in app code** (optional). For pages generated from data — one per listing, article, or profile — return them from `OnSnapshotRoutes`. They are unioned with the static list and de-duplicated, then capped at 50 routes per bundle:
 
-   ```csharp
-   app.OnSnapshotRoutes(async () =>
-       (await store.GetPublishedArticlesAsync()).Select(a => $"/blog/{a.Slug}"));
-   ```
+```csharp
+app.OnSnapshotRoutes(async () =>
+    (await store.GetPublishedArticlesAsync()).Select(a => $"/blog/{a.Slug}"));
+```
 
    The provider runs on the machine doing the bundle/deploy, so the captured set is as fresh as your last deploy — re-deploy to pick up new content.
 
@@ -716,7 +807,7 @@ UI.Root([Page.Default], content: view =>
 Trigger sign-in from the server-drawn landing with the client login primitive:
 
 ```csharp
-view.Button(["..."], text: "Sign in with Google",
+view.Button([Button.PrimaryMd], text: "Sign in with Google",
     onClick: async () => await ClientFunctions.LoginAsync("google"));
 ```
 

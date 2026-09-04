@@ -20,7 +20,11 @@ private readonly Reactive<string?> _error = new(null);
 private async Task ResearchAsync()
 {
     var q = _question.Value.Trim();
-    if (string.IsNullOrEmpty(q) || _phase.Value != null) return;
+
+    if (string.IsNullOrEmpty(q) || _phase.Value != null)
+    {
+        return;
+    }
 
     _phase.Value = "Searching";
     _error.Value = null;
@@ -50,56 +54,58 @@ private async Task ResearchAsync()
     }
 }
 
-// UI:
-view.Row(["gap-2 p-4"], content: v =>
+private void Render(IView view)
 {
-    v.TextField(["flex-1"], value: _question.Value, placeholder: "What do you want to know?",
-        onValueChange: async x => _question.Value = x,
-        onSubmit: async _ => await ResearchAsync());
-    v.Button(style: [Button.Default, "transition-colors duration-150 hover:opacity-90", _phase.Value != null ? "opacity-50" : ""],
-        disabled: _phase.Value != null, onClick: ResearchAsync,
-        content: c => c.Text(text: _phase.Value ?? "Research"));
-});
-
-if (_phase.Value is string phase)
-{
-    view.Box(["bg-surface rounded-lg p-4 mx-4 animate-pulse"], content: v =>
-        v.Text(["text-sm text-muted-foreground"], text: $"{phase}…"));
-}
-
-if (_error.Value is string err)
-{
-    view.Box(["bg-destructive/10 text-destructive border border-destructive/30 rounded-lg p-3 mx-4"], content: v =>
-        v.Text(text: err));
-}
-
-if (_answers.Count == 0 && _phase.Value == null)
-{
-    view.Box(["text-center text-muted-foreground p-12"], content: v =>
-        v.Text(text: "Ask a question to get an answer with sources."));
-}
-
-view.Column(["gap-4 p-4"], content: view =>
-{
-    foreach (var ans in _answers)
+    view.Row(["gap-2 p-4"], content: v =>
     {
-        view.Box(["bg-surface rounded-lg p-4 gap-3"], content: v =>
-        {
-            v.Text(["text-base font-semibold"], text: ans.Question);
-            v.Text(["text-sm whitespace-pre-wrap"], text: ans.Synthesis);
-            v.Column(["gap-1 pt-2 border-t"], content: vv =>
-            {
-                vv.Text(["text-xs uppercase tracking-wider text-muted-foreground"], text: "Sources");
-                for (int i = 0; i < ans.Sources.Count; i++)
-                {
-                    var src = ans.Sources[i];
-                    vv.Link(href: src.Url, style: ["text-xs text-primary hover:underline"],
-                        content: c => c.Text(text: $"[{i + 1}] {src.Title}"));
-                }
-            });
-        });
+        v.TextField(["flex-1"], value: _question.Value, placeholder: "What do you want to know?",
+            onValueChange: async x => _question.Value = x,
+            onSubmit: async _ => await ResearchAsync());
+        v.Button(style: [Button.Default, "transition-colors duration-150 hover:opacity-90", _phase.Value != null ? "opacity-50" : ""],
+            disabled: _phase.Value != null, onClick: ResearchAsync,
+            content: c => c.Text(text: _phase.Value ?? "Research"));
+    });
+
+    if (_phase.Value is string phase)
+    {
+        view.Box(["bg-surface rounded-lg p-4 mx-4 animate-pulse"], content: v =>
+            v.Text(["text-sm text-muted-foreground"], text: $"{phase}…"));
     }
-});
+
+    if (_error.Value is string err)
+    {
+        view.Box(["bg-destructive/10 text-destructive border border-destructive/30 rounded-lg p-3 mx-4"], content: v =>
+            v.Text(text: err));
+    }
+
+    if (_answers.Count == 0 && _phase.Value == null)
+    {
+        view.Box(["text-center text-muted-foreground p-12"], content: v =>
+            v.Text(text: "Ask a question to get an answer with sources."));
+    }
+
+    view.Column(["gap-4 p-4"], content: view =>
+    {
+        foreach (var ans in _answers)
+        {
+            view.Box(["bg-surface rounded-lg p-4 gap-3"], content: v =>
+            {
+                v.Text(["text-base font-semibold"], text: ans.Question);
+                v.Text(["text-sm whitespace-pre-wrap"], text: ans.Synthesis);
+                v.Column(["gap-1 pt-2 border-t"], content: vv =>
+                {
+                    vv.Text(["text-xs uppercase tracking-wider text-muted-foreground"], text: "Sources");
+                    for (int i = 0; i < ans.Sources.Count; i++)
+                    {
+                        var src = ans.Sources[i];
+                        vv.Link(href: src.Url, style: ["text-xs text-primary hover:underline"],
+                            content: c => c.Text(text: $"[{i + 1}] {src.Title}"));
+                    }
+                });
+            });
+        }
+    });
+}
 ```
 
 ## Notes

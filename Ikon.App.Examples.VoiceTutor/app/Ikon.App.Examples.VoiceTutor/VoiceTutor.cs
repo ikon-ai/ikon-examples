@@ -87,8 +87,11 @@ public class VoiceTutor(IApp<SessionIdentity, ClientParams> app)
                         {
                             var micLabel = _isMicActive.Value ? "Mic on" : "Mic off";
 
+                            // The status pill below still reads _isMicActive, but the button's own
+                            // colour must not wait for that round trip — MicButton.States flips it
+                            // from the client-stamped capture state.
                             row.CaptureButton(
-                                [Button.PrimaryMd],
+                                [Button.PrimaryMd, MicButton.States],
                                 kind: MediaCaptureKind.Audio,
                                 text: micLabel,
                                 captureMode: MediaCaptureButtonMode.Toggle,

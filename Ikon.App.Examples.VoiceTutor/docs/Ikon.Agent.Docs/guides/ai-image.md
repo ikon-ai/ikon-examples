@@ -7,7 +7,7 @@ Generate AI images with the one-shot `ImageGenerator.GenerateAsync(prompt)`. Sup
 ```csharp
 var image = await ImageGenerator.GenerateAsync("A neon-lit cyberpunk street");  // Gemini25FlashImage (cheap+fast) by default
 var bytes = await image.GetDataAsync();  // payload bytes, downloaded transparently when delivered as a URL
-// image.MimeType — never null; throws ImageGeneratorException on failure
+// image.MimeType — never null; throws AIException on failure
 ```
 
 Pass a model as the second argument to override the default: `ImageGenerator.GenerateAsync(prompt, ImageGeneratorModel.Gemini3ProImage)`.
@@ -69,7 +69,7 @@ namespace Ikon.AI.ImageGeneration
     bool SupportsMultipleOutputs { get; }
     // True when the model honours ImageGeneratorConfig.NegativePrompt.
     bool SupportsNegativePrompt { get; }
-    // True when the model can produce output with a transparent background (ImageGeneratorConfig.Background = ImageBackground.Transparent). Requesting transparency from a model without it throws instead of failing at the provider.
+    // True when the model can produce output with a transparent background (ImageGeneratorConfig.Background = ImageBackground.Transparent). Check this first: only the OpenAI implementation rejects an unsupported request, and the others ignore ImageGeneratorConfig.Background outright, so the image comes back opaque with no error.
     bool SupportsTransparentBackground { get; }
   enum ImageBackground
     Auto
@@ -84,9 +84,8 @@ namespace Ikon.AI.ImageGeneration
     bool SupportsNegativePrompt { get; }
     bool SupportsTransparentBackground { get; }
     void Dispose()
-    // Generate one image from a plain prompt — the instance form of the GenerateAsync one-shot, for when you already hold a generator. Reach for GenerateImageAsync when the request needs any other ImageGeneratorConfig field (input images, size, image count).
     Task<ImageGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
-    // Static one-shot; constructs and disposes an ImageGenerator per call. Defaults to ImageGeneratorModel.Gemini25FlashImage (cheap+fast); override via model. Never returns null — throws ImageGeneratorException on failure or empty output, so wrap in try/catch to continue without the image. Use the constructor + GenerateImageAsync for batch/size/input-image or any other ImageGeneratorConfig field.
+    // Static one-shot; constructs and disposes an ImageGenerator per call. Defaults to ImageGeneratorModel.Gemini25FlashImage (cheap+fast); override via model. Never returns null — throws RetryableAIException on failure or empty output, so wrap in try/catch to continue without the image. Use the constructor + GenerateImageAsync for batch/size/input-image or any other ImageGeneratorConfig field.
     static Task<ImageGeneratorResult> GenerateAsync(string prompt, ImageGeneratorModel model = Gemini25FlashImage, CancellationToken cancellationToken = default)
     Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = default)
     static ImageGeneratorCapabilities GetCapabilities(ImageGeneratorModel model)
@@ -122,10 +121,6 @@ namespace Ikon.AI.ImageGeneration
     string VisibleWatermark { get; init; }
     // The only way to request a size. Providers with fixed resolution tiers (e.g. Gemini 1K/2K/4K) round the longer edge up to the nearest tier and take the aspect ratio from Width:Height — ask for 2048x2048 to get a 2K image.
     int Width { get; init; }
-  class ImageGeneratorException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum ImageGeneratorModel
     GptImage1Mini
     GptImage15
@@ -135,7 +130,6 @@ namespace Ikon.AI.ImageGeneration
     Gemini31FlashImage
     Gemini31FlashLiteImage
     Flux1Dev
-    Flux1Schnell
     Flux11Pro
     Flux11ProUltra
     Flux11ProUltraRaw
@@ -149,6 +143,7 @@ namespace Ikon.AI.ImageGeneration
     Flux2Klein9B
     Flux2Klein4B
     GrokImagineImage
+    GrokImagineImage2
     GrokImagineImageQuality
   static class ImageGeneratorModelExtensions
     static string DisplayName(this ImageGeneratorModel model)
@@ -166,10 +161,6 @@ namespace Ikon.AI.ImageGeneration
     Low
     Medium
     High
-  class NonRetryableImageGeneratorException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   // Provider-mapped moderation strength; Moderate is the default.
   enum SafetyLevel
     None
@@ -215,7 +206,6 @@ namespace Ikon.AI.ImageUpscaling
     // Read ImageUpscalerCapabilities.Fidelity before picking a model when it matters whether the result may contain detail the input never had.
     static ImageUpscalerCapabilities GetCapabilities(ImageUpscalerModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ImageUpscalerModel model)
-    // Upscale one image — the instance form of the UpscaleAsync one-shot, for when you already hold an upscaler. Reach for UpscaleImageAsync when the request needs any other ImageUpscalerConfig field.
     Task<ImageUpscalerResult> UpscaleAsync(byte[] imageData, string mimeType, double scaleFactor = 0.0, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes an ImageUpscaler per call. Defaults to ImageUpscalerModel.SeedVr2, which reconstructs detail faithfully and bills per output megapixel. scaleFactor of 0 leaves the model's own default in place. Every default model is UpscaleFidelity.Faithful — reach for ImageUpscalerModel.Crystal and ImageUpscalerConfig.Creativity to let a model invent detail. The upscaled image is in result.Image (.Data/.MimeType). Use the constructor + UpscaleImageAsync for a URL source or any other config field.
     static Task<ImageUpscalerResult> UpscaleAsync(byte[] imageData, string mimeType, ImageUpscalerModel model = SeedVr2, double scaleFactor = 0.0, CancellationToken cancellationToken = default)
@@ -247,10 +237,6 @@ namespace Ikon.AI.ImageUpscaling
     UpscaleTargetResolution TargetResolution { get; init; }
     TimeSpan Timeout { get; init; }
     string VisibleWatermark { get; init; }
-  class ImageUpscalerException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum ImageUpscalerModel
     SeedVr2
     Topaz
@@ -261,10 +247,6 @@ namespace Ikon.AI.ImageUpscaling
   sealed record ImageUpscalerResult
     ctor()
     OutputImage Image { get; init; }
-  class NonRetryableImageUpscalerException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   // The distinction is the whole point of picking one upscaler over another. Faithful models reconstruct only what the input supports, so the result can still be read as evidence of the original. Creative models synthesize plausible detail that was never in the input. Tunable models move between the two as ImageUpscalerConfig.Creativity rises, and sit at the faithful end when it is left at zero.
   enum UpscaleFidelity
     Faithful

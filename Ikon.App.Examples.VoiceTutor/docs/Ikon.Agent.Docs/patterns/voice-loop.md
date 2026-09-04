@@ -39,23 +39,36 @@ public Task Main()
 
     Audio.AudioInputStreamEndAsync += async args =>
     {
-        if (!_streams.TryGetValue(args.StreamId.ToString(), out var samples)) return;
+        if (!_streams.TryGetValue(args.StreamId.ToString(), out var samples))
+        {
+            return;
+        }
+
         var (sampleRate, channelCount) = _streamMeta[args.StreamId.ToString()];
         _streams.Remove(args.StreamId.ToString());
         _streamMeta.Remove(args.StreamId.ToString());
-        if (samples.Count == 0) return;
+
+        if (samples.Count == 0)
+        {
+            return;
+        }
 
         _processing.Value = true;
         try
         {
             using var recognizer = new SpeechRecognizer(SpeechRecognizerModel.WhisperLarge3Turbo);
-            var heard = await recognizer.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
+            var heard = (await recognizer.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
             {
                 Samples = samples.ToArray(),
                 SampleRate = sampleRate,
                 ChannelCount = channelCount,
-            });
-            if (string.IsNullOrWhiteSpace(heard)) return;
+            })).Text;
+
+            if (string.IsNullOrWhiteSpace(heard))
+            {
+                return;
+            }
+
             _turns.Add(new VoiceTurn("You", heard));
 
             var transcript = string.Join("\n", _turns.Select(t => $"{t.Role}: {t.Text}"));
@@ -89,11 +102,15 @@ public Task Main()
                 });
             });
 
-            view.CaptureButton(
-                style: [Button.Default, "transition-colors duration-150 hover:opacity-90"],
-                captureMode: MediaCaptureButtonMode.Hold,
-                disabled: _processing.Value,
-                content: c => c.Text(text: _processing.Value ? "Thinking…" : "Hold to talk"));
+            // _processing is the STT -> LLM -> TTS round trip, not capture state: it is
+            // genuine server work, so the caption and disabled: may wait for it. The recording
+            // cue itself never does — that comes from the themed default's client-stamped
+            // state. disabled: is for "the app is busy" only, never for the microphone
+            // permission, which the button asks for itself and cannot ask for while disabled.
+            view.PushToTalkButton(
+                style: ["default", "w-auto px-5 gap-2"],
+                text: _processing.Value ? "Thinking…" : "Hold to talk",
+                disabled: _processing.Value);
         });
     });
     return Task.CompletedTask;
@@ -104,12 +121,18 @@ public Task Main()
 
 - `Audio` is a field on the App class: `private Audio Audio { get; } = new(app);`. Subscribe events through it — there is no `app.AudioInputStreamBeginAsync` shortcut; that produces CS1061.
 - The audio input streams as frames. Buffer samples per `StreamId` in a Dictionary; flush at `AudioInputStreamEndAsync`. `args.AudioStream` does NOT exist on the args; you reconstruct the buffer yourself.
-- `view.CaptureButton(captureMode: MediaCaptureButtonMode.Hold, ...)` is the platform's push-to-talk primitive — no separate Start/Stop wiring needed. (`Toggle` mode is the alternative for tap-to-start tap-to-stop.)
+- `view.PushToTalkButton` is the platform's push-to-talk primitive — no Start/Stop wiring, and no
+  hand-rolled recording state. It owns the microphone permission too: until the browser grants one
+  the button renders as "Enable microphone" and a press only asks, because a permission dialog
+  steals focus and would cancel the hold behind it. Read `push-to-talk-button` before writing any
+  mic UI; `view.MicToggleButton` is the tap-on/tap-off alternative.
 - `await Audio.SpeakAsync(text)` runs the whole TTS chain — generation, streaming, playback — and a new call fades out and replaces the previous utterance (barge-in for free). Optional parameters pick the model/voice (`Audio.SpeakAsync(text, SpeechGeneratorModel.Eleven3, voice: "Aria")`) or target specific clients (`targetIds:`).
 - Hand-roll the loop only for custom mixing, no-interrupt overlap, raw sample access, or config beyond text+voice: `using var tts = new SpeechGenerator(model); await foreach (var audio in tts.GenerateSpeechAsync(new SpeechGeneratorConfig { Text = reply })) { Audio.SendSpeech(audio); }`. `AudioChunk` carries PCM samples (`float[] Samples`, `int SampleRate`, `int ChannelCount`) — it does NOT have `.Data` or `.MimeType` properties; do not call `ClientFunctions.PlaySoundAsync(chunk.Data, chunk.MimeType)` (that combination doesn't compile).
 - `ClientFunctions.PlaySoundAsync(byte[] bytes, string mimeType)` is for playing already-encoded sound files (MP3, WAV); use `Audio.SpeakAsync` / `Audio.SendSpeech` for generated speech.
+- `RecognizeBatchSpeechAsync` returns a `Transcript` (`.Text`, `.Language`, `.Duration`), not a string. Ask for timings with `Timestamps = SpeechTimestamps.Word` (or `Segment`) and read `.Words` (`SpeechWord`) / `.Segments` (`TranscriptSegment`) — `TimeSpan` offsets from the start of the audio. It throws on a model that cannot do the granularity, so check `SpeechRecognizer.GetCapabilities(model)` first. Continuous recognition yields `TranscriptEvent`, where only `IsFinal` events carry words.
 - Wrap STT + LLM + TTS in try/finally so `_processing` always resets.
 - The transcript is a `ReactiveList<VoiceTurn>` — `_turns.Add(turn)` notifies once; enumerate and LINQ the reactive directly (`foreach (var t in _turns)`). The per-stream sample buffers stay plain `Dictionary`s: they are server-side bookkeeping, not UI state.
+- **Interrupting the agent is its own decision.** `BargeInDetector` gates it properly — the caller must produce sustained speech across several consecutive frames, and only after a short grace period from when the agent started speaking, so a cough or the agent's own echo does not cut it off. Trim dead air with `SilenceRemover`, whose threshold is derived from the measured noise floor rather than a fixed level, and mix concurrent speakers with `SpeechMixer`.
 
 ## See also
 

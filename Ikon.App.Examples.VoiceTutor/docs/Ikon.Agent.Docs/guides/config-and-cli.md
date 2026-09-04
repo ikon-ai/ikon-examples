@@ -72,7 +72,11 @@ Name = ""
 ### Project Management
 
 - `ikon app new <name>`: create a new Ikon AI app
-- `ikon app copy`: copy an app into a distributable package (zip/folder to hand out) or into a new platform app with its own git, space, and database
+- `ikon app share`: give someone else this app. Prints the one line they run — `ikon app clone --space-id <id> --prod|--dev` — and saves first, so what they get is what you have. Nothing is packaged and nothing is copied from your machine: they clone from version control and their dependencies install on their own. Reach for this before `app copy`, and never zip an app folder by hand — a zip carries `node_modules` and `build` with it, and those hold native binaries compiled for your CPU that will not run on theirs.
+  - `--package`: for a recipient outside the app's organisation. Access is organisation-level, so there is no way to grant someone a single app; this produces the same distributable as `app copy --to zip` and the copy has no link back to your version control (`--dest-dir <dir>`, `--no-verify-build`)
+  - `--no-save`: share the last saved version as it stands, without saving current changes first
+  - `--project-dir <dir>`, `--target <name>`
+- `ikon app copy`: copy an app into a distributable package (zip/folder to hand out) or into a new platform app with its own git, space, and database. This makes a *separate* thing — to give someone the app you already have, use `ikon app share`
   - `--from <dir>` (source app, defaults to the current directory), `--to <zip|dir|platform>` (prompted when omitted), `--name <name>`, `--no-update-libraries`, `--no-verify-build`
   - distributable only: `--output <dir>`
   - platform only: `--project-dir <dir>`, `--org-id <id>` / `--new-org <name>`, `--domain <prefix>`, `--no-commit`, `--no-local`
@@ -114,7 +118,8 @@ Name = ""
 - `ikon app deploy activate <id>`: activate a bundle by ID, or the newest with `--latest` (`--yes` to skip prompt)
 - `ikon app deploy delete <id>`: delete a bundle by ID (`--yes` to skip prompt)
 - `ikon app distribute`: build, sign, and push the Flutter app to testers' phones (`--flutter-android` → Firebase App Distribution, `--flutter-ios` → TestFlight, requires macOS; `--notes`, `--testers`, `--channel`). The upload is irreversible and goes to a shared tester group, so the run prints its plan and asks first — `--yes` to skip the prompt (required non-interactively), `--dry-run` to build and sign but upload nothing
-- `ikon app payments enable|disable|list|status`: manage the app's payment provider (`enable --provider stripe|surfboard|mollie` auto-stores provider secrets; `status` shows merchant onboarding state)
+- `ikon app install ios|android`: build the Flutter app and install it on a phone plugged into this computer — your own phone, not testers'. A release build carrying the same dart-defines and the same bundle id a deploy uses, so repeat installs replace the app instead of adding a second copy; signed by Xcode's automatic signing (pick the team in Xcode once) or the Android debug keystore. `--device` picks between several connected phones. Nothing is uploaded anywhere — `ikon app distribute` is the one that ships to testers
+- `ikon app payments enable|disable|list|status`: manage the app's payment provider (`enable stripe|surfboard|mollie` auto-stores provider secrets; `status` shows merchant onboarding state)
 - `ikon app payments offer create|delete|list`: manage the payment offers customers can pay for by id
 - `ikon app docs`: (re)generate app documentation under `docs/` and update `AGENTS.md`
 
@@ -157,7 +162,7 @@ the enclosing repository.
 - Binary offloading is automatic: `ikon app save`, `app bundle`, and `app deploy` offload raw binaries to the Asset store (git tracks a small `.ikonasset` pointer, the working copy stays on disk), and `app run`, `app clone`, and `app restore` restore the real bytes wherever pointers lack them. Files under root `public/` upload as public (URL-loadable); everything else stays private. The verbs below exist as manual overrides:
 - `ikon app asset normalize`: offload raw binaries now (self-heals binaries committed directly)
 - `ikon app asset materialize`: download the real binary next to every git-tracked pointer
-- `ikon app asset gc`: delete stored binary assets the repo no longer references (dry run by default; `--delete` to delete, `--scope history|window|current`)
+- `ikon app asset gc`: delete stored binary assets the repo no longer references (`--dry-run` to only list them, `--yes` to skip the confirmation, `--scope history|window|current`)
 
 ### Testing
 

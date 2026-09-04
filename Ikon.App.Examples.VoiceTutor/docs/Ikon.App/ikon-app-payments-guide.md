@@ -11,7 +11,7 @@ sends commands and reacts to events: there is no webhook to host and no payment 
 ## Enable a provider (once per app)
 
 ```bash
-ikon app payments enable --provider stripe      # Stripe is the generally-available provider
+ikon app payments enable stripe      # Stripe is the generally-available provider
 ikon app payments status                        # check onboarding / charges-enabled
 ```
 
@@ -32,7 +32,7 @@ provider's form), get a fresh one with `ikon app payments status`, or just re-ru
 
 ## Wire it into your app
 
-`app.Payments` is the entry point — no construction needed.
+`app.Payments` (a `PaymentsService`) is the entry point — no construction needed.
 
 ```csharp
 // 1. No provider setup needed — commands charge with the provider you enabled for the app.
@@ -77,12 +77,12 @@ pinned when more than one is enabled).
 | `RefundAsync(paymentId, amountMinor?, reason?)` | Full or partial refund → `PaymentRefund`. |
 | `RequestReceiptAsync(paymentId, provider?)` | Fetch a receipt for a completed payment → `PaymentReceipt` (`Url` hosted receipt page; `Pdf` bytes when the provider offers a downloadable PDF, else `null`). |
 | `CancelSubscriptionAsync(subscriptionId, immediate?)` | Cancel now (`immediate: true`) or at period end (default). |
-| `ChangeSubscriptionOfferAsync(subscriptionId, newOfferId, immediateChargeMinor?)` | Switch a subscription to another recurring offer with proration → `SubscriptionOfferChange` (see Upgrades below). |
+| `ChangeSubscriptionOfferAsync(subscriptionId, newOfferId, immediateChargeMinor?)` | Switch a subscription to another recurring offer with proration → `SubscriptionOfferChange`, whose `Direction` is a `PlanChangeDirection` saying whether it was an upgrade or a downgrade (see Upgrades below). |
 | `ResumeSubscriptionAsync(subscriptionId)` | Re-enable a subscription canceled at period end but not yet lapsed → `SubscriptionResume`. No charge; billing resumes on the original date. |
 | `ReconcileAsync(customerKey?, reference?)` | Re-pull live provider state (missed-webhook recovery) → `PaymentReconcileResult`. Eventually consistent — results arrive as normal payment events (see below). |
 | `IsEntitled(offerId, customerKey?)` | **Synchronous, no backend call** — the fast UI gate (see below). |
 | `GetEntitlementAsync(offerId, customerKey?)` | Does this customer have access to an offer? → `PaymentEntitlement` (`Active`, `ExpiresAt`, `Source`). Access past its `ExpiresAt` reports inactive. A backend call — for gating UI prefer `IsEntitled`. |
-| `ListSubscriptionsAsync(customerKey?)` | The customer's subscriptions. |
+| `ListSubscriptionsAsync(customerKey?)` | The customer's subscriptions, each a `PaymentSubscription`. |
 | `ListPaymentsAsync(customerKey?)` | The customer's payments. |
 | `ListOffersAsync()` | The app's catalog of offers. |
 
@@ -136,16 +136,16 @@ await app.Payments.CreateOfferAsync(new OfferSpec("pro", "Pro",
 or
 
 ```
-ikon app payments offer create --id pro --name Pro --amount 999 --currency eur --interval month
+ikon app payments offer create pro --name Pro --amount 999 --currency eur --interval month
 ikon app payments offer list
-ikon app payments offer delete --id pro
+ikon app payments offer delete pro
 ```
 
 For Stripe this provisions a Product + Price (`lookup_key = offerId`); for providers without a catalog
 (Mollie, Surfboard) the platform stores the offer definition. Either way you reference the offer by its
-`offerId` (e.g. `[PaymentsRequireEntitlement("pro")]`).
+`offerId` (e.g. `[PaymentsRequireEntitlement("pro")]` — the `PaymentsRequireEntitlementAttribute`).
 
-Discover offers with `ListOffersAsync()` — each `PaymentOffer` carries `Prices` (`PriceKind.Recurring` →
+Discover offers with `ListOffersAsync()` — each `PaymentOffer` carries `Prices` (a `PaymentPrice` per currency and interval; `PriceKind.Recurring` →
 subscription, `PriceKind.OneTime` → single charge) — and render your own pricing UI from them, calling
 `CreatePaymentLinkAsync(offerId)` when the user picks a plan.
 
@@ -272,7 +272,9 @@ as the authority.
 Gate a server `[Function]` on an active entitlement declaratively:
 
 ```csharp
+[Function(Visibility = FunctionVisibility.External)]
 [PaymentsRequireEntitlement("pro")]   // deny code: payments_entitlement_required
+public string ProOnlyReport() => "the paid-tier report";
 ```
 
 The call is denied unless the caller holds an active entitlement for the offer (resolved from the caller's
@@ -370,7 +372,7 @@ Mollie application fee, Surfboard Flow service-provider split), so the cut settl
 
 ```bash
 ikon app payments disable                    # remove every provider from the app
-ikon app payments disable --provider mollie  # remove just one
+ikon app payments disable mollie  # remove just one
 ```
 
 ## How it works (the mental model)

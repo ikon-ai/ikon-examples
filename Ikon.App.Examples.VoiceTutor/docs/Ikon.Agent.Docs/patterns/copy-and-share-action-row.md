@@ -77,4 +77,3 @@ private void RenderTranscriptContent(UIView view)
 ## See also
 
 - `toast-notifications` — a confirmation toast on copy is a nice optional add
-- `expandable-detail-card` — when copy/share affordances belong on each item, not the whole panel

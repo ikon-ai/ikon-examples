@@ -10,7 +10,7 @@ Send transactional email and read the mail delivered to the app's space via `app
 
 Send transactional email from your app and read the mail delivered to your app's space — through the
 platform mailer, with no SMTP credentials, provider account, or DNS setup in the app itself.
-`app.Email` is the entry point; the space's organisation must have the **Email** feature enabled
+`app.Email` (an `EmailService`) is the entry point; the space's organisation must have the **Email** feature enabled
 (calls without it throw `FeatureNotEnabledException`).
 
 ## Send an email
@@ -89,7 +89,7 @@ Inbound email delivered to the app's space is available as pages or as a lazy st
 
 ```csharp
 // One page at a time
-var page = await app.Email.GetInboxPageAsync(new InboxQuery(Limit: 50));
+var page = await app.Email.GetInboxPageAsync(new InboxQuery { Limit = 50 });
 
 // Or enumerate across pages; breaking out stops fetching
 await foreach (var summary in app.Email.EnumerateInboxAsync(new InboxQuery()))
@@ -109,90 +109,67 @@ await foreach (var summary in app.Email.EnumerateInboxAsync(new InboxQuery()))
 `InboxQuery` filters by recipient, sender, and time window. Deleting a message frees its attachment
 storage; deleting an unknown id throws rather than succeeding silently.
 
-
 ---
 
 # Ikon.Common.Core Public API
 namespace Ikon.Common.Core.Email
-  // Sender or recipient entry parsed from an inbound email envelope.
   sealed record EmailAddress
     ctor(string Email, string? Name, string? Subaddress)
     string Email { get; init; }
     string? Name { get; init; }
     string? Subaddress { get; init; }
-  // Represents a single attachment on an outgoing app email. Bytes is the raw binary content; the platform encodes it as base64 before sending it on the wire.
+  // Bytes is the raw binary content; the platform encodes it as base64 on the wire.
   sealed record EmailAttachment
     ctor(string Filename, string MimeType, byte[] Bytes)
     byte[] Bytes { get; init; }
     string Filename { get; init; }
     string MimeType { get; init; }
-  // A streaming attachment download. The caller owns the Content stream; dispose this object (e.g. await using) to release it.
+  // The caller owns the Content stream; dispose this object (e.g. await using) to release it.
   sealed class EmailAttachmentDownload : IAsyncDisposable
-    // Decrypted attachment bytes streamed from the platform.
     Stream Content { get; }
-    // The sender-supplied filename, sanitized by the platform.
+    // Sender-supplied, sanitized by the platform.
     string Filename { get; }
-    // The attachment's MIME type, as recorded at ingest time.
     string MimeType { get; }
-    // The decrypted (plaintext) attachment size in bytes.
     long Size { get; }
     ValueTask DisposeAsync()
-  // A single SMTP header preserved on an inbound email.
   sealed record EmailHeader
     ctor(string Name, string Value)
     string Name { get; init; }
     string Value { get; init; }
-  // Specification for a custom email sent by an app through the platform mailer. The platform enqueues the send for asynchronous delivery and returns once the request has been accepted; transient delivery failures are retried server-side.
+  // The platform enqueues the send and returns once accepted; transient delivery failures are retried server-side.
   sealed record EmailSendRequest
-    // To: Recipient email address.
-    // Subject: Email subject line.
-    // HtmlBody: Pre-rendered HTML body of the email.
-    // TextBody: Optional plain-text fallback for clients that do not render HTML.
-    // ReplyTo: Optional Reply-To address, for directing replies away from the From address.
-    // Attachments: Optional list of binary attachments. Up to 10 per email.
-    // Metadata: Optional string key/value pairs forwarded to the mail provider for tracking.
-    // SenderLocalPart: Optional local part of the From address — the part before the @. The platform owns the domain and only ever uses one the space has verified for sending, so this cannot send from somewhere else. Lowercase letters, digits, dot, underscore and hyphen only, starting and ending alphanumeric, at most 64 characters; names belonging to the mail infrastructure (postmaster, abuse, mailer-daemon, …) are rejected. When the space has no verified sending domain the send fails with EmailSenderNotAvailableException — catch it and resend without the sender fields to deliver from the platform's own address.
-    // SenderDisplayName: Optional display name shown beside the From address. Defaults to the space's own name. At most 64 characters, with line breaks and other header-unsafe characters rejected. Like SenderLocalPart, requires a verified sending domain.
-    // SenderDomain: Optional sending domain for the From address, for a space with more than one verified sending domain. Must be one of the space's own verified sending domains; anything else fails the send with EmailSenderNotAvailableException. Left null, the platform picks the space's designated or best verified sending domain.
+    // Attachments: Up to 10 per email.
+    // Metadata: Forwarded to the mail provider for tracking.
+    // SenderLocalPart: The From-address part before the @: lowercase letters, digits, dot, underscore, hyphen; alphanumeric at both ends; max 64 chars; mail-infrastructure names (postmaster, abuse, …) rejected. Needs a verified sending domain, else the send fails with EmailSenderNotAvailableException.
+    // SenderDisplayName: Defaults to the space's name. Max 64 characters; header-unsafe characters rejected. Needs a verified sending domain.
+    // SenderDomain: Must be one of the space's verified sending domains, else EmailSenderNotAvailableException. Null lets the platform pick the designated or best verified domain.
     ctor(string To, string Subject, string HtmlBody, string? TextBody = null, string? ReplyTo = null, IReadOnlyList<EmailAttachment>? Attachments = null, IReadOnlyDictionary<string, string>? Metadata = null, string? SenderLocalPart = null, string? SenderDisplayName = null, string? SenderDomain = null)
-    // Optional list of binary attachments. Up to 10 per email.
     IReadOnlyList<EmailAttachment>? Attachments { get; init; }
-    // Pre-rendered HTML body of the email.
     string HtmlBody { get; init; }
-    // Optional string key/value pairs forwarded to the mail provider for tracking.
     IReadOnlyDictionary<string, string>? Metadata { get; init; }
-    // Optional Reply-To address, for directing replies away from the From address.
     string? ReplyTo { get; init; }
-    // Optional display name shown beside the From address. Defaults to the space's own name. At most 64 characters, with line breaks and other header-unsafe characters rejected. Like SenderLocalPart, requires a verified sending domain.
     string? SenderDisplayName { get; init; }
-    // Optional sending domain for the From address, for a space with more than one verified sending domain. Must be one of the space's own verified sending domains; anything else fails the send with EmailSenderNotAvailableException. Left null, the platform picks the space's designated or best verified sending domain.
     string? SenderDomain { get; init; }
-    // Optional local part of the From address — the part before the @. The platform owns the domain and only ever uses one the space has verified for sending, so this cannot send from somewhere else. Lowercase letters, digits, dot, underscore and hyphen only, starting and ending alphanumeric, at most 64 characters; names belonging to the mail infrastructure (postmaster, abuse, mailer-daemon, …) are rejected. When the space has no verified sending domain the send fails with EmailSenderNotAvailableException — catch it and resend without the sender fields to deliver from the platform's own address.
     string? SenderLocalPart { get; init; }
-    // Email subject line.
     string Subject { get; init; }
-    // Optional plain-text fallback for clients that do not render HTML.
     string? TextBody { get; init; }
-    // Recipient email address.
     string To { get; init; }
-  // Rules for the sender identity fields on an outgoing app email — the local part alphabet and the names the mail infrastructure keeps for itself. Checking against these before sending turns a rejection from the platform into an immediate, local error.
+  // Checking against these before sending turns a rejection from the platform into an immediate, local error.
   static class EmailSenderIdentity
-    // Whether a normalized local part is one of the names reserved for the mail infrastructure.
     static bool IsReservedLocalPart(string localPart)
-    // Whether a normalized local part matches the alphabet the platform accepts.
     static bool IsValidLocalPart(string localPart)
-    // Trims and lowercases a local part the way the backend does before validating. Returns null when nothing remains.
+    // Trims and lowercases the way the backend does before validating; returns null when nothing remains.
     static string? NormalizeLocalPart(string? localPart)
     const int MaxDisplayNameCodePoints = 64
     const int MaxLocalPartLength = 64
-  // Lightweight metadata for an inbound email's attachment — does not include the body bytes. Fetch the body via the email service's DownloadAttachmentAsync.
+  // Metadata only — no body bytes; fetch the body via the email service's DownloadAttachmentAsync.
   sealed record InboundAttachmentInfo
     ctor(string Id, string Filename, string MimeType, long Size)
     string Filename { get; init; }
     string Id { get; init; }
     string MimeType { get; init; }
     long Size { get; init; }
-  // Full inbound email with decrypted body and parsed envelope. Attachments expose metadata only; fetch each one via the email service's DownloadAttachmentAsync.
+  // Attachments expose metadata only; fetch each one via the email service's DownloadAttachmentAsync.
   sealed record InboundEmailDetail
     ctor(string Id, string Recipient, string From, string Subject, string? BodyText, string? BodyHtml, IReadOnlyList<EmailAddress> To, IReadOnlyList<EmailAddress> Cc, string? ReplyTo, IReadOnlyList<EmailHeader> Headers, IReadOnlyList<InboundAttachmentInfo> Attachments, DateTimeOffset ReceivedAt, double? SpamScore, string? Tag)
     IReadOnlyList<InboundAttachmentInfo> Attachments { get; init; }
@@ -209,7 +186,7 @@ namespace Ikon.Common.Core.Email
     string Subject { get; init; }
     string? Tag { get; init; }
     IReadOnlyList<EmailAddress> To { get; init; }
-  // Inbox-listing entry. Subject is decrypted server-side; body and attachment bytes are not included here — call EmailService.GetMessageAsync for the full message.
+  // Subject is decrypted server-side; body and attachment bytes are not included here — call EmailService.GetMessageAsync for the full message.
   sealed record InboundEmailSummary
     ctor(string Id, string Recipient, string From, string Subject, DateTimeOffset ReceivedAt, int AttachmentCount, double? SpamScore, string? Tag)
     int AttachmentCount { get; init; }
@@ -220,21 +197,20 @@ namespace Ikon.Common.Core.Email
     double? SpamScore { get; init; }
     string Subject { get; init; }
     string? Tag { get; init; }
-  // One page of inbox results. NextCursor is null when there are no more pages.
+  // NextCursor is null when there are no more pages.
   sealed record InboxPage
     ctor(IReadOnlyList<InboundEmailSummary> Items, string? NextCursor)
     IReadOnlyList<InboundEmailSummary> Items { get; init; }
     string? NextCursor { get; init; }
-  // Filter and pagination parameters for an inbox listing.
   sealed record InboxQuery
     ctor()
-    // Opaque cursor returned by a previous InboxPage.NextCursor. null requests the first page.
+    // Opaque cursor from a previous InboxPage.NextCursor; null requests the first page.
     string? Cursor { get; init; }
-    // Filter to messages sent from this address. Case-insensitive.
+    // Case-insensitive.
     string? From { get; init; }
-    // Maximum number of messages to return for this page. The platform clamps to [1, 100]; values outside that range are silently adjusted. Defaults to 25.
+    // The platform clamps to [1, 100]; values outside that range are silently adjusted. Defaults to 25.
     int Limit { get; init; }
-    // Filter to messages delivered to this recipient address. Case-insensitive.
+    // Case-insensitive.
     string? Recipient { get; init; }
     // Inclusive lower bound on the SMTP receive timestamp.
     DateTimeOffset? Since { get; init; }

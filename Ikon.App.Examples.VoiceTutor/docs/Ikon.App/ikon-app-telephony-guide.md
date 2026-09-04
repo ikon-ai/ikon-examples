@@ -55,7 +55,7 @@ lists every number the app holds — market, provider, which is the default send
 one's incoming traffic goes. `--format json` or `--format csv` gives the same answer to a script.
 
 ```
-ikon app telephony delete --number +46766861234
+ikon app telephony delete +46766861234
 ```
 
 gives one number up.
@@ -63,6 +63,7 @@ gives one number up.
 ## Send an SMS
 
 ```csharp
+// app.Telephony is a TelephonyService — no construction, no provider account of your own.
 var result = await app.Telephony.SendSmsAsync("+358401234567", "Your table is ready.");
 
 if (!result.Replyable)
@@ -233,7 +234,7 @@ A space that runs out of credits is suspended, which stops telephony along with 
 ## Giving a number up
 
 ```
-ikon app telephony delete --number +46766861234
+ikon app telephony delete +46766861234
 ```
 
 gives up one number. To give up telephony entirely:

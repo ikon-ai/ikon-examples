@@ -37,6 +37,8 @@ var ranked = await Reranker.RerankAsync(documents, query);               // rank
 
 Refer to generated API docs for model listings and the constructor + config forms (multi-page crawling, screenshots, image moderation, OCR from URL, custom timeouts). `Retriever` provides RAG primitives.
 
+> `OCRConfig.Pages` is 1-based and inclusive on every OCR model (`"1-5"`, `"1-3,7"`). Page and document-size limits, readable mime types, and whether `IncludeWords` does anything come from `OCR.GetCapabilities(model)` — a request over a limit, or asking a model for words it cannot produce, is refused before the provider is called.
+
 ---
 
 # Ikon.AI Public API
@@ -75,7 +77,7 @@ namespace Ikon.AI.Classification
   enum ClassificationModel
     OpenAIOmniModeration
     MistralModeration
-    // Sentinel for user-registered custom models (see CustomModels); not directly usable — select custom models by their registered name string.
+    // Not directly usable — select custom models (see CustomModels) by their registered name string.
     Custom
   static class ClassificationModelExtensions
     static string DisplayName(this ClassificationModel model)
@@ -83,10 +85,6 @@ namespace Ikon.AI.Classification
     ctor()
     List<ClassificationDetail> Details { get; init; }
     bool IsFlagged { get; init; }
-  class ClassificationResultException : NonRetryableAIException
-    ctor(ClassificationResult classificationResult)
-    ctor(ClassificationResult classificationResult, Exception inner)
-    ClassificationResult ClassificationResult { get; }
   sealed class Classifier : IClassifier
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(ClassificationModel model, IReadOnlyList<ModelRegion>? regions = null)
@@ -103,22 +101,12 @@ namespace Ikon.AI.Classification
   sealed class ClassifierCapabilities : IClassifierInfo
     ctor()
     bool SupportsImageInput { get; init; }
-  class ClassifierException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
-  // Request/response format a custom classification endpoint speaks.
   enum CustomClassificationApi
-    // OpenAI moderations format (/v1/moderations).
     OpenAI
-    // Mistral moderations format.
     Mistral
-  // Configuration for a user-provided custom classification endpoint, registered via CustomModels.Register and selected by name with new Classifier(name).
   sealed class CustomClassificationModel : CustomModel
     ctor()
-    // Request/response format the endpoint speaks.
     required CustomClassificationApi Api { get; init; }
-    // True when the endpoint accepts image inputs.
     bool SupportsImageInput { get; init; }
   interface IClassifier : IClassifierInfo, IDisposable
     // Defaults to 10 seconds.
@@ -128,34 +116,20 @@ namespace Ikon.AI.Classification
     virtual Task<ClassificationResult> ClassifyAsync(string text, CancellationToken cancellationToken = default)
   interface IClassifierInfo
     bool SupportsImageInput { get; }
-  class NonRetryableClassifierException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
 
 namespace Ikon.AI.Embeddings
-  // Request/response format a custom embedding endpoint speaks.
   enum CustomEmbeddingApi
-    // OpenAI embeddings format (/v1/embeddings) — also spoken by most self-hosted embedding servers.
     OpenAI
-    // Cohere embed format.
     Cohere
-    // Mistral embeddings format.
     Mistral
-    // Google Vertex prediction format.
     Google
-    // Jina embeddings format.
     Jina
-    // Voyage embeddings format.
     Voyage
-  // Configuration for a user-provided custom embedding endpoint, registered via CustomModels.Register and selected by name with new EmbeddingGenerator(name).
   sealed class CustomEmbeddingModel : CustomModel
     ctor()
-    // Request/response format the endpoint speaks.
     required CustomEmbeddingApi Api { get; init; }
-    // Dimension of the returned embedding vectors.
     required int EmbeddingVectorSize { get; init; }
-    // Maximum number of inputs per request; larger batches are split automatically.
+    // Larger batches are split automatically. Defaults to 96.
     int MaxInputCount { get; init; }
   enum EmbeddingEncoding
     Base64
@@ -166,7 +140,6 @@ namespace Ikon.AI.Embeddings
     int EmbeddingVectorSize { get; }
     int MaxInputCount { get; }
     void Dispose()
-    // Embed a batch of texts — the instance form of the EmbedAsync one-shot, for when you already hold a generator. Reach for GenerateEmbeddingsAsync when the request needs any other EmbeddingGeneratorConfig field (batch cap, timeout).
     Task<List<float[]>> EmbedAsync(IReadOnlyList<string> texts, EmbeddingType type = Generic, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes an EmbeddingGenerator per call. Defaults to EmbeddingModel.OpenAI3Small and EmbeddingType.Generic; override the model via model, and pass an explicit EmbeddingType when embedding documents vs. queries for asymmetric retrieval. Returns one float[] per input, in input order. Use the constructor + GenerateEmbeddingsAsync for per-request batch caps or a custom timeout.
     static Task<List<float[]>> EmbedAsync(IReadOnlyList<string> texts, EmbeddingModel model = OpenAI3Small, EmbeddingType type = Generic, CancellationToken cancellationToken = default)
@@ -185,10 +158,6 @@ namespace Ikon.AI.Embeddings
     // Per-request; scaled up internally with the batch size.
     TimeSpan Timeout { get; init; }
     EmbeddingType Type { get; init; }
-  class EmbeddingGeneratorException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed class EmbeddingItem
     ctor(string context, EmbeddingModel model, EmbeddingType type, EmbeddingEncoding encoding, string embedding)
     string Context { get; init; }
@@ -207,6 +176,7 @@ namespace Ikon.AI.Embeddings
     MistralEmbed
     CodestralEmbed
     GeminiEmbedding1
+    GeminiEmbedding2
     GoogleTextEmbedding5
     GoogleTextMultilingualEmbedding2
     JinaEmbeddings3
@@ -221,7 +191,8 @@ namespace Ikon.AI.Embeddings
     Voyage4Lite
     Voyage4Large
     VoyageCode3
-    // Sentinel for user-registered custom models (see CustomModels); not directly usable — select custom models by their registered name string.
+    VoyageCode4
+    // Not directly usable — select custom models (see CustomModels) by their registered name string.
     Custom
   static class EmbeddingModelExtensions
     static string DisplayName(this EmbeddingModel model)
@@ -237,26 +208,17 @@ namespace Ikon.AI.Embeddings
   interface IEmbeddingGeneratorInfo
     int EmbeddingVectorSize { get; }
     int MaxInputCount { get; }
-  class NonRetryableEmbeddingGeneratorException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   static class VectorMath
-    // Calculates the element-wise average embedding from a list of embeddings. Each embedding must be a float array of the same length.
     // embeddings: List of embeddings (each as a float array)
     static float[] CalculateAverageEmbedding(IList<float[]> embeddings)
-    // Calculates the cosine similarity between two vectors.
     // throws ArgumentException: The vectors differ in length, or either vector has zero magnitude (e.g. a blank or failed embedding), for which cosine similarity is undefined. Guard degenerate vectors before calling when scoring in a loop.
     static float CalculateCosineSimilarity(ReadOnlySpan<float> vectorA, ReadOnlySpan<float> vectorB)
-    // Calculates the dot product of two vectors.
     static float CalculateDotProduct(ReadOnlySpan<float> vectorA, ReadOnlySpan<float> vectorB)
-    // Calculates the Euclidean distance between two vectors.
     static float CalculateEuclideanDistance(ReadOnlySpan<float> vectorA, ReadOnlySpan<float> vectorB)
-    // For each embedding in the list, finds the k nearest neighbors (using Euclidean distance).
+    // Neighbors are ranked by Euclidean distance.
     // embeddings: List of embeddings (each as a float array)
     // k: Number of neighbors to retrieve for each embedding
     static List<List<VectorMath.Neighbor>> CalculateKNearestNeighbors(IList<float[]> embeddings, int k)
-    // Calculates the magnitude (L2 norm) of a vector.
     static float GetMagnitude(ReadOnlySpan<float> vector)
   readonly struct VectorMath.Neighbor
     ctor(int index, float distance)
@@ -276,7 +238,6 @@ namespace Ikon.AI.FileConversion
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(FileConverterModel model, IReadOnlyList<ModelRegion>? regions = null)
     Task<ConvertedFile> ConvertToPdfAsync(FileConverterConfig config, CancellationToken cancellationToken = default)
-    // Convert one file's bytes to PDF — the instance form of the ConvertToPdfAsync one-shot, for when you already hold a converter. Reach for ConvertToPdfAsync when the request needs any other FileConverterConfig field.
     Task<ConvertedFile> ConvertToPdfAsync(byte[] data, string fileName, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes a FileConverter per call. fileName must carry the source extension (e.g. report.docx) — it determines the input format. The PDF is in result.Data. Use the constructor + ConvertToPdfAsync for a URL or AssetUri source, or a custom timeout.
     static Task<ConvertedFile> ConvertToPdfAsync(byte[] data, string fileName, FileConverterModel model = ConvertApi, CancellationToken cancellationToken = default)
@@ -291,20 +252,12 @@ namespace Ikon.AI.FileConversion
     ResultDelivery ResultDelivery { get; init; }
     TimeSpan Timeout { get; init; }
     string? Url { get; init; }
-  class FileConverterException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum FileConverterModel
     ConvertApi
   static class FileConverterModelExtensions
     static string DisplayName(this FileConverterModel model)
   interface IFileConverter : IDisposable
     Task<ConvertedFile> ConvertToPdfAsync(FileConverterConfig config, CancellationToken cancellationToken = default)
-  class NonRetryableFileConverterException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
 
 namespace Ikon.AI.OCR
   enum DocumentType
@@ -313,16 +266,21 @@ namespace Ikon.AI.OCR
     Task<OCRResult> AnalyzeDocumentAsync(OCRConfig config, CancellationToken cancellationToken = default)
     IAsyncEnumerable<OCRResult> AnalyzeDocumentStreamingAsync(OCRConfig config, CancellationToken cancellationToken = default)
   interface IOCRInfo
+    // Largest document the model accepts, in bytes, or 0 when it publishes no limit — never read 0 as a zero budget. Only checked when the document is supplied as OCRConfig.Data; the size behind a OCRConfig.Url or OCRConfig.AssetUri is not known before the request is made.
+    long MaxDocumentSizeBytes { get; }
+    // Most pages the model reads in one request, or 0 when it publishes no limit. A longer document has to be split into several requests with OCRConfig.Pages.
     int MaxPagesSupported { get; }
-  class NonRetryableOCRException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
+    // Mime types the provider documents as accepted input, or empty when it publishes no list. Advisory: a type outside the list is passed to the provider rather than refused here, because the provider is the authority on what it will read.
+    IReadOnlyList<string> SupportedMimeTypes { get; }
+    // True when the model fills OCRResult.Words for OCRConfig.IncludeWords. A request that asks a model reporting false for words is refused rather than answered with an empty list.
+    bool SupportsWordLevelText { get; }
   sealed class OCR : IOCR
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(OCRModel model, IReadOnlyList<ModelRegion>? regions = null)
+    long MaxDocumentSizeBytes { get; }
     int MaxPagesSupported { get; }
-    // Read one document's bytes — the instance form of the AnalyzeAsync one-shot, for when you already hold an OCR instance. Reach for AnalyzeDocumentAsync when the request needs any other OCRConfig field (asset uri, url, document type).
+    IReadOnlyList<string> SupportedMimeTypes { get; }
+    bool SupportsWordLevelText { get; }
     Task<OCRResult> AnalyzeAsync(byte[] data, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes an OCR per call. Accepts image or PDF bytes. Defaults to OCRModel.AzureDocumentIntelligence; override via model. Extracted text is in result.Text; result.Paragraphs/result.Pages carry structure. Use the constructor + AnalyzeDocumentAsync for a URL/AssetUri source or other fields, or AnalyzeDocumentStreamingAsync for page-by-page streaming.
     static Task<OCRResult> AnalyzeAsync(byte[] data, OCRModel model = AzureDocumentIntelligence, CancellationToken cancellationToken = default)
@@ -337,7 +295,10 @@ namespace Ikon.AI.OCR
     List<float> Polygon { get; init; }
   sealed class OCRCapabilities : IOCRInfo
     ctor()
+    long MaxDocumentSizeBytes { get; init; }
     int MaxPagesSupported { get; init; }
+    IReadOnlyList<string> SupportedMimeTypes { get; init; }
+    bool SupportsWordLevelText { get; init; }
   // Supply the document exactly one way: Data (with MimeType; detected from the bytes when unset), Url, or AssetUri (resolved to a URL automatically).
   sealed record OCRConfig
     ctor()
@@ -349,10 +310,6 @@ namespace Ikon.AI.OCR
     string? Pages { get; init; }
     TimeSpan Timeout { get; init; }
     string? Url { get; init; }
-  class OCRException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum OCRModel
     AzureDocumentIntelligence
     MistralOCR
@@ -381,28 +338,17 @@ namespace Ikon.AI.OCR
     string Content { get; init; }
 
 namespace Ikon.AI.Reranking
-  // Request/response format a custom rerank endpoint speaks.
   enum CustomRerankApi
-    // Cohere rerank format.
     Cohere
-    // Jina rerank format.
     Jina
-    // Voyage rerank format.
     Voyage
-    // Together rerank format.
     Together
-  // Configuration for a user-provided custom rerank endpoint, registered via CustomModels.Register and selected by name with new Reranker(name).
   sealed class CustomRerankModel : CustomModel
     ctor()
-    // Request/response format the endpoint speaks.
     required CustomRerankApi Api { get; init; }
   interface IReranker : IDisposable
     // Returns items ordered most relevant first; RerankItem.Index is the document's position in RerankerConfig.Documents.
     Task<List<RerankItem>> RerankAsync(RerankerConfig config, CancellationToken cancellationToken = default)
-  class NonRetryableRerankerException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed record RerankItem
     ctor()
     int Index { get; init; }
@@ -411,9 +357,10 @@ namespace Ikon.AI.Reranking
     CohereRerank4Fast
     CohereRerank4Pro
     JinaReranker3
+    JinaReranker35
     VoyageRerank25
     VoyageRerank25Lite
-    // Sentinel for user-registered custom models (see CustomModels); not directly usable — select custom models by their registered name string.
+    // Not directly usable — select custom models (see CustomModels) by their registered name string.
     Custom
   static class RerankModelExtensions
     static string DisplayName(this RerankModel model)
@@ -433,10 +380,6 @@ namespace Ikon.AI.Reranking
     TimeSpan Timeout { get; init; }
     // Caps how many items are returned; 0 returns all.
     int TopN { get; init; }
-  class RerankerException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
 
 namespace Ikon.AI.Retrieving
   class Content
@@ -461,16 +404,6 @@ namespace Ikon.AI.Retrieving
     readonly string Link
     readonly float Score
     readonly List<string> Segments
-  class IdMapperException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
-  class JsonAsset
-    ctor(string content)
-    IEnumerable<string> GetAllKeys()
-    string[] GetKeys()
-    bool TryGetValue(string keyPath, out object? value)
-    bool TryGetValueAsObject(string keyPath, out object? value)
   class Retriever : IAsyncDisposable
     ctor()
     KernelContext Context { get; }
@@ -586,10 +519,6 @@ namespace Ikon.AI.WebScraping
     bool UseSitemapOnly { get; init; }
     bool UseStreaming { get; init; }
     TimeSpan WaitAfter { get; init; }
-  class NonRetryableWebScraperException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed record PageResult
     ctor()
     string Content { get; init; }
@@ -649,7 +578,6 @@ namespace Ikon.AI.WebScraping
     Task<DownloadFileResult> DownloadFileAsync(DownloadFileConfig config, CancellationToken cancellationToken = default)
     static WebScraperCapabilities GetCapabilities(WebScraperModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(WebScraperModel model)
-    // Scrape one page by URL — the instance form of the ScrapeAsync one-shot, for when you already hold a scraper. Reach for ScrapeSinglePageAsync when the request needs any other SinglePageScrapeConfig field.
     Task<PageResult> ScrapeAsync(string url, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes a WebScraper per call. Defaults to WebScraperModel.Jina; override via model. Returns the page as Markdown in .Content plus .Title/.Url. Use the constructor + ScrapeSinglePageAsync for output format/cookies/JS or other fields, or ScrapeMultiplePagesAsync/TakeScreenshotAsync/DownloadFileAsync for crawling, screenshots, and downloads.
     static Task<PageResult> ScrapeAsync(string url, WebScraperModel model = Jina, CancellationToken cancellationToken = default)
@@ -662,10 +590,6 @@ namespace Ikon.AI.WebScraping
     bool SupportsMultiPageScraping { get; init; }
     bool SupportsScreenshotting { get; init; }
     bool SupportsSinglePageScraping { get; init; }
-  class WebScraperException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum WebScraperModel
     Spider
     Jina
@@ -685,10 +609,6 @@ namespace Ikon.AI.WebSearching
     Task<List<SearchResult>> SearchPagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
   interface IWebSearcherInfo
     bool SupportsImageSearching { get; }
-  class NonRetryableWebSearcherException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed record SearchConfig
     ctor()
     string CountryCode { get; init; }
@@ -712,7 +632,6 @@ namespace Ikon.AI.WebSearching
     void Dispose()
     static WebSearcherCapabilities GetCapabilities(WebSearcherModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(WebSearcherModel model)
-    // Web page search for a plain query — the instance form of the SearchAsync one-shot, for when you already hold a searcher. Reach for SearchPagesAsync when the search needs any other SearchConfig field (site restriction, country, language).
     Task<List<SearchResult>> SearchAsync(string query, int maxResults = 10, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes a WebSearcher per call. Defaults to WebSearcherModel.Google; override via model. Each SearchResult exposes .Url/.Title/.Content. Use the constructor + SearchPagesAsync for site-restricted search, country/language targeting, or other SearchConfig fields, or SearchImagesAsync (with an image-capable model) for image search.
     static Task<List<SearchResult>> SearchAsync(string query, WebSearcherModel model = Google, int maxResults = 10, CancellationToken cancellationToken = default)
@@ -721,10 +640,6 @@ namespace Ikon.AI.WebSearching
   sealed class WebSearcherCapabilities : IWebSearcherInfo
     ctor()
     bool SupportsImageSearching { get; init; }
-  class WebSearcherException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum WebSearcherModel
     Spider
     Jina
