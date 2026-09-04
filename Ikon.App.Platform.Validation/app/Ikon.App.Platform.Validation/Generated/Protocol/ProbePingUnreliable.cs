@@ -10,11 +10,11 @@ using Ikon.Common.Core.Protocol;
 
 namespace Ikon.App.Platform.Validation.Protocol;
 
-[ProtocolMessage(version: unchecked((int)1u), opcode: (Opcode)0x40000102u, unreliable: true)]
+[ProtocolMessage(version: unchecked((int)1u), opcode: (Opcode)0x40000104u, unreliable: true)]
 public sealed partial class ProbePingUnreliable : IProtocolMessagePayload
 {
     [JsonIgnore] public int MessageVersion => unchecked((int)TeleportVersion);
-    [JsonIgnore] public Opcode MessageOpcode => (Opcode)0x40000102u;
+    [JsonIgnore] public Opcode MessageOpcode => (Opcode)0x40000104u;
     [JsonIgnore] public MessageFlag MessageDefaultFlags => MessageFlag.Unreliable;
     [JsonIgnore] public const uint TeleportVersion = 1u;
 
@@ -64,7 +64,7 @@ public sealed partial class ProbePingUnreliable : IProtocolMessagePayload
             TeleportVersion,
             static (scope, value) => value.WriteToTeleport(scope),
             ReadFromTeleport);
-        ProtocolMessage.RegisterAppLocalMessageType(typeof(ProbePingUnreliable), (Opcode)0x40000102u, unchecked((int)TeleportVersion));
+        ProtocolMessage.RegisterAppLocalMessageType(typeof(ProbePingUnreliable), (Opcode)0x40000104u, unchecked((int)TeleportVersion));
     }
 
     public void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)

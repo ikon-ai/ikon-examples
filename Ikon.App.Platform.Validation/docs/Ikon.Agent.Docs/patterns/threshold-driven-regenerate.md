@@ -58,8 +58,3 @@ private async Task MaybeRegenerateImageAsync(CancellationToken ct)
 - Compare *thresholds* not raw values. With raw values, oscillation around 0.6 (0.59 ↔ 0.61) would burn images on every flicker.
 - Allow `currentThreshold <= lastThreshold` to skip — both equal-bucket *and* downward moves are no-ops. If you also want to react when the user drops back, change to `!=` and store both directions.
 - Pass the raw signal (not the threshold) to the generator — the prompt can use the precise value to influence detail intensity, even though the *trigger* is bucketed.
-
-## See also
-
-- `score-bar-meter` — visualizing the same continuous signal that drives the buckets
-- `weighted-progress-banner` — alternative when you want a smooth bar instead of bucketed regenerate

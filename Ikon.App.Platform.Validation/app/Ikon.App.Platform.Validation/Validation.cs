@@ -18,7 +18,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private static readonly HashSet<string> ValidTabs =
     [
         "buttons", "inputs", "advanced-inputs", "typography", "icons", "cards",
-        "layout", "forms", "navigation", "nav-menu", "overlays", "drag-drop",
+        "layout", "forms", "navigation", "nav-menu", "overlays", "drag-drop", "pan-zoom",
         "crosswind", "brand",
         "charts",
         "files", "assets", "actions", "notifications",
@@ -42,6 +42,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<bool> _switchChecked = new(false);
     private readonly Reactive<string> _radioValue = new("option1");
     private readonly Reactive<double> _sliderValue = new(50);
+    private readonly Reactive<double> _panZoomScale = new(1);
     private readonly Reactive<bool> _togglePressed = new(false);
     private readonly Reactive<string> _toggleGroupSingleValue = new("center");
     private readonly Reactive<IReadOnlyList<string>> _toggleGroupValues = new([]);
@@ -225,6 +226,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     // PushToTalk validation
     private readonly Reactive<bool> _isPushToTalkRecording = new(false);
     private readonly Reactive<string> _lastSpeechRecognized = new("");
+    private readonly ClientReactive<string> _lastMicPermission = new("");
 
     // Chat state
     private readonly Reactive<string> _chatInputText = new("");
@@ -423,6 +425,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             new TabItem("nav-menu", "Nav Menu", RenderNavMenuSection),
                             new TabItem("advanced-inputs", "Advanced Inputs", RenderAdvancedInputsSection),
                             new TabItem("drag-drop", "Drag & Drop", RenderDragDropSection),
+                            new TabItem("pan-zoom", "Pan & Zoom", RenderPanZoomSection),
                             // Specialized / feature areas.
                             new TabItem("crosswind", "Crosswind", RenderCrosswindSection),
                             new TabItem("brand", "Brand", RenderBrandSection),
@@ -450,6 +453,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             new TabItem("custom-messages", "Custom Msgs", RenderCustomMessagesSection),
                             new TabItem("database", "Database", RenderDatabaseSection),
                             new TabItem("versioned-state", "Versioned State", RenderVersionedStateSection),
+                            new TabItem("doc-examples", "Doc Examples", RenderDocExamplesSection),
                         ]);
                 });
             });

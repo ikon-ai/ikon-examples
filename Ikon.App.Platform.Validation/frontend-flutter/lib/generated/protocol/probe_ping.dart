@@ -88,7 +88,7 @@ class ProbePing {
         scope.writeStringField(fieldIdNote, note);
     }
 
-    static const int teleportOpcode = 0x40000101;
+    static const int teleportOpcode = 0x40000103;
 
     ProtocolMessage toProtocolMessage(int senderId, {ProtocolMessageOverrides? overrides}) =>
         createProtocolMessage(

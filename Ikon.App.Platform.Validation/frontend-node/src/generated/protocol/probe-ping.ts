@@ -22,7 +22,7 @@ export interface ProbePing
 }
 
 export const PROBE_PING_VERSION = 1;
-export const PROBE_PING_OPCODE = 0x40000101;
+export const PROBE_PING_OPCODE = 0x40000103;
 
 const PROBE_PING_SEQ_FIELD_ID = 0x1995121B;
 const PROBE_PING_MODE_FIELD_ID = 0x2BA8ACD4;

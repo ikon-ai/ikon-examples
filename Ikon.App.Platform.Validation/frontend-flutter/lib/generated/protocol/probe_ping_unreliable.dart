@@ -88,7 +88,7 @@ class ProbePingUnreliable {
         scope.writeStringField(fieldIdNote, note);
     }
 
-    static const int teleportOpcode = 0x40000102;
+    static const int teleportOpcode = 0x40000104;
     static const MessageFlag teleportDefaultFlags = MessageFlag.unreliable;
 
     ProtocolMessage toProtocolMessage(int senderId, {ProtocolMessageOverrides? overrides}) =>

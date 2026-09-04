@@ -314,7 +314,7 @@ public partial class Validation
                     view.Row([Layout.Row.Md, "flex-wrap mb-4"], content: view =>
                     {
                         view.CaptureButton(
-                            [_isAudioHoldRecording.Value ? Button.ErrorMd : Button.PrimaryMd],
+                            [Button.PrimaryMd, MicButton.States],
                             kind: MediaCaptureKind.Audio,
                             text: "Hold to Record",
                             captureMode: MediaCaptureButtonMode.Hold,
@@ -330,7 +330,7 @@ public partial class Validation
                             onCaptureStop: async e => _isAudioHoldRecording.Value = false);
 
                         view.CaptureButton(
-                            [_isAudioHoldRecording.Value ? Button.ErrorMd : Button.PrimaryMd, Button.Icon],
+                            [Button.PrimaryMd, Button.Icon, MicButton.States],
                             kind: MediaCaptureKind.Audio,
                             text: "Hold to Record",
                             captureMode: MediaCaptureButtonMode.Hold,
@@ -347,9 +347,9 @@ public partial class Validation
                             content: v => v.Icon([Icon.Default], name: "mic"));
 
                         view.CaptureButton(
-                            [_isAudioToggleRecording.Value ? Button.ErrorMd : Button.NeutralMd],
+                            [Button.NeutralMd, MicButton.States],
                             kind: MediaCaptureKind.Audio,
-                            text: _isAudioToggleRecording.Value ? "Stop Recording" : "Toggle Record",
+                            text: "Toggle Record",
                             captureMode: MediaCaptureButtonMode.Toggle,
                             audioOptions: new ClientAudioCaptureOptions
                             {
@@ -363,9 +363,9 @@ public partial class Validation
                             onCaptureStop: async e => _isAudioToggleRecording.Value = false);
 
                         view.CaptureButton(
-                            [_isAudioToggleRecording.Value ? Button.ErrorMd : Button.NeutralMd, Button.Icon],
+                            [Button.NeutralMd, Button.Icon, MicButton.States],
                             kind: MediaCaptureKind.Audio,
-                            text: _isAudioToggleRecording.Value ? "Stop Recording" : "Toggle Record",
+                            text: "Toggle Record",
                             captureMode: MediaCaptureButtonMode.Toggle,
                             audioOptions: new ClientAudioCaptureOptions
                             {
@@ -380,10 +380,18 @@ public partial class Validation
                             content: v => v.Icon([Icon.Default], name: "circle"));
                     });
 
+                    // What the SERVER observed. The buttons above colour themselves from the
+                    // client-stamped capture state, so this line is the only thing that proves the
+                    // onCaptureStart/onCaptureStop bridge fired at all — which is this app's job.
+                    view.Text([Text.Caption, "mb-4"],
+                        text: $"Server observed — hold: {(_isAudioHoldRecording.Value ? "recording" : "idle")}, "
+                            + $"toggle: {(_isAudioToggleRecording.Value ? "recording" : "idle")}, "
+                            + $"push-to-talk: {(_isPushToTalkRecording.Value ? "recording" : "idle")}");
+
                     view.Row([Layout.Row.Md, "flex-wrap mb-4 items-center"], content: view =>
                     {
                         view.PushToTalkButton(
-                            style: [_isPushToTalkRecording.Value ? Button.ErrorMd : Button.PrimaryMd],
+                            style: [Button.PrimaryMd, MicButton.States],
                             text: "Hold to Record (Easy)",
                             audioOptions: new ClientAudioCaptureOptions
                             {
@@ -394,7 +402,13 @@ public partial class Validation
                                 DeviceId = GetSelectedDeviceId(_selectedMicrophoneId.Value),
                             },
                             onCaptureStart: async e => _isPushToTalkRecording.Value = true,
-                            onCaptureStop: async e => _isPushToTalkRecording.Value = false);
+                            onCaptureStop: async e => _isPushToTalkRecording.Value = false,
+                            onPermissionChanged: async e => _lastMicPermission.Value = e.State.ToString());
+
+                        if (!string.IsNullOrEmpty(_lastMicPermission.Value))
+                        {
+                            view.Text([Text.Caption], $"Mic permission: {_lastMicPermission.Value}");
+                        }
 
                         if (!string.IsNullOrEmpty(_lastSpeechRecognized.Value))
                         {

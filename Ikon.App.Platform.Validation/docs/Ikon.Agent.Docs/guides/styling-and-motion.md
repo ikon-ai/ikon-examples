@@ -6,7 +6,7 @@ Style UI with Crosswind (Tailwind-like) utility classes in C# string arrays. Ani
 
 ```csharp
 view.Button([Button.PrimaryMd, "mt-2 w-fit self-center"], text: "Submit");
-view.Box([Card.Default, "p-6 mb-4"], content: view => { ... });
+view.Box([Card.Default, "p-6 mb-4"], content: view => { /* ... */ });
 ```
 
 ### Theme Token Shortcuts (optional)
@@ -32,7 +32,7 @@ The most-used token classes (a curated subset — the `Ikon.Parallax.Theming` na
 - **Transition**: `Transition.Fast/Normal/Slow/Slower`, `Transition.Property.*`
 - **Overlay styles**: `Dialog.*`, `AlertDialog.*`, `Popover.*`, `Tooltip.*`, `HoverCard.*`, `Toast.*`, `Sheet.*`, `Drawer.*`
 - **Form**: `FormField.Root`, `FormField.Label`, `FormField.LabelRequired`, `FormField.HelpText`, `FormField.ErrorText`
-- **Nav**: `NavPanel.Base/Filled/Border/Ghost/Divided`, `NavSection.*`, `NavItem.Sm/Md/Lg` + `NavItem.Default/Active/ActiveBrand`
+- **Nav**: `NavPanel.Base/Filled/Border/Ghost/Divided`, `NavSection.*`, `NavItem.Sm/Md/Lg` + `NavItem.Default/Active/ActiveBrand`, `Tabs.NavList` + `Tabs.NavTriggerSm/Md/Lg` (page navigation — `Tabs.List`/`Tabs.Trigger` are the segmented control, for parallel values of one setting)
 - **Stat**: `StatCard.Root/Header/IconBox*/Label/Value/Trend/TrendVariant.*`, `EmptyState.Root/IconWrap/Title/Description/Actions`
 - **Split**: `ResizableSplit.Root/Handle/HandleVertical`
 - **Other**: `Tabs.*`, `Slider.*`, `Select.*`, `RadioGroup.*`, `Checkbox.*`, `Switch.*`, `Alert.*`, `Separator.*`, `Avatar.*`
@@ -101,7 +101,7 @@ Per-token Tailwind overrides also work — the renderer dispatches by key shape:
 |---|---|---|
 | Tailwind palette step | `["amber-400"] = "#F5A524"` | Override what `bg-amber-400` / `text-amber-400` / `border-amber-400` paints app-wide. |
 | Radius rung | `["rounded-lg"] = "1.25rem"` | Override one radius rung independently. |
-| Shadow rung | `["shadow-lg"] = "0 8px 16px rgba(0,0,0,.18)"` | Override one shadow rung. |
+| Shadow rung | `["shadow-lg"] = "0 8px 16px rgba(0,0,0,.18)"` | Override one shadow rung (up to two comma-separated layers); `shadow-lg shadow-red-500` still recolours it. |
 | Font role | `["font-mono"] = "JetBrains Mono"` | Override one font slot. |
 | Bespoke token | `["--hero-glow"] = "radial-gradient(...)"` | Free CSS variable referenced as `bg-[var(--hero-glow)]`. The `--` prefix is required to declare a custom variable on purpose — an unprefixed unknown key warns as a probable typo. |
 

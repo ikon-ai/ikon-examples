@@ -22,7 +22,7 @@ export interface ProbePingUnreliable
 }
 
 export const PROBE_PING_UNRELIABLE_VERSION = 1;
-export const PROBE_PING_UNRELIABLE_OPCODE = 0x40000102;
+export const PROBE_PING_UNRELIABLE_OPCODE = 0x40000104;
 export const PROBE_PING_UNRELIABLE_DEFAULT_FLAGS = 0x10; // MessageFlag.Unreliable
 
 const PROBE_PING_UNRELIABLE_SEQ_FIELD_ID = 0x1995121B;

@@ -94,10 +94,11 @@ public partial class Validation
 
                     view.Row([Layout.Row.Md, "flex-wrap mb-4"], content: view =>
                     {
+                        // Colour states the CLIENT truth (stamped on the press); the label states what
+                        // the SERVER observed. In a validation harness the two agreeing is the check —
+                        // elsewhere the label would be a needless round trip.
                         view.CaptureButton(
-                            [_isCameraCaptureActive.Value
-                                ? Button.ErrorMd
-                                : Button.PrimaryMd],
+                            [Button.PrimaryMd, MicButton.States],
                             kind: MediaCaptureKind.Camera,
                             text: _isCameraCaptureActive.Value ? "Stop Camera" : "Start Camera",
                             captureMode: MediaCaptureButtonMode.Toggle,
@@ -188,10 +189,11 @@ public partial class Validation
 
                     view.Row([Layout.Row.Md, "flex-wrap mb-4"], content: view =>
                     {
+                        // Colour states the CLIENT truth (stamped on the press); the label states what
+                        // the SERVER observed. In a validation harness the two agreeing is the check —
+                        // elsewhere the label would be a needless round trip.
                         view.CaptureButton(
-                            [_isScreenCaptureActive.Value
-                                ? Button.ErrorMd
-                                : Button.PrimaryMd],
+                            [Button.PrimaryMd, MicButton.States],
                             kind: MediaCaptureKind.Screen,
                             text: _isScreenCaptureActive.Value ? "Stop Screen" : "Start Screen",
                             captureMode: MediaCaptureButtonMode.Toggle,

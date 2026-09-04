@@ -8,7 +8,7 @@ Managed PostgreSQL database connections.
 database, created the first time you ask for it. Nothing needs configuring, and an app that never
 asks is never given one.
 
-Create a second only when the app wants one under a name of its own — `app.Database("mydb")`:
+Create a second only when the app wants one under a name of its own — `await app.DatabaseAsync("mydb")`:
 
 ```
 ikon app db create --name mydb --yes
@@ -21,12 +21,12 @@ own space, so create the database against the target you mean (`--target staging
 
 Code that references a database the space does not hold leaves the app broken at runtime. The Critic
 should reject any pass where the C# uses a database `"X"` — EF Core's
-`app.Databases.First(d => d.Name == "X")`, `app.Database("X")`, or the older
+`app.Databases.First(d => d.Name == "X")`, `await app.DatabaseAsync("X")`, or the older
 `AppDatabaseConnection.Create(app, "X")` — without an `ikon app db create --name X` to match.
 
 ### Data access — prefer EF Core
 
-The platform provisions the database and exposes its connection string in `app.Databases`; **defining and evolving the schema is the app's job.** For anything past a single flat table — related entities, or a schema that will change over time — use **EF Core**: typed LINQ instead of hand-written SQL, and versioned migrations applied automatically at startup. Add the packages (EF Core 10 + the Npgsql provider):
+The platform provisions the database and exposes its connection string in `app.Databases`, a list of `DatabaseConnectionInfo` — `Name` (the `--name` the database was created under), `Type` (`"postgres"` is the only engine provisioned today, and `AppDatabaseConnection.Create` throws `NotSupportedException` for anything else) and a ready-to-use ADO.NET `ConnectionString` that carries credentials, so never log it or send it to a client. An app never constructs one. **Defining and evolving the schema is the app's job.** For anything past a single flat table — related entities, or a schema that will change over time — use **EF Core**: typed LINQ instead of hand-written SQL, and versioned migrations applied automatically at startup. Add the packages (EF Core 10 + the Npgsql provider):
 
 ```xml
 <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.2" />
@@ -52,7 +52,11 @@ private AppDbContext CreateDbContext()
     var options = new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(info.ConnectionString).Options;
     return new AppDbContext(options);
 }
+```
 
+Call it at startup, so every pending migration is applied before the app serves traffic:
+
+```csharp
 // at startup — applies every pending migration before the app serves traffic:
 app.OnStarting(async () => { await using var db = CreateDbContext(); await db.Database.MigrateAsync(); });
 ```
@@ -83,10 +87,10 @@ After each model change, run `ikon app db migrate add <Name>` and commit the gen
 
 ### Raw SQL (lightweight alternative)
 
-For a table or two with no schema churn, skip EF Core. `app.Database("mydb")` returns a standard ADO.NET `DbConnection` — open and dispose it **per operation** (never hold one as a field); create the schema with idempotent DDL at startup:
+For a table or two with no schema churn, skip EF Core. `await app.DatabaseAsync("mydb")` returns a standard ADO.NET `DbConnection`, unopened — open and dispose it **per operation** (never hold one as a field); create the schema with idempotent DDL at startup:
 
 ```csharp
-await using var connection = app.Database("mydb");
+await using var connection = await app.DatabaseAsync("mydb");
 await connection.OpenAsync();
 await using var cmd = connection.CreateCommand();
 cmd.CommandText = "CREATE TABLE IF NOT EXISTS users (id BIGSERIAL PRIMARY KEY, name TEXT NOT NULL);";

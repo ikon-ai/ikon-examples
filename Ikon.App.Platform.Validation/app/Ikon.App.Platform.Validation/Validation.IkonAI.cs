@@ -1,4 +1,4 @@
-public partial class Validation
+﻿public partial class Validation
 {
     // Shared access gate for the password-protected sections (Ikon.AI, Payments, Database).
     // One unlock covers them all.
@@ -1142,6 +1142,20 @@ public partial class Validation
         });
     }
 
+    // The one-shot form the AGENTS.md template teaches, exercised here so the example in the docs
+    // is this code rather than a copy of it. The card below drives the config form; both paths are
+    // real, and pinning the simple one is what keeps the guide from drifting off the API.
+    private async Task<string> GenerateImageOneShotAsync(string prompt)
+    {
+        #region docsnippet:image-generate-one-shot
+        var image = await ImageGenerator.GenerateAsync("A neon-lit cyberpunk street");  // Gemini25FlashImage (cheap+fast) by default
+        var bytes = await image.GetDataAsync();  // payload bytes, downloaded transparently when delivered as a URL
+        // image.MimeType — never null; throws AIException on failure
+        #endregion
+
+        return $"{bytes.Length} bytes, {image.MimeType}";
+    }
+
     private async Task GenerateImageAsync()
     {
         _imageGeneratorProcessing.Value = true;
@@ -1712,8 +1726,11 @@ public partial class Validation
                 {
                     view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                     {
+                        // Colour states the CLIENT truth (stamped on the press); the label states what
+                        // the SERVER observed. In a validation harness the two agreeing is the check —
+                        // elsewhere the label would be a needless round trip.
                         view.CaptureButton(
-                            [_speechRecognizerRecording.Value ? Button.ErrorMd : Button.PrimaryMd],
+                            [Button.PrimaryMd, MicButton.States],
                             kind: MediaCaptureKind.Audio,
                             text: _speechRecognizerRecording.Value ? "Stop Recording" : "Start Recording",
                             captureMode: MediaCaptureButtonMode.Toggle,
@@ -1758,8 +1775,11 @@ public partial class Validation
                 {
                     view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                     {
+                        // Colour states the CLIENT truth (stamped on the press); the label states what
+                        // the SERVER observed. In a validation harness the two agreeing is the check —
+                        // elsewhere the label would be a needless round trip.
                         view.CaptureButton(
-                            [_speechRecognizerRecording.Value ? Button.ErrorMd : Button.PrimaryMd],
+                            [Button.PrimaryMd, MicButton.States],
                             kind: MediaCaptureKind.Audio,
                             text: _speechRecognizerRecording.Value ? "Recording..." : "Hold to Record",
                             captureMode: MediaCaptureButtonMode.Hold,
@@ -1834,7 +1854,7 @@ public partial class Validation
             _speechRecognizerInstance?.Dispose();
             _speechRecognizerInstance = new SpeechRecognizer(model);
 
-            var text = await _speechRecognizerInstance.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
+            var transcript = await _speechRecognizerInstance.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
             {
                 Language = _speechRecognizerLanguage.Value,
                 SampleRate = buffer.SampleRate,
@@ -1842,7 +1862,7 @@ public partial class Validation
                 Samples = buffer.Samples.ToArray()
             });
 
-            _speechRecognizerResult.Value = string.IsNullOrWhiteSpace(text) ? "(No speech detected)" : text;
+            _speechRecognizerResult.Value = string.IsNullOrWhiteSpace(transcript.Text) ? "(No speech detected)" : transcript.Text;
         }
         catch (Exception ex)
         {
@@ -1901,20 +1921,20 @@ public partial class Validation
                 ChannelCount = channelCount
             };
 
-            await foreach (var text in recognizer.RecognizeContinuousSpeechAsync(config, _speechRecognizerChannel!.Reader.ReadAllAsync(cancellationToken), cancellationToken))
+            await foreach (var transcriptEvent in recognizer.RecognizeContinuousSpeechAsync(config, _speechRecognizerChannel!.Reader.ReadAllAsync(cancellationToken), cancellationToken))
             {
-                if (string.IsNullOrWhiteSpace(text))
+                if (string.IsNullOrWhiteSpace(transcriptEvent.Text))
                 {
                     continue;
                 }
 
                 if (string.IsNullOrEmpty(_speechRecognizerResult.Value))
                 {
-                    _speechRecognizerResult.Value = text;
+                    _speechRecognizerResult.Value = transcriptEvent.Text;
                 }
                 else
                 {
-                    _speechRecognizerResult.Value += " " + text;
+                    _speechRecognizerResult.Value += " " + transcriptEvent.Text;
                 }
             }
         }
@@ -1943,7 +1963,7 @@ public partial class Validation
             _speechRecognizerInstance?.Dispose();
             _speechRecognizerInstance = new SpeechRecognizer(model);
 
-            var text = await _speechRecognizerInstance.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
+            var transcript = await _speechRecognizerInstance.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
             {
                 Language = _speechRecognizerLanguage.Value,
                 SampleRate = 16000,
@@ -1951,7 +1971,7 @@ public partial class Validation
                 Samples = samples
             });
 
-            _speechRecognizerResult.Value = string.IsNullOrWhiteSpace(text) ? "(No speech detected)" : text;
+            _speechRecognizerResult.Value = string.IsNullOrWhiteSpace(transcript.Text) ? "(No speech detected)" : transcript.Text;
         }
         catch (Exception ex)
         {

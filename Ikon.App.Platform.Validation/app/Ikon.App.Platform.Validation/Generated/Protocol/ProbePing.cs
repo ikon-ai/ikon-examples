@@ -10,11 +10,11 @@ using Ikon.Common.Core.Protocol;
 
 namespace Ikon.App.Platform.Validation.Protocol;
 
-[ProtocolMessage(version: unchecked((int)1u), opcode: (Opcode)0x40000101u)]
+[ProtocolMessage(version: unchecked((int)1u), opcode: (Opcode)0x40000103u)]
 public sealed partial class ProbePing : IProtocolMessagePayload
 {
     [JsonIgnore] public int MessageVersion => unchecked((int)TeleportVersion);
-    [JsonIgnore] public Opcode MessageOpcode => (Opcode)0x40000101u;
+    [JsonIgnore] public Opcode MessageOpcode => (Opcode)0x40000103u;
     [JsonIgnore] public const uint TeleportVersion = 1u;
 
     private const uint SeqFieldId = 0x1995121Bu;
@@ -63,7 +63,7 @@ public sealed partial class ProbePing : IProtocolMessagePayload
             TeleportVersion,
             static (scope, value) => value.WriteToTeleport(scope),
             ReadFromTeleport);
-        ProtocolMessage.RegisterAppLocalMessageType(typeof(ProbePing), (Opcode)0x40000101u, unchecked((int)TeleportVersion));
+        ProtocolMessage.RegisterAppLocalMessageType(typeof(ProbePing), (Opcode)0x40000103u, unchecked((int)TeleportVersion));
     }
 
     public void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)

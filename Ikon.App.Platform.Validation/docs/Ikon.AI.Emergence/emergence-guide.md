@@ -13,10 +13,10 @@ There is no terminal call to remember.
 ```csharp
 // Just get the result (never null; throws EmergenceStoppedException
 // if the run stops or completes without one)
-var result = await Emerge.Run<MyType>(model, pass => { ... });
+var result = await Emerge.Run<MyType>(model, pass => { pass.Command = task; });
 
 // Streaming - observe progress
-await foreach (var ev in Emerge.Run<MyType>(model, ctx, pass => { ... }))
+await foreach (var ev in Emerge.Run<MyType>(model, ctx, pass => { pass.Command = task; }))
 {
     switch (ev)
     {
@@ -27,10 +27,10 @@ await foreach (var ev in Emerge.Run<MyType>(model, ctx, pass => { ... }))
 }
 
 // Get the (nullable) result plus the updated KernelContext
-var (result, context) = await Emerge.Run<MyType>(model, ctx, pass => { ... }).FinalAsync();
+var (withContext, context) = await Emerge.Run<MyType>(model, ctx, pass => { pass.Command = task; }).FinalAsync();
 
 // Get the result with trace info
-var (result, context, trace) = await Emerge.Run<MyType>(model, ctx, pass => { ... }).FinalWithTraceAsync();
+var (withTrace, tracedContext, trace) = await Emerge.Run<MyType>(model, ctx, pass => { pass.Command = task; }).FinalWithTraceAsync();
 ```
 
 A run is single-shot: pick one shape. Awaiting a run that has already been
@@ -62,7 +62,9 @@ public class AnalysisResult
     public List<string> KeyPoints { get; set; } = [];
     public float Confidence { get; set; }
 }
+```
 
+```csharp
 var result = await Emerge.Run<AnalysisResult>(model, pass =>
 {
     pass.Command = "Analyze the following text and provide structured output.";
@@ -76,7 +78,7 @@ var result = await Emerge.Run<AnalysisResult>(model, pass =>
 Pattern options inherit from `EmergeScopeBase`. Child scopes (like `InitialScope`, `RefinementScope`) inherit settings from the parent unless overridden:
 
 ```csharp
-await Emerge.Refine<T>(model, ctx, opt =>
+await Emerge.Refine<Draft>(model, ctx, opt =>
 {
     // Parent settings - inherited by all scopes
     opt.Temperature = 0.3f;
@@ -112,21 +114,23 @@ Patterns handle context in two ways:
 The simplest entry point: a one-shot LLM call with no `KernelContext`, no tools, no streaming. Defaults to `LLMModel.Claude45Haiku` — cheap and fast for short transformations (chatbot replies, reformat-as-X, classify, summarize). Reach for `Run<T>` when you need tools, multi-iteration loops, a populated context, or pass tuning.
 
 ```csharp
-// String response
-string reply = await Emerge.AskAsync("Summarize this in one sentence: ...");
-
-// Structured response (T must be a reference type)
 public class Classification
 {
     public string Category { get; set; } = "";
     public float Confidence { get; set; }
 }
+```
 
+```csharp
+// String response
+string reply = await Emerge.AskAsync("Summarize this in one sentence: ...");
+
+// Structured response (T must be a reference type)
 Classification result = await Emerge.AskAsync<Classification>(
     "Classify this support ticket: \"My laptop won't turn on\"");
 
 // Explicit model override
-string reply = await Emerge.AskAsync("Hard reasoning question", LLMModel.Claude45Sonnet);
+string harder = await Emerge.AskAsync("Hard reasoning question", LLMModel.Claude45Sonnet);
 ```
 
 The structured overload throws `EmergenceStoppedException` if the model returns nothing or invalid JSON.
@@ -269,7 +273,7 @@ var report = await Emerge.MapReduce<string, ChunkSummary, FinalReport>(LLMModel.
 Generate an initial result, then iteratively improve it based on feedback.
 
 ```csharp
-var final = await Emerge.Refine<Code>(LLMModel.Claude45Sonnet, ctx, opt =>
+var final = await Emerge.Refine<Implementation>(LLMModel.Claude45Sonnet, ctx, opt =>
 {
     opt.MaxRefinements = 3;
 
@@ -342,9 +346,11 @@ var merged = await Emerge.EnsembleMerge<Analysis>(LLMModel.Claude45Sonnet, ctx, 
 
 Navigate a hierarchical document index to find relevant sections without vector embeddings.
 
+The tree types live in `Ikon.AI.Emergence.Tree`, which the scaffold's global usings do not carry — add `using Ikon.AI.Emergence.Tree;`.
+
 ```csharp
 // Step 1: Build a tree index from content
-TreeIndex index = null;
+TreeIndex? index = null;
 await foreach (var ev in TreeIndex.BuildAsync(LLMModel.Claude45Sonnet, documentContent,
     new TreeIndexOptions { MaxDepth = 4, GenerateSummaries = true }))
 {
@@ -415,7 +421,9 @@ await foreach (var ev in Emerge.Run<CoderResponse>(LLMModel.Claude45Sonnet, ctx,
     pass.MaxIterations = 10;
     pass.MaxToolCalls = 50;
 }))
-{ ... }
+{
+    if (ev is Completed<CoderResponse> done) { Log.Instance.Info($"{done.Result}"); }
+}
 ```
 
 **Methods:**
@@ -437,7 +445,9 @@ public sealed record CreateEventRequest(
     [property: Description("ISO-8601 end time")] string End,
     [property: Description("Optional location")] string? Location,
     [property: Description("Attendee emails")] string[]? Attendees);
+```
 
+```csharp
 pass.AddTool(Tool.Of("create_event", "Create a calendar event",
     (CreateEventRequest request) => CreateEvent(request)));
 ```
@@ -464,9 +474,9 @@ pass.AddTools(skill.Tools().ToArray());
 
 `StructuredTagParser` extracts XML-style tags from LLM responses, useful for structured output outside of JSON mode.
 
-```csharp
-using Ikon.AI.Emergence.Structured;
+Add `using Ikon.AI.Emergence.Structured;`.
 
+```csharp
 var parsed = StructuredTagParser.Parse(content, "reasoning", "answer");
 
 // parsed.PlainText — text outside tags
@@ -543,16 +553,19 @@ Returned with `Completed<T>` events:
 | `Error` | `Exception?` | Error if one occurred |
 | `IsTruncated` | `bool` | True when `FinishReason` indicates output was cut short |
 
-## Testing with Mock LLM
+## Testing with a substitute model
 
-All pattern methods have an overload accepting `ILLM` for testing:
+Every pattern method has an overload taking a `ModelStream` — a delegate from a `KernelContext` to
+the model's event stream — so a test can stand in for the provider. It carries no capabilities:
+those describe the model, which the same call already names.
+
+`Emerge.Scripted` builds one that replays fixed texts; anything more specific is a lambda of your
+own.
 
 ```csharp
-var mockLlm = new MockLLM(responses);
-
 var result = await Emerge.Run<MyType>(
     LLMModel.Claude45Sonnet,
-    pass => { ... },
-    mockLlm  // Injected for testing
+    pass => { pass.Command = task; },
+    Emerge.Scripted(responses)  // Replays the given texts in order; no provider call
 );
 ```

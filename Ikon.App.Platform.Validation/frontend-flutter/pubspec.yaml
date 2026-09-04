@@ -8,7 +8,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  ikon_sdk: ^1.6.0
+  ikon_sdk: ^1.8.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -41,7 +41,11 @@ Multiple style strings can be combined:
 ```csharp
 private const string BaseButton = "px-4 py-2 rounded-lg font-medium transition-colors";
 private const string PrimaryColors = "bg-blue-500 hover:bg-blue-600 text-white";
+```
 
+Then from the UI lambda:
+
+```csharp
 view.Button(
     style: [BaseButton, PrimaryColors],
     text: "Primary Action",
@@ -89,26 +93,26 @@ Crosswind supports three ways to style a component. They compose freely in the s
 **1. Semantic theme-aware classes** (the default). `bg-card`, `text-foreground`, `text-muted-foreground`, `bg-background`, `bg-brand-solid`, `border-secondary`, etc. resolve through CSS variables that the platform baseline defines for both light and dark modes and that `IkonTheme` overrides target. Switching `data-theme="dark"` re-paints the UI automatically; a per-app brand re-skin propagates to every semantic site — no style-array refactor needed.
 
 ```csharp
-view.Box(style: ["rounded-2xl bg-card border border-secondary p-6 text-foreground"], content: view => { ... });
+view.Box(style: ["rounded-2xl bg-card border border-secondary p-6 text-foreground"], content: view => { });
 ```
 
 Legacy note: `bg-primary`, `text-primary`, and `border-primary` are older tier names for the page surface, body text, and default hairline. They render unchanged forever, but do not write them in new code — their names collide with the shadcn reading where "primary" means brand. Write `bg-background` / `text-foreground` / `border-secondary` instead.
 
 **2. `Ikon.Parallax.Theming` token shortcuts**. Pre-composed bundles of layer 1 — Crosswind utility strings packaged into named constants per role/size. Use them as ergonomic shortcuts when their defaults fit; ignore them when you want a different look. They follow the theme because they're built from semantic classes.
 
-```csharp
-using Ikon.Parallax.Theming;
+Needs the `Ikon.Parallax.Theming` using directive.
 
+```csharp
 view.Button(style: [Button.PrimaryMd], text: "Submit");
 view.TextField(style: [Input.Default], defaultValue: "");
-view.Box(style: [Card.Default], content: view => { ... });
+view.Box(style: [Card.Default], content: view => { });
 ```
 
 **3. Hardcoded Crosswind palette classes and raw hex**. `bg-amber-400`, `text-zinc-950`, `bg-[#F5A524]`, `text-[#0A0A0A]`. Use these when you specifically want a look that **shouldn't** change with the theme — a fixed-brand marketing surface, a decorative gradient, an illustration backdrop. They bypass the theming system, so the trade-off is concrete: if you later add light/dark switching or a brand re-skin, every fixed-color site needs to be revisited by hand.
 
 ```csharp
 view.Button(style: ["px-4 py-2 bg-amber-400 text-zinc-950 rounded-md hover:bg-amber-500 transition-colors"], text: "Submit");
-view.Box(style: ["rounded-2xl bg-zinc-900 border border-zinc-800 p-6 shadow-lg"], content: view => { ... });
+view.Box(style: ["rounded-2xl bg-zinc-900 border border-zinc-800 p-6 shadow-lg"], content: view => { });
 ```
 
 The three layers compose freely (`[Button.PrimaryMd, "mt-4 self-center", "bg-[#F5A524]"]`) — pick whichever shape best matches what you're building, but default to layer 1 for surfaces that should follow the theme.
@@ -124,7 +128,7 @@ This split is deliberate — Ikon styling is two-tier. The structural core (surf
 
 ```csharp
 // Nav arrows: hover-revealed on desktop, always visible on touch
-view.Box(style: ["opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 transition-opacity"], ...);
+view.Box(style: ["opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 transition-opacity"], content: view => { });
 ```
 
 ### Theme Activation
@@ -137,21 +141,20 @@ Two ways to avoid this:
 
 1. **Use semantic background tokens** that follow the theme: `bg-background`, `bg-card`, `bg-muted`, `bg-tertiary`. These flip automatically with the theme, so `text-primary` always contrasts.
 2. **Set the theme explicitly** to match the UI you're rendering. The canonical form is one `UI.UseTheme()` call in `Main`:
-   ```csharp
-   private ThemeControl _theme = null!;
+```csharp
+private ThemeControl _theme = null!;
 
-   public async Task Main()
-   {
-       _theme = UI.UseTheme(); // defaults: dark, and follows a client's own saved theme
-       ...
-   }
-   ```
+public async Task Main()
+{
+    _theme = UI.UseTheme(); // defaults: dark, and follows a client's own saved theme
+}
+```
    `UseTheme(Theme defaultTheme = Theme.Dark, bool followClient = true)` syncs every joining client — with `followClient: true` a client that already has a theme keeps it and clients without one get `defaultTheme`; with `followClient: false` every client is forced to `defaultTheme`. It returns a `ThemeControl` whose `Current` (`ClientReactive<Theme>`) is bindable in views and whose `ToggleAsync` / `SetAsync` switch the calling client's theme:
-   ```csharp
-   view.Button([Button.GhostMd, Button.Icon],
-       onClick: _theme.ToggleAsync,
-       content: v => v.Icon([Icon.Default], name: _theme.Current.Value == Theme.Dark ? "sun" : "moon"));
-   ```
+```csharp
+view.Button([Button.GhostMd, Button.Icon],
+    onClick: _theme.ToggleAsync,
+    content: v => v.Icon([Icon.Default], name: _theme.Current.Value == Theme.Dark ? "sun" : "moon"));
+```
    Do not hand-roll the `ClientJoinedAsync` + `ClientFunctions.SetThemeAsync` ceremony this replaces — and if you rewrite the app body and drop the `UseTheme` call, you re-introduce the trap. Keep it in any app that uses fixed dark Crosswind palette classes for surfaces.
 
 The same applies in reverse for a fixed-light UI: don't strand `text-primary` on a fixed-white background while the theme is dark.
@@ -183,20 +186,23 @@ Crosswind supports the standard Tailwind utility classes:
 Standard Crosswind variants are supported:
 
 ```csharp
-// Pseudo-classes
-"hover:bg-blue-600 focus:ring-2 active:scale-95 disabled:opacity-50"
+string[] Classes =
+[
+    // Pseudo-classes
+    "hover:bg-blue-600 focus:ring-2 active:scale-95 disabled:opacity-50",
 
-// Responsive breakpoints
-"sm:flex md:grid lg:hidden"
+    // Responsive breakpoints
+    "sm:flex md:grid lg:hidden",
 
-// Dark mode
-"dark:bg-neutral-900 dark:text-white"
+    // Dark mode
+    "dark:bg-neutral-900 dark:text-white",
 
-// Data attributes
-"data-[state=open]:bg-blue-500 data-[disabled]:opacity-50"
+    // Data attributes
+    "data-[state=open]:bg-blue-500 data-[disabled]:opacity-50",
 
-// Group and peer
-"group-hover:visible peer-focus:ring-2"
+    // Group and peer
+    "group-hover:visible peer-focus:ring-2",
+];
 ```
 
 ### Variant Groups
@@ -206,15 +212,21 @@ Apply one variant to several classes at once with the parenthesised group form
 so you write the prefix once instead of repeating it:
 
 ```csharp
-// These two are equivalent:
-"hover:bg-blue-600 hover:text-white hover:shadow-lg"
-"hover:(bg-blue-600 text-white shadow-lg)"
+string[] Classes =
+[
+    // These two are equivalent:
+    "hover:bg-blue-600 hover:text-white hover:shadow-lg",
+    "hover:(bg-blue-600 text-white shadow-lg)",
+];
 ```
 
 Groups nest — a class inside a group keeps any further variant of its own:
 
 ```csharp
-"md:(flex gap-4 hover:bg-blue-600)"   // md: applies to all three; hover: also to the last
+string[] Classes =
+[
+    "md:(flex gap-4 hover:bg-blue-600)",   // md: applies to all three; hover: also to the last
+];
 ```
 
 ### Target Variants (web vs Flutter)
@@ -229,9 +241,12 @@ scope it with a target variant:
 
 ```csharp
 // Shared layout, per-target colours. Use the group form so the target prefix is written once:
-["px-3 py-2 rounded-md",
- "web:(bg-background text-secondary border border-input)",
- "flutter:(bg-slate-900 text-slate-100 border border-slate-700)"]
+string[] Classes =
+[
+    "px-3 py-2 rounded-md",
+    "web:(bg-background text-secondary border border-input)",
+    "flutter:(bg-slate-900 text-slate-100 border border-slate-700)",
+];
 ```
 
 A `web:` class emits no Flutter styling and a `flutter:` class emits no CSS. Reach for
@@ -246,14 +261,17 @@ target prefix at all.
 Use brackets for custom values:
 
 ```csharp
-// Custom colors
-"bg-[#ff6b6b] text-[rgb(255,255,255)]"
+string[] Classes =
+[
+    // Custom colors
+    "bg-[#ff6b6b] text-[rgb(255,255,255)]",
 
-// Custom spacing
-"p-[13px] gap-[0.875rem]"
+    // Custom spacing
+    "p-[13px] gap-[0.875rem]",
 
-// Custom properties
-"shadow-[0_0_20px_rgba(0,255,65,0.3)]"
+    // Custom properties
+    "shadow-[0_0_20px_rgba(0,255,65,0.3)]",
+];
 ```
 
 ## Motion Language
@@ -267,14 +285,17 @@ Define animations with the `motion-[...]` syntax. Steps are specified as `percen
 Within `motion-[...]`, keyframe steps are comma-separated. Within each step, multiple utilities are separated by underscores (`_`). Underscores outside of brackets and parentheses are converted to spaces during parsing, so `opacity-0_translate-y-[12px]` is equivalent to `opacity-0 translate-y-[12px]`.
 
 ```csharp
-// Fade in and slide up
-"motion-[0:opacity-0_translate-y-[12px],100:opacity-100_translate-y-0]"
+string[] Classes =
+[
+    // Fade in and slide up
+    "motion-[0:opacity-0_translate-y-[12px],100:opacity-100_translate-y-0]",
 
-// Scale pulse
-"motion-[0:scale-100,50:scale-[1.05],100:scale-100]"
+    // Scale pulse
+    "motion-[0:scale-100,50:scale-[1.05],100:scale-100]",
 
-// Complex multi-step animation
-"motion-[0:opacity-0_blur-[4px],30:opacity-60_blur-[2px],100:opacity-100_blur-0]"
+    // Complex multi-step animation
+    "motion-[0:opacity-0_blur-[4px],30:opacity-60_blur-[2px],100:opacity-100_blur-0]",
+];
 ```
 
 ### Timing Controls
@@ -282,24 +303,27 @@ Within `motion-[...]`, keyframe steps are comma-separated. Within each step, mul
 Control animation timing with dedicated utilities:
 
 ```csharp
-// Duration and delay
-"motion-duration-300ms motion-delay-100ms"
+string[] Classes =
+[
+    // Duration and delay
+    "motion-duration-300ms motion-delay-100ms",
 
-// Easing
-"motion-ease-[cubic-bezier(0.25,1,0.35,1)]"
+    // Easing
+    "motion-ease-[cubic-bezier(0.25,1,0.35,1)]",
 
-// Fill mode
-"motion-fill-both motion-fill-forwards"
+    // Fill mode
+    "motion-fill-both motion-fill-forwards",
 
-// Iteration
-"motion-once motion-loop motion-ping-pong"
+    // Iteration
+    "motion-once motion-loop motion-ping-pong",
 
-// Step easing (discrete/glitch effects)
-"motion-ease-[steps(1)]"   // instant jumps between keyframes
-"motion-ease-[steps(4)]"   // four evenly-spaced steps
+    // Step easing (discrete/glitch effects)
+    "motion-ease-[steps(1)]",   // instant jumps between keyframes
+    "motion-ease-[steps(4)]",   // four evenly-spaced steps
 
-// Playback rate multiplier
-"motion-rate-150"           // 150% speed
+    // Playback rate multiplier
+    "motion-rate-150",           // 150% speed
+];
 ```
 
 ### Staggered Text Animations
@@ -307,17 +331,20 @@ Control animation timing with dedicated utilities:
 Animate text character by character, word by word, or line by line:
 
 ```csharp
-// Typewriter effect - letters appear one at a time
-"motion-[0:opacity-0,100:opacity-100] " +
-"motion-duration-80ms motion-stagger-50ms motion-per-letter motion-fill-both"
+string[] Classes =
+[
+    // Typewriter effect - letters appear one at a time
+    "motion-[0:opacity-0,100:opacity-100] " +
+    "motion-duration-80ms motion-stagger-50ms motion-per-letter motion-fill-both",
 
-// Words fade in sequentially
-"motion-[0:opacity-0_translate-y-[8px],100:opacity-100_translate-y-0] " +
-"motion-duration-200ms motion-stagger-120ms motion-per-word motion-fill-both"
+    // Words fade in sequentially
+    "motion-[0:opacity-0_translate-y-[8px],100:opacity-100_translate-y-0] " +
+    "motion-duration-200ms motion-stagger-120ms motion-per-word motion-fill-both",
 
-// Lines reveal one by one
-"motion-[0:opacity-0,100:opacity-100] " +
-"motion-duration-300ms motion-stagger-200ms motion-per-line motion-fill-both"
+    // Lines reveal one by one
+    "motion-[0:opacity-0,100:opacity-100] " +
+    "motion-duration-300ms motion-stagger-200ms motion-per-line motion-fill-both",
+];
 ```
 
 #### Per-Element Modes and Compound Variants
@@ -342,17 +369,20 @@ Each base mode supports compound suffixes that combine the split with a playback
 These compound variants are available for `per-letter`, `per-word`, and `per-line`.
 
 ```csharp
-// Looping wave — each letter bounces continuously
-"wave:motion-[0:translate-y-0,50:translate-y-[-10px],100:translate-y-0] " +
-"wave:motion-duration-1200ms wave:motion-stagger-80ms wave:motion-per-letter-loop wave:motion-ease-ease-in-out"
+string[] Classes =
+[
+    // Looping wave — each letter bounces continuously
+    "wave:motion-[0:translate-y-0,50:translate-y-[-10px],100:translate-y-0] " +
+    "wave:motion-duration-1200ms wave:motion-stagger-80ms wave:motion-per-letter-loop wave:motion-ease-ease-in-out",
 
-// Reverse loop — stagger starts from the last letter
-"wave:motion-[0:translate-y-0,50:translate-y-[-10px],100:translate-y-0] " +
-"wave:motion-duration-1200ms wave:motion-stagger-80ms wave:motion-per-letter-reverse-loop wave:motion-ease-ease-in-out"
+    // Reverse loop — stagger starts from the last letter
+    "wave:motion-[0:translate-y-0,50:translate-y-[-10px],100:translate-y-0] " +
+    "wave:motion-duration-1200ms wave:motion-stagger-80ms wave:motion-per-letter-reverse-loop wave:motion-ease-ease-in-out",
 
-// Ping-pong — alternating direction per word
-"motion-[0:opacity-70_scale-[0.95],100:opacity-100_scale-100] " +
-"motion-duration-500ms motion-stagger-150ms motion-per-word-ping-pong"
+    // Ping-pong — alternating direction per word
+    "motion-[0:opacity-70_scale-[0.95],100:opacity-100_scale-100] " +
+    "motion-duration-500ms motion-stagger-150ms motion-per-word-ping-pong",
+];
 ```
 
 ### Track Prefixes
@@ -360,9 +390,12 @@ These compound variants are available for `per-letter`, `per-word`, and `per-lin
 Scope motion parameters to named tracks for independent control:
 
 ```csharp
-// 'title' track for text, 'glow' track for background effect
-"title:motion-[0:opacity-0,100:opacity-100] title:motion-duration-300ms title:motion-per-letter " +
-"glow:motion-[0:scale-100,50:scale-[1.02],100:scale-100] glow:motion-duration-2000ms glow:motion-loop"
+string[] Classes =
+[
+    // 'title' track for text, 'glow' track for background effect
+    "title:motion-[0:opacity-0,100:opacity-100] title:motion-duration-300ms title:motion-per-letter " +
+    "glow:motion-[0:scale-100,50:scale-[1.02],100:scale-100] glow:motion-duration-2000ms glow:motion-loop",
+];
 ```
 
 ### State-Based Animations
@@ -370,11 +403,14 @@ Scope motion parameters to named tracks for independent control:
 Combine motion with data attribute variants for state-driven animations:
 
 ```csharp
-// Dialog content animation
-"data-[state=open]:motion-[0:opacity-0_scale-[0.95],100:opacity-100_scale-100] " +
-"data-[state=open]:motion-duration-200ms data-[state=open]:motion-fill-both " +
-"data-[state=closed]:motion-[0:opacity-100,100:opacity-0] " +
-"data-[state=closed]:motion-duration-150ms data-[state=closed]:motion-fill-both"
+string[] Classes =
+[
+    // Dialog content animation
+    "data-[state=open]:motion-[0:opacity-0_scale-[0.95],100:opacity-100_scale-100] " +
+    "data-[state=open]:motion-duration-200ms data-[state=open]:motion-fill-both " +
+    "data-[state=closed]:motion-[0:opacity-100,100:opacity-0] " +
+    "data-[state=closed]:motion-duration-150ms data-[state=closed]:motion-fill-both",
+];
 ```
 
 ### 3D Transforms in Keyframes
@@ -382,23 +418,26 @@ Combine motion with data attribute variants for state-driven animations:
 Crosswind supports 3D rotation, translation, and scale utilities inside keyframe steps: `rotate-x-[angle]`, `rotate-y-[angle]`, `rotate-z-[angle]`, `translate-z-[length]`, and `scale-z-[number]`. Transform keyframes compile to direct CSS transform properties — the individual `translate` / `rotate` / `scale` properties when the track animates a single category, or a composed `transform` function list when categories are mixed — so they interpolate smoothly on the compositor.
 
 ```csharp
-// Card flip (Y-axis rotation)
-"motion-[0:rotate-y-0,50:rotate-y-[180deg],100:rotate-y-[360deg]] " +
-"motion-duration-3000ms motion-loop motion-ease-ease-in-out"
+string[] Classes =
+[
+    // Card flip (Y-axis rotation)
+    "motion-[0:rotate-y-0,50:rotate-y-[180deg],100:rotate-y-[360deg]] " +
+    "motion-duration-3000ms motion-loop motion-ease-ease-in-out",
 
-// Depth pop with translate-z
-"motion-[0:translate-z-[-50px]_blur-[3px]_opacity-50_scale-[0.95]," +
-"50:translate-z-[10px]_blur-0_opacity-100_scale-[1.02]," +
-"100:translate-z-0_blur-0_opacity-100_scale-100] " +
-"motion-duration-600ms motion-stagger-40ms motion-per-letter-loop motion-ease-ease-out"
+    // Depth pop with translate-z
+    "motion-[0:translate-z-[-50px]_blur-[3px]_opacity-50_scale-[0.95]," +
+    "50:translate-z-[10px]_blur-0_opacity-100_scale-[1.02]," +
+    "100:translate-z-0_blur-0_opacity-100_scale-100] " +
+    "motion-duration-600ms motion-stagger-40ms motion-per-letter-loop motion-ease-ease-out",
 
-// Cube face rotation (combined X + Y)
-"motion-[0:rotate-x-0_rotate-y-0," +
-"25:rotate-x-[90deg]_rotate-y-0," +
-"50:rotate-x-[90deg]_rotate-y-[90deg]," +
-"75:rotate-x-0_rotate-y-[90deg]," +
-"100:rotate-x-0_rotate-y-0] " +
-"motion-duration-4000ms motion-loop motion-ease-ease-in-out"
+    // Cube face rotation (combined X + Y)
+    "motion-[0:rotate-x-0_rotate-y-0," +
+    "25:rotate-x-[90deg]_rotate-y-0," +
+    "50:rotate-x-[90deg]_rotate-y-[90deg]," +
+    "75:rotate-x-0_rotate-y-[90deg]," +
+    "100:rotate-x-0_rotate-y-0] " +
+    "motion-duration-4000ms motion-loop motion-ease-ease-in-out",
+];
 ```
 
 ### Filter Animations in Keyframes
@@ -408,29 +447,32 @@ Filter functions animate smoothly inside `motion-[...]` keyframes. Crosswind aut
 Supported filter utilities: `blur`, `brightness`, `contrast`, `hue-rotate`, `saturate`, `grayscale`, `sepia`, `invert`.
 
 ```csharp
-// Hue rotation cycle — rainbow color shifting
-"motion-[0:hue-rotate-0,100:hue-rotate-[360deg]] " +
-"motion-duration-3000ms motion-loop motion-ease-linear"
+string[] Classes =
+[
+    // Hue rotation cycle — rainbow color shifting
+    "motion-[0:hue-rotate-0,100:hue-rotate-[360deg]] " +
+    "motion-duration-3000ms motion-loop motion-ease-linear",
 
-// Brightness flash
-"motion-[0:brightness-100,15:brightness-[2],30:brightness-100,100:brightness-100] " +
-"motion-duration-2000ms motion-loop"
+    // Brightness flash
+    "motion-[0:brightness-100,15:brightness-[2],30:brightness-100,100:brightness-100] " +
+    "motion-duration-2000ms motion-loop",
 
-// Saturate pulse
-"motion-[0:saturate-100,50:saturate-[2],100:saturate-100] " +
-"motion-duration-1500ms motion-loop motion-ease-ease-in-out"
+    // Saturate pulse
+    "motion-[0:saturate-100,50:saturate-[2],100:saturate-100] " +
+    "motion-duration-1500ms motion-loop motion-ease-ease-in-out",
 
-// Grayscale fade
-"motion-[0:grayscale-0,50:grayscale-100,100:grayscale-0] " +
-"motion-duration-4000ms motion-loop motion-ease-ease-in-out"
+    // Grayscale fade
+    "motion-[0:grayscale-0,50:grayscale-100,100:grayscale-0] " +
+    "motion-duration-4000ms motion-loop motion-ease-ease-in-out",
 
-// Combined filters (blur + brightness + hue-rotate)
-"motion-[0:blur-0_brightness-100_hue-rotate-0," +
-"25:blur-[2px]_brightness-[1.2]_hue-rotate-[45deg]," +
-"50:blur-[4px]_brightness-[1.5]_hue-rotate-[90deg]," +
-"75:blur-[2px]_brightness-[1.2]_hue-rotate-[135deg]," +
-"100:blur-0_brightness-100_hue-rotate-[180deg]] " +
-"motion-duration-4000ms motion-loop motion-ease-ease-in-out"
+    // Combined filters (blur + brightness + hue-rotate)
+    "motion-[0:blur-0_brightness-100_hue-rotate-0," +
+    "25:blur-[2px]_brightness-[1.2]_hue-rotate-[45deg]," +
+    "50:blur-[4px]_brightness-[1.5]_hue-rotate-[90deg]," +
+    "75:blur-[2px]_brightness-[1.2]_hue-rotate-[135deg]," +
+    "100:blur-0_brightness-100_hue-rotate-[180deg]] " +
+    "motion-duration-4000ms motion-loop motion-ease-ease-in-out",
+];
 ```
 
 ### Text Shadow Animations in Keyframes
@@ -438,22 +480,25 @@ Supported filter utilities: `blur`, `brightness`, `contrast`, `hue-rotate`, `sat
 `text-shadow-[...]` can be used inside keyframe steps for chromatic aberration and glow effects. Since text-shadow values are arbitrary, they use `'*'` syntax in `@property` and interpolate as whole values.
 
 ```csharp
-// Chromatic aberration glitch
-"glitch:motion-[0:text-shadow-[0_0_0_transparent,0_0_0_transparent]," +
-"20:text-shadow-[3px_0_0_rgba(255,0,0,0.8),-3px_0_0_rgba(0,255,255,0.8)]," +
-"40:text-shadow-[-2px_1px_0_rgba(255,0,0,0.6),2px_-1px_0_rgba(0,255,255,0.6)]," +
-"60:text-shadow-[2px_0_0_rgba(255,0,0,0.8),-2px_0_0_rgba(0,255,255,0.8)]," +
-"80:text-shadow-[-1px_-1px_0_rgba(255,0,0,0.5),1px_1px_0_rgba(0,255,255,0.5)]," +
-"100:text-shadow-[0_0_0_transparent,0_0_0_transparent]] " +
-"glitch:motion-duration-150ms glitch:motion-loop glitch:motion-ease-[steps(1)]"
+string[] Classes =
+[
+    // Chromatic aberration glitch
+    "glitch:motion-[0:text-shadow-[0_0_0_transparent,0_0_0_transparent]," +
+    "20:text-shadow-[3px_0_0_rgba(255,0,0,0.8),-3px_0_0_rgba(0,255,255,0.8)]," +
+    "40:text-shadow-[-2px_1px_0_rgba(255,0,0,0.6),2px_-1px_0_rgba(0,255,255,0.6)]," +
+    "60:text-shadow-[2px_0_0_rgba(255,0,0,0.8),-2px_0_0_rgba(0,255,255,0.8)]," +
+    "80:text-shadow-[-1px_-1px_0_rgba(255,0,0,0.5),1px_1px_0_rgba(0,255,255,0.5)]," +
+    "100:text-shadow-[0_0_0_transparent,0_0_0_transparent]] " +
+    "glitch:motion-duration-150ms glitch:motion-loop glitch:motion-ease-[steps(1)]",
 
-// Neon glow pulse
-"glow:motion-[0:text-shadow-[0_0_0_rgba(0,0,0,0)]," +
-"25:text-shadow-[0_0_0.5em_rgba(255,0,128,0.5)]," +
-"50:text-shadow-[0_0_0.8em_rgba(255,100,150,0.4)]," +
-"75:text-shadow-[0.1em_0_0_rgba(255,0,100,0.6),-0.1em_0_0_rgba(255,150,200,0.6)]," +
-"100:text-shadow-[0_0_0_rgba(0,0,0,0)]] " +
-"glow:motion-duration-3000ms glow:motion-loop"
+    // Neon glow pulse
+    "glow:motion-[0:text-shadow-[0_0_0_rgba(0,0,0,0)]," +
+    "25:text-shadow-[0_0_0.5em_rgba(255,0,128,0.5)]," +
+    "50:text-shadow-[0_0_0.8em_rgba(255,100,150,0.4)]," +
+    "75:text-shadow-[0.1em_0_0_rgba(255,0,100,0.6),-0.1em_0_0_rgba(255,150,200,0.6)]," +
+    "100:text-shadow-[0_0_0_rgba(0,0,0,0)]] " +
+    "glow:motion-duration-3000ms glow:motion-loop",
+];
 ```
 
 ### Common Animation Patterns
@@ -532,10 +577,10 @@ In Tailwind v4 (and Crosswind), bare `outline` only sets `outline-width` — it 
 
 ```csharp
 // WRONG — outline-style stays `none`, nothing renders
-style: ["outline outline-2 outline-blue-500"]
+view.Box(style: ["outline outline-2 outline-blue-500"]);
 
 // CORRECT — explicit style
-style: ["outline outline-solid outline-2 outline-blue-500"]
+view.Box(style: ["outline outline-solid outline-2 outline-blue-500"]);
 ```
 
 ### Advanced Motion Utilities
@@ -547,11 +592,14 @@ Crosswind supports CSS Animations Level 2 properties for scroll-driven animation
 Declare a scroll timeline on a scroll container, then bind an animation track to it:
 
 ```csharp
-// On the scroll container
-"scroll-timeline-[--hero_y]"
+string[] Classes =
+[
+    // On the scroll container
+    "scroll-timeline-[--hero_y]",
 
-// On the animated element
-"lead:motion-[0:opacity-0,100:opacity-100] lead:motion-timeline-[--hero]"
+    // On the animated element
+    "lead:motion-[0:opacity-0,100:opacity-100] lead:motion-timeline-[--hero]",
+];
 ```
 
 #### Animation Composition
@@ -559,8 +607,11 @@ Declare a scroll timeline on a scroll container, then bind an animation track to
 Control how multiple animations combine on the same element:
 
 ```csharp
-// Additive composition — transforms blend instead of replacing
-"pulse:motion-[0:scale-100,100:scale-110] pulse:motion-composition-add"
+string[] Classes =
+[
+    // Additive composition — transforms blend instead of replacing
+    "pulse:motion-[0:scale-100,100:scale-110] pulse:motion-composition-add",
+];
 ```
 
 Values: `replace` (default), `add`, `accumulate`.
@@ -570,8 +621,11 @@ Values: `replace` (default), `add`, `accumulate`.
 Pause and resume animations programmatically:
 
 ```csharp
-"lead:motion-play-state-paused"    // starts paused
-"lead:motion-play-state-running"   // resumes
+string[] Classes =
+[
+    "lead:motion-play-state-paused",    // starts paused
+    "lead:motion-play-state-running",   // resumes
+];
 ```
 
 #### Animation Range
@@ -579,9 +633,12 @@ Pause and resume animations programmatically:
 Clamp animation playback to a portion of a scroll timeline:
 
 ```csharp
-"halo:motion-range-[entry_0%_exit_60%]"
-"halo:motion-range-start-[entry_10%]"
-"halo:motion-range-end-[exit_90%]"
+string[] Classes =
+[
+    "halo:motion-range-[entry_0%_exit_60%]",
+    "halo:motion-range-start-[entry_10%]",
+    "halo:motion-range-end-[exit_90%]",
+];
 ```
 
 #### Motion Priority
@@ -589,8 +646,11 @@ Clamp animation playback to a portion of a scroll timeline:
 Control stagger ordering with a priority hint (0–999):
 
 ```csharp
-"motion-priority-0"     // default
-"motion-priority-100"   // higher priority staggers first
+string[] Classes =
+[
+    "motion-priority-0",     // default
+    "motion-priority-100",   // higher priority staggers first
+];
 ```
 
 #### GPU Promotion (`will-change`)
@@ -598,12 +658,15 @@ Control stagger ordering with a priority hint (0–999):
 Crosswind auto-emits `will-change: <props>` for continuous motion tracks (loop / ping-pong / scroll-bound) so the first frame doesn't hitch while the browser promotes the element to its own GPU layer. Override the heuristic explicitly when needed:
 
 ```csharp
-// Force promotion even for one-shot animations (e.g. a critical entry effect)
-"intro:motion-[0:opacity-0,100:opacity-100] intro:motion-once intro:motion-promote"
+string[] Classes =
+[
+    // Force promotion even for one-shot animations (e.g. a critical entry effect)
+    "intro:motion-[0:opacity-0,100:opacity-100] intro:motion-once intro:motion-promote",
 
-// Suppress promotion for continuous animations on plentiful elements
-// (e.g. a looping pulse on hundreds of list items where GPU-layer cost dominates)
-"pulse:motion-[0:opacity-70,100:opacity-100] pulse:motion-loop pulse:motion-no-promote"
+    // Suppress promotion for continuous animations on plentiful elements
+    // (e.g. a looping pulse on hundreds of list items where GPU-layer cost dominates)
+    "pulse:motion-[0:opacity-70,100:opacity-100] pulse:motion-loop pulse:motion-no-promote",
+];
 ```
 
 ## Complete Example
@@ -630,8 +693,11 @@ public static class Button
 
     public const string Primary = Base + " " + PrimaryColors + " " + HoverEffect + " " + ActivePress;
 }
+```
 
-// Usage
+Then from the UI lambda:
+
+```csharp
 view.Button(style: [Button.Primary], text: "Submit", onClick: async () => { });
 ```
 
@@ -645,13 +711,13 @@ Both approaches work correctly because Crosswind includes `box-sizing: border-bo
 // Option 1: Padding on Root (preferred for semantic clarity)
 UI.Root(style: ["h-screen bg-slate-950 p-4"], content: view =>
 {
-    view.Column(style: ["w-full h-full"], content: col => { ... });
+    view.Column(style: ["w-full h-full"], content: col => { });
 });
 
 // Option 2: Padding on inner container (also works)
 UI.Root(style: ["h-screen bg-slate-950"], content: view =>
 {
-    view.Column(style: ["w-full h-full p-4"], content: col => { ... });
+    view.Column(style: ["w-full h-full p-4"], content: col => { });
 });
 ```
 
@@ -667,14 +733,14 @@ Design width with padding, alignment, and flex proportions — never hardcoded p
 // WRONG — percentage on child of auto-width absolute element
 view.Box(["absolute"], content: view =>
 {
-    view.Column(["w-1/4"], ...); // Collapses to zero!
+    view.Column(["w-1/4"], content: v => { }); // Collapses to zero!
 });
 
 // RIGHT — percentage on child of flex container
 view.Row(["flex-1 min-w-0"], content: view =>
 {
-    view.Column(["w-1/4 flex-shrink-0"], ...); // 25% of parent flex item
-    view.Column(["flex-1 min-w-0"], ...);      // Remaining space
+    view.Column(["w-1/4 flex-shrink-0"], content: v => { }); // 25% of parent flex item
+    view.Column(["flex-1 min-w-0"], content: v => { });      // Remaining space
 });
 ```
 
@@ -729,10 +795,10 @@ view.Button(
 
 ```csharp
 // WRONG: Missing text color = black/invisible icons
-style: ["bg-blue-600 ..."]
+view.Icon(style: ["bg-blue-600"], name: "check");
 
 // CORRECT: Always include text color
-style: ["text-white bg-blue-600 ..."]
+view.Icon(style: ["text-white bg-blue-600"], name: "check");
 ```
 
 ### Standard Sizes
@@ -777,19 +843,19 @@ This applies to any fullscreen overlay effect: scan lines, sweep bands, CRT over
 
 ```csharp
 // Padding: 12px on mobile, 16px on sm+, 24px on md+
-view.Column(style: ["p-3 sm:p-4 md:p-6"], content: col => { ... });
+view.Column(style: ["p-3 sm:p-4 md:p-6"], content: col => { });
 
 // Hidden on mobile, visible on sm+
 row.Text(text: "Projects", style: ["hidden sm:block"]);
 
 // Different layouts per breakpoint
-view.Column(style: ["flex flex-col sm:flex-row"], content: col => { ... });
+view.Column(style: ["flex flex-col sm:flex-row"], content: col => { });
 
 // Sidebar: overlay on mobile, inline on desktop
-view.Box(style: ["absolute inset-y-0 left-0 z-50 md:static md:z-auto"], ...);
+view.Box(style: ["absolute inset-y-0 left-0 z-50 md:static md:z-auto"], content: v => { });
 
 // Backdrop: visible on mobile only
-view.Box(style: ["absolute inset-0 bg-black/50 z-40 md:hidden"], ...);
+view.Box(style: ["absolute inset-0 bg-black/50 z-40 md:hidden"], content: v => { });
 ```
 
 Never hardcode sizes on content elements. Use responsive grids (`grid-cols-[repeat(auto-fill,minmax(220px,1fr))]`) for card layouts and `truncate` for text overflow instead of relying on fixed container widths.
@@ -834,10 +900,10 @@ Use semi-transparent backgrounds with subtle borders:
 list.Column(style: [
     "bg-slate-800/50 rounded-2xl p-4 cursor-pointer transition-all border",
     isSelected ? "border-blue-500/50 bg-slate-800/80" : "border-slate-700/50 hover:bg-slate-700/50 hover:border-slate-600/50"
-], content: card => { ... });
+], content: card => { });
 
 // Nested content container
-details.Row(style: ["flex items-start gap-3 bg-slate-900/50 p-3 rounded-xl border border-slate-700/30"], content: row => { ... });
+details.Row(style: ["flex items-start gap-3 bg-slate-900/50 p-3 rounded-xl border border-slate-700/30"], content: row => { });
 ```
 
 ### Badges and Pills
@@ -882,18 +948,21 @@ Maintain a cohesive color palette throughout the app:
 Use consistent spacing throughout:
 
 ```csharp
-// Container padding (responsive)
-"p-3 sm:p-4 md:p-6"
+string[] Classes =
+[
+    // Container padding (responsive)
+    "p-3 sm:p-4 md:p-6",
 
-// Gap between items
-"gap-2" // tight (8px)
-"gap-3" // comfortable (12px)
-"gap-4" // spacious (16px)
+    // Gap between items
+    "gap-2", // tight (8px)
+    "gap-3", // comfortable (12px)
+    "gap-4", // spacious (16px)
 
-// Vertical spacing in lists
-"space-y-2" // tight
-"space-y-3" // comfortable
-"space-y-4" // spacious
+    // Vertical spacing in lists
+    "space-y-2", // tight
+    "space-y-3", // comfortable
+    "space-y-4", // spacious
+];
 ```
 
 ### Transitions and Interactions
@@ -901,10 +970,13 @@ Use consistent spacing throughout:
 Add subtle transitions for polished interactions:
 
 ```csharp
-"transition-all duration-200" // for color and transform changes
-"hover:bg-slate-700/50"       // subtle hover background
-"hover:text-white"            // brighten text on hover
-"hover:border-slate-600/50"   // subtle border change
+string[] Classes =
+[
+    "transition-all duration-200", // for color and transform changes
+    "hover:bg-slate-700/50",       // subtle hover background
+    "hover:text-white",            // brighten text on hover
+    "hover:border-slate-600/50",   // subtle border change
+];
 ```
 
 ## Related Documentation

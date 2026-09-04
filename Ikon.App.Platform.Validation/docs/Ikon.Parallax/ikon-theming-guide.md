@@ -61,7 +61,7 @@ Every entry commits one or more CSS variables. The renderer dispatches by **key 
 | Tailwind palette step (`amber-400`, `zinc-950`) | `--color-{key}` (families that are also Ikon scales, e.g. `neutral-900`, additionally set `--{key}` so semantic tokens move too) | color |
 | Ikon scale step (`brand-500`, `accent-300`, `error-600`) | `--{key}` | color |
 | `rounded-{rung}` | `--radius-{rung}` | radius |
-| `shadow-{rung}` | `--shadow-{rung}` | currently INEFFECTIVE (logged as a warning): shadow utilities bake their Tailwind values so per-element recoloring (`shadow-lg shadow-red-500`) keeps working |
+| `shadow-{rung}` | `--shadow-{rung}` plus the per-layer `--shadow-{rung}-{1,2}` / `--shadow-{rung}-{1,2}-color` pairs the sized utilities read | box-shadow value (up to two layers), or another rung name to re-point |
 | `font-{role}` | `--font-{role}` | family stack; literal family names auto-import from Google Fonts |
 | `ease-{kind}` | `--ease-{kind}` | easing |
 | any other baseline variable name (`bg-brand-solid`, `text-primary-on-brand`, `spacing`) | `--{key}` | smart sniff |
@@ -92,7 +92,7 @@ There is ONE contract:
 Adaptive app — author both palettes in one block:
 
 ```csharp
-new IkonTheme
+var theme = new IkonTheme
 {
     ["primary"]    = "violet-600",
     ["background"] = "stone-50",
@@ -106,7 +106,7 @@ new IkonTheme
         ["foreground"] = "stone-50",
         ["card"]       = "stone-900",
     },
-}
+};
 ```
 
 The renderer emits the dark block under `[data-theme="dark"]`, `.dark`, and a `prefers-color-scheme: dark` fallback for pages without an explicit attribute. The in-app toggle (`ClientFunctions.SetThemeAsync(Theme.Dark, targetId: clientSessionId)`) sets `data-theme`.
@@ -114,13 +114,13 @@ The renderer emits the dark block under `[data-theme="dark"]`, `.dark`, and a `p
 Fixed app — one palette, no flip:
 
 ```csharp
-new IkonTheme
+var theme = new IkonTheme
 {
     Mode = ThemeMode.Fixed,
     ["background"] = "#14100b",
     ["foreground"] = "#e8dcc4",
     // ...
-}
+};
 ```
 
 `Fixed` emits the committed values under the dark selectors too, so neither the OS preference nor the toggle changes anything. This is the honest choice for vivid/expressive single-scheme apps. `Mode = ThemeMode.Fixed` together with a `DarkMode` block throws — they contradict each other.
@@ -185,8 +185,11 @@ The platform consumes exactly two accent steps: `["accent-300"]` is the light-sc
 ### Color palette overrides (re-skin a step app-wide)
 
 ```csharp
-["amber-400"] = "#F5A524",
-["zinc-950"]  = "#0a0a0f",
+var theme = new IkonTheme
+{
+    ["amber-400"] = "#F5A524",
+    ["zinc-950"]  = "#0a0a0f",
+};
 ```
 
 Emits `--color-amber-400: #F5A524` and `--color-zinc-950: #0a0a0f`. Every `bg-amber-400`, `text-amber-400`, `border-amber-400` in the app picks them up. Ikon scale steps work the same way — `["neutral-900"] = "#101014"` moves BOTH the raw `bg-neutral-900` utilities and every semantic token derived from the neutral ramp.
@@ -194,16 +197,22 @@ Emits `--color-amber-400: #F5A524` and `--color-zinc-950: #0a0a0f`. Every `bg-am
 ### Per-rung radius overrides
 
 ```csharp
-["rounded-lg"] = "1.25rem",      // tune one rung
-["rounded-xl"] = "rounded-3xl",  // re-point one rung at another
+var theme = new IkonTheme
+{
+    ["rounded-lg"] = "1.25rem",      // tune one rung
+    ["rounded-xl"] = "rounded-3xl",  // re-point one rung at another
+};
 ```
 
 `["radius"]` moves all rungs at once; per-rung overrides are for exceptions.
 
-Shadows are NOT themable: `shadow-{rung}` keys are accepted for forward compatibility but
-currently have no visible effect (a warning is logged). Shadow utilities bake their stock
-Tailwind values so that per-element recoloring — `shadow-lg shadow-red-500` — keeps working;
-a `:root`-resolved shadow variable would swallow the color override.
+Shadow rungs are themable per layer: `["shadow-lg"] = "0 2px 4px rgb(0 0 0 / 0.07)"` restyles
+every `shadow-lg`, and `["shadow-lg"] = "shadow-xl"` re-points one rung at another. The renderer
+splits each layer into geometry and colour variables that the utility composes on the element,
+so per-element recoloring — `shadow-lg shadow-red-500` — still wins over the themed colour. A
+value may carry at most two layers (Tailwind's own scale never has more); extra layers are
+dropped with a warning. A key that is not a rung (`shadow-sticker`) is a plain variable for
+`shadow-[var(--shadow-sticker)]`.
 
 ### Porting an existing Tailwind design (Replit, Lovable, Base44, v0, hand-written)
 
@@ -226,7 +235,10 @@ port and diff computed styles on matched elements. Everything else ports verbati
 ### Custom variables (expressive-layer escape hatch)
 
 ```csharp
-["--hero-glow"] = "radial-gradient(circle, #F5A52488, transparent 70%)",
+var theme = new IkonTheme
+{
+    ["--hero-glow"] = "radial-gradient(circle, #F5A52488, transparent 70%)",
+};
 ```
 
 An explicit `--` prefix declares a custom variable on purpose (without it, an unknown key warns as a probable typo). Reference it inline via `bg-[var(--hero-glow)]`. Per the two-tier model, prefer writing decorative values concretely at the use point — mint a variable only when the same value repeats enough to earn a name.
@@ -274,7 +286,7 @@ Copy-paste blocks for common moods. Each is mood-coherent — palette, fonts, ra
 ### warm-bedtime — cozy, low-stakes, evening reading
 
 ```csharp
-new IkonTheme
+var theme = new IkonTheme
 {
     Mode = ThemeMode.Fixed,
     ["primary"]              = "amber-400",
@@ -292,13 +304,13 @@ new IkonTheme
     ["radius"]               = "rounded-2xl",
     ["motion-duration-base"] = "300ms",
     ["ease-default"]         = "ease-out",
-}
+};
 ```
 
 ### cyberpunk-neon — hacker terminal, high contrast, glow
 
 ```csharp
-new IkonTheme
+var theme = new IkonTheme
 {
     Mode = ThemeMode.Fixed,
     ["primary"]              = "violet-400",
@@ -319,7 +331,7 @@ new IkonTheme
     ["density"]              = "compact",
     ["motion-duration-base"] = "100ms",
     ["ease-default"]         = "linear",
-}
+};
 ```
 
 Scanlines are expressive-layer — concrete at the use point, e.g. a full-bleed overlay Box with `absolute inset-0 bg-[repeating-linear-gradient(to_bottom,transparent_0_2px,rgba(168,85,247,0.05)_2px_4px)] pointer-events-none`.
@@ -327,7 +339,7 @@ Scanlines are expressive-layer — concrete at the use point, e.g. a full-bleed 
 ### editorial-vintage — paper-and-ink, serif, generous margins
 
 ```csharp
-new IkonTheme
+var theme = new IkonTheme
 {
     Mode = ThemeMode.Fixed,
     ["primary"]              = "rose-700",
@@ -344,13 +356,13 @@ new IkonTheme
     ["density"]              = "airy",
     ["motion-duration-base"] = "200ms",
     ["ease-default"]         = "ease-in-out",
-}
+};
 ```
 
 ### brutalist — high contrast, sharp corners, mono type
 
 ```csharp
-new IkonTheme
+var theme = new IkonTheme
 {
     Mode = ThemeMode.Fixed,
     ["primary"]              = "yellow-300",
@@ -369,13 +381,13 @@ new IkonTheme
     ["radius"]               = "rounded-none",
     ["motion-duration-base"] = "0ms",
     ["ease-default"]         = "linear",
-}
+};
 ```
 
 ### glassmorphism — soft, translucent, light pastels
 
 ```csharp
-new IkonTheme
+var theme = new IkonTheme
 {
     Mode = ThemeMode.Fixed,
     ["primary"]              = "sky-400",
@@ -390,7 +402,7 @@ new IkonTheme
     ["radius"]               = "rounded-3xl",
     ["motion-duration-base"] = "300ms",
     ["ease-default"]         = "ease-out",
-}
+};
 ```
 
 The blur is expressive-layer — put `backdrop-blur-md` (or `backdrop-blur-[12px]`) on the translucent surfaces at the use point.
@@ -398,7 +410,7 @@ The blur is expressive-layer — put `backdrop-blur-md` (or `backdrop-blur-[12px
 ### pastel — soft, friendly, kids / wellness
 
 ```csharp
-new IkonTheme
+var theme = new IkonTheme
 {
     Mode = ThemeMode.Fixed,
     ["primary"]              = "rose-300",
@@ -417,13 +429,13 @@ new IkonTheme
     ["density"]              = "airy",
     ["motion-duration-base"] = "250ms",
     ["ease-default"]         = "ease-out",
-}
+};
 ```
 
 ### noir-contrast — dark, cinematic, single accent
 
 ```csharp
-new IkonTheme
+var theme = new IkonTheme
 {
     Mode = ThemeMode.Fixed,
     ["primary"]              = "red-500",
@@ -438,13 +450,13 @@ new IkonTheme
     ["radius"]               = "rounded-md",
     ["motion-duration-base"] = "400ms",
     ["ease-default"]         = "ease-in-out",
-}
+};
 ```
 
 ### solarpunk — natural, optimistic, earthy
 
 ```csharp
-new IkonTheme
+var theme = new IkonTheme
 {
     Mode = ThemeMode.Fixed,
     ["primary"]              = "emerald-500",
@@ -461,13 +473,13 @@ new IkonTheme
     ["radius"]               = "rounded-xl",
     ["motion-duration-base"] = "250ms",
     ["ease-default"]         = "ease-out",
-}
+};
 ```
 
 ### clean-saas — neutral, professional, default-ish
 
 ```csharp
-new IkonTheme
+var theme = new IkonTheme
 {
     Mode = ThemeMode.Fixed,
     ["primary"]              = "blue-600",
@@ -482,13 +494,13 @@ new IkonTheme
     ["radius"]               = "rounded-md",
     ["motion-duration-base"] = "150ms",
     ["ease-default"]         = "ease-out",
-}
+};
 ```
 
 ### dark-pro — modern dark, neutral, productivity
 
 ```csharp
-new IkonTheme
+var theme = new IkonTheme
 {
     Mode = ThemeMode.Fixed,
     ["primary"]              = "indigo-500",
@@ -503,7 +515,7 @@ new IkonTheme
     ["radius"]               = "rounded-lg",
     ["motion-duration-base"] = "150ms",
     ["ease-default"]         = "ease-out",
-}
+};
 ```
 
 ## Inline component styling
@@ -513,10 +525,10 @@ Once your theme is committed, components consume it via semantic Crosswind utili
 ```csharp
 // Brand button — follows ["primary"] and ["primary-foreground"].
 view.Button(["bg-brand-solid hover:bg-brand-solid-hover text-primary-on-brand px-6 py-3 rounded-lg font-semibold"],
-    "Launch", onClick: ...);
+    "Launch", onClick: async () => { });
 
 // Standard surfaces + text tiers.
-view.Box(["bg-card border border-secondary rounded-lg p-6"], content: ...);
+view.Box(["bg-card border border-secondary rounded-lg p-6"], content: view => { });
 view.Text(["text-foreground"], "Body copy");
 view.Text(["text-sm text-muted-foreground"], "Caption");
 
@@ -558,26 +570,22 @@ Five-step recipe for an external LLM (Cursor, Codex, Copilot, ChatGPT) to theme 
 The generated code goes at the top of the App class, replacing the default bare `new IkonTheme()`:
 
 ```csharp
-[App]
-public class MyApp(IApp<SessionIdentity, ClientParameters> app)
+private UI UI { get; } = new(app, new IkonTheme
 {
-    private UI UI { get; } = new(app, new IkonTheme
-    {
-        Mode = ThemeMode.Fixed,               // or a DarkMode block for adaptive apps
-        ["primary"]              = "amber-400",
-        ["primary-foreground"]   = "#0A0A0A",
-        ["background"]           = "zinc-950",
-        ["foreground"]           = "amber-50",
-        ["card"]                 = "zinc-900",
-        ["muted-foreground"]     = "zinc-500",
-        ["border"]               = "zinc-800",
-        ["radius"]               = "rounded-2xl",
-        ["density"]              = "comfortable",
-        ["font-heading"]         = "Crimson Pro",
-        ["motion-duration-base"] = "200ms",
-        ["ease-default"]         = "ease-out",
-    });
+    Mode = ThemeMode.Fixed,               // or a DarkMode block for adaptive apps
+    ["primary"]              = "amber-400",
+    ["primary-foreground"]   = "#0A0A0A",
+    ["background"]           = "zinc-950",
+    ["foreground"]           = "amber-50",
+    ["card"]                 = "zinc-900",
+    ["muted-foreground"]     = "zinc-500",
+    ["border"]               = "zinc-800",
+    ["radius"]               = "rounded-2xl",
+    ["density"]              = "comfortable",
+    ["font-heading"]         = "Crimson Pro",
+    ["motion-duration-base"] = "200ms",
+    ["ease-default"]         = "ease-out",
+});
 
-    // ... rest of the app ...
-}
+// ... rest of the app ...
 ```

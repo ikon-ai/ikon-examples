@@ -1,0 +1,10 @@
+type = "MyCustomPayload"
+version = 1
+doc = "The .NET SDK readme's example of sending a typed payload. A generated protocol class is what that example is about, so it is generated here rather than transcribed."
+
+[namespaces]
+csharp = "Ikon.App.Platform.Validation.Protocol"
+typescript = ""
+
+[fields]
+Text = "string"

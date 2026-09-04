@@ -1,0 +1,16 @@
+type = "PlayerProfile"
+version = 2
+data = true
+doc = "The persisted-state guide's worked example of a schema-versioned type. It exists so the guide's UpgradeFrom1 migration is pinned to a partial half the Teleport compiler actually generates the twin for, rather than to a hand-written fence nothing compiles."
+
+[namespaces]
+csharp = "Ikon.App.Platform.Validation.Protocol"
+typescript = ""
+
+[fields]
+DisplayName = "string"
+Score = "int32"
+
+# Renamed to DisplayName in v2.
+[obsolete]
+Nickname = "string"

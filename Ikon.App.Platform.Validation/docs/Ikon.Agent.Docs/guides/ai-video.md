@@ -68,15 +68,10 @@ var result = await enhancer.EnhanceVideoAsync(new VideoEnhancerConfig
 namespace Ikon.AI.VideoEnhancement
   interface IVideoEnhancer : IDisposable
     Task<VideoEnhancerResult> EnhanceVideoAsync(VideoEnhancerConfig config, CancellationToken cancellationToken = default)
-  class NonRetryableVideoEnhancerException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed class VideoEnhancer : IVideoEnhancer
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(VideoEnhancerModel model, IReadOnlyList<ModelRegion>? regions = null)
     void Dispose()
-    // Enhance a video by URL — the instance form of the EnhanceAsync one-shot, for when you already hold an enhancer. Reach for EnhanceVideoAsync when the request needs any other VideoEnhancerConfig field.
     Task<VideoEnhancerResult> EnhanceAsync(string videoUrl, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes a VideoEnhancer per call. Defaults to VideoEnhancerModel.TensorPixUpscale2xUltra41; override via model. Returns the enhanced video as a download URL in .Url plus .OutputFps/.OutputSizeBytes. Use the constructor + EnhanceVideoAsync for raw bytes (Data), frame-range trim, target FPS, or other fields.
     static Task<VideoEnhancerResult> EnhanceAsync(string videoUrl, VideoEnhancerModel model = TensorPixUpscale2xUltra41, CancellationToken cancellationToken = default)
@@ -93,10 +88,6 @@ namespace Ikon.AI.VideoEnhancement
     int? TargetFps { get; init; }
     TimeSpan Timeout { get; init; }
     string? Url { get; init; }
-  class VideoEnhancerException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum VideoEnhancerModel
     TensorPixFpsBoost
     TensorPixUpscale2xUltra4
@@ -127,10 +118,6 @@ namespace Ikon.AI.VideoGeneration
     bool SupportsSeed { get; }
     bool SupportsTailImage { get; }
     bool SupportsTextToVideo { get; }
-  class NonRetryableVideoGeneratorException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed class VideoGenerator : IVideoGenerator
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(VideoGeneratorModel model, IReadOnlyList<ModelRegion>? regions = null)
@@ -148,7 +135,6 @@ namespace Ikon.AI.VideoGeneration
     bool SupportsTailImage { get; }
     bool SupportsTextToVideo { get; }
     void Dispose()
-    // Generate a video from a plain prompt — the instance form of the GenerateAsync one-shot, for when you already hold a generator. Reach for GenerateVideoAsync when the request needs any other VideoGeneratorConfig field.
     Task<VideoGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes a VideoGenerator per call. Defaults to VideoGeneratorModel.Veo31Fast; override via model. Returns the result with the generated clip's .Url. Use the constructor + GenerateVideoAsync for image-to-video, length, resolution, aspect ratio, negative prompt, audio, or other fields.
     static Task<VideoGeneratorResult> GenerateAsync(string prompt, VideoGeneratorModel model = Veo31Fast, CancellationToken cancellationToken = default)
@@ -166,6 +152,8 @@ namespace Ikon.AI.VideoGeneration
     int MaxInputAudios { get; init; }
     int MaxInputImages { get; init; }
     int MaxInputVideos { get; init; }
+    // In characters; zero when the model states no limit.
+    int MaxPromptLength { get; init; }
     VideoGeneratorResolutionMode ResolutionMode { get; init; }
     IReadOnlyList<int> SupportedLengths { get; init; }
     IReadOnlyList<VideoGeneratorResolution> SupportedResolutions { get; init; }
@@ -191,10 +179,6 @@ namespace Ikon.AI.VideoGeneration
     VideoGeneratorResolution Resolution { get; init; }
     int? Seed { get; init; }
     TimeSpan Timeout { get; init; }
-  class VideoGeneratorException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum VideoGeneratorModel
     Kling26
     Kling30

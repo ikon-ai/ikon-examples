@@ -1,7 +1,6 @@
 # Ikon.Connectors.Google Public API
 
 namespace Ikon.Connectors.Google
-  // Google Drive connector. Upload, download and list files with Google OAuth2 credentials. Raw — the agent skill is DriveSkill.
   sealed class Drive : IDisposable
     ctor(GoogleCredentials credentials)
     // Disposes the underlying Drive service and its HttpClient; construct one Drive per credential and reuse it rather than constructing per call.
@@ -21,11 +20,6 @@ namespace Ikon.Connectors.Google
     string Name { get; init; }
     long? Size { get; init; }
     string? WebViewLink { get; init; }
-  sealed class DriveSkill : Skill
-    ctor(Drive drive)
-    override string Instructions { get; }
-    override string Name { get; }
-    override IEnumerable<Tool> Tools()
   // ReceivedAt is DateTimeOffset.MinValue (year 0001) when Gmail supplies no internal date for the message, so guard for it before sorting or displaying.
   sealed record EmailSummary
     ctor(string Id, string ThreadId, string From, string Subject, string Snippet, DateTimeOffset ReceivedAt)
@@ -51,11 +45,6 @@ namespace Ikon.Connectors.Google
     // throws ArgumentException: No recipient address remains after trimming empty entries from to.
     // throws ConnectorException: A recipient or CC address is malformed and cannot be parsed.
     Task<string> SendAsync(string to, string subject, string body, string? cc = null, bool isHtml = false, CancellationToken ct = default)
-  sealed class GmailSkill : Skill
-    ctor(Gmail gmail)
-    override string Instructions { get; }
-    override string Name { get; }
-    override IEnumerable<Tool> Tools()
   static class GoogleAuth
     // The returned UserCredential is a third-party type from the Google.Apis.Auth NuGet package (namespace Google.Apis.Auth.OAuth2), which ships transitively with this library. Assign it as the HttpClientInitializer in any Google API service initializer (Drive, Sheets, Gmail, Calendar, ...) from the corresponding Google.Apis.* package.
     // credentials: The stored OAuth2 client and refresh-token credentials.
@@ -63,7 +52,6 @@ namespace Ikon.Connectors.Google
     static UserCredential CredentialFor(GoogleCredentials credentials, IEnumerable<string> scopes)
     // Branch on this to stop retrying and surface a "reconnect required" state: it is true only for permanent auth failures (revoked/expired refresh token, bad client), never for transient or network errors.
     static bool IsAuthFailure(Exception ex)
-  // OAuth2 credentials for Google connectors. The refresh token is long-lived; the access token is obtained and refreshed automatically by the Google client library.
   sealed record GoogleCredentials
     ctor(string ClientId, string ClientSecret, string RefreshToken)
     string ClientId { get; init; }
