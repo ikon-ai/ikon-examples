@@ -110,14 +110,6 @@ namespace Ikon.AI.Database
     static void ValidateReadOnly(string sql, IReadOnlySet<string> allowedTables)
 
 namespace Ikon.AI.Storage
-  class KeywordIndex
-    ctor()
-    Task AddAsync(string word, string link)
-    static KeywordIndex Deserialize(Stream stream)
-    Task InitializeAsync()
-    void RemoveTooCommonTerms(double threshold = 0.5, int minDocumentCount = 5)
-    List<KeywordSearchResult> Search(string words)
-    void Serialize(Stream stream)
   struct KeywordSearchResult
     ctor(string link, float score)
     string Link

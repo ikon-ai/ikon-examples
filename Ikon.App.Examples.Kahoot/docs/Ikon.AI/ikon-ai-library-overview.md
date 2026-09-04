@@ -8,12 +8,9 @@ This guide summarizes the principal namespaces in the Ikon.AI .NET library for d
 
 ### Object Generation
 
-```csharp
-using Ikon.AI.Emergence;
-using Ikon.AI.Kernel;
-using Ikon.AI.LLM;
-using Ikon.Common.Core;
+Needs the `Ikon.AI.Emergence`, `Ikon.AI.Kernel`, `Ikon.AI.LLM`, `Ikon.Common.Core` using directives.
 
+```csharp
 var context = new KernelContext();
 context = context.Add(new MessageBlock(MessageBlockRole.User, "Tell me about John Smith."));
 
@@ -23,7 +20,11 @@ var (result, _) = await Emerge.Run<PersonDetails>(LLMModel.Gpt5Mini, context, pa
 }).FinalAsync();
 
 Log.Instance.Info($"Result: {Json.To(result)}");
+```
 
+with the result type declared alongside:
+
+```csharp
 public class PersonDetails
 {
     public string Name { get; set; } = string.Empty;
@@ -37,128 +38,11 @@ Emergence supports multi-agent patterns: `BestOf`, `Refine`, `MapReduce`, `TreeS
 Region support is available via `pass.Regions`:
 
 ```csharp
-pass.Regions = [ModelRegion.Eu, ModelRegion.Global];
-```
-
-## Shaders
-
-> **Note:** For new development, prefer using [Emergence](#emergence) which provides a simpler, code-first API for structured AI outputs.
-
-`Ikon.AI.Shader` provides declarative orchestration for prompt-driven automation. Shaders encapsulate model selection, context policies, and schema expectations while allowing reuse across applications. Shaders can target any model listed in the [LLM](#llm) section.
-
-### Text Generation
-
-Generate structured text using a shader definition stored in code, files, or embedded resources.
-
-```csharp
-using Ikon.AI.Kernel;
-using Ikon.AI.Shader;
-using Ikon.Common.Core;
-
-string shaderSource = @"
+var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt5Mini, pass =>
 {
-  ShaderVersion: 2,
-  Model: {
-    Name: 'Gpt5Mini',
-    RequestTimeoutSeconds: 60,
-    MaxOutputTokens: 4000,
-    ReasoningEffort: 'Medium',
-  },
-  History: {
-    Max: 10,
-  },
-  Input: {
-    AssistantName: 'IkonBot',
-  },
-  Intents: [
-    {
-      Id: 'ExampleIntent',
-      Passes: [
-        {
-          Id: 'ExamplePass',
-          Context: 'You are a helpful assistant. Your name is {{ AssistantName }}.',
-          Command: 'Please answer the user question.',
-        }
-      ]
-    }
-  ]
-}";
-
-var shader = new Shader.Shader(shaderSource);
-var context = new KernelContext();
-context = context.Add(new MessageBlock(MessageBlockRole.User, "Hello! What is your name?"));
-
-var stringResult = await shader.GenerateStringAsync(context);
-Log.Instance.Info($"Shader string result: {stringResult}");
-```
-
-### Object Generation
-
-Emit strongly typed results when the shader is configured for JSON output.
-
-```csharp
-using Ikon.AI.Shader;
-using Ikon.Common.Core;
-
-string shaderSource = @"
-{
-  ShaderVersion: 2,
-  Model: {
-    Name: 'Gpt5Mini',
-    RequestTimeoutSeconds: 60,
-    MaxOutputTokens: 4000,
-    ReasoningEffort: 'Medium',
-    LogRenderedShader: true,
-    UseJson: true,
-  },
-  History: {
-    Max: 10,
-  },
-  Input: {
-    RequestedName: null,
-  },
-  Intents: [
-    {
-      Id: 'ExampleIntent',
-      Passes: [
-        {
-          Id: 'ExamplePass',
-          Command: 'Return a JSON object with invented personal details about {{ RequestedName }}. Please give the output in JSON format like this:\n{{ ImplicitJsonExample }}',
-        }
-      ]
-    }
-  ]
-}";
-
-var shader = new Shader.Shader(shaderSource);
-var state = new Dictionary<string, object?>
-{
-    ["RequestedName"] = "John Smith"
-};
-
-var result = await shader.GenerateObjectAsync<ExampleResponse>(state: state);
-Log.Instance.Info($"Shader object result: {Json.To(result)}");
-
-private class ExampleResponse
-{
-    public string Name { get; set; } = string.Empty;
-    public int Age { get; set; }
-    public string Occupation { get; set; } = string.Empty;
-}
-```
-
-### Implicit Shaders
-
-Implicit shaders load their source from embedded resources that share the class name. Save the shader used in `ShaderObjectExampleTest` as `<ClassName>.shader` alongside the corresponding `<ClassName>.cs` file, set the build action to **Embedded Resource**, and access it through `ShaderCache`.
-
-```csharp
-var result = await ShaderCache.Instance.GetImplicitShader().GenerateObjectAsync<ExampleResponse>(
-    contexts: null,
-    cancellationToken: CancellationToken.None,
-    ("RequestedName", "John Smith")
-);
-
-Log.Instance.Info($"Implicit shader object result: {Json.To(result)}");
+    pass.Command = "Return invented personal details about a person.";
+    pass.Regions = [ModelRegion.Eu, ModelRegion.Global];
+});
 ```
 
 ## LLM
@@ -171,24 +55,19 @@ Log.Instance.Info($"Implicit shader object result: {Json.To(result)}");
 
 Pass preferred regions as an ordered list to keep inference within a geography. If omitted, the default region is `Global`.
 
-```csharp
-using Ikon.AI;
-using Ikon.AI.Kernel;
-using Ikon.AI.LLM;
-using Ikon.Common.Core;
+Needs the `Ikon.AI`, `Ikon.AI.Kernel`, `Ikon.AI.LLM`, `Ikon.Common.Core` using directives.
 
+```csharp
 var context = new KernelContext();
 context = context.Add(new Instruction(InstructionType.Context, "You are a helpful assistant that helps to summarize product release notes."));
 context = context.Add(new MessageBlock(MessageBlockRole.User, "Summarise the latest release highlights. Here are the notes: ..."));
 
-using var llm = new LLM.LLM(LLMModel.Gpt5Mini, regions: [ModelRegion.Eu]);
-
-await foreach (var llmEvent in llm.GenerateAsync(context))
+await foreach (var llmEvent in Emerge.Generate(LLMModel.Gpt5Mini, context, regions: [ModelRegion.Eu]))
 {
     Log.Instance.Info($"{llmEvent.Source} | {llmEvent}");
 }
 
-var stringResult = await llm.GenerateAsync(context).AsStringAsync();
+var stringResult = await Emerge.Generate(LLMModel.Gpt5Mini, context).AsStringAsync();
 Log.Instance.Info($"String result: {stringResult}");
 ```
 
@@ -196,11 +75,9 @@ Log.Instance.Info($"String result: {stringResult}");
 
 Run your own model — a self-hosted LLM behind vLLM, Ollama, TGI, or any endpoint speaking a supported provider API — and use it through the normal Ikon.AI APIs. Register the endpoint with `CustomModels` at app startup, then select the model by its registered name anywhere a model name string is accepted:
 
-```csharp
-using Ikon.AI;
-using Ikon.AI.Emergence;
-using Ikon.AI.LLM;
+Needs the `Ikon.AI`, `Ikon.AI.Emergence`, `Ikon.AI.LLM` using directives.
 
+```csharp
 CustomModels.Instance.Register(new CustomLLMModel
 {
     Name = "my-model",
@@ -214,7 +91,11 @@ CustomModels.Instance.Register(new CustomLLMModel
 });
 
 var reply = await Emerge.AskAsync("Hello", "my-model");
-using var llm = new LLM.LLM("my-model");
+
+await foreach (var llmEvent in Emerge.Generate("my-model", new KernelContext()))
+{
+    Log.Instance.Info($"{llmEvent}");
+}
 ```
 
 Custom models are supported for LLMs (`CustomLLMModel`), embeddings (`CustomEmbeddingModel`), reranking (`CustomRerankModel`), and classification (`CustomClassificationModel`); each picks one of the category's existing HTTP request formats via its `Api` enum. Other categories (image generation, speech) are not yet supported.
@@ -225,7 +106,7 @@ Key behaviors:
 - **Flat per-request billing.** Usage is reported with a `.user` suffix and charged as a flat credit fee per successful request (identical for all custom models) instead of per-token provider pricing. Token counts are still reported for analytics. A failed or aborted request is not billed; each successful retry bills its own request.
 - **Register at startup.** The registry is async-local (like credentials): register models on the main flow before spawning parallel work so every flow sees them. Registering the same name again replaces the previous registration.
 - **Names.** A custom model name must not collide with a built-in model name and must not contain dots or whitespace.
-- **Output budget.** `MaxOutputTokens` is the largest response the endpoint will produce. `LLM` lowers `KernelContext.MaxOutputTokens` to it before sending, so a caller running the 16000-token default against a smaller model gets a shorter answer instead of a rejected request. Leave it at 0 when the endpoint caps nothing and the caller's value goes out unchanged. Built-in models carry the limit their provider publishes; read it with `LLM.GetCapabilities(model).MaxOutputTokens` or `model.MaxOutputTokens()`.
+- **Output budget.** `MaxOutputTokens` is the largest response the endpoint will produce. `LLM` lowers `KernelContext.MaxOutputTokens` to it before sending, so a caller running the 16000-token default against a smaller model gets a shorter answer instead of a rejected request. Leave it at 0 when the endpoint caps nothing and the caller's value goes out unchanged. Built-in models carry the limit their provider publishes; read it with `Emerge.GetCapabilities(model).MaxOutputTokens` or `model.MaxOutputTokens()`.
 
 ## ImageGeneration
 
@@ -235,9 +116,9 @@ Key behaviors:
 
 One-shot — defaults to `Gemini25FlashImage` (cheap+fast); the result is never null (throws `ImageGeneratorException` on failure):
 
-```csharp
-using Ikon.AI.ImageGeneration;
+Needs the `Ikon.AI.ImageGeneration` using directive.
 
+```csharp
 var image = await ImageGenerator.GenerateAsync("A santa dancing in the snow");
 await File.WriteAllBytesAsync("santa.png", await image.GetDataAsync());
 ```
@@ -246,9 +127,9 @@ await File.WriteAllBytesAsync("santa.png", await image.GetDataAsync());
 
 Use the constructor + config form for negative prompts, resolution, seeding, batches, or input images:
 
-```csharp
-using Ikon.AI.ImageGeneration;
+Needs the `Ikon.AI.ImageGeneration` using directive.
 
+```csharp
 using var imageGenerator = new ImageGenerator(ImageGeneratorModel.Gemini25FlashImage);
 
 var result = (await imageGenerator.GenerateImageAsync(new ImageGeneratorConfig
@@ -263,26 +144,56 @@ var result = (await imageGenerator.GenerateImageAsync(new ImageGeneratorConfig
 await File.WriteAllBytesAsync("santa.png", await result.GetDataAsync());
 ```
 
+## Provenance and Watermarking
+
+`Ikon.AI.ImageProvenance` is what marks a generated image as generated. The image generators and the
+upscaler apply it themselves — `InvisibleWatermark` and `VisibleWatermark` on the config control it —
+so app code normally only *reads* the marks.
+
+- `ImageProvenance.GetMarkingSupport(data)` returns a `ProvenanceMarking` for the format: `Full` when
+  the pixel watermark survives a re-encode, `MetadataOnly` when the mark is machine-readable and
+  standards-compliant but strippable by anything that rewrites the file's metadata, and `None` when
+  the format carries neither. The upscaler checks this before re-marking.
+- `ImageProvenance.ReadMetadataMark(data)` returns the recorded model name, or null.
+- `ImageProvenance.MeasureInvisibleMark(data)` scores the pixel watermark. Scores are
+  normal-deviates: an unmarked image scores |z| ≲ 3, a marked one in the tens to hundreds depending
+  on size and recompression. At or above `ImageProvenance.DetectionThreshold` (12.0) the image
+  carries Ikon's mark.
+- `ImageProvenance.Apply(data, model, invisibleWatermark, visibleWatermark)` marks an image yourself,
+  for a path the platform generators did not produce.
+
+## Image Utilities
+
+`Ikon.AI.ImageUtils` holds the pixel chores the AI calls keep needing. `GetImageDimensions` reads
+width and height without decoding the whole image; `IsWebP` sniffs the format. `EncodeJpegCapped`
+caps both dimensions (aspect preserved) and re-encodes as JPEG, returning the source bytes unchanged
+when the image already fits — this is how an image is brought under a model's input limit before it
+is sent. The mask helpers convert between the two conventions models disagree on:
+`ConvertAlphaMaskToBlackWhiteMask`, `ConvertBlackWhiteMaskToAlphaMask` and `InvertMask`.
+
+
 ## ImageSegmentation
 
 `Ikon.AI.ImageSegmentation.ImageSegmenter` segments objects from images using text, point, or box prompts (Segment Anything models). The result contains one mask image per detected object, along with confidence scores and normalized bounding boxes.
+
+Both calls return an `ImageSegmenterResult`: `Segments` is a list of `ImageSegmenterResult.Segment`, each carrying a `Mask` image, a normalized `Box` and a `Score`, and `Preview` is an optional composite. `ImageSegmenter` implements `IImageSegmenter`, so a method that only needs "something that segments" can take the interface.
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
 One-shot from image bytes — defaults to `Sam31` (latest SAM revision):
 
-```csharp
-using Ikon.AI.ImageSegmentation;
+Needs the `Ikon.AI.ImageSegmentation` using directive.
 
+```csharp
 var result = await ImageSegmenter.SegmentAsync(imageBytes, "image/png", "person");
 await File.WriteAllBytesAsync("mask.png", await result.Segments[0].Mask.GetDataAsync());
 ```
 
 Use the constructor + config form for URL input, point/box prompts, or multiple masks:
 
-```csharp
-using Ikon.AI.ImageSegmentation;
+Needs the `Ikon.AI.ImageSegmentation` using directive.
 
+```csharp
 using var segmenter = new ImageSegmenter(ImageSegmenterModel.Sam3);
 
 var result = await segmenter.SegmentImageAsync(new ImageSegmenterConfig
@@ -312,18 +223,18 @@ Some models cap how large an output they will produce, reported as `MaxOutputMeg
 
 One-shot from image bytes — defaults to `SeedVr2`, and to the model's own scale factor:
 
-```csharp
-using Ikon.AI.ImageUpscaling;
+Needs the `Ikon.AI.ImageUpscaling` using directive.
 
+```csharp
 var result = await ImageUpscaler.UpscaleAsync(imageBytes, "image/png", scaleFactor: 4);
 await File.WriteAllBytesAsync("upscaled.png", await result.Image.GetDataAsync());
 ```
 
 Use the constructor + config form for URL input, a target resolution, or creative upscaling:
 
-```csharp
-using Ikon.AI.ImageUpscaling;
+Needs the `Ikon.AI.ImageUpscaling` using directive.
 
+```csharp
 using var imageUpscaler = new ImageUpscaler(ImageUpscalerModel.SeedVr2);
 
 var result = await imageUpscaler.UpscaleImageAsync(new ImageUpscalerConfig
@@ -339,24 +250,24 @@ await File.WriteAllBytesAsync("upscaled.png", await result.Image.GetDataAsync())
 
 ## DepthEstimation
 
-`Ikon.AI.DepthEstimation.DepthEstimator` produces a monocular depth map from a single input image. The result is one depth-map image (closer surfaces brighter, farther surfaces darker). Useful for 3D reconstruction, parallax/relighting effects, compositing, and depth-conditioned image generation.
+`Ikon.AI.DepthEstimation.DepthEstimator` produces a monocular depth map from a single input image. The result is a `DepthEstimatorResult` whose single `Depth` image is the map (closer surfaces brighter, farther surfaces darker). Useful for 3D reconstruction, parallax/relighting effects, compositing, and depth-conditioned image generation. The estimator implements `IDepthEstimator`.
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps). Depth Anything V2 is the fast default; Marigold is diffusion-based and higher quality but slower; MiDaS is a lightweight classic.
 
 One-shot from image bytes — defaults to `DepthAnythingV2` (cheap+fast):
 
-```csharp
-using Ikon.AI.DepthEstimation;
+Needs the `Ikon.AI.DepthEstimation` using directive.
 
+```csharp
 var result = await DepthEstimator.EstimateAsync(imageBytes, "image/png");
 await File.WriteAllBytesAsync("depth.png", await result.Depth.GetDataAsync());
 ```
 
 Use the constructor + config form for URL input or the Marigold tuning fields:
 
-```csharp
-using Ikon.AI.DepthEstimation;
+Needs the `Ikon.AI.DepthEstimation` using directive.
 
+```csharp
 using var depthEstimator = new DepthEstimator(DepthEstimatorModel.DepthAnythingV2);
 
 var result = await depthEstimator.EstimateDepthAsync(new DepthEstimatorConfig
@@ -375,18 +286,18 @@ await File.WriteAllBytesAsync("depth.png", await result.Depth.GetDataAsync());
 
 One-shot text-to-mesh — defaults to `Meshy6` (the current Meshy generation):
 
-```csharp
-using Ikon.AI.MeshGeneration;
+Needs the `Ikon.AI.MeshGeneration` using directive.
 
+```csharp
 var mesh = await MeshGenerator.GenerateAsync("A small wooden treasure chest with brass fittings");
 Log.Instance.Info($"GLB URL: {mesh.GlbUrl}");
 ```
 
 Use the constructor + config form for image-to-mesh, PBR textures, or polycount/topology control:
 
-```csharp
-using Ikon.AI.MeshGeneration;
+Needs the `Ikon.AI.MeshGeneration` using directive.
 
+```csharp
 using var meshGenerator = new MeshGenerator(MeshGeneratorModel.Meshy6);
 
 var result = await meshGenerator.GenerateMeshAsync(new MeshGeneratorConfig
@@ -398,6 +309,8 @@ var result = await meshGenerator.GenerateMeshAsync(new MeshGeneratorConfig
 Log.Instance.Info($"GLB URL: {result.GlbUrl}");
 ```
 
+A `MeshGeneratorResult` carries `GlbUrl`, `FbxUrl`, `ObjUrl`, `MtlUrl`, `UsdzUrl` and `ThumbnailUrl` — whichever formats the model produced — plus the `ExpiresAt` the signed URLs stop working at. `MeshGeneratorConfig` takes a `MeshGeneratorMeshStyle` (`Standard` or `LowPoly`) and a `MeshGeneratorTopology` (`Triangle` or `Quad`). Models differ in what they accept, so check before you send: `MeshGenerator` implements `IMeshGenerator`, which extends `IMeshGeneratorInfo` with `SupportsTextToMesh`, `SupportsImageToMesh`, `SupportsPbr`, `SupportsLowPoly` and `MaxInputImages`. The same five read off a `MeshGeneratorCapabilities` without constructing a generator.
+
 ## VideoGeneration
 
 `Ikon.AI.VideoGeneration.VideoGenerator` renders video clips with configurable length, resolution, and aspect ratio.
@@ -406,18 +319,18 @@ Log.Instance.Info($"GLB URL: {result.GlbUrl}");
 
 One-shot text-to-video — defaults to `Veo31Fast` (cheap+fast):
 
-```csharp
-using Ikon.AI.VideoGeneration;
+Needs the `Ikon.AI.VideoGeneration` using directive.
 
+```csharp
 var video = await VideoGenerator.GenerateAsync("A santa dancing in the snow");
 Log.Instance.Info($"Video URL: {video.Url}");
 ```
 
 Use the constructor + config form for input images (image-to-video), length, resolution, or aspect ratio:
 
-```csharp
-using Ikon.AI.VideoGeneration;
+Needs the `Ikon.AI.VideoGeneration` using directive.
 
+```csharp
 using var generator = new VideoGenerator(VideoGeneratorModel.Pollo20);
 
 var result = await generator.GenerateVideoAsync(new VideoGeneratorConfig
@@ -439,18 +352,18 @@ Log.Instance.Info($"Video URL: {result.Url}");
 
 One-shot — defaults to `TensorPixUpscale2xUltra41` (the current 2x upscale generation):
 
-```csharp
-using Ikon.AI.VideoEnhancement;
+Needs the `Ikon.AI.VideoEnhancement` using directive.
 
+```csharp
 var enhanced = await VideoEnhancer.EnhanceAsync("https://example.com/input.mp4");
 Log.Instance.Info($"Enhanced video URL: {enhanced.Url}");
 ```
 
 Use the constructor + config form for raw video bytes, frame ranges, or a target FPS:
 
-```csharp
-using Ikon.AI.VideoEnhancement;
+Needs the `Ikon.AI.VideoEnhancement` using directive.
 
+```csharp
 using var enhancer = new VideoEnhancer(VideoEnhancerModel.TensorPixUpscale4xUltra4);
 
 var result = await enhancer.EnhanceVideoAsync(new VideoEnhancerConfig
@@ -469,10 +382,9 @@ Log.Instance.Info($"Enhanced video URL: {result.Url}");
 
 One-shot — defaults to `ElevenFlash25` (cheap+fast) and returns the full clip as a single PCM `AudioChunk` (never null; throws `SpeechGeneratorException` on failure):
 
-```csharp
-using Ikon.AI.SpeechGeneration;
-using Ikon.Resonance;
+Needs the `Ikon.AI.SpeechGeneration`, `Ikon.Resonance` using directives.
 
+```csharp
 var audio = await SpeechGenerator.GenerateAsync("There once was a ship that put to sea.");
 
 using var wavFile = new WavFile(audio.SampleRate, audio.ChannelCount, WavFile.SampleFormat.Float);
@@ -482,10 +394,9 @@ wavFile.SaveToFile("speech.wav");
 
 Use the constructor + config form for chunk-by-chunk streaming, voice discovery, language, instructions, or speed:
 
-```csharp
-using Ikon.AI.SpeechGeneration;
-using Ikon.Resonance;
+Needs the `Ikon.AI.SpeechGeneration`, `Ikon.Resonance` using directives.
 
+```csharp
 using var speechGenerator = new SpeechGenerator(SpeechGeneratorModel.Gpt4OmniMiniTts);
 
 foreach (var voiceId in speechGenerator.VoiceIds)
@@ -521,23 +432,23 @@ wavFile.SaveToFile("speech.wav");
 
 One-shot batch transcription — defaults to `WhisperLarge3Turbo` (cheap+fast):
 
-```csharp
-using Ikon.AI.SpeechRecognition;
+Needs the `Ikon.AI.SpeechRecognition` using directive.
 
+```csharp
 string text = await SpeechRecognizer.RecognizeAsync(samples, 16000);
 ```
 
-Use the constructor + config form for PCM16 byte input, language hints, prompts, or continuous recognition:
+Use the constructor + config form for PCM16 byte input, language hints, prompts, timings, or
+continuous recognition. `RecognizeBatchSpeechAsync` returns a `Transcript`, not a string:
+
+Needs the `Ikon.AI.SpeechRecognition`, `Ikon.Resonance` using directives.
 
 ```csharp
-using Ikon.AI.SpeechRecognition;
-using Ikon.Resonance;
-
 var speechRecognizer = new SpeechRecognizer(SpeechRecognizerModel.Whisper2);
 
 var audioBytes = await File.ReadAllBytesAsync("audio.raw");
 
-string text = await speechRecognizer.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
+var transcript = await speechRecognizer.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
 {
     Language = "en-US",
     SampleRate = 16000,
@@ -545,7 +456,69 @@ string text = await speechRecognizer.RecognizeBatchSpeechAsync(new RecognizeSpee
     Samples = AudioUtils.ConvertPcm16ToFloat(audioBytes)
 });
 
-Log.Instance.Info($"Recognized speech: '{text}'");
+Log.Instance.Info($"Recognized speech: '{transcript.Text}'");
+```
+
+### Timestamps, speakers and confidence
+
+`Transcript` carries `Text`, the detected `Language`, the audio `Duration`, a `Confidence` where the
+provider reports one, and — when you ask for them — `Words` (a list of `SpeechWord`) and `Segments`
+(a list of `TranscriptSegment`). Both record types carry `Text`, `Start`, `End`, `Confidence` and
+`Speaker`. Timings are always `TimeSpan` relative to the start of the submitted audio, whatever units
+the provider reported.
+
+```csharp
+var transcript = await speechRecognizer.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
+{
+    SampleRate = 16000,
+    ChannelCount = 1,
+    Samples = samples,
+    Timestamps = SpeechTimestamps.Word | SpeechTimestamps.Segment,
+    Diarize = true
+});
+
+foreach (var word in transcript.Words)
+{
+    Log.Instance.Info($"[{word.Start.TotalSeconds:F2}-{word.End.TotalSeconds:F2}] {word.Text} ({word.Speaker})");
+}
+```
+
+`Timestamps` defaults to `None`, so an unchanged request costs exactly what it did before. **Asking
+for a granularity the model does not support throws** rather than returning an empty list — an empty
+`Words` would otherwise mean both "not supported" and "no speech". Check first with
+`SpeechRecognizer.GetCapabilities(model)`, which reports `SupportsWordTimestamps`,
+`SupportsSegmentTimestamps` and `SupportsDiarization` alongside the existing flags.
+
+Two provider limits are worth knowing because they surface as exceptions rather than as quietly
+missing fields:
+
+- The GPT-4o transcribe models have no timings at all; the diarizing variant reports speaker
+  segments but never words.
+- Voxtral accepts **one** granularity per request, and rejects a language hint together with
+  timestamps — ask for `Word` or `Segment`, and leave `Language` empty when you do.
+
+Continuous recognition yields `TranscriptEvent` instead of a string. `IsFinal` separates a
+provider's revisable interim hypothesis from text it will not change, and only final events carry
+`Words` — no provider attaches word timings to an interim result. `Start`/`End` are relative to the
+start of the stream, so they keep growing for the life of the recognition. Interim events are off
+unless `InterimResults` asks for them:
+
+```csharp
+var config = new RecognizeContinuousSpeechConfig
+{
+    SampleRate = 16000,
+    ChannelCount = 1,
+    Timestamps = SpeechTimestamps.Word,
+    InterimResults = true
+};
+
+await foreach (var transcriptEvent in speechRecognizer.RecognizeContinuousSpeechAsync(config, samples))
+{
+    if (transcriptEvent.IsFinal)
+    {
+        Log.Instance.Info($"[{transcriptEvent.Start.TotalSeconds:F2}] {transcriptEvent.Text}");
+    }
+}
 ```
 
 ## SoundEffectGeneration
@@ -556,18 +529,18 @@ Log.Instance.Info($"Recognized speech: '{text}'");
 
 One-shot — returns a buffered WAV file:
 
-```csharp
-using Ikon.AI.SoundEffectGeneration;
+Needs the `Ikon.AI.SoundEffectGeneration` using directive.
 
+```csharp
 var effect = await SoundEffectGenerator.GenerateAsync("A thunderstorm with heavy rain");
 await File.WriteAllBytesAsync("thunder.wav", await effect.GetDataAsync());
 ```
 
 Use the constructor + config form for duration, looping, prompt influence, or streaming PCM chunks:
 
-```csharp
-using Ikon.AI.SoundEffectGeneration;
+Needs the `Ikon.AI.SoundEffectGeneration` using directive.
 
+```csharp
 using var generator = new SoundEffectGenerator(SoundEffectGeneratorModel.ElevenLabsV2);
 
 var result = await generator.GenerateSoundEffectFileAsync(new SoundEffectGeneratorConfig
@@ -587,18 +560,18 @@ await File.WriteAllBytesAsync("thunder.wav", await result.GetDataAsync());
 
 One-shot — defaults to `ElevenLabsMusicV2` (supports duration control and editing) and returns a buffered, encoded audio file:
 
-```csharp
-using Ikon.AI.MusicGeneration;
+Needs the `Ikon.AI.MusicGeneration` using directive.
 
+```csharp
 var music = await MusicGenerator.GenerateAsync("An upbeat 8-bit chiptune loop");
 await File.WriteAllBytesAsync("music.mp3", await music.GetDataAsync());
 ```
 
 Use the constructor + config form for duration control, input audio (editing), seeding, or streaming PCM chunks via `GenerateMusicAsync`:
 
-```csharp
-using Ikon.AI.MusicGeneration;
+Needs the `Ikon.AI.MusicGeneration` using directive.
 
+```csharp
 using var musicGenerator = new MusicGenerator(MusicGeneratorModel.ElevenLabsMusicV2);
 
 var result = await musicGenerator.GenerateMusicFileAsync(new MusicGeneratorConfig
@@ -610,6 +583,8 @@ var result = await musicGenerator.GenerateMusicFileAsync(new MusicGeneratorConfi
 await File.WriteAllBytesAsync("music.mp3", await result.GetDataAsync());
 ```
 
+The buffered call returns a `MusicGeneratorResult` — `Data` or `Url` depending on the `Kind`, plus `MimeType` and `DurationSeconds`. `MusicGenerator` implements `IMusicGenerator`, which extends `IMusicGeneratorInfo` with `SupportsStreaming`, `SupportsEditing` and `SupportsDurationControl`; the same three read off a `MusicGeneratorCapabilities`. Streaming is gated: `GenerateMusicAsync` throws `NonRetryableAIException` on a model whose `SupportsStreaming` is false, and a model without duration control silently ignores `DurationSeconds`.
+
 ## WebScraping
 
 `Ikon.AI.WebScraping.WebScraper` fetches and normalizes website content, with options for Markdown extraction and screenshots.
@@ -620,18 +595,18 @@ await File.WriteAllBytesAsync("music.mp3", await result.GetDataAsync());
 
 One-shot single page scrape — defaults to `Jina` (cheap+fast hosted reader) and returns the page as Markdown:
 
-```csharp
-using Ikon.AI.WebScraping;
+Needs the `Ikon.AI.WebScraping` using directive.
 
+```csharp
 var page = await WebScraper.ScrapeAsync("https://example.com");
 Log.Instance.Info($"{page.Title}: {page.Content}...");
 ```
 
 Use the constructor + config form for output formats, cookies, custom JavaScript, multi-page crawling, screenshots, and file downloads:
 
-```csharp
-using Ikon.AI.WebScraping;
+Needs the `Ikon.AI.WebScraping` using directive.
 
+```csharp
 var scraper = new WebScraper(WebScraperModel.Jina);
 
 var page = await scraper.ScrapeSinglePageAsync(new SinglePageScrapeConfig
@@ -660,9 +635,9 @@ await File.WriteAllBytesAsync("screenshot.png", screenshot.Data);
 
 One-shot page search — defaults to `Google` (cheap+fast general web search):
 
-```csharp
-using Ikon.AI.WebSearching;
+Needs the `Ikon.AI.WebSearching` using directive.
 
+```csharp
 var results = await WebSearcher.SearchAsync("Finnish ice hockey teams", maxResults: 5);
 
 foreach (var result in results)
@@ -673,9 +648,9 @@ foreach (var result in results)
 
 Use the constructor + config form for site-restricted search, country/language targeting, or image search:
 
-```csharp
-using Ikon.AI.WebSearching;
+Needs the `Ikon.AI.WebSearching` using directive.
 
+```csharp
 var pageSearcher = new WebSearcher(WebSearcherModel.Google);
 
 var pageResults = await pageSearcher.SearchPagesAsync(new SearchConfig
@@ -711,18 +686,18 @@ foreach (var result in imageResults)
 
 One-shot from raw file bytes (the file name carries the source format):
 
-```csharp
-using Ikon.AI.FileConversion;
+Needs the `Ikon.AI.FileConversion` using directive.
 
+```csharp
 var pdf = await FileConverter.ConvertToPdfAsync(await File.ReadAllBytesAsync("brochure.docx"), "brochure.docx");
 await File.WriteAllBytesAsync("brochure.pdf", await pdf.GetDataAsync());
 ```
 
 Use the constructor + config form when the source is a URL or `AssetUri`, or when you need a custom timeout:
 
-```csharp
-using Ikon.AI.FileConversion;
+Needs the `Ikon.AI.FileConversion` using directive.
 
+```csharp
 var fileConverter = new FileConverter(FileConverterModel.ConvertApi);
 var convertedFile = await fileConverter.ConvertToPdfAsync(new FileConverterConfig
 {
@@ -740,18 +715,18 @@ await File.WriteAllBytesAsync("brochure.pdf", await convertedFile.GetDataAsync()
 
 One-shot from raw file bytes — defaults to `AzureDocumentIntelligence` (cheap+robust):
 
-```csharp
-using Ikon.AI.OCR;
+Needs the `Ikon.AI.OCR` using directive.
 
+```csharp
 var result = await OCR.AnalyzeAsync(await File.ReadAllBytesAsync("invoice.pdf"));
 Log.Instance.Info(result.Text);
 ```
 
 Use the constructor + config form when the document is a URL or `AssetUri`, or when you need page selection or word-level bounding boxes:
 
-```csharp
-using Ikon.AI.OCR;
+Needs the `Ikon.AI.OCR` using directive.
 
+```csharp
 var ocr = new OCR(OCRModel.AzureDocumentIntelligence);
 var result = await ocr.AnalyzeDocumentAsync(new OCRConfig
 {
@@ -784,9 +759,9 @@ A `0` on either numeric limit means the provider publishes no limit — not a ze
 
 One-shot — defaults to `CohereRerank4Fast` (cheap+fast):
 
-```csharp
-using Ikon.AI.Reranking;
+Needs the `Ikon.AI.Reranking` using directive.
 
+```csharp
 var items = await Reranker.RerankAsync(
     ["Document about AI", "Document about cooking", "Document about space exploration"],
     query: "What is the latest in artificial intelligence?"
@@ -800,9 +775,9 @@ foreach (var item in items)
 
 Use the constructor + instance `RerankAsync` for a custom timeout or when reranking many queries with the same instance:
 
-```csharp
-using Ikon.AI.Reranking;
+Needs the `Ikon.AI.Reranking` using directive.
 
+```csharp
 using var reranker = new Reranker(RerankModel.CohereRerank4Fast);
 var items = await reranker.RerankAsync(new RerankerConfig { Documents = documents, Query = query, TopN = 5 });
 ```
@@ -815,9 +790,9 @@ var items = await reranker.RerankAsync(new RerankerConfig { Documents = document
 
 One-shot text moderation — defaults to `OpenAIOmniModeration` (free to use):
 
-```csharp
-using Ikon.AI.Classification;
+Needs the `Ikon.AI.Classification` using directive.
 
+```csharp
 var result = await Classifier.ClassifyAsync("How to kill kittens? (not really!)");
 Log.Instance.Info($"Flagged: {result.IsFlagged}");
 
@@ -832,9 +807,9 @@ foreach (var detail in result.Details)
 
 Use the constructor + the instance `ClassifyAsync` overloads for image/message-part inputs, a custom `Timeout`, or classifying many inputs with the same instance:
 
-```csharp
-using Ikon.AI.Classification;
+Needs the `Ikon.AI.Classification` using directive.
 
+```csharp
 using var classifier = new Classifier(ClassificationModel.OpenAIOmniModeration);
 
 var result = await classifier.ClassifyAsync("What a nice weather!");
@@ -849,9 +824,9 @@ Log.Instance.Info($"Flagged: {result.IsFlagged}");
 
 One-shot — defaults to `OpenAI3Small` (cheap+fast) with `EmbeddingType.Generic`:
 
-```csharp
-using Ikon.AI.Embeddings;
+Needs the `Ikon.AI.Embeddings` using directive.
 
+```csharp
 var embeddings = await EmbeddingGenerator.EmbedAsync(
     ["Example sentence 1", "Example sentence 2", "Example sentence 3"]);
 
@@ -863,9 +838,9 @@ foreach (var embedding in embeddings)
 
 Use the constructor + `GenerateEmbeddingsAsync` for batching control, a custom timeout, or the generator's `MaxInputCount` / `EmbeddingVectorSize` properties:
 
-```csharp
-using Ikon.AI.Embeddings;
+Needs the `Ikon.AI.Embeddings` using directive.
 
+```csharp
 using var embeddingGenerator = new EmbeddingGenerator(EmbeddingModel.OpenAI3Small);
 
 var embeddings = await embeddingGenerator.GenerateEmbeddingsAsync(new EmbeddingGeneratorConfig
@@ -877,16 +852,15 @@ var embeddings = await embeddingGenerator.GenerateEmbeddingsAsync(new EmbeddingG
 
 ## Kernel
 
-`Ikon.AI.Kernel` supplies shared primitives such as `KernelContext`, `MessageBlock`, and `Instruction` that underpin shaders and direct LLM calls.
+`Ikon.AI.Kernel` supplies shared primitives such as `KernelContext`, `MessageBlock`, and `Instruction` that underpin Emergence passes and direct LLM calls.
 
 ### Attaching media from the asset system
 
 For large media that lives in the Ikon asset system, pass an `AssetUri` directly instead of reading the bytes yourself. `VideoAssetPart` lets you hand a video asset to a multimodal LLM without worrying about request-size limits:
 
-```csharp
-using Ikon.AI.Kernel;
-using Ikon.Common.Core.Assets;
+Needs the `Ikon.AI.Kernel`, `Ikon.Common.Core.Assets` using directives.
 
+```csharp
 var assetUri = new AssetUri("assets://space/abc123/cloud-file/clips/demo.mp4");
 
 var context = new KernelContext();
