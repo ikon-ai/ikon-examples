@@ -23,17 +23,13 @@ ikon app secret delete GITHUB_TOKEN   # prompts; add --yes to skip
 Secrets are fetched from the backend once at app startup and exposed synchronously via `app.Secrets`. Indexer access throws if the key is not set; use `TryGet` for optional secrets.
 
 ```csharp
-[App]
-public class MyApp(IApp<SessionIdentity, ClientParams> app)
+public async Task Main()
 {
-    public async Task Main()
-    {
-        string token = app.Secrets["GITHUB_TOKEN"];
+    string token = app.Secrets["GITHUB_TOKEN"];
 
-        if (app.Secrets.TryGet("SENTRY_DSN", out var dsn))
-        {
-            // wire up optional integration
-        }
+    if (app.Secrets.TryGet("SENTRY_DSN", out var dsn))
+    {
+        // wire up optional integration
     }
 }
 ```
@@ -51,6 +47,14 @@ public class FetchFromGithub(IPipelineHost<EmptyPipelineConfig> host)
     public async Task Run(Pipeline<Item>.Branch inputItems, CancellationToken cancellationToken)
     {
         string token = host.Secrets["GITHUB_TOKEN"];
+
+        if (host.Secrets.TryGet("GITHUB_API_BASE", out var apiBase))
+        {
+            Log.Instance.Info($"Using custom GitHub API base: {apiBase}");
+        }
+
+        Log.Instance.Info($"Running in organisation {host.OrganisationId} space {host.SpaceId}");
+
         // ...
         await Task.CompletedTask;
     }

@@ -1,4 +1,4 @@
-public partial class LearningApp
+﻿public partial class LearningApp
 {
     private void SetupAudioInputHandlers()
     {
@@ -82,7 +82,7 @@ public partial class LearningApp
                 Language = _currentLanguage.Value
             };
 
-            var result = await recognizer.RecognizeBatchSpeechAsync(config);
+            var result = (await recognizer.RecognizeBatchSpeechAsync(config)).Text;
 
             Log.Instance.Info($"[STT] Recognition result: '{result}'");
 

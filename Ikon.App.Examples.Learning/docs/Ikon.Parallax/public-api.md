@@ -314,12 +314,14 @@ namespace Ikon.Parallax.Components.ImageEditor
     // tool: Defaults to ImageEditorTool.Brush on the frontend.
     // zoom: Zoom level: 1.0 = 100%.
     // highResolution: Keeps the canvas at the image's native resolution (capped): sharp zoom, full-quality export, but capped undo history. When false the canvas is downscaled to fit its container.
-    // fillShapes: When true, the region and lasso tools fill the drawn shape with the brush color instead of stroking its outline. Defaults to false on the frontend.
+    // fillShapes: When true, the region, lasso and polygon tools fill the drawn shape with the brush color instead of stroking its outline. Defaults to false on the frontend.
+    // overlaySrc: Non-editable reference image drawn above the canvas; never included in the saved image.
+    // overlayOpacity: Opacity of overlaySrc, 0–1; null = 1.
     // textMaxLength: Max length of the text tool's floating input; null = no limit.
     // textFontSize: Font size in pixels; null = derived from brush width.
     // textPadding: Padding in pixels around the text; null = 4.
     // onSave: Receives the saved image as base64 data.
-    static void ImageEditorCanvas(this UIView view, string[]? style = null, string? src = null, int? brushWidth = null, string? brushColor = null, ImageEditorTool? tool = null, double? zoom = null, bool? highResolution = null, bool? fitContainer = null, bool? fillShapes = null, int? textMaxLength = null, int? textFontSize = null, int? textPadding = null, Func<ImageEditorSaveArgs, Task>? onSave = null, Func<ImageEditorHistoryArgs, Task>? onHistoryChange = null, int? triggerSave = null, int? triggerUndo = null, int? triggerRedo = null, string? styleId = null, string? key = null)
+    static void ImageEditorCanvas(this UIView view, string[]? style = null, string? src = null, int? brushWidth = null, string? brushColor = null, ImageEditorTool? tool = null, double? zoom = null, bool? highResolution = null, bool? fitContainer = null, bool? fillShapes = null, string? overlaySrc = null, double? overlayOpacity = null, int? textMaxLength = null, int? textFontSize = null, int? textPadding = null, Func<ImageEditorSaveArgs, Task>? onSave = null, Func<ImageEditorHistoryArgs, Task>? onHistoryChange = null, int? triggerSave = null, int? triggerUndo = null, int? triggerRedo = null, string? styleId = null, string? key = null)
   sealed record ImageEditorHistoryArgs
     ctor(bool CanUndo, bool CanRedo)
     bool CanRedo { get; init; }
@@ -335,13 +337,12 @@ namespace Ikon.Parallax.Components.ImageEditor
     Region
     Lasso
     Line
+    Polygon
 
 namespace Ikon.Parallax.Components.Standard
   static class AccessibilityExtensions
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void AccessibleIcon(this UIView view, string[]? style = null, string? label = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // Hidden visually but still exposed to screen readers.
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void VisuallyHidden(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
   record ActionEvent
     ctor(string ActionType, bool Success)
@@ -364,7 +365,6 @@ namespace Ikon.Parallax.Components.Standard
   static class AlertExtensions
     // The icon defaults per tone (success check, warning triangle, error alert, info circle).
     // tone: Selects the Alert color variant; Neutral and Brand use the default surface.
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // description: Muted body text under the title.
     // icon: Lucide icon name overriding the tone's default icon.
     // onDismiss: When set, renders a dismiss button in the top-right corner.
@@ -390,7 +390,6 @@ namespace Ikon.Parallax.Components.Standard
   static class BreadcrumbExtensions
     // Items with an OnClick render as clickable links; the last item always renders as the non-clickable current page (aria-current="page") regardless of its OnClick.
     // items: Trail entries in root-to-current order.
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // separatorIcon: Lucide icon name for the separator; defaults to "chevron-right".
     static void Breadcrumb(this UIView view, IReadOnlyList<BreadcrumbItem> items, string[]? style = null, string? separatorIcon = null, string[]? linkStyle = null, string[]? itemStyle = null, string[]? pageStyle = null, string[]? separatorStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
   sealed record BreadcrumbItem
@@ -401,7 +400,6 @@ namespace Ikon.Parallax.Components.Standard
     Func<Task>? OnClick { get; init; }
   static class CalendarExtensions
     // All date values (value, defaultValue, minDate, maxDate, callbacks) are ISO yyyy-MM-dd strings; month is yyyy-MM. Controlled via value+onValueChange; omit both and pass defaultValue for uncontrolled.
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // month: Controlled display month; accepts yyyy-MM or yyyy-MM-dd.
     // minDate: Earliest selectable date (inclusive).
     // maxDate: Latest selectable date (inclusive).
@@ -444,12 +442,10 @@ namespace Ikon.Parallax.Components.Standard
     // onClick: Accepts sync (() => …) and async (async () => …) lambdas alike.
     static void Card(this UIView view, string[]? style = null, string? title = null, string? description = null, Action<UIView>? header = null, Action<UIView>? content = null, Action<UIView>? footer = null, string[]? headerStyle = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? contentStyle = null, string[]? footerStyle = null, Delegate? onClick = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
     static void Card(this UIView view, string[]? style, Action<UIView> children)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // description: Muted explanation text under the title.
     // icon: Lucide icon name rendered inside the tinted icon square.
     // action: Builder for the action row (e.g. a "Create" button).
     static void EmptyState(this UIView view, string title, string[]? style = null, string? description = null, string? icon = null, Action<UIView>? action = null, string[]? iconWrapStyle = null, string[]? iconStyle = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? actionsStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // delta: Delta text rendered next to the value (e.g. "+12%").
     // trendLabel: Muted context text after the delta (e.g. "vs last month").
     // icon: Lucide icon name rendered inside the tinted icon box on the right.
@@ -496,12 +492,10 @@ namespace Ikon.Parallax.Components.Standard
     Indeterminate
   static class CodeEditorExtensions
     // value: Controlled text value; with no write-back handler (onValueChange or onSubmit) the editor renders read-only.
-    // defaultValue: Initial value for uncontrolled mode.
     // language: Syntax-highlighting language identifier (e.g. typescript, csharp, json).
     // readOnly: Prevents editing but allows selection and copy.
     // showLineNumbers: Defaults to true.
     // tabSize: Spaces inserted by Tab; defaults to 2.
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // onSubmit: Invoked when the user presses Ctrl+Enter. The parameter contains the submitted value — prefer it over re-reading the bound reactive.
     static void CodeEditor(this UIView view, string? value = null, string? defaultValue = null, string? language = null, string? placeholder = null, bool? readOnly = null, bool? disabled = null, bool? showLineNumbers = null, int? tabSize = null, bool? insertSpaces = null, bool? wrap = null, int? minRows = null, int? maxRows = null, string[]? style = null, string[]? gutterStyle = null, string[]? contentStyle = null, string[]? languageBadgeStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null)
   enum CollisionDetection
@@ -526,13 +520,22 @@ namespace Ikon.Parallax.Components.Standard
     Left
     Center
     Right
+  sealed record ComposerAttachment
+    ctor(string Name, string Mime, long Size)
+    string Mime { get; init; }
+    string Name { get; init; }
+    long Size { get; init; }
+  static class ComposerExtensions
+    // A complete input bar — attach button, drag-and-drop, paste, auto-growing text, optional push-to-talk — so apps do not rebuild it. Stateless: pass the draft in value and the pending files in attachments, and store what the callbacks hand back. onSubmit receives the submitted text; prefer it over re-reading the draft, which a surface switch can clear between the keystroke and the handler. The mic renders only when both capture callbacks are wired; transcription is the app's job. Per-slot style parameters restyle every part, and label parameters localize every string.
+    // seedSelectionIds: Ids from a prior FilePicker selection, uploaded on mount (see FileUploadZone).
+    // onAttachmentAdded: A file was picked, dropped, or pasted and finished uploading; its temp path is in the args.
+    // onCaptureStop: Push-to-talk released — transcribe the capture and append it to the draft.
+    static void Composer(this UIView view, string[]? style = null, string? value = null, string? placeholder = null, bool busy = false, IReadOnlyList<ComposerAttachment>? attachments = null, string[]? accept = null, long? maxFileSize = null, int? maxRows = null, bool? autoFocus = null, string[]? seedSelectionIds = null, string[]? fieldStyle = null, string[]? chipStyle = null, string[]? attachButtonStyle = null, string[]? sendButtonStyle = null, string[]? micStyle = null, string[]? activeStyle = null, string attachLabel = "Attach files", string sendLabel = "Send", string holdToTalkLabel = "Hold to talk", string releaseLabel = "Release to send", string? key = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, Func<FileUploadCompleteArgs, Task>? onAttachmentAdded = null, Func<FileUploadErrorArgs, Task>? onAttachmentError = null, Func<int, Task>? onAttachmentRemoved = null, Func<MediaCaptureEvent, Task>? onCaptureStart = null, Func<MediaCaptureEvent, Task>? onCaptureStop = null)
   sealed record ContactsActionEvent : ActionEvent
     ctor(bool Success, IReadOnlyList<ClientContact>? Contacts)
     IReadOnlyList<ClientContact>? Contacts { get; init; }
   static class ContainerExtensions
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // onClick: Accepts sync (() => …) and async (async () => …) lambdas alike. A clickable Box automatically carries button semantics — role="button", tabIndex=0, Enter/Space activation. Override either through props, and give an icon-only Box an ["aria-label"].
-    // ariaLabel: Accessible name for a control whose visible content cannot supply one; prefer a visible label.
     static void Box(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Delegate? onClick = null, Action<UIView>? content = null, string? ariaLabel = null)
     static void Box(this UIView view, string[]? style, Action<UIView> children)
     // style: Crosswind utility classes appended to the fixed flex flex-col base class, which cannot be removed or replaced.
@@ -569,25 +572,19 @@ namespace Ikon.Parallax.Components.Standard
     ctor()
     required string Text { get; init; }
   static class CoreExtensions
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // text: Visible button text. When content is provided it instead becomes the accessible aria-label.
     static void ActionButton(this UIView view, string[]? style = null, ActionKind action = Unknown, string? text = null, ActionOptions? options = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<ActionEvent, Task>? onActionComplete = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // text: Visible button text. When content is provided it instead becomes the accessible aria-label.
     // href: URL to navigate to when clicked; renders the button as an anchor element.
     // icon: Lucide icon name rendered alongside the text; content (when provided) wins over it.
     // tooltip: Hover text rendered with the themed Tooltip; it also becomes the accessible name when nothing else names the control. Do not use a title prop instead.
     // tooltipRootStyle: Styles for the tooltip wrapper, the element that sits in the parent's layout — responsive and positioning classes go here, not on the button. Defaults to inline-flex shrink-0.
-    // ariaLabel: Accessible name for a control whose visible content cannot supply one; prefer a visible label.
     static void Button(this UIView view, string[]? style = null, string? text = null, bool? disabled = null, string? href = null, string? type = null, string? target = null, string? rel = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Delegate? onClick = null, string? icon = null, Align iconPosition = Start, Action<UIView>? content = null, string? tooltip = null, string[]? tooltipRootStyle = null, string? ariaLabel = null, Delegate? onPressStart = null, Delegate? onPressEnd = null)
     static void Button(this UIView view, string buttonText, string[]? style = null, bool? disabled = null, string? href = null, string? type = null, string? target = null, string? rel = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Delegate? onClick = null, string? icon = null, Align iconPosition = Start, Action<UIView>? content = null, string? tooltip = null, string[]? tooltipRootStyle = null, string? ariaLabel = null, Delegate? onPressStart = null, Delegate? onPressEnd = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void Heading(this UIView view, string[]? style = null, string? text = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     static void Heading(this UIView view, string headingText, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // size: Merged as the icon's base sizing, so a w-*/h-* class in style still wins. Omit it to leave sizing entirely to style.
     // library: Defaults to the view's default icon library.
-    // ariaLabel: Accessible name for a control whose visible content cannot supply one; prefer a visible label.
     static void Icon(this UIView view, string[]? style = null, string? name = null, IconSize? size = null, string? library = null, bool? filled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string? ariaLabel = null)
     static void Icon(this UIView view, string iconName, string[]? style = null, IconSize? size = null, string? library = null, bool? filled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string? ariaLabel = null)
     // style: Crosswind utility classes; defaults to the theme's Button.Link styling.
@@ -595,56 +592,37 @@ namespace Ikon.Parallax.Components.Standard
     // rel: When target is "_blank" and rel is null, defaults to "noopener noreferrer". Pass "external" to force a full document load for a same-origin link.
     // onClick: Fires alongside navigation; for side effects only — href already handles the destination.
     // content: Custom child content; text then becomes the aria-label.
-    // ariaLabel: Accessible name for a control whose visible content cannot supply one; prefer a visible label.
     static void Link(this UIView view, string[]? style = null, string? text = null, string? href = null, string? target = null, string? rel = null, Delegate? onClick = null, string? icon = null, Align iconPosition = Start, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string? ariaLabel = null)
     static void Link(this UIView view, string linkText, string[]? style = null, string? href = null, string? target = null, string? rel = null, Delegate? onClick = null, string? icon = null, Align iconPosition = Start, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, string? ariaLabel = null)
     // style: Crosswind/Tailwind utility classes for styling. With no array the body renders with Markdown.Default — heading scale, list markers, table rules, blockquote bar and a self-scrolling fenced-code box. Pass "default" as the first class to keep those and add your own on top; any other array replaces them.
     static void Markdown(this UIView view, string[]? style = null, string? content = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
     static void Markdown(this UIView view, string markdownContent, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // href: URL to navigate to when clicked. Renders as an anchor element when specified.
     static void Text(this UIView view, string[]? style = null, string? text = null, string? href = null, string? target = null, string? rel = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     static void Text(this UIView view, string textContent, string[]? style = null, string? href = null, string? target = null, string? rel = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // defaultValue: Initial pressed state when not controlling value.
     // label: Trailing text label; wraps the toggle and the text in a <label>, so clicking the text toggles the control and the text is the toggle's accessible name.
     static void Toggle(this UIView view, string[]? style = null, bool? value = null, bool? defaultValue = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onValueChange = null, Action<UIView>? content = null, string? label = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void ToggleGroupItem(this UIView view, string[]? style = null, string? value = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // defaultValue: Initial selection when not controlling value.
     static void ToggleGroupMultiple(this UIView view, string[]? style = null, IReadOnlyList<string>? value = null, IReadOnlyList<string>? defaultValue = null, bool? rovingFocus = true, bool loop = true, Orientation orientation = Horizontal, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<IReadOnlyList<string>, Task>? onValueChange = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // defaultValue: Initial selection when not controlling value.
     static void ToggleGroupSingle(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, bool? rovingFocus = true, bool loop = true, Orientation orientation = Horizontal, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null)
   enum Dir
     Ltr
     Rtl
   static class DisclosureExtensions
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
-    // forceMount: When true, keeps content in DOM when hidden.
     static void AccordionContent(this UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // Wraps an AccordionTrigger.
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void AccordionHeader(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void AccordionItem(this UIView view, string[]? style = null, string? value = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
-    // defaultValue: Initial value for uncontrolled mode.
     static void AccordionMultiple(this UIView view, string[]? style = null, IReadOnlyList<string>? value = null, IReadOnlyList<string>? defaultValue = null, Orientation orientation = Vertical, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<IReadOnlyList<string>, Task>? onValueChange = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
-    // defaultValue: Initial value for uncontrolled mode.
     // collapsible: Allows the open item to be closed again, leaving none open.
     static void AccordionSingle(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, bool? collapsible = null, Orientation orientation = Vertical, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void AccordionTrigger(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // defaultOpen: Initial open state for uncontrolled mode.
     static void Collapsible(this UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
-    // forceMount: When true, keeps content in DOM when hidden.
     static void CollapsibleContent(this UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void CollapsibleTrigger(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
   sealed record DownloadFileActionOptions : ActionOptions
     ctor()
@@ -654,27 +632,20 @@ namespace Ikon.Parallax.Components.Standard
     // Regular or data URL. When Data is set, auto-generated as a data URL using MimeType, falling back to "application/octet-stream" when MimeType is unset.
     string Url { get; init; }
   static class DragAndDropExtensions
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // onDragEnd: Invoked when the drag operation ends (dropped or cancelled).
     // activationDistance: Pixels of pointer movement before a drag activates; a pointerdown below the threshold is delivered as a normal click (inner Button.onClick fires). Null: drag activates immediately.
     static void DndContext(this UIView view, string[]? style = null, CollisionDetection collisionDetection = ClosestCenter, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<DragStartArgs, Task>? onDragStart = null, Func<DragMoveArgs, Task>? onDragMove = null, Func<DragOverArgs, Task>? onDragOver = null, Func<DragEndArgs, Task>? onDragEnd = null, Func<Task>? onDragCancel = null, int? activationDistance = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // activeDragId: The ID of the currently dragged item. When set, the overlay only renders its content after the server has sent content matching this drag ID, preventing stale content from a previous drag.
     static void DragOverlay(this UIView view, string[]? style = null, bool? dropAnimation = true, string? activeDragId = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // hideOnDrag: When true, hides the original element during drag. Use with DragOverlay.
     // data: Custom data attached to this draggable, available in drag event arguments.
     static void Draggable(this UIView view, string[]? style = null, string? id = null, bool? disabled = null, bool? hideOnDrag = null, object? data = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // data: Custom data attached to this droppable, available in drag event arguments.
     static void Droppable(this UIView view, string[]? style = null, string? id = null, bool? disabled = null, object? data = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // items: List of item identifiers in the current sort order.
     static void SortableContext(this UIView view, string[]? style = null, IReadOnlyList<string>? items = null, SortStrategy strategy = VerticalList, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // When a SortableHandle descendant is present, only pointerdown on the handle starts a drag; the rest of the item stays free for inner clickable elements. Place inside a SortableItem (or a SortableList itemContent); outside one it renders as a plain container.
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void SortableHandle(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void SortableItem(this UIView view, string[]? style = null, string? id = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // items: List of item identifiers in the current sort order.
     // onReorder: Invoked with the new order after a drag. The only write-back — persist args.NewOrder here, or reorders show on the client but never reach the app.
@@ -737,7 +708,6 @@ namespace Ikon.Parallax.Components.Standard
     // index: Zero-based index of this slide.
     // style: Style classes for the slide container.
     // mediaKind: Kind of media to preload for this slide.
-    // mediaUrl: URL of the media asset.
     // mediaPoster: Optional poster image URL for video slides.
     static void FeedSlide(this UIView view, int index, string[]? style = null, FeedMediaKind mediaKind = None, string? mediaUrl = null, string? mediaPoster = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
   sealed record FeedSlide
@@ -771,16 +741,13 @@ namespace Ikon.Parallax.Components.Standard
     string Reason { get; init; }
     long Size { get; init; }
   static class FileUploadExtensions
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // accept: Accepted MIME types or extensions (e.g., ["image/*", ".pdf"]).
-    // maxFileSize: Maximum file size in bytes.
     // onUploadPreStart: First accept/reject hook, before the client hashes or transfers anything. Return a FileUploadResult (or `true`/`false`); set AssetUri to write directly to the Asset system. Receives a Cancel delegate.
     // onUploadStart: Second hook, after the file hash is computed and before any chunks arrive; same return contract as onUploadPreStart.
     // onUploadError: Invoked when a file upload fails, is cancelled, or times out.
     // seedSelectionIds: Ids from a prior FilePickerExtensions.FilePicker selection; on first mount the client uploads the cached File handles through the normal pipeline, reusing each SelectionId as the UploadId.
     static void FileUpload(this UIView view, string[]? style = null, string[]? accept = null, bool? multiple = null, long? maxFileSize = null, bool? disabled = null, bool? allowPaste = null, string? capture = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<FileUploadPreStartArgs, Task<FileUploadResult>>? onUploadPreStart = null, Func<FileUploadStartArgs, Task<FileUploadResult>>? onUploadStart = null, Func<FileUploadProgressArgs, Task>? onUploadProgress = null, Func<FileUploadCompleteArgs, Task>? onUploadComplete = null, Func<FileUploadErrorArgs, Task>? onUploadError = null, Func<FileUploadChunkArgs, Task>? onChunkReceived = null, string[]? seedSelectionIds = null, Action<UIView>? content = null)
     // Style slots: zoneStyle (drop-zone container; the first positional style array is its alias), activeStyle (while a file is dragged over). The MIME filter is the named accept: parameter.
-    // maxFileSize: Maximum file size in bytes.
     // accept: Accepted MIME types or extensions (e.g., ["image/*", ".pdf"]).
     // onUploadPreStart: First accept/reject hook, before the client hashes or transfers anything. Return a FileUploadResult (or `true`/`false`); set AssetUri to write directly to the Asset system.
     // onUploadStart: Second hook, after the file hash is computed and before any chunks arrive; same return contract as onUploadPreStart.
@@ -803,76 +770,63 @@ namespace Ikon.Parallax.Components.Standard
   enum FocusPriority
     Polite
     Assertive
+  // Thrown inside the handler passed to FormState<T>.SubmitAsync: a null Field shows the message at form level, a field name shows it under that field. Any other exception type from the handler is shown at form level with its message.
+  sealed class FormException : Exception
+    ctor(string field, string message)
+    string? Field { get; }
   static class FormExtensions
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // formValue: HTML form value submitted when checked.
     // label: Trailing text label wrapped with the checkbox in a <label> — clicking the text toggles the control and the text becomes its accessible name. Prefer this over placing your own Text beside a bare Checkbox, which associates nothing.
     // bind: Two-way binds the checkbox to a Reactive<T> — reads bind.Value and writes it back on every toggle. When set, value: is ignored and onValueChange still fires after the write-back.
-    // ariaLabel: Accessible name for a control whose visible content cannot supply one; prefer a visible label.
     static void Checkbox(this UIView view, string[]? style = null, bool? value = null, bool? defaultValue = null, bool? required = null, bool? disabled = null, string? name = null, string? formValue = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onValueChange = null, Action<UIView>? content = null, string? label = null, Reactive<bool>? bind = null, string? ariaLabel = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // forceMount: When true, forces the indicator to render even when the checkbox is unchecked.
     static void CheckboxIndicator(this UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // onClearServerErrors: Invoked when server-side validation errors should be cleared.
     static void Form(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<Task>? onClearServerErrors = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void FormControl(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // name: The name of the form field, used for validation and form submission.
     // serverInvalid: When true, indicates the field has a server-side validation error.
     static void FormField(this UIView view, string[]? style = null, string? name = null, bool? serverInvalid = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void FormLabel(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // match: The validation condition that must be met for this message to display.
     // forceMatch: When true, forces the message to display regardless of the match condition.
     static void FormMessage(this UIView view, string[]? style = null, FormMessageMatch? match = null, bool? forceMatch = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void FormSubmit(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // htmlFor: The id of the element this label is associated with.
     static void Label(this UIView view, string[]? style = null, string? htmlFor = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // loop: When true, keyboard navigation loops from last item to first, and vice versa.
     // orientation: Orientation used for keyboard navigation.
     // label: Group-level label rendered above the radio group (same field ergonomics as TextField).
     // bind: Two-way binds the group to a Reactive<T> — reads bind.Value and writes it back on every selection. When set, value: is ignored and onValueChange still fires after the write-back.
     static void RadioGroup(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, bool? required = null, bool? disabled = null, bool loop = true, Orientation orientation = Vertical, string? name = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null, string? label = null, Reactive<string>? bind = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // forceMount: When true, forces the indicator to render even when the radio is not selected.
     static void RadioGroupIndicator(this UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // value: The unique value for this radio item within the group.
     // required: When true, indicates this radio item must be selected before the form can be submitted.
     static void RadioGroupItem(this UIView view, string[]? style = null, string? value = null, bool? disabled = null, bool? required = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // onValueChange: Fires continuously while dragging.
     // onValueCommit: Fires once when dragging ends.
     // content: The default content's thumb carries aria-readonly for a read-only slider (controlled value: with no write-back); custom thumbs should set it too.
     // label: Also the accessible name of the thumbs, where role="slider" lives — a name on the root names nothing; multi-thumb thumbs are numbered from it.
     // bind: Two-way binds a single-thumb slider to a Reactive<T>, writing back as the user drags; value: is ignored and onValueChange still fires. Multi-thumb ranges use the value: list form.
-    // ariaLabel: Accessible name for a control whose visible content cannot supply one; prefer a visible label.
     static void Slider(this UIView view, string[]? style = null, IReadOnlyList<double>? value = null, IReadOnlyList<double>? defaultValue = null, double? min = null, double? max = null, double? step = null, int? minStepsBetweenThumbs = null, Orientation orientation = Horizontal, bool? disabled = null, bool? inverted = null, string? name = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<IReadOnlyList<double>, Task>? onValueChange = null, Func<IReadOnlyList<double>, Task>? onValueCommit = null, Action<UIView>? content = null, string? label = null, Reactive<double>? bind = null, string? ariaLabel = null)
     static void Slider(this UIView view, double value, string[]? style = null, double? min = null, double? max = null, double? step = null, Orientation orientation = Horizontal, bool? disabled = null, bool? inverted = null, string? name = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<double, Task>? onValueChange = null, Func<double, Task>? onValueCommit = null, Action<UIView>? content = null, string? label = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void SliderRange(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void SliderThumb(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void SliderTrack(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // formValue: HTML form value submitted when checked.
     // label: Trailing text label wrapped with the switch in a <label> — clicking the text toggles it and the text becomes the switch's accessible name; without this or ariaLabel it is announced as an unlabelled control.
     // bind: Two-way binds the switch to a Reactive<T> — reads bind.Value and writes it back on every toggle. When set, value: is ignored and onValueChange still fires after the write-back.
-    // ariaLabel: Accessible name for a control whose visible content cannot supply one; prefer a visible label.
     static void Switch(this UIView view, string[]? style = null, bool? value = null, bool? defaultValue = null, bool? required = null, bool? disabled = null, string? name = null, string? formValue = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onValueChange = null, Action<UIView>? content = null, string? label = null, Reactive<bool>? bind = null, string? ariaLabel = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void SwitchThumb(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // formValue: HTML form value submitted when checked.
-    // ariaLabel: Accessible name for a control whose visible content cannot supply one; prefer a visible label.
     static void TriStateCheckbox(this UIView view, string[]? style = null, CheckedState? value = null, CheckedState? defaultValue = null, bool? required = null, bool? disabled = null, string? name = null, string? formValue = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<CheckedState, Task>? onValueChange = null, Action<UIView>? content = null, string? ariaLabel = null)
+  sealed record FormFieldError
+    // Field: The name of the field, as passed to FormStateExtensions.FormField<T>.
+    // Message: Human-readable text rendered under the field.
+    ctor(string Field, string Message)
+    string Field { get; init; }
+    string Message { get; init; }
   enum FormMessageMatch
     ValueMissing
     TypeMismatch
@@ -884,6 +838,36 @@ namespace Ikon.Parallax.Components.Standard
     StepMismatch
     BadInput
     CustomError
+  // Declare one as an app field per form (new FormState<PresetDraft>(() => new())); the reactives take their identity from the declaring field, not from this class. All state is client-scoped, so each client edits its own draft, and members must be called where a client scope is active (UI render or event handlers). Show resets busy, dirty and errors; SubmitAsync runs validation, then the handler under the busy flag, and closes on success.
+  sealed class FormState<T>
+    // newDraft: Produces the draft used by Show when no draft is supplied.
+    ctor(Func<T> newDraft)
+    T Draft { get; }
+    string? Error { get; }
+    bool HasErrors { get; }
+    bool IsBusy { get; }
+    bool IsDirty { get; }
+    bool IsOpen { get; }
+    void ClearErrors()
+    void Close()
+    // The mutator runs under the reactive's per-client lock, so concurrent field handlers cannot lose each other's edits. With a record draft, form.Edit(d => d with { Name = value }).
+    void Edit(Func<T, T> mutate)
+    string? ErrorFor(string field)
+    void Fail(string message)
+    void Fail(string field, string message)
+    void Show()
+    void Show(T draft)
+    // Returns false without calling the handler while a submit is already in flight or when the validator returns any error. A FormException from the handler becomes a field or form error; any other exception becomes a form-level error carrying its message and is logged at warning. The form closes only when the handler completes and closeOnSuccess is true.
+    // validate: Returns the field errors for the draft; an empty sequence means valid.
+    Task<bool> SubmitAsync(Func<T, Task> onSubmit, Func<T, IEnumerable<FormFieldError>>? validate = null, bool closeOnSuccess = true)
+  static class FormStateExtensions
+    // contentStyle: Merged on top of Theming.Dialog.Content.
+    static void FormDialog<T>(this UIView view, FormState<T> form, Action<UIView> content, string? title = null, string? description = null, string[]? contentStyle = null, string[]? overlayStyle = null, string? key = null)
+    static void FormError<T>(this UIView view, FormState<T> form, string[]? style = null)
+    // name: Field name; matches FormFieldError.Field and FormException.Field.
+    static void FormField<T>(this UIView view, FormState<T> form, string name, Action<UIView> content, string[]? style = null, string? key = null)
+    // validate: Returns the field errors for the draft; an empty sequence means valid.
+    static void FormSubmit<T>(this UIView view, FormState<T> form, string text, Func<T, Task> onSubmit, Func<T, IEnumerable<FormFieldError>>? validate = null, bool closeOnSuccess = true, string[]? style = null, string? key = null)
   enum HourFormat
     Hour24
     Hour12
@@ -901,62 +885,47 @@ namespace Ikon.Parallax.Components.Standard
     string? Mime { get; init; }
     int Width { get; init; }
   static class ImageExtensions
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void Avatar(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // delayMs: Delay in milliseconds before showing the fallback.
     static void AvatarFallback(this UIView view, string[]? style = null, int? delayMs = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // src: URL of the image to display.
     // alt: Alternative text description for accessibility.
     // onLoadingStatusChange: Invoked when the image loading status changes.
     static void AvatarImage(this UIView view, string[]? style = null, string? src = null, string? alt = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<Task>? onLoadingStatusChange = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // src: URL or path to the image source.
     // assetUri: Asset URI to resolve the image source from. Takes precedence over src.
     // alt: Alternative text description for accessibility.
     // onClick: Invoked when the user clicks the image. Accepts sync (() => …) and async (async () => …) lambdas alike.
     static void Image(this UIView view, string[]? style = null, string? src = null, AssetUri? assetUri = null, string? alt = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Delegate? onClick = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // data: Binary image data.
     // mimeType: MIME type of the image (e.g., "image/png", "image/jpeg").
     // alt: Alternative text description for accessibility.
     // onClick: Invoked when the user clicks the image. Accepts sync (() => …) and async (async () => …) lambdas alike.
     static void Image(this UIView view, string[]? style = null, byte[]? data = null, string? mimeType = null, string? alt = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Delegate? onClick = null)
   static class InputExtensions
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // value: A controlled value with no onValueChange renders the field read-only.
     // autoSubmit: When true, onAutoSubmit fires once all characters are entered.
     static void OtpField(this UIView view, string[]? style = null, string? value = null, int? maxLength = null, bool autoSubmit = false, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<Task>? onAutoSubmit = null, Action<UIView>? content = null, string? label = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // index: Zero-based index of this slot in the OTP field.
     static void OtpFieldInput(this UIView view, string[]? style = null, int index = 0, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void PasswordToggleField(this UIView view, string[]? style = null, bool? visible = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onVisibilityChange = null, Action<UIView>? content = null, string? label = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void PasswordToggleFieldIcon(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? visibleIcon = null, Action<UIView>? hiddenIcon = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // autoComplete: Browser autocomplete hint (e.g., "current-password", "new-password").
     static void PasswordToggleFieldInput(this UIView view, string[]? style = null, string? autoComplete = null, string? placeholder = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void PasswordToggleFieldToggle(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // autoResize: When true, grows to fit content up to maxRows (default 6), then scrolls.
     // submitOnEnter: When true, Enter submits and Shift+Enter inserts a newline; default false (Ctrl/Cmd+Enter submits).
     // onSubmit: Receives the submitted value; prefer it over re-reading the bound reactive, which may lag (onValueChange is a separate round-trip).
     // clearOnSubmit: Defaults to true when onSubmit/onSubmitWithContext is set.
     // debounceMs: Throttles onValueChange round-trips (ms).
     // bind: Two-way binds a Reactive<T>, writing back on every keystroke; value: is ignored and onValueChange still fires after the write-back.
-    // ariaLabel: Accessible name for a control whose visible content cannot supply one; prefer a visible label.
     static void TextArea(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, int? rows = null, bool? autoResize = null, int? maxRows = null, bool? submitOnEnter = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, Func<Context, Task>? onSubmitWithContext = null, bool? clearOnSubmit = null, Action<UIView>? content = null, bool? autoFocus = null, string? label = null, int? debounceMs = null, Reactive<string>? bind = null, string? ariaLabel = null)
     // A controlled value: with no write-back handler (bind:, onValueChange:, or onSubmit:) is read-only — the rule every input component shares.
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // onSubmit: Receives the submitted value on Enter; prefer it over re-reading the bound reactive, which may lag (onValueChange is a separate round-trip).
     // clearOnSubmit: Defaults to true only when onSubmit is set; without one Enter does not empty a bound field.
     // debounceMs: Throttles onValueChange round-trips (ms).
     // bind: Two-way binds a Reactive<T>, writing back on every keystroke; value: is ignored and onValueChange still fires.
     // multiline: Delegates to TextArea (MUI-style spelling); rows: alone implies it.
-    // ariaLabel: Accessible name for a control whose visible content cannot supply one; prefer a visible label.
     static void TextField(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, string? type = null, string? step = null, string? min = null, string? max = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, bool? clearOnSubmit = null, Action<UIView>? content = null, bool? autoFocus = null, string? label = null, int? debounceMs = null, Reactive<string>? bind = null, bool? multiline = null, int? rows = null, string? ariaLabel = null)
   sealed record InteractOutsideArgs
     ctor(string? TargetId)
@@ -1008,13 +977,10 @@ namespace Ikon.Parallax.Components.Standard
     // global: Default true: listens at document level; false listens only on the wrapper element.
     // requireCtrlOrMeta: When true, the client drops events without Ctrl or Cmd held — the filter every ⌘X-style shortcut needs. Filtering only in the server callback is not enough: preventDefault applies client-side to every matched key, so a bare-key listener with it swallows that letter in every text field of the app.
     // preventDefault: Prevents the default browser behavior for matched keys; pair with requireCtrlOrMeta for modifier shortcuts.
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void KeyboardListener(this UIView view, Func<KeyboardEventArgs, Task>? onKeyDown = null, Func<KeyboardEventArgs, Task>? onKeyUp = null, IReadOnlyList<string>? keys = null, bool? global = true, bool? requireCtrlOrMeta = null, bool? preventDefault = null, bool? stopPropagation = null, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
   static class LayoutExtensions
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // ratio: The width-to-height ratio to maintain (e.g., 16.0/9.0 for widescreen).
     static void AspectRatio(this UIView view, string[]? style = null, double ratio = 1.0, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // dir: Text direction for descendants.
     static void DirectionProvider(this UIView view, string[]? style = null, Dir dir = Ltr, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // Style slots (default theme tokens): viewportStyle → ScrollArea.Viewport, scrollbarStyle → ScrollArea.Scrollbar, thumbStyle → ScrollArea.Thumb; rootStyle rarely needed.
@@ -1035,7 +1001,6 @@ namespace Ikon.Parallax.Components.Standard
     // autoScrollKey: Anything whose value changes when the content does — auto-scroll re-fires on change. Pass the collection itself (any reactive contributes its change version), a count, or a composite string. Required when autoScroll is true.
     static void ScrollArea(this UIView view, string[]? style = null, ScrollAreaScrollbars scrollbars = Vertical, ScrollAreaType type = Hover, int? scrollHideDelay = null, Dir dir = Ltr, bool autoScroll = false, object? autoScrollKey = null, Action<UIView>? content = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string[]? cornerStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
     static void ScrollArea(this UIView view, string[]? style, Action<UIView> children)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // orientation: Whether the separator is horizontal or vertical.
     // decorative: When true, the separator is purely visual and not announced by screen readers.
     static void Separator(this UIView view, string[]? style = null, Orientation orientation = Horizontal, bool decorative = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
@@ -1060,7 +1025,6 @@ namespace Ikon.Parallax.Components.Standard
     Camera
     Screen
   static class MediaExtensions
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // url: URL of the audio source.
     // controls: When true, displays audio playback controls.
     // autoplay: When true, audio starts playing automatically.
@@ -1073,32 +1037,31 @@ namespace Ikon.Parallax.Components.Standard
     // bars: How many bars to draw.
     // barStyle: Style for each bar. Defaults to Theming.AudioWave.Bar.
     static void AudioWave(this UIView view, string[]? style = null, int bars = 7, string[]? barStyle = null, string? key = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // text: Visible button text; becomes the aria-label when content is provided.
     // holdReleaseDelayMs: In Hold mode, keeps capturing this many milliseconds after release — speech users often release slightly before finishing.
+    // permissionText: Shown instead of the button's own face while the browser has not granted the microphone/camera yet; pressing then only asks for the permission. Defaults to "Enable microphone"/"Enable camera"; pass an empty string to keep the normal face and let the press ask silently.
+    // permissionDeniedText: Shown when the permission was refused or no device exists. Defaults to "Microphone blocked"/"Camera blocked".
+    // onPermissionChanged: Fires when the user answers the permission dialog.
     // content: When provided, enables icon mode: content is displayed and text becomes the aria-label.
-    static void CaptureButton(this UIView view, string[]? style = null, MediaCaptureKind kind = Audio, string? text = null, MediaCaptureButtonMode captureMode = Hold, ClientAudioCaptureOptions? audioOptions = null, ClientVideoCaptureOptions? videoOptions = null, int? holdReleaseDelayMs = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<MediaCaptureEvent, Task>? onCaptureStart = null, Func<MediaCaptureEvent, Task>? onCaptureStop = null, Action<UIView>? content = null)
-    // Tap to open the microphone, tap again to close — the segment between is one utterance. After Audio.UseSpeechRecognition(...), subscribe to Audio.SpeechRecognizedAsync to receive the transcription when the mic is toggled off. Ships the MicButton.Default themed default: the button stays visibly red while the mic is open, via the zero-latency data-ikon-capture-active attribute. A custom style array replaces the default; start with "default" to layer, or include MicButton.Active.
-    // text: Text or icon shown on the button.
-    // audioOptions: Audio capture configuration options (auto gain, noise suppression, etc.).
-    // onCaptureStart: Optional callback fired when the mic opens (audio path; race-free with frame handlers).
-    // onCaptureStop: Optional callback fired when the mic closes.
+    static void CaptureButton(this UIView view, string[]? style = null, MediaCaptureKind kind = Audio, string? text = null, MediaCaptureButtonMode captureMode = Hold, ClientAudioCaptureOptions? audioOptions = null, ClientVideoCaptureOptions? videoOptions = null, int? holdReleaseDelayMs = null, string? permissionText = null, string? permissionDeniedText = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<MediaCaptureEvent, Task>? onCaptureStart = null, Func<MediaCaptureEvent, Task>? onCaptureStop = null, Func<MediaPermissionEvent, Task>? onPermissionChanged = null, Action<UIView>? content = null)
+    // Tap to open the microphone, tap again to close — the segment between is one utterance. Prefer it over PushToTalkButton for long utterances or busy hands; never offer both for one microphone. It owns the permission the same way: until the browser grants one the button renders as "Enable microphone" and a press only asks, and disabled is never the way to express that state. After Audio.UseSpeechRecognition(...), subscribe to Audio.SpeechRecognizedAsync for the transcription when the mic closes.
+    // permissionText: Wording of the enable-microphone state; empty keeps the button's normal face.
+    // permissionDeniedText: Wording shown when the microphone is blocked or missing.
+    // onPermissionChanged: Fires when the user answers the permission dialog.
     // content: Optional child content; when provided, text becomes the aria-label.
-    static void MicToggleButton(this UIView view, string[]? style = null, string? text = "🎤", ClientAudioCaptureOptions? audioOptions = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<MediaCaptureEvent, Task>? onCaptureStart = null, Func<MediaCaptureEvent, Task>? onCaptureStop = null, Action<UIView>? content = null)
-    // Enable speech recognition once via Audio.UseSpeechRecognition(...), then subscribe to Audio.SpeechRecognizedAsync to receive transcriptions when the button is released; the initiating user's client context is carried on the event args.
-    // text: Text or icon shown on the button.
-    // holdReleaseDelayMs: Delay before stopping capture after release. Useful for trailing-syllable tolerance.
-    // audioOptions: Audio capture configuration options (auto gain, noise suppression, etc.).
-    // onCaptureStart: Optional callback fired when capture begins (audio path; race-free with frame handlers).
-    // onCaptureStop: Optional callback fired when capture ends.
+    static void MicToggleButton(this UIView view, string[]? style = null, string? text = "🎤", ClientAudioCaptureOptions? audioOptions = null, string? permissionText = null, string? permissionDeniedText = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<MediaCaptureEvent, Task>? onCaptureStart = null, Func<MediaCaptureEvent, Task>? onCaptureStop = null, Func<MediaPermissionEvent, Task>? onPermissionChanged = null, Action<UIView>? content = null)
+    // Hold to talk, release to send. The button owns the microphone permission: until the browser grants one it renders as an "Enable microphone" affordance and a press only asks, never also starting a capture — a permission dialog takes focus, which the page reads as a release, so a hold that doubles as the ask is cancelled before the user answers it. Never use disabled for permission state; a disabled button cannot ask. After Audio.UseSpeechRecognition(...), transcriptions arrive on Audio.SpeechRecognizedAsync.
+    // holdReleaseDelayMs: Milliseconds to keep capturing after release; 500 by default.
+    // permissionText: Wording of the enable-microphone state; empty keeps the button's normal face.
+    // permissionDeniedText: Wording shown when the microphone is blocked or missing.
+    // onPermissionChanged: Fires when the user answers the dialog — offer typing instead when it comes back denied.
     // content: Optional child content; when provided, text becomes the aria-label.
-    static void PushToTalkButton(this UIView view, string[]? style = null, string? text = "⏺", int holdReleaseDelayMs = 500, ClientAudioCaptureOptions? audioOptions = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<MediaCaptureEvent, Task>? onCaptureStart = null, Func<MediaCaptureEvent, Task>? onCaptureStop = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
+    static void PushToTalkButton(this UIView view, string[]? style = null, string? text = "⏺", int holdReleaseDelayMs = 500, ClientAudioCaptureOptions? audioOptions = null, string? permissionText = null, string? permissionDeniedText = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<MediaCaptureEvent, Task>? onCaptureStart = null, Func<MediaCaptureEvent, Task>? onCaptureStop = null, Func<MediaPermissionEvent, Task>? onPermissionChanged = null, Action<UIView>? content = null)
     // streamId: Identifier of the video stream to display.
     // width: Width of the canvas in pixels.
     // height: Height of the canvas in pixels.
-    static void VideoStreamCanvas(this UIView view, string[]? style = null, string? streamId = null, int? width = null, int? height = null, string? styleId = null, string? key = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
+    // onTap: Called with the tap position normalized to the rendered frame (0..1).
+    static void VideoStreamCanvas(this UIView view, string[]? style = null, string? streamId = null, int? width = null, int? height = null, Func<VideoTapArgs, Task>? onTap = null, string? styleId = null, string? key = null)
     // url: URL of the video source.
     // controls: When true, displays video playback controls.
     // autoplay: When true, video starts playing automatically.
@@ -1109,118 +1072,62 @@ namespace Ikon.Parallax.Components.Standard
     // width: Width of the video player in pixels.
     // height: Height of the video player in pixels.
     static void VideoUrlPlayer(this UIView view, string[]? style = null, string? url = null, bool? controls = null, bool? autoplay = null, bool? loop = null, bool? muted = null, bool? playsInline = null, string? poster = null, int? width = null, int? height = null, string? styleId = null, string? key = null)
+  // Raised when the user answers the permission dialog, so an app can react to a refusal instead of leaving a mic button that silently does nothing — offer typing instead, or explain where the browser's site settings are.
+  sealed record MediaPermissionEvent
+    ctor(MediaPermissionState State, MediaCaptureKind Kind)
+    MediaCaptureKind Kind { get; init; }
+    MediaPermissionState State { get; init; }
+  enum MediaPermissionState
+    Granted
+    Prompt
+    Denied
+    Unavailable
   static class NavigationExtensions
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
-    // value: Controlled value identifying the active item.
-    // defaultValue: Initial value for uncontrolled mode.
     // dir: Text direction (ltr/rtl).
-    // loop: When true, keyboard navigation wraps.
-    // onValueChange: Invoked when value changes.
     static void Menubar(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, Dir dir = Ltr, bool loop = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // isChecked: Checked state for checkbox items.
-    // onCheckedChange: Invoked when checked changes.
     static void MenubarCheckboxItem(this UIView view, string[]? style = null, CheckedState isChecked = Unchecked, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<CheckedState, Task>? onCheckedChange = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
-    // loop: When true, keyboard navigation wraps.
     // side: Which side content appears on.
-    // align: Content alignment.
     // sideOffset: Pixel offset from anchor on the side axis.
     // alignOffset: Pixel offset from anchor on the align axis.
-    // forceMount: When true, keeps content in DOM when hidden.
     static void MenubarContent(this UIView view, string[]? style = null, bool loop = true, Side side = Bottom, Align align = Start, double? sideOffset = null, double? alignOffset = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // onSelect: Invoked when item is selected.
     static void MenubarItem(this UIView view, string[]? style = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<Task>? onSelect = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
-    // forceMount: When true, keeps content in DOM when hidden.
     static void MenubarItemIndicator(this UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
-    // value: Controlled value identifying the active item.
     static void MenubarMenu(this UIView view, string[]? style = null, string? value = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
-    // value: Controlled value identifying the active item.
-    // defaultValue: Initial value for uncontrolled mode.
-    // onValueChange: Invoked when value changes.
     static void MenubarRadioGroup(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
-    // value: Controlled value identifying the active item.
     static void MenubarRadioItem(this UIView view, string[]? style = null, string? value = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void MenubarSeparator(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // onOpenChange: Invoked when open state changes.
     static void MenubarSub(this UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
-    // loop: When true, keyboard navigation wraps.
     // side: Which side content appears on.
-    // align: Content alignment.
     // sideOffset: Pixel offset from anchor on the side axis.
     // alignOffset: Pixel offset from anchor on the align axis.
-    // forceMount: When true, keeps content in DOM when hidden.
     static void MenubarSubContent(this UIView view, string[]? style = null, bool loop = true, Side side = Right, Align align = Start, double? sideOffset = null, double? alignOffset = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void MenubarSubTrigger(this UIView view, string[]? style = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void MenubarTrigger(this UIView view, string[]? style = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
-    // value: Controlled value identifying the active item.
-    // defaultValue: Initial value for uncontrolled mode.
-    // orientation: Layout orientation.
     // delayDuration: Timing delay in milliseconds.
-    // skipDelayDuration: Skip delay duration in milliseconds.
-    // onValueChange: Invoked when value changes.
     static void NavigationMenu(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, Orientation orientation = Horizontal, int? delayDuration = null, int? skipDelayDuration = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
-    // forceMount: When true, keeps content in DOM when hidden.
     static void NavigationMenuContent(this UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
-    // forceMount: When true, keeps content in DOM when hidden.
     static void NavigationMenuIndicator(this UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
-    // value: Controlled value identifying the active item.
     static void NavigationMenuItem(this UIView view, string[]? style = null, string? value = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // active: Whether item is marked as active.
     // onSelect: Invoked when item is selected.
     static void NavigationMenuLink(this UIView view, string[]? style = null, bool? active = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<Task>? onSelect = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void NavigationMenuList(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void NavigationMenuTrigger(this UIView view, string[]? style = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
-    // forceMount: When true, keeps content in DOM when hidden.
     static void NavigationMenuViewport(this UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
-    // orientation: Layout orientation.
     // dir: Text direction (ltr/rtl).
-    // loop: When true, keyboard navigation wraps.
     static void Toolbar(this UIView view, string[]? style = null, Orientation orientation = Horizontal, Dir dir = Ltr, bool loop = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // onClick: Invoked when the button is clicked.
     static void ToolbarButton(this UIView view, string[]? style = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Delegate? onClick = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // href: URL to navigate to.
     // target: Link target attribute.
     static void ToolbarLink(this UIView view, string[]? style = null, string? href = null, string? target = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     static void ToolbarSeparator(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // value: Controlled value identifying the active items.
-    // defaultValue: Initial value for uncontrolled mode.
-    // rovingFocus: Whether roving focus is enabled.
-    // loop: When true, keyboard navigation wraps.
-    // onValueChange: Invoked when value changes.
     static void ToolbarToggleGroupMultiple(this UIView view, string[]? style = null, IReadOnlyList<string>? value = null, IReadOnlyList<string>? defaultValue = null, bool? rovingFocus = true, bool loop = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<IReadOnlyList<string>, Task>? onValueChange = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
-    // value: Controlled value identifying the active item.
-    // defaultValue: Initial value for uncontrolled mode.
-    // rovingFocus: Whether roving focus is enabled.
-    // loop: When true, keyboard navigation wraps.
-    // onValueChange: Invoked when value changes.
     static void ToolbarToggleGroupSingle(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, bool? rovingFocus = true, bool loop = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null)
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
-    // value: Controlled value identifying the active item.
     static void ToolbarToggleItem(this UIView view, string[]? style = null, string? value = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
   enum Orientation
     Horizontal
@@ -1265,7 +1172,6 @@ namespace Ikon.Parallax.Components.Standard
     // open: Controlled open state; omit to let the popover self-manage.
     // onOpenChange: Fires when the panel opens or closes.
     // placeholder: Trigger text when nothing is selected.
-    // searchPlaceholder: Placeholder in the search field.
     // emptyText: Shown when the filter matches no option.
     static void Combobox(this UIView view, IReadOnlyList<SelectOption> options, string? value = null, Func<string, Task>? onValueChange = null, string? searchValue = null, Func<string, Task>? onSearchChange = null, bool? open = null, Func<bool, Task>? onOpenChange = null, string? placeholder = "Select…", string? searchPlaceholder = "Search…", string? emptyText = "No results.", string[]? style = null, string[]? triggerStyle = null, string[]? contentStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
     // Filtering is server-side over searchValue: each group narrows by case-insensitive label match and empty groups drop out. onSelect fires with the chosen option's value.
@@ -1326,6 +1232,15 @@ namespace Ikon.Parallax.Components.Standard
     // page: Per-client page index. Use a field-level ClientReactive<T> initialized to 0.
     // pageSize: Items per page (must be >= 1; clamped if not).
     static Page<T> Paginate<T>(this UIView view, IReadOnlyList<T> items, ClientReactive<int> page, int pageSize = 20)
+  static class PanZoomExtensions
+    // The pan offset and in-gesture zoom live in the client and never round-trip; only the scale at the end of a gesture is reported through onScaleChange. Scrolling pans, Ctrl/⌘+scroll or a pinch zooms about the pointer, and dragging pans. The viewport clips its content, so give it a size with style (e.g. h-96). For an editor that needs hit-testing or selection in the zoomed space, build a custom node instead.
+    // scale: Controlled zoom factor, 1 being natural size. Pass with onScaleChange.
+    // defaultScale: Initial zoom factor for uncontrolled mode; defaults to 1.
+    // minScale: Lower zoom bound; defaults to 0.25.
+    // maxScale: Upper zoom bound; defaults to 4.
+    // onScaleChange: Fires once per completed gesture with the resulting scale, clamped to the bounds.
+    static void PanZoom(this UIView view, string[]? style = null, double? scale = null, double? defaultScale = null, double? minScale = null, double? maxScale = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null, Func<double, Task>? onScaleChange = null)
+    static void PanZoom(this UIView view, string[]? style, Action<UIView> children)
   sealed record PickContactsActionOptions : ActionOptions
     ctor()
     bool Multiple { get; init; }
@@ -1340,7 +1255,6 @@ namespace Ikon.Parallax.Components.Standard
     // Values are HTML strings. A controlled value with no write-back handler (onValueChange or onSubmit) renders the editor read-only.
     // tools: Explicit toolbar contents; null shows a default toolbar.
     // maxRows: Rows before the content area scrolls.
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // toolbarStyle: Toolbar slot; merges over RichTextEditor.Toolbar.
     // toolbarButtonStyle: Toolbar-button slot; merges over RichTextEditor.ToolbarButton.
     // contentStyle: Editable-content slot; merges over RichTextEditor.Content.
@@ -1402,7 +1316,6 @@ namespace Ikon.Parallax.Components.Standard
     // value: Controlled selected value. A controlled value with no write-back handler (no bind, no onValueChange) renders the select read-only.
     // label: Optional field label rendered above the select.
     // bind: Two-way binds the select to a Reactive<T> — reads bind.Value and writes it back on every selection. When set, value: is ignored and onValueChange still fires after the write-back.
-    // ariaLabel: Accessible name for a control whose visible content cannot supply one; prefer a visible label.
     static void Select(this UIView view, string[]? style = null, IReadOnlyList<SelectOption>? options = null, IReadOnlyList<SelectOptionGroup>? groups = null, string? value = null, string? defaultValue = null, string? placeholder = null, bool? disabled = null, bool? required = null, bool? open = null, string? name = null, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? itemStyle = null, string[]? itemIndicatorStyle = null, string? indicatorIconName = "check", string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool, Task>? onOpenChange = null, string? label = null, Reactive<string>? bind = null, string? ariaLabel = null)
   sealed record SelectOption
     ctor(string Value, string Label, bool Disabled = false)
@@ -1432,7 +1345,6 @@ namespace Ikon.Parallax.Components.Standard
     static ShaderUniform Vec4(float x, float y, float z, float w)
   static class ShadertoyExtensions
     // The shader source must define void mainImage(out vec4 color, in vec2 fragCoord). Built-in uniforms: iResolution (vec3: width, height, 1.0), iTime and iTimeDelta (float, seconds), iFrame (int), iMouse (vec4: x, y, click x, click y; requires enableMouse), iDate (vec4: year, month, day, seconds of day). Channel textures use Shadertoy's defaults (vertical flip on, repeat wrap, mipmap filtering); iChannelResolution[4] is 0 until a texture loads and iChannelTime[4] is always 0. Limitations: 2D image channels only — no cubemap, buffer, audio, or video — and single output.
-    // style: Crosswind utility classes; lead with the "default" marker or a Theming.* composite to merge the component's themed default underneath.
     // shaderSource: Required — an empty source throws ArgumentException.
     // channels: Up to four image URLs (data URIs or http(s)) bound to iChannel0..iChannel3 in array order.
     static void ShadertoyCanvas(this UIView view, string[]? style = null, string? shaderSource = null, int? fps = null, IReadOnlyDictionary<string, ShaderUniform>? uniforms = null, IReadOnlyList<string>? channels = null, bool? enableMouse = null, int? width = null, int? height = null, string? styleId = null, string? key = null)
@@ -1456,12 +1368,9 @@ namespace Ikon.Parallax.Components.Standard
     Left
   static class SkeletonExtensions
     // The default fill for content redacted from the build-time boot snapshot (see SnapshotReveal). A typed convenience over the Skeleton.* theme tokens (a div with animate-pulse styling); size and shape via size / shape, or override freely through style.
-    // view: The UIView to render into.
     // style: Crosswind/Tailwind utility classes appended to the base skeleton styling (e.g. an explicit width).
     // shape: Outline shape — Rectangle (default), Circle, or Square.
     // size: Height preset — Xs, Sm, Md (default), Lg, or Xl.
-    // styleId: CSS class name to apply directly. For exceptional cases; prefer the style parameter.
-    // key: Unique identifier to assist stable diffing across renders in exceptional cases.
     // props: Additional properties passed directly to the underlying element.
     static void Skeleton(this UIView view, string[]? style = null, SkeletonShape shape = Rectangle, SkeletonSize size = Md, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
   enum SkeletonShape
@@ -1521,51 +1430,33 @@ namespace Ikon.Parallax.Components.Standard
   // The styled middle ground between hand-rolled Grid/Row layouts and the payload-driven DataTable component. CSS table display utilities align columns automatically without a shared grid template. Compose Table > TableHeader/TableBody > TableRow > TableHead/TableCell.
   static class TableExtensions
     // Caller styles replace the base token; lead the array with "default" to merge over it.
-    // view: The UIView to render into.
     // style: Crosswind/Tailwind utility classes merged on top of the table base token.
-    // styleId: CSS class name to apply directly. For exceptional cases; prefer the style parameter.
-    // key: Unique identifier to assist stable diffing across renders in exceptional cases.
     // props: Additional properties passed directly to the underlying element.
     // content: Builder function for the table's header/body groups.
     static void Table(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     static void Table(this UIView view, string[]? style, Action<UIView> children)
-    // view: The UIView to render into.
     // style: Crosswind/Tailwind utility classes merged on top of the row group token.
-    // styleId: CSS class name to apply directly. For exceptional cases; prefer the style parameter.
-    // key: Unique identifier to assist stable diffing across renders in exceptional cases.
     // content: Builder function for the body rows.
     static void TableBody(this UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null)
-    // view: The UIView to render into.
     // style: Crosswind/Tailwind utility classes merged on top of the cell token.
     // text: Cell text. For custom content use content instead.
-    // styleId: CSS class name to apply directly. For exceptional cases; prefer the style parameter.
-    // key: Unique identifier to assist stable diffing across renders in exceptional cases.
     // props: Additional properties passed directly to the underlying element.
     // content: Builder function for custom cell content.
     static void TableCell(this UIView view, string[]? style = null, string? text = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     static void TableCell(this UIView view, string text, string[]? style = null, string? key = null, Action<UIView>? content = null)
-    // view: The UIView to render into.
     // style: Crosswind/Tailwind utility classes merged on top of the header cell token.
     // text: Column label. For custom content use content instead.
-    // styleId: CSS class name to apply directly. For exceptional cases; prefer the style parameter.
-    // key: Unique identifier to assist stable diffing across renders in exceptional cases.
     // props: Additional properties passed directly to the underlying element.
     // content: Builder function for custom cell content.
     static void TableHead(this UIView view, string[]? style = null, string? text = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     static void TableHead(this UIView view, string text, string[]? style = null, string? key = null, Action<UIView>? content = null)
-    // view: The UIView to render into.
     // style: Crosswind/Tailwind utility classes merged on top of the header group token.
-    // styleId: CSS class name to apply directly. For exceptional cases; prefer the style parameter.
-    // key: Unique identifier to assist stable diffing across renders in exceptional cases.
     // content: Builder function for the header rows.
     static void TableHeader(this UIView view, string[]? style = null, string? styleId = null, string? key = null, Action<UIView>? content = null)
     // Rows with onClick also get hover highlight + pointer cursor.
-    // view: The UIView to render into.
     // style: Crosswind/Tailwind utility classes merged on top of the row token.
     // striped: When true, even rows get a subtle background (zebra striping via CSS :nth-child).
     // onClick: Invoked when the user clicks the row. Accepts sync (() => …) and async (async () => …) lambdas alike.
-    // styleId: CSS class name to apply directly. For exceptional cases; prefer the style parameter.
-    // key: Unique identifier to assist stable diffing across renders in exceptional cases.
     // content: Builder function for the row's cells.
     static void TableRow(this UIView view, string[]? style = null, bool striped = false, Delegate? onClick = null, string? styleId = null, string? key = null, Action<UIView>? content = null)
   static class TabsExtensions
@@ -1628,7 +1519,6 @@ namespace Ikon.Parallax.Components.Standard
     const int DefaultDurationMs = 5000
   static class ToastsExtensions
     // Mount exactly once in the root UI; every queued toast renders as a themed toast (tone icon, title, description, close button) that the client auto-dismisses after its duration. Both auto-dismiss and the close button report back and remove the item from the queue.
-    // view: The UIView to render into.
     // toasts: The queue to render.
     // viewportStyle: Style for the toast viewport. Defaults to Theming.Toast.Viewport.
     // toastStyle: Crosswind/Tailwind utility classes merged on top of Theming.Toast.Default for each toast.
@@ -1646,6 +1536,10 @@ namespace Ikon.Parallax.Components.Standard
     // itemStyle: Row style; defaults to Theming.NavItem.Md + Theming.NavItem.Default.
     // selectedItemStyle: Selected-row style; defaults to Theming.NavItem.Md + Theming.NavItem.Active.
     static void TreeView<T>(this UIView view, IReadOnlyList<T> roots, Func<T, string> id, Func<T, string> label, Func<T, IReadOnlyList<T>?> children, ExpandedSet expanded, string[]? style = null, Func<T, Task>? onSelect = null, string? selectedId = null, Func<T, string?>? icon = null, string[]? itemStyle = null, string[]? selectedItemStyle = null, string[]? labelStyle = null, string[]? childrenStyle = null, string? styleId = null, string? key = null)
+  sealed record VideoTapArgs
+    ctor(double X, double Y)
+    double X { get; init; }
+    double Y { get; init; }
   // Performance model: the server emits one wrapper node per item up to itemCount and runs every per-item content builder eagerly server-side (keep content trees inexpensive); the client mounts only the wrappers inside [start - overscan, end + overscan] and leaves the rest out of the DOM entirely. onNearEnd fires when the window enters the last nearEndThreshold rows — append items to grow the list.
   static class VirtualListExtensions
     // columns: Fixed number of columns; ignored when minItemWidthPx is set.
@@ -1659,7 +1553,6 @@ namespace Ikon.Parallax.Components.Standard
     // onNearEnd: Fires when scrolled within nearEndThresholdRows rows of the end.
     // nearEndThresholdRows: Distance from end (in rows) to trigger onNearEnd. Default 2.
     static void VirtualGrid(this UIView view, int itemCount, int columns, double rowHeight, Action<UIView, int> onRenderItem, int overscan = 2, int gap = 12, int? minItemWidthPx = null, int? maxColumns = null, double? aspectRatio = null, string? resetScrollKey = null, Func<int, Task>? onNearEnd = null, int nearEndThresholdRows = 2, string[]? style = null, string[]? itemStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    // view: The UIView to render into.
     // itemCount: Total number of items in the list. Wrapper divs are emitted for all of them.
     // itemHeight: Fixed height in pixels for every item. Required for windowing math.
     // onRenderItem: Callback invoked per item with its zero-based index. Builds the item content.
@@ -2005,6 +1898,18 @@ namespace Ikon.Parallax.Theming
     const string List
     const string Panel
     const string Search
+  static class Composer
+    const string AttachButton
+    const string Bar
+    const string Chip
+    const string ChipRemove
+    const string Field
+    const string MicButton
+    // Covers the text field while push-to-talk is held; pair with MicButton.WhileCapturing, which the component already applies.
+    const string RecordingOverlay
+    const string SendButton
+    // Shown while a file is dragged over the bar.
+    const string ZoneActive
   static class Container
     const string Full
     const string Lg
@@ -2222,9 +2127,6 @@ namespace Ikon.Parallax.Theming
     const string HoverCard
     const string HoverGlow
     const string HoverLift
-  static class Kbd
-    const string Default
-    const string Group
   static class Label
     const string Base
     const string Default
@@ -2302,15 +2204,18 @@ namespace Ikon.Parallax.Theming
     const string Root
     const string Separator
     const string Trigger
-  // A mic button must always show its live state: Active keys on the client-stamped data-ikon-capture-active attribute, so recording feedback flips the moment capture starts, with no server round trip. Compose Active into any custom mic style so recording never becomes invisible.
+  // A mic button must always show its live state, and it must show it on the press rather than when the first frame arrives. States keys entirely on the client-stamped data-ikon-capture-state attribute, so every transition lands with no server round trip. Compose States into any custom mic style, or the whole sequence — needing permission, ready, opening, hot — becomes invisible and the user is left guessing.
   static class MicButton
+    // Kept for styles written against the older attribute; States supersedes it and covers the states this one cannot see.
     const string Active
     const string Base
     const string Default
     const string Lg
     const string Md
     const string Sm
-    // Reveals its element only while a capture button inside the same group is held; like Active it keys on the client-stamped attribute, so it lands on press rather than a round trip later. Put group on the row containing both the button and this element; pair with AudioWave for the recording cue.
+    // The full state vocabulary of a capture button — despite living on MicButton, it applies to a camera or screen CaptureButton just as well, since the states it styles are stamped by every capture kind. The permission states widen the circle into a pill so the wording the button switches to has somewhere to go; pressed is the sub-frame acknowledgement of the press itself, before the device has opened.
+    const string States
+    // Reveals its element only while a capture button inside the same group is held. It appears on the press, not when the first frame arrives, so the cue and the button agree with each other. Put group on the row containing both the button and this element; pair with AudioWave for the recording cue.
     const string WhileCapturing
   static class NavItem
     const string Active

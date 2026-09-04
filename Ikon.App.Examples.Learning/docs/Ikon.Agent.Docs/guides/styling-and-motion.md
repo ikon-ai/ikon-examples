@@ -6,7 +6,7 @@ Style UI with Crosswind (Tailwind-like) utility classes in C# string arrays. Ani
 
 ```csharp
 view.Button([Button.PrimaryMd, "mt-2 w-fit self-center"], text: "Submit");
-view.Box([Card.Default, "p-6 mb-4"], content: view => { ... });
+view.Box([Card.Default, "p-6 mb-4"], content: view => { /* ... */ });
 ```
 
 ### Theme Token Shortcuts (optional)
