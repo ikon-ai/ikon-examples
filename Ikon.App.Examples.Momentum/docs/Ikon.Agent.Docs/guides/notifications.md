@@ -86,7 +86,11 @@ await app.Notifications.SendToUserAsync(userId,
 
 ```csharp
 private readonly NotificationInbox _inbox = new(app);
+```
 
+Declare the field, and then in Main():
+
+```csharp
 // In Main(): the platform does not know users' addresses, so each channel takes a resolver.
 _inbox.Channels.Add(new EmailNotificationChannel(app.Email, userId => _profiles.ValueFor(userId).Email));
 _inbox.Channels.Add(new SmsNotificationChannel(app.Telephony, userId => _profiles.ValueFor(userId).Phone));
@@ -108,7 +112,7 @@ The inbox in the UI — reads are tracked, so the badge and list re-render on ch
 view.Badge($"{_inbox.UnreadCount}");              // signed-in user
 foreach (var item in _inbox.Items)                // newest first
 {
-    view.Box([...], onClick: () => { _inbox.MarkRead(item.Id); Navigate(item.LaunchUrl); }, ...);
+    view.Box([Card.Default, "p-3 mb-2"], onClick: async () => { _inbox.MarkRead(item.Id); await NavigateAsync(item.LaunchUrl); });
 }
 ```
 
@@ -119,18 +123,18 @@ Users opt out per channel with `_inbox.Mute("email")` / `Mute("push")` (`IsMuted
 `NotificationInbox` applies a small delivery policy so you don't hand-roll notification etiquette:
 
 - **Priority** — `NotificationContent.Priority`: `Low` is *ambient* (inbox only, nothing buzzes); `Normal` (default) pushes subject to quiet hours and the frequency cap; `High` is *urgent* and bypasses both (an explicit channel mute still wins). On the device the priority also shapes presentation: `High` pops a heads-up and stays prominent (Android importance + iOS interruption level, `requireInteraction` on web), `Low` arrives silently.
-  ```csharp
-  await _inbox.NotifyAsync(userId, new NotificationContent("Payment failed", "Tap to fix", Priority: NotificationPriority.High), kind: "payment");
-  ```
+```csharp
+await _inbox.NotifyAsync(userId, new NotificationContent("Payment failed", "Tap to fix", Priority: NotificationPriority.High), kind: "payment");
+```
 - **Quiet hours (do-not-disturb)** — a per-user UTC window in which `Normal`/`Low` stay in the inbox but do not push; `High` still gets through. Convert from the user's local time when you set it (the window may wrap past midnight):
-  ```csharp
-  _inbox.SetQuietHoursFor(userId, new TimeOnly(21, 0), new TimeOnly(6, 0));   // 21:00–06:00 UTC
-  // signed-in form: SetQuietHours(...) / QuietHours; read QuietHoursFor(userId); clear with ClearQuietHoursFor(userId)
-  ```
+```csharp
+_inbox.SetQuietHoursFor(userId, new TimeOnly(21, 0), new TimeOnly(6, 0));   // 21:00–06:00 UTC
+// signed-in form: SetQuietHours(...) / QuietHours; read QuietHoursFor(userId); clear with ClearQuietHoursFor(userId)
+```
 - **Frequency cap** — set `MaxPushPerWindow` (over `PushWindow`, 10 min by default) so a burst can't spam a user's devices; the excess is still recorded in the inbox, only the buzz is dropped, and `High` ignores the cap:
-  ```csharp
-  private readonly NotificationInbox _inbox = new(app) { MaxPushPerWindow = 5, PushWindow = TimeSpan.FromMinutes(10) };
-  ```
+```csharp
+private readonly NotificationInbox _inbox = new(app) { MaxPushPerWindow = 5, PushWindow = TimeSpan.FromMinutes(10) };
+```
 
 A push held back by priority, quiet hours, a mute or the cap shows in `NotificationOutcome.Skipped` (not `Delivered`); the inbox item is the durable record either way. **Push is a nudge, the inbox is the record** — buzz sparingly and let the inbox hold the scrollable history. Localization is still app-side (build the content with your own i18n).
 

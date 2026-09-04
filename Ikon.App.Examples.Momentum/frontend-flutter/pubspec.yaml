@@ -8,7 +8,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  ikon_sdk: ^1.7.0
+  ikon_sdk: ^1.8.0
   # The map on mobile. The web frontend draws the same `momentum-map` node with Leaflet; both take
   # their track, their emphasis and their markers from one call in the C# app.
   flutter_map: ^8.2.2

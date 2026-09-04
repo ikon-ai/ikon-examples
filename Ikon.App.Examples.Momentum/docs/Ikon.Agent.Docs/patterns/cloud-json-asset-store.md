@@ -66,7 +66,7 @@ private async Task SaveDashboardsAsync()
 - Save on `app.StoppingAsync` for state that mutates often (chat history) so you don't pay write cost per turn.
 - Pretty-print (`WriteIndented = true`) — these blobs are operator-readable in the asset browser.
 - The in-memory mirror is a `ReactiveList<Dashboard>`: `ReplaceAll(loaded)` after a load, `Clear()` on a miss, `ToList()` when serialising back out. Each mutator notifies once; `_dashboards.Value` is an `IReadOnlyList<T>` snapshot, so there is no in-place mutation to forget.
-- A binary in a connected repository is tracked as an `AssetPointer` — the small versioned `*.ikonasset` text file git stores in place of the bytes — so checking out any commit restores that commit's assets and binary history, undo and redo keep working. `BinaryContent` is the in-memory counterpart when you hold the bytes directly.
+- A binary in a connected repository is tracked as an `AssetPointer` — the small versioned `*.ikonasset` text file git stores in place of the bytes — so checking out any commit restores that commit's assets and binary history, undo and redo keep working.
 
 ## See also
 
