@@ -7,7 +7,11 @@ How to persist app state across restarts. Read this before reaching for files or
 ```csharp
 // Default for almost everything you want to persist:
 private readonly PersistentSessionReactive<MyState> _state = new(new MyState());
+```
 
+Then from any method:
+
+```csharp
 // Read and write like any reactive:
 _state.Value = next;
 var current = _state.Value;
@@ -41,7 +45,7 @@ The user-scoped classes additionally expose per-user accessors usable outside an
 
 ```csharp
 // Default — structured state lands in the app's built-in postgres database
-new PersistentSessionReactive<Prefs>(new Prefs());
+private readonly PersistentSessionReactive<Prefs> _prefs = new(new Prefs());
 
 // byte[] payloads stay on asset storage automatically — no backend parameter needed
 private readonly PersistentSessionReactive<byte[]> _snapshot = new([]);
@@ -50,12 +54,15 @@ private readonly PersistentSessionReactive<byte[]> _snapshot = new([]);
 private readonly PersistentSessionReactive<byte[]> _logo
     = new([], backend: PersistenceBackend.Public);
 
-// Then read the URL after first save:
-var url = _logo.PublicUrl;  // null until first save completes
-
 // Explicitly target a postgres DB of the app's own
 private readonly PersistentSessionReactive<long> _counter
     = new(0, backend: PersistenceBackend.Postgres, postgresDatabase: "main");
+```
+
+Read the public URL from a method, once a save has happened:
+
+```csharp
+var url = _logo.PublicUrl;  // null until first save completes
 ```
 
 Every app gets a built-in Postgres database named `app`. Nothing declares it and nothing has to

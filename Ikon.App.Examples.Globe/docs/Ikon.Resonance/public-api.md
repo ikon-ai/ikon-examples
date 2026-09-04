@@ -147,7 +147,6 @@ namespace Ikon.Resonance
     // sampleRate: Sample rate of the audio in Hz.
     // channelCount: Number of audio channels.
     // config: Optional silence remover configuration.
-    // ct: Cancellation token.
     static IAsyncEnumerable<float[]> FilterAsync(IAsyncEnumerable<float[]> source, int sampleRate, int channelCount, SilenceRemoverConfig? config = null, CancellationToken ct = default)
     // Returns the samples to forward — on speech onset the pre-buffered look-back audio is concatenated in front of the current chunk — or null when the chunk is silence that should be suppressed.
     // chunk: The audio samples to process. Expected to be interleaved float samples in [-1, 1].
@@ -212,24 +211,6 @@ namespace Ikon.Resonance
     double MaxPaddingTimeMs { get; init; }
     // RMS threshold below which effect tail padding stops. Default is 0.001 (~-60 dB), meaning padding continues until output is essentially silent.
     double PaddingThreshold { get; init; }
-  // The segmentation an always-listening voice app needs between "raw mic frames" and "transcribe and respond". Deterministic: time is counted in received samples, not wall-clock, so the same frame sequence always produces the same events; this assumes the source keeps delivering frames during silence (true for platform mic capture, which streams continuously while active). Push-based usage: call Process per audio chunk and act on the returned event. Stream-based usage: wrap an IAsyncEnumerable<T> source with DetectAsync.
-  sealed class TurnDetector
-    // sampleRate: Sample rate of the incoming audio in Hz (e.g. 48000).
-    // channelCount: Number of audio channels (e.g. 1 for mono).
-    // config: Optional configuration. When null, defaults tuned for conversational voice are used.
-    ctor(int sampleRate, int channelCount, TurnDetectorConfig? config = null)
-    // When the source completes, a still-open turn is flushed as a final TurnEventKind.TurnEnded event.
-    // source: The async enumerable producing audio chunks.
-    // sampleRate: Sample rate of the audio in Hz.
-    // channelCount: Number of audio channels.
-    // config: Optional turn detector configuration.
-    // ct: Cancellation token.
-    static IAsyncEnumerable<TurnEvent> DetectAsync(IAsyncEnumerable<float[]> source, int sampleRate, int channelCount, TurnDetectorConfig? config = null, CancellationToken ct = default)
-    // Reports the end of the audio stream. A confirmed turn still in progress is finalized and returned as a TurnEventKind.TurnEnded event; otherwise returns null. The detector is reset either way.
-    TurnEvent? Flush()
-    // Processes one audio chunk (interleaved float samples in [-1, 1]) and returns the transition it caused, or null when nothing changed.
-    TurnEvent? Process(ReadOnlyMemory<float> samples)
-    void Reset()
   // Immutable — construct a new config (and detector) instead of mutating a shared instance.
   sealed record TurnDetectorConfig
     ctor()
@@ -245,20 +226,6 @@ namespace Ikon.Resonance
     Func<ReadOnlyMemory<float>, bool>? SpeechClassifier { get; init; }
     // Silence duration that ends a turn. This window — not the level gate — provides the "hold through natural pauses" behavior, so mid-sentence breaths don't split a turn.
     TimeSpan TurnEndSilence { get; init; }
-  // Samples carries the utterance audio (interleaved float PCM, including pre-buffered onset audio) for TurnEventKind.SpeculativeTurnEnd and TurnEventKind.TurnEnded and is empty for the other kinds.
-  readonly struct TurnEvent
-    TimeSpan Duration { get; }
-    TurnEventKind Kind { get; }
-    float[] Samples { get; }
-  enum TurnEventKind
-    // The user has produced sustained speech (at least TurnDetectorConfig.MinSpeechDuration).
-    SpeechStarted
-    // Silence has lasted TurnDetectorConfig.SpeculativeSilence — the turn has probably ended. Carries the utterance audio so far, so downstream work (transcription, a reply) can start early. Followed by either SpeechResumed (the guess was wrong) or TurnEnded.
-    SpeculativeTurnEnd
-    // Speech resumed after a SpeculativeTurnEnd — discard the speculative result.
-    SpeechResumed
-    // The turn has ended: silence lasted TurnDetectorConfig.TurnEndSilence (or the turn hit TurnDetectorConfig.MaxTurnDuration). Carries the complete utterance audio.
-    TurnEnded
   // Samples are written incrementally; the WAV header is finalized when the file is first accessed, after which adding samples throws.
   class WavFile : IDisposable
     // sampleRate: The sample rate in Hz (e.g., 44100, 48000).
