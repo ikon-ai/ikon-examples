@@ -64,7 +64,6 @@ namespace Ikon.Teleport
     ctor(TeleportError error, string message)
     // error: Which decoding failure occurred.
     // message: A description of the failure.
-    // innerException: The underlying exception.
     ctor(TeleportError error, string message, Exception innerException)
     TeleportError Error { get; }
   // The As* accessors follow TeleportValue's contract: the wire Type must match exactly (no numeric widening; a mismatch throws TeleportError.BadType), and AsString validates UTF-8 while AsUtf8 never throws.
@@ -95,32 +94,9 @@ namespace Ikon.Teleport
     ctor(uint explicitId)
     uint? ExplicitId { get; }
     string? Name { get; }
-  static class TeleportHasher
-    // The id is the xxHash32 of the name's UTF-8 bytes — identical across processes, builds, and every SDK language — so ids may be precomputed and pinned.
-    // fieldName: The field name to hash.
-    // throws ArgumentNullException: Thrown when the field name is null.
-    static uint ComputeFieldId(string fieldName)
   // Excludes the property from the wire entirely; on read it keeps whatever the constructor or initializer set. Adding or removing this attribute is a silent, non-erroring change — older peers skip an added field or fall back to the default for a removed one.
   sealed class TeleportIgnoreAttribute : Attribute
     ctor()
-  sealed class TeleportJsonIrDocument
-    // Parses a Teleport IR schema document from JSON, shaped as a single root message object:
-    // { "type": "MessageName",
-    //   "fields": [ { "name": "fieldName", "id": "0x1A", "type": "int32" } ],
-    //   "nested": [ { "type": "NestedMessage", "fields": [] } ],
-    //   "enums":  [ { "name": "EnumName" } ] }
-    // type is required; the arrays are optional. A field id is a hex string (0x prefix optional). A field type is a primitive (int32|uint32|int64|uint64|float32|float64|bool|string|binary|guid), T[] for an array, {K:V} for a dictionary, or a bare name referencing another message or enum.
-    // throws ArgumentException: The input is null, empty, or whitespace.
-    // throws JsonException: The input is not well-formed JSON.
-    // throws InvalidOperationException: The JSON is well-formed but violates the IR shape or type grammar.
-    static TeleportJsonIrDocument Parse(string json)
-  static class TeleportJsonMirror
-    static string ToJson(ReadOnlySpan<byte> binary, TeleportJsonMirrorOptions? options = null)
-    static string ToJsonWithSchema(ReadOnlySpan<byte> binary, TeleportJsonIrDocument? schema)
-  sealed class TeleportJsonMirrorOptions
-    ctor()
-    bool Indented { get; set; }
-    TeleportJsonIrDocument? Schema { get; set; }
   ref struct TeleportObjectReader
     uint Version { get; }
     static TeleportObjectReader Create(ReadOnlySpan<byte> data)
@@ -265,8 +241,3 @@ namespace Ikon.Teleport
     void WriteStructField<T>(uint fieldId, in T value) where T : unmanaged
     void WriteUInt32Field(uint fieldId, uint value)
     void WriteUInt64Field(uint fieldId, ulong value)
-  sealed class TeleportWriterPool : IDisposable
-    ctor(int initialCapacity = 256)
-    void Dispose()
-    TeleportWriter Rent(int? minimumCapacity = null)
-    void Return(TeleportWriter writer)

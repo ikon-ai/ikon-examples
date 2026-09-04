@@ -67,7 +67,7 @@ lists every number the app holds — market, provider, which is the default send
 one's incoming traffic goes. `--format json` or `--format csv` gives the same answer to a script.
 
 ```
-ikon app telephony delete --number +46766861234
+ikon app telephony delete +46766861234
 ```
 
 gives one number up.
@@ -246,7 +246,7 @@ A space that runs out of credits is suspended, which stops telephony along with 
 ## Giving a number up
 
 ```
-ikon app telephony delete --number +46766861234
+ikon app telephony delete +46766861234
 ```
 
 gives up one number. To give up telephony entirely:
@@ -277,7 +277,6 @@ if (!status.Enabled)
 discovering it from a failed send, and better than assuming. When it has none, sending or calling
 throws `TelephonyNumberNotAvailableException`, whose message names the command that fixes it.
 
-
 ---
 
 # Ikon.Common.Core Public API
@@ -286,7 +285,6 @@ namespace Ikon.Common.Core.Telephony
     // From: Who sent it, in E.164. Pass it to app.Telephony.SendSmsAsync to reply.
     // To: The number of the app's that received it.
     // Text: The message body.
-    // MessageId: The provider's id for the message.
     ctor(string From, string To, string Text, string MessageId)
     string From { get; init; }
     string MessageId { get; init; }

@@ -85,10 +85,6 @@ namespace Ikon.AI.Classification
     ctor()
     List<ClassificationDetail> Details { get; init; }
     bool IsFlagged { get; init; }
-  class ClassificationResultException : NonRetryableAIException
-    ctor(ClassificationResult classificationResult)
-    ctor(ClassificationResult classificationResult, Exception inner)
-    ClassificationResult ClassificationResult { get; }
   sealed class Classifier : IClassifier
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(ClassificationModel model, IReadOnlyList<ModelRegion>? regions = null)
@@ -105,10 +101,6 @@ namespace Ikon.AI.Classification
   sealed class ClassifierCapabilities : IClassifierInfo
     ctor()
     bool SupportsImageInput { get; init; }
-  class ClassifierException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum CustomClassificationApi
     OpenAI
     Mistral
@@ -124,10 +116,6 @@ namespace Ikon.AI.Classification
     virtual Task<ClassificationResult> ClassifyAsync(string text, CancellationToken cancellationToken = default)
   interface IClassifierInfo
     bool SupportsImageInput { get; }
-  class NonRetryableClassifierException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
 
 namespace Ikon.AI.Embeddings
   enum CustomEmbeddingApi
@@ -170,10 +158,6 @@ namespace Ikon.AI.Embeddings
     // Per-request; scaled up internally with the batch size.
     TimeSpan Timeout { get; init; }
     EmbeddingType Type { get; init; }
-  class EmbeddingGeneratorException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed class EmbeddingItem
     ctor(string context, EmbeddingModel model, EmbeddingType type, EmbeddingEncoding encoding, string embedding)
     string Context { get; init; }
@@ -192,6 +176,7 @@ namespace Ikon.AI.Embeddings
     MistralEmbed
     CodestralEmbed
     GeminiEmbedding1
+    GeminiEmbedding2
     GoogleTextEmbedding5
     GoogleTextMultilingualEmbedding2
     JinaEmbeddings3
@@ -206,6 +191,7 @@ namespace Ikon.AI.Embeddings
     Voyage4Lite
     Voyage4Large
     VoyageCode3
+    VoyageCode4
     // Not directly usable — select custom models (see CustomModels) by their registered name string.
     Custom
   static class EmbeddingModelExtensions
@@ -222,10 +208,6 @@ namespace Ikon.AI.Embeddings
   interface IEmbeddingGeneratorInfo
     int EmbeddingVectorSize { get; }
     int MaxInputCount { get; }
-  class NonRetryableEmbeddingGeneratorException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   static class VectorMath
     // embeddings: List of embeddings (each as a float array)
     static float[] CalculateAverageEmbedding(IList<float[]> embeddings)
@@ -270,20 +252,12 @@ namespace Ikon.AI.FileConversion
     ResultDelivery ResultDelivery { get; init; }
     TimeSpan Timeout { get; init; }
     string? Url { get; init; }
-  class FileConverterException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum FileConverterModel
     ConvertApi
   static class FileConverterModelExtensions
     static string DisplayName(this FileConverterModel model)
   interface IFileConverter : IDisposable
     Task<ConvertedFile> ConvertToPdfAsync(FileConverterConfig config, CancellationToken cancellationToken = default)
-  class NonRetryableFileConverterException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
 
 namespace Ikon.AI.OCR
   enum DocumentType
@@ -300,10 +274,6 @@ namespace Ikon.AI.OCR
     IReadOnlyList<string> SupportedMimeTypes { get; }
     // True when the model fills OCRResult.Words for OCRConfig.IncludeWords. A request that asks a model reporting false for words is refused rather than answered with an empty list.
     bool SupportsWordLevelText { get; }
-  class NonRetryableOCRException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed class OCR : IOCR
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(OCRModel model, IReadOnlyList<ModelRegion>? regions = null)
@@ -340,10 +310,6 @@ namespace Ikon.AI.OCR
     string? Pages { get; init; }
     TimeSpan Timeout { get; init; }
     string? Url { get; init; }
-  class OCRException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum OCRModel
     AzureDocumentIntelligence
     MistralOCR
@@ -383,10 +349,6 @@ namespace Ikon.AI.Reranking
   interface IReranker : IDisposable
     // Returns items ordered most relevant first; RerankItem.Index is the document's position in RerankerConfig.Documents.
     Task<List<RerankItem>> RerankAsync(RerankerConfig config, CancellationToken cancellationToken = default)
-  class NonRetryableRerankerException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed record RerankItem
     ctor()
     int Index { get; init; }
@@ -395,6 +357,7 @@ namespace Ikon.AI.Reranking
     CohereRerank4Fast
     CohereRerank4Pro
     JinaReranker3
+    JinaReranker35
     VoyageRerank25
     VoyageRerank25Lite
     // Not directly usable — select custom models (see CustomModels) by their registered name string.
@@ -417,10 +380,6 @@ namespace Ikon.AI.Reranking
     TimeSpan Timeout { get; init; }
     // Caps how many items are returned; 0 returns all.
     int TopN { get; init; }
-  class RerankerException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
 
 namespace Ikon.AI.Retrieving
   class Content
@@ -445,16 +404,6 @@ namespace Ikon.AI.Retrieving
     readonly string Link
     readonly float Score
     readonly List<string> Segments
-  class IdMapperException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
-  class JsonAsset
-    ctor(string content)
-    IEnumerable<string> GetAllKeys()
-    string[] GetKeys()
-    bool TryGetValue(string keyPath, out object? value)
-    bool TryGetValueAsObject(string keyPath, out object? value)
   class Retriever : IAsyncDisposable
     ctor()
     KernelContext Context { get; }
@@ -570,10 +519,6 @@ namespace Ikon.AI.WebScraping
     bool UseSitemapOnly { get; init; }
     bool UseStreaming { get; init; }
     TimeSpan WaitAfter { get; init; }
-  class NonRetryableWebScraperException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed record PageResult
     ctor()
     string Content { get; init; }
@@ -645,10 +590,6 @@ namespace Ikon.AI.WebScraping
     bool SupportsMultiPageScraping { get; init; }
     bool SupportsScreenshotting { get; init; }
     bool SupportsSinglePageScraping { get; init; }
-  class WebScraperException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum WebScraperModel
     Spider
     Jina
@@ -668,10 +609,6 @@ namespace Ikon.AI.WebSearching
     Task<List<SearchResult>> SearchPagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
   interface IWebSearcherInfo
     bool SupportsImageSearching { get; }
-  class NonRetryableWebSearcherException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed record SearchConfig
     ctor()
     string CountryCode { get; init; }
@@ -703,10 +640,6 @@ namespace Ikon.AI.WebSearching
   sealed class WebSearcherCapabilities : IWebSearcherInfo
     ctor()
     bool SupportsImageSearching { get; init; }
-  class WebSearcherException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum WebSearcherModel
     Spider
     Jina

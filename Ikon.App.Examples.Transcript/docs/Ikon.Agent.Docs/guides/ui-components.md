@@ -7,14 +7,18 @@ All UI components are called as methods on `UIView` (the `view` parameter in con
 ### Layout
 
 ```csharp
-view.Box([Card.Default, "p-6"], content: view => { ... });
-view.Row([Layout.Row.Md, "flex-wrap"], content: view => { ... });
-view.Column([Layout.Column.Lg], content: view => { ... });
-view.Flex(["flex gap-4"], content: view => { ... });
-view.ScrollArea(rootStyle: ["h-[400px]"], content: view => { ... });
+view.Box([Card.Default, "p-6"], content: view => { /* ... */ });
+view.Row([Layout.Row.Md, "flex-wrap"], content: view => { /* ... */ });
+view.Column([Layout.Column.Lg], content: view => { /* ... */ });
+view.Flex(["flex gap-4"], content: view => { /* ... */ });
+view.ScrollArea(rootStyle: ["h-[400px]"], content: view => { /* ... */ });
 view.Separator(["my-4"]);
-view.AspectRatio(["w-full"], ratio: 16.0 / 9.0, content: view => { ... });
+view.AspectRatio(["w-full"], ratio: 16.0 / 9.0, content: view => { /* ... */ });
+```
 
+A complete chat interface built from them:
+
+```csharp
 // Complete chat interface pattern:
 view.Column(["h-screen"], content: view =>
 {
@@ -71,9 +75,9 @@ view.Markdown("**Bold** and `code`");
 ### Input
 
 ```csharp
-view.Button([Button.PrimaryMd], text: "Click", onClick: async () => { ... });
-view.Button([Button.OutlineMd], text: "Secondary", disabled: isLoading, onClick: async () => { ... });
-view.Button([Button.GhostMd, Button.Icon], onClick: async () => { ... },
+view.Button([Button.PrimaryMd], text: "Click", onClick: async () => { /* ... */ });
+view.Button([Button.OutlineMd], text: "Secondary", disabled: isLoading, onClick: async () => { /* ... */ });
+view.Button([Button.GhostMd, Button.Icon], onClick: async () => { /* ... */ },
     content: v => v.Icon([Icon.Default], name: "settings"));
 view.TextField(bind: _text, placeholder: "Enter text",
     onSubmit: async submitted => { await HandleSubmit(submitted); });  // Enter submits; input auto-clears after submit
@@ -175,13 +179,13 @@ view.AlertDialog(open: _alertOpen.Value, onOpenChange: async o => _alertOpen.Val
 view.Popover(open: _popOpen.Value, onOpenChange: async o => _popOpen.Value = o,
     contentStyle: [Popover.Content],
     trigger: view => view.Button([Button.OutlineMd], text: "Open"),
-    contentSlot: view => { ... });
+    contentSlot: view => { /* ... */ });
 view.Tooltip(contentStyle: [Tooltip.Content],
     trigger: view => view.Button([Button.OutlineMd], text: "Hover me"),
     contentSlot: view => view.Text(text: "Tooltip text"));
 view.HoverCard(contentStyle: [HoverCard.Content],
     trigger: view => view.Text([Text.Link], "@user"),
-    contentSlot: view => { ... });
+    contentSlot: view => { /* ... */ });
 
 // Toast
 view.Toast(open: _toastOpen.Value, onOpenChange: async o => _toastOpen.Value = o,
@@ -227,7 +231,7 @@ view.Collapsible(open: _open.Value, onOpenChange: async o => _open.Value = o,
     content: view =>
     {
         view.CollapsibleTrigger(content: view => view.Button(text: "Toggle"));
-        view.CollapsibleContent(content: view => { ... });
+        view.CollapsibleContent(content: view => { /* ... */ });
     });
 
 // InfiniteScrollView
@@ -236,7 +240,7 @@ view.InfiniteScrollView(
     hasMore: _hasMore.Value,
     loading: _loading.Value,
     onNearEnd: async args => { await LoadMoreItems(); },
-    content: view => { foreach (var item in _items.Value) { view.Text(text: item); } });
+    content: view => { foreach (var item in _items) { view.Text(text: item); } });
 ```
 
 ### Interactive
@@ -245,7 +249,7 @@ view.InfiniteScrollView(
 // KeyboardListener
 view.KeyboardListener(global: true,
     onKeyDown: async args => { /* args.Key, args.ShiftKey, args.CtrlKey */ },
-    content: view => { ... });
+    content: view => { /* ... */ });
 ```
 
 ### Drag and Drop
@@ -255,7 +259,7 @@ view.KeyboardListener(global: true,
 ```csharp
 view.SortableList(
     items: _items.Value,
-    onReorder: async args => _items.Value = args.NewOrder.ToList(),
+    onReorder: async args => _items.ReplaceAll(args.NewOrder),
     itemContent: (v, id) => v.Text([Text.Body], id));
 ```
 
@@ -265,7 +269,11 @@ view.SortableList(
 // Reactive state for drag tracking (lightweight, only IDs)
 private readonly Reactive<string?> _activeDragId = new(null);
 private readonly Reactive<string?> _dragOverColumnId = new(null);
+```
 
+Declare the fields, and then from the UI lambda:
+
+```csharp
 // DndContext wraps the entire drag area
 view.DndContext(
     collisionDetection: CollisionDetection.RectIntersection,
@@ -331,7 +339,7 @@ CaptureButton starts audio/video capture from the client:
 view.CaptureButton([Button.OutlineMd, Button.Icon],
     kind: MediaCaptureKind.Audio,
     captureMode: MediaCaptureButtonMode.Toggle,  // or Hold
-    audioOptions: new ClientAudioCaptureOptions { ... },
+    audioOptions: new ClientAudioCaptureOptions { /* ... */ },
     onCaptureStart: async args => { _streamId.Value = args.StreamId; },
     onCaptureStop: async args => { _streamId.Value = null; },
     content: v => v.Icon([Icon.Default], name: "mic"));

@@ -9,11 +9,7 @@ LLM model selection, connection configuration, and core AI infrastructure.
 # Ikon.AI Public API
 namespace Ikon.AI
   class AIException : Exception
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   class AITimeoutException : RetryableAIException
-    ctor(string message)
     ctor(TimeSpan configuredTimeout, string targetName)
     TimeSpan ConfiguredTimeout { get; }
     string TargetName { get; }
@@ -57,8 +53,6 @@ namespace Ikon.AI
     string? Url { get; }
   // Transient (network blip, server restart, flaky link) and therefore retryable — the RPC layer retries with a forced reconnect, and exhausted attempts still surface as retryable.
   sealed class IkonServerConnectException : RetryableAIException
-    ctor(string message)
-    ctor(string message, Exception inner)
   // A reference clip for prompt-driven audio editing: the model preserves this clip's timing and structure while the prompt re-styles it. Supply the clip exactly one way: Data (with MimeType), Url, or AssetUri (resolved automatically).
   sealed record InputAudio
     ctor()
@@ -117,9 +111,6 @@ namespace Ikon.AI
     UsEast
     UsWest
   class NonRetryableAIException : AIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   // An image produced by an analysis model (depth map, segmentation mask, preview). Kind tells how it was delivered: inline bytes in Data, or a signed download URL in Url valid for roughly one hour.
   sealed record OutputImage : IResultPayload
     ctor()
@@ -130,9 +121,6 @@ namespace Ikon.AI
     string? Url { get; init; }
     int Width { get; init; }
   class RegionNotSupportedException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   // With Auto the payload stays inline in-process; only when the result is returned from a remotely hosted AI function is it uploaded to a short-lived asset URL, and then only if it exceeds an internal size threshold (a few MB), keeping the protocol message small. Url always uploads, in any context. Check the result's ResultKind field to see which delivery was used.
   enum ResultDelivery
     Auto
@@ -142,13 +130,6 @@ namespace Ikon.AI
     Data
     Url
   class RetryableAIException : AIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
-  // The URLs these clients fetch come from app code, from LLM tool arguments and from provider responses — none of which the platform controls. Checking the URL string is not enough: the name is resolved later, so a host that resolves to 169.254.169.254 passes any check made up front, and a redirect or a second DNS answer moves the target after the check. The decision therefore happens at SocketsHttpHandler.ConnectCallback, on the address actually being connected to. That covers every redirect hop, because each one connects again, and it closes DNS rebinding, because the address checked is the address used.
-  static class SsrfGuard
-    static SocketsHttpHandler CreateHandler()
-    static bool IsAllowedScheme(Uri uri)
 
 namespace Ikon.AI.Kernel
   static class AsyncEnumerableExtensions
@@ -252,13 +233,11 @@ namespace Ikon.AI.Kernel
     bool UseUserNames { get; init; }
     KernelContext Add(Instruction instruction)
     KernelContext Add(MessageBlock message)
-    // Runs a single model turn. A tool call whose function has LlmInlineResult set is executed here and its events replace the call in the stream — recursively, so a function that itself emits tool calls is handled the same way. Every other tool call is yielded for the caller to run. The model is invoked once and never sees the results, so this is not an agent loop: a Shader pass is what feeds results back as FunctionResult messages and re-runs the model. Use ILLM.GenerateAsync directly for the raw provider stream that never runs a tool.
-    IAsyncEnumerable<LLMEvent> GenerateAsync(ILLM llm, CancellationToken cancellationToken = default)
     KernelContext KeepMessagesMax(int count)
     KernelContext WithFunctions(IEnumerable<Function>? functions, bool replaceExisting = false)
   // Consume by switching on the concrete record case; forward any case you do not handle unchanged so downstream consumers still receive it.
   abstract record LLMEvent
-    // E.g. "generate", "generate.reasoning", "Shader.Output.AfterPass". Combinators re-tag events they transform so the origin of each event stays visible.
+    // E.g. "generate", "generate.reasoning", "Emergence.Output.AfterPass". Combinators re-tag events they transform so the origin of each event stays visible.
     string Source { get; init; }
   sealed record LLMEvent.AudioDelta : LLMEvent
     ctor(AudioChunk Audio)
@@ -281,11 +260,11 @@ namespace Ikon.AI.Kernel
   sealed record LLMEvent.ContentFiltered : LLMEvent
     ctor(ClassificationResult Classification)
     ClassificationResult Classification { get; init; }
-  // Emitted once at the end of a shader run; may differ from the text response.
+  // Emitted once at the end of a generation; may differ from the text response.
   sealed record LLMEvent.FinalModelMessage : LLMEvent
     ctor(string Text)
     string Text { get; init; }
-  // Emitted once at the end of a shader run.
+  // Emitted once at the end of a generation.
   sealed record LLMEvent.FinalText : LLMEvent
     ctor(string Text)
     string Text { get; init; }
@@ -440,31 +419,7 @@ namespace Ikon.AI.LLM
     bool SupportsStrictJsonSchema { get; init; }
     bool SupportsSystemMessages { get; init; }
     bool SupportsTemperature { get; init; }
-  // Returns the exact JSON schema each provider ships to the model for a Function; use it rather than re-deriving your own projection.
-  static class FunctionSchema
-    static string ToJson(Function function)
-  interface ILLM : IDisposable, ILLMInfo
-    IAsyncEnumerable<LLMEvent> GenerateAsync(KernelContext context, CancellationToken cancellationToken = default)
-  interface ILLMInfo
-    int ContextWindowSize { get; }
-    string InlineReasoningTagName { get; }
-    // In tokens. 0 means "no published limit", not "no output allowed".
-    int MaxOutputTokens { get; }
-    SchemaDialect SchemaDialect { get; }
-    bool SupportsGbnfGrammar { get; }
-    bool SupportsInputAudio { get; }
-    bool SupportsInputImages { get; }
-    bool SupportsInputPdf { get; }
-    bool SupportsInputVideo { get; }
-    bool SupportsJsonSchema { get; }
-    bool SupportsOutputAudio { get; }
-    bool SupportsParallelToolCalling { get; }
-    bool SupportsReasoning { get; }
-    bool SupportsSingleToolCalling { get; }
-    bool SupportsStreaming { get; }
-    bool SupportsZeroDataRetention { get; }
-    bool UsesInlineReasoning { get; }
-  sealed class LLMCapabilities : ILLMInfo
+  sealed class LLMCapabilities
     ctor()
     int ContextWindowSize { get; init; }
     string InlineReasoningTagName { get; init; }
@@ -486,9 +441,6 @@ namespace Ikon.AI.LLM
     bool SupportsZeroDataRetention { get; init; }
     bool UsesInlineReasoning { get; init; }
   class LLMMaxOutputTokensException : NonRetryableLLMException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum LLMModel
     Gpt4OmniMini
     Gpt41
@@ -522,6 +474,7 @@ namespace Ikon.AI.LLM
     Claude5Sonnet
     Claude5Opus
     Claude5Fable
+    Claude51Fable
     Gemini25Flash
     Gemini25FlashLite
     Gemini25Pro
@@ -532,8 +485,10 @@ namespace Ikon.AI.LLM
     Gemini35FlashLite
     Gemini36Flash
     Gemini37Flash
+    Gemini38Flash
     Grok43
     Grok45
+    Grok46
     GrokBuild01
     Grok420Reasoning
     Grok420NonReasoning
@@ -555,6 +510,7 @@ namespace Ikon.AI.LLM
     CommandAPlus
     CommandAVision
     CommandR7B
+    MuseSpark13
     KimiK25
     KimiK26
     KimiK27Code
@@ -570,6 +526,7 @@ namespace Ikon.AI.LLM
     Glm51
     Glm52
     Glm53
+    Glm53Flash
     Glm5VTurbo
     MiniMaxM25
     MiniMaxM27
@@ -596,14 +553,5 @@ namespace Ikon.AI.LLM
     // In tokens. Returns 0 when the limit is unknown (unresolvable model, or a provider that publishes none) — treat 0 as "no cap known", not as a zero budget.
     static int MaxOutputTokens(this LLMModel model)
   class ModelOutputException : RetryableLLMException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   class NonRetryableLLMException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   class RetryableLLMException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)

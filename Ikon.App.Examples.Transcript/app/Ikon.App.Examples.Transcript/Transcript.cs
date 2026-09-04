@@ -1,4 +1,4 @@
-using Process = System.Diagnostics.Process;
+﻿using Process = System.Diagnostics.Process;
 using ProcessStartInfo = System.Diagnostics.ProcessStartInfo;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -452,7 +452,7 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
 
             if (SpeechRecognizer.SupportsContinuousRecognition)
             {
-                await foreach (var text in SpeechRecognizer.RecognizeContinuousSpeechAsync(
+                await foreach (var transcriptEvent in SpeechRecognizer.RecognizeContinuousSpeechAsync(
                                    new RecognizeContinuousSpeechConfig
                                    {
                                        SampleRate = sampleRate,
@@ -461,21 +461,21 @@ public class Transcript(IApp<SessionIdentity, ClientParams> app)
                                    },
                                    ReadAudioSamplesAsync(rawAudioPath, sampleRate, channelCount, CancellationToken.None)))
                 {
-                    AppendTranscript(transcriptBuilder, text);
+                    AppendTranscript(transcriptBuilder, transcriptEvent.Text);
                 }
             }
             else
             {
                 await foreach (var chunk in ReadAudioSamplesAsync(rawAudioPath, sampleRate, channelCount, CancellationToken.None))
                 {
-                    var chunkText = await SpeechRecognizer.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
+                    var chunkText = (await SpeechRecognizer.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
                     {
                         Samples = chunk,
                         SampleRate = sampleRate,
                         ChannelCount = channelCount,
                         Language = language,
                         Timeout = TimeSpan.FromMinutes(10)
-                    });
+                    })).Text;
 
                     AppendTranscript(transcriptBuilder, chunkText);
                 }
