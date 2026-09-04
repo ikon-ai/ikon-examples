@@ -89,7 +89,7 @@ Inbound email delivered to the app's space is available as pages or as a lazy st
 
 ```csharp
 // One page at a time
-var page = await app.Email.GetInboxPageAsync(new InboxQuery(Limit: 50));
+var page = await app.Email.GetInboxPageAsync(new InboxQuery { Limit = 50 });
 
 // Or enumerate across pages; breaking out stops fetching
 await foreach (var summary in app.Email.EnumerateInboxAsync(new InboxQuery()))
@@ -108,7 +108,6 @@ await foreach (var summary in app.Email.EnumerateInboxAsync(new InboxQuery()))
 
 `InboxQuery` filters by recipient, sender, and time window. Deleting a message frees its attachment
 storage; deleting an unknown id throws rather than succeeding silently.
-
 
 ---
 

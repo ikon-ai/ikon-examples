@@ -1,4 +1,4 @@
-public partial class Tori
+﻿public partial class Tori
 {
     private void InitializeSpeechRecognitionForParticipant(int clientSessionId, string participantName)
     {
@@ -38,14 +38,14 @@ public partial class Tori
 
         try
         {
-            await foreach (var text in state.Adapter.RecognizeContinuousSpeechAsync(
+            await foreach (var transcriptEvent in state.Adapter.RecognizeContinuousSpeechAsync(
                 config,
                 SilenceRemover.FilterAsync(ReadParticipantAudioAsync(state), config.SampleRate, config.ChannelCount),
                 state.Cts.Token))
             {
-                if (!string.IsNullOrWhiteSpace(text))
+                if (!string.IsNullOrWhiteSpace(transcriptEvent.Text))
                 {
-                    var entry = new TranscriptEntry(state.ParticipantName, text, DateTime.UtcNow);
+                    var entry = new TranscriptEntry(state.ParticipantName, transcriptEvent.Text, DateTime.UtcNow);
                     _recognizedSpeech.Update(list => list.TakeLast(MaxTranscriptEntries - 1).Append(entry));
                 }
             }

@@ -44,18 +44,19 @@ Backends (passed as `backend:`):
 
 ```csharp
 // Default — Private S3-backed cloud asset
-new PersistentSessionReactive<Prefs>(new Prefs());
+private readonly PersistentSessionReactive<Prefs> _defaultBackend = new(new Prefs());
 
 // Public asset URL needed (uploaded images, published files — never sensitive data)
 private readonly PersistentSessionReactive<byte[]> _logo
     = new([], backend: PersistenceBackend.Public);
-var url = _logo.PublicUrl;  // null until first save completes
 
 // Small, frequently-mutated value (counters, status flags). Requires a postgres DB declared
 // created with 'ikon app db create --name main'. Omit postgresDatabase if there is only one.
 private readonly PersistentSessionReactive<long> _counter
     = new(0, backend: PersistenceBackend.Postgres, postgresDatabase: "main");
 ```
+
+`_logo.PublicUrl` is null until the first save completes.
 
 Use `key: "..."` only when constructing reactives in a loop — pass a stable identifier you own, not `Guid.NewGuid()` (which orphans data on restart). Field names already provide stable keys for normal field-initialized reactives.
 
@@ -69,10 +70,12 @@ For the full reference (anti-patterns, when to drop down to `Asset.Instance` dir
 // WRONG — crashes at startup, no user scope active
 public async Task Main()
 {
-    if (_hasJoined.Value) { ... }  // UserReactive — throws InvalidOperationException
+    if (_hasJoined.Value) { /* ... */ }  // UserReactive — throws InvalidOperationException
     RenderTavern();
 }
+```
 
+```csharp
 // CORRECT — branch inside UI.Root() where scopes are active
 public async Task Main()
 {
@@ -462,6 +465,8 @@ namespace Ikon.Common.Core.Reactive
   class UserReactiveList<T> : ReactiveList<T>
     ctor()
     ctor(IEnumerable<T> initialItems)
+    // Seeds each user's list from their id the first time that user's scope resolves — the list counterpart of UserReactive<T>'s factory constructor. Without it the only way to give a per-user list a computed starting point was UserReactive<List<T>>, which is build error IKON002: a reactive wrapping a mutable collection notifies on assignment only, so a caller mutating the inner list silently updates nothing.
+    ctor(Func<string, IEnumerable<T>> initialItems)
     void AddFor(string userId, T item)
     void ClearFor(string userId)
     bool RemoveFor(string userId, T item)
@@ -469,10 +474,6 @@ namespace Ikon.Common.Core.Reactive
     IReadOnlyList<T> ValueFor(string userId)
 
 namespace Ikon.Common.Core.Scope
-  readonly struct BackendTokenScope : IScopeKey
-    ctor(string token)
-    string Id { get; }
-    string Name { get; }
   // Each time a client connects to the server, it gets a new ClientScope with a unique Id (session ID). This scope is used by ClientReactive<T> to partition state per client. Relationship to UserScope: Multiple ClientScopes can belong to the same user. For example, a user connected from two clients has two different ClientScope IDs but the same UserScope ID. Lifecycle: Active during UI rendering inside UI.Root(). Automatically established by the framework for each client iteration.
   readonly struct ClientScope : IScopeKey
     ctor(int sessionId)
@@ -494,11 +495,6 @@ namespace Ikon.Common.Core.Scope
     // The mount id every Ikon app emits today on its single Parallax stream; apps that don't override IAppBase.Mounts render under this id.
     const string DefaultMountId
   readonly struct OperationScope : IScopeKey
-    ctor()
-    ctor(Guid id)
-    Guid Id { get; }
-    string Name { get; }
-  readonly struct RunScope : IScopeKey
     ctor()
     ctor(Guid id)
     Guid Id { get; }
@@ -532,7 +528,11 @@ How to persist app state across restarts. Read this before reaching for files or
 ```csharp
 // Default for almost everything you want to persist:
 private readonly PersistentSessionReactive<MyState> _state = new(new MyState());
+```
 
+Then from any method:
+
+```csharp
 // Read and write like any reactive:
 _state.Value = next;
 var current = _state.Value;
@@ -566,7 +566,7 @@ The user-scoped classes additionally expose per-user accessors usable outside an
 
 ```csharp
 // Default — structured state lands in the app's built-in postgres database
-new PersistentSessionReactive<Prefs>(new Prefs());
+private readonly PersistentSessionReactive<Prefs> _prefs = new(new Prefs());
 
 // byte[] payloads stay on asset storage automatically — no backend parameter needed
 private readonly PersistentSessionReactive<byte[]> _snapshot = new([]);
@@ -575,12 +575,15 @@ private readonly PersistentSessionReactive<byte[]> _snapshot = new([]);
 private readonly PersistentSessionReactive<byte[]> _logo
     = new([], backend: PersistenceBackend.Public);
 
-// Then read the URL after first save:
-var url = _logo.PublicUrl;  // null until first save completes
-
 // Explicitly target a postgres DB of the app's own
 private readonly PersistentSessionReactive<long> _counter
     = new(0, backend: PersistenceBackend.Postgres, postgresDatabase: "main");
+```
+
+Read the public URL from a method, once a save has happened:
+
+```csharp
+var url = _logo.PublicUrl;  // null until first save completes
 ```
 
 Every app gets a built-in Postgres database named `app`. Nothing declares it and nothing has to
