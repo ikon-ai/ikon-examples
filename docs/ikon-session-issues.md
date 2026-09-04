@@ -47,6 +47,8 @@ evidence.
 - **CLI** — `ikon app issues` lists what is wrong right now; `--state likely-fixed` is the review
   queue, `--deployment-version` answers "did my deploy break this". `ikon app issues show <id>`
   has the full detail and sample; `ikon app issues set <id> --state …` changes the state.
+  `ikon app issues runs` lists the analysis runs behind the issues — an empty issue list means
+  either nothing is wrong or nothing has run yet, and only the run history tells them apart.
 - **Platform events** — a `session_issue_opened` event accompanies every new issue, so you can
   drive your own alerting from `ikon app events` or the events API.
 - **Email digest** — off unless asked for: one email per day to your organisation's admins, only
