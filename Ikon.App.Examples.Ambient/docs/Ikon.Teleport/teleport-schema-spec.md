@@ -94,7 +94,16 @@ Rules and generation behavior:
 A data schema may additionally declare `toml = true` (valid only together with `data = true`) when it describes a commented TOML config file such as `ikon-config.toml`. The generated C# root class then also carries:
 
 ```csharp
-public string ToToml(IReadOnlyDictionary<string, IReadOnlyList<string>>? extraLinesBySection = null)
+// AppProjectConfig is this repo's own toml-mode schema — the one behind ikon-config.toml.
+var config = new AppProjectConfig();
+string toml = config.ToToml();
+
+// extraLinesBySection appends raw lines: "" targets the root block, a section field name that
+// section, and any other key becomes a trailing [Key] block.
+string annotated = config.ToToml(new Dictionary<string, IReadOnlyList<string>>
+{
+    [""] = ["# written by the deploy step"],
+});
 ```
 
 which serializes the instance to TOML with the schema's doc comments emitted as `#` comments: root fields first (one blank line between blocks, each preceded by its doc lines), then one `[FieldName]` section per nested-typed root field in schema order, written compactly with the nested type's doc lines above the header. `extraLinesBySection` appends raw lines per section — key `""` targets the root block, a section field name targets that section, and any other key becomes a trailing `[Key]` block.
@@ -106,11 +115,14 @@ The writer supports exactly the flat two-level shape of such configs, enforced a
 Every data schema gives every generated C# class — root and nested — Teleport payload codecs without any wire-message machinery (a schema that declares `binary = true` fails the build: binary codecs are always generated for data schemas, so the key does not exist):
 
 ```csharp
-public void WriteToTeleport(TeleportWriter.TeleportObjectScope scope)
-public static X ReadFromTeleport(ReadOnlySpan<byte> data)
-public byte[] ToTeleportBytes()
-public static X FromTeleportBytes(ReadOnlySpan<byte> data)
+// PlayerProfile is a data schema; every data schema's root class gets these.
+var profile = new PlayerProfile { DisplayName = "Ada", Score = 12 };
+
+byte[] bytes = profile.ToTeleportBytes();
+PlayerProfile roundTripped = PlayerProfile.FromTeleportBytes(bytes);
 ```
+
+Every class also carries the scope-level pair the nested case uses — `WriteToTeleport(TeleportWriter.TeleportObjectScope scope)` and `ReadFromTeleport(ReadOnlySpan<byte>)` — which is what the root pair is built on.
 
 `ToTeleportBytes`/`FromTeleportBytes` wrap a standalone root object — no opcode, no `ProtocolMessage` attribute, no serializer registration, no version consts (nested object scopes inline the schema version), and no reset path: reads always populate a fresh instance. Field ids are the same xxHash32-of-name computation the wire generator uses, so the binary form of a config is an ordinary Teleport object.
 
@@ -266,11 +278,15 @@ Entry values are the data-mode scalar set: `string`, `bool`, `int32`, `int64`, `
 Generated C# per class with ledger entries:
 
 ```csharp
-public static readonly IReadOnlyList<string> RetiredKeys;   // the ledger's names
-public RetiredFields? GetRetiredFields();                    // what the last read captured, or null
-public RetiredFields GetOrCreateRetiredFields();             // populate before writing
-public void CopyRetiredFieldsFrom(T source);                 // carry the bag across a non-Teleport clone
-public sealed partial class RetiredFields { public bool? Enabled { get; set; } ... }
+IReadOnlyList<string> names = PlayerProfile.RetiredKeys;   // the ledger's names
+
+var loaded = PlayerProfile.FromTeleportBytes(stored);
+PlayerProfile.RetiredFields? captured = loaded.GetRetiredFields();   // null when the payload carried none
+
+// Populate before writing, and carry the bag across a clone the codec did not make.
+var next = new PlayerProfile { DisplayName = captured?.Nickname ?? loaded.DisplayName };
+next.GetOrCreateRetiredFields().Nickname = captured?.Nickname;
+next.CopyRetiredFieldsFrom(loaded);
 ```
 
 Every bag member is nullable — absent means the source carried no value. `GetRetiredFields` is a
@@ -562,5 +578,95 @@ The compiler emits these enums directly into the namespace without generating a 
 
 Together they form a closed, reversible system:
 `.tp` (schema) → `.tpx` (binary) ↔ `.json` (mirror)
+
+## 16. Serializing Hand-Written C# Types
+
+A `.tp` schema is the way to define a message that crosses SDKs. A C# type that only ever travels
+between .NET peers can skip the schema entirely and carry the `Ikon.Teleport` attributes instead: a
+source generator emits the same binary codecs and registers them, so the type serializes through the
+same runtime as a generated one.
+
+```csharp
+[Teleport]
+public sealed class SavedLayout
+{
+    // Pinned to the original name, so the C# property can be renamed without moving the field id.
+    [TeleportField("PanelName")]
+    public string Panel { get; set; } = "";
+
+    public int Width { get; set; }
+
+    // Recomputed on the receiving side, so it never goes on the wire.
+    [TeleportIgnore]
+    public bool IsWide { get; set; }
+}
+```
+
+`TeleportAttribute` serializes every instance property that has both a getter and a setter (`init`
+counts). A get-only property is skipped **silently** — a property meant to be on the wire simply
+will not be. A field is matched on read by the hash of its property name, so a rename is a quiet
+wire break in both directions unless `TeleportFieldAttribute` pins the id, either to another name
+(`[TeleportField("PanelName")]`) or to a literal id (`[TeleportField(0x1a2b3c4du)]`).
+`TeleportIgnoreAttribute` drops a property from the wire explicitly; on read it keeps whatever the
+constructor or initializer gave it. `TeleportAsStringAttribute` goes on an immutable value type with
+a canonical string form — `ToString()` on write, the `(string)` constructor on read — so it needs no
+settable properties and no `[Teleport]` of its own.
+
+Adding or removing a property is safe in both directions: an unknown field is skipped, a missing one
+leaves the property at its default.
+
+### Round-Tripping
+
+`TeleportSerializer` is the runtime entry point for any `[Teleport]` type:
+
+```csharp
+public static SavedLayout RoundTrip(SavedLayout layout)
+{
+    byte[] bytes = TeleportSerializer.Serialize(layout);
+    return TeleportSerializer.Deserialize<SavedLayout>(bytes);
+}
+```
+
+`SerializeToBuffer` is the allocation-free form, returning a `TeleportSerializedBuffer` whose array
+comes from a pool. Its `Memory` and `Span` are views over that array and are valid **only until
+disposal** — the next serialization overwrites it, so a captured `ReadOnlyMemory` read afterwards
+yields another message's bytes with no exception at all. Consume it inside the `using`, or copy with
+`ToArray()`:
+
+```csharp
+public static void SendPooled(SavedLayout layout, Action<ReadOnlySpan<byte>> send)
+{
+    // The array is returned to the pool on dispose, so the payload must be consumed in scope.
+    using TeleportSerializedBuffer buffer = TeleportSerializer.SerializeToBuffer(layout);
+    send(buffer.Span);
+}
+```
+
+A malformed or truncated payload throws `TeleportException`, whose `Error` property is a
+`TeleportError` naming the failure (`BadType`, `InvalidUtf8`, `DepthExceeded`, and so on) so a
+handler can distinguish a corrupt frame from a version mismatch.
+
+### Reading a Payload Directly
+
+The remaining `Ikon.Teleport` types are the decoding plumbing that generated codecs are written
+against. They are public because generated code lives in *your* assembly and has to reach them; you
+write them by hand only when reading a payload whose type you do not have.
+
+| Type                       | What it reads                                                        |
+|----------------------------|----------------------------------------------------------------------|
+| `TeleportObjectReader`     | Forward-only over one object's fields; `TryReadField` yields each     |
+| `TeleportField`            | One field: its `FieldId` plus the decoded value                       |
+| `TeleportArrayReader`      | Forward-only over an array; `TryGetUnmanagedSpan` for blittable ones  |
+| `TeleportArrayElement`     | One array element                                                     |
+| `TeleportDictReader`       | Forward-only over a dictionary; `TryReadEntry` yields each            |
+| `TeleportDictEntry`        | One key/value pair                                                    |
+| `TeleportValue`            | A decoded value with the typed `As*` accessors                        |
+| `TeleportType`             | The wire type tag that precedes every value                           |
+
+All four readers are `ref struct`s that borrow the source buffer, so they cannot outlive it, be
+captured in a lambda, or cross an `await`. The `As*` accessors require the wire `TeleportType` to
+match exactly — there is no numeric widening, and a mismatch throws `TeleportError.BadType` — so
+check `Value.Type` first. `AsString` additionally validates UTF-8 and throws on malformed bytes;
+`AsUtf8` is the raw alternative that never throws.
 
 ---

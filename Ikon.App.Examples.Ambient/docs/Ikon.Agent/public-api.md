@@ -371,7 +371,7 @@ namespace Ikon.Agent
     // storage: Persistence backend for apps, plans, threads, messages, and artifacts. A null value selects the non-durable in-memory backend (Storages.InMemory): state lives only for the process, so new Orchestrator() followed by ResumeAsync after a restart re-hydrates nothing. Pass an explicit durable adapter when the tree must survive a restart.
     // hostBudget: Optional host-wide budget merged with each persona's own Budget when computing a thread's remaining budget: the tighter cap wins per kind, and Budget.OnExceeded resolves to the stricter action of the two (Stop > AskUser > Continue) so a host stop-policy is never silently loosened by a persona budget, nor vice versa.
     // llm: Optional LLM backend override; null uses the platform default.
-    ctor(IStorage? storage = null, Budget? hostBudget = null, ILLM? llm = null)
+    ctor(IStorage? storage = null, Budget? hostBudget = null, ModelStream? llm = null)
     // Active (non-archived) apps only.
     Reactive<IReadOnlyList<AgentApp>> Apps { get; }
     IAsyncEnumerable<ThreadEvent> Events { get; }
@@ -389,7 +389,6 @@ namespace Ikon.Agent
     // name: Display name of the app.
     // brief: What the app is for; seeds the agents working in it.
     // id: Stable identity for the app. Omit it and the app gets a fresh random id, so a host that calls this again after a restart creates a second, empty app. Pass an id the host can recompute from its own state (a space id, a workspace key) and the same call after ResumeAsync re-uses the persisted app — same plans, same threads, same artifacts.
-    // ct: Cancellation token.
     Task<AgentApp> CreateAppAsync(string name, string brief = "", string? id = null, CancellationToken ct = default)
     // Get-or-create by name: matches the app on appName (default personaName) and the plan on planName, so a repeated call after ResumeAsync returns the SAME persisted thread. seedTask is posted only when the plan is first created, never onto an existing history. A repeated call naming a DIFFERENT personaName for an existing plan throws InvalidOperationException rather than returning the other persona's thread.
     Task<AgentThread> CreateThreadAsync(string personaName, Content seedTask, string? appName = null, string planName = "main", CancellationToken ct = default)
@@ -486,29 +485,6 @@ namespace Ikon.Agent
     ModelFamily Family { get; init; }
     int MaxOutputTokens { get; init; }
     double Temperature { get; init; }
-  // Rolls a flat sequence of PassRecords up per FSM stage; runs without a stage machine collapse into a single "(no stage)" bucket.
-  sealed record RunAnalysis
-    ctor(string ThreadId, int TotalPasses, int FailedPasses, long TotalInputTokens, long TotalCachedInputTokens, long TotalCacheCreationInputTokens, long TotalOutputTokens, TimeSpan TotalWallTime, IReadOnlyList<StageRollup> Stages)
-    int FailedPasses { get; init; }
-    IReadOnlyList<StageRollup> Stages { get; init; }
-    string ThreadId { get; init; }
-    long TotalCacheCreationInputTokens { get; init; }
-    long TotalCachedInputTokens { get; init; }
-    long TotalInputTokens { get; init; }
-    long TotalOutputTokens { get; init; }
-    int TotalPasses { get; init; }
-    TimeSpan TotalWallTime { get; init; }
-    static RunAnalysis From(IReadOnlyList<PassRecord> records)
-    // A log holding passes from more than one thread is aggregated together; filter the records and use From for per-thread analysis.
-    static Task<RunAnalysis> FromLogAsync(string jsonlPath, CancellationToken ct = default)
-  sealed class RunLog : IAsyncDisposable
-    // For terminal failures that happen OUTSIDE an LLM pass — in a driver loop, an interaction hook, result assembly — which never produce a PassCompleted of their own. The write is synchronous and locked against the pump, so the record is on disk before the caller returns.
-    void Append(PassRecord record)
-    // The file is created if absent, appended to if present; the parent directory is created if needed.
-    static RunLog Attach(Orchestrator orchestrator, string jsonlPath)
-    ValueTask DisposeAsync()
-    // Skips blank lines and unparseable entries rather than throwing — a truncated log from a crashed run is still useful.
-    static IAsyncEnumerable<PassRecord> ReadAsync(string jsonlPath, CancellationToken ct = default)
   static class RuntimeMessages
     // A user-role corrective the runner posts to recover a drive (the truncated-pass re-prompt). It steers the agent; it is never part of the user's conversation.
     const string NudgePayloadKind
@@ -529,17 +505,6 @@ namespace Ikon.Agent
     ThreadOptions? Options { get; init; }
     string PersonaName { get; init; }
     Content SeedTask { get; init; }
-  sealed record StageRollup
-    ctor(string Stage, int Passes, int FailedPasses, long InputTokens, long CachedInputTokens, long CacheCreationInputTokens, long OutputTokens, TimeSpan WallTime, int ToolCalls)
-    long CacheCreationInputTokens { get; init; }
-    long CachedInputTokens { get; init; }
-    int FailedPasses { get; init; }
-    long InputTokens { get; init; }
-    long OutputTokens { get; init; }
-    int Passes { get; init; }
-    string Stage { get; init; }
-    int ToolCalls { get; init; }
-    TimeSpan WallTime { get; init; }
   // A StatusOverride is applied before the pass's automatic GoIdle, so it wins over the default idle transition. Notes is attached to the just-completed pass's PassRecord for run analysis.
   sealed record StageTransitionResult<TState> where TState : struct, Enum
     ctor(TState? NextStage = null, ThreadTransition? StatusOverride = null, string? Notes = null)

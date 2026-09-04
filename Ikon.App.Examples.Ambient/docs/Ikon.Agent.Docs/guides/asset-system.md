@@ -206,11 +206,6 @@ namespace Ikon.Common.Core.Assets
     AssetUri With(AssetClass? assetClass = null, string? path = null, string? spaceId = null, string? userId = null, string? query = null)
     static bool operator ==(AssetUri left, AssetUri right)
     static bool operator !=(AssetUri left, AssetUri right)
-  // Serializes AssetUri as its canonical URI string so it round-trips correctly. Without this, System.Text.Json cannot reconstruct the immutable get-only struct and falls back to default(AssetUri) on deserialization.
-  sealed class AssetUriJsonConverter : JsonConverter<AssetUri>
-    ctor()
-    override AssetUri Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-    override void Write(Utf8JsonWriter writer, AssetUri value, JsonSerializerOptions options)
   readonly struct AssetWriteResult
     ctor(AssetWriteStatus status, AssetMetadata? metadata = null)
     bool IsConflict { get; }
@@ -222,8 +217,6 @@ namespace Ikon.Common.Core.Assets
     Conflict
     Skipped
     Success
-  interface IHashableStream
-    void SetSha256Hash(string? hash)
   interface IStorage : IAsyncDisposable
     Task DeleteAsync(AssetUri assetUri)
     Task<bool> ExistsAsync(AssetUri assetUri)
@@ -357,7 +350,7 @@ if (!await assets.ExistsAsync(settingsUri))
 }
 
 var metadata = await assets.GetMetadataAsync(settingsUri);
-Console.WriteLine($"Last updated {metadata.LastModified:O}");
+Log.Instance.Info($"Last updated {metadata.LastModified:O}");
 ```
 
 ### Streams and primitives
@@ -421,7 +414,7 @@ var query = new AssetQuery(folderUri)
 var entries = await assets.ListAsync(query);
 foreach (var entry in entries)
 {
-    Console.WriteLine($"{entry.AssetUri.Path} updated {entry.Metadata.LastModified:O}");
+    Log.Instance.Info($"{entry.AssetUri.Path} updated {entry.Metadata.LastModified:O}");
 }
 
 var nextPageToken = query.NextContinuationToken;

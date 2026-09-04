@@ -16,7 +16,11 @@ Return an `AssetUri` from `onUploadStart` and the platform routes the upload byt
 
 ```csharp
 private readonly Reactive<AssetUri?> _mediaAssetUri = new(null);
+```
 
+Then in the UI lambda:
+
+```csharp
 view.FileUpload(
     accept: ["video/*", "audio/*"],
     maxFileSize: 2L * 1024 * 1024 * 1024,
@@ -39,7 +43,15 @@ view.FileUpload(
 
 The callbacks hand back the `AssetUri` struct itself (`AssetUri?`), the same type every `Asset.Instance.*` call takes — pattern-match the null away and pass it straight on.
 
+For a progress bar, add `onUploadChunk`. It fires per chunk with a `FileUploadChunkArgs` — the
+`UploadId`, the client-supplied `FileName` and `MimeType`, the `Size` the client announced, this
+chunk's `Data`, and `BytesWritten` including this chunk. The `Data` is valid only for the duration
+of the callback, so copy it if you keep it. `onUploadComplete` fires only after the byte count and a
+recomputed SHA-256 both match, so a truncated or corrupted upload never reaches it.
+
 ### Step 2 — get a temp URL and probe with ffprobe
+
+Add `using System.Diagnostics;` — the scaffold's global usings do not carry it.
 
 ```csharp
 private static async Task<JsonDocument?> ProbeMediaAsync(AssetUri assetUri)
@@ -86,7 +98,7 @@ private static async Task<JsonDocument?> ProbeMediaAsync(AssetUri assetUri)
     }
     catch (OperationCanceledException)
     {
-        try { process.Kill(); } catch { }
+        try { process.Kill(); } catch { /* the probe is already being abandoned; a kill that fails changes nothing */ }
 
         return null;
     }
@@ -261,11 +273,6 @@ namespace Ikon.Common.Core.Assets
     AssetUri With(AssetClass? assetClass = null, string? path = null, string? spaceId = null, string? userId = null, string? query = null)
     static bool operator ==(AssetUri left, AssetUri right)
     static bool operator !=(AssetUri left, AssetUri right)
-  // Serializes AssetUri as its canonical URI string so it round-trips correctly. Without this, System.Text.Json cannot reconstruct the immutable get-only struct and falls back to default(AssetUri) on deserialization.
-  sealed class AssetUriJsonConverter : JsonConverter<AssetUri>
-    ctor()
-    override AssetUri Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-    override void Write(Utf8JsonWriter writer, AssetUri value, JsonSerializerOptions options)
   readonly struct AssetWriteResult
     ctor(AssetWriteStatus status, AssetMetadata? metadata = null)
     bool IsConflict { get; }
@@ -277,8 +284,6 @@ namespace Ikon.Common.Core.Assets
     Conflict
     Skipped
     Success
-  interface IHashableStream
-    void SetSha256Hash(string? hash)
   interface IStorage : IAsyncDisposable
     Task DeleteAsync(AssetUri assetUri)
     Task<bool> ExistsAsync(AssetUri assetUri)
@@ -412,7 +417,7 @@ if (!await assets.ExistsAsync(settingsUri))
 }
 
 var metadata = await assets.GetMetadataAsync(settingsUri);
-Console.WriteLine($"Last updated {metadata.LastModified:O}");
+Log.Instance.Info($"Last updated {metadata.LastModified:O}");
 ```
 
 ### Streams and primitives
@@ -476,7 +481,7 @@ var query = new AssetQuery(folderUri)
 var entries = await assets.ListAsync(query);
 foreach (var entry in entries)
 {
-    Console.WriteLine($"{entry.AssetUri.Path} updated {entry.Metadata.LastModified:O}");
+    Log.Instance.Info($"{entry.AssetUri.Path} updated {entry.Metadata.LastModified:O}");
 }
 
 var nextPageToken = query.NextContinuationToken;
