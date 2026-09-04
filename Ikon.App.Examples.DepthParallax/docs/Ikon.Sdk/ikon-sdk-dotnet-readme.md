@@ -21,9 +21,9 @@ dotnet add package Ikon.Sdk
 
 ## Quick Start
 
-```csharp
-using Ikon.Sdk;
+Add `using Ikon.Sdk;`, then:
 
+```csharp
 // Create configuration with API key authentication
 var config = new IkonClientConfig
 {
@@ -410,9 +410,9 @@ The SDK provides a per-client function registry system that allows you to regist
 
 Mark methods with the `[Function]` attribute and register the containing class:
 
-```csharp
-using Ikon.Common.Core.Functions;
+Add `using Ikon.Common.Core.Functions;`, then:
 
+```csharp
 public class MyFunctions
 {
     [Function(Description = "Greets a user by name")]
@@ -434,7 +434,9 @@ public class MyFunctions
             yield return i;
     }
 }
+```
 
+```csharp
 // Register all [Function] methods from an instance
 var myFuncs = new MyFunctions();
 client.FunctionRegistry.RegisterFromInstance(myFuncs);
@@ -490,8 +492,11 @@ public string LocalOnly() => "local";
 // External - advertised over the protocol and callable by other clients
 [Function(Visibility = FunctionVisibility.External)]
 public string SharedWithAll() => "shared";
+```
 
-// Override visibility at registration time
+Visibility can also be overridden where the instance is registered:
+
+```csharp
 client.FunctionRegistry.RegisterFromInstance(myFuncs, FunctionVisibility.External);
 ```
 

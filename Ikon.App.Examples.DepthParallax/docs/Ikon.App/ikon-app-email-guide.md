@@ -81,7 +81,7 @@ Inbound email delivered to the app's space is available as pages or as a lazy st
 
 ```csharp
 // One page at a time
-var page = await app.Email.GetInboxPageAsync(new InboxQuery(Limit: 50));
+var page = await app.Email.GetInboxPageAsync(new InboxQuery { Limit = 50 });
 
 // Or enumerate across pages; breaking out stops fetching
 await foreach (var summary in app.Email.EnumerateInboxAsync(new InboxQuery()))

@@ -76,7 +76,7 @@ Log.Instance.Info($"Game server listening at udp://{endpoint.PublicHost}:{endpoi
 // `await using` above releases the endpoint when it goes out of scope.
 ```
 
-Valid raw protocols: `EndpointProtocol.Tcp`, `Tls`, `Udp`. `Tls` enables TLS termination at the relay (your listener sees plaintext on the local port). For HTTP/HTTPS use `AppEndpointHost` with `secure: true` (default) or `secure: false`.
+The `RelayEndpoint` you get back carries the `LocalPort` to bind to, the `PublicHost`/`PublicPort` clients connect to, and the `Protocol`; it is `IAsyncDisposable`, and disposing releases the tunnel. Valid raw protocols: `EndpointProtocol.Tcp`, `Tls`, `Udp`. `Tls` enables TLS termination at the relay (your listener sees plaintext on the local port). For HTTP/HTTPS use `AppEndpointHost` with `secure: true` (default) or `secure: false`.
 
 ### Properties
 
@@ -100,38 +100,38 @@ app.OnStopping(async () =>
 
 Declare these on your `[App]` class (or any `[Cell]` type). They're discovered at deploy time and routed under `https://{space}.ikonai.app/api/...` — no `ikon-config.toml` entry needed.
 
+On the app class:
+
 ```csharp
-[App]
-public class MyApp(IApp<SessionIdentity, ClientParams> app)
+// The JSON body binds to your typed parameter. The binder is lenient — missing
+// fields default, unknown fields are ignored, and bad input returns a 4xx (it never throws a 500).
+[HttpPost("/sum")]
+public HttpResult Sum(SumRequest req) => HttpResult.Ok(new { sum = req.A + req.B });
+
+// Explicit verb, no body. Return a value (→ JSON), a string (→ text/plain), or an HttpResult.
+[HttpGet("/health")]
+public string Health() => "ok";
+
+// A third-party webhook is a normal [HttpPost]. It must be Auth = Public: the default (Grant)
+// makes the gateway reject the bare URL with 401 before the handler runs, and a provider like
+// Stripe calls a fixed URL it cannot carry a grant on. Read the signature header + raw body from
+// the injected Ikon.App.HttpRequest and verify it yourself — the signature IS the authorization.
+[HttpPost("/stripe", Auth = EndpointAuth.Public)]
+public async Task<HttpResult> Stripe(Ikon.App.HttpRequest req)
 {
-    public record SessionIdentity(string? UserId);
-
-    // The JSON body binds to your typed parameter. The binder is lenient — missing
-    // fields default, unknown fields are ignored, and bad input returns a 4xx (it never throws a 500).
-    [HttpPost("/sum")]
-    public HttpResult Sum(SumRequest req) => HttpResult.Ok(new { sum = req.A + req.B });
-
-    // Explicit verb, no body. Return a value (→ JSON), a string (→ text/plain), or an HttpResult.
-    [HttpGet("/health")]
-    public string Health() => "ok";
-
-    // A third-party webhook is a normal [HttpPost]. It must be Auth = Public: the default (Grant)
-    // makes the gateway reject the bare URL with 401 before the handler runs, and a provider like
-    // Stripe calls a fixed URL it cannot carry a grant on. Read the signature header + raw body from
-    // the injected Ikon.App.HttpRequest and verify it yourself — the signature IS the authorization.
-    [HttpPost("/stripe", Auth = EndpointAuth.Public)]
-    public async Task<HttpResult> Stripe(Ikon.App.HttpRequest req)
-    {
-        if (!VerifyStripe(req.Headers["Stripe-Signature"], req.Body)) return HttpResult.Unauthorized();
-        // ... process req.Body ...
-        return HttpResult.Ok();   // return 200 even on a skip to avoid the provider's retry storm
-    }
-
-    // An MCP tool, callable by an LLM / agent. Its JSON Schema is reflected from the signature.
-    [Mcp(Name = "add_numbers", Description = "Adds two integers")]
-    public int AddNumbers(int a, int b) => a + b;
+    if (!VerifyStripe(req.Headers["Stripe-Signature"], req.Body)) return HttpResult.Unauthorized();
+    // ... process req.Body ...
+    return HttpResult.Ok();   // return 200 even on a skip to avoid the provider's retry storm
 }
 
+// An MCP tool, callable by an LLM / agent. Its JSON Schema is reflected from the signature.
+[Mcp(Name = "add_numbers", Description = "Adds two integers")]
+public int AddNumbers(int a, int b) => a + b;
+```
+
+and the request body as a record beside it:
+
+```csharp
 public record SumRequest(int A, int B);
 ```
 
@@ -148,6 +148,24 @@ Exposes the method as an MCP tool for LLM/agent tool-use, reachable two ways:
 - **A per-tool POST endpoint** — each tool is ALSO at its own URL (derived from the method name, or `[Mcp("/custom")]` to override), with the request body bound the same way `tools/call` binds its arguments. So `[Mcp] int Add(int a, int b)` is callable as `POST /api/add {"a":1,"b":2}` → `3`, not just via JSON-RPC.
 
 Pair with `[McpResource]` for resources. (A method with both a verb-named REST attribute (`[HttpGet]`/`[HttpPost]` etc.) and `[Mcp]` uses the REST route for its direct HTTP surface; the tool still appears in the multiplexer.)
+
+Inside a tool, `McpCallContext.Current` exposes what the connection-level context cannot carry on an
+endpoint-dispatched call: the request's `CancellationToken`, its resolved `UserId` (null when no
+context is current or the claims carry none), the `SessionIdentityFields` it routed on, and an
+`OnProgress` callback taking a `ProgressUpdate` (`Progress`, an optional `Total`, an optional
+`Message`). Progress is a monotonic counter — keep `Total` constant across one call's updates so a
+client can render a stable percentage.
+
+### Scheduled Methods — `[Cron]`
+
+`[Cron("0 * * * *")]` runs a method on a schedule. It registers the method through the
+`FunctionRegistry` by name the way `[Function]` does, and applying it is enough — you do not also
+need `[Function]`, though combining them is fine. The handler takes no caller-supplied arguments; it
+may optionally accept a host-injected `CronContext` (the `FireTimeUtc` and the `Schedule` string)
+and/or a `CancellationToken` that signals app shutdown, in either order, mirroring how an
+`[HttpPost]` handler may accept an `HttpRequest`. Any other parameter fails registration at startup,
+because the scheduler has nothing to bind it to. **Overlap is allowed**: a tick fires even if the
+previous invocation is still running, so guard re-entrancy yourself when it matters.
 
 ### Public URLs, identity & minting
 
@@ -223,7 +241,7 @@ namespace Ikon.Sdk
     // Returns true only for ConnectionState.Offline — the connection failed (auto-reconnect exhausted or the server shut down), as opposed to the intentional ConnectionState.Idle state before connect or after a requested disconnect.
     static bool IsFaulted(this ConnectionState state)
   sealed class IkonClient : IAsyncDisposable
-    // config: Client configuration. Exactly one of ExternalConnectUrl, Local, ApiKey, Backend, or UserLogin must be specified.
+    // config: Client configuration. Exactly one of ExternalConnectUrl, Local, ApiKey, Backend, UserLogin, or ResumeAuthResponse must be specified.
     // throws ArgumentException: Thrown when configuration is invalid.
     ctor(IkonClientConfig config)
     // Null until the connection is established.
@@ -235,9 +253,10 @@ namespace Ikon.Sdk
     FunctionRegistry FunctionRegistry { get; }
     // Null until the connection is established.
     GlobalState? GlobalState { get; }
+    // Null until connected. Hand it to another client's IkonClientConfig.ResumeAuthResponse to have that client join this one's session. The auth ticket inside is a bearer credential for the session: give it only to a client you started yourself.
+    AuthResponse? LastAuthResponse { get; }
     ConnectionState State { get; }
     // Valid only from ConnectionState.Idle or ConnectionState.Offline; throws InvalidOperationException if already connecting or connected. Calling it from ConnectionState.Offline while the background reconnect loop is still running stops that loop first, so the connection this call makes is the one the client keeps (if the loop happened to finish connecting meanwhile, the call returns with that connection). On failure the client returns to ConnectionState.Offline and the exception is rethrown. The same failure is also delivered to the ErrorOccurredAsync event before it is rethrown, so a caller that both handles that event and catches this call sees the failure twice — guard against double handling if both paths are wired.
-    // ct: Cancellation token.
     // throws InvalidOperationException: Thrown if already connected or connecting.
     // throws Exception: Thrown on connection failure.
     Task ConnectAsync(CancellationToken ct = default)
@@ -300,7 +319,7 @@ namespace Ikon.Sdk
   class IkonClient.ErrorEventArgs : EventArgs
     ctor(Exception error)
     Exception Error { get; }
-  // Exactly one authentication mode — ExternalConnectUrl, Local, ApiKey, Backend, or UserLogin — must be set; the constructor rejects zero or multiple.
+  // Exactly one authentication mode — ExternalConnectUrl, Local, ApiKey, Backend, UserLogin, or ResumeAuthResponse — must be set; the constructor rejects zero or multiple.
   sealed record IkonClientConfig
     ctor()
     ApiKeyConfig? ApiKey { get; init; }
@@ -331,6 +350,8 @@ namespace Ikon.Sdk
     // Default: Teleport
     PayloadType PayloadType { get; init; }
     string? ProductId { get; init; }
+    // No authentication request is made; the transport opens straight from the response's entrypoints and auth ticket, so the server resumes that connection's client session — same session id and per-client state. Take it from IkonClient.LastAuthResponse. On a session minted with ikon-shared-session the original connection stays up beside this one; otherwise the server treats this as its replacement. There is nothing to re-authenticate with, so a lost transport is only recovered within the server's soft-disconnect grace.
+    AuthResponse? ResumeAuthResponse { get; init; }
     // Boot-snapshot variant id this capture client asks the app to render, carried into Context.SnapshotVariant. Empty for route captures and all live clients; only variant captures set this (together with IsSnapshot).
     string SnapshotVariant { get; init; }
     TimeoutConfig Timeouts { get; init; }
@@ -415,9 +436,9 @@ dotnet add package Ikon.Sdk
 
 ## Quick Start
 
-```csharp
-using Ikon.Sdk;
+Add `using Ikon.Sdk;`, then:
 
+```csharp
 // Create configuration with API key authentication
 var config = new IkonClientConfig
 {
@@ -804,9 +825,9 @@ The SDK provides a per-client function registry system that allows you to regist
 
 Mark methods with the `[Function]` attribute and register the containing class:
 
-```csharp
-using Ikon.Common.Core.Functions;
+Add `using Ikon.Common.Core.Functions;`, then:
 
+```csharp
 public class MyFunctions
 {
     [Function(Description = "Greets a user by name")]
@@ -828,7 +849,9 @@ public class MyFunctions
             yield return i;
     }
 }
+```
 
+```csharp
 // Register all [Function] methods from an instance
 var myFuncs = new MyFunctions();
 client.FunctionRegistry.RegisterFromInstance(myFuncs);
@@ -884,8 +907,11 @@ public string LocalOnly() => "local";
 // External - advertised over the protocol and callable by other clients
 [Function(Visibility = FunctionVisibility.External)]
 public string SharedWithAll() => "shared";
+```
 
-// Override visibility at registration time
+Visibility can also be overridden where the instance is registered:
+
+```csharp
 client.FunctionRegistry.RegisterFromInstance(myFuncs, FunctionVisibility.External);
 ```
 

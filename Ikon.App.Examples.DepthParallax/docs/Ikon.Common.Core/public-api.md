@@ -1,37 +1,6 @@
 # Ikon.Common.Core Public API
 
 namespace Ikon.Common.Core
-  static class AppRoutes
-    // True when path falls under a platform-reserved prefix (/ikon or /api, exactly or as a {prefix}/… subpath). The query string is ignored and a missing leading slash is tolerated; prefixes that merely share a leading substring (/ikonic) are NOT reserved.
-    static bool IsReservedPath(string path)
-    // A valid boot-snapshot variant id is 1-32 characters of lowercase ASCII letters, digits, or non-leading -.
-    static bool IsValidVariantId(string? variantId)
-    // Both inputs must already be canonical (TryCanonicalizePattern / TryCanonicalizeRoute). Matching is segment-wise: a literal matches by ordinal equality, * matches exactly one segment, and a final ** matches zero or more remaining segments — so / matches only the root and /** matches every path including the root.
-    static bool RoutePatternMatches(string canonicalPattern, string canonicalPath)
-    // A pattern is a canonical route whose segments may additionally be * (exactly one segment, any content) or a final ** (zero or more trailing segments). Rejects : anywhere (reserved as the seed-rule separator), ** before the final segment, and segments mixing literals with wildcards (such as a*b).
-    // pattern: The pattern as declared, e.g. /*/**
-    // canonical: The canonical form when the pattern is valid, otherwise empty
-    // error: Why the pattern was rejected, otherwise null
-    static bool TryCanonicalizePattern(string? pattern, out string canonical, out string? error)
-    // Canonicalizes a route declared for boot-snapshot capture: percent-decoded, no trailing slash (except the root /). Rejects routes with a query string, fragment, backslash, control characters, or a platform-reserved prefix.
-    // route: The route as declared, e.g. /live/listing/42
-    // canonical: The canonical form when the route is valid, otherwise empty
-    // error: Why the route was rejected, otherwise null
-    static bool TryCanonicalizeRoute(string? route, out string canonical, out string? error)
-    // A [BootSnapshot] seed rule has the form pattern:variantId. The pattern half is canonicalized via TryCanonicalizePattern; the variant id must satisfy IsValidVariantId.
-    static bool TryParseSeedRule(string? rule, out string pattern, out string variantId, out string? error)
-    // The platform reserves the entire /ikon subtree and /api. The load balancer intercepts these before they reach the app's SPA, so an app route under them can never be served.
-    static readonly string[] ReservedPathPrefixes
-  // Verifies platform-signed assertions (e.g. StepUpAssertion) issued by the Ikon platform backend. Fetches the platform JWKS from {platformBaseUrl}/.well-known/jwks.json on demand and caches the keys for five minutes, so a rotated signing key is picked up without recreating the verifier.
-  sealed class AssertionVerifier
-    ctor(string platformBaseUrl, HttpClient? httpClient = null, Func<DateTimeOffset>? clock = null)
-    // Generic JWT validation: JWKS-backed signature verification, standard iss/aud/exp checks, and (when present) an iat clock-skew guard. The caller owns disposing the returned JsonDocument; the returned exp lets a caller cache the validated result for the token lifetime. Use this where the step-up projection in VerifyAsync isn't relevant.
-    // token: The encoded JWT.
-    // expectedIssuer: Required iss value.
-    // expectedAudience: Required aud value (matches a string aud or any entry of an array aud).
-    // ct: Cancellation token.
-    Task<(JsonDocument Claims, DateTimeOffset ExpiresAt)> VerifyAndExtractClaimsAsync(string token, string expectedIssuer, string expectedAudience, CancellationToken ct = default)
-    Task<StepUpAssertion> VerifyAsync(string token, string expectedIssuer, string expectedAudience, CancellationToken ct = default)
   class AsyncLocalInstance<T> where T : new()
     ctor()
     // In global mode (the default) this lazily creates and returns a single process-wide singleton; in async-local mode (enabled via EnableAndInitAsyncLocalInstance) it returns the instance set on the current async flow — and THROWS AsyncLocalInstanceNotSetException when the flow has none (e.g. a Task.Run body or timer callback that did not inherit the context) rather than returning a shared fallback.
@@ -43,40 +12,13 @@ namespace Ikon.Common.Core
     static void SetAsyncLocalInstance(T value)
   sealed class AsyncLocalInstanceAttribute : Attribute
     ctor()
-  static class AsyncLocalInstanceDiagnostics
-    static bool WarnOnGlobalModeAccess
   // Thrown by AsyncLocalInstance<T>.Instance when async-local mode is enabled but no instance has been set on the current flow — e.g. accessing Log.Instance from a Task.Run body or a timer callback that did not inherit the async-local context.
   sealed class AsyncLocalInstanceNotSetException : Exception
-    ctor(string message)
   class BackendQuotaExceededException : UserException
     ctor(string key, int current, int limit, string friendlyMessage)
     int Current { get; }
     string Key { get; }
     int Limit { get; }
-  // Carries what a client says about ITSELF on the /connect request: the Teleport binary form of a ClientEnvironment, base64url-encoded. Unsigned, deliberately.
-  static class ClientEnvironmentCodec
-    static string Encode(ClientEnvironment environment)
-    static ClientEnvironment FromConnectToken(ConnectToken token)
-    // The environment to build this client's Context from: the one it presented, or — for a client that predates SdkCapabilities.ClientEnvironmentOnConnect and therefore sends none — the copy the token minter baked into the connect token.
-    static ClientEnvironment Resolve(string? presented, ConnectToken token)
-    static bool TryDecode(string? presented, out ClientEnvironment? environment)
-    const string QueryParam
-  // Encodes and verifies the connect token a client presents at /connect: the Teleport binary form of a ConnectToken with a truncated HMAC appended, base64url-encoded once. The key is the caller's per-server ConnectToken secret, never the platform secret.
-  static class ConnectTokenCodec
-    static string Encode(ConnectToken token, byte[] key)
-    // The ConnectToken.ExpiresAt value for a token minted now with this lifetime.
-    static uint ExpiresIn(TimeSpan lifetime)
-    static long ToUnixSeconds(DateTime utc)
-    // The signature is checked before the body is parsed, so a forged payload never reaches the deserializer.
-    // nowUtc: Supplied rather than read here so tests can drive the expiry boundary.
-    static ConnectTokenStatus TryDecode(string presented, byte[] key, DateTime nowUtc, out ConnectToken? token)
-    static readonly TimeSpan DefaultLifetime
-  enum ConnectTokenStatus
-    Valid
-    Malformed
-    BadSignature
-    // Correctly signed but past ConnectToken.ExpiresAt: the client should mint a fresh token rather than treat this as an unrecoverable authentication failure.
-    Expired
   // Thrown when an email send names a sender identity the platform cannot honour — the space has no verified sending domain, or the requested sender domain is not a verified sending domain of the space. Retrying without the sender fields sends from the platform's own address instead.
   class EmailSenderNotAvailableException : UserException
     ctor(string friendlyMessage, string? senderDomain = null, string? hint = null)
@@ -100,8 +42,16 @@ namespace Ikon.Common.Core
     Client
     Cell
     Server
-  static class ExceptionFormatter
-    static string FormatException(Exception ex, bool includeFilePaths = true)
+  // The class field every failure event carries, so a query can separate "someone was told something" from "we have a defect" without matching on message text. Values are stable strings — they are read by dashboards long after the code that wrote them has changed.
+  static class EventFailureClass
+    // An unhandled exception reached the top of a process. This is the bucket that should be near zero.
+    const string Defect
+    // Something we call refused or did not answer: a model provider, the backend, a spawned toolchain.
+    const string Dependency
+    // Not a failure at all — a confirmation the caller has to give, or a deliberate stop. Recorded so the outcome is visible, never counted as an error.
+    const string Expected
+    // The caller asked for something impossible or malformed, and was told so. Not a defect.
+    const string UserError
   // Resilient conversions between loosely typed LLM/tool payloads and strongly typed function parameters/results: primitives, arrays (including single-item arrays), Newtonsoft JSON tokens, with a System.Text.Json fallback.
   static class ExtendedCast
     static T? Convert<T>(object? value)
@@ -112,12 +62,6 @@ namespace Ikon.Common.Core
   static class ExtendedCastExtensions
     static T? ExtendedCast<T>(this object? value)
     static object? ExtendedCast(this object? value, Type targetType)
-  class FeatureFlagsStorage : AsyncLocalInstance<FeatureFlagsStorage>
-    ctor()
-    ImmutableDictionary<string, bool> ReadOnlyFeatureFlags { get; }
-    bool Get(string featureFlagName)
-    // The last write wins by default. Pass shouldOverride = false to keep an already-set value and only log the refused write.
-    void Set(string featureFlagName, bool value, bool shouldOverride = true)
   class FeatureNotEnabledException : UserException
     ctor(string featureKey, string friendlyMessage, string? hint = null)
     string FeatureKey { get; }
@@ -125,16 +69,6 @@ namespace Ikon.Common.Core
   class HighPrecisionTimestamp : AsyncLocalInstance<HighPrecisionTimestamp>
     ctor()
     DateTime UtcNow { get; }
-  static class HostUtils
-    // Clears ReadOnly attributes along the way (git marks its pack files read-only). Continues past individual failures and returns the paths that could not be deleted; an empty list means the directory is completely gone.
-    static IReadOnlyList<string> DeleteDirectoryBestEffort(string path)
-    // A racy probe: it binds and immediately closes a socket, so the port is free again the moment this returns — two concurrent scanners can pick the same port. usedPorts only de-duplicates within a single caller; to claim a port safely across concurrent starts in this process, go through PortLease.Take instead.
-    static int FindAvailableTcpAndUdpPort(int startPort, HashSet<int>? usedPorts = null)
-    static int FindAvailableUdpPortRange(int startPort, int count)
-    static string GenerateDeviceId()
-    static void OpenBrowser(string url)
-    static bool TcpPortIsAvailable(int port)
-    static bool UdpPortIsAvailable(int port)
   interface ILogInfo
     object LogInfo { get; }
   interface IMessageChannel
@@ -149,7 +83,7 @@ namespace Ikon.Common.Core
     // The AuthResponse from the most recent successful connect (entrypoints + auth ticket + client session). Cache it to drive a later ReconnectWithAuthResponseAsync.
     AuthResponse? LastAuthResponse { get; }
     DateTime ServerInitTime { get; set; }
-    // The current connect entry point (a legacy unsuffixed ConnectAsync overload exists but is obsolete and hidden from this listing): fetches the AuthResponse — entrypoints, auth ticket, and client session — via the /connect GET, then opens the transport.
+    // The connect entry point: fetches the AuthResponse — entrypoints, auth ticket, and client session — via the /connect GET, then opens the transport.
     Task ConnectAsync2(string connectUrl, CancellationToken ct = default)
     Task ConnectAsync2(string host, int port, bool useTls, CancellationToken ct = default)
     void OverrideConfigValues(string overrideConfigJson)
@@ -188,19 +122,6 @@ namespace Ikon.Common.Core
     // Serialize/deserialize with Newtonsoft (JSON5-tolerant: comments, trailing commas) instead of System.Text.Json.
     bool UseJson5 { get; }
     static readonly JsonOptions Compact
-  // One legacy_usage_observed event per distinct (feature, detail, caller space) key per process, never per call.
-  static class LegacyUsage
-    // Returns whether this was in fact the first observation of the key in this process — later observations of the same key are dropped.
-    // feature: One of the constants on this type.
-    // detail: The dimension that decides the retirement threshold — a version, a capability level, a type name. Empty when the feature has no such dimension.
-    // sessionId: The session the first observation came from, for tracing it back to a peer. Deliberately outside the dedup key: keying on it would emit one event per old client.
-    // callerSpaceId: The space that made the call, for the features whose peer is a different space than the reporting server. Part of the key, because deduplicating on the detail alone would name only whichever space happened to call first. Empty — the usual case — means the peer belongs to the reporting server's own space, which the backend already stamps onto every event, so nothing is lost by leaving it out.
-    static bool Report(string feature, string detail = "", int sessionId = 0, string callerSpaceId = "")
-    const string PluginConnectAsyncV1
-    const string ProtocolV1ActionCall
-    const string RemovedPluginRequested
-    const string RpcPayloadVersion
-    const string SdkCapabilityLevel
   class Log : AsyncLocalInstance<Log>
     ctor()
     IList<IScopeKey> CurrentScopes { get; }
@@ -268,8 +189,9 @@ namespace Ikon.Common.Core
     void LogEventHandler(object sender, LogEvent logEvent)
   class LogEvent
     ctor()
-    Dictionary<string, object?> GetParameters(bool includeExtraParameters = true)
-    string? GetParametersAsJson(bool includeExtraParameters = true)
+    // keepTokenScopeIds: false replaces the id of every token scope with the JWT placeholder. Only the usage payload passes true: the backend verifies those tokens to attribute the usage to a space.
+    Dictionary<string, object?> GetParameters(bool includeExtraParameters = true, bool keepTokenScopeIds = false)
+    string? GetParametersAsJson(bool includeExtraParameters = true, bool keepTokenScopeIds = false)
     int AsyncFlowId
     string EventName
     object? EventParameters
@@ -305,16 +227,6 @@ namespace Ikon.Common.Core
   struct LogScopeEntry
     string Id { get; set; }
     string Type { get; set; }
-  // A server whose secret is unset refuses to start, unless the local-development opt-out is set.
-  static class MachineAuthGuard
-    static bool AllowsInsecureMachineAuth()
-    // Logs either the refusal or the acknowledged insecure run, so the reason a process did or did not come up is always in the log.
-    // serverName: The server refusing to start, for the log line.
-    // configFieldName: The config field the operator has to set.
-    // secretValue: The value as configured; null or empty is the failure case.
-    static bool CanStartWithSecret(string serverName, string configFieldName, string? secretValue)
-    // Opt back in to accepting unauthenticated machine callers. Intended for local runs only; every use is logged.
-    const string AllowInsecureVariable
   static class NameConversions
     static string ToCamelCase(string input)
     static string ToDisplayName(string input)
@@ -373,22 +285,6 @@ namespace Ikon.Common.Core
     bool Equals(Dictionary<TKey, TValue>? x, Dictionary<TKey, TValue>? y)
     int GetHashCode(Dictionary<TKey, TValue> obj)
     static readonly ReactiveGlobalState.DictionaryComparer<TKey, TValue> Instance
-  // Encodes and verifies the route token a fleet proxy gateway uses to decide which ikon server a session may be forwarded to. The token authorizes a target, it does not authenticate a session: the ikon server still validates the connect token and the auth ticket.
-  static class RouteTokenCodec
-    static string Encode(RouteToken token, byte[] key)
-    // The RouteToken.ExpiresAt value for a token minted now with this lifetime.
-    static uint ExpiresIn(TimeSpan lifetime)
-    // The port range is checked here rather than at the dial site so that every caller gets it. The range is the same one the on-host proxy confines auth-ticket ports to: a token is signed by us, but a bug that minted port 22 should still not become an SSRF.
-    // nowUtc: Supplied rather than read here so tests can drive the expiry boundary.
-    static RouteTokenStatus TryDecode(string presented, byte[] key, DateTime nowUtc, int portRangeStart, int portRangeEnd, out RouteToken? token)
-    static readonly TimeSpan DefaultLifetime
-  enum RouteTokenStatus
-    Valid
-    Malformed
-    BadSignature
-    Expired
-    // Signed, unexpired, and still unusable: no host, or a port outside the range the gateway may dial — we minted something wrong, not a caller tampering.
-    InvalidTarget
   // Read-only view of the space-scoped secrets loaded from the Ikon backend. Apps receive one via app.Secrets; pipelines via host.Secrets. Manage values with ikon app secret set/list/delete. Rotating a secret while an app or pipeline is running only takes effect after a restart.
   sealed class Secrets
     // Throws InvalidOperationException when no secret with that key is set for this space; use TryGet for a non-throwing lookup.
@@ -405,8 +301,11 @@ namespace Ikon.Common.Core
   // Turns the service token in IKON_SERVICE_TOKEN into a short-lived access token that lives in this process only; the exchange result is cached per process.
   static class ServiceTokenExchanger
     static string? GetServiceToken()
+    // True when the service token's own expiry is within ExpiryWarningWindow of now, or already past. A missing or unparseable timestamp is never soon.
+    static bool IsExpiringSoon(string? serviceTokenExpiresAt, DateTimeOffset now)
     // Null when no service token is set or the exchange failed. Cached per environment, because one token is only ever valid for the environment that minted it.
     static IkonBackend.LoginInfo? TryExchange(IkonBackend.EnvironmentType environment)
+    static readonly TimeSpan ExpiryWarningWindow
     const string ServiceTokenVariable
   // The canonical routing-identity hash behind the wire SessionHash and the gateway's cell routing. Byte-compatible with the TypeScript backend's getHashFromObject: keys sorted by UTF-16 code units, values serialized with JSON.stringify escaping, SHA256, unpadded base64url. ROUTING only — persisted-reactive storage partitioning uses its own historical hash that must never change.
   static class SessionIdentityHash
@@ -429,57 +328,17 @@ namespace Ikon.Common.Core
     const string RoutesFunctionName
     // Quiescence window: a route is considered settled after this many ms without a UI update. The app's ready signal (ReadyFunctionName) always wins the race when it arrives first.
     const int SettleMs = 750
-  sealed class SnapshotRoutesFile
-    ctor()
-    List<string> Routes { get; set; }
-    List<string> VariantIds { get; set; }
-  // A reference to a Studio project as pasted by a user: either a bare space id or a full Studio project URL (https://host/apps/{spaceId}/...). A URL also carries the backend environment, inferred from its host; a bare id carries none.
-  readonly struct StudioProjectRef
-    ctor(string spaceId, IkonBackend.EnvironmentType? environment)
-    // Inferred from a URL host; null when the reference was a bare id.
-    IkonBackend.EnvironmentType? Environment { get; }
-    string SpaceId { get; }
-    static StudioProjectRef Parse(string reference)
   sealed class TelephonyNumberNotAvailableException : UserException
     ctor(string friendlyMessage, string? number = null, string? hint = null)
     // What to do about it, as a command the developer can run.
     string? Hint { get; }
     // The number that was asked for; null when the caller named none.
     string? Number { get; }
-  // Rate-limits repeated calls to the same action, keyed by the action's declaring type and method name — all call sites inside one method share a throttle bucket, so pass a distinct extraKey when a method throttles more than one action. Buckets are never evicted, so extraKey must come from a bounded set, never unbounded data like a session or message id.
-  static class Throttler
-    // action: The action to run at most once per interval. Its declaring type and method name form the throttle key.
-    // throttleInterval: Minimum time between two runs of the same action. Defaults to 1 second when null.
-    // extraKey: Distinguishes several throttled actions that share a declaring method. Must be from a bounded set — keys are never evicted.
-    static bool TryExecute(Action action, TimeSpan? throttleInterval = null, string? extraKey = null)
-  static class TokenRenewer
-    static DateTimeOffset GetTokenExpiry(string token)
-    // Whether the stored refresh token is still worth presenting, as far as the store itself knows. An entry with no recorded expiry — written before refreshExpiresAt was stored — counts as live.
-    static bool HasLiveRefreshToken(IkonBackend.LoginInfo? login)
-    static bool IsRenewalDue(DateTimeOffset expiry, DateTimeOffset now)
-    static Task<TokenRenewer.RenewalOutcome> RenewIfDueAsync(IkonBackend.EnvironmentType environment, CancellationToken cancellationToken)
-    // Synchronous recovery for a caller that has just found an expired access token. Returns what happened, so the caller can tell a credential the user must replace from a rotation that merely did not happen this time.
-    static TokenRenewer.RenewalOutcome TryRecoverExpiredToken(IkonBackend.EnvironmentType environment)
-    // Best-effort rotation for a caller whose access token is still valid but inside its last quarter. Returns the rotated store, or null when nothing rotated; failing costs nothing — the token in hand still works.
-    static IkonBackend.LoginInfo? TryRenewDueToken(IkonBackend.EnvironmentType environment)
-  // What a renewal attempt did, and — when it did not rotate — whose problem that is: only ChainExpired is the user's to fix.
-  enum TokenRenewer.RenewalOutcome
-    NotDue
-    Renewed
-    NotSignedIn
-    // A login with no refresh token: a --backend-token pair, or one predating the rotating flow.
-    NoRefreshToken
-    // The refresh chain is gone — revoked, detected as reused, or past its 90 days. Only signing in again fixes it.
-    ChainExpired
-    // Renewal did not happen for a reason that need not repeat: offline, throttled, or another process held the store lock.
-    Unavailable
   static class Toml
     static T From<T>(string toml) where T : class, new()
     static string To<T>(T obj) where T : class
   // User-facing errors displayed cleanly without stack traces. Use for expected error conditions like invalid input, missing files, or failed operations.
   class UserException : Exception
-    ctor(string message)
-    ctor(string message, Exception innerException)
 
 namespace Ikon.Common.Core.Assets
   sealed class Asset : AsyncLocalInstance<Asset>, IAsyncDisposable
@@ -603,11 +462,6 @@ namespace Ikon.Common.Core.Assets
     AssetUri With(AssetClass? assetClass = null, string? path = null, string? spaceId = null, string? userId = null, string? query = null)
     static bool operator ==(AssetUri left, AssetUri right)
     static bool operator !=(AssetUri left, AssetUri right)
-  // Serializes AssetUri as its canonical URI string so it round-trips correctly. Without this, System.Text.Json cannot reconstruct the immutable get-only struct and falls back to default(AssetUri) on deserialization.
-  sealed class AssetUriJsonConverter : JsonConverter<AssetUri>
-    ctor()
-    override AssetUri Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-    override void Write(Utf8JsonWriter writer, AssetUri value, JsonSerializerOptions options)
   readonly struct AssetWriteResult
     ctor(AssetWriteStatus status, AssetMetadata? metadata = null)
     bool IsConflict { get; }
@@ -619,8 +473,6 @@ namespace Ikon.Common.Core.Assets
     Conflict
     Skipped
     Success
-  interface IHashableStream
-    void SetSha256Hash(string? hash)
   interface IStorage : IAsyncDisposable
     Task DeleteAsync(AssetUri assetUri)
     Task<bool> ExistsAsync(AssetUri assetUri)
@@ -633,29 +485,6 @@ namespace Ikon.Common.Core.Assets
     event Func<AssetEventArgs, Task> AssetEventAsync
   static class StorageExtensions
     static Task AddEmbeddedFileStorageAsync(this Asset asset, Assembly? assembly = null, string resourceNamespace = "")
-
-namespace Ikon.Common.Core.Auth
-  sealed record StepUpAssertion
-    ctor(string Issuer, string Audience, string Subject, long IssuedAt, long ExpiresAt, string Jti, string UserId, string ChallengeId, string Purpose, string? SpaceId, string IdentityScheme, string? AssuranceLevel, string EidSubjectHash, string? IdentifierHash, string? VerifiedName, string? Birthdate, long VerifiedAt, string IdTokenHash, IReadOnlyDictionary<string, object?> RawClaims)
-    string? AssuranceLevel { get; init; }
-    string Audience { get; init; }
-    string? Birthdate { get; init; }
-    string ChallengeId { get; init; }
-    string EidSubjectHash { get; init; }
-    long ExpiresAt { get; init; }
-    string IdTokenHash { get; init; }
-    string? IdentifierHash { get; init; }
-    string IdentityScheme { get; init; }
-    long IssuedAt { get; init; }
-    string Issuer { get; init; }
-    string Jti { get; init; }
-    string Purpose { get; init; }
-    IReadOnlyDictionary<string, object?> RawClaims { get; init; }
-    string? SpaceId { get; init; }
-    string Subject { get; init; }
-    string UserId { get; init; }
-    long VerifiedAt { get; init; }
-    string? VerifiedName { get; init; }
 
 namespace Ikon.Common.Core.Email
   sealed record EmailAddress
@@ -905,9 +734,7 @@ namespace Ikon.Common.Core.Functions
     void SyncFunctionsFromGlobalState(GlobalState globalState)
     // Returns false rather than throwing when the name is unknown or resolves ambiguously (multiple overloads or multiple remote clients). Use GetFunction to resolve an overload by argument types.
     bool TryGetFunction(string name, out Function? function)
-    // functionName: Name of the function to wait for.
     // timeout: How long to wait before giving up. Defaults to 30 seconds when null.
-    // ct: Cancellation token.
     Task<bool> WaitForFunctionAsync(string functionName, TimeSpan? timeout = null, CancellationToken ct = default)
     event Action<ApprovalAuditEntry>? ApprovalCompleted
     // Fired when all of a client session's functions are removed because it disconnected (RemoveFunctionsByClientSessionId), so services tracking per-session state can release it promptly instead of discovering the dead session when a later push fails.
@@ -915,10 +742,6 @@ namespace Ikon.Common.Core.Functions
     event Action<Function>? FunctionRegistered
     event Action<string>? FunctionUnregistered
     event Action<PolicyEvaluationResult>? PolicyEvaluated
-  sealed class FunctionResultWithData<T>
-    ctor(T value, byte[] data)
-    byte[] Data { get; }
-    T Value { get; }
   // A dispatch-scope axis only — auth gating is a separate concern declared via policy attributes ([RequireLogin], [AllowAnonymous], [RequireRole], ...).
   enum FunctionVisibility
     Local
@@ -983,7 +806,6 @@ namespace Ikon.Common.Core.Functions.Policy
     bool IsApproved { get; }
     string? RejectionReason { get; }
     static ApprovalResult Approved()
-    // reason: The reason for rejection.
     static ApprovalResult Rejected(string? reason = null)
     override string ToString()
   enum ApproverType
@@ -997,27 +819,6 @@ namespace Ikon.Common.Core.Functions.Policy
     // args: The arguments being passed to the function.
     // context: The policy call context with metadata about the call.
     ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
-  interface IUsageLimitChecker
-    // context: The policy call context.
-    // args: The function arguments.
-    ValueTask<UsageLimitCheckResult> CheckAsync(PolicyCallContext context, object?[] args)
-  // Checks PolicyCallContext.IsAnonymous — guests carry a valid UserId (device-scoped) but are marked anonymous by the backend. Callers whose anonymity cannot be resolved (no client context) are denied too. AuthSessionId is deliberately not consulted: it is a per-login correlation id that cloud guests also have. Returns PolicyDecision.Denied with error code "login_required", which the Ikon client runtime catches to drive the deferred-login flow.
-  sealed class LoggedInPolicy : IFunctionPolicy
-    ctor()
-    string Name { get; }
-    int Priority { get; }
-    ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
-    const string LoginRequiredCode
-  sealed class PerSessionRateLimitPolicy : IFunctionPolicy
-    // limit: Maximum number of calls allowed per session in the window.
-    // windowSeconds: The time window in seconds.
-    // name: Optional policy name.
-    // priority: Policy evaluation priority (lower = earlier).
-    ctor(int limit, int windowSeconds, string? name = null, int priority = 50)
-    string Name { get; }
-    int Priority { get; }
-    ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
-    PolicyDelegate ToDelegate()
   static class PolicyArgs
     // args: The arguments array.
     // requiredIndices: The indices that must have non-null values.
@@ -1037,10 +838,8 @@ namespace Ikon.Common.Core.Functions.Policy
   abstract class PolicyAttribute : Attribute
     // Lower values are evaluated first.
     int Priority { get; set; }
-    abstract IFunctionPolicy CreatePolicy()
   sealed class PolicyAttribute<TPolicy> : PolicyAttribute where TPolicy : IFunctionPolicy, new()
     ctor()
-    override IFunctionPolicy CreatePolicy()
   sealed class PolicyCallContext
     ctor(Guid callId, string functionName, int callerSessionId, string? userId, string? tenantId, Guid? instanceId, bool isInternal, CancellationToken cancellationToken, string? authSessionId = null, bool? isAnonymous = null, DateTime? callTimestamp = null, IReadOnlyDictionary<string, object?>? additionalContext = null)
     IReadOnlyDictionary<string, object?>? AdditionalContext { get; }
@@ -1057,12 +856,6 @@ namespace Ikon.Common.Core.Functions.Policy
     bool IsInternal { get; }
     string? TenantId { get; }
     string? UserId { get; }
-  static class PolicyChain
-    // Requires all provided policies to allow. Policies are evaluated in priority order (lower first); evaluation stops at the first non-Allow decision.
-    // policies: The policies to chain together.
-    static IFunctionPolicy All(params IFunctionPolicy[] policies)
-    // policies: The policies to chain together.
-    static PolicyDelegate AllAsDelegate(params IFunctionPolicy[] policies)
   // A discriminated union with three states: Allow, Deny, or NeedsApproval — pattern match on the subtypes.
   abstract class PolicyDecision
     static PolicyDecision Allowed()
@@ -1094,8 +887,6 @@ namespace Ikon.Common.Core.Functions.Policy
   delegate PolicyDelegate
     ValueTask<PolicyDecision> PolicyDelegate(object?[] args, PolicyCallContext context)
   sealed class PolicyDeniedException : Exception
-    // reason: The reason for denying the call.
-    ctor(string? reason)
     // reason: The reason for denying the call.
     // code: Error code for programmatic handling (e.g., "rate_limit_exceeded", "bad_args").
     ctor(string? reason, string? code)
@@ -1129,26 +920,13 @@ namespace Ikon.Common.Core.Functions.Policy
     // policyType: The type of policy to create. Must implement IFunctionPolicy and have a parameterless constructor.
     ctor(Type policyType)
     Type PolicyType { get; }
-    override IFunctionPolicy CreatePolicy()
   sealed class RateLimitAttribute : PolicyAttribute
     // limit: Maximum number of calls allowed in the window.
-    // windowSeconds: The time window in seconds.
     ctor(int limit, int windowSeconds)
     int Limit { get; }
     // If true, the rate limit is per-session; if false (the default), it is global.
     bool PerSession { get; set; }
     int WindowSeconds { get; }
-    override IFunctionPolicy CreatePolicy()
-  sealed class RateLimitPolicy : IFunctionPolicy
-    // limit: Maximum number of calls allowed in the window.
-    // windowSeconds: The time window in seconds.
-    // name: Optional policy name.
-    // priority: Policy evaluation priority (lower = earlier).
-    ctor(int limit, int windowSeconds, string? name = null, int priority = 50)
-    string Name { get; }
-    int Priority { get; }
-    ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
-    PolicyDelegate ToDelegate()
   sealed class RequireApprovalAttribute : PolicyAttribute
     ctor()
     ApproverType ApproverType { get; set; }
@@ -1157,71 +935,14 @@ namespace Ikon.Common.Core.Functions.Policy
     string Reason { get; set; }
     // Only used when ApproverType is SpecificUser.
     string? UserId { get; set; }
-    override IFunctionPolicy CreatePolicy()
-  sealed class RequireApprovalPolicy : IFunctionPolicy
-    // reason: The reason why approval is required.
-    // name: Optional policy name.
-    // priority: Policy evaluation priority (lower = earlier).
-    ctor(string reason, string? name = null, int priority = 100)
-    // reason: The reason why approval is required.
-    // handler: The custom approval handler.
-    // name: Optional policy name.
-    // priority: Policy evaluation priority (lower = earlier).
-    ctor(string reason, ApprovalHandlerDelegate handler, string? name = null, int priority = 100)
-    string Name { get; }
-    int Priority { get; }
-    ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
-    // reason: The reason why approval is required.
-    // clientSessionId: The client session ID to ask for approval.
-    // name: Optional policy name.
-    // priority: Policy evaluation priority (lower = earlier).
-    static RequireApprovalPolicy ForClient(string reason, int clientSessionId, string? name = null, int priority = 100)
-    // reason: The reason why approval is required.
-    // userId: The user ID to ask for approval.
-    // name: Optional policy name.
-    // priority: Policy evaluation priority (lower = earlier).
-    static RequireApprovalPolicy ForUser(string reason, string userId, string? name = null, int priority = 100)
-    PolicyDelegate ToDelegate()
   // Guest (anonymous) callers are denied with the "login_required" error code. The Ikon client runtime intercepts this and triggers the deferred-login flow.
   sealed class RequireLoginAttribute : PolicyAttribute
     ctor()
-    override IFunctionPolicy CreatePolicy()
   // Internal callers (PolicyCallContext.IsInternal) bypass the check — same as LoggedInPolicy — because in-process callers are already trusted.
   sealed class RequireRoleAttribute : PolicyAttribute
     ctor(params string[] roles)
     bool RequireAll { get; set; }
     string[] RequiredRoles { get; }
-    override IFunctionPolicy CreatePolicy()
-  // Denies with code role_required (MissingRoleCode) when the caller lacks the role(s); roles are read from the user_roles (RolesContextKey) context key. Internal callers bypass the check.
-  sealed class RoleBasedPolicy : IFunctionPolicy
-    ctor(string[] required, bool requireAll, int priority)
-    string Name { get; }
-    int Priority { get; }
-    ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
-    const string MissingRoleCode
-    const string RolesContextKey
-  sealed class UsageLimitAttribute : PolicyAttribute
-    // checkerType: The type of checker to use. Must implement IUsageLimitChecker.
-    ctor(Type checkerType)
-    Type CheckerType { get; }
-    override IFunctionPolicy CreatePolicy()
-  sealed class UsageLimitCheckResult
-    bool Allowed { get; }
-    string? DenyCode { get; }
-    string? DenyReason { get; }
-    static UsageLimitCheckResult Allow()
-    // reason: The reason for denial.
-    // code: The error code (defaults to "usage_limit_exceeded").
-    static UsageLimitCheckResult Deny(string reason, string? code = "usage_limit_exceeded")
-  sealed class UsageLimitPolicy : IFunctionPolicy
-    // checker: The checker to use for evaluating usage limits.
-    // name: Optional policy name.
-    // priority: Policy evaluation priority (lower = earlier).
-    ctor(IUsageLimitChecker checker, string? name = null, int priority = 10)
-    string Name { get; }
-    int Priority { get; }
-    ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
-    PolicyDelegate ToDelegate()
 
 namespace Ikon.Common.Core.Protocol
   sealed class ActionFunctionRegister : IProtocolMessagePayload
@@ -1286,7 +1007,7 @@ namespace Ikon.Common.Core.Protocol
     List<string> ShapeNames { get; set; }
   sealed class AuthResponse : IProtocolMessagePayload
     ctor()
-    ctor(Context clientContext, Context serverContext, string certHash, List<Entrypoint> entrypoints, Dictionary<string, bool> featureFlags, string spaceId, string appSessionId, string ikonServerId, string primaryUserId, int keepaliveTimeoutMs, int serverCapability)
+    ctor(Context clientContext, Context serverContext, string certHash, List<Entrypoint> entrypoints, Dictionary<string, bool> featureFlags, string spaceId, string appSessionId, string ikonServerId, string primaryUserId, int keepaliveTimeoutMs, int serverCapability, int softRetryWindowMs)
     // The app session this server was provisioned for — the session's business identity, stable across the servers that run it.
     string AppSessionId { get; set; }
     string CertHash { get; set; }
@@ -1301,6 +1022,8 @@ namespace Ikon.Common.Core.Protocol
     string PrimaryUserId { get; set; }
     int ServerCapability { get; set; }
     Context ServerContext { get; set; }
+    // How long a dropped client's session and auth ticket stay resumable, in milliseconds. A reconnect within this window may retry soft (reusing the ticket); past it the server has let the session go. 0 means the server predates the field; clients fall back to their built-in window.
+    int SoftRetryWindowMs { get; set; }
     string SpaceId { get; set; }
     void CopyRetiredFieldsFrom(AuthResponse source)
     AuthResponse.RetiredFields GetOrCreateRetiredFields()
@@ -1428,6 +1151,7 @@ namespace Ikon.Common.Core.Protocol
     bool IsGlobal { get; set; }
     bool IsInternal { get; set; }
     bool IsReady { get; set; }
+    bool IsSharedSession { get; }
     // Copied from ConnectToken.IsSnapshot — marks the build-time snapshot-capture client.
     bool IsSnapshot { get; set; }
     bool IsSoftDisconnected { get; set; }
@@ -1459,6 +1183,8 @@ namespace Ikon.Common.Core.Protocol
     int ViewportHeight { get; set; }
     int ViewportWidth { get; set; }
     override string ToString()
+    // Set Parameters["ikon-shared-session"] = "true" on a connect token minted by a trusted host and every channel that later presents the session's auth ticket joins it instead of taking it over: all of them stay connected and each receives the server's messages for the session.
+    const string SharedSessionParameter
   enum ContextType
     Unknown
     Backend
@@ -1802,14 +1528,6 @@ namespace Ikon.Common.Core.Protocol
     CONSTANT_GROUP_MASK
   static class Opcodes
     static bool IsOpcodeInAnyGroup(Opcode opcode, Opcode groups)
-  static class PayloadCompression
-    // When non-null, Buffer is rented from the shared ArrayPool<T> and is OVERSIZED: its Length is the rented capacity, not the compressed size. Read only the first Length bytes (e.g. Buffer.AsSpan(0, Length)) — the tail is undefined. The caller OWNS the returned buffer and MUST hand it back with ReturnBuffer once done with it, or the pooled array leaks; when Buffer is null there is nothing to return.
-    static (byte[]? Buffer, int Length) Compress(ReadOnlySpan<byte> data)
-    // The transport bounds the COMPRESSED frame, not what it expands to — a frame of zeros inflates by orders of magnitude. This runs before the sender is authenticated, so without a ceiling a single frame can exhaust the process's memory. Buffer is rented from the shared ArrayPool<T> and is OVERSIZED: its Length is the rented capacity, not the decompressed size. Read only the first Length bytes (e.g. Buffer.AsSpan(0, Length)) — the tail is undefined. The caller OWNS the returned buffer and MUST hand it back with ReturnBuffer once done with it, or the pooled array leaks.
-    static (byte[] Buffer, int Length) Decompress(ReadOnlySpan<byte> compressedData, int estimatedSize = 0, int maxDecompressedSize = 0)
-    static void ReturnBuffer(byte[]? buffer)
-    static bool ShouldCompress(int payloadSize)
-    const int CompressionThreshold = 1024
   enum PayloadType
     Unknown
     MessagePack
@@ -1872,20 +1590,6 @@ namespace Ikon.Common.Core.Protocol
     Opcode MessageOpcode { get; }
     int MessageVersion { get; }
     int TlsPort { get; set; }
-  // Capability levels advertised by a connecting SDK via Context.SdkCapability (companion to Context.SdkType). Opaque and monotonically increasing — bump when adding a capability the ikon server must detect per connected client. 0 means a legacy client that predates capability negotiation.
-  static class SdkCapabilities
-    // Client sends its ClientEnvironment on the /connect request instead of expecting the token minter to have baked it into the connect token; the minter may leave the block out. A client below this level still has its environment carried in the token.
-    const int ClientEnvironmentOnConnect = 5
-    // Client handles the CORE_CLIENT_INITIALIZATION message — the function registry sent out-of-band right after the joining client's GlobalState — and registers those functions during connect. When any connected client advertises less than this, the server keeps the registry embedded in GlobalState.Functions for the whole session.
-    const int ClientInitializationMessage = 4
-    // Client unpacks the batched CORE_CLIENT_LIFECYCLE_BATCH message (client/user lifecycle events coalesced into one payload). When all connected external clients advertise at least this, the server coalesces and debounces those broadcasts; otherwise it falls back to per-event broadcasts. Internal (localhost) clients always receive the events immediately, unbatched.
-    const int ClientLifecycleBatching = 3
-    // Deliberately still ClientInitializationMessage: this constant is what the C# SDK and plugins advertise, and they do not yet send a ClientEnvironment on connect. Advertising a level a build does not implement is how a client talks itself out of data it needs — here it would tell the minter to omit an environment nobody then supplies. It moves when the C# side sends one.
-    const int Current = 4
-    // Client understands server functions delivered out-of-band rather than embedded in GlobalState.Functions. Superseded by ClientInitializationMessage: do not gate the functions-out-of-GlobalState decision on this level — it is too low and matches clients that predate the ClientInitialization message.
-    const int FunctionRegistryOutsideGlobalState = 1
-    // Client honors the keepalive timeout in AuthResponse.KeepaliveTimeoutMs instead of hard-coding it. When all connected clients advertise at least this, the server may stretch its keepalive send interval beyond the legacy client's fixed watchdog; otherwise it stays within the legacy-safe cap.
-    const int KeepaliveTimeoutNegotiation = 2
   enum SdkType
     Unknown
     DotNet
@@ -1893,11 +1597,6 @@ namespace Ikon.Common.Core.Protocol
     Cpp
     Dart
     Rust
-  // Capability levels advertised by the ikon server to a connecting client via AuthResponse.ServerCapability (companion to the client's Context.SdkCapability). Opaque and monotonically increasing — bump when adding a server behavior a client must detect to alter its connect handling. 0 means a legacy server that predates capability negotiation.
-  static class ServerCapabilities
-    // Server sends a ClientInitialization message immediately after the joining client's GlobalState, carrying the server/app function registry out-of-band. A client that sees at least this waits for that message during connect (so server functions are registered before the connect call returns) instead of expecting functions embedded in GlobalState.
-    const int ClientInitializationMessage = 1
-    const int Current = 1
   enum ServerRunType
     Local
     Cloud
@@ -2273,6 +1972,8 @@ namespace Ikon.Common.Core.Reactive
   class UserReactiveList<T> : ReactiveList<T>
     ctor()
     ctor(IEnumerable<T> initialItems)
+    // Seeds each user's list from their id the first time that user's scope resolves — the list counterpart of UserReactive<T>'s factory constructor. Without it the only way to give a per-user list a computed starting point was UserReactive<List<T>>, which is build error IKON002: a reactive wrapping a mutable collection notifies on assignment only, so a caller mutating the inner list silently updates nothing.
+    ctor(Func<string, IEnumerable<T>> initialItems)
     void AddFor(string userId, T item)
     void ClearFor(string userId)
     bool RemoveFor(string userId, T item)
@@ -2280,10 +1981,6 @@ namespace Ikon.Common.Core.Reactive
     IReadOnlyList<T> ValueFor(string userId)
 
 namespace Ikon.Common.Core.Scope
-  readonly struct BackendTokenScope : IScopeKey
-    ctor(string token)
-    string Id { get; }
-    string Name { get; }
   // Each time a client connects to the server, it gets a new ClientScope with a unique Id (session ID). This scope is used by ClientReactive<T> to partition state per client. Relationship to UserScope: Multiple ClientScopes can belong to the same user. For example, a user connected from two clients has two different ClientScope IDs but the same UserScope ID. Lifecycle: Active during UI rendering inside UI.Root(). Automatically established by the framework for each client iteration.
   readonly struct ClientScope : IScopeKey
     ctor(int sessionId)
@@ -2309,11 +2006,6 @@ namespace Ikon.Common.Core.Scope
     ctor(Guid id)
     Guid Id { get; }
     string Name { get; }
-  readonly struct RunScope : IScopeKey
-    ctor()
-    ctor(Guid id)
-    Guid Id { get; }
-    string Name { get; }
   readonly struct TenantScope : IScopeKey
     ctor(string tenantId)
     string Id { get; }
@@ -2333,48 +2025,73 @@ namespace Ikon.Common.Core.Scope
     string Name { get; }
 
 namespace Ikon.Common.Core.Signing
+  enum SignatoryStatus
+    Pending
+    Signed
+    Rejected
+    Failed
   sealed record SignatureDocument
     ctor(string Filename, string MimeType, byte[] Bytes)
     byte[] Bytes { get; init; }
     string Filename { get; init; }
     string MimeType { get; init; }
   sealed record SignatureOrderRequest
-    ctor(string Purpose, IReadOnlyList<SignatureDocument> Documents, SignatureSigner Signer, string? CostAttributionKey = null, string? Title = null, string? ClientReturnUrl = null)
+    ctor(string Purpose, IReadOnlyList<SignatureDocument> Documents, SignatureSignatory Signatory, string? CostAttributionKey = null, string? Title = null, string? ClientReturnUrl = null)
     string? ClientReturnUrl { get; init; }
     string? CostAttributionKey { get; init; }
     IReadOnlyList<SignatureDocument> Documents { get; init; }
     string Purpose { get; init; }
-    SignatureSigner Signer { get; init; }
+    SignatureSignatory Signatory { get; init; }
     string? Title { get; init; }
   enum SignaturePolicy
     PkiSigning
     EidHub
-  sealed record SignatureSigner
-    ctor(SignaturePolicy Policy, string? Vendor = null, IReadOnlyList<string>? IdpNames = null, IReadOnlyList<string>? RequestedAttributes = null)
-    IReadOnlyList<string>? IdpNames { get; init; }
+  // The platform downloads the result from the signing provider, verifies it, and hands the signed bytes plus the evidence for each signatory to the requesting app. Apps should persist Documents as the system of record — the platform retention is short.
+  sealed record SignatureResult
+    ctor(string OrderId, DateTimeOffset SignedAt, IReadOnlyList<SignedDocument> Documents, IReadOnlyList<SignatureSignatoryResult> Signatories)
+    IReadOnlyList<SignedDocument> Documents { get; init; }
+    string OrderId { get; init; }
+    IReadOnlyList<SignatureSignatoryResult> Signatories { get; init; }
+    DateTimeOffset SignedAt { get; init; }
+  // IdentitySchemes names the national eIDs the signatory may authenticate with, in the platform's vocabulary (bankid-se, nbid, mitid, ftn, …); leave it null to let the signing provider offer its full set. RequestedAttributes selects from name, nationalId and dateOfBirth, and defaults to all three — an attribute the order does not ask for is not retained even when the eID reports it.
+  sealed record SignatureSignatory
+    ctor(SignaturePolicy Policy, IReadOnlyList<string>? IdentitySchemes = null, IReadOnlyList<string>? RequestedAttributes = null)
+    IReadOnlyList<string>? IdentitySchemes { get; init; }
     SignaturePolicy Policy { get; init; }
     IReadOnlyList<string>? RequestedAttributes { get; init; }
-    string? Vendor { get; init; }
-  // The platform downloads the result from the upstream signing vendor, hashes it, and hands the signed bytes plus evidence metadata to the requesting app. Apps should persist Bytes as the system of record — the platform retention is short.
+  // Signer is null until this party has actually signed. IdentityScheme and AssuranceLevel on it describe how strongly somebody authenticated, never who: if the ceremony link is a bearer token that anyone holding the URL can complete, compare SignatureSignerIdentity.FullName against the party you addressed it to.
+  sealed record SignatureSignatoryResult
+    ctor(SignatoryStatus Status, string? RejectionReason, SignatureSignerIdentity? Signer)
+    string? RejectionReason { get; init; }
+    SignatureSignerIdentity? Signer { get; init; }
+    SignatoryStatus Status { get; init; }
+  // FullName, GivenName, FamilyName and DateOfBirth are present only when the order requested the matching attribute and the eID supplied it; DateOfBirth is an ISO 8601 calendar date. The national identity number itself is never returned — NationalIdHash and SubjectHash are keyed by a platform secret, so they correlate two ceremonies by the same person but cannot be recomputed by an app or compared against a number it holds. EvidenceToken is the provider's own signed attestation of this identity, verifiable against EvidenceKeySet, where the provider issues one.
+  sealed record SignatureSignerIdentity
+    ctor(string? FullName, string? GivenName, string? FamilyName, string? DateOfBirth, string? NationalIdHash, string? SubjectHash, string? IdentityScheme, string? AssuranceLevel, DateTimeOffset? SignedAt, string? EvidenceToken, string? EvidenceKeySet)
+    string? AssuranceLevel { get; init; }
+    string? DateOfBirth { get; init; }
+    string? EvidenceKeySet { get; init; }
+    string? EvidenceToken { get; init; }
+    string? FamilyName { get; init; }
+    string? FullName { get; init; }
+    string? GivenName { get; init; }
+    string? IdentityScheme { get; init; }
+    string? NationalIdHash { get; init; }
+    DateTimeOffset? SignedAt { get; init; }
+    string? SubjectHash { get; init; }
+  // Hash is the SHA-256 of Bytes as base64url without padding, already verified against the platform's copy by the time an app receives it.
   sealed record SignedDocument
-    ctor(string OrderId, byte[] Bytes, string MimeType, DateTimeOffset SignedAt, string SignedDocumentHash, string IdentityScheme, string? SignerNameHash, string? EvidenceLevel)
+    ctor(string Filename, string MimeType, byte[] Bytes, string Hash)
     byte[] Bytes { get; init; }
-    string? EvidenceLevel { get; init; }
-    string IdentityScheme { get; init; }
+    string Filename { get; init; }
+    string Hash { get; init; }
     string MimeType { get; init; }
-    string OrderId { get; init; }
-    DateTimeOffset SignedAt { get; init; }
-    string SignedDocumentHash { get; init; }
-    // The signer's legal name as the identity provider reported it, when the order requested the name attribute; null otherwise. This is what an app shows a user and checks against the signer it expected — SignerNameHash is keyed by a platform secret and can do neither.
-    string? SignerName { get; init; }
-    string? SignerNameHash { get; init; }
 
 namespace Ikon.Common.Core.Telephony
   sealed record SmsMessage
     // From: Who sent it, in E.164. Pass it to app.Telephony.SendSmsAsync to reply.
     // To: The number of the app's that received it.
     // Text: The message body.
-    // MessageId: The provider's id for the message.
     ctor(string From, string To, string Text, string MessageId)
     string From { get; init; }
     string MessageId { get; init; }

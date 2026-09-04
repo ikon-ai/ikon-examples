@@ -21,7 +21,11 @@ public class MathFunctions
     [Function(Name = "Add", Description = "Adds two numbers", Visibility = FunctionVisibility.External)]
     public static int Add(int a, int b) => a + b;
 }
+```
 
+Then register it:
+
+```csharp
 FunctionRegistry.Instance.RegisterFromType(typeof(MathFunctions));
 ```
 
@@ -34,7 +38,11 @@ public class GreetingFunctions(string greeting)
     [Function(Name = "Greet", Description = "Greets a person")]
     public string Greet(string name) => $"{greeting}, {name}!";
 }
+```
 
+Then register it:
+
+```csharp
 FunctionRegistry.Instance.RegisterFromInstance(new GreetingFunctions("Hello"));
 ```
 
@@ -68,13 +76,90 @@ public string GetPublicStatus() => "anyone can call this";
 ### Calling Functions
 
 ```csharp
-var result = FunctionRegistry.Instance.Call<int>("Add", [2, 3]);
-var result = await FunctionRegistry.Instance.CallAsync<string>("Greet", args: ["World"]);
+var sum = FunctionRegistry.Instance.Call<int>("Add", [2, 3]);
+var greeting = await FunctionRegistry.Instance.CallAsync<string>("Greet", args: ["World"]);
 ```
 
 ### Exposing a function over HTTP
 
 To expose a method as a public HTTP endpoint (a REST route or a third-party webhook), mark it `[HttpPost("/path")]` rather than `[Function]` — it is served under `https://{space}.ikonai.app/api/{path}`. (`[Function]` is for SDK/in-app calls and LLM tools, not inbound HTTP.) See the **HTTP endpoints & MCP tools** section under **Endpoints & Webhooks** for the handler-binding rules and URL details.
+
+### Policies and Approvals
+
+`[RequireLogin]`, `[AllowAnonymous]` and `[RequireRole]` answer "may this caller call this at all".
+A **policy** answers the questions that depend on the arguments, the time, or a human — rate limits
+of your own, an argument the caller is not allowed to pass, a spend that needs signing off.
+
+Write one by implementing `IFunctionPolicy` and attaching it with `[PolicyType(typeof(...))]`. The
+policy gets the arguments and a `PolicyCallContext` — `CallId`, `FunctionName`, `CallerSessionId`,
+`UserId`, `TenantId`, `InstanceId`, `IsInternal`, the `CallTimestamp`, an `AdditionalContext` bag,
+and a `CancellationToken`. Two of its fields are easy to misread: `AuthSessionId` is a per-login
+correlation id and **not** an authentication flag, and `IsAnonymous` is nullable — true for a guest,
+false for an authenticated user or machine, and null when the caller session has no resolvable
+client context at all.
+
+`PolicyArgs` reads the argument array without the casting ceremony: `Required<T>(args, i)` (throwing
+`PolicyDeniedException` when the argument is missing, null or the wrong type), `Optional<T>` with a
+default, `TryGet<T>`, and `HasAll(args, indices)`.
+
+```csharp
+public sealed class RefundCeilingPolicy : IFunctionPolicy
+{
+    public string Name => "refund-ceiling";
+
+    public int Priority => 50;
+
+    public ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
+    {
+        var amount = PolicyArgs.Required<decimal>(args, 0);
+
+        if (amount > 500m)
+        {
+            return new ValueTask<PolicyDecision>(
+                PolicyDecision.Denied($"Refunds above 500 are not automatic", "refund_too_large"));
+        }
+
+        return new ValueTask<PolicyDecision>(PolicyDecision.Allowed());
+    }
+}
+```
+
+`PolicyDecision` is a three-state union — pattern-match its subtypes, or build one with the
+factories. `PolicyDecision.Allowed()` lets the call through; `PolicyDecision.Denied(reason, code)`
+stops it, and the caller sees a `PolicyDeniedException` carrying that `Reason` and `Code` plus the
+`PolicyName` and `FunctionName`. Several policies on one function are ordered by `Priority`, lowest
+first, defaulting to 100.
+
+### Human Approval
+
+The third state is `PolicyDecision.RequireApproval(message)`, which suspends the call until a person
+signs off. `[RequireApproval]` is the declarative form: set the `Reason` shown to the approver and an
+`ApproverType` of `Caller`, `SpecificClient` (with `ClientSessionId`) or `SpecificUser` (with
+`UserId`).
+
+```csharp
+[Function(Visibility = FunctionVisibility.External)]
+[RequireLogin]
+[PolicyType(typeof(RefundCeilingPolicy))]
+[RequireApproval(Reason = "Refunds are paid out immediately", ApproverType = ApproverType.SpecificUser,
+    UserId = "finance-lead")]
+public static Task<string> RefundAsync(decimal amount)
+{
+    return Task.FromResult($"Refunded {amount}");
+}
+```
+
+The approver receives an `ApprovalContext`: the `FunctionName` and `Reason`, the `Args` and their
+`ArgsHash`, the `CallerSessionId` and originating `CallContext`, and the `ExpiresAt` after which
+`IsExpired()` is true. Its `TimeoutSeconds` is always at least `PolicyDecision.MinExpirySeconds`
+(30), defaulting to `DefaultExpirySeconds` (300). **The context carries only an
+`ApprovalTokenHash`** — the raw token goes to the designated approver over the protocol and nowhere
+else, and `ValidateToken` compares hashes in constant time, so never route the raw token anywhere
+but the approver.
+
+Passing a `handler:` to `RequireApproval` overrides how approval is obtained: an
+`ApprovalHandlerDelegate` takes the `ApprovalContext` and returns an `ApprovalResult`, built with
+`ApprovalResult.Approved()` or `ApprovalResult.Rejected(reason)`.
 
 ---
 
@@ -222,9 +307,7 @@ namespace Ikon.Common.Core.Functions
     void SyncFunctionsFromGlobalState(GlobalState globalState)
     // Returns false rather than throwing when the name is unknown or resolves ambiguously (multiple overloads or multiple remote clients). Use GetFunction to resolve an overload by argument types.
     bool TryGetFunction(string name, out Function? function)
-    // functionName: Name of the function to wait for.
     // timeout: How long to wait before giving up. Defaults to 30 seconds when null.
-    // ct: Cancellation token.
     Task<bool> WaitForFunctionAsync(string functionName, TimeSpan? timeout = null, CancellationToken ct = default)
     event Action<ApprovalAuditEntry>? ApprovalCompleted
     // Fired when all of a client session's functions are removed because it disconnected (RemoveFunctionsByClientSessionId), so services tracking per-session state can release it promptly instead of discovering the dead session when a later push fails.
@@ -232,10 +315,6 @@ namespace Ikon.Common.Core.Functions
     event Action<Function>? FunctionRegistered
     event Action<string>? FunctionUnregistered
     event Action<PolicyEvaluationResult>? PolicyEvaluated
-  sealed class FunctionResultWithData<T>
-    ctor(T value, byte[] data)
-    byte[] Data { get; }
-    T Value { get; }
   // A dispatch-scope axis only — auth gating is a separate concern declared via policy attributes ([RequireLogin], [AllowAnonymous], [RequireRole], ...).
   enum FunctionVisibility
     Local

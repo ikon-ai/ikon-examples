@@ -2,7 +2,7 @@
 
 ## Payments
 
-Charge your app's end users — subscriptions, one-off payments, refunds — via `app.Payments`. The Ikon backend owns the provider (Stripe, Surfboard, or Mollie) and pushes normalized events to your app; you only send commands and react, with no webhook to host. Enable once with `ikon app payments enable --provider stripe|surfboard|mollie`, then use the surface below.
+Charge your app's end users — subscriptions, one-off payments, refunds — via `app.Payments`. The Ikon backend owns the provider (Stripe, Surfboard, or Mollie) and pushes normalized events to your app; you only send commands and react, with no webhook to host. Enable once with `ikon app payments enable stripe|surfboard|mollie`, then use the surface below.
 
 ---
 
@@ -19,7 +19,7 @@ sends commands and reacts to events: there is no webhook to host and no payment 
 ## Enable a provider (once per app)
 
 ```bash
-ikon app payments enable --provider stripe      # Stripe is the generally-available provider
+ikon app payments enable stripe      # Stripe is the generally-available provider
 ikon app payments status                        # check onboarding / charges-enabled
 ```
 
@@ -144,9 +144,9 @@ await app.Payments.CreateOfferAsync(new OfferSpec("pro", "Pro",
 or
 
 ```
-ikon app payments offer create --id pro --name Pro --amount 999 --currency eur --interval month
+ikon app payments offer create pro --name Pro --amount 999 --currency eur --interval month
 ikon app payments offer list
-ikon app payments offer delete --id pro
+ikon app payments offer delete pro
 ```
 
 For Stripe this provisions a Product + Price (`lookup_key = offerId`); for providers without a catalog
@@ -280,7 +280,9 @@ as the authority.
 Gate a server `[Function]` on an active entitlement declaratively:
 
 ```csharp
+[Function(Visibility = FunctionVisibility.External)]
 [PaymentsRequireEntitlement("pro")]   // deny code: payments_entitlement_required
+public string ProOnlyReport() => "the paid-tier report";
 ```
 
 The call is denied unless the caller holds an active entitlement for the offer (resolved from the caller's
@@ -378,7 +380,7 @@ Mollie application fee, Surfboard Flow service-provider split), so the cut settl
 
 ```bash
 ikon app payments disable                    # remove every provider from the app
-ikon app payments disable --provider mollie  # remove just one
+ikon app payments disable mollie  # remove just one
 ```
 
 ## How it works (the mental model)

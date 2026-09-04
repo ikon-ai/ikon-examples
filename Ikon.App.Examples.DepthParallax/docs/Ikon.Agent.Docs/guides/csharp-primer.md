@@ -50,7 +50,7 @@ The codebase is intentionally NOT layered, NOT DDD-onion, NOT IUnitOfWork-around
 - **No factory factories.** A `Func<IFoo>` parameter beats `IFooFactory.Create()`.
 - **No "I" prefix on every type.** Interfaces only when there is a real second implementation today, not "for testing" speculation.
 - **No abstract base classes for one concrete class.** Just write the class.
-- **No `IUnitOfWork`, `IRepository<T>`, `IService` ceremony.** Talk to the platform's storage APIs directly (`Asset.Instance`, `app.Database("name")`, `PersistentReactive<T>`).
+- **No `IUnitOfWork`, `IRepository<T>`, `IService` ceremony.** Talk to the platform's storage APIs directly (`Asset.Instance`, `await app.DatabaseAsync("name")`, `PersistentReactive<T>`).
 - **No DI container.** The app is wired via primary constructor parameters. Don't pull in Microsoft.Extensions.DependencyInjection.
 - **No "Manager / Helper / Service / Provider" naming when a verb works.** `RoomScheduler` not `RoomManagementService`.
 - **No mock-heavy testing.** Tests run against real implementations or the platform's in-memory variants. Mocks are a smell, not a strategy.
