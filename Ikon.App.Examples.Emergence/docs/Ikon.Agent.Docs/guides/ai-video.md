@@ -68,10 +68,6 @@ var result = await enhancer.EnhanceVideoAsync(new VideoEnhancerConfig
 namespace Ikon.AI.VideoEnhancement
   interface IVideoEnhancer : IDisposable
     Task<VideoEnhancerResult> EnhanceVideoAsync(VideoEnhancerConfig config, CancellationToken cancellationToken = default)
-  class NonRetryableVideoEnhancerException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed class VideoEnhancer : IVideoEnhancer
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(VideoEnhancerModel model, IReadOnlyList<ModelRegion>? regions = null)
@@ -92,10 +88,6 @@ namespace Ikon.AI.VideoEnhancement
     int? TargetFps { get; init; }
     TimeSpan Timeout { get; init; }
     string? Url { get; init; }
-  class VideoEnhancerException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum VideoEnhancerModel
     TensorPixFpsBoost
     TensorPixUpscale2xUltra4
@@ -126,10 +118,6 @@ namespace Ikon.AI.VideoGeneration
     bool SupportsSeed { get; }
     bool SupportsTailImage { get; }
     bool SupportsTextToVideo { get; }
-  class NonRetryableVideoGeneratorException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed class VideoGenerator : IVideoGenerator
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(VideoGeneratorModel model, IReadOnlyList<ModelRegion>? regions = null)
@@ -191,10 +179,6 @@ namespace Ikon.AI.VideoGeneration
     VideoGeneratorResolution Resolution { get; init; }
     int? Seed { get; init; }
     TimeSpan Timeout { get; init; }
-  class VideoGeneratorException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum VideoGeneratorModel
     Kling26
     Kling30

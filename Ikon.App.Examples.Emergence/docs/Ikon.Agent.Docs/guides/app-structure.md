@@ -137,23 +137,65 @@ All files use `public partial class MyApp` and share the same constructor-inject
 Reduce `using` clutter with a GlobalUsings file:
 
 ```csharp
+global using Ikon.AI.Classification;
+global using Ikon.AI.Embeddings;
 global using Ikon.AI.Emergence;
+global using Ikon.AI.FileConversion;
+global using Ikon.AI;
 global using Ikon.AI.ImageGeneration;
 global using Ikon.AI.Kernel;
 global using Ikon.AI.LLM;
+global using Ikon.AI.OCR;
+global using Ikon.AI.SoundEffectGeneration;
 global using Ikon.AI.SpeechGeneration;
 global using Ikon.AI.SpeechRecognition;
+global using Ikon.AI.VideoEnhancement;
+global using Ikon.AI.VideoGeneration;
 global using Ikon.AI.WebSearching;
 global using Ikon.AI.WebScraping;
+global using Ikon.Agent;
 global using Ikon.App;
+global using Ikon.App.Http;
+global using Ikon.App.Payments;
+global using Ikon.App.Reactive;
+global using Ikon.Common.Core.Assets;
+global using Ikon.Common.Core.Functions;
+global using Ikon.Common.Core.Functions.Policy;
 global using Ikon.Common.Core.Reactive;
 global using Ikon.Common.Core.Scope;
+global using Ikon.Common.Core.Telephony;
 global using Ikon.Common.Core;
 global using Ikon.Common;
+global using Ikon.Parallax.Components.Charts;
+global using Ikon.Parallax.Components.DataTable;
+global using Ikon.Parallax.Components.ImageEditor;
 global using Ikon.Parallax.Components.Standard;
 global using Ikon.Parallax.Theming;
 global using Ikon.Parallax;
+global using Ikon.Resonance.Analysis;
+global using Ikon.Resonance.Core;
+global using Ikon.Resonance.Effects;
+global using Ikon.Resonance.Synth;
+global using Ikon.Resonance.Synth.Envelopes;
+global using Ikon.Resonance.Synth.Filters;
+global using Ikon.Resonance.Synth.Modulation;
+global using Ikon.Resonance.Synth.Moog;
+global using Ikon.Resonance.Synth.Oscillators;
+global using Ikon.Resonance.Synth.Sequencer;
+global using Ikon.Resonance.Synth.Voice;
+global using Ikon.Resonance;
 global using Ikon.Server;
+global using System.Collections.Concurrent;
+global using System.Collections.Generic;
+global using System.IO;
+global using System.Linq;
+global using System.Text;
+global using System.Text.Json.Serialization;
+global using System.Text.Json;
+global using System.Threading.Tasks;
+global using System.Threading;
+global using System;
+global using IView = Ikon.Parallax.UIView;
 ```
 
 ## SessionIdentity & ClientParameters
@@ -186,7 +228,7 @@ Examples:
 
 - URL query params auto-mapped if property names and types match
 - Each connected client has their own ClientParameters
-- Available via `app.Clients[clientId].Parameters`
+- Available via `app.Clients[clientId].Parameters`. The indexer returns `IClient<TClientParameters>?` — null for a client that has already left — so guard it rather than dereferencing. A client exposes just its `SessionId` and its `Parameters`.
 
 ### URL Format
 
@@ -276,7 +318,7 @@ app.Navigation.PathChangedAsync += async args =>
 
 // Change path programmatically
 await app.Navigation.SetPathAsync($"/{tab}");
-await app.Navigation.SetPathAsync(args.ClientSessionId, $"/{tab}", replace: true);
+await app.Navigation.SetPathAsync(clientSessionId, $"/{tab}", replace: true);
 ```
 
 **`/ikon` and `/api` are reserved — an app cannot own a route under them.** `AppRoutes` holds the one
@@ -318,23 +360,33 @@ Two folders at the app root, and one API over both:
 - Binaries in these folders offload to the Asset store automatically (git keeps small `.ikonasset` pointers; `app save`/`bundle`/`deploy` upload, `run`/`clone`/`restore` download). Nothing to run by hand.
 - `app.DataDirectory` remains as an escape hatch when a library needs a real filesystem path (read-only in cloud). Older apps with `frontend-node/public/` and `app/<ProjectName>/Data/` migrate by running `ikon app update`.
 
+### Reaching the Host From Outside the App Class
+
+`AppServices.Instance` is the ambient handle for code that has no `app` in scope — a static store
+class, a cell's helper. It carries `Secrets`, `DatabaseAsync`/`OpenDatabaseAsync` (the latter waits
+for readiness, then opens, which is the per-operation shape), `IsReady` and `WhenReadyAsync`, and
+`HostApp`. `HostApp` is set **only** in cell-host mode, where the session serves exactly one cell
+instance, and is null in an ordinary app instance — a cell shared by many per-user instances has no
+single app. A connected cell itself is an `ICell<TSessionIdentity>`, exposing the `Identity` it was
+keyed by.
+
 ### Other Host Services
 
 ```csharp
-app.GlobalState.SpaceId           // Current space ID
-app.GlobalState.ServerSessionId   // Id of this Ikon server instance
-app.GlobalState.SessionHash       // Hash of session identity params (logical session id)
-app.PublicUrl                     // The app's public URL (space access URL)
-app.JoinUrl(new { id = gameId })  // PublicUrl + URL-encoded query string from an anonymous object
-app.GlobalState.SessionUrl        // Session-specific access URL
-app.GlobalState.PrimaryUserId     // Static user ID of session owner
-app.GlobalState.FirstUserId       // First human user who joined (dynamically reassigned)
-app.GlobalState.GetClientContext(clientSessionId)  // Get client context; null if no such client is connected
-app.DataDirectory                 // Path to app's Data directory
-app.Databases                     // Database connection info (see Databases section)
-app.SessionIdentity               // Current session identity
-app.Clients[clientId].Parameters  // Client parameters
-app.ReactiveGlobalState.Clients   // Reactive client state
+var spaceId = app.GlobalState.SpaceId;                  // Current space ID
+var ikonServerId = app.GlobalState.IkonServerId;     // Id of this Ikon server instance
+var sessionIdentityHash = app.GlobalState.SessionIdentityHash;  // Hash of session identity params (logical session id)
+var publicUrl = app.PublicUrl;                          // The app's public URL (space access URL)
+var joinUrl = app.JoinUrl(new { id = gameId });         // PublicUrl + URL-encoded query string from an anonymous object
+var sessionUrl = app.GlobalState.SessionUrl;            // Session-specific access URL
+var primaryUserId = app.GlobalState.PrimaryUserId;      // Static user ID of session owner
+var firstUserId = app.GlobalState.FirstUserId;          // First human user who joined (dynamically reassigned)
+var clientContext = app.GlobalState.GetClientContext(clientSessionId);  // null if no such client is connected
+var dataDirectory = app.DataDirectory;                  // Path to app's Data directory
+var databases = app.Databases;                          // Database connection info (see Databases section)
+var identity = app.SessionIdentity;                     // Current session identity
+var parameters = app.Clients[clientId]?.Parameters;     // Client parameters; the indexer is null when that client is gone
+var clients = app.ReactiveGlobalState.Clients;          // Reactive client state
 ```
 
 ### Join URL & QR Code
@@ -374,10 +426,10 @@ Programmatic client-side actions (no user gesture required):
 // Every function targets the calling client (resolved via ReactiveScope.ClientId) by default
 await ClientFunctions.SetThemeAsync(Theme.Dark);           // persist: true by default; string overload for custom themes
 await ClientFunctions.GetMediaDevicesAsync();
-await ClientFunctions.StartAudioCaptureAsync(options);     // returns streamId
-await ClientFunctions.StartVideoCaptureAsync(source, options); // returns streamId
+await ClientFunctions.StartAudioCaptureAsync(audioOptions);     // returns streamId
+await ClientFunctions.StartVideoCaptureAsync(source, videoOptions); // returns streamId
 await ClientFunctions.StopCaptureAsync(streamId);
-await ClientFunctions.CaptureImageAsync(options);          // returns ClientImageCapture
+await ClientFunctions.CaptureImageAsync(imageOptions);          // returns ClientImageCapture
 await ClientFunctions.KeepScreenAwakeAsync(true);
 await ClientFunctions.GetLanguageAsync();
 await ClientFunctions.GetTimezoneAsync();
@@ -413,7 +465,11 @@ await app.SendMessageAsync(ProtocolMessage.Create(app.SessionId, new RequestIdrV
 
 ```csharp
 private readonly Reactive<bool> _isLoading = new(false);
+```
 
+Then in the UI lambda:
+
+```csharp
 view.Button([Button.PrimaryMd], _isLoading.Value ? "Loading..." : "Submit",
     disabled: _isLoading.Value,
     onClick: async () =>
@@ -436,9 +492,9 @@ if (_imageData.Value != null)
 ### Error Handling in Callbacks
 
 ```csharp
-onClick: async () =>
+view.Button([Button.PrimaryMd], text: "Run", onClick: async () =>
 {
     try { await RiskyOperation(); }
     catch (Exception ex) { Log.Instance.Warning(ex, "Operation failed"); }
-}
+});
 ```
