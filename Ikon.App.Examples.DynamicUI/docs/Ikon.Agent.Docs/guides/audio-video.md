@@ -6,7 +6,11 @@
 
 ```csharp
 private Audio Audio { get; } = new(app);
+```
 
+Then from anywhere in the app:
+
+```csharp
 // Three ways to send audio — pick by how delivery is paced:
 
 // 1. Speech (TTS or AudioChunks through the speech mixer): real-time paced, new speech
@@ -43,7 +47,11 @@ await Audio.CloseAllAsync();
 
 ```csharp
 private Video Video { get; } = new(app);
+```
 
+Then from anywhere in the app:
+
+```csharp
 // Receive video input from client camera/screen
 Video.VideoInputStreamBeginAsync += async args => { /* args.StreamId, args.Codec, args.Width, args.Height */ };
 Video.VideoInputFrameAsync += async args => { /* args.Data, args.FrameNumber, args.IsKey */ };
@@ -60,9 +68,34 @@ await Video.CloseAsync(streamId);
 await Video.CloseAllAsync();
 ```
 
-Use `CaptureButton` in the UI to start audio/video capture from the client. Render the captured stream to other clients with `view.VideoStreamCanvas(streamId: ...)`.
+Use `CaptureButton` in the UI to start audio/video capture from the client — or, for a microphone, its two ready-made forms `view.PushToTalkButton` (hold to talk) and `view.MicToggleButton` (tap on, tap off). Prefer those: they carry the standard permission and feedback behavior, including the enable-microphone step that must never be merged into the talk gesture. See the `push-to-talk-button` pattern before writing any mic UI. Render the captured stream to other clients with `view.VideoStreamCanvas(streamId: ...)`.
 
 Captured media always routes to the app on the server — `Video.VideoInputStreamBeginAsync` / `Audio.AudioInputStreamBeginAsync` fire there, and the other clients never receive the raw capture. The app decides any fan-out (e.g. `Audio.SendSpeech` / `Video.SendFrameAsync` with explicit targets).
+
+### What the Media APIs Hand You
+
+A stream the app sends out is described by an `AudioOutputStreamInfo` (`StreamId`, `TrackId`,
+`Codec`, `SampleRate`, `ChannelCount`) or a `VideoOutputStreamInfo` (`StreamId`, `TrackId`, `Codec`,
+`Width`, `Height`, `Framerate`).
+
+Clients report back on playback: `AudioPlaybackReportEventArgs` carries an `AudioPlaybackStatus`
+with the reporting `ClientSessionId`, the `TrackId`, an `AudioPlaybackState`, how much is buffered,
+and `PlayedDuration` — which is **null when the client cannot observe its own playout position**, as
+under WebRTC playback, so treat null as unknown rather than zero.
+
+Capture is configured with `ClientVideoCaptureOptions`, where every null property leaves that
+setting to the client: start from `DefaultCamera` or `DefaultScreen` and override only what you
+need. `ClientVideoCaptureSource` picks `Camera` or `Screen`, `ClientHardwareAcceleration` expresses
+a `PreferHardware`/`PreferSoftware` preference, and `PreferredCodecs` is a priority-ordered list of
+`ClientVideoCaptureCodec` (`H264`, `Vp8`, `Vp9`, `Av1`) — the client takes the first it can actually
+encode with and falls back to its own default if none work. Enumerated devices arrive as
+`ClientMediaDevice` records (`DeviceId`, `Label`, `GroupId`, and a `ClientMediaDeviceKind` of
+`AudioInput`, `VideoInput` or `Unknown`).
+
+When a press produces no transcript, `SpeechNotRecognizedAsync` fires with a
+`SpeechNotRecognizedReason`: `NoAudio`, `Silence`, `NoText` or `Error`. Exactly one of it and
+`SpeechRecognizedAsync` fires per completed segment, so any busy state latched when capture stopped
+must be released in both.
 
 ### Audio Effects & Mixer
 
@@ -74,25 +107,23 @@ using Ikon.Resonance.Effects;
 // Available effects: BitCrusherAudioEffect, ChorusAudioEffect, DelayAudioEffect,
 // ReverbAudioEffect, RobotVoiceAudioEffect, SaturationAudioEffect,
 // TelephoneAudioEffect, TremoloAudioEffect
+```
 
-// Add effects to a SpeechMixer
+Then add them to a mixer:
+
+```csharp
 var mixer = new SpeechMixer();
-mixer.AddSamples(container, effects: [new ReverbAudioEffect(), new DelayAudioEffect()]);
+mixer.AddSamples(chunk, effects: [new ReverbAudioEffect(), new DelayAudioEffect()]);
 ```
 
 ### Synthesis
 
 Build synthesizers with `Ikon.Resonance.Synth`:
 
-```csharp
-using Ikon.Resonance.Synth;
-using Ikon.Resonance.Synth.Oscillators;
-using Ikon.Resonance.Synth.Filters;
-using Ikon.Resonance.Synth.Envelopes;
-
-// Oscillators, filters, envelopes, Moog synth, sequencer
-// See Ikon.Resonance Public API reference below for full class listings
-```
+The synth namespaces — `Ikon.Resonance.Synth` and its `Oscillators`, `Filters`, `Envelopes`,
+`Modulation`, `Moog`, `Sequencer` and `Voice` children — are all in `GlobalUsings.cs` already, so
+oscillators, filters, envelopes, the Moog synth and the sequencer need no `using` of their own. The
+Ikon.Resonance API reference below lists the classes.
 
 ---
 
@@ -245,7 +276,6 @@ namespace Ikon.Resonance
     // sampleRate: Sample rate of the audio in Hz.
     // channelCount: Number of audio channels.
     // config: Optional silence remover configuration.
-    // ct: Cancellation token.
     static IAsyncEnumerable<float[]> FilterAsync(IAsyncEnumerable<float[]> source, int sampleRate, int channelCount, SilenceRemoverConfig? config = null, CancellationToken ct = default)
     // Returns the samples to forward — on speech onset the pre-buffered look-back audio is concatenated in front of the current chunk — or null when the chunk is silence that should be suppressed.
     // chunk: The audio samples to process. Expected to be interleaved float samples in [-1, 1].
@@ -310,24 +340,6 @@ namespace Ikon.Resonance
     double MaxPaddingTimeMs { get; init; }
     // RMS threshold below which effect tail padding stops. Default is 0.001 (~-60 dB), meaning padding continues until output is essentially silent.
     double PaddingThreshold { get; init; }
-  // The segmentation an always-listening voice app needs between "raw mic frames" and "transcribe and respond". Deterministic: time is counted in received samples, not wall-clock, so the same frame sequence always produces the same events; this assumes the source keeps delivering frames during silence (true for platform mic capture, which streams continuously while active). Push-based usage: call Process per audio chunk and act on the returned event. Stream-based usage: wrap an IAsyncEnumerable<T> source with DetectAsync.
-  sealed class TurnDetector
-    // sampleRate: Sample rate of the incoming audio in Hz (e.g. 48000).
-    // channelCount: Number of audio channels (e.g. 1 for mono).
-    // config: Optional configuration. When null, defaults tuned for conversational voice are used.
-    ctor(int sampleRate, int channelCount, TurnDetectorConfig? config = null)
-    // When the source completes, a still-open turn is flushed as a final TurnEventKind.TurnEnded event.
-    // source: The async enumerable producing audio chunks.
-    // sampleRate: Sample rate of the audio in Hz.
-    // channelCount: Number of audio channels.
-    // config: Optional turn detector configuration.
-    // ct: Cancellation token.
-    static IAsyncEnumerable<TurnEvent> DetectAsync(IAsyncEnumerable<float[]> source, int sampleRate, int channelCount, TurnDetectorConfig? config = null, CancellationToken ct = default)
-    // Reports the end of the audio stream. A confirmed turn still in progress is finalized and returned as a TurnEventKind.TurnEnded event; otherwise returns null. The detector is reset either way.
-    TurnEvent? Flush()
-    // Processes one audio chunk (interleaved float samples in [-1, 1]) and returns the transition it caused, or null when nothing changed.
-    TurnEvent? Process(ReadOnlyMemory<float> samples)
-    void Reset()
   // Immutable — construct a new config (and detector) instead of mutating a shared instance.
   sealed record TurnDetectorConfig
     ctor()
@@ -343,20 +355,6 @@ namespace Ikon.Resonance
     Func<ReadOnlyMemory<float>, bool>? SpeechClassifier { get; init; }
     // Silence duration that ends a turn. This window — not the level gate — provides the "hold through natural pauses" behavior, so mid-sentence breaths don't split a turn.
     TimeSpan TurnEndSilence { get; init; }
-  // Samples carries the utterance audio (interleaved float PCM, including pre-buffered onset audio) for TurnEventKind.SpeculativeTurnEnd and TurnEventKind.TurnEnded and is empty for the other kinds.
-  readonly struct TurnEvent
-    TimeSpan Duration { get; }
-    TurnEventKind Kind { get; }
-    float[] Samples { get; }
-  enum TurnEventKind
-    // The user has produced sustained speech (at least TurnDetectorConfig.MinSpeechDuration).
-    SpeechStarted
-    // Silence has lasted TurnDetectorConfig.SpeculativeSilence — the turn has probably ended. Carries the utterance audio so far, so downstream work (transcription, a reply) can start early. Followed by either SpeechResumed (the guess was wrong) or TurnEnded.
-    SpeculativeTurnEnd
-    // Speech resumed after a SpeculativeTurnEnd — discard the speculative result.
-    SpeechResumed
-    // The turn has ended: silence lasted TurnDetectorConfig.TurnEndSilence (or the turn hit TurnDetectorConfig.MaxTurnDuration). Carries the complete utterance audio.
-    TurnEnded
   // Samples are written incrementally; the WAV header is finalized when the file is first accessed, after which adding samples throws.
   class WavFile : IDisposable
     // sampleRate: The sample rate in Hz (e.g., 44100, 48000).

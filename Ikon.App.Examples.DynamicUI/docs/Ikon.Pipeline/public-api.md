@@ -16,10 +16,6 @@ namespace Ikon.Pipeline
     // If set, overrides the schedule defined on the original [Pipeline] attribute. The same 5-minute minimum interval applies as on PipelineAttribute.Schedule.
     string? Schedule { get; }
   static class FunctionRegistryExtensions
-    // registry: The function registry.
-    // functionName: Name of the function to register.
-    // description: Optional description for the function.
-    // configInstance: Optional configuration instance for the pipeline.
     static void RegisterPipeline<TPipeline>(this FunctionRegistry registry, string functionName, string? description = null, object? configInstance = null) where TPipeline : class
   interface IPipelineHost<out TConfig>
     TConfig Config { get; }
@@ -31,7 +27,6 @@ namespace Ikon.Pipeline
     string SpaceId { get; }
   // For the special case where a path on the local filesystem is needed — normally use the Item.GetContent* methods. Item.GetLocalFile copies an Item's content to a local file; constructing a LocalFile directly gives a temporary file path to write to (no file exists until written), from which a new Item can be created. The MIME type determines the temporary file's extension and is used when creating an Item from the LocalFile. Dispose deletes the file only when it was created as temporary; a file supplied as existingFilePath is never deleted.
   sealed class LocalFile : IDisposable
-    // mimeType: MIME type of the file.
     // existingFilePath: Optional existing file path to use. If not provided, a temporary file path will be created.
     ctor(string mimeType, string? existingFilePath = null)
     string MimeType { get; }
@@ -47,7 +42,7 @@ namespace Ikon.Pipeline
     event Pipeline<T>.AsyncEventHandler<T>? Output
   delegate Pipeline<T>.AsyncEventHandler<in TEventArgs> where T : IItem<T>
     Task AsyncEventHandler<in TEventArgs>(object sender, TEventArgs e)
-  // Prefer the expression-based Transform/TransformStream/TransformBatch/TransformGroup overloads over their *Lambda counterparts: only expressions can run remotely, and only expressions cache correctly. An expression's captured variable values are hashed into the processor id, so changing a captured value invalidates that step's cache. A *Lambda step is ALSO cached, but under a name-only key with no captured-value fingerprint — change a captured value and the step silently replays the old cached output. To force a lambda step to re-run, pass skipCache: true.
+  // Prefer the expression-based Transform/TransformStream/TransformBatch/TransformGroup overloads over their *Lambda counterparts: only expressions can run remotely, and only expressions cache correctly. An expression's captured variable values are hashed into the processor id, so changing a captured value invalidates that step's cache. A *Lambda step is ALSO cached, but under a name-only key with no captured-value fingerprint — change a captured value and the step silently replays the old cached output. To force a lambda step to re-run, pass skipCache: true. Every Transform* overload takes the same optional step options: id overrides the derived processor id, tags label the step, skipCache bypasses caching for it, allowDuplicates keeps duplicate items the step produces, and maxRetries with retryableExceptionTypes bound which failures are retried and how often.
   sealed class Pipeline<T>.Branch where T : IItem<T>
     ctor(Pipeline<T> outer, ISourceBlock<T> sourceBlock, IDataflowBlock dataflowBlock)
     // predicate: Predicate that decides whether an item should continue through the branch.
@@ -58,116 +53,40 @@ namespace Ikon.Pipeline
     Pipeline<T>.Branch Filter<TObject>(int? maxParallelism = null)
     // Terminal: ends the branch. Use a Transform* method instead to keep processing downstream.
     // func: Action to invoke for each item.
-    // maxParallelism: Optional maximum degree of parallelism.
     void ForEach(Func<T, Task> func, int? maxParallelism = null)
     // branches: Branches to merge with the current branch.
     Pipeline<T>.Branch Merge(params Pipeline<T>.Branch[] branches)
     // Terminal: ends the branch. Sends each item to the pipeline's configured output(s).
     // maxParallelism: Optional maximum degree of parallelism for the output operation.
     void Output(int? maxParallelism = null)
-    // item: The item to post.
     // throws PipelineException: This branch is not the pipeline input branch, the maximum input item count has been exceeded, or the item was declined because the pipeline has been completed.
     void Post(T item)
-    // items: Items to be posted.
     // throws PipelineException: This branch is not the pipeline input branch, the maximum input item count has been exceeded, or an item was declined because the pipeline has been completed.
     void Post(List<T> items)
     // Await the returned task to observe completion and surface any errors from draining stream.
     // stream: Sequence producing items to post.
     // throws PipelineException: This branch is not the pipeline input branch, the maximum input item count has been exceeded, or an item was declined because the pipeline has been completed.
     Task Post(IAsyncEnumerable<T> stream)
-    // transformExpr: Expression representing the transformation.
-    // id: Optional processor identifier override.
-    // maxParallelism: Optional maximum degree of parallelism.
-    // maxRetries: Optional maximum number of retries.
-    // skipCache: Whether to bypass caching for this step.
-    // allowDuplicates: Whether duplicate items produced by this step should be preserved.
-    // tags: Processor tags.
-    // retryableExceptionTypes: Exception types that should trigger a retry.
     Pipeline<T>.Branch Transform(Expression<Func<T, Task<List<T>>>> transformExpr, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
     // transformExpr: Expression representing the batch transformation.
-    // id: Optional processor identifier override.
-    // maxParallelism: Optional maximum degree of parallelism.
-    // maxRetries: Optional maximum number of retries.
     // maxBatchSize: When specified, size of the batch to trigger processing.
-    // skipCache: Whether to bypass caching for this step.
-    // allowDuplicates: Whether duplicate items produced by this step should be preserved.
-    // tags: Processor tags.
-    // retryableExceptionTypes: Exception types that should trigger a retry.
     Pipeline<T>.Branch TransformBatch(Expression<Func<List<T>, Task<List<T>>>> transformExpr, string? id = null, int? maxParallelism = null, int? maxRetries = null, int? maxBatchSize = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
     // transformFunc: Function that transforms a batch of items.
-    // id: Optional processor identifier override.
-    // maxParallelism: Optional maximum degree of parallelism.
-    // maxRetries: Optional maximum number of retries.
     // maxBatchSize: When specified, size of the batch to trigger processing.
-    // skipCache: Whether to bypass caching for this step.
-    // allowDuplicates: Whether duplicate items produced by this step should be preserved.
-    // tags: Processor tags.
-    // retryableExceptionTypes: Exception types that should trigger a retry.
     Pipeline<T>.Branch TransformBatchLambda(Func<List<T>, Task<List<T>>> transformFunc, string? id = null, int? maxParallelism = null, int? maxRetries = null, int? maxBatchSize = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
     // groupKeySelectorExpr: Expression selecting the group key from an item.
     // transformExpr: Expression that processes a group of items.
-    // id: Optional processor identifier override.
-    // maxParallelism: Optional maximum degree of parallelism.
-    // maxRetries: Optional maximum number of retries.
-    // skipCache: Whether to bypass caching for this step.
-    // allowDuplicates: Whether duplicate items produced by this step should be preserved.
-    // tags: Processor tags.
-    // retryableExceptionTypes: Exception types that should trigger a retry.
     Pipeline<T>.Branch TransformGroup(Expression<Func<T, Task<string>>> groupKeySelectorExpr, Expression<Func<List<T>, Task<List<T>>>> transformExpr, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
     // groupKeyFunc: Function producing the group key for an item.
     // transformFunc: Function that transforms a group of items sharing the same key.
-    // id: Optional processor identifier override.
-    // maxParallelism: Optional maximum degree of parallelism.
-    // maxRetries: Optional maximum number of retries.
-    // skipCache: Whether to bypass caching for this step.
-    // allowDuplicates: Whether duplicate items produced by this step should be preserved.
-    // tags: Processor tags.
-    // retryableExceptionTypes: Exception types that should trigger a retry.
     Pipeline<T>.Branch TransformGroupLambda(Func<T, Task<string>> groupKeyFunc, Func<List<T>, Task<List<T>>> transformFunc, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
-    // transformFunc: Transformation function.
-    // id: Optional processor identifier override.
-    // maxParallelism: Optional maximum degree of parallelism.
-    // maxRetries: Optional maximum number of retries.
-    // skipCache: Whether to bypass caching for this step.
-    // allowDuplicates: Whether duplicate items produced by this step should be preserved.
-    // tags: Processor tags.
-    // retryableExceptionTypes: Exception types that should trigger a retry.
     Pipeline<T>.Branch TransformLambda(Func<T, Task<List<T>>> transformFunc, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
-    // transformExpr: Expression representing the transformation.
-    // id: Optional processor identifier override.
-    // maxParallelism: Optional maximum degree of parallelism.
-    // maxRetries: Optional maximum number of retries.
-    // skipCache: Whether to bypass caching for this step.
-    // allowDuplicates: Whether duplicate items produced by this step should be preserved.
-    // tags: Processor tags.
-    // retryableExceptionTypes: Exception types that should trigger a retry.
     Pipeline<T>.Branch TransformStream(Expression<Func<T, IAsyncEnumerable<T>>> transformExpr, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
     // transformExpr: Expression representing the stream transformation.
-    // id: Optional processor identifier override.
-    // maxParallelism: Optional maximum degree of parallelism.
-    // maxRetries: Optional maximum number of retries.
-    // skipCache: Whether to bypass caching for this step.
-    // allowDuplicates: Whether duplicate items produced by this step should be preserved.
-    // tags: Processor tags.
-    // retryableExceptionTypes: Exception types that should trigger a retry.
     Pipeline<T>.Branch TransformStream(Expression<Func<IAsyncEnumerable<T>, IAsyncEnumerable<T>>> transformExpr, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
     // transformFunc: Transformation function producing a stream of items.
-    // id: Optional processor identifier override.
-    // maxParallelism: Optional maximum degree of parallelism.
-    // maxRetries: Optional maximum number of retries.
-    // skipCache: Whether to bypass caching for this step.
-    // allowDuplicates: Whether duplicate items produced by this step should be preserved.
-    // tags: Processor tags.
-    // retryableExceptionTypes: Exception types that should trigger a retry.
     Pipeline<T>.Branch TransformStreamLambda(Func<T, IAsyncEnumerable<T>> transformFunc, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
     // transformFunc: Transformation function operating on a stream of items.
-    // id: Optional processor identifier override.
-    // maxParallelism: Optional maximum degree of parallelism.
-    // maxRetries: Optional maximum number of retries.
-    // skipCache: Whether to bypass caching for this step.
-    // allowDuplicates: Whether duplicate items produced by this step should be preserved.
-    // tags: Processor tags.
-    // retryableExceptionTypes: Exception types that should trigger a retry.
     Pipeline<T>.Branch TransformStreamLambda(Func<IAsyncEnumerable<T>, IAsyncEnumerable<T>> transformFunc, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
   sealed class Pipeline<T>.PipelineStatus where T : IItem<T>
     ctor()
@@ -207,32 +126,11 @@ namespace Ikon.Pipeline
     string? Schedule { get; }
     int Version { get; }
   sealed class PipelineException : Exception
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception innerException)
-  static class PipelineFunction
-    // functionName: Name of the function to register.
-    // description: Optional description for the function.
-    // configInstance: Optional configuration instance for the pipeline.
-    static Function Create<TPipeline>(string functionName, string? description = null, object? configInstance = null) where TPipeline : class
-  // Transport-friendly representation of a pipeline item for remote function calls. Contains the actual content data, not just a cache reference like Item.
-  readonly struct PipelineFunctionItem
-    byte[] Content { get; init; }
-    string MimeType { get; init; }
-    string Name { get; init; }
-    List<string>? Tags { get; init; }
-    static PipelineFunctionItem FromBytes(string name, byte[] content, string? mimeType = null, List<string>? tags = null)
-    static PipelineFunctionItem FromString(string name, string content, string? mimeType = null, List<string>? tags = null)
-    string GetContentAsString()
   sealed class PipelineRunner : IDisposable
     // Only one runner may exist per process at a time — the runner registers a process-global adapter, so constructing a second while one is still alive (even in a different async context) throws.
     ctor()
     void Dispose()
-    // config: Runner configuration.
     Task Initialize(PipelineRunner.Config config)
-    // userPipelineInstance: Optional user pipeline instance to use.
-    // userConfigInstance: Optional user configuration instance for the pipeline.
-    // usePersistentCache: Whether persistent caches should be used.
     // keepRunning: Whether the runner should keep watching for input.
     // outputPath: Optional output path that will be used instead of in-memory output.
     Task Initialize<TPipeline>(TPipeline? userPipelineInstance = default, object? userConfigInstance = null, bool usePersistentCache = false, string? cachePath = null, bool keepRunning = false, string? outputPath = null, bool allApiKeys = false) where TPipeline : class
@@ -243,7 +141,6 @@ namespace Ikon.Pipeline
     // items: Optional set of in-memory items to feed into the pipeline.
     // cancellationToken: Token used to cancel pipeline execution.
     IAsyncEnumerable<Item> RunAsEnumerable(List<Item>? items = null, CancellationToken cancellationToken = default)
-    // configJson: JSON serialized configuration.
     // onStatusUpdate: Callback to receive JSON serialized status updates.
     // cancellationToken: Token used to cancel pipeline execution.
     static Task RunInExternalAssembly(string configJson, Action<string> onStatusUpdate, CancellationToken cancellationToken)
@@ -302,14 +199,6 @@ namespace Ikon.Pipeline
     string TypeName { get; set; }
     object? UserConfigInstance { get; set; }
     object? UserPipelineInstance { get; set; }
-  // Invokes the PipelineRunner from an external assembly. For internal use only.
-  sealed class PipelineRunnerInvoker
-    // pipelineDllPath: Path to the pipeline executable bundle.
-    static Task<PipelineRunnerInvoker> Create(string pipelineDllPath)
-    // configJson: Serialized configuration for the run.
-    // onStatusUpdate: Callback invoked with serialized status updates.
-    // cancellationToken: Token that cancels the running pipeline.
-    Task Run(string configJson, Action<string> onStatusUpdate, CancellationToken cancellationToken)
   sealed class PipelineStatus
     ctor()
     int DuplicateItemCount { get; set; }
@@ -380,98 +269,36 @@ namespace Ikon.Pipeline.Items
     IReadOnlyList<string>? Tags { get; init; }
     // Called from processors during the run; the parent items feed the new item's hash. To seed inputs before Run, use CreateInitial.
     // parents: Parent items used to compute the new item's hash.
-    // name: Name of the new item.
-    // content: Content stream.
-    // mimeTypeOverride: MIME type of the content.
     // tags: Optional tags associated with the item.
-    // metadata: Optional metadata.
     static Task<Item> Create(List<Item> parents, string name, Stream content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
-    // parent: Parent item.
-    // name: Name of the new item.
-    // content: Content stream.
-    // mimeTypeOverride: MIME type of the content.
-    // tags: Optional tags.
-    // metadata: Optional metadata.
     static Task<Item> Create(Item parent, string name, Stream content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
-    // parents: Parent items.
-    // name: Name of the new item.
     // content: UTF-8 string content.
-    // mimeTypeOverride: MIME type of the content.
-    // tags: Optional tags.
-    // metadata: Optional metadata.
     static Task<Item> Create(List<Item> parents, string name, string content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
-    // parent: Parent item.
-    // name: Name of the new item.
     // content: UTF-8 string content.
-    // mimeTypeOverride: MIME type of the content.
-    // tags: Optional tags.
-    // metadata: Optional metadata.
     static Task<Item> Create(Item parent, string name, string content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
-    // parents: Parent items.
-    // name: Name of the new item.
-    // content: Binary content.
-    // mimeTypeOverride: MIME type of the content.
-    // tags: Optional tags.
-    // metadata: Optional metadata.
     static Task<Item> Create(List<Item> parents, string name, byte[] content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
-    // parent: Parent item.
-    // name: Name of the new item.
-    // content: Binary content.
-    // mimeTypeOverride: MIME type of the content.
-    // tags: Optional tags.
-    // metadata: Optional metadata.
     static Task<Item> Create(Item parent, string name, byte[] content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
-    // parents: Parent items.
-    // name: Name of the new item.
     // content: Local file containing the content.
-    // tags: Optional tags.
-    // metadata: Optional metadata.
     static Task<Item> Create(List<Item> parents, string name, LocalFile content, List<string>? tags = null, ItemMetadata? metadata = null)
-    // parent: Parent item.
-    // name: Name of the new item.
     // content: Local file containing the content.
-    // tags: Optional tags.
-    // metadata: Optional metadata.
     static Task<Item> Create(Item parent, string name, LocalFile content, List<string>? tags = null, ItemMetadata? metadata = null)
     // Serializes content to JSON. Use inside the pipeline; before Run use CreateInitialFromObject<T>.
-    // parents: Parent items.
-    // name: Name of the new item.
     // content: Object to serialize.
-    // tags: Optional tags.
-    // metadata: Optional metadata.
-    // jsonSerializerOptions: Optional JSON serializer options.
     static Task<Item> CreateFromObject<T>(List<Item> parents, string name, T content, List<string>? tags = null, ItemMetadata? metadata = null, JsonSerializerOptions? jsonSerializerOptions = null)
-    // parent: Parent item.
-    // name: Name of the new item.
     // content: Object to serialize.
-    // tags: Optional tags.
-    // metadata: Optional metadata.
-    // jsonSerializerOptions: Optional JSON serializer options.
     static Task<Item> CreateFromObject<T>(Item parent, string name, T content, List<string>? tags = null, ItemMetadata? metadata = null, JsonSerializerOptions? jsonSerializerOptions = null)
     // For seeding input items after the pipeline is initialized but before Run. Inside a running pipeline use Create instead.
-    // name: Name of the item.
     // content: Stream containing the item content.
     // mimeTypeOverride: Optional MIME type to use instead of auto detection.
     // tags: Optional tags associated with the item.
-    // metadata: Optional metadata for the item.
     static Task<Item> CreateInitial(string name, Stream content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
-    // name: Name of the item.
     // content: UTF-8 string content.
-    // mimeTypeOverride: Optional MIME type override.
     // tags: Optional tags associated with the item.
-    // metadata: Optional metadata for the item.
     static Task<Item> CreateInitial(string name, string content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
-    // name: Name of the item.
-    // content: Binary content.
-    // mimeTypeOverride: Optional MIME type override.
     // tags: Optional tags associated with the item.
-    // metadata: Optional metadata for the item.
     static Task<Item> CreateInitial(string name, byte[] content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
-    // name: Name of the item.
     // content: Object to serialize.
-    // metadata: Optional metadata for the item.
     // tags: Optional tags associated with the item.
-    // jsonSerializerOptions: Optional JSON serializer options.
     static Task<Item> CreateInitialFromObject<T>(string name, T content, ItemMetadata? metadata = null, List<string>? tags = null, JsonSerializerOptions? jsonSerializerOptions = null)
     Task<byte[]> GetContentAsBytes()
     Task<TObject> GetContentAsObject<TObject>()
@@ -520,12 +347,6 @@ namespace Ikon.Pipeline.Items
     Task<bool> IsVideoAsync()
     bool IsXml()
     Task<bool> IsXmlAsync()
-    // name: Optional new name.
-    // mimeType: Optional MIME type override.
-    // processId: Optional process identifier.
-    // groupId: Optional group identifier.
-    // tags: Optional tag collection.
-    // metadata: Optional metadata override.
     Item With(string? name = null, string? mimeType = null, Guid? processId = null, string? groupId = null, List<string>? tags = null, ItemMetadata? metadata = null)
     Item WithProcessId(Guid processId)
     const string ObjectMimeTypePrefix
@@ -555,86 +376,6 @@ namespace Ikon.Pipeline.Items
     IReadOnlyList<string>? TitleHierarchy { get; init; }
     DateTime? UpdatedAt { get; init; }
     ItemMetadata With(string? previousItemName = null, string? nextItemName = null, string? originalPath = null, string? originalName = null, DateTime? createdAt = null, DateTime? updatedAt = null, string? documentType = null, string? documentTitle = null, IReadOnlyList<string>? titleHierarchy = null, int? pageNumber = null, IReadOnlyList<int>? pageNumbers = null, int? pageCount = null, IReadOnlyDictionary<string, string>? properties = null, string? customJson = null)
-
-namespace Ikon.Pipeline.Remote.Bus
-  interface IRemoteCallBus
-    // message: Invocation request.
-    // cancellationToken: Token used to cancel the pending call.
-    Task<RemoteCallResult> Client_CallHostFunction(RemoteCallMessage message, CancellationToken cancellationToken = default)
-    // cancellationToken: Token used to cancel enumeration.
-    virtual IAsyncEnumerable<RemoteCallResult> Client_GetFunctionCallResults(CancellationToken cancellationToken = default)
-    // cancellationToken: Token used to cancel enumeration.
-    IAsyncEnumerable<RemoteCallMessage> Client_GetProcessorCalls(CancellationToken cancellationToken = default)
-    // result: Result generated by the host.
-    Task Client_HostProcessorCallResult(RemoteCallResult result)
-    // message: Invocation request.
-    Task Host_CallProcessor(RemoteCallMessage message)
-    // result: Result produced by the client.
-    virtual Task Host_ClientFunctionCallResult(RemoteCallResult result)
-    // cancellationToken: Token used to cancel enumeration.
-    virtual IAsyncEnumerable<RemoteCallMessage> Host_GetFunctionCalls(CancellationToken cancellationToken = default)
-    // cancellationToken: Token used to cancel enumeration.
-    IAsyncEnumerable<RemoteCallResult> Host_GetProcessorCallResults(CancellationToken cancellationToken = default)
-  sealed class RabbitMQRemoteCallBus : IDisposable, IRemoteCallBus
-    Task<RemoteCallResult> Client_CallHostFunction(RemoteCallMessage message, CancellationToken cancellationToken = default)
-    IAsyncEnumerable<RemoteCallResult> Client_GetFunctionCallResults(CancellationToken cancellationToken = default)
-    IAsyncEnumerable<RemoteCallMessage> Client_GetProcessorCalls(CancellationToken cancellationToken = default)
-    Task Client_HostProcessorCallResult(RemoteCallResult result)
-    // connectionString: RabbitMQ connection string.
-    // isHost: Whether the instance should accept host responsibilities.
-    // isClient: Whether the instance should accept client responsibilities.
-    // processorWhiteList: Optional whitelist restricting processors visible to the client.
-    static Task<RabbitMQRemoteCallBus> CreateAsync(string connectionString, bool isHost, bool isClient, List<string>? processorWhiteList = null)
-    void Dispose()
-    Task Host_CallProcessor(RemoteCallMessage message)
-    Task Host_ClientFunctionCallResult(RemoteCallResult result)
-    IAsyncEnumerable<RemoteCallMessage> Host_GetFunctionCalls(CancellationToken cancellationToken = default)
-    IAsyncEnumerable<RemoteCallResult> Host_GetProcessorCallResults(CancellationToken cancellationToken = default)
-    // processorNames: List of processor names to allow, or null to allow all.
-    void SetWhiteList(List<string>? processorNames)
-  sealed class RemoteCallMessage
-    ctor()
-    // processorName: Name of the processor to invoke.
-    // args: Arguments passed to the processor.
-    // correlationId: Correlation identifier for matching responses.
-    ctor(string processorName, object?[] args, Guid correlationId)
-    string[] ArgsJson { get; set; }
-    Guid CorrelationId { get; set; }
-    string ProcessorName { get; set; }
-    // index: Position of the argument in ArgsJson.
-    // throws PipelineException: index is outside the bounds of ArgsJson.
-    T? GetArg<T>(int index)
-  sealed class RemoteCallResult
-    ctor()
-    // processorName: Name of the processor that handled the request.
-    // correlationId: Correlation identifier shared with the request.
-    // resultJson: Serialized result payload.
-    // remoteCallResultType: Completion status of the call.
-    // errorMessage: Optional error description.
-    ctor(string processorName, Guid correlationId, string? resultJson, RemoteCallResultType remoteCallResultType, string? errorMessage = "")
-    Guid CorrelationId { get; set; }
-    string? ErrorMessage { get; set; }
-    string ProcessorName { get; set; }
-    string? ResultJson { get; set; }
-    RemoteCallResultType ResultType { get; set; }
-    // Check ResultType before calling this. On RemoteCallResultType.Failed (and any other outcome that carries no payload) ResultJson is null, so this returns default(T) — for a value type that is a legitimate-looking zero, indistinguishable from a real result. Read ErrorMessage when ResultType is RemoteCallResultType.Failed.
-    T? GetResult<T>()
-  enum RemoteCallResultType
-    Success
-    Streaming
-    StreamingDone
-    Failed
-
-namespace Ikon.Pipeline.Spec
-  sealed class PipelineSpec
-    ctor()
-    object? Config { get; set; }
-    string? Guid { get; set; }
-    object? Input { get; set; }
-    Dictionary<string, object?> OpenApiSpec { get; set; }
-    object? Result { get; set; }
-  static class PipelineSpecGenerator
-    static PipelineSpec Generate(Type pipelineType, bool includeExamples = true)
 
 namespace Ikon.Pipeline.State
   enum StateType

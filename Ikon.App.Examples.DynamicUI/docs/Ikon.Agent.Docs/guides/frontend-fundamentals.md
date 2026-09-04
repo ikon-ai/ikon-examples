@@ -304,6 +304,8 @@ const app = useIkonApp({
 
 Create an extension method on `UIView` that calls `view.AddNode` with your component type and a props dictionary. Use `view.CreateAction<T>` to create action IDs for callbacks.
 
+The caller attributes need `using System.Runtime.CompilerServices;` — the scaffold's global usings do not carry it.
+
 ```csharp
 public static class MyComponentExtensions
 {

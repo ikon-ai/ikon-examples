@@ -25,7 +25,6 @@ namespace Ikon.App
   // Register every route before calling StartAsync; routes added afterward are not served.
   sealed class AppEndpointHost : IAsyncDisposable
     // The relay tunnel is not allocated until StartAsync is called.
-    // app: The app instance.
     // secure: When true (the default) the public URL is https://… with TLS terminated at the relay. When false, plain http://….
     // webSocketKeepAliveInterval: WebSocket keep-alive ping interval. Defaults to 10 seconds.
     // stablePortName: When non-empty, the relay assigns a deterministic public port for this name, so PublicUrl stays the same across reconnects and process restarts. Empty = ephemeral.
@@ -92,7 +91,7 @@ namespace Ikon.App
     Task WhenReadyAsync()
   delegate AsyncEventHandler<in TEventArgs> where TEventArgs : EventArgs
     Task AsyncEventHandler<in TEventArgs>(TEventArgs e)
-  // Three ways to send audio, by pacing: SpeakAsync / SendSpeech are real-time paced by the speech mixer and new speech interrupts current speech with a fade — the default for spoken replies. StreamAsync plays a complete clip (decoded file, generated music) paced to real time, without the mixer's interruption semantics. SendImmediateAsync transmits at once with no pacing — only for audio already produced in real time or very short clips; a long clip sent this way arrives all at once and can overflow client audio buffers.
+  // Three ways to send audio, by pacing: SpeakAsync / SendSpeech are real-time paced by the speech mixer and new speech interrupts current speech with a fade — the default for spoken replies. StreamAsync plays a complete clip (decoded file, generated music) paced to real time, without the mixer's interruption semantics. SendImmediateAsync transmits at once with no pacing — only for audio already produced in real time or very short clips; a long clip sent this way arrives all at once and can overflow client audio buffers. The send methods share a targetIds parameter: a null value broadcasts to every connected client, a list restricts delivery to those client session ids.
   class Audio
     ctor(IAppBase app)
     AudioEncoderOptions? DefaultEncoderOptions { get; set; }
@@ -101,10 +100,8 @@ namespace Ikon.App
     ValueTask CloseAllAsync()
     // streamId: The stream to close. Null closes the default stream
     ValueTask CloseAsync(string? streamId = null)
-    // streamId: The stream id
     AudioOutputStreamInfo? GetOutputStreamInfo(string? streamId = null)
     // How far the client has actually rendered the audio and whether the user can currently hear it. Null when the client has not reported yet (older SDKs never report). Reports arrive roughly twice per second while audio is playing; check AudioPlaybackStatus.ReceivedAtUtc for staleness.
-    // clientSessionId: The client session id
     // streamId: The output stream. Null uses the default (speech mixer) stream
     AudioPlaybackStatus? GetPlaybackStatus(int clientSessionId, string? streamId = null)
     // Delivery is unpaced: the client receives everything as fast as it encodes. Callers own the real-time pacing, so feed this method chunks as they are produced, not a whole clip at once.
@@ -116,13 +113,10 @@ namespace Ikon.App
     // streamId: Optional id to distinguish between multiple concurrent audio streams. Required when sending multiple streams simultaneously
     // totalDuration: Optional total duration of the audio to be output, if known
     // encoderOptions: Optional encoder options. Falls back to DefaultEncoderOptions if not specified
-    // targetIds: Optional list of client session IDs to target. If null, broadcasts to all
     ValueTask SendImmediateAsync(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string? streamId = null, TimeSpan totalDuration = default, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null)
     // Real-time paced by the speech mixer, so fast producers (typical TTS) cannot overflow client audio buffers; a chunk with a new id interrupts current playback with a fade. Returns immediately — playback happens in the background.
     // audio: Audio chunk with samples
     // effects: Optional audio effects to apply
-    // analyzers: Optional audio analyzers
-    // targetIds: Optional list of client session IDs to target. If null, broadcasts to all
     void SendSpeech(AudioChunk audio, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null)
     // Completes at end of mixer playout (pause-aware, real-time paced), not at end of generation. Long texts are backpressure-paced against the bounded mixer buffer, so any length is safe. An interruption by a newer Speak call completes the task quietly.
     // text: The text to speak. Whitespace-only text is a no-op
@@ -131,8 +125,6 @@ namespace Ikon.App
     // instructions: Optional delivery instructions (tone, emotion, style). Support is model-specific; unsupported models ignore them
     // speed: Optional speaking speed, where 1.0 is normal (e.g. 0.8 is slower, 1.2 is faster). Null leaves the model's default. Support is model-specific; unsupported models ignore it
     // effects: Optional audio effects to apply
-    // analyzers: Optional audio analyzers
-    // targetIds: Optional list of client session IDs to target. If null, broadcasts to all
     // cancellationToken: Cancels generation and playback of this utterance
     Task SpeakAndWaitAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, string? instructions = null, double? speed = null, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null, CancellationToken cancellationToken = default)
     // Each call interrupts the previous one: it fades out whatever is still playing and cancels the prior call's generation, so a new utterance supersedes the old. Defaults to SpeechGeneratorModel.ElevenFlash25. Drive SpeechGenerator + SendSpeech yourself instead when you need overlapping speakers, playback that must not interrupt what is already playing, or raw access to the generated samples.
@@ -149,7 +141,6 @@ namespace Ikon.App
     // channelCount: Number of audio channels
     // streamId: Optional id to distinguish between multiple concurrent audio streams. Required when sending multiple streams simultaneously
     // encoderOptions: Optional encoder options. Falls back to DefaultEncoderOptions if not specified
-    // targetIds: Optional list of client session IDs to target. If null, broadcasts to all
     // cancellationToken: Stops the clip early, closing the stream cleanly
     Task StreamAsync(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, string? streamId = null, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null, CancellationToken cancellationToken = default)
     // Call once during app setup. Mutually exclusive with UseTurnDetection, and calling it a second time throws — either conflict raises InvalidOperationException.
@@ -158,7 +149,7 @@ namespace Ikon.App
     // requireCorrelatedStream: When true (default), only fires for streams initiated through a CaptureButton (those with a CorrelationId). Set false to transcribe every audio stream including ad-hoc ones.
     // language: Optional language hint (e.g., "en", "fi"); empty string lets the model autodetect.
     // timeout: Per-segment recognition timeout.
-    void UseSpeechRecognition(SpeechRecognizerModel model, float silenceThresholdRms = 0.01f, bool requireCorrelatedStream = true, string language = "", TimeSpan? timeout = null)
+    void UseSpeechRecognition(SpeechRecognizerModel model, float silenceThresholdRms = 0.01f, bool requireCorrelatedStream = true, string language = "", SpeechTimestamps timestamps = None, TimeSpan? timeout = null)
     // Call once during app setup. Mutually exclusive with UseSpeechRecognition, and calling it a second time throws — either conflict raises InvalidOperationException.
     // language: Language hint (e.g. "en", "fi"); empty lets the model autodetect.
     // config: Turn detector tuning; null uses defaults tuned for conversational voice.
@@ -166,7 +157,7 @@ namespace Ikon.App
     // pauseWhileAppSpeaking: Suppresses detection while the app is audibly speaking so its own voice can't trigger turns; set false for barge-in apps.
     // requireCorrelatedStream: Only detects turns on streams initiated through a CaptureButton (those with a CorrelationId); false detects on every stream.
     // timeout: Per-recognition timeout; null means one minute.
-    void UseTurnDetection(SpeechRecognizerModel model = WhisperLarge3Turbo, string language = "", TurnDetectorConfig? config = null, bool speculative = true, bool pauseWhileAppSpeaking = true, bool requireCorrelatedStream = true, TimeSpan? timeout = null)
+    void UseTurnDetection(SpeechRecognizerModel model = WhisperLarge3Turbo, string language = "", TurnDetectorConfig? config = null, bool speculative = true, bool pauseWhileAppSpeaking = true, bool requireCorrelatedStream = true, SpeechTimestamps timestamps = None, TimeSpan? timeout = null)
     // args.Samples are decoded float PCM at the sample rate from the stream's begin event; IsFirst/IsLast bracket one captured segment (e.g. one push-to-talk press).
     event AsyncEventHandler<AudioInputFrameEventArgs> AudioInputFrameAsync
     // Handlers may set args.StreamingMode to control when the stream's frames are delivered (streamed live, or buffered until the total duration is known / until the last frame).
@@ -253,7 +244,6 @@ namespace Ikon.App
     bool? EchoCancellation { get; init; }
     bool? NoiseSuppression { get; init; }
   sealed record ClientContact
-    // Names: The contact's names.
     // Emails: The contact's email addresses.
     // Phones: The contact's phone numbers.
     ctor(IReadOnlyList<string> Names, IReadOnlyList<string> Emails, IReadOnlyList<string> Phones)
@@ -263,115 +253,62 @@ namespace Ikon.App
   // Each method targets the calling client resolved from the current reactive scope unless a targetId is supplied. When the target client has not registered the backing function the call degrades to the failure value (false/null/empty list) rather than throwing — except the capture methods (StartVideoCaptureAsync, StartAudioCaptureAsync, CaptureImageAsync), which throw NotSupportedException.
   static class ClientFunctions
     // options: Optional image capture options.
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     // throws NotSupportedException: Thrown when the client does not support image capture.
     static Task<ClientImageCapture> CaptureImageAsync(ClientImageCaptureOptions? options = null, int? targetId = null, CancellationToken cancellationToken = default)
-    // targetId: Target client session id, or null for the calling client.
-    // cancellationToken: Optional cancellation token.
     static Task<bool> EndLiveActivityAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     static Task<bool> ExitFullscreenAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    // targetId: Target client session id, or null for the calling client.
-    // cancellationToken: Optional cancellation token.
     static Task<bool> FlushRecordingArchivesAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     static Task<int?> GetBatteryLevelAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     static Task<string?> GetLanguageAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     static Task<ClientLocation?> GetLocationAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     static Task<IReadOnlyList<ClientMediaDevice>> GetMediaDevicesAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // The value is whatever the browser's Network Information API exposes and mixes two vocabularies: a speed class ("slow-2g", "2g", "3g", "4g") where only that is available — note a fast wifi connection commonly reports "4g" — or a connection medium ("wifi", "cellular", "ethernet", "bluetooth", "none", ...) on platforms that expose it. Treat it as an informational hint, not a reliable wifi/cellular discriminator.
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     static Task<string?> GetNetworkTypeAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     static Task<string?> GetTimezoneAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     static Task<string?> GetUrlAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     static Task<ClientVisibility> GetVisibilityAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // enabled: Whether to keep the screen awake.
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     static Task<bool> KeepScreenAwakeAsync(bool enabled, int? targetId = null, CancellationToken cancellationToken = default)
     // The page navigates to the provider and returns authenticated, so the current session ends and the client reconnects with its real identity. Use from a server-drawn sign-in button in a deferred-login app; guest/email/passkey flows are client-initiated and not supported here.
     // provider: The OAuth provider to sign in with (e.g. "google").
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     static Task<bool> LoginAsync(string provider, int? targetId = null, CancellationToken cancellationToken = default)
     // reason: Optional reason shown in the login dialog.
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     static Task<bool> LoginShowAsync(string? reason = null, int? targetId = null, CancellationToken cancellationToken = default)
     // Clears the auth session and reloads the page, returning the client to the login screen.
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     static Task<bool> LogoutAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // url: The URL to open. Must be absolute (e.g., starts with https://).
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     // throws ArgumentException: Thrown when url is null or whitespace.
     static Task<bool> OpenExternalUrlAsync(string url, int? targetId = null, CancellationToken cancellationToken = default)
     // url: The URL of the sound to play. Can be a regular URL or a data URL.
     // volume: Volume level from 0.0 to 1.0. Defaults to 1.0.
     // loop: Whether to loop the sound. Defaults to false.
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     static Task<string?> PlaySoundAsync(string url, double volume = 1.0, bool loop = false, int? targetId = null, CancellationToken cancellationToken = default)
     // Audio bytes are de-duplicated per client session by content hash: the first call uploads the data, later calls with identical bytes send only the hash reference, so a reused sound is never re-transmitted.
     // data: The audio data as a byte array.
     // mimeType: The MIME type of the audio (e.g., "audio/mp3", "audio/wav").
     // volume: Volume level from 0.0 to 1.0. Defaults to 1.0.
     // loop: Whether to loop the sound. Defaults to false.
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     static Task<string?> PlaySoundAsync(byte[] data, string mimeType, double volume = 1.0, bool loop = false, int? targetId = null, CancellationToken cancellationToken = default)
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     static Task<bool> RequestFullscreenAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // x: Horizontal scroll position in pixels.
     // y: Vertical scroll position in pixels.
     // smooth: Whether to animate the scroll.
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     static Task<bool> ScrollToAsync(double x, double y, bool smooth = false, int? targetId = null, CancellationToken cancellationToken = default)
-    // theme: The theme to set.
     // persist: Whether to persist the theme as a user preference.
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     static Task<bool> SetThemeAsync(Theme theme, bool persist = true, int? targetId = null, CancellationToken cancellationToken = default)
     // Prefer SetThemeAsync for the built-in dark and light themes; this overload exists for custom theme names.
     // themeName: The theme name to set (e.g., "light", "dark", or a custom theme name).
     // persist: Whether to persist the theme as a user preference.
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     // throws ArgumentException: Thrown when themeName is null or whitespace.
     static Task<bool> SetThemeAsync(string themeName, bool persist = true, int? targetId = null, CancellationToken cancellationToken = default)
     // url: The URL path to set (relative paths only).
     // replace: If true, replaces current history entry instead of adding a new one.
     // preserveQueryParams: If true, preserves existing query parameters when the URL does not contain a query string.
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     // throws ArgumentException: Thrown when url is null or whitespace.
     static Task<bool> SetUrlAsync(string url, bool replace = false, bool preserveQueryParams = false, int? targetId = null, CancellationToken cancellationToken = default)
     // Call when a route's content finishes loading (guard with Context.IsSnapshot); without the signal, capture falls back to a quiescence heuristic that may record loading skeletons for slow-loading routes. No-op outside snapshot capture.
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     static Task<bool> SnapshotReadyAsync(int? targetId = null, CancellationToken cancellationToken = default)
     // options: Optional audio capture options.
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     // throws NotSupportedException: Thrown when the client does not support audio capture.
     static Task<string> StartAudioCaptureAsync(ClientAudioCaptureOptions? options = null, int? targetId = null, CancellationToken cancellationToken = default)
     // title: Fixed for the life of the activity; the app's own name usually.
@@ -379,8 +316,6 @@ namespace Ikon.App
     // metricsJson: A JSON array of {"value","label"}, at most three shown.
     // status: The small tracked line above the metrics — a phase, a state, a name.
     // muted: Shows the activity as held or paused, which mutes the accent.
-    // targetId: Target client session id, or null for the calling client.
-    // cancellationToken: Optional cancellation token.
     static Task<bool> StartLiveActivityAsync(string title, string accentHex, string metricsJson, string status, bool muted = false, int? targetId = null, CancellationToken cancellationToken = default)
     // Prefer app.Locations.StartTrackingAsync over calling this directly; each fix is pushed back to the server and surfaces via app.Locations.OnUpdate.
     // intervalSeconds: Minimum seconds between fixes.
@@ -388,68 +323,41 @@ namespace Ikon.App
     // background: Keep streaming while the app is backgrounded.
     // notificationTitle: Android foreground-service notification title.
     // notificationBody: Android foreground-service notification body.
-    // targetId: Target client session id, or null for the calling client.
-    // cancellationToken: Optional cancellation token.
     static Task<bool> StartLocationUpdatesAsync(int intervalSeconds = 10, int distanceFilterMeters = 10, bool background = true, string notificationTitle = "Sharing your location", string notificationBody = "Your location is shared while this is on.", int? targetId = null, CancellationToken cancellationToken = default)
     // hertz: Samples per second per sensor; honoured approximately.
     // sensors: Bit flags matching MotionSensors.
     // batchMilliseconds: How long the client buffers before sending.
     // background: Keep reading while the app is backgrounded.
     // liveHertz: Send only this many a second, keeping the rest for the device archive; 0 sends everything.
-    // targetId: Target client session id, or null for the calling client.
-    // cancellationToken: Optional cancellation token.
     static Task<bool> StartMotionUpdatesAsync(int hertz = 25, int sensors = 1, int batchMilliseconds = 200, bool background = false, int liveHertz = 0, int? targetId = null, CancellationToken cancellationToken = default)
     // archiveId: Names the activity; one id is one file.
     // fixes: Record position fixes.
     // motion: Record motion samples at their full rate.
     // maxBytes: Refuse to grow the file past this.
-    // targetId: Target client session id, or null for the calling client.
-    // cancellationToken: Optional cancellation token.
     static Task<bool> StartRecordingArchiveAsync(string archiveId, bool fixes = true, bool motion = true, long maxBytes = 268435456, int? targetId = null, CancellationToken cancellationToken = default)
     // source: The video source (Camera or Screen).
     // options: Optional video capture options.
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     // throws NotSupportedException: Thrown when the client does not support video capture.
     static Task<string> StartVideoCaptureAsync(ClientVideoCaptureSource source = Camera, ClientVideoCaptureOptions? options = null, int? targetId = null, CancellationToken cancellationToken = default)
     // streamId: The stream ID of the capture to stop.
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     // throws ArgumentException: Thrown when streamId is null or whitespace.
     static Task<bool> StopCaptureAsync(string streamId, int? targetId = null, CancellationToken cancellationToken = default)
-    // targetId: Target client session id, or null for the calling client.
-    // cancellationToken: Optional cancellation token.
     static Task<bool> StopLocationUpdatesAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    // targetId: Target client session id, or null for the calling client.
-    // cancellationToken: Optional cancellation token.
     static Task<bool> StopMotionUpdatesAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    // archiveId: The id given to StartRecordingArchiveAsync.
-    // targetId: Target client session id, or null for the calling client.
-    // cancellationToken: Optional cancellation token.
     static Task<bool> StopRecordingArchiveAsync(string archiveId, int? targetId = null, CancellationToken cancellationToken = default)
     // playbackId: The playback ID returned from PlaySoundAsync.
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     static Task<bool> StopSoundAsync(string playbackId, int? targetId = null, CancellationToken cancellationToken = default)
     // metricsJson: A JSON array of {"value","label"}, at most three shown.
     // status: The small tracked line above the metrics.
     // muted: Shows the activity as held or paused.
-    // targetId: Target client session id, or null for the calling client.
-    // cancellationToken: Optional cancellation token.
     static Task<bool> UpdateLiveActivityAsync(string metricsJson, string status, bool muted = false, int? targetId = null, CancellationToken cancellationToken = default)
     // durationMs: The vibration duration in milliseconds.
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     // throws ArgumentOutOfRangeException: Thrown when durationMs is not positive.
     static Task<bool> VibrateAsync(int durationMs, int? targetId = null, CancellationToken cancellationToken = default)
     // pattern: The alternating vibrate/pause durations in milliseconds.
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     // throws ArgumentException: Thrown when pattern is null, empty, or contains a negative duration.
     static Task<bool> VibrateAsync(IReadOnlyList<int> pattern, int? targetId = null, CancellationToken cancellationToken = default)
     // pattern: Duration in ms, or comma-separated pattern (e.g., "200" or "100,50,100").
-    // targetId: The target client session ID, or null to target the calling client resolved from the current reactive scope.
-    // cancellationToken: Optional cancellation token.
     // throws ArgumentException: Thrown when pattern is null or whitespace.
     static Task<bool> VibrateAsync(string pattern, int? targetId = null, CancellationToken cancellationToken = default)
   // A preference, not a guarantee — the client falls back to whatever encoder it has.
@@ -489,8 +397,6 @@ namespace Ikon.App
     int ClientSessionId { get; }
     string UserId { get; }
   sealed record ClientLocation
-    // Latitude: The latitude coordinate.
-    // Longitude: The longitude coordinate.
     // Accuracy: The accuracy of the coordinates in meters.
     ctor(double Latitude, double Longitude, double Accuracy)
     double Accuracy { get; init; }
@@ -622,7 +528,6 @@ namespace Ikon.App
     // email: The app's email service.
     // addressOf: Returns the user's email address, or null when none is known.
     // senderLocalPart: Optional sender local part, as on EmailSendRequest.
-    // senderDisplayName: Optional sender display name.
     ctor(EmailService email, Func<string, string?> addressOf, string? senderLocalPart = null, string? senderDisplayName = null)
     string Name { get; }
     Task<bool> SendAsync(string userId, NotificationContent content, CancellationToken ct)
@@ -665,7 +570,6 @@ namespace Ikon.App
     string PublicUrl { get; init; }
   // Fired per chunk with the raw bytes for streaming (transcode/scan/forward); the platform already writes the chunk itself. Bytes are not yet verified — the SHA-256 check runs only after the last chunk and a mismatch discards the whole upload, so never act irreversibly. Data is valid only during the callback — copy it to retain it.
   sealed record FileUploadChunkArgs
-    // UploadId: Id identifying this upload.
     // FileName: The client-supplied file name.
     // MimeType: The client-supplied mime type.
     // Size: The total file size in bytes the client announced.
@@ -680,7 +584,6 @@ namespace Ikon.App
     string UploadId { get; init; }
   // Fires only after the byte count and recomputed SHA-256 both match. Exactly one of LocalTempFilePath and AssetUri is non-null. The temp file is deleted when the app stops — move or copy it here to keep it.
   sealed record FileUploadCompleteArgs
-    // UploadId: Id identifying this upload.
     // FileName: The client-supplied file name.
     // MimeType: The client-supplied mime type.
     // Size: The file size in bytes.
@@ -695,7 +598,6 @@ namespace Ikon.App
     string UploadId { get; init; }
   // Terminal hook for an upload that had started (cancel, 60 s stall, out-of-sequence chunk, byte-count or SHA-256 mismatch, write failure). Uploads the app rejected from PreStart or Start never reach here. Any partial file/asset is already deleted — clean up only app-side state.
   sealed record FileUploadErrorArgs
-    // UploadId: Id identifying this upload.
     // FileName: The client-supplied file name.
     // MimeType: The client-supplied mime type.
     // Size: The file size in bytes the client announced.
@@ -721,7 +623,6 @@ namespace Ikon.App
     string UploadId { get; init; }
   // Fired once per received chunk, after the chunk has been written and acknowledged. Meant for driving a progress bar; use onChunkReceived if you need the bytes themselves.
   sealed record FileUploadProgressArgs
-    // UploadId: Id identifying this upload.
     // FileName: The client-supplied file name.
     // MimeType: The client-supplied mime type.
     // Size: The total file size in bytes the client announced.
@@ -849,11 +750,11 @@ namespace Ikon.App
     virtual UploadService Uploads { get; }
     // Enabled by default. Disable (e.g. in Main) for apps with no audio/video or low-latency data to save per-client peer-setup cost. Applies only to clients that connect afterward; already-connected clients are unaffected until they reconnect.
     bool WebRtcEnabled { get; set; }
-    // Persist the returned bytes as your system of record — the platform's session retention is short. Blocks until the signer completes the ceremony and the platform packages the signed PDF.
+    // Blocks until the signer completes the ceremony and the platform has the sealed result. SignatureResult carries a SignedDocument per artefact — persist those bytes as your system of record, the platform's retention is short — and a SignatureSignatoryResult per party, whose SignatoryStatus says whether they signed and whose SignatureSignerIdentity is what the eID reported about them. Name, date of birth and scheme arrive in the clear; the national identity number only ever as a platform-keyed hash.
     // signerClientSessionId: The client session ID whose browser should perform the signing ceremony.
-    // request: The signature order specification (documents, signer policy, purpose).
+    // request: The order specification: documents plus one SignatureSignatory naming the policy, identity schemes and attributes to request.
     // ct: Cancellation token. The order expires server-side after the configured TTL regardless.
-    Task<SignedDocument> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = default)
+    Task<SignatureResult> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = default)
     // The connection comes back unopened — open and dispose it yourself: await using var connection = await app.DatabaseAsync(); await connection.OpenAsync();. Name nothing to get the app's default database — the built-in app one, or the app's own when it declares exactly one; names come from the Databases list in the app's ikon-config toml. The built-in database is provisioned on demand, so the first call may wait while it is created; a declared database is provisioned at activation.
     // databaseName: The database to connect to, or null for the app's default one.
     // throws ArgumentException: Thrown when a named database is not among the app's databases, or when no name was given and the app has several to choose from.
@@ -883,7 +784,6 @@ namespace Ikon.App
     // protocol: The endpoint protocol. EndpointProtocol.Tls enables TLS termination at the relay.
     // stablePortName: When non-empty, the relay assigns a deterministic public port for this name, so the endpoint's public URL stays the same across reconnects and process restarts. Empty = ephemeral.
     // localPort: When positive, the tunnel forwards to this local port instead of a freshly picked one — used to attach a tunnel to a listener that is already bound. 0 = pick automatically.
-    // ct: Optional cancellation token.
     Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", int localPort = 0, CancellationToken ct = default)
     // Verify the returned JWT (issuer, audience, signature, expiry) before trusting any of its claims — see AssertionVerifier. Blocks until the user completes the challenge in their browser.
     // clientSessionId: The client session ID whose browser should perform the challenge.
@@ -952,8 +852,6 @@ namespace Ikon.App
     Task WaitForPlaybackAsync(CancellationToken ct = default)
   sealed record InboxItem
     // Id: Stable id, generated by the inbox.
-    // Title: Notification title.
-    // Body: Optional body text.
     // Kind: App-defined category, e.g. "order" or "payment". Free text.
     // LaunchUrl: Optional in-app path the UI opens when the item is tapped.
     // Data: Optional opaque payload the app stored with the item.
@@ -976,9 +874,7 @@ namespace Ikon.App
   sealed class LiveActivityService
     // Prefer EndEverywhereAsync when finishing whatever the activity was showing. A phone that reconnects — a dropped socket, a restarted app, a redeploy — comes back as a NEW session, so ending on the session that started the activity aims at an id that no longer exists and strands a live-looking banner on the lock screen.
     // sessionId: The client to clear, or null for the calling client.
-    // ct: Optional cancellation token.
     Task<bool> EndAsync(int? sessionId = null, CancellationToken ct = default)
-    // ct: Optional cancellation token.
     Task EndEverywhereAsync(CancellationToken ct = default)
     // title: Fixed for the life of the activity; usually the app's name.
     // accentHex: The app's accent as #rrggbb.
@@ -986,13 +882,11 @@ namespace Ikon.App
     // status: The tracked line above the metrics — a phase, a state, a kind.
     // muted: Show it held or paused, which mutes the accent.
     // sessionId: The client to show it on, or null for the calling client.
-    // ct: Optional cancellation token.
     Task<bool> StartAsync(string title, string accentHex, IReadOnlyList<LiveMetric> metrics, string status, bool muted = false, int? sessionId = null, CancellationToken ct = default)
     // metrics: Up to three; any beyond that are not shown.
     // status: The tracked line above the metrics.
     // muted: Show it held or paused.
     // sessionId: The client to update, or null for the calling client.
-    // ct: Optional cancellation token.
     Task<bool> UpdateAsync(IReadOnlyList<LiveMetric> metrics, string status, bool muted = false, int? sessionId = null, CancellationToken ct = default)
   sealed record LiveMetric
     // Value: Already formatted — the app owns its units and the banner must not reinvent them.
@@ -1012,10 +906,8 @@ namespace Ikon.App
     // Returns true when the client accepted (it supports geolocation and permission was not denied outright).
     // sessionId: The client session to track.
     // options: Interval, distance filter, background flag and the Android notification text.
-    // ct: Optional cancellation token.
     Task<bool> StartTrackingAsync(int sessionId, LocationTrackingOptions? options = null, CancellationToken ct = default)
     // sessionId: The client session to stop tracking.
-    // ct: Optional cancellation token.
     Task<bool> StopTrackingAsync(int sessionId, CancellationToken ct = default)
   sealed record LocationTrackingOptions
     // IntervalSeconds: Minimum seconds between reported fixes.
@@ -1032,8 +924,6 @@ namespace Ikon.App
   sealed record LocationUpdate
     // SessionId: The client session the fix came from.
     // UserId: The signed-in user id, or empty for an anonymous session.
-    // Latitude: Latitude in degrees.
-    // Longitude: Longitude in degrees.
     // AccuracyMeters: Reported horizontal accuracy in metres.
     // SpeedMps: Ground speed in metres/second, or 0 when unknown.
     // Heading: Heading in degrees (0–360), or -1 when unknown.
@@ -1132,14 +1022,13 @@ namespace Ikon.App
   //     new MotionOptions(Hertz: 50, Sensors: MotionSensors.UserAcceleration | MotionSensors.Gyroscope));
   sealed class MotionService
     void OnBatch(Action<MotionBatch> handler)
+    // Anonymous by policy, as for a location fix: the dispatcher attributes each batch to the calling session, so a client cannot push motion as somebody else.
     bool ReceiveMotionBatch(string samplesJson)
     void RemoveHandler(Action<MotionBatch> handler)
     // sessionId: The client session to stream from.
     // options: Rate, sensors, batching and whether to keep going in the background.
-    // ct: Optional cancellation token.
     Task<bool> StartTrackingAsync(int sessionId, MotionOptions? options = null, CancellationToken ct = default)
     // sessionId: The client session to stop.
-    // ct: Optional cancellation token.
     Task<bool> StopTrackingAsync(int sessionId, CancellationToken ct = default)
   class Navigation
     // Query string stripped; null outside a client scope or before any path is known. Tracked before the client's first frame renders, so route-dependent server UI can branch on it from the very first render — unlike state set from joined handlers, which run on a background task and can lose the race against the first frame.
@@ -1164,7 +1053,6 @@ namespace Ikon.App
     event AsyncEventHandler<NavigationPathChangedEventArgs> PathChangedAsync
   class NavigationPathChangedEventArgs : EventArgs
     // url: The URL the client navigated to, query string included
-    // clientContext: The client that navigated
     ctor(string url, Context clientContext)
     Context ClientContext { get; }
     int ClientSessionId { get; }
@@ -1239,11 +1127,9 @@ namespace Ikon.App
     void MarkReadFor(string userId, string itemId)
     void Mute(string channel, bool muted = true)
     void MuteFor(string userId, string channel, bool muted = true)
-    // userId: The user to notify.
     // content: Title, body, launch url, tag and data, as for NotificationService.
     // kind: App-defined category stored on the item for filtering.
     // route: Where to deliver; NotificationRoute.Default is inbox plus push.
-    // ct: Optional cancellation token.
     Task<NotificationOutcome> NotifyAsync(string userId, NotificationContent content, string? kind = null, NotificationRoute? route = null, CancellationToken ct = default)
     QuietHours? QuietHoursFor(string userId)
     void Remove(string itemId)
@@ -1305,25 +1191,17 @@ namespace Ikon.App
     int SessionId { get; init; }
   // Accessed via app.Notifications. Client permission is requested lazily on the first actual send, not when the app opens. SendToUserAsync automatically falls back to offline OS push (Web Push / FCM) when the target user has no connected session.
   sealed class NotificationService
-    // content: The notification content.
-    // ct: Optional cancellation token.
     Task<IReadOnlyList<NotificationSendResult>> BroadcastAsync(NotificationContent content, CancellationToken ct = default)
     // sessionId: The target client session id.
-    // ct: Optional cancellation token.
     Task<NotificationPermission> GetPermissionAsync(int sessionId, CancellationToken ct = default)
     // sessionId: The target client session id.
-    // content: The notification content.
-    // ct: Optional cancellation token.
     Task<NotificationSendResult> SendToSessionAsync(int sessionId, NotificationContent content, CancellationToken ct = default)
     // Returns one result per connected session for the user. An empty list means the user had no connected session and only offline push was attempted — it is not an error.
     // userId: The persistent user id to notify.
-    // content: The notification content.
-    // ct: Optional cancellation token.
     Task<IReadOnlyList<NotificationSendResult>> SendToUserAsync(string userId, NotificationContent content, CancellationToken ct = default)
     // userId: The persistent user id to notify.
     // content: The notification content. Give it a NotificationContent.Tag so a device that is both connected and pushed shows one notification, not two.
     // reach: How many of the user's devices to reach.
-    // ct: Optional cancellation token.
     Task<IReadOnlyList<NotificationSendResult>> SendToUserAsync(string userId, NotificationContent content, NotificationReach reach, CancellationToken ct = default)
   // Use for app-wide configuration the app instance owns. For per-session-identity state (the typical app routing key) use PersistentSessionReactive<T>; for per-user state use PersistentUserReactive<T>.
   class PersistentReactive<T> : Reactive<T>
@@ -1504,16 +1382,13 @@ namespace Ikon.App
     void OnArchive(Action<RecordingArchive> handler)
     void RemoveHandler(Action<RecordingArchive> handler)
     // sessionId: The client session to ask.
-    // ct: Optional cancellation token.
     Task<bool> RequestPendingAsync(int sessionId, CancellationToken ct = default)
     // sessionId: The client session that should record.
     // archiveId: Names the activity. The same id must be given to StopAsync, and it is what arrives back on RecordingArchive.ArchiveId. One id is one file, so starting and stopping repeatedly produces one archive per activity and never a blend of two.
     // options: What to record.
-    // ct: Optional cancellation token.
     Task<bool> StartAsync(int sessionId, string archiveId, RecordingOptions? options = null, CancellationToken ct = default)
     // sessionId: The client session that was recording.
     // archiveId: The id given to StartAsync.
-    // ct: Optional cancellation token.
     Task<bool> StopAsync(int sessionId, string archiveId, CancellationToken ct = default)
     const string UploadActionId
   sealed record RecordingOptions
@@ -1564,7 +1439,7 @@ namespace Ikon.App
     NoText
     Error
   sealed class SpeechRecognizedEventArgs : EventArgs
-    ctor(string text, Context clientContext, string streamId, string? correlationId, TimeSpan duration, int sampleCount, int turnId = 0)
+    ctor(Transcript transcript, Context clientContext, string streamId, string? correlationId, TimeSpan duration, int sampleCount, int turnId = 0)
     Context ClientContext { get; }
     int ClientSessionId { get; }
     // Set by the originating CaptureButton; null for ad-hoc streams.
@@ -1573,6 +1448,8 @@ namespace Ikon.App
     int SampleCount { get; }
     string StreamId { get; }
     string Text { get; }
+    // The full result, including per-word and per-segment timings when Audio.UseSpeechRecognition or Audio.UseTurnDetection asked for them; its Transcript.Words and Transcript.Segments are empty otherwise. Offsets are relative to the start of the recognized segment, not of the stream.
+    Transcript Transcript { get; }
     // Identifier of the detected turn when the recognition came from Audio.UseTurnDetection, shared with the matching TurnStartedEventArgs and TurnSpeculativeEventArgs; 0 for push-to-talk recognitions.
     int TurnId { get; }
     string UserId { get; }
@@ -1657,25 +1534,19 @@ namespace Ikon.App
     User
     Moderator
     Admin
+  // A null targetIds broadcasts to every connected client; a list restricts delivery to those client session ids.
   class Video
     ctor(IAppBase app)
     ValueTask CloseAllAsync()
     // streamId: The stream to close. Null closes the default stream
     ValueTask CloseAsync(string? streamId = null)
-    // streamId: The stream id
     VideoOutputStreamInfo? GetOutputStreamInfo(string? streamId = null)
     // Frames are transmitted immediately — the caller owns the pacing. Call once per frame at the source framerate (typically forwarding each incoming frame as it arrives); never loop over a stored clip's frames without pacing.
     // data: Encoded video frame data
-    // frameNumber: Frame number in the sequence
-    // isKey: Whether this is a keyframe
-    // timestampInUs: Timestamp in microseconds
     // durationInUs: Frame duration in microseconds
-    // codec: Video codec
     // width: Video width in pixels
     // height: Video height in pixels
-    // framerate: Video framerate
     // streamId: Optional id to distinguish between multiple concurrent video streams. Required when sending multiple streams simultaneously
-    // targetIds: Optional list of client session IDs to target. If null, broadcasts to all
     // trackId: Optional track id override. When specified, the protocol message will use this track id instead of an auto-assigned one. Use this when echoing WebRTC video to preserve the original track index
     ValueTask SendFrameAsync(byte[] data, int frameNumber, bool isKey, ulong timestampInUs, uint durationInUs, VideoCodec codec, int width, int height, double framerate, string? streamId = null, IReadOnlyList<int>? targetIds = null, int? trackId = null)
     // args.Data is encoded codec bitstream (see the codec on the stream's begin event), not decoded pixels — forward it as-is (e.g. via SendFrameAsync) or decode it before analysis.
@@ -1916,7 +1787,6 @@ namespace Ikon.App.Payments
   sealed class PaymentsRequireEntitlementAttribute : PolicyAttribute
     ctor(string offerId)
     string OfferId { get; }
-    override IFunctionPolicy CreatePolicy()
   // Reached via app.Payments; one instance per app. Every command takes an optional per-call provider; with none given it uses DefaultProvider or, failing that, the space's enabled provider. The service holds no payment state — every read hits the backend except the synchronous IsEntitled.
   sealed class PaymentsService : AsyncLocalInstance<PaymentsService>
     ctor()

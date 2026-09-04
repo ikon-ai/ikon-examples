@@ -2,11 +2,7 @@
 
 namespace Ikon.AI
   class AIException : Exception
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   class AITimeoutException : RetryableAIException
-    ctor(string message)
     ctor(TimeSpan configuredTimeout, string targetName)
     TimeSpan ConfiguredTimeout { get; }
     string TargetName { get; }
@@ -50,8 +46,6 @@ namespace Ikon.AI
     string? Url { get; }
   // Transient (network blip, server restart, flaky link) and therefore retryable — the RPC layer retries with a forced reconnect, and exhausted attempts still surface as retryable.
   sealed class IkonServerConnectException : RetryableAIException
-    ctor(string message)
-    ctor(string message, Exception inner)
   // A reference clip for prompt-driven audio editing: the model preserves this clip's timing and structure while the prompt re-styles it. Supply the clip exactly one way: Data (with MimeType), Url, or AssetUri (resolved automatically).
   sealed record InputAudio
     ctor()
@@ -110,9 +104,6 @@ namespace Ikon.AI
     UsEast
     UsWest
   class NonRetryableAIException : AIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   // An image produced by an analysis model (depth map, segmentation mask, preview). Kind tells how it was delivered: inline bytes in Data, or a signed download URL in Url valid for roughly one hour.
   sealed record OutputImage : IResultPayload
     ctor()
@@ -123,9 +114,6 @@ namespace Ikon.AI
     string? Url { get; init; }
     int Width { get; init; }
   class RegionNotSupportedException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   // With Auto the payload stays inline in-process; only when the result is returned from a remotely hosted AI function is it uploaded to a short-lived asset URL, and then only if it exceeds an internal size threshold (a few MB), keeping the protocol message small. Url always uploads, in any context. Check the result's ResultKind field to see which delivery was used.
   enum ResultDelivery
     Auto
@@ -135,13 +123,6 @@ namespace Ikon.AI
     Data
     Url
   class RetryableAIException : AIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
-  // The URLs these clients fetch come from app code, from LLM tool arguments and from provider responses — none of which the platform controls. Checking the URL string is not enough: the name is resolved later, so a host that resolves to 169.254.169.254 passes any check made up front, and a redirect or a second DNS answer moves the target after the check. The decision therefore happens at SocketsHttpHandler.ConnectCallback, on the address actually being connected to. That covers every redirect hop, because each one connects again, and it closes DNS rebinding, because the address checked is the address used.
-  static class SsrfGuard
-    static SocketsHttpHandler CreateHandler()
-    static bool IsAllowedScheme(Uri uri)
 
 namespace Ikon.AI.Classification
   sealed record ClassificationDetail
@@ -186,10 +167,6 @@ namespace Ikon.AI.Classification
     ctor()
     List<ClassificationDetail> Details { get; init; }
     bool IsFlagged { get; init; }
-  class ClassificationResultException : NonRetryableAIException
-    ctor(ClassificationResult classificationResult)
-    ctor(ClassificationResult classificationResult, Exception inner)
-    ClassificationResult ClassificationResult { get; }
   sealed class Classifier : IClassifier
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(ClassificationModel model, IReadOnlyList<ModelRegion>? regions = null)
@@ -206,10 +183,6 @@ namespace Ikon.AI.Classification
   sealed class ClassifierCapabilities : IClassifierInfo
     ctor()
     bool SupportsImageInput { get; init; }
-  class ClassifierException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum CustomClassificationApi
     OpenAI
     Mistral
@@ -225,10 +198,6 @@ namespace Ikon.AI.Classification
     virtual Task<ClassificationResult> ClassifyAsync(string text, CancellationToken cancellationToken = default)
   interface IClassifierInfo
     bool SupportsImageInput { get; }
-  class NonRetryableClassifierException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
 
 namespace Ikon.AI.Database
   class DatabaseColumnInfo
@@ -344,10 +313,6 @@ namespace Ikon.AI.DepthEstimation
     int? ProcessingResolution { get; init; }
     ResultDelivery ResultDelivery { get; init; }
     TimeSpan Timeout { get; init; }
-  class DepthEstimatorException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum DepthEstimatorModel
     DepthAnythingV2
     Marigold
@@ -359,10 +324,6 @@ namespace Ikon.AI.DepthEstimation
     OutputImage Depth { get; init; }
   interface IDepthEstimator : IDisposable
     Task<DepthEstimatorResult> EstimateDepthAsync(DepthEstimatorConfig config, CancellationToken cancellationToken = default)
-  class NonRetryableDepthEstimatorException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
 
 namespace Ikon.AI.Embeddings
   enum CustomEmbeddingApi
@@ -405,10 +366,6 @@ namespace Ikon.AI.Embeddings
     // Per-request; scaled up internally with the batch size.
     TimeSpan Timeout { get; init; }
     EmbeddingType Type { get; init; }
-  class EmbeddingGeneratorException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed class EmbeddingItem
     ctor(string context, EmbeddingModel model, EmbeddingType type, EmbeddingEncoding encoding, string embedding)
     string Context { get; init; }
@@ -427,6 +384,7 @@ namespace Ikon.AI.Embeddings
     MistralEmbed
     CodestralEmbed
     GeminiEmbedding1
+    GeminiEmbedding2
     GoogleTextEmbedding5
     GoogleTextMultilingualEmbedding2
     JinaEmbeddings3
@@ -441,6 +399,7 @@ namespace Ikon.AI.Embeddings
     Voyage4Lite
     Voyage4Large
     VoyageCode3
+    VoyageCode4
     // Not directly usable — select custom models (see CustomModels) by their registered name string.
     Custom
   static class EmbeddingModelExtensions
@@ -457,10 +416,6 @@ namespace Ikon.AI.Embeddings
   interface IEmbeddingGeneratorInfo
     int EmbeddingVectorSize { get; }
     int MaxInputCount { get; }
-  class NonRetryableEmbeddingGeneratorException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   static class VectorMath
     // embeddings: List of embeddings (each as a float array)
     static float[] CalculateAverageEmbedding(IList<float[]> embeddings)
@@ -505,20 +460,12 @@ namespace Ikon.AI.FileConversion
     ResultDelivery ResultDelivery { get; init; }
     TimeSpan Timeout { get; init; }
     string? Url { get; init; }
-  class FileConverterException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum FileConverterModel
     ConvertApi
   static class FileConverterModelExtensions
     static string DisplayName(this FileConverterModel model)
   interface IFileConverter : IDisposable
     Task<ConvertedFile> ConvertToPdfAsync(FileConverterConfig config, CancellationToken cancellationToken = default)
-  class NonRetryableFileConverterException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
 
 namespace Ikon.AI.ImageGeneration
   interface IImageGenerator : IDisposable, IImageGeneratorInfo
@@ -548,7 +495,7 @@ namespace Ikon.AI.ImageGeneration
     bool SupportsTransparentBackground { get; }
     void Dispose()
     Task<ImageGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
-    // Static one-shot; constructs and disposes an ImageGenerator per call. Defaults to ImageGeneratorModel.Gemini25FlashImage (cheap+fast); override via model. Never returns null — throws ImageGeneratorException on failure or empty output, so wrap in try/catch to continue without the image. Use the constructor + GenerateImageAsync for batch/size/input-image or any other ImageGeneratorConfig field.
+    // Static one-shot; constructs and disposes an ImageGenerator per call. Defaults to ImageGeneratorModel.Gemini25FlashImage (cheap+fast); override via model. Never returns null — throws RetryableAIException on failure or empty output, so wrap in try/catch to continue without the image. Use the constructor + GenerateImageAsync for batch/size/input-image or any other ImageGeneratorConfig field.
     static Task<ImageGeneratorResult> GenerateAsync(string prompt, ImageGeneratorModel model = Gemini25FlashImage, CancellationToken cancellationToken = default)
     Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = default)
     static ImageGeneratorCapabilities GetCapabilities(ImageGeneratorModel model)
@@ -584,10 +531,6 @@ namespace Ikon.AI.ImageGeneration
     string VisibleWatermark { get; init; }
     // The only way to request a size. Providers with fixed resolution tiers (e.g. Gemini 1K/2K/4K) round the longer edge up to the nearest tier and take the aspect ratio from Width:Height — ask for 2048x2048 to get a 2K image.
     int Width { get; init; }
-  class ImageGeneratorException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum ImageGeneratorModel
     GptImage1Mini
     GptImage15
@@ -610,6 +553,7 @@ namespace Ikon.AI.ImageGeneration
     Flux2Klein9B
     Flux2Klein4B
     GrokImagineImage
+    GrokImagineImage2
     GrokImagineImageQuality
   static class ImageGeneratorModelExtensions
     static string DisplayName(this ImageGeneratorModel model)
@@ -627,10 +571,6 @@ namespace Ikon.AI.ImageGeneration
     Low
     Medium
     High
-  class NonRetryableImageGeneratorException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   // Provider-mapped moderation strength; Moderate is the default.
   enum SafetyLevel
     None
@@ -676,10 +616,6 @@ namespace Ikon.AI.ImageSegmentation
     int? ObjectId { get; init; }
     double X { get; init; }
     double Y { get; init; }
-  class ImageSegmenterException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum ImageSegmenterModel
     Sam3
     Sam31
@@ -694,10 +630,6 @@ namespace Ikon.AI.ImageSegmentation
     List<double> Box { get; init; }
     OutputImage Mask { get; init; }
     double? Score { get; init; }
-  class NonRetryableImageSegmenterException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
 
 namespace Ikon.AI.ImageUpscaling
   interface IImageUpscaler : IDisposable, IImageUpscalerInfo
@@ -765,10 +697,6 @@ namespace Ikon.AI.ImageUpscaling
     UpscaleTargetResolution TargetResolution { get; init; }
     TimeSpan Timeout { get; init; }
     string VisibleWatermark { get; init; }
-  class ImageUpscalerException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum ImageUpscalerModel
     SeedVr2
     Topaz
@@ -779,10 +707,6 @@ namespace Ikon.AI.ImageUpscaling
   sealed record ImageUpscalerResult
     ctor()
     OutputImage Image { get; init; }
-  class NonRetryableImageUpscalerException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   // The distinction is the whole point of picking one upscaler over another. Faithful models reconstruct only what the input supports, so the result can still be read as evidence of the original. Creative models synthesize plausible detail that was never in the input. Tunable models move between the two as ImageUpscalerConfig.Creativity rises, and sit at the faithful end when it is left at zero.
   enum UpscaleFidelity
     Faithful
@@ -901,13 +825,11 @@ namespace Ikon.AI.Kernel
     bool UseUserNames { get; init; }
     KernelContext Add(Instruction instruction)
     KernelContext Add(MessageBlock message)
-    // Runs a single model turn. A tool call whose function has LlmInlineResult set is executed here and its events replace the call in the stream — recursively, so a function that itself emits tool calls is handled the same way. Every other tool call is yielded for the caller to run. The model is invoked once and never sees the results, so this is not an agent loop: a Shader pass is what feeds results back as FunctionResult messages and re-runs the model. Use ILLM.GenerateAsync directly for the raw provider stream that never runs a tool.
-    IAsyncEnumerable<LLMEvent> GenerateAsync(ILLM llm, CancellationToken cancellationToken = default)
     KernelContext KeepMessagesMax(int count)
     KernelContext WithFunctions(IEnumerable<Function>? functions, bool replaceExisting = false)
   // Consume by switching on the concrete record case; forward any case you do not handle unchanged so downstream consumers still receive it.
   abstract record LLMEvent
-    // E.g. "generate", "generate.reasoning", "Shader.Output.AfterPass". Combinators re-tag events they transform so the origin of each event stays visible.
+    // E.g. "generate", "generate.reasoning", "Emergence.Output.AfterPass". Combinators re-tag events they transform so the origin of each event stays visible.
     string Source { get; init; }
   sealed record LLMEvent.AudioDelta : LLMEvent
     ctor(AudioChunk Audio)
@@ -930,11 +852,11 @@ namespace Ikon.AI.Kernel
   sealed record LLMEvent.ContentFiltered : LLMEvent
     ctor(ClassificationResult Classification)
     ClassificationResult Classification { get; init; }
-  // Emitted once at the end of a shader run; may differ from the text response.
+  // Emitted once at the end of a generation; may differ from the text response.
   sealed record LLMEvent.FinalModelMessage : LLMEvent
     ctor(string Text)
     string Text { get; init; }
-  // Emitted once at the end of a shader run.
+  // Emitted once at the end of a generation.
   sealed record LLMEvent.FinalText : LLMEvent
     ctor(string Text)
     string Text { get; init; }
@@ -1089,31 +1011,7 @@ namespace Ikon.AI.LLM
     bool SupportsStrictJsonSchema { get; init; }
     bool SupportsSystemMessages { get; init; }
     bool SupportsTemperature { get; init; }
-  // Returns the exact JSON schema each provider ships to the model for a Function; use it rather than re-deriving your own projection.
-  static class FunctionSchema
-    static string ToJson(Function function)
-  interface ILLM : IDisposable, ILLMInfo
-    IAsyncEnumerable<LLMEvent> GenerateAsync(KernelContext context, CancellationToken cancellationToken = default)
-  interface ILLMInfo
-    int ContextWindowSize { get; }
-    string InlineReasoningTagName { get; }
-    // In tokens. 0 means "no published limit", not "no output allowed".
-    int MaxOutputTokens { get; }
-    SchemaDialect SchemaDialect { get; }
-    bool SupportsGbnfGrammar { get; }
-    bool SupportsInputAudio { get; }
-    bool SupportsInputImages { get; }
-    bool SupportsInputPdf { get; }
-    bool SupportsInputVideo { get; }
-    bool SupportsJsonSchema { get; }
-    bool SupportsOutputAudio { get; }
-    bool SupportsParallelToolCalling { get; }
-    bool SupportsReasoning { get; }
-    bool SupportsSingleToolCalling { get; }
-    bool SupportsStreaming { get; }
-    bool SupportsZeroDataRetention { get; }
-    bool UsesInlineReasoning { get; }
-  sealed class LLMCapabilities : ILLMInfo
+  sealed class LLMCapabilities
     ctor()
     int ContextWindowSize { get; init; }
     string InlineReasoningTagName { get; init; }
@@ -1135,9 +1033,6 @@ namespace Ikon.AI.LLM
     bool SupportsZeroDataRetention { get; init; }
     bool UsesInlineReasoning { get; init; }
   class LLMMaxOutputTokensException : NonRetryableLLMException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum LLMModel
     Gpt4OmniMini
     Gpt41
@@ -1171,6 +1066,7 @@ namespace Ikon.AI.LLM
     Claude5Sonnet
     Claude5Opus
     Claude5Fable
+    Claude51Fable
     Gemini25Flash
     Gemini25FlashLite
     Gemini25Pro
@@ -1181,8 +1077,10 @@ namespace Ikon.AI.LLM
     Gemini35FlashLite
     Gemini36Flash
     Gemini37Flash
+    Gemini38Flash
     Grok43
     Grok45
+    Grok46
     GrokBuild01
     Grok420Reasoning
     Grok420NonReasoning
@@ -1204,6 +1102,7 @@ namespace Ikon.AI.LLM
     CommandAPlus
     CommandAVision
     CommandR7B
+    MuseSpark13
     KimiK25
     KimiK26
     KimiK27Code
@@ -1219,6 +1118,7 @@ namespace Ikon.AI.LLM
     Glm51
     Glm52
     Glm53
+    Glm53Flash
     Glm5VTurbo
     MiniMaxM25
     MiniMaxM27
@@ -1245,17 +1145,8 @@ namespace Ikon.AI.LLM
     // In tokens. Returns 0 when the limit is unknown (unresolvable model, or a provider that publishes none) — treat 0 as "no cap known", not as a zero budget.
     static int MaxOutputTokens(this LLMModel model)
   class ModelOutputException : RetryableLLMException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   class NonRetryableLLMException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   class RetryableLLMException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
 
 namespace Ikon.AI.MeshGeneration
   interface IMeshGenerator : IDisposable, IMeshGeneratorInfo
@@ -1300,10 +1191,6 @@ namespace Ikon.AI.MeshGeneration
     string? TexturePrompt { get; init; }
     TimeSpan Timeout { get; init; }
     MeshGeneratorTopology Topology { get; init; }
-  class MeshGeneratorException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum MeshGeneratorMeshStyle
     Standard
     LowPoly
@@ -1325,16 +1212,12 @@ namespace Ikon.AI.MeshGeneration
   enum MeshGeneratorTopology
     Triangle
     Quad
-  class NonRetryableMeshGeneratorException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
 
 namespace Ikon.AI.MusicGeneration
   interface IMusicGenerator : IDisposable, IMusicGeneratorInfo
     int ChannelCount { get; }
     int SampleRate { get; }
-    // Requires IMusicGeneratorInfo.SupportsStreaming; otherwise throws NonRetryableMusicGeneratorException. Use GenerateMusicFileAsync for a buffered encoded file.
+    // Requires IMusicGeneratorInfo.SupportsStreaming; otherwise throws NonRetryableAIException. Use GenerateMusicFileAsync for a buffered encoded file.
     IAsyncEnumerable<AudioChunk> GenerateMusicAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = default)
     Task<MusicGeneratorResult> GenerateMusicFileAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = default)
   interface IMusicGeneratorInfo
@@ -1376,10 +1259,6 @@ namespace Ikon.AI.MusicGeneration
     ResultDelivery ResultDelivery { get; init; }
     int Seed { get; init; }
     TimeSpan Timeout { get; init; }
-  class MusicGeneratorException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum MusicGeneratorModel
     ElevenLabsMusicV2
     FalStableAudio
@@ -1397,10 +1276,6 @@ namespace Ikon.AI.MusicGeneration
     ResultKind Kind { get; init; }
     string MimeType { get; init; }
     string? Url { get; init; }
-  class NonRetryableMusicGeneratorException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
 
 namespace Ikon.AI.OCR
   enum DocumentType
@@ -1417,10 +1292,6 @@ namespace Ikon.AI.OCR
     IReadOnlyList<string> SupportedMimeTypes { get; }
     // True when the model fills OCRResult.Words for OCRConfig.IncludeWords. A request that asks a model reporting false for words is refused rather than answered with an empty list.
     bool SupportsWordLevelText { get; }
-  class NonRetryableOCRException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed class OCR : IOCR
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(OCRModel model, IReadOnlyList<ModelRegion>? regions = null)
@@ -1457,10 +1328,6 @@ namespace Ikon.AI.OCR
     string? Pages { get; init; }
     TimeSpan Timeout { get; init; }
     string? Url { get; init; }
-  class OCRException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum OCRModel
     AzureDocumentIntelligence
     MistralOCR
@@ -1517,10 +1384,6 @@ namespace Ikon.AI.Reranking
   interface IReranker : IDisposable
     // Returns items ordered most relevant first; RerankItem.Index is the document's position in RerankerConfig.Documents.
     Task<List<RerankItem>> RerankAsync(RerankerConfig config, CancellationToken cancellationToken = default)
-  class NonRetryableRerankerException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed record RerankItem
     ctor()
     int Index { get; init; }
@@ -1529,6 +1392,7 @@ namespace Ikon.AI.Reranking
     CohereRerank4Fast
     CohereRerank4Pro
     JinaReranker3
+    JinaReranker35
     VoyageRerank25
     VoyageRerank25Lite
     // Not directly usable — select custom models (see CustomModels) by their registered name string.
@@ -1551,10 +1415,6 @@ namespace Ikon.AI.Reranking
     TimeSpan Timeout { get; init; }
     // Caps how many items are returned; 0 returns all.
     int TopN { get; init; }
-  class RerankerException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
 
 namespace Ikon.AI.Retrieving
   class Content
@@ -1579,16 +1439,6 @@ namespace Ikon.AI.Retrieving
     readonly string Link
     readonly float Score
     readonly List<string> Segments
-  class IdMapperException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
-  class JsonAsset
-    ctor(string content)
-    IEnumerable<string> GetAllKeys()
-    string[] GetKeys()
-    bool TryGetValue(string keyPath, out object? value)
-    bool TryGetValueAsObject(string keyPath, out object? value)
   class Retriever : IAsyncDisposable
     ctor()
     KernelContext Context { get; }
@@ -1637,220 +1487,6 @@ namespace Ikon.AI.Retrieving
     bool UseCumulativeScore { get; set; }
     bool UseIdMapper { get; set; }
 
-namespace Ikon.AI.Shader
-  class Actions
-    ctor()
-    ScriptableStringValue AfterPass { get; set; }
-    ScriptableStringValue AfterShader { get; set; }
-    ScriptableStringValue BeforePass { get; set; }
-    ScriptableStringValue BeforeShader { get; set; }
-    Dictionary<string, ScriptableStringValue> Listeners
-  class FunctionDetailsDictionaryConverter<T> : JsonConverter where T : IFunctionDetails, new()
-    ctor()
-    override bool CanConvert(Type objectType)
-    override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
-    override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
-  class History
-    ctor()
-    ScriptableValue<int> Max { get; set; }
-    ScriptableValue<int> Skip { get; set; }
-  interface IFunctionDetails
-    ScriptableValue<bool> Select { get; set; }
-  interface IScriptContext
-    void AddFilter(string name, KernelContext context, Function function)
-    void AddFunction(string name, KernelContext context, Function function)
-    bool ContainsKey(string key)
-    IEnumerable<string> GetKeys()
-    object? GetValue(string key)
-    string GetValueAsString(string key)
-    void Register<T>() where T : class
-    void SetValue(string key, object? value)
-  interface IScriptEngine
-    IScriptContext CreateContext()
-    bool TryParse(string template, out IScriptTemplate? parsedTemplate, out string? errorMessage)
-  interface IScriptTemplate
-    Task<string> RenderAsync(IScriptContext context)
-  class Intent
-    ctor()
-    History? History { get; set; }
-    string Id { get; set; }
-    Dictionary<string, object?>? Input { get; set; }
-    Misc? Misc { get; set; }
-    Model? Model { get; set; }
-    List<Pass> Passes { get; set; }
-    ScriptableValue<bool> Select { get; set; }
-  class JTokenConverter
-    ctor()
-    static object? ConvertJTokenToObject(JToken? token)
-  class Misc
-    ctor()
-    ScriptableStringValue CitationInsertionCommand { get; set; }
-    ScriptableStringValue CitationUserMessageExtension { get; set; }
-    List<string> FailClassificationLabels { get; set; }
-    ScriptableStringValue FailureMessage { get; set; }
-    ScriptableValue<bool> InsertCitationsBackToModelMessage { get; set; }
-    ScriptableValue<bool> UseTrimming { get; set; }
-  class Model
-    ctor()
-    ScriptableStringValue AudioOutputVoiceId { get; set; }
-    ScriptableValue<int> CharsPerSecond { get; set; }
-    ScriptableValue<int> CharsPerUpdate { get; set; }
-    ScriptableValue<bool> DisableFunctionCalling { get; set; }
-    ScriptableValue<bool> DiscardTextOutputWithFunctionCalls { get; set; }
-    ScriptableValue<bool> ForceCitations { get; set; }
-    ScriptableStringValue GbnfGrammar { get; set; }
-    ExpandoObject? JsonSchema { get; set; }
-    ScriptableStringValue JsonSchemaString { get; set; }
-    ScriptableValue<bool> LogFullRequest { get; set; }
-    ScriptableValue<bool> LogRenderedShader { get; set; }
-    ScriptableValue<int> MaxOutputTokens { get; set; }
-    ScriptableValue<int> MaxRecursionDepth { get; set; }
-    ScriptableStringValue Name { get; set; }
-    ScriptableStringValue ReasoningEffort { get; set; }
-    ScriptableValue<int> ReasoningTokenBudget { get; set; }
-    List<ModelRegion> Regions { get; set; }
-    ScriptableValue<int> RequestTimeoutSeconds { get; set; }
-    ScriptableValue<double> Temperature { get; set; }
-    List<Transform> Transforms { get; set; }
-    ScriptableValue<bool> UseAudioOutput { get; set; }
-    ScriptableValue<bool> UseCaching { get; set; }
-    ScriptableValue<bool> UseCitations { get; set; }
-    ScriptableValue<bool> UseJson { get; set; }
-    ScriptableValue<bool> UseStreaming { get; set; }
-    ScriptableValue<bool> UseThrottling { get; set; }
-    ScriptableValue<bool> UseUserNames { get; set; }
-  class ModelFunctionDetails : IFunctionDetails
-    ctor()
-    ScriptableStringValue? Call { get; set; }
-    ScriptableValue<bool>? CallOnlyOnce { get; set; }
-    ScriptableStringValue Description { get; set; }
-    ScriptableValue<bool>? InlineCall { get; set; }
-    Dictionary<string, ParameterDetails> Parameters { get; set; }
-    ScriptableStringValue Process { get; set; }
-    ScriptableValue<bool> Select { get; set; }
-    ScriptableStringValue? Use { get; set; }
-  class Output
-    ctor()
-    ScriptableStringValue AfterPass { get; set; }
-    ScriptableStringValue AfterShader { get; set; }
-    ScriptableStringValue BeforePass { get; set; }
-    ScriptableStringValue BeforeShader { get; set; }
-  class ParameterDetails
-    ctor()
-    object? DefaultValue { get; set; }
-    ScriptableStringValue? Description { get; set; }
-    ScriptableValue<bool>? HasDefaultValue { get; set; }
-    ScriptableStringValue? Type { get; set; }
-    ScriptableStringValue? Use { get; set; }
-  class Pass
-    ctor()
-    Actions Actions { get; set; }
-    ScriptableStringValue Command { get; set; }
-    ScriptableStringValue Context { get; set; }
-    History? History { get; set; }
-    string Id { get; set; }
-    Dictionary<string, object?>? Input { get; set; }
-    Misc? Misc { get; set; }
-    Model? Model { get; set; }
-    Dictionary<string, ModelFunctionDetails> ModelFunctions { get; set; }
-    Output Output { get; set; }
-    ScriptableValue<bool> Select { get; set; }
-    Dictionary<string, TemplateFunctionDetails> TemplateFunctions { get; set; }
-  class ScriptableStringDictionaryConverter : JsonConverter
-    ctor()
-    override bool CanConvert(Type objectType)
-    override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
-    override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
-  class ScriptableStringValue
-    ctor(string? value = "")
-    bool IsScript { get; }
-    string? Value { get; }
-    Task<string?> GetValueAsync(Func<string, Task<string>> renderer)
-  class ScriptableStringValueConverter : JsonConverter
-    ctor()
-    override bool CanConvert(Type objectType)
-    override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
-    override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
-  class ScriptableValue<T> where T : struct
-    ctor(T value)
-    ctor(string script)
-    string? Script { get; }
-    T? Value { get; }
-    Task<T> GetValueAsync(Func<string, Task<string>> renderer)
-  class ScriptableValueConverter : JsonConverter
-    ctor()
-    override bool CanConvert(Type objectType)
-    override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
-    override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
-  class Shader
-    ctor(string shaderConfigAsJsonString, bool enableRenderedShaderLogging = false)
-    Dictionary<string, object?> Input { get; }
-    static string Escape(string? text)
-    IAsyncEnumerable<LLMEvent> GenerateAsync(KernelContext? context = null, List<KernelContext>? externalContexts = null, Dictionary<string, object?>? state = null, ShaderInvocationContext? invocationContext = null, ExpandoObject? implicitJsonSchema = null, string? implicitJsonExample = null, IdMapper? idMapper = null, string modelUserName = "", string modelMessagePrefix = "", string modelMessageSuffix = "", int iteration = 0, Func<Dictionary<string, object?>, Task>? stateUpdateCallback = null, Func<KernelContext, Task<KernelContext>>? preprocessContext = null, CancellationToken cancellationToken = default)
-    Task<T> GenerateObjectAsync<T>(KernelContext? context = null, List<KernelContext>? externalContexts = null, Dictionary<string, object?>? state = null, ShaderInvocationContext? invocationContext = null, Func<Dictionary<string, object?>, Task>? stateUpdateCallback = null, JsonSerializerOptions? jsonSerializerOptions = null, Func<KernelContext, Task<KernelContext>>? preprocessContext = null, CancellationToken cancellationToken = default) where T : new()
-    Task<string> GenerateStringAsync(KernelContext? context = null, List<KernelContext>? externalContexts = null, Dictionary<string, object?>? state = null, ShaderInvocationContext? invocationContext = null, Func<Dictionary<string, object?>, Task>? stateUpdateCallback = null, Func<KernelContext, Task<KernelContext>>? preprocessContext = null, CancellationToken cancellationToken = default)
-    void SetActiveState<T>(string key, T? value)
-    static string Unescape(string? text)
-    event EventHandler<string>? RenderedShader
-  class Shader.TemplateMessage
-    ctor()
-    string Content { get; set; }
-    string Role { get; set; }
-  class ShaderCache : AsyncLocalInstance<ShaderCache>
-    ctor()
-    string? DefaultSpaceId { get; set; }
-    ShaderCache.ImplicitShader GetImplicitShader()
-  class ShaderCache.ImplicitShader
-    ctor(AssetUri? shaderUri, string callerFilePath, ShaderCache outer)
-    IAsyncEnumerable<LLMEvent> GenerateAsync(List<KernelContext>? contexts = null, ShaderInvocationContext? invocationContext = null, Func<KernelContext, Task<KernelContext>>? preprocessContext = null, CancellationToken cancellationToken = default, params (string key, object? value)[] parameters)
-    Task<T> GenerateObjectAsync<T>(List<KernelContext>? contexts = null, ShaderInvocationContext? invocationContext = null, CancellationToken cancellationToken = default, params (string key, object? value)[] parameters) where T : new()
-    Task<T> GenerateObjectAsync<T>(List<KernelContext>? contexts = null, CancellationToken cancellationToken = default, params (string key, object? value)[] parameters) where T : new()
-    Task<T> GenerateObjectAsync<T>(string? cacheKey = null, List<KernelContext>? contexts = null, CancellationToken cancellationToken = default, params (string key, object? value)[] parameters) where T : new()
-    Task<T> GenerateObjectAsync<T>(List<KernelContext>? contexts = null, ShaderInvocationContext? invocationContext = null, Func<KernelContext, Task<KernelContext>>? preprocessContext = null, CancellationToken cancellationToken = default, params (string key, object? value)[] parameters) where T : new()
-    Task<T> GenerateObjectAsync<T>(List<KernelContext>? contexts = null, Func<KernelContext, Task<KernelContext>>? preprocessContext = null, CancellationToken cancellationToken = default, params (string key, object? value)[] parameters) where T : new()
-    Task<T> GenerateObjectAsync<T>(string? cacheKey = null, List<KernelContext>? contexts = null, Func<KernelContext, Task<KernelContext>>? preprocessContext = null, CancellationToken cancellationToken = default, params (string key, object? value)[] parameters) where T : new()
-    Task<string> GenerateStringAsync(List<KernelContext>? contexts = null, ShaderInvocationContext? invocationContext = null, CancellationToken cancellationToken = default, params (string key, object? value)[] parameters)
-    Task<string> GenerateStringAsync(List<KernelContext>? contexts = null, ShaderInvocationContext? invocationContext = null, Func<KernelContext, Task<KernelContext>>? preprocessContext = null, CancellationToken cancellationToken = default, params (string key, object? value)[] parameters)
-    Task<Shader> GetShaderAsync()
-  class ShaderConfig
-    ctor()
-    static object Default { get; }
-    History History { get; set; }
-    Dictionary<string, object?> Input { get; set; }
-    List<Intent> Intents { get; set; }
-    ScriptableValue<int> MaxLogLineLength { get; set; }
-    ScriptableValue<int> MaxLogSectionLineCount { get; set; }
-    Misc Misc { get; set; }
-    Model Model { get; set; }
-    string ShaderLanguage { get; set; }
-    int? ShaderVersion { get; set; }
-  class ShaderInvocationContext
-    ctor()
-    string FailureMessage { get; }
-    string Reasoning { get; }
-  class StyleInvariantComparer : IEqualityComparer<string>
-    ctor()
-    bool Equals(string? x, string? y)
-    int GetHashCode(string obj)
-  class TemplateFunctionDetails : IFunctionDetails
-    ctor()
-    ScriptableStringValue Name { get; set; }
-    ScriptableValue<bool> Select { get; set; }
-  class Transform
-    ctor()
-    Dictionary<string, object?> Config { get; set; }
-    ScriptableStringValue Name { get; set; }
-    ScriptableValue<bool> ProcessInput { get; set; }
-    ScriptableValue<bool> ProcessOutput { get; set; }
-    ScriptableValue<int> WindowOverlap { get; set; }
-    ScriptableValue<int> WindowSize { get; set; }
-
-namespace Ikon.AI.Shader.Scriban
-  class ScribanScriptEngine : IScriptEngine
-    ctor()
-    IScriptContext CreateContext()
-    bool TryParse(string template, out IScriptTemplate? parsedTemplate, out string? errorMessage)
-
 namespace Ikon.AI.SoundEffectGeneration
   interface ISoundEffectGenerator : IDisposable, ISoundEffectGeneratorInfo
     int ChannelCount { get; }
@@ -1860,10 +1496,6 @@ namespace Ikon.AI.SoundEffectGeneration
     Task<SoundEffectGeneratorResult> GenerateSoundEffectFileAsync(SoundEffectGeneratorConfig config, CancellationToken cancellationToken = default)
   interface ISoundEffectGeneratorInfo
     bool SupportsLooping { get; }
-  class NonRetryableSoundEffectGeneratorException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed class SoundEffectGenerator : ISoundEffectGenerator
     ctor(string modelName)
     ctor(SoundEffectGeneratorModel model)
@@ -1892,10 +1524,6 @@ namespace Ikon.AI.SoundEffectGeneration
     // Applies to the buffered ISoundEffectGenerator.GenerateSoundEffectFileAsync result; the streaming ISoundEffectGenerator.GenerateSoundEffectAsync chunks are unaffected.
     ResultDelivery ResultDelivery { get; init; }
     TimeSpan Timeout { get; init; }
-  class SoundEffectGeneratorException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum SoundEffectGeneratorModel
     ElevenLabsV2
   static class SoundEffectGeneratorModelExtensions
@@ -1915,10 +1543,6 @@ namespace Ikon.AI.SpeechGeneration
     int SampleRate { get; }
     IReadOnlyList<string> VoiceIds { get; }
     IAsyncEnumerable<AudioChunk> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = default)
-  class NonRetryableSpeechGeneratorException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed class SpeechGenerator : ISpeechGenerator
     ctor(string modelName)
     ctor(SpeechGeneratorModel model)
@@ -1929,7 +1553,7 @@ namespace Ikon.AI.SpeechGeneration
     IReadOnlyList<string> VoiceIds { get; }
     void Dispose()
     Task<AudioChunk> GenerateAsync(string text, string? voice = null, CancellationToken cancellationToken = default)
-    // Static one-shot; constructs and disposes a SpeechGenerator per call. Defaults to SpeechGeneratorModel.ElevenFlash25; override via model. Pass voice to pick a voice (model default otherwise). Streamed chunks are concatenated into one PCM AudioChunk. Never returns null — throws SpeechGeneratorException on failure or empty output. Use the constructor + GenerateSpeechAsync for chunk-by-chunk streaming or other fields.
+    // Static one-shot; constructs and disposes a SpeechGenerator per call. Defaults to SpeechGeneratorModel.ElevenFlash25; override via model. Pass voice to pick a voice (model default otherwise). Streamed chunks are concatenated into one PCM AudioChunk. Never returns null — throws RetryableAIException on failure or empty output. Use the constructor + GenerateSpeechAsync for chunk-by-chunk streaming or other fields.
     static Task<AudioChunk> GenerateAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, CancellationToken cancellationToken = default)
     IAsyncEnumerable<AudioChunk> GenerateSpeechAsync(SpeechGeneratorConfig config, CancellationToken cancellationToken = default)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(SpeechGeneratorModel model)
@@ -1943,10 +1567,6 @@ namespace Ikon.AI.SpeechGeneration
     string Text { get; init; }
     TimeSpan Timeout { get; init; }
     string VoiceId { get; init; }
-  class SpeechGeneratorException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum SpeechGeneratorModel
     AzureSpeechService
     OpenAITts1
@@ -1956,20 +1576,13 @@ namespace Ikon.AI.SpeechGeneration
     ElevenMultilingual2
     ElevenFlash25
     Eleven3
+    Eleven3Conversational
     GoogleChirp3
     Gemini25FlashTts
     Gemini25ProTts
     Gemini31FlashTts
   static class SpeechGeneratorModelExtensions
     static string DisplayName(this SpeechGeneratorModel model)
-  static class TextFilter
-    static string Filter(string text, TextFilter.Config config)
-  sealed class TextFilter.Config
-    ctor()
-    int MaxTextLength { get; set; }
-    bool RemoveEmojis { get; set; }
-    bool SimplifyUrls { get; set; }
-    bool SpeakOnlyFirstParagraph { get; set; }
 
 namespace Ikon.AI.SpeechRecognition
   sealed record AnalyzePronunciationConfig
@@ -1985,16 +1598,15 @@ namespace Ikon.AI.SpeechRecognition
     int ChannelCount { get; }
     int SampleRate { get; }
     Task<Pronunciation.Result> AnalyzePronunciationAsync(AnalyzePronunciationConfig config, CancellationToken cancellationToken = default)
-    Task<string> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
-    IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
+    Task<Transcript> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<TranscriptEvent> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
   interface ISpeechRecognizerInfo
     bool SupportsBatchRecognition { get; }
     bool SupportsContinuousRecognition { get; }
+    bool SupportsDiarization { get; }
     bool SupportsPronunciationAnalysis { get; }
-  class NonRetryableSpeechRecognizerException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
+    bool SupportsSegmentTimestamps { get; }
+    bool SupportsWordTimestamps { get; }
   sealed record Pronunciation.Break
     ctor()
     int BreakLength { get; init; }
@@ -2083,14 +1695,22 @@ namespace Ikon.AI.SpeechRecognition
     ctor()
     string[] CandidateLanguages { get; init; }
     int ChannelCount { get; init; }
+    // Label each word and segment with a speaker. Throws on a model that cannot diarize.
+    bool Diarize { get; init; }
+    // Emit revisable interim hypotheses as well as final results. Defaults to false, so only TranscriptEvent.IsFinal events arrive.
+    bool InterimResults { get; init; }
     string Language { get; init; }
     int SampleRate { get; init; }
+    // Which timings to ask for; defaults to SpeechTimestamps.None. Only events with TranscriptEvent.IsFinal ever carry words.
+    SpeechTimestamps Timestamps { get; init; }
   // Supply the audio exactly one way: raw PCM via Samples or SamplesPcm16 (with SampleRate/ChannelCount), or an encoded audio file via Data (with MimeType), Url, or AssetUri (resolved automatically).
   sealed record RecognizeSpeechConfig
     ctor()
     AssetUri? AssetUri { get; init; }
     int ChannelCount { get; init; }
     byte[]? Data { get; init; }
+    // Label each word and segment with a speaker. Throws on a model that cannot diarize.
+    bool Diarize { get; init; }
     string Language { get; init; }
     string? MimeType { get; init; }
     string? Prompt { get; init; }
@@ -2099,6 +1719,8 @@ namespace Ikon.AI.SpeechRecognition
     byte[] SamplesPcm16 { get; init; }
     double Temperature { get; init; }
     TimeSpan Timeout { get; init; }
+    // Which timings to ask for; defaults to SpeechTimestamps.None, so an unchanged request costs what it always did. Asking for a granularity the model does not support throws rather than returning empty lists.
+    SpeechTimestamps Timestamps { get; init; }
     string? Url { get; init; }
   sealed class SpeechRecognizer : ISpeechRecognizer
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
@@ -2107,7 +1729,10 @@ namespace Ikon.AI.SpeechRecognition
     int SampleRate { get; }
     bool SupportsBatchRecognition { get; }
     bool SupportsContinuousRecognition { get; }
+    bool SupportsDiarization { get; }
     bool SupportsPronunciationAnalysis { get; }
+    bool SupportsSegmentTimestamps { get; }
+    bool SupportsWordTimestamps { get; }
     Task<Pronunciation.Result> AnalyzePronunciationAsync(AnalyzePronunciationConfig config, CancellationToken cancellationToken = default)
     void Dispose()
     static SpeechRecognizerCapabilities GetCapabilities(SpeechRecognizerModel model)
@@ -2115,19 +1740,22 @@ namespace Ikon.AI.SpeechRecognition
     Task<string> RecognizeAsync(float[] samples, int sampleRate, int channelCount = 1, CancellationToken cancellationToken = default)
     // Static one-shot; constructs and disposes a SpeechRecognizer per call. Defaults to SpeechRecognizerModel.WhisperLarge3Turbo; override via model. Returns the recognized text (empty when nothing was recognized). Use the constructor + RecognizeBatchSpeechAsync for a language hint, prompt, or other fields, or RecognizeContinuousSpeechAsync for streaming.
     static Task<string> RecognizeAsync(float[] samples, int sampleRate, SpeechRecognizerModel model = WhisperLarge3Turbo, int channelCount = 1, CancellationToken cancellationToken = default)
-    Task<string> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
-    IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
+    Task<Transcript> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<TranscriptEvent> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
   sealed class SpeechRecognizerAdapter : ISpeechRecognizer
     ctor(ISpeechRecognizer speechRecognizer, SpeechRecognizerAdapter.Config? config = null)
     int ChannelCount { get; }
     int SampleRate { get; }
     bool SupportsBatchRecognition { get; }
     bool SupportsContinuousRecognition { get; }
+    bool SupportsDiarization { get; }
     bool SupportsPronunciationAnalysis { get; }
+    bool SupportsSegmentTimestamps { get; }
+    bool SupportsWordTimestamps { get; }
     Task<Pronunciation.Result> AnalyzePronunciationAsync(AnalyzePronunciationConfig config, CancellationToken cancellationToken = default)
     void Dispose()
-    Task<string> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
-    IAsyncEnumerable<string> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
+    Task<Transcript> RecognizeBatchSpeechAsync(RecognizeSpeechConfig config, CancellationToken cancellationToken = default)
+    IAsyncEnumerable<TranscriptEvent> RecognizeContinuousSpeechAsync(RecognizeContinuousSpeechConfig config, IAsyncEnumerable<float[]> samples, CancellationToken cancellationToken = default)
   sealed class SpeechRecognizerAdapter.Config
     ctor()
     // SilenceTriggered mode only: forces recognition after this much continuous speech without a pause. TimeSpan.Zero or negative disables the limit. Defaults to 30s.
@@ -2148,11 +1776,10 @@ namespace Ikon.AI.SpeechRecognition
     ctor()
     bool SupportsBatchRecognition { get; init; }
     bool SupportsContinuousRecognition { get; init; }
+    bool SupportsDiarization { get; init; }
     bool SupportsPronunciationAnalysis { get; init; }
-  class SpeechRecognizerException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
+    bool SupportsSegmentTimestamps { get; init; }
+    bool SupportsWordTimestamps { get; init; }
   enum SpeechRecognizerModel
     AzureSpeechService
     Whisper2
@@ -2161,24 +1788,60 @@ namespace Ikon.AI.SpeechRecognition
     Gpt4OmniTranscribe
     Gpt4OmniMiniTranscribe
     Gpt4OmniTranscribeDiarize
+    GptTranscribe
     DeepgramNova3General
     DeepgramNova3Medical
     AssemblyAIUniversal3ProStreaming
+    AssemblyAIUniversal35Pro
     AssemblyAIUniversalStreamingEnglish
     AssemblyAIUniversalStreamingMultilingual
+    ElevenScribe2
     VoxtralMiniTranscribe2
   static class SpeechRecognizerModelExtensions
     static string DisplayName(this SpeechRecognizerModel model)
+  // Which timings to ask the provider for. Timestamps cost a larger response and, on some providers, extra processing, so the default is None. Requesting a granularity the model does not support throws — check SpeechRecognizer.GetCapabilities first.
+  enum SpeechTimestamps
+    None
+    Segment
+    Word
+  // Start and End are relative to the start of the submitted audio, whatever units the provider reported. Speaker is empty unless RecognizeSpeechConfig.Diarize was set and the model supports it.
+  sealed record SpeechWord
+    ctor()
+    double Confidence { get; init; }
+    TimeSpan End { get; init; }
+    string Speaker { get; init; }
+    TimeSpan Start { get; init; }
+    string Text { get; init; }
+  // The result of one batch transcription. Segments and Words are empty unless RecognizeSpeechConfig.Timestamps asked for them. Language is the language the provider reported detecting, empty when it reported none. Confidence is 0 when the provider does not report one — it is not a score of zero, and no provider that reports confidence reports exactly 0 for real speech.
+  sealed record Transcript
+    ctor()
+    double Confidence { get; init; }
+    TimeSpan Duration { get; init; }
+    string Language { get; init; }
+    IReadOnlyList<TranscriptSegment> Segments { get; init; }
+    string Text { get; init; }
+    IReadOnlyList<SpeechWord> Words { get; init; }
+  // One result from a continuous recognition. IsFinal separates a provider's revisable interim hypothesis from text it will not change: only final events carry Words, because no provider attaches word timings to an interim result. Start and End are relative to the start of the audio stream, so they keep growing for the life of the recognition.
+  sealed record TranscriptEvent
+    ctor()
+    double Confidence { get; init; }
+    TimeSpan End { get; init; }
+    bool IsFinal { get; init; }
+    string Language { get; init; }
+    string Speaker { get; init; }
+    TimeSpan Start { get; init; }
+    string Text { get; init; }
+    IReadOnlyList<SpeechWord> Words { get; init; }
+  // One provider-chosen span of speech — a Whisper segment, a Deepgram utterance, a diarized speaker turn. Start and End are relative to the start of the submitted audio. Speaker is empty unless diarization was requested and supported.
+  sealed record TranscriptSegment
+    ctor()
+    double Confidence { get; init; }
+    TimeSpan End { get; init; }
+    string Speaker { get; init; }
+    TimeSpan Start { get; init; }
+    string Text { get; init; }
 
 namespace Ikon.AI.Storage
-  class KeywordIndex
-    ctor()
-    Task AddAsync(string word, string link)
-    static KeywordIndex Deserialize(Stream stream)
-    Task InitializeAsync()
-    void RemoveTooCommonTerms(double threshold = 0.5, int minDocumentCount = 5)
-    List<KeywordSearchResult> Search(string words)
-    void Serialize(Stream stream)
   struct KeywordSearchResult
     ctor(string link, float score)
     string Link
@@ -2227,10 +1890,6 @@ namespace Ikon.AI.Utils
 namespace Ikon.AI.VideoEnhancement
   interface IVideoEnhancer : IDisposable
     Task<VideoEnhancerResult> EnhanceVideoAsync(VideoEnhancerConfig config, CancellationToken cancellationToken = default)
-  class NonRetryableVideoEnhancerException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed class VideoEnhancer : IVideoEnhancer
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(VideoEnhancerModel model, IReadOnlyList<ModelRegion>? regions = null)
@@ -2251,10 +1910,6 @@ namespace Ikon.AI.VideoEnhancement
     int? TargetFps { get; init; }
     TimeSpan Timeout { get; init; }
     string? Url { get; init; }
-  class VideoEnhancerException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum VideoEnhancerModel
     TensorPixFpsBoost
     TensorPixUpscale2xUltra4
@@ -2285,10 +1940,6 @@ namespace Ikon.AI.VideoGeneration
     bool SupportsSeed { get; }
     bool SupportsTailImage { get; }
     bool SupportsTextToVideo { get; }
-  class NonRetryableVideoGeneratorException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed class VideoGenerator : IVideoGenerator
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(VideoGeneratorModel model, IReadOnlyList<ModelRegion>? regions = null)
@@ -2350,10 +2001,6 @@ namespace Ikon.AI.VideoGeneration
     VideoGeneratorResolution Resolution { get; init; }
     int? Seed { get; init; }
     TimeSpan Timeout { get; init; }
-  class VideoGeneratorException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum VideoGeneratorModel
     Kling26
     Kling30
@@ -2468,10 +2115,6 @@ namespace Ikon.AI.WebScraping
     bool UseSitemapOnly { get; init; }
     bool UseStreaming { get; init; }
     TimeSpan WaitAfter { get; init; }
-  class NonRetryableWebScraperException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed record PageResult
     ctor()
     string Content { get; init; }
@@ -2543,10 +2186,6 @@ namespace Ikon.AI.WebScraping
     bool SupportsMultiPageScraping { get; init; }
     bool SupportsScreenshotting { get; init; }
     bool SupportsSinglePageScraping { get; init; }
-  class WebScraperException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum WebScraperModel
     Spider
     Jina
@@ -2566,10 +2205,6 @@ namespace Ikon.AI.WebSearching
     Task<List<SearchResult>> SearchPagesAsync(SearchConfig config, CancellationToken cancellationToken = default)
   interface IWebSearcherInfo
     bool SupportsImageSearching { get; }
-  class NonRetryableWebSearcherException : NonRetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   sealed record SearchConfig
     ctor()
     string CountryCode { get; init; }
@@ -2601,10 +2236,6 @@ namespace Ikon.AI.WebSearching
   sealed class WebSearcherCapabilities : IWebSearcherInfo
     ctor()
     bool SupportsImageSearching { get; init; }
-  class WebSearcherException : RetryableAIException
-    ctor()
-    ctor(string message)
-    ctor(string message, Exception inner)
   enum WebSearcherModel
     Spider
     Jina
