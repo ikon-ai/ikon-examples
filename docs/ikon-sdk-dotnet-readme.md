@@ -324,6 +324,7 @@ ReadOnlyMemory<float> samples = GetAudioSamples();
 
 // Send audio
 await client.SendAudioAsync(
+    MediaTargets.Everyone,
     samples: samples,
     sampleRate: 48000,
     channelCount: 1,
@@ -332,10 +333,11 @@ await client.SendAudioAsync(
 );
 
 // Send final chunk
-await client.SendAudioAsync(samples, 48000, 1, isFirst: false, isLast: true);
+await client.SendAudioAsync(MediaTargets.Everyone, samples, 48000, 1, isFirst: false, isLast: true);
 
 // Optional: specify stream ID, total duration, encoder options, and target clients
 await client.SendAudioAsync(
+    MediaTargets.To(123, 456),                // Target specific session IDs
     samples: samples,
     sampleRate: 48000,
     channelCount: 1,
@@ -346,9 +348,7 @@ await client.SendAudioAsync(
     encoderOptions: new AudioEncoderOptions(  // Custom encoder settings
         bitrate: 64000,
         complexity: 10
-    ),
-    targetIds: new[] { 123, 456 }             // Target specific session IDs
-);
+    ));
 
 // Set default encoder options for all audio
 client.DefaultEncoderOptions = new AudioEncoderOptions(bitrate: 48000, complexity: 8);

@@ -14,47 +14,59 @@ private Audio Audio { get; } = new(app);
 private Video Video { get; } = new(app);
 ```
 
-**The field initializer is mandatory, not a style choice.** The `Audio` constructor subscribes to the app's `StartingAsync` event, and the speech-mixer pump — the loop that actually plays everything sent through `SpeakAsync` and `SendSpeech` — is only started from that handler. Field initializers run before the framework raises `StartingAsync`; code inside `Main()` runs after it. An `Audio` constructed in `Main()` has missed the event, its pump never starts, and every `SpeakAsync` call is silently swallowed — no exception, no sound.
+**The field initializer is mandatory, not a style choice.** The `Audio` constructor subscribes to the app's `StartingAsync` event, and the speech-mixer pump — the loop that actually plays everything sent through `SpeakAsync` and `SpeakChunk` — is only started from that handler. Field initializers run before the framework raises `StartingAsync`; code inside `Main()` runs after it. An `Audio` constructed in `Main()` has missed the event, its pump never starts, and every `SpeakAsync` call is silently swallowed — no exception, no sound.
 
 All Ikon namespaces are auto-imported through the app scaffold's `GlobalUsings.cs`, so no `using` directives are needed for any type in this guide.
 
-## Sending audio: three ways, chosen by pacing
+## Sending audio: two lanes, three methods
 
 <!-- ikon-code: av-send -->
 ```csharp
 // 1. Speech — real-time paced through the speech mixer; new speech interrupts
 //    current speech with a fade. The default for spoken replies.
-await Audio.SpeakAsync("Hello world");                       // TTS in one call
-Audio.SendSpeech(audioChunk);                                // your own AudioChunks
+await Audio.SpeakAsync(MediaTargets.Everyone, "Hello world");                       // TTS in one call
+Audio.SpeakChunk(MediaTargets.Everyone, audioChunk);                                // your own AudioChunks
 
 // 2. Complete clip (decoded file, generated music) — real-time paced, no
 //    interruption semantics. Safe for any length.
-await Audio.StreamAsync(samples, sampleRate, channelCount, streamId: "music");
+await Audio.PlayClipAsync(MediaTargets.Everyone, samples, sampleRate, channelCount, streamId: "music");
 
 // 3. Immediate, UNPACED — only for audio already produced in real time (echoing
 //    mic frames back out) or very short clips. A long clip sent this way arrives
 //    all at once and can overflow client audio buffers; use StreamAsync for clips.
-await Audio.SendImmediateAsync(samples, sampleRate, channelCount, isFirst, isLast, streamId);
+await Audio.SendFrameAsync(MediaTargets.Everyone, samples, sampleRate, channelCount, isFirst, isLast, streamId);
 ```
 
 `SpeakAsync` returns when the utterance is queued; `SpeakAndWaitAsync` completes when playout finishes (an interruption by a newer call completes it quietly). Both take optional `model` (default `SpeechGeneratorModel.ElevenFlash25`), `voice`, `instructions`, and `speed`. To generate speech *without* playing it, use the one-shot `await SpeechGenerator.GenerateAsync(text)`, which returns a PCM `AudioChunk`.
 
-Don't run two concurrent `StreamAsync` calls on the same stream id — the interleaved frames corrupt client playback. Use distinct stream ids or await the previous call first.
+### The lane is in the name
 
-### `targetIds`: null means everyone
+`Speak*` goes through the app's **single speech mixer**: one utterance at a time for the whole app, and starting another fades out the one playing. That interruption is app-wide, not per-target — a `SpeakAsync` aimed at one client still cuts off speech aimed at another.
 
-Every send method takes `IReadOnlyList<int>? targetIds` of client session ids. **`null` — the default — broadcasts to ALL connected clients.** In a multi-user app this is a privacy trap: an app instance is shared by every client connected to it, so a "reply" spoken without `targetIds` is heard by every user in the session, not just the one who asked.
+`Send*` / `Play*` go straight to the wire as independent streams keyed by `streamId`, and overlap freely, including with speech.
+
+So **two voices at once is `PlayClipAsync` on two stream ids**, not two `SpeakChunk` calls — those interrupt each other, because a chunk carrying a new id supersedes the current utterance. `SpeakChunk` exists for generator settings `SpeakAsync` does not expose and for raw sample access, not for overlap.
+
+Don't run two concurrent `PlayClipAsync` calls on the same stream id — the interleaved frames corrupt client playback. Use distinct stream ids or await the previous call first.
+
+### `MediaTargets`: every send names its audience
+
+Every send method takes a `MediaTargets` as its first argument, and there is no default — the compiler makes each call site say who it reaches. `MediaTargets.Everyone` broadcasts to all connected clients; `MediaTargets.To(...)` names client session ids.
+
+State it deliberately. An app instance is shared by every client connected to it, so a "reply" sent to `Everyone` is heard by every user in the session, not just the one who asked.
+
+A targeted send whose id list is **empty** transmits nothing at all. An empty target list is indistinguishable on the wire from no targets, which the server routes to every client, so a filter that matched nobody would otherwise reach exactly the clients it excluded.
 
 <!-- ikon-code: av-reply-to-speaker -->
 ```csharp
 Audio.SpeechRecognizedAsync += async args =>
 {
     // Reply only to the person who spoke — NOT the whole room.
-    await Audio.SpeakAsync($"You said: {args.Text}", targetIds: [args.ClientSessionId]);
+    await Audio.SpeakAsync(MediaTargets.To([args.ClientSessionId]), $"You said: {args.Text}");
 };
 ```
 
-Also note: **interruption is instance-global, not per-target.** All speech flows through one mixer, so a new `SpeakAsync` fades out whatever is currently playing even when the two utterances target different clients. If two users must be spoken to independently at the same time, one shared `Audio.SpeakAsync` cannot do it — drive `SpeechGenerator` + `SendSpeech` with distinct chunk ids, or give each conversation its own mixing path.
+Also note: **interruption is instance-global, not per-target.** All speech flows through one mixer, so a new `SpeakAsync` fades out whatever is currently playing even when the two utterances target different clients. If two users must be spoken to independently at the same time, one shared `Audio.SpeakAsync` cannot do it — drive `SpeechGenerator` + `SpeakChunk` with distinct chunk ids, or give each conversation its own mixing path.
 
 ### Stopping speech
 
@@ -181,7 +193,7 @@ Notable parameters: `speculative` (default true) starts transcription at the pro
 
 ## AudioChunk: construction rules
 
-When feeding your own audio into `SendSpeech` (or a `SpeechMixer`), **always use the full constructor**:
+When feeding your own audio into `SpeakChunk` (or a `SpeechMixer`), **always use the full constructor**:
 
 <!-- ikon-code: av-audio-chunk -->
 ```csharp
@@ -192,12 +204,12 @@ var chunk = new AudioChunk(
     channelCount: 1,
     isFirst: true,
     isLast: true);
-Audio.SendSpeech(chunk);
+Audio.SpeakChunk(MediaTargets.Everyone, chunk);
 ```
 
 Two traps:
 
-- The parameterless constructor exists only for the serializer. An object initializer that skips fields leaves `SampleRate` and `ChannelCount` at `0`, and `SendSpeech` throws `ArgumentException` synchronously for such a chunk — inside whatever handler called it, so an unguarded call takes the handler down.
+- The parameterless constructor exists only for the serializer. An object initializer that skips fields leaves `SampleRate` and `ChannelCount` at `0`, and `SpeakChunk` throws `ArgumentException` synchronously for such a chunk — inside whatever handler called it, so an unguarded call takes the handler down.
 - The `Id` identifies the *speech event*. Chunks sharing an id are appended to one utterance; a **new** id interrupts the current utterance with a fade. Reusing the id of the utterance that just finished makes later chunks read as its tail and they are silently dropped; reusing an older id starts a new utterance that interrupts whatever is playing. One utterance, one unique id; a multi-chunk stream (e.g. streaming TTS) shares the id across its chunks with `isFirst`/`isLast` bracketing it.
 
 ## Group audio: calls and huddles
@@ -240,13 +252,13 @@ Audio.AudioInputStreamEndAsync += async args =>
 };
 
 // One pump forwards each personalized 20 ms frame to its participant. The frames
-// are already real-time paced, so SendImmediateAsync is correct here:
+// are already real-time paced, so SendFrameAsync is correct here:
 _ = Task.Run(async () =>
 {
     await foreach (var (participantId, frame) in _mixer.StreamAsync(ct))
     {
-        await Audio.SendImmediateAsync(frame.Samples, frame.SampleRate, frame.ChannelCount,
-            frame.IsFirst, frame.IsLast, frame.StreamId, targetIds: [participantId]);
+        await Audio.SendFrameAsync(MediaTargets.To([participantId]), frame.Samples, frame.SampleRate, frame.ChannelCount,
+            frame.IsFirst, frame.IsLast, frame.StreamId);
     }
 });
 ```
@@ -281,9 +293,9 @@ Video.VideoInputFrameAsync += async args =>
     // Forward it as-is — e.g. echo to everyone except the sender:
     var stream = _videoStreams[args.StreamId];
     var targets = app.Clients.Ids.Where(id => id != args.ClientSessionId).ToList();
-    await Video.SendFrameAsync(args.Data, args.FrameNumber, args.IsKey,
+    await Video.SendFrameAsync(MediaTargets.To(targets), args.Data, args.FrameNumber, args.IsKey,
         args.TimestampInUs, args.DurationInUs, stream.Codec, stream.Width, stream.Height,
-        stream.Framerate, streamId: args.StreamId, targetIds: targets);
+        stream.Framerate, streamId: args.StreamId);
 };
 
 Video.VideoInputStreamEndAsync += async args =>
@@ -298,7 +310,7 @@ Two hard rules for `SendFrameAsync`:
 - **`data` must be an encoded bitstream matching the `codec` argument** (`VideoCodec.H264`, `Vp8`, `Vp9`, `Av1`). Never raw pixels, and never JPEG/PNG bytes — clients feed the data straight to a video decoder, and anything else produces a black or broken canvas, not an error. The only data most apps ever pass is what arrived in `VideoInputFrameAsync.Data`, forwarded unchanged. (For a still image, use `view.Image`, not a video stream.)
 - **Frames are transmitted immediately — the caller owns the pacing.** Call once per frame at the source framerate, typically by forwarding each incoming frame as it arrives. Never loop over a stored clip's frames without pacing.
 
-`Video.GetOutputStreamInfo(streamId)` describes an active output stream; `CloseAsync` / `CloseAllAsync` end streams. `targetIds: null` broadcasts to all clients, with the same multi-user caveat as audio.
+`Video.GetOutputStreamInfo(streamId)` describes an active output stream; `CloseAsync` / `CloseAllAsync` end streams. `SendFrameAsync` takes the same `MediaTargets` first argument as audio, with the same multi-user caveat.
 
 ## Telephony
 

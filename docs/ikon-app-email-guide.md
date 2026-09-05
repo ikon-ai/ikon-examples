@@ -50,9 +50,8 @@ chooses the identity:
   from. It must be a verified sending domain of the space.
 
 With no `SenderDomain`, the platform picks the space's sending domain deterministically: the domain
-designated as the space's **email sender** (set on the hostname's page in the portal) wins; without
-a designation, a customer-owned domain beats the platform-provided hostname, then the earliest
-verified one.
+designated as the space's **email sender** — chosen when the domain is set up — wins; without a
+designation, a domain of your own beats the platform-provided one, then the earliest verified one.
 
 ### When the sender identity cannot be honoured
 
@@ -76,6 +75,35 @@ catch (EmailSenderNotAvailableException)
 
 A request with **no** sender identity fields never hits this: it sends from the space's verified
 domain when one exists and from the platform's default address otherwise.
+
+## Sending from your own domain
+
+Out of the box a space sends from a platform-provided domain, so the examples above work with no DNS
+setup at all. Sending from a domain of your own — so the From address reads `reports@yourfirm.com` —
+is arranged with Ikon rather than configured in the app: ask your Ikon contact to add the domain to
+your space, and you will be given the records to publish.
+
+They come in two rounds:
+
+| Round | Record | What it does |
+| --- | --- | --- |
+| Ownership | one `TXT` at `_ikon-verify.<your-domain>` | proves the domain is yours; nothing is provisioned before it resolves |
+| Sending | `DKIM`, `SPF` and a return-path record | let receiving servers accept mail the platform sends as you |
+
+Publish the ownership record first — the sending records are only issued once it has been confirmed.
+The domain becomes usable when every sending record resolves publicly and passes verification. Both
+rounds wait on your DNS provider to propagate, so expect the setup to span hours rather than minutes,
+and keep the records in place afterwards: they are re-checked periodically, and a domain whose
+records disappear stops being a valid sender.
+
+If your domain publishes no `DMARC` policy, the platform supplies `v=DMARC1; p=none` so mail is not
+treated as unauthenticated by the mailbox providers that now require a record. Tightening it to
+`quarantine` or `reject` is yours to do once your reports are clean — publish a stricter record of
+your own and it takes precedence.
+
+A verified domain is what the `SenderDomain`, `SenderLocalPart` and `SenderDisplayName` fields above
+resolve against. A domain is verified for one environment at a time, so development keeps using the
+platform default sender.
 
 ## Read the inbox
 
