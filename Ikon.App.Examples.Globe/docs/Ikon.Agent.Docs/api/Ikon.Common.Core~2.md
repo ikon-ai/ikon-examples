@@ -1,4 +1,22 @@
 namespace Ikon.Common.Core
+  class ReactiveGlobalState.DictionaryComparer<TKey, TValue> : IEqualityComparer<Dictionary<TKey, TValue>>
+    ctor()
+    bool Equals(Dictionary<TKey, TValue>? x, Dictionary<TKey, TValue>? y)
+    int GetHashCode(Dictionary<TKey, TValue> obj)
+    static readonly ReactiveGlobalState.DictionaryComparer<TKey, TValue> Instance
+  static class ReadOnlyListExtensions
+    // -1 when nothing matches.
+    static int FindIndex<T>(this IReadOnlyList<T> items, Predicate<T> match)
+    // -1 when nothing matches.
+    static int FindLastIndex<T>(this IReadOnlyList<T> items, Predicate<T> match)
+    // Equality is EqualityComparer<T>.Default; -1 when absent.
+    static int IndexOf<T>(this IReadOnlyList<T> items, T item)
+  // Read-only view of the space-scoped secrets loaded from the Ikon backend. Apps receive one via app.Secrets; pipelines via host.Secrets. Manage values with ikon app secret set/list/delete. Rotating a secret while an app or pipeline is running only takes effect after a restart.
+  sealed class Secrets
+    // Throws InvalidOperationException when no secret with that key is set for this space; use TryGet for a non-throwing lookup.
+    string this[string key] { get; }
+    IReadOnlyCollection<string> Keys { get; }
+    bool TryGet(string key, out string? value)
   class Sensitive<T>
     ctor(T value, SensitivityPolicy sensitivityPolicy = Default)
     bool IsSensitive { get; }

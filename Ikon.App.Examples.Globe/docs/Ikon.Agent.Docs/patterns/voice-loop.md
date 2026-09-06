@@ -77,7 +77,7 @@ public Task Main()
             var reply = string.IsNullOrEmpty(replyRaw) ? "(no reply)" : replyRaw;
             _turns.Add(new VoiceTurn("Tutor", reply));
 
-            await Audio.SpeakAsync(reply);
+            await Audio.SpeakAsync(MediaTargets.Everyone, reply);
         }
         finally
         {
@@ -126,9 +126,9 @@ public Task Main()
   the button renders as "Enable microphone" and a press only asks, because a permission dialog
   steals focus and would cancel the hold behind it. Read `push-to-talk-button` before writing any
   mic UI; `view.MicToggleButton` is the tap-on/tap-off alternative.
-- `await Audio.SpeakAsync(text)` runs the whole TTS chain — generation, streaming, playback — and a new call fades out and replaces the previous utterance (barge-in for free). Optional parameters pick the model/voice (`Audio.SpeakAsync(text, SpeechGeneratorModel.Eleven3, voice: "Aria")`) or target specific clients (`targetIds:`).
-- Hand-roll the loop only for custom mixing, no-interrupt overlap, raw sample access, or config beyond text+voice: `using var tts = new SpeechGenerator(model); await foreach (var audio in tts.GenerateSpeechAsync(new SpeechGeneratorConfig { Text = reply })) { Audio.SendSpeech(audio); }`. `AudioChunk` carries PCM samples (`float[] Samples`, `int SampleRate`, `int ChannelCount`) — it does NOT have `.Data` or `.MimeType` properties; do not call `ClientFunctions.PlaySoundAsync(chunk.Data, chunk.MimeType)` (that combination doesn't compile).
-- `ClientFunctions.PlaySoundAsync(byte[] bytes, string mimeType)` is for playing already-encoded sound files (MP3, WAV); use `Audio.SpeakAsync` / `Audio.SendSpeech` for generated speech.
+- `await Audio.SpeakAsync(MediaTargets.Everyone, text)` runs the whole TTS chain — generation, streaming, playback — and a new call fades out and replaces the previous utterance (barge-in for free). The first argument names the audience — `MediaTargets.To(sessionIds)` speaks to specific clients — and optional parameters pick the model/voice (`Audio.SpeakAsync(MediaTargets.Everyone, text, SpeechGeneratorModel.Eleven3, voice: "Aria")`).
+- Hand-roll the loop only for custom mixing, no-interrupt overlap, raw sample access, or config beyond text+voice: `using var tts = new SpeechGenerator(model); await foreach (var audio in tts.GenerateSpeechAsync(new SpeechGeneratorConfig { Text = reply })) { Audio.SpeakChunk(MediaTargets.Everyone, audio); }`. `AudioChunk` carries PCM samples (`float[] Samples`, `int SampleRate`, `int ChannelCount`) — it does NOT have `.Data` or `.MimeType` properties; do not call `ClientFunctions.PlaySoundAsync(chunk.Data, chunk.MimeType)` (that combination doesn't compile).
+- `ClientFunctions.PlaySoundAsync(byte[] bytes, string mimeType)` is for playing already-encoded sound files (MP3, WAV); use `Audio.SpeakAsync` / `Audio.SpeakChunk` for generated speech.
 - `RecognizeBatchSpeechAsync` returns a `Transcript` (`.Text`, `.Language`, `.Duration`), not a string. Ask for timings with `Timestamps = SpeechTimestamps.Word` (or `Segment`) and read `.Words` (`SpeechWord`) / `.Segments` (`TranscriptSegment`) — `TimeSpan` offsets from the start of the audio. It throws on a model that cannot do the granularity, so check `SpeechRecognizer.GetCapabilities(model)` first. Continuous recognition yields `TranscriptEvent`, where only `IsFinal` events carry words.
 - Wrap STT + LLM + TTS in try/finally so `_processing` always resets.
 - The transcript is a `ReactiveList<VoiceTurn>` — `_turns.Add(turn)` notifies once; enumerate and LINQ the reactive directly (`foreach (var t in _turns)`). The per-stream sample buffers stay plain `Dictionary`s: they are server-side bookkeeping, not UI state.

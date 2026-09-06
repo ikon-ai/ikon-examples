@@ -1,4 +1,11 @@
 namespace Ikon.Common.Core.Reactive
+  // Unlike the global ReactiveEffect, this variant does NOT fire eagerly at construction — there is no active scope yet. The first dep change observed inside a scope of type TScope instantiates that scope's runner and fires the body for the first time. TScope must be a value type (struct, IScopeKey), a tighter constraint than Reactive<T, TScope>'s IScopeKey; the built-in scopes (ClientScope, UserScope, MountScope) are structs, but a class-based custom scope works with the reactive and not with this effect.
+  class ReactiveEffect<TScope> : IDisposable where TScope : struct, IScopeKey
+    ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
+    // Binds an async () => ... body here as a Task-returning delegate instead of the async-void Action overload.
+    ctor(Func<Task> body, params IReactive[] deps)
+    ctor(Action body, params IReactive[] deps)
+    void Dispose()
   // Reads track a dependency exactly like Reactive<T> (reading Value, Count, Contains, or enumerating during render). Every mutation method fires exactly one notification on its own — _ids.Add(x) is the whole call. Reactive<T>.NotifyUpdate is the escape hatch for the one case the mutators cannot see: mutating a stored member in place. Copy-on-write: every mutation runs under the lock and replaces the backing set with a fresh copy, so concurrent mutations serialize and any set handed out earlier is a stable snapshot. Each mutation copies the whole set, so for batches prefer the single-notify bulk ops (UnionWith, ExceptWith, ReplaceAll, Update) over per-item calls in a loop.
   class ReactiveHashSet<T> : Reactive<HashSet<T>>, IReadOnlyCollection<T>
     ctor()
@@ -31,6 +38,10 @@ namespace Ikon.Common.Core.Reactive
     void AddRange(IEnumerable<T> items)
     void Clear()
     bool Contains(T item)
+    bool Exists(Predicate<T> match)
+    T? Find(Predicate<T> match)
+    List<T> FindAll(Predicate<T> match)
+    int FindIndex(Predicate<T> match)
     IEnumerator<T> GetEnumerator()
     int IndexOf(T item)
     void Insert(int index, T item)

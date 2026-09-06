@@ -103,13 +103,14 @@ namespace Ikon.Parallax.Components.Standard
   enum Sticky
     Partial
     Always
+  // The constructor's parameters are camelCase like every view method's — content:, disabled: — so a tab is written the way the panel it holds is.
   record TabItem
-    // Value: Unique identifier for the tab.
-    // Label: Text label displayed on the tab trigger.
-    // Content: Builder function for rendering the tab's content panel.
-    // Disabled: When true, prevents user interaction with this tab.
-    // ForceMount: When true, the tab's content is mounted in the DOM even when inactive (Radix hides via data-state="inactive"). Use this for heavy panels you want to amortise into initial paint and keep mounted across tab switches; the trade-off is a slower first render and any mount-time effects firing on hidden panels.
-    ctor(string Value, string Label, Action<UIView> Content, bool Disabled = false, bool ForceMount = false)
+    // value: Unique identifier for the tab.
+    // label: Text label displayed on the tab trigger.
+    // content: Builder function for rendering the tab's content panel.
+    // disabled: When true, prevents user interaction with this tab.
+    // forceMount: When true, the tab's content is mounted in the DOM even when inactive (Radix hides via data-state="inactive"). Use this for heavy panels you want to amortise into initial paint and keep mounted across tab switches; the trade-off is a slower first render and any mount-time effects firing on hidden panels.
+    ctor(string value, string label, Action<UIView> content, bool disabled = false, bool forceMount = false)
     Action<UIView> Content { get; init; }
     bool Disabled { get; init; }
     bool ForceMount { get; init; }
@@ -224,7 +225,3 @@ namespace Ikon.Parallax.Components.Standard
     // itemStyle: Row style; defaults to Theming.NavItem.Md + Theming.NavItem.Default.
     // selectedItemStyle: Selected-row style; defaults to Theming.NavItem.Md + Theming.NavItem.Active.
     static void TreeView<T>(this UIView view, IReadOnlyList<T> roots, Func<T, string> id, Func<T, string> label, Func<T, IReadOnlyList<T>?> children, ExpandedSet expanded, string[]? style = null, Func<T, Task>? onSelect = null, string? selectedId = null, Func<T, string?>? icon = null, string[]? itemStyle = null, string[]? selectedItemStyle = null, string[]? labelStyle = null, string[]? childrenStyle = null, string? styleId = null, string? key = null)
-  sealed record VideoTapArgs
-    ctor(double X, double Y)
-    double X { get; init; }
-    double Y { get; init; }

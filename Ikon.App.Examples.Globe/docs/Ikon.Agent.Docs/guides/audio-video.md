@@ -15,17 +15,17 @@ Then from anywhere in the app:
 
 // 1. Speech (TTS or AudioChunks through the speech mixer): real-time paced, new speech
 //    interrupts current speech with a fade. The default for spoken replies.
-await Audio.SpeakAsync(text);
-Audio.SendSpeech(audioChunk);
+await Audio.SpeakAsync(MediaTargets.Everyone, text);
+Audio.SpeakChunk(MediaTargets.Everyone, audioChunk);
 
 // 2. Complete clip (decoded file, generated music): real-time paced, no mixer interruption.
 //    Await completes when the clip has been fully sent (≈ clip duration).
-await Audio.StreamAsync(samples, sampleRate, channelCount, streamId, cancellationToken: ct);
+await Audio.PlayClipAsync(MediaTargets.Everyone, samples, sampleRate, channelCount, streamId, cancellationToken: ct);
 
 // 3. Immediate, UNPACED transmit — only for audio already produced in real time (e.g. echoing
 //    mic frames back out) or very short clips. A long clip sent this way arrives all at once
-//    and can overflow client audio buffers — use StreamAsync for clips instead.
-await Audio.SendImmediateAsync(samples, sampleRate, channelCount, isFirst, isLast, streamId);
+//    and can overflow client audio buffers — use PlayClipAsync for clips instead.
+await Audio.SendFrameAsync(MediaTargets.Everyone, samples, sampleRate, channelCount, isFirst, isLast, streamId);
 
 // Receive audio input from client microphone. args carry args.ClientContext /
 // args.ClientSessionId / args.UserId — use these directly; do NOT plumb state through
@@ -60,7 +60,7 @@ Video.VideoInputStreamEndAsync += async args => { /* cleanup */ };
 // Forward/echo video to other clients. Frames are transmitted immediately — call once per
 // frame at the source framerate (e.g. forward each incoming frame as it arrives); never loop
 // over a stored clip's frames without pacing.
-await Video.SendFrameAsync(data, frameNumber, isKey, timestampInUs, durationInUs, codec, width, height, framerate, streamId);
+await Video.SendFrameAsync(MediaTargets.Everyone, data, frameNumber, isKey, timestampInUs, durationInUs, codec, width, height, framerate, streamId);
 
 // Stream info and cleanup
 var info = Video.GetOutputStreamInfo(streamId); // StreamId, TrackId, Codec, Width, Height, Framerate
@@ -70,7 +70,7 @@ await Video.CloseAllAsync();
 
 Use `CaptureButton` in the UI to start audio/video capture from the client — or, for a microphone, its two ready-made forms `view.PushToTalkButton` (hold to talk) and `view.MicToggleButton` (tap on, tap off). Prefer those: they carry the standard permission and feedback behavior, including the enable-microphone step that must never be merged into the talk gesture. See the `push-to-talk-button` pattern before writing any mic UI. Render the captured stream to other clients with `view.VideoStreamCanvas(streamId: ...)`.
 
-Captured media always routes to the app on the server — `Video.VideoInputStreamBeginAsync` / `Audio.AudioInputStreamBeginAsync` fire there, and the other clients never receive the raw capture. The app decides any fan-out (e.g. `Audio.SendSpeech` / `Video.SendFrameAsync` with explicit targets).
+Captured media always routes to the app on the server — `Video.VideoInputStreamBeginAsync` / `Audio.AudioInputStreamBeginAsync` fire there, and the other clients never receive the raw capture. The app decides any fan-out (e.g. `Audio.SpeakChunk` / `Video.SendFrameAsync` with explicit targets).
 
 ### What the Media APIs Hand You
 

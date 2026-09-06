@@ -16,7 +16,7 @@ The `Ikon.Parallax.Theming` namespace ships pre-composed token classes that bund
 The most-used token classes (a curated subset — the `Ikon.Parallax.Theming` namespace ships many more, e.g. `Menu`, `Combobox`, `Breadcrumb`, `Calendar`, `Carousel`):
 
 - **Text**: `Text.Display`, `Text.H1`–`Text.H4`, `Text.Body`, `Text.BodyStrong`, `Text.Label`, `Text.Caption`, `Text.Muted`, `Text.Small`, `Text.Code`, `Text.Link`
-- **Button**: `Button.SolidSm/Md/Lg`, `Button.PrimarySm/Md/Lg`, `Button.NeutralSm/Md/Lg`, `Button.OutlineSm/Md/Lg`, `Button.GhostSm/Md/Lg`, `Button.ErrorSm/Md/Lg`, `Button.SuccessSm/Md/Lg`, `Button.WarningSm/Md/Lg`, `Button.InfoSm/Md/Lg`, `Button.LinkSm/Md/Lg`, `Button.Icon`
+- **Button**: `Button.SolidSm/Md/Lg`, `Button.PrimarySm/Md/Lg`, `Button.NeutralSm/Md/Lg`, `Button.OutlineSm/Md/Lg`, `Button.GhostSm/Md/Lg`, `Button.ErrorSm/Md/Lg` (alias `Button.DestructiveSm/Md/Lg`), `Button.OutlineErrorSm/Md/Lg`, `Button.GhostErrorSm/Md/Lg`, `Button.SuccessSm/Md/Lg`, `Button.WarningSm/Md/Lg`, `Button.InfoSm/Md/Lg`, `Button.LinkSm/Md/Lg`, `Button.Icon`
 - **Card**: `Card.Default`, `Card.Subtle`, `Card.Elevated`, `Card.Strong`, `Card.Outline`, `Card.Flat`, `Card.Ghost`, `Card.Interactive`, `Card.InteractiveFill`, `Card.Selected`, `Card.Glass`, `Card.GlassSubtle`, `Card.Header`, `Card.Content`, `Card.Footer`
 - **Layout**: `Layout.Row.Xs/Sm/Md/Lg/Xl`, `Layout.Row.SpaceBetween`, `Layout.Column.Xs/Sm/Md/Lg/Xl`, `Layout.Grid.Cols2/Cols3/Cols4`, `Layout.Split.Root/Sidebar/Main/Detail`, `Layout.Page`, `Layout.Section`, `Layout.Center`, `Layout.Stretch`
 - **Page**: `Page.Default`, `Page.Plain`, `Page.Base`
@@ -46,7 +46,7 @@ The most-used token classes (a curated subset — the `Ikon.Parallax.Theming` na
 
 The 60-30-10 rule (60% `bg-background`, 30% `bg-card`/`bg-secondary`, 10% brand accents) is a starting balance, not a constraint.
 
-**Coming from shadcn/Tailwind?** This theme uses the **Untitled-UI** vocabulary, where `primary`/`secondary` are emphasis **tiers**, not the brand: `bg-primary`/`bg-secondary` are neutral **surfaces**, `text-primary`/`text-secondary` are **body-text tiers**, and the brand lives in `bg-brand-solid` / `text-brand-secondary` / `border-brand`. So shadcn's `bg-primary` (a brand button) maps to Ikon's `bg-brand-solid`, `text-primary-foreground` → `text-primary-on-brand`, `bg-destructive` → `bg-error-solid`, `text-muted-foreground` → `text-tertiary`, generic `border` → `border-secondary`. Don't reach for a bare `bg-primary` expecting a brand colour — use the Ikon name (or `[Button.PrimaryMd]`).
+**Coming from shadcn/Tailwind?** This theme uses the **Untitled-UI** vocabulary, where `primary`/`secondary` are emphasis **tiers**, not the brand: `bg-primary`/`bg-secondary` are neutral **surfaces**, `text-primary`/`text-secondary` are **body-text tiers**, and the brand lives in `bg-brand-solid` / `text-brand-secondary` / `border-brand`. So shadcn's `bg-primary` (a brand button) maps to Ikon's `bg-brand-solid`, `text-primary-foreground` → `text-primary-on-brand`, `bg-destructive` → `bg-error-solid`, `text-muted-foreground` → `text-tertiary`, generic `border` → `border-secondary`. The shadcn spellings `bg-destructive`/`text-destructive(-foreground)`/`border-destructive`, `*-danger`, and `text-<tone>-foreground` (`text-brand-foreground`, `text-error-foreground`, `text-success-foreground`, …: the text ON that tone's solid fill) are defined as aliases and follow the theme. Don't reach for a bare `bg-primary` expecting a brand colour — use the Ikon name (or `[Button.PrimaryMd]`).
 
 ### Theme Customization
 
