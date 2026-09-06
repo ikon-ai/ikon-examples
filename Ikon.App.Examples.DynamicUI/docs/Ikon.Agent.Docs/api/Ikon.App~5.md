@@ -1,168 +1,217 @@
 namespace Ikon.App
-  interface IAppBase : IMessageChannel
-    BackgroundWork BackgroundWork { get; }
-    // Costs are reported per day and per usage event name; credits are the billing unit. Cost data is aggregated in the analytics pipeline, so very recent usage can take a short while to appear.
-    CostsService Costs { get; }
-    // Resolved from the ambient reactive scope: null outside a client scope (e.g. background work, a timer). Identifies the client being served, never this plugin's own connection context.
-    virtual Context? CurrentClientContext { get; }
-    // Empty string when no client is in scope. This is the correct key for a payment customer key, subscription gating, and per-user state — always populated for a connected client (the real user id when authenticated, else a stable anonymous id).
-    virtual string CurrentUserId { get; }
-    // An escape hatch for libraries that need a real filesystem path. Prefer Files (Files.Data) — same seeded files, plus runtime writes that persist. Read-only in the cloud — writing to it throws.
-    string DataDirectory { get; }
-    IReadOnlyList<DatabaseConnectionInfo> Databases { get; }
-    // It compares ABSOLUTE occupancy against a share of the memory limit, so it cannot tell an instance filling up with arrivals from an app that is simply large: an app whose own resting footprint already exceeds that share is refused from its first client onward, answering 429 to every one of them. Measure your app's idle footprint before turning this on.
-    bool DynamicMaxClientsEnabled { get; set; }
-    // Requires the Email feature enabled on the app's organisation/space; calls from a non-entitled space throw FeatureNotEnabledException.
-    EmailService Email { get; }
-    // Built once before Main() runs, from the endpoints declared on the app class and on loaded [Cell] types.
-    IReadOnlyList<EndpointInfo> Endpoints { get; }
-    // The default implementation throws so hand-rolled test doubles keep compiling; the real app host always provides it.
-    virtual AppFiles Files { get; }
-    GlobalState GlobalState { get; }
-    virtual LiveActivityService LiveActivity { get; }
-    // null except in local dev on a localhost address (no --host-public), where it lets an in-process client reach this exact process over loopback. Via the relay or in the cloud it is null — connect through the normal relay/ApiKey path instead.
-    virtual (string Host, int Port)? LocalLoopbackEndpoint { get; }
-    virtual LocationService Locations { get; }
-    // 0 lifts the cap entirely, which means exactly that: nothing then stops arrivals before the container runs out of memory and the kernel kills the instance with no warning and no chance to shed load. Prefer a measured number, or turn on DynamicMaxClientsEnabled alongside it.
-    int MaxClients { get; set; }
-    int MaxMemoryLimitMb { get; }
-    virtual MotionService Motion { get; }
-    // Each mount produces an independent UI stream addressable from a host UI as <ParallaxView mount="..." />. Defaults to a single mount named "ikon-ui". The value can be replaced with a longer list at any time; the render loop reacts and emits UIStreamBegin/UIStreamEnd for additions and removals.
-    Reactive<IReadOnlyList<string>> Mounts { get; }
-    Navigation Navigation { get; }
-    NotificationService Notifications { get; }
-    PaymentsService Payments { get; }
-    // Reading it inside UI code subscribes to changes; for a URL with query parameters (e.g. a session join link) use JoinUrl.
-    virtual string PublicUrl { get; }
-    virtual RecordingArchiveService Recordings { get; }
-    // Values are fetched once at startup and read synchronously; changes made with ikon app secret set while the app runs take effect only after a restart.
-    Secrets Secrets { get; }
-    // Consulted only during build-time snapshot capture. Returned routes are unioned with the [BootSnapshot] Routes list from ikon-config.toml, validated, and deduped.
-    Func<Task<IEnumerable<string>>>? SnapshotRoutesProvider { get; set; }
-    // Named by StateDatabase in the app's ikon-config toml; empty means the built-in app database. An app whose databases carry other names sets this so its state lives in Postgres rather than falling back to asset storage.
-    virtual string StateDatabase { get; }
-    // Call TelephonyService.GetStatusAsync to find out whether the space has telephony, or TelephonyService.GetNumbersAsync for the numbers themselves, rather than discovering either from a failed send.
-    TelephonyService Telephony { get; }
-    // Enabled by default. Applies only to clients that connect after it is set; already-connected clients are unaffected until they reconnect.
-    bool UdpEnabled { get; set; }
-    virtual UploadService Uploads { get; }
-    // Enabled by default. Disable (e.g. in Main) for apps with no audio/video or low-latency data to save per-client peer-setup cost. Applies only to clients that connect afterward; already-connected clients are unaffected until they reconnect.
-    bool WebRtcEnabled { get; set; }
-    // Blocks until the signer completes the ceremony and the platform has the sealed result. SignatureResult carries a SignedDocument per artefact — persist those bytes as your system of record, the platform's retention is short — and a SignatureSignatoryResult per party, whose SignatoryStatus says whether they signed and whose SignatureSignerIdentity is what the eID reported about them. Name, date of birth and scheme arrive in the clear; the national identity number only ever as a platform-keyed hash.
-    // signerClientSessionId: The client session ID whose browser should perform the signing ceremony.
-    // request: The order specification: documents plus one SignatureSignatory naming the policy, identity schemes and attributes to request.
-    // ct: Cancellation token. The order expires server-side after the configured TTL regardless.
-    Task<SignatureResult> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = default)
-    // The connection comes back unopened — open and dispose it yourself: await using var connection = await app.DatabaseAsync(); await connection.OpenAsync();. Name nothing to get the app's default database — the built-in app one, or the app's own when it declares exactly one; names come from the Databases list in the app's ikon-config toml. The built-in database is provisioned on demand, so the first call may wait while it is created; a declared database is provisioned at activation.
-    // databaseName: The database to connect to, or null for the app's default one.
-    // throws ArgumentException: Thrown when a named database is not among the app's databases, or when no name was given and the app has several to choose from.
-    virtual Task<DbConnection> DatabaseAsync(string? databaseName = null)
-    // Provisions the built-in database if the space does not have one yet and adds it to Databases; concurrent callers share one provisioning attempt. DatabaseAsync calls this for you — call it directly only to pay the first-use cost somewhere other than the first query.
-    // throws InvalidOperationException: Thrown when the database could not be provisioned.
-    virtual Task<DatabaseConnectionInfo> EnsureDefaultDatabaseAsync()
-    // Completes only when the persisted deletions have finished. Erasure is idempotent — erasing a user with no stored state is a no-op.
-    // userId: The user whose persistent state to erase.
-    virtual Task EraseUserStateAsync(string userId)
-    // Each readable property becomes a URL-encoded name=value pair and null-valued properties are skipped, so app.JoinUrl(new { id = sessionId }) yields {PublicUrl}?id={sessionId}. Null returns PublicUrl as-is.
-    // queryParams: Anonymous object (e.g. new { id = sessionId, host = true }) or string dictionary whose entries become the query string. Null for no query string.
-    virtual string JoinUrl(object? queryParams = null)
-    // Identify the endpoint by its HANDLER (the method name, e.g. nameof(GetDocument)), never by URL path — the path is what minting returns. Omitting identity (null) pins this instance's own session on an app endpoint so the URL routes back here, and pins nothing on a cell endpoint. Grants are non-expiring unless you pass expiresIn.
-    // endpoint: Identifies the endpoint by its HANDLER, NOT by its URL path: pass the handler method name (e.g. nameof(GetDocument)) — or the full {Owner}_{Method} registry name when the bare name is ambiguous. Use nameof so a rename stays in sync. You never pass the path here (an endpoint's path is often derived from the method name, and may be templated) — the path is what minting RETURNS, built from this handler's EndpointInfo.PublicUrl.
-    virtual Task<MintedUrl> MintUrlAsync(string endpoint, object? identity = null, TimeSpan? expiresIn = null, string? group = null, CancellationToken ct = default)
-    // One backend round-trip; the result is keyed by the endpoints you passed. See MintUrlAsync for identity pinning and grant lifetime.
-    // endpoints: The endpoints to mint, each identified by its HANDLER (a method name such as nameof(GetDoc), or the full {Owner}_{Method} registry name) — never by its URL path. See MintUrlAsync.
-    virtual Task<IReadOnlyDictionary<string, MintedUrl>> MintUrlsAsync(IEnumerable<string> endpoints, object? identity = null, TimeSpan? expiresIn = null, string? group = null, CancellationToken ct = default)
-    // The counterpart to MintUrlAsync when the caller is a person rather than a registered machine. The result is NOT a URL — send it as Authorization: Bearer {token}, never as a query parameter. It is bound to this one endpoint, expires (15 minutes by default), and a call made with it runs under that user's UserScope.
-    // endpoint: The endpoint's HANDLER, exactly as MintUrlAsync takes it — a method name, or the full {Owner}_{Method} registry name when the bare one is ambiguous. An owner's JSON-RPC multiplexer is {Owner}_mcp; bare "mcp" resolves only in an app with exactly one MCP surface, so an app with cells that expose tools must name the owner.
-    // userId: The space user id the token runs as.
-    virtual Task<MintedUserToken> MintUserTokenAsync(string endpoint, string userId, TimeSpan? expiresIn = null, IEnumerable<string>? scopes = null, CancellationToken ct = default)
-    // Databases is the list the session was started with. A database created since then — with ikon app db create or from the Portal, neither of which restarts anything — is not in it. DatabaseAsync calls this for you when it meets a name it does not recognise, so an app rarely needs it directly; call it to pick up a new database without naming it, or to see one appear in Databases.
-    virtual Task<IReadOnlyList<DatabaseConnectionInfo>> RefreshDatabasesAsync()
-    // Bind your listener to the returned RelayEndpoint.LocalPort; the tunnel is reachable from the internet at {PublicHost}:{PublicPort}. Dispose the endpoint to release it.
-    // protocol: The endpoint protocol. EndpointProtocol.Tls enables TLS termination at the relay.
-    // stablePortName: When non-empty, the relay assigns a deterministic public port for this name, so the endpoint's public URL stays the same across reconnects and process restarts. Empty = ephemeral.
-    // localPort: When positive, the tunnel forwards to this local port instead of a freshly picked one — used to attach a tunnel to a listener that is already bound. 0 = pick automatically.
-    Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", int localPort = 0, CancellationToken ct = default)
-    // Verify the returned JWT (issuer, audience, signature, expiry) before trusting any of its claims — see AssertionVerifier. Blocks until the user completes the challenge in their browser.
-    // clientSessionId: The client session ID whose browser should perform the challenge.
-    // purpose: App-declared reason for the challenge, e.g. "case.delete".
-    // acrValues: Optional identity-provider hints to constrain the authentication method, encoded in the platform's agreed format. When omitted, the platform uses its configured defaults.
-    // clientReturnUrl: Optional URL the platform redirects the user's browser to after the IdP flow completes. The platform appends ?stepup=<completed|failed>&challengeId=<id>. When omitted, the user lands on a generic close-window page. Set this to bring the user back into the app UI after step-up.
-    // ct: Cancellation token. The challenge expires server-side after the configured TTL regardless.
-    Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string>? acrValues = null, string? clientReturnUrl = null, CancellationToken ct = default)
-    virtual Task RevokeGroupAsync(string group, CancellationToken ct = default)
-    virtual Task RevokeUrlAsync(string grantId, CancellationToken ct = default)
-    event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
-    event AsyncEventHandler<ClientLeftEventArgs> ClientLeftAsync
-    event AsyncEventHandler<MessageReceivedEventArgs> MessageReceivedAsync
-    // Fires after app creation but before Main(). Do not subscribe from inside Main() — it has already fired by then and the handler will never run.
-    event AsyncEventHandler<StartingEventArgs> StartingAsync
-    event AsyncEventHandler<StoppingEventArgs> StoppingAsync
-    // At-least-once delivery — the handler must be idempotent. Throwing marks the erasure incomplete and it is redelivered on a later session start.
-    event AsyncEventHandler<UserDataErasureEventArgs> UserDataErasureAsync
-  static class IAppEventExtensions
-    static void OnClientJoined(this IAppBase app, Func<Context, Task> handler)
-    static void OnClientJoined<TSessionIdentity, TClientParameters>(this IApp<TSessionIdentity, TClientParameters> app, Func<Context, TClientParameters, Task> handler)
-    static void OnClientLeft(this IAppBase app, Func<Context, Task> handler)
-    static void OnClientLeft<TSessionIdentity, TClientParameters>(this IApp<TSessionIdentity, TClientParameters> app, Func<Context, TClientParameters, Task> handler)
-    static void OnMessageReceived(this IAppBase app, Func<ProtocolMessage, Task> handler)
-    static void OnSnapshotRoutes(this IAppBase app, Func<Task<IEnumerable<string>>> provider)
-    static void OnStarting(this IAppBase app, Func<Task> handler)
-    static void OnStopping(this IAppBase app, Func<Task> handler)
-    // Clean APP-OWNED data here (own database tables, PII embedded in session/global values) — the platform has already erased the user's platform-managed state. Delivery is at-least-once, so the handler must be idempotent.
-    static void OnUserDataErasure(this IAppBase app, Func<string, Task> handler)
-  interface IClient<out TClientParameters>
-    TClientParameters Parameters { get; }
-    int SessionId { get; }
-  interface IClientCollection<out TClientParameters> : IEnumerable<IClient<TClientParameters>>
-    int Count { get; }
-    IEnumerable<int> Ids { get; }
-    IClient<TClientParameters>? this[int clientSessionId] { get; }
-  interface INotificationChannel
-    // Used in NotificationInbox.NotifyAsync's channel list and in the per-user mutes — "email", "sms", "telegram", "whatsapp", or your own.
-    string Name { get; }
-    // Return false when the channel has no address for the user or is not configured; throw only for a real delivery failure.
-    Task<bool> SendAsync(string userId, NotificationContent content, CancellationToken ct)
-  interface IProfileAttributes
-  // A phone call whose audio the app both hears and speaks, for building a voice agent. The two streaming members are shaped to plug straight into Ikon.AI: ListenAsync yields what ISpeechRecognizer.RecognizeContinuousSpeechAsync consumes, and SpeakAsync takes what ISpeechGenerator.GenerateSpeechAsync produces. So a conversational loop needs no adapter between them:
-  // await call.SpeakAsync(ai.SpeechGenerator.GenerateSpeechAsync(new("How can I help?")));
-  //
-  // await foreach (var heard in ai.SpeechRecognizer.RecognizeContinuousSpeechAsync(config, call.ListenAsync()))
-  // {
-  //     await call.SpeakAsync(ai.SpeechGenerator.GenerateSpeechAsync(new(await Reply(heard))));
-  // }
-  // Sample rates are handled here: the provider's telephony audio and whatever rate the model wants are resampled to meet, so an app never has to know that 8 kHz exists.
-  interface IVoiceCall : IAsyncDisposable
-    string CallId { get; }
-    // In E.164; empty on a call the app placed, where there is no such person.
-    string From { get; }
-    bool IsConnected { get; }
-    // In E.164: the number they dialled on an incoming call, and the number the app asked for on one it placed.
-    string To { get; }
-    Task HangUpAsync(CancellationToken ct = default)
-    // What barge-in needs when the caller starts talking over the agent.
-    Task InterruptAsync(CancellationToken ct = default)
-    // Ends when the call does.
-    // sampleRate: What the consumer wants, typically the recognizer's rate.
-    IAsyncEnumerable<float[]> ListenAsync(int sampleRate = 16000, CancellationToken ct = default)
-    // Speaks audio to the caller, sending each chunk as it is produced. Returns once every chunk has been sent, which is before the caller has finished hearing it — the provider buffers and plays at its own rate. Use WaitForPlaybackAsync to wait for the audio to actually land, and InterruptAsync to abandon it.
-    Task SpeakAsync(IAsyncEnumerable<AudioChunk> audio, CancellationToken ct = default)
-    Task WaitForPlaybackAsync(CancellationToken ct = default)
-  sealed record InboxItem
-    // Id: Stable id, generated by the inbox.
-    // Kind: App-defined category, e.g. "order" or "payment". Free text.
-    // LaunchUrl: Optional in-app path the UI opens when the item is tapped.
-    // Data: Optional opaque payload the app stored with the item.
-    // Tag: Optional collapse key — a later item with the same tag replaces this one, as it does for the push notification.
-    // CreatedAt: UTC time the item was recorded.
-    // Read: Whether the user has seen it.
-    ctor(string Id, string Title, string? Body, string? Kind, string? LaunchUrl, string? Data, string? Tag, DateTime CreatedAt, bool Read)
-    string? Body { get; init; }
-    DateTime CreatedAt { get; init; }
-    string? Data { get; init; }
+  // Every call answers false rather than throwing when the client cannot show one — a browser, an Android device, an iOS version below 16.2, or a Flutter app whose shell predates the bridge. A banner is a nicety and its absence must never take an app down with it.
+  // await app.LiveActivity.StartAsync("Momentum", "#db176e",
+  //     [new LiveMetric("0.00 km", "distance"), new LiveMetric("0:00", "moving")], "Run");
+  sealed class LiveActivityService
+    // Prefer EndEverywhereAsync when finishing whatever the activity was showing. A phone that reconnects — a dropped socket, a restarted app, a redeploy — comes back as a NEW session, so ending on the session that started the activity aims at an id that no longer exists and strands a live-looking banner on the lock screen.
+    // sessionId: The client to clear, or null for the calling client.
+    Task<bool> EndAsync(int? sessionId = null, CancellationToken ct = default)
+    Task EndEverywhereAsync(CancellationToken ct = default)
+    // title: Fixed for the life of the activity; usually the app's name.
+    // accentHex: The app's accent as #rrggbb.
+    // metrics: Up to three; any beyond that are not shown.
+    // status: The tracked line above the metrics — a phase, a state, a kind.
+    // muted: Show it held or paused, which mutes the accent.
+    // sessionId: The client to show it on, or null for the calling client.
+    Task<bool> StartAsync(string title, string accentHex, IReadOnlyList<LiveMetric> metrics, string status, bool muted = false, int? sessionId = null, CancellationToken ct = default)
+    // metrics: Up to three; any beyond that are not shown.
+    // status: The tracked line above the metrics.
+    // muted: Show it held or paused.
+    // sessionId: The client to update, or null for the calling client.
+    Task<bool> UpdateAsync(IReadOnlyList<LiveMetric> metrics, string status, bool muted = false, int? sessionId = null, CancellationToken ct = default)
+  sealed record LiveMetric
+    // Value: Already formatted — the app owns its units and the banner must not reinvent them.
+    // Label: The small caption under it, upper-cased by the banner.
+    ctor(string Value, string Label)
+    string Label { get; init; }
+    string Value { get; init; }
+  // The one-shot ClientFunctions.GetLocationAsync is a pull that only works while the client is connected and awake; this is the push model that survives backgrounding. Continuous background location needs the user's "Always"/background permission and is subject to app-store review, so start it only for a real reason (an active delivery, a live trip) and stop it when done.
+  // app.Locations.OnUpdate(u => _couriers.Update(cs => cs.Select(c => c.SessionId == u.SessionId ? c with { Lat = u.Latitude, Lon = u.Longitude } : c)));
+  // await app.Locations.StartTrackingAsync(ReactiveScope.ClientId, new LocationTrackingOptions(IntervalSeconds: 5));
+  sealed class LocationService
+    // Handlers run on the pushing client's reactive scope, so writing per-user or per-session reactive state from here just works.
+    void OnUpdate(Action<LocationUpdate> handler)
+    // Not for app code — call OnUpdate to observe. Public because the function registry binds to it by reflection.
+    bool ReceiveLocationUpdate(double latitude, double longitude, double accuracy, double speed, double heading, double? altitude = null, double timestampMs = 0.0)
+    void RemoveHandler(Action<LocationUpdate> handler)
+    // Returns true when the client accepted (it supports geolocation and permission was not denied outright).
+    // sessionId: The client session to track.
+    // options: Interval, distance filter, background flag and the Android notification text.
+    Task<bool> StartTrackingAsync(int sessionId, LocationTrackingOptions? options = null, CancellationToken ct = default)
+    // sessionId: The client session to stop tracking.
+    Task<bool> StopTrackingAsync(int sessionId, CancellationToken ct = default)
+  sealed record LocationTrackingOptions
+    // IntervalSeconds: Minimum seconds between reported fixes.
+    // DistanceFilterMeters: Minimum metres of movement before a new fix is reported.
+    // Background: Keep streaming while the app is backgrounded (Android foreground service + iOS background-location mode). When false the stream stops on backgrounding.
+    // NotificationTitle: Android foreground-service notification title shown while tracking.
+    // NotificationBody: Android foreground-service notification body.
+    ctor(int IntervalSeconds = 10, int DistanceFilterMeters = 10, bool Background = true, string NotificationTitle = "Sharing your location", string NotificationBody = "Your location is shared while this is on.")
+    bool Background { get; init; }
+    int DistanceFilterMeters { get; init; }
+    int IntervalSeconds { get; init; }
+    string NotificationBody { get; init; }
+    string NotificationTitle { get; init; }
+  sealed record LocationUpdate
+    // SessionId: The client session the fix came from.
+    // UserId: The signed-in user id, or empty for an anonymous session.
+    // AccuracyMeters: Reported horizontal accuracy in metres.
+    // SpeedMps: Ground speed in metres/second, or 0 when unknown.
+    // Heading: Heading in degrees (0–360), or -1 when unknown.
+    // At: Server time the fix was received (UTC).
+    // AltitudeMeters: Altitude in metres above the WGS-84 ellipsoid, or NaN when the device did not report one. Clients published before altitude was carried always report NaN.
+    // MeasuredAt: Device time the fix was taken (UTC). Equal to At when the client did not report a timestamp. Prefer this over At for anything derived from elapsed time: a batch of fixes delivered after a network stall all arrive at once, so arrival time collapses the intervals between them and every speed and pace computed from it is wrong.
+    ctor(int SessionId, string UserId, double Latitude, double Longitude, double AccuracyMeters, double SpeedMps, double Heading, DateTime At, double AltitudeMeters, DateTime MeasuredAt)
+    double AccuracyMeters { get; init; }
+    double AltitudeMeters { get; init; }
+    DateTime At { get; init; }
+    double Heading { get; init; }
+    double Latitude { get; init; }
+    double Longitude { get; init; }
+    DateTime MeasuredAt { get; init; }
+    int SessionId { get; init; }
+    double SpeedMps { get; init; }
+    string UserId { get; init; }
+  // Sibling of HttpMethodAttribute: both declare an inbound HTTP endpoint over the shared addressing + identity model (see EndpointAttribute), differing only in the wire protocol. Each tool is reachable two ways: through the owner's fixed JSON-RPC multiplexer ({owner}/mcp — tools/list + tools/call, the only surface that streams progress over SSE), and as its own directly-callable POST endpoint whose body IS the tool's arguments object; that per-tool path defaults to the kebab-cased method name, and an EndpointAttribute.Path override adjusts only it, never the multiplexer. A method also carrying a verb-named REST attribute serves the REST surface and suppresses the per-tool MCP endpoint. The governance subject id is always "{Type}.{Method}". Unlike its sibling, EndpointAttribute.Auth defaults to EndpointAuth.User — a grant is a credential no MCP client can obtain; set Auth explicitly for a tool that really is reachable without a user.
+  sealed class McpAttribute : EndpointAttribute
+    ctor()
+    ctor(string path)
+    // Set this explicitly; the method's XML doc summary is never used as a fallback.
+    string Description { get; init; }
+    // Defaults to the method name when null or empty; the governance subject id stays "{Type}.{Method}" regardless.
+    string? Name { get; init; }
+    // Scopes narrow WITHIN an authorization; they do not replace it. A tool that names a scope must also be reachable — an EndpointAuth.User tool is the case this exists for, because only a token carries scopes at all. Naming one on a Public tool would be meaningless and is ignored. A caller whose token lacks the scope gets 403 with error="insufficient_scope", which is the one refusal an MCP client will re-authorize for. That is why it is a 403 and not a 401: a bare 401 says "who are you", and the client already knows.
+    string Scope { get; init; }
+  // Sibling of McpAttribute — same cell-method-as-callable model, different MCP verb shape: • Static resource — method takes no arguments; the URI is the literal UriTemplate with no placeholders. Lists in resources/list. • Dynamic resource — method takes parameters that map to {placeholder} segments in the URI template by name. Lists in resources/templates/list; the client crafts a concrete URI and reads it. Read-only by spec — authors should not put side effects in resource methods (the same governance hook still fires on every read with Operation = "resource", so policy authors can distinguish read access from tool dispatch).
+  sealed class McpResourceAttribute : Attribute
+    ctor(string uriTemplate)
+    string Description { get; init; }
+    // Defaults to text/plain for string returns and application/octet-stream for binary; override to be more specific (text/markdown, application/json, image/png).
+    string MimeType { get; init; }
+    // Defaults to the method name when null or empty.
+    string? Name { get; init; }
+    // Required. Placeholder names must exactly match the cell method's parameter names.
+    string UriTemplate { get; }
+  class MessageReceivedEventArgs : EventArgs
+    ctor(ProtocolMessage message)
+    ProtocolMessage Message { get; }
+  // Url is the endpoint URL with pinned path placeholders substituted and the signed ?ikon-grant= appended; GrantId revokes it, and ExpiresAt is null for the default non-expiring grant.
+  sealed record MintedUrl
+    ctor(string Url, string GrantId, DateTimeOffset? ExpiresAt)
+    DateTimeOffset? ExpiresAt { get; init; }
+    string GrantId { get; init; }
+    string Url { get; init; }
+  // Deliberately not a URL. An access token in a query string is forbidden by the MCP specification and leaks into connector lists, access logs and proxies; this one belongs in a header and nowhere else.
+  sealed record MintedUserToken
+    ctor(string Token, string Resource, DateTimeOffset ExpiresAt)
+    DateTimeOffset ExpiresAt { get; init; }
+    string Resource { get; init; }
+    string Token { get; init; }
+  sealed record MotionBatch
+    // SessionId: The client session the batch came from.
+    // UserId: The signed-in user id, or empty for an anonymous session.
+    // Samples: In the order the device produced them.
+    // At: Server time the batch was received (UTC).
+    ctor(int SessionId, string UserId, IReadOnlyList<MotionSample> Samples, DateTime At)
+    DateTime At { get; init; }
+    IReadOnlyList<MotionSample> Samples { get; init; }
+    int SessionId { get; init; }
+    string UserId { get; init; }
+  sealed record MotionOptions
+    // Hertz: Samples per second per sensor. 25 is plenty to tell a walk from a trot; a controller wants 60 or more. Devices honour this approximately.
+    // Sensors: Which sensors to read.
+    // BatchMilliseconds: How long the client buffers before sending. Sending each sample on its own would put a round trip on every one of them; batching turns fifty calls a second into five. Lower it for a controller, raise it to save battery.
+    // Background: Keep streaming while the app is backgrounded. On iOS this needs an already-running background mode — motion alone does not keep an app alive, so pair it with location tracking if the app must keep reading in a pocket.
+    // LiveHertz: Send only this many samples a second, while RecordingArchiveService keeps every one on the device. Zero streams everything. Use it when the live stream only drives a screen and the analysis happens afterwards.
+    ctor(int Hertz = 25, MotionSensors Sensors = UserAcceleration, int BatchMilliseconds = 200, bool Background = false, int LiveHertz = 0)
+    bool Background { get; init; }
+    int BatchMilliseconds { get; init; }
+    int Hertz { get; init; }
+    int LiveHertz { get; init; }
+    MotionSensors Sensors { get; init; }
+  readonly record struct MotionSample
+    // AtMillis: Device time in milliseconds since the epoch, when the sample was taken.
+    // X: Acceleration in m/s², or rotation in rad/s, or field strength in µT.
+    // Y: The second axis.
+    // Z: The third axis.
+    // Sensor: Which sensor produced it.
+    ctor(double AtMillis, double X, double Y, double Z, MotionSensors Sensor)
+    double AtMillis { get; init; }
+    double Magnitude { get; }
+    MotionSensors Sensor { get; init; }
+    double X { get; init; }
+    double Y { get; init; }
+    double Z { get; init; }
+  enum MotionSensors
+    UserAcceleration
+    Acceleration
+    Gyroscope
+    Magnetometer
+  // Samples arrive in batches rather than one at a time, because a round trip per sample at fifty hertz is fifty round trips a second. MotionOptions.BatchMilliseconds is the knob: lower is more responsive, higher is cheaper. **This is not the right transport for a low-latency controller.** Batched function calls carry a scheduling delay of at least one batch, and every sample is delivered reliably whether or not it still matters. A phone used as a pointing device wants an unreliable app-defined .tp message instead, where a dropped sample is simply superseded by the next one. Use this for analysis — gait, cadence, activity, impact — and a .tp channel for control.
+  // app.Motion.OnBatch(batch => _cadence.Push(batch.Samples));
+  // await app.Motion.StartTrackingAsync(ReactiveScope.ClientId,
+  //     new MotionOptions(Hertz: 50, Sensors: MotionSensors.UserAcceleration | MotionSensors.Gyroscope));
+  sealed class MotionService
+    void OnBatch(Action<MotionBatch> handler)
+    // Anonymous by policy, as for a location fix: the dispatcher attributes each batch to the calling session, so a client cannot push motion as somebody else.
+    bool ReceiveMotionBatch(string samplesJson)
+    void RemoveHandler(Action<MotionBatch> handler)
+    // sessionId: The client session to stream from.
+    // options: Rate, sensors, batching and whether to keep going in the background.
+    Task<bool> StartTrackingAsync(int sessionId, MotionOptions? options = null, CancellationToken ct = default)
+    // sessionId: The client session to stop.
+    Task<bool> StopTrackingAsync(int sessionId, CancellationToken ct = default)
+  class Navigation
+    // Query string stripped; null outside a client scope or before any path is known. Tracked before the client's first frame renders, so route-dependent server UI can branch on it from the very first render — unlike state set from joined handlers, which run on a background task and can lose the race against the first frame.
+    string? CurrentPath { get; }
+    // Round-trips to the live client over the connection rather than reading server state; returns null when the client doesn't answer or isn't connected.
+    // targetId: Session id of the client to ask
+    Task<string?> GetPathAsync(int targetId)
+    // Acts on the client of the ambient ClientScope — call from a client-scoped context. Returns null outside a client scope or when the client doesn't answer.
+    Task<string?> GetPathAsync()
+    // Rejects paths under the platform-reserved /ikon and /api prefixes (throws ArgumentException) — the load balancer owns those. The client's existing query string is preserved unless path carries its own.
+    // targetId: Session id of the client to navigate
+    // path: App-owned path to navigate to, e.g. /orders/7
+    // replace: Replaces the current history entry instead of pushing a new one, so the client's back button skips the path being left behind
+    // throws ArgumentException: path falls under a platform-reserved prefix (/ikon or /api)
+    Task<bool> SetPathAsync(int targetId, string path, bool replace = false)
+    // Acts on the client of the ambient ClientScope — call from a client-scoped context (event handler, function call, reactive render). Rejects reserved /ikon and /api paths (throws ArgumentException), same as the targetId overload.
+    // path: App-owned path to navigate to, e.g. /orders/7
+    // replace: Replaces the current history entry instead of pushing a new one, so the client's back button skips the path being left behind
+    // throws ArgumentException: path falls under a platform-reserved prefix (/ikon or /api)
+    Task<bool> SetPathAsync(string path, bool replace = false)
+    // Fires on any client URL change — link, back button, reload, or the app's own SetPathAsync. Handlers run on a background task in the navigating client's UserScope/ClientScope, so scoped reactives resolve to that client. A handler exception is logged and swallowed, never reaching the client.
+    event AsyncEventHandler<NavigationPathChangedEventArgs> PathChangedAsync
+  class NavigationPathChangedEventArgs : EventArgs
+    // url: The URL the client navigated to, query string included
+    ctor(string url, Context clientContext)
+    Context ClientContext { get; }
+    int ClientSessionId { get; }
+    string Path { get; }
+    string Url { get; }
+    string UserId { get; }
+  // Tapping it opens the app and routes to the action's LaunchUrl, or reports its Id to the app's notification-tap handler.
+  sealed record NotificationAction
+    // Id: Stable id reported to the app when this action is tapped.
+    // Title: Button label.
+    // LaunchUrl: Optional in-app path to open when this action is tapped.
+    ctor(string Id, string Title, string? LaunchUrl = null)
     string Id { get; init; }
-    string? Kind { get; init; }
     string? LaunchUrl { get; init; }
-    bool Read { get; init; }
+    string Title { get; init; }
+  sealed record NotificationContent
+    // Title: Notification title. Required.
+    // Body: Optional body text shown below the title.
+    // IconUrl: Optional URL of an icon image shown with the notification.
+    // Tag: Optional collapse key — a later notification with the same tag replaces an existing one instead of stacking.
+    // LaunchUrl: Optional in-app path the client navigates to when the user taps the notification.
+    // Data: Optional opaque JSON payload the app receives back when the user taps the notification.
+    ctor(string Title, string? Body = null, string? IconUrl = null, string? Tag = null, string? LaunchUrl = null, string? Data = null, NotificationPriority Priority = Normal, IReadOnlyList<NotificationAction>? Actions = null)
+    IReadOnlyList<NotificationAction>? Actions { get; init; }
+    string? Body { get; init; }
+    string? Data { get; init; }
+    string? IconUrl { get; init; }
+    string? LaunchUrl { get; init; }
+    NotificationPriority Priority { get; init; }
     string? Tag { get; init; }
     string Title { get; init; }

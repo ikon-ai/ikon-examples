@@ -217,6 +217,14 @@ namespace Ikon.Common.Core.Reactive
     event Action? Changed
     // Fires with the scope-derived session id whose value just changed: always 0 for unscoped reactives, the hash of the scope for scoped variants. Lets external subscription routing fan out to only the clients whose scope matches the changed signal.
     event Action<int>? SessionChanged
+  // Tracks dependencies exactly as Reactive<T> does, so bound UI re-renders normally. For state an owner derives and publishes, where assigning would desync it. No implicit unwrap to T — read Value or Peek.
+  interface IReadOnlyReactive<T> : IReactive
+    // Reads without registering a dependency, so a render reading it does not re-run when the value later changes.
+    T Peek { get; }
+    // A TRACKED read: used during render it registers a dependency, and for scoped variants it throws InvalidOperationException when no scope is active.
+    T Value { get; }
+    event Action<T>? ValueChanged
+    event Func<T, Task>? ValueChangedAsync
   static class MountReactive
     // Each mount's value is initialized by the factory, which receives the mount id.
     static MountReactive<T> Create<T>(Func<string, T> factory)
@@ -282,7 +290,7 @@ namespace Ikon.Common.Core.Reactive
     // Like Run<T>, additionally passing token to the action so it can observe cancellation.
     static void Run<T>(Reactive<T> reactiveValue, Func<CancellationToken, Task<T>> action, Action<Exception>? onError = null, CancellationToken token = default)
   // Reading Value during a UI render registers a dependency; writing a changed value re-renders only the parts that read it. An unscoped Reactive<T> holds one value shared across all clients and is accessible anywhere. For per-client state use ClientReactive<T>; for per-user state (shared across a user's sessions) use UserReactive<T>. Those scoped variants resolve .Value against the active scope, so it must be read inside one — UI.Root(), an action callback, or a ReactiveScope.Use() block — and throw otherwise; background work (a Task.Run loop, a timer, an endpoint handler) has no scope and names its target instead via SetFor(id, value) / ValueFor(id).
-  class Reactive<T> : IReactive
+  class Reactive<T> : IReadOnlyReactive<T>
     // Creates a reactive whose initial value is default(T). Call as new Reactive<T>() — the UseDefault parameter is only an overload disambiguator and is never passed explicitly.
     ctor(UseDefault _ = default)
     ctor(T initialValue)
@@ -401,6 +409,10 @@ namespace Ikon.Common.Core.Reactive
     void AddRange(IEnumerable<T> items)
     void Clear()
     bool Contains(T item)
+    bool Exists(Predicate<T> match)
+    T? Find(Predicate<T> match)
+    List<T> FindAll(Predicate<T> match)
+    int FindIndex(Predicate<T> match)
     IEnumerator<T> GetEnumerator()
     int IndexOf(T item)
     void Insert(int index, T item)
