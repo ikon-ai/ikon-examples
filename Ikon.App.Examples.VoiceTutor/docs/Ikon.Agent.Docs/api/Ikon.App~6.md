@@ -1,217 +1,282 @@
 namespace Ikon.App
-  // Every call answers false rather than throwing when the client cannot show one — a browser, an Android device, an iOS version below 16.2, or a Flutter app whose shell predates the bridge. A banner is a nicety and its absence must never take an app down with it.
-  // await app.LiveActivity.StartAsync("Momentum", "#db176e",
-  //     [new LiveMetric("0.00 km", "distance"), new LiveMetric("0:00", "moving")], "Run");
-  sealed class LiveActivityService
-    // Prefer EndEverywhereAsync when finishing whatever the activity was showing. A phone that reconnects — a dropped socket, a restarted app, a redeploy — comes back as a NEW session, so ending on the session that started the activity aims at an id that no longer exists and strands a live-looking banner on the lock screen.
-    // sessionId: The client to clear, or null for the calling client.
-    Task<bool> EndAsync(int? sessionId = null, CancellationToken ct = default)
-    Task EndEverywhereAsync(CancellationToken ct = default)
-    // title: Fixed for the life of the activity; usually the app's name.
-    // accentHex: The app's accent as #rrggbb.
-    // metrics: Up to three; any beyond that are not shown.
-    // status: The tracked line above the metrics — a phase, a state, a kind.
-    // muted: Show it held or paused, which mutes the accent.
-    // sessionId: The client to show it on, or null for the calling client.
-    Task<bool> StartAsync(string title, string accentHex, IReadOnlyList<LiveMetric> metrics, string status, bool muted = false, int? sessionId = null, CancellationToken ct = default)
-    // metrics: Up to three; any beyond that are not shown.
-    // status: The tracked line above the metrics.
-    // muted: Show it held or paused.
-    // sessionId: The client to update, or null for the calling client.
-    Task<bool> UpdateAsync(IReadOnlyList<LiveMetric> metrics, string status, bool muted = false, int? sessionId = null, CancellationToken ct = default)
-  sealed record LiveMetric
-    // Value: Already formatted — the app owns its units and the banner must not reinvent them.
-    // Label: The small caption under it, upper-cased by the banner.
-    ctor(string Value, string Label)
-    string Label { get; init; }
-    string Value { get; init; }
-  // The one-shot ClientFunctions.GetLocationAsync is a pull that only works while the client is connected and awake; this is the push model that survives backgrounding. Continuous background location needs the user's "Always"/background permission and is subject to app-store review, so start it only for a real reason (an active delivery, a live trip) and stop it when done.
-  // app.Locations.OnUpdate(u => _couriers.Update(cs => cs.Select(c => c.SessionId == u.SessionId ? c with { Lat = u.Latitude, Lon = u.Longitude } : c)));
-  // await app.Locations.StartTrackingAsync(ReactiveScope.ClientId, new LocationTrackingOptions(IntervalSeconds: 5));
-  sealed class LocationService
-    // Handlers run on the pushing client's reactive scope, so writing per-user or per-session reactive state from here just works.
-    void OnUpdate(Action<LocationUpdate> handler)
-    // Not for app code — call OnUpdate to observe. Public because the function registry binds to it by reflection.
-    bool ReceiveLocationUpdate(double latitude, double longitude, double accuracy, double speed, double heading, double? altitude = null, double timestampMs = 0.0)
-    void RemoveHandler(Action<LocationUpdate> handler)
-    // Returns true when the client accepted (it supports geolocation and permission was not denied outright).
-    // sessionId: The client session to track.
-    // options: Interval, distance filter, background flag and the Android notification text.
-    Task<bool> StartTrackingAsync(int sessionId, LocationTrackingOptions? options = null, CancellationToken ct = default)
-    // sessionId: The client session to stop tracking.
-    Task<bool> StopTrackingAsync(int sessionId, CancellationToken ct = default)
-  sealed record LocationTrackingOptions
-    // IntervalSeconds: Minimum seconds between reported fixes.
-    // DistanceFilterMeters: Minimum metres of movement before a new fix is reported.
-    // Background: Keep streaming while the app is backgrounded (Android foreground service + iOS background-location mode). When false the stream stops on backgrounding.
-    // NotificationTitle: Android foreground-service notification title shown while tracking.
-    // NotificationBody: Android foreground-service notification body.
-    ctor(int IntervalSeconds = 10, int DistanceFilterMeters = 10, bool Background = true, string NotificationTitle = "Sharing your location", string NotificationBody = "Your location is shared while this is on.")
-    bool Background { get; init; }
-    int DistanceFilterMeters { get; init; }
-    int IntervalSeconds { get; init; }
-    string NotificationBody { get; init; }
-    string NotificationTitle { get; init; }
-  sealed record LocationUpdate
-    // SessionId: The client session the fix came from.
-    // UserId: The signed-in user id, or empty for an anonymous session.
-    // AccuracyMeters: Reported horizontal accuracy in metres.
-    // SpeedMps: Ground speed in metres/second, or 0 when unknown.
-    // Heading: Heading in degrees (0–360), or -1 when unknown.
-    // At: Server time the fix was received (UTC).
-    // AltitudeMeters: Altitude in metres above the WGS-84 ellipsoid, or NaN when the device did not report one. Clients published before altitude was carried always report NaN.
-    // MeasuredAt: Device time the fix was taken (UTC). Equal to At when the client did not report a timestamp. Prefer this over At for anything derived from elapsed time: a batch of fixes delivered after a network stall all arrive at once, so arrival time collapses the intervals between them and every speed and pace computed from it is wrong.
-    ctor(int SessionId, string UserId, double Latitude, double Longitude, double AccuracyMeters, double SpeedMps, double Heading, DateTime At, double AltitudeMeters, DateTime MeasuredAt)
+  // Declare it as a field of the app so it is constructed with the other persisted state, and register the channels the app can address:
+  // private readonly NotificationInbox _inbox = new(app);
+  //
+  // _inbox.Channels.Add(new EmailNotificationChannel(app.Email, userId => _profiles.ValueFor(userId).Email));
+  // _inbox.Channels.Add(new SmsNotificationChannel(app.Telephony, userId => _profiles.ValueFor(userId).Phone));
+  //
+  // await _inbox.NotifyAsync(order.CustomerUserId,
+  //     new NotificationContent("Order delivered", "Enjoy your meal", LaunchUrl: $"/orders/{order.Id}", Tag: order.Id),
+  //     kind: "order", route: NotificationRoute.Everywhere("email"));
+  // Inside a UI lambda or handler Items and MarkRead act on the signed-in user; from a background task use the …For(userId) forms. A user mutes a channel with Mute; push is the channel named "push".
+  sealed class NotificationInbox
+    // app: The app; its Notifications service delivers the push side.
+    // key: Storage key of the inbox list. Change it only to keep two inboxes apart.
+    ctor(IAppBase app, string key = "ikon.notifications.inbox")
+    // push: Null makes an inbox-only instance with no device push.
+    ctor(NotificationService? push, string key = "ikon.notifications.inbox")
+    List<INotificationChannel> Channels { get; }
+    // Newest first. A tracked read — a UI lambda re-renders when it changes.
+    IReadOnlyList<InboxItem> Items { get; }
+    // Oldest items are dropped once a user's inbox grows past this; 200 by default.
+    int MaxItems { get; init; }
+    // 0 (the default) disables the cap. High-priority notifications ignore it, and the excess is still recorded in the inbox — only the device buzz is dropped.
+    int MaxPushPerWindow { get; init; }
+    // A tracked read.
+    IReadOnlyList<string> Muted { get; }
+    // Ten minutes by default.
+    TimeSpan PushWindow { get; init; }
+    // A tracked read.
+    QuietHours? QuietHours { get; }
+    // A tracked read.
+    int UnreadCount { get; }
+    void Clear()
+    void ClearFor(string userId)
+    void ClearQuietHours()
+    void ClearQuietHoursFor(string userId)
+    // A tracked read.
+    bool IsMuted(string channel)
+    IReadOnlyList<InboxItem> ItemsFor(string userId)
+    void MarkAllRead()
+    void MarkRead(string itemId)
+    void MarkReadFor(string userId, string itemId)
+    void Mute(string channel, bool muted = true)
+    void MuteFor(string userId, string channel, bool muted = true)
+    // content: Title, body, launch url, tag and data, as for NotificationService.
+    // kind: App-defined category stored on the item for filtering.
+    // route: Where to deliver; NotificationRoute.Default is inbox plus push.
+    Task<NotificationOutcome> NotifyAsync(string userId, NotificationContent content, string? kind = null, NotificationRoute? route = null, CancellationToken ct = default)
+    QuietHours? QuietHoursFor(string userId)
+    void Remove(string itemId)
+    void SetQuietHours(TimeOnly startUtc, TimeOnly endUtc)
+    void SetQuietHoursFor(string userId, TimeOnly startUtc, TimeOnly endUtc)
+    int UnreadCountFor(string userId)
+    const string PushChannel
+  sealed record NotificationOutcome
+    // Item: The inbox item, or null when the route skipped the inbox.
+    // PushResults: Per-session push outcomes; empty when the user was offline or push was off.
+    // Delivered: Names of the extra channels that sent ("email", "sms", …).
+    // Skipped: Channels that had no address for the user, were unconfigured, or are muted by the user.
+    // Failed: Channels that threw; the error is logged, the notification still stands in the inbox.
+    ctor(InboxItem? Item, IReadOnlyList<NotificationSendResult> PushResults, IReadOnlyList<string> Delivered, IReadOnlyList<string> Skipped, IReadOnlyList<string> Failed)
+    IReadOnlyList<string> Delivered { get; init; }
+    IReadOnlyList<string> Failed { get; init; }
+    InboxItem? Item { get; init; }
+    IReadOnlyList<NotificationSendResult> PushResults { get; init; }
+    IReadOnlyList<string> Skipped { get; init; }
+  enum NotificationPermission
+    Default
+    Granted
+    Denied
+    Unsupported
+  enum NotificationPriority
+    // Ambient: recorded in the inbox, no device push or channel send.
+    Low
+    // Default: push and channels, subject to quiet hours and frequency caps.
+    Normal
+    // Urgent: bypasses quiet hours and frequency caps (an explicit mute still wins).
+    High
+  enum NotificationReach
+    // Offline push is used solely when no session is connected — a user reading the app on a laptop does not also get a buzz on their phone.
+    ConnectedFirst
+    // Connected sessions get the foreground notification and the offline push hub delivers to each registered device as well. Set NotificationContent.Tag so a device that is connected collapses its foreground and push copies into one.
+    AllDevices
+  sealed record NotificationRoute
+    // Inbox: Record the item in the user's in-app inbox.
+    // Push: Show it on the user's devices through app.Notifications — web push on browsers, OS notifications on iOS and Android from the Flutter app.
+    // Reach: Whether push stops at the connected devices or reaches every registered one.
+    // Channels: Names of the extra channels to deliver on; each must be registered in NotificationInbox.Channels. Unknown names are skipped with a warning.
+    ctor(bool Inbox = true, bool Push = true, NotificationReach Reach = ConnectedFirst, IReadOnlyList<string>? Channels = null)
+    IReadOnlyList<string>? Channels { get; init; }
+    bool Inbox { get; init; }
+    bool Push { get; init; }
+    NotificationReach Reach { get; init; }
+    static NotificationRoute Everywhere(params string[] channels)
+    NotificationRoute With(params string[] channels)
+    static readonly NotificationRoute AllDevices
+    static readonly NotificationRoute Default
+    static readonly NotificationRoute Silent
+  sealed record NotificationSendResult
+    // SessionId: The target client session id.
+    // Delivered: True when the client actually displayed the notification (permission granted).
+    // Permission: The client's resulting permission state after the send attempt.
+    ctor(int SessionId, bool Delivered, NotificationPermission Permission)
+    bool Delivered { get; init; }
+    NotificationPermission Permission { get; init; }
+    int SessionId { get; init; }
+  // Accessed via app.Notifications. Client permission is requested lazily on the first actual send, not when the app opens. SendToUserAsync automatically falls back to offline OS push (Web Push / FCM) when the target user has no connected session.
+  sealed class NotificationService
+    Task<IReadOnlyList<NotificationSendResult>> BroadcastAsync(NotificationContent content, CancellationToken ct = default)
+    // sessionId: The target client session id.
+    Task<NotificationPermission> GetPermissionAsync(int sessionId, CancellationToken ct = default)
+    // sessionId: The target client session id.
+    Task<NotificationSendResult> SendToSessionAsync(int sessionId, NotificationContent content, CancellationToken ct = default)
+    // Returns one result per connected session for the user. An empty list means the user had no connected session and only offline push was attempted — it is not an error.
+    // userId: The persistent user id to notify.
+    Task<IReadOnlyList<NotificationSendResult>> SendToUserAsync(string userId, NotificationContent content, CancellationToken ct = default)
+    // userId: The persistent user id to notify.
+    // content: The notification content. Give it a NotificationContent.Tag so a device that is both connected and pushed shows one notification, not two.
+    // reach: How many of the user's devices to reach.
+    Task<IReadOnlyList<NotificationSendResult>> SendToUserAsync(string userId, NotificationContent content, NotificationReach reach, CancellationToken ct = default)
+  // Use for app-wide configuration the app instance owns. For per-session-identity state (the typical app routing key) use PersistentSessionReactive<T>; for per-user state use PersistentUserReactive<T>.
+  class PersistentReactive<T> : Reactive<T>
+    ctor(T initialValue, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    PersistenceBackend Backend { get; }
+    string? PostgresDatabase { get; }
+    string? PublicUrl { get; }
+  // Same contract as ReactiveDictionary<TKey, TValue> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentReactive<T>. For per-user dictionaries use PersistentUserReactiveDictionary<TKey, TValue>.
+  class PersistentReactiveDictionary<TKey, TValue> : ReactiveDictionary<TKey, TValue> where TKey : notnull
+    ctor(PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    PersistenceBackend Backend { get; }
+    string? PostgresDatabase { get; }
+    string? PublicUrl { get; }
+  // Same contract as ReactiveHashSet<T> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentReactive<T>. For per-user sets use PersistentUserReactiveHashSet<T>.
+  class PersistentReactiveHashSet<T> : ReactiveHashSet<T>
+    ctor(PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    PersistenceBackend Backend { get; }
+    string? PostgresDatabase { get; }
+    string? PublicUrl { get; }
+  // Same contract as ReactiveList<T> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentReactive<T>. For per-user lists use PersistentUserReactiveList<T>.
+  class PersistentReactiveList<T> : ReactiveList<T>
+    ctor(PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    PersistenceBackend Backend { get; }
+    string? PostgresDatabase { get; }
+    string? PublicUrl { get; }
+  // This is the natural choice for state that belongs to a specific app instance, since the session identity already determines instance routing.
+  class PersistentSessionReactive<T> : Reactive<T>
+    ctor(T initialValue, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    PersistenceBackend Backend { get; }
+    string? PostgresDatabase { get; }
+    string? PublicUrl { get; }
+  // Same contract as ReactiveDictionary<TKey, TValue> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentSessionReactive<T>, which is the natural choice for dictionary state belonging to a specific app instance.
+  class PersistentSessionReactiveDictionary<TKey, TValue> : ReactiveDictionary<TKey, TValue> where TKey : notnull
+    ctor(PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    PersistenceBackend Backend { get; }
+    string? PostgresDatabase { get; }
+    string? PublicUrl { get; }
+  // Same contract as ReactiveHashSet<T> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentSessionReactive<T>, which is the natural choice for set state belonging to a specific app instance.
+  class PersistentSessionReactiveHashSet<T> : ReactiveHashSet<T>
+    ctor(PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    PersistenceBackend Backend { get; }
+    string? PostgresDatabase { get; }
+    string? PublicUrl { get; }
+  // Same contract as ReactiveList<T> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentSessionReactive<T>, which is the natural choice for list state belonging to a specific app instance.
+  class PersistentSessionReactiveList<T> : ReactiveList<T>
+    ctor(PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    PersistenceBackend Backend { get; }
+    string? PostgresDatabase { get; }
+    string? PublicUrl { get; }
+  // Partitioned at runtime by UserScope: each user sees their own value across all of their client sessions.
+  class PersistentUserReactive<T> : Reactive<T, UserScope>
+    ctor(T initialValue, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    ctor(Func<string, T> initialValue, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    PersistenceBackend Backend { get; }
+    string? PostgresDatabase { get; }
+    string? PublicUrl { get; }
+    // The in-memory value is dropped (the next read sees the initial value) and the persisted copy is deleted from every store it routes to, so it cannot resurrect on a later load. The deletion runs in the background; the user is excluded from the shutdown save immediately.
+    void ClearFor(string userId)
+    // The background-task form of Value = x: capture the id while the user scope is still active (var userId = ReactiveScope.UserId;), then write to it from anywhere.
+    void SetFor(string userId, T value)
+    // An atomic read-modify-write under that user's lock.
+    void UpdateFor(string userId, Func<T, T> mutator)
+    T ValueFor(string userId)
+  // Same contract as ReactiveDictionary<TKey, TValue> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentUserReactive<T>.
+  class PersistentUserReactiveDictionary<TKey, TValue> : ReactiveDictionary<TKey, TValue>
+    ctor(PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    PersistenceBackend Backend { get; }
+    string? PostgresDatabase { get; }
+    string? PublicUrl { get; }
+    void ClearFor(string userId)
+    bool RemoveFor(string userId, TKey key)
+    void SetFor(string userId, TKey key, TValue value)
+    void UpdateFor(string userId, Action<Dictionary<TKey, TValue>> transform)
+    IReadOnlyDictionary<TKey, TValue> ValueFor(string userId)
+  // Same contract as ReactiveHashSet<T> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentUserReactive<T>.
+  class PersistentUserReactiveHashSet<T> : ReactiveHashSet<T>
+    ctor(PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    PersistenceBackend Backend { get; }
+    string? PostgresDatabase { get; }
+    string? PublicUrl { get; }
+    bool AddFor(string userId, T item)
+    void ClearFor(string userId)
+    bool RemoveFor(string userId, T item)
+    void UpdateFor(string userId, Action<HashSet<T>> transform)
+    IReadOnlyCollection<T> ValueFor(string userId)
+  // Same contract as ReactiveList<T> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentUserReactive<T>.
+  class PersistentUserReactiveList<T> : ReactiveList<T>
+    ctor(PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
+    PersistenceBackend Backend { get; }
+    string? PostgresDatabase { get; }
+    string? PublicUrl { get; }
+    void AddFor(string userId, T item)
+    void ClearFor(string userId)
+    bool RemoveFor(string userId, T item)
+    void UpdateFor(string userId, Func<IReadOnlyList<T>, IEnumerable<T>> transform)
+    IReadOnlyList<T> ValueFor(string userId)
+  sealed class ProfileAddress
+    string? City { get; }
+    string? Country { get; }
+    string? Municipality { get; }
+    string? State { get; }
+    string? Street { get; }
+    string? Zip { get; }
+  // Only properties assigned on this instance are sent; untouched properties are left unchanged. Assigning null to a property is a change too — it clears that field rather than leaving it untouched.
+  sealed class ProfileData
+    ctor()
+    string? AddressCity { get; set; }
+    string? AddressCountry { get; set; }
+    string? AddressState { get; set; }
+    string? AddressStreet { get; set; }
+    string? AddressZip { get; set; }
+    string? BirthDate { get; set; }
+    string? Email { get; set; }
+    string? FirstName { get; set; }
+    string? Gender { get; set; }
+    string? Language { get; set; }
+    string? LastName { get; set; }
+    string? Name { get; set; }
+    string? PhoneNumber { get; set; }
+    string? PreferredName { get; set; }
+  // Within it, Normal and Low notifications are recorded in the inbox but not pushed to devices (High priority ignores it). The window may wrap past midnight (e.g. 21:00 → 06:00); convert from the user's local time before setting it.
+  sealed record QuietHours
+    // StartUtc: Inclusive start of the quiet window, as a UTC time of day.
+    // EndUtc: Exclusive end of the quiet window, as a UTC time of day.
+    ctor(TimeOnly StartUtc, TimeOnly EndUtc)
+    TimeOnly EndUtc { get; init; }
+    TimeOnly StartUtc { get; init; }
+    bool Contains(TimeOnly utcTimeOfDay)
+  // Raw on purpose. The app's own recorder is the processor — smoothing, auto-pause, elevation — and re-running it over a complete set of fixes gives a better track than one assembled live from whatever the network happened to deliver. Storing the processed result instead would bake in the gaps this archive exists to remove.
+  readonly record struct RecordedFix
+    ctor(double AtMillis, double Latitude, double Longitude, double AccuracyMeters, double SpeedMps, double Heading, double AltitudeMeters)
     double AccuracyMeters { get; init; }
     double AltitudeMeters { get; init; }
-    DateTime At { get; init; }
+    double AtMillis { get; init; }
     double Heading { get; init; }
     double Latitude { get; init; }
     double Longitude { get; init; }
-    DateTime MeasuredAt { get; init; }
-    int SessionId { get; init; }
     double SpeedMps { get; init; }
-    string UserId { get; init; }
-  // Sibling of HttpMethodAttribute: both declare an inbound HTTP endpoint over the shared addressing + identity model (see EndpointAttribute), differing only in the wire protocol. Each tool is reachable two ways: through the owner's fixed JSON-RPC multiplexer ({owner}/mcp — tools/list + tools/call, the only surface that streams progress over SSE), and as its own directly-callable POST endpoint whose body IS the tool's arguments object; that per-tool path defaults to the kebab-cased method name, and an EndpointAttribute.Path override adjusts only it, never the multiplexer. A method also carrying a verb-named REST attribute serves the REST surface and suppresses the per-tool MCP endpoint. The governance subject id is always "{Type}.{Method}". Unlike its sibling, EndpointAttribute.Auth defaults to EndpointAuth.User — a grant is a credential no MCP client can obtain; set Auth explicitly for a tool that really is reachable without a user.
-  sealed class McpAttribute : EndpointAttribute
-    ctor()
-    ctor(string path)
-    // Set this explicitly; the method's XML doc summary is never used as a fallback.
-    string Description { get; init; }
-    // Defaults to the method name when null or empty; the governance subject id stays "{Type}.{Method}" regardless.
-    string? Name { get; init; }
-    // Scopes narrow WITHIN an authorization; they do not replace it. A tool that names a scope must also be reachable — an EndpointAuth.User tool is the case this exists for, because only a token carries scopes at all. Naming one on a Public tool would be meaningless and is ignored. A caller whose token lacks the scope gets 403 with error="insufficient_scope", which is the one refusal an MCP client will re-authorize for. That is why it is a 403 and not a 401: a bare 401 says "who are you", and the client already knows.
-    string Scope { get; init; }
-  // Sibling of McpAttribute — same cell-method-as-callable model, different MCP verb shape: • Static resource — method takes no arguments; the URI is the literal UriTemplate with no placeholders. Lists in resources/list. • Dynamic resource — method takes parameters that map to {placeholder} segments in the URI template by name. Lists in resources/templates/list; the client crafts a concrete URI and reads it. Read-only by spec — authors should not put side effects in resource methods (the same governance hook still fires on every read with Operation = "resource", so policy authors can distinguish read access from tool dispatch).
-  sealed class McpResourceAttribute : Attribute
-    ctor(string uriTemplate)
-    string Description { get; init; }
-    // Defaults to text/plain for string returns and application/octet-stream for binary; override to be more specific (text/markdown, application/json, image/png).
-    string MimeType { get; init; }
-    // Defaults to the method name when null or empty.
-    string? Name { get; init; }
-    // Required. Placeholder names must exactly match the cell method's parameter names.
-    string UriTemplate { get; }
-  class MessageReceivedEventArgs : EventArgs
-    ctor(ProtocolMessage message)
-    ProtocolMessage Message { get; }
-  // Url is the endpoint URL with pinned path placeholders substituted and the signed ?ikon-grant= appended; GrantId revokes it, and ExpiresAt is null for the default non-expiring grant.
-  sealed record MintedUrl
-    ctor(string Url, string GrantId, DateTimeOffset? ExpiresAt)
-    DateTimeOffset? ExpiresAt { get; init; }
-    string GrantId { get; init; }
-    string Url { get; init; }
-  // Deliberately not a URL. An access token in a query string is forbidden by the MCP specification and leaks into connector lists, access logs and proxies; this one belongs in a header and nowhere else.
-  sealed record MintedUserToken
-    ctor(string Token, string Resource, DateTimeOffset ExpiresAt)
-    DateTimeOffset ExpiresAt { get; init; }
-    string Resource { get; init; }
-    string Token { get; init; }
-  sealed record MotionBatch
-    // SessionId: The client session the batch came from.
-    // UserId: The signed-in user id, or empty for an anonymous session.
-    // Samples: In the order the device produced them.
-    // At: Server time the batch was received (UTC).
-    ctor(int SessionId, string UserId, IReadOnlyList<MotionSample> Samples, DateTime At)
-    DateTime At { get; init; }
-    IReadOnlyList<MotionSample> Samples { get; init; }
+  sealed record RecordingArchive
+    // ArchiveId: The activity this archive belongs to, as the app named it.
+    // SessionId: The client session that uploaded it.
+    // UserId: The signed-in user, or empty.
+    // StartedAt: When the device opened the archive (UTC).
+    // Fixes: In the order the device recorded them.
+    // Motion: In the order the device recorded them.
+    // Asset: Where the raw bytes are stored. Keep it if the recording itself is worth keeping — a corpus to train on, or a re-analysis a later build will want to run.
+    ctor(string ArchiveId, int SessionId, string UserId, DateTime StartedAt, IReadOnlyList<RecordedFix> Fixes, IReadOnlyList<MotionSample> Motion, AssetUri Asset)
+    string ArchiveId { get; init; }
+    AssetUri Asset { get; init; }
+    IReadOnlyList<RecordedFix> Fixes { get; init; }
+    IReadOnlyList<MotionSample> Motion { get; init; }
     int SessionId { get; init; }
+    DateTime StartedAt { get; init; }
     string UserId { get; init; }
-  sealed record MotionOptions
-    // Hertz: Samples per second per sensor. 25 is plenty to tell a walk from a trot; a controller wants 60 or more. Devices honour this approximately.
-    // Sensors: Which sensors to read.
-    // BatchMilliseconds: How long the client buffers before sending. Sending each sample on its own would put a round trip on every one of them; batching turns fifty calls a second into five. Lower it for a controller, raise it to save battery.
-    // Background: Keep streaming while the app is backgrounded. On iOS this needs an already-running background mode — motion alone does not keep an app alive, so pair it with location tracking if the app must keep reading in a pocket.
-    // LiveHertz: Send only this many samples a second, while RecordingArchiveService keeps every one on the device. Zero streams everything. Use it when the live stream only drives a screen and the analysis happens afterwards.
-    ctor(int Hertz = 25, MotionSensors Sensors = UserAcceleration, int BatchMilliseconds = 200, bool Background = false, int LiveHertz = 0)
-    bool Background { get; init; }
-    int BatchMilliseconds { get; init; }
-    int Hertz { get; init; }
-    int LiveHertz { get; init; }
-    MotionSensors Sensors { get; init; }
-  readonly record struct MotionSample
-    // AtMillis: Device time in milliseconds since the epoch, when the sample was taken.
-    // X: Acceleration in m/s², or rotation in rad/s, or field strength in µT.
-    // Y: The second axis.
-    // Z: The third axis.
-    // Sensor: Which sensor produced it.
-    ctor(double AtMillis, double X, double Y, double Z, MotionSensors Sensor)
-    double AtMillis { get; init; }
-    double Magnitude { get; }
-    MotionSensors Sensor { get; init; }
-    double X { get; init; }
-    double Y { get; init; }
-    double Z { get; init; }
-  enum MotionSensors
-    UserAcceleration
-    Acceleration
-    Gyroscope
-    Magnetometer
-  // Samples arrive in batches rather than one at a time, because a round trip per sample at fifty hertz is fifty round trips a second. MotionOptions.BatchMilliseconds is the knob: lower is more responsive, higher is cheaper. **This is not the right transport for a low-latency controller.** Batched function calls carry a scheduling delay of at least one batch, and every sample is delivered reliably whether or not it still matters. A phone used as a pointing device wants an unreliable app-defined .tp message instead, where a dropped sample is simply superseded by the next one. Use this for analysis — gait, cadence, activity, impact — and a .tp channel for control.
-  // app.Motion.OnBatch(batch => _cadence.Push(batch.Samples));
-  // await app.Motion.StartTrackingAsync(ReactiveScope.ClientId,
-  //     new MotionOptions(Hertz: 50, Sensors: MotionSensors.UserAcceleration | MotionSensors.Gyroscope));
-  sealed class MotionService
-    void OnBatch(Action<MotionBatch> handler)
-    // Anonymous by policy, as for a location fix: the dispatcher attributes each batch to the calling session, so a client cannot push motion as somebody else.
-    bool ReceiveMotionBatch(string samplesJson)
-    void RemoveHandler(Action<MotionBatch> handler)
-    // sessionId: The client session to stream from.
-    // options: Rate, sensors, batching and whether to keep going in the background.
-    Task<bool> StartTrackingAsync(int sessionId, MotionOptions? options = null, CancellationToken ct = default)
-    // sessionId: The client session to stop.
-    Task<bool> StopTrackingAsync(int sessionId, CancellationToken ct = default)
-  class Navigation
-    // Query string stripped; null outside a client scope or before any path is known. Tracked before the client's first frame renders, so route-dependent server UI can branch on it from the very first render — unlike state set from joined handlers, which run on a background task and can lose the race against the first frame.
-    string? CurrentPath { get; }
-    // Round-trips to the live client over the connection rather than reading server state; returns null when the client doesn't answer or isn't connected.
-    // targetId: Session id of the client to ask
-    Task<string?> GetPathAsync(int targetId)
-    // Acts on the client of the ambient ClientScope — call from a client-scoped context. Returns null outside a client scope or when the client doesn't answer.
-    Task<string?> GetPathAsync()
-    // Rejects paths under the platform-reserved /ikon and /api prefixes (throws ArgumentException) — the load balancer owns those. The client's existing query string is preserved unless path carries its own.
-    // targetId: Session id of the client to navigate
-    // path: App-owned path to navigate to, e.g. /orders/7
-    // replace: Replaces the current history entry instead of pushing a new one, so the client's back button skips the path being left behind
-    // throws ArgumentException: path falls under a platform-reserved prefix (/ikon or /api)
-    Task<bool> SetPathAsync(int targetId, string path, bool replace = false)
-    // Acts on the client of the ambient ClientScope — call from a client-scoped context (event handler, function call, reactive render). Rejects reserved /ikon and /api paths (throws ArgumentException), same as the targetId overload.
-    // path: App-owned path to navigate to, e.g. /orders/7
-    // replace: Replaces the current history entry instead of pushing a new one, so the client's back button skips the path being left behind
-    // throws ArgumentException: path falls under a platform-reserved prefix (/ikon or /api)
-    Task<bool> SetPathAsync(string path, bool replace = false)
-    // Fires on any client URL change — link, back button, reload, or the app's own SetPathAsync. Handlers run on a background task in the navigating client's UserScope/ClientScope, so scoped reactives resolve to that client. A handler exception is logged and swallowed, never reaching the client.
-    event AsyncEventHandler<NavigationPathChangedEventArgs> PathChangedAsync
-  class NavigationPathChangedEventArgs : EventArgs
-    // url: The URL the client navigated to, query string included
-    ctor(string url, Context clientContext)
-    Context ClientContext { get; }
-    int ClientSessionId { get; }
-    string Path { get; }
-    string Url { get; }
-    string UserId { get; }
-  // Tapping it opens the app and routes to the action's LaunchUrl, or reports its Id to the app's notification-tap handler.
-  sealed record NotificationAction
-    // Id: Stable id reported to the app when this action is tapped.
-    // Title: Button label.
-    // LaunchUrl: Optional in-app path to open when this action is tapped.
-    ctor(string Id, string Title, string? LaunchUrl = null)
-    string Id { get; init; }
-    string? LaunchUrl { get; init; }
-    string Title { get; init; }
-  sealed record NotificationContent
-    // Title: Notification title. Required.
-    // Body: Optional body text shown below the title.
-    // IconUrl: Optional URL of an icon image shown with the notification.
-    // Tag: Optional collapse key — a later notification with the same tag replaces an existing one instead of stacking.
-    // LaunchUrl: Optional in-app path the client navigates to when the user taps the notification.
-    // Data: Optional opaque JSON payload the app receives back when the user taps the notification.
-    ctor(string Title, string? Body = null, string? IconUrl = null, string? Tag = null, string? LaunchUrl = null, string? Data = null, NotificationPriority Priority = Normal, IReadOnlyList<NotificationAction>? Actions = null)
-    IReadOnlyList<NotificationAction>? Actions { get; init; }
-    string? Body { get; init; }
-    string? Data { get; init; }
-    string? IconUrl { get; init; }
-    string? LaunchUrl { get; init; }
-    NotificationPriority Priority { get; init; }
-    string? Tag { get; init; }
-    string Title { get; init; }

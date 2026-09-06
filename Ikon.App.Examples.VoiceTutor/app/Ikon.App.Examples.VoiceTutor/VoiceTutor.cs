@@ -337,7 +337,7 @@ public class VoiceTutor(IApp<SessionIdentity, ClientParams> app)
                     break;
                 }
 
-                Audio.SendSpeech(audio);
+                Audio.SpeakChunk(MediaTargets.Everyone, audio);
             }
         }
         catch (OperationCanceledException)
