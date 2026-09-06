@@ -132,6 +132,10 @@ MyApp.Chat.cs     - Chat feature
 
 All files use `public partial class MyApp` and share the same constructor-injected fields.
 
+The main file alone carries the records, the `[App]` attribute and the primary constructor
+parameter list; every other file is `public partial class MyApp` with no parameter list and no
+records (a repeat is `CS8863` / `CS0101`).
+
 ### GlobalUsings.cs
 
 Reduce `using` clutter with a GlobalUsings file:
@@ -207,6 +211,7 @@ SessionIdentity properties determine which users share the same app instance:
 - All property values are hashed together to calculate sessionId
 - If sessionId matches a running app instance, user connects to it; otherwise a new instance is created
 - `UserId` is special: cloud fills it in for a client that connects and signs in
+- Read it as `app.SessionIdentity` — one per app instance. A client `Context` carries no identity property (`ctx.Identity` is CS1061); the instance's identity is the same for every client in it.
 - Other properties get values from URL query params (property name = query param key)
 - Available in app via `app.SessionIdentity`
 - **An identity field can be absent, and its declared nullability decides what you get.** An instance
@@ -251,7 +256,7 @@ When in doubt, prefer the canonical name. These are the recurring wrong names th
 | `Theming.Apply(...)` | `new IkonTheme { ... }` | Factory retired; the indexer is the only configurable surface. |
 | `new IkonTheme { Brand = "...", Background = "..." }` | `new IkonTheme { ["primary"] = "...", ["background"] = "..." }` | No named init properties — every override is an indexer entry. |
 | `IApp<NoSession, NoClient>` | `IApp<SessionIdentity, ClientParameters>` with concrete records above | `NoSession` / `NoClient` types do not exist. Always declare `public record SessionIdentity()` / `public record ClientParameters()` — `public` is required (CS0051 otherwise); use empty `()` if you have nothing. |
-| `Audio.Speech` (property) | `await Audio.SpeakAsync(text)` | No `Speech` property on `Audio`. `SpeakAsync` generates and plays speech in one call; the manual chain (for custom mixing/config) is `var gen = new SpeechGenerator(model); await foreach (var chunk in gen.GenerateSpeechAsync(cfg)) Audio.SendSpeech(chunk);`. |
+| `Audio.Speech` (property) | `await Audio.SpeakAsync(MediaTargets.Everyone, text)` | No `Speech` property on `Audio`. `SpeakAsync` generates and plays speech in one call; the manual chain (for custom mixing/config) is `var gen = new SpeechGenerator(model); await foreach (var chunk in gen.GenerateSpeechAsync(cfg)) Audio.SpeakChunk(MediaTargets.Everyone, chunk);`. |
 | `app.PlayAudioAsync(bytes, mime)` | `ClientFunctions.PlaySoundAsync(bytes, mime)` | Audio routes live on the static `ClientFunctions`, not `IApp`. |
 | `Button.Sm` / `Button.Md` / `Button.Lg` (bare size) | `Button.PrimarySm` / `Button.PrimaryMd` / `Button.PrimaryLg` (or another variant) | Bare size constants don't exist on Button — pick a variant + size. `Button.Primary` / `Button.Secondary` / `Button.Ghost` / `Button.Default` do exist as Md-sized aliases. |
 | `Layout.Container` | `Layout.Page` | Doesn't exist. |

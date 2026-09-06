@@ -1,113 +1,4 @@
 namespace Ikon.App
-  // Three ways to send audio, by pacing: SpeakAsync / SendSpeech are real-time paced by the speech mixer and new speech interrupts current speech with a fade — the default for spoken replies. StreamAsync plays a complete clip (decoded file, generated music) paced to real time, without the mixer's interruption semantics. SendImmediateAsync transmits at once with no pacing — only for audio already produced in real time or very short clips; a long clip sent this way arrives all at once and can overflow client audio buffers. The send methods share a targetIds parameter: a null value broadcasts to every connected client, a list restricts delivery to those client session ids.
-  class Audio
-    ctor(IAppBase app)
-    AudioEncoderOptions? DefaultEncoderOptions { get; set; }
-    AudioMetrics Metrics { get; }
-    SpeechMixer SpeechMixer { get; }
-    ValueTask CloseAllAsync()
-    // streamId: The stream to close. Null closes the default stream
-    ValueTask CloseAsync(string? streamId = null)
-    AudioOutputStreamInfo? GetOutputStreamInfo(string? streamId = null)
-    // How far the client has actually rendered the audio and whether the user can currently hear it. Null when the client has not reported yet (older SDKs never report). Reports arrive roughly twice per second while audio is playing; check AudioPlaybackStatus.ReceivedAtUtc for staleness.
-    // streamId: The output stream. Null uses the default (speech mixer) stream
-    AudioPlaybackStatus? GetPlaybackStatus(int clientSessionId, string? streamId = null)
-    // Delivery is unpaced: the client receives everything as fast as it encodes. Callers own the real-time pacing, so feed this method chunks as they are produced, not a whole clip at once.
-    // samples: Floating point PCM samples in range [-1.0, 1.0]
-    // sampleRate: Sample rate in Hz
-    // channelCount: Number of audio channels
-    // isFirst: True when this call carries the beginning of a clip (starts a new playback on the client)
-    // isLast: True when this call carries the end of the clip (a single complete clip passes true for both)
-    // streamId: Optional id to distinguish between multiple concurrent audio streams. Required when sending multiple streams simultaneously
-    // totalDuration: Optional total duration of the audio to be output, if known
-    // encoderOptions: Optional encoder options. Falls back to DefaultEncoderOptions if not specified
-    ValueTask SendImmediateAsync(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string? streamId = null, TimeSpan totalDuration = default, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null)
-    // Real-time paced by the speech mixer, so fast producers (typical TTS) cannot overflow client audio buffers; a chunk with a new id interrupts current playback with a fade. Returns immediately — playback happens in the background.
-    // audio: Audio chunk with samples
-    // effects: Optional audio effects to apply
-    void SendSpeech(AudioChunk audio, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null)
-    // Completes at end of mixer playout (pause-aware, real-time paced), not at end of generation. Long texts are backpressure-paced against the bounded mixer buffer, so any length is safe. An interruption by a newer Speak call completes the task quietly.
-    // text: The text to speak. Whitespace-only text is a no-op
-    // model: The speech generator model to use
-    // voice: Optional voice id. Null uses the model's default voice
-    // instructions: Optional delivery instructions (tone, emotion, style). Support is model-specific; unsupported models ignore them
-    // speed: Optional speaking speed, where 1.0 is normal (e.g. 0.8 is slower, 1.2 is faster). Null leaves the model's default. Support is model-specific; unsupported models ignore it
-    // effects: Optional audio effects to apply
-    // cancellationToken: Cancels generation and playback of this utterance
-    Task SpeakAndWaitAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, string? instructions = null, double? speed = null, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null, CancellationToken cancellationToken = default)
-    // Each call interrupts the previous one: it fades out whatever is still playing and cancels the prior call's generation, so a new utterance supersedes the old. Defaults to SpeechGeneratorModel.ElevenFlash25. Drive SpeechGenerator + SendSpeech yourself instead when you need overlapping speakers, playback that must not interrupt what is already playing, or raw access to the generated samples.
-    // text: Whitespace-only text is a no-op
-    // voice: Null uses the model's default voice
-    // instructions: Delivery instructions (tone, emotion, style); unsupported models ignore them
-    // speed: 1.0 is normal. Null leaves the model's default; unsupported models ignore it
-    // targetIds: Null broadcasts to all clients
-    // cancellationToken: Cancels generation and playback of this utterance
-    Task SpeakAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, string? instructions = null, double? speed = null, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null, CancellationToken cancellationToken = default)
-    // One call streams one whole clip on its stream id. Do not run two concurrent calls on the same stream id — the interleaved frames would corrupt client playback; use distinct stream ids or await the previous call first. Cancelling stops the clip early and closes it with a final end-of-stream frame.
-    // samples: Floating point PCM samples in range [-1.0, 1.0] for the whole clip
-    // sampleRate: Sample rate in Hz
-    // channelCount: Number of audio channels
-    // streamId: Optional id to distinguish between multiple concurrent audio streams. Required when sending multiple streams simultaneously
-    // encoderOptions: Optional encoder options. Falls back to DefaultEncoderOptions if not specified
-    // cancellationToken: Stops the clip early, closing the stream cleanly
-    Task StreamAsync(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, string? streamId = null, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null, CancellationToken cancellationToken = default)
-    // Call once during app setup. Mutually exclusive with UseTurnDetection, and calling it a second time throws — either conflict raises InvalidOperationException.
-    // model: The speech recognizer model to use (e.g., WhisperLarge3Turbo).
-    // silenceThresholdRms: RMS threshold below which the segment is treated as silence and skipped.
-    // requireCorrelatedStream: When true (default), only fires for streams initiated through a CaptureButton (those with a CorrelationId). Set false to transcribe every audio stream including ad-hoc ones.
-    // language: Optional language hint (e.g., "en", "fi"); empty string lets the model autodetect.
-    // timeout: Per-segment recognition timeout.
-    void UseSpeechRecognition(SpeechRecognizerModel model, float silenceThresholdRms = 0.01f, bool requireCorrelatedStream = true, string language = "", SpeechTimestamps timestamps = None, TimeSpan? timeout = null)
-    // Call once during app setup. Mutually exclusive with UseSpeechRecognition, and calling it a second time throws — either conflict raises InvalidOperationException.
-    // language: Language hint (e.g. "en", "fi"); empty lets the model autodetect.
-    // config: Turn detector tuning; null uses defaults tuned for conversational voice.
-    // speculative: Starts transcription at the probable turn end so a confirmed turn has zero added recognition latency.
-    // pauseWhileAppSpeaking: Suppresses detection while the app is audibly speaking so its own voice can't trigger turns; set false for barge-in apps.
-    // requireCorrelatedStream: Only detects turns on streams initiated through a CaptureButton (those with a CorrelationId); false detects on every stream.
-    // timeout: Per-recognition timeout; null means one minute.
-    void UseTurnDetection(SpeechRecognizerModel model = WhisperLarge3Turbo, string language = "", TurnDetectorConfig? config = null, bool speculative = true, bool pauseWhileAppSpeaking = true, bool requireCorrelatedStream = true, SpeechTimestamps timestamps = None, TimeSpan? timeout = null)
-    // args.Samples are decoded float PCM at the sample rate from the stream's begin event; IsFirst/IsLast bracket one captured segment (e.g. one push-to-talk press).
-    event AsyncEventHandler<AudioInputFrameEventArgs> AudioInputFrameAsync
-    // Handlers may set args.StreamingMode to control when the stream's frames are delivered (streamed live, or buffered until the total duration is known / until the last frame).
-    event AsyncEventHandler<AudioInputStreamBeginEventArgs> AudioInputStreamBeginAsync
-    event AsyncEventHandler<AudioInputStreamEndEventArgs> AudioInputStreamEndAsync
-    // Reports arrive periodically while a stream is active and immediately on state changes; GetPlaybackStatus holds the latest snapshot per client.
-    event AsyncEventHandler<AudioPlaybackReportEventArgs> PlaybackReportReceivedAsync
-    // Exactly one of this and SpeechRecognizedAsync fires per completed segment (neither fires once the app is shutting down). An app that latches busy state when capture stops — a "Transcribing..." spinner, a disabled button — must release it here as well as in SpeechRecognizedAsync; handling only the success event leaves that state stuck on for any press that produces no speech.
-    event AsyncEventHandler<SpeechNotRecognizedEventArgs> SpeechNotRecognizedAsync
-    // Fires only after UseSpeechRecognition or UseTurnDetection has been called once at setup; subscribing without one of those means this event never fires.
-    event AsyncEventHandler<SpeechRecognizedEventArgs> SpeechRecognizedAsync
-    // Fires only after UseTurnDetection has been called once at setup. Start downstream work (e.g. generating a reply) with the args' cancellation token: it is cancelled if the user resumes speaking; otherwise SpeechRecognizedAsync confirms the turn with the same TurnSpeculativeEventArgs.TurnId.
-    event AsyncEventHandler<TurnSpeculativeEventArgs> TurnSpeculativeAsync
-    // Fires only after UseTurnDetection has been called once at setup. A barge-in or listening-indicator hook.
-    event AsyncEventHandler<TurnStartedEventArgs> TurnStartedAsync
-  class AudioInputFrameEventArgs : EventArgs
-    ctor(string streamId, Context clientContext, float[] samples, bool isFirst, bool isLast, TimeSpan totalDuration, string? correlationId)
-    Context ClientContext { get; }
-    int ClientSessionId { get; }
-    // Inherited from the AudioStreamBegin (set by the originating CaptureButton); null for ad-hoc streams.
-    string? CorrelationId { get; }
-    bool IsFirst { get; }
-    bool IsLast { get; }
-    // Decoded PCM samples in range [-1.0, 1.0]
-    float[] Samples { get; }
-    string StreamId { get; }
-    TimeSpan TotalDuration { get; set; }
-    string UserId { get; }
-  class AudioInputStreamBeginEventArgs : EventArgs
-    ctor(string streamId, string description, string sourceType, int sampleRate, int channelCount, Context clientContext, int trackId, string? correlationId)
-    int ChannelCount { get; }
-    Context ClientContext { get; }
-    int ClientSessionId { get; }
-    // Set by the originating CaptureButton; null for ad-hoc streams.
-    string? CorrelationId { get; }
-    string Description { get; }
-    int SampleRate { get; }
-    string SourceType { get; }
-    string StreamId { get; }
-    AudioInputStreamingMode StreamingMode { get; set; }
-    int TrackId { get; }
-    string UserId { get; }
   class AudioInputStreamEndEventArgs : EventArgs
     ctor(string streamId, Context clientContext, string? correlationId)
     Context ClientContext { get; }
@@ -158,3 +49,214 @@ namespace Ikon.App
     IReadOnlyList<string> Emails { get; init; }
     IReadOnlyList<string> Names { get; init; }
     IReadOnlyList<string> Phones { get; init; }
+  // Each method targets the calling client resolved from the current reactive scope unless a targetId is supplied. When the target client has not registered the backing function the call degrades to the failure value (false/null/empty list) rather than throwing — except the capture methods (StartVideoCaptureAsync, StartAudioCaptureAsync, CaptureImageAsync), which throw NotSupportedException.
+  static class ClientFunctions
+    // options: Optional image capture options.
+    // throws NotSupportedException: Thrown when the client does not support image capture.
+    static Task<ClientImageCapture> CaptureImageAsync(ClientImageCaptureOptions? options = null, int? targetId = null, CancellationToken cancellationToken = default)
+    static Task<bool> EndLiveActivityAsync(int? targetId = null, CancellationToken cancellationToken = default)
+    static Task<bool> ExitFullscreenAsync(int? targetId = null, CancellationToken cancellationToken = default)
+    static Task<bool> FlushRecordingArchivesAsync(int? targetId = null, CancellationToken cancellationToken = default)
+    static Task<int?> GetBatteryLevelAsync(int? targetId = null, CancellationToken cancellationToken = default)
+    static Task<string?> GetLanguageAsync(int? targetId = null, CancellationToken cancellationToken = default)
+    static Task<ClientLocation?> GetLocationAsync(int? targetId = null, CancellationToken cancellationToken = default)
+    static Task<IReadOnlyList<ClientMediaDevice>> GetMediaDevicesAsync(int? targetId = null, CancellationToken cancellationToken = default)
+    // The value is whatever the browser's Network Information API exposes and mixes two vocabularies: a speed class ("slow-2g", "2g", "3g", "4g") where only that is available — note a fast wifi connection commonly reports "4g" — or a connection medium ("wifi", "cellular", "ethernet", "bluetooth", "none", ...) on platforms that expose it. Treat it as an informational hint, not a reliable wifi/cellular discriminator.
+    static Task<string?> GetNetworkTypeAsync(int? targetId = null, CancellationToken cancellationToken = default)
+    static Task<string?> GetTimezoneAsync(int? targetId = null, CancellationToken cancellationToken = default)
+    static Task<string?> GetUrlAsync(int? targetId = null, CancellationToken cancellationToken = default)
+    static Task<ClientVisibility> GetVisibilityAsync(int? targetId = null, CancellationToken cancellationToken = default)
+    // enabled: Whether to keep the screen awake.
+    static Task<bool> KeepScreenAwakeAsync(bool enabled, int? targetId = null, CancellationToken cancellationToken = default)
+    // The page navigates to the provider and returns authenticated, so the current session ends and the client reconnects with its real identity. Use from a server-drawn sign-in button in a deferred-login app; guest/email/passkey flows are client-initiated and not supported here.
+    // provider: The OAuth provider to sign in with (e.g. "google").
+    static Task<bool> LoginAsync(string provider, int? targetId = null, CancellationToken cancellationToken = default)
+    // reason: Optional reason shown in the login dialog.
+    static Task<bool> LoginShowAsync(string? reason = null, int? targetId = null, CancellationToken cancellationToken = default)
+    // Clears the auth session and reloads the page, returning the client to the login screen.
+    static Task<bool> LogoutAsync(int? targetId = null, CancellationToken cancellationToken = default)
+    // url: The URL to open. Must be absolute (e.g., starts with https://).
+    // throws ArgumentException: Thrown when url is null or whitespace.
+    static Task<bool> OpenExternalUrlAsync(string url, int? targetId = null, CancellationToken cancellationToken = default)
+    // url: The URL of the sound to play. Can be a regular URL or a data URL.
+    // volume: Volume level from 0.0 to 1.0. Defaults to 1.0.
+    // loop: Whether to loop the sound. Defaults to false.
+    static Task<string?> PlaySoundAsync(string url, double volume = 1.0, bool loop = false, int? targetId = null, CancellationToken cancellationToken = default)
+    // Audio bytes are de-duplicated per client session by content hash: the first call uploads the data, later calls with identical bytes send only the hash reference, so a reused sound is never re-transmitted.
+    // data: The audio data as a byte array.
+    // mimeType: The MIME type of the audio (e.g., "audio/mp3", "audio/wav").
+    // volume: Volume level from 0.0 to 1.0. Defaults to 1.0.
+    // loop: Whether to loop the sound. Defaults to false.
+    static Task<string?> PlaySoundAsync(byte[] data, string mimeType, double volume = 1.0, bool loop = false, int? targetId = null, CancellationToken cancellationToken = default)
+    static Task<bool> RequestFullscreenAsync(int? targetId = null, CancellationToken cancellationToken = default)
+    // x: Horizontal scroll position in pixels.
+    // y: Vertical scroll position in pixels.
+    // smooth: Whether to animate the scroll.
+    static Task<bool> ScrollToAsync(double x, double y, bool smooth = false, int? targetId = null, CancellationToken cancellationToken = default)
+    // persist: Whether to persist the theme as a user preference.
+    static Task<bool> SetThemeAsync(Theme theme, bool persist = true, int? targetId = null, CancellationToken cancellationToken = default)
+    // Prefer SetThemeAsync for the built-in dark and light themes; this overload exists for custom theme names.
+    // themeName: The theme name to set (e.g., "light", "dark", or a custom theme name).
+    // persist: Whether to persist the theme as a user preference.
+    // throws ArgumentException: Thrown when themeName is null or whitespace.
+    static Task<bool> SetThemeAsync(string themeName, bool persist = true, int? targetId = null, CancellationToken cancellationToken = default)
+    // url: The URL path to set (relative paths only).
+    // replace: If true, replaces current history entry instead of adding a new one.
+    // preserveQueryParams: If true, preserves existing query parameters when the URL does not contain a query string.
+    // throws ArgumentException: Thrown when url is null or whitespace.
+    static Task<bool> SetUrlAsync(string url, bool replace = false, bool preserveQueryParams = false, int? targetId = null, CancellationToken cancellationToken = default)
+    // Call when a route's content finishes loading (guard with Context.IsSnapshot); without the signal, capture falls back to a quiescence heuristic that may record loading skeletons for slow-loading routes. No-op outside snapshot capture.
+    static Task<bool> SnapshotReadyAsync(int? targetId = null, CancellationToken cancellationToken = default)
+    // options: Optional audio capture options.
+    // throws NotSupportedException: Thrown when the client does not support audio capture.
+    static Task<string> StartAudioCaptureAsync(ClientAudioCaptureOptions? options = null, int? targetId = null, CancellationToken cancellationToken = default)
+    // title: Fixed for the life of the activity; the app's own name usually.
+    // accentHex: The app's accent as #rrggbb, so the banner matches the app.
+    // metricsJson: A JSON array of {"value","label"}, at most three shown.
+    // status: The small tracked line above the metrics — a phase, a state, a name.
+    // muted: Shows the activity as held or paused, which mutes the accent.
+    static Task<bool> StartLiveActivityAsync(string title, string accentHex, string metricsJson, string status, bool muted = false, int? targetId = null, CancellationToken cancellationToken = default)
+    // Prefer app.Locations.StartTrackingAsync over calling this directly; each fix is pushed back to the server and surfaces via app.Locations.OnUpdate.
+    // intervalSeconds: Minimum seconds between fixes.
+    // distanceFilterMeters: Minimum metres of movement before a new fix is reported.
+    // background: Keep streaming while the app is backgrounded.
+    // notificationTitle: Android foreground-service notification title.
+    // notificationBody: Android foreground-service notification body.
+    static Task<bool> StartLocationUpdatesAsync(int intervalSeconds = 10, int distanceFilterMeters = 10, bool background = true, string notificationTitle = "Sharing your location", string notificationBody = "Your location is shared while this is on.", int? targetId = null, CancellationToken cancellationToken = default)
+    // hertz: Samples per second per sensor; honoured approximately.
+    // sensors: Bit flags matching MotionSensors.
+    // batchMilliseconds: How long the client buffers before sending.
+    // background: Keep reading while the app is backgrounded.
+    // liveHertz: Send only this many a second, keeping the rest for the device archive; 0 sends everything.
+    static Task<bool> StartMotionUpdatesAsync(int hertz = 25, int sensors = 1, int batchMilliseconds = 200, bool background = false, int liveHertz = 0, int? targetId = null, CancellationToken cancellationToken = default)
+    // archiveId: Names the activity; one id is one file.
+    // fixes: Record position fixes.
+    // motion: Record motion samples at their full rate.
+    // maxBytes: Refuse to grow the file past this.
+    static Task<bool> StartRecordingArchiveAsync(string archiveId, bool fixes = true, bool motion = true, long maxBytes = 268435456, int? targetId = null, CancellationToken cancellationToken = default)
+    // source: The video source (Camera or Screen).
+    // options: Optional video capture options.
+    // throws NotSupportedException: Thrown when the client does not support video capture.
+    static Task<string> StartVideoCaptureAsync(ClientVideoCaptureSource source = Camera, ClientVideoCaptureOptions? options = null, int? targetId = null, CancellationToken cancellationToken = default)
+    // streamId: The stream ID of the capture to stop.
+    // throws ArgumentException: Thrown when streamId is null or whitespace.
+    static Task<bool> StopCaptureAsync(string streamId, int? targetId = null, CancellationToken cancellationToken = default)
+    static Task<bool> StopLocationUpdatesAsync(int? targetId = null, CancellationToken cancellationToken = default)
+    static Task<bool> StopMotionUpdatesAsync(int? targetId = null, CancellationToken cancellationToken = default)
+    static Task<bool> StopRecordingArchiveAsync(string archiveId, int? targetId = null, CancellationToken cancellationToken = default)
+    // playbackId: The playback ID returned from PlaySoundAsync.
+    static Task<bool> StopSoundAsync(string playbackId, int? targetId = null, CancellationToken cancellationToken = default)
+    // metricsJson: A JSON array of {"value","label"}, at most three shown.
+    // status: The small tracked line above the metrics.
+    // muted: Shows the activity as held or paused.
+    static Task<bool> UpdateLiveActivityAsync(string metricsJson, string status, bool muted = false, int? targetId = null, CancellationToken cancellationToken = default)
+    // durationMs: The vibration duration in milliseconds.
+    // throws ArgumentOutOfRangeException: Thrown when durationMs is not positive.
+    static Task<bool> VibrateAsync(int durationMs, int? targetId = null, CancellationToken cancellationToken = default)
+    // pattern: The alternating vibrate/pause durations in milliseconds.
+    // throws ArgumentException: Thrown when pattern is null, empty, or contains a negative duration.
+    static Task<bool> VibrateAsync(IReadOnlyList<int> pattern, int? targetId = null, CancellationToken cancellationToken = default)
+    // pattern: Duration in ms, or comma-separated pattern (e.g., "200" or "100,50,100").
+    // throws ArgumentException: Thrown when pattern is null or whitespace.
+    static Task<bool> VibrateAsync(string pattern, int? targetId = null, CancellationToken cancellationToken = default)
+  // A preference, not a guarantee — the client falls back to whatever encoder it has.
+  enum ClientHardwareAcceleration
+    PreferHardware
+    PreferSoftware
+  sealed record ClientImageCapture
+    // Mime: The image's mime type, as encoded by the client: image/jpeg or image/png.
+    // Width: The image's actual width in pixels, which can differ from a requested width the client could not honor.
+    // Height: The image's actual height in pixels, which can differ from a requested height the client could not honor.
+    // Data: The encoded image bytes (a complete JPEG or PNG file, not raw pixels), ready to write to disk or hand to an asset or a vision model.
+    ctor(string Mime, int Width, int Height, byte[] Data)
+    byte[] Data { get; init; }
+    int Height { get; init; }
+    string Mime { get; init; }
+    int Width { get; init; }
+  enum ClientImageCaptureFormat
+    Jpeg
+    Png
+  // Every null property leaves that setting to the client.
+  sealed record ClientImageCaptureOptions
+    ctor()
+    // Null captures JPEG.
+    ClientImageCaptureFormat? Format { get; init; }
+    int? Height { get; init; }
+    // 0.0 (smallest, most artifacts) to 1.0 (largest, near-lossless); only meaningful for ClientImageCaptureFormat.Jpeg — PNG is lossless and ignores it.
+    double? Quality { get; init; }
+    int? Width { get; init; }
+  class ClientJoinedEventArgs : EventArgs
+    ctor(Context clientContext)
+    Context ClientContext { get; }
+    int ClientSessionId { get; }
+    string UserId { get; }
+  class ClientLeftEventArgs : EventArgs
+    ctor(Context clientContext)
+    Context ClientContext { get; }
+    int ClientSessionId { get; }
+    string UserId { get; }
+  sealed record ClientLocation
+    // Accuracy: The accuracy of the coordinates in meters.
+    ctor(double Latitude, double Longitude, double Accuracy)
+    double Accuracy { get; init; }
+    double Latitude { get; init; }
+    double Longitude { get; init; }
+  sealed record ClientMediaDevice
+    // DeviceId: The unique identifier for the device.
+    // Kind: The kind of device (audio input or video input).
+    // Label: A human-readable label for the device.
+    // GroupId: The group identifier for devices that share the same physical device.
+    ctor(string DeviceId, ClientMediaDeviceKind Kind, string Label, string GroupId)
+    string DeviceId { get; init; }
+    string GroupId { get; init; }
+    ClientMediaDeviceKind Kind { get; init; }
+    string Label { get; init; }
+  enum ClientMediaDeviceKind
+    Unknown
+    AudioInput
+    VideoInput
+  sealed class ClientProfile
+    ProfileAddress? Address { get; }
+    string? BirthDate { get; }
+    string? Email { get; }
+    string? FirstName { get; }
+    string? Gender { get; }
+    string Id { get; }
+    string? Language { get; }
+    string? LastName { get; }
+    string? Name { get; }
+    string? PhoneNumber { get; }
+    string? PreferredName { get; }
+    IReadOnlyList<string> Roles { get; }
+    string UserId { get; }
+    // Computed: PreferredName ?? FirstName ?? empty
+    string VisibleName { get; }
+    object? GetAttribute(string key)
+    TAttributes GetAttributes<TAttributes>() where TAttributes : IProfileAttributes, new()
+    bool HasRole(UserRole role)
+    void RequireRole(UserRole role)
+  // A connected client's profile is cached when it joins, so lookups for connected clients return from cache; a cache miss loads from the backend asynchronously. Lookups return null when the context carries no UserId or the backend has no matching profile.
+  class ClientProfiles
+    ctor(IAppBase app)
+    Task AddRoleAsync(Context clientContext, UserRole role)
+    Task AddRoleAsync(Context clientContext, string role)
+    void ClearCache()
+    Task<IReadOnlyList<ClientProfile>> FindProfilesAsync(Dictionary<string, string> filters, int maxResults = 1000)
+    Task<IReadOnlyList<ClientProfile>> GetAllProfilesAsync(int maxResults = 1000)
+    Task<TAttributes?> GetAttributesAsync<TAttributes>(Context clientContext) where TAttributes : IProfileAttributes, new()
+    Task<ClientProfile?> GetProfileAsync(Context clientContext)
+    Task<ClientProfile?> GetProfileAsync(string userId)
+    Task RefreshProfileAsync(Context clientContext)
+    Task RefreshProfileAsync(string userId)
+    Task RemoveRoleAsync(Context clientContext, UserRole role)
+    Task RemoveRoleAsync(Context clientContext, string role)
+    Task SetAttributesAsync<TAttributes>(Context clientContext, TAttributes attrs) where TAttributes : IProfileAttributes
+    Task SetRolesAsync(Context clientContext, IEnumerable<UserRole> roles)
+    Task SetRolesAsync(Context clientContext, IEnumerable<string> roles)
+    Task UpdateAsync(Context clientContext, Action<ProfileData> update)
+  // Listed in ClientVideoCaptureOptions.PreferredCodecs in priority order; the client picks the first one it can actually encode with and falls back to its own default if none are available.
+  enum ClientVideoCaptureCodec
+    H264
+    Vp8
+    Vp9
+    Av1

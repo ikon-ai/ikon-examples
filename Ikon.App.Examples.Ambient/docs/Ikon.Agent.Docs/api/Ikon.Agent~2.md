@@ -1,4 +1,9 @@
 namespace Ikon.Agent
+  static class Checkpoints
+    static Task<ThreadCheckpoint> ReadAsync(string path, CancellationToken ct = default)
+    // Creates the parent directory if needed and overwrites any existing file.
+    static Task WriteAsync(ThreadCheckpoint checkpoint, string path, CancellationToken ct = default)
+  abstract record Content
   // Equality is by CONTENT — see Image for the reference-aliasing caveat on Bytes.
   sealed record Content.Audio : Content
     ctor(byte[] Bytes, string MimeType)
@@ -118,6 +123,7 @@ namespace Ikon.Agent
     Grok
     DeepSeek
     Glm
+    Qwen
   static class ModelResolver
     static LLMModel Resolve(Reasoning reasoning)
     static LLMModel Resolve(Capability capability, ModelFamily family)
