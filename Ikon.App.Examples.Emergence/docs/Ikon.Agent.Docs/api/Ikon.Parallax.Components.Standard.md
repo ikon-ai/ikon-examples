@@ -185,7 +185,7 @@ namespace Ikon.Parallax.Components.Standard
     string Name { get; init; }
     long Size { get; init; }
   static class ComposerExtensions
-    // A complete input bar — attach button, drag-and-drop, paste, auto-growing text, optional push-to-talk — so apps do not rebuild it. Stateless: pass the draft in value and the pending files in attachments, and store what the callbacks hand back. onSubmit receives the submitted text; prefer it over re-reading the draft, which a surface switch can clear between the keystroke and the handler. The mic renders only when both capture callbacks are wired; transcription is the app's job. Per-slot style parameters restyle every part, and label parameters localize every string.
+    // A complete input bar — attach button, drag-and-drop, paste, auto-growing text, optional push-to-talk — so apps do not rebuild it. Stateless: pass the draft in value and the pending files in attachments, and store what the callbacks hand back. onSubmit receives the submitted text, empty when the Send button was clicked rather than Enter pressed: take it when it is non-empty and fall back to the draft, because a surface switch can clear the draft between the keystroke and the handler. The mic renders only when both capture callbacks are wired; transcription is the app's job. Per-slot style parameters restyle every part, and label parameters localize every string.
     // seedSelectionIds: Ids from a prior FilePicker selection, uploaded on mount (see FileUploadZone).
     // onAttachmentAdded: A file was picked, dropped, or pasted and finished uploading; its temp path is in the args.
     // onCaptureStop: Push-to-talk released — transcribe the capture and append it to the draft.

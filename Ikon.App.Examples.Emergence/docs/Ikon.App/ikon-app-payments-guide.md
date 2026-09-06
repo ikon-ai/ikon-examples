@@ -12,6 +12,7 @@ sends commands and reacts to events: there is no webhook to host and no payment 
 
 ```bash
 ikon app payments enable stripe      # Stripe is the generally-available provider
+ikon app payments enable surfboard --corporate-id 0112038-9   # Surfboard also needs the business registration number
 ikon app payments status                        # check onboarding / charges-enabled
 ```
 
@@ -20,6 +21,10 @@ ikon app payments status                        # check onboarding / charges-ena
 (zero-config, Ikon-managed); `--default` picks the active provider when an app has more than one enabled;
 BYOK (`--mode byok`) is admin-only. There is no separate "enabled" flag — payments is on once a provider
 is configured.
+
+Surfboard carries the merchant's business registration number on the KYB application itself, so `--corporate-id`
+is required for it; in a terminal the CLI asks for it when omitted, and a non-interactive run fails asking for
+the flag. Stripe and Mollie collect the equivalent during their own onboarding, so they take no such flag.
 
 Onboarding links are **single-use and short-lived, and always use the newest one** — requesting a new link
 can invalidate older ones. If a link has gone stale (it bounces to an explanatory page instead of the

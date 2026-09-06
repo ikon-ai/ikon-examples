@@ -1,184 +1,4 @@
 namespace Ikon.App
-  // Credit cost surface for an Ikon app: what AI models its space has used and what that usage cost in platform credits. Accessed via app.Costs, reported per day and per usage event name. Cost data is aggregated in the analytics pipeline, so very recent usage can take a short while to appear.
-  sealed class CostsService
-    // The date range still has to cover when the work ran: usage is stored by day, and a query is only as cheap as the range it scans. An operation that emitted no priced usage sums to zero, which is indistinguishable from one whose usage has not landed yet — see the note on aggregation delay on CostsService before showing the number as final.
-    Task<double> GetCreditsForScopeAsync(string scopeType, string scopeId, DateOnly startDate, DateOnly endDate, CancellationToken ct = default)
-    // Throws ArgumentException when CostQuery.StartDate is after CostQuery.EndDate. Returns one row per day and usage event name; days without usage produce no rows. Under CostQuery.GroupByScopeType the breakdown is per scope id as well. The result is ordered by date, then event name.
-    Task<IReadOnlyList<DailyCost>> GetDailyCostsAsync(CostQuery query, CancellationToken ct = default)
-    // The date range is inclusive and interpreted in UTC.
-    Task<double> GetTotalCreditsAsync(DateOnly startDate, DateOnly endDate, CancellationToken ct = default)
-  // A [Cron] method behaves like a [Function] in that the trigger resolves it through the FunctionRegistry by name. Applying [Cron] is enough to register the method (as a Local function) — you do not also need [Function], though combining them is fine. The handler takes no caller-supplied arguments. It may optionally accept a host-injected CronContext (fire time + schedule) and/or a CancellationToken that signals app shutdown, in any order — mirroring how an [HttpPost] handler may accept an HttpRequest. Any other parameter fails registration at startup, since the scheduler has nothing to bind it to. Overlap is allowed: a tick fires even if the previous invocation is still running, so guard re-entrancy yourself if it matters.
-  sealed class CronAttribute : Attribute
-    ctor(string schedule)
-    // When null or empty the function is registered (and triggered) under "{DeclaringType.FullName}.{Method}" — the identity the bundle manifest records, so the backend trigger resolves it even when the method is inherited or overridden.
-    string? Name { get; init; }
-    // Standard 5/6-field cron syntax (e.g. "0 * * * *" for hourly), evaluated by the backend scheduler. The platform enforces a minimum interval of 5 minutes: a faster schedule is clamped to a slower equivalent when a safe one exists, and rejected at bundle time otherwise.
-    string Schedule { get; }
-  // Credit cost aggregate for one usage event name on one day. Credits is the cost in platform credits — the unit users are billed in. EventName identifies the AI model and usage kind (e.g. llm.openai.gpt4o.global.output-text-tokens) and Category is its first segment (e.g. llm). TotalUsage is the summed usage amount in the event's native unit (tokens, seconds, generations, ...). RawCostEur is the underlying provider cost in EUR and is null unless the space has raw cost visibility enabled. ScopeId is populated only under CostQuery.GroupByScopeType, and is null for usage carrying no scope of that type.
-  sealed record DailyCost
-    ctor(DateOnly Date, string Category, string EventName, double TotalUsage, double Credits, double? RawCostEur, string? ScopeId = null)
-    string Category { get; init; }
-    double Credits { get; init; }
-    DateOnly Date { get; init; }
-    string EventName { get; init; }
-    double? RawCostEur { get; init; }
-    string? ScopeId { get; init; }
-    double TotalUsage { get; init; }
-  sealed class EmailNotificationChannel : INotificationChannel
-    // email: The app's email service.
-    // addressOf: Returns the user's email address, or null when none is known.
-    // senderLocalPart: Optional sender local part, as on EmailSendRequest.
-    ctor(EmailService email, Func<string, string?> addressOf, string? senderLocalPart = null, string? senderDisplayName = null)
-    string Name { get; }
-    Task<bool> SendAsync(string userId, NotificationContent content, CancellationToken ct)
-  // Accessed via app.Email. Every operation requires the app's space to have the Email feature enabled; a call against a non-entitled space throws FeatureNotEnabledException.
-  sealed class EmailService
-    // The backend resolves the id before deleting and rejects an unknown one, so a repeated delete throws HttpRequestException carrying a 404 rather than being treated as a no-op. Callers sweeping ids they no longer track should catch it.
-    Task DeleteAsync(string id, CancellationToken ct = default)
-    // The returned EmailAttachmentDownload owns the content stream; dispose it (e.g. await using) to release the underlying connection.
-    Task<EmailAttachmentDownload> DownloadAttachmentAsync(string emailId, string attachmentId, CancellationToken ct = default)
-    // Pages are fetched on demand as the sequence is consumed, so breaking out of the await foreach stops fetching further pages.
-    IAsyncEnumerable<InboundEmailSummary> EnumerateInboxAsync(InboxQuery query, CancellationToken ct = default)
-    // Paginate by passing the returned InboxPage.NextCursor back as InboxQuery.Cursor.
-    Task<InboxPage> GetInboxPageAsync(InboxQuery query, CancellationToken ct = default)
-    Task<InboundEmailDetail> GetMessageAsync(string id, CancellationToken ct = default)
-    // A request that names a sender identity needs a verified sending domain: when the space has none, or the requested EmailSendRequest.SenderDomain is not one of the space's verified sending domains, the send throws EmailSenderNotAvailableException — catch it and resend without the sender fields to deliver from the platform's own address. Invalid field values throw ArgumentException before anything is sent, and a space without the Email feature throws FeatureNotEnabledException.
-    Task SendAsync(EmailSendRequest request, CancellationToken ct = default)
-  abstract class EndpointAttribute : Attribute
-    // Defaults to EndpointAuth.Grant; setting AuthPolicy overrides it.
-    EndpointAuth Auth { get; init; }
-    // When non-empty, takes precedence over Auth.
-    string? AuthPolicy { get; init; }
-    // Empty = derived from the method name (kebab-cased). A {name} segment whose name matches a field of the owner's SessionIdentity record binds the routing identity; other {name} segments bind as ordinary handler parameters. Never declare a /.well-known/*, /ikon/*, or /api path — those are reserved.
-    string Path { get; }
-  enum EndpointAuth
-    // Requires a valid signed grant in the URL (the default). Possession authorizes.
-    Grant
-    // Anonymous — no credential; identity comes from the URL, gated only by anti-abuse.
-    Public
-    // Always rejected. Declares an endpoint while keeping it closed.
-    Deny
-    // Unlike Grant, nothing here is minted by the app or pasted into a URL: the client discovers the space's authorization server, the human signs in with the space's own [Auth] Methods, and the client holds a short-lived token it refreshes itself. Anonymous sign-in methods (guest, global) cannot satisfy this — a global visitor is one shared space-wide user, so honouring it would hand every client the same identity and the same data. A space declaring only anonymous methods cannot host a User endpoint.
-    User
-  sealed record EndpointInfo
-    ctor()
-    // When non-empty, the gateway cell-routes the request to that cell's partitioned instance, keyed by the cell's IdentityFields in the URL; empty means the endpoint resolves to the app instance.
-    string CellType { get; init; }
-    // {Owner}_{Method}, derived unconditionally from the owner type and the handler method; the backend resolves this name when routing.
-    string FunctionName { get; init; }
-    // Carries no grant: a public endpoint is callable as-is, but a grant/policy endpoint needs a working, identity-bound URL minted via IApp.MintUrlAsync.
-    string PublicUrl { get; init; }
-  // Fired per chunk with the raw bytes for streaming (transcode/scan/forward); the platform already writes the chunk itself. Bytes are not yet verified — the SHA-256 check runs only after the last chunk and a mismatch discards the whole upload, so never act irreversibly. Data is valid only during the callback — copy it to retain it.
-  sealed record FileUploadChunkArgs
-    // FileName: The client-supplied file name.
-    // MimeType: The client-supplied mime type.
-    // Size: The total file size in bytes the client announced.
-    // Data: This chunk's bytes. Only valid for the duration of the callback — copy them if you keep them.
-    // BytesWritten: Total bytes received and written so far, including this chunk.
-    ctor(string UploadId, string FileName, string MimeType, long Size, byte[] Data, long BytesWritten)
-    long BytesWritten { get; init; }
-    byte[] Data { get; init; }
-    string FileName { get; init; }
-    string MimeType { get; init; }
-    long Size { get; init; }
-    string UploadId { get; init; }
-  // Fires only after the byte count and recomputed SHA-256 both match. Exactly one of LocalTempFilePath and AssetUri is non-null. The temp file is deleted when the app stops — move or copy it here to keep it.
-  sealed record FileUploadCompleteArgs
-    // FileName: The client-supplied file name.
-    // MimeType: The client-supplied mime type.
-    // Size: The file size in bytes.
-    // LocalTempFilePath: Path to the received file in a temp directory, when the upload was not redirected to the asset system. Null when AssetUri is set. The temp directory is deleted when the app stops, so move or copy anything you want to keep.
-    // AssetUri: The asset the upload was written into, when an earlier hook set FileUploadResult.AssetUri. Null when the file went to a local temp file instead. Exactly one of the two is non-null. It is the same AssetUri every Asset.Instance.* call takes, so it needs no parsing — null-check it and pass .Value straight on.
-    ctor(string UploadId, string FileName, string MimeType, long Size, string? LocalTempFilePath, AssetUri? AssetUri)
-    AssetUri? AssetUri { get; init; }
-    string FileName { get; init; }
-    string? LocalTempFilePath { get; init; }
-    string MimeType { get; init; }
-    long Size { get; init; }
-    string UploadId { get; init; }
-  // Terminal hook for an upload that had started (cancel, 60 s stall, out-of-sequence chunk, byte-count or SHA-256 mismatch, write failure). Uploads the app rejected from PreStart or Start never reach here. Any partial file/asset is already deleted — clean up only app-side state.
-  sealed record FileUploadErrorArgs
-    // FileName: The client-supplied file name.
-    // MimeType: The client-supplied mime type.
-    // Size: The file size in bytes the client announced.
-    // ErrorMessage: Why the upload failed — the cancellation reason when the app cancelled it, otherwise the platform's description of the failure.
-    ctor(string UploadId, string FileName, string MimeType, long Size, string ErrorMessage)
-    string ErrorMessage { get; init; }
-    string FileName { get; init; }
-    string MimeType { get; init; }
-    long Size { get; init; }
-    string UploadId { get; init; }
-  // First hook, before any bytes transfer — the cheapest place to reject (return false or a FileUploadResult and nothing is sent). Hook order: PreStart → Start → Chunk/Progress (per chunk) → Complete on success or Error on failure. Capture Cancel to abort the upload later, e.g. from a UI cancel button.
-  sealed record FileUploadPreStartArgs
-    // UploadId: Id identifying this upload; the same value appears on every later hook's args.
-    // FileName: The client-supplied file name. Untrusted — never join it into a path yourself.
-    // MimeType: The client-supplied mime type. Untrusted — the bytes are not verified against it.
-    // Size: The file size in bytes the client claims it will send. The upload fails with an error if the actual byte count differs.
-    // Cancel: Aborts this upload: deletes whatever was written, fires the error hook with the reason, and tells the client to stop. Usable at any point during the upload, not just from this callback — capture it to cancel later (e.g. from a UI cancel button).
-    ctor(string UploadId, string FileName, string MimeType, long Size, Func<string?, Task> Cancel)
-    Func<string?, Task> Cancel { get; init; }
-    string FileName { get; init; }
-    string MimeType { get; init; }
-    long Size { get; init; }
-    string UploadId { get; init; }
-  // Fired once per received chunk, after the chunk has been written and acknowledged. Meant for driving a progress bar; use onChunkReceived if you need the bytes themselves.
-  sealed record FileUploadProgressArgs
-    // FileName: The client-supplied file name.
-    // MimeType: The client-supplied mime type.
-    // Size: The total file size in bytes the client announced.
-    // ProgressPercentage: Bytes received so far as a percentage of Size, 0 to 100. Zero for the whole upload when the client announced a size of 0.
-    // BytesUploaded: Bytes received and written so far.
-    ctor(string UploadId, string FileName, string MimeType, long Size, double ProgressPercentage, long BytesUploaded)
-    long BytesUploaded { get; init; }
-    string FileName { get; init; }
-    string MimeType { get; init; }
-    double ProgressPercentage { get; init; }
-    long Size { get; init; }
-    string UploadId { get; init; }
-  // Accepted defaults to true; return true; works via the implicit bool conversion. Set AssetUri to write the upload straight into the asset system instead of a local temp file.
-  sealed record FileUploadResult
-    ctor()
-    bool Accepted { get; init; }
-    AssetUri? AssetUri { get; init; }
-    static implicit operator FileUploadResult(bool accepted)
-  // Last chance to reject the upload, and the last hook where setting FileUploadResult.AssetUri can redirect the bytes into the asset system instead of a temp file. Only hook that carries Hash — do content-duplicate checks here.
-  sealed record FileUploadStartArgs
-    // UploadId: Id identifying this upload; the same value appears on every other hook's args.
-    // FileName: The client-supplied file name. Untrusted — never join it into a path yourself.
-    // MimeType: The client-supplied mime type. Untrusted — the bytes are not verified against it.
-    // Size: The file size in bytes the client claims it will send.
-    // Hash: The client-declared SHA-256 of the file contents, lowercase hex. The platform recomputes it while receiving and fails the upload with a hash mismatch if the received bytes disagree, so a match here is a genuine content identity — but it is the client's claim, not yet verification, at this point.
-    ctor(string UploadId, string FileName, string MimeType, long Size, string Hash)
-    string FileName { get; init; }
-    string Hash { get; init; }
-    string MimeType { get; init; }
-    long Size { get; init; }
-    string UploadId { get; init; }
-  sealed class HttpDeleteAttribute : HttpMethodAttribute
-    ctor(string path = "")
-    override string Method { get; }
-  sealed class HttpGetAttribute : HttpMethodAttribute
-    ctor(string path = "")
-    override string Method { get; }
-  // All verbs share the addressing + identity model on EndpointAttribute. Auth defaults to EndpointAuth.Grant — the gateway answers 401 on the bare URL unless the caller holds a minted grant URL; set Auth = EndpointAuth.Public for an anonymously reachable route (a public webhook, a health check).
-  abstract class HttpMethodAttribute : EndpointAttribute
-    abstract string Method { get; }
-  sealed class HttpPatchAttribute : HttpMethodAttribute
-    ctor(string path = "")
-    override string Method { get; }
-  sealed class HttpPostAttribute : HttpMethodAttribute
-    ctor(string path = "")
-    override string Method { get; }
-  sealed class HttpPutAttribute : HttpMethodAttribute
-    ctor(string path = "")
-    override string Method { get; }
-  sealed record HttpRequest
-    ctor(string Method, string Path, IReadOnlyDictionary<string, string> Query, IReadOnlyDictionary<string, string> Headers, string Body)
-    string Body { get; init; }
-    IReadOnlyDictionary<string, string> Headers { get; init; }
-    string Method { get; init; }
-    string Path { get; init; }
-    IReadOnlyDictionary<string, string> Query { get; init; }
   // An endpoint method may return any serializable value for an automatic 200 + JSON response, or return an HttpResult to control status code, content type, and body.
   sealed record HttpResult
     ctor(int StatusCode, object? Body = null, string ContentType = "application/json")
@@ -201,3 +21,170 @@ namespace Ikon.App
     virtual TClientParameters ClientParameters { get; }
     IClientCollection<TClientParameters> Clients { get; }
     TSessionIdentity SessionIdentity { get; }
+  interface IAppBase : IMessageChannel
+    BackgroundWork BackgroundWork { get; }
+    // Costs are reported per day and per usage event name; credits are the billing unit. Cost data is aggregated in the analytics pipeline, so very recent usage can take a short while to appear.
+    CostsService Costs { get; }
+    // Resolved from the ambient reactive scope: null outside a client scope (e.g. background work, a timer). Identifies the client being served, never this plugin's own connection context.
+    virtual Context? CurrentClientContext { get; }
+    // Empty string when no client is in scope. This is the correct key for a payment customer key, subscription gating, and per-user state — always populated for a connected client (the real user id when authenticated, else a stable anonymous id).
+    virtual string CurrentUserId { get; }
+    // An escape hatch for libraries that need a real filesystem path. Prefer Files (Files.Data) — same seeded files, plus runtime writes that persist. Read-only in the cloud — writing to it throws.
+    string DataDirectory { get; }
+    IReadOnlyList<DatabaseConnectionInfo> Databases { get; }
+    // It charges the clients only what they add to your app's own idle footprint, and lets them have a share of the room above it, so a large app is admitted up to its real headroom rather than refused from its first client onward. That room is what your app leaves unused, so measure your app's idle footprint before turning this on: an app resting near the container limit admits few clients however this is set.
+    bool DynamicMaxClientsEnabled { get; set; }
+    // Requires the Email feature enabled on the app's organisation/space; calls from a non-entitled space throw FeatureNotEnabledException.
+    EmailService Email { get; }
+    // Built once before Main() runs, from the endpoints declared on the app class and on loaded [Cell] types.
+    IReadOnlyList<EndpointInfo> Endpoints { get; }
+    // The default implementation throws so hand-rolled test doubles keep compiling; the real app host always provides it.
+    virtual AppFiles Files { get; }
+    GlobalState GlobalState { get; }
+    virtual LiveActivityService LiveActivity { get; }
+    // null except in local dev on a localhost address (no --host-public), where it lets an in-process client reach this exact process over loopback. Via the relay or in the cloud it is null — connect through the normal relay/ApiKey path instead.
+    virtual (string Host, int Port)? LocalLoopbackEndpoint { get; }
+    virtual LocationService Locations { get; }
+    // 0 lifts the cap entirely, which means exactly that: nothing then stops arrivals before the container runs out of memory and the kernel kills the instance with no warning and no chance to shed load. Prefer a measured number, or turn on DynamicMaxClientsEnabled alongside it.
+    int MaxClients { get; set; }
+    int MaxMemoryLimitMb { get; }
+    virtual MotionService Motion { get; }
+    // Each mount produces an independent UI stream addressable from a host UI as <ParallaxView mount="..." />. Defaults to a single mount named "ikon-ui". The value can be replaced with a longer list at any time; the render loop reacts and emits UIStreamBegin/UIStreamEnd for additions and removals.
+    Reactive<IReadOnlyList<string>> Mounts { get; }
+    Navigation Navigation { get; }
+    NotificationService Notifications { get; }
+    PaymentsService Payments { get; }
+    // Reading it inside UI code subscribes to changes; for a URL with query parameters (e.g. a session join link) use JoinUrl.
+    virtual string PublicUrl { get; }
+    virtual RecordingArchiveService Recordings { get; }
+    // Values are fetched once at startup and read synchronously; changes made with ikon app secret set while the app runs take effect only after a restart.
+    Secrets Secrets { get; }
+    // Consulted only during build-time snapshot capture. Returned routes are unioned with the [BootSnapshot] Routes list from ikon-config.toml, validated, and deduped.
+    Func<Task<IEnumerable<string>>>? SnapshotRoutesProvider { get; set; }
+    // Named by StateDatabase in the app's ikon-config toml; empty means the built-in app database. An app whose databases carry other names sets this so its state lives in Postgres rather than falling back to asset storage.
+    virtual string StateDatabase { get; }
+    // Call TelephonyService.GetStatusAsync to find out whether the space has telephony, or TelephonyService.GetNumbersAsync for the numbers themselves, rather than discovering either from a failed send.
+    TelephonyService Telephony { get; }
+    // Enabled by default. Applies only to clients that connect after it is set; already-connected clients are unaffected until they reconnect.
+    bool UdpEnabled { get; set; }
+    virtual UploadService Uploads { get; }
+    // Enabled by default. Disable (e.g. in Main) for apps with no audio/video or low-latency data to save per-client peer-setup cost. Applies only to clients that connect afterward; already-connected clients are unaffected until they reconnect.
+    bool WebRtcEnabled { get; set; }
+    // Blocks until the signer completes the ceremony and the platform has the sealed result. SignatureResult carries a SignedDocument per artefact — persist those bytes as your system of record, the platform's retention is short — and a SignatureSignatoryResult per party, whose SignatoryStatus says whether they signed and whose SignatureSignerIdentity is what the eID reported about them. Name, date of birth and scheme arrive in the clear; the national identity number only ever as a platform-keyed hash.
+    // signerClientSessionId: The client session ID whose browser should perform the signing ceremony.
+    // request: The order specification: documents plus one SignatureSignatory naming the policy, identity schemes and attributes to request.
+    // ct: Cancellation token. The order expires server-side after the configured TTL regardless.
+    Task<SignatureResult> CreateSignatureOrderAsync(int signerClientSessionId, SignatureOrderRequest request, CancellationToken ct = default)
+    // The connection comes back unopened — open and dispose it yourself: await using var connection = await app.DatabaseAsync(); await connection.OpenAsync();. Name nothing to get the app's default database — the built-in app one, or the app's own when it declares exactly one; names come from the Databases list in the app's ikon-config toml. The built-in database is provisioned on demand, so the first call may wait while it is created; a declared database is provisioned at activation.
+    // databaseName: The database to connect to, or null for the app's default one.
+    // throws ArgumentException: Thrown when a named database is not among the app's databases, or when no name was given and the app has several to choose from.
+    virtual Task<DbConnection> DatabaseAsync(string? databaseName = null)
+    // Provisions the built-in database if the space does not have one yet and adds it to Databases; concurrent callers share one provisioning attempt. DatabaseAsync calls this for you — call it directly only to pay the first-use cost somewhere other than the first query.
+    // throws InvalidOperationException: Thrown when the database could not be provisioned.
+    virtual Task<DatabaseConnectionInfo> EnsureDefaultDatabaseAsync()
+    // Completes only when the persisted deletions have finished. Erasure is idempotent — erasing a user with no stored state is a no-op.
+    // userId: The user whose persistent state to erase.
+    virtual Task EraseUserStateAsync(string userId)
+    // Each readable property becomes a URL-encoded name=value pair and null-valued properties are skipped, so app.JoinUrl(new { id = sessionId }) yields {PublicUrl}?id={sessionId}. Null returns PublicUrl as-is.
+    // queryParams: Anonymous object (e.g. new { id = sessionId, host = true }) or string dictionary whose entries become the query string. Null for no query string.
+    virtual string JoinUrl(object? queryParams = null)
+    // Identify the endpoint by its HANDLER (the method name, e.g. nameof(GetDocument)), never by URL path — the path is what minting returns. Omitting identity (null) pins this instance's own session on an app endpoint so the URL routes back here, and pins nothing on a cell endpoint. Grants are non-expiring unless you pass expiresIn.
+    // endpoint: Identifies the endpoint by its HANDLER, NOT by its URL path: pass the handler method name (e.g. nameof(GetDocument)) — or the full {Owner}_{Method} registry name when the bare name is ambiguous. Use nameof so a rename stays in sync. You never pass the path here (an endpoint's path is often derived from the method name, and may be templated) — the path is what minting RETURNS, built from this handler's EndpointInfo.PublicUrl.
+    virtual Task<MintedUrl> MintUrlAsync(string endpoint, object? identity = null, TimeSpan? expiresIn = null, string? group = null, CancellationToken ct = default)
+    // One backend round-trip; the result is keyed by the endpoints you passed. See MintUrlAsync for identity pinning and grant lifetime.
+    // endpoints: The endpoints to mint, each identified by its HANDLER (a method name such as nameof(GetDoc), or the full {Owner}_{Method} registry name) — never by its URL path. See MintUrlAsync.
+    virtual Task<IReadOnlyDictionary<string, MintedUrl>> MintUrlsAsync(IEnumerable<string> endpoints, object? identity = null, TimeSpan? expiresIn = null, string? group = null, CancellationToken ct = default)
+    // The counterpart to MintUrlAsync when the caller is a person rather than a registered machine. The result is NOT a URL — send it as Authorization: Bearer {token}, never as a query parameter. It is bound to this one endpoint, expires (15 minutes by default), and a call made with it runs under that user's UserScope.
+    // endpoint: The endpoint's HANDLER, exactly as MintUrlAsync takes it — a method name, or the full {Owner}_{Method} registry name when the bare one is ambiguous. An owner's JSON-RPC multiplexer is {Owner}_mcp; bare "mcp" resolves only in an app with exactly one MCP surface, so an app with cells that expose tools must name the owner.
+    // userId: The space user id the token runs as.
+    virtual Task<MintedUserToken> MintUserTokenAsync(string endpoint, string userId, TimeSpan? expiresIn = null, IEnumerable<string>? scopes = null, CancellationToken ct = default)
+    // Databases is the list the session was started with. A database created since then — with ikon app db create or from the Portal, neither of which restarts anything — is not in it. DatabaseAsync calls this for you when it meets a name it does not recognise, so an app rarely needs it directly; call it to pick up a new database without naming it, or to see one appear in Databases.
+    virtual Task<IReadOnlyList<DatabaseConnectionInfo>> RefreshDatabasesAsync()
+    // Bind your listener to the returned RelayEndpoint.LocalPort; the tunnel is reachable from the internet at {PublicHost}:{PublicPort}. Dispose the endpoint to release it.
+    // protocol: The endpoint protocol. EndpointProtocol.Tls enables TLS termination at the relay.
+    // stablePortName: When non-empty, the relay assigns a deterministic public port for this name, so the endpoint's public URL stays the same across reconnects and process restarts. Empty = ephemeral.
+    // localPort: When positive, the tunnel forwards to this local port instead of a freshly picked one — used to attach a tunnel to a listener that is already bound. 0 = pick automatically.
+    Task<RelayEndpoint> RequestEndpointAsync(EndpointProtocol protocol, string stablePortName = "", int localPort = 0, CancellationToken ct = default)
+    // Verify the returned JWT (issuer, audience, signature, expiry) before trusting any of its claims — see AssertionVerifier. Blocks until the user completes the challenge in their browser.
+    // clientSessionId: The client session ID whose browser should perform the challenge.
+    // purpose: App-declared reason for the challenge, e.g. "case.delete".
+    // acrValues: Optional identity-provider hints to constrain the authentication method, encoded in the platform's agreed format. When omitted, the platform uses its configured defaults.
+    // clientReturnUrl: Optional URL the platform redirects the user's browser to after the IdP flow completes. The platform appends ?stepup=<completed|failed>&challengeId=<id>. When omitted, the user lands on a generic close-window page. Set this to bring the user back into the app UI after step-up.
+    // ct: Cancellation token. The challenge expires server-side after the configured TTL regardless.
+    Task<string> RequestStepUpAsync(int clientSessionId, string purpose, IReadOnlyList<string>? acrValues = null, string? clientReturnUrl = null, CancellationToken ct = default)
+    virtual Task RevokeGroupAsync(string group, CancellationToken ct = default)
+    virtual Task RevokeUrlAsync(string grantId, CancellationToken ct = default)
+    event AsyncEventHandler<ClientJoinedEventArgs> ClientJoinedAsync
+    event AsyncEventHandler<ClientLeftEventArgs> ClientLeftAsync
+    event AsyncEventHandler<MessageReceivedEventArgs> MessageReceivedAsync
+    // Fires after app creation but before Main(). Do not subscribe from inside Main() — it has already fired by then and the handler will never run.
+    event AsyncEventHandler<StartingEventArgs> StartingAsync
+    event AsyncEventHandler<StoppingEventArgs> StoppingAsync
+    // At-least-once delivery — the handler must be idempotent. Throwing marks the erasure incomplete and it is redelivered on a later session start.
+    event AsyncEventHandler<UserDataErasureEventArgs> UserDataErasureAsync
+  static class IAppEventExtensions
+    static void OnClientJoined(this IAppBase app, Func<Context, Task> handler)
+    static void OnClientJoined<TSessionIdentity, TClientParameters>(this IApp<TSessionIdentity, TClientParameters> app, Func<Context, TClientParameters, Task> handler)
+    static void OnClientLeft(this IAppBase app, Func<Context, Task> handler)
+    static void OnClientLeft<TSessionIdentity, TClientParameters>(this IApp<TSessionIdentity, TClientParameters> app, Func<Context, TClientParameters, Task> handler)
+    static void OnMessageReceived(this IAppBase app, Func<ProtocolMessage, Task> handler)
+    static void OnSnapshotRoutes(this IAppBase app, Func<Task<IEnumerable<string>>> provider)
+    static void OnStarting(this IAppBase app, Func<Task> handler)
+    static void OnStopping(this IAppBase app, Func<Task> handler)
+    // Clean APP-OWNED data here (own database tables, PII embedded in session/global values) — the platform has already erased the user's platform-managed state. Delivery is at-least-once, so the handler must be idempotent.
+    static void OnUserDataErasure(this IAppBase app, Func<string, Task> handler)
+  interface IClient<out TClientParameters>
+    TClientParameters Parameters { get; }
+    int SessionId { get; }
+  interface IClientCollection<out TClientParameters> : IEnumerable<IClient<TClientParameters>>
+    int Count { get; }
+    IEnumerable<int> Ids { get; }
+    IClient<TClientParameters>? this[int clientSessionId] { get; }
+  interface INotificationChannel
+    // Used in NotificationInbox.NotifyAsync's channel list and in the per-user mutes — "email", "sms", "telegram", "whatsapp", or your own.
+    string Name { get; }
+    // Return false when the channel has no address for the user or is not configured; throw only for a real delivery failure.
+    Task<bool> SendAsync(string userId, NotificationContent content, CancellationToken ct)
+  interface IProfileAttributes
+  // A phone call whose audio the app both hears and speaks, for building a voice agent. The two streaming members are shaped to plug straight into Ikon.AI: ListenAsync yields what ISpeechRecognizer.RecognizeContinuousSpeechAsync consumes, and SpeakAsync takes what ISpeechGenerator.GenerateSpeechAsync produces. So a conversational loop needs no adapter between them:
+  // await call.SpeakAsync(ai.SpeechGenerator.GenerateSpeechAsync(new("How can I help?")));
+  //
+  // await foreach (var heard in ai.SpeechRecognizer.RecognizeContinuousSpeechAsync(config, call.ListenAsync()))
+  // {
+  //     await call.SpeakAsync(ai.SpeechGenerator.GenerateSpeechAsync(new(await Reply(heard))));
+  // }
+  // Sample rates are handled here: the provider's telephony audio and whatever rate the model wants are resampled to meet, so an app never has to know that 8 kHz exists.
+  interface IVoiceCall : IAsyncDisposable
+    string CallId { get; }
+    // In E.164; empty on a call the app placed, where there is no such person.
+    string From { get; }
+    bool IsConnected { get; }
+    // In E.164: the number they dialled on an incoming call, and the number the app asked for on one it placed.
+    string To { get; }
+    Task HangUpAsync(CancellationToken ct = default)
+    // What barge-in needs when the caller starts talking over the agent.
+    Task InterruptAsync(CancellationToken ct = default)
+    // Ends when the call does.
+    // sampleRate: What the consumer wants, typically the recognizer's rate.
+    IAsyncEnumerable<float[]> ListenAsync(int sampleRate = 16000, CancellationToken ct = default)
+    // Speaks audio to the caller, sending each chunk as it is produced. Returns once every chunk has been sent, which is before the caller has finished hearing it — the provider buffers and plays at its own rate. Use WaitForPlaybackAsync to wait for the audio to actually land, and InterruptAsync to abandon it.
+    Task SpeakAsync(IAsyncEnumerable<AudioChunk> audio, CancellationToken ct = default)
+    Task WaitForPlaybackAsync(CancellationToken ct = default)
+  sealed record InboxItem
+    // Id: Stable id, generated by the inbox.
+    // Kind: App-defined category, e.g. "order" or "payment". Free text.
+    // LaunchUrl: Optional in-app path the UI opens when the item is tapped.
+    // Data: Optional opaque payload the app stored with the item.
+    // Tag: Optional collapse key — a later item with the same tag replaces this one, as it does for the push notification.
+    // CreatedAt: UTC time the item was recorded.
+    // Read: Whether the user has seen it.
+    ctor(string Id, string Title, string? Body, string? Kind, string? LaunchUrl, string? Data, string? Tag, DateTime CreatedAt, bool Read)
+    string? Body { get; init; }
+    DateTime CreatedAt { get; init; }
+    string? Data { get; init; }
+    string Id { get; init; }
+    string? Kind { get; init; }
+    string? LaunchUrl { get; init; }
+    bool Read { get; init; }
+    string? Tag { get; init; }
+    string Title { get; init; }
