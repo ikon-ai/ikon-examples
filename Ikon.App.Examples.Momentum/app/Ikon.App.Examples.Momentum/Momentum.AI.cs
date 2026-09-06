@@ -96,7 +96,7 @@ public partial class MomentumApp
                 // least accented of the library voices — a coach in your ear at six in the morning
                 // should sound like someone beside you, not like a station announcement. Flash 2.5
                 // ignores delivery instructions, so the voice itself has to carry the tone.
-                await Audio.SpeakAsync(_coachCue, SpeechGeneratorModel.ElevenFlash25,
+                await Audio.SpeakAsync(MediaTargets.Everyone, _coachCue, SpeechGeneratorModel.ElevenFlash25,
                     voice: "Sarah",
                     speed: 0.96,
                     cancellationToken: ct);

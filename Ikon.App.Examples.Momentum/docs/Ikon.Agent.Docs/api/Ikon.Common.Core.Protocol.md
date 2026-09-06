@@ -135,7 +135,7 @@ namespace Ikon.Common.Core.Protocol
     DesktopApp
   sealed class ConnectToken : IProtocolMessagePayload
     ctor()
-    ctor(uint expiresAt, ContextType contextType, UserType userType, bool isInternal, string userId, string authSessionId, bool isAnonymous, bool isGlobal, Opcode opcodeGroupsFromServer, Opcode opcodeGroupsToServer, Dictionary<string, string> parameters, string serverSessionId, string description, string deviceId, string productId, string versionId, string installId, string locale, string userAgent, ClientType clientType, SdkType sdkType, int sdkCapability, int protocolVersion, PayloadType payloadType, StyleFormat styleFormat, bool supportsCompression, bool hasInput, bool receiveAllMessages, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, string initialUrl, bool isSnapshot, string snapshotVariant)
+    ctor(uint expiresAt, ContextType contextType, UserType userType, bool isInternal, string userId, string authSessionId, bool isAnonymous, bool isGlobal, Opcode opcodeGroupsFromServer, Opcode opcodeGroupsToServer, Dictionary<string, string> parameters, string description, string deviceId, string productId, string versionId, string installId, string locale, string userAgent, ClientType clientType, SdkType sdkType, int sdkCapability, int protocolVersion, PayloadType payloadType, StyleFormat styleFormat, bool supportsCompression, bool hasInput, bool receiveAllMessages, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, string initialUrl, bool isSnapshot, string snapshotVariant)
     string AuthSessionId { get; set; }
     ClientType ClientType { get; set; }
     ContextType ContextType { get; set; }
@@ -170,7 +170,6 @@ namespace Ikon.Common.Core.Protocol
     // Opaque, monotonically-increasing capability level advertised by the connecting SDK (companion to SdkType). 0 = legacy/unknown. Threaded SDK connect-request -> backend -> ConnectToken -> ikon server -> client Context.
     int SdkCapability { get; set; }
     SdkType SdkType { get; set; }
-    string ServerSessionId { get; set; }
     // Boot-snapshot variant id the capture client asks the app to render (a skeleton keyed by the [BootSnapshot] seed rules); empty for route captures and all live clients. Copied into Context.SnapshotVariant. Client-controlled like IsSnapshot — must never gate anything security-relevant.
     string SnapshotVariant { get; set; }
     StyleFormat StyleFormat { get; set; }
@@ -183,7 +182,15 @@ namespace Ikon.Common.Core.Protocol
     string VersionId { get; set; }
     int ViewportHeight { get; set; }
     int ViewportWidth { get; set; }
+    void CopyRetiredFieldsFrom(ConnectToken source)
+    ConnectToken.RetiredFields GetOrCreateRetiredFields()
+    ConnectToken.RetiredFields? GetRetiredFields()
     override string ToString()
+    static readonly IReadOnlyList<string> RetiredKeys
+  sealed class ConnectToken.RetiredFields
+    ctor()
+    // Nothing here is written or read by this build. Kept minted by the backend only — see ikon-server-token.ts and docs/private/todos/legacy-cleanup-todo.md.
+    string? ServerSessionId { get; set; }
   sealed class Context : IProtocolMessagePayload
     ctor()
     ctor(ContextType contextType, UserType userType, PayloadType payloadType, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, int sessionId, bool isInternal, bool isSnapshot, string snapshotVariant, bool isReady, bool hasInput, string authSessionId, bool isAnonymous, bool isGlobal, bool receiveAllMessages, ulong preciseJoinedAt, string userAgent, ClientType clientType, string uniqueSessionId, Dictionary<string, string> parameters, SdkType sdkType, int sdkCapability, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, string initialUrl, StyleFormat styleFormat, bool supportsCompression, bool isSoftDisconnected, ulong softDisconnectAt)

@@ -267,7 +267,7 @@ namespace Ikon.Sdk
     // sampleRate: Fixed per stream: the first call for a streamId configures its encoder and announces the format, so every later call must pass the same rate — a different one throws ArgumentException; use a new streamId for another format
     // channelCount: Fixed per stream like sampleRate
     // encoderOptions: Falls back to DefaultEncoderOptions; applied only when the stream's encoder is first created — later changes do not reconfigure an active stream
-    ValueTask SendAudioAsync(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string? streamId = null, TimeSpan totalDuration = default, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null)
+    ValueTask SendAudioAsync(MediaTargets targets, ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string? streamId = null, TimeSpan totalDuration = default, AudioEncoderOptions? encoderOptions = null)
     // Throws InvalidOperationException when the client is not connected — send only after ReadyAsync has fired. It does not silently drop the message.
     ValueTask SendMessageAsync(ProtocolMessage message)
     // Throws InvalidOperationException when the client is not connected — send only after ReadyAsync has fired. It does not silently drop the payload.
@@ -405,10 +405,6 @@ namespace Ikon.Sdk
     string SpaceId { get; init; }
     // Default: Human
     UserType UserType { get; init; }
-  // Build stamp for this component: the version of the build it was compiled from, exposed as a compile-time constant. Generated on every build from versions.json and git state, so never edit it by hand. Note that this type shadows System.Version in any file that imports this namespace — write System.Version explicitly there when you mean the BCL type.
-  static class Version
-    // The version this build was produced from, in the shape git describe uses: the release version, the number of commits since that release, the short commit hash, a -dirty suffix when the working tree had uncommitted changes, and the branch name on any branch other than main.
-    const string VersionString
 
 
 ---
@@ -726,6 +722,7 @@ ReadOnlyMemory<float> samples = GetAudioSamples();
 
 // Send audio
 await client.SendAudioAsync(
+    MediaTargets.Everyone,
     samples: samples,
     sampleRate: 48000,
     channelCount: 1,
@@ -734,10 +731,11 @@ await client.SendAudioAsync(
 );
 
 // Send final chunk
-await client.SendAudioAsync(samples, 48000, 1, isFirst: false, isLast: true);
+await client.SendAudioAsync(MediaTargets.Everyone, samples, 48000, 1, isFirst: false, isLast: true);
 
 // Optional: specify stream ID, total duration, encoder options, and target clients
 await client.SendAudioAsync(
+    MediaTargets.To(123, 456),                // Target specific session IDs
     samples: samples,
     sampleRate: 48000,
     channelCount: 1,
@@ -748,9 +746,7 @@ await client.SendAudioAsync(
     encoderOptions: new AudioEncoderOptions(  // Custom encoder settings
         bitrate: 64000,
         complexity: 10
-    ),
-    targetIds: new[] { 123, 456 }             // Target specific session IDs
-);
+    ));
 
 // Set default encoder options for all audio
 client.DefaultEncoderOptions = new AudioEncoderOptions(bitrate: 48000, complexity: 8);
