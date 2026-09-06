@@ -52,8 +52,7 @@ public partial class Tori
 
             if (targetIds.Count > 0)
             {
-                await Video.SendFrameAsync(
-                    args.Data,
+                await Video.SendFrameAsync(MediaTargets.To(targetIds), args.Data,
                     args.FrameNumber,
                     args.IsKey,
                     args.TimestampInUs,
@@ -62,8 +61,7 @@ public partial class Tori
                     info.Width,
                     info.Height,
                     info.Framerate,
-                    args.StreamId,
-                    targetIds);
+                    args.StreamId);
 
                 // Register output→input mapping after first Send (when output stream is created)
                 if (!info.OutputMappingRegistered)

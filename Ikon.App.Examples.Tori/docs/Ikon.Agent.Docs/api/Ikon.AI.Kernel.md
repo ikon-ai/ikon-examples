@@ -22,6 +22,7 @@ namespace Ikon.AI.Kernel
     string MimeType { get; }
   class FunctionCall
     ctor(Function function, object?[] parameters, string parametersJson, string callId, string hash, string thoughtSignature = "", string reasoningContent = "")
+    string? BindingError { get; init; }
     string CallId { get; }
     Function Function { get; }
     string Hash { get; }

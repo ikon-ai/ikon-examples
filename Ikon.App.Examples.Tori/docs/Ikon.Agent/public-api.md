@@ -107,36 +107,36 @@ namespace Ikon.Agent
   static class AgentScopes
     const string AgentRun
   sealed class AgentThread : IAsyncDisposable
-    Reactive<IReadOnlyList<ToolInfo>> ActiveTools { get; }
-    Reactive<Activity> Activity { get; }
+    IReadOnlyReactive<IReadOnlyList<ToolInfo>> ActiveTools { get; }
+    IReadOnlyReactive<Activity> Activity { get; }
     string AgentName { get; }
-    Reactive<IReadOnlyList<Artifact>> Artifacts { get; }
-    Reactive<IReadOnlyList<AgentThread>> Children { get; }
-    Reactive<ContextSnapshot> Context { get; }
+    IReadOnlyReactive<IReadOnlyList<Artifact>> Artifacts { get; }
+    IReadOnlyReactive<IReadOnlyList<AgentThread>> Children { get; }
+    IReadOnlyReactive<ContextSnapshot> Context { get; }
     DateTime CreatedAt { get; }
     IAsyncEnumerable<ThreadEvent> Events { get; }
     // Why the thread last entered ThreadStatus.Failed — the exception message from a failed pass, or a budget-stop reason. Null until a failure occurs.
-    Reactive<string?> FailureReason { get; }
+    IReadOnlyReactive<string?> FailureReason { get; }
     string Id { get; }
     // True while a drive loop currently owns this thread (the single-consumer drive lock is held) — the official "is anything advancing this thread right now" signal. Not reactive; pair it with a Status read (which is) so consumers re-evaluate on every settle.
     bool IsBeingDriven { get; }
     // Every posted message in arrival order; seeded from storage at construction and appended on every MessagePosted.
-    Reactive<IReadOnlyList<Message>> Messages { get; }
+    IReadOnlyReactive<IReadOnlyList<Message>> Messages { get; }
     string? ParentId { get; }
     // Throws InvalidOperationException if the plan has been archived out of the live registry; reach it via App + AgentApp.GetPlan when archived-plan access is needed.
     AgentPlan Plan { get; }
     string PlanId { get; }
     // Derived from Usage and the merged host/persona Budget; recomputed on every usage change.
-    Reactive<BudgetRemaining> RemainingBudget { get; }
+    IReadOnlyReactive<BudgetRemaining> RemainingBudget { get; }
     // Walks ParentId through the orchestrator's live registry. A parent the registry no longer holds — archived, or not yet re-hydrated — ends the walk at that parent's id rather than throwing, because attribution must never be able to fail a run. Naming the unreachable ancestor, rather than the last one still resolvable, is what keeps a run's id stable: archiving the root mid-run would otherwise re-point every descendant at the deepest surviving thread and split one run's cost across two ids. Every descendant stops at the same unreachable ancestor, so the tree stays agreed on one id either way.
     string RootId { get; }
-    Reactive<string?> Stage { get; }
-    Reactive<ThreadStatus> Status { get; }
+    IReadOnlyReactive<string?> Stage { get; }
+    IReadOnlyReactive<ThreadStatus> Status { get; }
     IStorage Storage { get; }
     // Unlike Usage, which providers report only once a turn has ended, these counters advance chunk by chunk while generation is in flight. Measured in characters, not tokens. Own-thread only; walk Children for a tree.
     StreamedContent Streamed { get; }
-    Reactive<IReadOnlyList<ToolCallEntry>> ToolCallTimeline { get; }
-    Reactive<ThreadUsage> Usage { get; }
+    IReadOnlyReactive<IReadOnlyList<ToolCallEntry>> ToolCallTimeline { get; }
+    IReadOnlyReactive<ThreadUsage> Usage { get; }
     // Returns a Reference to embed in a Message in place of the raw bytes, keeping subsequent LLM prompts small; the agent fetches the data via tool calls when it needs it.
     Task<Content.Reference> AttachAsArtifactAsync(string name, string mimeType, byte[] bytes, ArtifactSource source = User)
     // Attachments larger than inlineThresholdBytes are promoted to thread artifacts and replaced with a Reference; smaller items embed inline so the model sees them directly.
@@ -165,7 +165,8 @@ namespace Ikon.Agent
     // The child is created Active with its seed task posted, but it is NOT driven — no library background loop advances it. Nothing runs until the caller drives it: await child.DriveAsync(...) (fire-and-forget on a separate task if this thread should not block), or a host pass loop. Read the child's state (artifacts, messages) only after a drive has advanced it. Left undriven the child sits idle forever. AgentCall.RunAsync<T> is the spawn-drive-extract convenience when a typed result is wanted.
     Task<AgentThread> SpawnAsync(string personaName, Content task, ThreadOptions? options = null, CancellationToken ct = default)
     // Returns false (no-op) if the transition is invalid from the current status. The new status reaches consumers via the Status reactive — there is no separate transition event.
-    Task<bool> TransitionAsync(ThreadTransition transition)
+    // reason: Recorded on FailureReason before the status changes, so a consumer woken by the status already sees why. Applies to ThreadTransition.Fail; ignored otherwise, and null leaves any existing reason in place.
+    Task<bool> TransitionAsync(ThreadTransition transition, string? reason = null)
     // Replace-by-name: writing a name that already exists updates that artifact's storage row in place rather than adding a duplicate. Use for structured outputs; for raw bytes use AttachAsArtifactAsync.
     Task<Artifact> WriteArtifactAsync(string name, string type, IReadOnlyList<Content> parts, ArtifactSource source = Agent)
     // JSON-serializes value into one text part; read it back with ReadArtifactAsync<T>. Mark it ArtifactSource.System for control data that shouldn't show in the user-facing artifact list.
@@ -363,6 +364,7 @@ namespace Ikon.Agent
     Grok
     DeepSeek
     Glm
+    Qwen
   static class ModelResolver
     static LLMModel Resolve(Reasoning reasoning)
     static LLMModel Resolve(Capability capability, ModelFamily family)
@@ -477,13 +479,16 @@ namespace Ikon.Agent
     DateTime UpdatedAt { get; init; }
   // The agent layer never names a concrete model: each pass resolves Capability × Family to a concrete LLMModel internally, which lands on the Emerge pass as EmergePass.Model.
   sealed record Reasoning
-    ctor(Capability Capability = Standard, ModelFamily Family = Claude, double Temperature = 0.7, int MaxOutputTokens = 32000, int? ClearToolResultsAfterInputTokens = null, IReadOnlyList<string>? ClearToolResultsExcludedTools = null, ReasoningEffort? Effort = null)
+    ctor(Capability Capability = Standard, ModelFamily Family = Claude, double Temperature = 0.7, int MaxOutputTokens = 32000, int? ClearToolResultsAfterInputTokens = null, IReadOnlyList<string>? ClearToolResultsExcludedTools = null, ReasoningEffort? Effort = null, TimeSpan? MaxPassWallTime = null, int? MaxToolCallsPerPass = null, int? MaxIterationsPerPass = null)
     Capability Capability { get; init; }
     int? ClearToolResultsAfterInputTokens { get; init; }
     IReadOnlyList<string>? ClearToolResultsExcludedTools { get; init; }
     ReasoningEffort? Effort { get; init; }
     ModelFamily Family { get; init; }
+    int? MaxIterationsPerPass { get; init; }
     int MaxOutputTokens { get; init; }
+    TimeSpan? MaxPassWallTime { get; init; }
+    int? MaxToolCallsPerPass { get; init; }
     double Temperature { get; init; }
   static class RuntimeMessages
     // A user-role corrective the runner posts to recover a drive (the truncated-pass re-prompt). It steers the agent; it is never part of the user's conversation.
@@ -575,7 +580,9 @@ namespace Ikon.Agent
     long InputTokens { get; init; }
     long OutputTokens { get; init; }
   sealed record ThreadEvent.ToolCallCompleted : ThreadEvent
-    ctor(string ThreadId, DateTime At, string ToolName, string Result)
+    // IsError: true when the call did not complete and Result holds the failure text. null only on an entry journaled before this field existed — treat it as "unknown", not as "succeeded".
+    ctor(string ThreadId, DateTime At, string ToolName, string Result, bool? IsError = null)
+    bool? IsError { get; init; }
     string Result { get; init; }
     string ToolName { get; init; }
   sealed record ThreadEvent.ToolCallStarted : ThreadEvent
@@ -669,7 +676,7 @@ namespace Ikon.Agent
     Tool WithParamDescription(string paramName, string description)
   // Captured when ToolCallStarted fires; the result and error flag fill in when ToolCallCompleted follows. PrecedingAgentMessages counts the agent messages already on the thread at start time, so a UI can slot the row in front of the agent message it produced.
   sealed record ToolCallEntry
-    // IsError: true/false for a call completed live in this process; null when the timeline was rebuilt by replaying a thread's journal — the journal does not record the error flag, so it cannot be recovered on resume. Treat null as "unknown", not as "succeeded".
+    // IsError: true when the call did not complete and ResultText holds the failure text instead of a return value. null while the call is still in flight, and on a replayed entry journaled before the flag was recorded — treat it as "unknown", not as "succeeded".
     ctor(int PrecedingAgentMessages, string ToolName, string ArgsJson, string? ResultText, bool? IsError)
     string ArgsJson { get; init; }
     bool? IsError { get; init; }
