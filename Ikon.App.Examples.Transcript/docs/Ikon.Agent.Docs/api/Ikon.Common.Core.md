@@ -225,6 +225,18 @@ namespace Ikon.Common.Core
   struct LogScopeEntry
     string Id { get; set; }
     string Type { get; set; }
+  // A targeted send whose id list is EMPTY transmits nothing: an empty list is indistinguishable on the wire from no targets, which the server routes to everyone, so a filter matching nobody would otherwise reach exactly who it excluded. The default value names no audience and throws rather than guessing.
+  readonly struct MediaTargets
+    static MediaTargets Everyone { get; }
+    // A targeted send that resolved to no clients. False for Everyone, and false for the default value, which throws instead.
+    bool IsEmpty { get; }
+    bool IsEveryone { get; }
+    // null for Everyone, which is what the protocol's absent target list means. Throws on the default value.
+    IReadOnlyList<int>? SessionIds { get; }
+    static MediaTargets To(int sessionId)
+    static MediaTargets To(IReadOnlyList<int> sessionIds)
+    static MediaTargets To(params int[] sessionIds)
+    override string ToString()
   static class NameConversions
     static string ToCamelCase(string input)
     static string ToDisplayName(string input)
@@ -278,14 +290,3 @@ namespace Ikon.Common.Core
     IEnumerable<Context> GetUniqueHumanAuthClientContexts()
     // Updates from a new GlobalState; only the reactive properties whose value actually changed trigger notifications.
     void UpdateFrom(GlobalState newState)
-  class ReactiveGlobalState.DictionaryComparer<TKey, TValue> : IEqualityComparer<Dictionary<TKey, TValue>>
-    ctor()
-    bool Equals(Dictionary<TKey, TValue>? x, Dictionary<TKey, TValue>? y)
-    int GetHashCode(Dictionary<TKey, TValue> obj)
-    static readonly ReactiveGlobalState.DictionaryComparer<TKey, TValue> Instance
-  // Read-only view of the space-scoped secrets loaded from the Ikon backend. Apps receive one via app.Secrets; pipelines via host.Secrets. Manage values with ikon app secret set/list/delete. Rotating a secret while an app or pipeline is running only takes effect after a restart.
-  sealed class Secrets
-    // Throws InvalidOperationException when no secret with that key is set for this space; use TryGet for a non-throwing lookup.
-    string this[string key] { get; }
-    IReadOnlyCollection<string> Keys { get; }
-    bool TryGet(string key, out string? value)

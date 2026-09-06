@@ -227,6 +227,18 @@ namespace Ikon.Common.Core
   struct LogScopeEntry
     string Id { get; set; }
     string Type { get; set; }
+  // A targeted send whose id list is EMPTY transmits nothing: an empty list is indistinguishable on the wire from no targets, which the server routes to everyone, so a filter matching nobody would otherwise reach exactly who it excluded. The default value names no audience and throws rather than guessing.
+  readonly struct MediaTargets
+    static MediaTargets Everyone { get; }
+    // A targeted send that resolved to no clients. False for Everyone, and false for the default value, which throws instead.
+    bool IsEmpty { get; }
+    bool IsEveryone { get; }
+    // null for Everyone, which is what the protocol's absent target list means. Throws on the default value.
+    IReadOnlyList<int>? SessionIds { get; }
+    static MediaTargets To(int sessionId)
+    static MediaTargets To(IReadOnlyList<int> sessionIds)
+    static MediaTargets To(params int[] sessionIds)
+    override string ToString()
   static class NameConversions
     static string ToCamelCase(string input)
     static string ToDisplayName(string input)
@@ -285,6 +297,13 @@ namespace Ikon.Common.Core
     bool Equals(Dictionary<TKey, TValue>? x, Dictionary<TKey, TValue>? y)
     int GetHashCode(Dictionary<TKey, TValue> obj)
     static readonly ReactiveGlobalState.DictionaryComparer<TKey, TValue> Instance
+  static class ReadOnlyListExtensions
+    // -1 when nothing matches.
+    static int FindIndex<T>(this IReadOnlyList<T> items, Predicate<T> match)
+    // -1 when nothing matches.
+    static int FindLastIndex<T>(this IReadOnlyList<T> items, Predicate<T> match)
+    // Equality is EqualityComparer<T>.Default; -1 when absent.
+    static int IndexOf<T>(this IReadOnlyList<T> items, T item)
   // Read-only view of the space-scoped secrets loaded from the Ikon backend. Apps receive one via app.Secrets; pipelines via host.Secrets. Manage values with ikon app secret set/list/delete. Rotating a secret while an app or pipeline is running only takes effect after a restart.
   sealed class Secrets
     // Throws InvalidOperationException when no secret with that key is set for this space; use TryGet for a non-throwing lookup.
@@ -1081,7 +1100,7 @@ namespace Ikon.Common.Core.Protocol
     DesktopApp
   sealed class ConnectToken : IProtocolMessagePayload
     ctor()
-    ctor(uint expiresAt, ContextType contextType, UserType userType, bool isInternal, string userId, string authSessionId, bool isAnonymous, bool isGlobal, Opcode opcodeGroupsFromServer, Opcode opcodeGroupsToServer, Dictionary<string, string> parameters, string serverSessionId, string description, string deviceId, string productId, string versionId, string installId, string locale, string userAgent, ClientType clientType, SdkType sdkType, int sdkCapability, int protocolVersion, PayloadType payloadType, StyleFormat styleFormat, bool supportsCompression, bool hasInput, bool receiveAllMessages, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, string initialUrl, bool isSnapshot, string snapshotVariant)
+    ctor(uint expiresAt, ContextType contextType, UserType userType, bool isInternal, string userId, string authSessionId, bool isAnonymous, bool isGlobal, Opcode opcodeGroupsFromServer, Opcode opcodeGroupsToServer, Dictionary<string, string> parameters, string description, string deviceId, string productId, string versionId, string installId, string locale, string userAgent, ClientType clientType, SdkType sdkType, int sdkCapability, int protocolVersion, PayloadType payloadType, StyleFormat styleFormat, bool supportsCompression, bool hasInput, bool receiveAllMessages, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, string initialUrl, bool isSnapshot, string snapshotVariant)
     string AuthSessionId { get; set; }
     ClientType ClientType { get; set; }
     ContextType ContextType { get; set; }
@@ -1116,7 +1135,6 @@ namespace Ikon.Common.Core.Protocol
     // Opaque, monotonically-increasing capability level advertised by the connecting SDK (companion to SdkType). 0 = legacy/unknown. Threaded SDK connect-request -> backend -> ConnectToken -> ikon server -> client Context.
     int SdkCapability { get; set; }
     SdkType SdkType { get; set; }
-    string ServerSessionId { get; set; }
     // Boot-snapshot variant id the capture client asks the app to render (a skeleton keyed by the [BootSnapshot] seed rules); empty for route captures and all live clients. Copied into Context.SnapshotVariant. Client-controlled like IsSnapshot — must never gate anything security-relevant.
     string SnapshotVariant { get; set; }
     StyleFormat StyleFormat { get; set; }
@@ -1129,7 +1147,15 @@ namespace Ikon.Common.Core.Protocol
     string VersionId { get; set; }
     int ViewportHeight { get; set; }
     int ViewportWidth { get; set; }
+    void CopyRetiredFieldsFrom(ConnectToken source)
+    ConnectToken.RetiredFields GetOrCreateRetiredFields()
+    ConnectToken.RetiredFields? GetRetiredFields()
     override string ToString()
+    static readonly IReadOnlyList<string> RetiredKeys
+  sealed class ConnectToken.RetiredFields
+    ctor()
+    // Nothing here is written or read by this build. Kept minted by the backend only — see ikon-server-token.ts and docs/private/todos/legacy-cleanup-todo.md.
+    string? ServerSessionId { get; set; }
   sealed class Context : IProtocolMessagePayload
     ctor()
     ctor(ContextType contextType, UserType userType, PayloadType payloadType, string description, string userId, string deviceId, string productId, string versionId, string installId, string locale, int sessionId, bool isInternal, bool isSnapshot, string snapshotVariant, bool isReady, bool hasInput, string authSessionId, bool isAnonymous, bool isGlobal, bool receiveAllMessages, ulong preciseJoinedAt, string userAgent, ClientType clientType, string uniqueSessionId, Dictionary<string, string> parameters, SdkType sdkType, int sdkCapability, int viewportWidth, int viewportHeight, string theme, string timezone, bool isTouchDevice, string initialPath, string initialUrl, StyleFormat styleFormat, bool supportsCompression, bool isSoftDisconnected, ulong softDisconnectAt)
@@ -1445,7 +1471,6 @@ namespace Ikon.Common.Core.Protocol
     ANALYTICS_IKON_HOST_SERVER_STATS
     ANALYTICS_TRAFFIC_USAGE
     GROUP_ACTIONS
-    ACTION_CALL
     ACTION_ACTIVE
     ACTION_TEXT_OUTPUT
     ACTION_TEXT_OUTPUT_DELTA
@@ -1724,6 +1749,14 @@ namespace Ikon.Common.Core.Reactive
     event Action? Changed
     // Fires with the scope-derived session id whose value just changed: always 0 for unscoped reactives, the hash of the scope for scoped variants. Lets external subscription routing fan out to only the clients whose scope matches the changed signal.
     event Action<int>? SessionChanged
+  // Tracks dependencies exactly as Reactive<T> does, so bound UI re-renders normally. For state an owner derives and publishes, where assigning would desync it. No implicit unwrap to T — read Value or Peek.
+  interface IReadOnlyReactive<T> : IReactive
+    // Reads without registering a dependency, so a render reading it does not re-run when the value later changes.
+    T Peek { get; }
+    // A TRACKED read: used during render it registers a dependency, and for scoped variants it throws InvalidOperationException when no scope is active.
+    T Value { get; }
+    event Action<T>? ValueChanged
+    event Func<T, Task>? ValueChangedAsync
   static class MountReactive
     // Each mount's value is initialized by the factory, which receives the mount id.
     static MountReactive<T> Create<T>(Func<string, T> factory)
@@ -1789,7 +1822,7 @@ namespace Ikon.Common.Core.Reactive
     // Like Run<T>, additionally passing token to the action so it can observe cancellation.
     static void Run<T>(Reactive<T> reactiveValue, Func<CancellationToken, Task<T>> action, Action<Exception>? onError = null, CancellationToken token = default)
   // Reading Value during a UI render registers a dependency; writing a changed value re-renders only the parts that read it. An unscoped Reactive<T> holds one value shared across all clients and is accessible anywhere. For per-client state use ClientReactive<T>; for per-user state (shared across a user's sessions) use UserReactive<T>. Those scoped variants resolve .Value against the active scope, so it must be read inside one — UI.Root(), an action callback, or a ReactiveScope.Use() block — and throw otherwise; background work (a Task.Run loop, a timer, an endpoint handler) has no scope and names its target instead via SetFor(id, value) / ValueFor(id).
-  class Reactive<T> : IReactive
+  class Reactive<T> : IReadOnlyReactive<T>
     // Creates a reactive whose initial value is default(T). Call as new Reactive<T>() — the UseDefault parameter is only an overload disambiguator and is never passed explicitly.
     ctor(UseDefault _ = default)
     ctor(T initialValue)
@@ -1908,6 +1941,10 @@ namespace Ikon.Common.Core.Reactive
     void AddRange(IEnumerable<T> items)
     void Clear()
     bool Contains(T item)
+    bool Exists(Predicate<T> match)
+    T? Find(Predicate<T> match)
+    List<T> FindAll(Predicate<T> match)
+    int FindIndex(Predicate<T> match)
     IEnumerator<T> GetEnumerator()
     int IndexOf(T item)
     void Insert(int index, T item)

@@ -69,10 +69,12 @@ namespace Ikon.AI.Emergence
   sealed record ToolCallPlanned<T> : EmergeEvent<T>
     ctor(FunctionCall Call)
     FunctionCall Call { get; init; }
+  // IsError is true when the call did not complete — the tool body threw, or it returned a result marked as an error. Result then holds the failure text that was fed back to the model rather than a tool return value.
   sealed record ToolCallResult<T> : EmergeEvent<T>
-    ctor(FunctionCall Call, LLMEvent[] Events, object Result)
+    ctor(FunctionCall Call, LLMEvent[] Events, object Result, bool IsError = false)
     FunctionCall Call { get; init; }
     LLMEvent[] Events { get; init; }
+    bool IsError { get; init; }
     object Result { get; init; }
   sealed class TreeSearchOptions : EmergeScope<TreeSearchResult>
     ctor()

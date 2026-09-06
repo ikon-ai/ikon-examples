@@ -1,4 +1,8 @@
 namespace Ikon.Parallax.Components.Standard
+  sealed record VideoTapArgs
+    ctor(double X, double Y)
+    double X { get; init; }
+    double Y { get; init; }
   // Performance model: the server emits one wrapper node per item up to itemCount and runs every per-item content builder eagerly server-side (keep content trees inexpensive); the client mounts only the wrappers inside [start - overscan, end + overscan] and leaves the rest out of the DOM entirely. onNearEnd fires when the window enters the last nearEndThreshold rows — append items to grow the list.
   static class VirtualListExtensions
     // columns: Fixed number of columns; ignored when minItemWidthPx is set.

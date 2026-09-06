@@ -91,7 +91,7 @@ namespace Ikon.App
     Task WhenReadyAsync()
   delegate AsyncEventHandler<in TEventArgs> where TEventArgs : EventArgs
     Task AsyncEventHandler<in TEventArgs>(TEventArgs e)
-  // Three ways to send audio, by pacing: SpeakAsync / SendSpeech are real-time paced by the speech mixer and new speech interrupts current speech with a fade — the default for spoken replies. StreamAsync plays a complete clip (decoded file, generated music) paced to real time, without the mixer's interruption semantics. SendImmediateAsync transmits at once with no pacing — only for audio already produced in real time or very short clips; a long clip sent this way arrives all at once and can overflow client audio buffers. The send methods share a targetIds parameter: a null value broadcasts to every connected client, a list restricts delivery to those client session ids.
+  // Two send lanes. Speak* shares one mixer: one utterance at a time for the whole app, and a new one fades out the old — it interrupts even between calls aimed at different clients. Send*/Play* are independent streams keyed by stream id and overlap freely.
   class Audio
     ctor(IAppBase app)
     AudioEncoderOptions? DefaultEncoderOptions { get; set; }
@@ -104,45 +104,33 @@ namespace Ikon.App
     // How far the client has actually rendered the audio and whether the user can currently hear it. Null when the client has not reported yet (older SDKs never report). Reports arrive roughly twice per second while audio is playing; check AudioPlaybackStatus.ReceivedAtUtc for staleness.
     // streamId: The output stream. Null uses the default (speech mixer) stream
     AudioPlaybackStatus? GetPlaybackStatus(int clientSessionId, string? streamId = null)
-    // Delivery is unpaced: the client receives everything as fast as it encodes. Callers own the real-time pacing, so feed this method chunks as they are produced, not a whole clip at once.
-    // samples: Floating point PCM samples in range [-1.0, 1.0]
-    // sampleRate: Sample rate in Hz
-    // channelCount: Number of audio channels
+    // Two concurrent calls on ONE stream id interleave their frames and corrupt playback — give each clip its own id. Cancelling closes the stream with a final end-of-stream frame.
+    // streamId: Required when several streams run at once; null uses the default stream
+    // encoderOptions: Null falls back to DefaultEncoderOptions
+    // cancellationToken: Stops the clip early, closing the stream cleanly
+    Task PlayClipAsync(MediaTargets targets, ReadOnlyMemory<float> samples, int sampleRate, int channelCount, string? streamId = null, AudioEncoderOptions? encoderOptions = null, CancellationToken cancellationToken = default)
+    // Unpaced — callers own the real-time pacing. Feed chunks as they are produced; a whole clip sent this way can overflow client buffers, so use PlayClipAsync for that.
     // isFirst: True when this call carries the beginning of a clip (starts a new playback on the client)
     // isLast: True when this call carries the end of the clip (a single complete clip passes true for both)
-    // streamId: Optional id to distinguish between multiple concurrent audio streams. Required when sending multiple streams simultaneously
-    // totalDuration: Optional total duration of the audio to be output, if known
-    // encoderOptions: Optional encoder options. Falls back to DefaultEncoderOptions if not specified
-    ValueTask SendImmediateAsync(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string? streamId = null, TimeSpan totalDuration = default, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null)
-    // Real-time paced by the speech mixer, so fast producers (typical TTS) cannot overflow client audio buffers; a chunk with a new id interrupts current playback with a fade. Returns immediately — playback happens in the background.
-    // audio: Audio chunk with samples
-    // effects: Optional audio effects to apply
-    void SendSpeech(AudioChunk audio, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null)
+    // streamId: Required when several streams run at once; null uses the default stream
+    // encoderOptions: Null falls back to DefaultEncoderOptions
+    ValueTask SendFrameAsync(MediaTargets targets, ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string? streamId = null, TimeSpan totalDuration = default, AudioEncoderOptions? encoderOptions = null)
     // Completes at end of mixer playout (pause-aware, real-time paced), not at end of generation. Long texts are backpressure-paced against the bounded mixer buffer, so any length is safe. An interruption by a newer Speak call completes the task quietly.
     // text: The text to speak. Whitespace-only text is a no-op
-    // model: The speech generator model to use
     // voice: Optional voice id. Null uses the model's default voice
     // instructions: Optional delivery instructions (tone, emotion, style). Support is model-specific; unsupported models ignore them
     // speed: Optional speaking speed, where 1.0 is normal (e.g. 0.8 is slower, 1.2 is faster). Null leaves the model's default. Support is model-specific; unsupported models ignore it
-    // effects: Optional audio effects to apply
     // cancellationToken: Cancels generation and playback of this utterance
-    Task SpeakAndWaitAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, string? instructions = null, double? speed = null, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null, CancellationToken cancellationToken = default)
-    // Each call interrupts the previous one: it fades out whatever is still playing and cancels the prior call's generation, so a new utterance supersedes the old. Defaults to SpeechGeneratorModel.ElevenFlash25. Drive SpeechGenerator + SendSpeech yourself instead when you need overlapping speakers, playback that must not interrupt what is already playing, or raw access to the generated samples.
+    Task SpeakAndWaitAsync(MediaTargets targets, string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, string? instructions = null, double? speed = null, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, CancellationToken cancellationToken = default)
+    // Also cancels the previous call's generation, not just its playback. Returns once the utterance is queued; await SpeakAndWaitAsync for playout.
     // text: Whitespace-only text is a no-op
     // voice: Null uses the model's default voice
     // instructions: Delivery instructions (tone, emotion, style); unsupported models ignore them
     // speed: 1.0 is normal. Null leaves the model's default; unsupported models ignore it
-    // targetIds: Null broadcasts to all clients
     // cancellationToken: Cancels generation and playback of this utterance
-    Task SpeakAsync(string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, string? instructions = null, double? speed = null, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null, CancellationToken cancellationToken = default)
-    // One call streams one whole clip on its stream id. Do not run two concurrent calls on the same stream id — the interleaved frames would corrupt client playback; use distinct stream ids or await the previous call first. Cancelling stops the clip early and closes it with a final end-of-stream frame.
-    // samples: Floating point PCM samples in range [-1.0, 1.0] for the whole clip
-    // sampleRate: Sample rate in Hz
-    // channelCount: Number of audio channels
-    // streamId: Optional id to distinguish between multiple concurrent audio streams. Required when sending multiple streams simultaneously
-    // encoderOptions: Optional encoder options. Falls back to DefaultEncoderOptions if not specified
-    // cancellationToken: Stops the clip early, closing the stream cleanly
-    Task StreamAsync(ReadOnlyMemory<float> samples, int sampleRate, int channelCount, string? streamId = null, AudioEncoderOptions? encoderOptions = null, IReadOnlyList<int>? targetIds = null, CancellationToken cancellationToken = default)
+    Task SpeakAsync(MediaTargets targets, string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, string? instructions = null, double? speed = null, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, CancellationToken cancellationToken = default)
+    // Real-time paced by the speech mixer, so fast producers (typical TTS) cannot overflow client audio buffers; a chunk with a new id interrupts current playback with a fade. Returns immediately — playback happens in the background.
+    void SpeakChunk(MediaTargets targets, AudioChunk audio, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null)
     // Call once during app setup. Mutually exclusive with UseTurnDetection, and calling it a second time throws — either conflict raises InvalidOperationException.
     // model: The speech recognizer model to use (e.g., WhisperLarge3Turbo).
     // silenceThresholdRms: RMS threshold below which the segment is treated as silence and skipped.
@@ -712,7 +700,7 @@ namespace Ikon.App
     // An escape hatch for libraries that need a real filesystem path. Prefer Files (Files.Data) — same seeded files, plus runtime writes that persist. Read-only in the cloud — writing to it throws.
     string DataDirectory { get; }
     IReadOnlyList<DatabaseConnectionInfo> Databases { get; }
-    // It compares ABSOLUTE occupancy against a share of the memory limit, so it cannot tell an instance filling up with arrivals from an app that is simply large: an app whose own resting footprint already exceeds that share is refused from its first client onward, answering 429 to every one of them. Measure your app's idle footprint before turning this on.
+    // It charges the clients only what they add to your app's own idle footprint, and lets them have a share of the room above it, so a large app is admitted up to its real headroom rather than refused from its first client onward. That room is what your app leaves unused, so measure your app's idle footprint before turning this on: an app resting near the container limit admits few clients however this is set.
     bool DynamicMaxClientsEnabled { get; set; }
     // Requires the Email feature enabled on the app's organisation/space; calls from a non-entitled space throw FeatureNotEnabledException.
     EmailService Email { get; }
@@ -1365,7 +1353,7 @@ namespace Ikon.App
     int SessionId { get; init; }
     DateTime StartedAt { get; init; }
     string UserId { get; init; }
-  // Little-endian throughout. File header, 24 bytes: magic IKAR (4), version u16, reserved u16, startedUnixMs i64, baseAtMs f64. Then records, each opening with kind u8 and offsetMs u32 measured from baseAtMs: a fix carries latitude f64, longitude f64, accuracy f32, speed f32, heading f32, altitude f32 (37 bytes in total); a motion sample carries sensor u8, x f32, y f32, z f32 (18 bytes). Offsets are relative to a base rather than absolute because a millisecond epoch is around 1.7e12, which single precision resolves no better than about 130 ms — coarser than the gap between samples, so absolute float timestamps would destroy every rhythm in the file.
+  // Little-endian throughout. File header, 24 bytes: magic IKAR (4), version u16, reserved u16, startedUnixMs i64, baseAtMs f64. Then records, each opening with kind u8 and offsetMs u32 measured from baseAtMs: a fix carries latitude f64, longitude f64, accuracy f32, speed f32, heading f32, altitude f32 (37 bytes in total); a motion sample carries sensor u8, x f32, y f32, z f32 (18 bytes). Offsets are relative to a base rather than absolute because a millisecond epoch is around 1.7e12, which single precision resolves no better than about 130 seconds — coarser than the gap between samples, so absolute float timestamps would destroy every rhythm in the file.
   static class RecordingArchiveCodec
     // throws InvalidDataException: The header is missing or from a newer format.
     static (DateTime StartedAt, List<RecordedFix> Fixes, List<MotionSample> Motion) Decode(ReadOnlySpan<byte> archive)
@@ -1534,7 +1522,7 @@ namespace Ikon.App
     User
     Moderator
     Admin
-  // A null targetIds broadcasts to every connected client; a list restricts delivery to those client session ids.
+  // SendFrameAsync takes a MediaTargets first, so a call site always states who it reaches; there is no broadcast default.
   class Video
     ctor(IAppBase app)
     ValueTask CloseAllAsync()
@@ -1543,12 +1531,9 @@ namespace Ikon.App
     VideoOutputStreamInfo? GetOutputStreamInfo(string? streamId = null)
     // Frames are transmitted immediately — the caller owns the pacing. Call once per frame at the source framerate (typically forwarding each incoming frame as it arrives); never loop over a stored clip's frames without pacing.
     // data: Encoded video frame data
-    // durationInUs: Frame duration in microseconds
-    // width: Video width in pixels
-    // height: Video height in pixels
-    // streamId: Optional id to distinguish between multiple concurrent video streams. Required when sending multiple streams simultaneously
-    // trackId: Optional track id override. When specified, the protocol message will use this track id instead of an auto-assigned one. Use this when echoing WebRTC video to preserve the original track index
-    ValueTask SendFrameAsync(byte[] data, int frameNumber, bool isKey, ulong timestampInUs, uint durationInUs, VideoCodec codec, int width, int height, double framerate, string? streamId = null, IReadOnlyList<int>? targetIds = null, int? trackId = null)
+    // streamId: Required when several streams run at once; null uses the default stream
+    // trackId: Overrides the auto-assigned track id — pass the original when echoing WebRTC video
+    ValueTask SendFrameAsync(MediaTargets targets, byte[] data, int frameNumber, bool isKey, ulong timestampInUs, uint durationInUs, VideoCodec codec, int width, int height, double framerate, string? streamId = null, int? trackId = null)
     // args.Data is encoded codec bitstream (see the codec on the stream's begin event), not decoded pixels — forward it as-is (e.g. via SendFrameAsync) or decode it before analysis.
     event AsyncEventHandler<VideoInputFrameEventArgs> VideoInputFrameAsync
     event AsyncEventHandler<VideoInputStreamBeginEventArgs> VideoInputStreamBeginAsync
