@@ -526,7 +526,7 @@ namespace Ikon.Parallax.Components.Standard
     string Name { get; init; }
     long Size { get; init; }
   static class ComposerExtensions
-    // A complete input bar — attach button, drag-and-drop, paste, auto-growing text, optional push-to-talk — so apps do not rebuild it. Stateless: pass the draft in value and the pending files in attachments, and store what the callbacks hand back. onSubmit receives the submitted text; prefer it over re-reading the draft, which a surface switch can clear between the keystroke and the handler. The mic renders only when both capture callbacks are wired; transcription is the app's job. Per-slot style parameters restyle every part, and label parameters localize every string.
+    // A complete input bar — attach button, drag-and-drop, paste, auto-growing text, optional push-to-talk — so apps do not rebuild it. Stateless: pass the draft in value and the pending files in attachments, and store what the callbacks hand back. onSubmit receives the submitted text, empty when the Send button was clicked rather than Enter pressed: take it when it is non-empty and fall back to the draft, because a surface switch can clear the draft between the keystroke and the handler. The mic renders only when both capture callbacks are wired; transcription is the app's job. Per-slot style parameters restyle every part, and label parameters localize every string.
     // seedSelectionIds: Ids from a prior FilePicker selection, uploaded on mount (see FileUploadZone).
     // onAttachmentAdded: A file was picked, dropped, or pasted and finished uploading; its temp path is in the args.
     // onCaptureStop: Push-to-talk released — transcribe the capture and append it to the draft.
@@ -878,6 +878,8 @@ namespace Ikon.Parallax.Components.Standard
     Md
     Lg
     Xl
+    Xl2
+    Xl3
   sealed record ImageCaptureActionEvent : ActionEvent
     ctor(bool Success, string? Mime, int Width, int Height, string? Data)
     string? Data { get; init; }
@@ -983,6 +985,7 @@ namespace Ikon.Parallax.Components.Standard
     static void AspectRatio(this UIView view, string[]? style = null, double ratio = 1.0, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // dir: Text direction for descendants.
     static void DirectionProvider(this UIView view, string[]? style = null, Dir dir = Ltr, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
+    static void Divider(this UIView view, string[]? style = null, Orientation orientation = Horizontal, bool decorative = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
     // Style slots (default theme tokens): viewportStyle → ScrollArea.Viewport, scrollbarStyle → ScrollArea.Scrollbar, thumbStyle → ScrollArea.Thumb; rootStyle rarely needed.
     // threshold: Distance from end (in pixels) to trigger onNearEnd. Default 200.
     // debounceMs: Debounce time in ms to prevent rapid callback firing. Default 100.
@@ -1140,7 +1143,8 @@ namespace Ikon.Parallax.Components.Standard
     static void AlertDialog(this UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, string? title = null, string? description = null, string? cancelLabel = null, string? actionLabel = null, Func<Task>? onAction = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, string[]? overlayStyle = null, string? overlayStyleId = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? footerStyle = null, string[]? cancelStyle = null, string[]? actionStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null, Action<UIView>? content = null)
     // Style slots: overlayStyle → Dialog.Overlay, contentStyle → Dialog.Content.
     // modal: When true, prevents interaction with elements behind the dialog.
-    static void Dialog(this UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, bool? modal = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? overlayStyle = null, string? overlayStyleId = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null, string? title = null, string? description = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? headerStyle = null)
+    // footer: Rendered after the content in a themed footer row (buttons right-aligned on wide screens, stacked on narrow).
+    static void Dialog(this UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, bool? modal = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? overlayStyle = null, string? overlayStyleId = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null, string? title = null, string? description = null, string[]? titleStyle = null, string[]? descriptionStyle = null, string[]? headerStyle = null, Action<UIView>? footer = null, string[]? footerStyle = null)
     // Style slots: contentStyle → HoverCard.Content.
     // style: Alias for contentStyle — the first positional styles the floating content panel; contentStyle wins when both are given.
     static void HoverCard(this UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, int? openDelay = null, int? closeDelay = null, Action<UIView>? trigger = null, Action<UIView>? contentSlot = null, Action<UIView>? content = null, string[]? contentStyle = null, string? contentStyleId = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null)
@@ -1415,13 +1419,14 @@ namespace Ikon.Parallax.Components.Standard
   enum Sticky
     Partial
     Always
+  // The constructor's parameters are camelCase like every view method's — content:, disabled: — so a tab is written the way the panel it holds is.
   record TabItem
-    // Value: Unique identifier for the tab.
-    // Label: Text label displayed on the tab trigger.
-    // Content: Builder function for rendering the tab's content panel.
-    // Disabled: When true, prevents user interaction with this tab.
-    // ForceMount: When true, the tab's content is mounted in the DOM even when inactive (Radix hides via data-state="inactive"). Use this for heavy panels you want to amortise into initial paint and keep mounted across tab switches; the trade-off is a slower first render and any mount-time effects firing on hidden panels.
-    ctor(string Value, string Label, Action<UIView> Content, bool Disabled = false, bool ForceMount = false)
+    // value: Unique identifier for the tab.
+    // label: Text label displayed on the tab trigger.
+    // content: Builder function for rendering the tab's content panel.
+    // disabled: When true, prevents user interaction with this tab.
+    // forceMount: When true, the tab's content is mounted in the DOM even when inactive (Radix hides via data-state="inactive"). Use this for heavy panels you want to amortise into initial paint and keep mounted across tab switches; the trade-off is a slower first render and any mount-time effects firing on hidden panels.
+    ctor(string value, string label, Action<UIView> content, bool disabled = false, bool forceMount = false)
     Action<UIView> Content { get; init; }
     bool Disabled { get; init; }
     bool ForceMount { get; init; }
@@ -1730,11 +1735,17 @@ namespace Ikon.Parallax.Theming
     const string DefaultLg
     const string DefaultMd
     const string DefaultSm
+    const string DestructiveLg
+    const string DestructiveMd
+    const string DestructiveSm
     const string Error
     const string ErrorLg
     const string ErrorMd
     const string ErrorSm
     const string Ghost
+    const string GhostErrorLg
+    const string GhostErrorMd
+    const string GhostErrorSm
     const string GhostLg
     const string GhostMd
     const string GhostSm
@@ -1756,6 +1767,9 @@ namespace Ikon.Parallax.Theming
     const string NeutralMd
     const string NeutralSm
     const string Outline
+    const string OutlineErrorLg
+    const string OutlineErrorMd
+    const string OutlineErrorSm
     const string OutlineLg
     const string OutlineMd
     const string OutlineSm
@@ -2079,13 +2093,17 @@ namespace Ikon.Parallax.Theming
     const string SpinnerLg
     const string SpinnerSm
     const string Xl
+    const string Xl2
+    const string Xl3
     const string Xs
   // A key/value override map on top of the Ikon CSS baseline. Keys are a vocabulary alias (ThemeVocabulary, e.g. primary, card, radius), a CSS variable name without the leading --, or a Tailwind token; values are Crosswind/Tailwind classes or raw CSS. Set entries via the indexer during object initialization; pair DarkMode for the dark scheme.
   sealed class IkonTheme : ITheme
     ctor()
+    IkonTheme? Dark { get; init; }
     // Valid only in ThemeMode.Adaptive mode; combining it with ThemeMode.Fixed throws InvalidOperationException at render time.
     IkonTheme? DarkMode { get; init; }
     string this[string token] { get; set; }
+    IkonTheme? Light { get; init; }
     ThemeMode Mode { get; init; }
   static class ImageCard
     const string Caption
@@ -2103,21 +2121,27 @@ namespace Ikon.Parallax.Theming
     const string Base
     const string Default
     const string DefaultLg
+    const string DefaultMd
     const string DefaultSm
     const string Error
     const string ErrorLg
+    const string ErrorMd
     const string ErrorSm
     const string Ghost
     const string GhostLg
+    const string GhostMd
     const string GhostSm
     const string Invalid
     const string InvalidLg
+    const string InvalidMd
     const string InvalidSm
     const string Success
     const string SuccessLg
+    const string SuccessMd
     const string SuccessSm
     const string Warning
     const string WarningLg
+    const string WarningMd
     const string WarningSm
   static class Input.Password
     const string Input
@@ -2497,6 +2521,7 @@ namespace Ikon.Parallax.Theming
     const string TriggerDisabled
   static class Text
     const string Body
+    const string BodyLg
     const string BodySm
     const string BodyStrong
     const string Caption
@@ -2510,31 +2535,40 @@ namespace Ikon.Parallax.Theming
     const string H5
     const string H6
     const string Label
+    const string Lg
     const string Link
+    const string Md
     const string Muted
     const string Numeric
     const string Overline
+    const string Sm
     const string Small
     const string Tabular
   static class Textarea
     const string Base
     const string Default
     const string DefaultLg
+    const string DefaultMd
     const string DefaultSm
     const string Error
     const string ErrorLg
+    const string ErrorMd
     const string ErrorSm
     const string Ghost
     const string GhostLg
+    const string GhostMd
     const string GhostSm
     const string Invalid
     const string InvalidLg
+    const string InvalidMd
     const string InvalidSm
     const string Success
     const string SuccessLg
+    const string SuccessMd
     const string SuccessSm
     const string Warning
     const string WarningLg
+    const string WarningMd
     const string WarningSm
   // Adaptive (the default) supports switchable light + dark; Fixed commits to one scheme so a client-side theme flip changes nothing the theme defines. Use Fixed for game, atmospheric, or brand-locked looks that must never light/dark switch.
   enum ThemeMode
@@ -2646,11 +2680,13 @@ namespace Ikon.Parallax.Theming
   static class Tone
     const string Error
     const string Ghost
+    const string GhostError
     const string Info
     const string Link
     const string Muted
     const string Neutral
     const string Outline
+    const string OutlineError
     const string Primary
     const string Solid
     const string Subtle

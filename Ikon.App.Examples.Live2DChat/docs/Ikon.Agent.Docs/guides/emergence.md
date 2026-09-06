@@ -197,7 +197,7 @@ namespace Ikon.AI.Emergence
     static EmergeRun<T> EnsembleMerge<T>(string model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, CancellationToken ct = default)
     static EmergeRun<T> EnsembleMerge<T>(LLMModel model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, ModelStream stream, CancellationToken ct = default)
     static EmergeRun<T> EnsembleMerge<T>(string model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, ModelStream stream, CancellationToken ct = default)
-    // The unmediated model stream: no pass, no tool loop, no structured output — reach for Run<T> for those. Compose the result with the EmergeEventExtensions helpers (AsStringAsync and friends).
+    // The unmediated model stream: no pass, no tool loop, no structured output — reach for Run<T> for those. Compose the result with the AsyncEnumerableExtensions helpers (AsStringAsync and friends).
     // regions: Restricts which regions may serve the call; null lets the platform choose.
     static IAsyncEnumerable<LLMEvent> Generate(LLMModel model, KernelContext context, IReadOnlyList<ModelRegion>? regions = null, CancellationToken ct = default)
     static IAsyncEnumerable<LLMEvent> Generate(string model, KernelContext context, IReadOnlyList<ModelRegion>? regions = null, CancellationToken ct = default)
@@ -459,10 +459,12 @@ namespace Ikon.AI.Emergence
   sealed record ToolCallPlanned<T> : EmergeEvent<T>
     ctor(FunctionCall Call)
     FunctionCall Call { get; init; }
+  // IsError is true when the call did not complete — the tool body threw, or it returned a result marked as an error. Result then holds the failure text that was fed back to the model rather than a tool return value.
   sealed record ToolCallResult<T> : EmergeEvent<T>
-    ctor(FunctionCall Call, LLMEvent[] Events, object Result)
+    ctor(FunctionCall Call, LLMEvent[] Events, object Result, bool IsError = false)
     FunctionCall Call { get; init; }
     LLMEvent[] Events { get; init; }
+    bool IsError { get; init; }
     object Result { get; init; }
   sealed class TreeSearchOptions : EmergeScope<TreeSearchResult>
     ctor()

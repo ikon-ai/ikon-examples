@@ -157,4 +157,5 @@ namespace Ikon.AI.LLM
     static int MaxOutputTokens(this LLMModel model)
   class ModelOutputException : RetryableLLMException
   class NonRetryableLLMException : NonRetryableAIException
+  sealed class ReasoningBurnException : RetryableLLMException
   class RetryableLLMException : RetryableAIException

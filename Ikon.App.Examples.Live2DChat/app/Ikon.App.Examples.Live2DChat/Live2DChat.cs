@@ -187,7 +187,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                     effect.Process(processedSamples);
                 }
 
-                await Audio.SendImmediateAsync(processedSamples, state.SampleRate, state.ChannelCount, args.IsFirst, args.IsLast, args.StreamId.ToString());
+                await Audio.SendFrameAsync(MediaTargets.Everyone, processedSamples, state.SampleRate, state.ChannelCount, args.IsFirst, args.IsLast, args.StreamId.ToString());
             }
 
             if (args.IsLast)
@@ -764,7 +764,7 @@ public class Live2DChat(IApp<SessionIdentity, ClientParams> app)
                 }
 
                 // Viseme data is automatically embedded in audio frames via the analyzer
-                Audio.SendSpeech(audio, effects, analyzers);
+                Audio.SpeakChunk(MediaTargets.Everyone, audio, effects, analyzers);
             }
         }
         catch (OperationCanceledException)
