@@ -33,7 +33,7 @@ await Audio.PlayClipAsync(MediaTargets.Everyone, samples, sampleRate, channelCou
 
 // 3. Immediate, UNPACED — only for audio already produced in real time (echoing
 //    mic frames back out) or very short clips. A long clip sent this way arrives
-//    all at once and can overflow client audio buffers; use StreamAsync for clips.
+//    all at once and can overflow client audio buffers; use PlayClipAsync for clips.
 await Audio.SendFrameAsync(MediaTargets.Everyone, samples, sampleRate, channelCount, isFirst, isLast, streamId);
 ```
 
