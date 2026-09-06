@@ -60,7 +60,9 @@ An `Entrypoint` is one way in: an `EntrypointType` (`WebSocket`, `WebSocketProxy
 `WebTransportProxy`, `Tcp`, `TcpProxy`, `TcpTls`, `Https`, `WebRTC`, or `None`), the `Uri`, the
 opcode groups it carries in each direction, a `Priority` the client sorts on, a `Description`, an
 `AuthTicket`, and whether it is unreliable. A `RouteToken` addresses the instance a connection
-should land on. `ServerStatus` is the lifecycle a server reports — `Unknown`, `Starting`, `Running`,
+should land on, and a `ConnectToken` is what the client sent to get there — device and
+install ids, the initial url and path, locale, theme, viewport and the user it claims to
+be. `ServerStatus` is the lifecycle a server reports — `Unknown`, `Starting`, `Running`,
 `Stopping`, `Stopped`.
 
 `ActionFunctionRegister` is how a function advertises itself over the protocol: its `FunctionId` and
@@ -69,10 +71,11 @@ is enumerable or cancellable, and the LLM hints (`LlmInlineResult`, `LlmCallOnly
 wire form of what `[Function(Visibility = FunctionVisibility.External)]` produces — you read it, you
 do not build it.
 
-Two constant sets name the strings either side of the wire agrees on: `UIStreamCategories` (`App`,
+Three constant sets name the strings either side of the wire agrees on: `UIStreamCategories` (`App`,
 `Chat`, `Header`, `Footer`, `Collapsed`, `DebugOverlay`, …) is what goes in a `UIStreamBegin`'s
 `Category`, and `UIStylesKeys` (`Common`, `Crosswind`, `Css`, `Flutter`, `ReactNative`) names the
-style dialects a client can be sent.
+style dialects a client can be sent, and `UIElementLabels` (`chat-message`, `markdown`,
+`image-avatar`, the `size-*` set, …) names the labels a client renders an element by.
 
 Three more belong to the hosting layer rather than to an app, and are public so the servers, the
 proxy and the SDKs can reach them across assemblies. `IPlugin` is the connection seam an SDK

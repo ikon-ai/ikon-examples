@@ -18,7 +18,7 @@ plays — anything whose motion must match audio the app is playing.
 ## Notes
 
 - `analyzers:` is a parameter on `Audio.SpeakAsync`, `Audio.SpeakAndWaitAsync` and
-  `Audio.SendSpeech`. Effects and analyzers are captured from the first chunk of a speech event.
+  `Audio.SpeakChunk`. Effects and analyzers are captured from the first chunk of a speech event.
 - Hold ONE analyzer instance for the app. It declares its shape set once
   (`AudioShapeSetDeclaration`: `SetId`, `Name`, `ShapeNames`) and each frame's
   `AudioAnalysisResult` carries the matching `SetId` plus `Values` — the client pairs them by
@@ -45,7 +45,7 @@ private readonly VisemeAnalyzer _visemes = new();
 /// </summary>
 private async Task SpeakWithLipSyncAsync(string text)
 {
-    await Audio.SpeakAsync(text, analyzers: [_visemes]);
+    await Audio.SpeakAsync(MediaTargets.Everyone, text, analyzers: [_visemes]);
 }
 
 private void Render(IView view)
