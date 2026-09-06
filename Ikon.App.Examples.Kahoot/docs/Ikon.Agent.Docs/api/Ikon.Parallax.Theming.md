@@ -159,11 +159,17 @@ namespace Ikon.Parallax.Theming
     const string DefaultLg
     const string DefaultMd
     const string DefaultSm
+    const string DestructiveLg
+    const string DestructiveMd
+    const string DestructiveSm
     const string Error
     const string ErrorLg
     const string ErrorMd
     const string ErrorSm
     const string Ghost
+    const string GhostErrorLg
+    const string GhostErrorMd
+    const string GhostErrorSm
     const string GhostLg
     const string GhostMd
     const string GhostSm
@@ -185,6 +191,9 @@ namespace Ikon.Parallax.Theming
     const string NeutralMd
     const string NeutralSm
     const string Outline
+    const string OutlineErrorLg
+    const string OutlineErrorMd
+    const string OutlineErrorSm
     const string OutlineLg
     const string OutlineMd
     const string OutlineSm
@@ -508,13 +517,17 @@ namespace Ikon.Parallax.Theming
     const string SpinnerLg
     const string SpinnerSm
     const string Xl
+    const string Xl2
+    const string Xl3
     const string Xs
   // A key/value override map on top of the Ikon CSS baseline. Keys are a vocabulary alias (ThemeVocabulary, e.g. primary, card, radius), a CSS variable name without the leading --, or a Tailwind token; values are Crosswind/Tailwind classes or raw CSS. Set entries via the indexer during object initialization; pair DarkMode for the dark scheme.
   sealed class IkonTheme : ITheme
     ctor()
+    IkonTheme? Dark { get; init; }
     // Valid only in ThemeMode.Adaptive mode; combining it with ThemeMode.Fixed throws InvalidOperationException at render time.
     IkonTheme? DarkMode { get; init; }
     string this[string token] { get; set; }
+    IkonTheme? Light { get; init; }
     ThemeMode Mode { get; init; }
   static class ImageCard
     const string Caption
@@ -532,21 +545,27 @@ namespace Ikon.Parallax.Theming
     const string Base
     const string Default
     const string DefaultLg
+    const string DefaultMd
     const string DefaultSm
     const string Error
     const string ErrorLg
+    const string ErrorMd
     const string ErrorSm
     const string Ghost
     const string GhostLg
+    const string GhostMd
     const string GhostSm
     const string Invalid
     const string InvalidLg
+    const string InvalidMd
     const string InvalidSm
     const string Success
     const string SuccessLg
+    const string SuccessMd
     const string SuccessSm
     const string Warning
     const string WarningLg
+    const string WarningMd
     const string WarningSm
   static class Input.Password
     const string Input
@@ -633,35 +652,3 @@ namespace Ikon.Parallax.Theming
     const string Root
     const string Separator
     const string Trigger
-  // A mic button must always show its live state, and it must show it on the press rather than when the first frame arrives. States keys entirely on the client-stamped data-ikon-capture-state attribute, so every transition lands with no server round trip. Compose States into any custom mic style, or the whole sequence — needing permission, ready, opening, hot — becomes invisible and the user is left guessing.
-  static class MicButton
-    // Kept for styles written against the older attribute; States supersedes it and covers the states this one cannot see.
-    const string Active
-    const string Base
-    const string Default
-    const string Lg
-    const string Md
-    const string Sm
-    // The full state vocabulary of a capture button — despite living on MicButton, it applies to a camera or screen CaptureButton just as well, since the states it styles are stamped by every capture kind. The permission states widen the circle into a pill so the wording the button switches to has somewhere to go; pressed is the sub-frame acknowledgement of the press itself, before the device has opened.
-    const string States
-    // Reveals its element only while a capture button inside the same group is held. It appears on the press, not when the first frame arrives, so the cue and the button agree with each other. Put group on the row containing both the button and this element; pair with AudioWave for the recording cue.
-    const string WhileCapturing
-  static class NavItem
-    const string Active
-    const string ActiveAccent
-    const string ActiveBrand
-    const string ActiveSubtle
-    const string Count
-    const string Default
-    const string Icon
-    const string Label
-    const string Lg
-    const string Md
-    const string Sm
-    const string Subtle
-  static class NavPanel
-    const string Base
-    const string Border
-    const string Divided
-    const string Filled
-    const string Ghost

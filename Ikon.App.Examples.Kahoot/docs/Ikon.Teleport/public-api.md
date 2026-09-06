@@ -23,6 +23,8 @@ namespace Ikon.Teleport
   ref struct TeleportArrayReader
     uint Count { get; }
     TeleportType ElementType { get; }
+    // A capacity safe to pre-allocate for the elements: Count, but never more than the remaining payload could hold (every element is at least one wire byte). Count is an unvalidated wire varint, so pre-sizing a collection from it directly lets a tiny message request a multi-gigabyte allocation. For a well-formed payload this equals Count.
+    int SafeCapacity { get; }
     // parentDepth: Top-level callers pass 0. It exists only to propagate the anti-recursion depth counter when hand-walking nested containers; the reader-returning As*() accessors thread it automatically, so most callers never set it.
     static TeleportArrayReader Create(ReadOnlySpan<byte> data, int parentDepth = 0)
     // Attempts a zero-copy view of the whole array as a span of T. On success the reader is advanced past the end and cannot be re-read. Returns false — without consuming anything — for three look-alike reasons: an element has already been read (this only works from the start); T does not map to ElementType; or the element type is not fixed-size. The span reinterprets the little-endian wire bytes, so a big-endian host silently reads byte-swapped values; prefer the per-element accessors when in doubt.
@@ -43,6 +45,8 @@ namespace Ikon.Teleport
   ref struct TeleportDictReader
     uint Count { get; }
     TeleportType KeyType { get; }
+    // A capacity safe to pre-allocate for the entries: Count, but never more than the remaining payload could hold (every entry is at least one wire byte). Count is an unvalidated wire varint, so pre-sizing a collection from it directly lets a tiny message request a multi-gigabyte allocation. For a well-formed payload this equals Count.
+    int SafeCapacity { get; }
     TeleportType ValueType { get; }
     // parentDepth: Top-level callers pass 0. It exists only to propagate the anti-recursion depth counter when hand-walking nested containers; the reader-returning As*() accessors thread it automatically, so most callers never set it.
     static TeleportDictReader Create(ReadOnlySpan<byte> data, int parentDepth = 0)
