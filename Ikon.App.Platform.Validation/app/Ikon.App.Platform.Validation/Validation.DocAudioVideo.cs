@@ -18,17 +18,17 @@ file sealed class DocAudioVideoGuide(IApp<SessionIdentity, ClientParams> app)
         #region docsnippet:av-send
         // 1. Speech — real-time paced through the speech mixer; new speech interrupts
         //    current speech with a fade. The default for spoken replies.
-        await Audio.SpeakAsync("Hello world");                       // TTS in one call
-        Audio.SendSpeech(audioChunk);                                // your own AudioChunks
+        await Audio.SpeakAsync(MediaTargets.Everyone, "Hello world");                       // TTS in one call
+        Audio.SpeakChunk(MediaTargets.Everyone, audioChunk);                                // your own AudioChunks
 
         // 2. Complete clip (decoded file, generated music) — real-time paced, no
         //    interruption semantics. Safe for any length.
-        await Audio.StreamAsync(samples, sampleRate, channelCount, streamId: "music");
+        await Audio.PlayClipAsync(MediaTargets.Everyone, samples, sampleRate, channelCount, streamId: "music");
 
         // 3. Immediate, UNPACED — only for audio already produced in real time (echoing
         //    mic frames back out) or very short clips. A long clip sent this way arrives
-        //    all at once and can overflow client audio buffers; use StreamAsync for clips.
-        await Audio.SendImmediateAsync(samples, sampleRate, channelCount, isFirst, isLast, streamId);
+        //    all at once and can overflow client audio buffers; use PlayClipAsync for clips.
+        await Audio.SendFrameAsync(MediaTargets.Everyone, samples, sampleRate, channelCount, isFirst, isLast, streamId);
         #endregion
     }
 
@@ -38,7 +38,7 @@ file sealed class DocAudioVideoGuide(IApp<SessionIdentity, ClientParams> app)
         Audio.SpeechRecognizedAsync += async args =>
         {
             // Reply only to the person who spoke — NOT the whole room.
-            await Audio.SpeakAsync($"You said: {args.Text}", targetIds: [args.ClientSessionId]);
+            await Audio.SpeakAsync(MediaTargets.To([args.ClientSessionId]), $"You said: {args.Text}");
         };
         #endregion
     }
@@ -131,7 +131,7 @@ file sealed class DocAudioVideoGuide(IApp<SessionIdentity, ClientParams> app)
             channelCount: 1,
             isFirst: true,
             isLast: true);
-        Audio.SendSpeech(chunk);
+        Audio.SpeakChunk(MediaTargets.Everyone, chunk);
         #endregion
     }
 
@@ -169,13 +169,13 @@ file sealed class DocAudioVideoGuide(IApp<SessionIdentity, ClientParams> app)
         };
 
         // One pump forwards each personalized 20 ms frame to its participant. The frames
-        // are already real-time paced, so SendImmediateAsync is correct here:
+        // are already real-time paced, so SendFrameAsync is correct here:
         _ = Task.Run(async () =>
         {
             await foreach (var (participantId, frame) in _mixer.StreamAsync(ct))
             {
-                await Audio.SendImmediateAsync(frame.Samples, frame.SampleRate, frame.ChannelCount,
-                    frame.IsFirst, frame.IsLast, frame.StreamId, targetIds: [participantId]);
+                await Audio.SendFrameAsync(MediaTargets.To([participantId]), frame.Samples, frame.SampleRate, frame.ChannelCount,
+                    frame.IsFirst, frame.IsLast, frame.StreamId);
             }
         });
         #endregion
@@ -198,9 +198,9 @@ file sealed class DocAudioVideoGuide(IApp<SessionIdentity, ClientParams> app)
             // Forward it as-is — e.g. echo to everyone except the sender:
             var stream = _videoStreams[args.StreamId];
             var targets = app.Clients.Ids.Where(id => id != args.ClientSessionId).ToList();
-            await Video.SendFrameAsync(args.Data, args.FrameNumber, args.IsKey,
+            await Video.SendFrameAsync(MediaTargets.To(targets), args.Data, args.FrameNumber, args.IsKey,
                 args.TimestampInUs, args.DurationInUs, stream.Codec, stream.Width, stream.Height,
-                stream.Framerate, streamId: args.StreamId, targetIds: targets);
+                stream.Framerate, streamId: args.StreamId);
         };
 
         Video.VideoInputStreamEndAsync += async args =>

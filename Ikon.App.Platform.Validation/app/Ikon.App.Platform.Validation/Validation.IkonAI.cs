@@ -1466,7 +1466,7 @@
 
         await foreach (var audio in generator.GenerateMusicAsync(config))
         {
-            Audio.SendSpeech(audio);
+            Audio.SpeakChunk(MediaTargets.Everyone, audio);
             samples.AddRange(audio.Samples);
         }
 
@@ -1649,7 +1649,7 @@
 
             await foreach (var audio in _speechGenerator.GenerateSpeechAsync(config))
             {
-                Audio.SendSpeech(audio);
+                Audio.SpeakChunk(MediaTargets.Everyone, audio);
                 allSamples.AddRange(audio.Samples);
             }
 
@@ -2698,7 +2698,7 @@
                 Loop = _soundEffectLoop.Value
             }))
             {
-                Audio.SendSpeech(audio);
+                Audio.SpeakChunk(MediaTargets.Everyone, audio);
                 allSamples.AddRange(audio.Samples);
             }
 

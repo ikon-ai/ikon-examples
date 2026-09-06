@@ -145,7 +145,7 @@ public partial class Validation
 
                 // Deliberately untargeted: this is the app-to-every-client fan-out, the exact
                 // path a client's own capture must never take.
-                await Video.SendFrameAsync(frame, frameNumber, isKey: true, timestampUs, frameDurationUs,
+                await Video.SendFrameAsync(MediaTargets.Everyone, frame, frameNumber, isKey: true, timestampUs, frameDurationUs,
                     codec, SyntheticVideoWidth, SyntheticVideoHeight, SyntheticVideoFramerate,
                     SyntheticVideoStreamId);
 

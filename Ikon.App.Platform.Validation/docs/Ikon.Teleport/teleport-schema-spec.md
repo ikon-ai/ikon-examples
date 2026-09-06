@@ -212,6 +212,7 @@ The `[namespaces]` table is optional and may contain only the `csharp`, `typescr
 | Syntax                                                                                         | Meaning                                      |
 |------------------------------------------------------------------------------------------------|----------------------------------------------|
 | `int32`, `int64`, `uint32`, `uint64`, `float32`, `float64`, `bool`, `string`, `binary`, `guid` | Primitive Teleport types                     |
+| `int`, `uint`, `long`, `ulong`, `float`, `double`, `number`, `boolean`, `bytes` | Accepted aliases for the sized primitives above (`int` → `int32`, `float` → `float32`, `double`/`number` → `float64`, `bytes` → `binary`) |
 | `TypeName`                                                                                     | Reference to another defined message or enum |
 | `TypeName[]`                                                                                   | Array of homogeneous elements                |
 | `{K:V}`                                                                                        | Dictionary from key type K to value type V   |
@@ -219,6 +220,12 @@ The `[namespaces]` table is optional and may contain only the `csharp`, `typescr
 | `int32 = 16`                                                                                   | Default value                                |
 | `EnumType = Variant`                                                                           | Enum default                                 |
 | `{string:User}`                                                                                | Dict of complex values                       |
+
+**Optional and a non-null default are mutually exclusive**, and declaring both — `int32? = 5` — is a
+schema error. Nothing on the wire tells such a field's null apart from its absence: writers emit no
+bytes for a null optional field, and every reader starts from an instance already holding the
+declared default and applies only the fields present, so a value the sender set to null decodes back
+as `5` in every SDK. An explicit `= null` is accepted and means what it says.
 
 ### Field Identity
 
@@ -477,6 +484,7 @@ Compilers normalize each `.tp` file into this in-memory shape. A serialized exam
 | Layout hash    | Must be updated on edit                    |
 | Non-zero flags | Invalid                                    |
 | Depth >128     | Invalid                                    |
+| Optional defaults | An optional field may not declare a non-null default — the null would decode as the default |
 | `[obsolete]`   | Every key must name a field **not** declared in `[fields]`; the value is the removed field's scalar type (`string`, `bool`, `int32`, `int64`, `float64`/`double`, `string[]`); `[obsolete.X]` must name a declared nested type; retired names' hash ids must not collide with live field ids |
 
 ## 13. Compilation Workflow

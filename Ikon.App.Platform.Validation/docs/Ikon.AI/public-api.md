@@ -747,6 +747,7 @@ namespace Ikon.AI.Kernel
     string MimeType { get; }
   class FunctionCall
     ctor(Function function, object?[] parameters, string parametersJson, string callId, string hash, string thoughtSignature = "", string reasoningContent = "")
+    string? BindingError { get; init; }
     string CallId { get; }
     Function Function { get; }
     string Hash { get; }
@@ -1146,6 +1147,7 @@ namespace Ikon.AI.LLM
     static int MaxOutputTokens(this LLMModel model)
   class ModelOutputException : RetryableLLMException
   class NonRetryableLLMException : NonRetryableAIException
+  sealed class ReasoningBurnException : RetryableLLMException
   class RetryableLLMException : RetryableAIException
 
 namespace Ikon.AI.MeshGeneration

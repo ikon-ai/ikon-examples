@@ -414,7 +414,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             // Basic UI building blocks, ordered simple -> complex. The
                             // Flutter-frontend audit walks these top-to-bottom.
                             new TabItem("typography", "Typography", RenderTypographySection),
-                            new TabItem("icons", "Icons", ProfilingSkippable(RenderIconsSection), ForceMount: true),
+                            new TabItem("icons", "Icons", ProfilingSkippable(RenderIconsSection), forceMount: true),
                             new TabItem("buttons", "Buttons", RenderButtonsSection),
                             new TabItem("inputs", "Inputs", RenderInputsSection),
                             new TabItem("forms", "Forms", RenderFormsSection),
@@ -479,7 +479,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
             frame =>
             {
                 Interlocked.Increment(ref _audioFramesToClients);
-                return Audio.SendImmediateAsync(frame.Samples, frame.SampleRate, frame.ChannelCount, frame.IsFirst, frame.IsLast, frame.StreamId);
+                return Audio.SendFrameAsync(MediaTargets.Everyone, frame.Samples, frame.SampleRate, frame.ChannelCount, frame.IsFirst, frame.IsLast, frame.StreamId);
             },
             onStreamEnd: streamId => Audio.CloseAsync(streamId),
             cancellationToken: CancellationToken.None);
@@ -661,7 +661,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
             }
 
             Interlocked.Increment(ref _videoFramesToClients);
-            await Video.SendFrameAsync(args.Data, args.FrameNumber, args.IsKey, args.TimestampInUs, args.DurationInUs,
+            await Video.SendFrameAsync(MediaTargets.Everyone, args.Data, args.FrameNumber, args.IsKey, args.TimestampInUs, args.DurationInUs,
                 echo.Codec, echo.Width, echo.Height, echo.Framerate, echo.EchoStreamId, trackId: echo.InputTrackId);
 
             var outputInfo = Video.GetOutputStreamInfo(echo.EchoStreamId);
@@ -800,7 +800,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                 }
 
                 Interlocked.Increment(ref _audioFramesToClients);
-                await Audio.SendImmediateAsync(processedSamples, state.SampleRate, state.ChannelCount, args.IsFirst, args.IsLast, args.StreamId);
+                await Audio.SendFrameAsync(MediaTargets.Everyone, processedSamples, state.SampleRate, state.ChannelCount, args.IsFirst, args.IsLast, args.StreamId);
             }
         };
 

@@ -1057,14 +1057,14 @@ export class TeleportArrayReader {
       }
 
       case TeleportType.Array: {
-        const length = consumeArrayPayload(this.payload, this.offset);
+        const length = consumeArrayPayload(this.payload, this.offset, 0);
         const slice = this.payload.subarray(this.offset, this.offset + length);
         this.offset += length;
         return new TeleportArrayElement(TeleportType.Array, slice);
       }
 
       case TeleportType.Dict: {
-        const length = consumeDictPayload(this.payload, this.offset);
+        const length = consumeDictPayload(this.payload, this.offset, 0);
         const slice = this.payload.subarray(this.offset, this.offset + length);
         this.offset += length;
         return new TeleportArrayElement(TeleportType.Dict, slice);
@@ -1173,14 +1173,14 @@ export class TeleportDictReader {
       }
 
       case TeleportType.Array: {
-        const length = consumeArrayPayload(this.payload, this.offset);
+        const length = consumeArrayPayload(this.payload, this.offset, 0);
         const slice = this.payload.subarray(this.offset, this.offset + length);
         this.offset += length;
         return new TeleportValue(TeleportType.Array, slice);
       }
 
       case TeleportType.Dict: {
-        const length = consumeDictPayload(this.payload, this.offset);
+        const length = consumeDictPayload(this.payload, this.offset, 0);
         const slice = this.payload.subarray(this.offset, this.offset + length);
         this.offset += length;
         return new TeleportValue(TeleportType.Dict, slice);
@@ -1543,7 +1543,17 @@ function readUInt32(buffer: Uint8Array, offset: number): number {
   ) >>> 0;
 }
 
-function consumeArrayPayload(payload: Uint8Array, start: number): number {
+// Mirrors TeleportDepth.MaxDepth in the C# runtime: containers nested deeper than this throw a
+// catchable error instead of recursing until the JS engine's stack limit aborts the frame. A
+// hostile payload can reach this decoder without the server decoding it (an app that re-broadcasts
+// client bytes without parsing them), so the bound has to live here too.
+const MAX_CONTAINER_DEPTH = 128;
+
+function consumeArrayPayload(payload: Uint8Array, start: number, depth: number): number {
+  if (depth >= MAX_CONTAINER_DEPTH) {
+    throw new Error('Teleport nesting depth exceeded');
+  }
+
   if (start >= payload.length) {
     throw new Error('Array payload exceeds bounds');
   }
@@ -1566,13 +1576,17 @@ function consumeArrayPayload(payload: Uint8Array, start: number): number {
 
   let offset = state.offset;
   for (let i = 0; i < count; i++) {
-    offset = skipValue(elementType, payload, offset, 'ArrayMalformed');
+    offset = skipValue(elementType, payload, offset, 'ArrayMalformed', depth + 1);
   }
 
   return offset - start;
 }
 
-function consumeDictPayload(payload: Uint8Array, start: number): number {
+function consumeDictPayload(payload: Uint8Array, start: number, depth: number): number {
+  if (depth >= MAX_CONTAINER_DEPTH) {
+    throw new Error('Teleport nesting depth exceeded');
+  }
+
   if (start + 2 > payload.length) {
     throw new Error('Dictionary payload too short');
   }
@@ -1591,14 +1605,14 @@ function consumeDictPayload(payload: Uint8Array, start: number): number {
 
   let offset = state.offset;
   for (let i = 0; i < count; i++) {
-    offset = skipValue(keyType, payload, offset, 'DictMalformed');
-    offset = skipValue(valueType, payload, offset, 'DictMalformed');
+    offset = skipValue(keyType, payload, offset, 'DictMalformed', depth + 1);
+    offset = skipValue(valueType, payload, offset, 'DictMalformed', depth + 1);
   }
 
   return offset - start;
 }
 
-function skipValue(type: TeleportType, payload: Uint8Array, offset: number, error: string): number {
+function skipValue(type: TeleportType, payload: Uint8Array, offset: number, error: string, depth: number): number {
   const fixed = getFixedSize(type);
 
   if (fixed >= 0) {
@@ -1623,10 +1637,10 @@ function skipValue(type: TeleportType, payload: Uint8Array, offset: number, erro
     }
 
     case TeleportType.Array:
-      return offset + consumeArrayPayload(payload, offset);
+      return offset + consumeArrayPayload(payload, offset, depth);
 
     case TeleportType.Dict:
-      return offset + consumeDictPayload(payload, offset);
+      return offset + consumeDictPayload(payload, offset, depth);
 
     default:
       throw new Error(`Unsupported Teleport type ${TeleportType[type]}`);

@@ -148,7 +148,7 @@ public partial class Validation
             DurationSeconds = 5.0
         }))
         {
-            Audio.SendSpeech(audio);
+            Audio.SpeakChunk(MediaTargets.Everyone, audio);
         }
         #endregion
     }
@@ -229,11 +229,11 @@ public partial class Validation
         // Name a voice that fits the product: the bare default ("Aria") is a mature, hard read
         // that suits few apps — "Sarah" is a softer, modern one to reach for. Other voices:
         // Jessica, Lily, Matilda, Charlotte (female); George, Brian, Will (male).
-        await Audio.SpeakAsync("Hello world", voice: "Sarah");
+        await Audio.SpeakAsync(MediaTargets.Everyone, "Hello world", voice: "Sarah");
 
         // Pick a model, shape the delivery, or target specific clients:
-        await Audio.SpeakAsync("Hello world", SpeechGeneratorModel.Eleven3, voice: "Sarah",
-            instructions: "Soft and warm, almost a whisper", speed: 0.96, targetIds: [clientSessionId]);  // speed is a double, 1.0 = normal
+        await Audio.SpeakAsync(MediaTargets.To([clientSessionId]), "Hello world", SpeechGeneratorModel.Eleven3, voice: "Sarah",
+            instructions: "Soft and warm, almost a whisper", speed: 0.96);  // speed is a double, 1.0 = normal
         #endregion
     }
 
@@ -253,7 +253,7 @@ public partial class Validation
         using var speechGenerator = new SpeechGenerator(SpeechGeneratorModel.ElevenFlash25);
         await foreach (var audio in speechGenerator.GenerateSpeechAsync(new SpeechGeneratorConfig { Text = "Hei maailma", Language = "fi" }))
         {
-            Audio.SendSpeech(audio);  // Audio is an app service property
+            Audio.SpeakChunk(MediaTargets.Everyone, audio);  // Audio is an app service property
         }
         #endregion
     }
@@ -1466,17 +1466,17 @@ file sealed class DocAudio(IApp<SessionIdentity, ClientParams> app)
 
         // 1. Speech (TTS or AudioChunks through the speech mixer): real-time paced, new speech
         //    interrupts current speech with a fade. The default for spoken replies.
-        await Audio.SpeakAsync(text);
-        Audio.SendSpeech(audioChunk);
+        await Audio.SpeakAsync(MediaTargets.Everyone, text);
+        Audio.SpeakChunk(MediaTargets.Everyone, audioChunk);
 
         // 2. Complete clip (decoded file, generated music): real-time paced, no mixer interruption.
         //    Await completes when the clip has been fully sent (≈ clip duration).
-        await Audio.StreamAsync(samples, sampleRate, channelCount, streamId, cancellationToken: ct);
+        await Audio.PlayClipAsync(MediaTargets.Everyone, samples, sampleRate, channelCount, streamId, cancellationToken: ct);
 
         // 3. Immediate, UNPACED transmit — only for audio already produced in real time (e.g. echoing
         //    mic frames back out) or very short clips. A long clip sent this way arrives all at once
-        //    and can overflow client audio buffers — use StreamAsync for clips instead.
-        await Audio.SendImmediateAsync(samples, sampleRate, channelCount, isFirst, isLast, streamId);
+        //    and can overflow client audio buffers — use PlayClipAsync for clips instead.
+        await Audio.SendFrameAsync(MediaTargets.Everyone, samples, sampleRate, channelCount, isFirst, isLast, streamId);
 
         // Receive audio input from client microphone. args carry args.ClientContext /
         // args.ClientSessionId / args.UserId — use these directly; do NOT plumb state through
@@ -1516,7 +1516,7 @@ file sealed class DocVideo(IApp<SessionIdentity, ClientParams> app)
         // Forward/echo video to other clients. Frames are transmitted immediately — call once per
         // frame at the source framerate (e.g. forward each incoming frame as it arrives); never loop
         // over a stored clip's frames without pacing.
-        await Video.SendFrameAsync(data, frameNumber, isKey, timestampInUs, durationInUs, codec, width, height, framerate, streamId);
+        await Video.SendFrameAsync(MediaTargets.Everyone, data, frameNumber, isKey, timestampInUs, durationInUs, codec, width, height, framerate, streamId);
 
         // Stream info and cleanup
         var info = Video.GetOutputStreamInfo(streamId); // StreamId, TrackId, Codec, Width, Height, Framerate

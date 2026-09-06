@@ -2,7 +2,7 @@
 
 ## AI Speech & Audio
 
-Text-to-speech with `Audio.SpeakAsync(text)`, speech-to-text with `SpeechRecognizer.RecognizeAsync(samples, sampleRate)`, and sound effects with `SoundEffectGenerator.GenerateAsync(prompt)`. Audio playback via `Audio.SendSpeech()`.
+Text-to-speech with `Audio.SpeakAsync(MediaTargets.Everyone, text)`, speech-to-text with `SpeechRecognizer.RecognizeAsync(samples, sampleRate)`, and sound effects with `SoundEffectGenerator.GenerateAsync(prompt)`. Audio playback via `Audio.SpeakChunk()`. Every audio and video send takes a `MediaTargets` first argument — `MediaTargets.Everyone` or `MediaTargets.To(sessionIds)` — so each call states who hears it; there is no broadcast default.
 
 `Audio` is an app service initialized in your app class: `private Audio Audio { get; } = new(app);`
 
@@ -14,11 +14,11 @@ Text-to-speech with `Audio.SpeakAsync(text)`, speech-to-text with `SpeechRecogni
 // Name a voice that fits the product: the bare default ("Aria") is a mature, hard read
 // that suits few apps — "Sarah" is a softer, modern one to reach for. Other voices:
 // Jessica, Lily, Matilda, Charlotte (female); George, Brian, Will (male).
-await Audio.SpeakAsync("Hello world", voice: "Sarah");
+await Audio.SpeakAsync(MediaTargets.Everyone, "Hello world", voice: "Sarah");
 
 // Pick a model, shape the delivery, or target specific clients:
-await Audio.SpeakAsync("Hello world", SpeechGeneratorModel.Eleven3, voice: "Sarah",
-    instructions: "Soft and warm, almost a whisper", speed: 0.96, targetIds: [clientSessionId]);  // speed is a double, 1.0 = normal
+await Audio.SpeakAsync(MediaTargets.To([clientSessionId]), "Hello world", SpeechGeneratorModel.Eleven3, voice: "Sarah",
+    instructions: "Soft and warm, almost a whisper", speed: 0.96);  // speed is a double, 1.0 = normal
 ```
 
 To get the audio WITHOUT playing it (e.g. to store or post-process a clip), use the one-shot `SpeechGenerator.GenerateAsync(text)` — it returns a single PCM `AudioChunk` (never null; throws `AIException` on failure):
@@ -34,7 +34,7 @@ Hand-roll the generator loop only when you need custom mixing, speech that must 
 using var speechGenerator = new SpeechGenerator(SpeechGeneratorModel.ElevenFlash25);
 await foreach (var audio in speechGenerator.GenerateSpeechAsync(new SpeechGeneratorConfig { Text = "Hei maailma", Language = "fi" }))
 {
-    Audio.SendSpeech(audio);  // Audio is an app service property
+    Audio.SpeakChunk(MediaTargets.Everyone, audio);  // Audio is an app service property
 }
 ```
 
@@ -170,7 +170,7 @@ await foreach (var audio in generator.GenerateSoundEffectAsync(new SoundEffectGe
     DurationSeconds = 5.0
 }))
 {
-    Audio.SendSpeech(audio);
+    Audio.SpeakChunk(MediaTargets.Everyone, audio);
 }
 ```
 

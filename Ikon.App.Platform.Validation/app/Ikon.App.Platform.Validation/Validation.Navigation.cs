@@ -90,9 +90,9 @@ public partial class Validation
                     contentStyle: [Tabs.Content],
                     tabs: [
                         new TabItem("enabled1", "Enabled", v => v.Text([Text.Body], "First enabled tab content.")),
-                        new TabItem("disabled1", "Disabled", _ => { }, Disabled: true),
+                        new TabItem("disabled1", "Disabled", _ => { }, disabled: true),
                         new TabItem("enabled2", "Enabled", v => v.Text([Text.Body], "Second enabled tab content.")),
-                        new TabItem("disabled2", "Disabled", _ => { }, Disabled: true)
+                        new TabItem("disabled2", "Disabled", _ => { }, disabled: true)
                     ]);
             });
 

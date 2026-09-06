@@ -22,6 +22,11 @@ class IkonAppConfig {
   static const String spaceId = String.fromEnvironment('IKON_SPACE_ID');
   static const String authUrl = String.fromEnvironment('IKON_AUTH_URL');
 
+  /// Local dev only: the developer's backend user id — the Flutter counterpart of the web
+  /// dev server's auto-login; without it a sign-in-gated app enters as a synthetic user and
+  /// never gets past its gate. Injected at launch; ignored when deployed.
+  static const String devUserId = String.fromEnvironment('IKON_DEV_USER_ID');
+
   static bool get isDeployed => spaceId.isNotEmpty;
 }
 
@@ -106,6 +111,7 @@ class _IkonAppScreenState extends State<IkonAppScreen> {
             : await IkonClient.connectLocal(
                 host: IkonAppConfig.serverHost,
                 port: IkonAppConfig.port,
+                userId: IkonAppConfig.devUserId.isNotEmpty ? IkonAppConfig.devUserId : null,
               );
 
         client.onStateChange.listen((state) {

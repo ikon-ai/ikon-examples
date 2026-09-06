@@ -39,6 +39,8 @@ namespace Ikon.Parallax.Components.Standard
     Md
     Lg
     Xl
+    Xl2
+    Xl3
   sealed record ImageCaptureActionEvent : ActionEvent
     ctor(bool Success, string? Mime, int Width, int Height, string? Data)
     string? Data { get; init; }
@@ -144,6 +146,7 @@ namespace Ikon.Parallax.Components.Standard
     static void AspectRatio(this UIView view, string[]? style = null, double ratio = 1.0, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     // dir: Text direction for descendants.
     static void DirectionProvider(this UIView view, string[]? style = null, Dir dir = Ltr, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
+    static void Divider(this UIView view, string[]? style = null, Orientation orientation = Horizontal, bool decorative = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
     // Style slots (default theme tokens): viewportStyle → ScrollArea.Viewport, scrollbarStyle → ScrollArea.Scrollbar, thumbStyle → ScrollArea.Thumb; rootStyle rarely needed.
     // threshold: Distance from end (in pixels) to trigger onNearEnd. Default 200.
     // debounceMs: Debounce time in ms to prevent rapid callback firing. Default 100.

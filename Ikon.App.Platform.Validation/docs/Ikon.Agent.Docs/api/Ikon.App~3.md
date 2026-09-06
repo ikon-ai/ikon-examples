@@ -1,215 +1,4 @@
 namespace Ikon.App
-  // Each method targets the calling client resolved from the current reactive scope unless a targetId is supplied. When the target client has not registered the backing function the call degrades to the failure value (false/null/empty list) rather than throwing — except the capture methods (StartVideoCaptureAsync, StartAudioCaptureAsync, CaptureImageAsync), which throw NotSupportedException.
-  static class ClientFunctions
-    // options: Optional image capture options.
-    // throws NotSupportedException: Thrown when the client does not support image capture.
-    static Task<ClientImageCapture> CaptureImageAsync(ClientImageCaptureOptions? options = null, int? targetId = null, CancellationToken cancellationToken = default)
-    static Task<bool> EndLiveActivityAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    static Task<bool> ExitFullscreenAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    static Task<bool> FlushRecordingArchivesAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    static Task<int?> GetBatteryLevelAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    static Task<string?> GetLanguageAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    static Task<ClientLocation?> GetLocationAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    static Task<IReadOnlyList<ClientMediaDevice>> GetMediaDevicesAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    // The value is whatever the browser's Network Information API exposes and mixes two vocabularies: a speed class ("slow-2g", "2g", "3g", "4g") where only that is available — note a fast wifi connection commonly reports "4g" — or a connection medium ("wifi", "cellular", "ethernet", "bluetooth", "none", ...) on platforms that expose it. Treat it as an informational hint, not a reliable wifi/cellular discriminator.
-    static Task<string?> GetNetworkTypeAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    static Task<string?> GetTimezoneAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    static Task<string?> GetUrlAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    static Task<ClientVisibility> GetVisibilityAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    // enabled: Whether to keep the screen awake.
-    static Task<bool> KeepScreenAwakeAsync(bool enabled, int? targetId = null, CancellationToken cancellationToken = default)
-    // The page navigates to the provider and returns authenticated, so the current session ends and the client reconnects with its real identity. Use from a server-drawn sign-in button in a deferred-login app; guest/email/passkey flows are client-initiated and not supported here.
-    // provider: The OAuth provider to sign in with (e.g. "google").
-    static Task<bool> LoginAsync(string provider, int? targetId = null, CancellationToken cancellationToken = default)
-    // reason: Optional reason shown in the login dialog.
-    static Task<bool> LoginShowAsync(string? reason = null, int? targetId = null, CancellationToken cancellationToken = default)
-    // Clears the auth session and reloads the page, returning the client to the login screen.
-    static Task<bool> LogoutAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    // url: The URL to open. Must be absolute (e.g., starts with https://).
-    // throws ArgumentException: Thrown when url is null or whitespace.
-    static Task<bool> OpenExternalUrlAsync(string url, int? targetId = null, CancellationToken cancellationToken = default)
-    // url: The URL of the sound to play. Can be a regular URL or a data URL.
-    // volume: Volume level from 0.0 to 1.0. Defaults to 1.0.
-    // loop: Whether to loop the sound. Defaults to false.
-    static Task<string?> PlaySoundAsync(string url, double volume = 1.0, bool loop = false, int? targetId = null, CancellationToken cancellationToken = default)
-    // Audio bytes are de-duplicated per client session by content hash: the first call uploads the data, later calls with identical bytes send only the hash reference, so a reused sound is never re-transmitted.
-    // data: The audio data as a byte array.
-    // mimeType: The MIME type of the audio (e.g., "audio/mp3", "audio/wav").
-    // volume: Volume level from 0.0 to 1.0. Defaults to 1.0.
-    // loop: Whether to loop the sound. Defaults to false.
-    static Task<string?> PlaySoundAsync(byte[] data, string mimeType, double volume = 1.0, bool loop = false, int? targetId = null, CancellationToken cancellationToken = default)
-    static Task<bool> RequestFullscreenAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    // x: Horizontal scroll position in pixels.
-    // y: Vertical scroll position in pixels.
-    // smooth: Whether to animate the scroll.
-    static Task<bool> ScrollToAsync(double x, double y, bool smooth = false, int? targetId = null, CancellationToken cancellationToken = default)
-    // persist: Whether to persist the theme as a user preference.
-    static Task<bool> SetThemeAsync(Theme theme, bool persist = true, int? targetId = null, CancellationToken cancellationToken = default)
-    // Prefer SetThemeAsync for the built-in dark and light themes; this overload exists for custom theme names.
-    // themeName: The theme name to set (e.g., "light", "dark", or a custom theme name).
-    // persist: Whether to persist the theme as a user preference.
-    // throws ArgumentException: Thrown when themeName is null or whitespace.
-    static Task<bool> SetThemeAsync(string themeName, bool persist = true, int? targetId = null, CancellationToken cancellationToken = default)
-    // url: The URL path to set (relative paths only).
-    // replace: If true, replaces current history entry instead of adding a new one.
-    // preserveQueryParams: If true, preserves existing query parameters when the URL does not contain a query string.
-    // throws ArgumentException: Thrown when url is null or whitespace.
-    static Task<bool> SetUrlAsync(string url, bool replace = false, bool preserveQueryParams = false, int? targetId = null, CancellationToken cancellationToken = default)
-    // Call when a route's content finishes loading (guard with Context.IsSnapshot); without the signal, capture falls back to a quiescence heuristic that may record loading skeletons for slow-loading routes. No-op outside snapshot capture.
-    static Task<bool> SnapshotReadyAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    // options: Optional audio capture options.
-    // throws NotSupportedException: Thrown when the client does not support audio capture.
-    static Task<string> StartAudioCaptureAsync(ClientAudioCaptureOptions? options = null, int? targetId = null, CancellationToken cancellationToken = default)
-    // title: Fixed for the life of the activity; the app's own name usually.
-    // accentHex: The app's accent as #rrggbb, so the banner matches the app.
-    // metricsJson: A JSON array of {"value","label"}, at most three shown.
-    // status: The small tracked line above the metrics — a phase, a state, a name.
-    // muted: Shows the activity as held or paused, which mutes the accent.
-    static Task<bool> StartLiveActivityAsync(string title, string accentHex, string metricsJson, string status, bool muted = false, int? targetId = null, CancellationToken cancellationToken = default)
-    // Prefer app.Locations.StartTrackingAsync over calling this directly; each fix is pushed back to the server and surfaces via app.Locations.OnUpdate.
-    // intervalSeconds: Minimum seconds between fixes.
-    // distanceFilterMeters: Minimum metres of movement before a new fix is reported.
-    // background: Keep streaming while the app is backgrounded.
-    // notificationTitle: Android foreground-service notification title.
-    // notificationBody: Android foreground-service notification body.
-    static Task<bool> StartLocationUpdatesAsync(int intervalSeconds = 10, int distanceFilterMeters = 10, bool background = true, string notificationTitle = "Sharing your location", string notificationBody = "Your location is shared while this is on.", int? targetId = null, CancellationToken cancellationToken = default)
-    // hertz: Samples per second per sensor; honoured approximately.
-    // sensors: Bit flags matching MotionSensors.
-    // batchMilliseconds: How long the client buffers before sending.
-    // background: Keep reading while the app is backgrounded.
-    // liveHertz: Send only this many a second, keeping the rest for the device archive; 0 sends everything.
-    static Task<bool> StartMotionUpdatesAsync(int hertz = 25, int sensors = 1, int batchMilliseconds = 200, bool background = false, int liveHertz = 0, int? targetId = null, CancellationToken cancellationToken = default)
-    // archiveId: Names the activity; one id is one file.
-    // fixes: Record position fixes.
-    // motion: Record motion samples at their full rate.
-    // maxBytes: Refuse to grow the file past this.
-    static Task<bool> StartRecordingArchiveAsync(string archiveId, bool fixes = true, bool motion = true, long maxBytes = 268435456, int? targetId = null, CancellationToken cancellationToken = default)
-    // source: The video source (Camera or Screen).
-    // options: Optional video capture options.
-    // throws NotSupportedException: Thrown when the client does not support video capture.
-    static Task<string> StartVideoCaptureAsync(ClientVideoCaptureSource source = Camera, ClientVideoCaptureOptions? options = null, int? targetId = null, CancellationToken cancellationToken = default)
-    // streamId: The stream ID of the capture to stop.
-    // throws ArgumentException: Thrown when streamId is null or whitespace.
-    static Task<bool> StopCaptureAsync(string streamId, int? targetId = null, CancellationToken cancellationToken = default)
-    static Task<bool> StopLocationUpdatesAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    static Task<bool> StopMotionUpdatesAsync(int? targetId = null, CancellationToken cancellationToken = default)
-    static Task<bool> StopRecordingArchiveAsync(string archiveId, int? targetId = null, CancellationToken cancellationToken = default)
-    // playbackId: The playback ID returned from PlaySoundAsync.
-    static Task<bool> StopSoundAsync(string playbackId, int? targetId = null, CancellationToken cancellationToken = default)
-    // metricsJson: A JSON array of {"value","label"}, at most three shown.
-    // status: The small tracked line above the metrics.
-    // muted: Shows the activity as held or paused.
-    static Task<bool> UpdateLiveActivityAsync(string metricsJson, string status, bool muted = false, int? targetId = null, CancellationToken cancellationToken = default)
-    // durationMs: The vibration duration in milliseconds.
-    // throws ArgumentOutOfRangeException: Thrown when durationMs is not positive.
-    static Task<bool> VibrateAsync(int durationMs, int? targetId = null, CancellationToken cancellationToken = default)
-    // pattern: The alternating vibrate/pause durations in milliseconds.
-    // throws ArgumentException: Thrown when pattern is null, empty, or contains a negative duration.
-    static Task<bool> VibrateAsync(IReadOnlyList<int> pattern, int? targetId = null, CancellationToken cancellationToken = default)
-    // pattern: Duration in ms, or comma-separated pattern (e.g., "200" or "100,50,100").
-    // throws ArgumentException: Thrown when pattern is null or whitespace.
-    static Task<bool> VibrateAsync(string pattern, int? targetId = null, CancellationToken cancellationToken = default)
-  // A preference, not a guarantee — the client falls back to whatever encoder it has.
-  enum ClientHardwareAcceleration
-    PreferHardware
-    PreferSoftware
-  sealed record ClientImageCapture
-    // Mime: The image's mime type, as encoded by the client: image/jpeg or image/png.
-    // Width: The image's actual width in pixels, which can differ from a requested width the client could not honor.
-    // Height: The image's actual height in pixels, which can differ from a requested height the client could not honor.
-    // Data: The encoded image bytes (a complete JPEG or PNG file, not raw pixels), ready to write to disk or hand to an asset or a vision model.
-    ctor(string Mime, int Width, int Height, byte[] Data)
-    byte[] Data { get; init; }
-    int Height { get; init; }
-    string Mime { get; init; }
-    int Width { get; init; }
-  enum ClientImageCaptureFormat
-    Jpeg
-    Png
-  // Every null property leaves that setting to the client.
-  sealed record ClientImageCaptureOptions
-    ctor()
-    // Null captures JPEG.
-    ClientImageCaptureFormat? Format { get; init; }
-    int? Height { get; init; }
-    // 0.0 (smallest, most artifacts) to 1.0 (largest, near-lossless); only meaningful for ClientImageCaptureFormat.Jpeg — PNG is lossless and ignores it.
-    double? Quality { get; init; }
-    int? Width { get; init; }
-  class ClientJoinedEventArgs : EventArgs
-    ctor(Context clientContext)
-    Context ClientContext { get; }
-    int ClientSessionId { get; }
-    string UserId { get; }
-  class ClientLeftEventArgs : EventArgs
-    ctor(Context clientContext)
-    Context ClientContext { get; }
-    int ClientSessionId { get; }
-    string UserId { get; }
-  sealed record ClientLocation
-    // Accuracy: The accuracy of the coordinates in meters.
-    ctor(double Latitude, double Longitude, double Accuracy)
-    double Accuracy { get; init; }
-    double Latitude { get; init; }
-    double Longitude { get; init; }
-  sealed record ClientMediaDevice
-    // DeviceId: The unique identifier for the device.
-    // Kind: The kind of device (audio input or video input).
-    // Label: A human-readable label for the device.
-    // GroupId: The group identifier for devices that share the same physical device.
-    ctor(string DeviceId, ClientMediaDeviceKind Kind, string Label, string GroupId)
-    string DeviceId { get; init; }
-    string GroupId { get; init; }
-    ClientMediaDeviceKind Kind { get; init; }
-    string Label { get; init; }
-  enum ClientMediaDeviceKind
-    Unknown
-    AudioInput
-    VideoInput
-  sealed class ClientProfile
-    ProfileAddress? Address { get; }
-    string? BirthDate { get; }
-    string? Email { get; }
-    string? FirstName { get; }
-    string? Gender { get; }
-    string Id { get; }
-    string? Language { get; }
-    string? LastName { get; }
-    string? Name { get; }
-    string? PhoneNumber { get; }
-    string? PreferredName { get; }
-    IReadOnlyList<string> Roles { get; }
-    string UserId { get; }
-    // Computed: PreferredName ?? FirstName ?? empty
-    string VisibleName { get; }
-    object? GetAttribute(string key)
-    TAttributes GetAttributes<TAttributes>() where TAttributes : IProfileAttributes, new()
-    bool HasRole(UserRole role)
-    void RequireRole(UserRole role)
-  // A connected client's profile is cached when it joins, so lookups for connected clients return from cache; a cache miss loads from the backend asynchronously. Lookups return null when the context carries no UserId or the backend has no matching profile.
-  class ClientProfiles
-    ctor(IAppBase app)
-    Task AddRoleAsync(Context clientContext, UserRole role)
-    Task AddRoleAsync(Context clientContext, string role)
-    void ClearCache()
-    Task<IReadOnlyList<ClientProfile>> FindProfilesAsync(Dictionary<string, string> filters, int maxResults = 1000)
-    Task<IReadOnlyList<ClientProfile>> GetAllProfilesAsync(int maxResults = 1000)
-    Task<TAttributes?> GetAttributesAsync<TAttributes>(Context clientContext) where TAttributes : IProfileAttributes, new()
-    Task<ClientProfile?> GetProfileAsync(Context clientContext)
-    Task<ClientProfile?> GetProfileAsync(string userId)
-    Task RefreshProfileAsync(Context clientContext)
-    Task RefreshProfileAsync(string userId)
-    Task RemoveRoleAsync(Context clientContext, UserRole role)
-    Task RemoveRoleAsync(Context clientContext, string role)
-    Task SetAttributesAsync<TAttributes>(Context clientContext, TAttributes attrs) where TAttributes : IProfileAttributes
-    Task SetRolesAsync(Context clientContext, IEnumerable<UserRole> roles)
-    Task SetRolesAsync(Context clientContext, IEnumerable<string> roles)
-    Task UpdateAsync(Context clientContext, Action<ProfileData> update)
-  // Listed in ClientVideoCaptureOptions.PreferredCodecs in priority order; the client picks the first one it can actually encode with and falls back to its own default if none are available.
-  enum ClientVideoCaptureCodec
-    H264
-    Vp8
-    Vp9
-    Av1
   // Every null property leaves that setting to the client. Start from DefaultCamera or DefaultScreen and override what you need.
   sealed record ClientVideoCaptureOptions
     ctor()
@@ -248,3 +37,183 @@ namespace Ikon.App
     ctor(string Type, string? Value = null)
     string Type { get; init; }
     string? Value { get; init; }
+  // Credit cost surface for an Ikon app: what AI models its space has used and what that usage cost in platform credits. Accessed via app.Costs, reported per day and per usage event name. Cost data is aggregated in the analytics pipeline, so very recent usage can take a short while to appear.
+  sealed class CostsService
+    // The date range still has to cover when the work ran: usage is stored by day, and a query is only as cheap as the range it scans. An operation that emitted no priced usage sums to zero, which is indistinguishable from one whose usage has not landed yet — see the note on aggregation delay on CostsService before showing the number as final.
+    Task<double> GetCreditsForScopeAsync(string scopeType, string scopeId, DateOnly startDate, DateOnly endDate, CancellationToken ct = default)
+    // Throws ArgumentException when CostQuery.StartDate is after CostQuery.EndDate. Returns one row per day and usage event name; days without usage produce no rows. Under CostQuery.GroupByScopeType the breakdown is per scope id as well. The result is ordered by date, then event name.
+    Task<IReadOnlyList<DailyCost>> GetDailyCostsAsync(CostQuery query, CancellationToken ct = default)
+    // The date range is inclusive and interpreted in UTC.
+    Task<double> GetTotalCreditsAsync(DateOnly startDate, DateOnly endDate, CancellationToken ct = default)
+  // A [Cron] method behaves like a [Function] in that the trigger resolves it through the FunctionRegistry by name. Applying [Cron] is enough to register the method (as a Local function) — you do not also need [Function], though combining them is fine. The handler takes no caller-supplied arguments. It may optionally accept a host-injected CronContext (fire time + schedule) and/or a CancellationToken that signals app shutdown, in any order — mirroring how an [HttpPost] handler may accept an HttpRequest. Any other parameter fails registration at startup, since the scheduler has nothing to bind it to. Overlap is allowed: a tick fires even if the previous invocation is still running, so guard re-entrancy yourself if it matters.
+  sealed class CronAttribute : Attribute
+    ctor(string schedule)
+    // When null or empty the function is registered (and triggered) under "{DeclaringType.FullName}.{Method}" — the identity the bundle manifest records, so the backend trigger resolves it even when the method is inherited or overridden.
+    string? Name { get; init; }
+    // Standard 5/6-field cron syntax (e.g. "0 * * * *" for hourly), evaluated by the backend scheduler. The platform enforces a minimum interval of 5 minutes: a faster schedule is clamped to a slower equivalent when a safe one exists, and rejected at bundle time otherwise.
+    string Schedule { get; }
+  // Credit cost aggregate for one usage event name on one day. Credits is the cost in platform credits — the unit users are billed in. EventName identifies the AI model and usage kind (e.g. llm.openai.gpt4o.global.output-text-tokens) and Category is its first segment (e.g. llm). TotalUsage is the summed usage amount in the event's native unit (tokens, seconds, generations, ...). RawCostEur is the underlying provider cost in EUR and is null unless the space has raw cost visibility enabled. ScopeId is populated only under CostQuery.GroupByScopeType, and is null for usage carrying no scope of that type.
+  sealed record DailyCost
+    ctor(DateOnly Date, string Category, string EventName, double TotalUsage, double Credits, double? RawCostEur, string? ScopeId = null)
+    string Category { get; init; }
+    double Credits { get; init; }
+    DateOnly Date { get; init; }
+    string EventName { get; init; }
+    double? RawCostEur { get; init; }
+    string? ScopeId { get; init; }
+    double TotalUsage { get; init; }
+  sealed class EmailNotificationChannel : INotificationChannel
+    // email: The app's email service.
+    // addressOf: Returns the user's email address, or null when none is known.
+    // senderLocalPart: Optional sender local part, as on EmailSendRequest.
+    ctor(EmailService email, Func<string, string?> addressOf, string? senderLocalPart = null, string? senderDisplayName = null)
+    string Name { get; }
+    Task<bool> SendAsync(string userId, NotificationContent content, CancellationToken ct)
+  // Accessed via app.Email. Every operation requires the app's space to have the Email feature enabled; a call against a non-entitled space throws FeatureNotEnabledException.
+  sealed class EmailService
+    // The backend resolves the id before deleting and rejects an unknown one, so a repeated delete throws HttpRequestException carrying a 404 rather than being treated as a no-op. Callers sweeping ids they no longer track should catch it.
+    Task DeleteAsync(string id, CancellationToken ct = default)
+    // The returned EmailAttachmentDownload owns the content stream; dispose it (e.g. await using) to release the underlying connection.
+    Task<EmailAttachmentDownload> DownloadAttachmentAsync(string emailId, string attachmentId, CancellationToken ct = default)
+    // Pages are fetched on demand as the sequence is consumed, so breaking out of the await foreach stops fetching further pages.
+    IAsyncEnumerable<InboundEmailSummary> EnumerateInboxAsync(InboxQuery query, CancellationToken ct = default)
+    // Paginate by passing the returned InboxPage.NextCursor back as InboxQuery.Cursor.
+    Task<InboxPage> GetInboxPageAsync(InboxQuery query, CancellationToken ct = default)
+    Task<InboundEmailDetail> GetMessageAsync(string id, CancellationToken ct = default)
+    // A request that names a sender identity needs a verified sending domain: when the space has none, or the requested EmailSendRequest.SenderDomain is not one of the space's verified sending domains, the send throws EmailSenderNotAvailableException — catch it and resend without the sender fields to deliver from the platform's own address. Invalid field values throw ArgumentException before anything is sent, and a space without the Email feature throws FeatureNotEnabledException.
+    Task SendAsync(EmailSendRequest request, CancellationToken ct = default)
+  abstract class EndpointAttribute : Attribute
+    // Defaults to EndpointAuth.Grant; setting AuthPolicy overrides it.
+    EndpointAuth Auth { get; init; }
+    // When non-empty, takes precedence over Auth.
+    string? AuthPolicy { get; init; }
+    // Empty = derived from the method name (kebab-cased). A {name} segment whose name matches a field of the owner's SessionIdentity record binds the routing identity; other {name} segments bind as ordinary handler parameters. Never declare a /.well-known/*, /ikon/*, or /api path — those are reserved.
+    string Path { get; }
+  enum EndpointAuth
+    // Requires a valid signed grant in the URL (the default). Possession authorizes.
+    Grant
+    // Anonymous — no credential; identity comes from the URL, gated only by anti-abuse.
+    Public
+    // Always rejected. Declares an endpoint while keeping it closed.
+    Deny
+    // Unlike Grant, nothing here is minted by the app or pasted into a URL: the client discovers the space's authorization server, the human signs in with the space's own [Auth] Methods, and the client holds a short-lived token it refreshes itself. Anonymous sign-in methods (guest, global) cannot satisfy this — a global visitor is one shared space-wide user, so honouring it would hand every client the same identity and the same data. A space declaring only anonymous methods cannot host a User endpoint.
+    User
+  sealed record EndpointInfo
+    ctor()
+    // When non-empty, the gateway cell-routes the request to that cell's partitioned instance, keyed by the cell's IdentityFields in the URL; empty means the endpoint resolves to the app instance.
+    string CellType { get; init; }
+    // {Owner}_{Method}, derived unconditionally from the owner type and the handler method; the backend resolves this name when routing.
+    string FunctionName { get; init; }
+    // Carries no grant: a public endpoint is callable as-is, but a grant/policy endpoint needs a working, identity-bound URL minted via IApp.MintUrlAsync.
+    string PublicUrl { get; init; }
+  // Fired per chunk with the raw bytes for streaming (transcode/scan/forward); the platform already writes the chunk itself. Bytes are not yet verified — the SHA-256 check runs only after the last chunk and a mismatch discards the whole upload, so never act irreversibly. Data is valid only during the callback — copy it to retain it.
+  sealed record FileUploadChunkArgs
+    // FileName: The client-supplied file name.
+    // MimeType: The client-supplied mime type.
+    // Size: The total file size in bytes the client announced.
+    // Data: This chunk's bytes. Only valid for the duration of the callback — copy them if you keep them.
+    // BytesWritten: Total bytes received and written so far, including this chunk.
+    ctor(string UploadId, string FileName, string MimeType, long Size, byte[] Data, long BytesWritten)
+    long BytesWritten { get; init; }
+    byte[] Data { get; init; }
+    string FileName { get; init; }
+    string MimeType { get; init; }
+    long Size { get; init; }
+    string UploadId { get; init; }
+  // Fires only after the byte count and recomputed SHA-256 both match. Exactly one of LocalTempFilePath and AssetUri is non-null. The temp file is deleted when the app stops — move or copy it here to keep it.
+  sealed record FileUploadCompleteArgs
+    // FileName: The client-supplied file name.
+    // MimeType: The client-supplied mime type.
+    // Size: The file size in bytes.
+    // LocalTempFilePath: Path to the received file in a temp directory, when the upload was not redirected to the asset system. Null when AssetUri is set. The temp directory is deleted when the app stops, so move or copy anything you want to keep.
+    // AssetUri: The asset the upload was written into, when an earlier hook set FileUploadResult.AssetUri. Null when the file went to a local temp file instead. Exactly one of the two is non-null. It is the same AssetUri every Asset.Instance.* call takes, so it needs no parsing — null-check it and pass .Value straight on.
+    ctor(string UploadId, string FileName, string MimeType, long Size, string? LocalTempFilePath, AssetUri? AssetUri)
+    AssetUri? AssetUri { get; init; }
+    string FileName { get; init; }
+    string? LocalTempFilePath { get; init; }
+    string MimeType { get; init; }
+    long Size { get; init; }
+    string UploadId { get; init; }
+  // Terminal hook for an upload that had started (cancel, 60 s stall, out-of-sequence chunk, byte-count or SHA-256 mismatch, write failure). Uploads the app rejected from PreStart or Start never reach here. Any partial file/asset is already deleted — clean up only app-side state.
+  sealed record FileUploadErrorArgs
+    // FileName: The client-supplied file name.
+    // MimeType: The client-supplied mime type.
+    // Size: The file size in bytes the client announced.
+    // ErrorMessage: Why the upload failed — the cancellation reason when the app cancelled it, otherwise the platform's description of the failure.
+    ctor(string UploadId, string FileName, string MimeType, long Size, string ErrorMessage)
+    string ErrorMessage { get; init; }
+    string FileName { get; init; }
+    string MimeType { get; init; }
+    long Size { get; init; }
+    string UploadId { get; init; }
+  // First hook, before any bytes transfer — the cheapest place to reject (return false or a FileUploadResult and nothing is sent). Hook order: PreStart → Start → Chunk/Progress (per chunk) → Complete on success or Error on failure. Capture Cancel to abort the upload later, e.g. from a UI cancel button.
+  sealed record FileUploadPreStartArgs
+    // UploadId: Id identifying this upload; the same value appears on every later hook's args.
+    // FileName: The client-supplied file name. Untrusted — never join it into a path yourself.
+    // MimeType: The client-supplied mime type. Untrusted — the bytes are not verified against it.
+    // Size: The file size in bytes the client claims it will send. The upload fails with an error if the actual byte count differs.
+    // Cancel: Aborts this upload: deletes whatever was written, fires the error hook with the reason, and tells the client to stop. Usable at any point during the upload, not just from this callback — capture it to cancel later (e.g. from a UI cancel button).
+    ctor(string UploadId, string FileName, string MimeType, long Size, Func<string?, Task> Cancel)
+    Func<string?, Task> Cancel { get; init; }
+    string FileName { get; init; }
+    string MimeType { get; init; }
+    long Size { get; init; }
+    string UploadId { get; init; }
+  // Fired once per received chunk, after the chunk has been written and acknowledged. Meant for driving a progress bar; use onChunkReceived if you need the bytes themselves.
+  sealed record FileUploadProgressArgs
+    // FileName: The client-supplied file name.
+    // MimeType: The client-supplied mime type.
+    // Size: The total file size in bytes the client announced.
+    // ProgressPercentage: Bytes received so far as a percentage of Size, 0 to 100. Zero for the whole upload when the client announced a size of 0.
+    // BytesUploaded: Bytes received and written so far.
+    ctor(string UploadId, string FileName, string MimeType, long Size, double ProgressPercentage, long BytesUploaded)
+    long BytesUploaded { get; init; }
+    string FileName { get; init; }
+    string MimeType { get; init; }
+    double ProgressPercentage { get; init; }
+    long Size { get; init; }
+    string UploadId { get; init; }
+  // Accepted defaults to true; return true; works via the implicit bool conversion. Set AssetUri to write the upload straight into the asset system instead of a local temp file.
+  sealed record FileUploadResult
+    ctor()
+    bool Accepted { get; init; }
+    AssetUri? AssetUri { get; init; }
+    static implicit operator FileUploadResult(bool accepted)
+  // Last chance to reject the upload, and the last hook where setting FileUploadResult.AssetUri can redirect the bytes into the asset system instead of a temp file. Only hook that carries Hash — do content-duplicate checks here.
+  sealed record FileUploadStartArgs
+    // UploadId: Id identifying this upload; the same value appears on every other hook's args.
+    // FileName: The client-supplied file name. Untrusted — never join it into a path yourself.
+    // MimeType: The client-supplied mime type. Untrusted — the bytes are not verified against it.
+    // Size: The file size in bytes the client claims it will send.
+    // Hash: The client-declared SHA-256 of the file contents, lowercase hex. The platform recomputes it while receiving and fails the upload with a hash mismatch if the received bytes disagree, so a match here is a genuine content identity — but it is the client's claim, not yet verification, at this point.
+    ctor(string UploadId, string FileName, string MimeType, long Size, string Hash)
+    string FileName { get; init; }
+    string Hash { get; init; }
+    string MimeType { get; init; }
+    long Size { get; init; }
+    string UploadId { get; init; }
+  sealed class HttpDeleteAttribute : HttpMethodAttribute
+    ctor(string path = "")
+    override string Method { get; }
+  sealed class HttpGetAttribute : HttpMethodAttribute
+    ctor(string path = "")
+    override string Method { get; }
+  // All verbs share the addressing + identity model on EndpointAttribute. Auth defaults to EndpointAuth.Grant — the gateway answers 401 on the bare URL unless the caller holds a minted grant URL; set Auth = EndpointAuth.Public for an anonymously reachable route (a public webhook, a health check).
+  abstract class HttpMethodAttribute : EndpointAttribute
+    abstract string Method { get; }
+  sealed class HttpPatchAttribute : HttpMethodAttribute
+    ctor(string path = "")
+    override string Method { get; }
+  sealed class HttpPostAttribute : HttpMethodAttribute
+    ctor(string path = "")
+    override string Method { get; }
+  sealed class HttpPutAttribute : HttpMethodAttribute
+    ctor(string path = "")
+    override string Method { get; }
+  sealed record HttpRequest
+    ctor(string Method, string Path, IReadOnlyDictionary<string, string> Query, IReadOnlyDictionary<string, string> Headers, string Body)
+    string Body { get; init; }
+    IReadOnlyDictionary<string, string> Headers { get; init; }
+    string Method { get; init; }
+    string Path { get; init; }
+    IReadOnlyDictionary<string, string> Query { get; init; }
