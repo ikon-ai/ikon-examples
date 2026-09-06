@@ -37,7 +37,7 @@ internal sealed class McpToolsFromServer : IPatternDemo
     {
         var arguments = JsonSerializer.SerializeToElement(new { query });
 
-        // Long results paginate. CallToolAsync returns the first page's content only; the raw
+        // Long results paginate. McpClient.CallToolAsync returns the first page's content only; the raw
         // form hands back NextCursor so a caller can drain the rest.
         var page = await client.CallToolRawAsync(toolName, arguments);
         var text = new StringBuilder(page.Content);

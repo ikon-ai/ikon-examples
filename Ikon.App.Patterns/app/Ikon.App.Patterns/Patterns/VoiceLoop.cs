@@ -80,7 +80,7 @@ internal sealed class VoiceLoop(IAppBase app) : IPatternDemo
                 var reply = string.IsNullOrEmpty(replyRaw) ? "(no reply)" : replyRaw;
                 _turns.Add(new VoiceTurn("Tutor", reply));
 
-                await Audio.SpeakAsync(reply);
+                await Audio.SpeakAsync(MediaTargets.Everyone, reply);
             }
             finally
             {

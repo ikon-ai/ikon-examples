@@ -24,7 +24,7 @@ internal sealed class AudioReactiveVisuals : IPatternDemo
     /// </summary>
     private async Task SpeakWithLipSyncAsync(string text)
     {
-        await Audio.SpeakAsync(text, analyzers: [_visemes]);
+        await Audio.SpeakAsync(MediaTargets.Everyone, text, analyzers: [_visemes]);
     }
 
     private void Render(IView view)

@@ -36,7 +36,7 @@ internal sealed class VoiceEffectChain : IPatternDemo
     /// </summary>
     private async Task SpeakAsync(string text)
     {
-        await Audio.SpeakAsync(text, effects: ChainFor(_character.Value));
+        await Audio.SpeakAsync(MediaTargets.Everyone, text, effects: ChainFor(_character.Value));
     }
 
     private void Render(IView view)

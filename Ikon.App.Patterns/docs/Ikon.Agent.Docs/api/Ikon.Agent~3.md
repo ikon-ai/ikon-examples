@@ -1,13 +1,16 @@
 namespace Ikon.Agent
   // The agent layer never names a concrete model: each pass resolves Capability × Family to a concrete LLMModel internally, which lands on the Emerge pass as EmergePass.Model.
   sealed record Reasoning
-    ctor(Capability Capability = Standard, ModelFamily Family = Claude, double Temperature = 0.7, int MaxOutputTokens = 32000, int? ClearToolResultsAfterInputTokens = null, IReadOnlyList<string>? ClearToolResultsExcludedTools = null, ReasoningEffort? Effort = null)
+    ctor(Capability Capability = Standard, ModelFamily Family = Claude, double Temperature = 0.7, int MaxOutputTokens = 32000, int? ClearToolResultsAfterInputTokens = null, IReadOnlyList<string>? ClearToolResultsExcludedTools = null, ReasoningEffort? Effort = null, TimeSpan? MaxPassWallTime = null, int? MaxToolCallsPerPass = null, int? MaxIterationsPerPass = null)
     Capability Capability { get; init; }
     int? ClearToolResultsAfterInputTokens { get; init; }
     IReadOnlyList<string>? ClearToolResultsExcludedTools { get; init; }
     ReasoningEffort? Effort { get; init; }
     ModelFamily Family { get; init; }
+    int? MaxIterationsPerPass { get; init; }
     int MaxOutputTokens { get; init; }
+    TimeSpan? MaxPassWallTime { get; init; }
+    int? MaxToolCallsPerPass { get; init; }
     double Temperature { get; init; }
   static class RuntimeMessages
     // A user-role corrective the runner posts to recover a drive (the truncated-pass re-prompt). It steers the agent; it is never part of the user's conversation.
@@ -99,7 +102,9 @@ namespace Ikon.Agent
     long InputTokens { get; init; }
     long OutputTokens { get; init; }
   sealed record ThreadEvent.ToolCallCompleted : ThreadEvent
-    ctor(string ThreadId, DateTime At, string ToolName, string Result)
+    // IsError: true when the call did not complete and Result holds the failure text. null only on an entry journaled before this field existed — treat it as "unknown", not as "succeeded".
+    ctor(string ThreadId, DateTime At, string ToolName, string Result, bool? IsError = null)
+    bool? IsError { get; init; }
     string Result { get; init; }
     string ToolName { get; init; }
   sealed record ThreadEvent.ToolCallStarted : ThreadEvent
@@ -193,7 +198,7 @@ namespace Ikon.Agent
     Tool WithParamDescription(string paramName, string description)
   // Captured when ToolCallStarted fires; the result and error flag fill in when ToolCallCompleted follows. PrecedingAgentMessages counts the agent messages already on the thread at start time, so a UI can slot the row in front of the agent message it produced.
   sealed record ToolCallEntry
-    // IsError: true/false for a call completed live in this process; null when the timeline was rebuilt by replaying a thread's journal — the journal does not record the error flag, so it cannot be recovered on resume. Treat null as "unknown", not as "succeeded".
+    // IsError: true when the call did not complete and ResultText holds the failure text instead of a return value. null while the call is still in flight, and on a replayed entry journaled before the flag was recorded — treat it as "unknown", not as "succeeded".
     ctor(int PrecedingAgentMessages, string ToolName, string ArgsJson, string? ResultText, bool? IsError)
     string ArgsJson { get; init; }
     bool? IsError { get; init; }

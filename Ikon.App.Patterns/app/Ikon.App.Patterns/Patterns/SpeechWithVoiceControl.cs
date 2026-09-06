@@ -21,14 +21,17 @@ internal sealed class SpeechWithVoiceControl : IPatternDemo
     /// </summary>
     private async Task NarrateAsync(string text)
     {
-        await Audio.SpeakAsync(text, voice: "Sarah", speed: 0.95, instructions: "calm, unhurried");
+        await Audio.SpeakAsync(MediaTargets.Everyone, text, voice: "Sarah", speed: 0.95, instructions: "calm, unhurried");
     }
 
     /// <summary>
-    /// The config form, for two speakers at once. Streaming chunk-by-chunk is what lets playback
-    /// start before generation finishes.
+    /// The config form, for generator settings SpeakAsync does not expose. Streaming chunk-by-chunk
+    /// is what lets playback start before generation finishes. This does NOT give you two speakers
+    /// at once: every SpeakChunk goes through the app's single speech mixer, which holds one
+    /// utterance at a time, so a second voice's chunks interrupt the first with a fade. Genuine
+    /// overlap means leaving the speech lane -- see OverlapAsync below.
     /// </summary>
-    private async Task SpeakBothAsync(string lineA, string lineB)
+    private async Task SpeakWithConfigAsync(string line)
     {
         using var generator = new SpeechGenerator(SpeechGeneratorModel.ElevenFlash25);
 
@@ -36,7 +39,7 @@ internal sealed class SpeechWithVoiceControl : IPatternDemo
         {
             await foreach (var chunk in generator.GenerateSpeechAsync(new SpeechGeneratorConfig
             {
-                Text = lineA,
+                Text = line,
                 VoiceId = "Sarah",
                 // Speed is honoured by OpenAI and Google and IGNORED by ElevenLabs -- null keeps
                 // the model's own default rather than pretending to set one.
@@ -44,16 +47,26 @@ internal sealed class SpeechWithVoiceControl : IPatternDemo
                 Instructions = "warm, close-mic",
             }))
             {
-                // SendSpeech does not interrupt, so two voices can overlap -- which SpeakAsync
-                // deliberately cannot do.
-                Audio.SendSpeech(chunk);
+                Audio.SpeakChunk(MediaTargets.Everyone, chunk);
             }
         }
         catch (AIException ex)
         {
             _error.Value = "Couldn't play that line — try again.";
-            Log.Instance.Warning($"Speech failed for '{lineA}': {ex.Message}");
+            Log.Instance.Warning($"Speech failed for '{line}': {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Two voices at once. The speech mixer cannot do this -- it plays one utterance at a time --
+    /// so overlap is the direct lane's job: PlayClipAsync sends an independent stream per stream id,
+    /// and streams play alongside each other and alongside speech.
+    /// </summary>
+    private async Task OverlapAsync(AudioChunk voiceA, AudioChunk voiceB)
+    {
+        await Task.WhenAll(
+            Audio.PlayClipAsync(MediaTargets.Everyone, voiceA.Samples, voiceA.SampleRate, voiceA.ChannelCount, streamId: "voice-a"),
+            Audio.PlayClipAsync(MediaTargets.Everyone, voiceB.Samples, voiceB.SampleRate, voiceB.ChannelCount, streamId: "voice-b"));
     }
 
     /// <summary>

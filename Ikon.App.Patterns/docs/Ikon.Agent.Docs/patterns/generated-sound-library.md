@@ -26,7 +26,7 @@ fire-and-forget playback it is neither.
 - `AsArray()` copies; `AsStream()` returns a fresh independent stream per call and survives the
   builder being disposed.
 - `PlaySoundAsync` returns a playback id — hold it if you need `StopSoundAsync`.
-- For continuous or real-time audio use `Audio.StreamAsync` instead; this pattern is for discrete
+- For continuous or real-time audio use `Audio.PlayClipAsync` instead; this pattern is for discrete
   clips.
 
 ## Snippet

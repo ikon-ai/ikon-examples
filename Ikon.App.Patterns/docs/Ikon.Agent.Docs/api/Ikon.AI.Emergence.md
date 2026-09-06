@@ -54,7 +54,7 @@ namespace Ikon.AI.Emergence
     static EmergeRun<T> EnsembleMerge<T>(string model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, CancellationToken ct = default)
     static EmergeRun<T> EnsembleMerge<T>(LLMModel model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, ModelStream stream, CancellationToken ct = default)
     static EmergeRun<T> EnsembleMerge<T>(string model, KernelContext context, Action<EnsembleMergeOptions<T>> configure, ModelStream stream, CancellationToken ct = default)
-    // The unmediated model stream: no pass, no tool loop, no structured output — reach for Run<T> for those. Compose the result with the EmergeEventExtensions helpers (AsStringAsync and friends).
+    // The unmediated model stream: no pass, no tool loop, no structured output — reach for Run<T> for those. Compose the result with the AsyncEnumerableExtensions helpers (AsStringAsync and friends).
     // regions: Restricts which regions may serve the call; null lets the platform choose.
     static IAsyncEnumerable<LLMEvent> Generate(LLMModel model, KernelContext context, IReadOnlyList<ModelRegion>? regions = null, CancellationToken ct = default)
     static IAsyncEnumerable<LLMEvent> Generate(string model, KernelContext context, IReadOnlyList<ModelRegion>? regions = null, CancellationToken ct = default)

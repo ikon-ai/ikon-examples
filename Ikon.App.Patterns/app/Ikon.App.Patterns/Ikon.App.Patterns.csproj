@@ -17,24 +17,24 @@
     <IsIkonInternal Condition="'$(IkonRoot)' != ''">true</IsIkonInternal>
   </PropertyGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' != 'true'">
-    <PackageReference Include="Ikon.Agent" Version="3.11.0" />
-    <PackageReference Include="Ikon.Agent.Docs" Version="3.11.0" />
-    <PackageReference Include="Ikon.AI" Version="3.11.0" />
-    <PackageReference Include="Ikon.AI.Emergence" Version="3.11.0" />
-    <PackageReference Include="Ikon.AI.Speech.Azure" Version="3.11.0" />
-    <PackageReference Include="Ikon.AI.Speech.Google" Version="3.11.0" />
-    <PackageReference Include="Ikon.App" Version="3.11.0" />
-    <PackageReference Include="Ikon.App.Storage.Postgres" Version="3.11.0" />
-    <PackageReference Include="Ikon.Common" Version="3.11.0" />
-    <PackageReference Include="Ikon.Common.Core" Version="3.11.0" />
-    <PackageReference Include="Ikon.Crosswind" Version="3.11.0" />
-    <PackageReference Include="Ikon.Parallax" Version="3.11.0" />
-    <PackageReference Include="Ikon.Resonance" Version="3.11.0" />
-    <PackageReference Include="Ikon.Resonance.Core" Version="3.11.0" />
-    <PackageReference Include="Ikon.Server" Version="3.11.0" />
-    <PackageReference Include="Ikon.Server.HotReload" Version="3.11.0" />
-    <PackageReference Include="Ikon.Teleport" Version="3.11.0" />
-    <PackageReference Include="Ikon.Sdk" Version="2.0.41" />
+    <PackageReference Include="Ikon.Agent" Version="3.11.1" />
+    <PackageReference Include="Ikon.Agent.Docs" Version="3.11.1" />
+    <PackageReference Include="Ikon.AI" Version="3.11.1" />
+    <PackageReference Include="Ikon.AI.Emergence" Version="3.11.1" />
+    <PackageReference Include="Ikon.AI.Speech.Azure" Version="3.11.1" />
+    <PackageReference Include="Ikon.AI.Speech.Google" Version="3.11.1" />
+    <PackageReference Include="Ikon.App" Version="3.11.1" />
+    <PackageReference Include="Ikon.App.Storage.Postgres" Version="3.11.1" />
+    <PackageReference Include="Ikon.Common" Version="3.11.1" />
+    <PackageReference Include="Ikon.Common.Core" Version="3.11.1" />
+    <PackageReference Include="Ikon.Crosswind" Version="3.11.1" />
+    <PackageReference Include="Ikon.Parallax" Version="3.11.1" />
+    <PackageReference Include="Ikon.Resonance" Version="3.11.1" />
+    <PackageReference Include="Ikon.Resonance.Core" Version="3.11.1" />
+    <PackageReference Include="Ikon.Server" Version="3.11.1" />
+    <PackageReference Include="Ikon.Server.HotReload" Version="3.11.1" />
+    <PackageReference Include="Ikon.Teleport" Version="3.11.1" />
+    <PackageReference Include="Ikon.Sdk" Version="2.0.42" />
   </ItemGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' == 'true'">
     <ProjectReference Include="$(IkonRoot)\Ikon.Agent\Ikon.Agent.csproj" />
