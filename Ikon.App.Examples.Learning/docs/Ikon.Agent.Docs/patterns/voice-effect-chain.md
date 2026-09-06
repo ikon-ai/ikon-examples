@@ -16,7 +16,7 @@ room ambience on a narrator. Also the shape for per-speaker treatment in a multi
 ## Notes
 
 - `effects:` is a parameter on `Audio.SpeakAsync`, `Audio.SpeakAndWaitAsync` and
-  `Audio.SendSpeech`, alongside `analyzers:`.
+  `Audio.SpeakChunk`, alongside `analyzers:`.
 - **The chain is captured from the FIRST chunk of a speech event** and applies to that whole
   utterance. Changing the character mid-sentence takes effect on the next one.
 - Every effect has a parameterless constructor with sensible defaults plus a full one; reach for
@@ -56,7 +56,7 @@ private static IReadOnlyList<IAudioEffect> ChainFor(string character) => charact
 /// </summary>
 private async Task SpeakAsync(string text)
 {
-    await Audio.SpeakAsync(text, effects: ChainFor(_character.Value));
+    await Audio.SpeakAsync(MediaTargets.Everyone, text, effects: ChainFor(_character.Value));
 }
 
 private void Render(IView view)

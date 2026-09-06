@@ -928,7 +928,7 @@ public partial class LearningApp(IApp<SessionIdentity, ClientParams> app)
                     break;
                 }
 
-                Audio.SendSpeech(audio, [], analyzers);
+                Audio.SpeakChunk(MediaTargets.Everyone, audio, [], analyzers);
             }
         }
         catch (OperationCanceledException)
