@@ -5,6 +5,7 @@ namespace Ikon.Common.Core
     ctor()
     // In global mode (the default) this lazily creates and returns a single process-wide singleton; in async-local mode (enabled via EnableAndInitAsyncLocalInstance) it returns the instance set on the current async flow — and THROWS AsyncLocalInstanceNotSetException when the flow has none (e.g. a Task.Run body or timer callback that did not inherit the context) rather than returning a shared fallback.
     static T Instance { get; }
+    // Reverts this type to global mode: clears the current flow's instance and makes Instance return the process-global singleton again. The inverse of EnableAndInitAsyncLocalInstance.
     static void DisableAsyncLocalInstance()
     // Switches this type to async-local mode and seeds the current flow with a fresh instance. Call this before SetAsyncLocalInstance — a set before the mode is enabled is ignored.
     static void EnableAndInitAsyncLocalInstance()
@@ -435,7 +436,7 @@ namespace Ikon.Common.Core.Assets
     string[]? Tags { get; }
     string? Url { get; }
     bool? UrlIsTemporal { get; }
-  // Only the AssetClass.LocalFile and AssetClass.EmbeddedFile storages list at all, and they honour different fields: EffectiveFolderPrefix always filters; Limit caps the embedded-file listing only; Tags, ContinuationToken and NextContinuationToken are reserved for the cloud storages and are ignored today, so setting them still yields the full, unfiltered listing.
+  // Only the AssetClass.LocalFile and AssetClass.EmbeddedFile storages list at all, and they honour different fields: EffectiveFolderPrefix always filters; Limit caps the embedded-file listing only; Tags and ContinuationToken are reserved for the cloud storages and are ignored today, so setting them still yields the full, unfiltered listing.
   sealed class AssetQuery
     ctor(AssetClass assetClass)
     ctor(AssetUri folderUri)
