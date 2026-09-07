@@ -3,6 +3,7 @@ namespace Ikon.Common.Core
     ctor()
     // In global mode (the default) this lazily creates and returns a single process-wide singleton; in async-local mode (enabled via EnableAndInitAsyncLocalInstance) it returns the instance set on the current async flow — and THROWS AsyncLocalInstanceNotSetException when the flow has none (e.g. a Task.Run body or timer callback that did not inherit the context) rather than returning a shared fallback.
     static T Instance { get; }
+    // Reverts this type to global mode: clears the current flow's instance and makes Instance return the process-global singleton again. The inverse of EnableAndInitAsyncLocalInstance.
     static void DisableAsyncLocalInstance()
     // Switches this type to async-local mode and seeds the current flow with a fresh instance. Call this before SetAsyncLocalInstance — a set before the mode is enabled is ignored.
     static void EnableAndInitAsyncLocalInstance()
@@ -253,40 +254,3 @@ namespace Ikon.Common.Core
     int Take(int startPort)
     // Claims a port that something else already chose — a relay agent's local port, a value from config — so later scans in this process skip it. Claiming one this lease already holds, or one another lease holds, is a no-op: a lease only ever releases what it added itself.
     void TakeSpecific(int port)
-  // A reactive version of the protocol GlobalState: each property is wrapped in a Reactive so a UI binding to it updates only when the value changes.
-  class ReactiveGlobalState
-    ctor()
-    // Empty outside a cloud run.
-    Reactive<string> AppSessionId { get; }
-    Reactive<Dictionary<string, GlobalState.AudioStreamState>> AudioStreams { get; }
-    // Keyed by client session id; each Context carries that client's user id, device, viewport, and locale.
-    Reactive<Dictionary<int, Context>> Clients { get; }
-    Reactive<bool> DebugMode { get; }
-    // The current first human user; reassigned when that user leaves. Contrast PrimaryUserId, which is fixed.
-    Reactive<string> FirstUserId { get; }
-    // Keyed by client session id.
-    Reactive<Dictionary<int, List<ActionFunctionRegister>>> Functions { get; }
-    Reactive<string> IkonServerId { get; }
-    Reactive<string> OrganisationName { get; }
-    // The session owner from server config, fixed for the session's lifetime; used for user-specific asset storage paths.
-    Reactive<string> PrimaryUserId { get; }
-    // True when the app is being run through publicly accessible endpoints in local development.
-    Reactive<bool> PublicAccess { get; }
-    Reactive<ServerRunType> ServerRunType { get; }
-    Reactive<string> SessionIdentityHash { get; }
-    Reactive<string> SessionUrl { get; }
-    Reactive<string> SpaceId { get; }
-    Reactive<string> SpaceName { get; }
-    Reactive<string> SpaceUrl { get; }
-    Reactive<Dictionary<string, GlobalState.UIStreamState>> UIStreams { get; }
-    Reactive<Dictionary<string, GlobalState.VideoStreamState>> VideoStreams { get; }
-    Context? GetClientContext(int clientSessionId)
-    // The first connected client context of this user, or null when the user has none.
-    Context? GetClientContext(string userId)
-    IEnumerable<Context> GetHumanClients()
-    // One context per distinct AuthSessionId — a user with multiple clients contributes only the first by iteration order.
-    IEnumerable<Context> GetUniqueAuthClientContexts()
-    // One human context per distinct AuthSessionId — a user with multiple clients contributes only the first by iteration order.
-    IEnumerable<Context> GetUniqueHumanAuthClientContexts()
-    // Updates from a new GlobalState; only the reactive properties whose value actually changed trigger notifications.
-    void UpdateFrom(GlobalState newState)
