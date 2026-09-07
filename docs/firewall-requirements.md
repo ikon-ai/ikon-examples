@@ -25,9 +25,13 @@ Outbound only, from user devices. No inbound rules and no VPN are required.
 | `*.ikon-app.ikonai.app` | 9000–19999 | TCP and UDP | App streaming (preferred) |
 | `*.ikon-app.ikonai.app` | 443 | TCP | App streaming (proxy fallback) |
 | `*.ikon-turn.ikonai.app` | 443 | TCP and UDP | Audio and video streaming (proxy fallback) |
+| `storage.googleapis.com` | 443 | TCP | Files the app shows you that are not public, fetched through time-limited links |
 
 If the app is served on your own domain instead of `ikonai.app`, replace the first row with that
-address. The other three rows do not change.
+address. The streaming and media rows do not change.
+
+If the app's operator keeps its files in storage of their own, the last row becomes that storage's
+address instead. Ask the operator for it.
 
 ## Before you write the rules
 
