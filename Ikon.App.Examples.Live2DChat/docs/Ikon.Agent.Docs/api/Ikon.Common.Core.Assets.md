@@ -74,7 +74,7 @@ namespace Ikon.Common.Core.Assets
     string[]? Tags { get; }
     string? Url { get; }
     bool? UrlIsTemporal { get; }
-  // Only the AssetClass.LocalFile and AssetClass.EmbeddedFile storages list at all, and they honour different fields: EffectiveFolderPrefix always filters; Limit caps the embedded-file listing only; Tags, ContinuationToken and NextContinuationToken are reserved for the cloud storages and are ignored today, so setting them still yields the full, unfiltered listing.
+  // Only the AssetClass.LocalFile and AssetClass.EmbeddedFile storages list at all, and they honour different fields: EffectiveFolderPrefix always filters; Limit caps the embedded-file listing only; Tags and ContinuationToken are reserved for the cloud storages and are ignored today, so setting them still yields the full, unfiltered listing.
   sealed class AssetQuery
     ctor(AssetClass assetClass)
     ctor(AssetUri folderUri)
