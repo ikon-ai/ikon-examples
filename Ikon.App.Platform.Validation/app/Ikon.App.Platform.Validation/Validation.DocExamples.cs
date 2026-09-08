@@ -591,6 +591,16 @@ public partial class Validation
         _ = (exists, metadata);
     }
 
+    private static async Task DocAssetExpiryAsync(string key, byte[] bytes, string spaceId)
+    {
+        #region docsnippet:asset-temporary-expiry
+        await Asset.Instance.SetBytesAsync(
+            new AssetUri(AssetClass.CloudFile, $"exports/{key}/report.csv", spaceId: spaceId),
+            bytes,
+            new AssetMetadata(mimeType: "text/csv", expiresAt: DateTime.UtcNow.AddHours(6)));
+        #endregion
+    }
+
     private static async Task DocAssetListingAsync(AssetUri uri, AssetUri folderUri)
     {
         #region docsnippet:asset-listing
