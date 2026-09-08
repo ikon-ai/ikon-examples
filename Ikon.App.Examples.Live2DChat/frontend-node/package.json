@@ -17,7 +17,7 @@
     "@ikonai/sdk-react-ui-standard": "1.8.0",
     "@ikonai/sdk-ui": "1.8.0",
     "@naari3/pixi-live2d-display": "1.2.5",
-    "@simplewebauthn/browser": "13.3.0",
+    "@simplewebauthn/browser": "14.0.0",
     "pixi.js": "8.20.1",
     "react": "19.2.8",
     "react-dom": "19.2.8"
