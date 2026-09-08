@@ -16,7 +16,7 @@
     "@ikonai/sdk-react-ui": "^1.8.0",
     "@ikonai/sdk-react-ui-standard": "^1.8.0",
     "@ikonai/sdk-ui": "^1.8.0",
-    "@simplewebauthn/browser": "13.3.0",
+    "@simplewebauthn/browser": "14.0.0",
     "leaflet": "1.9.4",
     "react": "19.2.8",
     "react-dom": "19.2.8"
