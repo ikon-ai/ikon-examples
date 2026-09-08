@@ -188,7 +188,7 @@ The `EmergePass<T>` configure callback is invoked on every iteration, giving acc
 
 ### BestOf — Score and Select Best
 
-Run N independent attempts (sequentially, one after another) and select the best result based on a scoring function. Always provide `opt.Score` or `opt.ScoreDetailed` — without one, every candidate scores 0 and the first candidate is returned after paying for all N runs.
+Run N independent attempts (sequentially, one after another) and select the best result based on a scoring function. Always provide `opt.Score`, `opt.ScoreAsync` or `opt.ScoreDetailed` — without one, every candidate scores 0 and the first candidate is returned after paying for all N runs. When the candidates are prose, score them with a judge model through `ScoreAsync` rather than with word counts or character bands, which read every language differently.
 
 <!-- ikon-code: emergence-bestof -->
 ```csharp
@@ -209,7 +209,9 @@ var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
 **Options:**
 - `Count` - Number of candidates (default: 3)
 - `Score` - Scoring function `Func<T, EmergenceTrace, double>`
+- `ScoreAsync` - Awaited scoring function `Func<T, EmergenceTrace, Task<double>>`, the shape a judge model call takes (takes precedence over `Score`)
 - `ScoreDetailed` - Multi-axis scoring `Func<T, EmergenceTrace, ScoreBreakdown>`; ranks by `TotalScore` and passes the breakdown to `BuildCriticFeedback` (takes precedence over `Score`)
+- `ScoreDetailedAsync` - `ScoreDetailed` as an awaited call `Func<T, EmergenceTrace, Task<ScoreBreakdown>>`, the shape a judge model's rubric takes (takes precedence over every other scorer)
 - `Candidate(Action<CandidateScope<T>>)` - Configure each candidate (has `Index`, `Seed`)
 - `EnableCritic` - Run a critic pass over the winning candidate (default: false). On its own it works: the winner and its score are appended to the critic scope's `Command`
 - `Critic(Action<EmergeScope<T>>)` - Configure the critic scope. Calling this also sets `EnableCritic = true`, so a configured critic always runs; set `EnableCritic = false` afterward only if you are pre-configuring a critic to toggle on later
