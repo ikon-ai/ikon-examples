@@ -107,6 +107,35 @@ public async Task Main()
 
 `ThemeExtensions` reads the calling client's choice off a `Context` — `clientContext.IsDarkTheme()`, which is false for the light theme, for custom theme names, and for a client that has not reported one, and `theme.ToThemeName()` for the string form. `ThemeControl.Current` is a `ClientReactive<Theme>` bindable in views; `ToggleAsync`/`SetAsync` flip the calling client and push the change to it. By default a joining client that already has a saved theme keeps it (`followClient: true`).
 
+### When an Action Handler Throws
+
+An `onClick`, `onValueChange` or `onSubmit` handler that throws is logged, and the client is told the call failed — but nothing is rendered for the person who clicked unless the app does it. Subscribe `UI.ActionFailedAsync` once in `Main` to show one message for every failed handler instead of wrapping each one:
+
+<!-- ikon-code: px-when-an-action-handler-throws -->
+```csharp
+private readonly ClientReactive<string?> _actionFailed = new(null);
+
+public async Task Main()
+{
+    // Runs inside the failed handler's client scope, so the ClientReactive write lands on the
+    // person who clicked. Show your own line — the exception's text is for the log.
+    UI.ActionFailedAsync += args =>
+    {
+        _actionFailed.Value = "That change could not be saved — please try again.";
+        return Task.CompletedTask;
+    };
+
+    UI.Root([Page.Default], content: view =>
+    {
+        view.Toast(open: _actionFailed.Value != null,
+            onOpenChange: async open => _actionFailed.Value = open ? _actionFailed.Value : null,
+            title: "Something went wrong", description: _actionFailed.Value ?? "");
+    });
+}
+```
+
+`ActionFailedEventArgs` carries the `Exception`, the `ClientContext`, the `ActionId` and the handler's `CallSite`. An app whose own exception type carries text written for the person can render that message and fall back to the generic line for everything else. The failure is still reported to the client afterwards, and a subscriber that throws is logged without stopping that report. Pair it with handlers that clear their form only after the save succeeded, so a retry is press-again rather than type-it-again.
+
 ## Reactive State
 
 ### Shared, Per-Client, Per-User, Per-Mount
