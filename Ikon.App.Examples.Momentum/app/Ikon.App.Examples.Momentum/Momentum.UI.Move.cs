@@ -44,16 +44,13 @@ public partial class MomentumApp
     #region Idle
 
     /// <summary>
-    /// The landing screen: a name and a way to start, and nothing else.
+    /// The landing screen. Deliberately almost empty: the only action lives in the tab bar, where it
+    /// cannot scroll out of reach, so repeating it here would just be the same button twice.
     ///
     /// It used to open on a headline, a paragraph and three cards explaining the app. Someone about to
     /// go running is standing outside holding their phone — they are not reading, and every line
     /// between them and the button is a line in the way. What the app can do is worth saying once
     /// somewhere else; here it needs to be one tap.
-    /// </summary>
-    /// <summary>
-    /// The landing screen. Deliberately almost empty: the only action lives in the tab bar, where it
-    /// cannot scroll out of reach, so repeating it here would just be the same button twice.
     /// </summary>
     private void RenderIdle(UIView view, RecordingState state)
     {

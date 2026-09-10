@@ -24,10 +24,6 @@ public partial class MomentumApp
 
     private const double LiveDetectorIntervalSeconds = 15;
 
-    /// <summary>
-    /// Fifty hertz resolves a footfall comfortably — a sprinter's stride is about three a second, and
-    /// Nyquist wants well above six. Half-second batches keep it to two calls a second.
-    /// </summary>
     /// <summary>What is being recorded right now, for the paths that arm a device after the start.</summary>
     private ActivityKind ActiveKind
     {
@@ -48,6 +44,9 @@ public partial class MomentumApp
     /// Only twelve a second go over the wire. That is ample for the cadence on the live screen — a
     /// sprinter's stride is about three a second — and it is the difference between spending 21 MB an
     /// hour of the rider's own data and spending about 2.
+    ///
+    /// Fifty hertz resolves a footfall comfortably — a sprinter's stride is about three a second, and
+    /// Nyquist wants well above six. Half-second batches keep it to two calls a second.
     /// </summary>
     private static MotionOptions MotionOptionsFor(ActivityKind kind) => new(
         Hertz: 50,
@@ -141,15 +140,6 @@ public partial class MomentumApp
         _frame.Value++;
     }
 
-    /// <summary>
-    /// Asks every one of the rider's connected devices to start streaming, and lets the first one to
-    /// produce a usable fix become the recorder for the rest of the outing.
-    ///
-    /// The rider is one person with one instance of this app, and the device they press Start on is
-    /// very often not the device in their pocket — pressing it on a laptop and having the phone record
-    /// is the behaviour they expect, not an error. Locking onto the first device to answer is what
-    /// keeps that from turning into two tracks braided together.
-    /// </summary>
     /// <summary>
     /// Ticks once a second until the first fix lands. Nothing else bumps the frame before then — the
     /// recorder has had nothing to record — so without this the waiting screen would freeze on the
@@ -369,6 +359,15 @@ public partial class MomentumApp
         }
     }
 
+    /// <summary>
+    /// Asks every one of the rider's connected devices to start streaming, and lets the first one to
+    /// produce a usable fix become the recorder for the rest of the outing.
+    ///
+    /// The rider is one person with one instance of this app, and the device they press Start on is
+    /// very often not the device in their pocket — pressing it on a laptop and having the phone record
+    /// is the behaviour they expect, not an error. Locking onto the first device to answer is what
+    /// keeps that from turning into two tracks braided together.
+    /// </summary>
     private async Task StartDeviceTrackingAsync()
     {
         var sessions = app.Clients.Ids.ToList();
