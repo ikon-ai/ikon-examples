@@ -294,7 +294,7 @@ Recurring hallucination + footgun classes from generated Ikon apps. Each compile
 
 ## API Reference Guides
 
-Detailed API docs are available in `docs/Ikon.Agent.Docs/guides/`. Each guide covers a specific topic:
+Topic guides live in `docs/Ikon.Agent.Docs/guides/`. Each covers one subject:
 
 - **app-structure** (`docs/Ikon.Agent.Docs/guides/app-structure.md`): app file structure, session identity, client parameters, partial class, global usings, lifecycle, host services, navigation, background work, client functions, messages, minimal app template, viewport layout, auto-scroll, QR code, join URL, multi-user session, invite link
 - **csharp-primer** (`docs/Ikon.Agent.Docs/guides/csharp-primer.md`): C# 14, modern C#, dictionary literal, collection expression, primary constructor, raw string literal, async, await, ValueTask, IAsyncEnumerable, target typing, nullable reference types, records, pattern matching, file-scoped namespace, top-level statements, modern idioms, enterprise patterns, abstractions, factory, IUnitOfWork, dependency injection, mock, interface, abstract base class, syntax error, CS1003, CS1525, CS1026, CS0173, CS8917, CS0234
@@ -341,6 +341,20 @@ Detailed API docs are available in `docs/Ikon.Agent.Docs/guides/`. Each guide co
 - **pipelines-reference** (`docs/Ikon.Agent.Docs/guides/pipelines-reference.md`): pipeline API, transform, processor, pipeline guide
 - **frontend-fundamentals** (`docs/Ikon.Agent.Docs/guides/frontend-fundamentals.md`): frontend, SDK, auth, connection, i18n, styling, query params, custom UI component, module, resolver, React, magic link login email template, emails folder
 - **config-and-cli** (`docs/Ikon.Agent.Docs/guides/config-and-cli.md`): ikon-config.toml, CLI commands, build, deploy, run, auth, activation, targets
+
+
+## API Signatures
+
+Exact signatures for every public platform type live in `docs/Ikon.Agent.Docs/api/`, one file per namespace (`Ikon.Parallax.Components.Standard.md`, `Ikon.App.md`, …), with a `~2`, `~3` suffix where one namespace needs several. These are generated from the compiled assemblies, so they are the authority on a parameter list, a default value or a return type whenever a guide and a signature disagree.
+
+Grep that directory by type or member name before guessing a signature — it is what turns a CS1739 or CS1061 into a one-line fix.
+
+
+## Code Patterns
+
+`docs/Ikon.Agent.Docs/patterns/` holds short, self-contained patterns lifted from production Ikon AI Apps, each one compiled against the real assemblies and render tested, so a pattern cannot drift from the API it uses.
+
+Start at `docs/Ikon.Agent.Docs/patterns/_index.md`, which groups every pattern by the task it solves. Adapting the closest pattern is faster and safer than writing a screen or a flow from scratch.
 
 
 <!-- ikon-user-content-below -->
