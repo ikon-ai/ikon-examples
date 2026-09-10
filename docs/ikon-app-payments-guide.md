@@ -1,5 +1,5 @@
 # Ikon.App.Payments Guide
-
+<!-- checked-against: 204275c07379e9d5 -->
 Charge your app's end users — subscriptions, one-off payments, refunds — without owning a payments
 backend. The **Ikon backend** owns the payment store, drives the provider (Stripe, Mollie, or Surfboard,
 chosen at enable time), ingests provider webhooks, and **pushes normalized events to your app**. Your app
@@ -310,7 +310,10 @@ your Buy button on `IsEntitled(offerId)` and hide or disable it when the custome
 
 Inside a UI render you can't `await`, and you must not make a backend call every frame. Use
 `app.Payments.IsEntitled(offerId)` — a **synchronous, cached, no-backend-call** check safe to read every
-render:
+render. It is `true` only for a confirmed entitlement; before the first backend answer arrives, and
+when that answer failed, it is `false`. `CheckEntitlement(offerId)` returns the three-way
+`EntitlementState` (`Unknown` / `Entitled` / `NotEntitled`) so a gate can render "checking…" instead
+of a locked feature while the answer is on its way:
 
 <!-- ikon-code: payments-entitlement -->
 ```csharp

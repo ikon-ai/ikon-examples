@@ -1,4 +1,5 @@
 # Ikon AI TypeScript SDK
+<!-- checked-against: aa24b86a17f12f0c -->
 
 The Ikon AI TypeScript SDK provides a way to connect to Ikon AI App from browser and Node.js applications. It supports modern browsers with ES2020+ and Node.js 18+.
 

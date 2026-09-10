@@ -1,12 +1,12 @@
 # Ikon Connectors Developer Guide
-
+<!-- checked-against: 5809f0de205f734d -->
 This guide covers the connector libraries — `Ikon.Connectors` (Slack, GitHub), `Ikon.Connectors.Google` (Drive, Gmail), and `Ikon.Connectors.Browser` (agentic and scripted web automation) — for app developers wiring external services into an Ikon app.
 
 ## Overview
 
 Each connector is a **raw** client for one external service: a thin, typed wrapper over the service's API with no agent coupling. For agent tool use, each connector has a matching `Skill` (`SlackSkill`, `GitHubSkill`, `DriveSkill`, `GmailSkill`, `BrowserSkill`) that wraps it — construct the connector, pass it to the skill, and register the skill on a persona. This guide focuses on the raw connectors; each skill exposes a curated SUBSET of its connector's operations as tools (for example `SlackSkill` offers post + history only, `GmailSkill` send + list without message bodies) — check the skill's `Tools()` before relying on a capability, and note that registering `GitHubSkill` grants the agent authority to create issues, comment, and merge pull requests with no confirmation gate.
 
-All connectors report failures with `ConnectorException` (from `Ikon.Connectors`). It carries `Provider` (`"slack"`, `"github"`, `"gmail"`, `"drive"`, `"browser"`) and, when the failure was an HTTP error, `StatusCode`. Branch on `StatusCode` to distinguish a permanent `401`/`403` — the credential is bad or revoked, so surface a "reconnect required" state instead of retrying — from a transient failure worth retrying:
+All connectors report failures with `ConnectorException` (from `Ikon.Connectors`). It carries `Provider` (`"slack"`, `"github"`, `"gmail"`, `"drive"`, `"browser"`) and, when the failure was an HTTP error, `StatusCode`. Branch on `StatusCode` to distinguish a permanent `401`/`403` — the credential is bad or revoked, so surface a "reconnect required" state instead of retrying — from a transient failure worth retrying (GitHub `403` needs one more check — see below):
 
 <!-- ikon-code: connectors-errors -->
 ```csharp
@@ -25,6 +25,10 @@ catch (ConnectorException)
 ```
 
 The Slack and GitHub connectors honor rate limits on their JSON API calls: a `429` is retried up to three times, waiting the server's `Retry-After` (bounded at two minutes), before it surfaces as a `ConnectorException`. Three methods bypass that retry and fail immediately on a `429` — `GitHub.GetPullRequestDiffAsync`, `GitHub.MergePullRequestAsync`, and `Slack.DownloadFileAsync` — so wrap those yourself when rate limiting matters.
+
+GitHub is the exception to the `403` rule above: it answers a primary or secondary rate limit with `403` as well, and the connector does not retry those. The response body is in `Message` (`"API rate limit exceeded"`, `"secondary rate limit"`), so for `Provider == "github"` treat a `403` as a dead credential only when the message does not name a rate limit; otherwise retry after the limit resets.
+
+One more exception type exists, and it is not a failure: the paged reads (`Slack.HistorySinceAsync`, `Slack.ListConversationsAsync`, `GitHub.ListIssuesSinceAsync`) each take a `maxPages` bound, and a call that reaches it with the service still holding more throws `ConnectorPageCapException<T>` — carrying the `Items` it did read and a `ResumeFrom` point — rather than handing back a shortened list as if it were complete. Each method's section below says what `ResumeFrom` means for it, because Slack and GitHub page in opposite directions. The platform's own backend listings (`IkonBackend` — spaces, databases, billing rows, release notes, everything an `ikon` verb or Studio lists) follow the same rule with `BackendPageCapException<T>`: a `maxResults` window that fills while the backend reports more throws with the `Items` read, the `TotalCount`, and the `NextCursor`, never a shortened list as the total.
 
 ## Slack
 
@@ -48,7 +52,7 @@ The returned `SlackMessage` is **synthesized locally** from the request, not fet
 
 Slack timestamps (`Ts`, `ThreadTs`, `oldestTs`) are **raw Slack `ts` strings** (e.g. `"1727694230.000200"`), not `DateTime`s. Treat them as opaque ordered cursors and pass them back verbatim.
 
-`HistoryAsync(channel, limit)` fetches one page of recent messages. `HistorySinceAsync(channel, oldestTs)` fetches every message with `ts > oldestTs`, following pagination to completion and returning the result **oldest-first**, so a caller that advances a cursor per message never leaves a gap:
+`HistoryAsync(channel, limit)` fetches one page of recent messages. `HistorySinceAsync(channel, oldestTs)` fetches every **top-level** message with `ts > oldestTs`, following pagination to completion and returning the result **oldest-first**, so a caller that advances a cursor per message never leaves a gap in the channel's own timeline:
 
 <!-- ikon-code: connectors-slack-history -->
 ```csharp
@@ -61,11 +65,13 @@ foreach (var message in messages)
 }
 ```
 
-Paging is bounded by `maxPages` (default 50 pages of `pageLimit` 200). Because Slack pages **backward in time**, when the bound trips it is the **oldest** messages that are missing — the returned list covers the most recent span only. If a backfill can exceed the bound, raise `maxPages` or advance the cursor and call again.
+**In-thread replies are not in that result, and nothing reports their absence.** Both methods call `conversations.history`, which returns only the messages posted to the channel itself; a reply posted inside a thread is reached by `conversations.replies` on its parent's `ThreadTs`, and this connector does not call it. So a channel feed built on `HistorySinceAsync` alone silently drops every threaded reply, however far the cursor advances. A message that owns a thread carries its own `ts` as `ThreadTs` — fetch each such thread yourself if replies matter to you.
+
+Paging is bounded by `maxPages` (default 50 pages of `pageLimit` 200), and the bound is never silent: when it trips with Slack still reporting a `next_cursor`, the call throws `ConnectorPageCapException<SlackMessage>` instead of returning. The exception carries the messages it did read as `Items` (oldest-first, same as a normal result) and the oldest of their `ts` values as `ResumeFrom`. Because Slack pages **backward in time**, the span in hand is the most recent one and the unread messages sit **below** `ResumeFrom` — so ingest `Items` if they are useful, but do not move your cursor past the `oldestTs` you called with; the only way to close the gap is to call again with a larger `maxPages`. A caller that stays under the bound sees no exception at all.
 
 ### Conversations and files
 
-`ListConversationsAsync` returns every public and private channel the token can see, paged to completion; `GetConversationAsync(channelId)` fetches one. Both hand back `SlackConversation` records — `Id`, `Name`, `IsMember`, and the three shape flags `IsPrivate`, `IsIm` and `IsMpim` that separate a channel from a DM or a group DM. A file shared into a message arrives as a `SlackFile` (`Id`, `MimeType`, and a `DownloadUrl` that is null when the token cannot fetch it). `DownloadFileAsync(url)` downloads a shared file's `url_private_download`; the bot token is attached only for Slack-owned hosts, so a URL parsed out of untrusted message text can never leak the token to another server.
+`ListConversationsAsync` returns the public and private channels the token can see, paging up to `maxPages`; a workspace with more channels than the cap admits gets a `ConnectorPageCapException<SlackConversation>` carrying the channels read so far as `Items` and the next page cursor as `ResumeFrom`, never a shortened list presented as the total — raise `maxPages` for such a workspace. `GetConversationAsync(channelId)` fetches one. Both hand back `SlackConversation` records — `Id`, `Name`, `IsMember`, and the three shape flags `IsPrivate`, `IsIm` and `IsMpim` that separate a channel from a DM or a group DM. A file shared into a message arrives as a `SlackFile` (`Id`, `MimeType`, and a `DownloadUrl` that is null when the token cannot fetch it). `DownloadFileAsync(url)` downloads a shared file's `url_private_download` with the bot token. It fetches Slack-owned hosts only (`slack.com` and subdomains); any other URL — e.g. one parsed out of untrusted message text — throws `ArgumentException` without a request, so the token can never leak to another server.
 
 ### Socket Mode
 
@@ -91,7 +97,7 @@ var commentUrl = await gitHub.CommentAsync("ikon-ai/examples", 42, "Reproduced o
 
 ### Listing by update time
 
-`ListIssuesSinceAsync(repo, since)` returns every issue **and pull request** updated after `since` (an ISO-8601 timestamp, e.g. `"2026-01-01T00:00:00Z"`), ordered by update time ascending and paged to completion (bounded by `maxPages`). The GitHub issues API includes pull requests; `GitHubIssue.IsPullRequest` tells them apart.
+`ListIssuesSinceAsync(repo, since)` returns every issue **and pull request** updated after `since` (an ISO-8601 timestamp, e.g. `"2026-01-01T00:00:00Z"`), ordered by update time ascending and paged to completion. Paging is bounded by `maxPages` (default 50 pages of 100), and reaching the bound with a full last page throws `ConnectorPageCapException<GitHubIssue>` rather than returning a shortened list: `Items` holds the pages read (ascending and gap-free, so they are safe to process) and `ResumeFrom` is the newest `UpdatedAt` among them — pass it back as the next `since` to continue. The GitHub issues API includes pull requests; `GitHubIssue.IsPullRequest` tells them apart.
 
 `GitHubIssue.UpdatedAt` is the raw ISO-8601 string exactly as GitHub returned it. It is an **opaque cursor**: feed it back as the next `since` without parsing or reformatting it — a round-trip through `DateTime` can change the text and break resume-from-cursor paging.
 
@@ -265,7 +271,7 @@ if (replay.Ok)
 }
 ```
 
-Distillation keeps only the steps that succeeded and parameterizes each filled field into a named input slot (`WebFlow.Inputs`); slot names are slugs of the field's accessible name (`"Password"` becomes `password`). A `Fill` marked `Secret` is stored **redacted** everywhere the trace is persisted — the step trace, the distilled flow JSON, logs — so the flow never carries the credential. That means every secret slot **must** be supplied in `inputs` at replay: a missing one fails upfront with `ConnectorException` rather than typing the redaction placeholder into the field. Replay failures are ordinary results, not exceptions — check `WebReplay.Ok`.
+Distillation keeps only the steps that succeeded and parameterizes each filled field into a named input slot (`WebFlow.Inputs`); slot names are slugs of the field's accessible name (`"Password"` becomes `password`). A `Fill` marked `Secret` is stored **redacted** everywhere the trace is persisted — the step trace, the distilled flow JSON, logs — so the flow never carries the credential. That means every slot **must** be supplied in `inputs` at replay — a missing one, secret or not, fails upfront with `ConnectorException` rather than typing a recorded or placeholder value into the field, and a key that names no slot is rejected the same way, so a misspelt input can never be silently ignored. Replay failures are ordinary results, not exceptions — check `WebReplay.Ok`.
 
 `WebFlowDistiller.Distill` and `WebFlowPlayer.ReplayAsync` are the underlying pieces if you need to replay on a `BrowserSession` you manage yourself.
 

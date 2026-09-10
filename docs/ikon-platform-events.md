@@ -1,5 +1,5 @@
 # Ikon Platform Events
-
+<!-- checked-against: 8bf0ab1ca594f88d -->
 Structured analytics events the platform records as your app runs — servers starting, clients
 joining and leaving, apps initialising, calls failing, models being invoked. Your app can add its
 own with `Log.Instance.Event(name, payload)`, and they appear alongside these.
@@ -91,11 +91,13 @@ Log.Instance.Event("invoice_export_failed", new
 `UserType`, `PayloadType`.
 
 It is a deliberate subset — the `Context` also carries `UserAgent`, `ClientType`, `DeviceId`,
-viewport dimensions and more, none of which are projected. Every value in it originates from
-`ClientEnvironment`, which the client sends unsigned and which the server copies verbatim: it is
-what the client *says about itself*, never an attested fact. `Timezone` (an IANA zone name such as
-`Europe/Helsinki`) is therefore a coarse geography hint, not a location — a VPN, a misconfigured
-device or a client that simply lies all report the wrong one.
+viewport dimensions and more, none of which are projected. Three of its values come from the signed
+connect token the backend minted — `AuthSessionId`, `ContextType` and `UserType` — and are attested.
+The rest (`Description`, `ProductId`, `VersionId`, `InstallId`, `Locale`, `Timezone`,
+`PayloadType`) originate from `ClientEnvironment`, which the client sends unsigned and which the
+server copies verbatim: they are what the client *says about itself*, never an attested fact.
+`Timezone` (an IANA zone name such as `Europe/Helsinki`) is therefore a coarse geography hint, not
+a location — a VPN, a misconfigured device or a client that simply lies all report the wrong one.
 
 Successful authentication is not a separate event — it is implied by `client_joined`, which follows
 it within milliseconds. User-level lifecycle is derived from the client events: `firstSessionOfUser`

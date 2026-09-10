@@ -1,5 +1,5 @@
 # Session issues
-
+<!-- checked-against: 9e50e64a6dc965de -->
 Session issue analysis turns your app's warning and error logs into a short list of named problems
 you can act on, without reading a log. It is off by default; a space admin switches it on with
 `ikon app issues enable`. Analysis runs use AI models billed to your space, and
@@ -52,9 +52,9 @@ evidence.
   either nothing is wrong or nothing has run yet, and only the run history tells them apart.
 - **Platform events** — a `session_issue_opened` event accompanies every new issue, so you can
   drive your own alerting from `ikon app events` or the events API.
-- **Email digest** — off by default. `ikon app issues digest enable` sends one email per day to
-  your organisation's admins, only when there is something new, with counts and titles only;
-  `ikon app issues digest disable` stops it.
+- **Email digest** — off by default. `ikon app issues digest enable` sends one email per day per
+  app to your organisation's admins, only when issues have opened or escalated in it, with counts
+  and titles only; `ikon app issues digest disable` stops it.
 
 ## Cadence and cost
 

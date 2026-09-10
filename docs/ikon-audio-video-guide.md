@@ -1,5 +1,5 @@
 # Ikon Audio & Video Guide
-
+<!-- checked-against: 725ed4ee6941a8cb -->
 How an Ikon AI app's C# app class plays audio to clients, receives microphone and camera streams, transcribes speech, and mixes group calls. Read this if your app makes sound, listens, or handles video.
 
 ## Setup: construct the services in a field initializer
@@ -37,7 +37,7 @@ await Audio.PlayClipAsync(MediaTargets.Everyone, samples, sampleRate, channelCou
 await Audio.SendFrameAsync(MediaTargets.Everyone, samples, sampleRate, channelCount, isFirst, isLast, streamId);
 ```
 
-`SpeakAsync` returns when the utterance is queued; `SpeakAndWaitAsync` completes when playout finishes (an interruption by a newer call completes it quietly). Both take optional `model` (default `SpeechGeneratorModel.ElevenFlash25`), `voice`, `instructions`, and `speed`. To generate speech *without* playing it, use the one-shot `await SpeechGenerator.GenerateAsync(text)`, which returns a PCM `AudioChunk`.
+`SpeakAsync` returns when the utterance is queued; `SpeakAndWaitAsync` completes when playout finishes (an interruption by a newer call completes it quietly). Both throw `TimeoutException` when the playout pipeline stops draining while unpaused, and `SpeakAndWaitAsync` throws when the mixer abandons the utterance — an utterance that never played is never reported as one that did. Both take optional `model` (default `SpeechGeneratorModel.ElevenFlash25`), `voice`, `instructions`, and `speed`. To generate speech *without* playing it, use the one-shot `await SpeechGenerator.GenerateAsync(text)`, which returns a PCM `AudioChunk`.
 
 ### The lane is in the name
 
@@ -154,9 +154,14 @@ Audio.SpeechNotRecognizedAsync += async args =>
 `SpeechRecognizedEventArgs.Transcript` carries the full result — pass
 `timestamps: SpeechTimestamps.Word` (or `Segment`) to `UseSpeechRecognition` / `UseTurnDetection` and
 `args.Transcript.Words` is populated, with offsets relative to the start of the recognized segment
-rather than of the stream. It defaults to `None`, and `args.Text` is unchanged either way.
+rather than of the stream. It defaults to `None`, and `args.Text` is unchanged either way. Not every
+model can produce them: check `SpeechRecognizer.GetCapabilities(model).SupportsWordTimestamps` (or
+`SupportsSegmentTimestamps`) first, because an unsupported granularity fails recognition of every
+segment — `SpeechNotRecognizedAsync` fires with `Reason == Error` instead of `SpeechRecognizedAsync`.
 
-Exactly one of `SpeechRecognizedAsync` / `SpeechNotRecognizedAsync` fires per completed segment. If you latch busy state when capture stops (a "Transcribing..." spinner, a disabled button), release it in **both** handlers — handling only the success event leaves the spinner stuck for any press that produced no speech.
+Exactly one of `SpeechRecognizedAsync` / `SpeechNotRecognizedAsync` fires per completed segment, and
+per detected turn: a turn that produced no transcript reaches `SpeechNotRecognizedAsync` with
+`args.TurnId` naming it, rather than being dropped. If you latch busy state when capture stops (a "Transcribing..." spinner, a disabled button), release it in **both** handlers — handling only the success event leaves the spinner stuck for any press that produced no speech.
 
 `SpeechRecognizedAsync` never fires unless `UseSpeechRecognition` (or `UseTurnDetection`) was called once at setup. Calling either twice, or both, throws `InvalidOperationException`.
 
@@ -210,7 +215,7 @@ Audio.SpeakChunk(MediaTargets.Everyone, chunk);
 Two traps:
 
 - The parameterless constructor exists only for the serializer. An object initializer that skips fields leaves `SampleRate` and `ChannelCount` at `0`, and `SpeakChunk` throws `ArgumentException` synchronously for such a chunk — inside whatever handler called it, so an unguarded call takes the handler down.
-- The `Id` identifies the *speech event*. Chunks sharing an id are appended to one utterance; a **new** id interrupts the current utterance with a fade. Reusing the id of the utterance that just finished makes later chunks read as its tail and they are silently dropped; reusing an older id starts a new utterance that interrupts whatever is playing. One utterance, one unique id; a multi-chunk stream (e.g. streaming TTS) shares the id across its chunks with `isFirst`/`isLast` bracketing it.
+- The `Id` identifies the *speech event*. Chunks sharing an id are appended to one utterance; a **new** id interrupts the current utterance with a fade. A chunk carrying the id of an utterance that has already completed is dropped with a warning — unless it is marked `isFirst`, which starts a new utterance under that same id. Any id that is neither the current nor a completed one starts a new utterance and interrupts what is playing. One utterance, one unique id; a multi-chunk stream (e.g. streaming TTS) shares the id across its chunks with `isFirst`/`isLast` bracketing it.
 
 ## Group audio: calls and huddles
 

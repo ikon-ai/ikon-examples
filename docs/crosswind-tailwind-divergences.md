@@ -1,5 +1,5 @@
 # Crosswind ↔ Tailwind v4: deliberate divergences
-
+<!-- checked-against: 14a152a64249618d -->
 Crosswind's Tailwind compatibility is measured by a differential conformance
 harness (`Ikon.Crosswind.Test/Conformance/`, run with
 `IKON_RUN_TAILWIND_CONFORMANCE=1`) that compiles a ~1030-class corpus through

@@ -1,5 +1,5 @@
 # Running coding agents on your own machine
-
+<!-- checked-against: d23cedef02f0937b -->
 How to connect a computer of yours to an Ikon app's Tasks board, so tasks can run external coding
 agents — Claude Code, Codex, Gemini, Antigravity — on it. For app developers; everything here works
 with the `ikon` CLI you already have.
@@ -32,16 +32,16 @@ sessions but not share them).
 ## 2. Run the router from your repository checkout
 
 ```bash
-ikon codegen router --app https://your-app.example.com
+ikon codegen router https://your-app.example.com
 ```
 
-Run it in the checkout the agents should work in and leave it running in a terminal. The first
-connection asks you to confirm the app's space id. Useful options:
+The argument is the app to serve — its name, its URL, or its id — and defaults to the app project
+in the current directory. Run it in the checkout the agents should work in and leave it running in
+a terminal. The first connection asks you to confirm the app's space id. Useful options:
 
 | Option | What it does |
 |---|---|
-| `--app <name-or-url-or-id>` | The app to serve; defaults to the app project in the current directory |
-| `--space-id <id>` | The precise form of `--app` |
+| `--space-id <id>` | The precise form of the app argument |
 | `--name <label>` | How the machine appears on the board; defaults to the host name |
 | `--repo <path>` | Repository root the generators work in — the only tree the app may touch; defaults to the git root |
 | `--local-url <url>` | Connect to an app running locally with `ikon app run` instead of the cloud |

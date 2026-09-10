@@ -1,5 +1,5 @@
 # Authenticating the Ikon tool in CI
-
+<!-- checked-against: b30d9328aacbe846 -->
 How a build server, deployment pipeline, or any other automated caller authenticates the `ikon` tool. Read this if you deploy an Ikon app from CI rather than from your own terminal.
 
 ## The short version

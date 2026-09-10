@@ -1,3 +1,4 @@
+<!-- checked-against: ef7b408bdeba413a -->
 ﻿# Crosswind Motion Spec
 
 A Tailwind-inspired, class-based DSL to describe visual motion timelines and audio behaviors using only class strings. This spec defines **tokens, forms, and grammar**. It intentionally avoids runtime/implementation details.
@@ -125,6 +126,12 @@ All may be prefixed by variants and/or a track.
 * `motion-priority-<int>` or `motion-priority-[<int>]` (track precedence hint; syntax only)
 * `motion-promote` (boolean flag; force `will-change` emission for the track even when the auto rule would skip it for a one-shot animation)
 * `motion-no-promote` (boolean flag; skip `will-change` emission for the track even when the auto rule would promote it — opt-out for plentiful elements where the GPU-layer cost outweighs the start-up smoothness)
+
+The per-item stagger is emitted as one `nth-child` rule per position (`nth-last-child` for the
+`-reverse` variants) for 256 positions. Items past that, counted from whichever end the stagger runs
+from, carry the index-0 delay and animate in unison rather than continuing the stagger. Nothing at
+compile time can see the item count, so a longer run gets no warning — split it, or stagger a
+wrapper instead.
 
 Examples:
 

@@ -1,5 +1,5 @@
 # Teleport message schema specification
-
+<!-- checked-against: 0dbc08a18ad462b6 -->
 ## 1. Purpose
 
 The Teleport message schema defines the compile-time structure and version evolution of a Teleport message type.
@@ -657,7 +657,7 @@ public static void SendPooled(SavedLayout layout, Action<ReadOnlySpan<byte>> sen
 ```
 
 A malformed or truncated payload throws `TeleportException`, whose `Error` property is a
-`TeleportError` naming the failure (`BadType`, `InvalidUtf8`, `DepthExceeded`, and so on) so a
+`TeleportError` naming the failure (`BadType`, `InvalidUtf8`, `DepthOverflow`, and so on) so a
 handler can distinguish a corrupt frame from a version mismatch.
 
 ### Reading a Payload Directly

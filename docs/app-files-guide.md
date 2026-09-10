@@ -1,5 +1,5 @@
 # App Files Guide
-
+<!-- checked-against: dac6edc4818ef3cb -->
 How an Ikon AI app stores, ships, and serves files: two folders in the repo, one API at runtime,
 and automatic handling of binaries in git. Read this before adding images, media, datasets, or any
 other file to an app.
@@ -40,7 +40,9 @@ shipped file at the same path.
 | Written at runtime (public) | `await app.Files.Public.GetUrlAsync(path)` |
 | Written at runtime (private) | `app.Files.Data.ReadBytesAsync(path)` — or `GetUrlAsync` for a signed URL an external tool (ffmpeg, a webhook) can fetch |
 
-Paths are plain relative file paths — no leading slash, no `..`.
+Paths are plain relative file paths (`"thumbnails/42.png"`). A leading slash and backslashes are
+normalized away rather than rejected; an empty path, a trailing slash, or a `.`/`..`/empty segment
+throws `ArgumentException`.
 
 ## Binaries in git — nothing to run
 

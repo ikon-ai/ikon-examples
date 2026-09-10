@@ -1,5 +1,5 @@
 # Firewall requirements for Ikon AI apps
-
+<!-- checked-against: b05ab7bc33042681 -->
 For the network administrator opening access to an Ikon AI app. It lists everything that must be
 allowed, and nothing else is required. Nothing here needs a developer.
 

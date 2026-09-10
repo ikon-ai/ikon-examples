@@ -1,5 +1,5 @@
 # Ikon AI C# SDK
-
+<!-- checked-against: 4b310cf0436b29fd -->
 The Ikon AI C# SDK provides a simple way to connect to Ikon AI App from any .NET application. It supports .NET 10 and .NET Standard 2.1 (including Unity).
 
 ## Features
@@ -198,8 +198,8 @@ The client tracks its connection state via the `State` property:
 Helper extension methods are available:
 - `state.IsConnecting()` - True if `Connecting` or `Reconnecting`
 - `state.IsConnected()` - True if `Connected`
-- `state.IsOffline()` - True if `Idle` or `Offline` (covers the pristine initial state too, not just failures)
-- `state.IsFaulted()` - True only for `Offline` (a genuine failure) — use this, not `IsOffline`, to detect a dropped/failed connection
+- `state.IsDisconnected()` - True if `Idle` or `Offline` (covers the pristine initial state too, not just failures)
+- `state.IsFaulted()` - True only for `Offline` (a genuine failure) — use this, not `IsDisconnected`, to detect a dropped/failed connection
 
 ### Events
 
@@ -315,10 +315,16 @@ The SDK provides comprehensive audio support with automatic Opus encoding/decodi
 
 ### Sending Audio
 
-Send audio to the server:
+Send audio to the server. Like every send, it throws `InvalidOperationException` when the client is
+not connected — call it after `ReadyAsync` has fired, never from setup code:
 
 <!-- ikon-code: sdk-send-audio -->
 ```csharp
+// Default encoder options for every stream that sends no encoderOptions of its own. A
+// stream's encoder is created on its first SendAudioAsync and keeps the options in force
+// then, so set this before the first send — not after.
+client.DefaultEncoderOptions = new AudioEncoderOptions(bitrate: 48000, complexity: 8);
+
 // Get audio samples (float PCM, range [-1.0, 1.0])
 ReadOnlyMemory<float> samples = GetAudioSamples();
 
@@ -349,9 +355,6 @@ await client.SendAudioAsync(
         bitrate: 64000,
         complexity: 10
     ));
-
-// Set default encoder options for all audio
-client.DefaultEncoderOptions = new AudioEncoderOptions(bitrate: 48000, complexity: 8);
 ```
 
 ### Receiving Audio
@@ -367,8 +370,8 @@ client.AudioInputStreamBeginAsync += async e =>
     Console.WriteLine($"  Sample rate: {e.SampleRate}");
     Console.WriteLine($"  Channel count: {e.ChannelCount}");
 
-    // Optional: override sample rate (SDK will resample)
-    // e.SampleRate = 44100;
+    // Optional: choose the decode rate (Opus accepts 8, 12, 16, 24 or 48 kHz)
+    // e.SampleRate = 24000;
 
     // Optional: change streaming mode
     // e.StreamingMode = AudioInputStreamingMode.DelayUntilTotalDurationKnown;
@@ -512,6 +515,13 @@ public string LocalOnly() => "local";
 [Function(Visibility = FunctionVisibility.External)]
 public string SharedWithAll() => "shared";
 ```
+
+Registered inside an **Ikon AI App** rather than a standalone client, an `External` function is also
+expected to declare its auth posture — `[RequireLogin]`, `[RequireRole(...)]` or `[AllowAnonymous]`
+on the method, or a policy attached at registration time. The app's startup audit logs a warning for
+every `External` function with none of them, and throws instead when the app sets
+`<ExternalFunctionsRequireAuth>true</ExternalFunctionsRequireAuth>`. A standalone SDK client runs no
+such audit.
 
 Visibility can also be overridden where the instance is registered:
 

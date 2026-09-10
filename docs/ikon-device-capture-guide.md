@@ -1,5 +1,5 @@
 # Ikon Device Capture Guide
-
+<!-- checked-against: 6b3e77137617f009 -->
 How an Ikon app reads a phone's sensors, keeps a record when the network does not cooperate, shows a running activity on the lock screen, and receives files nothing on screen asked for. Four services, all reached from `app`, all designed for the case where the app is in a pocket rather than in front of someone.
 
 | Service | Reached by | What it is for |
@@ -9,11 +9,14 @@ How an Ikon app reads a phone's sensors, keeps a record when the network does no
 | `LiveActivityService` | `app.LiveActivity` | The iOS lock-screen banner, updating with the app closed |
 | `UploadService` | `app.Uploads` | Uploads no rendered component asked for |
 
-All four are default-implemented on the app interface and throw `NotSupportedException` on a host that cannot provide them, so a server-side test double does not have to implement any of them.
+All four are default-implemented on the app interface, so a server-side test double does not have
+to implement any of them. On a host that cannot provide one, the first three throw
+`NotSupportedException`; `LiveActivityService` does not — every call answers `false`, because a
+lock-screen banner is a nicety and its absence must never take an app down. Check the bool.
 
 ## Motion — what GPS cannot see
 
-Location answers *where*. Motion answers *how it is moving*, which is the thing a position trace cannot tell you: a speed trace cannot separate a collected canter from a fast trot, and it cannot see a swing, a gesture or a single step at all. Stride and rotation are in the accelerometer.
+Location answers *where*. Motion answers *how it is moving*, which is the thing a position trace cannot tell you: a speed trace cannot separate a collected canter from a fast trot, and it cannot see a swing, a gesture or a single step at all. Stride is in the accelerometer, rotation in the gyroscope — ask for both.
 
 <!-- ikon-code: device-motion -->
 ```csharp
@@ -91,7 +94,7 @@ await app.LiveActivity.StartAsync("Momentum", "#db176e",
     [new LiveMetric("0.00 km", "distance"), new LiveMetric("0:00", "moving")], "Run");
 
 await app.LiveActivity.UpdateAsync(metrics, status: "Run");
-await app.LiveActivity.EndAsync();
+await app.LiveActivity.EndEverywhereAsync();
 ```
 
 It carries **values, never layout**. One widget draws every app's banner, which is why this needs no per-app native code even though the banner itself cannot be Flutter — iOS renders it through WidgetKit from SwiftUI archived at update time.
@@ -101,7 +104,7 @@ It carries **values, never layout**. One widget draws every app's banner, which 
 - `title` is fixed for the life of the activity, usually the app's name; `status` is the tracked line above the metrics — a phase, a state, a kind.
 - `muted: true` is the paused or held look, which desaturates the accent.
 - Prefer `UpdateAsync` to a repeated `StartAsync`. A second start would orphan the first banner with numbers that never move again; the client folds a repeat start into an update, but calling the right one says what you meant.
-- **End it on client-left as well as when the activity finishes.** A banner left behind outlives the app and freezes at whatever it last said, on a screen the person cannot dismiss it from.
+- **End it with `EndEverywhereAsync` when the activity finishes.** A phone that reconnects — a dropped socket, a restarted app, a redeploy — comes back as a new session, so `EndAsync` aimed at the session that started the activity answers `false` and leaves the banner behind, frozen at whatever it last said on a screen the person cannot dismiss it from. `EndAsync(sessionId)` is for clearing one client on purpose.
 
 Every call answers `false` rather than throwing where a banner cannot be shown — a browser, an Android device, iOS below 16.2, a shell that predates the bridge. A banner is a nicety and its absence must never take an app down with it.
 

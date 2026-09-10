@@ -1,5 +1,5 @@
 # Ikon.App.Email Guide
-
+<!-- checked-against: b5f407692c6c66fe -->
 Send transactional email from your app and read the mail delivered to your app's space — through the
 platform mailer, with no SMTP credentials, provider account, or DNS setup in the app itself.
 `app.Email` (an `EmailService`) is the entry point; the space's organisation must have the **Email** feature enabled
