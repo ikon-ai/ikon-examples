@@ -1,5 +1,5 @@
 # Ikon.AI Library Overview
-<!-- checked-against: c4a4bf56a06cb892 -->
+<!-- checked-against: 67ccb1e9630a0616 -->
 This guide summarizes the principal namespaces in the Ikon.AI .NET library for developers building AI-enabled solutions. Each section outlines module responsibilities, supported models, and usage patterns verified by automated tests.
 
 ## Emergence
@@ -439,7 +439,6 @@ List<float> samples = [];
 var config = new SpeechGeneratorConfig
 {
     VoiceId = "ballad",
-    Language = "en-US",
     Instructions = "Speak like a angry pirate.",
     Text = "There once was a ship that put to sea. The name of that ship was a Billy of Tea."
 };
@@ -453,6 +452,10 @@ using var wavFile = new WavFile(speechGenerator.SampleRate, speechGenerator.Chan
 wavFile.AddSamples(samples.ToArray());
 wavFile.SaveToFile("speech.wav");
 ```
+
+Only some models read `Language`. The OpenAI TTS models take the language from the text itself and
+refuse a request that carries one rather than reading the clip in whatever language the text looked
+like — name the language in `Instructions` there instead.
 
 ## SpeechRecognition
 
