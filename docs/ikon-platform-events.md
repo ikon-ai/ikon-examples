@@ -1,5 +1,5 @@
 # Ikon Platform Events
-<!-- checked-against: 8bf0ab1ca594f88d -->
+<!-- checked-against: 5a0e6231fc582e69 -->
 Structured analytics events the platform records as your app runs — servers starting, clients
 joining and leaving, apps initialising, calls failing, models being invoked. Your app can add its
 own with `Log.Instance.Event(name, payload)`, and they appear alongside these.
@@ -387,7 +387,7 @@ as diagnostics, not as a billing record.
 
 ## User data erasure
 
-When a user's data is erased (GDPR erasure — see [User Data Erasure](ikon-user-data-erasure.md)), the backend delivers a durable erasure request to every space the user touched, and the app host raises the `OnUserDataErasure` hook:
+When a user's data is erased (GDPR erasure — see [User Data Erasure](ikon-user-data-erasure.md)), the backend delivers a durable erasure event once to every affected space, and the app host raises the `OnUserDataErasure` hook:
 
 <!-- ikon-code: user-data-erasure -->
 ```csharp
@@ -401,7 +401,10 @@ app.OnUserDataErasure(async userId =>
 Semantics:
 
 - **When it fires** — after the platform has re-erased the user's platform-managed state on the app side (`EraseUserStateAsync` — persistent user-scoped reactives and stored user-scope rows), once per id in the erased user's identity closure (merged accounts included). The user is not connected when it fires and no client/user reactive scope is active.
-- **At-least-once delivery** — the request is stored per space on the backend and redelivered on every session start until a run completes without throwing, so a cold or stopped app processes it whenever it next runs. A crash between completing the handler and acknowledging also results in one extra delivery.
+- **It is a platform event** — erasure is delivered as the `ikon.user.erased` event, carrying a `UserErasurePayload` (the platform's erasure id and the account's whole identity closure), on the same machinery as every event above: once per space to your app's shared instance, cold-started if none is running, retried on a widening backoff until your handler returns. It is the one event type you receive without declaring a listener, because `OnUserDataErasure` is the listener and it is registered at runtime. You never write `[Trigger("ikon.user.erased")]` — the SDK refuses it and points you here.
+- **Once per space, in one instance** — however many instances of your app are live, the handler runs once per erasure per space. The others are only told to drop the erased user's in-memory state, which runs no handler of yours.
+- **At-least-once delivery** — the event is stored per space on the backend and redelivered until a run completes without throwing, so a cold or stopped app processes it whenever it next runs. A crash between completing the handler and reporting also results in one extra delivery.
 - **Idempotency is required** — because delivery is at-least-once, the handler must tolerate running again over already-deleted data (`DELETE ... WHERE user_id = @userId` is naturally idempotent).
-- **Failure handling** — let exceptions propagate. A throwing handler leaves the request unacknowledged and it is redelivered on the next session start; swallowing the exception would acknowledge an incomplete erasure.
-- **No handler registered** — the platform-managed erasure still runs and the request is acknowledged; the host logs at info that no handler was registered. App-owned data is the app's documented responsibility either way.
+- **Failure handling** — let exceptions propagate. A throwing handler leaves the event unanswered and it is redelivered after its backoff; swallowing the exception would report an incomplete erasure as done.
+- **However long it takes** — the session is held open for the whole run, so a handler slower than the idle limit is not stopped mid-erasure.
+- **No handler registered** — the platform erases the user's platform-managed state centrally whether or not your app ever runs, and the event is reported as done; the host logs at info that no handler was registered. App-owned data is the app's documented responsibility either way.

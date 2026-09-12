@@ -1,5 +1,5 @@
 # Ikon.App.Email Guide
-<!-- checked-against: b5f407692c6c66fe -->
+<!-- checked-against: 1c7d28e975f92c59 -->
 Send transactional email from your app and read the mail delivered to your app's space — through the
 platform mailer, with no SMTP credentials, provider account, or DNS setup in the app itself.
 `app.Email` (an `EmailService`) is the entry point; the space's organisation must have the **Email** feature enabled
@@ -131,3 +131,30 @@ await foreach (var summary in app.Email.EnumerateInboxAsync(new InboxQuery()))
 
 `InboxQuery` filters by recipient, sender, and time window. Deleting a message frees its attachment
 storage; deleting an unknown id throws rather than succeeding silently.
+
+## React when mail arrives
+
+Instead of sweeping the inbox on a schedule, listen for the platform's `EmailReceived` event: the
+backend delivers every stored message to the app's userless instance — starting one when none is
+running — and keeps the event until the handler returns.
+
+<!-- ikon-code: email-trigger -->
+```csharp
+[Trigger(TriggerEventType.EmailReceived, MaxParallelism = 4)]
+internal async Task OnEmailReceivedAsync(TriggerContext context, CancellationToken ct)
+{
+    // The payload is the envelope only; the subject and body stay behind app.Email
+    var envelope = context.GetPayload<EmailReceivedPayload>();
+    var message = await app.Email.GetMessageAsync(envelope.Id, ct);
+
+    // Returning acknowledges the event; throwing leaves it pending for redelivery with backoff
+    await RememberLastEventAsync(context, message.Subject);
+}
+```
+
+The payload is an `EmailReceivedPayload` — the envelope only (`Id`, `Recipient`, `From`, `ReceivedAt`,
+`AttachmentCount`, `SpamScore`, `Tag`); read the subject, bodies and attachments with the message id.
+Delivery is at-least-once: a handler that throws sees the same event again after a backoff, so keep
+it idempotent, and `MaxParallelism` above 1 lets independent messages be handled concurrently.
+`TriggerContext` lives in `Ikon.App.Triggers` and `TriggerEventType` in `Ikon.Common.Core.Protocol`,
+neither of which the scaffold's global usings cover.

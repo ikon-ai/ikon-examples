@@ -1,5 +1,5 @@
 # Teleport message schema specification
-<!-- checked-against: 0dbc08a18ad462b6 -->
+<!-- checked-against: 723e78dc719496d6 -->
 ## 1. Purpose
 
 The Teleport message schema defines the compile-time structure and version evolution of a Teleport message type.

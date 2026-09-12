@@ -1,5 +1,5 @@
 # Ikon Dev Channel Guide
-<!-- checked-against: d31914afb4596bd1 -->
+<!-- checked-against: 7fe055fd66b24ec0 -->
 Get a platform library fix into your app without waiting for a release.
 
 Ikon's libraries ship as one release train. Between releases, a fix that has already landed and passed

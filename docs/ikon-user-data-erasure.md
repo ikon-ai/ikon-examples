@@ -1,5 +1,5 @@
 # User Data Erasure
-<!-- checked-against: 3c6859b407763192 -->
+<!-- checked-against: 3db82a9e7d0d32e5 -->
 When a user account is deleted — by the user themselves or by a platform administrator — the platform
 erases the user's personal data centrally, across every space and organisation the user touched. This
 page describes what the platform erases, what stays and why, and what your app is responsible for.
@@ -39,8 +39,11 @@ merged into the account, the previous ids are erased together with it.
   what leaves those ids pseudonymous — after erasure nothing on the platform can map them back to a
   person.
 
-Every erasure writes a persisted report (per-space and per-step outcomes and counts), and the job is
-idempotent: a partial failure is retried and finishes what is left.
+Every erasure writes a persisted report (per-space and per-step outcomes and counts). Every step is
+idempotent, so a partial failure is retried on a widening backoff and each retry only has to finish
+what is left. The retries are bounded: once they are spent — or when what is left cannot be retried
+at all, such as a database only your app's network can reach — the erasure is marked as needing a
+person, and a platform administrator resolves it by hand rather than it retrying silently forever.
 
 ## What is not erased
 
@@ -99,10 +102,12 @@ app.OnUserDataErasure(async userId =>
 
 The hook fires for every id in the erased user's identity closure (merged accounts included). By
 the time it runs, the platform has already re-erased the user's platform-managed state on the app
-side (`EraseUserStateAsync`), so the handler only needs to cover app-owned data. Delivery is
-durable and at-least-once: the request is stored per space and redelivered on every session start
-until a run completes without throwing — write the handler to be idempotent, and let exceptions
-propagate so an incomplete cleanup is retried instead of being acknowledged. Not registering a
-handler is fine when your app stores no user data outside the per-user reactive scope; the
-platform-managed erasure still runs and the request is acknowledged. See the "User data erasure"
-section in [Ikon Platform Events](ikon-platform-events.md) for the exact delivery semantics.
+side (`EraseUserStateAsync`), so the handler only needs to cover app-owned data. It runs **once per
+space per erasure**, in the space's shared instance — cold-started if none is running — however many
+instances of your app are live, and the session stays open for the whole run however long it takes.
+Delivery is durable and at-least-once: it is a platform event stored per space and redelivered until
+a run completes without throwing — write the handler to be idempotent, and let exceptions propagate so an
+incomplete cleanup is retried instead of being acknowledged. Not registering a handler is fine when
+your app stores no user data outside the per-user reactive scope; the platform erases the
+platform-managed state centrally whether or not your app ever runs. See the "User data erasure" section in
+[Ikon Platform Events](ikon-platform-events.md) for the exact delivery semantics.
