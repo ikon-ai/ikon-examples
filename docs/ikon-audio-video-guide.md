@@ -1,5 +1,5 @@
 # Ikon Audio & Video Guide
-<!-- checked-against: 725ed4ee6941a8cb -->
+<!-- checked-against: 71a612b4f60da669 -->
 How an Ikon AI app's C# app class plays audio to clients, receives microphone and camera streams, transcribes speech, and mixes group calls. Read this if your app makes sound, listens, or handles video.
 
 ## Setup: construct the services in a field initializer
@@ -56,6 +56,8 @@ Every send method takes a `MediaTargets` as its first argument, and there is no 
 State it deliberately. An app instance is shared by every client connected to it, so a "reply" sent to `Everyone` is heard by every user in the session, not just the one who asked.
 
 A targeted send whose id list is **empty** transmits nothing at all. An empty target list is indistinguishable on the wire from no targets, which the server routes to every client, so a filter that matched nobody would otherwise reach exactly the clients it excluded.
+
+**A send with nobody to hear it does nothing, and `SpeakAsync` does not generate the speech.** `Everyone` with no client connected, or a target list naming only clients that have left, is an audience of nobody — every send returns without transmitting, and the speech models are never called. The skip is logged at debug. This matters for an app that keeps working while its tab is closed: without it, an instance left running narrates to an empty room and is billed per character for it.
 
 <!-- ikon-code: av-reply-to-speaker -->
 ```csharp

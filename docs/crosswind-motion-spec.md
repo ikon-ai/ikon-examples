@@ -1,4 +1,4 @@
-<!-- checked-against: ef7b408bdeba413a -->
+<!-- checked-against: 2501a7a68b0acbb3 -->
 ﻿# Crosswind Motion Spec
 
 A Tailwind-inspired, class-based DSL to describe visual motion timelines and audio behaviors using only class strings. This spec defines **tokens, forms, and grammar**. It intentionally avoids runtime/implementation details.
