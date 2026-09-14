@@ -1,5 +1,5 @@
 # User Data Erasure
-<!-- checked-against: 3db82a9e7d0d32e5 -->
+<!-- checked-against: 9b18eb6c54313c2f -->
 When a user account is deleted — by the user themselves or by a platform administrator — the platform
 erases the user's personal data centrally, across every space and organisation the user touched. This
 page describes what the platform erases, what stays and why, and what your app is responsible for.
@@ -86,28 +86,35 @@ erase:
   scoped values — those are shared state, not per-user state, so the platform cannot know what
   inside them belongs to whom.
 
-Subscribe to the app-side erasure hook to clean this data when one of your users is erased. The
-helper hands you the user id directly; the underlying event carries a `UserDataErasureEventArgs`
-with the same `UserId` on it, which is what to subscribe to if you attach a handler by hand. (This
+Declare an erasure listener to clean this data when one of your users is erased. The declaration is a
+`[Trigger(TriggerEventType.UserErased)]` method on your app class, and it is what makes the platform
+ask your app at all — a space whose active bundle declares no listener is never sent the event. (This
 example uses Dapper's `ExecuteAsync`, so it needs the `Dapper` package and `using Dapper;`.)
 
 <!-- ikon-code: user-data-erasure-database -->
 ```csharp
-app.OnUserDataErasure(async userId =>
+[Trigger(TriggerEventType.UserErased)]
+internal async Task EraseUserDataAsync(UserDataErasureEventArgs args)
 {
     await using var connection = await OpenAppDatabaseAsync();
-    await connection.ExecuteAsync("DELETE FROM orders WHERE customer_id = @userId", new { userId });
-});
+    await connection.ExecuteAsync("DELETE FROM orders WHERE customer_id = @userId", new { userId = args.UserId });
+}
 ```
 
-The hook fires for every id in the erased user's identity closure (merged accounts included). By
-the time it runs, the platform has already re-erased the user's platform-managed state on the app
-side (`EraseUserStateAsync`), so the handler only needs to cover app-owned data. It runs **once per
-space per erasure**, in the space's shared instance — cold-started if none is running — however many
-instances of your app are live, and the session stays open for the whole run however long it takes.
-Delivery is durable and at-least-once: it is a platform event stored per space and redelivered until
-a run completes without throwing — write the handler to be idempotent, and let exceptions propagate so an
-incomplete cleanup is retried instead of being acknowledged. Not registering a handler is fine when
-your app stores no user data outside the per-user reactive scope; the platform erases the
-platform-managed state centrally whether or not your app ever runs. See the "User data erasure" section in
+`args.UserId` is the id to erase; `args.ErasureId` is the platform's own id for the erasure, which is
+what to record if your app keeps an audit trail of its own. The handler runs for every id in the
+erased user's identity closure (merged accounts included). By the time it runs, the platform has
+already re-erased the user's platform-managed state on the app side (`EraseUserStateAsync`), so the
+handler only needs to cover app-owned data. It runs **once per space per erasure**, in the space's
+shared userless instance — the same one `[Cron]` ticks in, cold-started if none is running — however
+many instances of your app are live, and the session stays open for the whole run however long it
+takes. Delivery is durable and at-least-once: it is a platform event stored per space and redelivered
+until a run completes without throwing — write the handler to be idempotent, and let exceptions
+propagate so an incomplete cleanup is retried instead of being acknowledged.
+
+`app.OnUserDataErasure(userId => ...)` still attaches a handler at runtime and runs alongside the
+declared one, but it does not earn delivery on its own: the declaration is what the bundle carries
+and what the backend reads. Declaring no listener is fine when your app stores no user data outside
+the per-user reactive scope — the platform erases the platform-managed state centrally whether or not
+your app ever runs. See the "User data erasure" section in
 [Ikon Platform Events](ikon-platform-events.md) for the exact delivery semantics.

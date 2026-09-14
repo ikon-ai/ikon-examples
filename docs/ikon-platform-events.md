@@ -1,5 +1,5 @@
 # Ikon Platform Events
-<!-- checked-against: 5a0e6231fc582e69 -->
+<!-- checked-against: 80ed66f5b2ffa018 -->
 Structured analytics events the platform records as your app runs — servers starting, clients
 joining and leaving, apps initialising, calls failing, models being invoked. Your app can add its
 own with `Log.Instance.Event(name, payload)`, and they appear alongside these.
@@ -387,24 +387,27 @@ as diagnostics, not as a billing record.
 
 ## User data erasure
 
-When a user's data is erased (GDPR erasure — see [User Data Erasure](ikon-user-data-erasure.md)), the backend delivers a durable erasure event once to every affected space, and the app host raises the `OnUserDataErasure` hook:
+When a user's data is erased (GDPR erasure — see [User Data Erasure](ikon-user-data-erasure.md)), the backend delivers a durable erasure event once to every affected space whose app declares a listener for it:
 
 <!-- ikon-code: user-data-erasure -->
 ```csharp
-app.OnUserDataErasure(async userId =>
+[Trigger(TriggerEventType.UserErased)]
+internal Task EraseAsync(UserDataErasureEventArgs args)
 {
-    // Delete app-owned data for this user: rows in your own tables,
+    // Delete app-owned data for args.UserId: rows in your own tables,
     // personal data embedded in Session/Global scoped values.
-});
+    return Task.CompletedTask;
+}
 ```
 
 Semantics:
 
 - **When it fires** — after the platform has re-erased the user's platform-managed state on the app side (`EraseUserStateAsync` — persistent user-scoped reactives and stored user-scope rows), once per id in the erased user's identity closure (merged accounts included). The user is not connected when it fires and no client/user reactive scope is active.
-- **It is a platform event** — erasure is delivered as the `ikon.user.erased` event, carrying a `UserErasurePayload` (the platform's erasure id and the account's whole identity closure), on the same machinery as every event above: once per space to your app's shared instance, cold-started if none is running, retried on a widening backoff until your handler returns. It is the one event type you receive without declaring a listener, because `OnUserDataErasure` is the listener and it is registered at runtime. You never write `[Trigger("ikon.user.erased")]` — the SDK refuses it and points you here.
+- **It is a platform event** — erasure is delivered as the `ikon.user.erased` event, carrying a `UserErasurePayload` (the platform's erasure id and the account's whole identity closure), on the same machinery as every event above: gated on the listener your bundle declares, once per space to your app's shared userless instance — the one `[Cron]` ticks in — cold-started if none is running, retried on a widening backoff until your handler returns.
+- **It is dispatched unlike one** — the handler takes `UserDataErasureEventArgs`, not a `TriggerContext`, because it runs once per user id rather than once per delivery, and `MaxParallelism` stays 1. `app.OnUserDataErasure(userId => ...)` attaches a second handler at runtime and runs alongside the declared one; it does not make the platform deliver, because no bundle scan can see it.
 - **Once per space, in one instance** — however many instances of your app are live, the handler runs once per erasure per space. The others are only told to drop the erased user's in-memory state, which runs no handler of yours.
 - **At-least-once delivery** — the event is stored per space on the backend and redelivered until a run completes without throwing, so a cold or stopped app processes it whenever it next runs. A crash between completing the handler and reporting also results in one extra delivery.
 - **Idempotency is required** — because delivery is at-least-once, the handler must tolerate running again over already-deleted data (`DELETE ... WHERE user_id = @userId` is naturally idempotent).
 - **Failure handling** — let exceptions propagate. A throwing handler leaves the event unanswered and it is redelivered after its backoff; swallowing the exception would report an incomplete erasure as done.
 - **However long it takes** — the session is held open for the whole run, so a handler slower than the idle limit is not stopped mid-erasure.
-- **No handler registered** — the platform erases the user's platform-managed state centrally whether or not your app ever runs, and the event is reported as done; the host logs at info that no handler was registered. App-owned data is the app's documented responsibility either way.
+- **No listener declared** — nothing is delivered, and the erasure report records the space as skipped for want of a listener. The platform erases the user's platform-managed state centrally whether or not your app ever runs; app-owned data is the app's documented responsibility either way.
