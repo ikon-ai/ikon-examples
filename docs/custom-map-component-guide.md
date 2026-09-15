@@ -1,5 +1,5 @@
 # Custom Map Component Guide
-<!-- checked-against: a006ba128370d022 -->
+<!-- checked-against: 03798d0e7d6cb310 -->
 This guide shows how to add an interactive map component to an Ikon AI App using Leaflet. The pattern covers creating a custom frontend React component, a C# extension method to drive it, and bidirectional communication between the two.
 
 ## Architecture Overview

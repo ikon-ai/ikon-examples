@@ -1,5 +1,5 @@
 # User Data Erasure
-<!-- checked-against: 9b18eb6c54313c2f -->
+<!-- checked-against: 3017c409715e7d28 -->
 When a user account is deleted — by the user themselves or by a platform administrator — the platform
 erases the user's personal data centrally, across every space and organisation the user touched. This
 page describes what the platform erases, what stays and why, and what your app is responsible for.
@@ -42,8 +42,12 @@ merged into the account, the previous ids are erased together with it.
 Every erasure writes a persisted report (per-space and per-step outcomes and counts). Every step is
 idempotent, so a partial failure is retried on a widening backoff and each retry only has to finish
 what is left. The retries are bounded: once they are spent — or when what is left cannot be retried
-at all, such as a database only your app's network can reach — the erasure is marked as needing a
-person, and a platform administrator resolves it by hand rather than it retrying silently forever.
+at all — the erasure is marked as needing a person, and a platform administrator resolves it by hand
+rather than it retrying silently forever. Two things count as not retryable: a database only your
+app's network can reach, which the platform never attempts, and one that refuses the delete outright
+— the role it connects as may not delete, the stored credential is not accepted, the database is not
+there. The report names the database and the reason in both cases, because what has to happen next
+differs.
 
 ## What is not erased
 

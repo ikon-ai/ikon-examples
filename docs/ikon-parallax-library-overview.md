@@ -1,5 +1,5 @@
 # Ikon.Parallax Library Overview
-<!-- checked-against: ee354e345cd79e22 -->
+<!-- checked-against: 8ccef8d7e9c45d86 -->
 ## Introduction
 
 Ikon.Parallax is a server-driven, reactive UI library for building interactive applications in C#. The library provides a declarative API for constructing user interfaces where all logic runs on the server, clients act as lightweight renderers, and the framework automatically handles efficient UI updates through intelligent diffing.
