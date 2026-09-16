@@ -1,5 +1,5 @@
 # Ikon Platform Events
-<!-- checked-against: 80ed66f5b2ffa018 -->
+<!-- checked-against: 7d62acf07afb3739 -->
 Structured analytics events the platform records as your app runs — servers starting, clients
 joining and leaving, apps initialising, calls failing, models being invoked. Your app can add its
 own with `Log.Instance.Event(name, payload)`, and they appear alongside these.
@@ -46,12 +46,22 @@ of an event tells you what happened; `class` tells you whose problem it is.
 | `user_error` | The caller asked for something impossible or malformed, and was told so | Nothing — this is the platform refusing bad input |
 | `expected` | Not a failure: a confirmation the caller has to give, a deliberate stop, a retry that then succeeded, a limit enforced on purpose | Nothing |
 | `dependency` | Something we call refused or did not answer — a model provider, the backend, a spawned toolchain | Watch the rate; act when it moves |
+| `provider_credit` | A provider took the credential and refused for lack of credit — the account behind the key has run out | Top the account up. Waiting does not clear it |
 | `defect` | An unhandled exception reached the top of a process | Fix it. This bucket should be near zero |
 
-**Count `defect` and `dependency`; ignore the rest.** A dashboard built on event *names* alone
-counts a missing `--yes` flag the same as a crash.
+**Count `defect`, `dependency` and `provider_credit`; ignore the rest.** A dashboard built on event
+*names* alone counts a missing `--yes` flag the same as a crash.
 
-Your own events can join the same taxonomy — `Ikon.Common.Core.EventFailureClass` holds the four
+`provider_credit` is separate from `dependency` because the two need different people: a dependency
+failure is watched until it clears on its own, and a credit failure clears only when somebody pays.
+It is about an account the platform holds with a model provider — your own Ikon credit limit is a
+limit enforced on purpose, and reports as `expected`.
+
+A model-operation failure event also carries `failureKind`, which says the same thing one level finer
+(`Transient`, `Unavailable`, `AccessDenied`, `CreditExhausted`, `Quality`, `Unknown`) and matches
+`Ikon.AI.ModelFailureKind`.
+
+Your own events can join the same taxonomy — `Ikon.Common.Core.EventFailureClass` holds the
 values as constants, so a failure your app records reads the same way as one the platform did:
 
 <!-- ikon-code: platform-events-own-failure -->
@@ -264,10 +274,20 @@ a fixed set of events, derived from the `eventName` argument the caller supplies
 - `{eventName}_failed`
 
 Payload (same for all three): `modelName`, `elapsedSeconds`, plus a caller-defined
-`additionalFields` object, the completion details, the exception (`class`, `errorType`,
-`errorMessage`, `stackTrace` — on `_failed` only), `isRemote`, `isUserCredential`. For LLM calls the
-completion details carry the token counts (`InputTokens`, `OutputTokens`, `InputCachedTokens`,
-`OutputReasoningTokens`, `FinishReason`, …).
+`additionalFields` object, the completion details, the exception (`class`, `failureKind`,
+`errorType`, `errorMessage`, `stackTrace` — on `_failed` only), `isRemote`, `isUserCredential`. For
+LLM calls the completion details carry the token counts (`InputTokens`, `OutputTokens`,
+`InputCachedTokens`, `OutputReasoningTokens`, `FinishReason`, …).
+
+`failureKind` says what the failure means for the model — `Transient`, `Unavailable`,
+`AccessDenied`, `CreditExhausted`, `Quality` or `Unknown`. It is finer than `class` and is what
+separates a provider that is down from one whose account has run dry: both stop the call, only one
+is fixed by waiting.
+
+**A persisting failure is logged once, not once per call.** The events keep coming — every failed
+call is one `_failed` row, so counts stay right — but the log line that accompanies them drops to
+debug after the first for that model and failure kind, and becomes a warning again an hour later.
+Count the events; do not count log lines.
 
 **One failed operation is one `_failed` event, recorded where it happened.** When the operation runs
 in another process, the failure is recorded there, by the process that saw it, with the exception it
