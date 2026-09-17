@@ -1,6 +1,6 @@
 <!-- mined-from: BrainrotArena -->
 # Custom React Node Embed — Drop a Real React Component into the C# Tree
-
+<!-- checked-against: d0825ec9b195b052 -->
 The C# UI tree mostly draws itself, but sometimes you need a real React component (a Lua editor, a physics arena, a richtext editor). `view.AddNode(type: "custom.foo", props, key)` mounts the JSX component registered in `frontend-node` and wires events back through `editorBox.CreateAction<T>(...)`. The C# side stays declarative; the JS side stays a black box.
 
 ## When to use

@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Camera Capture Into A Vision Model — Bytes That Are Already A File
-
+<!-- checked-against: 52eb23c7edfd8123 -->
 `ClientFunctions.CaptureImageAsync` returns a `ClientImageCapture` whose `Data` is a **complete
 JPEG or PNG file**, not raw pixels. It goes straight into a vision model, an asset or a file with
 no conversion step — the encoding work is already done on the client.

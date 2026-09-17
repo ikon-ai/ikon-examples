@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Calling Tools On An MCP Server — Connect, Then Read The Tools
-
+<!-- checked-against: 837f7d2c0b9a210d -->
 `McpClient` is the outbound direction: the app is the client, calling tools some other server
 offers. (Exposing the app's *own* functions as MCP tools is the other direction — see
 `endpoint-and-mcp-tool`.)
@@ -33,10 +33,14 @@ base, a third-party service that publishes tools.
 ```csharp
 private readonly ClientReactiveList<string> _toolNames = new();
 private readonly ClientReactive<string?> _output = new(null);
+private McpClient? _client;
 
 /// <summary>
 /// One client per server, held for as long as the app needs it. ConnectAsync is what
 /// populates Tools -- reading them before connecting gives an empty list, not an error.
+/// The tool names and the output are per-client state, so this and CallAsync run from a
+/// control's callback (the button below), where a ClientScope is active -- from Main() or
+/// a background task the writes throw.
 /// </summary>
 private async Task<McpClient> ConnectAsync(string endpoint, string token)
 {
@@ -76,6 +80,9 @@ private void Render(IView view)
 {
     view.Column(["gap-2"], content: col =>
     {
+        col.Button(text: "Connect", onClick: async () => _client = await ConnectAsync("https://mcp.example.com", "token"));
+        col.Button(text: "Search", disabled: _client is null, onClick: async () => await CallAsync(_client!, "search", "ikon"));
+
         foreach (var name in _toolNames)
         {
             col.Text(["text-muted-foreground text-sm"], key: name, text: name);

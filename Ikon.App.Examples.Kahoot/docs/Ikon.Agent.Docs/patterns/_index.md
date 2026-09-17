@@ -1,7 +1,7 @@
 <!-- every pattern file must be listed here — PatternIndexTests enforces it -->
 # Pattern Index
-
-110 focused 30-60 LOC code patterns mined from production Ikon AI Apps. Coder agents call `guide("<name> pattern")` to retrieve any of them. Planner names them in the PATTERNS section of every plan; Coder retrieves and adapts as the structural skeleton. Together they replace prose criteria — the corpus is the criteria.
+<!-- checked-against: 0a5ce9ed06ca1f58 -->
+111 focused 30-60 LOC code patterns mined from production Ikon AI Apps, each compiled against the real assemblies. Every pattern below is a file in this directory: `<name>` is `<name>.md`. Plan names the ones a build needs, then adapt the closest as the structural skeleton rather than writing a screen from scratch. Together they replace prose criteria — the corpus is the criteria.
 
 ## Foundations (start here)
 
@@ -52,6 +52,7 @@
 - `web-research` — WebSearcher + multi-stage AI with sources.
 - `mapreduce-long-document-summary` — chunk → per-chunk summary → combine.
 - `shareable-result-export` — PNG by screenshot, PDF by conversion; the two are different services.
+- `staged-file-download` — a generated file the user downloads: private asset + signed URL + expiry, never bytes in the UI tree.
 - `tree-search-over-long-document` — index once, then navigate the tree instead of the text.
 - `document-search-with-rerank` — OCR, then retrieve wide, then rerank the shortlist.
 - `cloud-json-asset-store` — CloudJson asset CRUD pattern.

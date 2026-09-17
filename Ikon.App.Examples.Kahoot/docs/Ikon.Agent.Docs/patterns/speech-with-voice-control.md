@@ -1,12 +1,13 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Speech With Voice Control — SpeakAsync Until It Cannot
-
+<!-- checked-against: bd3d382d5b5d6f9f -->
 `Audio.SpeakAsync(text, voice:, speed:, instructions:)` is the whole path for ordinary narration:
 one call, and each call **interrupts** the previous one — it fades out what is still playing and
 cancels the prior generation, which is what you want for a narrator or an assistant.
 
-Drive `SpeechGenerator` yourself only for the three things that cannot do: **overlapping speakers**,
-speech that must **not** interrupt what is already playing, and **raw access** to the samples.
+Drive `SpeechGenerator` yourself only for what that cannot do: **raw access** to the samples,
+generator config `SpeakAsync` does not expose, and — with the chunks handed to `PlayClipAsync`,
+never `SpeakChunk` — **overlapping speakers** or speech that must **not** interrupt what is playing.
 
 ## When to use
 
@@ -19,8 +20,10 @@ will replay, store the bytes — see `generated-sound-library`.
   the model's own default rather than setting a value that silently does nothing.
 - `Instructions` (tone, emotion, style) is likewise model-specific; unsupported models ignore it.
 - `SpeechGenerator.GenerateSpeechAsync` streams `AudioChunk`s, so playback can start before
-  generation finishes. `Audio.SpeakChunk(chunk)` plays one **without** interrupting, which is how
-  two voices overlap.
+  generation finishes. `Audio.SpeakChunk(chunk)` feeds the same single speech mixer as `SpeakAsync`:
+  chunks of one utterance share an id and append, and a chunk with a new id **interrupts** whatever
+  is playing with a fade — app-wide, even across clients. Two voices at once means leaving the speech
+  lane: `Audio.PlayClipAsync` on its own `streamId` plays alongside speech and other streams.
 - Failure throws `RetryableAIException`, or `NonRetryableAIException` when the input is at
   fault. Catch `AIException` for both. Render a short human
   sentence and a retry — never the provider's message, and never leave the surface blank.
@@ -30,7 +33,9 @@ will replay, store the bytes — see `generated-sound-library`.
   against sounding good, and `Loop` asks for a seamlessly loopable result. `DurationSeconds` is
   nullable — leave it null to let the model choose.
 - `Audio.SpeakAndWaitAsync` completes at the end of **playout**, not generation, and is
-  pause-aware — the one to await when the next thing must not start until the line is finished.
+  pause-aware — the one to await when the next thing must not start until the line is finished. It
+  throws `TimeoutException` if the playout pipeline stops draining while unpaused, and throws when
+  the mixer abandons the utterance: an utterance that never played is never reported as one that did.
 
 ## Snippet
 
@@ -44,7 +49,9 @@ private readonly ClientReactive<string?> _error = new(null);
 /// </summary>
 private async Task NarrateAsync(string text)
 {
-    await Audio.SpeakAsync(MediaTargets.Everyone, text, voice: "Sarah", speed: 0.95, instructions: "calm, unhurried");
+    // No speed: the default model is ElevenLabs, which ignores it. Pass one only with an
+    // OpenAI or Google model, e.g. model: SpeechGeneratorModel.Gpt4OmniMiniTts, speed: 0.95.
+    await Audio.SpeakAsync(MediaTargets.Everyone, text, voice: "Sarah", instructions: "calm, unhurried");
 }
 
 /// <summary>

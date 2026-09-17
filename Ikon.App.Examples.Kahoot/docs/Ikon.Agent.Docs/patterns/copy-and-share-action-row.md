@@ -1,6 +1,6 @@
 <!-- mined-from: Tori -->
 # Copy And Share Action Row — Floating Affordance Over A Read-Only Block
-
+<!-- checked-against: f25f9a1ef8320112 -->
 A small row of icon buttons floats in the bottom-right of a read-only content panel (transcript, summary, generated text). One button uses `ActionKind.CopyToClipboard` with `CopyToClipboardActionOptions.Text`, another uses `ActionKind.Share` with `ShareActionOptions`. The whole strip sits over a `backdrop-blur-md` container so it stays legible against arbitrary content.
 
 ## When to use

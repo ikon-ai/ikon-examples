@@ -13,10 +13,15 @@ namespace Ikon.Agent.Skills
     override IEnumerable<Tool> Tools()
   // Kind discriminates the shape: "decision" (default) — Options is non-empty, the host renders buttons, and the user's pick posts back as a UserDecisionResponse; "clarification" — Options is empty, the host renders a free-text prompt, and the user's typed answer posts back as a plain user message.
   sealed record UserDecisionPrompt
-    ctor(string Question, IReadOnlyList<string> Options, string Kind = "decision")
+    // Options: The values a host submits back as UserDecisionResponse.Choice. For the platform's own gates these are stable ids ("approve", "done"); a prompt the agent wrote carries whatever it offered.
+    // Labels: What a host shows for each option, index-aligned with Options; null shows the options themselves. Display is a host's concern and may be localised — the value it submits never is.
+    ctor(string Question, IReadOnlyList<string> Options, string Kind = "decision", IReadOnlyList<string>? Labels = null)
     string Kind { get; init; }
+    IReadOnlyList<string>? Labels { get; init; }
     IReadOnlyList<string> Options { get; init; }
     string Question { get; init; }
+    string LabelAt(int index)
+    string? OptionFor(string labelOrValue)
   static class UserDecisionProtocol
     static Message BuildResponse(string choice)
     static Task<UserDecisionPrompt?> TryReadPromptAsync(AgentThread thread)

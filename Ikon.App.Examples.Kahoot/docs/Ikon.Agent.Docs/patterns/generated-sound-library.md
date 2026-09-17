@@ -1,10 +1,12 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Generated Sound Library — Keeping Clips Replayable
-
-Two shapes of audio reach an app, and only one of them is already a file. `SoundEffectGenerator`
-and `SpeechGenerator` one-shots hand back an **encoded** result — `Data` plus `MimeType` — which is
-stored and replayed as it is. Raw PCM you synthesized yourself (`Ikon.Resonance.Synth`, or samples
-you computed) is **not** a file until `WavFile` wraps it.
+<!-- checked-against: bbf3422134d94b9d -->
+Two shapes of audio reach an app, and only one of them is already a file. The
+`SoundEffectGenerator` one-shot hands back an **encoded** result — `Data` plus `MimeType` — which is
+stored and replayed as it is. PCM is **not** a file until `WavFile` wraps it — and that is what
+`SpeechGenerator.GenerateAsync` returns (an `AudioChunk`: `Samples`, `SampleRate`, `ChannelCount`,
+no `Data` or `MimeType`), the same as samples you synthesized yourself (`Ikon.Resonance.Synth`, or
+samples you computed).
 
 Keep the bytes in state and replay costs nothing: no second generation, and no custom player
 component — `ClientFunctions.PlaySoundAsync(data, mimeType)` is the whole playback path, and it
@@ -19,8 +21,8 @@ fire-and-forget playback it is neither.
 
 ## Notes
 
-- `Data` is nullable on these results: a result can arrive as a URL instead, decided by
-  `ResultDelivery`. A library that stores bytes checks before storing.
+- `Data` is nullable on `SoundEffectGeneratorResult`: a result can arrive as a URL instead, decided
+  by `ResultDelivery`. A library that stores bytes checks before storing.
 - `WavFile` finalizes its header the first time the data is read, so add every sample before
   `AsArray()`/`AsStream()` and add none afterwards — a later `AddSamples` throws.
 - `AsArray()` copies; `AsStream()` returns a fresh independent stream per call and survives the
@@ -65,15 +67,24 @@ private async Task AddGeneratedAsync(string prompt)
 }
 
 /// <summary>
-/// The other direction: raw PCM you synthesized yourself is not a file until it is wrapped.
-/// WavFile finalizes its header on first access, so add every sample before AsArray and never
-/// add more afterwards.
+/// The other direction: PCM is not a file until it is wrapped. WavFile finalizes its header on
+/// first access, so add every sample before AsArray and never add more afterwards.
 /// </summary>
-private void AddSynthesized(string label, float[] samples, int sampleRate)
+private void AddPcm(string label, float[] samples, int sampleRate, int channelCount)
 {
-    using var wav = new WavFile(sampleRate, channelCount: 1, WavFile.SampleFormat.Float);
+    using var wav = new WavFile(sampleRate, channelCount, WavFile.SampleFormat.Float);
     wav.AddSamples(samples);
     _clips.Add(new Clip(Guid.NewGuid().ToString("N"), label, wav.AsArray(), "audio/wav"));
+}
+
+/// <summary>
+/// Speech is PCM too: the one-shot hands back an AudioChunk -- Samples, SampleRate, ChannelCount --
+/// with no Data or MimeType, so it takes the same wrap as samples you synthesized yourself.
+/// </summary>
+private async Task AddSpokenAsync(string text)
+{
+    var speech = await SpeechGenerator.GenerateAsync(text);
+    AddPcm(text, speech.Samples, speech.SampleRate, speech.ChannelCount);
 }
 
 private void Render(IView view)

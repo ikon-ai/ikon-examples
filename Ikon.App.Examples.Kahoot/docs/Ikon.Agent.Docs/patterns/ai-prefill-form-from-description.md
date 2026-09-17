@@ -1,6 +1,6 @@
 <!-- mined-from: Sentrix -->
 # AI Prefill — Free-Form Description → Structured Form Fields
-
+<!-- checked-against: 5085303ab4126003 -->
 User pastes a free-form description into a textarea. The app calls `Emerge.Run<T>` with a JSON schema, then writes the returned fields back into the existing wizard state — but only into fields the user hasn't already filled. A `_aiPrefillApplied` flag prevents re-running on every keystroke.
 
 ## When to use

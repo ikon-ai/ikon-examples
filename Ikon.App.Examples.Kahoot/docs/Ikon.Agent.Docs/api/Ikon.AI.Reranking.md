@@ -8,7 +8,7 @@ namespace Ikon.AI.Reranking
     ctor()
     required CustomRerankApi Api { get; init; }
   interface IReranker : IDisposable
-    // Returns items ordered most relevant first; RerankItem.Index is the document's position in RerankerConfig.Documents.
+    // Returns items ordered most relevant first; RerankItem.Index is the document's position in RerankerConfig.Documents. Throws when the provider returns fewer items than RerankerConfig.TopN (or the document count) or an index outside the documents.
     Task<List<RerankItem>> RerankAsync(RerankerConfig config, CancellationToken cancellationToken = default)
   sealed record RerankItem
     ctor()
@@ -23,6 +23,7 @@ namespace Ikon.AI.Reranking
     VoyageRerank25Lite
     // Not directly usable — select custom models (see CustomModels) by their registered name string.
     Custom
+    // extension methods: RerankModelExtensions{DisplayName}
   static class RerankModelExtensions
     static string DisplayName(this RerankModel model)
   sealed class Reranker : IReranker
@@ -35,6 +36,8 @@ namespace Ikon.AI.Reranking
     static Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, RerankModel model = CohereRerank4Fast, int topN = 0, CancellationToken cancellationToken = default)
   sealed record RerankerConfig
     ctor()
+    // Default false: a document longer than the model's window is rejected by the provider instead of being scored on its head only. True lets Voyage cut it at the window.
+    bool AllowTruncation { get; init; }
     List<string> Documents { get; init; }
     string Query { get; init; }
     // Scaled up internally with the document count.

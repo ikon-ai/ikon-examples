@@ -10,6 +10,10 @@ namespace Ikon.AI
   static class AssetOutputs
     static Task<byte[]> GetBytesAsync(string url, CancellationToken cancellationToken = default)
     static Task<byte[]> GetDataAsync(this IResultPayload result, CancellationToken cancellationToken = default)
+  class ContentRefusedException : NonRetryableAIException
+    ctor(string message, string finishReason)
+    // The provider's own finish reason, verbatim, or empty when it gave none. Never the response body: a refusal says why in one token, and the body is prompt content that has no business in telemetry.
+    string FinishReason { get; }
   // The name selects the model in the category's string-based APIs (e.g. new LLM("my-model")). An empty ApiKey means the endpoint needs no authentication header.
   abstract class CustomModel
     string ApiKey { get; init; }
@@ -44,6 +48,7 @@ namespace Ikon.AI
     byte[]? Data { get; }
     ResultKind Kind { get; }
     string? Url { get; }
+    // extension methods: AssetOutputs{GetDataAsync}
   // Transient (network blip, server restart, flaky link) and therefore retryable — the RPC layer retries with a forced reconnect, and exhausted attempts still surface as retryable.
   sealed class IkonServerConnectException : RetryableAIException
   // A reference clip for prompt-driven audio editing: the model preserves this clip's timing and structure while the prompt re-styles it. Supply the clip exactly one way: Data (with MimeType), Url, or AssetUri (resolved automatically).
@@ -89,8 +94,10 @@ namespace Ikon.AI
     Transient
     // The model has been removed, renamed or retired and the configuration has to be updated.
     Unavailable
-    // Missing or rejected credentials, exhausted credits, or a quota that is not a transient rate limit. An operator has to act, but nothing is wrong with the model or the code.
+    // Missing, rejected or unauthorised credentials. An operator has to act, but nothing is wrong with the model or the code.
     AccessDenied
+    // The provider is working and the key is valid; the account behind it has to be topped up. Distinct from AccessDenied because the remedy is a payment rather than a credential, and from Transient because no amount of waiting clears it.
+    CreditExhausted
     // No content, an unusable tool call, or output that failed validation. Non-deterministic by nature and often not reproducible on the next call.
     Quality
   enum ModelRegion
@@ -113,6 +120,7 @@ namespace Ikon.AI
     string MimeType { get; init; }
     string? Url { get; init; }
     int Width { get; init; }
+    // extension methods on IResultPayload: AssetOutputs{GetDataAsync}
   class RegionNotSupportedException : NonRetryableAIException
   // With Auto the payload stays inline in-process; only when the result is returned from a remotely hosted AI function is it uploaded to a short-lived asset URL, and then only if it exceeds an internal size threshold (a few MB), keeping the protocol message small. Url always uploads, in any context. Check the result's ResultKind field to see which delivery was used.
   enum ResultDelivery
@@ -123,6 +131,7 @@ namespace Ikon.AI
     Data
     Url
   class RetryableAIException : AIException
+    TimeSpan? RetryAfter { get; init; }
 
 namespace Ikon.AI.Classification
   sealed record ClassificationDetail
@@ -131,6 +140,7 @@ namespace Ikon.AI.Classification
     bool IsFlagged { get; init; }
     ClassificationLabel Label { get; init; }
     string OriginalCategory { get; init; }
+    // 0 to 1. NaN when the provider flagged the category but reported no score for it — compare with Double.IsNaN before thresholding, since a missing score is not a zero one.
     double Score { get; init; }
   // Supply Text, Data (with MimeType), Url, or AssetUri (resolved to a URL automatically).
   sealed record ClassificationInput
@@ -161,6 +171,7 @@ namespace Ikon.AI.Classification
     MistralModeration
     // Not directly usable — select custom models (see CustomModels) by their registered name string.
     Custom
+    // extension methods: ClassificationModelExtensions{DisplayName}
   static class ClassificationModelExtensions
     static string DisplayName(this ClassificationModel model)
   sealed record ClassificationResult
@@ -211,6 +222,8 @@ namespace Ikon.AI.Database
     bool? IsForeignKey { get; set; }
     bool? IsPrimaryKey { get; set; }
     List<string>? Values { get; set; }
+    // True when the column holds more distinct values than Values lists, so a value absent from it is not evidence the column never holds it.
+    bool? ValuesTruncated { get; set; }
   // For app code prefer the typed factories (Trino, Postgres, Sqlite, BigQuery), passing the password from app.Secrets. CreateAsync instead reads every connection field from environment variables or space secrets, for shared pipelines.
   class DatabaseConnection : IDisposable
     string BigQueryDataset { get; set; }
@@ -243,14 +256,14 @@ namespace Ikon.AI.Database
     Task<DatabaseInfo> ExtractAsync(DatabaseInfoExtractor.Config config, CancellationToken cancellationToken)
   class DatabaseInfoExtractor.Config
     ctor()
-    // Regex patterns matched against the three-part schema.table.column name.
+    // Regex patterns matched against schema.table.column, or table.column when the table has no schema (SQLite). Case-insensitive; an empty/null list excludes nothing.
     List<string>? ColumnExcludeRegex { get; set; }
     Dictionary<string, string> ColumnExtraInfo { get; set; }
     bool IncludeEmptyColumns { get; set; }
     int JsonSampleLengthLimit { get; set; }
     int JsonSampleRowLimit { get; set; }
     int NonTextSampleRowLimit { get; set; }
-    // When empty the default depends on the database type (e.g. public for PostgreSQL).
+    // Exact schema names. When empty, PostgreSQL uses public and Trino lists every schema. SQLite and BigQuery ignore this entirely (BigQuery's dataset comes from the connection).
     List<string>? Schemas { get; set; }
     List<string>? TableExcludeRegex { get; set; }
     Dictionary<string, string> TableExtraInfo { get; set; }
@@ -289,6 +302,7 @@ namespace Ikon.AI.Database
     int TotalRowCount { get; }
     static Task<ResultSet> Create(DbDataReader reader, int maxRows, CultureInfo? culture = null, List<string>? columnNames = null)
     string ToCsv()
+    // An array of row objects, or of {name,value} arrays when column names repeat. Only the retained rows are rendered — compare TotalRowCount with LimitedRowCount to see whether the query returned more.
     string ToJson()
     string ToMarkdown()
   static class SqlValidator
@@ -307,9 +321,12 @@ namespace Ikon.AI.DepthEstimation
     static IReadOnlyList<ModelRegion> GetSupportedRegions(DepthEstimatorModel model)
   sealed record DepthEstimatorConfig
     ctor()
+    // Marigold only; set on another model it throws rather than being dropped.
     int? EnsembleSize { get; init; }
     InputImage InputImage { get; init; }
+    // Marigold only; set on another model it throws rather than being dropped.
     int? NumInferenceSteps { get; init; }
+    // Marigold only, 0 means the input image size; set on another model it throws rather than being dropped.
     int? ProcessingResolution { get; init; }
     ResultDelivery ResultDelivery { get; init; }
     TimeSpan Timeout { get; init; }
@@ -317,6 +334,7 @@ namespace Ikon.AI.DepthEstimation
     DepthAnythingV2
     Marigold
     Midas
+    // extension methods: DepthEstimatorModelExtensions{DisplayName}
   static class DepthEstimatorModelExtensions
     static string DisplayName(this DepthEstimatorModel model)
   sealed record DepthEstimatorResult
@@ -360,6 +378,8 @@ namespace Ikon.AI.Embeddings
     int MaxInputCount { get; init; }
   sealed record EmbeddingGeneratorConfig
     ctor()
+    // Default false: an input longer than the model's window is rejected by the provider instead of being embedded from its head only. True lets Cohere, Voyage, Jina and Vertex cut the input at the window.
+    bool AllowTruncation { get; init; }
     List<string> Inputs { get; init; }
     // Per-request batch cap; larger input lists are split into batches of this size. 0 means the model's maximum.
     int MaxInputCount { get; init; }
@@ -402,13 +422,16 @@ namespace Ikon.AI.Embeddings
     VoyageCode4
     // Not directly usable — select custom models (see CustomModels) by their registered name string.
     Custom
+    // extension methods: EmbeddingModelExtensions{DisplayName}
   static class EmbeddingModelExtensions
     static string DisplayName(this EmbeddingModel model)
   enum EmbeddingType
     Generic
     Document
     Query
+    // Jina v4+ has no clustering task and embeds as text matching; Voyage sends no task.
     Clustering
+    // Jina v4+ has no classification task and embeds as text matching; Voyage sends no task.
     Classification
   interface IEmbeddingGenerator : IDisposable, IEmbeddingGeneratorInfo
     // Returns one vector per input, in input order.
@@ -442,16 +465,17 @@ namespace Ikon.AI.FileConversion
     string MimeType { get; init; }
     string Name { get; init; }
     string? Url { get; init; }
+    // extension methods on IResultPayload, using Ikon.AI: AssetOutputs{GetDataAsync}
   sealed class FileConverter : IFileConverter
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(FileConverterModel model, IReadOnlyList<ModelRegion>? regions = null)
     Task<ConvertedFile> ConvertToPdfAsync(FileConverterConfig config, CancellationToken cancellationToken = default)
     Task<ConvertedFile> ConvertToPdfAsync(byte[] data, string fileName, CancellationToken cancellationToken = default)
-    // Static one-shot; constructs and disposes a FileConverter per call. fileName must carry the source extension (e.g. report.docx) — it determines the input format. The PDF is in result.Data. Use the constructor + ConvertToPdfAsync for a URL or AssetUri source, or a custom timeout.
+    // Static one-shot; constructs and disposes a FileConverter per call. fileName must carry the source extension (e.g. report.docx) — it determines the input format. The PDF is in result.Data, except that a hosted run hands an output over 5 MB back as a signed result.Url (Kind tells which); result.GetDataAsync() returns the bytes either way. Use the constructor + ConvertToPdfAsync for a URL or AssetUri source, or a custom timeout.
     static Task<ConvertedFile> ConvertToPdfAsync(byte[] data, string fileName, FileConverterModel model = ConvertApi, CancellationToken cancellationToken = default)
     void Dispose()
     static IReadOnlyList<ModelRegion> GetSupportedRegions(FileConverterModel model)
-  // Supply the file exactly one way: Data, Url, or AssetUri (resolved to a URL automatically). FileName must carry the source extension (e.g. report.docx) — it determines the input format.
+  // Supply the file exactly one way: Data, Url, or AssetUri (resolved to a URL automatically). With Data, FileName must carry the source extension (e.g. report.docx) — it is what names the input format; with a URL the format comes from the URL and FileName only labels the logs.
   sealed record FileConverterConfig
     ctor()
     AssetUri? AssetUri { get; init; }
@@ -462,6 +486,7 @@ namespace Ikon.AI.FileConversion
     string? Url { get; init; }
   enum FileConverterModel
     ConvertApi
+    // extension methods: FileConverterModelExtensions{DisplayName}
   static class FileConverterModelExtensions
     static string DisplayName(this FileConverterModel model)
   interface IFileConverter : IDisposable
@@ -495,7 +520,7 @@ namespace Ikon.AI.ImageGeneration
     bool SupportsTransparentBackground { get; }
     void Dispose()
     Task<ImageGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
-    // Static one-shot; constructs and disposes an ImageGenerator per call. Defaults to ImageGeneratorModel.Gemini25FlashImage (cheap+fast); override via model. Never returns null — throws RetryableAIException on failure or empty output, so wrap in try/catch to continue without the image. Use the constructor + GenerateImageAsync for batch/size/input-image or any other ImageGeneratorConfig field.
+    // Static one-shot; constructs and disposes an ImageGenerator per call. Defaults to ImageGeneratorModel.Gemini25FlashImage (cheap+fast); override via model. Never returns null — throws an AIException on failure (RetryableAIException for a transient failure or empty output, NonRetryableAIException for a rejected request), so catch AIException to continue without the image. Use the constructor + GenerateImageAsync for batch/size/input-image or any other ImageGeneratorConfig field.
     static Task<ImageGeneratorResult> GenerateAsync(string prompt, ImageGeneratorModel model = Gemini25FlashImage, CancellationToken cancellationToken = default)
     Task<List<ImageGeneratorResult>> GenerateImageAsync(ImageGeneratorConfig config, CancellationToken cancellationToken = default)
     static ImageGeneratorCapabilities GetCapabilities(ImageGeneratorModel model)
@@ -510,26 +535,30 @@ namespace Ikon.AI.ImageGeneration
   sealed record ImageGeneratorConfig
     ctor()
     ImageBackground Background { get; init; }
+    // Images per request. The call fails when the provider returns fewer than asked, so a batch is never short without a word; above 1 needs IImageGeneratorInfo.SupportsMultipleOutputs.
     int Count { get; init; }
     // Requested pixel height; see Width for how tiered providers treat it.
     int Height { get; init; }
+    // Each model has a ceiling (Together and xAI take one, Kontext four, FLUX.2 eight or four); more than that throws rather than dropping the extras.
     List<InputImage> InputImages { get; init; }
     // Embed Ikon's imperceptible provenance watermark in the result pixels (EU AI Act Article 50 machine-readable marking, uniform across providers). The XMP metadata mark is always written regardless of this flag; disabling this skips the pixel pass — and, for JPEG results, the one high-quality re-encode it costs.
     bool InvisibleWatermark { get; init; }
     string NegativePrompt { get; init; }
     string Prompt { get; init; }
+    // Honoured by the OpenAI gpt-image models only; anything but ImageQuality.Auto on another model throws rather than being dropped.
     ImageQuality Quality { get; init; }
     ResultDelivery ResultDelivery { get; init; }
     SafetyLevel SafetyLevel { get; init; }
-    string SearchPrompt { get; init; }
+    // 0 leaves the provider's own choice. Set on a model that takes no seed (OpenAI, xAI) it throws rather than being dropped.
     int Seed { get; init; }
+    // 0 leaves the provider's own choice. Honoured by the Together models, flux-2-flex (1-50) and flux-1-fill (15-50); set on any other model, or outside the model's range, it throws rather than being dropped or clamped.
     int Steps { get; init; }
-    string Style { get; init; }
     TimeSpan Timeout { get; init; }
+    // Honoured by the FLUX.1 models only; set on any other model it throws rather than being dropped.
     bool UpsamplePrompt { get; init; }
     // Renders a small corner badge with this text on the result (e.g. "AI"). Empty = no visible mark. Intended as a plan-tier lever, not a compliance requirement — the machine-readable marks above are what Article 50 asks for.
     string VisibleWatermark { get; init; }
-    // The only way to request a size. Providers with fixed resolution tiers (e.g. Gemini 1K/2K/4K) round the longer edge up to the nearest tier and take the aspect ratio from Width:Height — ask for 2048x2048 to get a 2K image.
+    // The only way to request a size, and set together with Height or not at all — 0x0 leaves the size to the provider. A size the model cannot render is refused, not substituted: outside its pixel range, or, on the OpenAI models, not one of the three sizes they list. Inside the range it snaps to the provider's own grid or tier (32 pixels on the FLUX models, the nearest tier at or above the request on Gemini's 1K/2K/4K and xAI's 1k/2k), and the size that came back is on ImageGeneratorResult.Width.
     int Width { get; init; }
   enum ImageGeneratorModel
     GptImage1Mini
@@ -555,17 +584,23 @@ namespace Ikon.AI.ImageGeneration
     GrokImagineImage
     GrokImagineImage2
     GrokImagineImageQuality
+    // extension methods: ImageGeneratorModelExtensions{DisplayName}
   static class ImageGeneratorModelExtensions
     static string DisplayName(this ImageGeneratorModel model)
   // Kind tells how the image was delivered: inline bytes in Data, or a signed download URL in Url valid for roughly one hour.
   sealed record ImageGeneratorResult : IResultPayload
     ctor()
     byte[]? Data { get; init; }
+    // Measured like Width.
     int Height { get; init; }
     ResultKind Kind { get; init; }
     string MimeType { get; init; }
+    // Which provenance layers the delivered bytes carry. ProvenanceMarking.Full is the norm; anything less means the mark degraded (undecodable payload, WebP, a failed marking pass — each logged at Warning) and the image ships without the Article 50 pixel mark the config asked for.
+    ProvenanceMarking Provenance { get; init; }
     string? Url { get; init; }
+    // Read from the returned bytes, not echoed from the request: providers snap to their own tiers and caps, so this can differ from ImageGeneratorConfig.Width. 0 when the header could not be read (logged at Warning).
     int Width { get; init; }
+    // extension methods on IResultPayload, using Ikon.AI: AssetOutputs{GetDataAsync}
   enum ImageQuality
     Auto
     Low
@@ -619,6 +654,7 @@ namespace Ikon.AI.ImageSegmentation
   enum ImageSegmenterModel
     Sam3
     Sam31
+    // extension methods: ImageSegmenterModelExtensions{DisplayName}
   static class ImageSegmenterModelExtensions
     static string DisplayName(this ImageSegmenterModel model)
   sealed record ImageSegmenterResult
@@ -667,7 +703,7 @@ namespace Ikon.AI.ImageUpscaling
     static ImageUpscalerCapabilities GetCapabilities(ImageUpscalerModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ImageUpscalerModel model)
     Task<ImageUpscalerResult> UpscaleAsync(byte[] imageData, string mimeType, double scaleFactor = 0.0, CancellationToken cancellationToken = default)
-    // Static one-shot; constructs and disposes an ImageUpscaler per call. Defaults to ImageUpscalerModel.SeedVr2, which reconstructs detail faithfully and bills per output megapixel. scaleFactor of 0 leaves the model's own default in place. Every default model is UpscaleFidelity.Faithful — reach for ImageUpscalerModel.Crystal and ImageUpscalerConfig.Creativity to let a model invent detail. The upscaled image is in result.Image (.Data/.MimeType). Use the constructor + UpscaleImageAsync for a URL source or any other config field.
+    // Static one-shot; constructs and disposes an ImageUpscaler per call. Defaults to ImageUpscalerModel.SeedVr2, which reconstructs detail faithfully and bills per output megapixel. scaleFactor of 0 leaves the model's own default in place. Reach for ImageUpscalerModel.Crystal, the UpscaleFidelity.Tunable model, with ImageUpscalerConfig.Creativity above 0 to let it invent detail. The upscaled image is in result.Image (.Data/.MimeType). Use the constructor + UpscaleImageAsync for a URL source or any other config field.
     static Task<ImageUpscalerResult> UpscaleAsync(byte[] imageData, string mimeType, ImageUpscalerModel model = SeedVr2, double scaleFactor = 0.0, CancellationToken cancellationToken = default)
     Task<ImageUpscalerResult> UpscaleImageAsync(ImageUpscalerConfig config, CancellationToken cancellationToken = default)
   sealed class ImageUpscalerCapabilities : IImageUpscalerInfo
@@ -702,11 +738,14 @@ namespace Ikon.AI.ImageUpscaling
     Topaz
     RecraftCrisp
     Crystal
+    // extension methods: ImageUpscalerModelExtensions{DisplayName}
   static class ImageUpscalerModelExtensions
     static string DisplayName(this ImageUpscalerModel model)
   sealed record ImageUpscalerResult
     ctor()
     OutputImage Image { get; init; }
+    // Which provenance layers the upscaled bytes carry. ProvenanceMarking.Full is the norm on PNG/JPEG output; anything less means the re-mark degraded (WebP, an undecodable payload, a failed marking pass — each logged at Warning).
+    ProvenanceMarking Provenance { get; init; }
   // The distinction is the whole point of picking one upscaler over another. Faithful models reconstruct only what the input supports, so the result can still be read as evidence of the original. Creative models synthesize plausible detail that was never in the input. Tunable models move between the two as ImageUpscalerConfig.Creativity rises, and sit at the faithful end when it is left at zero.
   enum UpscaleFidelity
     Faithful
@@ -826,6 +865,10 @@ namespace Ikon.AI.Kernel
     bool UseUserNames { get; init; }
     KernelContext Add(Instruction instruction)
     KernelContext Add(MessageBlock message)
+    // Clears results until the estimate is at or under targetTokens or only kept results remain; returns how many it cleared. Stubs are never cleared again.
+    KernelContext ClearOldFunctionResults(long targetTokens, int keep, IReadOnlyCollection<string>? excludedTools, out int cleared)
+    long EstimateInputTokens()
+    static bool IsClearedResult(object result)
     KernelContext KeepMessagesMax(int count)
     KernelContext WithFunctions(IEnumerable<Function>? functions, bool replaceExisting = false)
   // Consume by switching on the concrete record case; forward any case you do not handle unchanged so downstream consumers still receive it.
@@ -998,6 +1041,7 @@ namespace Ikon.AI.LLM
   // Capability flags default to what a typical self-hosted OpenAI-compatible model supports; enable more (e.g. SupportsJsonSchema) when the endpoint provides them.
   sealed class CustomLLMModel : CustomModel
     ctor()
+    ReasoningDial AcceptedReasoningDial { get; }
     required CustomLLMApi Api { get; init; }
     required int ContextWindowSize { get; init; }
     // Leave at 0 when the endpoint has no such cap: a request asking for more than the model can produce is capped at this value instead of being sent as-is, and 0 means "send the caller's value".
@@ -1014,6 +1058,8 @@ namespace Ikon.AI.LLM
     bool SupportsTemperature { get; init; }
   sealed class LLMCapabilities
     ctor()
+    // The dial a model does not read is refused at the request, not ignored; None means it reads neither, so leave both unset.
+    ReasoningDial AcceptedReasoningDial { get; init; }
     int ContextWindowSize { get; init; }
     string InlineReasoningTagName { get; init; }
     int MaxOutputTokens { get; init; }
@@ -1029,6 +1075,7 @@ namespace Ikon.AI.LLM
     bool SupportsOutputAudio { get; init; }
     bool SupportsParallelToolCalling { get; init; }
     bool SupportsReasoning { get; init; }
+    bool SupportsServerSideContextEditing { get; init; }
     bool SupportsSingleToolCalling { get; init; }
     bool SupportsStreaming { get; init; }
     bool SupportsZeroDataRetention { get; init; }
@@ -1055,6 +1102,7 @@ namespace Ikon.AI.LLM
     Gpt56Sol
     Gpt56Terra
     Gpt56Luna
+    Gpt6Astra
     O3
     O3Pro
     Claude45Haiku
@@ -1139,6 +1187,9 @@ namespace Ikon.AI.LLM
     NovaLite
     NovaMicro
     Nova2Lite
+    // extension methods: LLMModelExtensions{ContextWindowSize, DisplayName, MaxOutputTokens}
+  static class LLMModelDefaults
+    static LLMModel Default { get; }  // extension of LLMModel
   static class LLMModelExtensions
     // In tokens. Returns 0 when the model can't be resolved — treat 0 as "unknown" and skip utilization math rather than dividing by zero.
     static int ContextWindowSize(this LLMModel model)
@@ -1148,6 +1199,10 @@ namespace Ikon.AI.LLM
   class ModelOutputException : RetryableLLMException
   class NonRetryableLLMException : NonRetryableAIException
   sealed class ReasoningBurnException : RetryableLLMException
+  enum ReasoningDial
+    None
+    Effort
+    TokenBudget
   class RetryableLLMException : RetryableAIException
 
 namespace Ikon.AI.MeshGeneration
@@ -1199,6 +1254,7 @@ namespace Ikon.AI.MeshGeneration
   enum MeshGeneratorModel
     Meshy5
     Meshy6
+    // extension methods: MeshGeneratorModelExtensions{DisplayName}
   static class MeshGeneratorModelExtensions
     static string DisplayName(this MeshGeneratorModel model)
   // The download URLs are signed and expire roughly three days after generation — fetch the model files promptly.
@@ -1238,7 +1294,7 @@ namespace Ikon.AI.MusicGeneration
     bool SupportsStreaming { get; }
     void Dispose()
     Task<MusicGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
-    // Static one-shot; constructs and disposes a MusicGenerator per call. Defaults to MusicGeneratorModel.ElevenLabsMusicV2 (supports duration control and editing); override via model. Returns a buffered, encoded audio file (.Data/.MimeType/.DurationSeconds). Use the constructor + GenerateMusicFileAsync for duration/input-audio/seed, or GenerateMusicAsync for streaming PCM chunks.
+    // Static one-shot; constructs and disposes a MusicGenerator per call. Defaults to MusicGeneratorModel.ElevenLabsMusicV2 (supports duration control and editing); override via model. Returns an encoded audio file (.MimeType/.DurationSeconds): in-process the bytes are inline in .Data; when the generator runs remotely or inside a remotely hosted function and the file exceeds a few MB, .Kind is ResultKind.Url and .Data is null — GetDataAsync() reads either. Use the constructor + GenerateMusicFileAsync for duration/input-audio/seed, or GenerateMusicAsync for streaming PCM chunks.
     static Task<MusicGeneratorResult> GenerateAsync(string prompt, MusicGeneratorModel model = ElevenLabsMusicV2, CancellationToken cancellationToken = default)
     IAsyncEnumerable<AudioChunk> GenerateMusicAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = default)
     Task<MusicGeneratorResult> GenerateMusicFileAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = default)
@@ -1252,7 +1308,7 @@ namespace Ikon.AI.MusicGeneration
   // With an empty InputAudios the model generates from the prompt alone; with one or more it performs audio-to-audio editing (the prompt re-styles the clips, timing preserved). The underlying music model works on clips of at least 3 seconds. For shorter UI/game sound effects use SoundEffectGenerator instead.
   sealed record MusicGeneratorConfig
     ctor()
-    // Seconds, clamped to the model's supported range. When editing, set it to the source clip's length to keep the original timing. Ignored unless IMusicGeneratorInfo.SupportsDurationControl is true.
+    // Seconds; outside the model's supported range it throws rather than being shortened or stretched to fit. When editing, set it to the source clip's length to keep the original timing. Ignored unless IMusicGeneratorInfo.SupportsDurationControl is true.
     double? DurationSeconds { get; init; }
     bool ForceInstrumental { get; init; }
     List<InputAudio> InputAudios { get; init; }
@@ -1268,6 +1324,7 @@ namespace Ikon.AI.MusicGeneration
     // The platform provides the Suno key, so these behave like every other model here and need no per-app secret. An app may still override it with its own subscription by setting IKON_SUNO_API_KEY (ikon app secret set IKON_SUNO_API_KEY <key>), which is then billed as bring-your-own-key usage.
     SunoV5
     SunoV55
+    // extension methods: MusicGeneratorModelExtensions{DisplayName}
   static class MusicGeneratorModelExtensions
     static string DisplayName(this MusicGeneratorModel model)
   // Kind tells how the audio was delivered: inline bytes in Data, or a signed download URL in Url valid for roughly one hour.
@@ -1278,12 +1335,14 @@ namespace Ikon.AI.MusicGeneration
     ResultKind Kind { get; init; }
     string MimeType { get; init; }
     string? Url { get; init; }
+    // extension methods on IResultPayload, using Ikon.AI: AssetOutputs{GetDataAsync}
 
 namespace Ikon.AI.OCR
   enum DocumentType
     General
   interface IOCR : IDisposable, IOCRInfo
     Task<OCRResult> AnalyzeDocumentAsync(OCRConfig config, CancellationToken cancellationToken = default)
+    // Yields the document in page batches. Every batch has an empty OCRResult.Text — the whole document's text would not fit the protocol message the streaming exists to stay under, so read the text from OCRResult.Paragraphs, or call AnalyzeDocumentAsync when you need it in one piece.
     IAsyncEnumerable<OCRResult> AnalyzeDocumentStreamingAsync(OCRConfig config, CancellationToken cancellationToken = default)
   interface IOCRInfo
     // Largest document the model accepts, in bytes, or 0 when it publishes no limit — never read 0 as a zero budget. Only checked when the document is supplied as OCRConfig.Data; the size behind a OCRConfig.Url or OCRConfig.AssetUri is not known before the request is made.
@@ -1333,6 +1392,7 @@ namespace Ikon.AI.OCR
   enum OCRModel
     AzureDocumentIntelligence
     MistralOCR
+    // extension methods: OCRModelExtensions{DisplayName}
   static class OCRModelExtensions
     static string DisplayName(this OCRModel model)
   sealed record OCRPage
@@ -1361,6 +1421,8 @@ namespace Ikon.AI.Provenance
   // The platform's EU AI Act Article 50 marking, applied identically for every provider. Three layers behind one call: an XMP metadata mark (always; IPTC DigitalSourceType=trainedAlgorithmicMedia), an imperceptible tiled pixel watermark (default on; detectable via MeasureInvisibleMark), and an optional visible corner badge. PNG and JPEG take all three; WebP takes the metadata mark alone; any other encoding passes through untouched. Ask GetMarkingSupport rather than assuming. Streamed media (WebRTC, TTS) is out of scope by design — disclosure there is interaction-level.
   static class ImageProvenance
     static byte[] Apply(byte[] data, string model, bool invisibleWatermark = true, string visibleWatermark = "")
+    // marking is what the bytes carry on return, not what the format could take: an undecodable payload, a badge that does not fit, or a malformed container degrades it to ProvenanceMarking.MetadataOnly or ProvenanceMarking.None, and every such exit is logged at Warning. With invisibleWatermark off the best outcome is ProvenanceMarking.MetadataOnly.
+    static byte[] Apply(byte[] data, string model, bool invisibleWatermark, string visibleWatermark, out ProvenanceMarking marking)
     static ProvenanceMarking GetMarkingSupport(byte[] data)
     // At or above DetectionThreshold the image carries Ikon's mark; unmarked images score near zero.
     static double MeasureInvisibleMark(byte[] data)
@@ -1384,7 +1446,7 @@ namespace Ikon.AI.Reranking
     ctor()
     required CustomRerankApi Api { get; init; }
   interface IReranker : IDisposable
-    // Returns items ordered most relevant first; RerankItem.Index is the document's position in RerankerConfig.Documents.
+    // Returns items ordered most relevant first; RerankItem.Index is the document's position in RerankerConfig.Documents. Throws when the provider returns fewer items than RerankerConfig.TopN (or the document count) or an index outside the documents.
     Task<List<RerankItem>> RerankAsync(RerankerConfig config, CancellationToken cancellationToken = default)
   sealed record RerankItem
     ctor()
@@ -1399,6 +1461,7 @@ namespace Ikon.AI.Reranking
     VoyageRerank25Lite
     // Not directly usable — select custom models (see CustomModels) by their registered name string.
     Custom
+    // extension methods: RerankModelExtensions{DisplayName}
   static class RerankModelExtensions
     static string DisplayName(this RerankModel model)
   sealed class Reranker : IReranker
@@ -1411,6 +1474,8 @@ namespace Ikon.AI.Reranking
     static Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, RerankModel model = CohereRerank4Fast, int topN = 0, CancellationToken cancellationToken = default)
   sealed record RerankerConfig
     ctor()
+    // Default false: a document longer than the model's window is rejected by the provider instead of being scored on its head only. True lets Voyage cut it at the window.
+    bool AllowTruncation { get; init; }
     List<string> Documents { get; init; }
     string Query { get; init; }
     // Scaled up internally with the document count.
@@ -1444,6 +1509,8 @@ namespace Ikon.AI.Retrieving
   class Retriever : IAsyncDisposable
     ctor()
     KernelContext Context { get; }
+    // Anything listed here is missing from the index, so searches answer from a subset of the corpus; WaitForLoadingToEndAsync throws rather than let that pass for a complete load.
+    IReadOnlyCollection<string> IndexingErrors { get; }
     ValueTask DisposeAsync()
     Task<ContentLink[]> ExpandAsync(ContentLink[] links)
     Task<ContentLink[]> ExpandAsync(ContentLink link)
@@ -1460,6 +1527,7 @@ namespace Ikon.AI.Retrieving
     Task<Retriever.Event[]> SearchEventsAsync(string startUtcTimestamp, string endUtcTimestamp, string searchString, int maxResults = 100)
     Task<KeywordSearchResult[]> SearchKeywordsAsync(string searchString, int maxResults = 100)
     Task StopAsync()
+    // Throws when any file or item failed to load, because a search after a partial load cannot be told apart from one over the whole corpus; IndexingErrors lists them.
     Task WaitForLoadingToEndAsync()
   class Retriever.ContentMetadata
     ctor()
@@ -1519,7 +1587,9 @@ namespace Ikon.AI.SoundEffectGeneration
     bool SupportsLooping { get; init; }
   sealed record SoundEffectGeneratorConfig
     ctor()
+    // Seconds, between 0.5 and 30; a value outside that range is refused rather than clamped. null lets the model choose the length.
     double? DurationSeconds { get; init; }
+    // Requires ISoundEffectGeneratorInfo.SupportsLooping; other models refuse the request rather than returning a non-looping effect.
     bool Loop { get; init; }
     string Prompt { get; init; }
     double PromptInfluence { get; init; }
@@ -1528,6 +1598,7 @@ namespace Ikon.AI.SoundEffectGeneration
     TimeSpan Timeout { get; init; }
   enum SoundEffectGeneratorModel
     ElevenLabsV2
+    // extension methods: SoundEffectGeneratorModelExtensions{DisplayName}
   static class SoundEffectGeneratorModelExtensions
     static string DisplayName(this SoundEffectGeneratorModel model)
   // Kind tells how the audio was delivered: inline bytes in Data, or a signed download URL in Url valid for roughly one hour.
@@ -1538,6 +1609,7 @@ namespace Ikon.AI.SoundEffectGeneration
     ResultKind Kind { get; init; }
     string MimeType { get; init; }
     string? Url { get; init; }
+    // extension methods on IResultPayload, using Ikon.AI: AssetOutputs{GetDataAsync}
 
 namespace Ikon.AI.SpeechGeneration
   interface ISpeechGenerator : IDisposable
@@ -1583,6 +1655,7 @@ namespace Ikon.AI.SpeechGeneration
     Gemini25FlashTts
     Gemini25ProTts
     Gemini31FlashTts
+    // extension methods: SpeechGeneratorModelExtensions{DisplayName}
   static class SpeechGeneratorModelExtensions
     static string DisplayName(this SpeechGeneratorModel model)
 
@@ -1799,6 +1872,7 @@ namespace Ikon.AI.SpeechRecognition
     AssemblyAIUniversalStreamingMultilingual
     ElevenScribe2
     VoxtralMiniTranscribe2
+    // extension methods: SpeechRecognizerModelExtensions{DisplayName}
   static class SpeechRecognizerModelExtensions
     static string DisplayName(this SpeechRecognizerModel model)
   // Which timings to ask the provider for. Timestamps cost a larger response and, on some providers, extra processing, so the default is None. Requesting a granularity the model does not support throws — check SpeechRecognizer.GetCapabilities first.
@@ -1861,6 +1935,7 @@ namespace Ikon.AI.Storage
     ctor(VectorStoreConfig? config = null)
     Task CreateCollectionAsync(string collectionName, EmbeddingModel model)
     Task<int> GetDataItemCountAsync(string collectionName)
+    // Throws on an empty tag list rather than matching — and deleting — the whole collection.
     Task RemoveAsync(string collectionName, IEnumerable<string> tags)
     Task<List<Result<object>>> SearchAsync(string collectionName, float[] queryVector, int maxItems, float threshold, Metric metric, Func<IEnumerable<string>, bool>? tagsFilter = null)
     Task<List<Result<object>>> SearchAsync(string collectionName, string query, int maxItems, float threshold, Metric metric, Func<IEnumerable<string>, bool>? tagsFilter = null)
@@ -1917,6 +1992,7 @@ namespace Ikon.AI.VideoEnhancement
     TensorPixUpscale2xUltra4
     TensorPixUpscale2xUltra41
     TensorPixUpscale4xUltra4
+    // extension methods: VideoEnhancerModelExtensions{DisplayName}
   static class VideoEnhancerModelExtensions
     static string DisplayName(this VideoEnhancerModel model)
   sealed record VideoEnhancerResult
@@ -1971,6 +2047,7 @@ namespace Ikon.AI.VideoGeneration
     Ratio4x3
     Ratio3x4
     Ratio1x1
+    ModelDefault
   sealed class VideoGeneratorCapabilities : IVideoGeneratorInfo
     ctor()
     int MaxInputAudios { get; init; }
@@ -1997,7 +2074,8 @@ namespace Ikon.AI.VideoGeneration
     List<InputImage> InputImages { get; init; }
     // Reference footage, for models that accept it. Addressed from the prompt in the provider's own notation — fal's Seedance uses @Video1, @Video2 in prompt order.
     List<InputVideo> InputVideos { get; init; }
-    int Length { get; init; }
+    // Seconds of footage. Null asks the model for its own default length; a length the model does not list in SupportedLengths is refused rather than shortened.
+    int? Length { get; init; }
     string? NegativePrompt { get; init; }
     string? Prompt { get; init; }
     VideoGeneratorResolution Resolution { get; init; }
@@ -2033,6 +2111,7 @@ namespace Ikon.AI.VideoGeneration
     Wan27
     GrokImagineVideo
     GrokImagineVideo15
+    // extension methods: VideoGeneratorModelExtensions{DisplayName}
   static class VideoGeneratorModelExtensions
     static string DisplayName(this VideoGeneratorModel model)
   enum VideoGeneratorResolution
@@ -2043,6 +2122,7 @@ namespace Ikon.AI.VideoGeneration
     Resolution768p
     Resolution1080p
     Resolution4K
+    ModelDefault
   enum VideoGeneratorResolutionMode
     Discrete
     AspectRatio
@@ -2077,6 +2157,7 @@ namespace Ikon.AI.WebScraping
     string Url { get; init; }
   interface IWebScraper : IDisposable, IWebScraperInfo
     Task<DownloadFileResult> DownloadFileAsync(DownloadFileConfig config, CancellationToken cancellationToken = default)
+    // Every page the crawl reached, failed ones with PageResult.Error set; throws when none could be fetched.
     Task<List<PageResult>> ScrapeMultiplePagesAsync(MultiPageScrapeConfig config, CancellationToken cancellationToken = default)
     Task<PageResult> ScrapeSinglePageAsync(SinglePageScrapeConfig config, CancellationToken cancellationToken = default)
     Task<ScreenshotResult> TakeScreenshotAsync(ScreenshotConfig config, CancellationToken cancellationToken = default)
@@ -2088,6 +2169,7 @@ namespace Ikon.AI.WebScraping
   sealed record MultiPageScrapeConfig
     ctor()
     bool AddGivenUrlsToWhitelist { get; init; }
+    // Spider whitelists Urls so nothing else consumes MaxPages; a URL the crawl never returns comes back with PageResult.Error set.
     bool AllowOnlyGivenUrls { get; init; }
     List<Cookie> Cookies { get; init; }
     string CountryCode { get; init; }
@@ -2095,19 +2177,25 @@ namespace Ikon.AI.WebScraping
     string ExcludedCSSElements { get; init; }
     List<string> ExcludedLineStarts { get; init; }
     List<string> ExcludedWholeLines { get; init; }
+    // Local browser scrapers only; the remote scrapers throw on false.
     bool Headless { get; init; }
     bool IgnoreRobotsTxt { get; init; }
+    // No scraper implements this; setting it throws.
     bool IncludeLinkedFiles { get; init; }
     string IncludedCSSElements { get; init; }
     string JavaScript { get; init; }
     bool LoadResources { get; init; }
     string Locale { get; init; }
     int MaxDepth { get; init; }
+    // The crawl stops here; Spider logs a warning when the site may have more pages.
     int MaxPages { get; init; }
     WebScraperOutputFormat OutputFormat { get; init; }
     string PlaywrightScript { get; init; }
+    // Spider reruns the crawl up to three times for Urls still missing, then throws.
     bool RerunIfGivenUrlsMissing { get; init; }
+    // Per page. Local browser scrapers only; Spider bounds a page fetch itself.
     TimeSpan SinglePageTimeout { get; init; }
+    // For the whole crawl.
     TimeSpan Timeout { get; init; }
     List<string> UrlBlacklist { get; init; }
     List<string> UrlWhitelist { get; init; }
@@ -2116,10 +2204,13 @@ namespace Ikon.AI.WebScraping
     bool UseSitemap { get; init; }
     bool UseSitemapOnly { get; init; }
     bool UseStreaming { get; init; }
+    // Extra wait after page load. Local browser scrapers only; Spider throws when set.
     TimeSpan WaitAfter { get; init; }
   sealed record PageResult
     ctor()
     string Content { get; init; }
+    // Non-empty when a crawl reached the page but could not fetch it; Content is then empty. A crawl whose every page failed throws instead.
+    string Error { get; init; }
     List<string> Keywords { get; init; }
     string MimeType { get; init; }
     string Title { get; init; }
@@ -2129,6 +2220,7 @@ namespace Ikon.AI.WebScraping
     List<Cookie> Cookies { get; init; }
     string CountryCode { get; init; }
     bool FullPage { get; init; }
+    // Local browser scrapers only; the remote scrapers throw on false.
     bool Headless { get; init; }
     int Height { get; init; }
     string JavaScript { get; init; }
@@ -2136,6 +2228,7 @@ namespace Ikon.AI.WebScraping
     string PlaywrightScript { get; init; }
     TimeSpan Timeout { get; init; }
     string Url { get; init; }
+    // LocalNodriver only (TikTok captcha solver); the remote scrapers throw when set.
     bool UseCaptchaSolver { get; init; }
     TimeSpan WaitAfter { get; init; }
     int Width { get; init; }
@@ -2147,21 +2240,30 @@ namespace Ikon.AI.WebScraping
     ctor()
     List<Cookie> Cookies { get; init; }
     string CountryCode { get; init; }
+    // Nodriver throws when set.
     string ExcludedCSSElements { get; init; }
     List<string> ExcludedLineStarts { get; init; }
     List<string> ExcludedWholeLines { get; init; }
+    // Local browser scrapers only; the remote scrapers throw on false.
     bool Headless { get; init; }
+    // No scraper implements this; setting it throws.
     bool IncludeLinkedFiles { get; init; }
+    // Nodriver throws when set.
     string IncludedCSSElements { get; init; }
     string JavaScript { get; init; }
+    // Jina throws when set; Nodriver's browser always loads resources.
     bool LoadResources { get; init; }
     string Locale { get; init; }
     WebScraperOutputFormat OutputFormat { get; init; }
     string PlaywrightScript { get; init; }
+    // For the whole fetch.
     TimeSpan Timeout { get; init; }
     string Url { get; init; }
+    // LocalNodriver only (TikTok captcha solver); the remote scrapers throw when set.
     bool UseCaptchaSolver { get; init; }
+    // Jina always extracts and throws on false; Nodriver never extracts.
     bool UseReadability { get; init; }
+    // Extra wait after page load. Browser scrapers only; Spider and Jina fetch without one.
     TimeSpan WaitAfter { get; init; }
   sealed class WebScraper : IWebScraper
     ctor(string modelName)
@@ -2194,6 +2296,7 @@ namespace Ikon.AI.WebScraping
     LocalPuppeteer
     LocalNodriver
     LocalPlaywright
+    // extension methods: WebScraperModelExtensions{DisplayName}
   static class WebScraperModelExtensions
     static string DisplayName(this WebScraperModel model)
   enum WebScraperOutputFormat
@@ -2209,16 +2312,23 @@ namespace Ikon.AI.WebSearching
     bool SupportsImageSearching { get; }
   sealed record SearchConfig
     ctor()
+    // Two-letter ISO code, e.g. "us". Amazon cannot apply it and throws when it is set.
     string CountryCode { get; init; }
+    // Host or URL prefix the hits must belong to. Amazon and YouTube cannot restrict by site and throw when it is set.
     string InSiteUrl { get; init; }
+    // Two-letter ISO code, e.g. "en". Amazon and Bing cannot apply it and throw when it is set.
     string Language { get; init; }
+    // SerpApi models return at most 100 per search and reject a higher value.
     int MaxResults { get; init; }
     WebSearcherOutputFormat OutputFormat { get; init; }
     string Query { get; init; }
+    // For the whole search request.
     TimeSpan Timeout { get; init; }
   sealed record SearchResult
     ctor()
     string Content { get; init; }
+    // Non-empty when the hit was found but its page could not be fetched; Content is then empty. Spider only.
+    string Error { get; init; }
     List<string> Keywords { get; init; }
     string MimeType { get; init; }
     string Title { get; init; }
@@ -2247,6 +2357,7 @@ namespace Ikon.AI.WebSearching
     Bing
     BingImages
     Youtube
+    // extension methods: WebSearcherModelExtensions{DisplayName}
   static class WebSearcherModelExtensions
     static string DisplayName(this WebSearcherModel model)
   enum WebSearcherOutputFormat

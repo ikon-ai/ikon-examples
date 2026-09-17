@@ -1,6 +1,6 @@
 <!-- mined-from: Sentrix -->
 # Background Processing Pipeline — Fire-and-Forget After Upload Returns
-
+<!-- checked-against: 31c94be5331348df -->
 After a synchronous upload (or any user-facing action) completes, kick off the heavy processing on a background `Task.Run`. The user gets immediate UI feedback ("Uploaded!"); the multi-step pipeline (extract text → metadata → classify → summarise → audit) runs detached, updating row status as each stage finishes.
 
 ## When to use
@@ -21,6 +21,8 @@ private async Task HandleFileUploadCompleteAsync(
 
     _ = Task.Run(async () =>
     {
+        // AsyncLocal, set inside the task: the identity flows down this pipeline's awaits and
+        // nowhere else, so two uploads processing at once never see each other's tenant.
         _backgroundTenantId.Value = capturedTenantId;
         _backgroundUserId.Value = capturedUserId;
         using var scope = ReactiveScope.Use(new UserScope(clientContext), new ClientScope(clientContext));
@@ -66,7 +68,8 @@ private async Task ProcessFileAsync(Guid caseFileId, Guid caseId, AssetUri asset
 
 - `_ = Task.Run(async () => ...)` — discard the task so the originating handler returns immediately. Don't `await` it; the user just sees the row appear in the table.
 - **Capture identity locals before crossing the thread boundary**: `capturedTenantId`, `capturedUserId`, the `clientContext`. A `Task.Run` started inside a scoped handler inherits that scope, but anything that starts from a scopeless path (a timer, a queue drain, `Main`) has none, and a scopeless `ClientReactive`/`UserReactive` `.Value` throws. Capture the ids while the scope exists, then either target each write — `_x.SetFor(clientSessionId, value)` — or re-establish the region with `ReactiveScope.Use(new UserScope(...), new ClientScope(...))` when the whole body needs it (as here: the pipeline calls into helpers that read scoped state throughout).
-- `app.BackgroundWork.StartAsync()` is the platform's way to keep the app alive while clients are disconnected — without it the work can be killed when the last client leaves.
+- `_backgroundTenantId` / `_backgroundUserId` are `AsyncLocal<T>`, not reactives — a plain field needs no scope, and setting it *inside* the task makes the identity flow down this pipeline's awaits only. `EffectiveTenantId` falls back to the foreground identity when none is set, so the same helpers serve both paths.
+- `app.BackgroundWork.StartAsync()` is the platform's way to keep the app alive while clients are disconnected — without it the work can be killed when the last client leaves. It holds for an hour unless a duration is stated (`StartAsync(TimeSpan.FromHours(3.0), "transcode")`, up to twelve) and stops holding when that runs out, so a pipeline that legitimately runs longer states its duration or calls `work.ExtendAsync(...)` as it makes progress. Never take one for the app's lifetime: while it is held nothing reaps the session at all.
 - Update a status enum on the entity (`Uploading → Processing → Done | Error`) and re-broadcast (`UpdateCaseDataForViewersAsync`) at every stage. The UI reads from a `ReactiveList<>` of these entities and re-renders the row badge automatically.
 - Always wrap the inner body in try/catch — uncaught background exceptions vanish into the void.
 

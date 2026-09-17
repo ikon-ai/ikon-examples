@@ -14,10 +14,11 @@ namespace Ikon.Connectors.Browser
     Task<string?> EvaluateAsync(string script)
     Task<WebActionResult> ExecuteAsync(WebAction action)
     Task<IReadOnlyList<MarkedElement>> MarkElementsAsync()
-    Task NavigateAsync(string url)
+    // Returns the HTTP status the navigation landed on, or null when there was no main response (a same-document navigation or about:blank). It does not throw on a 4xx/5xx landing — the page is there to be observed — so a caller that treats an error page as a failure must check the status.
+    Task<int?> NavigateAsync(string url)
     Task<byte[]> ScreenshotAsync()
-    // Prefer this over ScreenshotAsync when the image enters an LLM context — a PNG's 3-5x larger payload rides along for every later turn.
-    Task<byte[]> ScreenshotJpegAsync(int quality = 70)
+    // Prefer this over ScreenshotAsync when the image enters an LLM context — a PNG's 3-5x larger payload rides along for every later turn. fullPage captures the whole scrollable document instead of the viewport.
+    Task<byte[]> ScreenshotJpegAsync(int quality = 70, bool fullPage = false)
     // Call once; throws InvalidOperationException if already started (dispose first). captureGrade renders at a 1440×900 2× viewport for high-fidelity single-shot screenshots — leave false for interactive driving, where the larger payload is pure token cost.
     // headless: Run the browser without a visible window.
     // captureGrade: High-fidelity capture mode for single-shot visual grading: 1440×900 viewport at 2x device scale, so small text, hairline borders, and gradients survive to the vision model. Leave false for agentic driving sessions — their screenshots ride along in every later LLM turn, where the 4x pixel payload is pure token cost.
@@ -83,7 +84,11 @@ namespace Ikon.Connectors.Browser
     BudgetExhausted
   sealed record WebReplay
     // Healed: Reserved for self-healing replay, which is not yet implemented — this is currently always false, so do not branch on it expecting a meaningful value.
-    ctor(bool Ok, IReadOnlyDictionary<string, string> Outputs, bool Healed)
+    // FailedStep: Zero-based index into WebFlow.Steps of the step that failed; null when Ok.
+    // Failure: The failed step's diagnosis, as the browser session reported it; null when Ok.
+    ctor(bool Ok, IReadOnlyDictionary<string, string> Outputs, bool Healed, int? FailedStep = null, string? Failure = null)
+    int? FailedStep { get; init; }
+    string? Failure { get; init; }
     bool Healed { get; init; }
     bool Ok { get; init; }
     IReadOnlyDictionary<string, string> Outputs { get; init; }

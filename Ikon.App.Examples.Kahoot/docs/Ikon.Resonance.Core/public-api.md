@@ -5,7 +5,7 @@ namespace Ikon.Resonance.Core
   class AudioChunk
     // For the Teleport serializer only. Application code should use the parameterized constructor: an object initializer that skips SampleRate/ChannelCount leaves them at 0, which the mixer rejects with an ArgumentException.
     ctor()
-    // id: The speech-event id. One unique id per utterance; a multi-chunk stream shares the id across its chunks. Reusing a completed utterance's id silently drops the chunk, and an older id starts a new utterance that interrupts what is playing.
+    // id: The speech-event id. One unique id per utterance; a multi-chunk stream shares the id across its chunks. A chunk reusing a completed utterance's id is dropped with a warning unless it is marked isFirst, which starts a new utterance under that id; any other id starts a new utterance that interrupts what is playing.
     // samples: Interleaved float PCM samples in [-1, 1].
     // sampleRate: Samples per second; must be positive.
     // channelCount: Interleaved channel count; must be at least 1.

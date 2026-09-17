@@ -1,6 +1,6 @@
 <!-- mined-from: recurring visual-gate verdicts on generated apps ("lacks depth", "flat boxed-in borders", "compose panel lacks depth") -->
 # Depth & Atmosphere — surfaces that don't need borders
-
+<!-- checked-against: 1148305c879bcceb -->
 The most repeated visual-gate criticism across generated apps: every container is a flat fill with a
 hard border, so the page reads as boxed-in wireframe rather than designed product. Depth comes from
 LAYERED SIGNALS — a soft shadow, a subtle surface tint step, a brand-tinted glow, a restrained

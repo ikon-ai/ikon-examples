@@ -1,5 +1,5 @@
 # Form Field Discipline — Labels, Errors That Survive, and a Review Step
-
+<!-- checked-against: 80337f27dc9a4b9c -->
 Forms are where a generated app most often looks finished and behaves badly. The recurring defects are always the same three: the placeholder is the only label, so the field is nameless the moment someone types; a failed submit clears the fields that were fine; and a consequential action fires straight off the button with nothing stated back.
 
 One `Validate()` that checks everything and keeps every value, per-field errors under the field they belong to, and a review step before anything irreversible.
@@ -11,11 +11,12 @@ Any structured entry beyond a single search box — sign-up, settings, a create/
 ## Snippet
 
 ```csharp
-private readonly Reactive<string> _name = new("");
-private readonly Reactive<string> _email = new("");
-private readonly Reactive<string> _plan = new("");
-private readonly ReactiveDictionary<string, string> _errors = new();
-private readonly Reactive<bool> _confirming = new(false);
+// A form is one person's: per client, or every connected client types into the same fields.
+private readonly ClientReactive<string> _name = new("");
+private readonly ClientReactive<string> _email = new("");
+private readonly ClientReactive<string> _plan = new("");
+private readonly ClientReactiveDictionary<string, string> _errors = new();
+private readonly ClientReactive<bool> _confirming = new(false);
 
 /// Validate everything at once and KEEP every entered value. A form that clears the other
 /// fields because one failed is the fastest way to lose a user.

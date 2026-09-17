@@ -1,5 +1,5 @@
 # Busy Flag with Visible Loading State
-
+<!-- checked-against: 2eb3a40fe0ea3c53 -->
 The standard pattern for any async work — LLM call, image generation, web search, file upload. Reactive flag + button label change + try/catch + error surface.
 
 ## When to use

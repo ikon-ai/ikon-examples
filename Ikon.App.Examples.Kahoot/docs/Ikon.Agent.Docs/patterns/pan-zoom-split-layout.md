@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Pan-Zoom Canvas Beside A Resizable Panel — What Stays On The Client
-
+<!-- checked-against: 210eac61bd80e486 -->
 Two components that look like they need constant server round-trips and deliberately do not.
 `ResizableSplit` resizes entirely on the client and reports only the **final** size;
 `PanZoom` keeps the pan offset and the in-gesture zoom on the client and reports only the scale at

@@ -7,7 +7,7 @@ namespace Ikon.App.Http
     IReadOnlyDictionary<string, string>? Headers { get; init; }
     string? RawBody { get; init; }
     IReadOnlyDictionary<string, string>? SessionIdentity { get; init; }
-    // Null when no HttpCallContext is current or the identity carries no userid (e.g. an anonymous endpoint).
+    // The user the gateway proved for the call in flight (ProvenUser.Current) when there is one, regardless of the identity dict; otherwise the identity's userid (case-insensitive key). Null only when no user was proven and the identity carries no userid (e.g. an anonymous endpoint).
     string? UserId { get; }
     string? Header(string name)
     static IDisposable Use(HttpCallContext context)
