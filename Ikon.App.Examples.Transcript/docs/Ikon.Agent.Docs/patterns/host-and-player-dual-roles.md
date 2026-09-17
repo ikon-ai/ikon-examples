@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Examples.Kahoot -->
 # Host And Player Dual Roles — One App, Two Completely Different UIs
-
+<!-- checked-against: 714e3dfa5bcad899 -->
 A single Ikon app serves two visually distinct roles by branching off a `host=true` query param in `ClientParams`. Host clients see the big-screen game master view (QR code, leaderboard, projector-friendly text); players see the small-screen tap-to-answer view. Both share the same `Reactive` state but render different trees.
 
 ## When to use

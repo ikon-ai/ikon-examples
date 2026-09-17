@@ -19,7 +19,7 @@ namespace Ikon.Resonance.Effects
     // buffer: The audio buffer to transform.
     void Process(Span<float> buffer)
     void Reset()
-  // The parameterless constructor yields a natural small-room reverb (four delay lines, 120–320 ms). For the array constructor, the feedbacks/mixes/delayTimesMs/cutoffFrequencies arrays must all be the same length (one entry per delay line): delay time sets perceived room size, feedback (< 1.0) sets tail length, mix the wet blend, and cutoff damps highs inside the feedback loop.
+  // The parameterless constructor yields a natural small-room reverb (four delay lines, 120–320 ms). For the array constructor, the feedbacks/mixes/delayTimesMs/cutoffFrequencies arrays must all be the same length (one entry per delay line): delay time sets perceived room size, feedback (< 1.0) sets tail length, and cutoff damps highs inside the feedback loop. Mixes (0–1 each) are not applied per line: their average is the single wet/dry blend for the summed lines, and an average of 0 makes the effect pass audio through.
   sealed class ReverbAudioEffect : IAudioEffect
     ctor()
     // roomSize: Room size from 0 (tiny) to 1 (cathedral). Scales delay times.

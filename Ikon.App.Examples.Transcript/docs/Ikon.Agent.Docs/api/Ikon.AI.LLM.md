@@ -8,6 +8,7 @@ namespace Ikon.AI.LLM
   // Capability flags default to what a typical self-hosted OpenAI-compatible model supports; enable more (e.g. SupportsJsonSchema) when the endpoint provides them.
   sealed class CustomLLMModel : CustomModel
     ctor()
+    ReasoningDial AcceptedReasoningDial { get; }
     required CustomLLMApi Api { get; init; }
     required int ContextWindowSize { get; init; }
     // Leave at 0 when the endpoint has no such cap: a request asking for more than the model can produce is capped at this value instead of being sent as-is, and 0 means "send the caller's value".
@@ -24,6 +25,8 @@ namespace Ikon.AI.LLM
     bool SupportsTemperature { get; init; }
   sealed class LLMCapabilities
     ctor()
+    // The dial a model does not read is refused at the request, not ignored; None means it reads neither, so leave both unset.
+    ReasoningDial AcceptedReasoningDial { get; init; }
     int ContextWindowSize { get; init; }
     string InlineReasoningTagName { get; init; }
     int MaxOutputTokens { get; init; }
@@ -39,6 +42,7 @@ namespace Ikon.AI.LLM
     bool SupportsOutputAudio { get; init; }
     bool SupportsParallelToolCalling { get; init; }
     bool SupportsReasoning { get; init; }
+    bool SupportsServerSideContextEditing { get; init; }
     bool SupportsSingleToolCalling { get; init; }
     bool SupportsStreaming { get; init; }
     bool SupportsZeroDataRetention { get; init; }
@@ -65,6 +69,7 @@ namespace Ikon.AI.LLM
     Gpt56Sol
     Gpt56Terra
     Gpt56Luna
+    Gpt6Astra
     O3
     O3Pro
     Claude45Haiku
@@ -149,6 +154,9 @@ namespace Ikon.AI.LLM
     NovaLite
     NovaMicro
     Nova2Lite
+    // extension methods: LLMModelExtensions{ContextWindowSize, DisplayName, MaxOutputTokens}
+  static class LLMModelDefaults
+    static LLMModel Default { get; }  // extension of LLMModel
   static class LLMModelExtensions
     // In tokens. Returns 0 when the model can't be resolved — treat 0 as "unknown" and skip utilization math rather than dividing by zero.
     static int ContextWindowSize(this LLMModel model)
@@ -158,4 +166,8 @@ namespace Ikon.AI.LLM
   class ModelOutputException : RetryableLLMException
   class NonRetryableLLMException : NonRetryableAIException
   sealed class ReasoningBurnException : RetryableLLMException
+  enum ReasoningDial
+    None
+    Effort
+    TokenBudget
   class RetryableLLMException : RetryableAIException

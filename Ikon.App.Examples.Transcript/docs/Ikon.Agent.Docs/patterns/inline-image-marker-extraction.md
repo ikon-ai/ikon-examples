@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.AutoCRM.Agent -->
 # Inline Marker Extraction — `[vehicle:ID]` Tokens In LLM Output
-
+<!-- checked-against: fd3ad2f2bd5ce270 -->
 Tell the LLM to embed `[type:id]` markers wherever it references a record (car, product, doc). After streaming completes, regex-extract every marker, fetch the rich payload (images, links, cards), strip the markers from the rendered text, and attach the payload to the message metadata. Markdown stays clean; UI gets structured attachments.
 
 ## When to use

@@ -1,5 +1,5 @@
 # Overlay Selection — Picking Modal vs Drawer vs Popover vs Toast
-
+<!-- checked-against: 15032532e686e6ff -->
 Five overlay shapes exist and they are not interchangeable. The recurring defect is reaching for a modal by default: a modal interrupts, so using one for a detail view destroys the list context the user was working in, and using one for a confirmation the user will hit fifty times a day is friction with no payoff.
 
 Pick by **task depth** and **whether the parent context must survive**.
@@ -22,8 +22,8 @@ Any time something has to appear over the current surface. Decide with the table
 ```csharp
 private readonly Reactive<Row?> _inspecting = new(null);
 private readonly Reactive<string?> _pendingDelete = new(null);
-private readonly Reactive<bool> _filterOpen = new(false);
-private readonly Reactive<bool> _saved = new(false);
+private readonly ClientReactive<bool> _filterOpen = new(false);
+private readonly ClientReactive<bool> _saved = new(false);
 
 private void Render(IView view)
 {

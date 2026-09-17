@@ -1,12 +1,24 @@
 namespace Ikon.Agent
+  sealed record PlanSnapshot
+    ctor(string Id, string AppId, string Name, IReadOnlyDictionary<string, PlanSection> Sections, double? Score, ThreadStatus Status, DateTime CreatedAt, DateTime UpdatedAt)
+    string AppId { get; init; }
+    DateTime CreatedAt { get; init; }
+    string Id { get; init; }
+    string Name { get; init; }
+    double? Score { get; init; }
+    IReadOnlyDictionary<string, PlanSection> Sections { get; init; }
+    ThreadStatus Status { get; init; }
+    DateTime UpdatedAt { get; init; }
   // The agent layer never names a concrete model: each pass resolves Capability × Family to a concrete LLMModel internally, which lands on the Emerge pass as EmergePass.Model.
   sealed record Reasoning
-    ctor(Capability Capability = Standard, ModelFamily Family = Claude, double Temperature = 0.7, int MaxOutputTokens = 32000, int? ClearToolResultsAfterInputTokens = null, IReadOnlyList<string>? ClearToolResultsExcludedTools = null, ReasoningEffort? Effort = null, TimeSpan? MaxPassWallTime = null, int? MaxToolCallsPerPass = null, int? MaxIterationsPerPass = null)
+    ctor(Capability Capability = Standard, ModelFamily Family = Claude, double Temperature = 0.7, int MaxOutputTokens = 32000, int? ClearToolResultsAfterInputTokens = null, IReadOnlyList<string>? ClearToolResultsExcludedTools = null, ReasoningEffort? Effort = null, TimeSpan? MaxPassWallTime = null, int? MaxToolCallsPerPass = null, int? MaxIterationsPerPass = null, int? ImagesPerPass = null, bool ContinuousTranscript = false)
     Capability Capability { get; init; }
     int? ClearToolResultsAfterInputTokens { get; init; }
     IReadOnlyList<string>? ClearToolResultsExcludedTools { get; init; }
+    bool ContinuousTranscript { get; init; }
     ReasoningEffort? Effort { get; init; }
     ModelFamily Family { get; init; }
+    int? ImagesPerPass { get; init; }
     int? MaxIterationsPerPass { get; init; }
     int MaxOutputTokens { get; init; }
     TimeSpan? MaxPassWallTime { get; init; }

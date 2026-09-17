@@ -266,7 +266,7 @@ When in doubt, prefer the canonical name. These are the recurring wrong names th
 | `EmergePass<T>.User` method | `pass.Command` / `pass.SystemPrompt` properties | All pass-config is property assignment. |
 | `Theme.Builder` | `new IkonTheme { ... }` | Builder pattern was removed entirely. |
 
-If a compiler error names one of these on the right-hand column, the fix is mechanical: replace the wrong name with the right name. Do not call `guide()` to re-confirm — the compiler is authoritative.
+If a compiler error names one of these on the right-hand column, the fix is mechanical: replace the wrong name with the right name. Do not go back to the documentation to re-confirm — the compiler is authoritative.
 
 ## Host Services & Lifecycle
 
@@ -415,13 +415,27 @@ view.Text([Text.Body, "text-primary underline"], joinUrl);
 
 ### BackgroundWork
 
-Prevents the server from idle-shutdown while background processing is active. Returns an `IAsyncDisposable` scope; multiple concurrent scopes are ref-counted.
+Prevents the server from idle-shutdown while background processing is active. Returns a
+`BackgroundWorkScope`; multiple concurrent scopes are ref-counted.
 
 ```csharp
-await using var work = await app.BackgroundWork.StartAsync();
+await using var work = await app.BackgroundWork.StartAsync(TimeSpan.FromMinutes(20.0), "nightly export");
 await LongRunningTask();
-// work.DisposeAsync() signals completion automatically
+// Disposing signals completion; the hold ends on its own after 20 minutes either way
 ```
+
+**A scope holds for a stated duration and no longer.** While one is held the session reports itself
+as never idle, so nothing reaps it at any tier — an app that takes a scope for its own lifetime keeps
+an instance polling feeds and calling models with nobody watching, billed the whole time. A scope
+that states no duration (`StartAsync()`) holds for `BackgroundWork.DefaultHold`, one hour; state a
+longer one for work that needs it, up to `BackgroundWork.MaxHold`, twelve hours. Work still making
+progress past its duration calls `work.ExtendAsync(TimeSpan.FromMinutes(10.0))` — from the work
+itself, never from a timer that extends whatever happens, which is the lifetime hold again. A hold
+that runs out with the work still going says so at `Warning` and stops holding; the cloud also stops
+an empty session that holds background work past the space's background-work timeout.
+
+Audio is not a reason to hold one: every `Audio` send checks whether any client is connected to hear
+it and skips generation when none is, so a wall left running does not buy speech for an empty room.
 
 ### ClientFunctions
 

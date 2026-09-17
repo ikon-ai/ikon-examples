@@ -5,7 +5,7 @@
 ---
 
 # Ikon.Parallax Library Overview
-
+<!-- checked-against: 8ccef8d7e9c45d86 -->
 ## Introduction
 
 Ikon.Parallax is a server-driven, reactive UI library for building interactive applications in C#. The library provides a declarative API for constructing user interfaces where all logic runs on the server, clients act as lightweight renderers, and the framework automatically handles efficient UI updates through intelligent diffing.
@@ -108,6 +108,34 @@ public async Task Main()
 
 `ThemeExtensions` reads the calling client's choice off a `Context` — `clientContext.IsDarkTheme()`, which is false for the light theme, for custom theme names, and for a client that has not reported one, and `theme.ToThemeName()` for the string form. `ThemeControl.Current` is a `ClientReactive<Theme>` bindable in views; `ToggleAsync`/`SetAsync` flip the calling client and push the change to it. By default a joining client that already has a saved theme keeps it (`followClient: true`).
 
+### When an Action Handler Throws
+
+An `onClick`, `onValueChange` or `onSubmit` handler that throws is logged, and the client is told the call failed — but nothing is rendered for the person who clicked unless the app does it. Subscribe `UI.ActionFailedAsync` once in `Main` to show one message for every failed handler instead of wrapping each one:
+
+```csharp
+private readonly ClientReactive<string?> _actionFailed = new(null);
+
+public async Task Main()
+{
+    // Runs inside the failed handler's client scope, so the ClientReactive write lands on the
+    // person who clicked. Show your own line — the exception's text is for the log.
+    UI.ActionFailedAsync += args =>
+    {
+        _actionFailed.Value = "That change could not be saved — please try again.";
+        return Task.CompletedTask;
+    };
+
+    UI.Root([Page.Default], content: view =>
+    {
+        view.Toast(open: _actionFailed.Value != null,
+            onOpenChange: async open => _actionFailed.Value = open ? _actionFailed.Value : null,
+            title: "Something went wrong", description: _actionFailed.Value ?? "");
+    });
+}
+```
+
+`ActionFailedEventArgs` carries the `Exception`, the `ClientContext`, the `ActionId` and the handler's `CallSite`. An app whose own exception type carries text written for the person can render that message and fall back to the generic line for everything else. The failure is still reported to the client afterwards, and a subscriber that throws is logged without stopping that report. Pair it with handlers that clear their form only after the save succeeded, so a retry is press-again rather than type-it-again.
+
 ## Reactive State
 
 ### Shared, Per-Client, Per-User, Per-Mount
@@ -129,7 +157,7 @@ private readonly UserReactive<string> _language = new("en");
 
 In UI lambdas and action handlers you just read and write `.Value` — the active scope resolves the right per-client or per-user slot implicitly. This is the "parallax" effect: the same UI code produces different views for different clients.
 
-To seed each scope's initial value from its id, `ClientReactive` and `MountReactive` have a static `Create` factory and `UserReactive` a seeding constructor:
+To seed each scope's initial value from its id, `ClientReactive` and `MountReactive` have a static `Create` factory, and `UserReactive` and `UserReactiveList` a seeding constructor (`ClientReactiveList` and `MountReactiveList` take only a fixed initial list):
 
 ```csharp
 private readonly ClientReactive<string> _welcome =
@@ -141,7 +169,7 @@ private readonly UserReactiveList<string> _cart =
 
 ### Reactive Collections: ReactiveList and ReactiveDictionary
 
-List and dictionary state goes in `ReactiveList<T>` / `ReactiveDictionary<TKey, TValue>` — not in a `Reactive<T>` wrapping a mutable collection (that shape is build warning IKON002: in-place mutations bypass change detection). Every mutation method is one change notification, and reads (`Count`, indexer, enumeration, `ContainsKey`, …) are tracked so the UI re-renders on change:
+List and dictionary state goes in `ReactiveList<T>` / `ReactiveDictionary<TKey, TValue>` — not in a `Reactive<T>` wrapping a mutable collection (that shape is build error IKON002 in an app project: in-place mutations bypass change detection). Every mutation method is one change notification, and reads (`Count`, indexer, enumeration, `ContainsKey`, …) are tracked so the UI re-renders on change:
 
 ```csharp
 private readonly ReactiveList<TodoItem> _todos = new();
@@ -276,13 +304,14 @@ The `UIView` class provides extension methods for UI components. One shape for e
 - `view.PasswordToggleField()` with `view.PasswordToggleFieldInput()` / `view.PasswordToggleFieldToggle()` / `view.PasswordToggleFieldIcon()` - Password field with a reveal toggle
 
 **Drag and drop:**
-- `view.SortableContext()` with `view.SortableItem()` and `view.SortableHandle()` - Reorderable lists; `SortStrategy` picks the axis and reorders arrive as `SortableReorderArgs`
+- `view.SortableList()` - Reorderable list; `SortStrategy` picks the axis and reorders arrive as `SortableReorderArgs` in `onReorder`
+- `view.SortableContext()` with `view.SortableItem()` and `view.SortableHandle()` - The raw primitives, inside a `view.DndContext()`; reorders arrive as `DragEndArgs` in the context's `onDragEnd`
 
 **Structure:**
 - `view.Routed()` - Renders one of a `Dictionary<T, Action<UIView>>` cases by a `ClientReactive<T>` signal
 - `view.DirectionProvider()` - Sets `Dir` (LTR/RTL) for the subtree
 - `view.VisuallyHidden()` - Content for screen readers only
-- `view.AccessibleIcon()` - An icon with a required `label`, so it is not silent to assistive technology
+- `view.AccessibleIcon()` - An icon that carries a `label` for assistive technology. Nothing enforces it: `label:` is optional and defaults to null, and an omitted one renders as an empty name — so the icon is silent exactly when you forgot, with no compile or runtime complaint
 
 ### Two-Way Binding
 
@@ -548,7 +577,7 @@ For chat specifically, `view.ChatLog()` wraps `ScrollColumn` with chat-friendly 
 view.Column(["flex-1 min-h-0 overflow-y-auto", Scrollbar.Thin], content: rows => { });
 ```
 
-Dev builds (debugger attached or `IKON_DEV_WARNINGS=1`) emit a single `Log.Instance.Warning` when they detect a `Column`/`Row`/`Box`/`Flex` with `overflow-y-auto` + `flex-1` and no `min-h-0` — with the exact `file:line` of the offending callsite.
+Dev warnings are on by default (`IKON_DEV_WARNINGS=0` opts out): a single `Log.Instance.Warning` when a `Column`/`Row`/`Box`/`Flex` is detected with `overflow-y-auto` + `flex-1` and no `min-h-0` — with the exact `file:line` of the offending callsite.
 
 **Theme the native scrollbar when you scroll a container yourself.** A bare `overflow-auto` shows the OS scrollbar — on Windows a wide grey slab that matches no theme and shifts the layout when it appears. `Theming.Scrollbar.Thin` is the themed thin bar (`Scrollbar.Hidden` removes it entirely, for a strip whose overflow is visually obvious):
 

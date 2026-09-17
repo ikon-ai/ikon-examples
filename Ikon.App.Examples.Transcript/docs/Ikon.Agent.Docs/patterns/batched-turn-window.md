@@ -1,6 +1,6 @@
 <!-- mined-from: Vienola -->
 # Batched Turn Window — Wait For The Party Before The AI Responds
-
+<!-- checked-against: b87a63358bd790a9 -->
 Multiplayer AI loops where each player submits an action, and the AI/GM responds *once* with a unified narrative. The window opens when the first player submits, closes when everyone has submitted OR a countdown elapses. Players who are still typing pause the countdown. Anyone can hit "extend" to add more time.
 
 ## When to use

@@ -1,5 +1,5 @@
 # Ikon Theming Guide
-
+<!-- checked-against: 9bc98a4679847b53 -->
 How to commit a per-app brand mood (palette, fonts, radius, density, motion) on top of the platform's Ikon CSS baseline.
 
 This is the canonical reference for the `IkonTheme` configurable surface. Self-contained — a third-party code generator (Cursor, Codex, Copilot, ChatGPT) can ingest just this doc and produce a coherently-themed Ikon AI App.
@@ -31,7 +31,7 @@ private UI UI { get; } = new(app, new IkonTheme
 });
 ```
 
-That's it. There are no other entry points. No factory, no fluent builder, no named token properties — just the indexer, plus `Mode` and `DarkMode`.
+That's it. There are no other entry points. No factory, no fluent builder, no named token properties — every colour, font and radius goes through the indexer. The only named members are `Mode`, `DarkMode`, and its two aliases: `Dark` is the same property under a second name, and `Light` takes a nested `IkonTheme` whose tokens are copied onto this one, so `new IkonTheme { Light = new() { … }, Dark = new() { … } }` reads the way it looks.
 
 ## Two-tier styling
 
@@ -138,9 +138,9 @@ Each key commits the listed canonical CSS variables. One value fans out to the w
 | `background` | `--bg-background` | the page surface | `"zinc-950"` |
 | `foreground` | `--text-primary`, `--text-foreground`, `--text-card-foreground`, `--text-popover-foreground` | reading text on every surface (page, cards, popovers) | `"amber-50"` |
 | `card` | `--bg-card` | elevated cards | `"zinc-900"` |
-| `card-foreground` | `--text-card-foreground` | text on cards | `"amber-50"` |
+| `card-foreground` | `--text-card-foreground` | text on cards. Required whenever `card` is a surface the `foreground` cannot be read against (a cream card under a dark page's light text): without it rendering throws, naming this key, rather than painting unreadable cards. The check reads the effective `--bg-card`, however it was written (`card` or `bg-card`), and measures only palette tokens, hex, `rgb()`/`hsl()`/`oklch()` and CSS named colours (`ivory`); a card it cannot measure (a gradient, `var(--x)`) renders with a warning that the pairing was not checked | `"amber-50"` |
 | `popover` | `--bg-popover` | popovers, menus, dialogs | `"zinc-900"` |
-| `popover-foreground` | `--text-popover-foreground` | text on popovers | `"amber-50"` |
+| `popover-foreground` | `--text-popover-foreground` | text on popovers; the same rule as `card-foreground` | `"amber-50"` |
 | `muted` | `--bg-muted` | subtle fills | `"zinc-800"` |
 | `muted-foreground` | `--text-muted-foreground` | secondary/caption text | `"zinc-500"` |
 | `accent-foreground` | `--text-accent-foreground` | text on hover surfaces | `"zinc-100"` |

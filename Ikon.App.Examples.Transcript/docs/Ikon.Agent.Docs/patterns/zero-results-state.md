@@ -1,5 +1,5 @@
 # Zero-Results State — Three Empty Screens, Not One
-
+<!-- checked-against: de25e60dc3c5b0f9 -->
 An empty list has three completely different causes, and generated apps routinely ship one screen for all three. The result is the worst version of each: a user who filtered everything out is told "Add your first recipe", so they think the app lost their data.
 
 Keep them apart:

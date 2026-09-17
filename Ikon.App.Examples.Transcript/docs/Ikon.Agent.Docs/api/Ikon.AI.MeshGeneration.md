@@ -47,6 +47,7 @@ namespace Ikon.AI.MeshGeneration
   enum MeshGeneratorModel
     Meshy5
     Meshy6
+    // extension methods: MeshGeneratorModelExtensions{DisplayName}
   static class MeshGeneratorModelExtensions
     static string DisplayName(this MeshGeneratorModel model)
   // The download URLs are signed and expire roughly three days after generation — fetch the model files promptly.

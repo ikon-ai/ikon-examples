@@ -1,6 +1,6 @@
 <!-- mined-from: NeonArcade -->
 # Plan-Then-Code — Persistent Plan Drives Code Generation
-
+<!-- checked-against: ba8ce9db1c1b8fef -->
 Two-stage LLM pipeline for generating large artifacts (HTML games, full-page UIs, long documents). First call produces a structured plan ("GAME TITLE / CORE MECHANICS / VISUAL DESIGN / ..."), saved alongside the artifact. Subsequent edits update only the named sections that changed (`PlanAdjustSystemPrompt` outputs *only* changed sections; `MergePlanSections` splices them in), then a second call regenerates code from the merged plan. Avoids context blow-up and keeps human-readable intent persistent.
 
 ## When to use
