@@ -3,6 +3,7 @@ namespace Ikon.AI.OCR
     General
   interface IOCR : IDisposable, IOCRInfo
     Task<OCRResult> AnalyzeDocumentAsync(OCRConfig config, CancellationToken cancellationToken = default)
+    // Yields the document in page batches. Every batch has an empty OCRResult.Text — the whole document's text would not fit the protocol message the streaming exists to stay under, so read the text from OCRResult.Paragraphs, or call AnalyzeDocumentAsync when you need it in one piece.
     IAsyncEnumerable<OCRResult> AnalyzeDocumentStreamingAsync(OCRConfig config, CancellationToken cancellationToken = default)
   interface IOCRInfo
     // Largest document the model accepts, in bytes, or 0 when it publishes no limit — never read 0 as a zero budget. Only checked when the document is supplied as OCRConfig.Data; the size behind a OCRConfig.Url or OCRConfig.AssetUri is not known before the request is made.
@@ -52,6 +53,7 @@ namespace Ikon.AI.OCR
   enum OCRModel
     AzureDocumentIntelligence
     MistralOCR
+    // extension methods: OCRModelExtensions{DisplayName}
   static class OCRModelExtensions
     static string DisplayName(this OCRModel model)
   sealed record OCRPage

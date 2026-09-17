@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Examples.Emergence -->
 # Emergence Event Feed — Color-Coded Log Of Run Events
-
+<!-- checked-against: 51222add2c6f619d -->
 `Emerge.Run<T>(...)` is an `IAsyncEnumerable<EmergeEvent<T>>` — every iteration, tool call, stage transition, and completion arrives as a separate event. Switching on the event type and pushing a typed `LogEntry` into a `ReactiveList<LogEntry>` gives you a debugger-style live log: timestamp + level + message, color-coded by category. This is what makes long-running agentic patterns (MapReduce, BestOf, TreeSearch, agentic coder) feel transparent instead of opaque.
 
 ## When to use
@@ -84,7 +84,7 @@ private void Render(IView view)
 - Don't log every `ModelText<T>` chunk — it's per-token and floods the feed; use `chatbot-streaming` for that.
 - Track `_cts` so the same UI can show a "Stop" button that cancels mid-run; the feed will show the `Stopped<T>` event.
 - For MapReduce/TreeSearch, increment `CurrentIteration` on `Progress<T>` to show "chunks processed" alongside the feed.
-- **`TokenUpdate` counts are CUMULATIVE running totals, not per-iteration deltas.** Take the LAST event's values; summing every event multiplies the reported usage by the number of iterations. `EmergenceStatus` carries the run's phase alongside them.
+- **`TokenUpdate` counts are CUMULATIVE running totals, not per-iteration deltas.** Take the LAST event's values; summing every event multiplies the reported usage by the number of iterations. `TokenUpdate<T>` carries only those four counts — the run's phase comes from the separate `Stage<T>` event, and `EmergenceStatus` is not on any event at all: it lives on `EmergenceStoppedException.Status`, which you see when you *await* a run rather than enumerate it.
 
 ## See also
 

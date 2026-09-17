@@ -1,4 +1,13 @@
 namespace Ikon.Agent
+  sealed record BudgetSnapshot
+    ctor(string TrippedField, long ActualValue, long LimitValue)
+    long ActualValue { get; init; }
+    long LimitValue { get; init; }
+    string TrippedField { get; init; }
+  enum Capability
+    Quick
+    Standard
+    Deep
   static class Checkpoints
     static Task<ThreadCheckpoint> ReadAsync(string path, CancellationToken ct = default)
     // Creates the parent directory if needed and overwrites any existing file.
@@ -115,6 +124,7 @@ namespace Ikon.Agent
     JsonElement? Payload { get; init; }
     string? PayloadKind { get; init; }
     string? ReplyToMessageId { get; init; }
+    // extension methods: ContentExtensions{GetText}
   enum ModelFamily
     Claude
     Gpt
@@ -146,10 +156,10 @@ namespace Ikon.Agent
     bool StreamProgress { get; set; }
     Reactive<IReadOnlyList<AgentThread>> Threads { get; }
     Orchestrator AddPersona(Persona persona)
-    // Omit id and each call mints a new app; pass a host-recomputable id (a space id, a workspace key) and the same call after ResumeAsync re-uses the persisted app — same plans, threads, and artifacts.
+    // Omit id and each call mints a new app; pass a host-recomputable id (a space id, a workspace key) and the same call after ResumeAsync returns the registered app — same plans, threads, and artifacts — leaving its name and brief as they are. An archived app is not resumed, so its id creates a fresh active app.
     // name: Display name of the app.
     // brief: What the app is for; seeds the agents working in it.
-    // id: Stable identity for the app. Omit it and the app gets a fresh random id, so a host that calls this again after a restart creates a second, empty app. Pass an id the host can recompute from its own state (a space id, a workspace key) and the same call after ResumeAsync re-uses the persisted app — same plans, same threads, same artifacts.
+    // id: Stable identity for the app. Omit it and the app gets a fresh random id, so a host that calls this again after a restart creates a second, empty app. Pass an id the host can recompute from its own state (a space id, a workspace key) and the same call after ResumeAsync returns the registered app — same plans, same threads, same artifacts.
     Task<AgentApp> CreateAppAsync(string name, string brief = "", string? id = null, CancellationToken ct = default)
     // Get-or-create by name: matches the app on appName (default personaName) and the plan on planName, so a repeated call after ResumeAsync returns the SAME persisted thread. seedTask is posted only when the plan is first created, never onto an existing history. A repeated call naming a DIFFERENT personaName for an existing plan throws InvalidOperationException rather than returning the other persona's thread.
     Task<AgentThread> CreateThreadAsync(string personaName, Content seedTask, string? appName = null, string planName = "main", CancellationToken ct = default)
@@ -166,11 +176,12 @@ namespace Ikon.Agent
     Task RunPassAsync(AgentThread thread, CancellationToken ct = default)
   // A tool that returns media claims a slot per artifact and degrades to text when the claim is refused. The budget is per pass: it resets on the next one.
   sealed class PassMediaBudget
-    ctor()
+    ctor(int maxImagesPerPass = 3)
     bool HasHeadroom { get; }
+    int MaxImagesPerPass { get; }
     // Returns false when the same artifact was already shown this pass (the model should scroll up instead) — alreadyShown distinguishes that from budget exhaustion.
     bool TryClaim(string artifactName, out bool alreadyShown)
-    const int MaxImagesPerPass = 3
+    const int DefaultImagesPerPass = 3
   // Role is "user" or the agent name. This is the model's INPUT — it does not include the pass's own reply (that is PassRecord.AssistantText). Non-text parts are omitted.
   sealed record PassMessage
     ctor(string Role, string Text)
@@ -226,13 +237,3 @@ namespace Ikon.Agent
     ctor(string Content, double? Score = null)
     string Content { get; init; }
     double? Score { get; init; }
-  sealed record PlanSnapshot
-    ctor(string Id, string AppId, string Name, IReadOnlyDictionary<string, PlanSection> Sections, double? Score, ThreadStatus Status, DateTime CreatedAt, DateTime UpdatedAt)
-    string AppId { get; init; }
-    DateTime CreatedAt { get; init; }
-    string Id { get; init; }
-    string Name { get; init; }
-    double? Score { get; init; }
-    IReadOnlyDictionary<string, PlanSection> Sections { get; init; }
-    ThreadStatus Status { get; init; }
-    DateTime UpdatedAt { get; init; }

@@ -78,7 +78,7 @@ Connection states: `connecting` → `connected`, with `reconnecting` on temporar
 
 **Transport selection:** By default the SDK uses WebSocket, then the proxy variants, then the HTTP stream as the rung that survives a network blocking the WebSocket upgrade. WebTransport is off by default (found unreliable on poor networks) and must be opted into via `webtransport: true` on `useIkonApp` or `?ikon-transport=wt`. Pin one transport with `?ikon-transport=` and one connect tier with `?ikon-proxy=`; a pin no offered entrypoint satisfies fails the connect rather than quietly using another transport.
 
-**Keepalive:** The server sends periodic keepalive messages and tells the client its watchdog timeout during the auth handshake (180s for current clients; only legacy clients hard-code 15s). If no keepalive arrives within that window, the connection is considered lost.
+**Keepalive:** The server sends periodic keepalive messages and tells the client its watchdog timeout during the auth handshake (180s for current clients; only legacy clients hard-code 15s). If no keepalive arrives within that window, the connection is considered lost. The silence is measured two ways: a scheduled timer for a page that is awake, and a wall-clock comparison the moment a suspended tab becomes visible again — background tabs pause their timers, so a connection that died during the suspension is detected on wake instead of leaving a page that looks alive but no longer reaches the server.
 
 **Timeout configuration** via the `timeouts` option:
 

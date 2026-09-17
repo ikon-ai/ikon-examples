@@ -3,6 +3,13 @@ namespace Ikon.App.Payments
     Unknown
     Subscription
     OneTime
+  enum EntitlementState
+    // Not fetched yet, or the last fetch failed: the value is still being warmed. Render "checking" rather than "locked"; a later render reads the real value.
+    Unknown
+    // The backend confirmed the customer holds the offer.
+    Entitled
+    // The backend confirmed the customer does not hold the offer.
+    NotEntitled
   // Omit Interval for a one-time offer.
   sealed record OfferPriceSpec
     ctor(long AmountMinor, string Currency, PriceKind Kind, PriceInterval? Interval = null, int? IntervalCount = null)
@@ -83,7 +90,7 @@ namespace Ikon.App.Payments
     Stripe
     Mollie
     Surfboard
-  // Url is a provider-hosted receipt page. Pdf holds downloadable PDF bytes only when the provider exposes one; today every provider returns a hosted URL only, so Pdf is null.
+  // Url is a provider-hosted receipt page (Stripe and Surfboard). Pdf holds downloadable PDF bytes only when the provider exposes one; no provider does today, so it is null. Mollie offers no customer-facing receipt at all and returns both null rather than failing — check before showing a receipt button.
   sealed record PaymentReceipt
     ctor(string? Url, byte[]? Pdf, string? PdfContentType)
     byte[]? Pdf { get; init; }
@@ -129,6 +136,8 @@ namespace Ikon.App.Payments
     Task CancelSubscriptionAsync(string subscriptionId, bool immediate = false, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
     // Moves subscriptionId to newOfferId (another recurring offer, same currency and interval). On an upgrade (pricier offer) the prorated difference is charged now and the new offer's entitlement is granted immediately; on a downgrade nothing is charged, the current (higher) plan stays available until the next renewal, and renewals then bill the new price. The previous offer's entitlement is left to lapse at its stored expiry. immediateChargeMinor overrides the platform's computed proration for Mollie/Surfboard (developer-owned pricing); it is rejected for Stripe, which prorates natively. Returns a SubscriptionOfferChange whose SubscriptionOfferChange.Changed is false when the subscription was already on the requested offer.
     Task<SubscriptionOfferChange> ChangeSubscriptionOfferAsync(string subscriptionId, string newOfferId, long? immediateChargeMinor = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
+    // EntitlementState.Unknown for a guest, for the first read of an unseen offer (which warms the cache in the background) and after a failed warm-up, which is logged and re-attempted on a later read. Reading it inside a UI lambda re-renders when the state changes. customerKey defaults to the current user.
+    EntitlementState CheckEntitlement(string offerId, string? customerKey = null)
     // Idempotent on OfferSpec.OfferId — calling again updates the offer. Stripe provisions a Product + Price; catalog-less providers (Mollie, Surfboard) store the offer on the platform.
     Task<PaymentOffer> CreateOfferAsync(OfferSpec offer, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
     // Paying grants the customer an entitlement for the offer; a recurring offer also starts a subscription. customerKey defaults to the current user. Throws for an anonymous (not signed-in) customer unless AllowAnonymousPayments is set. allowPromotionCodes is honored by Stripe only; other providers ignore it. amountMinorOverride charges the given amount (in minor units) instead of the offer's stored price while still granting the offer's entitlement — for developer-computed pricing such as an upgrade credit. It is supported on one-time offers only; supplying it for a recurring offer is rejected (use ChangeSubscriptionOfferAsync to change a subscription's plan).
@@ -137,7 +146,7 @@ namespace Ikon.App.Payments
     Task<PaymentLink> CreatePaymentLinkAsync(long amountMinor, string currency, string? customerKey = null, string? description = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, bool allowPromotionCodes = false, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
     // Makes a backend call; customerKey defaults to the current user. For gating UI every render, prefer the synchronous IsEntitled instead.
     Task<PaymentEntitlement> GetEntitlementAsync(string offerId, string? customerKey = null, CancellationToken cancellationToken = default)
-    // No backend call — safe to read every render, and reading it inside a UI lambda re-renders when the entitlement changes. The first read for an unseen offer returns false and warms the cache in the background, flipping to the real value on a later render. customerKey defaults to the current user.
+    // No backend call — safe to read every render, and reading it inside a UI lambda re-renders when the entitlement changes. The first read for an unseen offer returns false and warms the cache in the background, flipping to the real value on a later render. A warm-up that fails is logged and leaves the value unknown (false here); use CheckEntitlement to tell "not entitled" from "not known yet". customerKey defaults to the current user.
     bool IsEntitled(string offerId, string? customerKey = null)
     Task<IReadOnlyList<PaymentOffer>> ListOffersAsync(CancellationToken cancellationToken = default)
     // customerKey defaults to the current user.

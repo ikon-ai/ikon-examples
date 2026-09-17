@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Run Trace And Cost — Asking What That Actually Did
-
+<!-- checked-against: ba6ca33613eb7589 -->
 `await Emerge.Run<T>(...)` returns the result and nothing else. When the cost, the tool use or the
 reason a run came back empty matters, ask for the **trace** at the point the run is started —
 there is no way to recover it afterwards.
@@ -33,6 +33,10 @@ A cost or usage display, a debug panel, an audit trail of what an agent did, or 
   `AttemptNumber`, `MaxAttempts`) and `Completed<T>` (which carries the `Trace`).
 - `FinalAsync()` is the same shape without the trace, for when only the updated `KernelContext` is
   wanted.
+- The trace is one client's, so `_trace` and `_activity` are `ClientReactive`. Their `.Value`
+  resolves against the active client scope — an action callback has one, and it flows across the
+  `await`; a timer, an endpoint handler or a background loop does not. Capturing
+  `ReactiveScope.ClientId` before the run and writing with `SetFor` / `AddFor` works from either.
 
 ## Snippet
 
@@ -47,6 +51,11 @@ private readonly ClientReactiveList<string> _activity = new();
 /// </summary>
 private async Task AskAsync(string question)
 {
+    // The trace belongs to the client who asked, so the fields are ClientReactive. Their .Value
+    // needs that client's scope, which a run started from a timer, an endpoint handler or a
+    // background loop does not carry -- capture the session here and write to it by id.
+    var clientSessionId = ReactiveScope.ClientId;
+
     var (result, _, trace) = await Emerge.Run<Answer>(LLMModel.Claude46Sonnet, pass =>
     {
         pass.Command = question;
@@ -56,13 +65,13 @@ private async Task AskAsync(string question)
         pass.ReasoningEffort = ReasoningEffort.Low;
     }).FinalWithTraceAsync();
 
-    _trace.Value = trace;
+    _trace.SetFor(clientSessionId, trace);
 
     // Result stays NULLABLE on this path -- a run can complete without producing one, which
     // is exactly the case the trace explains.
     if (result is null)
     {
-        _activity.Add($"No result: {trace.FinishReason}");
+        _activity.AddFor(clientSessionId, $"No result: {trace.FinishReason}");
     }
 }
 

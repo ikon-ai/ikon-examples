@@ -1,6 +1,6 @@
 <!-- mined-from: BrainrotArena -->
 # Undo/Redo Cursor History — Linear Timeline + Drafted Edits
-
+<!-- checked-against: c6c7b8b677773fca -->
 Each editable entity holds its own version list, plus a `Cursor` index pointing at the current saved version, plus a separate `DraftCode` field for unsaved edits. Save commits the draft as a new version (truncating any "redo tail" past the cursor). Undo/Redo move the cursor; the draft snaps to the version's text. Publish marks one of the versions as the "live" one separately from the cursor.
 
 ## When to use

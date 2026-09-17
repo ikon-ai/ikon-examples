@@ -15,6 +15,17 @@ namespace Ikon.Common.Core
     ctor()
   // Thrown by AsyncLocalInstance<T>.Instance when async-local mode is enabled but no instance has been set on the current flow — e.g. accessing Log.Instance from a Task.Run body or a timer callback that did not inherit the async-local context.
   sealed class AsyncLocalInstanceNotSetException : Exception
+  abstract class BackendPageCapException : Exception
+    int MaxResults { get; }
+    // The cursor of the page after the one the cap was reached on, or empty when the cap fell inside the last page — in which case the items past the cap are the rest of that page.
+    string NextCursor { get; }
+    string RequestUri { get; }
+    // The backend's own total for the listing, or 0 when it did not report one.
+    int TotalCount { get; }
+  // Items holds the results fetched before the cap, in the backend's order. A caller that stays under the cap never sees this exception.
+  sealed class BackendPageCapException<T> : BackendPageCapException
+    ctor(string requestUri, int maxResults, IReadOnlyList<T> items, int totalCount, string nextCursor)
+    IReadOnlyList<T> Items { get; }
   class BackendQuotaExceededException : UserException
     ctor(string key, int current, int limit, string friendlyMessage)
     int Current { get; }
@@ -51,6 +62,8 @@ namespace Ikon.Common.Core
     const string Dependency
     // Not a failure at all — a confirmation the caller has to give, or a deliberate stop. Recorded so the outcome is visible, never counted as an error.
     const string Expected
+    // A provider we call took the credential and refused for lack of credit: our account with that provider has run out and has to be topped up. Separate from dependency because the provider is healthy and waiting does not help — somebody has to pay. Not the platform's own credit limits, which are a limit enforced on purpose and so expected.
+    const string ProviderCredit
     // The caller asked for something impossible or malformed, and was told so. Not a defect.
     const string UserError
   // Resilient conversions between loosely typed LLM/tool payloads and strongly typed function parameters/results: primitives, arrays (including single-item arrays), Newtonsoft JSON tokens, with a System.Text.Json fallback.
@@ -58,7 +71,8 @@ namespace Ikon.Common.Core
     static T? Convert<T>(object? value)
     // A null value against a NON-nullable value type yields that type's default — 0 for Int32, false for Boolean — NOT null, so a missing LLM field is indistinguishable from a real zero. Make the target nullable (e.g. int?) when the caller must tell "absent" from "zero".
     static object? Convert(object? value, Type targetType)
-    // Tolerates the placeholders LLMs emit when a schema marks every property required but the field is nullable: "" for collections/objects becomes null, "" for bool becomes false, etc. Falls back to ExtendedCast conversion on type mismatch, so single-item-array wrapping applies.
+    // Tolerates the placeholders LLMs emit when a schema marks every property required but the field is nullable: "" for collections/objects becomes null, "" for bool becomes false, etc. Falls back to ExtendedCast conversion on type mismatch, so single-item-array wrapping and the invariant string conversions ("true" for a bool, "3" for an int, a name for an enum) apply. A value none of them converts throws, naming the value and the target type — it is never materialised as that type's default, which the caller could not tell from a real argument.
+    // throws JsonException: element converts to no targetType value.
     static object? FromJsonElement(JsonElement element, Type targetType)
   static class ExtendedCastExtensions
     static T? ExtendedCast<T>(this object? value)
@@ -81,7 +95,7 @@ namespace Ikon.Common.Core
     string ConnectTokenJson { get; }
     bool IsAuthTicketSent { get; }
     bool IsConnected { get; }
-    // The AuthResponse from the most recent successful connect (entrypoints + auth ticket + client session). Cache it to drive a later ReconnectWithAuthResponseAsync.
+    // The AuthResponse (entrypoints + auth ticket + client session) of the most recent connect attempt: set as soon as the /connect GET returns — or the cached one is replayed — before the transport opens, so it stays set when the connect fails after that point. Feed it to ReconnectWithAuthResponseAsync for a soft reconnect.
     AuthResponse? LastAuthResponse { get; }
     DateTime ServerInitTime { get; set; }
     // The connect entry point: fetches the AuthResponse — entrypoints, auth ticket, and client session — via the /connect GET, then opens the transport.
@@ -99,6 +113,7 @@ namespace Ikon.Common.Core
     // Clones via a JSON round trip — a JSON PROJECTION, not a faithful object clone: a polymorphic/derived runtime type collapses to T, members without a setter or that the serializer skips are dropped, and a reference cycle throws. Only for plain, tree-shaped, fully serializable data.
     static T DeepCopy<T>(T obj)
     static string Format(string json, JsonOptions? options = null)
+    // Empty or whitespace-only input throws: an absent payload is not an empty object, and a caller cannot tell a T built from nothing apart from a stored one.
     static T From<T>(string json, JsonOptions? options = null)
     static object? From(string json, Type type, JsonOptions? options = null)
     static object? From(string json, string typeName, JsonOptions? options = null)
@@ -110,9 +125,9 @@ namespace Ikon.Common.Core
     static string To<T>(T obj, JsonOptions? options = null)
   // Serialization toggles for Json. Immutable; construct with named arguments for the toggles that differ from the defaults, e.g. new JsonOptions(camelCase: true). The default instance matches calling the Json methods without options.
   sealed class JsonOptions
-    ctor(bool useJson5 = false, bool indentation = true, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false, bool caseInsensitive = false)
+    ctor(bool useJson5 = false, bool indentation = true, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false, bool caseInsensitive = true)
     bool CamelCase { get; }
-    // Deserialization only. Ignored when serializing and when UseJson5 is set (Newtonsoft is already case-insensitive).
+    // Deserialization only, and on by default: a payload whose intent is unambiguous binds whatever its casing. Ignored when serializing — declared and [JsonPropertyName] casing is what goes on the wire — and when UseJson5 is set (Newtonsoft is already case-insensitive). Set it off only for a wire format that distinguishes two members by case.
     bool CaseInsensitive { get; }
     // Only applies when EnumsAsNames is set.
     bool EnumCamelCase { get; }
@@ -149,7 +164,7 @@ namespace Ikon.Common.Core
     TScope GetScope<TScope>() where TScope : struct, IScopeKey
     IScopeKey GetScopeByName(string name)
     void Info(string message)
-    // Safe and idempotent to call. When RequireInitCall is false (the default) the queue pumps are already started by the constructor, so this returns without doing anything; it only starts them when RequireInitCall deferred that to here. Calling it a second time is a no-op.
+    // Idempotent. The queue pumps are already started by the constructor unless RequireInitCall deferred that to here, so this usually does nothing.
     Task InitializeAsync()
     void LogMessage(LogType type, string message)
     void LogMessage2(LogType type, string filePath, int lineNumber, string memberName, string message)
@@ -231,7 +246,7 @@ namespace Ikon.Common.Core
   // A targeted send whose id list is EMPTY transmits nothing: an empty list is indistinguishable on the wire from no targets, which the server routes to everyone, so a filter matching nobody would otherwise reach exactly who it excluded. The default value names no audience and throws rather than guessing.
   readonly struct MediaTargets
     static MediaTargets Everyone { get; }
-    // A targeted send that resolved to no clients. False for Everyone, and false for the default value, which throws instead.
+    // A targeted send that resolved to no clients. False for Everyone and false for the default value; only SessionIds throws on default.
     bool IsEmpty { get; }
     bool IsEveryone { get; }
     // null for Everyone, which is what the protocol's absent target list means. Throws on the default value.
@@ -262,7 +277,7 @@ namespace Ikon.Common.Core
     // Empty outside a cloud run.
     Reactive<string> AppSessionId { get; }
     Reactive<Dictionary<string, GlobalState.AudioStreamState>> AudioStreams { get; }
-    // Keyed by client session id; each Context carries that client's user id, device, viewport, and locale.
+    // Keyed by client session id; holds only clients marked ready, so a connected client is absent until it reports ready. Each Context carries that client's user id, device, viewport, and locale.
     Reactive<Dictionary<int, Context>> Clients { get; }
     Reactive<bool> DebugMode { get; }
     // The current first human user; reassigned when that user leaves. Contrast PrimaryUserId, which is fixed.
@@ -323,7 +338,7 @@ namespace Ikon.Common.Core
     static string? GetServiceToken()
     // True when the service token's own expiry is within ExpiryWarningWindow of now, or already past. A missing or unparseable timestamp is never soon.
     static bool IsExpiringSoon(string? serviceTokenExpiresAt, DateTimeOffset now)
-    // Null when no service token is set or the exchange failed. Cached per environment, because one token is only ever valid for the environment that minted it.
+    // Null when no service token is set, or the backend refused it — a refusal is cached for the life of the process. An exchange that could not be completed is not a verdict: the previous credential keeps serving until it expires, and the failure is logged at warning and retried on the next call. Cached per environment, because one token is only ever valid for the environment that minted it.
     static IkonBackend.LoginInfo? TryExchange(IkonBackend.EnvironmentType environment)
     static readonly TimeSpan ExpiryWarningWindow
     const string ServiceTokenVariable
@@ -357,6 +372,11 @@ namespace Ikon.Common.Core
   static class Toml
     static T From<T>(string toml) where T : class, new()
     static string To<T>(T obj) where T : class
+  // UserIds is the erased account's whole identity closure — the account itself plus every id merged into it — and a handler runs for each in turn. ErasureId is the platform's own record, useful only for correlating with an operator's view of the erasure.
+  sealed record UserErasurePayload
+    ctor(string ErasureId, IReadOnlyList<string> UserIds)
+    string ErasureId { get; init; }
+    IReadOnlyList<string> UserIds { get; init; }
   // User-facing errors displayed cleanly without stack traces. Use for expected error conditions like invalid input, missing files, or failed operations.
   class UserException : Exception
 
@@ -398,6 +418,7 @@ namespace Ikon.Common.Core.Assets
     Task<AssetContent<T>?> TryGetWithMetadataAsync<T>(AssetUri assetUri) where T : class
     Task<AssetWriteResult> TrySetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
     Task<AssetWriteResult> TrySetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
+    // extension methods: StorageExtensions{AddEmbeddedFileStorageAsync}
   enum AssetClass
     // Server's local filesystem under a system-managed root; not cloud-persisted.
     LocalFile
@@ -530,6 +551,16 @@ namespace Ikon.Common.Core.Email
     ctor(string Name, string Value)
     string Name { get; init; }
     string Value { get; init; }
+  // The envelope only — no subject and no body. A pending event can wait unencrypted for as long as the app is away, while the store keeps both encrypted; read them with EmailService.GetMessageAsync using Id.
+  sealed record EmailReceivedPayload
+    ctor(string Id, string Recipient, string From, DateTimeOffset ReceivedAt, int AttachmentCount, double? SpamScore, string? Tag)
+    int AttachmentCount { get; init; }
+    string From { get; init; }
+    string Id { get; init; }
+    DateTimeOffset ReceivedAt { get; init; }
+    string Recipient { get; init; }
+    double? SpamScore { get; init; }
+    string? Tag { get; init; }
   // The platform enqueues the send and returns once accepted; transient delivery failures are retried server-side.
   sealed record EmailSendRequest
     // Attachments: Up to 10 per email.
@@ -634,7 +665,7 @@ namespace Ikon.Common.Core.Functions
     Ikon.Common.Core.Functions.FunctionParameter[] Parameters { get; }
     // Null means the function is allowed to execute without policy checks.
     PolicyDelegate? Policy { get; }
-    // When true and no callback is set, the function is metadata-only and can only be invoked with a provided InstanceId.
+    // When true and no callback is set, the function is metadata-only: its own Call methods throw, and only a registry call naming an InstanceId reaches it, through the stored MethodInfo on that instance.
     bool RequiresInstance { get; }
     // For async functions this is the inner type (e.g. string for Task<string>); for async enumerable functions, the item type.
     Type ReturnType { get; }
@@ -648,7 +679,7 @@ namespace Ikon.Common.Core.Functions
     Task<object?> CallAsync(object?[] args)
     // Only valid for local async enumerable functions.
     IAsyncEnumerable<object?> CallAsyncEnumerable(object?[] args)
-    // Only valid for local sync functions whose result implements IEnumerable.
+    // Only valid for local sync functions whose result implements IEnumerable; a string result is not treated as an enumerable of chars. Throws InvalidOperationException otherwise.
     IEnumerable<object?> CallEnumerable(object?[] args)
     override string ToString()
   class FunctionAttribute : Attribute
@@ -670,6 +701,7 @@ namespace Ikon.Common.Core.Functions
     ctor(string message, string remoteTypeName, string remoteStackTrace, Exception? innerException)
     string RemoteStackTrace { get; }
     string RemoteTypeName { get; }
+    const string FunctionNotRegisteredForTargetTypeName
     const string RemoteFunctionCallerNotSetTypeName
   readonly struct FunctionParameter
     ctor(int index, string name, string description, Type type, bool hasDefaultValue, object? defaultValue, IReadOnlyList<string>? allowedValues = null)
@@ -705,6 +737,8 @@ namespace Ikon.Common.Core.Functions
     Func<int, IReadOnlyList<IScopeKey>>? ScopeResolver { get; set; }
     // Returns null for unknown sessions or unauthenticated (guest) callers.
     Func<int, string?>? UserIdResolver { get; set; }
+    // Maps a user id to that user's connected session ids. Unwired, or empty for the user, an approval addressed to that user is rejected naming the user — it is never rerouted to the caller.
+    Func<string, IReadOnlyList<int>>? UserSessionsResolver { get; set; }
     void AddFunction(Function function, FunctionVisibility? visibilityOverride = null)
     Task AttachProtocolAsync(IProtocolMessageChannel channel, int senderId)
     TResult Call<TResult>(string name, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
@@ -720,11 +754,11 @@ namespace Ikon.Common.Core.Functions
     void DetachProtocol()
     Task DisposeInstanceAsync(Guid instanceId, int? targetId = null)
     IReadOnlyCollection<int> GetClientSessionsWithFunction(string name)
-    // Throws if multiple functions with the same name are registered (use Call/CallAsync with the targetId parameter instead).
+    // A single local registration wins over any remote ones. Throws when several local overloads share the name, or — with no local one — several remote registrations do (use Call/CallAsync with the targetId parameter instead).
     Function? GetFunction(string name)
     Function? GetFunction(string name, object?[] args)
     Function? GetFunction(string name, IReadOnlyList<Ikon.Common.Core.Protocol.FunctionParameter> protocolParameters)
-    // A non-empty version tries an exact version match first, then falls back to the greatest version; an empty version selects the greatest versioned function or falls back to unversioned.
+    // A non-empty version tries an exact match, then the greatest version at or below the caller's (a caller newer than every other version gets CurrentVersion; one older than all clamps up to the lowest). An empty version resolves to CurrentVersion when set, else the greatest version, then unversioned.
     Function? GetFunction(string name, IReadOnlyList<Ikon.Common.Core.Protocol.FunctionParameter> protocolParameters, string version)
     Function? GetFunction(string name, int clientSessionId)
     IReadOnlyList<Function> GetFunctions(string name)
@@ -754,6 +788,7 @@ namespace Ikon.Common.Core.Functions
     void SyncFunctionsFromGlobalState(GlobalState globalState)
     // Returns false rather than throwing when the name is unknown or resolves ambiguously (multiple overloads or multiple remote clients). Use GetFunction to resolve an overload by argument types.
     bool TryGetFunction(string name, out Function? function)
+    // functionName: Name of the function to wait for.
     // timeout: How long to wait before giving up. Defaults to 30 seconds when null.
     Task<bool> WaitForFunctionAsync(string functionName, TimeSpan? timeout = null, CancellationToken ct = default)
     event Action<ApprovalAuditEntry>? ApprovalCompleted
@@ -826,6 +861,7 @@ namespace Ikon.Common.Core.Functions.Policy
     bool IsApproved { get; }
     string? RejectionReason { get; }
     static ApprovalResult Approved()
+    // reason: The reason for rejection.
     static ApprovalResult Rejected(string? reason = null)
     override string ToString()
   enum ApproverType
@@ -840,20 +876,12 @@ namespace Ikon.Common.Core.Functions.Policy
     // context: The policy call context with metadata about the call.
     ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
   static class PolicyArgs
-    // args: The arguments array.
     // requiredIndices: The indices that must have non-null values.
     static bool HasAll(object?[] args, params int[] requiredIndices)
-    // args: The arguments array.
-    // index: The zero-based index of the argument.
     // defaultValue: The default value to return if the argument is missing or null.
     static T? Optional<T>(object?[] args, int index, T? defaultValue = default)
-    // args: The arguments array.
-    // index: The zero-based index of the argument.
     // throws PolicyDeniedException: Thrown if the argument is missing, null, or wrong type.
     static T Required<T>(object?[] args, int index)
-    // args: The arguments array.
-    // index: The zero-based index of the argument.
-    // value: The output value if successful.
     static bool TryGet<T>(object?[] args, int index, out T? value)
   abstract class PolicyAttribute : Attribute
     // Lower values are evaluated first.
@@ -879,20 +907,13 @@ namespace Ikon.Common.Core.Functions.Policy
   // A discriminated union with three states: Allow, Deny, or NeedsApproval — pattern match on the subtypes.
   abstract class PolicyDecision
     static PolicyDecision Allowed()
-    // reason: The reason for denying the function call.
     // code: Optional error code for programmatic handling.
     static PolicyDecision Denied(string reason, string? code = null)
-    // message: The message explaining why approval is required.
     static PolicyDecision RequireApproval(string message)
-    // message: The message explaining why approval is required.
     // expirySeconds: How long the approval request is valid (minimum 30 seconds).
     static PolicyDecision RequireApproval(string message, int expirySeconds)
-    // message: The message explaining why approval is required.
-    // handler: The custom handler to process the approval request.
     static PolicyDecision RequireApproval(string message, ApprovalHandlerDelegate handler)
-    // message: The message explaining why approval is required.
     // expirySeconds: How long the approval request is valid (minimum 30 seconds).
-    // handler: The custom handler to process the approval request.
     static PolicyDecision RequireApproval(string message, int expirySeconds, ApprovalHandlerDelegate handler)
     const int DefaultExpirySeconds = 300
     const int MinExpirySeconds = 30
@@ -907,13 +928,8 @@ namespace Ikon.Common.Core.Functions.Policy
   delegate PolicyDelegate
     ValueTask<PolicyDecision> PolicyDelegate(object?[] args, PolicyCallContext context)
   sealed class PolicyDeniedException : Exception
-    // reason: The reason for denying the call.
     // code: Error code for programmatic handling (e.g., "rate_limit_exceeded", "bad_args").
     ctor(string? reason, string? code)
-    // reason: The reason for denying the call.
-    // code: Optional error code for programmatic handling.
-    // policyName: The name of the policy that denied the call.
-    // functionName: The name of the function that was denied.
     ctor(string? reason, string? code, string? policyName, string? functionName)
     ctor(string? reason, Exception innerException, string? policyName = null, string? functionName = null)
     ctor(string? reason, string? code, Exception innerException, string? policyName = null, string? functionName = null)
@@ -942,6 +958,7 @@ namespace Ikon.Common.Core.Functions.Policy
     Type PolicyType { get; }
   sealed class RateLimitAttribute : PolicyAttribute
     // limit: Maximum number of calls allowed in the window.
+    // windowSeconds: The time window in seconds.
     ctor(int limit, int windowSeconds)
     int Limit { get; }
     // If true, the rate limit is per-session; if false (the default), it is global.
@@ -1155,7 +1172,7 @@ namespace Ikon.Common.Core.Protocol
     static readonly IReadOnlyList<string> RetiredKeys
   sealed class ConnectToken.RetiredFields
     ctor()
-    // Nothing here is written or read by this build. Kept minted by the backend only — see ikon-server-token.ts and docs/private/todos/legacy-cleanup-todo.md.
+    // No application code sets or reads it; the bag only carries the backend-minted value through a Teleport round trip — see ikon-server-token.ts and docs/private/todos/legacy-cleanup-todo.md.
     string? ServerSessionId { get; set; }
   sealed class Context : IProtocolMessagePayload
     ctor()
@@ -1427,7 +1444,6 @@ namespace Ikon.Common.Core.Protocol
     CORE_CLIENT_DISCONNECTING
     CORE_ON_APP_READY
     CORE_ON_FRONTEND_RELOADED
-    CORE_ON_USER_DATA_ERASED
     CORE_WEBRTC_OFFER
     CORE_WEBRTC_ANSWER
     CORE_WEBRTC_ICE_CANDIDATE
@@ -1452,6 +1468,7 @@ namespace Ikon.Common.Core.Protocol
     CORE_CLIENT_INITIALIZATION
     CORE_CLIENT_LIFECYCLE_BATCH
     CORE_APP_CONFIG
+    CORE_ON_TRIGGER_EVENT_HANDLED
     GROUP_KEEPALIVE
     KEEPALIVE_REQUEST
     KEEPALIVE_RESPONSE
@@ -1525,9 +1542,10 @@ namespace Ikon.Common.Core.Protocol
     ACTION_TRIGGER_CRON
     ACTION_RESULT
     UI_RESYNC_REQUEST
-    ACTION_USER_DATA_ERASURE
     ACTION_FILE_UPLOAD_RESUME2
     ACTION_FILE_UPLOAD_RESUME_RESPONSE2
+    ACTION_TRIGGER_EVENT
+    ACTION_EVICT_USER_STATE
     GROUP_UI
     UI_STREAM_BEGIN
     UI_STREAM_END
@@ -1635,6 +1653,13 @@ namespace Ikon.Common.Core.Protocol
   enum StyleFormat
     Css
     Flutter
+  static class TriggerEventType
+    // An inbound email was stored for the space. Payload: EmailReceivedPayload; the body stays behind app.Email.
+    const string EmailReceived
+    // A directory-provisioning change (SCIM); its producer arrives with the SCIM plan.
+    const string SsoProvisioning
+    // A user's data is being erased in this space. Payload: UserErasurePayload. Declared with [Trigger] and gated on that declaration like every other type, but dispatched through the erasure runner rather than as an ordinary trigger: the handler takes UserDataErasureEventArgs and runs once per id in the account's identity closure, after the platform-managed state is re-erased. MaxParallelism stays 1.
+    const string UserErased
   static class UIElementLabels
     const string Blur
     const string ChatMessage
@@ -1707,7 +1732,12 @@ namespace Ikon.Common.Core.Reactive
     void SetFor(int clientSessionId, T value)
     void UpdateFor(int clientSessionId, Func<T, T> mutator)
     T ValueFor(int clientSessionId)
-  // Same contract as ReactiveDictionary<TKey, TValue> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per client session exactly like ClientReactive<T>. Important: Must be accessed inside UI.Root() or within a ReactiveScope.Use(new ClientScope(...)) block. Accessing outside these contexts throws an exception.
+    // extension methods on Reactive<Dictionary<TKey, TValue>>: ReactiveCollectionExtensions{Clear, Remove, Set}
+    // extension methods on Reactive<HashSet<T>>: ReactiveCollectionExtensions{Add, Clear, Remove}
+    // extension methods on Reactive<List<T>>: ReactiveCollectionExtensions{Add, AddRange, Clear, Insert, Remove, RemoveAll, RemoveAt}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
+    // extension methods on Reactive<bool>: ReactiveBoolExtensions{AsToken}
+  // Same contract as ReactiveDictionary<TKey, TValue> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per client session exactly like ClientReactive<T>. Reads and mutations resolve against the active ClientScope — inside UI.Root(), an action callback, or a ReactiveScope.Use(new ClientScope(...)) block — and throw when none is active: Main(), the constructor, Task.Run loops, timers and endpoint handlers carry no client scope, so reach one session's partition from there through the …For(clientSessionId, …) accessors with an id captured where the scope existed.
   class ClientReactiveDictionary<TKey, TValue> : ReactiveDictionary<TKey, TValue>
     ctor()
     ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries)
@@ -1718,13 +1748,15 @@ namespace Ikon.Common.Core.Reactive
     void SetFor(int clientSessionId, TKey key, TValue value)
     void UpdateFor(int clientSessionId, Action<Dictionary<TKey, TValue>> transform)
     IReadOnlyDictionary<TKey, TValue> ValueFor(int clientSessionId)
+    // extension methods on Reactive<Dictionary<TKey, TValue>>: ReactiveCollectionExtensions{Clear, Remove, Set}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
   // Shorthand for ReactiveEffect<ClientScope>: each connected client gets its own runner with independent cancel/queue, materialized on first dep change inside that client's scope.
   class ClientReactiveEffect : ReactiveEffect<ClientScope>
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
     // Binds an async () => ... body here as a Task-returning delegate instead of the async-void Action overload — constructors are not inherited, so this mirrors the base ReactiveEffect<TScope> overload.
     ctor(Func<Task> body, params IReactive[] deps)
     ctor(Action body, params IReactive[] deps)
-  // Same contract as ReactiveHashSet<T> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per client session exactly like ClientReactive<T>. Important: Must be accessed inside UI.Root() or within a ReactiveScope.Use(new ClientScope(...)) block. Accessing outside these contexts throws an exception.
+  // Same contract as ReactiveHashSet<T> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per client session exactly like ClientReactive<T>. Reads and mutations resolve against the active ClientScope — inside UI.Root(), an action callback, or a ReactiveScope.Use(new ClientScope(...)) block — and throw when none is active: Main(), the constructor, Task.Run loops, timers and endpoint handlers carry no client scope, so reach one session's partition from there through the …For(clientSessionId, …) accessors with an id captured where the scope existed.
   class ClientReactiveHashSet<T> : ReactiveHashSet<T>
     ctor()
     ctor(IEnumerable<T> initialItems)
@@ -1735,7 +1767,9 @@ namespace Ikon.Common.Core.Reactive
     bool RemoveFor(int clientSessionId, T item)
     void UpdateFor(int clientSessionId, Action<HashSet<T>> transform)
     IReadOnlyCollection<T> ValueFor(int clientSessionId)
-  // Same contract as ReactiveList<T> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per client session exactly like ClientReactive<T>. Important: Must be accessed inside UI.Root() or within a ReactiveScope.Use(new ClientScope(...)) block. Accessing outside these contexts throws an exception.
+    // extension methods on Reactive<HashSet<T>>: ReactiveCollectionExtensions{Add, Clear, Remove}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
+  // Same contract as ReactiveList<T> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per client session exactly like ClientReactive<T>. Reads and mutations resolve against the active ClientScope — inside UI.Root(), an action callback, or a ReactiveScope.Use(new ClientScope(...)) block — and throw when none is active: Main(), the constructor, Task.Run loops, timers and endpoint handlers carry no client scope, so reach one session's partition from there through the …For(clientSessionId, …) accessors with an id captured where the scope existed.
   class ClientReactiveList<T> : ReactiveList<T>
     ctor()
     ctor(IEnumerable<T> initialItems)
@@ -1744,6 +1778,9 @@ namespace Ikon.Common.Core.Reactive
     bool RemoveFor(int clientSessionId, T item)
     void UpdateFor(int clientSessionId, Func<IReadOnlyList<T>, IEnumerable<T>> transform)
     IReadOnlyList<T> ValueFor(int clientSessionId)
+    // extension methods on IReadOnlyList<T>, using Ikon.Common.Core: ReadOnlyListExtensions{FindIndex, FindLastIndex, IndexOf}
+    // extension methods on Reactive<List<T>>: ReactiveCollectionExtensions{Add, AddRange, Clear, Insert, Remove, RemoveAll, RemoveAt}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
   interface IReactive
     long Version { get; }
     // Fires whenever this reactive's value changes (in any scope, for scoped variants). Payload-free so a single subscription can be taken across heterogeneous reactives — handlers fetch the new value via .Value when they need it.
@@ -1761,12 +1798,17 @@ namespace Ikon.Common.Core.Reactive
   static class MountReactive
     // Each mount's value is initialized by the factory, which receives the mount id.
     static MountReactive<T> Create<T>(Func<string, T> factory)
-  // Same reactive contract as Reactive<T>, partitioned per Parallax mount an app declares via Mounts (e.g. independent message history for an embedded "aiCanvas" mount vs the "ikon-ui" page). For state shared across a client's mounts use ClientReactive<T>; across all clients use Reactive<T>. .Value resolves against the MountScope active during a render iteration — typically anywhere inside UI.Root() — and throws otherwise. Background work carries no mount scope, so name the mount instead via SetFor / ValueFor.
+  // Same reactive contract as Reactive<T>, partitioned per Parallax mount an app declares via IAppBase.Mounts (e.g. independent message history for an embedded "aiCanvas" mount vs the "ikon-ui" page). For state shared across a client's mounts use ClientReactive<T>; across all clients use Reactive<T>. .Value resolves against the MountScope active during a render iteration — typically anywhere inside UI.Root() — and throws otherwise. Background work carries no mount scope, so name the mount instead via SetFor / ValueFor.
   class MountReactive<T> : Reactive<T, MountScope>
     ctor(T initialValue)
     void SetFor(string mountId, T value)
     void UpdateFor(string mountId, Func<T, T> mutator)
     T ValueFor(string mountId)
+    // extension methods on Reactive<Dictionary<TKey, TValue>>: ReactiveCollectionExtensions{Clear, Remove, Set}
+    // extension methods on Reactive<HashSet<T>>: ReactiveCollectionExtensions{Add, Clear, Remove}
+    // extension methods on Reactive<List<T>>: ReactiveCollectionExtensions{Add, AddRange, Clear, Insert, Remove, RemoveAll, RemoveAt}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
+    // extension methods on Reactive<bool>: ReactiveBoolExtensions{AsToken}
   // Same contract as ReactiveDictionary<TKey, TValue> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per mount exactly like MountReactive<T>. Important: Must be accessed inside a render iteration where MountScope is active — typically anywhere inside UI.Root().
   class MountReactiveDictionary<TKey, TValue> : ReactiveDictionary<TKey, TValue>
     ctor()
@@ -1776,6 +1818,8 @@ namespace Ikon.Common.Core.Reactive
     void SetFor(string mountId, TKey key, TValue value)
     void UpdateFor(string mountId, Action<Dictionary<TKey, TValue>> transform)
     IReadOnlyDictionary<TKey, TValue> ValueFor(string mountId)
+    // extension methods on Reactive<Dictionary<TKey, TValue>>: ReactiveCollectionExtensions{Clear, Remove, Set}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
   // Shorthand for ReactiveEffect<MountScope>: each Parallax mount gets its own runner, materialized on first dep change inside that mount's scope.
   class MountReactiveEffect : ReactiveEffect<MountScope>
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
@@ -1791,6 +1835,8 @@ namespace Ikon.Common.Core.Reactive
     bool RemoveFor(string mountId, T item)
     void UpdateFor(string mountId, Action<HashSet<T>> transform)
     IReadOnlyCollection<T> ValueFor(string mountId)
+    // extension methods on Reactive<HashSet<T>>: ReactiveCollectionExtensions{Add, Clear, Remove}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
   // Same contract as ReactiveList<T> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per mount exactly like MountReactive<T>. Important: Must be accessed inside a render iteration where MountScope is active — typically anywhere inside UI.Root().
   class MountReactiveList<T> : ReactiveList<T>
     ctor()
@@ -1800,12 +1846,15 @@ namespace Ikon.Common.Core.Reactive
     bool RemoveFor(string mountId, T item)
     void UpdateFor(string mountId, Func<IReadOnlyList<T>, IEnumerable<T>> transform)
     IReadOnlyList<T> ValueFor(string mountId)
+    // extension methods on IReadOnlyList<T>, using Ikon.Common.Core: ReadOnlyListExtensions{FindIndex, FindLastIndex, IndexOf}
+    // extension methods on Reactive<List<T>>: ReactiveCollectionExtensions{Add, AddRange, Clear, Insert, Remove, RemoveAll, RemoveAt}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
   enum PersistenceBackend
     // Asset storage on private S3-style cloud files. Explicitly opts the value out of the Default routing — pick it when a structured value must stay on asset storage even though the app has its built-in Postgres database.
     Private
     // Asset storage on public S3-style cloud files. The reactive exposes a PublicUrl accessor so the value can be linked to from the open web.
     Public
-    // Postgres key-value row in a database the app declares in ikon-config.toml. Pass the database name (matching the Databases = ["name:postgres"] entry) when constructing the reactive; with a single declared database the name can be omitted.
+    // Postgres key-value row in one of the space's own databases, created with ikon app db create --name <name>. Pass that name when constructing the reactive; with a single postgres database in the space the name can be omitted. A name the space lacks is logged once as an error and the state is not saved.
     Postgres
     // The platform picks the store: structured values go to the app's built-in app database when the session has one, while binary payloads (byte[]) — and sessions without a database — use private asset storage. The default for every persistent reactive that does not name a backend.
     Default
@@ -1844,6 +1893,11 @@ namespace Ikon.Common.Core.Reactive
     static implicit operator T(Reactive<T> r)
     event Action<T>? ValueChanged
     event Func<T, Task>? ValueChangedAsync
+    // extension methods: ReactiveCollectionExtensions{Mutate}
+    // extension methods on Reactive<Dictionary<TKey, TValue>>: ReactiveCollectionExtensions{Clear, Remove, Set}
+    // extension methods on Reactive<HashSet<T>>: ReactiveCollectionExtensions{Add, Clear, Remove}
+    // extension methods on Reactive<List<T>>: ReactiveCollectionExtensions{Add, AddRange, Clear, Insert, Remove, RemoveAll, RemoveAt}
+    // extension methods on Reactive<bool>: ReactiveBoolExtensions{AsToken}
   // Base class for scoped reactive variables: each distinct TScope instance gets its own value, resolved from the active scope. Use directly only for custom scope types — prefer ClientReactive<T> (per-client) or UserReactive<T> (per-user). The required scope must be active when accessing .Value (e.g. inside UI.Root()); otherwise it throws InvalidOperationException.
   class Reactive<T, TScope> : Reactive<T> where TScope : IScopeKey
     ctor(T initialValue)
@@ -1851,10 +1905,15 @@ namespace Ikon.Common.Core.Reactive
     void SetFor(TScope scope, T value)
     void UpdateFor(TScope scope, Func<T, T> mutator)
     T ValueFor(TScope scope)
+    // extension methods on Reactive<Dictionary<TKey, TValue>>: ReactiveCollectionExtensions{Clear, Remove, Set}
+    // extension methods on Reactive<HashSet<T>>: ReactiveCollectionExtensions{Add, Clear, Remove}
+    // extension methods on Reactive<List<T>>: ReactiveCollectionExtensions{Add, AddRange, Clear, Insert, Remove, RemoveAll, RemoveAt}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
+    // extension methods on Reactive<bool>: ReactiveBoolExtensions{AsToken}
   static class ReactiveBoolExtensions
     // Sets the flag to true and returns an IDisposable that returns it to false on dispose — the busy-flag pattern without the try/finally. Idempotent: disposing twice is safe.
     static IDisposable AsToken(this Reactive<bool> reactive)
-  // Mutation helpers for a Reactive<T> that wraps a mutable collection: they mutate the underlying instance AND fire the change notification in one call, running through the locked Reactive<T>.Update so concurrent mutations serialize. Meant only for the collections with no reactive equivalent yet (Reactive<HashSet<T>>) and legacy Reactive<List<T>> / Reactive<Dictionary<TKey, TValue>> code — prefer ReactiveList<T> / ReactiveDictionary<TKey, TValue>, on which these same spellings bind to the copy-on-write instance members instead.
+  // Mutation helpers for a Reactive<T> that wraps a mutable collection: they mutate the underlying instance AND fire the change notification in one call, running through the locked Reactive<T>.Update so concurrent mutations serialize. Meant only for legacy Reactive<List<T>> / Reactive<Dictionary<TKey, TValue>> / Reactive<HashSet<T>> code — declaring one of those in an app project is build error IKON002. Prefer ReactiveList<T> / ReactiveDictionary<TKey, TValue> / ReactiveHashSet<T>, on which these same spellings bind to the copy-on-write instance members instead.
   static class ReactiveCollectionExtensions
     static void Add<T>(this Reactive<List<T>> reactive, T item)
     static bool Add<T>(this Reactive<HashSet<T>> reactive, T item)
@@ -1895,6 +1954,8 @@ namespace Ikon.Common.Core.Reactive
     bool TryAdd(TKey key, TValue value)
     bool TryGetValue(TKey key, out TValue value)
     void Update(Action<Dictionary<TKey, TValue>> transform)
+    // extension methods on Reactive<Dictionary<TKey, TValue>>: ReactiveCollectionExtensions{Clear, Remove, Set}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
   // Lifecycle (global): • Constructor runs the body once immediately (initial fire). • Each tracked dep's IReactive.Changed event triggers a re-run. • If a dep changes while a previous run is still in flight, the previous run's CancellationToken is cancelled and one follow-up run is queued. Rapid-fire changes coalesce. • IDisposable.Dispose cancels any in-flight run and detaches all dep subscriptions. • Exceptions in the body (other than OperationCanceledException) are logged and do not disable the effect.
   class ReactiveEffect : IDisposable
     // The token cancels when a dep changes mid-run; respect it for clean cancellation.
@@ -1930,6 +1991,8 @@ namespace Ikon.Common.Core.Reactive
     void ReplaceAll(IEnumerable<T> items)
     void UnionWith(IEnumerable<T> other)
     void Update(Action<HashSet<T>> transform)
+    // extension methods on Reactive<HashSet<T>>: ReactiveCollectionExtensions{Add, Clear, Remove}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
   // Reads track a dependency exactly like Reactive<T> (reading Value, Count, the indexer, or enumerating during render). Every mutation method fires exactly one notification on its own — _items.Add(x) is the whole call. Reactive<T>.NotifyUpdate is the escape hatch for the one case the mutators cannot see: mutating an item in place (tracker.Progress = 47; _items.NotifyUpdate();). Copy-on-write: every mutation runs under the lock and replaces the backing list with a fresh copy, so concurrent mutations serialize and any list handed out earlier is a stable snapshot. Each mutation copies the whole list, so for batches prefer the single-notify bulk ops (AddRange, ReplaceAll, Update) over per-item calls in a loop.
   class ReactiveList<T> : Reactive<List<T>>, IReadOnlyList<T>
     ctor()
@@ -1956,6 +2019,9 @@ namespace Ikon.Common.Core.Reactive
     void ReplaceAll(IEnumerable<T> items)
     void Sort(Comparison<T> comparison)
     void Update(Func<IReadOnlyList<T>, IEnumerable<T>> transform)
+    // extension methods on IReadOnlyList<T>, using Ikon.Common.Core: ReadOnlyListExtensions{FindIndex, FindLastIndex, IndexOf}
+    // extension methods on Reactive<List<T>>: ReactiveCollectionExtensions{Add, AddRange, Clear, Insert, Remove, RemoveAll, RemoveAt}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
   // A scope stack supporting multiple overlapping scope types (Client, User, Tenant, etc.), each tracked independently. Scope changes are automatically mirrored to Log.Instance.
   static class ReactiveScope
     static int ClientId { get; }
@@ -1973,6 +2039,8 @@ namespace Ikon.Common.Core.Reactive
     static IScopeKey? TryGetByName(string name)
     static IDisposable Use(IScopeKey scope)
     static IDisposable Use(params IScopeKey[] scopes)
+    // Restores the caller's own scope of the same name on dispose, unlike Use, which drops it. Reactive scope only: nothing is mirrored to the log, because this is a value-routing hop rather than a unit of work.
+    static IDisposable UseNested(IScopeKey scope)
   // Marker type for the default-value Reactive<T> constructor. Never pass it explicitly — write new Reactive<T>() and the value starts at default(T); passing any argument at all selects the value constructor.
   readonly struct UseDefault
   // Same reactive contract as Reactive<T>, partitioned per user and shared across that user's client sessions (use ClientReactive<T> when each client needs its own value). .Value resolves against the active user scope — inside UI.Root(), an action callback, or a ReactiveScope.Use(new UserScope(...)) block — and throws when none is active. Background work carries no user scope, so name the user instead via SetFor / ValueFor.
@@ -1982,7 +2050,12 @@ namespace Ikon.Common.Core.Reactive
     void SetFor(string userId, T value)
     void UpdateFor(string userId, Func<T, T> mutator)
     T ValueFor(string userId)
-  // Same contract as ReactiveDictionary<TKey, TValue> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per user exactly like UserReactive<T>. Important: Must be accessed inside UI.Root() or within a ReactiveScope.Use(new UserScope(...)) block. Accessing outside these contexts throws an exception.
+    // extension methods on Reactive<Dictionary<TKey, TValue>>: ReactiveCollectionExtensions{Clear, Remove, Set}
+    // extension methods on Reactive<HashSet<T>>: ReactiveCollectionExtensions{Add, Clear, Remove}
+    // extension methods on Reactive<List<T>>: ReactiveCollectionExtensions{Add, AddRange, Clear, Insert, Remove, RemoveAll, RemoveAt}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
+    // extension methods on Reactive<bool>: ReactiveBoolExtensions{AsToken}
+  // Same contract as ReactiveDictionary<TKey, TValue> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per user exactly like UserReactive<T>. Reads and mutations resolve against the active UserScope — inside UI.Root(), an action callback, or a ReactiveScope.Use(new UserScope(...)) block — and throw when none is active: Main(), the constructor, Task.Run loops, timers and endpoint handlers carry no user scope, so reach one user's partition from there through the …For(userId, …) accessors with an id captured where the scope existed.
   class UserReactiveDictionary<TKey, TValue> : ReactiveDictionary<TKey, TValue>
     ctor()
     ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries)
@@ -1991,13 +2064,15 @@ namespace Ikon.Common.Core.Reactive
     void SetFor(string userId, TKey key, TValue value)
     void UpdateFor(string userId, Action<Dictionary<TKey, TValue>> transform)
     IReadOnlyDictionary<TKey, TValue> ValueFor(string userId)
+    // extension methods on Reactive<Dictionary<TKey, TValue>>: ReactiveCollectionExtensions{Clear, Remove, Set}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
   // Shorthand for ReactiveEffect<UserScope>: each distinct user gets its own runner; the same user across multiple sessions shares one runner.
   class UserReactiveEffect : ReactiveEffect<UserScope>
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
     // Binds an async () => ... body here as a Task-returning delegate instead of the async-void Action overload — constructors are not inherited, so this mirrors the base ReactiveEffect<TScope> overload.
     ctor(Func<Task> body, params IReactive[] deps)
     ctor(Action body, params IReactive[] deps)
-  // Same contract as ReactiveHashSet<T> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per user exactly like UserReactive<T>. Important: Must be accessed inside UI.Root() or within a ReactiveScope.Use(new UserScope(...)) block. Accessing outside these contexts throws an exception.
+  // Same contract as ReactiveHashSet<T> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per user exactly like UserReactive<T>. Reads and mutations resolve against the active UserScope — inside UI.Root(), an action callback, or a ReactiveScope.Use(new UserScope(...)) block — and throw when none is active: Main(), the constructor, Task.Run loops, timers and endpoint handlers carry no user scope, so reach one user's partition from there through the …For(userId, …) accessors with an id captured where the scope existed.
   class UserReactiveHashSet<T> : ReactiveHashSet<T>
     ctor()
     ctor(IEnumerable<T> initialItems)
@@ -2006,7 +2081,9 @@ namespace Ikon.Common.Core.Reactive
     bool RemoveFor(string userId, T item)
     void UpdateFor(string userId, Action<HashSet<T>> transform)
     IReadOnlyCollection<T> ValueFor(string userId)
-  // Same contract as ReactiveList<T> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per user exactly like UserReactive<T>. Important: Must be accessed inside UI.Root() or within a ReactiveScope.Use(new UserScope(...)) block. Accessing outside these contexts throws an exception.
+    // extension methods on Reactive<HashSet<T>>: ReactiveCollectionExtensions{Add, Clear, Remove}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
+  // Same contract as ReactiveList<T> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per user exactly like UserReactive<T>. Reads and mutations resolve against the active UserScope — inside UI.Root(), an action callback, or a ReactiveScope.Use(new UserScope(...)) block — and throw when none is active: Main(), the constructor, Task.Run loops, timers and endpoint handlers carry no user scope, so reach one user's partition from there through the …For(userId, …) accessors with an id captured where the scope existed.
   class UserReactiveList<T> : ReactiveList<T>
     ctor()
     ctor(IEnumerable<T> initialItems)
@@ -2017,6 +2094,9 @@ namespace Ikon.Common.Core.Reactive
     bool RemoveFor(string userId, T item)
     void UpdateFor(string userId, Func<IReadOnlyList<T>, IEnumerable<T>> transform)
     IReadOnlyList<T> ValueFor(string userId)
+    // extension methods on IReadOnlyList<T>, using Ikon.Common.Core: ReadOnlyListExtensions{FindIndex, FindLastIndex, IndexOf}
+    // extension methods on Reactive<List<T>>: ReactiveCollectionExtensions{Add, AddRange, Clear, Insert, Remove, RemoveAll, RemoveAt}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
 
 namespace Ikon.Common.Core.Scope
   // Each time a client connects to the server, it gets a new ClientScope with a unique Id (session ID). This scope is used by ClientReactive<T> to partition state per client. Relationship to UserScope: Multiple ClientScopes can belong to the same user. For example, a user connected from two clients has two different ClientScope IDs but the same UserScope ID. Lifecycle: Active during UI rendering inside UI.Root(). Automatically established by the framework for each client iteration.
@@ -2037,7 +2117,7 @@ namespace Ikon.Common.Core.Scope
     ctor(string mountId)
     string Id { get; }
     string Name { get; }
-    // The mount id every Ikon app emits today on its single Parallax stream; apps that don't override IAppBase.Mounts render under this id.
+    // Apps that don't override IAppBase.Mounts render under this id.
     const string DefaultMountId
   readonly struct OperationScope : IScopeKey
     ctor()
@@ -2055,6 +2135,7 @@ namespace Ikon.Common.Core.Scope
     string Name { get; }
     const string Cron
     const string Endpoint
+    const string Trigger
   // Identifies a logical user across their multiple client sessions. Used by UserReactive<T> to share state across a user's multiple connected clients. Lifecycle: Active during UI rendering inside UI.Root(). Automatically established by the framework alongside ClientScope.
   readonly struct UserScope : IScopeKey
     ctor(string userId)
@@ -2091,13 +2172,13 @@ namespace Ikon.Common.Core.Signing
     string OrderId { get; init; }
     IReadOnlyList<SignatureSignatoryResult> Signatories { get; init; }
     DateTimeOffset SignedAt { get; init; }
-  // IdentitySchemes names the national eIDs the signatory may authenticate with, in the platform's vocabulary (bankid-se, nbid, mitid, ftn, …); leave it null to let the signing provider offer its full set. RequestedAttributes selects from name, nationalId and dateOfBirth, and defaults to all three — an attribute the order does not ask for is not retained even when the eID reports it.
+  // IdentitySchemes names the national eIDs the signatory may authenticate with, in the platform's vocabulary (bankid-se, nbid, mitid, ftn, …); leave it null to let the signing provider offer its full set. RequestedAttributes selects from name, nationalId and dateOfBirth; null is passed through and the backend reads it as all three. An attribute the order does not ask for is not retained even when the eID reports it.
   sealed record SignatureSignatory
     ctor(SignaturePolicy Policy, IReadOnlyList<string>? IdentitySchemes = null, IReadOnlyList<string>? RequestedAttributes = null)
     IReadOnlyList<string>? IdentitySchemes { get; init; }
     SignaturePolicy Policy { get; init; }
     IReadOnlyList<string>? RequestedAttributes { get; init; }
-  // Signer is null until this party has actually signed. IdentityScheme and AssuranceLevel on it describe how strongly somebody authenticated, never who: if the ceremony link is a bearer token that anyone holding the URL can complete, compare SignatureSignerIdentity.FullName against the party you addressed it to.
+  // Signer is null until this party has actually signed. SignatureSignerIdentity.IdentityScheme and SignatureSignerIdentity.AssuranceLevel on it describe how strongly somebody authenticated, never who: if the ceremony link is a bearer token that anyone holding the URL can complete, compare SignatureSignerIdentity.FullName against the party you addressed it to.
   sealed record SignatureSignatoryResult
     ctor(SignatoryStatus Status, string? RejectionReason, SignatureSignerIdentity? Signer)
     string? RejectionReason { get; init; }
@@ -2130,6 +2211,7 @@ namespace Ikon.Common.Core.Telephony
     // From: Who sent it, in E.164. Pass it to app.Telephony.SendSmsAsync to reply.
     // To: The number of the app's that received it.
     // Text: The message body.
+    // MessageId: The provider's id for the message.
     ctor(string From, string To, string Text, string MessageId)
     string From { get; init; }
     string MessageId { get; init; }

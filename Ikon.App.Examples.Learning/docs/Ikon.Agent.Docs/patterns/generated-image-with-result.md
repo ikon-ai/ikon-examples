@@ -1,9 +1,11 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Generated Image With Result — Reading What ImageGenerator Hands Back
-
+<!-- checked-against: f7911cc1a14b7a59 -->
 `ImageGenerator.GenerateImageAsync` returns a `List<ImageGeneratorResult>`, one entry per
 `ImageGeneratorConfig.Count` — not a single image and not a URL string. Each result carries
-**either** `Data` (bytes, with `MimeType`) **or** `Url`, decided by `ResultDelivery`, plus the
+**either** `Data` (bytes, with `MimeType`) **or** `Url` — read `ResultKind` to see which, since
+`ResultDelivery.Auto` keeps the payload inline unless the call is remotely hosted and the image is
+large enough to be worth an asset URL — plus the
 `Width`/`Height` actually produced. Rendering both branches is what keeps a view working when the
 delivery mode changes.
 
@@ -16,6 +18,11 @@ moment you need the result rather than just the call. For a one-off with no conf
 Generation **throws** (`AIException`, or `NonRetryableAIException` for bad input) instead of
 returning an empty result, so the app
 decides what a missing image means; catching it is how the rest of the screen survives.
+
+`ImageGeneratorConfig.Quality` is not a universal dial: `ImageQuality.High` is honoured by the
+OpenAI gpt-image models only, and anything but `ImageQuality.Auto` on any other model throws rather
+than being dropped. Reach for `ImageQuality` when the model is a gpt-image one; the snippet below
+runs on Gemini, so it sets no `Quality` at all.
 
 ## Snippet
 
@@ -45,7 +52,6 @@ private async Task GenerateAsync(string prompt)
             Prompt = prompt,
             Width = 1024,
             Height = 1024,
-            Quality = ImageQuality.High,
         });
 
         _image.Value = results.FirstOrDefault();

@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Generated Video With Playback — A URL, Not Bytes
-
+<!-- checked-against: 09a242a49688cfa3 -->
 `VideoGeneratorResult` carries a `Url` and nothing else. Generated video is far too large to hold
 in app memory, so the result is always something the player streams — which also means the video
 never passes through the app's own memory on its way to the screen.
@@ -60,6 +60,9 @@ private async Task GenerateAsync(string prompt)
         {
             Prompt = prompt,
             AspectRatio = VideoGeneratorAspectRatio.Ratio16x9,
+
+            // 8 is in Veo 3.1 Fast's SupportedLengths. A length a model does not list is
+            // refused, not shortened, so changing the model means checking that list again.
             Length = 8,
             GenerateAudio = generator.SupportsAudio ? true : null,
         });

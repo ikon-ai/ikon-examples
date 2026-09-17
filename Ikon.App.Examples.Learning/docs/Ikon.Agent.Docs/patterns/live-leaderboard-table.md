@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Live Leaderboard Table — DataTable With Derived Rank
-
+<!-- checked-against: bf7af69a2007626b -->
 `view.DataTable` renders the rows it is handed and reports page changes; it does not sort, rank or
 page anything itself. The caller owns all three, which is what makes it a leaderboard rather than a
 grid: sort on read, derive the rank from that order, and keep the page index in state so paging

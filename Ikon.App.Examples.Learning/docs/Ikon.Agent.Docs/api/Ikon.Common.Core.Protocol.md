@@ -189,7 +189,7 @@ namespace Ikon.Common.Core.Protocol
     static readonly IReadOnlyList<string> RetiredKeys
   sealed class ConnectToken.RetiredFields
     ctor()
-    // Nothing here is written or read by this build. Kept minted by the backend only — see ikon-server-token.ts and docs/private/todos/legacy-cleanup-todo.md.
+    // No application code sets or reads it; the bag only carries the backend-minted value through a Teleport round trip — see ikon-server-token.ts and docs/private/todos/legacy-cleanup-todo.md.
     string? ServerSessionId { get; set; }
   sealed class Context : IProtocolMessagePayload
     ctor()
