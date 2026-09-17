@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.CoPlanAI -->
 # Client Autosave Loop — Per-Client Background Save Every 5 Seconds
-
+<!-- checked-against: f1bfae1370acdadc -->
 Each client that opens an editor gets its own cancellation-token-driven loop: every 5 seconds, the loop enters that client's reactive scope, checks whether the current page is the editor and whether anything changed, then writes to the DB. The CTS lives in a `ConcurrentDictionary` keyed by `ClientId`, so disconnects cleanly stop the loop without touching anyone else's.
 
 ## When to use

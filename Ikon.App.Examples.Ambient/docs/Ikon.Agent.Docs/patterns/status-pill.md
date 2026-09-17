@@ -1,6 +1,6 @@
 <!-- mined-from: live generated-app audits (RecipeBox / HabitTracker dark-mode defects) -->
 # Status Pill — theme-safe chips, badges, and tags
-
+<!-- checked-against: 6a2508c9cd0ac5eb -->
 Small rounded chips that label state or category: "Dessert", "✓ 3/5", "Active", "Draft". The single
 most common theme bug in generated apps lives here: the classic Tailwind chip recipe
 (`bg-amber-100 text-amber-800`) is a LIGHT-theme recipe — those literals do not flip with the theme,

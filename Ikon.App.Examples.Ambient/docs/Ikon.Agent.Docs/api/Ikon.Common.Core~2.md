@@ -5,7 +5,7 @@ namespace Ikon.Common.Core
     // Empty outside a cloud run.
     Reactive<string> AppSessionId { get; }
     Reactive<Dictionary<string, GlobalState.AudioStreamState>> AudioStreams { get; }
-    // Keyed by client session id; each Context carries that client's user id, device, viewport, and locale.
+    // Keyed by client session id; holds only clients marked ready, so a connected client is absent until it reports ready. Each Context carries that client's user id, device, viewport, and locale.
     Reactive<Dictionary<int, Context>> Clients { get; }
     Reactive<bool> DebugMode { get; }
     // The current first human user; reassigned when that user leaves. Contrast PrimaryUserId, which is fixed.
@@ -66,7 +66,7 @@ namespace Ikon.Common.Core
     static string? GetServiceToken()
     // True when the service token's own expiry is within ExpiryWarningWindow of now, or already past. A missing or unparseable timestamp is never soon.
     static bool IsExpiringSoon(string? serviceTokenExpiresAt, DateTimeOffset now)
-    // Null when no service token is set or the exchange failed. Cached per environment, because one token is only ever valid for the environment that minted it.
+    // Null when no service token is set, or the backend refused it — a refusal is cached for the life of the process. An exchange that could not be completed is not a verdict: the previous credential keeps serving until it expires, and the failure is logged at warning and retried on the next call. Cached per environment, because one token is only ever valid for the environment that minted it.
     static IkonBackend.LoginInfo? TryExchange(IkonBackend.EnvironmentType environment)
     static readonly TimeSpan ExpiryWarningWindow
     const string ServiceTokenVariable
@@ -100,5 +100,10 @@ namespace Ikon.Common.Core
   static class Toml
     static T From<T>(string toml) where T : class, new()
     static string To<T>(T obj) where T : class
+  // UserIds is the erased account's whole identity closure — the account itself plus every id merged into it — and a handler runs for each in turn. ErasureId is the platform's own record, useful only for correlating with an operator's view of the erasure.
+  sealed record UserErasurePayload
+    ctor(string ErasureId, IReadOnlyList<string> UserIds)
+    string ErasureId { get; init; }
+    IReadOnlyList<string> UserIds { get; init; }
   // User-facing errors displayed cleanly without stack traces. Use for expected error conditions like invalid input, missing files, or failed operations.
   class UserException : Exception

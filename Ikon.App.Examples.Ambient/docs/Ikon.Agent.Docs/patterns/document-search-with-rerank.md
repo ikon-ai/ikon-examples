@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Document Search — OCR, Retrieve, Rerank
-
+<!-- checked-against: fb3947b0f6aa12e2 -->
 Three stages, each doing what the next cannot. **OCR** turns a scanned page into text.
 **`Retriever`** finds candidates cheaply and wide. **`Reranker`** orders the shortlist properly.
 
@@ -33,10 +33,16 @@ document is one long structured thing and the answer is a few sections of it,
   never in the search handler.
 - `AnalyzeDocumentStreamingAsync` yields page by page, for showing progress on a long document
   rather than waiting for all of it.
+- `_hits` is a `ClientReactiveList`, so `SearchAsync` must run inside that client's scope — an
+  action callback such as the field's `onSubmit`, as here; the scope survives the awaits. From a
+  scopeless caller (a timer, an upload completion) capture `ReactiveScope.ClientId` where the scope
+  exists and wrap the call in `ReactiveScope.Use(new ClientScope(clientId))`, or it throws.
 
 ## Snippet
 
 ```csharp
+// Indexed once, at startup or behind an upload -- the expensive step never sits in the search handler.
+private readonly Retriever _retriever = new();
 private readonly ClientReactiveList<string> _hits = new();
 
 /// <summary>
@@ -92,6 +98,13 @@ private void Render(IView view)
 {
     view.Column(["gap-2"], content: col =>
     {
+        // _hits is per client, so SearchAsync runs from this client's own action callback,
+        // where the client scope is active and survives the awaits. A caller with no scope
+        // (a timer, an upload completion) captures ReactiveScope.ClientId first and wraps the
+        // call in ReactiveScope.Use(new ClientScope(clientId)).
+        col.TextField(placeholder: "Ask the documents",
+            onSubmit: async question => await SearchAsync(_retriever, question));
+
         foreach (var hit in _hits)
         {
             col.Text(["text-sm"], key: hit, text: hit);

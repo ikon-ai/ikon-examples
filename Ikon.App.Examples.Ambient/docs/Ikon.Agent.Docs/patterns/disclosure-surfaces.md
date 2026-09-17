@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Disclosure Surfaces — Accordion, Collapsible, Hover Card
-
+<!-- checked-against: e2418a33c756727f -->
 Three ways to hide content until it is wanted, and they are not interchangeable. Picking by shape
 rather than by habit is most of the work:
 

@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Shareable Result Export — PNG By Screenshot, PDF By Conversion
-
+<!-- checked-against: 21ec1c7814b225fb -->
 They are two different services and the instinct to reach for one of them twice is the trap. An
 image of a result comes from `WebScraper.TakeScreenshotAsync` pointed at a page the app itself
 serves; a PDF comes from `FileConverter.ConvertToPdfAsync`, which takes a `Url`, `Data` or
@@ -20,11 +20,19 @@ end-of-game summary card.
   `JavaScript` runs in the page before the capture — the hook for stripping controls that should
   not appear in a shared image.
 - `ScreenshotResult.Data` is non-null. `ConvertedFile.Data` is **nullable**, because a conversion
-  can arrive as a `Url` instead (`ResultDelivery`) — check before using it.
+  can arrive as a signed `Url` instead (`Kind == ResultKind.Url`, valid for roughly an hour).
+  `await file.GetDataAsync()` returns the bytes either way; hand `Url` straight to
+  `DownloadFileActionOptions.Url` only when the download happens within that window.
 - `WebScraperModel.LocalPlaywright` screenshots in-process; the hosted models are for scraping
   pages you do not serve. Check `SupportsScreenshotting` if the model is configurable.
 - Hand the bytes to `ActionKind.DownloadFile` with `DownloadFileActionOptions { Filename, Data }`.
-  Download is declarative and client-side — never a server round-trip at click time.
+  With `Data` the download is declarative and client-side — the bytes are already at the client, so
+  the click costs no server round-trip. This fits here because a shared PNG or PDF is produced once,
+  on demand, and does not change afterwards. **`Data` is eager**, though — it is built on every
+  render of the control, for every client that renders it — so for an artefact that is large or
+  re-derived as the user works, stage it instead: `UrlProvider` / `AssetProvider` *do* run on the
+  server at click time and return only an address the browser fetches for itself. See
+  `staged-file-download`.
 - For a chart or card you fully control, rendering SVG in C# and showing it with `view.Image` is
   cheaper than a screenshot and needs no browser — see `server-side-svg-visual`.
 
@@ -57,19 +65,19 @@ private async Task RenderPngAsync(string url)
 
 /// <summary>
 /// PDF is a conversion, not a screenshot: hand FileConverter a Url, Data or AssetUri and it
-/// returns a ConvertedFile. Data is nullable there because the result can arrive as a URL.
+/// returns a ConvertedFile. Its Kind says whether the bytes are inline in Data or behind a
+/// signed Url; GetDataAsync returns them either way.
 /// </summary>
 private async Task RenderPdfAsync(string url)
 {
     using var converter = new FileConverter(FileConverterModel.ConvertApi.ToString());
 
-    var file = await converter.ConvertToPdfAsync(new FileConverterConfig
-    {
-        Url = url,
-        FileName = "results.pdf",
-    });
+    // A URL source is detected from the URL itself; FileName names the input format only
+    // when the bytes are supplied as Data.
+    var file = await converter.ConvertToPdfAsync(new FileConverterConfig { Url = url });
 
-    _pdf.Value = file.Data;
+    // Data is null when the result was delivered as a Url -- GetDataAsync downloads it then.
+    _pdf.Value = await file.GetDataAsync();
 }
 
 private async Task ExportAsync()

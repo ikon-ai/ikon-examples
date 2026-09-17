@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Raw Microphone Frames — The Layer Below Recognition
-
+<!-- checked-against: 10a181cf84fee577 -->
 `AudioInputFrameAsync` hands the app decoded **float PCM, live**, as the client captures it. That
 is the layer beneath speech recognition — reach for it for a level meter, a waveform, a custom
 recognizer or a recording, and not for transcription, which `UseSpeechRecognition` already does.

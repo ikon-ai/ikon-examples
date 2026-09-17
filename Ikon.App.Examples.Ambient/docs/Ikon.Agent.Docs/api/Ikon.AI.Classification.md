@@ -5,6 +5,7 @@ namespace Ikon.AI.Classification
     bool IsFlagged { get; init; }
     ClassificationLabel Label { get; init; }
     string OriginalCategory { get; init; }
+    // 0 to 1. NaN when the provider flagged the category but reported no score for it — compare with Double.IsNaN before thresholding, since a missing score is not a zero one.
     double Score { get; init; }
   // Supply Text, Data (with MimeType), Url, or AssetUri (resolved to a URL automatically).
   sealed record ClassificationInput
@@ -35,6 +36,7 @@ namespace Ikon.AI.Classification
     MistralModeration
     // Not directly usable — select custom models (see CustomModels) by their registered name string.
     Custom
+    // extension methods: ClassificationModelExtensions{DisplayName}
   static class ClassificationModelExtensions
     static string DisplayName(this ClassificationModel model)
   sealed record ClassificationResult

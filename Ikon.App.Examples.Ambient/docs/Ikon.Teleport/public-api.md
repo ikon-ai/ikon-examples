@@ -68,6 +68,7 @@ namespace Ikon.Teleport
     ctor(TeleportError error, string message)
     // error: Which decoding failure occurred.
     // message: A description of the failure.
+    // innerException: The underlying exception.
     ctor(TeleportError error, string message, Exception innerException)
     TeleportError Error { get; }
   // The As* accessors follow TeleportValue's contract: the wire Type must match exactly (no numeric widening; a mismatch throws TeleportError.BadType), and AsString validates UTF-8 while AsUtf8 never throws.

@@ -8,7 +8,7 @@ namespace Ikon.AI.Emergence
     int? Seed { get; set; }
   sealed class BestOfOptions<T> : EmergeScope<T>
     ctor()
-    // The ScoreBreakdown is non-null exactly when ScoreDetailed produced one, and null when ranking with the plain Score delegate.
+    // Setting it enables the critic. The ScoreBreakdown is non-null exactly when ScoreDetailedAsync or ScoreDetailed produced one, and null when ranking with ScoreAsync or Score.
     Func<T, ScoreBreakdown?, string>? BuildCriticFeedback { get; set; }
     Action<CandidateScope<T>>? CandidateConfig { get; set; }
     int Count { get; set; }
@@ -16,10 +16,14 @@ namespace Ikon.AI.Emergence
     EmergeScope<T> CriticScope { get; }
     // Runs a critic pass over the winning candidate and keeps its result when it scores better (see CriticMustImprove). The prompt comes from BuildCriticFeedback; without one, the best candidate and its score are appended to CriticScope's Command.
     bool EnableCritic { get; set; }
-    // Set this or ScoreDetailed — with neither, every candidate scores 0.0 and the FIRST candidate always wins after paying for all Count runs. Ignored when ScoreDetailed is set. Candidates run sequentially, so budget wall time for Count full calls.
+    // Set this, ScoreAsync or ScoreDetailed — with none, every candidate scores 0.0 and the FIRST candidate always wins after paying for all Count runs. Ignored when ScoreDetailed or ScoreAsync is set. Candidates run sequentially, so budget wall time for Count full calls.
     Func<T, EmergenceTrace, double>? Score { get; set; }
+    // Awaited once per candidate, so a judge model call costs one extra call per candidate. Takes precedence over Score; ignored when ScoreDetailed is set.
+    Func<T, EmergenceTrace, Task<double>>? ScoreAsync { get; set; }
     // Ranks candidates by ScoreBreakdown.TotalScore and passes the breakdown to BuildCriticFeedback. Takes precedence over Score.
     Func<T, EmergenceTrace, ScoreBreakdown>? ScoreDetailed { get; set; }
+    // Awaited once per candidate, so a judge model costs one extra call per candidate. Ranks by ScoreBreakdown.TotalScore, passes the breakdown to BuildCriticFeedback, and takes precedence over ScoreDetailed, ScoreAsync and Score.
+    Func<T, EmergenceTrace, Task<ScoreBreakdown>>? ScoreDetailedAsync { get; set; }
     void Candidate(Action<CandidateScope<T>> configure)
     // Configuring the critic also enables it — an explicitly configured critic that silently never ran was the trap; set EnableCritic back to false afterward for the rare case of pre-configuring a critic to toggle later.
     void Critic(Action<EmergeScope<T>> configure)
@@ -135,6 +139,7 @@ namespace Ikon.AI.Emergence
     IAsyncEnumerator<EmergeEvent<T>> GetAsyncEnumerator(CancellationToken cancellationToken = default)
     // Awaiting drains the stream and returns the completed result: never null, and throws EmergenceStoppedException if the run stops without producing one.
     TaskAwaiter<T> GetAwaiter()
+    // extension methods on IAsyncEnumerable<EmergeEvent<T>>: EmergeEventExtensions{FinalAsync, FinalWithTraceAsync, ResultAsync}
   class EmergeScope<T> : EmergeScopeBase
     ctor()
     // Defaults to true.
@@ -237,12 +242,3 @@ namespace Ikon.AI.Emergence
     Func<TInput, IEnumerable<TInput>>? Split { get; set; }
     void Map(Action<EmergeScope<TMapped>> configure)
     void Reduce(Action<EmergeScope<TResult>> configure)
-  // Call ConnectAsync before reading Tools or calling a tool — it performs the MCP handshake and populates the tool list. Uses Streamable HTTP transport.
-  sealed class McpClient : IDisposable
-    ctor(string endpoint, Dictionary<string, string>? headers = null)
-    IReadOnlyList<McpTool> Tools { get; }
-    Task<string> CallToolAsync(string name, JsonElement arguments, CancellationToken ct = default)
-    // Returns the content plus a pagination cursor; pass a cursor from a previous response to fetch the next page.
-    Task<McpToolResult> CallToolRawAsync(string name, JsonElement arguments, string? cursor = null, CancellationToken ct = default)
-    Task ConnectAsync(CancellationToken ct = default)
-    void Dispose()

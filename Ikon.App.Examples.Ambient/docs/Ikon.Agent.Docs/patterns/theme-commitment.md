@@ -1,5 +1,5 @@
 # Theme Commitment — `new IkonTheme { ... }` at the App declaration site
-
+<!-- checked-against: b8d3f47905162346 -->
 Every app commits a theme at the App's UI declaration as a `new IkonTheme { ... }` object initializer — NOT in `IkonTheme.cs`'s Css raw-string. Each entry is one theme key: `["primary"] = "amber-400"`, `["background"] = "zinc-950"`, `["radius"] = "rounded-lg"`. Every component inherits.
 
 ## When to use
@@ -58,9 +58,11 @@ private UI UI { get; } = new(app, new IkonTheme
 
 To refine one variable inside the `primary` cluster, add the explicit canonical key AFTER it (later entries win): `["bg-brand-solid-hover"] = "amber-500"` for a distinct hover shade, `["border-brand"] = "#000000"` for a contrasting brand border.
 
-The Coder gets the role/value pairs from a `style_mood(brief, notes)` call (the Styling Oracle returns coherent role/value tokens, expanded into indexer entries by the tool formatter) and pastes them verbatim. Direct authoring works too — the values are Crosswind tokens (`amber-400`, `zinc-950`, `rounded-lg`, `airy`), the same vocabulary the LLM uses in component class arrays.
+Inside the Ikon codegen pipeline the role/value pairs come from a `style_mood(brief, notes)` call and are pasted verbatim. Those tools are platform-internal; anywhere else, author the values directly — they are Crosswind tokens (`amber-400`, `zinc-950`, `rounded-lg`, `airy`), the same vocabulary used in component class arrays, and "Direct authoring" below is the whole path.
 
-## How — the Styling Oracle (preferred)
+## How — the styling tools (Ikon codegen pipeline only)
+
+Skip this section unless you are the platform Coder; it documents four tools no other caller can reach. Everyone else wants "Direct authoring" below.
 
 The Coder gets four styling tools wired in:
 
@@ -77,7 +79,7 @@ style_class(intent)                   → Crosswind utility-class fragment for O
                                          → web-only (no Flutter analog)
 ```
 
-**Standard flow** (once early in Coding, parallel with `plan_read` and `guide()`):
+**Standard flow** (once early in Coding, parallel with reading the plan and the styling guide):
 
 ```csharp
 await style_mood(
@@ -85,7 +87,7 @@ await style_mood(
     notes: "")  // or any user-named colors / fonts the brief specified
 ```
 
-The Oracle returns a list of `{ Role, Value, CustomName?, Rationale }` records. Paste every pair as an indexer entry:
+The tool returns a list of `{ Role, Value, CustomName?, Rationale }` records. Paste every pair as an indexer entry:
 
 ```csharp
 private UI UI { get; } = new(app, new IkonTheme
@@ -174,9 +176,9 @@ private UI UI { get; } = new(app, new IkonTheme
 
 The renderer dispatches by key shape: theme keys expand to their canonical variable cluster; Tailwind palette steps (`amber-400`) → `--color-amber-400` (Ikon-scale families like `neutral-900` also move the semantic ramp); `rounded-*` → `--radius-*`; `shadow-*` → `--shadow-*`; `font-*` → `--font-*`. Unknown keys emit a dead variable and log a one-time warning — prefix with `--` to declare a custom variable on purpose.
 
-## Direct edit (escape hatch)
+## Direct authoring
 
-You can still author the values directly — the Oracle is a librarian, not a gatekeeper. Use the direct path when:
+The values are ordinary Crosswind tokens, so writing the indexer entries by hand is a complete path, not a fallback. It is the only path outside the platform pipeline, and the right one inside it when:
 
 - The brief is extremely specific ("primary is exactly `#d92626`").
 - A human dev is editing outside the codegen flow.

@@ -10,9 +10,12 @@ namespace Ikon.AI.DepthEstimation
     static IReadOnlyList<ModelRegion> GetSupportedRegions(DepthEstimatorModel model)
   sealed record DepthEstimatorConfig
     ctor()
+    // Marigold only; set on another model it throws rather than being dropped.
     int? EnsembleSize { get; init; }
     InputImage InputImage { get; init; }
+    // Marigold only; set on another model it throws rather than being dropped.
     int? NumInferenceSteps { get; init; }
+    // Marigold only, 0 means the input image size; set on another model it throws rather than being dropped.
     int? ProcessingResolution { get; init; }
     ResultDelivery ResultDelivery { get; init; }
     TimeSpan Timeout { get; init; }
@@ -20,6 +23,7 @@ namespace Ikon.AI.DepthEstimation
     DepthAnythingV2
     Marigold
     Midas
+    // extension methods: DepthEstimatorModelExtensions{DisplayName}
   static class DepthEstimatorModelExtensions
     static string DisplayName(this DepthEstimatorModel model)
   sealed record DepthEstimatorResult

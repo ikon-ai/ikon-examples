@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Ensemble Of Perspectives — Merging Reviewers Instead Of Picking One
-
+<!-- checked-against: d9a5954dfce7ddb8 -->
 `BestOf` runs candidates and keeps the winner. `EnsembleMerge` runs them and **merges** the
 results. Reach for this one when the answer should contain every perspective rather than the best
 single one — a review, a risk list, a checklist, a set of options.

@@ -1,6 +1,6 @@
 <!-- mined-from: Sentrix -->
 # Clickable Reference Card in Chat — LLM Tool Emits a UI Element
-
+<!-- checked-against: f5a64c9308ca6963 -->
 When the LLM mentions a specific entity (a person, file, place, recommendation), instead of letting it inline the name as text, give it a `refer_*` tool that emits a structured "reference card" message. The chat renderer detects the special message shape and renders it as a button that opens the entity's detail dialog.
 
 ## When to use

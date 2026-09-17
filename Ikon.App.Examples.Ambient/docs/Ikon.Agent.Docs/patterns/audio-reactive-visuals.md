@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Examples.Live2DChat -->
 # Audio-Reactive Visuals — Shape Data That Rides With The Audio
-
+<!-- checked-against: c63c3c0b07b0fb52 -->
 Attaching an `IAudioAnalyzer` to speech is the entire server side of lip-sync, waveform bars and
 pulse animations. The analyzer's per-frame values travel **inside the audio frames** — the client
 reads `PcmAudioFrame.AnalysisResults` alongside the samples it is already playing — so the visual
