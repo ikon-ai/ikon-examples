@@ -1,5 +1,5 @@
 # Chart For The Question — Matching the Visual to What Is Being Asked
-
+<!-- checked-against: b1b9007d5fb4d27a -->
 A dashboard is a set of answers, not a collection of charts. The defect is picking a chart because it looks good on a screenshot: a pie chart with eleven slices, a line chart over unordered categories, a bar chart where the user actually needed the exact numbers.
 
 Pick from the question the surface exists to answer, and lead with the summary values before any chart.
@@ -29,7 +29,7 @@ private void RenderDashboard(IView view)
     // Lead with the answer, not the chart. The number a person came for goes first.
     view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
     {
-        RenderStat(view, "wallet", "Spent this month", total.ToString("C0"));
+        RenderStat(view, "wallet", "Spent this month", total.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-US")));
         RenderStat(view, "trending-up", "Largest category", top?.Name ?? "—");
     });
 
@@ -91,7 +91,7 @@ private static void RenderStat(IView view, string icon, string label, string val
 - Sort the bars. An unsorted category bar chart makes the reader do the ranking themselves, which was the entire question.
 - `valueUnit:` gives tooltips and axis ticks human scaling — `"usd"`, `"percent"`, `"bytes"`, `"seconds"`, `"milliseconds"` are well known and anything else is appended as a suffix. Bare numbers on a money chart look unfinished.
 - Axes render by default. You do not need `margin:` or `axisBottom:` just to get tick labels.
-- Omit `theme:` and charts pick up sensible defaults in both schemes; for a dark-committed app pass the ready-made `theme: ChartThemes.DefaultDark`. Never hand-construct a `ChartTheme` — it has no flat colour properties.
+- Omit `theme:` and charts pick up sensible defaults in both schemes; for a dark-committed app pass the ready-made `theme: ChartThemes.DefaultDark`. `Colors` (a `string[]` of series colours) is the one flat property on `ChartTheme` — everything else is a nested style object (`Text`, `Axis`, `Grid`, `Tooltip`, `Legends`, `Labels`, `Crosshair`), so restyle by `with`-ing a ready-made theme rather than building one from scratch.
 - A datum's `Color` is honoured when set, so charts can be pulled onto the app's committed palette; leave it unset and they use the theme palette, which is already coherent. Do not pass a second accent family just to make the chart colourful.
 - If the underlying numbers are demo seed data, they are records, not claims — do not seed a chart that implies a real-world outcome (a settled payment, a confirmed external status).
 - An empty chart is not an empty state. With no data, render the collection's zero-results state instead of an axis with nothing on it.

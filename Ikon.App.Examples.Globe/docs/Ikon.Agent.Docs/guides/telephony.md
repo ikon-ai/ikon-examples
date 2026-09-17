@@ -11,7 +11,7 @@ Omit `from:` and the platform picks the sender — the app's default number, els
 ---
 
 # Ikon.App.Telephony Guide
-
+<!-- checked-against: 4bef02ea6b9046cb -->
 Send SMS and place phone calls from your app — through a phone number the platform holds for your
 app's space, with no telephony provider account, API key, or contract of your own. `app.Telephony`
 is the entry point; the space's organisation must have the **Telephony** feature enabled (calls
@@ -216,8 +216,8 @@ message starts one.
 **Each number can go somewhere different.** Name one and the rest stay where they are:
 
 ```
-ikon app telephony bind --number +358401234567 --identity '{"UserId":"alice"}'
-ikon app telephony bind --number +46766861234  --identity '{"UserId":"bob"}'
+ikon app telephony bind +358401234567 --identity '{"UserId":"alice"}'
+ikon app telephony bind +46766861234  --identity '{"UserId":"bob"}'
 ```
 
 That is how one app answers as several users: a number per user, each routed to that user's own
@@ -285,6 +285,7 @@ namespace Ikon.Common.Core.Telephony
     // From: Who sent it, in E.164. Pass it to app.Telephony.SendSmsAsync to reply.
     // To: The number of the app's that received it.
     // Text: The message body.
+    // MessageId: The provider's id for the message.
     ctor(string From, string To, string Text, string MessageId)
     string From { get; init; }
     string MessageId { get; init; }

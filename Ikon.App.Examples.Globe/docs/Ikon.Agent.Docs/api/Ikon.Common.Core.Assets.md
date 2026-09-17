@@ -36,6 +36,7 @@ namespace Ikon.Common.Core.Assets
     Task<AssetContent<T>?> TryGetWithMetadataAsync<T>(AssetUri assetUri) where T : class
     Task<AssetWriteResult> TrySetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
     Task<AssetWriteResult> TrySetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
+    // extension methods: StorageExtensions{AddEmbeddedFileStorageAsync}
   enum AssetClass
     // Server's local filesystem under a system-managed root; not cloud-persisted.
     LocalFile

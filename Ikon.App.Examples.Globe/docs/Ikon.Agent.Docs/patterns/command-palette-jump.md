@@ -1,6 +1,6 @@
 <!-- mined-from: Sentinel -->
 # Command Palette — ⌘K jump and action menu
-
+<!-- checked-against: 3bc2dc8d5fec575a -->
 A modal dialog with a search field and a grouped, filtered list of jumpable items. Cmd-K opens it, Esc closes it, Enter activates the first match. Items are records with a label, hint, group name, icon, and a `System.Action` that runs when picked. Built fresh on every render from current app state so jumping to "Add camera" or a specific live camera Just Works.
 
 ## When to use
@@ -39,6 +39,16 @@ private List<PaletteItem> BuildPaletteItems()
     return items;
 }
 
+private static List<PaletteItem> Matches(List<PaletteItem> items, string? query)
+{
+    var trimmed = (query ?? "").Trim();
+
+    return string.IsNullOrEmpty(trimmed) ? items : items
+        .Where(it => it.Label.Contains(trimmed, StringComparison.OrdinalIgnoreCase)
+                  || it.Hint.Contains(trimmed, StringComparison.OrdinalIgnoreCase))
+        .ToList();
+}
+
 private void RenderCommandPalette(UIView view)
 {
     view.Dialog(
@@ -49,12 +59,8 @@ private void RenderCommandPalette(UIView view)
         contentStyle: ["fixed top-[18%] left-1/2 -translate-x-1/2 z-[56] w-[560px] max-w-[94vw] bg-zinc-950 ring-1 ring-zinc-800 rounded-lg shadow-2xl"],
         contentSlot: dview =>
         {
-            var query = (_paletteQuery.Value ?? "").Trim();
             var items = BuildPaletteItems();
-            var matches = string.IsNullOrEmpty(query) ? items : items
-                .Where(it => it.Label.Contains(query, StringComparison.OrdinalIgnoreCase)
-                          || it.Hint.Contains(query, StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            var matches = Matches(items, _paletteQuery.Value);
 
             dview.Row(["px-4 py-3 items-center gap-2"], content: row =>
             {
@@ -63,11 +69,15 @@ private void RenderCommandPalette(UIView view)
                     placeholder: "Jump to camera, section, or action…",
                     value: _paletteQuery.Value,
                     onValueChange: async v => _paletteQuery.Value = v ?? "",
-                    onSubmit: async _ =>
+                    // Enter carries the text as submitted: the bound reactive can lag a fast
+                    // type-and-Enter by one round-trip, and the render's matches with it.
+                    onSubmit: async submitted =>
                     {
-                        if (matches.Count > 0)
+                        var hits = Matches(items, submitted);
+
+                        if (hits.Count > 0)
                         {
-                            matches[0].OnSelect();
+                            hits[0].OnSelect();
                             _paletteOpen.Value = false;
                         }
                     });
@@ -104,7 +114,7 @@ private void RenderCommandPalette(UIView view)
 ## Notes
 
 - `BuildPaletteItems()` runs every render — items reflect current state (live cameras, current mute toggle label) without a separate refresh path.
-- Wire opening to a `KeyboardListener` on the root that watches for `/`, `Cmd+K`, etc., and toggles `_paletteOpen.Value`.
+- Wire opening to a `KeyboardListener` on the root that toggles `_paletteOpen.Value`. Give a modifier shortcut (`Cmd+K`) its own listener with `requireCtrlOrMeta: true` and `preventDefault: true`; a bare key (`/`) gets a listener without `preventDefault`, because `preventDefault` applies client-side to every matched key and a bare-key listener with it swallows that character in every text field of the app — the palette's own search box included.
 - The `OnSelect` action is a plain `System.Action`, not `Func<Task>` — it's called synchronously from the button click and is expected to mutate reactives only. Long-running side effects belong in a separate task started by the action.
 - Filter scoring is simple substring match here. For larger palettes, score title prefix matches higher.
 - Always `_paletteOpen.Value = false` after picking to avoid leaving the dialog open behind the destination view.

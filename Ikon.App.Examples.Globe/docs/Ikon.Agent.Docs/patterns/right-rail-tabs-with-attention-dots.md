@@ -1,6 +1,6 @@
 <!-- mined-from: Veldra.OS -->
 # Right Rail Tabs With Attention Dots — Stable Container, Per-Tab Unread
-
+<!-- checked-against: dfc897d0065193cf -->
 A persistent right-side rail that switches between Live feed / Details / AI / Sources by tab, with a per-tab amber dot when that tab has unacknowledged content. The outer Column is stable across switches so reactive subscriptions inside each body don't churn — the earlier bug being that branch-swapping at the row level made the detail body go unresponsive after a few switches.
 
 ## When to use

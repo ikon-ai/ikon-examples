@@ -1,5 +1,5 @@
 # Message Action Row — Per-Message Actions That Work on Touch
-
+<!-- checked-against: e9713d081d3e9c19 -->
 Every messaging surface people have used lets them act on a single message: reply, copy, edit, delete. A chat app without them reads as a prototype, and it is the first thing a user asks for after seeing Version 1.
 
 The row reveals on hover, which is the part that goes wrong: `hover:` never fires on a touch device, so a hover-only action row is *unreachable* on every phone. Pair it with `focus-within:` and `pointer-coarse:` and it works everywhere.

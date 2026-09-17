@@ -1,6 +1,6 @@
 <!-- mined-from: Sentinel -->
 # Persistent User Preferences — Per-user reactives that survive restarts
-
+<!-- checked-against: bbd3235e8fb69a7c -->
 `PersistentUserReactive<T>` is `Reactive<T>` that automatically persists per-user. Set the value once and it sticks — across reloads, across deploys, across new sessions for that same user. Use it for any setting the user expects to remember: collapsed sidebar, view mode, last selected tab, density preference. `PersistentSessionReactive<T>` is the same idea but scoped to a session (shared across users in a game), and `PersistentReactive<T>` is global to the app.
 
 ## When to use
@@ -58,6 +58,7 @@ public partial class SentinelApp(IApp<SessionIdentity, ClientParameters> app)
 - Don't use `PersistentSessionReactive<T>` for per-user prefs in a multi-user app either — operators would overwrite each other's preferences. It's correct for shared facts (the event log all operators see) where you want persistence but no per-user split.
 - The reactive system stores the values via the platform's persistence backend; no extra wiring is needed in the app code. The `new(defaultValue)` argument is only used the first time the user has no stored value.
 - Reading and writing both go through `.Value` exactly like `Reactive<T>` — the persistence is invisible at the call site.
+- **`.Value` resolves against the active `UserScope`** — `UI.Root()`, an action callback, or a `ReactiveScope.Use(new UserScope(...))` block — and throws where none is active: `Main()`, the constructor, `Task.Run` loops, timers and endpoint handlers. Capture `ReactiveScope.UserId` where the scope exists and use `ValueFor` / `SetFor` / `UpdateFor` from there. The constructor value is what every user starts with until they have one of their own.
 
 ## See also
 

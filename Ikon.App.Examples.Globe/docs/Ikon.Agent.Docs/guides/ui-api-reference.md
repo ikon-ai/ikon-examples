@@ -4,8 +4,8 @@
 
 The conventions every Ikon.Parallax component signature assumes. The signatures themselves are
 generated, one section per namespace — `Ikon.Parallax.Components.Standard` for the components,
-`Ikon.Parallax.Theming` for the theme slots — so ask for a component by name and you get the
-section that declares it. This page is what those signatures leave unsaid.
+`Ikon.Parallax.Theming` for the theme slots — so looking a component up by name gives the section
+that declares it. This page is what those signatures leave unsaid.
 
 ### Parameters every component shares
 

@@ -3,6 +3,7 @@ namespace Ikon.Common.Core.Telephony
     // From: Who sent it, in E.164. Pass it to app.Telephony.SendSmsAsync to reply.
     // To: The number of the app's that received it.
     // Text: The message body.
+    // MessageId: The provider's id for the message.
     ctor(string From, string To, string Text, string MessageId)
     string From { get; init; }
     string MessageId { get; init; }

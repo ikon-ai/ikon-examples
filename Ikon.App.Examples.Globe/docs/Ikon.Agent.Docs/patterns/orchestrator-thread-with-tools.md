@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Lattice -->
 # Orchestrator + Thread With Tools — Per-App Agent With Domain Tools
-
+<!-- checked-against: 32bf54753a6937e1 -->
 Construct an `Orchestrator`, register one `Persona` (system prompt + reasoning) whose `Skills` carry the app's domain tools — `Tool.Of` over plain C# methods returning strings — and fetch the app's single conversation thread with `CreateThreadAsync`. User messages go through `thread.PostAsync` + `ReactivateIfIdleAsync` + `DriveAsync`; the UI binds directly to the thread's reactives (`Messages`, `ToolCallTimeline`, `Status`) — no event pump needed.
 
 ## When to use

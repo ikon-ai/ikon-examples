@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.AutoCRM.Agent -->
 # Vision-Annotation Cache — Describe Once, Quote Forever
-
+<!-- checked-against: 9e995802a84c4025 -->
 Run an LLM vision pass over a small set of images for a record (a car, a product, a property), persist the structured description in a `cloud-json` table, and from then on inject the description into chat prompts as if you'd seen the photos yourself. Cheap LLM, one-shot, never re-billed.
 
 ## When to use

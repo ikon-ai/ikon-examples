@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Examples.Kahoot -->
 # Live Quiz Countdown Loop — Per-Question Timer With Early Finish
-
+<!-- checked-against: 23838a4b0bd954f1 -->
 A Kahoot-style game loop that pulls the next question from an unbounded channel, ticks a per-second countdown via `PeriodicTimer`, and breaks early when every player has answered. Question generation runs in parallel (a separate task fills the channel) so the player never waits between rounds.
 
 ## When to use

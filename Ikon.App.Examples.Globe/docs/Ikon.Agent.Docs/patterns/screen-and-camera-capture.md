@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Screen And Camera Capture — One Button, Three Kinds
-
+<!-- checked-against: a153b0d5ea02e021 -->
 `CaptureButton` handles audio, camera and screen: the `kind` changes, the shape does not. What is
 worth getting right is the capture **mode**, the encoder **presets**, and the fact that permission
 is a four-state enum rather than a yes/no.

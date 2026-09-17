@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Searchable Select — Combobox With The Filtering Left To You
-
+<!-- checked-against: 6a1ec520e6187b03 -->
 `Combobox` renders the options it is handed and reports what was typed. It does **not** filter —
 which is exactly what lets the same component serve a fixed list, a database query and a remote
 search without three different components.

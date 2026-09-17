@@ -2,6 +2,6 @@
 
 ## App API Reference
 
-The signatures live in the API sections, one per namespace: `Ikon.App`, `Ikon.App.Hosting`,
-`Ikon.Common` and their neighbours. Ask the oracle for a type by name and it returns the section
-that declares it.
+The signatures are generated from the compiled assemblies, one section per namespace —
+`Ikon.App`, `Ikon.App.Hosting`, `Ikon.Common` and their neighbours. Look a type up by name to get
+the section that declares it, with its members, parameter names and defaults.

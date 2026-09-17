@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Keeping AI Calls Inside A Region
-
+<!-- checked-against: f6025ae2ce233bbd -->
 Every AI client takes an optional `IReadOnlyList<ModelRegion>`, and it is a **preference order**,
 not a single choice: the platform uses the first region the model actually serves. Listing a narrow
 region first and a broader one after is how you say *"as close as possible, but do not fail"*.
@@ -18,9 +18,11 @@ where inference happens.
 - **Ask `GetSupportedRegions(model)` before constructing.** A model that serves none of the
   required regions is a compliance failure worth surfacing at startup, not a silent fall-back to
   `Global` at request time.
-- The enum runs from narrow to broad: `EuNorth`, `EuWest`, `EuCentral`, `EuSouth`, then `Eu`, then
-  `Global`. Listing only narrow regions makes the call *fail* rather than leave the area, which is
-  sometimes exactly what is wanted.
+- Write the preference list yourself, narrow to broad — `EuNorth`, `EuWest`, `EuCentral`,
+  `EuSouth`, then `Eu`, then `Global`. Declaration order in `ModelRegion` is not that order
+  (`Global` and `Eu` are declared first), and nothing derives the list from the enum. Listing only
+  narrow regions makes the call *fail* rather than leave the area, which is sometimes exactly what
+  is wanted.
 - **The static one-shots take no regions.** `ImageGenerator.GenerateAsync(prompt)` and its
   equivalents construct and dispose per call with platform defaults, so an app under a residency
   obligation cannot use them.

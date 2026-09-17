@@ -1,5 +1,5 @@
 # Teleport message binary specification
-
+<!-- checked-against: 6265e19e675e6bab -->
 ## Overview
 
 Teleport is a schema-optional binary format for hierarchical data. It defines a single binary

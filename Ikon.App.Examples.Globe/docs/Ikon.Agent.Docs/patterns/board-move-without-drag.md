@@ -1,5 +1,5 @@
 # Board Move Without Drag — the Path That Is Not the Pointer
-
+<!-- checked-against: 16021a540190b6bc -->
 A board is one of the most-generated app shapes, and drag is the obvious way to move a card. Drag is also unavailable to keyboard users and assistive tech, and unreliable on touch — so a board whose *only* move is drag is a board a large share of people cannot operate at all.
 
 The fix is small: a per-card menu listing the other columns. Drag stays the fast path for a mouse; the menu is the one that always works. Both call the same move method.
@@ -13,7 +13,7 @@ The drag wiring itself is not repeated here — `DndContext` / `Droppable` / `Dr
 ## Snippet
 
 ```csharp
-private readonly Reactive<string?> _menuOpenFor = new(null);
+private readonly ClientReactive<string?> _menuOpenFor = new(null);
 
 /// The ONE move operation. Drag calls it from onDragEnd; the menu calls it from a click. Both
 /// paths must go through the same method, or they drift and only one of them stays correct.

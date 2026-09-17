@@ -43,8 +43,9 @@ public async Task SetPreferredNameAsync(Context clientContext, string preferredN
 }
 ```
 
-`FindProfilesAsync(filters)` and `GetAllProfilesAsync()` are the space-wide queries, both capped by
-`maxResults` (1000 by default).
+`FindProfilesAsync(filters)` and `GetAllProfilesAsync()` are the space-wide queries. Both take a
+`maxResults` (1000 by default) and throw when the space holds more than that, rather than returning
+a partial list as the whole — raise the cap or narrow the filters.
 
 ### Roles
 
