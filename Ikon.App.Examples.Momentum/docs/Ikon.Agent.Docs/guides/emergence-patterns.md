@@ -7,7 +7,7 @@ Advanced multi-agent patterns for complex tasks. All use the same `Emerge` stati
 ---
 
 # Ikon.AI.Emergence Guide
-
+<!-- checked-against: 6b125870c905d528 -->
 Ikon.AI.Emergence is a streaming-first, C#-idiomatic library for building AI workflows with typed JSON outputs. It provides a collection of patterns for common AI tasks, from simple single-shot generation to parallel candidate search and document-tree navigation.
 
 ## Core Concepts
@@ -161,7 +161,7 @@ var result = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, pass =>
 });
 ```
 
-A fresh `KernelContext` is created internally. Pass your own when you seed the call with input (images, prior turns), and add `.FinalAsync()` when you need the updated context back for conversation continuity or want a nullable result instead of a throw:
+A fresh `KernelContext` is created internally. Pass your own when you seed the call with input (images, prior turns), and add `.FinalAsync()` — an extension on `EmergeRun<T>` from `EmergeEventExtensions`, alongside `FinalWithTraceAsync` — when you need the updated context back for conversation continuity or want a nullable result instead of a throw:
 
 ```csharp
 var (result, ctx) = await Emerge.Run<ChatResponse>(LLMModel.Claude45Sonnet, context, pass =>
@@ -179,7 +179,14 @@ The `EmergePass<T>` configure callback is invoked on every iteration, giving acc
 **Options:**
 - `SystemPrompt` - System instruction
 - `Command` - User command/prompt
-- `Temperature`, `MaxOutputTokens`, `ReasoningEffort`, `ReasoningTokenBudget` - Model parameters
+- `Temperature`, `MaxOutputTokens`, `ReasoningEffort`, `ReasoningTokenBudget` - Model parameters. A
+  reasoning model reads exactly one of the two dials; setting the other, or setting either on a model
+  that cannot reason at all, fails the request rather than being quietly dropped — and setting both
+  is refused for the same reason, since one of the two would reach no field of the request. To ask
+  before sending, rather than to learn from the refusal, read
+  `Emerge.GetCapabilities(model).AcceptedReasoningDial`: `ReasoningDial.Effort`,
+  `ReasoningDial.TokenBudget`, or `ReasoningDial.None` for a model that takes neither. Code that
+  runs a caller-chosen model — a sweep, a `--model` flag — should set the dial that reports.
 - `MaxIterations`, `MaxToolCalls`, `MaxWallTime` - Budget limits
 - `MaxRetries`, `RetryDelay` - Automatic retry on transient failures
 - `Tools` - Available tools (see [Tool Registration](#tool-registration))
@@ -188,7 +195,7 @@ The `EmergePass<T>` configure callback is invoked on every iteration, giving acc
 
 ### BestOf — Score and Select Best
 
-Run N independent attempts (sequentially, one after another) and select the best result based on a scoring function. Always provide `opt.Score` or `opt.ScoreDetailed` — without one, every candidate scores 0 and the first candidate is returned after paying for all N runs.
+Run N independent attempts (sequentially, one after another) and select the best result based on a scoring function. Always provide `opt.Score`, `opt.ScoreAsync` or `opt.ScoreDetailed` — without one, every candidate scores 0 and the first candidate is returned after paying for all N runs. When the candidates are prose, score them with a judge model through `ScoreAsync` rather than with word counts or character bands, which read every language differently.
 
 ```csharp
 var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
@@ -208,14 +215,16 @@ var best = await Emerge.BestOf<Answer>(LLMModel.Claude45Sonnet, ctx, opt =>
 **Options:**
 - `Count` - Number of candidates (default: 3)
 - `Score` - Scoring function `Func<T, EmergenceTrace, double>`
+- `ScoreAsync` - Awaited scoring function `Func<T, EmergenceTrace, Task<double>>`, the shape a judge model call takes (takes precedence over `Score`)
 - `ScoreDetailed` - Multi-axis scoring `Func<T, EmergenceTrace, ScoreBreakdown>`; ranks by `TotalScore` and passes the breakdown to `BuildCriticFeedback` (takes precedence over `Score`)
+- `ScoreDetailedAsync` - `ScoreDetailed` as an awaited call `Func<T, EmergenceTrace, Task<ScoreBreakdown>>`, the shape a judge model's rubric takes (takes precedence over every other scorer)
 - `Candidate(Action<CandidateScope<T>>)` - Configure each candidate (has `Index`, `Seed`)
 - `EnableCritic` - Run a critic pass over the winning candidate (default: false). On its own it works: the winner and its score are appended to the critic scope's `Command`
 - `Critic(Action<EmergeScope<T>>)` - Configure the critic scope. Calling this also sets `EnableCritic = true`, so a configured critic always runs; set `EnableCritic = false` afterward only if you are pre-configuring a critic to toggle on later
 - `BuildCriticFeedback` - Custom function `Func<T, ScoreBreakdown?, string>` to build the critic's prompt. The breakdown is non-null exactly when `ScoreDetailed` produced one
 - `CriticMustImprove` - Require critic to improve on the current best (default: true)
 
-Multi-axis scoring with a critic that is told which axis was weakest:
+Multi-axis scoring with a critic that is told which axis was weakest. Each metric callback returns a score in `[0, 1]` — anything outside is clamped, so a 0..10 or 0..100 rubric must be divided by its maximum or every candidate ties at 1.0:
 
 ```csharp
 var rubric = new ScoreBreakdownBuilder<Answer>()
@@ -522,8 +531,8 @@ All pattern options inherit these from `EmergeScopeBase`:
 | `Model` | `LLMModel?` | Override the model |
 | `Temperature` | `double?` | Sampling temperature |
 | `MaxOutputTokens` | `int?` | Maximum output tokens |
-| `ReasoningEffort` | `ReasoningEffort?` | Reasoning effort level |
-| `ReasoningTokenBudget` | `int?` | Token budget for reasoning |
+| `ReasoningEffort` | `ReasoningEffort?` | Reasoning effort level; refused by a model that reads a budget instead |
+| `ReasoningTokenBudget` | `int?` | Token budget for reasoning; refused by a model that reads an effort instead |
 | `Timeout` | `TimeSpan?` | Request timeout |
 | `Regions` | `IReadOnlyList<ModelRegion>?` | Model region preferences |
 | `MaxIterations` | `int?` | Max agentic iterations |

@@ -211,6 +211,7 @@ namespace Ikon.AI.SpeechRecognition
     AssemblyAIUniversalStreamingMultilingual
     ElevenScribe2
     VoxtralMiniTranscribe2
+    // extension methods: SpeechRecognizerModelExtensions{DisplayName}
   static class SpeechRecognizerModelExtensions
     static string DisplayName(this SpeechRecognizerModel model)
   // Which timings to ask the provider for. Timestamps cost a larger response and, on some providers, extra processing, so the default is None. Requesting a granularity the model does not support throws — check SpeechRecognizer.GetCapabilities first.

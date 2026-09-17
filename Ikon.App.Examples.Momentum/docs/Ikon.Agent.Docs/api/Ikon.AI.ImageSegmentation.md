@@ -36,6 +36,7 @@ namespace Ikon.AI.ImageSegmentation
   enum ImageSegmenterModel
     Sam3
     Sam31
+    // extension methods: ImageSegmenterModelExtensions{DisplayName}
   static class ImageSegmenterModelExtensions
     static string DisplayName(this ImageSegmenterModel model)
   sealed record ImageSegmenterResult

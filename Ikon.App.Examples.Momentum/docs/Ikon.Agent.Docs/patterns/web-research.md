@@ -1,5 +1,5 @@
 # Web Research — Multi-Stage AI
-
+<!-- checked-against: 55b4d88c0255865a -->
 WebSearcher fetches results, then Emerge.Run synthesizes a concise answer with citation links. Two-phase loading state, sources displayed alongside each answer.
 
 ## When to use
@@ -13,7 +13,7 @@ public sealed record Answer(string Question, string Synthesis, List<Source> Sour
 public sealed record Source(string Title, string Url, string Snippet);
 
 private readonly ReactiveList<Answer> _answers = new();
-private readonly Reactive<string> _question = new("");
+private readonly ClientReactive<string> _question = new("");
 private readonly Reactive<string?> _phase = new(null); // null | "Searching" | "Synthesizing"
 private readonly Reactive<string?> _error = new(null);
 
@@ -115,7 +115,7 @@ private void Render(IView view)
 - The fetch call is `searcher.SearchAsync(query, maxResults: 5)` — the same shape as the static one-shot `WebSearcher.SearchAsync(query, maxResults: 5)`. Drop to `searcher.SearchPagesAsync(new SearchConfig { ... })` only for site restriction, country, or language targeting; `SearchImagesAsync` is the image-search counterpart.
 - `SearchResult` exposes `Url`, `Title`, `Content`, `MimeType`, `Keywords`. There is no `Snippet` property — use `Content` for the body text.
 - Sources displayed alongside the synthesis with clickable links. Citation numbers in the prose match the list.
-- Answers live in a `ReactiveList<Answer>`; newest-first prepend is `_answers.Insert(0, answer)` — one notification, no list rebuild. `Count` and enumeration of the reactive itself are tracked reads.
+- Answers live in a `ReactiveList<Answer>`; newest-first prepend is `_answers.Insert(0, answer)` — one call, one notification, no manual reassignment. `Count` and enumeration of the reactive itself are tracked reads. The list is copy-on-write, so every mutation does copy the backing list — one answer at a time is nothing, but a batch belongs in `AddRange`/`ReplaceAll`/`Update` rather than a loop of single calls.
 
 ## See also
 

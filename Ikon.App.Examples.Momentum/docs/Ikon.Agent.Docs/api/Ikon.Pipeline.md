@@ -14,6 +14,10 @@ namespace Ikon.Pipeline
     // If set, overrides the schedule defined on the original [Pipeline] attribute. The same 5-minute minimum interval applies as on PipelineAttribute.Schedule.
     string? Schedule { get; }
   static class FunctionRegistryExtensions
+    // registry: The function registry.
+    // functionName: Name of the function to register.
+    // description: Optional description for the function.
+    // configInstance: Optional configuration instance for the pipeline.
     static void RegisterPipeline<TPipeline>(this FunctionRegistry registry, string functionName, string? description = null, object? configInstance = null) where TPipeline : class
   interface IPipelineHost<out TConfig>
     TConfig Config { get; }
@@ -25,6 +29,7 @@ namespace Ikon.Pipeline
     string SpaceId { get; }
   // For the special case where a path on the local filesystem is needed — normally use the Item.GetContent* methods. Item.GetLocalFile copies an Item's content to a local file; constructing a LocalFile directly gives a temporary file path to write to (no file exists until written), from which a new Item can be created. The MIME type determines the temporary file's extension and is used when creating an Item from the LocalFile. Dispose deletes the file only when it was created as temporary; a file supplied as existingFilePath is never deleted.
   sealed class LocalFile : IDisposable
+    // mimeType: MIME type of the file.
     // existingFilePath: Optional existing file path to use. If not provided, a temporary file path will be created.
     ctor(string mimeType, string? existingFilePath = null)
     string MimeType { get; }
@@ -57,14 +62,17 @@ namespace Ikon.Pipeline
     // Terminal: ends the branch. Sends each item to the pipeline's configured output(s).
     // maxParallelism: Optional maximum degree of parallelism for the output operation.
     void Output(int? maxParallelism = null)
+    // item: The item to post.
     // throws PipelineException: This branch is not the pipeline input branch, the maximum input item count has been exceeded, or the item was declined because the pipeline has been completed.
     void Post(T item)
+    // items: Items to be posted.
     // throws PipelineException: This branch is not the pipeline input branch, the maximum input item count has been exceeded, or an item was declined because the pipeline has been completed.
     void Post(List<T> items)
     // Await the returned task to observe completion and surface any errors from draining stream.
     // stream: Sequence producing items to post.
     // throws PipelineException: This branch is not the pipeline input branch, the maximum input item count has been exceeded, or an item was declined because the pipeline has been completed.
     Task Post(IAsyncEnumerable<T> stream)
+    // transformExpr: Expression representing the transformation.
     Pipeline<T>.Branch Transform(Expression<Func<T, Task<List<T>>>> transformExpr, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
     // transformExpr: Expression representing the batch transformation.
     // maxBatchSize: When specified, size of the batch to trigger processing.
@@ -78,7 +86,9 @@ namespace Ikon.Pipeline
     // groupKeyFunc: Function producing the group key for an item.
     // transformFunc: Function that transforms a group of items sharing the same key.
     Pipeline<T>.Branch TransformGroupLambda(Func<T, Task<string>> groupKeyFunc, Func<List<T>, Task<List<T>>> transformFunc, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
+    // transformFunc: Transformation function.
     Pipeline<T>.Branch TransformLambda(Func<T, Task<List<T>>> transformFunc, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
+    // transformExpr: Expression representing the transformation.
     Pipeline<T>.Branch TransformStream(Expression<Func<T, IAsyncEnumerable<T>>> transformExpr, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
     // transformExpr: Expression representing the stream transformation.
     Pipeline<T>.Branch TransformStream(Expression<Func<IAsyncEnumerable<T>, IAsyncEnumerable<T>>> transformExpr, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
@@ -128,7 +138,11 @@ namespace Ikon.Pipeline
     // Only one runner may exist per process at a time — the runner registers a process-global adapter, so constructing a second while one is still alive (even in a different async context) throws.
     ctor()
     void Dispose()
+    // config: Runner configuration.
     Task Initialize(PipelineRunner.Config config)
+    // userPipelineInstance: Optional user pipeline instance to use.
+    // userConfigInstance: Optional user configuration instance for the pipeline.
+    // usePersistentCache: Whether persistent caches should be used.
     // keepRunning: Whether the runner should keep watching for input.
     // outputPath: Optional output path that will be used instead of in-memory output.
     Task Initialize<TPipeline>(TPipeline? userPipelineInstance = default, object? userConfigInstance = null, bool usePersistentCache = false, string? cachePath = null, bool keepRunning = false, string? outputPath = null, bool allApiKeys = false) where TPipeline : class
@@ -139,6 +153,7 @@ namespace Ikon.Pipeline
     // items: Optional set of in-memory items to feed into the pipeline.
     // cancellationToken: Token used to cancel pipeline execution.
     IAsyncEnumerable<Item> RunAsEnumerable(List<Item>? items = null, CancellationToken cancellationToken = default)
+    // configJson: JSON serialized configuration.
     // onStatusUpdate: Callback to receive JSON serialized status updates.
     // cancellationToken: Token used to cancel pipeline execution.
     static Task RunInExternalAssembly(string configJson, Action<string> onStatusUpdate, CancellationToken cancellationToken)
@@ -157,7 +172,9 @@ namespace Ikon.Pipeline
     bool AllApiKeys { get; set; }
     string? CachePath { get; set; }
     bool ClearCache { get; set; }
+    // Path to a JSON configuration file for the pipeline's config type. When set, the file must exist — a missing file fails the run rather than running with defaults.
     string? ConfigPath { get; set; }
+    // Defaults to CacheType.FileSystem, which keeps item content on disk under CachePath between runs; CacheType.InMemory is discarded with the process.
     CacheType ContentCacheType { get; set; }
     bool DefaultDisableProcessCache { get; set; }
     // Default degree of parallelism for processors when not overridden. Defaults to Environment.ProcessorCount × 4 when left null.
@@ -187,9 +204,12 @@ namespace Ikon.Pipeline
     string? ProcessingId { get; set; }
     string? RabbitMQConnectionString { get; set; }
     bool RecursiveInput { get; set; }
+    // Seconds the remote host waits for the next message of a remote processor call before failing the call with a TimeoutException (retryable). Default 1800; 0 waits forever. Without it a client that died mid-call, or an unroutable call, hangs the host run.
+    int RemoteCallTimeoutSeconds { get; set; }
     List<string>? RemoteClientProcessorWhiteList { get; set; }
     // Seconds between input scans when KeepRunning is enabled. Default 10.
     int ScanInterval { get; set; }
+    // Defaults to StateType.SqLiteBatch, a SQLite file under CachePath that survives between runs; StateType.InMemory is discarded with the process.
     StateType StateType { get; set; }
     // Seconds between status update callbacks. Default 15.
     int StatusUpdateInterval { get; set; }
@@ -197,44 +217,3 @@ namespace Ikon.Pipeline
     string TypeName { get; set; }
     object? UserConfigInstance { get; set; }
     object? UserPipelineInstance { get; set; }
-  sealed class PipelineStatus
-    ctor()
-    int DuplicateItemCount { get; set; }
-    TimeSpan Duration { get; set; }
-    int ErrorLogCount { get; set; }
-    bool HasCompleted { get; set; }
-    bool HasFaulted { get; set; }
-    int InputItemCacheHits { get; set; }
-    int InputItemCacheMiss { get; }
-    int InputItemCount { get; set; }
-    int InvalidItemCount { get; set; }
-    int OutputItemCacheHits { get; set; }
-    int OutputItemCacheMiss { get; }
-    int OutputItemCount { get; set; }
-    int ProcessFailureCount { get; set; }
-    int ProcessRetryCount { get; set; }
-    int ProcessedItemCacheHits { get; set; }
-    int ProcessedItemCacheMiss { get; }
-    int ProcessedItemCount { get; set; }
-    string ProcessingId { get; set; }
-    DateTime StartTime { get; set; }
-    Dictionary<string, double> Usages { get; set; }
-    int WarningLogCount { get; set; }
-    bool WasCancelled { get; set; }
-  sealed class ProcessorAttribute : Attribute
-    ctor(string? id = null, int version = 1, int maxParallelism = 0, int maxRetries = -1, bool isRemote = false, bool skipCache = false, bool allowDuplicates = true, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
-    // Defaults to true (duplicates preserved). Set to false to enable deduplication based on content hash and group id.
-    bool AllowDuplicates { get; set; }
-    string? Id { get; set; }
-    bool IsRemote { get; set; }
-    int MaxParallelism { get; set; }
-    // Maximum retries on failure. The default of -1 means "not set" and falls back to the pipeline defaults; an explicit 0 disables retries for this processor.
-    int MaxRetries { get; set; }
-    // When left null (not set) the pipeline defaults are used; an explicitly-empty array means retry nothing, matching the pipeline-level default semantics.
-    Type[]? RetryableExceptionTypes { get; set; }
-    bool SkipCache { get; set; }
-    ProcessorTags[] Tags { get; set; }
-    // Feeds the processor cache hash; bump the version to invalidate previously cached outputs.
-    int Version { get; set; }
-  enum ProcessorTags
-    Gpu

@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Sheet And Drawer — Edge-Anchored Overlays
-
+<!-- checked-against: e0905220ec35a9dc -->
 Both slide in from an edge and both own their header, but they answer different questions:
 
 | | Comes from | Reads as | Use for |

@@ -16,6 +16,7 @@ namespace Ikon.AI.Storage
     ctor(VectorStoreConfig? config = null)
     Task CreateCollectionAsync(string collectionName, EmbeddingModel model)
     Task<int> GetDataItemCountAsync(string collectionName)
+    // Throws on an empty tag list rather than matching — and deleting — the whole collection.
     Task RemoveAsync(string collectionName, IEnumerable<string> tags)
     Task<List<Result<object>>> SearchAsync(string collectionName, float[] queryVector, int maxItems, float threshold, Metric metric, Func<IEnumerable<string>, bool>? tagsFilter = null)
     Task<List<Result<object>>> SearchAsync(string collectionName, string query, int maxItems, float threshold, Metric metric, Func<IEnumerable<string>, bool>? tagsFilter = null)

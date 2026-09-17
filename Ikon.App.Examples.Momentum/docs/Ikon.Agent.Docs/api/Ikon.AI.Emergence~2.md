@@ -1,4 +1,13 @@
 namespace Ikon.AI.Emergence
+  // Call ConnectAsync before reading Tools or calling a tool — it performs the MCP handshake and populates the tool list. Uses Streamable HTTP transport.
+  sealed class McpClient : IDisposable
+    ctor(string endpoint, Dictionary<string, string>? headers = null)
+    IReadOnlyList<McpTool> Tools { get; }
+    Task<string> CallToolAsync(string name, JsonElement arguments, CancellationToken ct = default)
+    // Returns the content plus a pagination cursor; pass a cursor from a previous response to fetch the next page. A result the server marks isError throws rather than arriving as content, and a content item that is not text is replaced by a stub naming what was withheld.
+    Task<McpToolResult> CallToolRawAsync(string name, JsonElement arguments, string? cursor = null, CancellationToken ct = default)
+    Task ConnectAsync(CancellationToken ct = default)
+    void Dispose()
   record McpTool
     ctor(string Name, string? Description, JsonElement? InputSchema)
     string? Description { get; init; }

@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Assembler -->
 # Embedded Coding Agent — Read/Edit/Write/Build/Save Toolset
-
+<!-- checked-against: f6ec9b7ff581c60f -->
 Register the canonical eight-tool surface for an in-app coding agent: `ReadFile`, `WriteFile`, `EditFile` (exact-match find/replace), `ListFiles`, `SearchFiles` (glob), `SearchContent` (regex), `BuildApp` (`dotnet build`), `SaveToGit`. Same shape Claude/Cursor expose — the LLM already knows how to drive this.
 
 ## When to use

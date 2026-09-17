@@ -6,6 +6,7 @@ All Crosswind/Tailwind utility classes — layout, flexbox, grid, spacing, typog
 
 ---
 
+<!-- checked-against: 3cff27bd6a5a8635 -->
 ﻿# Crosswind Tailwind Spec
 
 Below is a clean, exhaustive list of Tailwind CSS v4.x utility families, organized according to the official documentation structure. For each family, the canonical class pattern(s) are shown, including axis/directional shorthands, plus brief notes where v4 renamed or expanded functionality.

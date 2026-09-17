@@ -6,16 +6,23 @@ namespace Ikon.AI.WebSearching
     bool SupportsImageSearching { get; }
   sealed record SearchConfig
     ctor()
+    // Two-letter ISO code, e.g. "us". Amazon cannot apply it and throws when it is set.
     string CountryCode { get; init; }
+    // Host or URL prefix the hits must belong to. Amazon and YouTube cannot restrict by site and throw when it is set.
     string InSiteUrl { get; init; }
+    // Two-letter ISO code, e.g. "en". Amazon and Bing cannot apply it and throw when it is set.
     string Language { get; init; }
+    // SerpApi models return at most 100 per search and reject a higher value.
     int MaxResults { get; init; }
     WebSearcherOutputFormat OutputFormat { get; init; }
     string Query { get; init; }
+    // For the whole search request.
     TimeSpan Timeout { get; init; }
   sealed record SearchResult
     ctor()
     string Content { get; init; }
+    // Non-empty when the hit was found but its page could not be fetched; Content is then empty. Spider only.
+    string Error { get; init; }
     List<string> Keywords { get; init; }
     string MimeType { get; init; }
     string Title { get; init; }
@@ -44,6 +51,7 @@ namespace Ikon.AI.WebSearching
     Bing
     BingImages
     Youtube
+    // extension methods: WebSearcherModelExtensions{DisplayName}
   static class WebSearcherModelExtensions
     static string DisplayName(this WebSearcherModel model)
   enum WebSearcherOutputFormat

@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Shaping What A Tool Tells The Model
-
+<!-- checked-against: 182c59d5eee132c4 -->
 A tool can return its value alone, or a `FunctionResult` that **frames** it. The prefix and suffix
 are written into the model's transcript around the result, which is where you put what the data
 cannot say about itself: that it is truncated, stale, in a particular unit, or empty for a reason.
