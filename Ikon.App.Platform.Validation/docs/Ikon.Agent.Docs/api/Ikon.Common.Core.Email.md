@@ -22,6 +22,16 @@ namespace Ikon.Common.Core.Email
     ctor(string Name, string Value)
     string Name { get; init; }
     string Value { get; init; }
+  // The envelope only — no subject and no body. A pending event can wait unencrypted for as long as the app is away, while the store keeps both encrypted; read them with EmailService.GetMessageAsync using Id.
+  sealed record EmailReceivedPayload
+    ctor(string Id, string Recipient, string From, DateTimeOffset ReceivedAt, int AttachmentCount, double? SpamScore, string? Tag)
+    int AttachmentCount { get; init; }
+    string From { get; init; }
+    string Id { get; init; }
+    DateTimeOffset ReceivedAt { get; init; }
+    string Recipient { get; init; }
+    double? SpamScore { get; init; }
+    string? Tag { get; init; }
   // The platform enqueues the send and returns once accepted; transient delivery failures are retried server-side.
   sealed record EmailSendRequest
     // Attachments: Up to 10 per email.

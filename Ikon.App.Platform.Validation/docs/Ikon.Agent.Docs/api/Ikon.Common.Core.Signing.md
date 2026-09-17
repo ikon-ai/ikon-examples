@@ -27,13 +27,13 @@ namespace Ikon.Common.Core.Signing
     string OrderId { get; init; }
     IReadOnlyList<SignatureSignatoryResult> Signatories { get; init; }
     DateTimeOffset SignedAt { get; init; }
-  // IdentitySchemes names the national eIDs the signatory may authenticate with, in the platform's vocabulary (bankid-se, nbid, mitid, ftn, …); leave it null to let the signing provider offer its full set. RequestedAttributes selects from name, nationalId and dateOfBirth, and defaults to all three — an attribute the order does not ask for is not retained even when the eID reports it.
+  // IdentitySchemes names the national eIDs the signatory may authenticate with, in the platform's vocabulary (bankid-se, nbid, mitid, ftn, …); leave it null to let the signing provider offer its full set. RequestedAttributes selects from name, nationalId and dateOfBirth; null is passed through and the backend reads it as all three. An attribute the order does not ask for is not retained even when the eID reports it.
   sealed record SignatureSignatory
     ctor(SignaturePolicy Policy, IReadOnlyList<string>? IdentitySchemes = null, IReadOnlyList<string>? RequestedAttributes = null)
     IReadOnlyList<string>? IdentitySchemes { get; init; }
     SignaturePolicy Policy { get; init; }
     IReadOnlyList<string>? RequestedAttributes { get; init; }
-  // Signer is null until this party has actually signed. IdentityScheme and AssuranceLevel on it describe how strongly somebody authenticated, never who: if the ceremony link is a bearer token that anyone holding the URL can complete, compare SignatureSignerIdentity.FullName against the party you addressed it to.
+  // Signer is null until this party has actually signed. SignatureSignerIdentity.IdentityScheme and SignatureSignerIdentity.AssuranceLevel on it describe how strongly somebody authenticated, never who: if the ceremony link is a bearer token that anyone holding the URL can complete, compare SignatureSignerIdentity.FullName against the party you addressed it to.
   sealed record SignatureSignatoryResult
     ctor(SignatoryStatus Status, string? RejectionReason, SignatureSignerIdentity? Signer)
     string? RejectionReason { get; init; }

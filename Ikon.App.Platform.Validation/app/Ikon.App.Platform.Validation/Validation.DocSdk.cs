@@ -273,6 +273,11 @@ file static class DocSdkReadme
     public static async Task SendAudioAsync(IkonClient client)
     {
         #region docsnippet:sdk-send-audio
+        // Default encoder options for every stream that sends no encoderOptions of its own. A
+        // stream's encoder is created on its first SendAudioAsync and keeps the options in force
+        // then, so set this before the first send — not after.
+        client.DefaultEncoderOptions = new AudioEncoderOptions(bitrate: 48000, complexity: 8);
+
         // Get audio samples (float PCM, range [-1.0, 1.0])
         ReadOnlyMemory<float> samples = GetAudioSamples();
 
@@ -304,8 +309,6 @@ file static class DocSdkReadme
                 complexity: 10
             ));
 
-        // Set default encoder options for all audio
-        client.DefaultEncoderOptions = new AudioEncoderOptions(bitrate: 48000, complexity: 8);
         #endregion
     }
 
@@ -319,8 +322,8 @@ file static class DocSdkReadme
             Console.WriteLine($"  Sample rate: {e.SampleRate}");
             Console.WriteLine($"  Channel count: {e.ChannelCount}");
 
-            // Optional: override sample rate (SDK will resample)
-            // e.SampleRate = 44100;
+            // Optional: choose the decode rate (Opus accepts 8, 12, 16, 24 or 48 kHz)
+            // e.SampleRate = 24000;
 
             // Optional: change streaming mode
             // e.StreamingMode = AudioInputStreamingMode.DelayUntilTotalDurationKnown;

@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Announcing What Just Arrived — FocusHint And Live Regions
-
+<!-- checked-against: a8cc19d8a3b9606b -->
 Content that appears **without the user acting for it** — a new message, a status change, a result
 that finished — is invisible to a screen reader by default. The reader is not looking at the part
 of the page that changed, and nothing tells them it did.

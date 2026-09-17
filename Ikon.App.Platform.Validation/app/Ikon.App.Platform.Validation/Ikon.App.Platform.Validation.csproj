@@ -19,31 +19,31 @@
     <IsIkonInternal Condition="'$(IkonRoot)' != ''">true</IsIkonInternal>
   </PropertyGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' != 'true'">
-    <PackageReference Include="Ikon.AI" Version="3.11.3" />
-    <PackageReference Include="Ikon.AI.Speech.Azure" Version="3.11.3" />
-    <PackageReference Include="Ikon.AI.Speech.Google" Version="3.11.3" />
-    <PackageReference Include="Ikon.AI.Scrape" Version="3.11.3" />
-    <PackageReference Include="Ikon.AI.Database" Version="3.11.3" />
-    <PackageReference Include="Ikon.AI.Emergence" Version="3.11.3" />
-    <PackageReference Include="Ikon.App" Version="3.11.3" />
-    <PackageReference Include="Ikon.Connectors" Version="3.11.3" />
-    <PackageReference Include="Ikon.Connectors.Browser" Version="3.11.3" />
-    <PackageReference Include="Ikon.Connectors.Google" Version="3.11.3" />
-    <PackageReference Include="Ikon.Common" Version="3.11.3" />
-    <PackageReference Include="Ikon.Common.Core" Version="3.11.3" />
-    <PackageReference Include="Ikon.Crosswind" Version="3.11.3" />
-    <PackageReference Include="Ikon.Parallax" Version="3.11.3" />
-    <PackageReference Include="Ikon.Pipeline" Version="3.11.3" />
-    <PackageReference Include="Ikon.Pipelines.Public" Version="3.11.3" />
-    <PackageReference Include="Ikon.Resonance" Version="3.11.3" />
-    <PackageReference Include="Ikon.Resonance.Core" Version="3.11.3" />
-    <PackageReference Include="Ikon.Server" Version="3.11.3" />
-    <PackageReference Include="Ikon.Teleport" Version="3.11.3" />
-    <PackageReference Include="Ikon.Sdk" Version="2.0.44" />
-    <PackageReference Include="Ikon.App.Storage.Postgres" Version="3.11.3" />
-    <PackageReference Include="Ikon.Server.HotReload" Version="3.11.3" />
-    <PackageReference Include="Ikon.Agent" Version="3.11.3" />
-    <PackageReference Include="Ikon.Agent.Docs" Version="3.11.3" />
+    <PackageReference Include="Ikon.AI" Version="3.13.0" />
+    <PackageReference Include="Ikon.AI.Speech.Azure" Version="3.13.0" />
+    <PackageReference Include="Ikon.AI.Speech.Google" Version="3.13.0" />
+    <PackageReference Include="Ikon.AI.Scrape" Version="3.13.0" />
+    <PackageReference Include="Ikon.AI.Database" Version="3.13.0" />
+    <PackageReference Include="Ikon.AI.Emergence" Version="3.13.0" />
+    <PackageReference Include="Ikon.App" Version="3.13.0" />
+    <PackageReference Include="Ikon.Connectors" Version="3.13.0" />
+    <PackageReference Include="Ikon.Connectors.Browser" Version="3.13.0" />
+    <PackageReference Include="Ikon.Connectors.Google" Version="3.13.0" />
+    <PackageReference Include="Ikon.Common" Version="3.13.0" />
+    <PackageReference Include="Ikon.Common.Core" Version="3.13.0" />
+    <PackageReference Include="Ikon.Crosswind" Version="3.13.0" />
+    <PackageReference Include="Ikon.Parallax" Version="3.13.0" />
+    <PackageReference Include="Ikon.Pipeline" Version="3.13.0" />
+    <PackageReference Include="Ikon.Pipelines.Public" Version="3.13.0" />
+    <PackageReference Include="Ikon.Resonance" Version="3.13.0" />
+    <PackageReference Include="Ikon.Resonance.Core" Version="3.13.0" />
+    <PackageReference Include="Ikon.Server" Version="3.13.0" />
+    <PackageReference Include="Ikon.Teleport" Version="3.13.0" />
+    <PackageReference Include="Ikon.Sdk" Version="2.0.46" />
+    <PackageReference Include="Ikon.App.Storage.Postgres" Version="3.13.0" />
+    <PackageReference Include="Ikon.Server.HotReload" Version="3.13.0" />
+    <PackageReference Include="Ikon.Agent" Version="3.13.0" />
+    <PackageReference Include="Ikon.Agent.Docs" Version="3.13.0" />
     <PackageReference Include="StbImageSharp" Version="2.30.16" />
   </ItemGroup>
   <ItemGroup Condition="'$(IsIkonInternal)' == 'true'">
@@ -96,11 +96,11 @@
     </ItemGroup>
   </Target>
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
     <!-- Design-time only (dotnet ef migrations); ExcludeAssets keeps its Roslyn/MSBuildWorkspace
          dependency tree (incl. the BuildHost folders) out of the app output and the bundle. The two
          CodeAnalysis pins below resolve EF Design's internally mismatched Roslyn versions (NU1107). -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
       <PrivateAssets>all</PrivateAssets>
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>

@@ -152,21 +152,11 @@ file sealed class DocAssetGuide
     {
         #region docsnippet:asset-guide-list
         var folderUri = new AssetUri(AssetClass.LocalFile, "albums/2024/");
-        var query = new AssetQuery(folderUri)
-        {
-            Tags = new[] { "cover" },
-            Limit = 50,
-        };
-
-        var entries = await assets.ListAsync(query);
+        var entries = await assets.ListAsync(new AssetQuery(folderUri));
         foreach (var entry in entries)
         {
             Log.Instance.Info($"{entry.AssetUri.Path} updated {entry.Metadata.LastModified:O}");
         }
-
-        var nextPageToken = query.NextContinuationToken;
         #endregion
-
-        Log.Instance.Debug($"{nextPageToken}");
     }
 }

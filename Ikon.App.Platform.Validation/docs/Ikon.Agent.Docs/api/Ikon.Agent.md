@@ -121,7 +121,7 @@ namespace Ikon.Agent
     // Every posted message in arrival order; seeded from storage at construction and appended on every MessagePosted.
     IReadOnlyReactive<IReadOnlyList<Message>> Messages { get; }
     string? ParentId { get; }
-    // Throws InvalidOperationException if the plan has been archived out of the live registry; reach it via App + AgentApp.GetPlan when archived-plan access is needed.
+    // Throws InvalidOperationException if the plan has been archived out of the live registry; reach it via Orchestrator.GetApp + AgentApp.GetPlan when archived-plan access is needed.
     AgentPlan Plan { get; }
     string PlanId { get; }
     // Derived from Usage and the merged host/persona Budget; recomputed on every usage change.
@@ -186,6 +186,7 @@ namespace Ikon.Agent
     ArtifactSource Source { get; init; }
     string ThreadId { get; init; }
     string Type { get; init; }
+    // extension methods: ContentExtensions{GetText}
   enum ArtifactSource
     Agent
     User
@@ -229,12 +230,3 @@ namespace Ikon.Agent
     long? OutputTokensRemaining { get; init; }
     int? TurnsRemaining { get; init; }
     TimeSpan? WallTimeRemaining { get; init; }
-  sealed record BudgetSnapshot
-    ctor(string TrippedField, long ActualValue, long LimitValue)
-    long ActualValue { get; init; }
-    long LimitValue { get; init; }
-    string TrippedField { get; init; }
-  enum Capability
-    Quick
-    Standard
-    Deep

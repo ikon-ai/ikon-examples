@@ -33,9 +33,13 @@ namespace Ikon.Connectors.Google
     // Disposes the underlying Gmail service and its HttpClient; construct one Gmail per credential and reuse it rather than constructing per call.
     void Dispose()
     // Returns the text/plain part when present, else the raw HTML of the text/html part, else an empty string.
+    // throws ConnectorException: Gmail returned the message without its raw MIME payload.
     Task<string> GetBodyAsync(string id, CancellationToken ct = default)
     // Pages through the entire result set, unlike ListAsync which is capped by its limit. Bound a historical backfill with query date operators, e.g. "after:2024/01/01".
+    // throws ConnectorException: The metadata of any listed message could not be fetched; the enumeration fails rather than skipping the page.
     IAsyncEnumerable<EmailSummary> ListAllAsync(string? query = null, CancellationToken ct = default)
+    // One page only: at most limit summaries (Gmail clamps it to 500), and a full page does not say whether more match. ListAllAsync walks the whole result set.
+    // throws ConnectorException: The metadata of any listed message could not be fetched; no partial page is returned.
     Task<IReadOnlyList<EmailSummary>> ListAsync(string? query = null, int limit = 20, CancellationToken ct = default)
     // to: One or more recipient addresses, comma- or semicolon-separated.
     // cc: Optional CC addresses, comma- or semicolon-separated.

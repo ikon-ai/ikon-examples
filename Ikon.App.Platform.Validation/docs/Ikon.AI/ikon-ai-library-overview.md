@@ -1,10 +1,10 @@
 # Ikon.AI Library Overview
-
+<!-- checked-against: 67ccb1e9630a0616 -->
 This guide summarizes the principal namespaces in the Ikon.AI .NET library for developers building AI-enabled solutions. Each section outlines module responsibilities, supported models, and usage patterns verified by automated tests.
 
 ## Emergence
 
-`Ikon.AI.Emergence` is the recommended way to build AI workflows with typed outputs. It provides a streaming-first, C#-idiomatic API for structured object generation, tool calling, and advanced multi-agent patterns. All APIs return `IAsyncEnumerable<EmergeEvent<T>>` and non-streaming usage is achieved via the `.FinalAsync()` extension method. Emergence can target any model listed in the [LLM](#llm) section. See the [Emergence Guide](emergence-guide.md) for the full documentation.
+`Ikon.AI.Emergence` is the recommended way to build AI workflows with typed outputs. It provides a streaming-first, C#-idiomatic API for structured object generation, tool calling, and advanced multi-agent patterns. Every run is both awaitable and enumerable: `await` it for the result (non-null; `EmergenceStoppedException` when the run stops without one), or `await foreach` its `EmergeEvent<T>` stream. `.FinalAsync()` returns a nullable result together with the updated `KernelContext` for conversation continuity. Emergence can target any model listed in the [LLM](#llm) section. See the [Emergence Guide](emergence-guide.md) for the full documentation.
 
 ### Object Generation
 
@@ -14,10 +14,13 @@ Needs the `Ikon.AI.Emergence`, `Ikon.AI.Kernel`, `Ikon.AI.LLM`, `Ikon.Common.Cor
 var context = new KernelContext();
 context = context.Add(new MessageBlock(MessageBlockRole.User, "Tell me about John Smith."));
 
-var (result, _) = await Emerge.Run<PersonDetails>(LLMModel.Gpt5Mini, context, pass =>
+// Awaiting the run yields a non-null result and throws EmergenceStoppedException when the
+// run stops without one; EmergeEventExtensions.FinalAsync instead hands back a nullable
+// result plus the updated context.
+var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt5Mini, context, pass =>
 {
     pass.Command = "Return invented personal details about the person the user asked about.";
-}).FinalAsync();
+});
 
 Log.Instance.Info($"Result: {Json.To(result)}");
 ```
@@ -53,7 +56,7 @@ var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt5Mini, pass =>
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
-Pass preferred regions as an ordered list to keep inference within a geography. If omitted, the default region is `Global`.
+Pass preferred regions as an ordered list to keep inference within a geography. If omitted, the call runs as `Global` — no restriction, the platform picks the serving region.
 
 Needs the `Ikon.AI`, `Ikon.AI.Kernel`, `Ikon.AI.LLM`, `Ikon.Common.Core` using directives.
 
@@ -114,7 +117,7 @@ Key behaviors:
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
-One-shot — defaults to `Gemini25FlashImage` (cheap+fast); the result is never null (throws `ImageGeneratorException` on failure):
+One-shot — defaults to `Gemini25FlashImage` (cheap+fast); the result is never null (throws an `AIException` — `RetryableAIException` for a transient failure or empty output, `NonRetryableAIException` for a rejected request — so catch `AIException` to continue without the image):
 
 Needs the `Ikon.AI.ImageGeneration` using directive.
 
@@ -144,6 +147,12 @@ var result = (await imageGenerator.GenerateImageAsync(new ImageGeneratorConfig
 await File.WriteAllBytesAsync("santa.png", await result.GetDataAsync());
 ```
 
+A size the model cannot render is refused rather than clamped or bucketed to a nearby one, so the
+picture you get back is the one you asked for or an exception naming what the model accepts. Leave
+`Width` and `Height` at `0` to take the provider's own default. Either way the result reports the
+size that was actually delivered, measured from the returned bytes, since models snap to their own
+grids and tiers within what they accept.
+
 ## Provenance and Watermarking
 
 `Ikon.AI.ImageProvenance` is what marks a generated image as generated. The image generators and the
@@ -167,8 +176,8 @@ so app code normally only *reads* the marks.
 `Ikon.AI.ImageUtils` holds the pixel chores the AI calls keep needing. `GetImageDimensions` reads
 width and height without decoding the whole image; `IsWebP` sniffs the format. `EncodeJpegCapped`
 caps both dimensions (aspect preserved) and re-encodes as JPEG, returning the source bytes unchanged
-when the image already fits — this is how an image is brought under a model's input limit before it
-is sent. The mask helpers convert between the two conventions models disagree on:
+only when the image already fits the dimension cap *and* is at most `maxBytes` (200 KB by default) —
+this is how an image is brought under a model's input limit before it is sent. The mask helpers convert between the two conventions models disagree on:
 `ConvertAlphaMaskToBlackWhiteMask`, `ConvertBlackWhiteMaskToAlphaMask` and `InvertMask`.
 
 
@@ -219,7 +228,7 @@ await File.WriteAllBytesAsync("mask.png", await result.Segments[0].Mask.GetDataA
 
 Some models cap how large an output they will produce, reported as `MaxOutputMegapixels` in the capabilities (Topaz is capped at 48; the rest are uncapped). A request whose input size and scale factor would exceed the cap is refused before the provider is called, rather than running up a charge at a price tier above the one the platform bills.
 
-**Faithful vs. creative:** upscalers differ in whether they invent detail, and every model's `Fidelity` says which it is. A `Faithful` model reconstructs only what the input supports, so its output can still be read as evidence of the original. A `Creative` model synthesizes plausible detail that was never there. A `Tunable` model moves between the two as `Creativity` rises (0 to 1) and sits at the faithful end when it is left at 0. Every model here defaults to faithful behaviour, and asking a faithful model for `Creativity` above 0 throws rather than being quietly ignored — so nothing hallucinates unless you ask it to. Check `ImageUpscaler.GetCapabilities(model)` when the distinction matters.
+**Faithful vs. creative:** upscalers differ in whether they invent detail, and every model's `Fidelity` says which it is. A `Faithful` model reconstructs only what the input supports, so its output can still be read as evidence of the original. A `Creative` model synthesizes plausible detail that was never there. A `Tunable` model moves between the two as `Creativity` rises (0 to 1) and sits at the faithful end when it is left at 0. No model is `Creative` today, so nothing hallucinates unless you raise `Creativity` on a `Tunable` model — and asking a `Faithful` model for `Creativity` above 0 throws rather than being quietly ignored. Check `ImageUpscaler.GetCapabilities(model)` when the distinction matters.
 
 One-shot from image bytes — defaults to `SeedVr2`, and to the model's own scale factor:
 
@@ -380,7 +389,7 @@ Log.Instance.Info($"Enhanced video URL: {result.Url}");
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
-One-shot — defaults to `ElevenFlash25` (cheap+fast) and returns the full clip as a single PCM `AudioChunk` (never null; throws `SpeechGeneratorException` on failure):
+One-shot — defaults to `ElevenFlash25` (cheap+fast) and returns the full clip as a single PCM `AudioChunk` (never null; throws `RetryableAIException` on failure or empty output):
 
 Needs the `Ikon.AI.SpeechGeneration`, `Ikon.Resonance` using directives.
 
@@ -409,7 +418,6 @@ List<float> samples = [];
 var config = new SpeechGeneratorConfig
 {
     VoiceId = "ballad",
-    Language = "en-US",
     Instructions = "Speak like a angry pirate.",
     Text = "There once was a ship that put to sea. The name of that ship was a Billy of Tea."
 };
@@ -423,6 +431,10 @@ using var wavFile = new WavFile(speechGenerator.SampleRate, speechGenerator.Chan
 wavFile.AddSamples(samples.ToArray());
 wavFile.SaveToFile("speech.wav");
 ```
+
+Only some models read `Language`. The OpenAI TTS models take the language from the text itself and
+refuse a request that carries one rather than reading the clip in whatever language the text looked
+like — name the language in `Instructions` there instead.
 
 ## SpeechRecognition
 

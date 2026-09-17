@@ -1,4 +1,99 @@
 namespace Ikon.Parallax.Components.Standard
+  // Values match the browser KeyboardEvent.key specification; raw strings also work for keys not listed here.
+  static class Key
+    const string Alt
+    const string ArrowDown
+    const string ArrowLeft
+    const string ArrowRight
+    const string ArrowUp
+    const string Backspace
+    const string Control
+    const string Delete
+    const string End
+    const string Enter
+    const string Escape
+    const string F1
+    const string F10
+    const string F11
+    const string F12
+    const string F2
+    const string F3
+    const string F4
+    const string F5
+    const string F6
+    const string F7
+    const string F8
+    const string F9
+    const string Home
+    const string Meta
+    const string PageDown
+    const string PageUp
+    const string Shift
+    const string Space
+    const string Tab
+  // Property semantics match the browser KeyboardEvent.
+  sealed record KeyboardEventArgs
+    ctor(string Key, string Code, bool AltKey, bool CtrlKey, bool MetaKey, bool ShiftKey, bool Repeat)
+    bool AltKey { get; init; }
+    string Code { get; init; }
+    bool CtrlKey { get; init; }
+    string Key { get; init; }
+    bool MetaKey { get; init; }
+    bool Repeat { get; init; }
+    bool ShiftKey { get; init; }
+  static class KeyboardExtensions
+    // keys: Only forward events for these key names (Key constants); null forwards all keys.
+    // global: Default true: listens at document level; false listens only on the wrapper element.
+    // requireCtrlOrMeta: When true, the client drops events without Ctrl or Cmd held — the filter every ⌘X-style shortcut needs. Filtering only in the server callback is not enough: preventDefault applies client-side to every matched key, so a bare-key listener with it swallows that letter in every text field of the app.
+    // preventDefault: Prevents the default browser behavior for matched keys; pair with requireCtrlOrMeta for modifier shortcuts.
+    static void KeyboardListener(this UIView view, Func<KeyboardEventArgs, Task>? onKeyDown = null, Func<KeyboardEventArgs, Task>? onKeyUp = null, IReadOnlyList<string>? keys = null, bool? global = true, bool? requireCtrlOrMeta = null, bool? preventDefault = null, bool? stopPropagation = null, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
+  static class LayoutExtensions
+    // ratio: The width-to-height ratio to maintain (e.g., 16.0/9.0 for widescreen).
+    static void AspectRatio(this UIView view, string[]? style = null, double ratio = 1.0, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
+    // dir: Text direction for descendants.
+    static void DirectionProvider(this UIView view, string[]? style = null, Dir dir = Ltr, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
+    static void Divider(this UIView view, string[]? style = null, Orientation orientation = Horizontal, bool decorative = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
+    // Style slots (default theme tokens): viewportStyle → ScrollArea.Viewport, scrollbarStyle → ScrollArea.Scrollbar, thumbStyle → ScrollArea.Thumb; rootStyle rarely needed.
+    // threshold: Distance from end (in pixels) to trigger onNearEnd. Default 200.
+    // debounceMs: Debounce time in ms to prevent rapid callback firing. Default 100.
+    // loading: When true, shows loading indicator and prevents duplicate callbacks.
+    // hasMore: When false, disables the onNearEnd callback (end of data reached).
+    // direction: Whether to detect scroll near end going Down (append) or Up (prepend).
+    static void InfiniteScrollView(this UIView view, string[]? style = null, int threshold = 200, int debounceMs = 100, bool loading = false, bool hasMore = true, ScrollDirection direction = Down, ScrollAreaScrollbars scrollbars = Vertical, Action<UIView>? loadingIndicator = null, Func<ScrollNearEndArgs, Task>? onNearEnd = null, Action<UIView>? content = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
+    // SemanticTone.Success, SemanticTone.Warning, and SemanticTone.Error tones map to the matching Theming.Progress.Variant tokens; other tones use the default (brand) fill. Style slots: rootStyle → Progress.Root, indicatorStyle → Progress.Indicator.
+    // indeterminate: When true, displays an indeterminate progress animation.
+    static void Progress(this UIView view, string[]? style = null, double? value = null, double? max = null, SemanticTone tone = Neutral, bool indeterminate = false, Func<double?, string>? getValueLabel = null, string[]? rootStyle = null, string[]? indicatorStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
+    // Resize is handled entirely on the client — only the final size reaches the server via onResized.
+    static void ResizableSplit(this UIView view, Orientation orientation = Horizontal, double initialSize = 200.0, double minSize = 100.0, double maxSize = 500.0, bool reversed = false, Func<double, Task>? onResized = null, Action<UIView>? first = null, Action<UIView>? second = null, string[]? style = null, string[]? handleStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
+    // Style slots (default theme tokens): viewportStyle → ScrollArea.Viewport, scrollbarStyle → ScrollArea.Scrollbar, thumbStyle → ScrollArea.Thumb, cornerStyle (when both scrollbars show); rootStyle rarely needed.
+    // scrollHideDelay: Delay in milliseconds before hiding scrollbars when type is Scroll or Hover.
+    // autoScroll: When true, automatically scrolls to the bottom when content changes (chat-style).
+    // autoScrollKey: Anything whose value changes when the content does — auto-scroll re-fires on change. Pass the collection itself (any reactive contributes its change version), a count, or a composite string. Required when autoScroll is true.
+    static void ScrollArea(this UIView view, string[]? style = null, ScrollAreaScrollbars scrollbars = Vertical, ScrollAreaType type = Hover, int? scrollHideDelay = null, Dir dir = Ltr, bool autoScroll = false, object? autoScrollKey = null, Action<UIView>? content = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string[]? cornerStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
+    static void ScrollArea(this UIView view, string[]? style, Action<UIView> children)
+    // orientation: Whether the separator is horizontal or vertical.
+    // decorative: When true, the separator is purely visual and not announced by screen readers.
+    static void Separator(this UIView view, string[]? style = null, Orientation orientation = Horizontal, bool decorative = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
+  sealed record LocationActionEvent : ActionEvent
+    ctor(bool Success, double? Latitude, double? Longitude, double? Accuracy)
+    double? Accuracy { get; init; }
+    double? Latitude { get; init; }
+    double? Longitude { get; init; }
+  enum MediaCaptureButtonMode
+    Hold
+    Toggle
+  // ClientContext identifies the initiating user and is populated for all capture kinds; prefer ClientSessionId/UserId over tracking streamId-to-client mappings yourself.
+  sealed record MediaCaptureEvent
+    ctor(string StreamId, MediaCaptureKind Kind)
+    Context? ClientContext { get; init; }
+    int? ClientSessionId { get; }
+    MediaCaptureKind Kind { get; init; }
+    string StreamId { get; init; }
+    string? UserId { get; }
+  enum MediaCaptureKind
+    Audio
+    Camera
+    Screen
   static class MediaExtensions
     // url: URL of the audio source.
     // controls: When true, displays audio playback controls.
@@ -57,53 +152,3 @@ namespace Ikon.Parallax.Components.Standard
     Prompt
     Denied
     Unavailable
-  static class NavigationExtensions
-    // dir: Text direction (ltr/rtl).
-    static void Menubar(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, Dir dir = Ltr, bool loop = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null)
-    // isChecked: Checked state for checkbox items.
-    static void MenubarCheckboxItem(this UIView view, string[]? style = null, CheckedState isChecked = Unchecked, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<CheckedState, Task>? onCheckedChange = null, Action<UIView>? content = null)
-    // side: Which side content appears on.
-    // sideOffset: Pixel offset from anchor on the side axis.
-    // alignOffset: Pixel offset from anchor on the align axis.
-    static void MenubarContent(this UIView view, string[]? style = null, bool loop = true, Side side = Bottom, Align align = Start, double? sideOffset = null, double? alignOffset = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // onSelect: Invoked when item is selected.
-    static void MenubarItem(this UIView view, string[]? style = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<Task>? onSelect = null, Action<UIView>? content = null)
-    static void MenubarItemIndicator(this UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    static void MenubarMenu(this UIView view, string[]? style = null, string? value = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    static void MenubarRadioGroup(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null)
-    static void MenubarRadioItem(this UIView view, string[]? style = null, string? value = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    static void MenubarSeparator(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    // onOpenChange: Invoked when open state changes.
-    static void MenubarSub(this UIView view, string[]? style = null, bool? open = null, bool? defaultOpen = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onOpenChange = null, Action<UIView>? content = null)
-    // side: Which side content appears on.
-    // sideOffset: Pixel offset from anchor on the side axis.
-    // alignOffset: Pixel offset from anchor on the align axis.
-    static void MenubarSubContent(this UIView view, string[]? style = null, bool loop = true, Side side = Right, Align align = Start, double? sideOffset = null, double? alignOffset = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    static void MenubarSubTrigger(this UIView view, string[]? style = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    static void MenubarTrigger(this UIView view, string[]? style = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // delayDuration: Timing delay in milliseconds.
-    static void NavigationMenu(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, Orientation orientation = Horizontal, int? delayDuration = null, int? skipDelayDuration = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null)
-    static void NavigationMenuContent(this UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    static void NavigationMenuIndicator(this UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    static void NavigationMenuItem(this UIView view, string[]? style = null, string? value = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // active: Whether item is marked as active.
-    // onSelect: Invoked when item is selected.
-    static void NavigationMenuLink(this UIView view, string[]? style = null, bool? active = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<Task>? onSelect = null, Action<UIView>? content = null)
-    static void NavigationMenuList(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    static void NavigationMenuTrigger(this UIView view, string[]? style = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    static void NavigationMenuViewport(this UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // dir: Text direction (ltr/rtl).
-    static void Toolbar(this UIView view, string[]? style = null, Orientation orientation = Horizontal, Dir dir = Ltr, bool loop = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // onClick: Invoked when the button is clicked.
-    static void ToolbarButton(this UIView view, string[]? style = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Delegate? onClick = null, Action<UIView>? content = null)
-    // href: URL to navigate to.
-    // target: Link target attribute.
-    static void ToolbarLink(this UIView view, string[]? style = null, string? href = null, string? target = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    static void ToolbarSeparator(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    // value: Controlled value identifying the active items.
-    static void ToolbarToggleGroupMultiple(this UIView view, string[]? style = null, IReadOnlyList<string>? value = null, IReadOnlyList<string>? defaultValue = null, bool? rovingFocus = true, bool loop = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<IReadOnlyList<string>, Task>? onValueChange = null, Action<UIView>? content = null)
-    static void ToolbarToggleGroupSingle(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, bool? rovingFocus = true, bool loop = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null)
-    static void ToolbarToggleItem(this UIView view, string[]? style = null, string? value = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-  enum Orientation
-    Horizontal
-    Vertical

@@ -26,29 +26,29 @@ file sealed class DocAppFiles(IApp<SessionIdentity, ClientParams> app)
     }
 }
 
-file sealed class DocUserDataErasure(IApp<SessionIdentity, ClientParams> app)
+// Abstract so the bundle scan passes it over: these are two declarations of the one listener an app
+// may have, and the app's real one is in Validation.Triggers.cs. DiscoverTriggers skips abstract
+// types, so the snippets compile without colliding with it.
+file abstract class DocUserDataErasure(IApp<SessionIdentity, ClientParams> app)
 {
-    public void WithDatabase()
+    #region docsnippet:user-data-erasure-database
+    [Trigger(TriggerEventType.UserErased)]
+    internal async Task EraseUserDataAsync(UserDataErasureEventArgs args)
     {
-        #region docsnippet:user-data-erasure-database
-        app.OnUserDataErasure(async userId =>
-        {
-            await using var connection = await OpenAppDatabaseAsync();
-            await connection.ExecuteAsync("DELETE FROM orders WHERE customer_id = @userId", new { userId });
-        });
-        #endregion
+        await using var connection = await OpenAppDatabaseAsync();
+        await connection.ExecuteAsync("DELETE FROM orders WHERE customer_id = @userId", new { userId = args.UserId });
     }
+    #endregion
 
-    public void Bare()
+    #region docsnippet:user-data-erasure
+    [Trigger(TriggerEventType.UserErased)]
+    internal Task EraseAsync(UserDataErasureEventArgs args)
     {
-        #region docsnippet:user-data-erasure
-        app.OnUserDataErasure(async userId =>
-        {
-            // Delete app-owned data for this user: rows in your own tables,
-            // personal data embedded in Session/Global scoped values.
-        });
-        #endregion
+        // Delete app-owned data for args.UserId: rows in your own tables,
+        // personal data embedded in Session/Global scoped values.
+        return Task.CompletedTask;
     }
+    #endregion
 
     private async Task<DbConnection> OpenAppDatabaseAsync() =>
         await app.DatabaseAsync(app.Databases.First().Name);

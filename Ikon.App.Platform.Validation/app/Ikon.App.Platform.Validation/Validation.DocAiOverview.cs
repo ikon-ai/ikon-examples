@@ -30,10 +30,13 @@ file static class DocAiOverview
         var context = new KernelContext();
         context = context.Add(new MessageBlock(MessageBlockRole.User, "Tell me about John Smith."));
 
-        var (result, _) = await Emerge.Run<PersonDetails>(LLMModel.Gpt5Mini, context, pass =>
+        // Awaiting the run yields a non-null result and throws EmergenceStoppedException when the
+        // run stops without one; EmergeEventExtensions.FinalAsync instead hands back a nullable
+        // result plus the updated context.
+        var result = await Emerge.Run<PersonDetails>(LLMModel.Gpt5Mini, context, pass =>
         {
             pass.Command = "Return invented personal details about the person the user asked about.";
-        }).FinalAsync();
+        });
 
         Log.Instance.Info($"Result: {Json.To(result)}");
         #endregion
@@ -238,7 +241,6 @@ file static class DocAiOverview
         var config = new SpeechGeneratorConfig
         {
             VoiceId = "ballad",
-            Language = "en-US",
             Instructions = "Speak like a angry pirate.",
             Text = "There once was a ship that put to sea. The name of that ship was a Billy of Tea."
         };

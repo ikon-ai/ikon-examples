@@ -171,7 +171,7 @@ file sealed class DocDeviceCapture(IApp<SessionIdentity, ClientParams> app)
             [new LiveMetric("0.00 km", "distance"), new LiveMetric("0:00", "moving")], "Run");
 
         await app.LiveActivity.UpdateAsync(metrics, status: "Run");
-        await app.LiveActivity.EndAsync();
+        await app.LiveActivity.EndEverywhereAsync();
         #endregion
     }
 
@@ -199,9 +199,20 @@ file sealed class DocPersistentState(IApp<SessionIdentity, ClientParams> app)
 
     private sealed record Camera(string Id);
 
+    private sealed record Recipe(string Name, string[] Ingredients);
+
     #region docsnippet:persistent-default
     // Default for almost everything you want to persist:
     private readonly PersistentSessionReactive<MyState> _state = new(new MyState());
+    #endregion
+
+    #region docsnippet:persistent-starting-values
+    // Every new user starts with two example recipes; a returning user sees their own list.
+    private readonly PersistentUserReactiveList<Recipe> _recipes = new(
+    [
+        new Recipe("Scrambled eggs", ["2 eggs", "butter"]),
+        new Recipe("Toast", ["bread"]),
+    ]);
     #endregion
 
     #region docsnippet:persistent-backends

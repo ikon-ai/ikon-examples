@@ -74,6 +74,7 @@ global using Ikon.AI.Provenance;
 global using Ikon.AI.Reranking;
 global using Ikon.AI.Utils;
 global using Ikon.App.Client;
+global using Ikon.App.Triggers;
 global using Ikon.Common.Core.Email;
 global using Ikon.Common.Core.Protocol;
 global using Ikon.Crosswind;

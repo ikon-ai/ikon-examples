@@ -36,7 +36,7 @@ You address by **session** (`int`) or **user** (`string`); offline push is trans
 
 Permission is requested **on the first actual send**, never when the app opens — a deliberate product rule. So just send when you have something to say; the platform handles the prompt. Inspect the result rather than gating on permission yourself:
 
-- `NotificationSendResult.Delivered` — `true` only when the notification was actually shown.
+- `NotificationSendResult.Delivered` — `true` only when the notification was actually shown. `Channel` says which path the row is about: `NotificationSendChannel.Session` for a connected client, `NotificationSendChannel.OfflinePush` for the one row `SendToUserAsync` returns when the user had no session and the push hub was asked — its `Delivered` is whether the hub accepted the push, and `Error` carries the refusal when it did not. A notification that mattered is not sent until a row says so.
 - `NotificationSendResult.Permission` / `GetPermissionAsync` → `NotificationPermission.Granted` / `Denied` / `Default` (asked, still pending — e.g. Safari/iOS waits for the next user gesture) / `Unsupported` (the client can't show notifications).
 
 ### Registering devices — the platform does it for you
@@ -95,7 +95,9 @@ Declare the field, and then in Main():
 _inbox.Channels.Add(new EmailNotificationChannel(app.Email, userId => _profiles.ValueFor(userId).Email));
 _inbox.Channels.Add(new SmsNotificationChannel(app.Telephony, userId => _profiles.ValueFor(userId).Phone));
 _inbox.Channels.Add(new TelegramNotificationChannel(botToken, userId => _profiles.ValueFor(userId).TelegramChatId));
-_inbox.Channels.Add(new WhatsAppNotificationChannel(accessToken, phoneNumberId, userId => _profiles.ValueFor(userId).Phone));
+// WhatsApp delivers free text only within 24 h of the user's last message; an approved Meta
+// template (one body parameter) is what reaches everyone else.
+_inbox.Channels.Add(new WhatsAppNotificationChannel(accessToken, phoneNumberId, userId => _profiles.ValueFor(userId).Phone, templateName: "order_update"));
 
 // One call. The route says where it goes.
 var outcome = await _inbox.NotifyAsync(order.CustomerUserId,

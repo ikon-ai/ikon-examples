@@ -2,6 +2,8 @@ namespace Ikon.AI.Provenance
   // The platform's EU AI Act Article 50 marking, applied identically for every provider. Three layers behind one call: an XMP metadata mark (always; IPTC DigitalSourceType=trainedAlgorithmicMedia), an imperceptible tiled pixel watermark (default on; detectable via MeasureInvisibleMark), and an optional visible corner badge. PNG and JPEG take all three; WebP takes the metadata mark alone; any other encoding passes through untouched. Ask GetMarkingSupport rather than assuming. Streamed media (WebRTC, TTS) is out of scope by design — disclosure there is interaction-level.
   static class ImageProvenance
     static byte[] Apply(byte[] data, string model, bool invisibleWatermark = true, string visibleWatermark = "")
+    // marking is what the bytes carry on return, not what the format could take: an undecodable payload, a badge that does not fit, or a malformed container degrades it to ProvenanceMarking.MetadataOnly or ProvenanceMarking.None, and every such exit is logged at Warning. With invisibleWatermark off the best outcome is ProvenanceMarking.MetadataOnly.
+    static byte[] Apply(byte[] data, string model, bool invisibleWatermark, string visibleWatermark, out ProvenanceMarking marking)
     static ProvenanceMarking GetMarkingSupport(byte[] data)
     // At or above DetectionThreshold the image carries Ikon's mark; unmarked images score near zero.
     static double MeasureInvisibleMark(byte[] data)

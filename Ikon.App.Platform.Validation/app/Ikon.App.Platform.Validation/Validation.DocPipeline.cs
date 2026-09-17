@@ -77,12 +77,14 @@ internal class AdvancedPipeline(IPipelineHost<AdvancedPipeline.Config> host)
         });
 
         // All Transform* functions also have a TransformLambda* counterpart that takes a lambda instead of an expression
-        // Their use is discouraged as the lambda cannot be analyzed for variable values and thus caching is less effective
+        // Their use is discouraged: a lambda cannot be analyzed for its captured variable values, so the step is still
+        // cached but under a name-only key with no captured-value fingerprint — change ConfigValue2 and the step silently
+        // replays the output computed with the old value. skipCache: true is the only way to make a lambda step re-run
         // Also, transparent remote processor handling cannot be used with lambdas
         var doNotUseTransformLambdaItems = inputItems.TransformLambda(async item =>
         {
             return await MyProcessor(item, host.Config.ConfigValue2, cancellationToken);
-        });
+        }, skipCache: true);
 
         // Calling output on any branch outputs those items from the pipeline
         groupProcessedItems.Output();

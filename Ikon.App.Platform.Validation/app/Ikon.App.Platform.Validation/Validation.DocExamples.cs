@@ -320,7 +320,8 @@ public partial class Validation
     #endregion
 
     #region docsnippet:persistent-reactive-backends
-    // Default — Private S3-backed cloud asset
+    // Default — the app's built-in database when the session has one; binary payloads and
+    // sessions without a database land on private asset storage
     private readonly PersistentSessionReactive<Prefs> _defaultBackend = new(new Prefs());
 
     // Public asset URL needed (uploaded images, published files — never sensitive data)
@@ -434,9 +435,9 @@ public partial class Validation
     private async Task DocBackgroundWorkAsync()
     {
         #region docsnippet:background-work
-        await using var work = await app.BackgroundWork.StartAsync();
+        await using var work = await app.BackgroundWork.StartAsync(TimeSpan.FromMinutes(20.0), "nightly export");
         await LongRunningTask();
-        // work.DisposeAsync() signals completion automatically
+        // Disposing signals completion; the hold ends on its own after 20 minutes either way
         #endregion
     }
 
@@ -1475,7 +1476,8 @@ file sealed class DocAudio(IApp<SessionIdentity, ClientParams> app)
         // Three ways to send audio — pick by how delivery is paced:
 
         // 1. Speech (TTS or AudioChunks through the speech mixer): real-time paced, new speech
-        //    interrupts current speech with a fade. The default for spoken replies.
+        //    interrupts current speech with a fade. The default for spoken replies. The await
+        //    returns once the utterance is queued — Audio.SpeakAndWaitAsync returns after playout.
         await Audio.SpeakAsync(MediaTargets.Everyone, text);
         Audio.SpeakChunk(MediaTargets.Everyone, audioChunk);
 
@@ -1704,7 +1706,9 @@ file sealed class DocNotifications(IApp<SessionIdentity, ClientParams> app)
         _inbox.Channels.Add(new EmailNotificationChannel(app.Email, userId => _profiles.ValueFor(userId).Email));
         _inbox.Channels.Add(new SmsNotificationChannel(app.Telephony, userId => _profiles.ValueFor(userId).Phone));
         _inbox.Channels.Add(new TelegramNotificationChannel(botToken, userId => _profiles.ValueFor(userId).TelegramChatId));
-        _inbox.Channels.Add(new WhatsAppNotificationChannel(accessToken, phoneNumberId, userId => _profiles.ValueFor(userId).Phone));
+        // WhatsApp delivers free text only within 24 h of the user's last message; an approved Meta
+        // template (one body parameter) is what reaches everyone else.
+        _inbox.Channels.Add(new WhatsAppNotificationChannel(accessToken, phoneNumberId, userId => _profiles.ValueFor(userId).Phone, templateName: "order_update"));
 
         // One call. The route says where it goes.
         var outcome = await _inbox.NotifyAsync(order.CustomerUserId,

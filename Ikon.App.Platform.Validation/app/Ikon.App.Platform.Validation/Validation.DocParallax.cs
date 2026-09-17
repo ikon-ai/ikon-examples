@@ -101,6 +101,33 @@ file sealed class DocPxLightDarkSwitchingWithUsetheme(IApp<SessionIdentity, Clie
 
 }
 
+file sealed class DocPxWhenAnActionHandlerThrows(IApp<SessionIdentity, ClientParams> app)
+{
+    private UI UI { get; } = new(app, new IkonTheme());
+
+    #region docsnippet:px-when-an-action-handler-throws
+    private readonly ClientReactive<string?> _actionFailed = new(null);
+
+    public async Task Main()
+    {
+        // Runs inside the failed handler's client scope, so the ClientReactive write lands on the
+        // person who clicked. Show your own line — the exception's text is for the log.
+        UI.ActionFailedAsync += args =>
+        {
+            _actionFailed.Value = "That change could not be saved — please try again.";
+            return Task.CompletedTask;
+        };
+
+        UI.Root([Page.Default], content: view =>
+        {
+            view.Toast(open: _actionFailed.Value != null,
+                onOpenChange: async open => _actionFailed.Value = open ? _actionFailed.Value : null,
+                title: "Something went wrong", description: _actionFailed.Value ?? "");
+        });
+    }
+    #endregion
+}
+
 file sealed class DocPxSharedPerClientPerUserPerMount2(IApp<SessionIdentity, ClientParams> app)
 {
     private static IEnumerable<string> LoadCart(string userId) => [];

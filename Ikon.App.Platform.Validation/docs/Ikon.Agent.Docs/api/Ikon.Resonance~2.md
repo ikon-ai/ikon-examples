@@ -1,10 +1,26 @@
 namespace Ikon.Resonance
+  // Immutable — the mixer captures these values at construction; build a new config (and mixer) to change them.
+  sealed record SpeechMixerConfig
+    ctor()
+    CrossfadeCurve CrossfadeCurve { get; init; }
+    double EndPaddingMs { get; init; }
+    double FadeInMs { get; init; }
+    FadeMode FadeMode { get; init; }
+    double FadeOutMs { get; init; }
+    // How long (ms, default 30000) a speech event whose producer stopped feeding it without ever sending IsLast keeps emitting silence before the mixer finalizes it. The cut is logged as a warning and the event's waiter resolves as SpeechEventOutcome.Abandoned. Generous by default so a slow streaming producer is never cut mid-utterance.
+    double IdleFinalizeMs { get; init; }
+    // Upper bound only; the queue grows on demand from a small size. Samples added beyond this bound are dropped with a throttled warning, never thrown.
+    double MaxBufferSizeMs { get; init; }
+    // Caps effect tail padding in case an effect's output never decays below PaddingThreshold.
+    double MaxPaddingTimeMs { get; init; }
+    // RMS threshold below which effect tail padding stops. Default is 0.001 (~-60 dB), meaning padding continues until output is essentially silent.
+    double PaddingThreshold { get; init; }
   // Immutable — construct a new config (and detector) instead of mutating a shared instance.
   sealed record TurnDetectorConfig
     ctor()
     // Tuning for the built-in level gate and the onset pre-buffer (SilenceRemoverConfig.PreBufferMs). Only the level-tracking and pre-buffer fields apply; the onset/trailing fields belong to SilenceRemover. When null, SilenceRemover defaults are used except SilenceRemoverConfig.ReleaseAlpha is raised to 0.3 — turn detection needs the level to fall promptly when speech stops (the hold-through-pauses role is played by TurnEndSilence instead), where the slow default would add noticeable latency to every turn end.
     SilenceRemoverConfig? GateConfig { get; init; }
-    // Maximum turn length; a turn still running at this point is force-ended.
+    // Maximum turn length. A confirmed turn still running at this point is force-ended (TurnEventKind.TurnEnded with TurnEvent.Truncated set); an unconfirmed candidate is discarded without events. Buffered audio never exceeds this. Must be longer than MinSpeechDuration.
     TimeSpan MaxTurnDuration { get; init; }
     // Minimum cumulative speech required before a turn is confirmed. Shorter bursts (coughs, clicks) are discarded without producing any events.
     TimeSpan MinSpeechDuration { get; init; }

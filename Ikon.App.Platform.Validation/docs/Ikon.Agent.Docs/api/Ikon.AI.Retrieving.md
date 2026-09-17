@@ -24,6 +24,8 @@ namespace Ikon.AI.Retrieving
   class Retriever : IAsyncDisposable
     ctor()
     KernelContext Context { get; }
+    // Anything listed here is missing from the index, so searches answer from a subset of the corpus; WaitForLoadingToEndAsync throws rather than let that pass for a complete load.
+    IReadOnlyCollection<string> IndexingErrors { get; }
     ValueTask DisposeAsync()
     Task<ContentLink[]> ExpandAsync(ContentLink[] links)
     Task<ContentLink[]> ExpandAsync(ContentLink link)
@@ -40,6 +42,7 @@ namespace Ikon.AI.Retrieving
     Task<Retriever.Event[]> SearchEventsAsync(string startUtcTimestamp, string endUtcTimestamp, string searchString, int maxResults = 100)
     Task<KeywordSearchResult[]> SearchKeywordsAsync(string searchString, int maxResults = 100)
     Task StopAsync()
+    // Throws when any file or item failed to load, because a search after a partial load cannot be told apart from one over the whole corpus; IndexingErrors lists them.
     Task WaitForLoadingToEndAsync()
   class Retriever.ContentMetadata
     ctor()

@@ -64,7 +64,6 @@
     private readonly Reactive<string> _imageGeneratorQuality = new(nameof(ImageQuality.Auto));
     private readonly Reactive<string> _imageGeneratorBackground = new(nameof(ImageBackground.Auto));
     private readonly Reactive<bool> _imageGeneratorUpsamplePrompt = new(false);
-    private readonly Reactive<string> _imageGeneratorStyle = new("");
     private readonly Reactive<int> _imageGeneratorCount = new(1);
     private byte[]? _imageGeneratorInputImageData;
     private string? _imageGeneratorInputImageMimeType;
@@ -401,7 +400,7 @@
 
                 if (!string.IsNullOrEmpty(_classifierError.Value))
                 {
-                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], props: TestId("ai-classifier-error"), content: view =>
                     {
                         view.Text([Alert.Description], _classifierError.Value);
                     });
@@ -509,7 +508,7 @@
 
                 if (!string.IsNullOrEmpty(_embeddingError.Value))
                 {
-                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], props: TestId("ai-embedding-error"), content: view =>
                     {
                         view.Text([Alert.Description], _embeddingError.Value);
                     });
@@ -618,7 +617,7 @@
 
                 if (!string.IsNullOrEmpty(_webSearcherError.Value))
                 {
-                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], props: TestId("ai-web-searcher-error"), content: view =>
                     {
                         view.Text([Alert.Description], _webSearcherError.Value);
                     });
@@ -725,7 +724,7 @@
 
                 if (!string.IsNullOrEmpty(_webScraperError.Value))
                 {
-                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], props: TestId("ai-web-scraper-error"), content: view =>
                     {
                         view.Text([Alert.Description], _webScraperError.Value);
                     });
@@ -826,7 +825,7 @@
 
                 if (!string.IsNullOrEmpty(_rerankerError.Value))
                 {
-                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], props: TestId("ai-reranker-error"), content: view =>
                     {
                         view.Text([Alert.Description], _rerankerError.Value);
                     });
@@ -1008,15 +1007,6 @@
 
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Box([FormField.Root, "flex-1"], content: view =>
-                    {
-                        view.Text([FormField.Label], "Style (optional)");
-                        view.TextField(
-                            [Input.Default],
-                            value: _imageGeneratorStyle.Value,
-                            onValueChange: async v => _imageGeneratorStyle.Value = v ?? "");
-                    });
-
                     view.Box([FormField.Root, "w-24"], content: view =>
                     {
                         view.Text([FormField.Label], "Count (1-4)");
@@ -1119,7 +1109,7 @@
 
                 if (!string.IsNullOrEmpty(_imageGeneratorError.Value))
                 {
-                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], props: TestId("ai-image-generator-error"), content: view =>
                     {
                         view.Text([Alert.Description], _imageGeneratorError.Value);
                     });
@@ -1180,7 +1170,6 @@
                 Quality = Enum.Parse<ImageQuality>(_imageGeneratorQuality.Value),
                 Background = Enum.Parse<ImageBackground>(_imageGeneratorBackground.Value),
                 UpsamplePrompt = _imageGeneratorUpsamplePrompt.Value,
-                Style = _imageGeneratorStyle.Value,
                 Count = _imageGeneratorCount.Value
             };
 
@@ -1371,7 +1360,7 @@
 
                 if (!string.IsNullOrEmpty(_musicError.Value))
                 {
-                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], props: TestId("ai-music-error"), content: view =>
                     {
                         view.Text([Alert.Description], _musicError.Value);
                     });
@@ -1582,7 +1571,7 @@
 
                 if (!string.IsNullOrEmpty(_speechGeneratorError.Value))
                 {
-                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], props: TestId("ai-speech-generator-error"), content: view =>
                     {
                         view.Text([Alert.Description], _speechGeneratorError.Value);
                     });
@@ -1816,7 +1805,7 @@
 
                 if (!string.IsNullOrEmpty(_speechRecognizerError.Value))
                 {
-                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], props: TestId("ai-speech-recognizer-error"), content: view =>
                     {
                         view.Text([Alert.Description], _speechRecognizerError.Value);
                     });
@@ -2055,7 +2044,7 @@
 
                 if (!string.IsNullOrEmpty(_ocrError.Value))
                 {
-                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], props: TestId("ai-ocr-error"), content: view =>
                     {
                         view.Text([Alert.Description], _ocrError.Value);
                     });
@@ -2231,7 +2220,7 @@
 
                 if (!string.IsNullOrEmpty(_fileConverterError.Value))
                 {
-                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], props: TestId("ai-file-converter-error"), content: view =>
                     {
                         view.Text([Alert.Description], _fileConverterError.Value);
                     });
@@ -2473,7 +2462,7 @@
 
                 if (!string.IsNullOrEmpty(_videoGeneratorError.Value))
                 {
-                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], props: TestId("ai-video-generator-error"), content: view =>
                     {
                         view.Text([Alert.Description], _videoGeneratorError.Value);
                     });
@@ -2658,7 +2647,7 @@
 
                 if (!string.IsNullOrEmpty(_soundEffectError.Value))
                 {
-                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], props: TestId("ai-sound-effect-error"), content: view =>
                     {
                         view.Text([Alert.Description], _soundEffectError.Value);
                     });
@@ -2836,7 +2825,7 @@
 
                 if (!string.IsNullOrEmpty(_videoEnhancerError.Value))
                 {
-                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], props: TestId("ai-video-enhancer-error"), content: view =>
                     {
                         view.Text([Alert.Description], _videoEnhancerError.Value);
                     });
@@ -3029,7 +3018,7 @@
 
                 if (!string.IsNullOrEmpty(_imageSegmenterError.Value))
                 {
-                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], props: TestId("ai-segmenter-error"), content: view =>
                     {
                         view.Text([Alert.Description], _imageSegmenterError.Value);
                     });
@@ -3233,7 +3222,7 @@
 
                 if (!string.IsNullOrEmpty(_imageUpscalerError.Value))
                 {
-                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], props: TestId("ai-upscaler-error"), content: view =>
                     {
                         view.Text([Alert.Description], _imageUpscalerError.Value);
                     });
@@ -3373,7 +3362,7 @@
 
                 if (!string.IsNullOrEmpty(_depthEstimatorError.Value))
                 {
-                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], props: TestId("ai-depth-error"), content: view =>
                     {
                         view.Text([Alert.Description], _depthEstimatorError.Value);
                     });
@@ -3543,7 +3532,7 @@
 
                 if (!string.IsNullOrEmpty(_meshGeneratorError.Value))
                 {
-                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], props: TestId("ai-mesh-error"), content: view =>
                     {
                         view.Text([Alert.Description], _meshGeneratorError.Value);
                     });

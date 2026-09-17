@@ -51,6 +51,27 @@ bool exists = await Asset.Instance.ExistsAsync(uri);
 var metadata = await Asset.Instance.GetMetadataAsync(uri);  // .Size, .LastModified, .Url, .UrlIsTemporal, .MimeType
 ```
 
+### Temporary artefacts: set an expiry
+
+Anything staged for a download, a preview, or a hand-off to another service is **temporary**, and
+storage has no idea unless you say so. Pass `expiresAt` on `AssetMetadata` and the object removes
+itself even if the app never gets the chance:
+
+```csharp
+await Asset.Instance.SetBytesAsync(
+    new AssetUri(AssetClass.CloudFile, $"exports/{key}/report.csv", spaceId: spaceId),
+    bytes,
+    new AssetMetadata(mimeType: "text/csv", expiresAt: DateTime.UtcNow.AddHours(6)));
+```
+
+Pair it with `AssetClass.CloudFile` (private) rather than `CloudFilePublic`, and hand the client the
+signed, temporal URL from `GetMetadataAsync(uri).Url`. That is the whole recipe for offering a
+generated file for download without rebuilding it on every render and without publishing a per-user
+artefact to a public path — see the `staged-file-download` pattern.
+
+Staging without an expiry is how an app accumulates thousands of dead exports nobody will ever
+delete. Set it.
+
 ### Optimistic concurrency
 
 Read with metadata, carry `LastModified` forward into writes to prevent blind overwrites:
@@ -122,6 +143,7 @@ namespace Ikon.Common.Core.Assets
     Task<AssetContent<T>?> TryGetWithMetadataAsync<T>(AssetUri assetUri) where T : class
     Task<AssetWriteResult> TrySetBytesAsync(AssetUri assetUri, byte[] bytes, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
     Task<AssetWriteResult> TrySetTextAsync(AssetUri assetUri, string text, AssetMetadata? metadata = null, CancellationToken cancellationToken = default)
+    // extension methods: StorageExtensions{AddEmbeddedFileStorageAsync}
   enum AssetClass
     // Server's local filesystem under a system-managed root; not cloud-persisted.
     LocalFile
@@ -233,7 +255,7 @@ namespace Ikon.Common.Core.Assets
 ---
 
 # Asset System Developer Guide
-
+<!-- checked-against: 771c409d701fd696 -->
 ## Overview
 
 The Ikon asset system exposes a uniform abstraction for storing and retrieving files, JSON payloads, and other binary or textual artifacts without binding application code to a specific backend. Each `Asset` instance dispatches every read, write, delete, and listing request to the storage driver that corresponds to the asset class encoded in the `AssetUri`, and propagates change notifications through `AssetEventAsync` so caches can react to updates. The API is asynchronous end-to-end, providing cancellation support where appropriate and surfacing metadata on every transfer to enable optimistic concurrency and lifecycle management.
@@ -267,7 +289,7 @@ Key rules:
 
 Each storage reports metadata such as MIME type, byte size, update timestamp, tags, download URL (when applicable), and the backend-specific identifier through `AssetMetadata` so callers can perform fine-grained reconciliation. Storages with a canonical native addressing scheme may also expose it via `AssetMetadata.NativeUri` (for example `gs://bucket/object` on GCS-backed cloud files); downstream consumers that recognise the scheme can use it as a zero-copy fast path, and callers that do not should ignore it.
 
-Public cloud files additionally report `AssetMetadata.SameOriginUrl`: the same asset as a root-relative path on your app's own origin. Prefer it whenever the URL is going to a browser — being same-origin, it needs no CORS and reaches visitors on networks that allow only the origin they are already on. `view.Image` already prefers it for you, so an `AssetUri` rendered through the UI needs nothing extra. Anything fetching from *outside* a browser — your own app process, an external service, a webhook — has nothing to resolve a relative path against and must use `Url`.
+Public cloud files can additionally report `AssetMetadata.SameOriginUrl`: the same asset as a root-relative path on your app's own origin. It is present when the space's asset storage is served through the platform's own origin, which is the default, and absent when a space keeps its assets in storage the platform does not front — so treat it as optional and fall back to the absolute URL: `metadata.SameOriginUrl ?? metadata.Url`. Prefer it whenever the URL is going to a browser — being same-origin, it needs no CORS and reaches visitors on networks that allow only the origin they are already on. `view.Image` already does this for you, so an `AssetUri` rendered through the UI needs nothing extra. Anything fetching from *outside* a browser — your own app process, an external service, a webhook — has nothing to resolve a relative path against and must use `Url`.
 
 ## Asset metadata helpers
 
@@ -401,23 +423,15 @@ await assets.GetOrUpdateWithMetadataAsync<Settings>(
 
 ## Listing assets
 
-Use `ListAsync` with an `AssetQuery` to enumerate folders, filter by tags, and paginate through large collections. Listing is currently supported by the `LocalFile` and `EmbeddedFile` backends only. Cloud backends (`CloudFile`, `CloudFilePublic`, `CloudJson`) do not yet support listing and will throw `NotSupportedException`.
+Use `ListAsync` with an `AssetQuery` to enumerate a folder. Listing is currently supported by the `LocalFile` and `EmbeddedFile` backends only. Cloud backends (`CloudFile`, `CloudFilePublic`, `CloudJson`) do not yet support listing and will throw `NotSupportedException`. The folder prefix is the only filter that applies: `Tags` and `ContinuationToken` are ignored today, `Limit` caps the `EmbeddedFile` listing only, and the result's `NextContinuationToken` is always null, so filter and page the returned list yourself.
 
 ```csharp
 var folderUri = new AssetUri(AssetClass.LocalFile, "albums/2024/");
-var query = new AssetQuery(folderUri)
-{
-    Tags = new[] { "cover" },
-    Limit = 50,
-};
-
-var entries = await assets.ListAsync(query);
+var entries = await assets.ListAsync(new AssetQuery(folderUri));
 foreach (var entry in entries)
 {
     Log.Instance.Info($"{entry.AssetUri.Path} updated {entry.Metadata.LastModified:O}");
 }
-
-var nextPageToken = query.NextContinuationToken;
 ```
 
 Convenience overloads accept an `AssetClass` and optional prefix or a folder URI directly when only the URIs are required.

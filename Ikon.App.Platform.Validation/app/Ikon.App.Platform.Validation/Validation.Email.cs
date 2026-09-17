@@ -48,6 +48,7 @@ public partial class Validation
             RenderExternalLinkCard(view);
             RenderEmailSendCard(view);
             RenderEmailInboxCard(view);
+            RenderTriggerCard(view);
 
             if (_selectedEmailId.Value != null)
             {

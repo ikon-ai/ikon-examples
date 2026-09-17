@@ -167,6 +167,39 @@ and/or a `CancellationToken` that signals app shutdown, in either order, mirrori
 because the scheduler has nothing to bind it to. **Overlap is allowed**: a tick fires even if the
 previous invocation is still running, so guard re-entrancy yourself when it matters.
 
+### Event listeners — `[Trigger]`
+
+`[Trigger(TriggerEventType.EmailReceived)]` runs a method when the platform delivers an event of that
+type to the app — an inbound email stored for the space, a directory-provisioning change. It registers
+the method through the `FunctionRegistry` by name the way `[Cron]` does, and applying it is enough. The
+handler takes no caller-supplied arguments; it may optionally accept a `TriggerContext` (`EventId`,
+`EventType`, `SequenceNumber`, `FiredAtUtc`, and `GetPayload<T>()` over the event's JSON payload) and/or
+a `CancellationToken` that signals app shutdown, in either order. The event type is one of the
+`TriggerEventType` constants; any other string fails registration at startup and fails bundling. One
+listener per event type per app.
+
+Delivery is **at-least-once and durable**: the backend keeps every event until the handler acknowledges
+it, cold-starting the app's userless shard-0 instance when none is running, the way `[Cron]` ticks are
+delivered. Returning normally acknowledges the event; throwing leaves it pending and it is redelivered
+with backoff, so handlers must be idempotent — `TriggerContext.EventId` is the natural dedup key. Events
+of one type arrive strictly in order unless the attribute declares `MaxParallelism` above 1, which trades
+ordering for throughput and is only right when the events are independent of one another (inbound mail
+is; provisioning changes are not). Acknowledge within about two minutes: hand longer work to
+`app.BackgroundWork` and return.
+
+```csharp
+[Trigger(TriggerEventType.EmailReceived, MaxParallelism = 4)]
+internal async Task OnEmailReceivedAsync(TriggerContext context, CancellationToken ct)
+{
+    // The payload is the envelope only; the subject and body stay behind app.Email
+    var envelope = context.GetPayload<EmailReceivedPayload>();
+    var message = await app.Email.GetMessageAsync(envelope.Id, ct);
+
+    // Returning acknowledges the event; throwing leaves it pending for redelivery with backoff
+    await RememberLastEventAsync(context, message.Subject);
+}
+```
+
 ### Public URLs, identity & minting
 
 `app.Endpoints` lists every endpoint, but each `PublicUrl` is a **bare** address (`{space}.ikonai.app/api/...`) with no grant. A `Public` endpoint is callable as-is; for a `grant` (default) or policy endpoint, **mint** a working, identity-bound URL — minting is the single way to get a callable URL, and it's required for local-dev too:
@@ -233,6 +266,7 @@ namespace Ikon.Sdk
     Reconnecting
     // Unexpectedly disconnected and not retrying: automatic reconnection was exhausted, or the server signalled an intentional shutdown. (A user-requested disconnect goes to Idle.)
     Offline
+    // extension methods: ConnectionStateExtensions{IsConnected, IsConnecting, IsDisconnected, IsFaulted}
   static class ConnectionStateExtensions
     static bool IsConnected(this ConnectionState state)
     static bool IsConnecting(this ConnectionState state)
@@ -262,21 +296,22 @@ namespace Ikon.Sdk
     Task ConnectAsync(CancellationToken ct = default)
     Task DisconnectAsync()
     ValueTask DisposeAsync()
-    // Throws InvalidOperationException when the client is not connected — send only after ReadyAsync has fired; audio is never silently dropped. Safe to call concurrently: sends are serialized, so frames of one stream never interleave. A reconnect that lands on a new server session re-announces every active stream before its next frame.
+    // Throws InvalidOperationException when the client is not connected — send only after ReadyAsync has fired; audio is never dropped for lack of a connection. The one no-op is targets with MediaTargets.IsEmpty: a filter that matched nobody sends nothing and returns without touching the stream. Safe to call concurrently: sends are serialized, so frames of one stream never interleave. A reconnect that lands on a new server session re-announces every active stream before its next frame.
     // samples: PCM samples in range [-1.0, 1.0]
     // sampleRate: Fixed per stream: the first call for a streamId configures its encoder and announces the format, so every later call must pass the same rate — a different one throws ArgumentException; use a new streamId for another format
     // channelCount: Fixed per stream like sampleRate
     // encoderOptions: Falls back to DefaultEncoderOptions; applied only when the stream's encoder is first created — later changes do not reconfigure an active stream
     ValueTask SendAudioAsync(MediaTargets targets, ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string? streamId = null, TimeSpan totalDuration = default, AudioEncoderOptions? encoderOptions = null)
-    // Throws InvalidOperationException when the client is not connected — send only after ReadyAsync has fired. It does not silently drop the message.
+    // Throws InvalidOperationException when the client is not connected, including the window after the transport closed but before DisconnectedAsync has fired — send only after ReadyAsync has fired. It does not silently drop the message.
     ValueTask SendMessageAsync(ProtocolMessage message)
-    // Throws InvalidOperationException when the client is not connected — send only after ReadyAsync has fired. It does not silently drop the payload.
+    // Throws InvalidOperationException when the client is not connected, including the window after the transport closed but before DisconnectedAsync has fired — send only after ReadyAsync has fired. It does not silently drop the payload.
     ValueTask SendMessageAsync<T>(T payload) where T : IProtocolMessagePayload
     // Call once your setup completes, typically from the ReadyAsync handler. Throws if not connected.
     Task SignalReadyAsync()
     // Waits up to timeout (30 seconds when null) for a client matching productId/userId. An explicit TimeSpan.Zero is honored as a single poll rather than promoted to the default. Throws if not connected.
     Task<bool> WaitForClientAsync(string? productId = null, string? userId = null, TimeSpan? timeout = null)
     event IkonClient.AsyncEventHandler<IkonClient.AudioInputFrameEventArgs> AudioInputFrameAsync
+    // Only Opus streams are decoded: a begin for any other AudioCodec throws NotSupportedException before this event fires (a live begin fails in the receive loop's error log; one replayed from the session state at connect is delivered to ErrorOccurredAsync), so a stream that begins here always delivers frames.
     event IkonClient.AsyncEventHandler<IkonClient.AudioInputStreamBeginEventArgs> AudioInputStreamBeginAsync
     event IkonClient.AsyncEventHandler<IkonClient.AudioInputStreamEndEventArgs> AudioInputStreamEndAsync
     event IkonClient.AsyncEventHandler<EventArgs>? DisconnectedAsync
@@ -319,7 +354,7 @@ namespace Ikon.Sdk
   class IkonClient.ErrorEventArgs : EventArgs
     ctor(Exception error)
     Exception Error { get; }
-  // Exactly one authentication mode — ExternalConnectUrl, Local, ApiKey, Backend, UserLogin, or ResumeAuthResponse — must be set; the constructor rejects zero or multiple.
+  // Exactly one authentication mode — ExternalConnectUrl, Local, ApiKey, Backend, UserLogin, or ResumeAuthResponse — must be set. The record itself accepts any combination; the IkonClient constructor validates it and throws ArgumentException for zero or multiple.
   sealed record IkonClientConfig
     ctor()
     ApiKeyConfig? ApiKey { get; init; }
@@ -328,11 +363,11 @@ namespace Ikon.Sdk
     ContextType ContextType { get; init; }
     // Default: "Ikon SDK C#"
     string Description { get; init; }
-    // If not provided, a random one is generated.
+    // If not provided, a random one is generated once when the IkonClient is constructed and reused for every auth request and reconnect of that client; read it back from IkonClient.Config.
     string? DeviceId { get; init; }
     // Whether to establish the unreliable UDP side channel alongside the TCP connection when the server advertises one. Default true. Set false to run over TCP only — unreliable-flagged messages then fall back to the reliable channel.
     bool EnableUdpChannel { get; init; }
-    // When set, authentication is skipped and the client connects straight through this URL — the same mechanism the TypeScript SDK reads from its query parameter. Mutually exclusive with Local, ApiKey, Backend, and UserLogin.
+    // When set, authentication is skipped and the client connects straight through this URL — the same mechanism the TypeScript SDK reads from its query parameter. Mutually exclusive with Local, ApiKey, Backend, UserLogin, and ResumeAuthResponse.
     string? ExternalConnectUrl { get; init; }
     // Delivered to the app as Context.InitialPath at join, like a web client opening a deep link. Empty means the app's root.
     string InitialPath { get; init; }
@@ -376,9 +411,9 @@ namespace Ikon.Sdk
     // Re-send Subscribe for every key that still has local subscribers and hand each of them the value the server returns. Call it after a reconnect that produced a new server session, where the server-side subscriptions are gone but the local callbacks remain. Safe to call after a reconnect that resumed the session — the server treats the repeat subscribe as a no-op and the callbacks simply receive the current value once more.
     // throws AggregateException: One or more keys could not be re-subscribed; the rest were.
     Task<int> ResubscribeAsync(CancellationToken cancellationToken = default)
-    // Dispose the returned handle to unsubscribe — the last unsubscribe for a key notifies the server.
+    // The initial call is skipped when the reactive has no value yet — nothing is delivered rather than a fabricated default(T). Dispose the returned handle to unsubscribe — the last unsubscribe for a key notifies the server. A failed server-side Subscribe throws to every caller that was waiting on it (the first subscriber and any that arrived meanwhile) and registers none of them, so a retry starts clean; a subscription is never handed back that the server does not hold.
     // stableId: The reactive's IReactiveWithState.StableId.
-    // callback: Invoked with each value. JSON is deserialized to T.
+    // callback: Invoked with each value; never with an empty payload. JSON is deserialized to T.
     // mountId: Mount id when subscribing to a server-side MountReactive<T>; empty (the default) works for unscoped Reactive<T>, ClientReactive<T>, and UserReactive<T>.
     // cancellationToken: Cancels the initial Subscribe call.
     Task<IAsyncDisposable> SubscribeAsync<T>(string stableId, Action<T> callback, string mountId = "", CancellationToken cancellationToken = default)
@@ -410,7 +445,7 @@ namespace Ikon.Sdk
 ---
 
 # Ikon AI C# SDK
-
+<!-- checked-against: ff76ce2930155f8e -->
 The Ikon AI C# SDK provides a simple way to connect to Ikon AI App from any .NET application. It supports .NET 10 and .NET Standard 2.1 (including Unity).
 
 ## Features
@@ -602,8 +637,8 @@ The client tracks its connection state via the `State` property:
 Helper extension methods are available:
 - `state.IsConnecting()` - True if `Connecting` or `Reconnecting`
 - `state.IsConnected()` - True if `Connected`
-- `state.IsOffline()` - True if `Idle` or `Offline` (covers the pristine initial state too, not just failures)
-- `state.IsFaulted()` - True only for `Offline` (a genuine failure) — use this, not `IsOffline`, to detect a dropped/failed connection
+- `state.IsDisconnected()` - True if `Idle` or `Offline` (covers the pristine initial state too, not just failures)
+- `state.IsFaulted()` - True only for `Offline` (a genuine failure) — use this, not `IsDisconnected`, to detect a dropped/failed connection
 
 ### Events
 
@@ -714,9 +749,15 @@ The SDK provides comprehensive audio support with automatic Opus encoding/decodi
 
 ### Sending Audio
 
-Send audio to the server:
+Send audio to the server. Like every send, it throws `InvalidOperationException` when the client is
+not connected — call it after `ReadyAsync` has fired, never from setup code:
 
 ```csharp
+// Default encoder options for every stream that sends no encoderOptions of its own. A
+// stream's encoder is created on its first SendAudioAsync and keeps the options in force
+// then, so set this before the first send — not after.
+client.DefaultEncoderOptions = new AudioEncoderOptions(bitrate: 48000, complexity: 8);
+
 // Get audio samples (float PCM, range [-1.0, 1.0])
 ReadOnlyMemory<float> samples = GetAudioSamples();
 
@@ -747,9 +788,6 @@ await client.SendAudioAsync(
         bitrate: 64000,
         complexity: 10
     ));
-
-// Set default encoder options for all audio
-client.DefaultEncoderOptions = new AudioEncoderOptions(bitrate: 48000, complexity: 8);
 ```
 
 ### Receiving Audio
@@ -764,8 +802,8 @@ client.AudioInputStreamBeginAsync += async e =>
     Console.WriteLine($"  Sample rate: {e.SampleRate}");
     Console.WriteLine($"  Channel count: {e.ChannelCount}");
 
-    // Optional: override sample rate (SDK will resample)
-    // e.SampleRate = 44100;
+    // Optional: choose the decode rate (Opus accepts 8, 12, 16, 24 or 48 kHz)
+    // e.SampleRate = 24000;
 
     // Optional: change streaming mode
     // e.StreamingMode = AudioInputStreamingMode.DelayUntilTotalDurationKnown;
@@ -904,6 +942,13 @@ public string LocalOnly() => "local";
 [Function(Visibility = FunctionVisibility.External)]
 public string SharedWithAll() => "shared";
 ```
+
+Registered inside an **Ikon AI App** rather than a standalone client, an `External` function is also
+expected to declare its auth posture — `[RequireLogin]`, `[RequireRole(...)]` or `[AllowAnonymous]`
+on the method, or a policy attached at registration time. The app's startup audit logs a warning for
+every `External` function with none of them, and throws instead when the app sets
+`<ExternalFunctionsRequireAuth>true</ExternalFunctionsRequireAuth>`. A standalone SDK client runs no
+such audit.
 
 Visibility can also be overridden where the instance is registered:
 

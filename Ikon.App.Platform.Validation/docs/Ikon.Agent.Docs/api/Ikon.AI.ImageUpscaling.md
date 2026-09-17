@@ -34,7 +34,7 @@ namespace Ikon.AI.ImageUpscaling
     static ImageUpscalerCapabilities GetCapabilities(ImageUpscalerModel model)
     static IReadOnlyList<ModelRegion> GetSupportedRegions(ImageUpscalerModel model)
     Task<ImageUpscalerResult> UpscaleAsync(byte[] imageData, string mimeType, double scaleFactor = 0.0, CancellationToken cancellationToken = default)
-    // Static one-shot; constructs and disposes an ImageUpscaler per call. Defaults to ImageUpscalerModel.SeedVr2, which reconstructs detail faithfully and bills per output megapixel. scaleFactor of 0 leaves the model's own default in place. Every default model is UpscaleFidelity.Faithful — reach for ImageUpscalerModel.Crystal and ImageUpscalerConfig.Creativity to let a model invent detail. The upscaled image is in result.Image (.Data/.MimeType). Use the constructor + UpscaleImageAsync for a URL source or any other config field.
+    // Static one-shot; constructs and disposes an ImageUpscaler per call. Defaults to ImageUpscalerModel.SeedVr2, which reconstructs detail faithfully and bills per output megapixel. scaleFactor of 0 leaves the model's own default in place. Reach for ImageUpscalerModel.Crystal, the UpscaleFidelity.Tunable model, with ImageUpscalerConfig.Creativity above 0 to let it invent detail. The upscaled image is in result.Image (.Data/.MimeType). Use the constructor + UpscaleImageAsync for a URL source or any other config field.
     static Task<ImageUpscalerResult> UpscaleAsync(byte[] imageData, string mimeType, ImageUpscalerModel model = SeedVr2, double scaleFactor = 0.0, CancellationToken cancellationToken = default)
     Task<ImageUpscalerResult> UpscaleImageAsync(ImageUpscalerConfig config, CancellationToken cancellationToken = default)
   sealed class ImageUpscalerCapabilities : IImageUpscalerInfo
@@ -69,11 +69,14 @@ namespace Ikon.AI.ImageUpscaling
     Topaz
     RecraftCrisp
     Crystal
+    // extension methods: ImageUpscalerModelExtensions{DisplayName}
   static class ImageUpscalerModelExtensions
     static string DisplayName(this ImageUpscalerModel model)
   sealed record ImageUpscalerResult
     ctor()
     OutputImage Image { get; init; }
+    // Which provenance layers the upscaled bytes carry. ProvenanceMarking.Full is the norm on PNG/JPEG output; anything less means the re-mark degraded (WebP, an undecodable payload, a failed marking pass — each logged at Warning).
+    ProvenanceMarking Provenance { get; init; }
   // The distinction is the whole point of picking one upscaler over another. Faithful models reconstruct only what the input supports, so the result can still be read as evidence of the original. Creative models synthesize plausible detail that was never in the input. Tunable models move between the two as ImageUpscalerConfig.Creativity rises, and sit at the faithful end when it is left at zero.
   enum UpscaleFidelity
     Faithful

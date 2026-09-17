@@ -35,13 +35,15 @@ interface ModeMetrics {
   outOfOrder: number; // seq <= lastSeq → reorder/duplicate (or a server stream restart)
   lastSeq: number;
   lastDeltaMs: number; // transit + however far the sender's clock is from ours; can be negative
+  viaDataChannel: number; // arrived over the WebRTC data channel
+  viaReliable: number; // arrived over the reliable protocol channel
 }
 
 function emptyMetrics(): ModeMetrics {
-  return { count: 0, gaps: 0, outOfOrder: 0, lastSeq: 0, lastDeltaMs: 0 };
+  return { count: 0, gaps: 0, outOfOrder: 0, lastSeq: 0, lastDeltaMs: 0, viaDataChannel: 0, viaReliable: 0 };
 }
 
-function applyMessage(m: ModeMetrics, seq: number, sentAtMs: number): void {
+function applyMessage(m: ModeMetrics, seq: number, sentAtMs: number, viaDataChannel: boolean): void {
   if (m.lastSeq !== 0 && seq > m.lastSeq + 1) {
     m.gaps += seq - m.lastSeq - 1;
   }
@@ -51,6 +53,12 @@ function applyMessage(m: ModeMetrics, seq: number, sentAtMs: number): void {
   m.lastSeq = seq;
   m.count += 1;
   m.lastDeltaMs = Date.now() - sentAtMs;
+
+  if (viaDataChannel) {
+    m.viaDataChannel += 1;
+  } else {
+    m.viaReliable += 1;
+  }
 }
 
 const TpProbeRenderer = memo(function TpProbeRenderer({ context }: UiComponentRendererProps) {
@@ -76,12 +84,12 @@ const TpProbeRenderer = memo(function TpProbeRenderer({ context }: UiComponentRe
     const messaging = appMessaging(client);
     messagingRef.current = messaging;
 
-    const subReliable = messaging.on(ProbePingMessage, (p) => {
-      applyMessage(reliableRef.current, Number(p.Seq), Number(p.SentAtMs));
+    const subReliable = messaging.on(ProbePingMessage, (p, _senderId, delivery) => {
+      applyMessage(reliableRef.current, Number(p.Seq), Number(p.SentAtMs), delivery.viaDataChannel);
       repaint();
     });
-    const subUnreliable = messaging.on(ProbePingUnreliableMessage, (p) => {
-      applyMessage(unreliableRef.current, Number(p.Seq), Number(p.SentAtMs));
+    const subUnreliable = messaging.on(ProbePingUnreliableMessage, (p, _senderId, delivery) => {
+      applyMessage(unreliableRef.current, Number(p.Seq), Number(p.SentAtMs), delivery.viaDataChannel);
       repaint();
     });
 
@@ -163,6 +171,8 @@ function MetricCard({ title, testid, m }: { title: string; testid: string; m: Mo
       <MetricRow label="out-of-order" value={m.outOfOrder} testid={`tp-${testid}-ooo`} />
       <MetricRow label="last seq" value={m.lastSeq} testid={`tp-${testid}-seq`} />
       <MetricRow label="last delta (ms)" value={m.lastDeltaMs} testid={`tp-${testid}-delta`} />
+      <MetricRow label="via data channel" value={m.viaDataChannel} testid={`tp-${testid}-datachannel`} />
+      <MetricRow label="via reliable" value={m.viaReliable} testid={`tp-${testid}-reliable`} />
     </div>
   );
 }

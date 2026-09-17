@@ -42,6 +42,12 @@ export interface ProtocolMessageHeaders {
   payloadVersion: number;
   payloadType: PayloadType;
   flags: number;
+  /**
+   * Set by the receiving client when the WebRTC data channel delivered this message, rather
+   * than the reliable protocol channel. Absent on anything read straight off the wire -- the
+   * flags byte records what the sender asked for, not the transport that ran.
+   */
+  viaDataChannel?: boolean;
 }
 
 export function asProtocolMessage(data: Uint8Array): ProtocolMessage {

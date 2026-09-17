@@ -523,11 +523,13 @@ namespace Ikon.Parallax.Theming
   // A key/value override map on top of the Ikon CSS baseline. Keys are a vocabulary alias (ThemeVocabulary, e.g. primary, card, radius), a CSS variable name without the leading --, or a Tailwind token; values are Crosswind/Tailwind classes or raw CSS. Set entries via the indexer during object initialization; pair DarkMode for the dark scheme.
   sealed class IkonTheme : ITheme
     ctor()
+    // The same property as DarkMode under a second name — one storage, so setting either sets both, and the ThemeMode.Adaptive-only restriction applies through this name too.
     IkonTheme? Dark { get; init; }
     // Valid only in ThemeMode.Adaptive mode; combining it with ThemeMode.Fixed throws InvalidOperationException at render time.
     IkonTheme? DarkMode { get; init; }
     string this[string token] { get; set; }
     IkonTheme? Light { get; init; }
+    // Defaults to ThemeMode.Adaptive, the only mode in which DarkMode is valid.
     ThemeMode Mode { get; init; }
   static class ImageCard
     const string Caption
@@ -637,7 +639,7 @@ namespace Ikon.Parallax.Theming
     const string PlaceholderIcon
     const string PlaceholderText
     const string VideoContainer
-  // A menu row is NOT a button look: it rests transparent, fills the row, reads left, and highlights on hover — these are complete default-marked composites for view.Button, not additions to the Button tones. Selection/active state stays a caller concern (add bg-brand-selected on the active row).
+  // A menu row is NOT a button look: it rests transparent, fills the row, reads left, and highlights on hover — Item and ItemDestructive are complete composites for view.Button: passed bare (no default marker) they replace the Button default rather than add to its tones. Selection/active state stays a caller concern (add bg-brand-selected on the active row).
   static class Menu
     const string Content
     const string Item
