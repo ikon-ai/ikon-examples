@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Chart Axes, Margins And Colour — Where The Labels Actually Go
-
+<!-- checked-against: ca962b815b0811ac -->
 The chart components take their configuration as records rather than style classes, and the one
 that catches people is **`ChartMargin`**: axis legends and rotated tick labels render *inside* the
 chart box, so a legend with no margin reserved for it is simply clipped away. The chart looks fine

@@ -1,6 +1,6 @@
 <!-- mined-from: AB2.BirdCard -->
 # Parallel Extract + Reply — Two LLM Calls Per Turn
-
+<!-- checked-against: 1b18047560c4fd72 -->
 Each user answer kicks off two LLM calls in parallel: one extracts structured data (`TraitDelta`), the other generates the in-character reply. `Task.WhenAll` joins them, then both results are applied — the reply goes into chat, the extraction merges into accumulated state. Halves the per-turn latency vs. running them sequentially.
 
 ## When to use
@@ -66,14 +66,24 @@ private async Task<TraitDelta?> ExtractTraitsAsync(string question, string answe
 
 private async Task<string> GenerateCharacterReplyAsync(SessionState session, string userText, CancellationToken ct)
 {
-    var (reply, context) = await Emerge.Run<string>(LLMModel.Default, session.InterviewContext, pass =>
+    try
     {
-        pass.SystemPrompt = InterviewSystemPrompt;
-        pass.Command = userText;
-    }, ct).FinalAsync(ct);
+        var (reply, context) = await Emerge.Run<string>(LLMModel.Default, session.InterviewContext, pass =>
+        {
+            pass.SystemPrompt = InterviewSystemPrompt;
+            pass.Command = userText;
+        }, ct).FinalAsync(ct);
 
-    session.InterviewContext = context;
-    return reply ?? "";
+        session.InterviewContext = context;
+        return reply ?? "";
+    }
+    catch (EmergenceStoppedException ex)
+    {
+        // The turn still gets an answer; a reply that failed to generate must not end the
+        // processing loop for every later turn.
+        Log.Instance.Warning($"Character reply failed for this turn: {ex.Message}");
+        return "…";
+    }
 }
 ```
 

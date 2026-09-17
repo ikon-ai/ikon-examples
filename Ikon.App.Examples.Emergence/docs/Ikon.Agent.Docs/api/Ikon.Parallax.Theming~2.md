@@ -10,7 +10,7 @@ namespace Ikon.Parallax.Theming
     const string Sm
     // The full state vocabulary of a capture button — despite living on MicButton, it applies to a camera or screen CaptureButton just as well, since the states it styles are stamped by every capture kind. The permission states widen the circle into a pill so the wording the button switches to has somewhere to go; pressed is the sub-frame acknowledgement of the press itself, before the device has opened.
     const string States
-    // Reveals its element only while a capture button inside the same group is held. It appears on the press, not when the first frame arrives, so the cue and the button agree with each other. Put group on the row containing both the button and this element; pair with AudioWave for the recording cue.
+    // Reveals its element only while a capture button inside the same group is pressed or live — held for push-to-talk, toggled on for a toggle button. It appears on the press, not when the first frame arrives, so the cue and the button agree with each other. Put group on the row containing both the button and this element; pair with AudioWave for the recording cue.
     const string WhileCapturing
   static class NavItem
     const string Active
@@ -279,7 +279,7 @@ namespace Ikon.Parallax.Theming
     const string Default
     const string Root
     const string Thumb
-  // List/Trigger are the SEGMENTED control — mutually exclusive parallel values of one setting (Day/Week/Month, List/Grid), equal-width, the active one filled. NavList with NavTrigger* are page NAVIGATION between peer panels (Overview/Activity/Files): each tab hugs its label, the row sits flush on a shared rail, and the active tab is marked by the rail indicator plus a weight change, never a fill. Choose by meaning, not by tab count or width — navigation rendered as filled segments reads as a row of buttons.
+  // List/Trigger are the SEGMENTED control — mutually exclusive parallel values of one setting (Day/Week/Month, List/Grid) on one tinted pill row, the active one filled; triggers hug their labels, so add flex-1 to Trigger for equal widths. NavList with NavTrigger* are page NAVIGATION between peer panels (Overview/Activity/Files): each tab hugs its label, the row sits flush on a shared rail, and the active tab is marked by the rail indicator plus a weight change, never a fill. Choose by meaning, not by tab count or width — navigation rendered as filled segments reads as a row of buttons.
   static class Tabs
     const string Content
     const string List

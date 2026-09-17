@@ -1,6 +1,6 @@
 <!-- mined-from: QTribunal -->
 # Threshold-Driven Regenerate — Bucketed Side-Effects On A Continuous Signal
-
+<!-- checked-against: 1e2a9732657a6e2a -->
 A continuous signal (game proximity 0-1, sentiment score, attention level) is bucketed into a small set of thresholds (0, 0.3, 0.6). Each tick, the new bucket is compared against `_lastImageProximity`'s bucket; only when the user crosses *upward* into a new bucket does the expensive side-effect (image regeneration) fire. Keeps a generative pipeline responsive to progress without thrashing on every micro-change.
 
 ## When to use

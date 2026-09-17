@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Voice Effect Chain — A Character Is A List Of Effects
-
+<!-- checked-against: cce390d710b90ef3 -->
 `IAudioEffect` implementations are plain values, so a voice character is nothing more than a named
 list of them handed to `effects:`. That makes characters data — switchable, testable, and storable
 — rather than branches through the speech code.

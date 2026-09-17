@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Bump -->
 # Client ↔ User Binding — Push State Into the Right Browser
-
+<!-- checked-against: e754a75f8a33e8a2 -->
 Multi-user apps with a shared server need to push state ("you got a match", "your match accepted") into a specific user's browser even when the trigger comes from somewhere else. Two `ConcurrentDictionary` maps plus a client-targeted write (`_x.SetFor(clientId, value)`, or `ReactiveScope.Use(new ClientScope(...))` for a whole region) is enough.
 
 ## When to use

@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Progress Bar That Changes Color — Animating The Fill, Not Just Setting It
-
+<!-- checked-against: 5201839373ed6878 -->
 `view.Progress` renders the bar but animates nothing: change `value` and the fill jumps. The glide
 comes from a transition class on the **indicator**, and the colour comes from a fill variant — both
 passed through `Progress.ComposeIndicator`, which lays down the base recipe, then the variant, then

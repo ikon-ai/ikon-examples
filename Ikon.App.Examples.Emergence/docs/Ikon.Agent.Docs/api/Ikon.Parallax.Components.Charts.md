@@ -148,7 +148,9 @@ namespace Ikon.Parallax.Components.Charts
     Center
   sealed record LegendConfig
     ctor()
+    // Null renders at LegendAnchor.Bottom.
     LegendAnchor? Anchor { get; init; }
+    // Null renders as LegendDirection.Row.
     LegendDirection? Direction { get; init; }
     int? ItemHeight { get; init; }
     int? ItemWidth { get; init; }

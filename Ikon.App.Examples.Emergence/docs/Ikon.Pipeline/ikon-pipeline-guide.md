@@ -1,5 +1,5 @@
 # Ikon Pipeline Guide
-
+<!-- checked-against: ca04240289b859eb -->
 ## Overview
 
 The Ikon Pipeline is a reactive asynchronous parallel data processing framework designed for high-performance workloads. It enables you to define the structure of a processing graph once while relying on an intelligent caching system to determine which steps need re-execution when the pipeline runs again.
@@ -292,7 +292,8 @@ Alongside its content an item carries an `ItemMetadata` — the document title a
 hierarchy, page number and count, original path and name, created/updated timestamps, a free
 `Properties` map and a `CustomJson` escape hatch. It is a `readonly struct` and immutable by design:
 build a derived one by passing the parent to the constructor, which inherits every value you do not
-override. Unless the runner's `DisableMetadataOutput` is set, an item written out is accompanied by
+override — except `PreviousItemName` and `NextItemName`, the new item's own sequence links, which are
+never inherited and stay null unless you pass them. Unless the runner's `DisableMetadataOutput` is set, an item written out is accompanied by
 its metadata as a `.meta.json` sidecar.
 
 `Item` implements `IItem<Item>`, which is what a generic helper takes when it needs to work over
@@ -401,12 +402,14 @@ internal class AdvancedPipeline(IPipelineHost<AdvancedPipeline.Config> host)
         });
 
         // All Transform* functions also have a TransformLambda* counterpart that takes a lambda instead of an expression
-        // Their use is discouraged as the lambda cannot be analyzed for variable values and thus caching is less effective
+        // Their use is discouraged: a lambda cannot be analyzed for its captured variable values, so the step is still
+        // cached but under a name-only key with no captured-value fingerprint — change ConfigValue2 and the step silently
+        // replays the output computed with the old value. skipCache: true is the only way to make a lambda step re-run
         // Also, transparent remote processor handling cannot be used with lambdas
         var doNotUseTransformLambdaItems = inputItems.TransformLambda(async item =>
         {
             return await MyProcessor(item, host.Config.ConfigValue2, cancellationToken);
-        });
+        }, skipCache: true);
 
         // Calling output on any branch outputs those items from the pipeline
         groupProcessedItems.Output();

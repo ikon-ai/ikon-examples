@@ -40,10 +40,13 @@ private readonly PersistentUserReactiveList<Bookmark> _bookmarks = new(); // per
 
 Heuristic: if you can't articulate why it should be `Global` or `User`, use `PersistentSessionReactive<T>`. Persisted values load in parallel before `Main()` runs and save on graceful shutdown — read and write them like any other reactive. Never write runtime state to `app.DataDirectory`; it is read-only in cloud.
 
+> **A reactive read across a cell boundary is a `MirrorReactive<T>`, and its value can be a placeholder.** Reading one through an `ICell<T>` interface gives a mirror of another session's reactive, so until that session answers there is nothing real to show. `MirrorStatus.Connecting` means the value is still the seed, `Live` means it is the cell's, and `Failed` means it will not arrive — `Error` says why. Render the status; a seed shown as an answer is a wrong answer nobody can see is wrong.
+
 Backends (passed as `backend:`):
 
 ```csharp
-// Default — Private S3-backed cloud asset
+// Default — the app's built-in database when the session has one; binary payloads and
+// sessions without a database land on private asset storage
 private readonly PersistentSessionReactive<Prefs> _defaultBackend = new(new Prefs());
 
 // Public asset URL needed (uploaded images, published files — never sensitive data)
@@ -174,7 +177,12 @@ namespace Ikon.Common.Core.Reactive
     void SetFor(int clientSessionId, T value)
     void UpdateFor(int clientSessionId, Func<T, T> mutator)
     T ValueFor(int clientSessionId)
-  // Same contract as ReactiveDictionary<TKey, TValue> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per client session exactly like ClientReactive<T>. Important: Must be accessed inside UI.Root() or within a ReactiveScope.Use(new ClientScope(...)) block. Accessing outside these contexts throws an exception.
+    // extension methods on Reactive<Dictionary<TKey, TValue>>: ReactiveCollectionExtensions{Clear, Remove, Set}
+    // extension methods on Reactive<HashSet<T>>: ReactiveCollectionExtensions{Add, Clear, Remove}
+    // extension methods on Reactive<List<T>>: ReactiveCollectionExtensions{Add, AddRange, Clear, Insert, Remove, RemoveAll, RemoveAt}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
+    // extension methods on Reactive<bool>: ReactiveBoolExtensions{AsToken}
+  // Same contract as ReactiveDictionary<TKey, TValue> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per client session exactly like ClientReactive<T>. Reads and mutations resolve against the active ClientScope — inside UI.Root(), an action callback, or a ReactiveScope.Use(new ClientScope(...)) block — and throw when none is active: Main(), the constructor, Task.Run loops, timers and endpoint handlers carry no client scope, so reach one session's partition from there through the …For(clientSessionId, …) accessors with an id captured where the scope existed.
   class ClientReactiveDictionary<TKey, TValue> : ReactiveDictionary<TKey, TValue>
     ctor()
     ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries)
@@ -185,13 +193,15 @@ namespace Ikon.Common.Core.Reactive
     void SetFor(int clientSessionId, TKey key, TValue value)
     void UpdateFor(int clientSessionId, Action<Dictionary<TKey, TValue>> transform)
     IReadOnlyDictionary<TKey, TValue> ValueFor(int clientSessionId)
+    // extension methods on Reactive<Dictionary<TKey, TValue>>: ReactiveCollectionExtensions{Clear, Remove, Set}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
   // Shorthand for ReactiveEffect<ClientScope>: each connected client gets its own runner with independent cancel/queue, materialized on first dep change inside that client's scope.
   class ClientReactiveEffect : ReactiveEffect<ClientScope>
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
     // Binds an async () => ... body here as a Task-returning delegate instead of the async-void Action overload — constructors are not inherited, so this mirrors the base ReactiveEffect<TScope> overload.
     ctor(Func<Task> body, params IReactive[] deps)
     ctor(Action body, params IReactive[] deps)
-  // Same contract as ReactiveHashSet<T> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per client session exactly like ClientReactive<T>. Important: Must be accessed inside UI.Root() or within a ReactiveScope.Use(new ClientScope(...)) block. Accessing outside these contexts throws an exception.
+  // Same contract as ReactiveHashSet<T> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per client session exactly like ClientReactive<T>. Reads and mutations resolve against the active ClientScope — inside UI.Root(), an action callback, or a ReactiveScope.Use(new ClientScope(...)) block — and throw when none is active: Main(), the constructor, Task.Run loops, timers and endpoint handlers carry no client scope, so reach one session's partition from there through the …For(clientSessionId, …) accessors with an id captured where the scope existed.
   class ClientReactiveHashSet<T> : ReactiveHashSet<T>
     ctor()
     ctor(IEnumerable<T> initialItems)
@@ -202,7 +212,9 @@ namespace Ikon.Common.Core.Reactive
     bool RemoveFor(int clientSessionId, T item)
     void UpdateFor(int clientSessionId, Action<HashSet<T>> transform)
     IReadOnlyCollection<T> ValueFor(int clientSessionId)
-  // Same contract as ReactiveList<T> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per client session exactly like ClientReactive<T>. Important: Must be accessed inside UI.Root() or within a ReactiveScope.Use(new ClientScope(...)) block. Accessing outside these contexts throws an exception.
+    // extension methods on Reactive<HashSet<T>>: ReactiveCollectionExtensions{Add, Clear, Remove}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
+  // Same contract as ReactiveList<T> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per client session exactly like ClientReactive<T>. Reads and mutations resolve against the active ClientScope — inside UI.Root(), an action callback, or a ReactiveScope.Use(new ClientScope(...)) block — and throw when none is active: Main(), the constructor, Task.Run loops, timers and endpoint handlers carry no client scope, so reach one session's partition from there through the …For(clientSessionId, …) accessors with an id captured where the scope existed.
   class ClientReactiveList<T> : ReactiveList<T>
     ctor()
     ctor(IEnumerable<T> initialItems)
@@ -211,6 +223,9 @@ namespace Ikon.Common.Core.Reactive
     bool RemoveFor(int clientSessionId, T item)
     void UpdateFor(int clientSessionId, Func<IReadOnlyList<T>, IEnumerable<T>> transform)
     IReadOnlyList<T> ValueFor(int clientSessionId)
+    // extension methods on IReadOnlyList<T>, using Ikon.Common.Core: ReadOnlyListExtensions{FindIndex, FindLastIndex, IndexOf}
+    // extension methods on Reactive<List<T>>: ReactiveCollectionExtensions{Add, AddRange, Clear, Insert, Remove, RemoveAll, RemoveAt}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
   interface IReactive
     long Version { get; }
     // Fires whenever this reactive's value changes (in any scope, for scoped variants). Payload-free so a single subscription can be taken across heterogeneous reactives — handlers fetch the new value via .Value when they need it.
@@ -228,12 +243,17 @@ namespace Ikon.Common.Core.Reactive
   static class MountReactive
     // Each mount's value is initialized by the factory, which receives the mount id.
     static MountReactive<T> Create<T>(Func<string, T> factory)
-  // Same reactive contract as Reactive<T>, partitioned per Parallax mount an app declares via Mounts (e.g. independent message history for an embedded "aiCanvas" mount vs the "ikon-ui" page). For state shared across a client's mounts use ClientReactive<T>; across all clients use Reactive<T>. .Value resolves against the MountScope active during a render iteration — typically anywhere inside UI.Root() — and throws otherwise. Background work carries no mount scope, so name the mount instead via SetFor / ValueFor.
+  // Same reactive contract as Reactive<T>, partitioned per Parallax mount an app declares via IAppBase.Mounts (e.g. independent message history for an embedded "aiCanvas" mount vs the "ikon-ui" page). For state shared across a client's mounts use ClientReactive<T>; across all clients use Reactive<T>. .Value resolves against the MountScope active during a render iteration — typically anywhere inside UI.Root() — and throws otherwise. Background work carries no mount scope, so name the mount instead via SetFor / ValueFor.
   class MountReactive<T> : Reactive<T, MountScope>
     ctor(T initialValue)
     void SetFor(string mountId, T value)
     void UpdateFor(string mountId, Func<T, T> mutator)
     T ValueFor(string mountId)
+    // extension methods on Reactive<Dictionary<TKey, TValue>>: ReactiveCollectionExtensions{Clear, Remove, Set}
+    // extension methods on Reactive<HashSet<T>>: ReactiveCollectionExtensions{Add, Clear, Remove}
+    // extension methods on Reactive<List<T>>: ReactiveCollectionExtensions{Add, AddRange, Clear, Insert, Remove, RemoveAll, RemoveAt}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
+    // extension methods on Reactive<bool>: ReactiveBoolExtensions{AsToken}
   // Same contract as ReactiveDictionary<TKey, TValue> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per mount exactly like MountReactive<T>. Important: Must be accessed inside a render iteration where MountScope is active — typically anywhere inside UI.Root().
   class MountReactiveDictionary<TKey, TValue> : ReactiveDictionary<TKey, TValue>
     ctor()
@@ -243,6 +263,8 @@ namespace Ikon.Common.Core.Reactive
     void SetFor(string mountId, TKey key, TValue value)
     void UpdateFor(string mountId, Action<Dictionary<TKey, TValue>> transform)
     IReadOnlyDictionary<TKey, TValue> ValueFor(string mountId)
+    // extension methods on Reactive<Dictionary<TKey, TValue>>: ReactiveCollectionExtensions{Clear, Remove, Set}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
   // Shorthand for ReactiveEffect<MountScope>: each Parallax mount gets its own runner, materialized on first dep change inside that mount's scope.
   class MountReactiveEffect : ReactiveEffect<MountScope>
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
@@ -258,6 +280,8 @@ namespace Ikon.Common.Core.Reactive
     bool RemoveFor(string mountId, T item)
     void UpdateFor(string mountId, Action<HashSet<T>> transform)
     IReadOnlyCollection<T> ValueFor(string mountId)
+    // extension methods on Reactive<HashSet<T>>: ReactiveCollectionExtensions{Add, Clear, Remove}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
   // Same contract as ReactiveList<T> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per mount exactly like MountReactive<T>. Important: Must be accessed inside a render iteration where MountScope is active — typically anywhere inside UI.Root().
   class MountReactiveList<T> : ReactiveList<T>
     ctor()
@@ -267,12 +291,15 @@ namespace Ikon.Common.Core.Reactive
     bool RemoveFor(string mountId, T item)
     void UpdateFor(string mountId, Func<IReadOnlyList<T>, IEnumerable<T>> transform)
     IReadOnlyList<T> ValueFor(string mountId)
+    // extension methods on IReadOnlyList<T>, using Ikon.Common.Core: ReadOnlyListExtensions{FindIndex, FindLastIndex, IndexOf}
+    // extension methods on Reactive<List<T>>: ReactiveCollectionExtensions{Add, AddRange, Clear, Insert, Remove, RemoveAll, RemoveAt}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
   enum PersistenceBackend
     // Asset storage on private S3-style cloud files. Explicitly opts the value out of the Default routing — pick it when a structured value must stay on asset storage even though the app has its built-in Postgres database.
     Private
     // Asset storage on public S3-style cloud files. The reactive exposes a PublicUrl accessor so the value can be linked to from the open web.
     Public
-    // Postgres key-value row in a database the app declares in ikon-config.toml. Pass the database name (matching the Databases = ["name:postgres"] entry) when constructing the reactive; with a single declared database the name can be omitted.
+    // Postgres key-value row in one of the space's own databases, created with ikon app db create --name <name>. Pass that name when constructing the reactive; with a single postgres database in the space the name can be omitted. A name the space lacks is logged once as an error and the state is not saved.
     Postgres
     // The platform picks the store: structured values go to the app's built-in app database when the session has one, while binary payloads (byte[]) — and sessions without a database — use private asset storage. The default for every persistent reactive that does not name a backend.
     Default
@@ -311,6 +338,11 @@ namespace Ikon.Common.Core.Reactive
     static implicit operator T(Reactive<T> r)
     event Action<T>? ValueChanged
     event Func<T, Task>? ValueChangedAsync
+    // extension methods: ReactiveCollectionExtensions{Mutate}
+    // extension methods on Reactive<Dictionary<TKey, TValue>>: ReactiveCollectionExtensions{Clear, Remove, Set}
+    // extension methods on Reactive<HashSet<T>>: ReactiveCollectionExtensions{Add, Clear, Remove}
+    // extension methods on Reactive<List<T>>: ReactiveCollectionExtensions{Add, AddRange, Clear, Insert, Remove, RemoveAll, RemoveAt}
+    // extension methods on Reactive<bool>: ReactiveBoolExtensions{AsToken}
   // Base class for scoped reactive variables: each distinct TScope instance gets its own value, resolved from the active scope. Use directly only for custom scope types — prefer ClientReactive<T> (per-client) or UserReactive<T> (per-user). The required scope must be active when accessing .Value (e.g. inside UI.Root()); otherwise it throws InvalidOperationException.
   class Reactive<T, TScope> : Reactive<T> where TScope : IScopeKey
     ctor(T initialValue)
@@ -318,10 +350,15 @@ namespace Ikon.Common.Core.Reactive
     void SetFor(TScope scope, T value)
     void UpdateFor(TScope scope, Func<T, T> mutator)
     T ValueFor(TScope scope)
+    // extension methods on Reactive<Dictionary<TKey, TValue>>: ReactiveCollectionExtensions{Clear, Remove, Set}
+    // extension methods on Reactive<HashSet<T>>: ReactiveCollectionExtensions{Add, Clear, Remove}
+    // extension methods on Reactive<List<T>>: ReactiveCollectionExtensions{Add, AddRange, Clear, Insert, Remove, RemoveAll, RemoveAt}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
+    // extension methods on Reactive<bool>: ReactiveBoolExtensions{AsToken}
   static class ReactiveBoolExtensions
     // Sets the flag to true and returns an IDisposable that returns it to false on dispose — the busy-flag pattern without the try/finally. Idempotent: disposing twice is safe.
     static IDisposable AsToken(this Reactive<bool> reactive)
-  // Mutation helpers for a Reactive<T> that wraps a mutable collection: they mutate the underlying instance AND fire the change notification in one call, running through the locked Reactive<T>.Update so concurrent mutations serialize. Meant only for the collections with no reactive equivalent yet (Reactive<HashSet<T>>) and legacy Reactive<List<T>> / Reactive<Dictionary<TKey, TValue>> code — prefer ReactiveList<T> / ReactiveDictionary<TKey, TValue>, on which these same spellings bind to the copy-on-write instance members instead.
+  // Mutation helpers for a Reactive<T> that wraps a mutable collection: they mutate the underlying instance AND fire the change notification in one call, running through the locked Reactive<T>.Update so concurrent mutations serialize. Meant only for legacy Reactive<List<T>> / Reactive<Dictionary<TKey, TValue>> / Reactive<HashSet<T>> code — declaring one of those in an app project is build error IKON002. Prefer ReactiveList<T> / ReactiveDictionary<TKey, TValue> / ReactiveHashSet<T>, on which these same spellings bind to the copy-on-write instance members instead.
   static class ReactiveCollectionExtensions
     static void Add<T>(this Reactive<List<T>> reactive, T item)
     static bool Add<T>(this Reactive<HashSet<T>> reactive, T item)
@@ -362,6 +399,8 @@ namespace Ikon.Common.Core.Reactive
     bool TryAdd(TKey key, TValue value)
     bool TryGetValue(TKey key, out TValue value)
     void Update(Action<Dictionary<TKey, TValue>> transform)
+    // extension methods on Reactive<Dictionary<TKey, TValue>>: ReactiveCollectionExtensions{Clear, Remove, Set}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
   // Lifecycle (global): • Constructor runs the body once immediately (initial fire). • Each tracked dep's IReactive.Changed event triggers a re-run. • If a dep changes while a previous run is still in flight, the previous run's CancellationToken is cancelled and one follow-up run is queued. Rapid-fire changes coalesce. • IDisposable.Dispose cancels any in-flight run and detaches all dep subscriptions. • Exceptions in the body (other than OperationCanceledException) are logged and do not disable the effect.
   class ReactiveEffect : IDisposable
     // The token cancels when a dep changes mid-run; respect it for clean cancellation.
@@ -397,6 +436,8 @@ namespace Ikon.Common.Core.Reactive
     void ReplaceAll(IEnumerable<T> items)
     void UnionWith(IEnumerable<T> other)
     void Update(Action<HashSet<T>> transform)
+    // extension methods on Reactive<HashSet<T>>: ReactiveCollectionExtensions{Add, Clear, Remove}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
   // Reads track a dependency exactly like Reactive<T> (reading Value, Count, the indexer, or enumerating during render). Every mutation method fires exactly one notification on its own — _items.Add(x) is the whole call. Reactive<T>.NotifyUpdate is the escape hatch for the one case the mutators cannot see: mutating an item in place (tracker.Progress = 47; _items.NotifyUpdate();). Copy-on-write: every mutation runs under the lock and replaces the backing list with a fresh copy, so concurrent mutations serialize and any list handed out earlier is a stable snapshot. Each mutation copies the whole list, so for batches prefer the single-notify bulk ops (AddRange, ReplaceAll, Update) over per-item calls in a loop.
   class ReactiveList<T> : Reactive<List<T>>, IReadOnlyList<T>
     ctor()
@@ -423,6 +464,9 @@ namespace Ikon.Common.Core.Reactive
     void ReplaceAll(IEnumerable<T> items)
     void Sort(Comparison<T> comparison)
     void Update(Func<IReadOnlyList<T>, IEnumerable<T>> transform)
+    // extension methods on IReadOnlyList<T>, using Ikon.Common.Core: ReadOnlyListExtensions{FindIndex, FindLastIndex, IndexOf}
+    // extension methods on Reactive<List<T>>: ReactiveCollectionExtensions{Add, AddRange, Clear, Insert, Remove, RemoveAll, RemoveAt}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
   // A scope stack supporting multiple overlapping scope types (Client, User, Tenant, etc.), each tracked independently. Scope changes are automatically mirrored to Log.Instance.
   static class ReactiveScope
     static int ClientId { get; }
@@ -440,6 +484,8 @@ namespace Ikon.Common.Core.Reactive
     static IScopeKey? TryGetByName(string name)
     static IDisposable Use(IScopeKey scope)
     static IDisposable Use(params IScopeKey[] scopes)
+    // Restores the caller's own scope of the same name on dispose, unlike Use, which drops it. Reactive scope only: nothing is mirrored to the log, because this is a value-routing hop rather than a unit of work.
+    static IDisposable UseNested(IScopeKey scope)
   // Marker type for the default-value Reactive<T> constructor. Never pass it explicitly — write new Reactive<T>() and the value starts at default(T); passing any argument at all selects the value constructor.
   readonly struct UseDefault
   // Same reactive contract as Reactive<T>, partitioned per user and shared across that user's client sessions (use ClientReactive<T> when each client needs its own value). .Value resolves against the active user scope — inside UI.Root(), an action callback, or a ReactiveScope.Use(new UserScope(...)) block — and throws when none is active. Background work carries no user scope, so name the user instead via SetFor / ValueFor.
@@ -449,7 +495,12 @@ namespace Ikon.Common.Core.Reactive
     void SetFor(string userId, T value)
     void UpdateFor(string userId, Func<T, T> mutator)
     T ValueFor(string userId)
-  // Same contract as ReactiveDictionary<TKey, TValue> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per user exactly like UserReactive<T>. Important: Must be accessed inside UI.Root() or within a ReactiveScope.Use(new UserScope(...)) block. Accessing outside these contexts throws an exception.
+    // extension methods on Reactive<Dictionary<TKey, TValue>>: ReactiveCollectionExtensions{Clear, Remove, Set}
+    // extension methods on Reactive<HashSet<T>>: ReactiveCollectionExtensions{Add, Clear, Remove}
+    // extension methods on Reactive<List<T>>: ReactiveCollectionExtensions{Add, AddRange, Clear, Insert, Remove, RemoveAll, RemoveAt}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
+    // extension methods on Reactive<bool>: ReactiveBoolExtensions{AsToken}
+  // Same contract as ReactiveDictionary<TKey, TValue> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per user exactly like UserReactive<T>. Reads and mutations resolve against the active UserScope — inside UI.Root(), an action callback, or a ReactiveScope.Use(new UserScope(...)) block — and throw when none is active: Main(), the constructor, Task.Run loops, timers and endpoint handlers carry no user scope, so reach one user's partition from there through the …For(userId, …) accessors with an id captured where the scope existed.
   class UserReactiveDictionary<TKey, TValue> : ReactiveDictionary<TKey, TValue>
     ctor()
     ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries)
@@ -458,13 +509,15 @@ namespace Ikon.Common.Core.Reactive
     void SetFor(string userId, TKey key, TValue value)
     void UpdateFor(string userId, Action<Dictionary<TKey, TValue>> transform)
     IReadOnlyDictionary<TKey, TValue> ValueFor(string userId)
+    // extension methods on Reactive<Dictionary<TKey, TValue>>: ReactiveCollectionExtensions{Clear, Remove, Set}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
   // Shorthand for ReactiveEffect<UserScope>: each distinct user gets its own runner; the same user across multiple sessions shares one runner.
   class UserReactiveEffect : ReactiveEffect<UserScope>
     ctor(Func<CancellationToken, Task> body, params IReactive[] deps)
     // Binds an async () => ... body here as a Task-returning delegate instead of the async-void Action overload — constructors are not inherited, so this mirrors the base ReactiveEffect<TScope> overload.
     ctor(Func<Task> body, params IReactive[] deps)
     ctor(Action body, params IReactive[] deps)
-  // Same contract as ReactiveHashSet<T> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per user exactly like UserReactive<T>. Important: Must be accessed inside UI.Root() or within a ReactiveScope.Use(new UserScope(...)) block. Accessing outside these contexts throws an exception.
+  // Same contract as ReactiveHashSet<T> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per user exactly like UserReactive<T>. Reads and mutations resolve against the active UserScope — inside UI.Root(), an action callback, or a ReactiveScope.Use(new UserScope(...)) block — and throw when none is active: Main(), the constructor, Task.Run loops, timers and endpoint handlers carry no user scope, so reach one user's partition from there through the …For(userId, …) accessors with an id captured where the scope existed.
   class UserReactiveHashSet<T> : ReactiveHashSet<T>
     ctor()
     ctor(IEnumerable<T> initialItems)
@@ -473,7 +526,9 @@ namespace Ikon.Common.Core.Reactive
     bool RemoveFor(string userId, T item)
     void UpdateFor(string userId, Action<HashSet<T>> transform)
     IReadOnlyCollection<T> ValueFor(string userId)
-  // Same contract as ReactiveList<T> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per user exactly like UserReactive<T>. Important: Must be accessed inside UI.Root() or within a ReactiveScope.Use(new UserScope(...)) block. Accessing outside these contexts throws an exception.
+    // extension methods on Reactive<HashSet<T>>: ReactiveCollectionExtensions{Add, Clear, Remove}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
+  // Same contract as ReactiveList<T> — tracked reads, one notification per mutation, copy-on-write snapshots — partitioned per user exactly like UserReactive<T>. Reads and mutations resolve against the active UserScope — inside UI.Root(), an action callback, or a ReactiveScope.Use(new UserScope(...)) block — and throw when none is active: Main(), the constructor, Task.Run loops, timers and endpoint handlers carry no user scope, so reach one user's partition from there through the …For(userId, …) accessors with an id captured where the scope existed.
   class UserReactiveList<T> : ReactiveList<T>
     ctor()
     ctor(IEnumerable<T> initialItems)
@@ -484,6 +539,9 @@ namespace Ikon.Common.Core.Reactive
     bool RemoveFor(string userId, T item)
     void UpdateFor(string userId, Func<IReadOnlyList<T>, IEnumerable<T>> transform)
     IReadOnlyList<T> ValueFor(string userId)
+    // extension methods on IReadOnlyList<T>, using Ikon.Common.Core: ReadOnlyListExtensions{FindIndex, FindLastIndex, IndexOf}
+    // extension methods on Reactive<List<T>>: ReactiveCollectionExtensions{Add, AddRange, Clear, Insert, Remove, RemoveAll, RemoveAt}
+    // extension methods on Reactive<T>: ReactiveCollectionExtensions{Mutate}
 
 namespace Ikon.Common.Core.Scope
   // Each time a client connects to the server, it gets a new ClientScope with a unique Id (session ID). This scope is used by ClientReactive<T> to partition state per client. Relationship to UserScope: Multiple ClientScopes can belong to the same user. For example, a user connected from two clients has two different ClientScope IDs but the same UserScope ID. Lifecycle: Active during UI rendering inside UI.Root(). Automatically established by the framework for each client iteration.
@@ -504,7 +562,7 @@ namespace Ikon.Common.Core.Scope
     ctor(string mountId)
     string Id { get; }
     string Name { get; }
-    // The mount id every Ikon app emits today on its single Parallax stream; apps that don't override IAppBase.Mounts render under this id.
+    // Apps that don't override IAppBase.Mounts render under this id.
     const string DefaultMountId
   readonly struct OperationScope : IScopeKey
     ctor()
@@ -522,6 +580,7 @@ namespace Ikon.Common.Core.Scope
     string Name { get; }
     const string Cron
     const string Endpoint
+    const string Trigger
   // Identifies a logical user across their multiple client sessions. Used by UserReactive<T> to share state across a user's multiple connected clients. Lifecycle: Active during UI rendering inside UI.Root(). Automatically established by the framework alongside ClientScope.
   readonly struct UserScope : IScopeKey
     ctor(string userId)
@@ -532,7 +591,7 @@ namespace Ikon.Common.Core.Scope
 ---
 
 # Ikon Persistent State Guide
-
+<!-- checked-against: eb496f6384da121f -->
 How to persist app state across restarts. Read this before reaching for files or hand-rolled storage.
 
 ## TL;DR — what to pick
@@ -573,6 +632,32 @@ Each scope also has persistent collection variants — the durable counterparts 
 | dictionary | `PersistentReactiveDictionary<TKey, TValue>` | `PersistentSessionReactiveDictionary<TKey, TValue>` | `PersistentUserReactiveDictionary<TKey, TValue>` |
 
 The user-scoped classes additionally expose per-user accessors usable outside an active user scope (background tasks): `ValueFor(userId)`, `SetFor(userId, value)`, and `UpdateFor(userId, ...)` on `PersistentUserReactive<T>`; the collection variants have equivalents like `AddFor` / `RemoveFor` / `ClearFor`.
+
+## Starting values — pass them to the constructor
+
+The initial value or items you pass to the constructor are what every user, session or app sees
+until it has state of its own; a partition that was persisted keeps its own. That is the whole
+seeding mechanism — there is no "seed if empty" step to write:
+
+```csharp
+// Every new user starts with two example recipes; a returning user sees their own list.
+private readonly PersistentUserReactiveList<Recipe> _recipes = new(
+[
+    new Recipe("Scrambled eggs", ["2 eggs", "butter"]),
+    new Recipe("Toast", ["bread"]),
+]);
+```
+
+Per-user state is partitioned by the `UserScope` that is active, and only UI callbacks and
+rendering run inside one. `Main()`, the constructor, `Task.Run` loops, timers and endpoint
+handlers run with **no** user active, so reading or adding to a user-scoped value there throws
+(`Cannot read reactive variable '_recipes': it is partitioned per UserScope, and no UserScope is
+active`). To touch one user's partition from such a place, capture the id where the scope exists
+(`var userId = ReactiveScope.UserId;` inside the callback) and use the per-user accessors —
+`ValueFor(userId)` / `SetFor(userId, …)` / `UpdateFor(userId, …)` on a `PersistentUserReactive<T>`,
+`AddFor(userId, …)` / `RemoveFor` / `ClearFor` / `UpdateFor` on the collection variants. Session-scoped
+and global values need no scope: the session is the app instance itself, so they read and write
+like any other reactive from anywhere, `Main()` included.
 
 ## Backends — the default does the right thing
 
@@ -618,7 +703,7 @@ Postgres, asset storage is for binaries and public files:
 
 Existing data migrates by itself: when a structured value first loads from the `app` database and finds
 no row, the old asset location is read and the value is copied into Postgres, so the next load hits
-the row. The old asset blob is left in place. Apps already using a declared DB with
+the row. The old asset blob is left in place. Apps already using a named database with
 `backend: PersistenceBackend.Postgres` are untouched by all of this.
 
 Every load and save logs its destination at debug level (member name, scope, and the postgres
@@ -759,12 +844,15 @@ in until the type is a Teleport data schema.
 - ❌ Using `Public` backend for anything sensitive — assets get a real URL on the open web.
 - ❌ Constructing AssetUris by hand for state that fits a `PersistentXxxReactive`.
 - ❌ Using `Guid.NewGuid()` as `key:` — it changes on restart.
+- ❌ Seeding a user-scoped value from `Main()` or the constructor (`if (_list.Count == 0) _list.Add(...)`) — no `UserScope` is active there, so it throws; pass the starting items to the constructor instead.
 - ❌ Assuming the postgres-backed storage reads or writes through on every access — like the asset backends, the row is only read at load and written at save; in between, the value lives in memory. For read-your-writes durability, go through `app.Databases` directly.
 
 ## When to drop down to `Asset.Instance` directly
 
 Reach for `Asset.Instance` (with a hand-built `AssetUri`) only when:
-- You need to list files (`Asset.Instance.ListAsync`), not just read/write a known one.
+- You need to list files (`Asset.Instance.ListAsync`), not just read/write a known one — and only for
+  `AssetClass.LocalFile` or `AssetClass.EmbeddedFile`. The cloud classes throw `NotSupportedException`
+  on listing, so cloud files you must enumerate later need their keys kept in a persistent reactive.
 - You need streaming reads/writes for very large files (multi-GB).
 - The data isn't naturally a typed reactive value (e.g., a uploaded user file you only ever fetch on demand).
 

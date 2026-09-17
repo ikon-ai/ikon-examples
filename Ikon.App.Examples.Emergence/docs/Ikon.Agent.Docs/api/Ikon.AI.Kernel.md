@@ -101,6 +101,10 @@ namespace Ikon.AI.Kernel
     bool UseUserNames { get; init; }
     KernelContext Add(Instruction instruction)
     KernelContext Add(MessageBlock message)
+    // Clears results until the estimate is at or under targetTokens or only kept results remain; returns how many it cleared. Stubs are never cleared again.
+    KernelContext ClearOldFunctionResults(long targetTokens, int keep, IReadOnlyCollection<string>? excludedTools, out int cleared)
+    long EstimateInputTokens()
+    static bool IsClearedResult(object result)
     KernelContext KeepMessagesMax(int count)
     KernelContext WithFunctions(IEnumerable<Function>? functions, bool replaceExisting = false)
   // Consume by switching on the concrete record case; forward any case you do not handle unchanged so downstream consumers still receive it.

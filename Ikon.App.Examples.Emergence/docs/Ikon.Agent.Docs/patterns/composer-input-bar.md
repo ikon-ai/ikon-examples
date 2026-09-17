@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Composer Input Bar — The Chat Input You Do Not Rebuild
-
+<!-- checked-against: 44256c2c885acba6 -->
 `view.Composer` is a complete input bar: attach button, drag-and-drop, paste, auto-growing text,
 attachment chips, send, and an optional push-to-talk mic. Apps rebuild this out of a `TextField`
 and a `Button` and lose most of it — the paste handling, the drop target, the row growth, the chip
@@ -28,9 +28,12 @@ something. For a single-line search or filter field, `TextField` is the right si
 - `accept:` is a **string array** (`["image/*", ".pdf"]`), never the HTML attribute string.
 - The mic renders only when **both** capture callbacks (`onCaptureStart`, `onCaptureStop`) are
   wired. Transcription is the app's job — see `voice-loop`.
-- `onAttachmentAdded` gives `FileUploadCompleteArgs`, so the destination follows the ordinary
-  upload rules: return an `AssetUri` from an upload start to stream into asset storage, or take
-  `LocalTempFilePath` for something consumed once. Exactly one of the two is non-null.
+- `onAttachmentAdded` gives `FileUploadCompleteArgs`, but **`Composer` always lands its
+  attachments in a local temp file**: it wires only the complete and error hooks, and there is no
+  `onUploadStart` parameter to return an `AssetUri` from, so `args.AssetUri` is always null here
+  and `args.LocalTempFilePath` always set. The temp directory is deleted when the app stops — copy
+  anything you keep. To stream a composer attachment into asset storage instead, build the bar out
+  of `view.FileUploadZone` yourself, which does take `onUploadPreStart`/`onUploadStart`.
 - `onAttachmentError` carries `FileName` and `ErrorMessage`. A failed upload that is not surfaced
   leaves a chip the send will not carry.
 - Every slot has a style parameter (`fieldStyle`, `chipStyle`, `sendButtonStyle`, `micStyle`, …)

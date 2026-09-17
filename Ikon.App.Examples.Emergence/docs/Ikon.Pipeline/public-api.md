@@ -16,6 +16,10 @@ namespace Ikon.Pipeline
     // If set, overrides the schedule defined on the original [Pipeline] attribute. The same 5-minute minimum interval applies as on PipelineAttribute.Schedule.
     string? Schedule { get; }
   static class FunctionRegistryExtensions
+    // registry: The function registry.
+    // functionName: Name of the function to register.
+    // description: Optional description for the function.
+    // configInstance: Optional configuration instance for the pipeline.
     static void RegisterPipeline<TPipeline>(this FunctionRegistry registry, string functionName, string? description = null, object? configInstance = null) where TPipeline : class
   interface IPipelineHost<out TConfig>
     TConfig Config { get; }
@@ -27,6 +31,7 @@ namespace Ikon.Pipeline
     string SpaceId { get; }
   // For the special case where a path on the local filesystem is needed — normally use the Item.GetContent* methods. Item.GetLocalFile copies an Item's content to a local file; constructing a LocalFile directly gives a temporary file path to write to (no file exists until written), from which a new Item can be created. The MIME type determines the temporary file's extension and is used when creating an Item from the LocalFile. Dispose deletes the file only when it was created as temporary; a file supplied as existingFilePath is never deleted.
   sealed class LocalFile : IDisposable
+    // mimeType: MIME type of the file.
     // existingFilePath: Optional existing file path to use. If not provided, a temporary file path will be created.
     ctor(string mimeType, string? existingFilePath = null)
     string MimeType { get; }
@@ -59,14 +64,17 @@ namespace Ikon.Pipeline
     // Terminal: ends the branch. Sends each item to the pipeline's configured output(s).
     // maxParallelism: Optional maximum degree of parallelism for the output operation.
     void Output(int? maxParallelism = null)
+    // item: The item to post.
     // throws PipelineException: This branch is not the pipeline input branch, the maximum input item count has been exceeded, or the item was declined because the pipeline has been completed.
     void Post(T item)
+    // items: Items to be posted.
     // throws PipelineException: This branch is not the pipeline input branch, the maximum input item count has been exceeded, or an item was declined because the pipeline has been completed.
     void Post(List<T> items)
     // Await the returned task to observe completion and surface any errors from draining stream.
     // stream: Sequence producing items to post.
     // throws PipelineException: This branch is not the pipeline input branch, the maximum input item count has been exceeded, or an item was declined because the pipeline has been completed.
     Task Post(IAsyncEnumerable<T> stream)
+    // transformExpr: Expression representing the transformation.
     Pipeline<T>.Branch Transform(Expression<Func<T, Task<List<T>>>> transformExpr, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
     // transformExpr: Expression representing the batch transformation.
     // maxBatchSize: When specified, size of the batch to trigger processing.
@@ -80,7 +88,9 @@ namespace Ikon.Pipeline
     // groupKeyFunc: Function producing the group key for an item.
     // transformFunc: Function that transforms a group of items sharing the same key.
     Pipeline<T>.Branch TransformGroupLambda(Func<T, Task<string>> groupKeyFunc, Func<List<T>, Task<List<T>>> transformFunc, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
+    // transformFunc: Transformation function.
     Pipeline<T>.Branch TransformLambda(Func<T, Task<List<T>>> transformFunc, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
+    // transformExpr: Expression representing the transformation.
     Pipeline<T>.Branch TransformStream(Expression<Func<T, IAsyncEnumerable<T>>> transformExpr, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
     // transformExpr: Expression representing the stream transformation.
     Pipeline<T>.Branch TransformStream(Expression<Func<IAsyncEnumerable<T>, IAsyncEnumerable<T>>> transformExpr, string? id = null, int? maxParallelism = null, int? maxRetries = null, bool? skipCache = null, bool? allowDuplicates = null, ProcessorTags[]? tags = null, Type[]? retryableExceptionTypes = null)
@@ -130,7 +140,11 @@ namespace Ikon.Pipeline
     // Only one runner may exist per process at a time — the runner registers a process-global adapter, so constructing a second while one is still alive (even in a different async context) throws.
     ctor()
     void Dispose()
+    // config: Runner configuration.
     Task Initialize(PipelineRunner.Config config)
+    // userPipelineInstance: Optional user pipeline instance to use.
+    // userConfigInstance: Optional user configuration instance for the pipeline.
+    // usePersistentCache: Whether persistent caches should be used.
     // keepRunning: Whether the runner should keep watching for input.
     // outputPath: Optional output path that will be used instead of in-memory output.
     Task Initialize<TPipeline>(TPipeline? userPipelineInstance = default, object? userConfigInstance = null, bool usePersistentCache = false, string? cachePath = null, bool keepRunning = false, string? outputPath = null, bool allApiKeys = false) where TPipeline : class
@@ -141,6 +155,7 @@ namespace Ikon.Pipeline
     // items: Optional set of in-memory items to feed into the pipeline.
     // cancellationToken: Token used to cancel pipeline execution.
     IAsyncEnumerable<Item> RunAsEnumerable(List<Item>? items = null, CancellationToken cancellationToken = default)
+    // configJson: JSON serialized configuration.
     // onStatusUpdate: Callback to receive JSON serialized status updates.
     // cancellationToken: Token used to cancel pipeline execution.
     static Task RunInExternalAssembly(string configJson, Action<string> onStatusUpdate, CancellationToken cancellationToken)
@@ -159,7 +174,9 @@ namespace Ikon.Pipeline
     bool AllApiKeys { get; set; }
     string? CachePath { get; set; }
     bool ClearCache { get; set; }
+    // Path to a JSON configuration file for the pipeline's config type. When set, the file must exist — a missing file fails the run rather than running with defaults.
     string? ConfigPath { get; set; }
+    // Defaults to CacheType.FileSystem, which keeps item content on disk under CachePath between runs; CacheType.InMemory is discarded with the process.
     CacheType ContentCacheType { get; set; }
     bool DefaultDisableProcessCache { get; set; }
     // Default degree of parallelism for processors when not overridden. Defaults to Environment.ProcessorCount × 4 when left null.
@@ -189,9 +206,12 @@ namespace Ikon.Pipeline
     string? ProcessingId { get; set; }
     string? RabbitMQConnectionString { get; set; }
     bool RecursiveInput { get; set; }
+    // Seconds the remote host waits for the next message of a remote processor call before failing the call with a TimeoutException (retryable). Default 1800; 0 waits forever. Without it a client that died mid-call, or an unroutable call, hangs the host run.
+    int RemoteCallTimeoutSeconds { get; set; }
     List<string>? RemoteClientProcessorWhiteList { get; set; }
     // Seconds between input scans when KeepRunning is enabled. Default 10.
     int ScanInterval { get; set; }
+    // Defaults to StateType.SqLiteBatch, a SQLite file under CachePath that survives between runs; StateType.InMemory is discarded with the process.
     StateType StateType { get; set; }
     // Seconds between status update callbacks. Default 15.
     int StatusUpdateInterval { get; set; }
@@ -206,10 +226,14 @@ namespace Ikon.Pipeline
     int ErrorLogCount { get; set; }
     bool HasCompleted { get; set; }
     bool HasFaulted { get; set; }
+    // Inputs that were found but never reached the pipeline (unreadable file, corrupt archive, state error). Counts against the failure threshold together with ProcessFailureCount and OutputFailureCount.
+    int InputFailureCount { get; set; }
     int InputItemCacheHits { get; set; }
     int InputItemCacheMiss { get; }
     int InputItemCount { get; set; }
     int InvalidItemCount { get; set; }
+    // Output items that could not be written to a configured output. Counts against the failure threshold together with ProcessFailureCount and InputFailureCount.
+    int OutputFailureCount { get; set; }
     int OutputItemCacheHits { get; set; }
     int OutputItemCacheMiss { get; }
     int OutputItemCount { get; set; }
@@ -220,6 +244,8 @@ namespace Ikon.Pipeline
     int ProcessedItemCount { get; set; }
     string ProcessingId { get; set; }
     DateTime StartTime { get; set; }
+    // Every item lost anywhere in the run: InputFailureCount + ProcessFailureCount + OutputFailureCount. This is the number the failure threshold is compared against.
+    int TotalFailureCount { get; }
     Dictionary<string, double> Usages { get; set; }
     int WarningLogCount { get; set; }
     bool WasCancelled { get; set; }
@@ -251,7 +277,7 @@ namespace Ikon.Pipeline.Items
     Task<bool> IsObjectAsync<TObject>()
     // processId: Identifier associated with the processor run.
     T WithProcessId(Guid processId)
-  // Immutable, lightweight pointer: it carries a content hash, not the bytes (which live in the content cache). Produce modified copies via the With* methods rather than mutating. The hash is derived from content, MIME type, parent hashes, and tags, so any of those differing yields a distinct item. MIME type is auto-detected from the content when not supplied and sets the output file extension.
+  // Immutable, lightweight pointer: it carries a content hash, not the bytes (which live in the content cache). Produce modified copies via the With* methods rather than mutating. The hash is computed once at creation: Create hashes content, MIME type, parent hashes and tags; CreateInitial hashes content and MIME type only, so initial items differing solely in tags share a hash. With* copies keep the hash whatever they change. MIME type is auto-detected from the content when not supplied and sets the output file extension.
   readonly struct Item : IItem<Item>
     // Do not construct directly — always create items via the static Create, CreateInitial, or CreateFromObject methods.
     ctor()
@@ -269,36 +295,98 @@ namespace Ikon.Pipeline.Items
     IReadOnlyList<string>? Tags { get; init; }
     // Called from processors during the run; the parent items feed the new item's hash. To seed inputs before Run, use CreateInitial.
     // parents: Parent items used to compute the new item's hash.
+    // name: Name of the new item.
+    // content: Content stream.
+    // mimeTypeOverride: MIME type of the content.
     // tags: Optional tags associated with the item.
+    // metadata: Optional metadata.
     static Task<Item> Create(List<Item> parents, string name, Stream content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
+    // parent: Parent item.
+    // name: Name of the new item.
+    // content: Content stream.
+    // mimeTypeOverride: MIME type of the content.
+    // tags: Optional tags.
+    // metadata: Optional metadata.
     static Task<Item> Create(Item parent, string name, Stream content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
+    // parents: Parent items.
+    // name: Name of the new item.
     // content: UTF-8 string content.
+    // mimeTypeOverride: MIME type of the content.
+    // tags: Optional tags.
+    // metadata: Optional metadata.
     static Task<Item> Create(List<Item> parents, string name, string content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
+    // parent: Parent item.
+    // name: Name of the new item.
     // content: UTF-8 string content.
+    // mimeTypeOverride: MIME type of the content.
+    // tags: Optional tags.
+    // metadata: Optional metadata.
     static Task<Item> Create(Item parent, string name, string content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
+    // parents: Parent items.
+    // name: Name of the new item.
+    // content: Binary content.
+    // mimeTypeOverride: MIME type of the content.
+    // tags: Optional tags.
+    // metadata: Optional metadata.
     static Task<Item> Create(List<Item> parents, string name, byte[] content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
+    // parent: Parent item.
+    // name: Name of the new item.
+    // content: Binary content.
+    // mimeTypeOverride: MIME type of the content.
+    // tags: Optional tags.
+    // metadata: Optional metadata.
     static Task<Item> Create(Item parent, string name, byte[] content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
+    // parents: Parent items.
+    // name: Name of the new item.
     // content: Local file containing the content.
+    // tags: Optional tags.
+    // metadata: Optional metadata.
     static Task<Item> Create(List<Item> parents, string name, LocalFile content, List<string>? tags = null, ItemMetadata? metadata = null)
+    // parent: Parent item.
+    // name: Name of the new item.
     // content: Local file containing the content.
+    // tags: Optional tags.
+    // metadata: Optional metadata.
     static Task<Item> Create(Item parent, string name, LocalFile content, List<string>? tags = null, ItemMetadata? metadata = null)
     // Serializes content to JSON. Use inside the pipeline; before Run use CreateInitialFromObject<T>.
+    // parents: Parent items.
+    // name: Name of the new item.
     // content: Object to serialize.
+    // tags: Optional tags.
+    // metadata: Optional metadata.
+    // jsonSerializerOptions: Optional JSON serializer options.
     static Task<Item> CreateFromObject<T>(List<Item> parents, string name, T content, List<string>? tags = null, ItemMetadata? metadata = null, JsonSerializerOptions? jsonSerializerOptions = null)
+    // parent: Parent item.
+    // name: Name of the new item.
     // content: Object to serialize.
+    // tags: Optional tags.
+    // metadata: Optional metadata.
+    // jsonSerializerOptions: Optional JSON serializer options.
     static Task<Item> CreateFromObject<T>(Item parent, string name, T content, List<string>? tags = null, ItemMetadata? metadata = null, JsonSerializerOptions? jsonSerializerOptions = null)
     // For seeding input items after the pipeline is initialized but before Run. Inside a running pipeline use Create instead.
+    // name: Name of the item.
     // content: Stream containing the item content.
     // mimeTypeOverride: Optional MIME type to use instead of auto detection.
     // tags: Optional tags associated with the item.
+    // metadata: Optional metadata for the item.
     static Task<Item> CreateInitial(string name, Stream content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
+    // name: Name of the item.
     // content: UTF-8 string content.
+    // mimeTypeOverride: Optional MIME type override.
     // tags: Optional tags associated with the item.
+    // metadata: Optional metadata for the item.
     static Task<Item> CreateInitial(string name, string content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
+    // name: Name of the item.
+    // content: Binary content.
+    // mimeTypeOverride: Optional MIME type override.
     // tags: Optional tags associated with the item.
+    // metadata: Optional metadata for the item.
     static Task<Item> CreateInitial(string name, byte[] content, string? mimeTypeOverride = null, List<string>? tags = null, ItemMetadata? metadata = null)
+    // name: Name of the item.
     // content: Object to serialize.
+    // metadata: Optional metadata for the item.
     // tags: Optional tags associated with the item.
+    // jsonSerializerOptions: Optional JSON serializer options.
     static Task<Item> CreateInitialFromObject<T>(string name, T content, ItemMetadata? metadata = null, List<string>? tags = null, JsonSerializerOptions? jsonSerializerOptions = null)
     Task<byte[]> GetContentAsBytes()
     Task<TObject> GetContentAsObject<TObject>()
@@ -347,6 +435,12 @@ namespace Ikon.Pipeline.Items
     Task<bool> IsVideoAsync()
     bool IsXml()
     Task<bool> IsXmlAsync()
+    // name: Optional new name.
+    // mimeType: Optional MIME type override.
+    // processId: Optional process identifier.
+    // groupId: Optional group identifier.
+    // tags: Optional tag collection.
+    // metadata: Optional metadata override.
     Item With(string? name = null, string? mimeType = null, Guid? processId = null, string? groupId = null, List<string>? tags = null, ItemMetadata? metadata = null)
     Item WithProcessId(Guid processId)
     const string ObjectMimeTypePrefix
@@ -359,7 +453,7 @@ namespace Ikon.Pipeline.Items
   readonly struct ItemMetadata
     // Do not use. Use the constructor which takes a parent ItemMetadata instead.
     ctor()
-    // Inherits values from the provided parent metadata where a parameter is not supplied.
+    // Inherits values from the provided parent metadata where a parameter is not supplied, except PreviousItemName and NextItemName: those are sequence links of the new item and are always taken from the parameters (null when omitted), never from the parent.
     ctor(ItemMetadata? parent, string? previousItemName = null, string? nextItemName = null, string? originalPath = null, string? originalName = null, DateTime? createdAt = null, DateTime? updatedAt = null, string? documentType = null, string? documentTitle = null, IReadOnlyList<string>? titleHierarchy = null, int? pageNumber = null, IReadOnlyList<int>? pageNumbers = null, int? pageCount = null, IReadOnlyDictionary<string, string>? properties = null, string? customJson = null)
     DateTime? CreatedAt { get; init; }
     string? CustomJson { get; init; }

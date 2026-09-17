@@ -7,7 +7,15 @@ public partial class Emergence
     {
         public string Content { get; set; } = "";
         public string Style { get; set; } = "";
-        public int WordCount { get; set; }
+    }
+
+    // The judge's verdict on one candidate, each axis 0-10
+    public sealed class TaglineJudgement
+    {
+        public int Memorability { get; set; }
+        public int BriefFit { get; set; }
+        public int Originality { get; set; }
+        public string Verdict { get; set; } = "";
     }
 
     // BestOf configuration
@@ -47,7 +55,7 @@ public partial class Emergence
                         view.Text([Text.Caption, "text-blue-400 font-semibold mb-1"], "How BestOf works:");
                         view.Text([Text.Caption, "text-blue-300"],
                             $"1. Generates {_candidateCount.Value} candidates with different temperatures\n" +
-                            $"2. Scores each on length, lexical richness, structure, and style\n" +
+                            $"2. A fast judge model scores each on memorability, fit to the brief, and originality\n" +
                             $"3. Returns the highest-scoring candidate\n" +
                             $"You'll see Stage events for each candidate generation.");
                     });
@@ -198,66 +206,14 @@ public partial class Emergence
                     {bo.JsonSchema}
                     """;
                 bo.Count = count;
-                bo.Score = (response, trace) =>
+                // The judge reads the tagline the way a reader would, in whatever language the
+                // brief is in; a rubric of word counts and character bands would only ever fit one.
+                bo.ScoreAsync = async (response, _) =>
                 {
-                    var text = response.Content;
-                    var score = 0.0;
-
-                    // Length sweet spot: 30-120 chars is ideal for a tagline (0-0.25)
-                    var len = text.Length;
-                    var lengthScore = len switch
-                    {
-                        >= 30 and <= 80 => 0.25,
-                        >= 20 and <= 120 => 0.15,
-                        > 0 => 0.05,
-                        _ => 0.0
-                    };
-                    score += lengthScore;
-
-                    // Lexical richness: unique words / total words (0-0.25)
-                    var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-                    if (words.Length > 0)
-                    {
-                        var uniqueRatio = (double)words.Select(w => w.ToLowerInvariant().Trim(',', '.', '!', '?', '"', '\'')).Distinct().Count() / words.Length;
-                        score += uniqueRatio * 0.25;
-                    }
-
-                    // Punctuation and structure: questions, alliteration, wordplay signals (0-0.2)
-                    if (text.Contains('—') || text.Contains('–') || text.Contains(':'))
-                    {
-                        score += 0.07;
-                    }
-
-                    if (text.Contains('?') || text.Contains('!'))
-                    {
-                        score += 0.05;
-                    }
-
-                    // Check for alliteration (consecutive words starting with same letter)
-                    for (var wi = 0; wi < words.Length - 1; wi++)
-                    {
-                        if (words[wi].Length > 0 && words[wi + 1].Length > 0 &&
-                            char.ToLowerInvariant(words[wi][0]) == char.ToLowerInvariant(words[wi + 1][0]))
-                        {
-                            score += 0.04;
-                            break;
-                        }
-                    }
-
-                    // Uncommon word bonus: longer words suggest richer vocabulary (0-0.15)
-                    var avgWordLen = words.Length > 0 ? words.Average(w => w.Length) : 0;
-                    score += Math.Min(avgWordLen / 40.0, 0.15);
-
-                    // Style field filled in meaningfully (0-0.15)
-                    if (!string.IsNullOrWhiteSpace(response.Style) && response.Style.Length > 5)
-                    {
-                        score += 0.15;
-                    }
-
-                    var finalScore = Math.Min(score, 1.0);
-                    state.Log($"Scored candidate: {finalScore:F2} (len={len}, words={words.Length}, richness={score - lengthScore:F2}) - \"{TruncateJson(text, 60)}\"", LogLevel.Result);
-                    return finalScore;
+                    var judgement = await JudgeTaglineAsync(prompt, response);
+                    var score = (judgement.Memorability + judgement.BriefFit + judgement.Originality) / 30.0;
+                    state.Log($"Judged candidate: {score:F2} (memorability={judgement.Memorability}, fit={judgement.BriefFit}, originality={judgement.Originality}) - \"{TruncateJson(response.Content, 60)}\" — {judgement.Verdict}", LogLevel.Result);
+                    return score;
                 };
 
                 bo.Candidate(c =>
@@ -290,5 +246,22 @@ public partial class Emergence
         {
             state.IsRunning.Value = false;
         }
+    }
+
+    private static async Task<TaglineJudgement> JudgeTaglineAsync(string brief, CreativeResponse candidate)
+    {
+        return await Emerge.Run<TaglineJudgement>(LLMModel.Claude45Haiku, pass =>
+        {
+            pass.SystemPrompt = "You are a brand copy critic. Judge a tagline against its brief strictly and consistently, in the tagline's own language.";
+            pass.Command = $"""
+                Brief: {brief}
+
+                Tagline: {candidate.Content}
+                Style: {candidate.Style}
+
+                Score the tagline 0-10 on each axis: Memorability (would a reader recall it tomorrow), BriefFit (does it say what the brief asked for), Originality (is it free of stock phrasing). Add a one-sentence Verdict.
+                """;
+            pass.Temperature = 0.0;
+        });
     }
 }

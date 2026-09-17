@@ -1,6 +1,6 @@
 <!-- mined-from: Transcript -->
 # MapReduce Long-Document Summary — Chunk → Summarize → Combine
-
+<!-- checked-against: 711d0fc1df3cea9f -->
 A long document (transcript, paper, report) is split into fixed-size character chunks, each chunk summarized in parallel via `Emerge.MapReduce`, and the per-chunk summaries combined in a single reduce step into one cohesive summary plus action items. Returns structured JSON via the schema interpolated into the prompt.
 
 ## When to use

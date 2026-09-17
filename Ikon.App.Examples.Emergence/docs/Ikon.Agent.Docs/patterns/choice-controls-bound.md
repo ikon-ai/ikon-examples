@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Choice Controls Bound To State — Which Control Takes `bind:` And Which Does Not
-
+<!-- checked-against: 18ea315eb79f9aa9 -->
 `bind:` is the two-way form: it reads the reactive's `.Value` and writes back on every change,
 `value:` is ignored when it is set, and `onValueChange` still fires after the write-back. But the
 controls do not all accept it, and the ones that look most alike differ the most.

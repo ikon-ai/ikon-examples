@@ -1,6 +1,6 @@
 <!-- mined-from: Sentinel -->
 # Toast Notifications — Auto-dismissing tone-coded pill
-
+<!-- checked-against: 1aefcc371a5092a4 -->
 A bottom-right pill that appears for ~3 seconds with an icon, message, tone-keyed colors (success/error/warn/info), and a manual close button. Fired imperatively from any handler via `ShowToast(text, tone)`. State lives in a single `ClientReactive<(string, string, DateTime)?>` so each client sees their own toast.
 
 ## When to use
@@ -10,12 +10,28 @@ Confirming success of any side-effect the user can't immediately verify visually
 ## Snippet
 
 ```csharp
+private const int ToastLifetimeMs = 3000;
+
 private readonly ClientReactive<(string Text, string Tone, DateTime At)?> _toast =
     new(initialValue: ((string, string, DateTime)?)null);
 
+/// <summary>
+/// Called from a handler, where the client scope is active. The delayed clear is background
+/// work off that handler's stack, so it names the session captured here instead of relying on
+/// an ambient scope; matching on the timestamp keeps it from wiping a newer toast shown inside
+/// the window.
+/// </summary>
 private void ShowToast(string text, string tone = "success")
 {
-    _toast.Value = (text, tone, DateTime.UtcNow);
+    var shownAt = DateTime.UtcNow;
+    _toast.Value = (text, tone, shownAt);
+    _ = ClearLaterAsync(ReactiveScope.ClientId, shownAt);
+}
+
+private async Task ClearLaterAsync(int clientSessionId, DateTime shownAt)
+{
+    await Task.Delay(ToastLifetimeMs);
+    _toast.UpdateFor(clientSessionId, current => current is { At: var at } && at == shownAt ? null : current);
 }
 
 private void RenderToast(UIView view)
@@ -27,7 +43,7 @@ private void RenderToast(UIView view)
 
     var ageMs = (DateTime.UtcNow - t.At).TotalMilliseconds;
 
-    if (ageMs > 3000)
+    if (ageMs > ToastLifetimeMs)
     {
         return;
     }
@@ -66,8 +82,8 @@ private void Render(IView view)
 
 ## Notes
 
-- The render method early-returns when `_toast.Value` is null OR when the toast is older than 3000ms — no background timer needed. The reactive system re-renders on every state change anyway, and the auto-fade happens because the next render after the 3s mark will return early.
-- For cases where the toast must vanish even without another reactive update, schedule a single `Task.Delay(3000)` after `ShowToast` that nulls `_toast.Value`. The age-check is the safety net.
+- `ShowToast` schedules the clear that makes the toast vanish without another reactive update. That continuation is background work, so it does not touch `_toast.Value` — it writes through `UpdateFor` with the `ReactiveScope.ClientId` captured while the handler's scope was active, and only when the toast it was scheduled for is still the one showing.
+- The render method also early-returns when the toast is older than `ToastLifetimeMs`, so a render triggered by any other state change drops a stale toast on its own. The age check is the safety net, not the mechanism.
 - Tone-keyed tuples (`bg, ring, accent, icon`) keep the styling decision in one switch — adding a new tone is a single line.
 - `ClientReactive<...>` is correct here: a toast on operator A's screen should not appear on operator B's screen.
 - The motion class fades + slides up on entry; manual close is provided so users who need the message gone faster don't have to wait.

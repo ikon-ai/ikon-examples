@@ -1,4 +1,13 @@
 namespace Ikon.Parallax.Components.Standard
+  static class ComposerExtensions
+    // A complete input bar — attach button, drag-and-drop, paste, auto-growing text, optional push-to-talk — so apps do not rebuild it. Stateless: pass the draft in value and the pending files in attachments, and store what the callbacks hand back. onSubmit receives the submitted text, empty when the Send button was clicked rather than Enter pressed: take it when it is non-empty and fall back to the draft, because a surface switch can clear the draft between the keystroke and the handler. The mic renders only when both capture callbacks are wired; transcription is the app's job. Per-slot style parameters restyle every part, and label parameters localize every string.
+    // seedSelectionIds: Ids from a prior FilePicker selection, uploaded on mount (see FileUploadZone).
+    // onAttachmentAdded: A file was picked, dropped, or pasted and finished uploading; its temp path is in the args.
+    // onCaptureStop: Push-to-talk released — transcribe the capture and append it to the draft.
+    static void Composer(this UIView view, string[]? style = null, string? value = null, string? placeholder = null, bool busy = false, IReadOnlyList<ComposerAttachment>? attachments = null, string[]? accept = null, long? maxFileSize = null, int? maxRows = null, bool? autoFocus = null, string[]? seedSelectionIds = null, string[]? fieldStyle = null, string[]? chipStyle = null, string[]? attachButtonStyle = null, string[]? sendButtonStyle = null, string[]? micStyle = null, string[]? activeStyle = null, string attachLabel = "Attach files", string sendLabel = "Send", string holdToTalkLabel = "Hold to talk", string releaseLabel = "Release to send", string? key = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, Func<FileUploadCompleteArgs, Task>? onAttachmentAdded = null, Func<FileUploadErrorArgs, Task>? onAttachmentError = null, Func<int, Task>? onAttachmentRemoved = null, Func<MediaCaptureEvent, Task>? onCaptureStart = null, Func<MediaCaptureEvent, Task>? onCaptureStop = null)
+  sealed record ContactsActionEvent : ActionEvent
+    ctor(bool Success, IReadOnlyList<ClientContact>? Contacts)
+    IReadOnlyList<ClientContact>? Contacts { get; init; }
   static class ContainerExtensions
     // onClick: Accepts sync (() => …) and async (async () => …) lambdas alike. A clickable Box automatically carries button semantics — role="button", tabIndex=0, Enter/Space activation. Override either through props, and give an icon-only Box an ["aria-label"].
     static void Box(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Delegate? onClick = null, Action<UIView>? content = null, string? ariaLabel = null)
@@ -42,7 +51,7 @@ namespace Ikon.Parallax.Components.Standard
     // text: Visible button text. When content is provided it instead becomes the accessible aria-label.
     // href: URL to navigate to when clicked; renders the button as an anchor element.
     // icon: Lucide icon name rendered alongside the text; content (when provided) wins over it.
-    // tooltip: Hover text rendered with the themed Tooltip; it also becomes the accessible name when nothing else names the control. Do not use a title prop instead.
+    // tooltip: Hover text rendered with the themed OverlayExtensions.Tooltip; it also becomes the accessible name when nothing else names the control. Do not use a title prop instead.
     // tooltipRootStyle: Styles for the tooltip wrapper, the element that sits in the parent's layout — responsive and positioning classes go here, not on the button. Defaults to inline-flex shrink-0.
     static void Button(this UIView view, string[]? style = null, string? text = null, bool? disabled = null, string? href = null, string? type = null, string? target = null, string? rel = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Delegate? onClick = null, string? icon = null, Align iconPosition = Start, Action<UIView>? content = null, string? tooltip = null, string[]? tooltipRootStyle = null, string? ariaLabel = null, Delegate? onPressStart = null, Delegate? onPressEnd = null)
     static void Button(this UIView view, string buttonText, string[]? style = null, bool? disabled = null, string? href = null, string? type = null, string? target = null, string? rel = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Delegate? onClick = null, string? icon = null, Align iconPosition = Start, Action<UIView>? content = null, string? tooltip = null, string[]? tooltipRootStyle = null, string? ariaLabel = null, Delegate? onPressStart = null, Delegate? onPressEnd = null)
@@ -78,7 +87,7 @@ namespace Ikon.Parallax.Components.Standard
     Rtl
   static class DisclosureExtensions
     static void AccordionContent(this UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // Wraps an AccordionTrigger.
+    // The item's heading element; renders content as is. Put the AccordionTrigger inside it yourself — none is added automatically.
     static void AccordionHeader(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     static void AccordionItem(this UIView view, string[]? style = null, string? value = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
     static void AccordionMultiple(this UIView view, string[]? style = null, IReadOnlyList<string>? value = null, IReadOnlyList<string>? defaultValue = null, Orientation orientation = Vertical, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<IReadOnlyList<string>, Task>? onValueChange = null, Action<UIView>? content = null)
@@ -91,50 +100,13 @@ namespace Ikon.Parallax.Components.Standard
     static void CollapsibleTrigger(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
   sealed record DownloadFileActionOptions : ActionOptions
     ctor()
+    // The mirror of an upload that streams into asset storage via onUploadStart: here the browser reads back out of it, over a signed URL, without the bytes passing through the app. Use AssetClass.CloudFile so the URL is private and temporal, and give the object an expiresAt if it was staged only for this download. Ignored when Data, Url or UrlProvider is set.
+    Func<Task<AssetUri>>? AssetProvider { get; init; }
     byte[]? Data { get; init; }
+    string? DataActionId { get; init; }
     string? Filename { get; init; }
     string? MimeType { get; init; }
     // Regular or data URL. When Data is set, auto-generated as a data URL using MimeType, falling back to "application/octet-stream" when MimeType is unset.
     string Url { get; init; }
-  static class DragAndDropExtensions
-    // onDragEnd: Invoked when the drag operation ends (dropped or cancelled).
-    // activationDistance: Pixels of pointer movement before a drag activates; a pointerdown below the threshold is delivered as a normal click (inner Button.onClick fires). Null: drag activates immediately.
-    static void DndContext(this UIView view, string[]? style = null, CollisionDetection collisionDetection = ClosestCenter, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<DragStartArgs, Task>? onDragStart = null, Func<DragMoveArgs, Task>? onDragMove = null, Func<DragOverArgs, Task>? onDragOver = null, Func<DragEndArgs, Task>? onDragEnd = null, Func<Task>? onDragCancel = null, int? activationDistance = null, Action<UIView>? content = null)
-    // activeDragId: The ID of the currently dragged item. When set, the overlay only renders its content after the server has sent content matching this drag ID, preventing stale content from a previous drag.
-    static void DragOverlay(this UIView view, string[]? style = null, bool? dropAnimation = true, string? activeDragId = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // hideOnDrag: When true, hides the original element during drag. Use with DragOverlay.
-    // data: Custom data attached to this draggable, available in drag event arguments.
-    static void Draggable(this UIView view, string[]? style = null, string? id = null, bool? disabled = null, bool? hideOnDrag = null, object? data = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // data: Custom data attached to this droppable, available in drag event arguments.
-    static void Droppable(this UIView view, string[]? style = null, string? id = null, bool? disabled = null, object? data = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // items: List of item identifiers in the current sort order.
-    static void SortableContext(this UIView view, string[]? style = null, IReadOnlyList<string>? items = null, SortStrategy strategy = VerticalList, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // When a SortableHandle descendant is present, only pointerdown on the handle starts a drag; the rest of the item stays free for inner clickable elements. Place inside a SortableItem (or a SortableList itemContent); outside one it renders as a plain container.
-    static void SortableHandle(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    static void SortableItem(this UIView view, string[]? style = null, string? id = null, bool? disabled = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // items: List of item identifiers in the current sort order.
-    // onReorder: Invoked with the new order after a drag. The only write-back — persist args.NewOrder here, or reorders show on the client but never reach the app.
-    // itemContent: Renders each item's content, receiving the item id; omitted, each item renders a drag-handle icon plus the id as text.
-    // activationDistance: Pixels of pointer movement before a drag activates; a pointerdown below the threshold is delivered as a normal click (inner Button.onClick fires). Null: drag activates immediately.
-    static void SortableList(this UIView view, IReadOnlyList<string>? items = null, SortStrategy strategy = VerticalList, CollisionDetection collisionDetection = ClosestCenter, Func<SortableReorderArgs, Task>? onReorder = null, Func<DragStartArgs, Task>? onDragStart = null, Action<UIView, string>? itemContent = null, string[]? listStyle = null, string[]? itemStyle = null, int? activationDistance = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-  sealed record DragCancelArgs
-    ctor(string ActiveId)
-    string ActiveId { get; init; }
-  sealed record DragEndArgs
-    ctor(string ActiveId, string? OverId)
-    string ActiveId { get; init; }
-    string? OverId { get; init; }
-  sealed record DragMoveArgs
-    ctor(string ActiveId, double DeltaX, double DeltaY)
-    string ActiveId { get; init; }
-    double DeltaX { get; init; }
-    double DeltaY { get; init; }
-  sealed record DragOverArgs
-    ctor(string ActiveId, string? OverId)
-    string ActiveId { get; init; }
-    string? OverId { get; init; }
-  sealed record DragStartArgs
-    ctor(string ActiveId)
-    string ActiveId { get; init; }
-  sealed record EscapeKeyDownArgs
-    ctor()
+    // Use instead of Data for anything expensive to produce or re-derived as the user works. Data ships its payload to every client that renders the button; this callback runs on the server on the click, and only the address it returns crosses the transport — the browser fetches the file itself. Return an expiring signed URL from private asset storage. Returning null or empty cancels the download. Ignored when Data or Url is set.
+    Func<Task<string?>>? UrlProvider { get; init; }

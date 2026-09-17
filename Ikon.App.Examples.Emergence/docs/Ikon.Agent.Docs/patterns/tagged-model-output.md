@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Tagged Model Output — Prose With Side-Channels In It
-
+<!-- checked-against: 275a74a9fca7ce0e -->
 Tags are the right shape when the result is **prose that carries something alongside it**: a
 visible answer plus reasoning to hide, a reply plus citations, a message plus a suggested action.
 The moment the result is really a record, `Emerge.Run<T>` and structured JSON are the better tool —
