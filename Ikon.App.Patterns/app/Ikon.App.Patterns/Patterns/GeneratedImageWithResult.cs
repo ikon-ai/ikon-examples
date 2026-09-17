@@ -35,7 +35,6 @@ internal sealed class GeneratedImageWithResult : IPatternDemo
                 Prompt = prompt,
                 Width = 1024,
                 Height = 1024,
-                Quality = ImageQuality.High,
             });
 
             _image.Value = results.FirstOrDefault();

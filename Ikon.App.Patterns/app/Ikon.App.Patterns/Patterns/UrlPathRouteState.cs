@@ -21,40 +21,61 @@ internal sealed class UrlPathRouteState(IAppBase app) : IPatternDemo
     private void RenderDashboardList(UIView view) => throw new NotImplementedException();
 
     #region docsnippet:pattern-url-path-route-state
-    private readonly Reactive<string> _activePage = new("dashboards");
+    // Per client: the URL is one client's, so the page it selects is too. The factory runs on the
+    // client's first read -- its first frame -- and CurrentPath is already known by then, so a deep
+    // link or reload paints the right page at once. A joined handler runs on a background task and
+    // can lose that race, so it is not what the first frame depends on.
+    private readonly ClientReactive<string> _activePage =
+        ClientReactive.Create(_ => PageFor(app.Navigation.CurrentPath ?? "/"));
 
     public async Task Main()
     {
-        app.Navigation.PathChangedAsync += async args =>
-        {
-            var path = args.Path.TrimStart('/');
+        // PathChangedAsync fires only for a move the client makes on its own -- a link click or
+        // back/forward. The path a client lands on (deep link, reload) raises nothing: the factory
+        // above routes it, and the joined handler only loads the data that page needs. The app's
+        // own SetPathAsync is not echoed back either, which is why NavigateToDashboardAsync routes
+        // itself.
+        app.Navigation.PathChangedAsync += async args => await RouteAsync(args.Path);
+        app.OnClientJoined(async _ => await RouteAsync(app.Navigation.CurrentPath ?? "/"));
+    }
 
-            if (path.StartsWith("dashboard/"))
-            {
-                var id = path["dashboard/".Length..];
-                _activePage.Value = $"dashboard:{id}";
-                await LoadDashboardDataAsync(id);
-            }
-            else if (path == "explore")
-            {
-                _activePage.Value = "explore";
-            }
-            else if (path == "settings")
-            {
-                _activePage.Value = "settings";
-            }
-            else
-            {
-                _activePage.Value = "dashboards";
-            }
-        };
+    // Pure: the same mapping serves the first frame and every later navigation.
+    private static string PageFor(string path)
+    {
+        path = path.TrimStart('/');
+
+        if (path.StartsWith("dashboard/"))
+        {
+            return $"dashboard:{path["dashboard/".Length..]}";
+        }
+
+        return path is "explore" or "settings" ? path : "dashboards";
+    }
+
+    private async Task RouteAsync(string path)
+    {
+        var page = PageFor(path);
+        _activePage.Value = page;
+
+        if (page.StartsWith("dashboard:"))
+        {
+            await LoadDashboardDataAsync(page["dashboard:".Length..]);
+        }
     }
 
     private async Task NavigateToDashboardAsync(string id)
     {
-        _activePage.Value = $"dashboard:{id}";
-        await app.Navigation.SetPathAsync($"/dashboard/{id}");
-        await LoadDashboardDataAsync(id);
+        var path = $"/dashboard/{id}";
+
+        // SetPathAsync returns false when the client never acknowledged the move -- CurrentPath is
+        // then rolled back to where it was. Routing anyway would render the dashboard behind a URL
+        // that still says the old page, and nothing would ever report the mismatch.
+        if (!await app.Navigation.SetPathAsync(path))
+        {
+            return;
+        }
+
+        await RouteAsync(path);
     }
 
     // Render switch: one reactive holds both "which page" and "which entity".

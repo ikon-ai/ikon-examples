@@ -48,6 +48,16 @@ internal sealed class CommandPaletteJump : IPatternDemo
         return items;
     }
 
+    private static List<PaletteItem> Matches(List<PaletteItem> items, string? query)
+    {
+        var trimmed = (query ?? "").Trim();
+
+        return string.IsNullOrEmpty(trimmed) ? items : items
+            .Where(it => it.Label.Contains(trimmed, StringComparison.OrdinalIgnoreCase)
+                      || it.Hint.Contains(trimmed, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
     private void RenderCommandPalette(UIView view)
     {
         view.Dialog(
@@ -58,12 +68,8 @@ internal sealed class CommandPaletteJump : IPatternDemo
             contentStyle: ["fixed top-[18%] left-1/2 -translate-x-1/2 z-[56] w-[560px] max-w-[94vw] bg-zinc-950 ring-1 ring-zinc-800 rounded-lg shadow-2xl"],
             contentSlot: dview =>
             {
-                var query = (_paletteQuery.Value ?? "").Trim();
                 var items = BuildPaletteItems();
-                var matches = string.IsNullOrEmpty(query) ? items : items
-                    .Where(it => it.Label.Contains(query, StringComparison.OrdinalIgnoreCase)
-                              || it.Hint.Contains(query, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
+                var matches = Matches(items, _paletteQuery.Value);
 
                 dview.Row(["px-4 py-3 items-center gap-2"], content: row =>
                 {
@@ -72,11 +78,15 @@ internal sealed class CommandPaletteJump : IPatternDemo
                         placeholder: "Jump to camera, section, or action…",
                         value: _paletteQuery.Value,
                         onValueChange: async v => _paletteQuery.Value = v ?? "",
-                        onSubmit: async _ =>
+                        // Enter carries the text as submitted: the bound reactive can lag a fast
+                        // type-and-Enter by one round-trip, and the render's matches with it.
+                        onSubmit: async submitted =>
                         {
-                            if (matches.Count > 0)
+                            var hits = Matches(items, submitted);
+
+                            if (hits.Count > 0)
                             {
-                                matches[0].OnSelect();
+                                hits[0].OnSelect();
                                 _paletteOpen.Value = false;
                             }
                         });

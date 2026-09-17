@@ -19,8 +19,11 @@ internal sealed class SavedRunsSidebar(IAppBase app) : IPatternDemo
         string Language, double DurationSeconds, string Summary,
         IReadOnlyList<string> ActionItems, DateTimeOffset CreatedAt);
 
-    private readonly ReactiveList<TranscriptEntry> _transcripts = new();
-    private readonly Reactive<string?> _activeTranscriptId = new(null);
+    // The index file is per user, so the list it loads into is too: an unscoped ReactiveList is one
+    // list shared by every client, and the last user to load would overwrite everyone's sidebar.
+    // Which entry is open is per client -- it follows the editor on this device.
+    private readonly UserReactiveList<TranscriptEntry> _transcripts = new();
+    private readonly ClientReactive<string?> _activeTranscriptId = new(null);
 
     private AssetUri BuildTranscriptIndexUri(string userId) => new(
         AssetClass.CloudJson, "transcripts/index.json",
@@ -42,20 +45,22 @@ internal sealed class SavedRunsSidebar(IAppBase app) : IPatternDemo
             return;
         }
 
-        _transcripts.ReplaceAll(entries);
+        // The ...For accessors name the user, so this also works from a joined handler or a
+        // background load where no user scope is active.
+        _transcripts.UpdateFor(userId, _ => entries);
     }
 
     private async Task SaveTranscriptEntryAsync(TranscriptEntry entry)
     {
-        _transcripts.Insert(0, entry);
-        var updated = new List<TranscriptEntry>(_transcripts.Peek);
-
         var userId = ResolveUserId();
 
         if (string.IsNullOrWhiteSpace(userId))
         {
             return;
         }
+
+        _transcripts.UpdateFor(userId, existing => existing.Prepend(entry));
+        var updated = new List<TranscriptEntry>(_transcripts.ValueFor(userId));
 
         await Asset.Instance.SetAsync(BuildTranscriptIndexUri(userId), updated, new AssetMetadata(mimeType: MimeTypes.ApplicationJson));
     }

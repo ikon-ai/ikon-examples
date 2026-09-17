@@ -14,6 +14,7 @@ internal sealed class LockScreenLiveActivity(IAppBase app) : IPatternDemo
     private readonly Reactive<double> _distanceKm = new(4.2);
     private readonly Reactive<int> _movingSeconds = new(1_530);
     private readonly Reactive<bool> _held = new(false);
+    private readonly Reactive<bool> _running = new(false);
 
     #region docsnippet:pattern-lock-screen-live-activity
     /// The banner carries VALUES, never layout — one widget draws every app's. Three metrics is the
@@ -27,6 +28,8 @@ internal sealed class LockScreenLiveActivity(IAppBase app) : IPatternDemo
 
     private async Task StartAsync()
     {
+        _running.Value = true;
+
         // Returns false — never throws — on a browser, on Android, on iOS below 16.2, or on a shell
         // that predates the bridge. A banner is a nicety; never let its absence take the app down.
         await app.LiveActivity.StartAsync(
@@ -43,11 +46,24 @@ internal sealed class LockScreenLiveActivity(IAppBase app) : IPatternDemo
         await app.LiveActivity.UpdateAsync(Metrics(), status: _held.Value ? "Paused" : "Run", muted: _held.Value);
     }
 
-    /// End it when the activity ends, and on OnClientLeft — a banner left behind outlives the app
-    /// and freezes at whatever it last said.
+    /// End it everywhere when the activity ends. The phone showing it has usually reconnected since
+    /// the start — a dropped socket, a backgrounded app — and come back as a NEW session, so ending
+    /// on the calling session aims at an id that no longer exists and strands a frozen banner.
     private async Task EndAsync()
     {
-        await app.LiveActivity.EndAsync();
+        _running.Value = false;
+        await app.LiveActivity.EndEverywhereAsync();
+    }
+
+    /// A banner outlives the app that started it, so a phone can come back with one still up for an
+    /// activity that is over. Nothing is running, so nothing should be showing: clear it on the
+    /// session that just joined, which is the only id that reaches that phone now.
+    private async Task OnClientJoinedAsync(Ikon.Common.Core.Protocol.Context ctx)
+    {
+        if (!_running.Value)
+        {
+            await app.LiveActivity.EndAsync(ctx.ClientSessionId);
+        }
     }
 
     private string Pace()

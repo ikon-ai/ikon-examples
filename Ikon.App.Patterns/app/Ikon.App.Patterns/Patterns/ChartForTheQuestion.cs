@@ -38,7 +38,7 @@ internal sealed class ChartForTheQuestion : IPatternDemo
         // Lead with the answer, not the chart. The number a person came for goes first.
         view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
         {
-            RenderStat(view, "wallet", "Spent this month", total.ToString("C0"));
+            RenderStat(view, "wallet", "Spent this month", total.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-US")));
             RenderStat(view, "trending-up", "Largest category", top?.Name ?? "—");
         });
 

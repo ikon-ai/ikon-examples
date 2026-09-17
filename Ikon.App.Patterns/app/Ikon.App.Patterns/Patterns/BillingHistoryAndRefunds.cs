@@ -31,20 +31,23 @@ internal sealed class BillingHistoryAndRefunds : IPatternDemo
             ? "Refund submitted; the provider has not confirmed it yet."
             : $"Refund {refund.Status} ({refund.Reference})";
 
-        PaymentEntitlement entitlement = await PaymentsService.Instance.GetEntitlementAsync(
-            payment.OfferId ?? "");
-
-        if (entitlement.Active)
+        // OfferId is null for an ad-hoc charge, which granted no entitlement to check.
+        if (payment.OfferId is { } offerId)
         {
-            _notice.Value += " — access is still granted until it is revoked or expires.";
+            PaymentEntitlement entitlement = await PaymentsService.Instance.GetEntitlementAsync(offerId);
+
+            if (entitlement.Active)
+            {
+                _notice.Value += " — access is still granted until it is revoked or expires.";
+            }
         }
 
         await RefreshAsync();
     }
 
     /// <summary>
-    /// A receipt arrives as EITHER a Url or Pdf bytes, so a screen offering one renders both
-    /// branches or it silently offers nothing.
+    /// A receipt arrives as a Url, as Pdf bytes, or as neither (Mollie has no customer-facing
+    /// receipt), so a screen offering one renders both branches and hides the button on neither.
     /// </summary>
     private static async Task<PaymentReceipt> ReceiptAsync(string paymentId) =>
         await PaymentsService.Instance.RequestReceiptAsync(paymentId);

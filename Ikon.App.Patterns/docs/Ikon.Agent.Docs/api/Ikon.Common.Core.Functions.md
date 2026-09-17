@@ -21,7 +21,7 @@ namespace Ikon.Common.Core.Functions
     Ikon.Common.Core.Functions.FunctionParameter[] Parameters { get; }
     // Null means the function is allowed to execute without policy checks.
     PolicyDelegate? Policy { get; }
-    // When true and no callback is set, the function is metadata-only and can only be invoked with a provided InstanceId.
+    // When true and no callback is set, the function is metadata-only: its own Call methods throw, and only a registry call naming an InstanceId reaches it, through the stored MethodInfo on that instance.
     bool RequiresInstance { get; }
     // For async functions this is the inner type (e.g. string for Task<string>); for async enumerable functions, the item type.
     Type ReturnType { get; }
@@ -35,7 +35,7 @@ namespace Ikon.Common.Core.Functions
     Task<object?> CallAsync(object?[] args)
     // Only valid for local async enumerable functions.
     IAsyncEnumerable<object?> CallAsyncEnumerable(object?[] args)
-    // Only valid for local sync functions whose result implements IEnumerable.
+    // Only valid for local sync functions whose result implements IEnumerable; a string result is not treated as an enumerable of chars. Throws InvalidOperationException otherwise.
     IEnumerable<object?> CallEnumerable(object?[] args)
     override string ToString()
   class FunctionAttribute : Attribute
@@ -57,6 +57,7 @@ namespace Ikon.Common.Core.Functions
     ctor(string message, string remoteTypeName, string remoteStackTrace, Exception? innerException)
     string RemoteStackTrace { get; }
     string RemoteTypeName { get; }
+    const string FunctionNotRegisteredForTargetTypeName
     const string RemoteFunctionCallerNotSetTypeName
   readonly struct FunctionParameter
     ctor(int index, string name, string description, Type type, bool hasDefaultValue, object? defaultValue, IReadOnlyList<string>? allowedValues = null)
@@ -92,6 +93,8 @@ namespace Ikon.Common.Core.Functions
     Func<int, IReadOnlyList<IScopeKey>>? ScopeResolver { get; set; }
     // Returns null for unknown sessions or unauthenticated (guest) callers.
     Func<int, string?>? UserIdResolver { get; set; }
+    // Maps a user id to that user's connected session ids. Unwired, or empty for the user, an approval addressed to that user is rejected naming the user — it is never rerouted to the caller.
+    Func<string, IReadOnlyList<int>>? UserSessionsResolver { get; set; }
     void AddFunction(Function function, FunctionVisibility? visibilityOverride = null)
     Task AttachProtocolAsync(IProtocolMessageChannel channel, int senderId)
     TResult Call<TResult>(string name, object?[]? args = null, int? targetId = null, bool propagateScopes = false, string? version = null, Guid? instanceId = null)
@@ -107,11 +110,11 @@ namespace Ikon.Common.Core.Functions
     void DetachProtocol()
     Task DisposeInstanceAsync(Guid instanceId, int? targetId = null)
     IReadOnlyCollection<int> GetClientSessionsWithFunction(string name)
-    // Throws if multiple functions with the same name are registered (use Call/CallAsync with the targetId parameter instead).
+    // A single local registration wins over any remote ones. Throws when several local overloads share the name, or — with no local one — several remote registrations do (use Call/CallAsync with the targetId parameter instead).
     Function? GetFunction(string name)
     Function? GetFunction(string name, object?[] args)
     Function? GetFunction(string name, IReadOnlyList<Ikon.Common.Core.Protocol.FunctionParameter> protocolParameters)
-    // A non-empty version tries an exact version match first, then falls back to the greatest version; an empty version selects the greatest versioned function or falls back to unversioned.
+    // A non-empty version tries an exact match, then the greatest version at or below the caller's (a caller newer than every other version gets CurrentVersion; one older than all clamps up to the lowest). An empty version resolves to CurrentVersion when set, else the greatest version, then unversioned.
     Function? GetFunction(string name, IReadOnlyList<Ikon.Common.Core.Protocol.FunctionParameter> protocolParameters, string version)
     Function? GetFunction(string name, int clientSessionId)
     IReadOnlyList<Function> GetFunctions(string name)
@@ -141,6 +144,7 @@ namespace Ikon.Common.Core.Functions
     void SyncFunctionsFromGlobalState(GlobalState globalState)
     // Returns false rather than throwing when the name is unknown or resolves ambiguously (multiple overloads or multiple remote clients). Use GetFunction to resolve an overload by argument types.
     bool TryGetFunction(string name, out Function? function)
+    // functionName: Name of the function to wait for.
     // timeout: How long to wait before giving up. Defaults to 30 seconds when null.
     Task<bool> WaitForFunctionAsync(string functionName, TimeSpan? timeout = null, CancellationToken ct = default)
     event Action<ApprovalAuditEntry>? ApprovalCompleted

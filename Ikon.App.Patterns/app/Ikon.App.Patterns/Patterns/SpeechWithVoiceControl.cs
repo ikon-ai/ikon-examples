@@ -21,7 +21,9 @@ internal sealed class SpeechWithVoiceControl : IPatternDemo
     /// </summary>
     private async Task NarrateAsync(string text)
     {
-        await Audio.SpeakAsync(MediaTargets.Everyone, text, voice: "Sarah", speed: 0.95, instructions: "calm, unhurried");
+        // No speed: the default model is ElevenLabs, which ignores it. Pass one only with an
+        // OpenAI or Google model, e.g. model: SpeechGeneratorModel.Gpt4OmniMiniTts, speed: 0.95.
+        await Audio.SpeakAsync(MediaTargets.Everyone, text, voice: "Sarah", instructions: "calm, unhurried");
     }
 
     /// <summary>

@@ -1,8 +1,8 @@
 # Record List Toolbar — Search, Sort, Range, Export Over a Collection
-
+<!-- checked-against: fb698d955034c103 -->
 The control strip that makes a collection of records *operable* rather than merely displayed. Any app whose main view is rows a user accumulates — contacts, invoices, applications, tickets, saved runs, tracked habits — needs some subset of search, sort, a date range, filters and export. Users notice these missing far faster than they notice a missing feature, because every product they have used has them.
 
-One reactive per control, one derived `Visible()` the list renders from. The derived query is the whole trick: controls never mutate the stored collection, so state survives filtering and nothing is lost when a filter clears.
+One `ClientReactive` per control, one derived `Visible()` the list renders from. The controls are per client because a plain `Reactive<T>` is one value shared by every connected client — one user's search box would filter everyone's list. The derived query is the whole trick: controls never mutate the stored collection, so state survives filtering and nothing is lost when a filter clears.
 
 ## When to use
 
@@ -13,9 +13,11 @@ Take only the controls the workflow needs. Sorting matters when order carries me
 ## Snippet
 
 ```csharp
-private readonly Reactive<string> _search = new("");
-private readonly Reactive<string> _sort = new("recent");
-private readonly Reactive<string> _range = new("all");
+// Per client: a plain Reactive<T> is one value for everyone, so one user's search box would
+// filter every other user's list. The store below the controls stays shared.
+private readonly ClientReactive<string> _search = new("");
+private readonly ClientReactive<string> _sort = new("recent");
+private readonly ClientReactive<string> _range = new("all");
 
 /// The single derived query every surface reads. Controls filter the VIEW, never the store.
 private IReadOnlyList<Contact> Visible()
@@ -129,4 +131,4 @@ private static void RenderFilterChip(IView view, string label, Action clear)
 
 - `zero-results-state` — what the list renders when the filters match nothing.
 - `inline-list-cell-edit` — editing a field directly in the row this toolbar filters.
-- `persistent-user-preferences` — when a chosen sort or range should survive a reload.
+- `persistent-user-preferences` — when a chosen sort or range should survive a reload (`PersistentUserReactive<string>` in place of `ClientReactive<string>`).

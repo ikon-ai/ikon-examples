@@ -38,19 +38,19 @@ internal sealed class ShareableResultExport : IPatternDemo
 
     /// <summary>
     /// PDF is a conversion, not a screenshot: hand FileConverter a Url, Data or AssetUri and it
-    /// returns a ConvertedFile. Data is nullable there because the result can arrive as a URL.
+    /// returns a ConvertedFile. Its Kind says whether the bytes are inline in Data or behind a
+    /// signed Url; GetDataAsync returns them either way.
     /// </summary>
     private async Task RenderPdfAsync(string url)
     {
         using var converter = new FileConverter(FileConverterModel.ConvertApi.ToString());
 
-        var file = await converter.ConvertToPdfAsync(new FileConverterConfig
-        {
-            Url = url,
-            FileName = "results.pdf",
-        });
+        // A URL source is detected from the URL itself; FileName names the input format only
+        // when the bytes are supplied as Data.
+        var file = await converter.ConvertToPdfAsync(new FileConverterConfig { Url = url });
 
-        _pdf.Value = file.Data;
+        // Data is null when the result was delivered as a Url -- GetDataAsync downloads it then.
+        _pdf.Value = await file.GetDataAsync();
     }
 
     private async Task ExportAsync()

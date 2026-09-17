@@ -11,12 +11,28 @@ internal sealed class ToastNotifications : IPatternDemo
     public void RenderDemo(IView view) => Render(view);
 
     #region docsnippet:pattern-toast-notifications
+    private const int ToastLifetimeMs = 3000;
+
     private readonly ClientReactive<(string Text, string Tone, DateTime At)?> _toast =
         new(initialValue: ((string, string, DateTime)?)null);
 
+    /// <summary>
+    /// Called from a handler, where the client scope is active. The delayed clear is background
+    /// work off that handler's stack, so it names the session captured here instead of relying on
+    /// an ambient scope; matching on the timestamp keeps it from wiping a newer toast shown inside
+    /// the window.
+    /// </summary>
     private void ShowToast(string text, string tone = "success")
     {
-        _toast.Value = (text, tone, DateTime.UtcNow);
+        var shownAt = DateTime.UtcNow;
+        _toast.Value = (text, tone, shownAt);
+        _ = ClearLaterAsync(ReactiveScope.ClientId, shownAt);
+    }
+
+    private async Task ClearLaterAsync(int clientSessionId, DateTime shownAt)
+    {
+        await Task.Delay(ToastLifetimeMs);
+        _toast.UpdateFor(clientSessionId, current => current is { At: var at } && at == shownAt ? null : current);
     }
 
     private void RenderToast(UIView view)
@@ -28,7 +44,7 @@ internal sealed class ToastNotifications : IPatternDemo
 
         var ageMs = (DateTime.UtcNow - t.At).TotalMilliseconds;
 
-        if (ageMs > 3000)
+        if (ageMs > ToastLifetimeMs)
         {
             return;
         }

@@ -59,7 +59,8 @@ internal sealed class PublicEndpointHost : IPatternDemo
     {
         if (_host is { } host)
         {
-            // Waits up to five seconds for pending requests rather than cutting them off.
+            // Pending requests get the host's shutdown timeout (30 seconds by default) rather than
+            // being cut off, then a further five seconds for the server loop to exit.
             await host.StopAsync();
             await host.DisposeAsync();
             _host = null;

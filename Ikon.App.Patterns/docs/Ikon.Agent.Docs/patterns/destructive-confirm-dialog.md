@@ -1,6 +1,6 @@
 <!-- mined-from: BrainrotArena -->
 # Destructive Confirm Dialog — Driven by an Id, Not a Flag
-
+<!-- checked-against: ec6131b58b35b59c -->
 Destructive actions (delete, kick, abort) need a confirmation step. The clean shape: store the *target id* in a `ClientReactive<string?>` — the dialog's open state is derived (`id != null`). One reactive does double duty: "do I show the dialog?" AND "what am I confirming?". No flag-and-id pair to keep in sync.
 
 ## When to use

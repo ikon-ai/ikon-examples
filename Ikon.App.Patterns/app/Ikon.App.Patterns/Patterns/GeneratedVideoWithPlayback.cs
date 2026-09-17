@@ -34,6 +34,9 @@ internal sealed class GeneratedVideoWithPlayback : IPatternDemo
             {
                 Prompt = prompt,
                 AspectRatio = VideoGeneratorAspectRatio.Ratio16x9,
+
+                // 8 is in Veo 3.1 Fast's SupportedLengths. A length a model does not list is
+                // refused, not shortened, so changing the model means checking that list again.
                 Length = 8,
                 GenerateAudio = generator.SupportsAudio ? true : null,
             });

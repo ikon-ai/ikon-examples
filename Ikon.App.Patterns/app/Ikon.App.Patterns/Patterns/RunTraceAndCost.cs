@@ -22,6 +22,11 @@ internal sealed class RunTraceAndCost : IPatternDemo
     /// </summary>
     private async Task AskAsync(string question)
     {
+        // The trace belongs to the client who asked, so the fields are ClientReactive. Their .Value
+        // needs that client's scope, which a run started from a timer, an endpoint handler or a
+        // background loop does not carry -- capture the session here and write to it by id.
+        var clientSessionId = ReactiveScope.ClientId;
+
         var (result, _, trace) = await Emerge.Run<Answer>(LLMModel.Claude46Sonnet, pass =>
         {
             pass.Command = question;
@@ -31,13 +36,13 @@ internal sealed class RunTraceAndCost : IPatternDemo
             pass.ReasoningEffort = ReasoningEffort.Low;
         }).FinalWithTraceAsync();
 
-        _trace.Value = trace;
+        _trace.SetFor(clientSessionId, trace);
 
         // Result stays NULLABLE on this path -- a run can complete without producing one, which
         // is exactly the case the trace explains.
         if (result is null)
         {
-            _activity.Add($"No result: {trace.FinishReason}");
+            _activity.AddFor(clientSessionId, $"No result: {trace.FinishReason}");
         }
     }
 

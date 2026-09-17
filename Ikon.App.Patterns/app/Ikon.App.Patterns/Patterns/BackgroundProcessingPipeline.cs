@@ -14,10 +14,10 @@ internal sealed class BackgroundProcessingPipeline : IPatternDemo
     private readonly IAppBase app = null!;
     private readonly string _currentTenantId = "";
     private readonly string _currentUserId = "";
-    private readonly Reactive<string> _backgroundTenantId = new("");
-    private readonly Reactive<string> _backgroundUserId = new("");
+    private static readonly AsyncLocal<string?> _backgroundTenantId = new();
+    private static readonly AsyncLocal<string?> _backgroundUserId = new();
 
-    private string EffectiveTenantId => throw new NotImplementedException();
+    private string EffectiveTenantId => _backgroundTenantId.Value ?? _currentTenantId;
 
     private enum ProcessingStatus { Uploading, Queued, Processing, Done, Error }
 
@@ -52,6 +52,8 @@ internal sealed class BackgroundProcessingPipeline : IPatternDemo
 
         _ = Task.Run(async () =>
         {
+            // AsyncLocal, set inside the task: the identity flows down this pipeline's awaits and
+            // nowhere else, so two uploads processing at once never see each other's tenant.
             _backgroundTenantId.Value = capturedTenantId;
             _backgroundUserId.Value = capturedUserId;
             using var scope = ReactiveScope.Use(new UserScope(clientContext), new ClientScope(clientContext));

@@ -49,7 +49,8 @@ internal sealed class EndpointAndMcpTool(IAppBase app) : IPatternDemo
     public int SumNumbers(int a, int b) => a + b;
 
     /// A granted endpoint's PublicUrl is a bare address with no grant, so it is not callable as it
-    /// stands. Minting is the ONLY way to get a working URL, in the cloud and in local dev alike.
+    /// stands (a Public endpoint's is). Minting is the ONLY way to a working granted URL, in the
+    /// cloud and in local dev alike.
     private async Task ShareAsync(string documentId)
     {
         MintedUrl minted = await app.MintUrlAsync(nameof(Sum), new { DocumentId = documentId });

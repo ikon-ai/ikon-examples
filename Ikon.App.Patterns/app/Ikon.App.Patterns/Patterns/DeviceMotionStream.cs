@@ -21,21 +21,26 @@ internal sealed class DeviceMotionStream(IAppBase app) : IPatternDemo
     {
         app.Motion.OnBatch(batch =>
         {
-            // Batches arrive as the device buffered them, in device order. Cadence is peaks per
-            // minute in the magnitude across all three axes — the usual first thing a detector wants.
+            // A batch interleaves every enabled sensor in device order, and Magnitude means m/s² on
+            // an acceleration sample and rad/s on a gyroscope one. Split by Sensor first: one series
+            // over the mixture reads as a plausible number that measures nothing.
+            var accel = batch.Samples.Where(s => s.Sensor == MotionSensors.UserAcceleration).ToArray();
+
+            // Cadence is peaks per minute in the acceleration magnitude across all three axes — the
+            // usual first thing a detector wants.
             var peaks = 0;
 
-            for (var i = 1; i < batch.Samples.Count - 1; i++)
+            for (var i = 1; i < accel.Length - 1; i++)
             {
-                var previous = batch.Samples[i - 1].Magnitude;
-                var current = batch.Samples[i].Magnitude;
-                var next = batch.Samples[i + 1].Magnitude;
+                var previous = accel[i - 1].Magnitude;
+                var current = accel[i].Magnitude;
+                var next = accel[i + 1].Magnitude;
 
                 if (current > previous && current >= next && current > 1.2) { peaks++; }
             }
 
-            var seconds = batch.Samples.Count == 0 ? 0
-                : (batch.Samples[^1].AtMillis - batch.Samples[0].AtMillis) / 1000.0;
+            var seconds = accel.Length == 0 ? 0
+                : (accel[^1].AtMillis - accel[0].AtMillis) / 1000.0;
 
             if (seconds > 0) { _stepsPerMinute.Value = peaks / seconds * 60; }
         });

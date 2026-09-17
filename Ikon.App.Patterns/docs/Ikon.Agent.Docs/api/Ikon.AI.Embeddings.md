@@ -33,6 +33,8 @@ namespace Ikon.AI.Embeddings
     int MaxInputCount { get; init; }
   sealed record EmbeddingGeneratorConfig
     ctor()
+    // Default false: an input longer than the model's window is rejected by the provider instead of being embedded from its head only. True lets Cohere, Voyage, Jina and Vertex cut the input at the window.
+    bool AllowTruncation { get; init; }
     List<string> Inputs { get; init; }
     // Per-request batch cap; larger input lists are split into batches of this size. 0 means the model's maximum.
     int MaxInputCount { get; init; }
@@ -75,13 +77,16 @@ namespace Ikon.AI.Embeddings
     VoyageCode4
     // Not directly usable — select custom models (see CustomModels) by their registered name string.
     Custom
+    // extension methods: EmbeddingModelExtensions{DisplayName}
   static class EmbeddingModelExtensions
     static string DisplayName(this EmbeddingModel model)
   enum EmbeddingType
     Generic
     Document
     Query
+    // Jina v4+ has no clustering task and embeds as text matching; Voyage sends no task.
     Clustering
+    // Jina v4+ has no classification task and embeds as text matching; Voyage sends no task.
     Classification
   interface IEmbeddingGenerator : IDisposable, IEmbeddingGeneratorInfo
     // Returns one vector per input, in input order.

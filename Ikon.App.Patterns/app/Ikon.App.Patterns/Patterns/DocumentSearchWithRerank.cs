@@ -15,6 +15,8 @@ internal sealed class DocumentSearchWithRerank : IPatternDemo
     public void RenderDemo(IView view) => Render(view);
 
     #region docsnippet:pattern-document-search-with-rerank
+    // Indexed once, at startup or behind an upload -- the expensive step never sits in the search handler.
+    private readonly Retriever _retriever = new();
     private readonly ClientReactiveList<string> _hits = new();
 
     /// <summary>
@@ -70,6 +72,13 @@ internal sealed class DocumentSearchWithRerank : IPatternDemo
     {
         view.Column(["gap-2"], content: col =>
         {
+            // _hits is per client, so SearchAsync runs from this client's own action callback,
+            // where the client scope is active and survives the awaits. A caller with no scope
+            // (a timer, an upload completion) captures ReactiveScope.ClientId first and wraps the
+            // call in ReactiveScope.Use(new ClientScope(clientId)).
+            col.TextField(placeholder: "Ask the documents",
+                onSubmit: async question => await SearchAsync(_retriever, question));
+
             foreach (var hit in _hits)
             {
                 col.Text(["text-sm"], key: hit, text: hit);

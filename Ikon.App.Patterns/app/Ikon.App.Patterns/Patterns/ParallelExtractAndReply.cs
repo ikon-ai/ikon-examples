@@ -104,14 +104,24 @@ internal sealed class ParallelExtractAndReply : IPatternDemo
 
     private async Task<string> GenerateCharacterReplyAsync(SessionState session, string userText, CancellationToken ct)
     {
-        var (reply, context) = await Emerge.Run<string>(LLMModel.Default, session.InterviewContext, pass =>
+        try
         {
-            pass.SystemPrompt = InterviewSystemPrompt;
-            pass.Command = userText;
-        }, ct).FinalAsync(ct);
+            var (reply, context) = await Emerge.Run<string>(LLMModel.Default, session.InterviewContext, pass =>
+            {
+                pass.SystemPrompt = InterviewSystemPrompt;
+                pass.Command = userText;
+            }, ct).FinalAsync(ct);
 
-        session.InterviewContext = context;
-        return reply ?? "";
+            session.InterviewContext = context;
+            return reply ?? "";
+        }
+        catch (EmergenceStoppedException ex)
+        {
+            // The turn still gets an answer; a reply that failed to generate must not end the
+            // processing loop for every later turn.
+            Log.Instance.Warning($"Character reply failed for this turn: {ex.Message}");
+            return "…";
+        }
     }
     #endregion
 }

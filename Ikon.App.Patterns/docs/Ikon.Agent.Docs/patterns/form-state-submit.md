@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Form State And Submit — One Object Instead Of Four Reactives
-
+<!-- checked-against: e6ffc5d38e4a041c -->
 `FormState<T>` owns the draft, the busy flag, the dirty flag, the field errors and the form-level
 error. Hand-rolling that is four or five reactives that can disagree with each other — a submit
 that leaves `IsBusy` stuck, an error that outlives the field it described, a draft cleared on a

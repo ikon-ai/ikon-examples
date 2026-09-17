@@ -15,7 +15,7 @@ internal sealed class WebResearch : IPatternDemo
     public sealed record Source(string Title, string Url, string Snippet);
 
     private readonly ReactiveList<Answer> _answers = new();
-    private readonly Reactive<string> _question = new("");
+    private readonly ClientReactive<string> _question = new("");
     private readonly Reactive<string?> _phase = new(null); // null | "Searching" | "Synthesizing"
     private readonly Reactive<string?> _error = new(null);
 

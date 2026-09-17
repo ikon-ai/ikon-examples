@@ -66,10 +66,17 @@ internal sealed class NotifyAcrossChannels(IAppBase app) : IPatternDemo
 
     /// Preferences are per user and belong to the user, not the app. Quiet hours and mutes are
     /// honoured for Normal and Low; High bypasses both, which is why urgent must stay rare.
-    private void SetPreferences(string userId, bool wantsEmail)
+    private void SetPreferences(string userId, TimeZoneInfo userZone, bool wantsEmail)
     {
-        _inbox.SetQuietHoursFor(userId, new TimeOnly(22, 0), new TimeOnly(7, 0));
+        // The window is stored as UTC times of day; the user picked local ones.
+        _inbox.SetQuietHoursFor(userId, ToUtc(new TimeOnly(22, 0), userZone), ToUtc(new TimeOnly(7, 0), userZone));
         _inbox.MuteFor(userId, "email", muted: !wantsEmail);
+    }
+
+    private static TimeOnly ToUtc(TimeOnly local, TimeZoneInfo zone)
+    {
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zone));
+        return TimeOnly.FromDateTime(TimeZoneInfo.ConvertTimeToUtc(today.ToDateTime(local, DateTimeKind.Unspecified), zone));
     }
 
     /// The bell. Unread count with sensible overflow, newest first, and every row a way into the

@@ -1,5 +1,5 @@
 # Endpoint and MCP Tool — Three Shapes, Three Authorizations
-
+<!-- checked-against: 9951592820b150e6 -->
 An Ikon app exposes HTTP by putting an attribute on a method. The part that goes wrong is not the routing — it is the authorization, because all three shapes look identical in the source and mean completely different things.
 
 | Shape | Attribute | Who may call it |
@@ -47,7 +47,8 @@ public async Task<HttpResult> Webhook(Ikon.App.HttpRequest request)
 public int SumNumbers(int a, int b) => a + b;
 
 /// A granted endpoint's PublicUrl is a bare address with no grant, so it is not callable as it
-/// stands. Minting is the ONLY way to get a working URL, in the cloud and in local dev alike.
+/// stands (a Public endpoint's is). Minting is the ONLY way to a working granted URL, in the
+/// cloud and in local dev alike.
 private async Task ShareAsync(string documentId)
 {
     MintedUrl minted = await app.MintUrlAsync(nameof(Sum), new { DocumentId = documentId });
@@ -77,7 +78,7 @@ private void RenderShareLink(IView view)
 - The handler binds **one optional typed body** plus host-injected context (`Ikon.App.HttpRequest`, `HttpCallContext`, `CancellationToken`) in any order. Zero non-injected parameters means no body.
 - The bound record must be **public** — a public handler cannot take a less accessible parameter type (CS0051). Same rule that governs `SessionIdentity` and `ClientParameters`.
 - Return a value for JSON, a `string` for `text/plain`, or an `HttpResult` when you need the status code.
-- **A granted endpoint's `PublicUrl` is not callable.** `app.Endpoints` lists every `EndpointInfo`, but each address is bare. `MintUrlAsync` is the only way to get a working URL — in the cloud *and* in local dev — and it returns a `MintedUrl` whose grant can pin a resource identity (`new { DocumentId = "doc-42" }`) or, with the identity omitted, this instance's own.
+- **A granted endpoint's `PublicUrl` is not callable.** `app.Endpoints` lists every `EndpointInfo`, but each address is bare: a `Public` endpoint answers on it as-is, a `Grant`/policy one does not. For those, `MintUrlAsync` is the only way to get a working URL — in the cloud *and* in local dev — and it returns a `MintedUrl` whose grant can pin a resource identity (`new { DocumentId = "doc-42" }`) or, with the identity omitted, this instance's own.
 - `[Mcp]` reflects its JSON Schema from the C# signature, so **the parameter names are the tool's contract** — name them the way you want an LLM to read them. Each tool is reachable both through the shared JSON-RPC endpoint and at its own POST route. Pair with `[McpResource]` for resources.
 - `AuthPolicy = "name"` names a custom edge policy in `router/index.ts` and wins over `Auth` when both are set. On a policy endpoint a grant in the URL is address-only — it picks the instance, the policy authorizes.
 - On an `External` function (rather than an HTTP attribute), `[AllowAnonymous]` marks the same intent: a pure marker that documents "authorized by something other than session auth" and silences the startup audit warning for an `External` function with no auth policy. It grants nothing by itself — pair it with an explicit `[RateLimit]` wherever abuse is plausible.

@@ -26,8 +26,8 @@ internal sealed class NavAndMenuRows : IPatternDemo
 
     #region docsnippet:pattern-nav-and-menu-rows
     private readonly ClientReactive<string> _section = new("overview");
-    private readonly Reactive<bool> _menuOpen = new(false);
-    private readonly Reactive<string> _density = new("Comfortable");
+    private readonly ClientReactive<bool> _menuOpen = new(false);
+    private readonly ClientReactive<string> _density = new("Comfortable");
 
     private void RenderShell(IView view)
     {

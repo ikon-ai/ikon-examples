@@ -10,7 +10,9 @@ internal sealed class SubscriptionManagement : IPatternDemo
     public void RenderDemo(IView view) => Render(view);
 
     #region docsnippet:pattern-subscription-management
-    private readonly ClientReactiveList<PaymentSubscription> _subscriptions = new();
+    // Per user, not per client: a subscription belongs to the customer, and the backend push that
+    // changes it names the customer rather than any client session.
+    private readonly UserReactiveList<PaymentSubscription> _subscriptions = new();
     private readonly ClientReactive<string?> _notice = new(null);
 
     /// <summary>
@@ -27,14 +29,25 @@ internal sealed class SubscriptionManagement : IPatternDemo
                 or PaymentEventType.SubscriptionUpdated
                 or PaymentEventType.SubscriptionRenewalFailed)
             {
-                await RefreshAsync();
+                // The push comes from the backend, so no user or client scope is active here:
+                // the customer key rides in the payload, and it is the user id the checkout
+                // defaulted to.
+                var payload = paymentEvent.Payload();
+
+                if (payload.ValueKind == JsonValueKind.Object
+                    && payload.TryGetProperty("appCustomerKey", out var customerKey)
+                    && customerKey.GetString() is { } userId)
+                {
+                    await RefreshAsync(userId);
+                }
             }
         };
     }
 
-    private async Task RefreshAsync()
+    private async Task RefreshAsync(string userId)
     {
-        _subscriptions.ReplaceAll(await PaymentsService.Instance.ListSubscriptionsAsync());
+        var subscriptions = await PaymentsService.Instance.ListSubscriptionsAsync(userId);
+        _subscriptions.UpdateFor(userId, _ => subscriptions);
     }
 
     /// <summary>
@@ -51,7 +64,7 @@ internal sealed class SubscriptionManagement : IPatternDemo
             ? $"{change.Direction}: {change.ProrationAmountMinor / 100.0:0.00} {change.Currency}"
             : "Already on that plan";
 
-        await RefreshAsync();
+        await RefreshAsync(ReactiveScope.UserId);
     }
 
     private async Task CancelAsync(string subscriptionId)
@@ -59,7 +72,7 @@ internal sealed class SubscriptionManagement : IPatternDemo
         // Cancels at period end by default; the entitlement lapses only when it takes effect, so
         // the user keeps what they paid for.
         await PaymentsService.Instance.CancelSubscriptionAsync(subscriptionId);
-        await RefreshAsync();
+        await RefreshAsync(ReactiveScope.UserId);
     }
 
     private async Task ResumeAsync(string subscriptionId)
@@ -67,7 +80,7 @@ internal sealed class SubscriptionManagement : IPatternDemo
         // Only valid while cancel-at-period-end and the paid period has not ended. After that it
         // needs a new checkout.
         await PaymentsService.Instance.ResumeSubscriptionAsync(subscriptionId);
-        await RefreshAsync();
+        await RefreshAsync(ReactiveScope.UserId);
     }
 
     private void Render(IView view)

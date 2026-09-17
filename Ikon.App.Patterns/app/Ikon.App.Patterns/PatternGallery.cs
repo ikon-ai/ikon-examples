@@ -94,6 +94,7 @@ public static class PatternGallery
         new SearchableSelect(),
         new ServerSideSvgVisual(),
         new ShareableResultExport(),
+        new StagedFileDownload(app),
         new SharedListAiCleanup(),
         new SheetAndDrawer(),
         new SingleProcessorChannelQueue(app),

@@ -45,12 +45,14 @@ internal sealed class StreamingAgentStatus : IPatternDemo
                     view.Text(["text-xs text-muted-foreground/70 mb-1"], text: stage);
                 }
 
-                // IsError is null while the call is still in flight — spinner, then check or error.
+                // ResultText is null until the call completes, so it is what says "in flight".
+                // IsError is null on a finished entry too, when it was journaled before the flag
+                // existed -- that is "unknown", and it must not read as a spinner or a check.
                 foreach (var call in thread.ToolCallTimeline.Value)
                 {
                     view.Row(["items-center gap-1.5 py-0.5"], key: $"{call.PrecedingAgentMessages}-{call.ToolName}", content: view =>
                     {
-                        if (call.IsError is null)
+                        if (call.ResultText is null)
                         {
                             view.Spinner(["text-sky-400"], size: SpinnerSize.Sm);
                         }
@@ -58,9 +60,13 @@ internal sealed class StreamingAgentStatus : IPatternDemo
                         {
                             view.Icon(["w-3 h-3 text-red-400"], name: "x");
                         }
-                        else
+                        else if (call.IsError == false)
                         {
                             view.Icon(["w-3 h-3 text-emerald-400"], name: "check");
+                        }
+                        else
+                        {
+                            view.Icon(["w-3 h-3 text-muted-foreground/50"], name: "minus");
                         }
 
                         view.Text(["text-xs text-muted-foreground font-mono"], text: call.ToolName);

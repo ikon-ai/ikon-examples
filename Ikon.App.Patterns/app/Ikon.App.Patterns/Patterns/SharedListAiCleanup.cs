@@ -14,7 +14,7 @@ internal sealed class SharedListAiCleanup : IPatternDemo
     public sealed record TodoItem(string Id, string Text);
 
     private readonly ReactiveList<TodoItem> _items = new();
-    private readonly Reactive<string> _draft = new("");
+    private readonly ClientReactive<string> _draft = new("");
     private readonly Reactive<bool> _busy = new(false);
 
     private void Add()

@@ -28,9 +28,11 @@ internal sealed class RecordListToolbar : IPatternDemo
         string.Join("\n", rows.Select(c => $"{c.Name},{c.Company},{c.LastTouched:yyyy-MM-dd}"));
 
     #region docsnippet:pattern-record-list-toolbar
-    private readonly Reactive<string> _search = new("");
-    private readonly Reactive<string> _sort = new("recent");
-    private readonly Reactive<string> _range = new("all");
+    // Per client: a plain Reactive<T> is one value for everyone, so one user's search box would
+    // filter every other user's list. The store below the controls stays shared.
+    private readonly ClientReactive<string> _search = new("");
+    private readonly ClientReactive<string> _sort = new("recent");
+    private readonly ClientReactive<string> _range = new("all");
 
     /// The single derived query every surface reads. Controls filter the VIEW, never the store.
     private IReadOnlyList<Contact> Visible()

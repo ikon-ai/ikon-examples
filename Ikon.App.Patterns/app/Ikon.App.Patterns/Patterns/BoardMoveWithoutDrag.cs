@@ -30,7 +30,7 @@ internal sealed class BoardMoveWithoutDrag : IPatternDemo
     }
 
     #region docsnippet:pattern-board-move-without-drag
-    private readonly Reactive<string?> _menuOpenFor = new(null);
+    private readonly ClientReactive<string?> _menuOpenFor = new(null);
 
     /// The ONE move operation. Drag calls it from onDragEnd; the menu calls it from a click. Both
     /// paths must go through the same method, or they drift and only one of them stays correct.

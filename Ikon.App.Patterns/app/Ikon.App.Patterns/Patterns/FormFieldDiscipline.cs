@@ -14,11 +14,12 @@ internal sealed class FormFieldDiscipline : IPatternDemo
     private void CreateAccount() => _confirming.Value = false;
 
     #region docsnippet:pattern-form-field-discipline
-    private readonly Reactive<string> _name = new("");
-    private readonly Reactive<string> _email = new("");
-    private readonly Reactive<string> _plan = new("");
-    private readonly ReactiveDictionary<string, string> _errors = new();
-    private readonly Reactive<bool> _confirming = new(false);
+    // A form is one person's: per client, or every connected client types into the same fields.
+    private readonly ClientReactive<string> _name = new("");
+    private readonly ClientReactive<string> _email = new("");
+    private readonly ClientReactive<string> _plan = new("");
+    private readonly ClientReactiveDictionary<string, string> _errors = new();
+    private readonly ClientReactive<bool> _confirming = new(false);
 
     /// Validate everything at once and KEEP every entered value. A form that clears the other
     /// fields because one failed is the fastest way to lose a user.

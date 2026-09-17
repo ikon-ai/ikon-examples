@@ -11,8 +11,9 @@ internal sealed class PersistentCollections : IPatternDemo
 
     #region docsnippet:pattern-persistent-collections
     // Collection state uses the reactive COLLECTION types. Wrapping a mutable collection --
-    // PersistentReactive<Dictionary<K,V>>, Reactive<List<T>> -- is build error IKON002, because a
-    // mutation inside the wrapper notifies nobody.
+    // PersistentReactive<Dictionary<K,V>>, Reactive<List<T>> -- is build error IKON002 in an app
+    // project, because a mutation through .Value notifies nobody. The ReactiveCollectionExtensions
+    // helpers exist for legacy code that already has such a wrapper, not for new declarations.
     //
     // Scope is the first choice, and it is three-way:
     //   Persistent*            shared by everyone, survives restart
@@ -20,13 +21,23 @@ internal sealed class PersistentCollections : IPatternDemo
     //   PersistentUser*        per user, follows them across devices
     private readonly PersistentReactiveHashSet<string> _publishedTags = new();
     private readonly PersistentUserReactiveDictionary<string, int> _votesByPoll = new();
-    private readonly PersistentUserReactiveList<string> _readingList = new();
+    // Constructor items are what every user starts with until they have state of their own.
+    private readonly PersistentUserReactiveList<string> _readingList = new(["Getting started"]);
 
     private void CastVote(string pollId, int option)
     {
         // Mutate ON the reactive: the indexer, Add, Remove and Contains are all tracked, and each
         // mutation notifies once. There is no .Value.Add -- Value reads are read-only views.
+        // The User* forms resolve against the UserScope this callback runs in; from Main(), the
+        // constructor, Task.Run, a timer or an endpoint handler there is none and this line throws.
         _votesByPoll[pollId] = option;
+    }
+
+    private void RecordVoteLater(string pollId, int option)
+    {
+        // Background work carries no user scope: capture the id here and use the ...For accessor.
+        var userId = ReactiveScope.UserId;
+        _ = Task.Run(() => _votesByPoll.SetFor(userId, pollId, option));
     }
 
     private void ToggleTag(string tag)
@@ -63,9 +74,8 @@ internal sealed class PersistentCollections : IPatternDemo
             col.Text(["text-muted-foreground text-sm"],
                 text: $"You have voted in {_votesByPoll.Count} polls");
 
-            // A per-user collection is seeded in OnClientJoined when that user's store is empty --
-            // never in OnStarting, where no user scope exists yet and touching one crashes the boot.
             col.Button(onClick: () => CastVote("colours", 1), content: v => v.Text(text: "Vote"));
+            col.Button(onClick: () => RecordVoteLater("colours", 2), content: v => v.Text(text: "Vote later"));
         });
     }
     #endregion

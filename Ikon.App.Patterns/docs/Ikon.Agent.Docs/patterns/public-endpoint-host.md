@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # A Public HTTP Endpoint — And What Happens When The Relay Is Down
-
+<!-- checked-against: adaafe87f7c9e968 -->
 `AppEndpointHost` serves HTTP from inside the app and publishes it through the relay tunnel. The
 part worth writing down is the degraded path: **a failed relay allocation is non-fatal**. The host
 serves on `LocalPort` and retries in the background, and reading `PublicUrl` in that state
@@ -32,7 +32,7 @@ For tools an LLM calls, `endpoint-and-mcp-tool` covers the three different autho
   with no connected clients can be reaped as idle while it is still working.
 - `MapWebSocket`'s socket is closed and disposed by the framework once the handler returns. Do not
   dispose it or use it after that.
-- `StopAsync` waits up to five seconds for pending requests rather than cutting them off.
+- `StopAsync` runs ASP.NET's graceful shutdown: pending requests get the host's shutdown timeout (30 seconds by default) unless the cancellation token cuts in first, then a further five seconds for the server loop to exit.
 
 ## Snippet
 
@@ -80,7 +80,8 @@ private async Task StopEndpointAsync()
 {
     if (_host is { } host)
     {
-        // Waits up to five seconds for pending requests rather than cutting them off.
+        // Pending requests get the host's shutdown timeout (30 seconds by default) rather than
+        // being cut off, then a further five seconds for the server loop to exit.
         await host.StopAsync();
         await host.DisposeAsync();
         _host = null;

@@ -31,8 +31,8 @@ internal sealed class OverlaySelection : IPatternDemo
     #region docsnippet:pattern-overlay-selection
     private readonly Reactive<Row?> _inspecting = new(null);
     private readonly Reactive<string?> _pendingDelete = new(null);
-    private readonly Reactive<bool> _filterOpen = new(false);
-    private readonly Reactive<bool> _saved = new(false);
+    private readonly ClientReactive<bool> _filterOpen = new(false);
+    private readonly ClientReactive<bool> _saved = new(false);
 
     private void Render(IView view)
     {

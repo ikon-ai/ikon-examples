@@ -43,15 +43,24 @@ internal sealed class GeneratedSoundLibrary : IPatternDemo
     }
 
     /// <summary>
-    /// The other direction: raw PCM you synthesized yourself is not a file until it is wrapped.
-    /// WavFile finalizes its header on first access, so add every sample before AsArray and never
-    /// add more afterwards.
+    /// The other direction: PCM is not a file until it is wrapped. WavFile finalizes its header on
+    /// first access, so add every sample before AsArray and never add more afterwards.
     /// </summary>
-    private void AddSynthesized(string label, float[] samples, int sampleRate)
+    private void AddPcm(string label, float[] samples, int sampleRate, int channelCount)
     {
-        using var wav = new WavFile(sampleRate, channelCount: 1, WavFile.SampleFormat.Float);
+        using var wav = new WavFile(sampleRate, channelCount, WavFile.SampleFormat.Float);
         wav.AddSamples(samples);
         _clips.Add(new Clip(Guid.NewGuid().ToString("N"), label, wav.AsArray(), "audio/wav"));
+    }
+
+    /// <summary>
+    /// Speech is PCM too: the one-shot hands back an AudioChunk -- Samples, SampleRate, ChannelCount --
+    /// with no Data or MimeType, so it takes the same wrap as samples you synthesized yourself.
+    /// </summary>
+    private async Task AddSpokenAsync(string text)
+    {
+        var speech = await SpeechGenerator.GenerateAsync(text);
+        AddPcm(text, speech.Samples, speech.SampleRate, speech.ChannelCount);
     }
 
     private void Render(IView view)
