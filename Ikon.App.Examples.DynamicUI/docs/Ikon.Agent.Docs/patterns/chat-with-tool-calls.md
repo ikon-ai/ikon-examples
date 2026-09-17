@@ -1,6 +1,6 @@
 <!-- mined-from: Sentrix -->
 # Chat With Tool Calls — Streaming Reply That Loops Through Tools
-
+<!-- checked-against: 32aee559deaf908d -->
 A chat where the LLM can call read/write tools mid-reply. Each `Emerge.Run` event is dispatched: `ModelText` appends to the visible bubble, `ToolCallPlanned` flips the spinner on, `ToolCallResult` flips it off and clears any "thinking-out-loud" text, `Completed` finalises the bubble and persists the new message blocks for the next turn.
 
 ## When to use
@@ -98,6 +98,7 @@ private async Task SendChatMessageAsync(string userMessage, Guid caseId)
 ## Notes
 
 - `afterToolCall = true` after `ToolCallResult`. The next `ModelText` clears the StringBuilder — model-text emitted *before* a tool call is the LLM's planning narration; the *real* answer is whatever it says after the tool returns. Keeping both would leak "Let me check…" into the final bubble.
+- **That clear only has anything to do when the context keeps the narration.** `KernelContext.DiscardTextOutputWithFunctionCalls` defaults to **true**, and it drops any assistant text emitted on the same turn as a tool call before it ever reaches the event stream — so with a default context no pre-tool `ModelText` arrives and the clear is harmless belt-and-braces. Build the context with `DiscardTextOutputWithFunctionCalls = false` if you want to *show* the narration live (and then the clear is what stops it sticking).
 - `IsProcessing.Value` toggles per phase so the typing-dots spinner only renders while the model is actively working, not during tool execution gaps.
 - `MaxIterations: 15` caps tool-loop runaway. Pair with a strong system prompt about confirming before mutations.
 - `preRunCount` snapshots the session length before the run. After `Completed`, persist only the *new* messages (`[preRunCount..]`) so tool memory survives a page refresh.

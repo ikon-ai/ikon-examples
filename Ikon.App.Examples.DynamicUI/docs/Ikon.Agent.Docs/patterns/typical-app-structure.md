@@ -1,5 +1,5 @@
 # Typical App Structure
-
+<!-- checked-against: 45f0d18b9e51a97e -->
 The skeleton every Ikon AI App starts from. Get this right first; everything else hangs off it.
 
 ## When to use
@@ -57,7 +57,7 @@ public class MyApp(IApp<SessionIdentity, ClientParameters> app)
 - **Match the plan's STRUCTURE section.** If STRUCTURE names header / sidebar / main, build those regions explicitly — `view.Row` for the header, `view.Column` for the sidebar, etc., each with its own `flex-shrink-0` / `flex-1 min-h-0` discipline so they don't collapse. Don't ship a single centered card if the plan named multiple regions.
 - The root `["h-screen flex flex-col"]` + region-by-region children is the standard shape for any multi-region app. For a genuine single-region app, `[Layout.Page, "py-8 gap-4"]` directly inside `UI.Root` is fine.
 - GlobalUsings imports every Ikon namespace — explicit `using Ikon.X;` is a CS0234.
-- Theme: when STYLING is in the plan, pass `new IkonTheme { ["primary"] = "amber-400", ["background"] = "zinc-950", ["text-primary"] = "zinc-50", ... }` to `UI` — every entry is a single CSS-variable override. Values are Crosswind/Tailwind class names. When STYLING is absent, pass `new IkonTheme()` (no body) for the platform default. `IkonTheme` lives in `Ikon.Parallax` and is auto-imported via `global using`; never write `class IkonTheme : ITheme` or `class Theme : ITheme` in the app source. Never `Theming.Apply(...)`, `Theming.Custom(...)`, or `Theme.Custom(...)` — those factories were retired. See `theme-commitment` for the indexer-key taxonomy + Styling Oracle flow.
+- Theme: when STYLING is in the plan, pass `new IkonTheme { ["primary"] = "amber-400", ["background"] = "zinc-950", ["text-primary"] = "zinc-50", ... }` to `UI` — every entry is a single CSS-variable override. Values are Crosswind/Tailwind class names. When STYLING is absent, pass `new IkonTheme()` (no body) for the platform default. `IkonTheme` lives in `Ikon.Parallax` and is auto-imported via `global using`; never write `class IkonTheme : ITheme` or `class Theme : ITheme` in the app source. Never `Theming.Apply(...)`, `Theming.Custom(...)`, or `Theme.Custom(...)` — those factories were retired. See the `theme-commitment` pattern for the indexer-key taxonomy.
 
 ## See also
 

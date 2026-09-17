@@ -1,13 +1,13 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Reaching A User Who Has Left — Permission States And The Email Fallback
+<!-- checked-against: 3d3d886a915d9161 -->
+Two failure modes look like success here. `SendToUserAsync` **falls back to offline push by itself**
+when the user has no connected session — that is not an error, and treating it as one double-sends.
+And a notification whose permission was denied delivers nothing while the call itself succeeds.
 
-Two failure modes look like success here. `SendToUserAsync` returns an **empty list** when the user
-had no connected session — that is not an error, it means only offline push was attempted, and
-treating it as failure double-sends. And a notification whose permission was denied delivers
-nothing while the call itself succeeds.
-
-So the branch that matters is on `NotificationSendResult.Permission`, and the fallback is another
-channel rather than a retry.
+So the branch that matters is on the result rows, and the fallback is another channel rather than a
+retry. Which field carries the outcome depends on `NotificationSendResult.Channel`: a `Session` row
+answers with `Permission`, the one `OfflinePush` row with `Delivered` and `Error`.
 
 ## When to use
 
@@ -16,9 +16,18 @@ request, a receipt, an alert.
 
 ## Notes
 
-- **Permission is requested lazily on the first actual send**, not when the app opens. So
-  `NotificationPermission.Default` means *never asked yet*, and the send you just made is what
-  asked.
+- **The result list is never empty.** `SendToUserAsync` returns one row per connected session, or —
+  when the user had none — a single row with `Channel == NotificationSendChannel.OfflinePush`,
+  `SessionId == 0` and `Permission == Default`. With `NotificationReach.AllDevices` that push row is
+  appended *after* the session rows. So `results.Count == 0` is not how you detect the offline case;
+  `Channel` is.
+- **On the offline push row, read `Delivered`, not `Permission`.** There is no client to ask for
+  permission, so its `Permission` is always `Default` — `Delivered` says whether the push hub
+  accepted the push and `Error` says why not. A push failure is logged at warning and never thrown,
+  so this row is the only place the caller sees it.
+- **Permission is requested lazily on the first actual send**, not when the app opens. So on a
+  *session* row `NotificationPermission.Default` means *never asked yet*, and the send you just made
+  is what asked.
 - `Denied` is a choice the user can change; `Unsupported` is a browser with no such feature.
   Neither is worth retrying, and both mean a different channel.
 - **Give the content a `Tag`.** A device that is both connected and pushed otherwise shows the same
@@ -40,8 +49,9 @@ request, a receipt, an alert.
 ```csharp
 /// <summary>
 /// SendToUserAsync already falls back to offline OS push when the user has no connected
-/// session, so an EMPTY result list is not an error -- it means nobody was connected and only
-/// push was attempted. Treating it as failure double-sends.
+/// session, so the list is never empty: it holds one row per connected session, or a single
+/// OfflinePush row when nobody was connected. Which channel a row came from decides which of
+/// its fields carries the outcome.
 /// </summary>
 private async Task NotifyAsync(string userId, string title, string body)
 {
@@ -51,10 +61,23 @@ private async Task NotifyAsync(string userId, string title, string body)
     var results = await App.Notifications.SendToUserAsync(
         userId, new NotificationContent(title, Body: body, Tag: "invoice-ready"));
 
-    // Permission is requested lazily on the first actual SEND, not when the app opens -- so
-    // Default here means "never asked yet", and this send is what asked.
     foreach (var result in results)
     {
+        if (result.Channel == NotificationSendChannel.OfflinePush)
+        {
+            // The push row has no client to ask, so its Permission is always Default and says
+            // nothing. Delivered is whether the push hub took it, and Error is why not.
+            if (!result.Delivered)
+            {
+                await EmailFallbackAsync(userId, title, body);
+                return;
+            }
+
+            continue;
+        }
+
+        // On a session row, permission is requested lazily on the first actual SEND, not when
+        // the app opens -- so Default means "never asked yet", and this send is what asked.
         if (result.Permission is NotificationPermission.Denied or NotificationPermission.Unsupported)
         {
             // Denied is a choice the user can change; Unsupported is a browser that has no

@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Monitor -->
 # Cloud-JSON Asset Store — Lightweight Per-Space Persistence Without a Database
-
+<!-- checked-against: 871bb99368e99b0d -->
 For app-level documents (dashboard configs, settings, indices) that are bigger than a reactive but smaller than a SQL table, use `Asset.Instance.GetTextAsync` / `SetTextAsync` against an `AssetUri(AssetClass.CloudJson, ...)`. Per-space scoping is built in — no Postgres setup, no schema migration, no concurrency primitives.
 
 ## When to use

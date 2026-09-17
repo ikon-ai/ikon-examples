@@ -26,6 +26,7 @@ namespace Ikon.AI.VideoEnhancement
     TensorPixUpscale2xUltra4
     TensorPixUpscale2xUltra41
     TensorPixUpscale4xUltra4
+    // extension methods: VideoEnhancerModelExtensions{DisplayName}
   static class VideoEnhancerModelExtensions
     static string DisplayName(this VideoEnhancerModel model)
   sealed record VideoEnhancerResult

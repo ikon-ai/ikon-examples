@@ -1,5 +1,5 @@
 # Custom SVG visual (ring / gauge / arc / dial / radial) built server-side
-
+<!-- checked-against: e0b0c8d15c604f4e -->
 For a circular progress **ring**, a **gauge/dial**, a **donut**, a radial/**orbital** layout, an arc, or any bespoke vector visual the first-class charts don't cover, build the SVG as a **C# string** and render it with `view.Image(data: bytes, mimeType: "image/svg+xml")`. Zero frontend code, can't go blank.
 
 > For ordinary pie / bar / line charts use the first-class components instead (`view.PieChart`, `view.BarChart`, `view.LineChart` — see the **charts** guide). This pattern is for shapes those don't cover (rings, gauges, arcs, dials, radial/orbital).

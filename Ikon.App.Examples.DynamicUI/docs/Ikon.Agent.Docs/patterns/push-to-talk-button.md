@@ -1,6 +1,6 @@
 <!-- mined-from: Vorg.Commander -->
 # Push-To-Talk Button — Hold to Capture, Release to Stop
-
+<!-- checked-against: bd51ce331ca3a692 -->
 `view.PushToTalkButton` is the platform's push-to-talk primitive: hold to open the mic, release to
 send. It ships the whole state sequence a voice UI needs — needs-permission, ready, pressed, hot —
 so the app writes none of it.

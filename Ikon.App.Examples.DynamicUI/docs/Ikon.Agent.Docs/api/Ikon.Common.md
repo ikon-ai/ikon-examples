@@ -34,7 +34,7 @@ namespace Ikon.Common
     ILogger CreateLogger(string categoryName)
     void Dispose()
   static class IkonTaskExtensions
-    // Intentionally does not await the task. Exceptions are observed and sent to onException.
+    // Intentionally does not await the task. A fault is flattened and passed to onException, or logged at error when none is supplied.
     static void RunParallel(this Task task, Action<Exception>? onException = null)
   static class MimeTypes
     // Registers a mime type for a file extension. The extension is normalized (leading dot stripped, lower-cased) so it matches what the lookups use, and the write is locked against the concurrent readers. Argument order is (extension, mimeType), matching the rest of the type.
@@ -62,6 +62,7 @@ namespace Ikon.Common
     static bool IsXml(string mimeType)
     static bool IsZip(string mimeType)
     // type: The category keyword — not a mime string. Recognized keywords are: text, markdown, video, image, audio, json, binary, csv, zip, xml, pdf, word, excel, powerpoint, notes, and any. "any" always returns true; an unrecognized keyword returns false.
+    // mimeType: The mime type to classify.
     static bool TypeMatchesMimetype(string type, string mimeType)
     const string ApplicationExcel
     const string ApplicationJavascript
