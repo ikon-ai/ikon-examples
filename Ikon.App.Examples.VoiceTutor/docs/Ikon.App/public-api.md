@@ -25,6 +25,7 @@ namespace Ikon.App
   // Register every route before calling StartAsync; routes added afterward are not served.
   sealed class AppEndpointHost : IAsyncDisposable
     // The relay tunnel is not allocated until StartAsync is called.
+    // app: The app instance.
     // secure: When true (the default) the public URL is https://… with TLS terminated at the relay. When false, plain http://….
     // webSocketKeepAliveInterval: WebSocket keep-alive ping interval. Defaults to 10 seconds.
     // stablePortName: When non-empty, the relay assigns a deterministic public port for this name, so PublicUrl stays the same across reconnects and process restarts. Empty = ephemeral.
@@ -46,15 +47,15 @@ namespace Ikon.App
     void MapPut(string pattern, Func<HttpContext, Task> handler)
     // The framework closes and disposes the socket once the handler returns; do not dispose it or use it past the handler's completion.
     void MapWebSocket(string pattern, Func<HttpContext, WebSocket, Task> handler)
-    // Returns as soon as the host is serving and keeps running in the background — it does not block for the host's lifetime. A failed relay allocation is non-fatal.
+    // Returns as soon as the host is serving and keeps running in the background — it does not block for the host's lifetime. A failed relay allocation is non-fatal; a local port that cannot be bound throws (typically IOException) and leaves the host not started.
     Task StartAsync(CancellationToken cancellationToken = default)
-    // Waits up to 5 seconds for pending requests to complete.
+    // Runs ASP.NET's graceful shutdown, which waits for pending requests up to the host's shutdown timeout (30 seconds by default) unless cancellationToken cancels first, then up to a further 5 seconds for the server loop to exit before the listener is disposed. No-op when the host is not started.
     Task StopAsync(CancellationToken cancellationToken = default)
     // Only for an app whose endpoints are useless without their public URL, and which would rather start late than start wrong — a relay being redeployed takes a few seconds to come back. Do NOT await this on the app initialization path of an app that renders UI: it blocks first paint on something the app does not need in order to draw.
     Task<bool> WaitForPublicUrlAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
     // Fires only for the background-retry allocation; not raised when the tunnel was already allocated during StartAsync.
     event Action<string>? PublicUrlAvailable
-  // One of the app's two file trees (AppFiles.Public / AppFiles.Data). Paths are plain relative file paths ("thumbnails/42.png") — no leading slash, no .. segments; anything else throws ArgumentException. Read precedence: a runtime-written file wins over a repo-seeded file at the same path. Writes always go to cloud storage (never the local disk), so they persist across deploys; repo-seeded files change by changing the repo. The public tree cannot READ repo-seeded files (in the cloud they live with the frontend, not the app) — it reads and writes runtime files, and GetUrlAsync covers seeded files by returning the path URL the frontend serves.
+  // One of the app's two file trees (AppFiles.Public / AppFiles.Data). Paths are plain relative file paths ("thumbnails/42.png"); a leading slash and backslashes are normalized away, while an empty path, a trailing slash, or a ./../empty segment throws ArgumentException. Read precedence: a runtime-written file wins over a repo-seeded file at the same path. Writes always go to cloud storage (never the local disk), so they persist across deploys; repo-seeded files change by changing the repo. The public tree cannot READ repo-seeded files (in the cloud they live with the frontend, not the app) — it reads and writes runtime files, and GetUrlAsync covers seeded files by returning the path URL the frontend serves.
   sealed class AppFileTree
     // Deleting a missing file is a no-op. A repo-seeded file cannot be deleted here — it ships with the app, so remove it from the repo instead.
     Task DeleteAsync(string path, CancellationToken ct = default)
@@ -102,36 +103,37 @@ namespace Ikon.App
     ValueTask CloseAsync(string? streamId = null)
     AudioOutputStreamInfo? GetOutputStreamInfo(string? streamId = null)
     // How far the client has actually rendered the audio and whether the user can currently hear it. Null when the client has not reported yet (older SDKs never report). Reports arrive roughly twice per second while audio is playing; check AudioPlaybackStatus.ReceivedAtUtc for staleness.
+    // clientSessionId: The client session id
     // streamId: The output stream. Null uses the default (speech mixer) stream
     AudioPlaybackStatus? GetPlaybackStatus(int clientSessionId, string? streamId = null)
-    // Two concurrent calls on ONE stream id interleave their frames and corrupt playback — give each clip its own id. Cancelling closes the stream with a final end-of-stream frame.
+    // Two concurrent calls on ONE stream id interleave their frames and corrupt playback — give each clip its own id. Cancelling after a frame went out closes the stream with a final end-of-stream frame; cancelling before the first frame sends nothing. Empty samples return without sending, and so does a clip no connected client would hear. App shutdown ends the clip quietly; only the caller's token throws.
     // streamId: Required when several streams run at once; null uses the default stream
     // encoderOptions: Null falls back to DefaultEncoderOptions
-    // cancellationToken: Stops the clip early, closing the stream cleanly
+    // cancellationToken: Stops the clip early; the stream is closed when a frame was already sent
     Task PlayClipAsync(MediaTargets targets, ReadOnlyMemory<float> samples, int sampleRate, int channelCount, string? streamId = null, AudioEncoderOptions? encoderOptions = null, CancellationToken cancellationToken = default)
-    // Unpaced — callers own the real-time pacing. Feed chunks as they are produced; a whole clip sent this way can overflow client buffers, so use PlayClipAsync for that.
+    // Unpaced — callers own the real-time pacing. Feed chunks as they are produced; a whole clip sent this way can overflow client buffers, so use PlayClipAsync for that. Sends nothing when no client the targets name is connected.
     // isFirst: True when this call carries the beginning of a clip (starts a new playback on the client)
     // isLast: True when this call carries the end of the clip (a single complete clip passes true for both)
     // streamId: Required when several streams run at once; null uses the default stream
     // encoderOptions: Null falls back to DefaultEncoderOptions
     ValueTask SendFrameAsync(MediaTargets targets, ReadOnlyMemory<float> samples, int sampleRate, int channelCount, bool isFirst, bool isLast, string? streamId = null, TimeSpan totalDuration = default, AudioEncoderOptions? encoderOptions = null)
-    // Completes at end of mixer playout (pause-aware, real-time paced), not at end of generation. Long texts are backpressure-paced against the bounded mixer buffer, so any length is safe. An interruption by a newer Speak call completes the task quietly.
+    // Completes at end of mixer playout (pause-aware, real-time paced), not at end of generation. Long texts are backpressure-paced against the bounded mixer buffer, so any length is safe. An interruption by a newer Speak call completes the task quietly. Throws TimeoutException when the playout pipeline stops draining while unpaused — an app sequencing on speech must not continue as though the utterance had been heard. With nobody connected it returns at once without generating.
     // text: The text to speak. Whitespace-only text is a no-op
     // voice: Optional voice id. Null uses the model's default voice
     // instructions: Optional delivery instructions (tone, emotion, style). Support is model-specific; unsupported models ignore them
     // speed: Optional speaking speed, where 1.0 is normal (e.g. 0.8 is slower, 1.2 is faster). Null leaves the model's default. Support is model-specific; unsupported models ignore it
     // cancellationToken: Cancels generation and playback of this utterance
     Task SpeakAndWaitAsync(MediaTargets targets, string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, string? instructions = null, double? speed = null, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, CancellationToken cancellationToken = default)
-    // Also cancels the previous call's generation, not just its playback. Returns once the utterance is queued; await SpeakAndWaitAsync for playout.
+    // Also cancels the previous call's generation, not just its playback. Returns once the utterance is queued; await SpeakAndWaitAsync for playout. Throws TimeoutException when the playout pipeline stops draining while unpaused, so an abandoned utterance never reads as a spoken one. Returns without generating anything when no client the targets name is connected — speech is not bought for an empty room.
     // text: Whitespace-only text is a no-op
     // voice: Null uses the model's default voice
     // instructions: Delivery instructions (tone, emotion, style); unsupported models ignore them
     // speed: 1.0 is normal. Null leaves the model's default; unsupported models ignore it
     // cancellationToken: Cancels generation and playback of this utterance
     Task SpeakAsync(MediaTargets targets, string text, SpeechGeneratorModel model = ElevenFlash25, string? voice = null, string? instructions = null, double? speed = null, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, CancellationToken cancellationToken = default)
-    // Real-time paced by the speech mixer, so fast producers (typical TTS) cannot overflow client audio buffers; a chunk with a new id interrupts current playback with a fade. Returns immediately — playback happens in the background.
+    // Real-time paced by the speech mixer, so fast producers (typical TTS) cannot overflow client audio buffers; a chunk with a new id interrupts current playback with a fade. Returns immediately — playback happens in the background. Drops the chunk when no client the targets name is connected.
     void SpeakChunk(MediaTargets targets, AudioChunk audio, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null)
-    // Call once during app setup. Mutually exclusive with UseTurnDetection, and calling it a second time throws — either conflict raises InvalidOperationException.
+    // Call once during app setup. Mutually exclusive with UseTurnDetection, and calling it a second time throws — either conflict raises InvalidOperationException. A recognizer failure at segment time — a timestamp granularity the model does not support included — does not throw: SpeechNotRecognizedAsync fires with SpeechNotRecognizedReason.Error and the failure in its Error.
     // model: The speech recognizer model to use (e.g., WhisperLarge3Turbo).
     // silenceThresholdRms: RMS threshold below which the segment is treated as silence and skipped.
     // requireCorrelatedStream: When true (default), only fires for streams initiated through a CaptureButton (those with a CorrelationId). Set false to transcribe every audio stream including ad-hoc ones.
@@ -153,7 +155,7 @@ namespace Ikon.App
     event AsyncEventHandler<AudioInputStreamEndEventArgs> AudioInputStreamEndAsync
     // Reports arrive periodically while a stream is active and immediately on state changes; GetPlaybackStatus holds the latest snapshot per client.
     event AsyncEventHandler<AudioPlaybackReportEventArgs> PlaybackReportReceivedAsync
-    // Exactly one of this and SpeechRecognizedAsync fires per completed segment (neither fires once the app is shutting down). An app that latches busy state when capture stops — a "Transcribing..." spinner, a disabled button — must release it here as well as in SpeechRecognizedAsync; handling only the success event leaves that state stuck on for any press that produces no speech.
+    // Exactly one of this and SpeechRecognizedAsync fires per completed segment, and per detected turn — carrying that turn's SpeechNotRecognizedEventArgs.TurnId — so every TurnStartedAsync is closed (neither fires once the app is shutting down). An app that latches busy state when capture stops — a "Transcribing..." spinner, a disabled button — must release it here as well as in SpeechRecognizedAsync; handling only the success event leaves that state stuck on for any press that produces no speech.
     event AsyncEventHandler<SpeechNotRecognizedEventArgs> SpeechNotRecognizedAsync
     // Fires only after UseSpeechRecognition or UseTurnDetection has been called once at setup; subscribing without one of those means this event never fires.
     event AsyncEventHandler<SpeechRecognizedEventArgs> SpeechRecognizedAsync
@@ -216,10 +218,27 @@ namespace Ikon.App
     DateTime ReceivedAtUtc { get; init; }
     AudioPlaybackState State { get; init; }
     int TrackId { get; init; }
+  // A held scope reports the session's idle time as zero, which every tier of the backend's reaping measures against, so while one is open nothing reaps the instance at all. That is what the scope is for and it is also how an instance ends up running unattended for a night — so a scope holds for a stated duration and no longer. State one with StartAsync for work that runs longer than DefaultHold, or extend the scope while it runs.
   class BackgroundWork
-    // Calls are ref-counted: the server is notified only on the first StartAsync and the last StopAsync. Dispose the returned scope (or call StopAsync) to release — pair every Start with exactly one release or idle shutdown stays blocked.
-    ValueTask<IAsyncDisposable> StartAsync()
+    // Calls are ref-counted: the server is notified only on the first StartAsync and the last StopAsync. Dispose the returned scope (or call StopAsync) to release. A scope left undisposed stops holding after DefaultHold and says so in the log — state a longer duration for work that needs one rather than relying on that.
+    ValueTask<BackgroundWorkScope> StartAsync()
+    // The hold is released when the scope is disposed or when expectedDuration passes, whichever comes first, so work that overruns can be reaped rather than freezing the idle clock indefinitely; call BackgroundWorkScope.ExtendAsync from work that is still making progress. Durations above MaxHold are clamped.
+    // expectedDuration: How long the work should take. Must be positive
+    // reason: What the work is, named in the log when the hold expires or is extended
+    // throws ArgumentOutOfRangeException: The duration is zero or negative
+    ValueTask<BackgroundWorkScope> StartAsync(TimeSpan expectedDuration, string reason)
     ValueTask StopAsync()
+    // Covers any ordinary job an app runs behind a closed tab, and bounds what a scope nobody ever releases costs.
+    static readonly TimeSpan DefaultHold
+    // A hold longer than the platform's own longest idle budget is indistinguishable from one that never ends. A longer duration is clamped to this and the clamp is logged.
+    static readonly TimeSpan MaxHold
+  // Disposing twice is safe, and so is disposing one that has already expired.
+  sealed class BackgroundWorkScope : IAsyncDisposable
+    ValueTask DisposeAsync()
+    // For work that is still making progress past the duration it was started for. Call it from the work itself — a loop that extends on its own, with nothing to report, is the hold that never ends wearing a different hat. Extending a released scope does nothing.
+    // additionalDuration: How much longer the work needs. Must be positive
+    // throws ArgumentOutOfRangeException: The duration is zero or negative
+    ValueTask ExtendAsync(TimeSpan additionalDuration)
   // Every null property leaves that setting to the client. Start from Default and override what you need.
   sealed record ClientAudioCaptureOptions
     ctor()
@@ -232,6 +251,7 @@ namespace Ikon.App
     bool? EchoCancellation { get; init; }
     bool? NoiseSuppression { get; init; }
   sealed record ClientContact
+    // Names: The contact's names.
     // Emails: The contact's email addresses.
     // Phones: The contact's phone numbers.
     ctor(IReadOnlyList<string> Names, IReadOnlyList<string> Emails, IReadOnlyList<string> Phones)
@@ -243,6 +263,11 @@ namespace Ikon.App
     // options: Optional image capture options.
     // throws NotSupportedException: Thrown when the client does not support image capture.
     static Task<ClientImageCapture> CaptureImageAsync(ClientImageCaptureOptions? options = null, int? targetId = null, CancellationToken cancellationToken = default)
+    // Only the address crosses the app's transport — the browser fetches the file itself, straight from wherever it is hosted. That is the point: a place file, an export or a video never travels through the reactive channel. Pair it with an expiring signed URL from private asset storage. Returns false when the client has no download function registered.
+    // url: Address the browser fetches. A signed, temporal asset URL is the usual source.
+    // filename: Name the browser saves it under.
+    // targetId: Client session to deliver to; defaults to the client in scope.
+    static Task<bool> DownloadFileAsync(string url, string filename, int? targetId = null, CancellationToken cancellationToken = default)
     static Task<bool> EndLiveActivityAsync(int? targetId = null, CancellationToken cancellationToken = default)
     static Task<bool> ExitFullscreenAsync(int? targetId = null, CancellationToken cancellationToken = default)
     static Task<bool> FlushRecordingArchivesAsync(int? targetId = null, CancellationToken cancellationToken = default)
@@ -264,6 +289,10 @@ namespace Ikon.App
     static Task<bool> LoginShowAsync(string? reason = null, int? targetId = null, CancellationToken cancellationToken = default)
     // Clears the auth session and reloads the page, returning the client to the login screen.
     static Task<bool> LogoutAsync(int? targetId = null, CancellationToken cancellationToken = default)
+    // Absolute http(s) URLs only — SetUrlAsync is history navigation inside the app and refuses them, OpenExternalUrlAsync opens a new tab. The page unloads, so the client session ends and nothing sent to it afterwards arrives; a flow that leaves this way comes back through a landing route (the step-up and signing ceremonies do). Returns false when the client cannot leave — a client with no browser, or a URL that is not http(s).
+    // url: The absolute http(s) URL to go to.
+    // throws ArgumentException: Thrown when url is null or whitespace.
+    static Task<bool> NavigateToAsync(string url, int? targetId = null, CancellationToken cancellationToken = default)
     // url: The URL to open. Must be absolute (e.g., starts with https://).
     // throws ArgumentException: Thrown when url is null or whitespace.
     static Task<bool> OpenExternalUrlAsync(string url, int? targetId = null, CancellationToken cancellationToken = default)
@@ -282,6 +311,7 @@ namespace Ikon.App
     // y: Vertical scroll position in pixels.
     // smooth: Whether to animate the scroll.
     static Task<bool> ScrollToAsync(double x, double y, bool smooth = false, int? targetId = null, CancellationToken cancellationToken = default)
+    // theme: The theme to set.
     // persist: Whether to persist the theme as a user preference.
     static Task<bool> SetThemeAsync(Theme theme, bool persist = true, int? targetId = null, CancellationToken cancellationToken = default)
     // Prefer SetThemeAsync for the built-in dark and light themes; this overload exists for custom theme names.
@@ -332,6 +362,7 @@ namespace Ikon.App
     static Task<bool> StopCaptureAsync(string streamId, int? targetId = null, CancellationToken cancellationToken = default)
     static Task<bool> StopLocationUpdatesAsync(int? targetId = null, CancellationToken cancellationToken = default)
     static Task<bool> StopMotionUpdatesAsync(int? targetId = null, CancellationToken cancellationToken = default)
+    // archiveId: The id given to StartRecordingArchiveAsync.
     static Task<bool> StopRecordingArchiveAsync(string archiveId, int? targetId = null, CancellationToken cancellationToken = default)
     // playbackId: The playback ID returned from PlaySoundAsync.
     static Task<bool> StopSoundAsync(string playbackId, int? targetId = null, CancellationToken cancellationToken = default)
@@ -385,6 +416,8 @@ namespace Ikon.App
     int ClientSessionId { get; }
     string UserId { get; }
   sealed record ClientLocation
+    // Latitude: The latitude coordinate.
+    // Longitude: The longitude coordinate.
     // Accuracy: The accuracy of the coordinates in meters.
     ctor(double Latitude, double Longitude, double Accuracy)
     double Accuracy { get; init; }
@@ -421,21 +454,28 @@ namespace Ikon.App
     // Computed: PreferredName ?? FirstName ?? empty
     string VisibleName { get; }
     object? GetAttribute(string key)
+    // Throws InvalidOperationException naming the attribute when a stored value does not convert to the property's type; an absent attribute leaves the property at its default.
     TAttributes GetAttributes<TAttributes>() where TAttributes : IProfileAttributes, new()
     bool HasRole(UserRole role)
     void RequireRole(UserRole role)
-  // A connected client's profile is cached when it joins, so lookups for connected clients return from cache; a cache miss loads from the backend asynchronously. Lookups return null when the context carries no UserId or the backend has no matching profile.
+  // A connected client's profile is cached when it joins, so lookups for connected clients return from cache; a cache miss loads from the backend asynchronously. Lookups return null only when the context carries no UserId or the backend has no matching profile; a backend call that fails throws (an HttpRequestException from the backend client), so "no profile" is never reported for an outage.
   class ClientProfiles
     ctor(IAppBase app)
     Task AddRoleAsync(Context clientContext, UserRole role)
     Task AddRoleAsync(Context clientContext, string role)
     void ClearCache()
+    // Throws BackendPageCapException<T> when more than maxResults profiles match rather than returning a silently truncated list; the profiles fetched before the cap are on the exception. Raise the cap or narrow the filter.
     Task<IReadOnlyList<ClientProfile>> FindProfilesAsync(Dictionary<string, string> filters, int maxResults = 1000)
+    // Throws BackendPageCapException<T> when the space holds more than maxResults profiles rather than returning a silently truncated list; the profiles fetched before the cap are on the exception. Raise the cap for a larger space.
     Task<IReadOnlyList<ClientProfile>> GetAllProfilesAsync(int maxResults = 1000)
     Task<TAttributes?> GetAttributesAsync<TAttributes>(Context clientContext) where TAttributes : IProfileAttributes, new()
+    // Null only for a missing UserId or a user the backend has no profile for; a backend call that fails throws rather than reading as "no profile".
     Task<ClientProfile?> GetProfileAsync(Context clientContext)
+    // Null only for a user the backend has no profile for; a backend call that fails throws rather than reading as "no profile".
     Task<ClientProfile?> GetProfileAsync(string userId)
+    // Throws when the backend call fails; the cached profile is kept until a refresh succeeds.
     Task RefreshProfileAsync(Context clientContext)
+    // Throws when the backend call fails; the cached profile is kept until a refresh succeeds.
     Task RefreshProfileAsync(string userId)
     Task RemoveRoleAsync(Context clientContext, UserRole role)
     Task RemoveRoleAsync(Context clientContext, string role)
@@ -516,6 +556,7 @@ namespace Ikon.App
     // email: The app's email service.
     // addressOf: Returns the user's email address, or null when none is known.
     // senderLocalPart: Optional sender local part, as on EmailSendRequest.
+    // senderDisplayName: Optional sender display name.
     ctor(EmailService email, Func<string, string?> addressOf, string? senderLocalPart = null, string? senderDisplayName = null)
     string Name { get; }
     Task<bool> SendAsync(string userId, NotificationContent content, CancellationToken ct)
@@ -558,6 +599,7 @@ namespace Ikon.App
     string PublicUrl { get; init; }
   // Fired per chunk with the raw bytes for streaming (transcode/scan/forward); the platform already writes the chunk itself. Bytes are not yet verified — the SHA-256 check runs only after the last chunk and a mismatch discards the whole upload, so never act irreversibly. Data is valid only during the callback — copy it to retain it.
   sealed record FileUploadChunkArgs
+    // UploadId: Id identifying this upload.
     // FileName: The client-supplied file name.
     // MimeType: The client-supplied mime type.
     // Size: The total file size in bytes the client announced.
@@ -570,8 +612,9 @@ namespace Ikon.App
     string MimeType { get; init; }
     long Size { get; init; }
     string UploadId { get; init; }
-  // Fires only after the byte count and recomputed SHA-256 both match. Exactly one of LocalTempFilePath and AssetUri is non-null. The temp file is deleted when the app stops — move or copy it here to keep it.
+  // Fires only after the byte count and recomputed SHA-256 both match. Exactly one of LocalTempFilePath and AssetUri is non-null. The temp file is deleted when the app stops — move or copy it here to keep it. Throwing fails the upload: the data is deleted, the error hook fires and the client is told.
   sealed record FileUploadCompleteArgs
+    // UploadId: Id identifying this upload.
     // FileName: The client-supplied file name.
     // MimeType: The client-supplied mime type.
     // Size: The file size in bytes.
@@ -584,8 +627,9 @@ namespace Ikon.App
     string MimeType { get; init; }
     long Size { get; init; }
     string UploadId { get; init; }
-  // Terminal hook for an upload that had started (cancel, 60 s stall, out-of-sequence chunk, byte-count or SHA-256 mismatch, write failure). Uploads the app rejected from PreStart or Start never reach here. Any partial file/asset is already deleted — clean up only app-side state.
+  // Terminal hook for an upload that had started (cancel, 60 s stall, out-of-sequence chunk, byte-count or SHA-256 mismatch, write failure, a throwing complete hook). Uploads the app rejected from PreStart or Start never reach here. Any partial file/asset is already deleted — clean up only app-side state.
   sealed record FileUploadErrorArgs
+    // UploadId: Id identifying this upload.
     // FileName: The client-supplied file name.
     // MimeType: The client-supplied mime type.
     // Size: The file size in bytes the client announced.
@@ -596,7 +640,7 @@ namespace Ikon.App
     string MimeType { get; init; }
     long Size { get; init; }
     string UploadId { get; init; }
-  // First hook, before any bytes transfer — the cheapest place to reject (return false or a FileUploadResult and nothing is sent). Hook order: PreStart → Start → Chunk/Progress (per chunk) → Complete on success or Error on failure. Capture Cancel to abort the upload later, e.g. from a UI cancel button.
+  // First hook, before any bytes transfer — the cheapest place to reject (return false or a FileUploadResult and nothing is sent; throwing rejects too). Hook order: PreStart → Start → Chunk/Progress (per chunk) → Complete on success or Error on failure. Capture Cancel to abort the upload later, e.g. from a UI cancel button.
   sealed record FileUploadPreStartArgs
     // UploadId: Id identifying this upload; the same value appears on every later hook's args.
     // FileName: The client-supplied file name. Untrusted — never join it into a path yourself.
@@ -611,6 +655,7 @@ namespace Ikon.App
     string UploadId { get; init; }
   // Fired once per received chunk, after the chunk has been written and acknowledged. Meant for driving a progress bar; use onChunkReceived if you need the bytes themselves.
   sealed record FileUploadProgressArgs
+    // UploadId: Id identifying this upload.
     // FileName: The client-supplied file name.
     // MimeType: The client-supplied mime type.
     // Size: The total file size in bytes the client announced.
@@ -667,7 +712,7 @@ namespace Ikon.App
     string Method { get; init; }
     string Path { get; init; }
     IReadOnlyDictionary<string, string> Query { get; init; }
-  // An endpoint method may return any serializable value for an automatic 200 + JSON response, or return an HttpResult to control status code, content type, and body.
+  // An endpoint method may return a string for a 200 text/plain response, any other serializable value for a 200 JSON response, null for 204, or an HttpResult to control status code, content type, and body.
   sealed record HttpResult
     ctor(int StatusCode, object? Body = null, string ContentType = "application/json")
     object? Body { get; init; }
@@ -675,6 +720,8 @@ namespace Ikon.App
     int StatusCode { get; init; }
     static HttpResult Accepted(object? body = null)
     static HttpResult BadRequest(string? reason = null)
+    // The body is written to the response unchanged. Returning a byte[] through any other factory serializes it to base64 inside a JSON string, which is almost never what a caller downloading a file wants.
+    static HttpResult Bytes(byte[] body, string contentType = "application/octet-stream", int statusCode = 200)
     static HttpResult Conflict(string? reason = null)
     static HttpResult Created(object? body = null)
     static HttpResult Forbidden(string? reason = null)
@@ -689,6 +736,9 @@ namespace Ikon.App
     virtual TClientParameters ClientParameters { get; }
     IClientCollection<TClientParameters> Clients { get; }
     TSessionIdentity SessionIdentity { get; }
+    // extension methods on IApp<TSessionIdentity, TClientParameters>: IAppEventExtensions{OnClientJoined, OnClientLeft}
+    // extension methods on IAppBase: IAppEventExtensions{OnClientJoined, OnClientLeft, OnMessageReceived, OnSnapshotRoutes, OnStarting, OnStopping, OnUserDataErasure}
+    // extension methods on IMessageChannel: AppMessaging{OnMessage, SendMessageAsync}
   interface IAppBase : IMessageChannel
     BackgroundWork BackgroundWork { get; }
     // Costs are reported per day and per usage event name; credits are the billing unit. Cost data is aggregated in the analytics pipeline, so very recent usage can take a short while to appear.
@@ -790,6 +840,8 @@ namespace Ikon.App
     event AsyncEventHandler<StoppingEventArgs> StoppingAsync
     // At-least-once delivery — the handler must be idempotent. Throwing marks the erasure incomplete and it is redelivered on a later session start.
     event AsyncEventHandler<UserDataErasureEventArgs> UserDataErasureAsync
+    // extension methods: IAppEventExtensions{OnClientJoined, OnClientLeft, OnMessageReceived, OnSnapshotRoutes, OnStarting, OnStopping, OnUserDataErasure}
+    // extension methods on IMessageChannel: AppMessaging{OnMessage, SendMessageAsync}
   static class IAppEventExtensions
     static void OnClientJoined(this IAppBase app, Func<Context, Task> handler)
     static void OnClientJoined<TSessionIdentity, TClientParameters>(this IApp<TSessionIdentity, TClientParameters> app, Func<Context, TClientParameters, Task> handler)
@@ -799,8 +851,10 @@ namespace Ikon.App
     static void OnSnapshotRoutes(this IAppBase app, Func<Task<IEnumerable<string>>> provider)
     static void OnStarting(this IAppBase app, Func<Task> handler)
     static void OnStopping(this IAppBase app, Func<Task> handler)
-    // Clean APP-OWNED data here (own database tables, PII embedded in session/global values) — the platform has already erased the user's platform-managed state. Delivery is at-least-once, so the handler must be idempotent.
+    // Clean APP-OWNED data here (own database tables, PII embedded in session/global values) — the platform has already erased the user's platform-managed state. Delivery is at-least-once, so the handler must be idempotent. Subscribing does not by itself make the platform deliver: a method marked [Trigger(TriggerEventType.UserErased)] is what declares the listener in the app bundle, and only a space whose bundle declares it is sent the event.
     static void OnUserDataErasure(this IAppBase app, Func<string, Task> handler)
+    // Same contract as the id-only overload; take this one to record the platform's erasure id in the app's own audit trail.
+    static void OnUserDataErasure(this IAppBase app, Func<UserDataErasureEventArgs, Task> handler)
   interface IClient<out TClientParameters>
     TClientParameters Parameters { get; }
     int SessionId { get; }
@@ -840,6 +894,8 @@ namespace Ikon.App
     Task WaitForPlaybackAsync(CancellationToken ct = default)
   sealed record InboxItem
     // Id: Stable id, generated by the inbox.
+    // Title: Notification title.
+    // Body: Optional body text.
     // Kind: App-defined category, e.g. "order" or "payment". Free text.
     // LaunchUrl: Optional in-app path the UI opens when the item is tapped.
     // Data: Optional opaque payload the app stored with the item.
@@ -888,7 +944,7 @@ namespace Ikon.App
   sealed class LocationService
     // Handlers run on the pushing client's reactive scope, so writing per-user or per-session reactive state from here just works.
     void OnUpdate(Action<LocationUpdate> handler)
-    // Not for app code — call OnUpdate to observe. Public because the function registry binds to it by reflection.
+    // Not for app code — call OnUpdate to observe. Public because the function registry binds to it by reflection. Anonymous by policy: a guest session streams its own position in exactly the same way a signed-in one does, and the dispatcher attributes every fix to the calling session server-side, so a client cannot push a position as somebody else. A fix that reaches it with no calling session in scope is refused (false) — an unattributable position is not a location update.
     bool ReceiveLocationUpdate(double latitude, double longitude, double accuracy, double speed, double heading, double? altitude = null, double timestampMs = 0.0)
     void RemoveHandler(Action<LocationUpdate> handler)
     // Returns true when the client accepted (it supports geolocation and permission was not denied outright).
@@ -912,6 +968,8 @@ namespace Ikon.App
   sealed record LocationUpdate
     // SessionId: The client session the fix came from.
     // UserId: The signed-in user id, or empty for an anonymous session.
+    // Latitude: Latitude in degrees.
+    // Longitude: Longitude in degrees.
     // AccuracyMeters: Reported horizontal accuracy in metres.
     // SpeedMps: Ground speed in metres/second, or 0 when unknown.
     // Heading: Heading in degrees (0–360), or -1 when unknown.
@@ -1024,9 +1082,10 @@ namespace Ikon.App
     // Round-trips to the live client over the connection rather than reading server state; returns null when the client doesn't answer or isn't connected.
     // targetId: Session id of the client to ask
     Task<string?> GetPathAsync(int targetId)
-    // Acts on the client of the ambient ClientScope — call from a client-scoped context. Returns null outside a client scope or when the client doesn't answer.
+    // Acts on the client of the ambient ClientScope — call from a client-scoped context; outside one it throws InvalidOperationException (same as SetPathAsync). Returns null when the client doesn't answer.
+    // throws InvalidOperationException: No ClientScope is active
     Task<string?> GetPathAsync()
-    // Rejects paths under the platform-reserved /ikon and /api prefixes (throws ArgumentException) — the load balancer owns those. The client's existing query string is preserved unless path carries its own.
+    // Rejects paths under the platform-reserved /ikon and /api prefixes (throws ArgumentException) — the load balancer owns those. The client's existing query string is preserved unless path carries its own. A client that does not acknowledge returns false and leaves CurrentPath where it was.
     // targetId: Session id of the client to navigate
     // path: App-owned path to navigate to, e.g. /orders/7
     // replace: Replaces the current history entry instead of pushing a new one, so the client's back button skips the path being left behind
@@ -1037,10 +1096,11 @@ namespace Ikon.App
     // replace: Replaces the current history entry instead of pushing a new one, so the client's back button skips the path being left behind
     // throws ArgumentException: path falls under a platform-reserved prefix (/ikon or /api)
     Task<bool> SetPathAsync(string path, bool replace = false)
-    // Fires on any client URL change — link, back button, reload, or the app's own SetPathAsync. Handlers run on a background task in the navigating client's UserScope/ClientScope, so scoped reactives resolve to that client. A handler exception is logged and swallowed, never reaching the client.
+    // Fires only for a move the client makes on its own — an in-app link or back/forward. The app's own SetPathAsync is not echoed back, and a cold load or reload raises nothing: read that path from CurrentPath. Handlers run on a background task in the navigating client's UserScope/ClientScope, so scoped reactives resolve to that client. A handler exception is logged and swallowed, never reaching the client.
     event AsyncEventHandler<NavigationPathChangedEventArgs> PathChangedAsync
   class NavigationPathChangedEventArgs : EventArgs
     // url: The URL the client navigated to, query string included
+    // clientContext: The client that navigated
     ctor(string url, Context clientContext)
     Context ClientContext { get; }
     int ClientSessionId { get; }
@@ -1115,6 +1175,7 @@ namespace Ikon.App
     void MarkReadFor(string userId, string itemId)
     void Mute(string channel, bool muted = true)
     void MuteFor(string userId, string channel, bool muted = true)
+    // userId: The user to notify.
     // content: Title, body, launch url, tag and data, as for NotificationService.
     // kind: App-defined category stored on the item for filtering.
     // route: Where to deliver; NotificationRoute.Default is inbox plus push.
@@ -1127,10 +1188,10 @@ namespace Ikon.App
     const string PushChannel
   sealed record NotificationOutcome
     // Item: The inbox item, or null when the route skipped the inbox.
-    // PushResults: Per-session push outcomes; empty when the user was offline or push was off.
-    // Delivered: Names of the extra channels that sent ("email", "sms", …).
-    // Skipped: Channels that had no address for the user, were unconfigured, or are muted by the user.
-    // Failed: Channels that threw; the error is logged, the notification still stands in the inbox.
+    // PushResults: Per-session push outcomes plus the offline push row when one was sent; empty when push was off or not attempted.
+    // Delivered: Channels that reached the user: "push" only when a session showed it or the push hub accepted it, plus the extra channels that sent ("email", "sms", …).
+    // Skipped: Channels that had no address for the user, were unconfigured, are muted by the user, or ("push") were refused by every client.
+    // Failed: Channels that threw, and "push" when the push hub refused it; the error is logged, the notification still stands in the inbox.
     ctor(InboxItem? Item, IReadOnlyList<NotificationSendResult> PushResults, IReadOnlyList<string> Delivered, IReadOnlyList<string> Skipped, IReadOnlyList<string> Failed)
     IReadOnlyList<string> Delivered { get; init; }
     IReadOnlyList<string> Failed { get; init; }
@@ -1169,24 +1230,39 @@ namespace Ikon.App
     static readonly NotificationRoute AllDevices
     static readonly NotificationRoute Default
     static readonly NotificationRoute Silent
+  enum NotificationSendChannel
+    // A connected client session; NotificationSendResult.SessionId names it.
+    Session
+    // The backend push hub, reached when the user had no connected session or the reach was NotificationReach.AllDevices; NotificationSendResult.SessionId is 0.
+    OfflinePush
   sealed record NotificationSendResult
-    // SessionId: The target client session id.
-    // Delivered: True when the client actually displayed the notification (permission granted).
-    // Permission: The client's resulting permission state after the send attempt.
-    ctor(int SessionId, bool Delivered, NotificationPermission Permission)
+    // SessionId: The target client session id; 0 for the offline push row.
+    // Delivered: True when the client actually displayed the notification (permission granted), or the push hub accepted the offline push.
+    // Permission: The client's resulting permission state after the send attempt; NotificationPermission.Default on the offline push row, which has no client to ask.
+    // Channel: Whether this row is a connected session or the offline push.
+    // Error: Why the offline push was not accepted; null when it was, and on session rows.
+    ctor(int SessionId, bool Delivered, NotificationPermission Permission, NotificationSendChannel Channel = Session, string? Error = null)
+    NotificationSendChannel Channel { get; init; }
     bool Delivered { get; init; }
+    string? Error { get; init; }
     NotificationPermission Permission { get; init; }
     int SessionId { get; init; }
+    // The SessionId of the offline push row.
+    const int OfflinePushSessionId = 0
   // Accessed via app.Notifications. Client permission is requested lazily on the first actual send, not when the app opens. SendToUserAsync automatically falls back to offline OS push (Web Push / FCM) when the target user has no connected session.
   sealed class NotificationService
+    // content: The notification content.
     Task<IReadOnlyList<NotificationSendResult>> BroadcastAsync(NotificationContent content, CancellationToken ct = default)
     // sessionId: The target client session id.
     Task<NotificationPermission> GetPermissionAsync(int sessionId, CancellationToken ct = default)
     // sessionId: The target client session id.
+    // content: The notification content.
     Task<NotificationSendResult> SendToSessionAsync(int sessionId, NotificationContent content, CancellationToken ct = default)
-    // Returns one result per connected session for the user. An empty list means the user had no connected session and only offline push was attempted — it is not an error.
+    // One result per connected session for the user. When the user had no connected session the list holds one NotificationSendChannel.OfflinePush row whose Delivered says whether the push hub accepted the push and whose Error says why not; a push failure is also logged at warning, never thrown.
     // userId: The persistent user id to notify.
+    // content: The notification content.
     Task<IReadOnlyList<NotificationSendResult>> SendToUserAsync(string userId, NotificationContent content, CancellationToken ct = default)
+    // With NotificationReach.AllDevices the offline push row is appended after the session rows, so the caller sees the push hub's acceptance alongside each session's outcome.
     // userId: The persistent user id to notify.
     // content: The notification content. Give it a NotificationContent.Tag so a device that is both connected and pushed shows one notification, not two.
     // reach: How many of the user's devices to reach.
@@ -1245,7 +1321,7 @@ namespace Ikon.App
     PersistenceBackend Backend { get; }
     string? PostgresDatabase { get; }
     string? PublicUrl { get; }
-  // Partitioned at runtime by UserScope: each user sees their own value across all of their client sessions.
+  // Partitioned at runtime by UserScope: each user sees their own value across all of their client sessions. Reads and writes resolve against the active scope — inside UI.Root(), an action callback, or a ReactiveScope.Use(new UserScope(...)) block — and throw when none is active: Main(), the constructor, Task.Run loops, timers and endpoint handlers carry no user scope, so reach one user's value from there through ValueFor / SetFor / UpdateFor with an id captured where the scope existed. The constructor's value is what every user starts with until they have one of their own.
   class PersistentUserReactive<T> : Reactive<T, UserScope>
     ctor(T initialValue, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
     ctor(Func<string, T> initialValue, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
@@ -1259,7 +1335,7 @@ namespace Ikon.App
     // An atomic read-modify-write under that user's lock.
     void UpdateFor(string userId, Func<T, T> mutator)
     T ValueFor(string userId)
-  // Same contract as ReactiveDictionary<TKey, TValue> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentUserReactive<T>.
+  // Same contract as ReactiveDictionary<TKey, TValue> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentUserReactive<T>. Reads and mutations resolve against the active UserScope — inside UI.Root(), an action callback, or a ReactiveScope.Use(new UserScope(...)) block — and throw when none is active: Main(), the constructor, Task.Run loops, timers and endpoint handlers carry no user scope, so reach one user's partition from there through the …For(userId, …) accessors with an id captured where the scope existed. Items given to the constructor are what every user starts with until they have state of their own.
   class PersistentUserReactiveDictionary<TKey, TValue> : ReactiveDictionary<TKey, TValue>
     ctor(PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
     ctor(IEnumerable<KeyValuePair<TKey, TValue>> initialEntries, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
@@ -1271,7 +1347,7 @@ namespace Ikon.App
     void SetFor(string userId, TKey key, TValue value)
     void UpdateFor(string userId, Action<Dictionary<TKey, TValue>> transform)
     IReadOnlyDictionary<TKey, TValue> ValueFor(string userId)
-  // Same contract as ReactiveHashSet<T> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentUserReactive<T>.
+  // Same contract as ReactiveHashSet<T> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentUserReactive<T>. Reads and mutations resolve against the active UserScope — inside UI.Root(), an action callback, or a ReactiveScope.Use(new UserScope(...)) block — and throw when none is active: Main(), the constructor, Task.Run loops, timers and endpoint handlers carry no user scope, so reach one user's partition from there through the …For(userId, …) accessors with an id captured where the scope existed. Items given to the constructor are what every user starts with until they have state of their own.
   class PersistentUserReactiveHashSet<T> : ReactiveHashSet<T>
     ctor(PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
     ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
@@ -1283,7 +1359,7 @@ namespace Ikon.App
     bool RemoveFor(string userId, T item)
     void UpdateFor(string userId, Action<HashSet<T>> transform)
     IReadOnlyCollection<T> ValueFor(string userId)
-  // Same contract as ReactiveList<T> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentUserReactive<T>.
+  // Same contract as ReactiveList<T> — tracked reads, one notification per mutation, copy-on-write snapshots — persisted exactly like PersistentUserReactive<T>. Reads and mutations resolve against the active UserScope — inside UI.Root(), an action callback, or a ReactiveScope.Use(new UserScope(...)) block — and throw when none is active: Main(), the constructor, Task.Run loops, timers and endpoint handlers carry no user scope, so reach one user's partition from there through the …For(userId, …) accessors with an id captured where the scope existed. Items given to the constructor are what every user starts with until they have state of their own.
   class PersistentUserReactiveList<T> : ReactiveList<T>
     ctor(PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
     ctor(IEnumerable<T> initialItems, PersistenceBackend backend = Default, string? postgresDatabase = null, string? key = null)
@@ -1411,7 +1487,7 @@ namespace Ikon.App
     string Name { get; }
     Task<bool> SendAsync(string userId, NotificationContent content, CancellationToken ct)
   sealed class SpeechNotRecognizedEventArgs : EventArgs
-    ctor(SpeechNotRecognizedReason reason, Context clientContext, string streamId, string? correlationId, Exception? error = null)
+    ctor(SpeechNotRecognizedReason reason, Context clientContext, string streamId, string? correlationId, Exception? error = null, int turnId = 0)
     Context ClientContext { get; }
     int ClientSessionId { get; }
     // Set by the originating CaptureButton; null for ad-hoc streams.
@@ -1420,6 +1496,8 @@ namespace Ikon.App
     Exception? Error { get; }
     SpeechNotRecognizedReason Reason { get; }
     string StreamId { get; }
+    // Identifier of the detected turn when the segment came from Audio.UseTurnDetection, shared with the matching TurnStartedEventArgs; 0 for push-to-talk segments.
+    int TurnId { get; }
     string UserId { get; }
   enum SpeechNotRecognizedReason
     NoAudio
@@ -1476,10 +1554,20 @@ namespace Ikon.App
   enum Theme
     Dark
     Light
+    // extension methods: ThemeExtensions{ToThemeName}
   static class ThemeExtensions
     // False for the light theme, custom theme names, and clients that have not reported a theme.
     static bool IsDarkTheme(this Context clientContext)
     static string ToThemeName(this Theme theme)
+  // Applying [Trigger] registers the method as a Local function — no [Function] needed. The handler takes no caller-supplied arguments; it may accept a TriggerContext and/or a CancellationToken that signals app shutdown, in any order. Any other parameter fails registration at startup. Delivery is at-least-once and durable: returning acknowledges the event, throwing leaves it pending for redelivery with backoff, and events never expire. Handlers must therefore be idempotent (TriggerContext.EventId is the dedup key) and should acknowledge within about two minutes, handing longer work to app.BackgroundWork. With MaxParallelism 1 (the default) events of one type arrive strictly in order. One listener per event type per app.
+  sealed class TriggerAttribute : Attribute
+    ctor(string eventType)
+    // A TriggerEventType value such as TriggerEventType.EmailReceived. Checked at startup and at bundle time against the values this SDK knows; any other string fails both.
+    string EventType { get; }
+    // Default 1: events are delivered one at a time, in order. A higher value lets that many run concurrently and gives up ordering — right only for events that are independent of one another. Values below 1 fail registration and bundling.
+    int MaxParallelism { get; init; }
+    // When null or empty the function is registered (and invoked) under "{DeclaringType.FullName}.{Method}" — the identity the bundle manifest records, so the backend resolves it even when the method is inherited or overridden.
+    string? Name { get; init; }
   sealed class TurnSpeculativeEventArgs : EventArgs
     ctor(int turnId, string text, TimeSpan duration, CancellationToken cancellationToken, string streamId, Context clientContext)
     CancellationToken CancellationToken { get; }
@@ -1513,8 +1601,11 @@ namespace Ikon.App
     // onComplete: Runs once every byte has landed.
     // onError: Runs when a transfer fails partway.
     void Register(string uploadActionId, Func<FileUploadStartArgs, Task<FileUploadResult>> onStart, Func<FileUploadCompleteArgs, Task>? onComplete = null, Func<FileUploadErrorArgs, Task>? onError = null)
+  // One instance per id in the erased account's identity closure, so a handler sees the same ErasureId several times for one erasure.
   class UserDataErasureEventArgs : EventArgs
-    ctor(string userId)
+    ctor(string userId, string erasureId)
+    // Correlates the app's own record of the erasure with the platform's; it identifies the erasure, never the person.
+    string ErasureId { get; }
     string UserId { get; }
   enum UserRole
     // Maps to the "anonymous" role string, not "guest"
@@ -1528,11 +1619,12 @@ namespace Ikon.App
     ValueTask CloseAllAsync()
     // streamId: The stream to close. Null closes the default stream
     ValueTask CloseAsync(string? streamId = null)
+    // streamId: The stream id
     VideoOutputStreamInfo? GetOutputStreamInfo(string? streamId = null)
     // Frames are transmitted immediately — the caller owns the pacing. Call once per frame at the source framerate (typically forwarding each incoming frame as it arrives); never loop over a stored clip's frames without pacing.
     // data: Encoded video frame data
     // streamId: Required when several streams run at once; null uses the default stream
-    // trackId: Overrides the auto-assigned track id — pass the original when echoing WebRTC video
+    // trackId: Overrides the track id assigned when the output stream is first created; ignored on later frames. Not needed to echo a client's stream — passing its input track id only lets a viewer's RequestIdrVideoFrame (which names the output track) be forwarded to the source unchanged
     ValueTask SendFrameAsync(MediaTargets targets, byte[] data, int frameNumber, bool isKey, ulong timestampInUs, uint durationInUs, VideoCodec codec, int width, int height, double framerate, string? streamId = null, int? trackId = null)
     // args.Data is encoded codec bitstream (see the codec on the stream's begin event), not decoded pixels — forward it as-is (e.g. via SendFrameAsync) or decode it before analysis.
     event AsyncEventHandler<VideoInputFrameEventArgs> VideoInputFrameAsync
@@ -1604,7 +1696,7 @@ namespace Ikon.App.Cells
     int Capacity { get; init; }
     // Zero (the default) means no eviction — the instance lives until the host shuts down. Globals (cells whose SessionIdentity is parameterless) are never evicted regardless of this value.
     int IdleTtlSeconds { get; init; }
-  // Each in-process server runs in its own async-local scope, so Cells.Instance resolves to that server's own host and wiring. The framework calls Initialize once at startup; apps call Connect<TInterface> for each cell access.
+  // Each in-process server runs in its own async-local scope, so Cells.Instance resolves to that server's own host and wiring. The framework installs the host at startup and swaps it on every hot reload and session-identity change (InstallHost, which keeps the app's registered wiring); Initialize is the clean-slate form for tests and the no-host fallback. Apps call Connect<TInterface> for each cell access.
   class Cells : AsyncLocalInstance<Cells>
     ctor()
     // On a CLOUD run, when TInterface is an interface backed by a [Cell] type, returns a SubstrateCellProxy<TInterface> that dispatches per member: [HttpGet]/[HttpPost] methods over stateless HTTP, [Function] methods and Reactive<T> members over a standard SDK connection to the cell-host. Otherwise — a concrete-type request, or ANY cell on a LOCAL run — returns the local cell instance from this server's CellHost. Local runs host every cell in-process (there is no deployed cell-host to proxy to, and a local run is a single process), so every cell behaves as a normal shared instance locally.
@@ -1614,6 +1706,19 @@ namespace Ikon.App.Cells
   // Injected into a cell's primary constructor by the framework.
   interface ICell<out TSessionIdentity>
     TSessionIdentity Identity { get; }
+  // Pattern-match the proxy's Reactive<T> member to this type to read Status inside a render (a tracked read, so the UI re-renders when the subscription lands or gives up) and show "loading" or "unavailable" instead of an empty list that looks complete. Error carries the last subscribe failure once Status is MirrorStatus.Failed.
+  sealed class MirrorReactive<T> : Reactive<T>
+    // Null until a subscribe attempt has failed for good.
+    Exception? Error { get; }
+    // A tracked read: a render that reads it re-renders when the subscription lands or fails.
+    MirrorStatus Status { get; }
+  enum MirrorStatus
+    // The subscription has not landed yet; the mirror holds its seed value (empty, 0, null).
+    Connecting
+    // The subscription is live; the value is the cell's.
+    Live
+    // Every subscribe attempt failed; the value is still the seed and will not update. Reading the member again from the cell proxy re-subscribes.
+    Failed
 
 namespace Ikon.App.Cron
   sealed record CronContext
@@ -1632,7 +1737,7 @@ namespace Ikon.App.Http
     IReadOnlyDictionary<string, string>? Headers { get; init; }
     string? RawBody { get; init; }
     IReadOnlyDictionary<string, string>? SessionIdentity { get; init; }
-    // Null when no HttpCallContext is current or the identity carries no userid (e.g. an anonymous endpoint).
+    // The user the gateway proved for the call in flight (ProvenUser.Current) when there is one, regardless of the identity dict; otherwise the identity's userid (case-insensitive key). Null only when no user was proven and the identity carries no userid (e.g. an anonymous endpoint).
     string? UserId { get; }
     string? Header(string name)
     static IDisposable Use(HttpCallContext context)
@@ -1644,7 +1749,7 @@ namespace Ikon.App.Mcp
     static McpCallContext? Current { get; }
     Func<ProgressUpdate, Task>? OnProgress { get; init; }
     IReadOnlyDictionary<string, string>? SessionIdentityFields { get; init; }
-    // Null when no McpCallContext is current or the request's claims carry no userid.
+    // The user the gateway proved for the call in flight (ProvenUser.Current) when there is one, regardless of the claims; otherwise the claims' userid (case-insensitive key). Null only when no user was proven and the claims carry no userid.
     string? UserId { get; }
     static IDisposable Use(McpCallContext context)
   // Progress is a monotonic counter; keep Total constant across a call's updates so clients can render a stable percentage.
@@ -1659,6 +1764,13 @@ namespace Ikon.App.Payments
     Unknown
     Subscription
     OneTime
+  enum EntitlementState
+    // Not fetched yet, or the last fetch failed: the value is still being warmed. Render "checking" rather than "locked"; a later render reads the real value.
+    Unknown
+    // The backend confirmed the customer holds the offer.
+    Entitled
+    // The backend confirmed the customer does not hold the offer.
+    NotEntitled
   // Omit Interval for a one-time offer.
   sealed record OfferPriceSpec
     ctor(long AmountMinor, string Currency, PriceKind Kind, PriceInterval? Interval = null, int? IntervalCount = null)
@@ -1739,7 +1851,7 @@ namespace Ikon.App.Payments
     Stripe
     Mollie
     Surfboard
-  // Url is a provider-hosted receipt page. Pdf holds downloadable PDF bytes only when the provider exposes one; today every provider returns a hosted URL only, so Pdf is null.
+  // Url is a provider-hosted receipt page (Stripe and Surfboard). Pdf holds downloadable PDF bytes only when the provider exposes one; no provider does today, so it is null. Mollie offers no customer-facing receipt at all and returns both null rather than failing — check before showing a receipt button.
   sealed record PaymentReceipt
     ctor(string? Url, byte[]? Pdf, string? PdfContentType)
     byte[]? Pdf { get; init; }
@@ -1785,6 +1897,8 @@ namespace Ikon.App.Payments
     Task CancelSubscriptionAsync(string subscriptionId, bool immediate = false, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
     // Moves subscriptionId to newOfferId (another recurring offer, same currency and interval). On an upgrade (pricier offer) the prorated difference is charged now and the new offer's entitlement is granted immediately; on a downgrade nothing is charged, the current (higher) plan stays available until the next renewal, and renewals then bill the new price. The previous offer's entitlement is left to lapse at its stored expiry. immediateChargeMinor overrides the platform's computed proration for Mollie/Surfboard (developer-owned pricing); it is rejected for Stripe, which prorates natively. Returns a SubscriptionOfferChange whose SubscriptionOfferChange.Changed is false when the subscription was already on the requested offer.
     Task<SubscriptionOfferChange> ChangeSubscriptionOfferAsync(string subscriptionId, string newOfferId, long? immediateChargeMinor = null, string? idempotencyKey = null, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
+    // EntitlementState.Unknown for a guest, for the first read of an unseen offer (which warms the cache in the background) and after a failed warm-up, which is logged and re-attempted on a later read. Reading it inside a UI lambda re-renders when the state changes. customerKey defaults to the current user.
+    EntitlementState CheckEntitlement(string offerId, string? customerKey = null)
     // Idempotent on OfferSpec.OfferId — calling again updates the offer. Stripe provisions a Product + Price; catalog-less providers (Mollie, Surfboard) store the offer on the platform.
     Task<PaymentOffer> CreateOfferAsync(OfferSpec offer, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
     // Paying grants the customer an entitlement for the offer; a recurring offer also starts a subscription. customerKey defaults to the current user. Throws for an anonymous (not signed-in) customer unless AllowAnonymousPayments is set. allowPromotionCodes is honored by Stripe only; other providers ignore it. amountMinorOverride charges the given amount (in minor units) instead of the offer's stored price while still granting the offer's entitlement — for developer-computed pricing such as an upgrade credit. It is supported on one-time offers only; supplying it for a recurring offer is rejected (use ChangeSubscriptionOfferAsync to change a subscription's plan).
@@ -1793,7 +1907,7 @@ namespace Ikon.App.Payments
     Task<PaymentLink> CreatePaymentLinkAsync(long amountMinor, string currency, string? customerKey = null, string? description = null, string? successUrl = null, string? cancelUrl = null, string? idempotencyKey = null, bool allowPromotionCodes = false, PaymentProvider? provider = null, CancellationToken cancellationToken = default)
     // Makes a backend call; customerKey defaults to the current user. For gating UI every render, prefer the synchronous IsEntitled instead.
     Task<PaymentEntitlement> GetEntitlementAsync(string offerId, string? customerKey = null, CancellationToken cancellationToken = default)
-    // No backend call — safe to read every render, and reading it inside a UI lambda re-renders when the entitlement changes. The first read for an unseen offer returns false and warms the cache in the background, flipping to the real value on a later render. customerKey defaults to the current user.
+    // No backend call — safe to read every render, and reading it inside a UI lambda re-renders when the entitlement changes. The first read for an unseen offer returns false and warms the cache in the background, flipping to the real value on a later render. A warm-up that fails is logged and leaves the value unknown (false here); use CheckEntitlement to tell "not entitled" from "not known yet". customerKey defaults to the current user.
     bool IsEntitled(string offerId, string? customerKey = null)
     Task<IReadOnlyList<PaymentOffer>> ListOffersAsync(CancellationToken cancellationToken = default)
     // customerKey defaults to the current user.
@@ -1855,3 +1969,16 @@ namespace Ikon.App.Payments
     Unpaid
     Paused
     Canceled
+
+namespace Ikon.App.Triggers
+  sealed record TriggerContext
+    ctor(string EventId, string EventType, int SequenceNumber, DateTime FiredAtUtc, string PayloadJson)
+    static TriggerContext? Current { get; }
+    string EventId { get; init; }
+    string EventType { get; init; }
+    DateTime FiredAtUtc { get; init; }
+    string PayloadJson { get; init; }
+    int SequenceNumber { get; init; }
+    // Uses the platform's JSON defaults — property names match case-insensitively, so a camelCase payload binds a PascalCase record. Throws on an empty payload.
+    T GetPayload<T>()
+    static IDisposable Use(TriggerContext context)

@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Skeleton While Loading — Standing In For The Shape, Not The Wait
-
+<!-- checked-against: c411d8d9047a5fba -->
 A skeleton is not a spinner with square corners. It stands in for the **shape** of what is
 arriving, so it mirrors the real row — same container, same gaps, a circle where the avatar goes.
 That is what keeps the layout from jumping when the content lands, which is the whole reason to
@@ -10,7 +10,8 @@ prefer it over a spinner for content that has a known structure.
 
 A list, a card grid, a profile, a table — anything whose layout you already know before the data
 arrives. Use a `Spinner` instead when the shape is unknown or the wait is a single action
-completing (a button doing work), and `Progress` when there is a real fraction to show.
+completing (a button doing work), and `view.Progress(value:, max:)` when there is a real fraction
+to show.
 
 ## Notes
 

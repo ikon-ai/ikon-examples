@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Client-Callable Functions — Registering What a Client May Call
-
+<!-- checked-against: 282be1602b9dbdda -->
 A method an app writes is invisible to its frontend until the function registry advertises it.
 `[Function]` marks the method, `[RegisterAll]` sets the default for a whole class, and
 `FunctionRegistry.Instance` does the registering. The registry is also readable, so the list of what

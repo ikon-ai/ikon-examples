@@ -17,6 +17,10 @@ namespace Ikon.AI
   static class AssetOutputs
     static Task<byte[]> GetBytesAsync(string url, CancellationToken cancellationToken = default)
     static Task<byte[]> GetDataAsync(this IResultPayload result, CancellationToken cancellationToken = default)
+  class ContentRefusedException : NonRetryableAIException
+    ctor(string message, string finishReason)
+    // The provider's own finish reason, verbatim, or empty when it gave none. Never the response body: a refusal says why in one token, and the body is prompt content that has no business in telemetry.
+    string FinishReason { get; }
   // The name selects the model in the category's string-based APIs (e.g. new LLM("my-model")). An empty ApiKey means the endpoint needs no authentication header.
   abstract class CustomModel
     string ApiKey { get; init; }
@@ -51,6 +55,7 @@ namespace Ikon.AI
     byte[]? Data { get; }
     ResultKind Kind { get; }
     string? Url { get; }
+    // extension methods: AssetOutputs{GetDataAsync}
   // Transient (network blip, server restart, flaky link) and therefore retryable — the RPC layer retries with a forced reconnect, and exhausted attempts still surface as retryable.
   sealed class IkonServerConnectException : RetryableAIException
   // A reference clip for prompt-driven audio editing: the model preserves this clip's timing and structure while the prompt re-styles it. Supply the clip exactly one way: Data (with MimeType), Url, or AssetUri (resolved automatically).
@@ -96,8 +101,10 @@ namespace Ikon.AI
     Transient
     // The model has been removed, renamed or retired and the configuration has to be updated.
     Unavailable
-    // Missing or rejected credentials, exhausted credits, or a quota that is not a transient rate limit. An operator has to act, but nothing is wrong with the model or the code.
+    // Missing, rejected or unauthorised credentials. An operator has to act, but nothing is wrong with the model or the code.
     AccessDenied
+    // The provider is working and the key is valid; the account behind it has to be topped up. Distinct from AccessDenied because the remedy is a payment rather than a credential, and from Transient because no amount of waiting clears it.
+    CreditExhausted
     // No content, an unusable tool call, or output that failed validation. Non-deterministic by nature and often not reproducible on the next call.
     Quality
   enum ModelRegion
@@ -120,6 +127,7 @@ namespace Ikon.AI
     string MimeType { get; init; }
     string? Url { get; init; }
     int Width { get; init; }
+    // extension methods on IResultPayload: AssetOutputs{GetDataAsync}
   class RegionNotSupportedException : NonRetryableAIException
   // With Auto the payload stays inline in-process; only when the result is returned from a remotely hosted AI function is it uploaded to a short-lived asset URL, and then only if it exceeds an internal size threshold (a few MB), keeping the protocol message small. Url always uploads, in any context. Check the result's ResultKind field to see which delivery was used.
   enum ResultDelivery
@@ -130,6 +138,7 @@ namespace Ikon.AI
     Data
     Url
   class RetryableAIException : AIException
+    TimeSpan? RetryAfter { get; init; }
 
 namespace Ikon.AI.Kernel
   static class AsyncEnumerableExtensions
@@ -234,6 +243,10 @@ namespace Ikon.AI.Kernel
     bool UseUserNames { get; init; }
     KernelContext Add(Instruction instruction)
     KernelContext Add(MessageBlock message)
+    // Clears results until the estimate is at or under targetTokens or only kept results remain; returns how many it cleared. Stubs are never cleared again.
+    KernelContext ClearOldFunctionResults(long targetTokens, int keep, IReadOnlyCollection<string>? excludedTools, out int cleared)
+    long EstimateInputTokens()
+    static bool IsClearedResult(object result)
     KernelContext KeepMessagesMax(int count)
     KernelContext WithFunctions(IEnumerable<Function>? functions, bool replaceExisting = false)
   // Consume by switching on the concrete record case; forward any case you do not handle unchanged so downstream consumers still receive it.
@@ -406,6 +419,7 @@ namespace Ikon.AI.LLM
   // Capability flags default to what a typical self-hosted OpenAI-compatible model supports; enable more (e.g. SupportsJsonSchema) when the endpoint provides them.
   sealed class CustomLLMModel : CustomModel
     ctor()
+    ReasoningDial AcceptedReasoningDial { get; }
     required CustomLLMApi Api { get; init; }
     required int ContextWindowSize { get; init; }
     // Leave at 0 when the endpoint has no such cap: a request asking for more than the model can produce is capped at this value instead of being sent as-is, and 0 means "send the caller's value".
@@ -422,6 +436,8 @@ namespace Ikon.AI.LLM
     bool SupportsTemperature { get; init; }
   sealed class LLMCapabilities
     ctor()
+    // The dial a model does not read is refused at the request, not ignored; None means it reads neither, so leave both unset.
+    ReasoningDial AcceptedReasoningDial { get; init; }
     int ContextWindowSize { get; init; }
     string InlineReasoningTagName { get; init; }
     int MaxOutputTokens { get; init; }
@@ -437,6 +453,7 @@ namespace Ikon.AI.LLM
     bool SupportsOutputAudio { get; init; }
     bool SupportsParallelToolCalling { get; init; }
     bool SupportsReasoning { get; init; }
+    bool SupportsServerSideContextEditing { get; init; }
     bool SupportsSingleToolCalling { get; init; }
     bool SupportsStreaming { get; init; }
     bool SupportsZeroDataRetention { get; init; }
@@ -463,6 +480,7 @@ namespace Ikon.AI.LLM
     Gpt56Sol
     Gpt56Terra
     Gpt56Luna
+    Gpt6Astra
     O3
     O3Pro
     Claude45Haiku
@@ -547,6 +565,9 @@ namespace Ikon.AI.LLM
     NovaLite
     NovaMicro
     Nova2Lite
+    // extension methods: LLMModelExtensions{ContextWindowSize, DisplayName, MaxOutputTokens}
+  static class LLMModelDefaults
+    static LLMModel Default { get; }  // extension of LLMModel
   static class LLMModelExtensions
     // In tokens. Returns 0 when the model can't be resolved — treat 0 as "unknown" and skip utilization math rather than dividing by zero.
     static int ContextWindowSize(this LLMModel model)
@@ -556,4 +577,8 @@ namespace Ikon.AI.LLM
   class ModelOutputException : RetryableLLMException
   class NonRetryableLLMException : NonRetryableAIException
   sealed class ReasoningBurnException : RetryableLLMException
+  enum ReasoningDial
+    None
+    Effort
+    TokenBudget
   class RetryableLLMException : RetryableAIException

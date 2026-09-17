@@ -91,7 +91,8 @@ Name = ""
   - `--log-trace` / `--log-debug`: enable verbose logging
   - `--debug`: enable debug mode
   - `--skip-npm-install`: skip npm install step
-- `ikon app stop`: stop a running app instance
+- `ikon app stop`: stop a running app instance (`--all` stops every local instance on the machine)
+- `ikon app instances`: list every local app instance running on this machine, whichever project started it (`--format json|csv` for machine output)
 - `ikon app update [dev|stable]`: update Ikon NuGet and NPM package references to the latest version. With no argument it stays on the channel the app is already pinned to; `dev` moves onto the unstable dev channel and `stable` returns to released packages
 - `ikon app icon generate`: regenerate every frontend's icon set from `branding/logo.png` — web favicons + PWA manifest icons, and (when a Flutter frontend exists) the Android/iOS/web launcher icons. Only the generated icons and each manifest's icon/color entries are rewritten; manual manifest edits (e.g. a custom PWA `name`) are preserved.
 - `ikon app teleport build`: compile this app's `schema/*.tp` files into C# + configured SDKs (run after editing a `.tp` schema)

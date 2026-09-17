@@ -47,6 +47,7 @@ namespace Ikon.Common.Core.Functions.Policy
     bool IsApproved { get; }
     string? RejectionReason { get; }
     static ApprovalResult Approved()
+    // reason: The reason for rejection.
     static ApprovalResult Rejected(string? reason = null)
     override string ToString()
   enum ApproverType
@@ -61,20 +62,12 @@ namespace Ikon.Common.Core.Functions.Policy
     // context: The policy call context with metadata about the call.
     ValueTask<PolicyDecision> EvaluateAsync(object?[] args, PolicyCallContext context)
   static class PolicyArgs
-    // args: The arguments array.
     // requiredIndices: The indices that must have non-null values.
     static bool HasAll(object?[] args, params int[] requiredIndices)
-    // args: The arguments array.
-    // index: The zero-based index of the argument.
     // defaultValue: The default value to return if the argument is missing or null.
     static T? Optional<T>(object?[] args, int index, T? defaultValue = default)
-    // args: The arguments array.
-    // index: The zero-based index of the argument.
     // throws PolicyDeniedException: Thrown if the argument is missing, null, or wrong type.
     static T Required<T>(object?[] args, int index)
-    // args: The arguments array.
-    // index: The zero-based index of the argument.
-    // value: The output value if successful.
     static bool TryGet<T>(object?[] args, int index, out T? value)
   abstract class PolicyAttribute : Attribute
     // Lower values are evaluated first.
@@ -100,20 +93,13 @@ namespace Ikon.Common.Core.Functions.Policy
   // A discriminated union with three states: Allow, Deny, or NeedsApproval — pattern match on the subtypes.
   abstract class PolicyDecision
     static PolicyDecision Allowed()
-    // reason: The reason for denying the function call.
     // code: Optional error code for programmatic handling.
     static PolicyDecision Denied(string reason, string? code = null)
-    // message: The message explaining why approval is required.
     static PolicyDecision RequireApproval(string message)
-    // message: The message explaining why approval is required.
     // expirySeconds: How long the approval request is valid (minimum 30 seconds).
     static PolicyDecision RequireApproval(string message, int expirySeconds)
-    // message: The message explaining why approval is required.
-    // handler: The custom handler to process the approval request.
     static PolicyDecision RequireApproval(string message, ApprovalHandlerDelegate handler)
-    // message: The message explaining why approval is required.
     // expirySeconds: How long the approval request is valid (minimum 30 seconds).
-    // handler: The custom handler to process the approval request.
     static PolicyDecision RequireApproval(string message, int expirySeconds, ApprovalHandlerDelegate handler)
     const int DefaultExpirySeconds = 300
     const int MinExpirySeconds = 30
@@ -128,13 +114,8 @@ namespace Ikon.Common.Core.Functions.Policy
   delegate PolicyDelegate
     ValueTask<PolicyDecision> PolicyDelegate(object?[] args, PolicyCallContext context)
   sealed class PolicyDeniedException : Exception
-    // reason: The reason for denying the call.
     // code: Error code for programmatic handling (e.g., "rate_limit_exceeded", "bad_args").
     ctor(string? reason, string? code)
-    // reason: The reason for denying the call.
-    // code: Optional error code for programmatic handling.
-    // policyName: The name of the policy that denied the call.
-    // functionName: The name of the function that was denied.
     ctor(string? reason, string? code, string? policyName, string? functionName)
     ctor(string? reason, Exception innerException, string? policyName = null, string? functionName = null)
     ctor(string? reason, string? code, Exception innerException, string? policyName = null, string? functionName = null)
@@ -163,6 +144,7 @@ namespace Ikon.Common.Core.Functions.Policy
     Type PolicyType { get; }
   sealed class RateLimitAttribute : PolicyAttribute
     // limit: Maximum number of calls allowed in the window.
+    // windowSeconds: The time window in seconds.
     ctor(int limit, int windowSeconds)
     int Limit { get; }
     // If true, the rate limit is per-session; if false (the default), it is global.

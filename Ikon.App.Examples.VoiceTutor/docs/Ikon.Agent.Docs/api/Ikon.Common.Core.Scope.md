@@ -17,7 +17,7 @@ namespace Ikon.Common.Core.Scope
     ctor(string mountId)
     string Id { get; }
     string Name { get; }
-    // The mount id every Ikon app emits today on its single Parallax stream; apps that don't override IAppBase.Mounts render under this id.
+    // Apps that don't override IAppBase.Mounts render under this id.
     const string DefaultMountId
   readonly struct OperationScope : IScopeKey
     ctor()
@@ -35,6 +35,7 @@ namespace Ikon.Common.Core.Scope
     string Name { get; }
     const string Cron
     const string Endpoint
+    const string Trigger
   // Identifies a logical user across their multiple client sessions. Used by UserReactive<T> to share state across a user's multiple connected clients. Lifecycle: Active during UI rendering inside UI.Root(). Automatically established by the framework alongside ClientScope.
   readonly struct UserScope : IScopeKey
     ctor(string userId)

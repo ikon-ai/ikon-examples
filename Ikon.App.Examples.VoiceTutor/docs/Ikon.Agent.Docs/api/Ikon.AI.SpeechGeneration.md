@@ -42,5 +42,6 @@ namespace Ikon.AI.SpeechGeneration
     Gemini25FlashTts
     Gemini25ProTts
     Gemini31FlashTts
+    // extension methods: SpeechGeneratorModelExtensions{DisplayName}
   static class SpeechGeneratorModelExtensions
     static string DisplayName(this SpeechGeneratorModel model)

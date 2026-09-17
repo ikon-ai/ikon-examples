@@ -1,5 +1,5 @@
 # Ikon Persistent State Guide
-
+<!-- checked-against: eb496f6384da121f -->
 How to persist app state across restarts. Read this before reaching for files or hand-rolled storage.
 
 ## TL;DR — what to pick
@@ -40,6 +40,32 @@ Each scope also has persistent collection variants — the durable counterparts 
 | dictionary | `PersistentReactiveDictionary<TKey, TValue>` | `PersistentSessionReactiveDictionary<TKey, TValue>` | `PersistentUserReactiveDictionary<TKey, TValue>` |
 
 The user-scoped classes additionally expose per-user accessors usable outside an active user scope (background tasks): `ValueFor(userId)`, `SetFor(userId, value)`, and `UpdateFor(userId, ...)` on `PersistentUserReactive<T>`; the collection variants have equivalents like `AddFor` / `RemoveFor` / `ClearFor`.
+
+## Starting values — pass them to the constructor
+
+The initial value or items you pass to the constructor are what every user, session or app sees
+until it has state of its own; a partition that was persisted keeps its own. That is the whole
+seeding mechanism — there is no "seed if empty" step to write:
+
+```csharp
+// Every new user starts with two example recipes; a returning user sees their own list.
+private readonly PersistentUserReactiveList<Recipe> _recipes = new(
+[
+    new Recipe("Scrambled eggs", ["2 eggs", "butter"]),
+    new Recipe("Toast", ["bread"]),
+]);
+```
+
+Per-user state is partitioned by the `UserScope` that is active, and only UI callbacks and
+rendering run inside one. `Main()`, the constructor, `Task.Run` loops, timers and endpoint
+handlers run with **no** user active, so reading or adding to a user-scoped value there throws
+(`Cannot read reactive variable '_recipes': it is partitioned per UserScope, and no UserScope is
+active`). To touch one user's partition from such a place, capture the id where the scope exists
+(`var userId = ReactiveScope.UserId;` inside the callback) and use the per-user accessors —
+`ValueFor(userId)` / `SetFor(userId, …)` / `UpdateFor(userId, …)` on a `PersistentUserReactive<T>`,
+`AddFor(userId, …)` / `RemoveFor` / `ClearFor` / `UpdateFor` on the collection variants. Session-scoped
+and global values need no scope: the session is the app instance itself, so they read and write
+like any other reactive from anywhere, `Main()` included.
 
 ## Backends — the default does the right thing
 
@@ -85,7 +111,7 @@ Postgres, asset storage is for binaries and public files:
 
 Existing data migrates by itself: when a structured value first loads from the `app` database and finds
 no row, the old asset location is read and the value is copied into Postgres, so the next load hits
-the row. The old asset blob is left in place. Apps already using a declared DB with
+the row. The old asset blob is left in place. Apps already using a named database with
 `backend: PersistenceBackend.Postgres` are untouched by all of this.
 
 Every load and save logs its destination at debug level (member name, scope, and the postgres
@@ -226,12 +252,15 @@ in until the type is a Teleport data schema.
 - ❌ Using `Public` backend for anything sensitive — assets get a real URL on the open web.
 - ❌ Constructing AssetUris by hand for state that fits a `PersistentXxxReactive`.
 - ❌ Using `Guid.NewGuid()` as `key:` — it changes on restart.
+- ❌ Seeding a user-scoped value from `Main()` or the constructor (`if (_list.Count == 0) _list.Add(...)`) — no `UserScope` is active there, so it throws; pass the starting items to the constructor instead.
 - ❌ Assuming the postgres-backed storage reads or writes through on every access — like the asset backends, the row is only read at load and written at save; in between, the value lives in memory. For read-your-writes durability, go through `app.Databases` directly.
 
 ## When to drop down to `Asset.Instance` directly
 
 Reach for `Asset.Instance` (with a hand-built `AssetUri`) only when:
-- You need to list files (`Asset.Instance.ListAsync`), not just read/write a known one.
+- You need to list files (`Asset.Instance.ListAsync`), not just read/write a known one — and only for
+  `AssetClass.LocalFile` or `AssetClass.EmbeddedFile`. The cloud classes throw `NotSupportedException`
+  on listing, so cloud files you must enumerate later need their keys kept in a persistent reactive.
 - You need streaming reads/writes for very large files (multi-GB).
 - The data isn't naturally a typed reactive value (e.g., a uploaded user file you only ever fetch on demand).
 

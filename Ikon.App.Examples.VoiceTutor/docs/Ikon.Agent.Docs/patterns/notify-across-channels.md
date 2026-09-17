@@ -1,8 +1,8 @@
 # Notify Across Channels — One Route Decides Where It Goes
-
+<!-- checked-against: ca5ccaf07cedb357 -->
 Every app that tells someone something eventually needs the same four decisions: does it go in an in-app inbox, does a device buzz, does it also reach them by email or SMS, and does it respect the fact that it is 3am. `NotificationInbox` makes those one object — a `NotificationRoute` — instead of four scattered call sites.
 
-`app.Notifications` (a `NotificationService`) is the push half on its own: `SendToSessionAsync`, `SendToUserAsync`, `BroadcastAsync`, each returning a `NotificationSendResult`. The inbox wraps it and adds persistence, per-user preferences and the extra channels.
+`app.Notifications` (a `NotificationService`) is the push half on its own: `SendToSessionAsync` returns one `NotificationSendResult`; `SendToUserAsync` and `BroadcastAsync` fan out and return one per connected session reached. A user with no connected session is not an empty list: `SendToUserAsync` returns a single `NotificationSendChannel.OfflinePush` row whose `Delivered` says whether the push hub accepted it and whose `Error` says why it did not. The inbox wraps it and adds persistence, per-user preferences and the extra channels.
 
 ## When to use
 
@@ -52,10 +52,17 @@ private async Task NotifyAsync(string userId, string title, string body, bool ur
 
 /// Preferences are per user and belong to the user, not the app. Quiet hours and mutes are
 /// honoured for Normal and Low; High bypasses both, which is why urgent must stay rare.
-private void SetPreferences(string userId, bool wantsEmail)
+private void SetPreferences(string userId, TimeZoneInfo userZone, bool wantsEmail)
 {
-    _inbox.SetQuietHoursFor(userId, new TimeOnly(22, 0), new TimeOnly(7, 0));
+    // The window is stored as UTC times of day; the user picked local ones.
+    _inbox.SetQuietHoursFor(userId, ToUtc(new TimeOnly(22, 0), userZone), ToUtc(new TimeOnly(7, 0), userZone));
     _inbox.MuteFor(userId, "email", muted: !wantsEmail);
+}
+
+private static TimeOnly ToUtc(TimeOnly local, TimeZoneInfo zone)
+{
+    var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zone));
+    return TimeOnly.FromDateTime(TimeZoneInfo.ConvertTimeToUtc(today.ToDateTime(local, DateTimeKind.Unspecified), zone));
 }
 
 /// The bell. Unread count with sensible overflow, newest first, and every row a way into the
@@ -100,7 +107,7 @@ private void RenderBell(IView view, IReadOnlyList<InboxItem> items, int unread)
 - **`NotificationPriority.High` bypasses quiet hours and the frequency cap**, which is exactly why it must stay rare. `Normal` respects both; `Low` is ambient — inbox only, nothing buzzes. An explicit channel mute wins over all three.
 - Register channels once in `OnStarting`. The platform does not hand apps its users' email addresses or phone numbers, so `EmailNotificationChannel` and `SmsNotificationChannel` each take a resolver into the app's own profile state. `TelegramNotificationChannel` and `WhatsAppNotificationChannel` ship too, and `INotificationChannel` is one interface with two members if you need your own.
 - **Read `NotificationOutcome` carefully.** `Skipped` is not failure — no address on file, channel unconfigured, or the user muted it. `Failed` is. The inbox item stands either way, which is the point: the record survives a delivery that didn't.
-- Preferences belong to the user, not the app: `SetQuietHoursFor` stores a `QuietHours` per user, `MuteFor` a per-user channel mute. The un-suffixed `SetQuietHours` / `Mute` act on the current user scope.
+- Preferences belong to the user, not the app: `SetQuietHoursFor` stores a `QuietHours` per user, `MuteFor` a per-user channel mute. The un-suffixed `SetQuietHours` / `Mute` act on the current user scope. Both quiet-hours setters take UTC times of day and the window may wrap past midnight, so convert from the user's local time first — a literal `22:00` is 22:00 UTC.
 - `MaxPushPerWindow` and `PushWindow` are the frequency cap and are **init-only** — set them in the object initializer on the field, not later.
 - Permission is requested lazily on the first real send, not at app open. Don't build a "enable notifications?" screen; send something worth receiving and let the browser ask.
 - Every `InboxItem` should carry a `LaunchUrl` into the thing that happened. A notification you cannot act on is noise with a timestamp.

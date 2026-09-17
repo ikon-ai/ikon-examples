@@ -1,5 +1,5 @@
 # Offline Recording Archive — the Track That Survives a Tunnel
-
+<!-- checked-against: e5f4dc89232dfe19 -->
 `app.Recordings` has the device write its own fixes and motion samples to local storage and upload the file when the activity ends. This is the difference between a tracker that works and one that needs good signal: a fix that fails to send in a tunnel or on a flat cell is *gone*, and no server-side durability recovers it, because it never arrived.
 
 It **pairs with** the live stream rather than replacing it. The live stream drives the screen and may be decimated and gappy; the archive lands at the end and repairs the record. Keep the server-side recording as it is and let the archive correct it — then a failed upload, or a client too old to record, degrades to the live track rather than to nothing.
