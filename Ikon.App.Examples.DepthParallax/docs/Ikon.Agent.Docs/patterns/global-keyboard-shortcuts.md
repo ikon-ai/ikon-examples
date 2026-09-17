@@ -1,6 +1,6 @@
 <!-- mined-from: Sentinel -->
 # Global Keyboard Shortcuts — Single dispatcher with Esc-stack
-
+<!-- checked-against: 5e97b2c513e42c39 -->
 A single `view.KeyboardListener` mounted at the root with `global: true` listens for a fixed allowlist of keys. The handler dispatches via a `switch` on the lowercased key. The `Escape` case implements an "Esc-stack" — close the topmost open dialog/popover/expanded item first, before fall-through. Modifier keys (`Ctrl/Cmd+K` for the command palette) branch within their key case.
 
 ## When to use

@@ -1,5 +1,5 @@
 namespace Ikon.AI.Emergence.Structured
-  // Tag matching is case-insensitive and tolerates attributes and formatting variations.
+  // Tag matching is case-insensitive and tolerates attributes and formatting variations. An unclosed tag yields no block and its raw text stays in the plain text.
   static class StructuredTagParser
     // Returns the first occurrence's inner content, or null if the tag is absent.
     static string? GetTagContent(string content, string tagName)

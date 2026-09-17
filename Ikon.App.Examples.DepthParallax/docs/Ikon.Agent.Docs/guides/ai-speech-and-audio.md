@@ -28,7 +28,7 @@ var audio = await SpeechGenerator.GenerateAsync("Hello world");  // ElevenFlash2
 // audio.Samples (float[]), audio.SampleRate, audio.ChannelCount
 ```
 
-Hand-roll the generator loop only when you need custom mixing, speech that must not interrupt what is playing, chunk-by-chunk streaming, or config beyond text, voice, instructions, and speed (e.g. language):
+Hand-roll the generator loop only when you need the raw samples (duration math, waveform analysis), chunk-by-chunk control, or config beyond text, voice, instructions, and speed (e.g. language). It does not buy overlap: `SpeakChunk` feeds the same one-utterance mixer, so a chunk with a new id fades out what is playing exactly as `SpeakAsync` would — to play alongside speech, use `Audio.PlayClipAsync` on its own stream id:
 
 ```csharp
 using var speechGenerator = new SpeechGenerator(SpeechGeneratorModel.ElevenFlash25);
@@ -207,7 +207,9 @@ namespace Ikon.AI.SoundEffectGeneration
     bool SupportsLooping { get; init; }
   sealed record SoundEffectGeneratorConfig
     ctor()
+    // Seconds, between 0.5 and 30; a value outside that range is refused rather than clamped. null lets the model choose the length.
     double? DurationSeconds { get; init; }
+    // Requires ISoundEffectGeneratorInfo.SupportsLooping; other models refuse the request rather than returning a non-looping effect.
     bool Loop { get; init; }
     string Prompt { get; init; }
     double PromptInfluence { get; init; }
@@ -216,6 +218,7 @@ namespace Ikon.AI.SoundEffectGeneration
     TimeSpan Timeout { get; init; }
   enum SoundEffectGeneratorModel
     ElevenLabsV2
+    // extension methods: SoundEffectGeneratorModelExtensions{DisplayName}
   static class SoundEffectGeneratorModelExtensions
     static string DisplayName(this SoundEffectGeneratorModel model)
   // Kind tells how the audio was delivered: inline bytes in Data, or a signed download URL in Url valid for roughly one hour.
@@ -226,6 +229,7 @@ namespace Ikon.AI.SoundEffectGeneration
     ResultKind Kind { get; init; }
     string MimeType { get; init; }
     string? Url { get; init; }
+    // extension methods on IResultPayload, using Ikon.AI: AssetOutputs{GetDataAsync}
 
 namespace Ikon.AI.SpeechGeneration
   interface ISpeechGenerator : IDisposable
@@ -271,6 +275,7 @@ namespace Ikon.AI.SpeechGeneration
     Gemini25FlashTts
     Gemini25ProTts
     Gemini31FlashTts
+    // extension methods: SpeechGeneratorModelExtensions{DisplayName}
   static class SpeechGeneratorModelExtensions
     static string DisplayName(this SpeechGeneratorModel model)
 
@@ -487,6 +492,7 @@ namespace Ikon.AI.SpeechRecognition
     AssemblyAIUniversalStreamingMultilingual
     ElevenScribe2
     VoxtralMiniTranscribe2
+    // extension methods: SpeechRecognizerModelExtensions{DisplayName}
   static class SpeechRecognizerModelExtensions
     static string DisplayName(this SpeechRecognizerModel model)
   // Which timings to ask the provider for. Timestamps cost a larger response and, on some providers, extra processing, so the default is None. Requesting a granularity the model does not support throws — check SpeechRecognizer.GetCapabilities first.

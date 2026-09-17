@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Tree Search Over A Long Document — Navigate The Index, Not The Text
-
+<!-- checked-against: 422b235745056d3a -->
 Build a `TreeIndex` once, then let a navigator model **walk** it. The navigator reads the table of
 contents and moves toward the answer, so cost scales with the tree's depth rather than the
 document's length — which is the entire reason to index instead of stuffing the document into a

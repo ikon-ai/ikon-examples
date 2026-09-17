@@ -1,6 +1,6 @@
 <!-- mined-from: Threads -->
 # Tree With Expand/Collapse — Recursive list with ancestry
-
+<!-- checked-against: f6cd2b8dcf7d27d9 -->
 A recursive renderer for parent/child hierarchical data (threads with sub-threads, files with sub-folders). Each node renders its own row, then conditionally recurses into children if its id is in an `expanded` set; otherwise it shows a compact `"N children — M active"` summary that the user can click to expand. Indentation is computed from depth (`depth * 12`) and applied as `pl-[{n}px]`.
 
 ## When to use

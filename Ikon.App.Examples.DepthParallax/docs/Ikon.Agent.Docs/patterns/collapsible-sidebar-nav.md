@@ -1,6 +1,6 @@
 <!-- mined-from: Sentinel -->
 # Collapsible Sidebar Nav — Icon rail with badges
-
+<!-- checked-against: 4434f19fca5a3b6d -->
 A vertical left rail that toggles between a wide labeled mode (`w-56`) and a narrow icon-only mode (`w-14`). Each item shows an icon, label, and optional count/dot badge driven by reactive state. The collapsed state lives in `PersistentUserReactive<bool>` so it sticks across sessions for that user.
 
 ## When to use

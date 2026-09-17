@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Examples.DynamicUI -->
 # Refine With Validation Loop — LLM Self-Fixes Compile Errors
-
+<!-- checked-against: d6b6900b38b49713 -->
 `Emerge.Refine<T>` runs an initial pass, then re-prompts up to N times — but `opt.ShouldContinue` lets *you* decide whether to stop. By compiling the LLM's code (or running any other validator) inside `ShouldContinue` and feeding the diagnostic back into the next refinement prompt, you get an auto-correcting code generator that only stops when the output passes the check or the iteration cap is hit.
 
 ## When to use

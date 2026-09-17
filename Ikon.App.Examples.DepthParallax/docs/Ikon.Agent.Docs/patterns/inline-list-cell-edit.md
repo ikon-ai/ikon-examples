@@ -1,6 +1,6 @@
 <!-- mined-from: Anima -->
 # Inline List-Cell Edit — Type-To-Save Card Fields
-
+<!-- checked-against: 85f37cbc8163f985 -->
 Each list item renders its editable string field directly as a `TextField` inside the card (no edit/save mode). The `onValueChange` mutates the item in-place, then assigns it back through the `ReactiveList` indexer to fire the change, then triggers a debounced save. The user never clicks an "Edit" button.
 
 ## When to use

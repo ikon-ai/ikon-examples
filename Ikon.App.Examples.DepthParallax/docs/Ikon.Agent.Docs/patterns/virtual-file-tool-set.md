@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Examples.Emergence -->
 # Virtual File Tool Set — Sandbox FS Tools For Coding Agents
-
+<!-- checked-against: 02171b2b0f61d5e2 -->
 A `Dictionary<string, string>` plays the role of a workspace, exposed to an LLM agent through five tools: `write_file`, `read_file`, `list_files`, `delete_file`, `search_in_files`. Each tool returns a small JSON-shaped object so the model can parse the outcome. Because everything is in-memory you can show the file tree in the UI live as the agent works.
 
 ## When to use

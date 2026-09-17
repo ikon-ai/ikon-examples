@@ -1,6 +1,6 @@
 <!-- mined-from: QTribunal -->
 # Role-Tagged Transcript Feed — Per-Speaker Style From One Enum
-
+<!-- checked-against: 91beb9fdea61967d -->
 A `TranscriptEntry(Role, Speaker, Text)` record drives a scroll-area feed. The render method maps `Role` to a tuple of (entry-style, speaker-style, text-style) so each speaker class — Q, Player, Narrator, Witness, System — gets its own color, indent, and motion treatment. The entries live in a `ReactiveList<TranscriptEntry>`, so an append re-renders the feed and moves `autoScrollKey`, scrolling to bottom.
 
 ## When to use

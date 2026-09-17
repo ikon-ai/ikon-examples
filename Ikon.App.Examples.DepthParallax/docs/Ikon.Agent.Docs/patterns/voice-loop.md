@@ -1,6 +1,6 @@
 <!-- mined-from: VoiceTutor + Tori (verified against live API surface 2026-05-02) -->
 # Voice Loop — Mic → STT → LLM → TTS
-
+<!-- checked-against: 511e6885b0f5a5c8 -->
 Push-to-talk: client mic streams to the app; on stream end, transcribe with SpeechRecognizer, ask an LLM, and speak the reply with `Audio.SpeakAsync`.
 
 ## When to use
@@ -126,13 +126,13 @@ public Task Main()
   the button renders as "Enable microphone" and a press only asks, because a permission dialog
   steals focus and would cancel the hold behind it. Read `push-to-talk-button` before writing any
   mic UI; `view.MicToggleButton` is the tap-on/tap-off alternative.
-- `await Audio.SpeakAsync(MediaTargets.Everyone, text)` runs the whole TTS chain — generation, streaming, playback — and a new call fades out and replaces the previous utterance (barge-in for free). The first argument names the audience — `MediaTargets.To(sessionIds)` speaks to specific clients — and optional parameters pick the model/voice (`Audio.SpeakAsync(MediaTargets.Everyone, text, SpeechGeneratorModel.Eleven3, voice: "Aria")`).
-- Hand-roll the loop only for custom mixing, no-interrupt overlap, raw sample access, or config beyond text+voice: `using var tts = new SpeechGenerator(model); await foreach (var audio in tts.GenerateSpeechAsync(new SpeechGeneratorConfig { Text = reply })) { Audio.SpeakChunk(MediaTargets.Everyone, audio); }`. `AudioChunk` carries PCM samples (`float[] Samples`, `int SampleRate`, `int ChannelCount`) — it does NOT have `.Data` or `.MimeType` properties; do not call `ClientFunctions.PlaySoundAsync(chunk.Data, chunk.MimeType)` (that combination doesn't compile).
+- `await Audio.SpeakAsync(MediaTargets.Everyone, text)` runs generation and streaming and returns once the utterance is queued (`SpeakAndWaitAsync` returns after playout) — and a new call fades out and replaces the previous utterance (barge-in for free). The first argument names the audience — `MediaTargets.To(sessionIds)` speaks to specific clients — and optional parameters pick the model/voice (`Audio.SpeakAsync(MediaTargets.Everyone, text, SpeechGeneratorModel.Eleven3, voice: "Aria")`).
+- Hand-roll the loop only for raw sample access or config beyond text+voice: `using var tts = new SpeechGenerator(model); await foreach (var audio in tts.GenerateSpeechAsync(new SpeechGeneratorConfig { Text = reply })) { Audio.SpeakChunk(MediaTargets.Everyone, audio); }`. `AudioChunk` carries PCM samples (`float[] Samples`, `int SampleRate`, `int ChannelCount`) — it does NOT have `.Data` or `.MimeType` properties; do not call `ClientFunctions.PlaySoundAsync(chunk.Data, chunk.MimeType)` (that combination doesn't compile).
 - `ClientFunctions.PlaySoundAsync(byte[] bytes, string mimeType)` is for playing already-encoded sound files (MP3, WAV); use `Audio.SpeakAsync` / `Audio.SpeakChunk` for generated speech.
 - `RecognizeBatchSpeechAsync` returns a `Transcript` (`.Text`, `.Language`, `.Duration`), not a string. Ask for timings with `Timestamps = SpeechTimestamps.Word` (or `Segment`) and read `.Words` (`SpeechWord`) / `.Segments` (`TranscriptSegment`) — `TimeSpan` offsets from the start of the audio. It throws on a model that cannot do the granularity, so check `SpeechRecognizer.GetCapabilities(model)` first. Continuous recognition yields `TranscriptEvent`, where only `IsFinal` events carry words.
 - Wrap STT + LLM + TTS in try/finally so `_processing` always resets.
 - The transcript is a `ReactiveList<VoiceTurn>` — `_turns.Add(turn)` notifies once; enumerate and LINQ the reactive directly (`foreach (var t in _turns)`). The per-stream sample buffers stay plain `Dictionary`s: they are server-side bookkeeping, not UI state.
-- **Interrupting the agent is its own decision.** `BargeInDetector` gates it properly — the caller must produce sustained speech across several consecutive frames, and only after a short grace period from when the agent started speaking, so a cough or the agent's own echo does not cut it off. Trim dead air with `SilenceRemover`, whose threshold is derived from the measured noise floor rather than a fixed level, and mix concurrent speakers with `SpeechMixer`.
+- **Interrupting the agent is its own decision.** `BargeInDetector` gates it properly — the caller must produce sustained speech across several consecutive frames, and only after a short grace period from when the agent started speaking, so a cough or the agent's own echo does not cut it off. Trim dead air with `SilenceRemover`, whose threshold is derived from the measured noise floor rather than a fixed level. `SpeechMixer` plays one utterance at a time with a crossfade between them; concurrent speakers are `GroupAudioMixer`'s job, which gives each participant a mix of everyone but themselves.
 
 ## See also
 

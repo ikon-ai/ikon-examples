@@ -1,6 +1,6 @@
 <!-- mined-from: NeonArcade, ParallaxDesigner -->
 # Screenshot Critique Loop — Capture Renders, Send To Vision LLM
-
+<!-- checked-against: c0a41e2ae7399960 -->
 A custom node (`preview-capture` / `annotation-overlay`) sits inside the rendered preview and exposes a captureRequest reactive. When the request id ticks, the frontend serializes the rendered DOM to a base64 PNG and fires `onCaptureDone` with the bytes. The C# side stores the image and feeds it as an `ImagePart` to a vision LLM (Gemini Flash, Claude Haiku) along with the design plan, asking for structured per-section scores or critique.
 
 ## When to use

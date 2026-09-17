@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Navigation Chrome — Breadcrumbs And A Navigation Menu
-
+<!-- checked-against: e1d3c0bd44587a2f -->
 Two components that both look like "navigation" and do different jobs. A **breadcrumb** says where
 you are and lets you go back up; a **navigation menu** is the hover-and-focus menubar that reveals
 panels of destinations.

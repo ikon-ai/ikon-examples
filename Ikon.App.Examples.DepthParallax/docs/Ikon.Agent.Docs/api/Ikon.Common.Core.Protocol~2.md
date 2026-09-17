@@ -165,7 +165,6 @@ namespace Ikon.Common.Core.Protocol
     CORE_CLIENT_DISCONNECTING
     CORE_ON_APP_READY
     CORE_ON_FRONTEND_RELOADED
-    CORE_ON_USER_DATA_ERASED
     CORE_WEBRTC_OFFER
     CORE_WEBRTC_ANSWER
     CORE_WEBRTC_ICE_CANDIDATE
@@ -190,6 +189,7 @@ namespace Ikon.Common.Core.Protocol
     CORE_CLIENT_INITIALIZATION
     CORE_CLIENT_LIFECYCLE_BATCH
     CORE_APP_CONFIG
+    CORE_ON_TRIGGER_EVENT_HANDLED
     GROUP_KEEPALIVE
     KEEPALIVE_REQUEST
     KEEPALIVE_RESPONSE
@@ -263,9 +263,10 @@ namespace Ikon.Common.Core.Protocol
     ACTION_TRIGGER_CRON
     ACTION_RESULT
     UI_RESYNC_REQUEST
-    ACTION_USER_DATA_ERASURE
     ACTION_FILE_UPLOAD_RESUME2
     ACTION_FILE_UPLOAD_RESUME_RESPONSE2
+    ACTION_TRIGGER_EVENT
+    ACTION_EVICT_USER_STATE
     GROUP_UI
     UI_STREAM_BEGIN
     UI_STREAM_END
@@ -373,6 +374,13 @@ namespace Ikon.Common.Core.Protocol
   enum StyleFormat
     Css
     Flutter
+  static class TriggerEventType
+    // An inbound email was stored for the space. Payload: EmailReceivedPayload; the body stays behind app.Email.
+    const string EmailReceived
+    // A directory-provisioning change (SCIM); its producer arrives with the SCIM plan.
+    const string SsoProvisioning
+    // A user's data is being erased in this space. Payload: UserErasurePayload. Declared with [Trigger] and gated on that declaration like every other type, but dispatched through the erasure runner rather than as an ordinary trigger: the handler takes UserDataErasureEventArgs and runs once per id in the account's identity closure, after the platform-managed state is re-erased. MaxParallelism stays 1.
+    const string UserErased
   static class UIElementLabels
     const string Blur
     const string ChatMessage

@@ -113,12 +113,13 @@ namespace Ikon.Resonance
     // cancellationToken: Ends the stream when cancelled.
     // throws InvalidOperationException: Thrown when the mixer is already streaming.
     IAsyncEnumerable<GroupAudioFrame> StreamAsync(CancellationToken cancellationToken = default)
-    // Buffers interleaved samples for a registered input stream, resampling to the mixer's native 48 kHz stereo format when needed. When the stream's buffer is full the oldest samples are dropped to make room; writes to an unknown stream are dropped with a throttled warning (stream teardown races with in-flight frames, so this is not an error).
+    // Buffers interleaved samples for a registered input stream, resampling to the mixer's native 48 kHz stereo format when needed. When the stream's buffer is full the oldest samples are dropped to make room, with a throttled warning naming the stream; a single write longer than the buffer keeps only its newest samples. Writes to an unknown stream are dropped with a throttled warning (stream teardown races with in-flight frames, so this is not an error).
     // throws ArgumentException: channelCount is less than 1 or sampleRate is not positive.
     void WriteSamples(string streamId, ReadOnlySpan<float> samples, int sampleRate, int channelCount)
   // Immutable — the mixer captures these values at construction; build a new config (and mixer) to change them.
   sealed record GroupAudioMixerConfig
     ctor()
+    // Default 5000. A write that does not fit drops the oldest buffered samples (or, for a single write longer than the buffer, everything but its newest samples) with a throttled warning.
     double MaxBufferSizeMs { get; init; }
   // The middle of the three audio currencies: AudioChunk is producer audio flowing into a mixer (TTS output, synthesized samples), identified by its speech-event id; PcmAudioFrame is the paced PCM output flowing out of the mixers toward the Opus encoder, identified by its output stream id; the encoded result travels on the wire as the protocol type AudioFrame.
   readonly struct PcmAudioFrame
@@ -168,6 +169,13 @@ namespace Ikon.Resonance
     float ReleaseAlpha { get; init; }
     int SpeechOnsetChunks { get; init; }
     int TrailingSilenceMs { get; init; }
+  enum SpeechEventOutcome
+    // Every sample was mixed into the output after the producer sent IsLast.
+    Completed
+    // Cut short: a newer event replaced it, SpeechMixer.FadeOut was called, or the mixer was cleared or disposed. An event replaced before it ever played out reports this too.
+    Interrupted
+    // The producer stopped feeding the event without ever sending IsLast; the mixer finalized it after SpeechMixerConfig.IdleFinalizeMs of drained silence.
+    Abandoned
   // Handles one speech event at a time, mixing it into precisely timed 20 ms output frames with smooth fade/crossfade transitions between events.
   sealed class SpeechMixer : IAsyncDisposable
     ctor(SpeechMixerConfig? config = null)
@@ -175,7 +183,7 @@ namespace Ikon.Resonance
     // Whether output is currently paused (a pending Pause fade-out counts once it completes).
     bool IsPaused { get; }
     string StreamId { get; }
-    // The chunk id identifies the speech event: a chunk carrying the current event's id appends to it, while a new id interrupts the current event with the configured fade. Effects, analyzers, and target ids are captured from the event's first chunk; audio is resampled to 48 kHz stereo when needed.
+    // The chunk id identifies the speech event: a chunk carrying the current event's id appends to it, while a new id interrupts the current event with the configured fade. A chunk carrying the id of an already-completed event is dropped with a warning unless it is marked IsFirst, which starts a new event under that id. Effects, analyzers, and target ids are captured from the event's first chunk; audio is resampled to 48 kHz stereo when needed.
     // throws ArgumentException: The chunk's ChannelCount is less than 1 or its SampleRate is not positive — an object-initialized AudioChunk leaves these at 0; use the full constructor.
     void AddSamples(AudioChunk chunk, IReadOnlyList<IAudioEffect>? effects = null, IReadOnlyList<IAudioAnalyzer>? analyzers = null, IReadOnlyList<int>? targetIds = null)
     // Immediately discards all speech state — current, pending, and paused — without fading. Use for hard resets (e.g. conversation restart); prefer FadeOut for a graceful stop.
@@ -188,15 +196,15 @@ namespace Ikon.Resonance
     TimeSpan GetBufferedDuration(string speechEventId)
     // Pauses output by fading the current speech out, then holding it (buffered samples are kept) until Resume. No-op when already paused or pausing.
     void Pause()
-    // Resumes paused output, fading the held speech event back in from where it stopped. No-op when not paused.
+    // Resumes paused output, fading the held speech event back in from where playout stopped; called while the pause fade-out is still in flight, the fade-in ramps up from the volume it had reached rather than from silence. No-op when not paused or pausing.
     void Resume()
     // Single consumer: a concurrent second enumeration throws, but the stream may be re-entered after an enumeration ends. Yielded frames alias one reused buffer — consume (or copy) each frame's samples within the loop body. Cancelling cancellationToken or disposing the mixer ends the stream gracefully, emitting a final PcmAudioFrame.IsLast frame when a speech event had started.
     // cancellationToken: Ends the stream when cancelled.
     // throws InvalidOperationException: Thrown when the mixer is already streaming.
     IAsyncEnumerable<PcmAudioFrame> StreamAsync(CancellationToken cancellationToken = default)
-    // Returns a task that completes when the given speech event has finished playing out — its samples fully mixed into the output (pause time included), it was interrupted by a newer event, or it was discarded. Register before or after feeding the event's chunks; an already-completed event resolves immediately. The task also completes when the mixer is cleared or disposed, so callers never hang on a torn-down mixer.
+    // Returns a task that completes when the given speech event has finished playing out — its samples fully mixed into the output (pause time included), it was interrupted by a newer event, or it was discarded — with the SpeechEventOutcome saying which; SpeechEventOutcome.Abandoned means the producer never sent IsLast and the mixer cut the event after SpeechMixerConfig.IdleFinalizeMs. Register before or after feeding the event's chunks; an already-completed event resolves immediately. The task also completes (as Interrupted) when the mixer is cleared or disposed, so callers never hang on a torn-down mixer.
     // speechEventId: The speech event id (the chunk id of the utterance)
-    Task WaitForCompletionAsync(string speechEventId)
+    Task<SpeechEventOutcome> WaitForCompletionAsync(string speechEventId)
   // Immutable — the mixer captures these values at construction; build a new config (and mixer) to change them.
   sealed record SpeechMixerConfig
     ctor()
@@ -205,6 +213,8 @@ namespace Ikon.Resonance
     double FadeInMs { get; init; }
     FadeMode FadeMode { get; init; }
     double FadeOutMs { get; init; }
+    // How long (ms, default 30000) a speech event whose producer stopped feeding it without ever sending IsLast keeps emitting silence before the mixer finalizes it. The cut is logged as a warning and the event's waiter resolves as SpeechEventOutcome.Abandoned. Generous by default so a slow streaming producer is never cut mid-utterance.
+    double IdleFinalizeMs { get; init; }
     // Upper bound only; the queue grows on demand from a small size. Samples added beyond this bound are dropped with a throttled warning, never thrown.
     double MaxBufferSizeMs { get; init; }
     // Caps effect tail padding in case an effect's output never decays below PaddingThreshold.
@@ -216,7 +226,7 @@ namespace Ikon.Resonance
     ctor()
     // Tuning for the built-in level gate and the onset pre-buffer (SilenceRemoverConfig.PreBufferMs). Only the level-tracking and pre-buffer fields apply; the onset/trailing fields belong to SilenceRemover. When null, SilenceRemover defaults are used except SilenceRemoverConfig.ReleaseAlpha is raised to 0.3 — turn detection needs the level to fall promptly when speech stops (the hold-through-pauses role is played by TurnEndSilence instead), where the slow default would add noticeable latency to every turn end.
     SilenceRemoverConfig? GateConfig { get; init; }
-    // Maximum turn length; a turn still running at this point is force-ended.
+    // Maximum turn length. A confirmed turn still running at this point is force-ended (TurnEventKind.TurnEnded with TurnEvent.Truncated set); an unconfirmed candidate is discarded without events. Buffered audio never exceeds this. Must be longer than MinSpeechDuration.
     TimeSpan MaxTurnDuration { get; init; }
     // Minimum cumulative speech required before a turn is confirmed. Shorter bursts (coughs, clicks) are discarded without producing any events.
     TimeSpan MinSpeechDuration { get; init; }
@@ -295,7 +305,7 @@ namespace Ikon.Resonance.Effects
     // buffer: The audio buffer to transform.
     void Process(Span<float> buffer)
     void Reset()
-  // The parameterless constructor yields a natural small-room reverb (four delay lines, 120–320 ms). For the array constructor, the feedbacks/mixes/delayTimesMs/cutoffFrequencies arrays must all be the same length (one entry per delay line): delay time sets perceived room size, feedback (< 1.0) sets tail length, mix the wet blend, and cutoff damps highs inside the feedback loop.
+  // The parameterless constructor yields a natural small-room reverb (four delay lines, 120–320 ms). For the array constructor, the feedbacks/mixes/delayTimesMs/cutoffFrequencies arrays must all be the same length (one entry per delay line): delay time sets perceived room size, feedback (< 1.0) sets tail length, and cutoff damps highs inside the feedback loop. Mixes (0–1 each) are not applied per line: their average is the single wet/dry blend for the summed lines, and an average of 0 makes the effect pass audio through.
   sealed class ReverbAudioEffect : IAudioEffect
     ctor()
     // roomSize: Room size from 0 (tiny) to 1 (cathedral). Scales delay times.
