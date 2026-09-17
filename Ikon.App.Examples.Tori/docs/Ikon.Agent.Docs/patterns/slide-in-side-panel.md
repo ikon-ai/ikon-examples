@@ -1,6 +1,6 @@
 <!-- mined-from: Vienola -->
 # Slide-In Side Panel — Backdrop + Animated Drawer With Tabbed Body
-
+<!-- checked-against: 9121e4cc04330b2e -->
 A left-side drawer that animates in from off-screen when toggled, with a clickable backdrop that dismisses, and tabbed scrollable content inside. Uses `motion-[0:translate-x-[-100%],100:translate-x-0] motion-duration-300ms` for the slide. The header (title + tabs) is fixed; the content area scrolls.
 
 ## When to use

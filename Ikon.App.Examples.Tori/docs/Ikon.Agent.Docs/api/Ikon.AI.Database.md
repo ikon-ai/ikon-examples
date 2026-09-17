@@ -10,6 +10,8 @@ namespace Ikon.AI.Database
     bool? IsForeignKey { get; set; }
     bool? IsPrimaryKey { get; set; }
     List<string>? Values { get; set; }
+    // True when the column holds more distinct values than Values lists, so a value absent from it is not evidence the column never holds it.
+    bool? ValuesTruncated { get; set; }
   // For app code prefer the typed factories (Trino, Postgres, Sqlite, BigQuery), passing the password from app.Secrets. CreateAsync instead reads every connection field from environment variables or space secrets, for shared pipelines.
   class DatabaseConnection : IDisposable
     string BigQueryDataset { get; set; }
@@ -42,14 +44,14 @@ namespace Ikon.AI.Database
     Task<DatabaseInfo> ExtractAsync(DatabaseInfoExtractor.Config config, CancellationToken cancellationToken)
   class DatabaseInfoExtractor.Config
     ctor()
-    // Regex patterns matched against the three-part schema.table.column name.
+    // Regex patterns matched against schema.table.column, or table.column when the table has no schema (SQLite). Case-insensitive; an empty/null list excludes nothing.
     List<string>? ColumnExcludeRegex { get; set; }
     Dictionary<string, string> ColumnExtraInfo { get; set; }
     bool IncludeEmptyColumns { get; set; }
     int JsonSampleLengthLimit { get; set; }
     int JsonSampleRowLimit { get; set; }
     int NonTextSampleRowLimit { get; set; }
-    // When empty the default depends on the database type (e.g. public for PostgreSQL).
+    // Exact schema names. When empty, PostgreSQL uses public and Trino lists every schema. SQLite and BigQuery ignore this entirely (BigQuery's dataset comes from the connection).
     List<string>? Schemas { get; set; }
     List<string>? TableExcludeRegex { get; set; }
     Dictionary<string, string> TableExtraInfo { get; set; }
@@ -88,6 +90,7 @@ namespace Ikon.AI.Database
     int TotalRowCount { get; }
     static Task<ResultSet> Create(DbDataReader reader, int maxRows, CultureInfo? culture = null, List<string>? columnNames = null)
     string ToCsv()
+    // An array of row objects, or of {name,value} arrays when column names repeat. Only the retained rows are rendered — compare TotalRowCount with LimitedRowCount to see whether the query returned more.
     string ToJson()
     string ToMarkdown()
   static class SqlValidator

@@ -21,7 +21,7 @@ namespace Ikon.AI.MusicGeneration
     bool SupportsStreaming { get; }
     void Dispose()
     Task<MusicGeneratorResult> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
-    // Static one-shot; constructs and disposes a MusicGenerator per call. Defaults to MusicGeneratorModel.ElevenLabsMusicV2 (supports duration control and editing); override via model. Returns a buffered, encoded audio file (.Data/.MimeType/.DurationSeconds). Use the constructor + GenerateMusicFileAsync for duration/input-audio/seed, or GenerateMusicAsync for streaming PCM chunks.
+    // Static one-shot; constructs and disposes a MusicGenerator per call. Defaults to MusicGeneratorModel.ElevenLabsMusicV2 (supports duration control and editing); override via model. Returns an encoded audio file (.MimeType/.DurationSeconds): in-process the bytes are inline in .Data; when the generator runs remotely or inside a remotely hosted function and the file exceeds a few MB, .Kind is ResultKind.Url and .Data is null — GetDataAsync() reads either. Use the constructor + GenerateMusicFileAsync for duration/input-audio/seed, or GenerateMusicAsync for streaming PCM chunks.
     static Task<MusicGeneratorResult> GenerateAsync(string prompt, MusicGeneratorModel model = ElevenLabsMusicV2, CancellationToken cancellationToken = default)
     IAsyncEnumerable<AudioChunk> GenerateMusicAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = default)
     Task<MusicGeneratorResult> GenerateMusicFileAsync(MusicGeneratorConfig config, CancellationToken cancellationToken = default)
@@ -35,7 +35,7 @@ namespace Ikon.AI.MusicGeneration
   // With an empty InputAudios the model generates from the prompt alone; with one or more it performs audio-to-audio editing (the prompt re-styles the clips, timing preserved). The underlying music model works on clips of at least 3 seconds. For shorter UI/game sound effects use SoundEffectGenerator instead.
   sealed record MusicGeneratorConfig
     ctor()
-    // Seconds, clamped to the model's supported range. When editing, set it to the source clip's length to keep the original timing. Ignored unless IMusicGeneratorInfo.SupportsDurationControl is true.
+    // Seconds; outside the model's supported range it throws rather than being shortened or stretched to fit. When editing, set it to the source clip's length to keep the original timing. Ignored unless IMusicGeneratorInfo.SupportsDurationControl is true.
     double? DurationSeconds { get; init; }
     bool ForceInstrumental { get; init; }
     List<InputAudio> InputAudios { get; init; }
@@ -51,6 +51,7 @@ namespace Ikon.AI.MusicGeneration
     // The platform provides the Suno key, so these behave like every other model here and need no per-app secret. An app may still override it with its own subscription by setting IKON_SUNO_API_KEY (ikon app secret set IKON_SUNO_API_KEY <key>), which is then billed as bring-your-own-key usage.
     SunoV5
     SunoV55
+    // extension methods: MusicGeneratorModelExtensions{DisplayName}
   static class MusicGeneratorModelExtensions
     static string DisplayName(this MusicGeneratorModel model)
   // Kind tells how the audio was delivered: inline bytes in Data, or a signed download URL in Url valid for roughly one hour.
@@ -61,3 +62,4 @@ namespace Ikon.AI.MusicGeneration
     ResultKind Kind { get; init; }
     string MimeType { get; init; }
     string? Url { get; init; }
+    // extension methods on IResultPayload, using Ikon.AI: AssetOutputs{GetDataAsync}

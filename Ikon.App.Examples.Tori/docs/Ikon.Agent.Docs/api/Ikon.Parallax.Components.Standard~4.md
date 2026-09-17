@@ -1,4 +1,68 @@
 namespace Ikon.Parallax.Components.Standard
+  static class FormExtensions
+    // formValue: HTML form value submitted when checked.
+    // label: Trailing text label wrapped with the checkbox in a <label> — clicking the text toggles the control and the text becomes its accessible name. Prefer this over placing your own Text beside a bare Checkbox, which associates nothing.
+    // bind: Two-way binds the checkbox to a Reactive<T> — reads bind.Value and writes it back on every toggle. When set, value: is ignored and onValueChange still fires after the write-back.
+    static void Checkbox(this UIView view, string[]? style = null, bool? value = null, bool? defaultValue = null, bool? required = null, bool? disabled = null, string? name = null, string? formValue = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onValueChange = null, Action<UIView>? content = null, string? label = null, Reactive<bool>? bind = null, string? ariaLabel = null)
+    // forceMount: When true, forces the indicator to render even when the checkbox is unchecked.
+    static void CheckboxIndicator(this UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
+    // onClearServerErrors: Invoked when server-side validation errors should be cleared.
+    static void Form(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<Task>? onClearServerErrors = null, Action<UIView>? content = null)
+    static void FormControl(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
+    // name: The name of the form field, used for validation and form submission.
+    // serverInvalid: When true, indicates the field has a server-side validation error.
+    static void FormField(this UIView view, string[]? style = null, string? name = null, bool? serverInvalid = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
+    static void FormLabel(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
+    // match: The validation condition that must be met for this message to display.
+    // forceMatch: When true, forces the message to display regardless of the match condition.
+    static void FormMessage(this UIView view, string[]? style = null, FormMessageMatch? match = null, bool? forceMatch = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
+    static void FormSubmit(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
+    // htmlFor: The id of the element this label is associated with.
+    static void Label(this UIView view, string[]? style = null, string? htmlFor = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
+    // loop: When true, keyboard navigation loops from last item to first, and vice versa.
+    // orientation: Orientation used for keyboard navigation.
+    // label: Group-level label rendered above the radio group (same field ergonomics as TextField).
+    // bind: Two-way binds the group to a Reactive<T> — reads bind.Value and writes it back on every selection. When set, value: is ignored and onValueChange still fires after the write-back.
+    static void RadioGroup(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, bool? required = null, bool? disabled = null, bool loop = true, Orientation orientation = Vertical, string? name = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Action<UIView>? content = null, string? label = null, Reactive<string>? bind = null)
+    // forceMount: When true, forces the indicator to render even when the radio is not selected.
+    static void RadioGroupIndicator(this UIView view, string[]? style = null, bool? forceMount = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
+    // value: The unique value for this radio item within the group.
+    // required: When true, indicates this radio item must be selected before the form can be submitted.
+    static void RadioGroupItem(this UIView view, string[]? style = null, string? value = null, bool? disabled = null, bool? required = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
+    // onValueChange: Fires continuously while dragging.
+    // onValueCommit: Fires once when dragging ends.
+    // content: The default content's thumb carries aria-readonly for a read-only slider (controlled value: with no write-back); custom thumbs should set it too.
+    // label: Also the accessible name of the thumbs, where role="slider" lives — a name on the root names nothing; multi-thumb thumbs are numbered from it.
+    // bind: Two-way binds a single-thumb slider to a Reactive<T>, writing back as the user drags; value: is ignored and onValueChange still fires. Multi-thumb ranges use the value: list form.
+    static void Slider(this UIView view, string[]? style = null, IReadOnlyList<double>? value = null, IReadOnlyList<double>? defaultValue = null, double? min = null, double? max = null, double? step = null, int? minStepsBetweenThumbs = null, Orientation orientation = Horizontal, bool? disabled = null, bool? inverted = null, string? name = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<IReadOnlyList<double>, Task>? onValueChange = null, Func<IReadOnlyList<double>, Task>? onValueCommit = null, Action<UIView>? content = null, string? label = null, Reactive<double>? bind = null, string? ariaLabel = null)
+    static void Slider(this UIView view, double value, string[]? style = null, double? min = null, double? max = null, double? step = null, Orientation orientation = Horizontal, bool? disabled = null, bool? inverted = null, string? name = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<double, Task>? onValueChange = null, Func<double, Task>? onValueCommit = null, Action<UIView>? content = null, string? label = null)
+    static void SliderRange(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
+    static void SliderThumb(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
+    static void SliderTrack(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
+    // formValue: HTML form value submitted when checked.
+    // label: Trailing text label wrapped with the switch in a <label> — clicking the text toggles it and the text becomes the switch's accessible name; without this or ariaLabel it is announced as an unlabelled control.
+    // bind: Two-way binds the switch to a Reactive<T> — reads bind.Value and writes it back on every toggle. When set, value: is ignored and onValueChange still fires after the write-back.
+    static void Switch(this UIView view, string[]? style = null, bool? value = null, bool? defaultValue = null, bool? required = null, bool? disabled = null, string? name = null, string? formValue = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<bool, Task>? onValueChange = null, Action<UIView>? content = null, string? label = null, Reactive<bool>? bind = null, string? ariaLabel = null)
+    static void SwitchThumb(this UIView view, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
+    // formValue: HTML form value submitted when checked.
+    static void TriStateCheckbox(this UIView view, string[]? style = null, CheckedState? value = null, CheckedState? defaultValue = null, bool? required = null, bool? disabled = null, string? name = null, string? formValue = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<CheckedState, Task>? onValueChange = null, Action<UIView>? content = null, string? ariaLabel = null)
+  sealed record FormFieldError
+    // Field: The name of the field, as passed to FormStateExtensions.FormField<T>.
+    // Message: Human-readable text rendered under the field.
+    ctor(string Field, string Message)
+    string Field { get; init; }
+    string Message { get; init; }
+  enum FormMessageMatch
+    ValueMissing
+    TypeMismatch
+    TooShort
+    TooLong
+    PatternMismatch
+    RangeUnderflow
+    RangeOverflow
+    StepMismatch
+    BadInput
+    CustomError
   // Declare one as an app field per form (new FormState<PresetDraft>(() => new())); the reactives take their identity from the declaring field, not from this class. All state is client-scoped, so each client edits its own draft, and members must be called where a client scope is active (UI render or event handlers). Show resets busy, dirty and errors; SubmitAsync runs validation, then the handler under the busy flag, and closes on success.
   sealed class FormState<T>
     // newDraft: Produces the draft used by Show when no draft is supplied.
@@ -93,98 +157,3 @@ namespace Ikon.Parallax.Components.Standard
   sealed record InteractOutsideArgs
     ctor(string? TargetId)
     string? TargetId { get; init; }
-  // Values match the browser KeyboardEvent.key specification; raw strings also work for keys not listed here.
-  static class Key
-    const string Alt
-    const string ArrowDown
-    const string ArrowLeft
-    const string ArrowRight
-    const string ArrowUp
-    const string Backspace
-    const string Control
-    const string Delete
-    const string End
-    const string Enter
-    const string Escape
-    const string F1
-    const string F10
-    const string F11
-    const string F12
-    const string F2
-    const string F3
-    const string F4
-    const string F5
-    const string F6
-    const string F7
-    const string F8
-    const string F9
-    const string Home
-    const string Meta
-    const string PageDown
-    const string PageUp
-    const string Shift
-    const string Space
-    const string Tab
-  // Property semantics match the browser KeyboardEvent.
-  sealed record KeyboardEventArgs
-    ctor(string Key, string Code, bool AltKey, bool CtrlKey, bool MetaKey, bool ShiftKey, bool Repeat)
-    bool AltKey { get; init; }
-    string Code { get; init; }
-    bool CtrlKey { get; init; }
-    string Key { get; init; }
-    bool MetaKey { get; init; }
-    bool Repeat { get; init; }
-    bool ShiftKey { get; init; }
-  static class KeyboardExtensions
-    // keys: Only forward events for these key names (Key constants); null forwards all keys.
-    // global: Default true: listens at document level; false listens only on the wrapper element.
-    // requireCtrlOrMeta: When true, the client drops events without Ctrl or Cmd held — the filter every ⌘X-style shortcut needs. Filtering only in the server callback is not enough: preventDefault applies client-side to every matched key, so a bare-key listener with it swallows that letter in every text field of the app.
-    // preventDefault: Prevents the default browser behavior for matched keys; pair with requireCtrlOrMeta for modifier shortcuts.
-    static void KeyboardListener(this UIView view, Func<KeyboardEventArgs, Task>? onKeyDown = null, Func<KeyboardEventArgs, Task>? onKeyUp = null, IReadOnlyList<string>? keys = null, bool? global = true, bool? requireCtrlOrMeta = null, bool? preventDefault = null, bool? stopPropagation = null, string[]? style = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-  static class LayoutExtensions
-    // ratio: The width-to-height ratio to maintain (e.g., 16.0/9.0 for widescreen).
-    static void AspectRatio(this UIView view, string[]? style = null, double ratio = 1.0, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    // dir: Text direction for descendants.
-    static void DirectionProvider(this UIView view, string[]? style = null, Dir dir = Ltr, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Action<UIView>? content = null)
-    static void Divider(this UIView view, string[]? style = null, Orientation orientation = Horizontal, bool decorative = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    // Style slots (default theme tokens): viewportStyle → ScrollArea.Viewport, scrollbarStyle → ScrollArea.Scrollbar, thumbStyle → ScrollArea.Thumb; rootStyle rarely needed.
-    // threshold: Distance from end (in pixels) to trigger onNearEnd. Default 200.
-    // debounceMs: Debounce time in ms to prevent rapid callback firing. Default 100.
-    // loading: When true, shows loading indicator and prevents duplicate callbacks.
-    // hasMore: When false, disables the onNearEnd callback (end of data reached).
-    // direction: Whether to detect scroll near end going Down (append) or Up (prepend).
-    static void InfiniteScrollView(this UIView view, string[]? style = null, int threshold = 200, int debounceMs = 100, bool loading = false, bool hasMore = true, ScrollDirection direction = Down, ScrollAreaScrollbars scrollbars = Vertical, Action<UIView>? loadingIndicator = null, Func<ScrollNearEndArgs, Task>? onNearEnd = null, Action<UIView>? content = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    // SemanticTone.Success, SemanticTone.Warning, and SemanticTone.Error tones map to the matching Theming.Progress.Variant tokens; other tones use the default (brand) fill. Style slots: rootStyle → Progress.Root, indicatorStyle → Progress.Indicator.
-    // indeterminate: When true, displays an indeterminate progress animation.
-    static void Progress(this UIView view, string[]? style = null, double? value = null, double? max = null, SemanticTone tone = Neutral, bool indeterminate = false, Func<double?, string>? getValueLabel = null, string[]? rootStyle = null, string[]? indicatorStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    // Resize is handled entirely on the client — only the final size reaches the server via onResized.
-    static void ResizableSplit(this UIView view, Orientation orientation = Horizontal, double initialSize = 200.0, double minSize = 100.0, double maxSize = 500.0, bool reversed = false, Func<double, Task>? onResized = null, Action<UIView>? first = null, Action<UIView>? second = null, string[]? style = null, string[]? handleStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    // Style slots (default theme tokens): viewportStyle → ScrollArea.Viewport, scrollbarStyle → ScrollArea.Scrollbar, thumbStyle → ScrollArea.Thumb, cornerStyle (when both scrollbars show); rootStyle rarely needed.
-    // scrollHideDelay: Delay in milliseconds before hiding scrollbars when type is Scroll or Hover.
-    // autoScroll: When true, automatically scrolls to the bottom when content changes (chat-style).
-    // autoScrollKey: Anything whose value changes when the content does — auto-scroll re-fires on change. Pass the collection itself (any reactive contributes its change version), a count, or a composite string. Required when autoScroll is true.
-    static void ScrollArea(this UIView view, string[]? style = null, ScrollAreaScrollbars scrollbars = Vertical, ScrollAreaType type = Hover, int? scrollHideDelay = null, Dir dir = Ltr, bool autoScroll = false, object? autoScrollKey = null, Action<UIView>? content = null, string[]? viewportStyle = null, string[]? scrollbarStyle = null, string[]? thumbStyle = null, string[]? cornerStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-    static void ScrollArea(this UIView view, string[]? style, Action<UIView> children)
-    // orientation: Whether the separator is horizontal or vertical.
-    // decorative: When true, the separator is purely visual and not announced by screen readers.
-    static void Separator(this UIView view, string[]? style = null, Orientation orientation = Horizontal, bool decorative = true, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null)
-  sealed record LocationActionEvent : ActionEvent
-    ctor(bool Success, double? Latitude, double? Longitude, double? Accuracy)
-    double? Accuracy { get; init; }
-    double? Latitude { get; init; }
-    double? Longitude { get; init; }
-  enum MediaCaptureButtonMode
-    Hold
-    Toggle
-  // ClientContext identifies the initiating user and is populated for all capture kinds; prefer ClientSessionId/UserId over tracking streamId-to-client mappings yourself.
-  sealed record MediaCaptureEvent
-    ctor(string StreamId, MediaCaptureKind Kind)
-    Context? ClientContext { get; init; }
-    int? ClientSessionId { get; }
-    MediaCaptureKind Kind { get; init; }
-    string StreamId { get; init; }
-    string? UserId { get; }
-  enum MediaCaptureKind
-    Audio
-    Camera
-    Screen

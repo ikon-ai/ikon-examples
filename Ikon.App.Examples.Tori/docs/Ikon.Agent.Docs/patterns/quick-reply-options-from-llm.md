@@ -1,6 +1,6 @@
 <!-- mined-from: NoBrainer -->
 # Quick-Reply Option Buttons — Parsed From LLM `<ask>` Tag
-
+<!-- checked-against: ca3fabd33f049b2b -->
 The agent's message can include an `<ask question="..."><option>A</option><option>B</option></ask>` block. The renderer parses it into (text-before, question, options[]), shows the prose, then the question, then a wrapping row of clickable option pills. Clicking a pill posts that text as the user's reply and reactivates the thread.
 
 ## When to use

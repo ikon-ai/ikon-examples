@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Paywall With Entitlement — Offer, Link, Access
-
+<!-- checked-against: 26f7018b2649870f -->
 Three steps, and the platform owns the middle one. Declare an **offer** once at startup, hand the
 user a **payment link** for it when they choose to buy, and gate the feature on the **entitlement**
 that paying grants. The app never sees a card number and never decides whether a payment

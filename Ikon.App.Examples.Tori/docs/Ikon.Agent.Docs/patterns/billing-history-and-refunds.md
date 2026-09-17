@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Billing History And Refunds — What The Customer Actually Has
-
+<!-- checked-against: 506937c70c901826 -->
 The third payments surface, after selling (`paywall-with-entitlement`) and managing
 (`subscription-management`): the ledger a customer or a support agent looks at. Every number here
 has a trap in it, and each one produces a screen that looks right and is wrong.
@@ -21,7 +21,7 @@ An account's billing page, a support tool, a receipts list, anywhere a refund ca
   control that breaks its promise — and one already fully refunded has nothing left to return.
 - `RefundStatus.Unknown` means submitted but not yet confirmed by the provider, not failed. Say
   "submitted" rather than implying it is done.
-- **A `PaymentReceipt` carries EITHER a `Url` or `Pdf` bytes** (with `PdfContentType`). A screen
+- **A `PaymentReceipt` carries a `Url`, `Pdf` bytes, or neither** (Mollie has no customer-facing receipt and returns both null) (with `PdfContentType`). A screen
   offering one renders both branches or it silently offers nothing.
 - `EntitlementSource` distinguishes a `Subscription` entitlement from a `OneTime` purchase — the
   same `Active: true` means different things for what happens next month.
@@ -55,20 +55,23 @@ private async Task RefundAsync(Payment payment)
         ? "Refund submitted; the provider has not confirmed it yet."
         : $"Refund {refund.Status} ({refund.Reference})";
 
-    PaymentEntitlement entitlement = await PaymentsService.Instance.GetEntitlementAsync(
-        payment.OfferId ?? "");
-
-    if (entitlement.Active)
+    // OfferId is null for an ad-hoc charge, which granted no entitlement to check.
+    if (payment.OfferId is { } offerId)
     {
-        _notice.Value += " — access is still granted until it is revoked or expires.";
+        PaymentEntitlement entitlement = await PaymentsService.Instance.GetEntitlementAsync(offerId);
+
+        if (entitlement.Active)
+        {
+            _notice.Value += " — access is still granted until it is revoked or expires.";
+        }
     }
 
     await RefreshAsync();
 }
 
 /// <summary>
-/// A receipt arrives as EITHER a Url or Pdf bytes, so a screen offering one renders both
-/// branches or it silently offers nothing.
+/// A receipt arrives as a Url, as Pdf bytes, or as neither (Mollie has no customer-facing
+/// receipt), so a screen offering one renders both branches and hides the button on neither.
 /// </summary>
 private static async Task<PaymentReceipt> ReceiptAsync(string paymentId) =>
     await PaymentsService.Instance.RequestReceiptAsync(paymentId);

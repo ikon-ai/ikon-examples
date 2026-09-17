@@ -1,5 +1,5 @@
 # Nav and Menu Rows — Navigation Is Not a Row of Buttons
-
+<!-- checked-against: 75f2c2746869f12c -->
 The three surfaces a user navigates by — page tabs, a sidebar rail, a menu row — and the token each one takes. They share a shape: a row that hugs its label, rests transparent, tints on hover, and marks the current one with **weight plus a subtle ground**, never a filled button. Getting this wrong is the single most recognisable generated-app tell: a header where every destination is a solid pill, so nothing reads as "where I am" and everything reads as "press me".
 
 ## When to use
@@ -12,8 +12,8 @@ Choosing between the three: **tabs** switch peer panels inside one context (Over
 
 ```csharp
 private readonly ClientReactive<string> _section = new("overview");
-private readonly Reactive<bool> _menuOpen = new(false);
-private readonly Reactive<string> _density = new("Comfortable");
+private readonly ClientReactive<bool> _menuOpen = new(false);
+private readonly ClientReactive<string> _density = new("Comfortable");
 
 private void RenderShell(IView view)
 {

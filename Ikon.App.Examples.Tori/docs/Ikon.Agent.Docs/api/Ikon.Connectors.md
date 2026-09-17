@@ -4,6 +4,16 @@ namespace Ikon.Connectors
     string Provider { get; }
     // HTTP status of the failed response, when the failure was an HTTP error. Lets a caller distinguish a permanent 401/403 (reconnect required) from a transient failure.
     int? StatusCode { get; }
+  // Catch ConnectorPageCapException<T> to keep the partial Items; this base only identifies the cap. ResumeFrom is where the unread remainder starts, in the paging method's own cursor form.
+  abstract class ConnectorPageCapException : Exception
+    int MaxPages { get; }
+    string Provider { get; }
+    // The paging method's own cursor form. GitHub issues: the newest UpdatedAt returned — pass it as the next since. Slack history: the OLDEST Ts returned — Slack pages backward, so the unread gap lies BELOW it; a caller must not advance its cursor past it, and can only close the gap by raising maxPages. Slack conversations: the next page cursor.
+    string ResumeFrom { get; }
+  // Same ordering as the completed result would have had (GitHub: update time ascending; Slack history: oldest-first). A caller that stays under the cap never sees this exception.
+  sealed class ConnectorPageCapException<T> : ConnectorPageCapException
+    ctor(string provider, string operation, int maxPages, IReadOnlyList<T> items, string resumeFrom)
+    IReadOnlyList<T> Items { get; }
   // Repositories are addressed as "owner/name".
   sealed class GitHub
     ctor(string token, HttpClient? http = null)
@@ -13,9 +23,9 @@ namespace Ikon.Connectors
     Task<GitHubIssue> GetIssueAsync(string repo, int number, CancellationToken ct = default)
     // Unlike the connector's JSON calls, this does NOT retry on HTTP 429 (rate limit); a 429 surfaces a ConnectorException immediately. A GitHub 403 may itself indicate a rate limit (check X-RateLimit-Remaining / Retry-After) rather than a permanent auth failure, so do not unconditionally treat a 403 as a dead credential.
     Task<string> GetPullRequestDiffAsync(string repo, int number, CancellationToken ct = default)
-    // Ordered by update time ascending and paged to completion (bounded by maxPages). See the ListIssuesSinceAsync overload for the paging, truncation and inclusivity caveats.
+    // Ordered by update time ascending and paged to completion; throws ConnectorPageCapException<T> at maxPages when more remain. See the ListIssuesSinceAsync overload for the paging and inclusivity caveats.
     Task<IReadOnlyList<GitHubIssue>> ListIssuesSinceAsync(string repo, DateTimeOffset since, int maxPages = 50, CancellationToken ct = default)
-    // The result may be silently truncated at maxPages with no signal. Detect this by comparing the result length against the page cap (maxPages × 100): if it reaches the cap, resume by calling again with since raised to the newest GitHubIssue.UpdatedAt returned. A GitHub 403 may indicate a rate limit (check X-RateLimit-Remaining / Retry-After) rather than a permanent auth failure, so do not unconditionally treat a 403 as a dead credential. since is INCLUSIVE (returns issues updated at-or-after it) while results are ordered by update time ascending, so resuming with since set to the last item's GitHubIssue.UpdatedAt re-returns every item updated in that same second. When resuming, dedupe on GitHubIssue.Number (unlike Slack's exclusive oldest).
+    // Never silently truncated: when maxPages pages are read and the last one was full, throws ConnectorPageCapException<T> of GitHubIssue carrying the pages fetched (Items, ascending, gap-free) and ResumeFrom, the newest GitHubIssue.UpdatedAt in them — pass it as the next since. A GitHub 403 may indicate a rate limit (check X-RateLimit-Remaining / Retry-After) rather than a permanent auth failure, so do not unconditionally treat a 403 as a dead credential. since is INCLUSIVE (returns issues updated at-or-after it), so resuming from an item's GitHubIssue.UpdatedAt re-returns every item updated in that same second: dedupe on GitHubIssue.Number (unlike Slack's exclusive oldest).
     Task<IReadOnlyList<GitHubIssue>> ListIssuesSinceAsync(string repo, string since, int maxPages = 50, CancellationToken ct = default)
     // Unlike the connector's JSON calls, this does NOT retry on HTTP 429 (rate limit); a 429 surfaces a ConnectorException immediately.
     Task<GitHubMergeResult> MergePullRequestAsync(string repo, int number, string? commitTitle = null, CancellationToken ct = default)
@@ -37,14 +47,14 @@ namespace Ikon.Connectors
     string Message { get; init; }
   sealed class Slack
     ctor(string botToken, HttpClient? http = null)
-    // Only Slack-owned hosts (slack.com and subdomains) are fetched. A URL pointing anywhere else — e.g. one parsed out of untrusted message text — is rejected with an ArgumentException rather than fetched, so this cannot be turned into a server-side request against an internal host, and the workspace token can never leak to an attacker-controlled server.
+    // Only Slack-owned hosts (slack.com and subdomains) are fetched. A URL pointing anywhere else — e.g. one parsed out of untrusted message text — is rejected with an ArgumentException rather than fetched, so this cannot be turned into a server-side request against an internal host, and the workspace token can never leak to an attacker-controlled server. Unlike the connector's JSON calls, this does NOT retry on HTTP 429 (rate limit); a 429 surfaces a ConnectorException immediately.
     Task<byte[]> DownloadFileAsync(string url, CancellationToken ct = default)
     Task<SlackConversation> GetConversationAsync(string channelId, CancellationToken ct = default)
-    // Returns only the most recent limit messages (default 20) as a single bounded peek — it does not paginate. For a complete range use HistorySinceAsync.
+    // Returns only the most recent limit messages (default 20) as a single bounded peek — it does not paginate, and a page of exactly limit messages does not say whether older ones exist. For a complete range use HistorySinceAsync.
     Task<IReadOnlyList<SlackMessage>> HistoryAsync(string channel, int limit = 20, CancellationToken ct = default)
-    // The result may be silently truncated at maxPages with no signal. Because pages go backward in time, the OLDEST messages are the ones dropped, leaving a gap at the start of the range. Comparing the result length against the page cap (maxPages × pageLimit) under-counts and is NOT a reliable truncation signal: conversations.history routinely returns fewer than pageLimit per page even when more pages remain, so a genuinely truncated backfill rarely reaches the product. The certain approach is to raise maxPages until a call returns a short (unfilled) final page; on truncation, resume by calling again with oldestTs raised to the oldest ts returned.
+    // Top-level messages only: conversations.history omits in-thread replies (a reply is fetched by conversations.replies on its parent's ThreadTs, which this connector does not call). Never silently truncated: at maxPages with a next_cursor still pending, throws ConnectorPageCapException<T> of SlackMessage carrying the messages fetched (Items, oldest-first) and ResumeFrom, the oldest ts among them. Pages go BACKWARD in time, so the unread gap lies below ResumeFrom: ingest Items if useful, but never move a cursor past oldestTs — only a larger maxPages closes the gap. Page counts are no substitute; Slack routinely returns short pages with more remaining.
     Task<IReadOnlyList<SlackMessage>> HistorySinceAsync(string channel, string oldestTs, int pageLimit = 200, int maxPages = 50, CancellationToken ct = default)
-    // The result may be silently truncated at maxPages with no signal, so a caller cannot trust "completion" for a workspace with more conversations than the cap admits.
+    // Never silently truncated: when maxPages pages are read and Slack still reports a next_cursor, throws ConnectorPageCapException<T> of SlackConversation carrying the conversations fetched (Items) and, as ResumeFrom, that next cursor. A caller that stays under the cap never sees it.
     Task<IReadOnlyList<SlackConversation>> ListConversationsAsync(int maxPages = 50, CancellationToken ct = default)
     // appToken: An app-level token (xapp-...), not the bot token.
     Task<string> OpenSocketUrlAsync(string appToken, CancellationToken ct = default)
