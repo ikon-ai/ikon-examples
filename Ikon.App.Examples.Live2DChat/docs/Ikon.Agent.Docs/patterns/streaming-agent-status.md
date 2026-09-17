@@ -1,7 +1,7 @@
 <!-- mined-from: Threads (rewritten against the real Ikon.Agent AgentThread surface) -->
 # Streaming Agent Status — Live block of in-progress agent activity
-
-A reactive box that renders the *current* state of a running `AgentThread` — what it is doing right now, which tools have fired, and how many tokens it has burned — by reading the thread's own reactives. No bespoke "live state" object is needed: `AgentThread` already exposes all of it as `Reactive<T>`, so reading them inside the UI lambda registers the dependency and the block re-renders as the agent runs.
+<!-- checked-against: 4d3c349f424bab3a -->
+A reactive box that renders the *current* state of a running `AgentThread` — what it is doing right now, which tools have fired, and how many tokens it has burned — by reading the thread's own reactives. No bespoke "live state" object is needed: `AgentThread` already exposes all of it as `IReadOnlyReactive<T>`, so reading them inside the UI lambda registers the dependency and the block re-renders as the agent runs.
 
 ## When to use
 
@@ -14,14 +14,16 @@ Everything below is on `AgentThread`; get one with `orchestrator.GetThread(threa
 | Member | Type | What it gives you |
 |---|---|---|
 | `AgentName` | `string` | plain property, not reactive |
-| `Status` | `Reactive<ThreadStatus>` | `Pending`, `Active`, `WaitingForChildren`, `WaitingForInput`, `Idle`, `Done`, `Failed`, `Archived` — "running" is `Active` |
-| `Activity` | `Reactive<Activity>` | `Activity(ActivityKind Kind, string? Tool)`; kinds `Idle` / `Thinking` / `Streaming` / `RunningTool` |
-| `Stage` | `Reactive<string?>` | the runner's free-text stage label, when set |
-| `ToolCallTimeline` | `Reactive<IReadOnlyList<ToolCallEntry>>` | `(int PrecedingAgentMessages, string ToolName, string ArgsJson, string? ResultText, bool? IsError)` |
-| `ActiveTools` | `Reactive<IReadOnlyList<ToolInfo>>` | tools the LLM can currently call |
-| `Messages` | `Reactive<IReadOnlyList<Message>>` | every turn on the thread |
-| `Usage` | `Reactive<ThreadUsage>` | `InputTokens`, `OutputTokens`, `Turns`, `WallTime`, … (token kinds are never summed for you) |
-| `FailureReason` | `Reactive<string?>` | why it last failed |
+| `Status` | `IReadOnlyReactive<ThreadStatus>` | `Pending`, `Active`, `WaitingForChildren`, `WaitingForInput`, `Idle`, `Done`, `Failed`, `Archived` — "running" is `Active` |
+| `Activity` | `IReadOnlyReactive<Activity>` | `Activity(ActivityKind Kind, string? Tool)`; kinds `Idle` / `Thinking` / `Streaming` / `RunningTool` |
+| `Stage` | `IReadOnlyReactive<string?>` | the runner's free-text stage label, when set |
+| `ToolCallTimeline` | `IReadOnlyReactive<IReadOnlyList<ToolCallEntry>>` | `(int PrecedingAgentMessages, string ToolName, string ArgsJson, string? ResultText, bool? IsError)` |
+| `ActiveTools` | `IReadOnlyReactive<IReadOnlyList<ToolInfo>>` | tools the LLM can currently call |
+| `Messages` | `IReadOnlyReactive<IReadOnlyList<Message>>` | every turn on the thread |
+| `Usage` | `IReadOnlyReactive<ThreadUsage>` | `InputTokens`, `OutputTokens`, `Turns`, `WallTime`, … (token kinds are never summed for you) |
+| `FailureReason` | `IReadOnlyReactive<string?>` | why it last failed |
+
+Every one of these is `IReadOnlyReactive<T>`, not `Reactive<T>` — the runner owns the writes. Reading `.Value` is all this pattern needs, but a local or field that holds one has to be declared `IReadOnlyReactive<…>` (or `var`); `Reactive<ThreadStatus> status = thread.Status;` does not compile.
 
 ## Snippet
 
@@ -55,12 +57,14 @@ if (thread is not null && thread.Status.Value == ThreadStatus.Active)
             view.Text(["text-xs text-muted-foreground/70 mb-1"], text: stage);
         }
 
-        // IsError is null while the call is still in flight — spinner, then check or error.
+        // ResultText is null until the call completes, so it is what says "in flight".
+        // IsError is null on a finished entry too, when it was journaled before the flag
+        // existed -- that is "unknown", and it must not read as a spinner or a check.
         foreach (var call in thread.ToolCallTimeline.Value)
         {
             view.Row(["items-center gap-1.5 py-0.5"], key: $"{call.PrecedingAgentMessages}-{call.ToolName}", content: view =>
             {
-                if (call.IsError is null)
+                if (call.ResultText is null)
                 {
                     view.Spinner(["text-sky-400"], size: SpinnerSize.Sm);
                 }
@@ -68,9 +72,13 @@ if (thread is not null && thread.Status.Value == ThreadStatus.Active)
                 {
                     view.Icon(["w-3 h-3 text-red-400"], name: "x");
                 }
-                else
+                else if (call.IsError == false)
                 {
                     view.Icon(["w-3 h-3 text-emerald-400"], name: "check");
+                }
+                else
+                {
+                    view.Icon(["w-3 h-3 text-muted-foreground/50"], name: "minus");
                 }
 
                 view.Text(["text-xs text-muted-foreground font-mono"], text: call.ToolName);
@@ -92,7 +100,7 @@ if (thread is not null && thread.Status.Value == ThreadStatus.Active)
 
 - `Activity` is the "what is it doing right now" signal — `ActivityKind.RunningTool` carries the tool name in `activity.Tool`. `Status` is the coarser lifecycle (`Active` vs `WaitingForInput` vs `Done`); render the live block only while `Active`.
 - Reading `thread.Activity.Value` / `thread.ToolCallTimeline.Value` inside the UI lambda IS the subscription — no timer, no manual re-render, no bespoke live-state object. The runner mutates the thread's reactives; the subtree re-renders.
-- `ToolCallEntry.IsError` is a `bool?`: **null = still running**, `false` = succeeded, `true` = failed. That tri-state is what drives spinner → check/×; there is no `IsComplete` flag.
+- There is no `IsComplete` flag: **`ResultText == null` is "still running"** — it fills in when the call completes. On a finished entry `IsError` is `false` = succeeded, `true` = failed, and `null` = unknown (journaled before the flag existed); render unknown as neither a spinner nor a check.
 - `ThreadUsage` keeps token kinds independent (`InputTokens`, `CachedInputTokens`, `CacheCreationInputTokens`, `OutputTokens`) — add only the ones you mean to display, and use `Turns` for "which iteration are we on".
 - `PrecedingAgentMessages` is how many agent messages had landed when the call started — use it to interleave tool rows with `thread.Messages.Value` in a Claude-Code-style transcript instead of stacking them in a separate box.
 - `bg-gradient-to-r from-muted/40 to-muted/20` makes the live block visually distinct from finished messages.

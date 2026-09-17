@@ -38,6 +38,9 @@ namespace Ikon.Parallax.Components.DataTable
     bool Wrap { get; init; }
   static class DataTableExtensions
     // Per-slot styling (header, rows, cells, pagination, …) goes through styles; see DataTableStyles for the slots.
+    // pageSize: Rows per page; must be at least 1.
+    // throws ArgumentException: A row's cell count differs from the column count.
+    // throws ArgumentOutOfRangeException: pageSize is less than 1.
     static void DataTable(this UIView view, DataTableColumn[] columns, DataTableRow[] rows, int totalCount, int pageIndex, int pageSize, Func<int, Task>? onPageChange = null, Func<string, Task>? onRowClick = null, Func<string, Task>? onActionClick = null, Action<UIView>? emptyContent = null, int[]? columnWidths = null, Func<string, Task>? onColumnResize = null, string[]? style = null, DataTableStyles? styles = null, string? prevLabel = null, string? nextLabel = null, string? pageLabel = null, string? key = null)
   record DataTableRow
     ctor(string Id, Cell[] Cells)

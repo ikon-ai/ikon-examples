@@ -63,13 +63,18 @@ namespace Ikon.Parallax.Components.Standard
     // minDate: Earliest selectable date (inclusive).
     // maxDate: Latest selectable date (inclusive).
     // locale: BCP-47 locale used for weekday and month labels (e.g. en-US).
-    static void Calendar(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? month = null, string? defaultMonth = null, string? minDate = null, string? maxDate = null, IReadOnlyList<string>? disabledDates = null, WeekStart weekStart = Monday, string? locale = null, bool? disabled = null, string[]? headerStyle = null, string[]? weekdayStyle = null, string[]? dayStyle = null, string[]? daySelectedStyle = null, string[]? dayTodayStyle = null, string[]? dayOutsideStyle = null, string[]? dayDisabledStyle = null, string[]? navButtonStyle = null, string[]? titleStyle = null, string[]? gridStyle = null, string[]? rowStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onMonthChange = null)
+    // previousMonthLabel: Accessible name for the previous-month button; not visible text.
+    // nextMonthLabel: Accessible name for the next-month button; not visible text.
+    static void Calendar(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? month = null, string? defaultMonth = null, string? minDate = null, string? maxDate = null, IReadOnlyList<string>? disabledDates = null, WeekStart weekStart = Monday, string? locale = null, string? previousMonthLabel = null, string? nextMonthLabel = null, bool? disabled = null, string[]? headerStyle = null, string[]? weekdayStyle = null, string[]? dayStyle = null, string[]? daySelectedStyle = null, string[]? dayTodayStyle = null, string[]? dayOutsideStyle = null, string[]? dayDisabledStyle = null, string[]? navButtonStyle = null, string[]? titleStyle = null, string[]? gridStyle = null, string[]? rowStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onMonthChange = null)
     // Renders a trigger button plus a popover Calendar. Date values are ISO yyyy-MM-dd strings; controlled via value+onValueChange, uncontrolled via defaultValue.
-    // format: BCP-47 locale format hint for the trigger label (e.g. en-US).
+    // format: BCP-47 locale format hint for the trigger label (e.g. en-US); the trigger shows the raw ISO value when unset.
+    // locale: BCP-47 locale for the popover's weekday and month names; falls back to format when unset.
+    // previousMonthLabel: Accessible name for the previous-month button; not visible text.
+    // nextMonthLabel: Accessible name for the next-month button; not visible text.
     // minDate: Earliest selectable date (inclusive).
     // maxDate: Latest selectable date (inclusive).
     // label: Field label rendered above the picker, matching TextField.
-    static void DatePicker(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, string? format = null, string? minDate = null, string? maxDate = null, IReadOnlyList<string>? disabledDates = null, WeekStart weekStart = Monday, bool? disabled = null, bool? open = null, bool? defaultOpen = null, Side side = Bottom, Align align = Start, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? calendarStyle = null, string[]? headerStyle = null, string[]? weekdayStyle = null, string[]? dayStyle = null, string[]? daySelectedStyle = null, string[]? dayTodayStyle = null, string[]? dayOutsideStyle = null, string[]? dayDisabledStyle = null, string[]? navButtonStyle = null, string[]? titleStyle = null, string[]? gridStyle = null, string[]? rowStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool, Task>? onOpenChange = null, string? label = null)
+    static void DatePicker(this UIView view, string[]? style = null, string? value = null, string? defaultValue = null, string? placeholder = null, string? format = null, string? locale = null, string? previousMonthLabel = null, string? nextMonthLabel = null, string? minDate = null, string? maxDate = null, IReadOnlyList<string>? disabledDates = null, WeekStart weekStart = Monday, bool? disabled = null, bool? open = null, bool? defaultOpen = null, Side side = Bottom, Align align = Start, string[]? triggerStyle = null, string[]? contentStyle = null, string[]? calendarStyle = null, string[]? headerStyle = null, string[]? weekdayStyle = null, string[]? dayStyle = null, string[]? daySelectedStyle = null, string[]? dayTodayStyle = null, string[]? dayOutsideStyle = null, string[]? dayDisabledStyle = null, string[]? navButtonStyle = null, string[]? titleStyle = null, string[]? gridStyle = null, string[]? rowStyle = null, string[]? rootStyle = null, string? styleId = null, string? key = null, IReadOnlyDictionary<string, object>? props = null, Func<string, Task>? onValueChange = null, Func<bool, Task>? onOpenChange = null, string? label = null)
   // Maps to the W3C MediaStream facingMode constraint as an "ideal" hint — the browser falls back to whatever camera is available if the requested side does not exist (e.g. desktops without a rear camera).
   enum CameraFacing
     User
@@ -79,7 +84,7 @@ namespace Ikon.Parallax.Components.Standard
     CaptureImageConstraints? Constraints { get; init; }
     ClientImageCaptureFormat? Format { get; init; }
     int? Height { get; init; }
-    // Defaults to CaptureImageMode.Headless.
+    // Null is sent as unset and the client captures in CaptureImageMode.Headless mode; the property itself stays null.
     CaptureImageMode? Mode { get; init; }
     // 0.0 to 1.0; applies to lossy formats.
     double? Quality { get; init; }
@@ -184,12 +189,3 @@ namespace Ikon.Parallax.Components.Standard
     string Mime { get; init; }
     string Name { get; init; }
     long Size { get; init; }
-  static class ComposerExtensions
-    // A complete input bar — attach button, drag-and-drop, paste, auto-growing text, optional push-to-talk — so apps do not rebuild it. Stateless: pass the draft in value and the pending files in attachments, and store what the callbacks hand back. onSubmit receives the submitted text, empty when the Send button was clicked rather than Enter pressed: take it when it is non-empty and fall back to the draft, because a surface switch can clear the draft between the keystroke and the handler. The mic renders only when both capture callbacks are wired; transcription is the app's job. Per-slot style parameters restyle every part, and label parameters localize every string.
-    // seedSelectionIds: Ids from a prior FilePicker selection, uploaded on mount (see FileUploadZone).
-    // onAttachmentAdded: A file was picked, dropped, or pasted and finished uploading; its temp path is in the args.
-    // onCaptureStop: Push-to-talk released — transcribe the capture and append it to the draft.
-    static void Composer(this UIView view, string[]? style = null, string? value = null, string? placeholder = null, bool busy = false, IReadOnlyList<ComposerAttachment>? attachments = null, string[]? accept = null, long? maxFileSize = null, int? maxRows = null, bool? autoFocus = null, string[]? seedSelectionIds = null, string[]? fieldStyle = null, string[]? chipStyle = null, string[]? attachButtonStyle = null, string[]? sendButtonStyle = null, string[]? micStyle = null, string[]? activeStyle = null, string attachLabel = "Attach files", string sendLabel = "Send", string holdToTalkLabel = "Hold to talk", string releaseLabel = "Release to send", string? key = null, Func<string, Task>? onValueChange = null, Func<string, Task>? onSubmit = null, Func<FileUploadCompleteArgs, Task>? onAttachmentAdded = null, Func<FileUploadErrorArgs, Task>? onAttachmentError = null, Func<int, Task>? onAttachmentRemoved = null, Func<MediaCaptureEvent, Task>? onCaptureStart = null, Func<MediaCaptureEvent, Task>? onCaptureStop = null)
-  sealed record ContactsActionEvent : ActionEvent
-    ctor(bool Success, IReadOnlyList<ClientContact>? Contacts)
-    IReadOnlyList<ClientContact>? Contacts { get; init; }

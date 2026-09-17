@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Subscription Management — Changing, Cancelling And Resuming
-
+<!-- checked-against: 88f6c9dfda27c00a -->
 Selling a subscription is `paywall-with-entitlement`; living with one is this. The provider is the
 source of truth, so the app **re-reads** rather than caching a status of its own, and subscribes to
 `PaymentEventReceived` so the screen stays honest when a renewal, a failure or a cancellation
@@ -26,6 +26,11 @@ cancelling, resuming, or reacting to a failed renewal.
 - `PastDue` and `Unpaid` still read as "has a subscription". Say so plainly rather than rendering a
   row that looks active.
 - **A refund does not revoke an entitlement.** Revoking is a separate decision the app makes.
+- **`PaymentEventReceived` is a backend push, not a client action** — no user or client scope is
+  active in the handler. A call that resolves the customer from scope (`ListSubscriptionsAsync()`
+  with no key) throws there, and so does a `ClientReactive`/`UserReactive` `.Value`. Read the
+  customer from `paymentEvent.Payload()` (`appCustomerKey`, the user id the checkout defaulted to),
+  pass it explicitly, and write the keyed way (`UpdateFor` / `SetFor`).
 - Missed a webhook, or the app was offline? `ReconcileAsync` pulls the objects and surfaces them as
   ordinary `PaymentEventReceived` pushes — eventually consistent, so do not await a state change.
 - `[PaymentsRequireEntitlement(offerId)]` gates a registered function; on missing access it denies
@@ -35,7 +40,9 @@ cancelling, resuming, or reacting to a failed renewal.
 ## Snippet
 
 ```csharp
-private readonly ClientReactiveList<PaymentSubscription> _subscriptions = new();
+// Per user, not per client: a subscription belongs to the customer, and the backend push that
+// changes it names the customer rather than any client session.
+private readonly UserReactiveList<PaymentSubscription> _subscriptions = new();
 private readonly ClientReactive<string?> _notice = new(null);
 
 /// <summary>
@@ -52,14 +59,25 @@ private void WatchForChanges()
             or PaymentEventType.SubscriptionUpdated
             or PaymentEventType.SubscriptionRenewalFailed)
         {
-            await RefreshAsync();
+            // The push comes from the backend, so no user or client scope is active here:
+            // the customer key rides in the payload, and it is the user id the checkout
+            // defaulted to.
+            var payload = paymentEvent.Payload();
+
+            if (payload.ValueKind == JsonValueKind.Object
+                && payload.TryGetProperty("appCustomerKey", out var customerKey)
+                && customerKey.GetString() is { } userId)
+            {
+                await RefreshAsync(userId);
+            }
         }
     };
 }
 
-private async Task RefreshAsync()
+private async Task RefreshAsync(string userId)
 {
-    _subscriptions.ReplaceAll(await PaymentsService.Instance.ListSubscriptionsAsync());
+    var subscriptions = await PaymentsService.Instance.ListSubscriptionsAsync(userId);
+    _subscriptions.UpdateFor(userId, _ => subscriptions);
 }
 
 /// <summary>
@@ -76,7 +94,7 @@ private async Task ChangePlanAsync(string subscriptionId, string newOfferId)
         ? $"{change.Direction}: {change.ProrationAmountMinor / 100.0:0.00} {change.Currency}"
         : "Already on that plan";
 
-    await RefreshAsync();
+    await RefreshAsync(ReactiveScope.UserId);
 }
 
 private async Task CancelAsync(string subscriptionId)
@@ -84,7 +102,7 @@ private async Task CancelAsync(string subscriptionId)
     // Cancels at period end by default; the entitlement lapses only when it takes effect, so
     // the user keeps what they paid for.
     await PaymentsService.Instance.CancelSubscriptionAsync(subscriptionId);
-    await RefreshAsync();
+    await RefreshAsync(ReactiveScope.UserId);
 }
 
 private async Task ResumeAsync(string subscriptionId)
@@ -92,7 +110,7 @@ private async Task ResumeAsync(string subscriptionId)
     // Only valid while cancel-at-period-end and the paid period has not ended. After that it
     // needs a new checkout.
     await PaymentsService.Instance.ResumeSubscriptionAsync(subscriptionId);
-    await RefreshAsync();
+    await RefreshAsync(ReactiveScope.UserId);
 }
 
 private void Render(IView view)

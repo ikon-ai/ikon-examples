@@ -13,6 +13,17 @@ namespace Ikon.Common.Core
     ctor()
   // Thrown by AsyncLocalInstance<T>.Instance when async-local mode is enabled but no instance has been set on the current flow — e.g. accessing Log.Instance from a Task.Run body or a timer callback that did not inherit the async-local context.
   sealed class AsyncLocalInstanceNotSetException : Exception
+  abstract class BackendPageCapException : Exception
+    int MaxResults { get; }
+    // The cursor of the page after the one the cap was reached on, or empty when the cap fell inside the last page — in which case the items past the cap are the rest of that page.
+    string NextCursor { get; }
+    string RequestUri { get; }
+    // The backend's own total for the listing, or 0 when it did not report one.
+    int TotalCount { get; }
+  // Items holds the results fetched before the cap, in the backend's order. A caller that stays under the cap never sees this exception.
+  sealed class BackendPageCapException<T> : BackendPageCapException
+    ctor(string requestUri, int maxResults, IReadOnlyList<T> items, int totalCount, string nextCursor)
+    IReadOnlyList<T> Items { get; }
   class BackendQuotaExceededException : UserException
     ctor(string key, int current, int limit, string friendlyMessage)
     int Current { get; }
@@ -49,6 +60,8 @@ namespace Ikon.Common.Core
     const string Dependency
     // Not a failure at all — a confirmation the caller has to give, or a deliberate stop. Recorded so the outcome is visible, never counted as an error.
     const string Expected
+    // A provider we call took the credential and refused for lack of credit: our account with that provider has run out and has to be topped up. Separate from dependency because the provider is healthy and waiting does not help — somebody has to pay. Not the platform's own credit limits, which are a limit enforced on purpose and so expected.
+    const string ProviderCredit
     // The caller asked for something impossible or malformed, and was told so. Not a defect.
     const string UserError
   // Resilient conversions between loosely typed LLM/tool payloads and strongly typed function parameters/results: primitives, arrays (including single-item arrays), Newtonsoft JSON tokens, with a System.Text.Json fallback.
@@ -56,7 +69,8 @@ namespace Ikon.Common.Core
     static T? Convert<T>(object? value)
     // A null value against a NON-nullable value type yields that type's default — 0 for Int32, false for Boolean — NOT null, so a missing LLM field is indistinguishable from a real zero. Make the target nullable (e.g. int?) when the caller must tell "absent" from "zero".
     static object? Convert(object? value, Type targetType)
-    // Tolerates the placeholders LLMs emit when a schema marks every property required but the field is nullable: "" for collections/objects becomes null, "" for bool becomes false, etc. Falls back to ExtendedCast conversion on type mismatch, so single-item-array wrapping applies.
+    // Tolerates the placeholders LLMs emit when a schema marks every property required but the field is nullable: "" for collections/objects becomes null, "" for bool becomes false, etc. Falls back to ExtendedCast conversion on type mismatch, so single-item-array wrapping and the invariant string conversions ("true" for a bool, "3" for an int, a name for an enum) apply. A value none of them converts throws, naming the value and the target type — it is never materialised as that type's default, which the caller could not tell from a real argument.
+    // throws JsonException: element converts to no targetType value.
     static object? FromJsonElement(JsonElement element, Type targetType)
   static class ExtendedCastExtensions
     static T? ExtendedCast<T>(this object? value)
@@ -79,7 +93,7 @@ namespace Ikon.Common.Core
     string ConnectTokenJson { get; }
     bool IsAuthTicketSent { get; }
     bool IsConnected { get; }
-    // The AuthResponse from the most recent successful connect (entrypoints + auth ticket + client session). Cache it to drive a later ReconnectWithAuthResponseAsync.
+    // The AuthResponse (entrypoints + auth ticket + client session) of the most recent connect attempt: set as soon as the /connect GET returns — or the cached one is replayed — before the transport opens, so it stays set when the connect fails after that point. Feed it to ReconnectWithAuthResponseAsync for a soft reconnect.
     AuthResponse? LastAuthResponse { get; }
     DateTime ServerInitTime { get; set; }
     // The connect entry point: fetches the AuthResponse — entrypoints, auth ticket, and client session — via the /connect GET, then opens the transport.
@@ -97,6 +111,7 @@ namespace Ikon.Common.Core
     // Clones via a JSON round trip — a JSON PROJECTION, not a faithful object clone: a polymorphic/derived runtime type collapses to T, members without a setter or that the serializer skips are dropped, and a reference cycle throws. Only for plain, tree-shaped, fully serializable data.
     static T DeepCopy<T>(T obj)
     static string Format(string json, JsonOptions? options = null)
+    // Empty or whitespace-only input throws: an absent payload is not an empty object, and a caller cannot tell a T built from nothing apart from a stored one.
     static T From<T>(string json, JsonOptions? options = null)
     static object? From(string json, Type type, JsonOptions? options = null)
     static object? From(string json, string typeName, JsonOptions? options = null)
@@ -108,9 +123,9 @@ namespace Ikon.Common.Core
     static string To<T>(T obj, JsonOptions? options = null)
   // Serialization toggles for Json. Immutable; construct with named arguments for the toggles that differ from the defaults, e.g. new JsonOptions(camelCase: true). The default instance matches calling the Json methods without options.
   sealed class JsonOptions
-    ctor(bool useJson5 = false, bool indentation = true, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false, bool caseInsensitive = false)
+    ctor(bool useJson5 = false, bool indentation = true, bool includeFields = true, bool enumsAsNames = true, bool camelCase = false, bool includeNull = true, bool enumCamelCase = false, bool caseInsensitive = true)
     bool CamelCase { get; }
-    // Deserialization only. Ignored when serializing and when UseJson5 is set (Newtonsoft is already case-insensitive).
+    // Deserialization only, and on by default: a payload whose intent is unambiguous binds whatever its casing. Ignored when serializing — declared and [JsonPropertyName] casing is what goes on the wire — and when UseJson5 is set (Newtonsoft is already case-insensitive). Set it off only for a wire format that distinguishes two members by case.
     bool CaseInsensitive { get; }
     // Only applies when EnumsAsNames is set.
     bool EnumCamelCase { get; }
@@ -147,7 +162,7 @@ namespace Ikon.Common.Core
     TScope GetScope<TScope>() where TScope : struct, IScopeKey
     IScopeKey GetScopeByName(string name)
     void Info(string message)
-    // Safe and idempotent to call. When RequireInitCall is false (the default) the queue pumps are already started by the constructor, so this returns without doing anything; it only starts them when RequireInitCall deferred that to here. Calling it a second time is a no-op.
+    // Idempotent. The queue pumps are already started by the constructor unless RequireInitCall deferred that to here, so this usually does nothing.
     Task InitializeAsync()
     void LogMessage(LogType type, string message)
     void LogMessage2(LogType type, string filePath, int lineNumber, string memberName, string message)
@@ -229,7 +244,7 @@ namespace Ikon.Common.Core
   // A targeted send whose id list is EMPTY transmits nothing: an empty list is indistinguishable on the wire from no targets, which the server routes to everyone, so a filter matching nobody would otherwise reach exactly who it excluded. The default value names no audience and throws rather than guessing.
   readonly struct MediaTargets
     static MediaTargets Everyone { get; }
-    // A targeted send that resolved to no clients. False for Everyone, and false for the default value, which throws instead.
+    // A targeted send that resolved to no clients. False for Everyone and false for the default value; only SessionIds throws on default.
     bool IsEmpty { get; }
     bool IsEveryone { get; }
     // null for Everyone, which is what the protocol's absent target list means. Throws on the default value.

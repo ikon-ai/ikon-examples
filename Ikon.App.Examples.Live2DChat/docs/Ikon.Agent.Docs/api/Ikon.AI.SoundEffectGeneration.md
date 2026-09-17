@@ -28,7 +28,9 @@ namespace Ikon.AI.SoundEffectGeneration
     bool SupportsLooping { get; init; }
   sealed record SoundEffectGeneratorConfig
     ctor()
+    // Seconds, between 0.5 and 30; a value outside that range is refused rather than clamped. null lets the model choose the length.
     double? DurationSeconds { get; init; }
+    // Requires ISoundEffectGeneratorInfo.SupportsLooping; other models refuse the request rather than returning a non-looping effect.
     bool Loop { get; init; }
     string Prompt { get; init; }
     double PromptInfluence { get; init; }
@@ -37,6 +39,7 @@ namespace Ikon.AI.SoundEffectGeneration
     TimeSpan Timeout { get; init; }
   enum SoundEffectGeneratorModel
     ElevenLabsV2
+    // extension methods: SoundEffectGeneratorModelExtensions{DisplayName}
   static class SoundEffectGeneratorModelExtensions
     static string DisplayName(this SoundEffectGeneratorModel model)
   // Kind tells how the audio was delivered: inline bytes in Data, or a signed download URL in Url valid for roughly one hour.
@@ -47,3 +50,4 @@ namespace Ikon.AI.SoundEffectGeneration
     ResultKind Kind { get; init; }
     string MimeType { get; init; }
     string? Url { get; init; }
+    // extension methods on IResultPayload, using Ikon.AI: AssetOutputs{GetDataAsync}

@@ -1,6 +1,6 @@
 <!-- mined-from: QTribunal -->
 # Single-Processor Channel Queue — Serialize User Inputs Into One Async Loop
-
+<!-- checked-against: c1cbe9962d0a29a5 -->
 A `Channel<T>` collects user-submitted commands; one background task `await foreach`s the channel reader and processes them one at a time. The submit handler is non-blocking — it writes to the channel and returns. A boolean flag ensures the processor task is started only on the first submit.
 
 ## When to use

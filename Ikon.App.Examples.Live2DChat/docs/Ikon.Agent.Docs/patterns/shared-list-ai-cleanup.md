@@ -1,5 +1,5 @@
 # Shared List with AI Transformation
-
+<!-- checked-against: 786ba404438047c4 -->
 A shared collection (todo, notes, tasks, etc.) with CRUD plus an AI button that transforms the whole list (deduplicate, prioritize, summarize, group).
 
 ## When to use
@@ -12,7 +12,7 @@ Any "list of items, occasionally let AI tidy them" shape — todos, notes, tags,
 public sealed record TodoItem(string Id, string Text);
 
 private readonly ReactiveList<TodoItem> _items = new();
-private readonly Reactive<string> _draft = new("");
+private readonly ClientReactive<string> _draft = new("");
 private readonly Reactive<bool> _busy = new(false);
 
 private void Add()
@@ -87,7 +87,7 @@ private void Render(IView view)
 - Empty input is rejected at the start of `Add()`.
 - Empty list state has its own visible branch (no items yet — "add one above to get started").
 - AI Cleanup is gated by both `_busy` and `Count == 0` (no point cleaning empty list).
-- `Emerge.AskAsync<List<string>>` gives **structured** output — the LLM returns a typed list directly, no JSON parsing. Reach for `Emerge.Run<T>` only when you need the event stream.
+- `Emerge.AskAsync<List<string>>` gives **structured** output — the LLM returns a typed list directly, no JSON parsing. Reach for `Emerge.Run<T>` when you need the pass — tools, a `KernelContext` to seed, the run's events or trace; `Emerge.Generate` is the raw model stream with none of that.
 
 ## See also
 

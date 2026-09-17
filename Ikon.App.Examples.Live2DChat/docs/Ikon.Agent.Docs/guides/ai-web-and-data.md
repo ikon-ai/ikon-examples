@@ -37,7 +37,7 @@ var ranked = await Reranker.RerankAsync(documents, query);               // rank
 
 Refer to generated API docs for model listings and the constructor + config forms (multi-page crawling, screenshots, image moderation, OCR from URL, custom timeouts). `Retriever` provides RAG primitives.
 
-> `OCRConfig.Pages` is 1-based and inclusive on every OCR model (`"1-5"`, `"1-3,7"`). Page and document-size limits, readable mime types, and whether `IncludeWords` does anything come from `OCR.GetCapabilities(model)` — a request over a limit, or asking a model for words it cannot produce, is refused before the provider is called.
+> `OCRConfig.Pages` is 1-based and inclusive on every OCR model (`"1-5"`, `"1-3,7"`). Page and document-size limits, readable mime types, and whether `IncludeWords` does anything come from `OCR.GetCapabilities(model)`. Only two are enforced before the provider is called: asking a model for words it cannot produce throws, and a `Data` document over `MaxDocumentSizeBytes` throws. A `Url` or `AssetUri` document is not measured (its size is unknown until the provider fetches it) and the page limit is never checked locally, so compare those against the capabilities yourself.
 
 ---
 
@@ -49,6 +49,7 @@ namespace Ikon.AI.Classification
     bool IsFlagged { get; init; }
     ClassificationLabel Label { get; init; }
     string OriginalCategory { get; init; }
+    // 0 to 1. NaN when the provider flagged the category but reported no score for it — compare with Double.IsNaN before thresholding, since a missing score is not a zero one.
     double Score { get; init; }
   // Supply Text, Data (with MimeType), Url, or AssetUri (resolved to a URL automatically).
   sealed record ClassificationInput
@@ -79,6 +80,7 @@ namespace Ikon.AI.Classification
     MistralModeration
     // Not directly usable — select custom models (see CustomModels) by their registered name string.
     Custom
+    // extension methods: ClassificationModelExtensions{DisplayName}
   static class ClassificationModelExtensions
     static string DisplayName(this ClassificationModel model)
   sealed record ClassificationResult
@@ -152,6 +154,8 @@ namespace Ikon.AI.Embeddings
     int MaxInputCount { get; init; }
   sealed record EmbeddingGeneratorConfig
     ctor()
+    // Default false: an input longer than the model's window is rejected by the provider instead of being embedded from its head only. True lets Cohere, Voyage, Jina and Vertex cut the input at the window.
+    bool AllowTruncation { get; init; }
     List<string> Inputs { get; init; }
     // Per-request batch cap; larger input lists are split into batches of this size. 0 means the model's maximum.
     int MaxInputCount { get; init; }
@@ -194,13 +198,16 @@ namespace Ikon.AI.Embeddings
     VoyageCode4
     // Not directly usable — select custom models (see CustomModels) by their registered name string.
     Custom
+    // extension methods: EmbeddingModelExtensions{DisplayName}
   static class EmbeddingModelExtensions
     static string DisplayName(this EmbeddingModel model)
   enum EmbeddingType
     Generic
     Document
     Query
+    // Jina v4+ has no clustering task and embeds as text matching; Voyage sends no task.
     Clustering
+    // Jina v4+ has no classification task and embeds as text matching; Voyage sends no task.
     Classification
   interface IEmbeddingGenerator : IDisposable, IEmbeddingGeneratorInfo
     // Returns one vector per input, in input order.
@@ -234,16 +241,17 @@ namespace Ikon.AI.FileConversion
     string MimeType { get; init; }
     string Name { get; init; }
     string? Url { get; init; }
+    // extension methods on IResultPayload, using Ikon.AI: AssetOutputs{GetDataAsync}
   sealed class FileConverter : IFileConverter
     ctor(string modelName, IReadOnlyList<ModelRegion>? regions = null)
     ctor(FileConverterModel model, IReadOnlyList<ModelRegion>? regions = null)
     Task<ConvertedFile> ConvertToPdfAsync(FileConverterConfig config, CancellationToken cancellationToken = default)
     Task<ConvertedFile> ConvertToPdfAsync(byte[] data, string fileName, CancellationToken cancellationToken = default)
-    // Static one-shot; constructs and disposes a FileConverter per call. fileName must carry the source extension (e.g. report.docx) — it determines the input format. The PDF is in result.Data. Use the constructor + ConvertToPdfAsync for a URL or AssetUri source, or a custom timeout.
+    // Static one-shot; constructs and disposes a FileConverter per call. fileName must carry the source extension (e.g. report.docx) — it determines the input format. The PDF is in result.Data, except that a hosted run hands an output over 5 MB back as a signed result.Url (Kind tells which); result.GetDataAsync() returns the bytes either way. Use the constructor + ConvertToPdfAsync for a URL or AssetUri source, or a custom timeout.
     static Task<ConvertedFile> ConvertToPdfAsync(byte[] data, string fileName, FileConverterModel model = ConvertApi, CancellationToken cancellationToken = default)
     void Dispose()
     static IReadOnlyList<ModelRegion> GetSupportedRegions(FileConverterModel model)
-  // Supply the file exactly one way: Data, Url, or AssetUri (resolved to a URL automatically). FileName must carry the source extension (e.g. report.docx) — it determines the input format.
+  // Supply the file exactly one way: Data, Url, or AssetUri (resolved to a URL automatically). With Data, FileName must carry the source extension (e.g. report.docx) — it is what names the input format; with a URL the format comes from the URL and FileName only labels the logs.
   sealed record FileConverterConfig
     ctor()
     AssetUri? AssetUri { get; init; }
@@ -254,6 +262,7 @@ namespace Ikon.AI.FileConversion
     string? Url { get; init; }
   enum FileConverterModel
     ConvertApi
+    // extension methods: FileConverterModelExtensions{DisplayName}
   static class FileConverterModelExtensions
     static string DisplayName(this FileConverterModel model)
   interface IFileConverter : IDisposable
@@ -264,6 +273,7 @@ namespace Ikon.AI.OCR
     General
   interface IOCR : IDisposable, IOCRInfo
     Task<OCRResult> AnalyzeDocumentAsync(OCRConfig config, CancellationToken cancellationToken = default)
+    // Yields the document in page batches. Every batch has an empty OCRResult.Text — the whole document's text would not fit the protocol message the streaming exists to stay under, so read the text from OCRResult.Paragraphs, or call AnalyzeDocumentAsync when you need it in one piece.
     IAsyncEnumerable<OCRResult> AnalyzeDocumentStreamingAsync(OCRConfig config, CancellationToken cancellationToken = default)
   interface IOCRInfo
     // Largest document the model accepts, in bytes, or 0 when it publishes no limit — never read 0 as a zero budget. Only checked when the document is supplied as OCRConfig.Data; the size behind a OCRConfig.Url or OCRConfig.AssetUri is not known before the request is made.
@@ -313,6 +323,7 @@ namespace Ikon.AI.OCR
   enum OCRModel
     AzureDocumentIntelligence
     MistralOCR
+    // extension methods: OCRModelExtensions{DisplayName}
   static class OCRModelExtensions
     static string DisplayName(this OCRModel model)
   sealed record OCRPage
@@ -347,7 +358,7 @@ namespace Ikon.AI.Reranking
     ctor()
     required CustomRerankApi Api { get; init; }
   interface IReranker : IDisposable
-    // Returns items ordered most relevant first; RerankItem.Index is the document's position in RerankerConfig.Documents.
+    // Returns items ordered most relevant first; RerankItem.Index is the document's position in RerankerConfig.Documents. Throws when the provider returns fewer items than RerankerConfig.TopN (or the document count) or an index outside the documents.
     Task<List<RerankItem>> RerankAsync(RerankerConfig config, CancellationToken cancellationToken = default)
   sealed record RerankItem
     ctor()
@@ -362,6 +373,7 @@ namespace Ikon.AI.Reranking
     VoyageRerank25Lite
     // Not directly usable — select custom models (see CustomModels) by their registered name string.
     Custom
+    // extension methods: RerankModelExtensions{DisplayName}
   static class RerankModelExtensions
     static string DisplayName(this RerankModel model)
   sealed class Reranker : IReranker
@@ -374,6 +386,8 @@ namespace Ikon.AI.Reranking
     static Task<List<RerankItem>> RerankAsync(IReadOnlyList<string> documents, string query, RerankModel model = CohereRerank4Fast, int topN = 0, CancellationToken cancellationToken = default)
   sealed record RerankerConfig
     ctor()
+    // Default false: a document longer than the model's window is rejected by the provider instead of being scored on its head only. True lets Voyage cut it at the window.
+    bool AllowTruncation { get; init; }
     List<string> Documents { get; init; }
     string Query { get; init; }
     // Scaled up internally with the document count.
@@ -407,6 +421,8 @@ namespace Ikon.AI.Retrieving
   class Retriever : IAsyncDisposable
     ctor()
     KernelContext Context { get; }
+    // Anything listed here is missing from the index, so searches answer from a subset of the corpus; WaitForLoadingToEndAsync throws rather than let that pass for a complete load.
+    IReadOnlyCollection<string> IndexingErrors { get; }
     ValueTask DisposeAsync()
     Task<ContentLink[]> ExpandAsync(ContentLink[] links)
     Task<ContentLink[]> ExpandAsync(ContentLink link)
@@ -423,6 +439,7 @@ namespace Ikon.AI.Retrieving
     Task<Retriever.Event[]> SearchEventsAsync(string startUtcTimestamp, string endUtcTimestamp, string searchString, int maxResults = 100)
     Task<KeywordSearchResult[]> SearchKeywordsAsync(string searchString, int maxResults = 100)
     Task StopAsync()
+    // Throws when any file or item failed to load, because a search after a partial load cannot be told apart from one over the whole corpus; IndexingErrors lists them.
     Task WaitForLoadingToEndAsync()
   class Retriever.ContentMetadata
     ctor()
@@ -479,6 +496,7 @@ namespace Ikon.AI.WebScraping
     string Url { get; init; }
   interface IWebScraper : IDisposable, IWebScraperInfo
     Task<DownloadFileResult> DownloadFileAsync(DownloadFileConfig config, CancellationToken cancellationToken = default)
+    // Every page the crawl reached, failed ones with PageResult.Error set; throws when none could be fetched.
     Task<List<PageResult>> ScrapeMultiplePagesAsync(MultiPageScrapeConfig config, CancellationToken cancellationToken = default)
     Task<PageResult> ScrapeSinglePageAsync(SinglePageScrapeConfig config, CancellationToken cancellationToken = default)
     Task<ScreenshotResult> TakeScreenshotAsync(ScreenshotConfig config, CancellationToken cancellationToken = default)
@@ -490,6 +508,7 @@ namespace Ikon.AI.WebScraping
   sealed record MultiPageScrapeConfig
     ctor()
     bool AddGivenUrlsToWhitelist { get; init; }
+    // Spider whitelists Urls so nothing else consumes MaxPages; a URL the crawl never returns comes back with PageResult.Error set.
     bool AllowOnlyGivenUrls { get; init; }
     List<Cookie> Cookies { get; init; }
     string CountryCode { get; init; }
@@ -497,19 +516,25 @@ namespace Ikon.AI.WebScraping
     string ExcludedCSSElements { get; init; }
     List<string> ExcludedLineStarts { get; init; }
     List<string> ExcludedWholeLines { get; init; }
+    // Local browser scrapers only; the remote scrapers throw on false.
     bool Headless { get; init; }
     bool IgnoreRobotsTxt { get; init; }
+    // No scraper implements this; setting it throws.
     bool IncludeLinkedFiles { get; init; }
     string IncludedCSSElements { get; init; }
     string JavaScript { get; init; }
     bool LoadResources { get; init; }
     string Locale { get; init; }
     int MaxDepth { get; init; }
+    // The crawl stops here; Spider logs a warning when the site may have more pages.
     int MaxPages { get; init; }
     WebScraperOutputFormat OutputFormat { get; init; }
     string PlaywrightScript { get; init; }
+    // Spider reruns the crawl up to three times for Urls still missing, then throws.
     bool RerunIfGivenUrlsMissing { get; init; }
+    // Per page. Local browser scrapers only; Spider bounds a page fetch itself.
     TimeSpan SinglePageTimeout { get; init; }
+    // For the whole crawl.
     TimeSpan Timeout { get; init; }
     List<string> UrlBlacklist { get; init; }
     List<string> UrlWhitelist { get; init; }
@@ -518,10 +543,13 @@ namespace Ikon.AI.WebScraping
     bool UseSitemap { get; init; }
     bool UseSitemapOnly { get; init; }
     bool UseStreaming { get; init; }
+    // Extra wait after page load. Local browser scrapers only; Spider throws when set.
     TimeSpan WaitAfter { get; init; }
   sealed record PageResult
     ctor()
     string Content { get; init; }
+    // Non-empty when a crawl reached the page but could not fetch it; Content is then empty. A crawl whose every page failed throws instead.
+    string Error { get; init; }
     List<string> Keywords { get; init; }
     string MimeType { get; init; }
     string Title { get; init; }
@@ -531,6 +559,7 @@ namespace Ikon.AI.WebScraping
     List<Cookie> Cookies { get; init; }
     string CountryCode { get; init; }
     bool FullPage { get; init; }
+    // Local browser scrapers only; the remote scrapers throw on false.
     bool Headless { get; init; }
     int Height { get; init; }
     string JavaScript { get; init; }
@@ -538,6 +567,7 @@ namespace Ikon.AI.WebScraping
     string PlaywrightScript { get; init; }
     TimeSpan Timeout { get; init; }
     string Url { get; init; }
+    // LocalNodriver only (TikTok captcha solver); the remote scrapers throw when set.
     bool UseCaptchaSolver { get; init; }
     TimeSpan WaitAfter { get; init; }
     int Width { get; init; }
@@ -549,21 +579,30 @@ namespace Ikon.AI.WebScraping
     ctor()
     List<Cookie> Cookies { get; init; }
     string CountryCode { get; init; }
+    // Nodriver throws when set.
     string ExcludedCSSElements { get; init; }
     List<string> ExcludedLineStarts { get; init; }
     List<string> ExcludedWholeLines { get; init; }
+    // Local browser scrapers only; the remote scrapers throw on false.
     bool Headless { get; init; }
+    // No scraper implements this; setting it throws.
     bool IncludeLinkedFiles { get; init; }
+    // Nodriver throws when set.
     string IncludedCSSElements { get; init; }
     string JavaScript { get; init; }
+    // Jina throws when set; Nodriver's browser always loads resources.
     bool LoadResources { get; init; }
     string Locale { get; init; }
     WebScraperOutputFormat OutputFormat { get; init; }
     string PlaywrightScript { get; init; }
+    // For the whole fetch.
     TimeSpan Timeout { get; init; }
     string Url { get; init; }
+    // LocalNodriver only (TikTok captcha solver); the remote scrapers throw when set.
     bool UseCaptchaSolver { get; init; }
+    // Jina always extracts and throws on false; Nodriver never extracts.
     bool UseReadability { get; init; }
+    // Extra wait after page load. Browser scrapers only; Spider and Jina fetch without one.
     TimeSpan WaitAfter { get; init; }
   sealed class WebScraper : IWebScraper
     ctor(string modelName)
@@ -596,6 +635,7 @@ namespace Ikon.AI.WebScraping
     LocalPuppeteer
     LocalNodriver
     LocalPlaywright
+    // extension methods: WebScraperModelExtensions{DisplayName}
   static class WebScraperModelExtensions
     static string DisplayName(this WebScraperModel model)
   enum WebScraperOutputFormat
@@ -611,16 +651,23 @@ namespace Ikon.AI.WebSearching
     bool SupportsImageSearching { get; }
   sealed record SearchConfig
     ctor()
+    // Two-letter ISO code, e.g. "us". Amazon cannot apply it and throws when it is set.
     string CountryCode { get; init; }
+    // Host or URL prefix the hits must belong to. Amazon and YouTube cannot restrict by site and throw when it is set.
     string InSiteUrl { get; init; }
+    // Two-letter ISO code, e.g. "en". Amazon and Bing cannot apply it and throw when it is set.
     string Language { get; init; }
+    // SerpApi models return at most 100 per search and reject a higher value.
     int MaxResults { get; init; }
     WebSearcherOutputFormat OutputFormat { get; init; }
     string Query { get; init; }
+    // For the whole search request.
     TimeSpan Timeout { get; init; }
   sealed record SearchResult
     ctor()
     string Content { get; init; }
+    // Non-empty when the hit was found but its page could not be fetched; Content is then empty. Spider only.
+    string Error { get; init; }
     List<string> Keywords { get; init; }
     string MimeType { get; init; }
     string Title { get; init; }
@@ -649,6 +696,7 @@ namespace Ikon.AI.WebSearching
     Bing
     BingImages
     Youtube
+    // extension methods: WebSearcherModelExtensions{DisplayName}
   static class WebSearcherModelExtensions
     static string DisplayName(this WebSearcherModel model)
   enum WebSearcherOutputFormat

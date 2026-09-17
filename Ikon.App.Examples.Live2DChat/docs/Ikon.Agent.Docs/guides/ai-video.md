@@ -93,6 +93,7 @@ namespace Ikon.AI.VideoEnhancement
     TensorPixUpscale2xUltra4
     TensorPixUpscale2xUltra41
     TensorPixUpscale4xUltra4
+    // extension methods: VideoEnhancerModelExtensions{DisplayName}
   static class VideoEnhancerModelExtensions
     static string DisplayName(this VideoEnhancerModel model)
   sealed record VideoEnhancerResult
@@ -147,6 +148,7 @@ namespace Ikon.AI.VideoGeneration
     Ratio4x3
     Ratio3x4
     Ratio1x1
+    ModelDefault
   sealed class VideoGeneratorCapabilities : IVideoGeneratorInfo
     ctor()
     int MaxInputAudios { get; init; }
@@ -173,7 +175,8 @@ namespace Ikon.AI.VideoGeneration
     List<InputImage> InputImages { get; init; }
     // Reference footage, for models that accept it. Addressed from the prompt in the provider's own notation — fal's Seedance uses @Video1, @Video2 in prompt order.
     List<InputVideo> InputVideos { get; init; }
-    int Length { get; init; }
+    // Seconds of footage. Null asks the model for its own default length; a length the model does not list in SupportedLengths is refused rather than shortened.
+    int? Length { get; init; }
     string? NegativePrompt { get; init; }
     string? Prompt { get; init; }
     VideoGeneratorResolution Resolution { get; init; }
@@ -209,6 +212,7 @@ namespace Ikon.AI.VideoGeneration
     Wan27
     GrokImagineVideo
     GrokImagineVideo15
+    // extension methods: VideoGeneratorModelExtensions{DisplayName}
   static class VideoGeneratorModelExtensions
     static string DisplayName(this VideoGeneratorModel model)
   enum VideoGeneratorResolution
@@ -219,6 +223,7 @@ namespace Ikon.AI.VideoGeneration
     Resolution768p
     Resolution1080p
     Resolution4K
+    ModelDefault
   enum VideoGeneratorResolutionMode
     Discrete
     AspectRatio

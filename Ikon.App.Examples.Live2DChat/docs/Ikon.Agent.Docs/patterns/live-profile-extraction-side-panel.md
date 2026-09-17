@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.AutoCRM.Agent -->
 # Live Profile Side Panel — Chat on the Left, Structured State on the Right
-
+<!-- checked-against: 52401c1d9b096315 -->
 Run a background `Claude45Haiku` extraction after every chat turn. Merge only non-empty fields into a `Reactive<CustomerProfile>`. The side panel re-renders automatically and the user watches the structured CRM record fill in as the conversation proceeds.
 
 ## When to use

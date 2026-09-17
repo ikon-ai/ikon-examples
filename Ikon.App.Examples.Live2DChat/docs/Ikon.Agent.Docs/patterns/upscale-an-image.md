@@ -1,6 +1,6 @@
 <!-- mined-from: Ikon.App.Patterns -->
 # Upscale An Image — Ask The Model What It Can Do
-
+<!-- checked-against: 24b56c0ccab63aba -->
 `ImageUpscaler` is capability-gated harder than the other AI services, and deliberately: a faithful
 model **throws** rather than quietly ignoring a `Creativity` or `ScaleFactor` it does not support.
 That is what stops a faithful upscale silently becoming a hallucinated one — so the model's own

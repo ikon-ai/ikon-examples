@@ -123,7 +123,7 @@ namespace Ikon.Agent
     // Every posted message in arrival order; seeded from storage at construction and appended on every MessagePosted.
     IReadOnlyReactive<IReadOnlyList<Message>> Messages { get; }
     string? ParentId { get; }
-    // Throws InvalidOperationException if the plan has been archived out of the live registry; reach it via App + AgentApp.GetPlan when archived-plan access is needed.
+    // Throws InvalidOperationException if the plan has been archived out of the live registry; reach it via Orchestrator.GetApp + AgentApp.GetPlan when archived-plan access is needed.
     AgentPlan Plan { get; }
     string PlanId { get; }
     // Derived from Usage and the merged host/persona Budget; recomputed on every usage change.
@@ -188,6 +188,7 @@ namespace Ikon.Agent
     ArtifactSource Source { get; init; }
     string ThreadId { get; init; }
     string Type { get; init; }
+    // extension methods: ContentExtensions{GetText}
   enum ArtifactSource
     Agent
     User
@@ -356,6 +357,7 @@ namespace Ikon.Agent
     JsonElement? Payload { get; init; }
     string? PayloadKind { get; init; }
     string? ReplyToMessageId { get; init; }
+    // extension methods: ContentExtensions{GetText}
   enum ModelFamily
     Claude
     Gpt
@@ -387,10 +389,10 @@ namespace Ikon.Agent
     bool StreamProgress { get; set; }
     Reactive<IReadOnlyList<AgentThread>> Threads { get; }
     Orchestrator AddPersona(Persona persona)
-    // Omit id and each call mints a new app; pass a host-recomputable id (a space id, a workspace key) and the same call after ResumeAsync re-uses the persisted app — same plans, threads, and artifacts.
+    // Omit id and each call mints a new app; pass a host-recomputable id (a space id, a workspace key) and the same call after ResumeAsync returns the registered app — same plans, threads, and artifacts — leaving its name and brief as they are. An archived app is not resumed, so its id creates a fresh active app.
     // name: Display name of the app.
     // brief: What the app is for; seeds the agents working in it.
-    // id: Stable identity for the app. Omit it and the app gets a fresh random id, so a host that calls this again after a restart creates a second, empty app. Pass an id the host can recompute from its own state (a space id, a workspace key) and the same call after ResumeAsync re-uses the persisted app — same plans, same threads, same artifacts.
+    // id: Stable identity for the app. Omit it and the app gets a fresh random id, so a host that calls this again after a restart creates a second, empty app. Pass an id the host can recompute from its own state (a space id, a workspace key) and the same call after ResumeAsync returns the registered app — same plans, same threads, same artifacts.
     Task<AgentApp> CreateAppAsync(string name, string brief = "", string? id = null, CancellationToken ct = default)
     // Get-or-create by name: matches the app on appName (default personaName) and the plan on planName, so a repeated call after ResumeAsync returns the SAME persisted thread. seedTask is posted only when the plan is first created, never onto an existing history. A repeated call naming a DIFFERENT personaName for an existing plan throws InvalidOperationException rather than returning the other persona's thread.
     Task<AgentThread> CreateThreadAsync(string personaName, Content seedTask, string? appName = null, string planName = "main", CancellationToken ct = default)
@@ -407,11 +409,12 @@ namespace Ikon.Agent
     Task RunPassAsync(AgentThread thread, CancellationToken ct = default)
   // A tool that returns media claims a slot per artifact and degrades to text when the claim is refused. The budget is per pass: it resets on the next one.
   sealed class PassMediaBudget
-    ctor()
+    ctor(int maxImagesPerPass = 3)
     bool HasHeadroom { get; }
+    int MaxImagesPerPass { get; }
     // Returns false when the same artifact was already shown this pass (the model should scroll up instead) — alreadyShown distinguishes that from budget exhaustion.
     bool TryClaim(string artifactName, out bool alreadyShown)
-    const int MaxImagesPerPass = 3
+    const int DefaultImagesPerPass = 3
   // Role is "user" or the agent name. This is the model's INPUT — it does not include the pass's own reply (that is PassRecord.AssistantText). Non-text parts are omitted.
   sealed record PassMessage
     ctor(string Role, string Text)
@@ -479,12 +482,14 @@ namespace Ikon.Agent
     DateTime UpdatedAt { get; init; }
   // The agent layer never names a concrete model: each pass resolves Capability × Family to a concrete LLMModel internally, which lands on the Emerge pass as EmergePass.Model.
   sealed record Reasoning
-    ctor(Capability Capability = Standard, ModelFamily Family = Claude, double Temperature = 0.7, int MaxOutputTokens = 32000, int? ClearToolResultsAfterInputTokens = null, IReadOnlyList<string>? ClearToolResultsExcludedTools = null, ReasoningEffort? Effort = null, TimeSpan? MaxPassWallTime = null, int? MaxToolCallsPerPass = null, int? MaxIterationsPerPass = null)
+    ctor(Capability Capability = Standard, ModelFamily Family = Claude, double Temperature = 0.7, int MaxOutputTokens = 32000, int? ClearToolResultsAfterInputTokens = null, IReadOnlyList<string>? ClearToolResultsExcludedTools = null, ReasoningEffort? Effort = null, TimeSpan? MaxPassWallTime = null, int? MaxToolCallsPerPass = null, int? MaxIterationsPerPass = null, int? ImagesPerPass = null, bool ContinuousTranscript = false)
     Capability Capability { get; init; }
     int? ClearToolResultsAfterInputTokens { get; init; }
     IReadOnlyList<string>? ClearToolResultsExcludedTools { get; init; }
+    bool ContinuousTranscript { get; init; }
     ReasoningEffort? Effort { get; init; }
     ModelFamily Family { get; init; }
+    int? ImagesPerPass { get; init; }
     int? MaxIterationsPerPass { get; init; }
     int MaxOutputTokens { get; init; }
     TimeSpan? MaxPassWallTime { get; init; }
@@ -726,10 +731,15 @@ namespace Ikon.Agent.Skills
     override IEnumerable<Tool> Tools()
   // Kind discriminates the shape: "decision" (default) — Options is non-empty, the host renders buttons, and the user's pick posts back as a UserDecisionResponse; "clarification" — Options is empty, the host renders a free-text prompt, and the user's typed answer posts back as a plain user message.
   sealed record UserDecisionPrompt
-    ctor(string Question, IReadOnlyList<string> Options, string Kind = "decision")
+    // Options: The values a host submits back as UserDecisionResponse.Choice. For the platform's own gates these are stable ids ("approve", "done"); a prompt the agent wrote carries whatever it offered.
+    // Labels: What a host shows for each option, index-aligned with Options; null shows the options themselves. Display is a host's concern and may be localised — the value it submits never is.
+    ctor(string Question, IReadOnlyList<string> Options, string Kind = "decision", IReadOnlyList<string>? Labels = null)
     string Kind { get; init; }
+    IReadOnlyList<string>? Labels { get; init; }
     IReadOnlyList<string> Options { get; init; }
     string Question { get; init; }
+    string LabelAt(int index)
+    string? OptionFor(string labelOrValue)
   static class UserDecisionProtocol
     static Message BuildResponse(string choice)
     static Task<UserDecisionPrompt?> TryReadPromptAsync(AgentThread thread)

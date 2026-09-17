@@ -1,6 +1,6 @@
 <!-- mined-from: Sentinel -->
 # Connection Status Pill — Tone-coded "system is healthy" indicator
-
+<!-- checked-against: de6c04b396f4ff04 -->
 A small rounded-full pill in the top bar that summarises the *current overall state* of the system in one sentence: "Watching · 3 cameras · Occupied", "All paused", "Drill mode · 12m left", "Facility blackout". A switch over reactives picks the dominant condition (most-urgent-wins precedence), assigns a tone-coded ring color and an inline dot, and renders a single text. Optionally appends a sub-detail like "auto → Vac 2h" for the next scheduled change.
 
 ## When to use
