@@ -259,11 +259,16 @@ class _IkonAppScreenState extends State<IkonAppScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            IkonParallaxView(
+            IkonPlatformOverlay(
+              client: _client!,
               uiCore: _uiCore!,
-              client: _client,
               mediaManager: _mediaManager,
-              registry: _registry,
+              child: IkonParallaxView(
+                uiCore: _uiCore!,
+                client: _client,
+                mediaManager: _mediaManager,
+                registry: _registry,
+              ),
             ),
             if (outage != null) _OutageScrim(state: _connectionState, elapsed: outage),
           ],
