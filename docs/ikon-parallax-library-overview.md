@@ -1,5 +1,5 @@
 # Ikon.Parallax Library Overview
-<!-- checked-against: 8ccef8d7e9c45d86 -->
+<!-- checked-against: 5b296db2f9b0e153 -->
 ## Introduction
 
 Ikon.Parallax is a server-driven, reactive UI library for building interactive applications in C#. The library provides a declarative API for constructing user interfaces where all logic runs on the server, clients act as lightweight renderers, and the framework automatically handles efficient UI updates through intelligent diffing.
@@ -359,6 +359,38 @@ view.ToastHost(_toasts);
 _toasts.Success("Saved");
 _toasts.Error("Upload failed", ex.Message);
 ```
+
+### AI Disclosure
+
+`AiDisclosure` is the one place an app tells a person they are dealing with AI. Use it instead of
+writing the line yourself: it is Ikon's uniform EU AI Act Article 50 disclosure, and the
+human-readable counterpart of the machine-readable mark `Ikon.AI`'s generators write into every file
+they produce.
+
+`AiDisclosureKind` picks which duty the line discharges — `Interaction` for "you are talking to an
+AI", `GeneratedContent` for "what you are looking at was made by one". `AiDisclosureVariant` picks
+where it sits: `Note` is one muted caption line for under a composer, `Banner` a bordered strip for
+the top of a conversation or a page of generated content, and `Pill` a compact badge with its own
+scrim for laying over generated media.
+
+<!-- ikon-code: px-ai-disclosure -->
+```csharp
+// Under a chat composer
+view.AiDisclosure(AiDisclosureKind.Interaction);
+
+// Above a page of generated copy, with the accuracy caveat that is not itself a disclosure
+view.AiDisclosure(AiDisclosureKind.GeneratedContent, AiDisclosureVariant.Banner,
+    note: "AI can make mistakes. Check anything important.");
+
+// Over a generated image
+view.AiDisclosure(AiDisclosureKind.GeneratedContent, AiDisclosureVariant.Pill,
+    style: ["default", "absolute bottom-2 end-2"]);
+```
+
+The default wording follows the kind, in English; pass `text:` for a product whose own voice says it
+better or a market whose regulator words it differently. It renders themed from
+`Theming.AiDisclosure.*` and carries `role="note"`, so a screen reader announces it as commentary
+rather than as the app's own output.
 
 ### Forms and Dialogs with FormState
 

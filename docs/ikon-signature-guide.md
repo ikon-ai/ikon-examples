@@ -1,5 +1,5 @@
 # Ikon Signature Guide
-<!-- checked-against: ab580b376dfb8973 -->
+<!-- checked-against: 9381003ebdec05f4 -->
 Server-initiated eID-backed document signing for Ikon apps. Drive a signing ceremony from your app server, navigate the recipient's browser through it, and receive hash-verified signed documents back — without owning any signing infrastructure. PDFs produce a PAdES container; plain-text and Markdown documents produce an XAdES signature. The platform talks to the signing provider for you, so nothing here names one.
 
 ## TL;DR — what you wire
@@ -132,7 +132,9 @@ For most "user signs a document" flows, `EidHub` is the right policy. `PkiSignin
 
 ## Cost attribution
 
-`CostAttributionKey` (optional) is an opaque app-defined label that the backend records on the order. Use it to correlate signing cost back to a domain entity (case ID, transaction ID, customer ID) for billing. See [Ikon.App Payments Guide](ikon-app-payments-guide.md) for the broader monetization model.
+`CostAttributionKey` (optional) is an opaque app-defined label that the backend records on the order. When the ceremony completes, the platform meters it as a `signature.*` usage event and stamps the key verbatim as that row's `TenantScope` id — so the cost lands in the same per-tenant bucket as the app's AI spend, and `app.Costs.GetDailyCostsAsync` returns it under a `CostScopeFilter(nameof(TenantScope), key)` with no further wiring. Nothing reinterprets the value: pass the exact string the app's own cost queries join on (for a multi-tenant app, the tenant id it already pushes as a `TenantScope`). An order without a key is still metered; its cost simply belongs to the space rather than to anything inside it.
+
+An abandoned, declined or expired order is never metered. See [Ikon.App Payments Guide](ikon-app-payments-guide.md) for the broader monetization model.
 
 ## Field reference
 

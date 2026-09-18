@@ -1,5 +1,5 @@
 # Running coding agents on your own machine
-<!-- checked-against: d23cedef02f0937b -->
+<!-- checked-against: 172a39071c103a68 -->
 How to connect a computer of yours to an Ikon app's Tasks board, so tasks can run external coding
 agents — Claude Code, Codex, Gemini, Antigravity — on it. For app developers; everything here works
 with the `ikon` CLI you already have.
@@ -45,18 +45,36 @@ a terminal. The first connection asks you to confirm the app's space id. Useful 
 | `--name <label>` | How the machine appears on the board; defaults to the host name |
 | `--repo <path>` | Repository root the generators work in — the only tree the app may touch; defaults to the git root |
 | `--local-url <url>` | Connect to an app running locally with `ikon app run` instead of the cloud |
-| `--allow-terminal` | Let the app open an interactive terminal on this machine (off by default — it is keyboard access) |
 | `--trust <space-id>` | Skip the interactive confirmation, for scripts and CI |
 
 Running the app locally with `ikon app run`? Plain `ikon codegen router` from the app folder finds
 the local instance on its own.
 
+## What the app may do, and what you turn on
+
+Without any flag the app can start the coding agents installed on this machine, and read and write
+files in the repository you named and the worktrees beside it — that is the whole of it. Everything
+else is an opt-in, off until you pass its flag:
+
+| Option | What it lets the app do |
+|---|---|
+| `--allow-push` | Merge a task's work and push it to the repository's remote — landing included |
+| `--allow-session-history` | Read the coding-agent sessions already on this machine, so the board can list and follow conversations it did not start |
+| `--allow-devices` | List, mirror and control the phones, emulators and simulators attached to this machine |
+| `--allow-terminal` | Open an interactive terminal on this machine — it is keyboard access |
+
+The router prints the four lines when it starts, so you can see at a glance what you handed over. A
+capability you did not turn on is refused where it is asked for, and the refusal names the flag that
+would allow it — the board never quietly answers with less. `--allow-push` binds the agent too: a
+`git push` an agent types in its own shell is refused on the machine until you pass the flag, so the
+opt-in is not just the board's button.
+
 ## Phones, simulators and emulators
 
-If the machine has phone tooling — Xcode's simulators (macOS) or `adb` for Android — the app's
-workspace grows a **Devices** tab listing every phone-shaped run target on every connected
-machine: iOS simulators, Android emulators and plugged-in devices, and emulator images that are
-not running yet. Two verbs per device:
+Start the router with `--allow-devices` and, if the machine has phone tooling — Xcode's simulators
+(macOS) or `adb` for Android — the app's workspace grows a **Devices** tab listing every
+phone-shaped run target on every connected machine: iOS simulators, Android emulators and
+plugged-in devices, and emulator images that are not running yet. Two verbs per device:
 
 - **Open the app** boots the device if needed and opens the running preview's app on it, signed
   in — the same app instance the Preview tab shows, on real phone glass. Android emulators get

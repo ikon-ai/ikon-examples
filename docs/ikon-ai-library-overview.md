@@ -1,5 +1,5 @@
 # Ikon.AI Library Overview
-<!-- checked-against: 67ccb1e9630a0616 -->
+<!-- checked-against: 0a9abfc999a9601b -->
 This guide summarizes the principal namespaces in the Ikon.AI .NET library for developers building AI-enabled solutions. Each section outlines module responsibilities, supported models, and usage patterns verified by automated tests.
 
 ## Emergence
@@ -177,6 +177,25 @@ so app code normally only *reads* the marks.
   carries Ikon's mark.
 - `ImageProvenance.Apply(data, model, invisibleWatermark, visibleWatermark)` marks an image yourself,
   for a path the platform generators did not produce.
+
+`Ikon.AI.MediaProvenance` is the same layer for generated video and audio, writing the identical XMP
+packet into the container's standard metadata slot: an XMP `uuid` box for MP4/MOV/M4A, an ID3v2
+`PRIV` frame with owner `XMP` for MP3, and a `_PMX` RIFF chunk for WAV. There is no audio or video
+watermark, so `MetadataOnly` is the best outcome and `Full` never occurs; Ogg/Opus, WebM and raw PCM
+carry no slot this layer writes and come back `None`.
+
+- `MediaProvenance.GetMarkingSupport(data)` says whether the container takes the mark at all.
+- `MediaProvenance.Apply(data, model, out marking)` marks the bytes and reports what they carry.
+- `MediaProvenance.ReadMetadataMark(data)` reads the packet back, container-agnostically.
+
+The generators apply it themselves, and every result says what it carries so a caller never has to
+assume: `MusicGeneratorResult.Provenance`, `SoundEffectGeneratorResult.Provenance` and
+`VideoGeneratorResult.Provenance`. Video is the one modality whose bytes do not otherwise pass
+through the platform, so the generator fetches the provider's clip, marks it and re-hosts it —
+`VideoGeneratorResult.Url` then points at the marked copy, and stays on the provider's unmarked
+original when any of that fails. Streaming paths (`GenerateMusicAsync`, `GenerateSoundEffectAsync`,
+speech) hand out raw PCM chunks with no container, so they are never marked; disclose those at the
+interaction level instead, with Parallax's `AiDisclosure`.
 
 ## Image Utilities
 

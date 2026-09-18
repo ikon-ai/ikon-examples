@@ -688,6 +688,7 @@ app state.
 | `ikon-ice-transport` | `relay`, `all` | Force the WebRTC ICE policy. `relay` gathers TURN candidates only, which is how the relay path gets verified |
 | `ikon-retry` | `false` | Fail fast instead of retrying auth and channel connects |
 | `ikon-snapshot` | `true` | Connect as a build-time snapshot client |
+| `ikon-feedback` | present | Open the feedback sheet once the app is live, as a tap on the feedback button does. Only for a user who is offered the feedback overlay |
 
 An unrecognised value is ignored rather than guessed at, so a typo leaves the default behaviour in
 place instead of silently pinning something slow.
