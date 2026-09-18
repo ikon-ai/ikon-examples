@@ -1,6 +1,6 @@
 # Schema version of this config file. The ikon tool upgrades older files automatically and always
 # saves at its current version; a file newer than the tool refuses to load (update the tool).
-ConfigVersion = 5
+ConfigVersion = 6
 
 # Which of the space's databases backs PersistentReactive state. Empty means the platform picks — the
 # built-in "app" database, or your own when the space holds exactly one — and records the choice so
@@ -34,6 +34,18 @@ DomainAllowlist = []
 # SEO-crawlable via [BootSnapshot] Routes regardless.
 RequireSignIn = false
 
+# The platform's feedback overlay: a button above the app that opens a sheet for reporting a
+# problem or an idea by text, voice, files and a screenshot. Reports go to the app's space, where
+# its members read them in Studio and with 'ikon app feedback'.
+[Feedback]
+# Whether the overlay is offered at all
+Enabled = false
+# Who is offered it: "testers" (signed-in users holding the tester profile role), "signed-in"
+# (every signed-in user) or "everyone" (guests too; never the shared "global" visitor). The
+# space's own members are always offered it. Each person can show or hide the button from the
+# platform menu; it is shown by default only for "testers".
+Audience = "testers"
+
 # Boot snapshot: capture the app's initial UI at build/deploy time so the first paint appears
 # instantly. The snapshot is a PUBLIC asset, but it is privacy-safe by default — every piece of
 # content is automatically replaced with a skeleton, so no sensitive data is baked in. Use
@@ -61,6 +73,20 @@ Routes = ["/"]
 GuestSeeds = []
 # SignedInSeeds = ["/**:shell"]
 SignedInSeeds = []
+
+# Where this app's privacy notice and terms live. Leave both empty (the default) and the app serves
+# its own legal/privacy.md and legal/terms.md — the files Studio generates into the app repository,
+# beside public/ and data/ — at /legal/privacy and /legal/terms on the app's domain. Set a URL here
+# to point at your own page instead: the app's /legal path then redirects there, so the links under
+# the sign-in buttons keep working either way. Building an app that signs end users in, or building
+# it for a phone, requires a privacy notice: legal/privacy.md in the repository or PrivacyUrl here.
+[Legal]
+# Absolute https:// URL of this app's privacy notice, when it is published somewhere else (e.g.
+# "https://example.com/privacy"). Empty means /legal/privacy serves the app's own legal/privacy.md.
+PrivacyUrl = ""
+# Absolute https:// URL of this app's terms, when they are published somewhere else. Empty means
+# /legal/terms serves the app's own legal/terms.md.
+TermsUrl = ""
 
 # Custom packaging steps for 'ikon app bundle' and 'ikon app deploy'
 [Package]
