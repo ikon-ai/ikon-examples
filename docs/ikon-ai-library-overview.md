@@ -1,5 +1,5 @@
 # Ikon.AI Library Overview
-<!-- checked-against: 0a9abfc999a9601b -->
+<!-- checked-against: dd38fe092325475c -->
 This guide summarizes the principal namespaces in the Ikon.AI .NET library for developers building AI-enabled solutions. Each section outlines module responsibilities, supported models, and usage patterns verified by automated tests.
 
 ## Emergence
@@ -189,11 +189,9 @@ carry no slot this layer writes and come back `None`.
 - `MediaProvenance.ReadMetadataMark(data)` reads the packet back, container-agnostically.
 
 The generators apply it themselves, and every result says what it carries so a caller never has to
-assume: `MusicGeneratorResult.Provenance`, `SoundEffectGeneratorResult.Provenance` and
-`VideoGeneratorResult.Provenance`. Video is the one modality whose bytes do not otherwise pass
-through the platform, so the generator fetches the provider's clip, marks it and re-hosts it —
-`VideoGeneratorResult.Url` then points at the marked copy, and stays on the provider's unmarked
-original when any of that fails. Streaming paths (`GenerateMusicAsync`, `GenerateSoundEffectAsync`,
+assume: `MusicGeneratorResult.Provenance` and `SoundEffectGeneratorResult.Provenance`. Video is not
+marked: its bytes never pass through the platform — the result is the provider's URL — and fetching a
+clip into the process to mark it is what the platform tells apps never to do. Streaming paths (`GenerateMusicAsync`, `GenerateSoundEffectAsync`,
 speech) hand out raw PCM chunks with no container, so they are never marked; disclose those at the
 interaction level instead, with Parallax's `AiDisclosure`.
 
@@ -419,6 +417,44 @@ var result = await enhancer.EnhanceVideoAsync(new VideoEnhancerConfig
 });
 
 Log.Instance.Info($"Enhanced video URL: {result.Url}");
+```
+
+## VideoSegmentation
+
+`Ikon.AI.VideoSegmentation.VideoSegmenter` segments and tracks objects through a whole video from text, point, or box prompts (SAM 3). The model follows each named concept across frames, so an object keeps its identity from one frame to the next — the difference from running `ImageSegmenter` frame by frame, which knows nothing about the frame before.
+
+The result is a `VideoSegmenterResult`: `Url` is the segmented video (the model keeps it; nothing is downloaded into the app), with `MimeType`, `SizeBytes` and an optional `BoundingBoxFramesZipUrl` holding per-frame bounding box overlays. `VideoSegmenter` implements `IVideoSegmenter`, so a method that only needs "something that segments video" can take the interface.
+
+Supply the video exactly one way — `Url`, `AssetUri`, or `Data`. Prefer a URL or an asset: `Data` is uploaded to a temporary asset first and a minutes-long clip is far too large to hold in memory. The endpoint is priced by the length of the input, so trimming or reducing the frame rate before the call is what makes a long video cheaper, not scaling it down.
+
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+
+One-shot from a video URL — defaults to `Sam3`:
+
+Needs the `Ikon.AI.VideoSegmentation` using directive.
+
+<!-- ikon-code: ai-videosegmentation -->
+```csharp
+var result = await VideoSegmenter.SegmentAsync("https://example.com/race.mp4", "swimmer");
+Log.Instance.Info($"Segmented video: {result.Url}");
+```
+
+Use the constructor + config form for an asset input, several concepts at once, point/box prompts, a different detection threshold, or a WebM container instead of MP4 (`OutputType`, a `VideoSegmenterOutputType`):
+
+Needs the `Ikon.AI.VideoSegmentation` using directive.
+
+<!-- ikon-code: ai-videosegmentation-2 -->
+```csharp
+using var videoSegmenter = new VideoSegmenter(VideoSegmenterModel.Sam3);
+
+var result = await videoSegmenter.SegmentVideoAsync(new VideoSegmenterConfig
+{
+    AssetUri = videoAssetUri,
+    Prompt = "swimmer, lane rope",
+    DetectionThreshold = 0.6
+});
+
+Log.Instance.Info($"Segmented video: {result.Url} ({result.SizeBytes} bytes)");
 ```
 
 ## SpeechGeneration

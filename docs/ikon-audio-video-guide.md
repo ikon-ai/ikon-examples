@@ -1,5 +1,5 @@
 # Ikon Audio & Video Guide
-<!-- checked-against: 71a612b4f60da669 -->
+<!-- checked-against: e9097dd27c14197c -->
 How an Ikon AI app's C# app class plays audio to clients, receives microphone and camera streams, transcribes speech, and mixes group calls. Read this if your app makes sound, listens, or handles video.
 
 ## Setup: construct the services in a field initializer
