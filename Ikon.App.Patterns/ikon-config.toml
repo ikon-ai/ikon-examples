@@ -75,11 +75,9 @@ GuestSeeds = []
 SignedInSeeds = []
 
 # Where this app's privacy notice and terms live. Leave both empty (the default) and the app serves
-# its own legal/privacy.md and legal/terms.md — the files Studio generates into the app repository,
-# beside public/ and data/ — at /legal/privacy and /legal/terms on the app's domain. Set a URL here
-# to point at your own page instead: the app's /legal path then redirects there, so the links under
-# the sign-in buttons keep working either way. Building an app that signs end users in, or building
-# it for a phone, requires a privacy notice: legal/privacy.md in the repository or PrivacyUrl here.
+# its own legal/privacy.md and legal/terms.md — files you write, in the app root beside public/ and
+# data/ — at /legal/privacy and /legal/terms on the app's domain, when they exist. Set a URL here to
+# point at your own page instead: the app's /legal path then redirects there.
 [Legal]
 # Absolute https:// URL of this app's privacy notice, when it is published somewhere else (e.g.
 # "https://example.com/privacy"). Empty means /legal/privacy serves the app's own legal/privacy.md.
