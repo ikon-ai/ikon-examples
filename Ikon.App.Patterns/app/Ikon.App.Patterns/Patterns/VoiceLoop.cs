@@ -20,41 +20,51 @@ internal sealed class VoiceLoop(IAppBase app) : IPatternDemo
     private readonly ReactiveList<VoiceTurn> _turns = new();
     private readonly ClientReactive<bool> _processing = new(false);
 
-    // Per-stream sample buffer keyed by stream id.
-    private readonly Dictionary<string, List<float>> _streams = new();
+    // Per-press sample buffer and per-stream format, both keyed by stream id.
+    private readonly Dictionary<string, List<float>> _presses = new();
     private readonly Dictionary<string, (int SampleRate, int ChannelCount)> _streamMeta = new();
 
     public Task Main()
     {
+        // The stream is the open microphone, and it OUTLIVES a press: it begins once and ends
+        // when the page closes. Waiting for AudioInputStreamEndAsync to act on a release means
+        // nothing happens until then. It carries the format and is where that is forgotten.
         Audio.AudioInputStreamBeginAsync += async args =>
         {
-            _streams[args.StreamId.ToString()] = new List<float>();
-            _streamMeta[args.StreamId.ToString()] = (args.SampleRate, args.ChannelCount);
-        };
-
-        Audio.AudioInputFrameAsync += async args =>
-        {
-            if (_streams.TryGetValue(args.StreamId.ToString(), out var buf))
-            {
-                buf.AddRange(args.Samples);
-            }
+            _streamMeta[args.StreamId] = (args.SampleRate, args.ChannelCount);
         };
 
         Audio.AudioInputStreamEndAsync += async args =>
         {
-            if (!_streams.TryGetValue(args.StreamId.ToString(), out var samples))
+            _presses.Remove(args.StreamId);
+            _streamMeta.Remove(args.StreamId);
+        };
+
+        // ONE press is one segment: its first frame has IsFirst, its last has IsLast. The
+        // release is the IsLast frame -- that is the moment to transcribe.
+        Audio.AudioInputFrameAsync += async args =>
+        {
+            if (args.IsFirst || !_presses.TryGetValue(args.StreamId, out var samples))
+            {
+                samples = new List<float>();
+                _presses[args.StreamId] = samples;
+            }
+
+            samples.AddRange(args.Samples);
+
+            if (!args.IsLast)
             {
                 return;
             }
 
-            var (sampleRate, channelCount) = _streamMeta[args.StreamId.ToString()];
-            _streams.Remove(args.StreamId.ToString());
-            _streamMeta.Remove(args.StreamId.ToString());
+            _presses.Remove(args.StreamId);
 
-            if (samples.Count == 0)
+            if (samples.Count == 0 || !_streamMeta.TryGetValue(args.StreamId, out var format))
             {
                 return;
             }
+
+            var (sampleRate, channelCount) = format;
 
             _processing.Value = true;
             try
