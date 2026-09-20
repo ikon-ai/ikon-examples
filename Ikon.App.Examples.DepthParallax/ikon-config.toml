@@ -46,6 +46,14 @@ Enabled = false
 # platform menu; it is shown by default only for "testers".
 Audience = "testers"
 
+# What the app measures about its own use. Nothing here records what anyone typed, picked or sent:
+# an event names the feature and the control, never a payload.
+[Analytics]
+# Whether an event is recorded for each action a person runs — the feature it was in, the control,
+# whether it succeeded and how long it took. Off by default; an app turns it on to be measured, and
+# a report filed from the app then carries the last few actions that led to it.
+UiActions = false
+
 # Boot snapshot: capture the app's initial UI at build/deploy time so the first paint appears
 # instantly. The snapshot is a PUBLIC asset, but it is privacy-safe by default — every piece of
 # content is automatically replaced with a skeleton, so no sensitive data is baked in. Use
