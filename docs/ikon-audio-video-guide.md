@@ -1,5 +1,5 @@
 # Ikon Audio & Video Guide
-<!-- checked-against: e9097dd27c14197c -->
+<!-- checked-against: f4418b4465ba2922 -->
 How an Ikon AI app's C# app class plays audio to clients, receives microphone and camera streams, transcribes speech, and mixes group calls. Read this if your app makes sound, listens, or handles video.
 
 ## Setup: construct the services in a field initializer
@@ -197,6 +197,12 @@ Audio.SpeechRecognizedAsync += async args =>
 ```
 
 Notable parameters: `speculative` (default true) starts transcription at the probable turn end so the confirmed turn adds zero recognition latency; `pauseWhileAppSpeaking` (default true) suppresses detection while the app is audibly speaking so its own voice can't trigger turns — set false for barge-in apps; `config` accepts a `TurnDetectorConfig` for silence windows, minimum speech length, or a plug-in VAD classifier.
+
+This turn detector hears the audio and nothing else. Some recognizers judge the turn themselves,
+from the words as well as the pause, and say so on `TranscriptEvent.IsEndOfTurn` when you drive
+`RecognizeContinuousSpeechAsync` directly — `SpeechRecognizer.GetCapabilities(model).TurnDetection`
+says which, and the Ikon.AI library overview covers the knobs. The two are separate mechanisms: this
+one segments a stream for you, that one reports what the provider concluded.
 
 ## AudioChunk: construction rules
 

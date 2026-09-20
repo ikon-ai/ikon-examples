@@ -1,5 +1,5 @@
 # Ikon.AI Library Overview
-<!-- checked-against: dd38fe092325475c -->
+<!-- checked-against: aeb5c29d27248e58 -->
 This guide summarizes the principal namespaces in the Ikon.AI .NET library for developers building AI-enabled solutions. Each section outlines module responsibilities, supported models, and usage patterns verified by automated tests.
 
 ## Emergence
@@ -609,6 +609,56 @@ await foreach (var transcriptEvent in speechRecognizer.RecognizeContinuousSpeech
     if (transcriptEvent.IsFinal)
     {
         Log.Instance.Info($"[{transcriptEvent.Start.TotalSeconds:F2}] {transcriptEvent.Text}");
+    }
+}
+```
+
+### Turn taking
+
+**A final is not the end of a turn.** Most providers finalize a segment at every pause, mid-thought
+included, so a voice agent that replies on `IsFinal` talks over its user. `IsEndOfTurn` is the
+recognizer's own judgement that the speaker has finished, and `TurnDetection` on the capabilities
+says what that judgement can be made from:
+
+- `SpeechTurnDetection.None` — the model never sets `IsEndOfTurn`.
+- `Silence` — a pause long enough to count, which cannot tell a held thought from a finished one.
+- `Semantic` — a model that weighs the words as well as the pause.
+
+Ask for one on `RecognizeContinuousSpeechConfig.TurnDetection`; leaving it at `None` takes whatever
+the model does by default, and no `IsEndOfTurn` is claimed. `Endpointing` says which of
+`EndOfTurnSilence`, `MaxTurnSilence` and `EndOfTurnConfidenceThreshold` that model takes from you —
+**setting one it does not take throws**, because a threshold the service never received leaves a
+stream that still transcribes and a conversation that feels wrong for reasons nothing reports.
+`EndOfTurnConfidence` is 0 on every event of a model whose `ReportsEndOfTurnConfidence` is false,
+which is not a confidence of zero.
+
+`Languages` lists the languages a model transcribes where that set is narrow and published, and is
+empty where it is not — empty means undeclared, never "none", so `SupportsLanguage` answers true
+there. It matters more than it looks: a streaming model given a language outside its set returns
+fluent-looking nonsense rather than an error.
+
+<!-- ikon-code: ai-turn-taking -->
+```csharp
+var capabilities = SpeechRecognizer.GetCapabilities(SpeechRecognizerModel.AzureSpeechService);
+
+var config = new RecognizeContinuousSpeechConfig
+{
+    SampleRate = 16000,
+    ChannelCount = 1,
+    Language = "fi-FI",
+    TurnDetection = capabilities.TurnDetection.HasFlag(SpeechTurnDetection.Semantic)
+        ? SpeechTurnDetection.Semantic
+        : SpeechTurnDetection.Silence,
+    EndOfTurnSilence = capabilities.Endpointing.HasFlag(SpeechEndpointing.Silence)
+        ? TimeSpan.FromMilliseconds(400)
+        : TimeSpan.Zero
+};
+
+await foreach (var transcriptEvent in speechRecognizer.RecognizeContinuousSpeechAsync(config, samples))
+{
+    if (transcriptEvent.IsEndOfTurn)
+    {
+        Log.Instance.Info($"The caller has finished: {transcriptEvent.Text}");
     }
 }
 ```
