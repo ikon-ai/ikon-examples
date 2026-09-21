@@ -1,5 +1,5 @@
 # Ikon.AI Library Overview
-<!-- checked-against: aeb5c29d27248e58 -->
+<!-- checked-against: 75eae1cd484a6f57 -->
 This guide summarizes the principal namespaces in the Ikon.AI .NET library for developers building AI-enabled solutions. Each section outlines module responsibilities, supported models, and usage patterns verified by automated tests.
 
 ## Emergence
@@ -972,6 +972,40 @@ using var classifier = new Classifier(ClassificationModel.OpenAIOmniModeration);
 
 var result = await classifier.ClassifyAsync("What a nice weather!");
 Log.Instance.Info($"Flagged: {result.IsFlagged}");
+```
+
+## Decisions
+
+`Ikon.AI.Decisions.Decider` asks a model for typed answers instead of text: one option out of a set (`Choice`), a position on an ordered rubric (`Score`), or a yes/no as a probability (`Noul`). Each answer carries calibrated probabilities and a confidence, so routing, triage and gating inside a flow need no parsing step and cannot come back off-shape.
+
+**Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
+
+`Jev` is routed through OpenRouter (`typesafe/jev-1.13`) on the platform's OpenRouter credential and billed on the cost OpenRouter reports for each call, so nothing extra has to be configured. It accepts 32,000 tokens of state and questions combined, priced at $0.042 per million input tokens with output free.
+
+Decision models always run in-process — the hosted model routing resolves nothing in this category. To reach TypeSafe directly with your own key instead, register a `CustomDecisionModel` pointing at `https://api.typesafe.ai/v1/systemone`.
+
+Several questions about one state cost one request, and the state is charged once. Read each answer through `AsChoice`, `AsScore` or `AsNoul`, which refuse an answer of the wrong type rather than returning a default.
+
+Needs the `Ikon.AI.Decisions` using directive.
+
+<!-- ikon-code: typed-decisions -->
+```csharp
+using var decider = new Decider(DecisionModel.Jev);
+
+var triage = await decider.DecideAsync(ticketText, new Dictionary<string, DecisionQuestion>
+{
+    ["department"] = DecisionQuestion.Choice("Which team should handle this?", "billing", "technical", "sales"),
+    ["frustration"] = DecisionQuestion.Score("How frustrated is the customer?", "calm", "annoyed", "furious"),
+    ["refund"] = DecisionQuestion.Noul("Is a refund being requested?"),
+});
+
+string team = triage["department"].AsChoice();         // one of the option names
+double frustration = triage["frustration"].AsScore();  // fractional, indexed from 0
+double refundOdds = triage["refund"].AsNoul();         // a probability, not a bool
+
+// Structured state instead of text, and the one-shot form for a single question
+string warehouse = await Decider.ChooseAsync(
+    DecisionState.From(order), "Which warehouse ships this?", "helsinki", "tampere");
 ```
 
 ## Embeddings
