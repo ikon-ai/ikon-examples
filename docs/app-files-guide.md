@@ -1,5 +1,5 @@
 # App Files Guide
-<!-- checked-against: dac6edc4818ef3cb -->
+<!-- checked-against: 69fc3be44c0680a0 -->
 How an Ikon AI app stores, ships, and serves files: two folders in the repo, one API at runtime,
 and automatic handling of binaries in git. Read this before adding images, media, datasets, or any
 other file to an app.

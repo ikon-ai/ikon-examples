@@ -1,5 +1,5 @@
 # Asset System Developer Guide
-<!-- checked-against: 771c409d701fd696 -->
+<!-- checked-against: 8e1996e82d1a7576 -->
 ## Overview
 
 The Ikon asset system exposes a uniform abstraction for storing and retrieving files, JSON payloads, and other binary or textual artifacts without binding application code to a specific backend. Each `Asset` instance dispatches every read, write, delete, and listing request to the storage driver that corresponds to the asset class encoded in the `AssetUri`, and propagates change notifications through `AssetEventAsync` so caches can react to updates. The API is asynchronous end-to-end, providing cancellation support where appropriate and surfacing metadata on every transfer to enable optimistic concurrency and lifecycle management.

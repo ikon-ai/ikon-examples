@@ -1,5 +1,5 @@
 # Ikon Persistent State Guide
-<!-- checked-against: c3c827ba0a25ed2b -->
+<!-- checked-against: 2f4c17e4018cc5ea -->
 How to persist app state across restarts. Read this before reaching for files or hand-rolled storage.
 
 ## TL;DR — what to pick
