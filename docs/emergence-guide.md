@@ -1,5 +1,5 @@
 # Ikon.AI.Emergence Guide
-<!-- checked-against: a1decc43122d3620 -->
+<!-- checked-against: 90ff5b59ae850ec0 -->
 Ikon.AI.Emergence is a streaming-first, C#-idiomatic library for building AI workflows with typed JSON outputs. It provides a collection of patterns for common AI tasks, from simple single-shot generation to parallel candidate search and document-tree navigation.
 
 ## Core Concepts
@@ -42,7 +42,7 @@ than calling the model a second time.
 
 | Event | Description |
 |-------|-------------|
-| `ModelText<T>` | Streaming text chunk from the model |
+| `ModelText<T>` | Text from the model, delivered as it is produced. Text delivered before a `Retry<T>` is superseded by the text after it |
 | `ToolCallPlanned<T>` | Tool call detected (contains `FunctionCall`) |
 | `ToolCallResult<T>` | Tool execution completed (contains `Call`, `Events`, `Result`) |
 | `Stage<T>` | Pattern stage boundary (e.g., "Candidate:0", "Critic") |
