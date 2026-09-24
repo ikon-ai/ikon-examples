@@ -1,5 +1,5 @@
 # App Files Guide
-<!-- checked-against: 69fc3be44c0680a0 -->
+<!-- checked-against: 7fef4893acdf3d08 -->
 How an Ikon AI app stores, ships, and serves files: two folders in the repo, one API at runtime,
 and automatic handling of binaries in git. Read this before adding images, media, datasets, or any
 other file to an app.
@@ -53,6 +53,10 @@ every natural boundary.
 |---|---|
 | `ikon app save`, `app bundle`, `app deploy` | Raw binaries upload to the Asset store; git records a small `.ikonasset` pointer. The working copy stays on disk. |
 | `ikon app run`, `app clone`, `app pull`, `app restore` | Pointers without their real file download it back. |
+
+Offloading rewrites the repository, so it happens only for an app that owns its git repository; an
+app nested inside a larger one bundles and deploys its binaries as they are and leaves that
+repository's files alone.
 
 Files under `public/` upload as public (loadable by URL); everything else stays private. The
 `ikon app asset normalize` / `materialize` / `gc` verbs exist as manual overrides — normal
