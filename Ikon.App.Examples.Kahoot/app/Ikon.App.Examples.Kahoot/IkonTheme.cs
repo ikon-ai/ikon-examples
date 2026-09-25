@@ -932,7 +932,7 @@ public static class Checkbox
 public static class Switch
 {
     public const string Root = $"peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border p-0.5 transition-colors {State.Focusable} {State.Disabled} data-[state=checked]:bg-brand-solid data-[state=checked]:border-brand-solid data-[state=unchecked]:bg-quaternary data-[state=unchecked]:border-input";
-    public const string Thumb = "pointer-events-none block size-4 rounded-full bg-background shadow-lg transition-transform data-[state=checked]:translate-x-3 data-[state=unchecked]:translate-x-0";
+    public const string Thumb = "pointer-events-none block size-4 rounded-full bg-background shadow-lg transition-transform data-[state=checked]:translate-x-3.5 data-[state=unchecked]:translate-x-0";
     public const string Default = Root;
 }
 
