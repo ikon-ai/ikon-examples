@@ -35,9 +35,8 @@ class IkonFlutterApp extends StatelessWidget {
     return MaterialApp(
       title: 'Ikon App',
       debugShowCheckedModeBanner: false,
-      // Momentum's page colour, not the scaffold template's slate. The Parallax view sits inside a
-      // SafeArea, so whatever this is shows as bars above the status bar and below the home
-      // indicator — the template's blue-black read as two stripes that belong to another app.
+      // Momentum's page colour, shown until the first page renders; from then on IkonPageScaffold
+      // paints the safe areas in the page's own background.
       theme: ThemeData.dark(useMaterial3: true).copyWith(
         scaffoldBackgroundColor: const Color(0xFF0B0B0D),
       ),
@@ -255,24 +254,22 @@ class _IkonAppScreenState extends State<IkonAppScreen> {
     // the phone losing touch with it changes nothing about what is being recorded.
     final outage = _outageBeyondGrace;
 
-    return Scaffold(
-      body: SafeArea(
-        child: Stack(
-          children: [
-            IkonPlatformOverlay(
-              client: _client!,
+    return IkonPageScaffold(
+      child: Stack(
+        children: [
+          IkonPlatformOverlay(
+            client: _client!,
+            uiCore: _uiCore!,
+            mediaManager: _mediaManager,
+            child: IkonParallaxView(
               uiCore: _uiCore!,
+              client: _client,
               mediaManager: _mediaManager,
-              child: IkonParallaxView(
-                uiCore: _uiCore!,
-                client: _client,
-                mediaManager: _mediaManager,
-                registry: _registry,
-              ),
+              registry: _registry,
             ),
-            if (outage != null) _OutageScrim(state: _connectionState, elapsed: outage),
-          ],
-        ),
+          ),
+          if (outage != null) _OutageScrim(state: _connectionState, elapsed: outage),
+        ],
       ),
     );
   }
