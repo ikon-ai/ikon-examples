@@ -211,7 +211,9 @@ class _IkonScreenState extends State<IkonScreen> {
     if (_state != IkonConnectionState.connected || _uiCore == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    return Scaffold(body: SafeArea(child: IkonParallaxView(uiCore: _uiCore!, client: _client)));
+    // Paints the status-bar and home-indicator strips in the streamed page's own background
+    // colour; a plain Scaffold + SafeArea shows the Material theme's colour there instead.
+    return IkonPageScaffold(child: IkonParallaxView(uiCore: _uiCore!, client: _client));
   }
 }
 ```

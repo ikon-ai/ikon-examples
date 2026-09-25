@@ -1,5 +1,5 @@
 # Ikon.AI Library Overview
-<!-- checked-against: 8a2b26547e015932 -->
+<!-- checked-against: 71f098420c69e07f -->
 This guide summarizes the principal namespaces in the Ikon.AI .NET library for developers building AI-enabled solutions. Each section outlines module responsibilities, supported models, and usage patterns verified by automated tests.
 
 ## Emergence
@@ -319,7 +319,9 @@ await File.WriteAllBytesAsync("depth.png", await result.Depth.GetDataAsync());
 
 ## MeshGeneration
 
-`Ikon.AI.MeshGeneration.MeshGenerator` creates textured 3D meshes from a text prompt (no input images), a single image, or 2-4 images of the same object. The result contains URLs for the generated model in multiple formats (GLB, FBX, OBJ, USDZ). The URLs are signed and expire roughly three days after generation, so download the files promptly.
+`Ikon.AI.MeshGeneration.MeshGenerator` creates textured 3D meshes from a text prompt (no input images), a single image, or several images of the same object (up to 4 on Meshy, 5 on Rodin). The result contains signed URLs for the generated model — Meshy returns GLB, FBX, OBJ and USDZ at once and expires them after roughly three days; Rodin returns the one format `OutputFormat` asks for and expires it after seven. Download the files promptly.
+
+Two providers sit behind it. **Meshy** (`Meshy5`, `Meshy6`) is the default. **Rodin** by Hyper3D exposes one model per quality tier — `Rodin2` and `Rodin25ExtremeLow` through `Rodin25ExtremeHigh` — and adds retexturing and part splitting of existing meshes. Neither provider rigs or skins a mesh; Rodin's `RestPose` delivers a humanoid in a T- or A-pose ready for rigging.
 
 **Supported models:** See the model enum in the auto-generated Ikon.AI Public API reference for the current list (`docs/Ikon.AI/public-api.md` in AI apps).
 
@@ -350,7 +352,80 @@ var result = await meshGenerator.GenerateMeshAsync(new MeshGeneratorConfig
 Log.Instance.Info($"GLB URL: {result.GlbUrl}");
 ```
 
-A `MeshGeneratorResult` carries `GlbUrl`, `FbxUrl`, `ObjUrl`, `MtlUrl`, `UsdzUrl` and `ThumbnailUrl` — whichever formats the model produced — plus the `ExpiresAt` the signed URLs stop working at. `MeshGeneratorConfig` takes a `MeshGeneratorMeshStyle` (`Standard` or `LowPoly`) and a `MeshGeneratorTopology` (`Triangle` or `Quad`). Models differ in what they accept, so check before you send: `MeshGenerator` implements `IMeshGenerator`, which extends `IMeshGeneratorInfo` with `SupportsTextToMesh`, `SupportsImageToMesh`, `SupportsPbr`, `SupportsLowPoly` and `MaxInputImages`. The same five read off a `MeshGeneratorCapabilities` without constructing a generator.
+A `MeshGeneratorResult` carries `GlbUrl`, `FbxUrl`, `ObjUrl`, `MtlUrl`, `UsdzUrl`, `StlUrl` and `ThumbnailUrl` — whichever formats the model produced — plus `Files` (every file delivered, such as the shaded twin of a `MeshGeneratorMaterial.PbrAndShaded` request), `ProviderTaskId`, and the `ExpiresAt` the signed URLs stop working at. `MeshGeneratorConfig` takes a `MeshGeneratorMeshStyle` (`Standard` or `LowPoly`) and a `MeshGeneratorTopology` (`Triangle` or `Quad`). Models differ in what they accept, so check before you send: `MeshGenerator` implements `IMeshGenerator`, which extends `IMeshGeneratorInfo` with `SupportsTextToMesh`, `SupportsImageToMesh`, `SupportsPbr`, `SupportsLowPoly`, `SupportsTexturing`, `SupportsPartSplitting`, `MaxInputImages`, `MinPolycount` and `MaxPolycount`. The same read off a `MeshGeneratorCapabilities` without constructing a generator.
+
+Rodin takes a prompt together with images and honours the rest of `MeshGeneratorConfig`: `Material`, `OutputFormat`, `Seed`, `Symmetry`, `GeometryMode`, `TextureQuality`, `HighResolutionTextures`, `EnhanceTextures`, `SharpenTextures`, `RemoveTextureLighting`, `BakeNormalMap`, `RestPose`, `BoundingBox`, `InputImageViews`, `PreserveImageAlpha`, `PreviewRender`, `MicroDetail`, `SmoothEdges` and `DetailLevel`, typed by `MeshGeneratorMaterial`, `MeshGeneratorFileFormat`, `MeshGeneratorSymmetry`, `MeshGeneratorGeometryMode`, `MeshGeneratorTextureQuality`, `MeshGeneratorView` and `MeshGeneratorBoundingBox`; each entry of `Files` is a `MeshGeneratorFile` (`Name`, `Url`). Set on a Meshy model, any of them throws rather than being dropped:
+
+Needs the `Ikon.AI.MeshGeneration` using directive.
+
+<!-- ikon-code: ai-meshgeneration-3 -->
+```csharp
+using var meshGenerator = new MeshGenerator(MeshGeneratorModel.Rodin25Medium);
+
+var character = await meshGenerator.GenerateMeshAsync(new MeshGeneratorConfig
+{
+    InputImages = [new InputImage { Data = characterPng, MimeType = "image/png" }],
+    Prompt = "stylized game character",
+    RestPose = true,
+    Topology = MeshGeneratorTopology.Quad,
+    TargetPolycount = 18000,
+    Material = MeshGeneratorMaterial.Pbr,
+    HighResolutionTextures = true,
+    OutputFormat = MeshGeneratorFileFormat.Fbx,
+});
+
+Log.Instance.Info($"FBX URL: {character.FbxUrl}");
+```
+
+The Meshy models rig and animate humanoid characters (`SupportsRigging`): `RigMeshAsync` takes a `MeshRigConfig` and returns the rigged character with walking and running clips, `GetAnimationLibraryAsync` lists the preset `MeshAnimationAction`s (hundreds, in WalkAndRun, BodyMovements, DailyActions, Fighting and Dancing), and `AnimateMeshAsync` applies up to ten of them from a `MeshAnimationConfig` as one file with a clip per action. A Rodin model made with `RestPose` rigs well:
+
+Needs the `Ikon.AI.MeshGeneration` using directive.
+
+<!-- ikon-code: ai-meshgeneration-5 -->
+```csharp
+using var meshy = new MeshGenerator(MeshGeneratorModel.Meshy6);
+
+var rig = await meshy.RigMeshAsync(new MeshRigConfig
+{
+    Mesh = new InputMesh { Url = character.GlbUrl, FileName = "character.glb" },
+    HeightMeters = 1.7,
+});
+
+var library = await meshy.GetAnimationLibraryAsync(search: "wave");
+
+var animated = await meshy.AnimateMeshAsync(new MeshAnimationConfig
+{
+    RigTaskId = rig.ProviderTaskId!,
+    ActionIds = [.. library.Take(3).Select(action => action.Id)],
+});
+
+Log.Instance.Info($"Animated character: {animated.GlbUrl}");
+```
+
+`SplitMeshAsync` cuts a model into separate parts, delivered as one file, and `TextureMeshAsync` paints an existing mesh from a reference image. Both take the mesh as an `InputMesh` (data, URL or asset URI; the format comes from the file name):
+
+Needs the `Ikon.AI.MeshGeneration` using directive.
+
+<!-- ikon-code: ai-meshgeneration-4 -->
+```csharp
+using var meshGenerator = new MeshGenerator(MeshGeneratorModel.Rodin25Medium);
+
+var parts = await meshGenerator.SplitMeshAsync(new MeshSplitConfig
+{
+    Mesh = new InputMesh { Url = generated.GlbUrl, FileName = "model.glb" },
+    Strength = 6,
+    Texture = false,
+});
+
+var repainted = await meshGenerator.TextureMeshAsync(new MeshTextureConfig
+{
+    Mesh = new InputMesh { Url = generated.GlbUrl, FileName = "model.glb" },
+    ReferenceImage = new InputImage { Data = referencePng, MimeType = "image/png" },
+    Prompt = "weathered bronze",
+});
+
+Log.Instance.Info($"Parts: {parts.GlbUrl}, repainted: {repainted.GlbUrl}");
+```
 
 ## VideoGeneration
 
