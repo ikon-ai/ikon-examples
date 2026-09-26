@@ -1,5 +1,5 @@
 # Ikon Persistent State Guide
-<!-- checked-against: 2f4c17e4018cc5ea -->
+<!-- checked-against: 8e54315436737751 -->
 How to persist app state across restarts. Read this before reaching for files or hand-rolled storage.
 
 ## TL;DR — what to pick
@@ -136,11 +136,18 @@ A live database can move to another tier without redeploying:
 ikon app db tier set dedicated-small
 ```
 
-With several declared databases, name the one to move with `--database <name>`. The platform
+With several declared databases, name the one to move with `--name <name>`. The platform
 copies the data to an instance of the new tier, verifies it, and switches connections over —
 the database keeps its name and credentials, but expect open connections to drop briefly while
-the data moves (sessions reconnect automatically). `ikon app db list` shows each database's tier
-and the state of an in-flight migration.
+the data moves (sessions reconnect automatically). Writes are refused while the data is copied;
+reads keep working. `ikon app db list` shows each database's tier and the state of an in-flight
+migration.
+
+A move that cannot finish is undone: the database stays on its current tier, unchanged and
+writable again (unless it is over its storage quota), and `ikon app db list` shows the move as
+`failed` with the reason. Nothing needs cleaning up before you try again, to the same tier or
+another. A database holding a single row too large to move — tens of megabytes as text on the
+shared tiers — is refused before anything changes.
 
 ## The `key:` parameter — only for loops
 

@@ -715,6 +715,13 @@ const client = new IkonClient({
 });
 ```
 
+The sound-effect functions (`ikon.client.playSound` / `stopSound`) are part of that set. They play
+through one Web Audio context that needs a user gesture once; until then a passive capture-phase
+listener on the window waits for that gesture, and it is removed the moment the context runs. An
+app that plays its own audio, or that wants nothing of the SDK's touching the audio session, can
+keep the other browser functions and skip just these with `disableSoundFunctions: true`;
+`useIkonApp` forwards both options.
+
 ### Internal Link Navigation
 
 A plain left-click on a same-origin `<a href>` is turned into an in-place route change: the SDK

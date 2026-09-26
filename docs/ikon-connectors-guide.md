@@ -1,5 +1,5 @@
 # Ikon Connectors Developer Guide
-<!-- checked-against: 5809f0de205f734d -->
+<!-- checked-against: 462fe5306f2bd703 -->
 This guide covers the connector libraries — `Ikon.Connectors` (Slack, GitHub), `Ikon.Connectors.Google` (Drive, Gmail), and `Ikon.Connectors.Browser` (agentic and scripted web automation) — for app developers wiring external services into an Ikon app.
 
 ## Overview
@@ -227,6 +227,35 @@ if (run.Outcome == WebOutcome.Succeeded)
 ```
 
 `WebRun` carries the `Outcome` (`Succeeded`, `Failed`, or `BudgetExhausted` when `MaxSteps` ran out), a `Summary`, the full action trace in `Steps`, any `Extract`ed `Outputs`, and `Looks` — the count of on-demand vision inspections, which consume agent budget without appearing in the trace.
+
+### Sites you do not control
+
+A site that is not your own app decides what the browser loads next, and the agent can press anything on it. Three options make that safe to hand to a person:
+
+- `PublicInternetOnly: true` confines the browser to public addresses. Every request is made by the platform's guarded HTTP client, so no page can reach the network your app runs in, and certificates are validated.
+- `ReviewWrite` is asked before every action that could change something on the site — a click on a submit, send, pay or delete control, Enter outside a search field, and anything the classifier does not recognise. The action runs only on `WebApproval.Allow`; `WebApproval.Deny(reason)` is reported to the agent, which does not try it again. The `WebActionReview` carries a one-line `Description` and a JPEG `Screenshot` of the page. Nobody answering must be a refusal, so bound the wait.
+- `OnProgress` hands you a `WebProgress` — step number, URL, what just happened, and a JPEG `Screenshot` — after every observation, for a live view.
+
+<!-- ikon-code: connectors-web-agent-review -->
+```csharp
+var run = await WebAgent.OperateAsync(
+    thread,
+    "https://supplier.example.com/orders",
+    "Reorder last month's printer paper",
+    new WebAgentOptions(
+        MaxSteps: 40,
+        PublicInternetOnly: true,
+        ReviewWrite: async (review, ct) => await askPerson(review.Description, review.Screenshot, ct)
+            ? WebApproval.Allow
+            : WebApproval.Deny("the person declined it"),
+        OnProgress: progress =>
+        {
+            liveView.Value = progress.Screenshot;
+            return Task.CompletedTask;
+        }));
+```
+
+Typing into a field is not a write, because on most sites nothing is committed until a submit; a field that saves as you type is the case the classifier cannot see.
 
 ### Manual driving
 
