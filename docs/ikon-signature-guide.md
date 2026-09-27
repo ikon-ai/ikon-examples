@@ -1,5 +1,5 @@
 # Ikon Signature Guide
-<!-- checked-against: 9381003ebdec05f4 -->
+<!-- checked-against: a8dd800628274d62 -->
 Server-initiated eID-backed document signing for Ikon apps. Drive a signing ceremony from your app server, navigate the recipient's browser through it, and receive hash-verified signed documents back — without owning any signing infrastructure. PDFs produce a PAdES container; plain-text and Markdown documents produce an XAdES signature. The platform talks to the signing provider for you, so nothing here names one.
 
 ## TL;DR — what you wire

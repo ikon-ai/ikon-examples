@@ -1,5 +1,5 @@
 # Ikon.AI.Emergence Guide
-<!-- checked-against: 90ff5b59ae850ec0 -->
+<!-- checked-against: 6104d114b06b0f04 -->
 Ikon.AI.Emergence is a streaming-first, C#-idiomatic library for building AI workflows with typed JSON outputs. It provides a collection of patterns for common AI tasks, from simple single-shot generation to parallel candidate search and document-tree navigation.
 
 ## Core Concepts

@@ -1,5 +1,5 @@
 # Ikon Connectors Developer Guide
-<!-- checked-against: 462fe5306f2bd703 -->
+<!-- checked-against: 86fd3080e2ba0158 -->
 This guide covers the connector libraries — `Ikon.Connectors` (Slack, GitHub), `Ikon.Connectors.Google` (Drive, Gmail), and `Ikon.Connectors.Browser` (agentic and scripted web automation) — for app developers wiring external services into an Ikon app.
 
 ## Overview
@@ -280,6 +280,16 @@ if (!result.Ok)
 
 The action vocabulary is a tagged union: `Navigate`, `Click`, `Fill`, `Press`, `Scroll`, and `Extract` (which records the target's inner text under an output name). `ScreenshotAsync` returns a PNG; prefer `ScreenshotJpegAsync` when the image goes into an LLM context. `ConsoleTail` holds the last ~40 console messages, page errors, and failed requests — the first place to look when a page that "should" render stays blank.
 
+### A browser somewhere else
+
+The agent needs only an `IWebPage` — navigate, screenshot, mark the elements, execute an action, and the current URL — and `BrowserSession` is the one in your process. `WebAgentOptions.OpenPage` hands a run a page that lives elsewhere instead, such as a browser on a person's own computer driven over a connection of your own; the run disposes the page it opened, and `Headless` and `PublicInternetOnly` are then for the opener to honour.
+
+`BrowserSession.StartPersistentAsync(profileDirectory, headless)` starts on a profile kept in a directory, so its cookies, saved passwords and sign-ins survive from one session to the next: a person signs in to a site once in that profile and every later run is signed in. Only one session can hold a profile at a time; `NewTabAsync` opens another tab on the same profile, so several agents can work at once on one set of sign-ins, and disposing a tab closes only that tab. `Closed` is raised when the person closes the window, or the tab.
+
+### Files in and out
+
+A run can hand a site files and bring files back. `WebAgentOptions.Files` lists `WebFile`s — a name, a MIME type and the bytes — that the agent may put into a page's file input with `WebAction.Upload`; the agent is told their names, and an upload is a write, so `ReviewWrite` is asked first. Whatever the pages download during the run, including a url that is itself a file, comes back in `WebRun.Downloads`. Driving a page yourself, `IWebPage.StageFileAsync` hands it a file to upload and `TakeDownloadsAsync` returns each download once.
+
 ### Distill and replay
 
 A successful `WebRun` can be **distilled** into a `WebFlow` — a deterministic, replayable integration — and replayed **without an LLM**:
@@ -302,14 +312,17 @@ if (replay.Ok)
 
 Distillation keeps only the steps that succeeded and parameterizes each filled field into a named input slot (`WebFlow.Inputs`); slot names are slugs of the field's accessible name (`"Password"` becomes `password`). A `Fill` marked `Secret` is stored **redacted** everywhere the trace is persisted — the step trace, the distilled flow JSON, logs — so the flow never carries the credential. That means every slot **must** be supplied in `inputs` at replay — a missing one, secret or not, fails upfront with `ConnectorException` rather than typing a recorded or placeholder value into the field, and a key that names no slot is rejected the same way, so a misspelt input can never be silently ignored. Replay failures are ordinary results, not exceptions — check `WebReplay.Ok`.
 
-`WebFlowDistiller.Distill` and `WebFlowPlayer.ReplayAsync` are the underlying pieces if you need to replay on a `BrowserSession` you manage yourself.
+`WebAgent.ReplayAsync(page, flow, inputs)` replays on an `IWebPage` you opened and still own — a `BrowserSession`, or a page from the same opener you give `WebAgentOptions.OpenPage` — and leaves it open. A replay asks nobody before a step, so check `WebAgent.WritesIn(flow)` before replaying unattended: it names, in an approval's words, each step an agent run would have asked a person about, and is empty for a flow that only reads.
+
+A fact on a page that is not a control — a heading, a price, a count — has no mark, so the agent reads it with the `read` tool by the words it shows. The recorded `Extract` keeps the element's structural path in `WebTarget.Selector`, and a replay reads that element first, so it returns next week's price rather than looking for this week's.
 
 ### What the browser hands back
 
 A run's trace is a list of `WebStep` — the `WebAction` attempted, the `ResolvedSelector` it actually
 landed on, and whether it was `Ok`. Resolution tries the perception mark id first, then accessibility
 role and name, then a CSS or XPath selector, which is what lets a distilled flow still find an
-element after the marks have gone stale. Driving the page manually returns a `WebActionResult`
+element after the marks have gone stale. A `WebTarget` with a `Name` and no `Role` names an element
+by the text it shows; it resolves by its `Selector` first, then by that text. Driving the page manually returns a `WebActionResult`
 instead: `Ok`, the `Selector` used, whatever was `Extracted`, and a `Failure` string when it did not
 work — a failed action is a result, not an exception. Perception returns `MarkedElement` records, one
 per interactive element, each with the numeric `Mark` the model refers to it by plus the `Role`,

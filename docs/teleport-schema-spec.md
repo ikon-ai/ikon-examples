@@ -1,5 +1,5 @@
 # Teleport message schema specification
-<!-- checked-against: 723e78dc719496d6 -->
+<!-- checked-against: 8c54c5e386259c99 -->
 ## 1. Purpose
 
 The Teleport message schema defines the compile-time structure and version evolution of a Teleport message type.
@@ -600,7 +600,7 @@ same runtime as a generated one.
 <!-- ikon-code: teleport-attribute-type -->
 ```csharp
 [Teleport]
-public sealed class SavedLayout
+public sealed partial class SavedLayout
 {
     // Pinned to the original name, so the C# property can be renamed without moving the field id.
     [TeleportField("PanelName")]
@@ -613,6 +613,9 @@ public sealed class SavedLayout
     public bool IsWide { get; set; }
 }
 ```
+
+The type must be `partial`: the generator writes the codec half of it, and a type that is not
+partial fails the build with TPSG001 rather than failing at its first serialization.
 
 `TeleportAttribute` serializes every instance property that has both a getter and a setter (`init`
 counts). A get-only property is skipped **silently** — a property meant to be on the wire simply

@@ -1,5 +1,5 @@
 # Ikon Device Capture Guide
-<!-- checked-against: ebdde7721189cdcd -->
+<!-- checked-against: 043a669ca65cddce -->
 How an Ikon app reads a phone's sensors, keeps a record when the network does not cooperate, shows a running activity on the lock screen, and receives files nothing on screen asked for. Four services, all reached from `app`, all designed for the case where the app is in a pocket rather than in front of someone.
 
 | Service | Reached by | What it is for |
@@ -11,8 +11,9 @@ How an Ikon app reads a phone's sensors, keeps a record when the network does no
 
 All four are default-implemented on the app interface, so a server-side test double does not have
 to implement any of them. On a host that cannot provide one, the first three throw
-`NotSupportedException`; `LiveActivityService` does not — every call answers `false`, because a
-lock-screen banner is a nicety and its absence must never take an app down. Check the bool.
+`NotSupportedException`; `LiveActivityService` does not — `StartAsync`, `UpdateAsync` and `EndAsync` answer `false`, and
+`EndEverywhereAsync` swallows a device that is gone, because a lock-screen banner is a nicety and
+its absence must never take an app down. Check the bool.
 
 ## Motion — what GPS cannot see
 
@@ -59,6 +60,12 @@ client with `LocationTrackingOptions` and delivers each fix as a `LocationUpdate
 is the last known position for a session. Start them together and stop them together — a recording
 that keeps reading motion after location stops looks alive while producing a track that stands
 still.
+
+The default fix is about 10 m on iOS and the default distance filter is 10 m, so slow movement in
+a small area — a horse circling an arena, a runner on a track — records as standing still. Ask for
+`Accuracy: LocationAccuracy.Best` with `DistanceFilterMeters: 0` when that movement is the thing
+being recorded, and add the iOS hint `ActivityType: LocationActivityType.Fitness`. Web clients
+ignore both.
 
 ## Recordings — the track that survives a tunnel
 

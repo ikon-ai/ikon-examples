@@ -1,5 +1,5 @@
 # Ikon Audio & Video Guide
-<!-- checked-against: f4418b4465ba2922 -->
+<!-- checked-against: 6bc1242a09b38cbd -->
 How an Ikon AI app's C# app class plays audio to clients, receives microphone and camera streams, transcribes speech, and mixes group calls. Read this if your app makes sound, listens, or handles video.
 
 ## Setup: construct the services in a field initializer
@@ -37,7 +37,7 @@ await Audio.PlayClipAsync(MediaTargets.Everyone, samples, sampleRate, channelCou
 await Audio.SendFrameAsync(MediaTargets.Everyone, samples, sampleRate, channelCount, isFirst, isLast, streamId);
 ```
 
-`SpeakAsync` returns when the utterance is queued; `SpeakAndWaitAsync` completes when playout finishes (an interruption by a newer call completes it quietly). Both throw `TimeoutException` when the playout pipeline stops draining while unpaused, and `SpeakAndWaitAsync` throws when the mixer abandons the utterance — an utterance that never played is never reported as one that did. Both take optional `model` (default `SpeechGeneratorModel.ElevenFlash25`), `voice`, `instructions`, and `speed`. To generate speech *without* playing it, use the one-shot `await SpeechGenerator.GenerateAsync(text)`, which returns a PCM `AudioChunk`.
+`SpeakAsync` returns when the utterance is queued; `SpeakAndWaitAsync` completes when playout finishes (an interruption by a newer call completes it quietly). Both throw `TimeoutException` when the playout pipeline stops draining while unpaused, and `SpeakAndWaitAsync` throws `InvalidOperationException` when the mixer abandons the utterance — an utterance that never played is never reported as one that did. Both take optional `model` (default `SpeechGeneratorModel.ElevenFlash25`), `voice`, `instructions`, and `speed`. To generate speech *without* playing it, use the one-shot `await SpeechGenerator.GenerateAsync(text)`, which returns a PCM `AudioChunk`.
 
 ### The lane is in the name
 
@@ -57,6 +57,8 @@ State it deliberately. An app instance is shared by every client connected to it
 
 A targeted send whose id list is **empty** transmits nothing at all. An empty target list is indistinguishable on the wire from no targets, which the server routes to every client, so a filter that matched nobody would otherwise reach exactly the clients it excluded.
 
+The reply below assumes recognition is on: `Audio.SpeechRecognizedAsync` never fires until `Audio.UseSpeechRecognition` or `Audio.UseTurnDetection` has been called once at setup.
+
 **A send with nobody to hear it does nothing, and `SpeakAsync` does not generate the speech.** `Everyone` with no client connected, or a target list naming only clients that have left, is an audience of nobody — every send returns without transmitting, and the speech models are never called. The skip is logged at debug. This matters for an app that keeps working while its tab is closed: without it, an instance left running narrates to an empty room and is billed per character for it.
 
 <!-- ikon-code: av-reply-to-speaker -->
@@ -68,7 +70,7 @@ Audio.SpeechRecognizedAsync += async args =>
 };
 ```
 
-Also note: **interruption is instance-global, not per-target.** All speech flows through one mixer, so a new `SpeakAsync` fades out whatever is currently playing even when the two utterances target different clients. If two users must be spoken to independently at the same time, one shared `Audio.SpeakAsync` cannot do it — drive `SpeechGenerator` + `SpeakChunk` with distinct chunk ids, or give each conversation its own mixing path.
+Also note: **interruption is instance-global, not per-target.** All speech flows through one mixer, so a new `SpeakAsync` fades out whatever is currently playing even when the two utterances target different clients. If two users must be spoken to independently at the same time, the speech lane cannot do it, `SpeakChunk` included, since a chunk with a new id interrupts the current one too. Generate each utterance with `SpeechGenerator.GenerateAsync` and play it with `Audio.PlayClipAsync` on its own stream id, which plays alongside the speech lane.
 
 ### Stopping speech
 

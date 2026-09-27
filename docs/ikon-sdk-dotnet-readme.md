@@ -1,5 +1,5 @@
 # Ikon AI C# SDK
-<!-- checked-against: 8668f0fb636759bd -->
+<!-- checked-against: caf75a6a088980ef -->
 The Ikon AI C# SDK provides a simple way to connect to Ikon AI App from any .NET application. It supports .NET 10 and .NET Standard 2.1 (including Unity).
 
 ## Features

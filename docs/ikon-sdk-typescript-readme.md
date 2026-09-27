@@ -664,6 +664,18 @@ if (isDebugModeEnabled()) {
 }
 ```
 
+### Feedback
+
+When the app offers feedback (`[Feedback]` in `ikon-config.toml`), `IkonApp` draws the platform's feedback button and sheet. To place a "Send feedback" control of your own, use `useIkonFeedback` with the app's client:
+
+```tsx
+const { available, open } = useIkonFeedback(app.client);
+
+return available ? <button onClick={open}>Send feedback</button> : null;
+```
+
+`available` is false for anyone the app does not offer feedback. `open()` behaves as a tap on the platform's button, screenshot included, and needs an `IkonApp` on the page to show the sheet. Without React, `client.requestFeedback()` does the same. With `[Feedback] Button = "none"` the platform draws no button, and controls like this are the only way in.
+
 ### Query Parameters
 
 The SDK reads `ikon-*` query parameters from the page URL at startup. They are diagnostic and

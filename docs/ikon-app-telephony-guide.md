@@ -1,5 +1,5 @@
 # Ikon.App.Telephony Guide
-<!-- checked-against: 4bef02ea6b9046cb -->
+<!-- checked-against: 14ef4fe406210dc8 -->
 Send SMS and place phone calls from your app — through a phone number the platform holds for your
 app's space, with no telephony provider account, API key, or contract of your own. `app.Telephony`
 is the entry point; the space's organisation must have the **Telephony** feature enabled (calls
@@ -19,8 +19,13 @@ the app holds it, charged to the app's credits, so the command asks for confirma
 allocating (`--yes` skips the prompt, and is required when nothing can answer a prompt — in CI, or
 when an agent runs it). What it came to shows up in `ikon app costs` like any other usage.
 
-You choose the market and nothing else about the number. Neither provider will sell a *named*
-number, so there is no area code to ask for and no list to pick from.
+You choose the market, the provider (`--provider 46elks` or `--provider twilio`) and what the number
+carries (`--capabilities sms,voice`, `sms` or `voice`), all asked for in a terminal; a script gets the
+platform default provider and both capabilities. Nothing else about the number is yours to pick:
+neither provider will sell a *named* number, so there is no area code to ask for and no list to pick
+from. The providers do not cover the same markets, and some markets sell nothing that does both —
+Swedish numbers on Twilio are SMS-only — so a market that cannot be served is refused before
+anything is asked or bought, saying what it does sell.
 
 ### Markets that ask who you are
 
@@ -31,18 +36,23 @@ this is what a regulator reads to learn who is behind the number.
 Interactively it simply prompts. For a script or an agent, pass the fields as flags:
 
 ```
-ikon app telephony create --country fi --yes \
-  --kyc customer_name="Acme Oy" \
+ikon app telephony create --country fi --provider twilio --yes \
+  --kyc business_name="Acme Oy" \
+  --kyc email=ops@acme.fi \
   --kyc street="Kauppakatu 1" \
   --kyc city=Helsinki \
   --kyc postal_code=00100
 ```
 
 Leave them out in a non-interactive run and the command names every missing field at once, rather
-than failing on them one at a time. `region` is optional — most European countries have none.
+than failing on them one at a time. `region` is optional — most European countries have none, and
+`email` defaults to your account's.
 
-A market that will only accept an uploaded document is refused here and pointed at the Portal,
-where a file can be attached.
+Where a regulator has to approve the details, `create` submits them and stops: nothing is bought or
+charged until the review is approved, which can take days. `ikon app telephony status` shows the
+review, and running `create` again once it is approved buys the number under it.
+
+A market that only accepts an uploaded document is refused: the tool cannot submit documents yet.
 
 Run it again for a second number: an app may hold several, in different markets and on different
 providers.
@@ -52,7 +62,8 @@ ikon app telephony status
 ```
 
 lists every number the app holds — market, provider, which is the default sender, and where each
-one's incoming traffic goes. `--format json` or `--format csv` gives the same answer to a script.
+one's incoming traffic goes — and any regulatory review still waiting on a verdict. `--format json`
+or `--format csv` gives the numbers to a script.
 
 ```
 ikon app telephony delete +46766861234
@@ -87,9 +98,9 @@ spaces, dashes or leading zeroes. `+358401234567`, never `040 123 4567`.
 
 ## Markets, and why `Replyable` matters
 
-A phone number is local to one market. When you message a handset in a **different** country from
-the sending number, carriers commonly strip the sender in transit and the recipient sees "Unknown"
-— the message arrives, but there is nothing to reply to and no thread to continue in.
+A phone number is local to one market. A message to a handset in a **different** country from the
+sending number can arrive with its sender shown as "Unknown" — it has been seen from a Swedish number
+to a Finnish handset — and then there is nothing to reply to and no thread to continue in.
 
 This is invisible from the API: the send succeeds, the provider reports no error, and only a real
 handset shows the problem. `Replyable` is how you find out. Treat it as the signal that a
@@ -105,9 +116,10 @@ one, so a second number is usually all it takes.
 
 ## Choosing which number to send from
 
-By default you do not choose: the platform picks the app's default number if one is set, otherwise
-one local to the recipient's market, otherwise the first the app holds. That is the right behaviour
-for reaching people, and `SmsSendResult.From` always says which number was used.
+By default you do not choose: among the numbers that can carry the message or call, the platform
+picks the app's default number if one is set, otherwise one local to the recipient's market,
+otherwise the first the app holds. That is the right behaviour for reaching people, and
+`SmsSendResult.From` always says which number was used.
 
 Name one when it matters — replying as the same number a user last saw, for instance:
 
@@ -118,8 +130,9 @@ var numbers = await app.Telephony.GetNumbersAsync();
 await app.Telephony.SendSmsAsync("+358401234567", "Your table is ready.", from: numbers[0].Number);
 ```
 
-Naming a number the app does not hold is refused rather than quietly substituted, because sending as
-a different number reaches the recipient as a stranger.
+Naming a number the app does not hold, or one that cannot carry what you asked of it (an SMS-only
+number for a call), is refused rather than quietly substituted, because sending as a different number
+reaches the recipient as a stranger.
 
 To pin one number as the app's usual sender:
 

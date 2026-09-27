@@ -1,5 +1,5 @@
 # Ikon.Parallax Library Overview
-<!-- checked-against: f12d042703d0584b -->
+<!-- checked-against: b380ce285ef4d35e -->
 ## Introduction
 
 Ikon.Parallax is a server-driven, reactive UI library for building interactive applications in C#. The library provides a declarative API for constructing user interfaces where all logic runs on the server, clients act as lightweight renderers, and the framework automatically handles efficient UI updates through intelligent diffing.
@@ -919,6 +919,36 @@ view.Button([Button.PrimaryMd], text: "Sign in with Google",
 Guard your authed-only paths: skip user-backend calls, per-user persistence, and deep-link view restoration for anonymous sessions — a guest must not be able to navigate into the signed-in surface by URL. This matters more under `global`, where every visitor shares one `UserId`: never key per-user state on it.
 
 **This is how an app with sign-in gets a crawlable landing page**: combine open-as-guest with `[BootSnapshot] Routes = ["/"]`. The capture client connects as an anonymous session, renders the same landing, and the SEO pipeline prerenders it to static HTML — crawlable markup, instant first paint from the static file, and the live session connecting invisibly underneath, taking over pixel-identically.
+
+## In-App Feedback
+
+The platform can offer the people using an app a feedback sheet: they pick a kind (something's wrong, an idea, confusing, praise), write or speak, attach files, and a screenshot of the screen they were on goes with it. Reports reach the app's space, where its members read them in Studio and with `ikon app feedback`. The platform draws the sheet above the app; the app writes no UI for it.
+
+Switch it on in `ikon-config.toml`:
+
+```toml
+[Feedback]
+Enabled = true
+Audience = "testers"   # "testers" | "signed-in" | "everyone"
+Button = "overlay"     # "overlay" | "none"
+```
+
+- **`Audience`** decides who is offered it. The app's own team, the members of its space, always is.
+- **`Button = "overlay"`** has the platform draw a floating feedback button. Testers see it by default and the other audiences do not; each person can show or hide it from the feedback sheet, and the choice is kept for their next visit.
+- **`Button = "none"`** draws no button at all: the app's own controls are the way in.
+
+Either way the app can place its own "Send feedback" control wherever it fits, such as an account menu or a help page:
+
+<!-- ikon-code: px-in-app-feedback -->
+```csharp
+if (view.CanOpenFeedback())
+{
+    view.Button([Button.OutlineMd], text: "Send feedback",
+        onClick: async () => await ClientFunctions.OpenFeedbackAsync());
+}
+```
+
+`OpenFeedbackAsync` opens the same sheet the platform's button does, with the screenshot taken at the click. `view.CanOpenFeedback()` is false for anyone the app does not offer feedback, so the control is left out for them rather than shown and doing nothing; it turns true a moment after the person joins, and the view re-renders when it does. A link with `?ikon-feedback` opens the sheet as well, for pointing a tester straight at it.
 
 ## Architecture Summary
 
