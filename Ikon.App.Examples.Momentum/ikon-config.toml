@@ -34,17 +34,20 @@ DomainAllowlist = []
 # SEO-crawlable via [BootSnapshot] Routes regardless.
 RequireSignIn = false
 
-# The platform's feedback overlay: a button above the app that opens a sheet for reporting a
-# problem or an idea by text, voice, files and a screenshot. Reports go to the app's space, where
-# its members read them in Studio and with 'ikon app feedback'.
+# The platform's feedback overlay: a sheet for reporting a problem or an idea by text, voice, files
+# and a screenshot. Reports go to the app's space, where its members read them in Studio and with
+# 'ikon app feedback'. The app can open it from its own controls with ClientFunctions.OpenFeedbackAsync.
 [Feedback]
 # Whether the overlay is offered at all
 Enabled = false
 # Who is offered it: "testers" (signed-in users holding the tester profile role), "signed-in"
 # (every signed-in user) or "everyone" (guests too; never the shared "global" visitor). The
-# space's own members are always offered it. Each person can show or hide the button from the
-# platform menu; it is shown by default only for "testers".
+# space's own members are always offered it.
 Audience = "testers"
+# "overlay": the platform draws a floating feedback button, shown by default to testers and hidden
+# for the other audiences; each person can show or hide it from the feedback sheet. "none": the
+# platform draws no button, and the app's own controls are the way in.
+Button = "overlay"
 
 # What the app measures about its own use. Nothing here records what anyone typed, picked or sent:
 # an event names the feature and the control, never a payload.
