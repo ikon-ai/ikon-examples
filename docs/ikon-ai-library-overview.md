@@ -1,5 +1,5 @@
 # Ikon.AI Library Overview
-<!-- checked-against: 311b1a29278b9e15 -->
+<!-- checked-against: 5ed79874ea9680a3 -->
 This guide summarizes the principal namespaces in the Ikon.AI .NET library for developers building AI-enabled solutions. Each section outlines module responsibilities, supported models, and usage patterns verified by automated tests.
 
 ## Emergence

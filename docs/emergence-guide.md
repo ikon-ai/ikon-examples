@@ -1,5 +1,5 @@
 # Ikon.AI.Emergence Guide
-<!-- checked-against: 6104d114b06b0f04 -->
+<!-- checked-against: 665494413a0103c6 -->
 Ikon.AI.Emergence is a streaming-first, C#-idiomatic library for building AI workflows with typed JSON outputs. It provides a collection of patterns for common AI tasks, from simple single-shot generation to parallel candidate search and document-tree navigation.
 
 ## Core Concepts
@@ -179,14 +179,16 @@ The `EmergePass<T>` configure callback is invoked on every iteration, giving acc
 **Options:**
 - `SystemPrompt` - System instruction
 - `Command` - User command/prompt
-- `Temperature`, `MaxOutputTokens`, `ReasoningEffort`, `ReasoningTokenBudget` - Model parameters. A
-  reasoning model reads exactly one of the two dials; setting the other, or setting either on a model
-  that cannot reason at all, fails the request rather than being quietly dropped — and setting both
-  is refused for the same reason, since one of the two would reach no field of the request. To ask
-  before sending, rather than to learn from the refusal, read
-  `Emerge.GetCapabilities(model).AcceptedReasoningDial`: `ReasoningDial.Effort`,
-  `ReasoningDial.TokenBudget`, or `ReasoningDial.None` for a model that takes neither. Code that
-  runs a caller-chosen model — a sweep, a `--model` flag — should set the dial that reports.
+- `Temperature`, `MaxOutputTokens`, `ReasoningEffort`, `ReasoningTokenBudget` - Model parameters.
+  `ReasoningEffort` is the reasoning dial to set, and the only one code that runs a caller-chosen
+  model (a sweep, a `--model` flag) needs: on a model that reads a token budget instead, the
+  platform carries the effort over to one — Minimal 1024, Low 2048, Medium 8000, High 16000
+  tokens, capped at half of `MaxOutputTokens` because thinking is spent out of the same ceiling as
+  the answer, and never under 1024. `ReasoningTokenBudget` sets an exact budget, and only a model that reads
+  one accepts it. Setting both, or asking a model that cannot reason for either, fails the request
+  rather than being quietly dropped. `Emerge.GetCapabilities(model).AcceptedReasoningDial` says
+  which dial a model reads: `ReasoningDial.Effort`, `ReasoningDial.TokenBudget`, or
+  `ReasoningDial.None` for a model that takes neither.
 - `MaxIterations`, `MaxToolCalls`, `MaxWallTime` - Budget limits
 - `MaxRetries`, `RetryDelay` - Automatic retry on transient failures
 - `Tools` - Available tools (see [Tool Registration](#tool-registration))
@@ -543,7 +545,7 @@ All pattern options inherit these from `EmergeScopeBase`:
 | `Model` | `LLMModel?` | Override the model |
 | `Temperature` | `double?` | Sampling temperature |
 | `MaxOutputTokens` | `int?` | Maximum output tokens |
-| `ReasoningEffort` | `ReasoningEffort?` | Reasoning effort level; refused by a model that reads a budget instead |
+| `ReasoningEffort` | `ReasoningEffort?` | Reasoning effort level; carried over to a token budget on a model that reads one |
 | `ReasoningTokenBudget` | `int?` | Token budget for reasoning; refused by a model that reads an effort instead |
 | `Timeout` | `TimeSpan?` | Request timeout |
 | `Regions` | `IReadOnlyList<ModelRegion>?` | Model region preferences |

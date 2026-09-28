@@ -1,5 +1,5 @@
 # Ikon Connectors Developer Guide
-<!-- checked-against: 86fd3080e2ba0158 -->
+<!-- checked-against: f121786400bc1028 -->
 This guide covers the connector libraries — `Ikon.Connectors` (Slack, GitHub), `Ikon.Connectors.Google` (Drive, Gmail), and `Ikon.Connectors.Browser` (agentic and scripted web automation) — for app developers wiring external services into an Ikon app.
 
 ## Overview

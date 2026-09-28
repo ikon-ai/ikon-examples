@@ -1,5 +1,5 @@
 # Ikon.App.Telephony Guide
-<!-- checked-against: 14ef4fe406210dc8 -->
+<!-- checked-against: ac8b41f02ce58d9a -->
 Send SMS and place phone calls from your app — through a phone number the platform holds for your
 app's space, with no telephony provider account, API key, or contract of your own. `app.Telephony`
 is the entry point; the space's organisation must have the **Telephony** feature enabled (calls
@@ -8,10 +8,21 @@ without it throw `FeatureNotEnabledException`).
 ## Give your app a phone number first
 
 Nothing works until the space has a number, because a number is what makes a message replyable and
-what lets calls happen at all. Allocating one is a single command:
+what lets calls happen at all. In a terminal, run it bare and choose from menus:
 
 ```
-ikon app telephony create --country se
+ikon app telephony create
+```
+
+It asks for the provider (46elks first), then shows the common markets with what each sells —
+`SMS + voice`, `SMS`, `voice`, `unknown` or `unavailable` — and `review` where a regulator has to
+approve you first, which takes days. You can pass over a market that does not suit before typing
+anything, and it sends you back to the list if one turns out not to. `ikon app telephony markets` prints the same list for every provider side
+by side (`--provider` narrows it, `--format json` gives it to a script or an agent):
+
+```
+ikon app telephony markets
+ikon app telephony create --country se --provider 46elks --yes
 ```
 
 It picks a number in that market and wires it to your app. A number **rents monthly** for as long as
@@ -20,12 +31,13 @@ allocating (`--yes` skips the prompt, and is required when nothing can answer a 
 when an agent runs it). What it came to shows up in `ikon app costs` like any other usage.
 
 You choose the market, the provider (`--provider 46elks` or `--provider twilio`) and what the number
-carries (`--capabilities sms,voice`, `sms` or `voice`), all asked for in a terminal; a script gets the
-platform default provider and both capabilities. Nothing else about the number is yours to pick:
-neither provider will sell a *named* number, so there is no area code to ask for and no list to pick
-from. The providers do not cover the same markets, and some markets sell nothing that does both —
-Swedish numbers on Twilio are SMS-only — so a market that cannot be served is refused before
-anything is asked or bought, saying what it does sell.
+carries (`--capabilities sms,voice`, `sms` or `voice`); a script gets the platform default provider
+and both capabilities. Nothing else about the number is yours to pick: neither provider will sell a
+*named* number, so there is no area code to ask for and no list to pick from. The providers do not
+cover the same markets, and some sell nothing that does both — Swedish numbers on Twilio are
+SMS-only — so a market that cannot be served is refused before anything is bought, saying what it
+does sell. 46elks has no list of its own to ask, so its markets are described from what purchases on
+the platform last found, and one nobody has tried yet shows as such.
 
 ### Markets that ask who you are
 
@@ -48,11 +60,26 @@ Leave them out in a non-interactive run and the command names every missing fiel
 than failing on them one at a time. `region` is optional — most European countries have none, and
 `email` defaults to your account's.
 
-Where a regulator has to approve the details, `create` submits them and stops: nothing is bought or
-charged until the review is approved, which can take days. `ikon app telephony status` shows the
-review, and running `create` again once it is approved buys the number under it.
+Where a regulator has to approve the details — on Twilio, most of Europe — the market list says so,
+and `create` asks before collecting anything whether to submit for review or choose another market.
+Submitting stops there: nothing is bought or charged until the review is approved, which usually
+takes 1-3 business days. `ikon app telephony status` shows the review, and running `create` again
+once it is approved buys the number under it. A review you no longer want is withdrawn with
+`ikon app telephony delete --review fi`.
 
-A market that only accepts an uploaded document is refused: the tool cannot submit documents yet.
+Some regulators also want a document as a file — Germany, for one, wants an excerpt from the
+commercial register. Interactively `create` asks for the path; in a script pass it with `--kyc-file`,
+named as the missing-field message names it:
+
+```
+ikon app telephony create --country de --provider twilio --yes \
+  --kyc business_name="Acme GmbH" \
+  --kyc-file commercial_registrar_excerpt=./excerpt.pdf
+```
+
+A file is a PDF, JPEG or PNG of at most 5 MB. One document that satisfies several requirements is
+asked for once. The file goes to the platform, which passes it on to the provider for the review and
+keeps no copy.
 
 Run it again for a second number: an app may hold several, in different markets and on different
 providers.

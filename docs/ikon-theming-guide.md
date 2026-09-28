@@ -1,5 +1,5 @@
 # Ikon Theming Guide
-<!-- checked-against: 6fdeb0eead8c6197 -->
+<!-- checked-against: b47dceb011580488 -->
 How to commit a per-app brand mood (palette, fonts, radius, density, motion) on top of the platform's Ikon CSS baseline.
 
 This is the canonical reference for the `IkonTheme` configurable surface. Self-contained — a third-party code generator (Cursor, Codex, Copilot, ChatGPT) can ingest just this doc and produce a coherently-themed Ikon AI App.
@@ -38,7 +38,7 @@ That's it. There are no other entry points. No factory, no fluent builder, no na
 
 Ikon styling has exactly two tiers. Knowing which tier a decision belongs to answers most "should this be a token?" questions.
 
-**Tier 1 — the structural core.** A small set of roles (~15: surfaces, text tiers, borders, the brand cluster, radius, fonts, density, motion defaults) committed once in `new IkonTheme { ... }`. This tier is the theme's contract: everything in it re-themes in one place, flips correctly in dark mode (or pins honestly with `Mode = ThemeMode.Fixed`), and reaches every consumer — components, presets, focus rings, native (Flutter) clients.
+**Tier 1 — the structural core.** A small set of roles (~15: surfaces, text tiers, borders, the brand cluster, radius, fonts, density, motion defaults) committed once in `new IkonTheme { ... }`. This tier is the theme's contract: everything in it re-themes in one place, flips correctly in dark mode (or pins honestly with `Mode = ThemeMode.Fixed`), and reaches every consumer — components, presets, focus rings, and native (Flutter) clients for colours, radius, density and fonts (the motion defaults are web-only).
 
 **Tier 2 — the expressive layer.** Everything with personality — gradients, textures, glows, decorative colors, ornaments — is styled CONCRETELY at the use point with plain Crosswind classes and arbitrary values (`bg-gradient-to-r from-rose-400 to-amber-300`, `bg-[radial-gradient(...)]`, `[text-shadow:0_0_8px_#f0f]`). No token obligation, no naming ceremony. A pirate tavern's brass glow does not need a design system; it needs the right gradient on the right Box.
 
@@ -65,21 +65,24 @@ Every entry commits one or more CSS variables. The renderer dispatches by **key 
 | `shadow-{rung}` | `--shadow-{rung}` plus the per-layer `--shadow-{rung}-{1,2}` / `--shadow-{rung}-{1,2}-color` pairs the sized utilities read | box-shadow value (up to two layers), or another rung name to re-point |
 | `font-{role}` | `--font-{role}` | family stack; literal family names auto-import from Google Fonts |
 | `ease-{kind}` | `--ease-{kind}` | easing |
-| any other baseline variable name (`bg-brand-solid`, `text-primary-on-brand`, `spacing`) | `--{key}` | smart sniff |
-| `--custom-name` (explicit `--` prefix) | `--custom-name` | raw — a deliberately declared custom variable |
+| `spacing`, `radius-base` (the targets of `density` and `radius`) | `--spacing`, `--radius-base` | the same resolver as their theme key |
+| any other baseline variable name (`bg-brand-solid`, `text-primary-on-brand`) | `--{key}` | smart sniff |
+| `--custom-name` (explicit `--` prefix) | `--custom-name` | smart sniff — a deliberately declared custom variable |
 | anything else | `--{key}` plus a one-time production warning (a dead variable nothing reads — almost always a typo) | smart sniff |
 
-The "smart sniff" inspects the **value** to pick a resolver: `<palette>-<step>` → color ref, `rounded-*` → resolved rem, `font-*` → font ref, `duration-*` → milliseconds, easing keyword → cubic-bezier, anything else (hex, rgb, oklch, rem, ms, gradient, raw family name) → unchanged. So `["primary"] = "amber-400"` and `["primary"] = "#F5A524"` both work.
+The "smart sniff" inspects the **value** to pick a resolver: `<palette>-<step>` → color ref (`var(--color-amber-400)`), an Ikon scale step → its own variable (`brand-600` → `var(--brand-600)`), `rounded-*` → resolved rem, `font-*` → font ref, `duration-*` → milliseconds, easing keyword → cubic-bezier, anything else (hex, rgb, oklch, rem, ms, gradient, raw family name) → unchanged. So `["primary"] = "amber-400"`, `["primary"] = "brand-600"` and `["primary"] = "#F5A524"` all work. `neutral` is both a Tailwind family and an Ikon scale; as a value, `neutral-600` is the Tailwind step, which a `["neutral-600"]` override moves along with the Ikon one.
 
 Mistyped keys and mismatched values (`["rounded-lg"] = "amber-400"`) log a warning once per token per process. Silence intentional cases with the `IKON_DEV_WARNINGS=0` environment variable.
 
 ## What's NOT in the system
 
-- **Named token properties.** No `Brand = "amber-400"`. Every token override is an indexer entry; `Mode` and `DarkMode` are the only non-indexer members.
-- **Auto-contrast.** Setting `["background"] = "zinc-950"` does not auto-pick a light text color — set `["foreground"]` yourself. Text on brand fills defaults to white, so `["primary-foreground"]` is only needed for LIGHT brand steps.
+- **Named token properties.** No `Brand = "amber-400"`. Every token override is an indexer entry; `Mode`, `DarkMode` and its two spellings `Dark` and `Light` are the only non-indexer members.
+- **Auto-contrast.** Setting `["background"] = "zinc-950"` does not auto-pick a light text color — set `["foreground"]` yourself. The one exception is the label on brand fills: `["primary"]` commits white, or near-black on a fill too light for white, unless you set `["primary-foreground"]`.
 - **Magic value resolution beyond the documented kinds.** `["density"] = "fluffy"` is not a density; the override is skipped with a warning so the baseline unit stands.
 
 Committing a full mood takes roughly 10-14 entries: the brand line, the surface/text lines, shape, density, type, motion.
+
+What no key moves: the graded text tiers `text-secondary`, `text-tertiary` and `text-quaternary`, and the hover and nested surfaces `bg-secondary`, `bg-tertiary` and `bg-accent`, which the Parallax presets use for most of their copy and hover states. They follow the scheme's baseline — the dark baseline under a dark `Fixed` theme or in dark mode, the light one otherwise — so they read on any background close to the baseline's. When a mood needs a different grey, set the variable by name (`["text-secondary"] = "zinc-400"`); a background the baseline tiers cannot be read on logs a warning naming the variable to set.
 
 ## How dark mode works
 
@@ -111,7 +114,7 @@ var theme = new IkonTheme
 };
 ```
 
-The renderer emits the dark block under `[data-theme="dark"]`, `.dark`, and a `prefers-color-scheme: dark` fallback for pages without an explicit attribute. The in-app toggle (`ClientFunctions.SetThemeAsync(Theme.Dark, targetId: clientSessionId)`) sets `data-theme`.
+The renderer emits the dark block under `[data-theme="dark"]`, `.dark`, and a `prefers-color-scheme: dark` fallback for pages without an explicit attribute. The in-app toggle (`ClientFunctions.SetThemeAsync(Theme.Dark, targetId: clientSessionId)`) sets `data-theme`. The platform's own dark palette follows `data-theme` alone; the SDK always sets it, from the OS preference until the app picks a theme, so a page that only adds `.dark` gets your dark values over the light baseline.
 
 Fixed app — one palette, no flip:
 
@@ -126,7 +129,7 @@ var theme = new IkonTheme
 };
 ```
 
-`Fixed` emits the committed values under the dark selectors too, so neither the OS preference nor the toggle changes anything. This is the honest choice for vivid/expressive single-scheme apps. `Mode = ThemeMode.Fixed` together with a `DarkMode` block throws — they contradict each other.
+`Fixed` pins the scheme the committed `background` belongs to. A dark background builds on the platform's dark baseline and a light one on the light baseline, in both schemes, and the committed values are emitted under the dark selectors too — so neither the OS preference nor the toggle changes anything, including every token the theme leaves unset (text tiers, hover surfaces, popovers). A background the renderer cannot measure (a gradient, a `var()`) keeps the light baseline. Native clients are pinned the same way. This is the honest choice for vivid/expressive single-scheme apps. `Mode = ThemeMode.Fixed` together with a `DarkMode` block throws — they contradict each other.
 
 ## Theme key reference
 
@@ -136,12 +139,12 @@ Each key commits the listed canonical CSS variables. One value fans out to the w
 
 | Key | Commits | Effect | Example |
 |---|---|---|---|
-| `primary` (alias: `brand`) | `--bg-brand-solid`, `--bg-brand-solid-hover`, `--bg-brand-button`, `--bg-brand-button-hover`, `--border-brand`, `--border-focus-ring`, `--fg-brand-primary`, `--text-brand-secondary`, `--text-brand-tertiary` | ALL brand-tinted chrome: CTAs, checked Checkbox/Switch/Radio, focus rings, brand icons, brand-tinted text | `"amber-400"` |
-| `primary-foreground` | `--text-brand-button`, `--text-primary-on-brand` | text on brand fills (defaults to white — set only for light brand steps) | `"#0A0A0A"` |
+| `primary` (alias: `brand`) | `--bg-brand-solid`, `--bg-brand-solid-hover`, `--bg-brand-button`, `--bg-brand-button-hover`, `--border-brand`, `--border-focus-ring`, `--fg-brand-primary`, `--text-brand-secondary`, `--text-brand-tertiary` | ALL brand-tinted chrome: CTAs, checked Checkbox/Switch/Radio, focus rings, brand icons, brand-tinted text. Unless the theme sets `primary-foreground` (or `text-brand-button` / `text-primary-on-brand`) in either scheme, it also commits the label on those fills: white, or near-black when the fill is too light for white. A fill it cannot measure gets white | `"amber-400"` |
+| `primary-foreground` | `--text-brand-button`, `--text-primary-on-brand` | text on brand fills (chosen by `primary` when unset — set it to decide yourself) | `"#0A0A0A"` |
 | `background` | `--bg-background` | the page surface | `"zinc-950"` |
-| `foreground` | `--text-primary`, `--text-foreground`, `--text-card-foreground`, `--text-popover-foreground` | reading text on every surface (page, cards, popovers) | `"amber-50"` |
+| `foreground` | `--text-primary`, `--text-foreground`, `--text-card-foreground`, `--text-popover-foreground` | reading text on the page, and on cards and popovers when the same scheme sets `card` / `popover` (a DarkMode block counts the light theme's surfaces). An unset card or popover keeps the baseline's own text, which reads on the baseline surface | `"amber-50"` |
 | `card` | `--bg-card` | elevated cards | `"zinc-900"` |
-| `card-foreground` | `--text-card-foreground` | text on cards. Required whenever `card` is a surface the `foreground` cannot be read against (a cream card under a dark page's light text): without it rendering throws, naming this key, rather than painting unreadable cards. The check reads the effective `--bg-card`, however it was written (`card` or `bg-card`), and measures only palette tokens, hex, `rgb()`/`hsl()`/`oklch()` and CSS named colours (`ivory`); a card it cannot measure (a gradient, `var(--x)`) renders with a warning that the pairing was not checked | `"amber-50"` |
+| `card-foreground` | `--text-card-foreground` | text on cards. Required whenever `card` is a surface the `foreground` cannot be read against (a cream card under a dark page's light text): without it rendering throws, naming this key, rather than painting unreadable cards. The check reads the effective `--bg-card`, however it was written (`card` or `bg-card`), and measures only palette tokens, Ikon scale steps, hex, `rgb()`/`hsl()`/`oklch()` and CSS named colours (`ivory`), ignoring alpha (a translucent card is measured as if opaque); a card it cannot measure (a gradient, `var(--x)`) renders with a warning that the pairing was not checked | `"amber-50"` |
 | `popover` | `--bg-popover` | popovers, menus, dialogs | `"zinc-900"` |
 | `popover-foreground` | `--text-popover-foreground` | text on popovers; the same rule as `card-foreground` | `"amber-50"` |
 | `muted` | `--bg-muted` | subtle fills | `"zinc-800"` |
@@ -151,11 +154,11 @@ Each key commits the listed canonical CSS variables. One value fans out to the w
 | `input` | `--border-input` | form control borders | `"zinc-700"` |
 | `ring` (alias: `ring-brand`) | `--border-focus-ring` | focus ring only (already inside the `primary` cluster) | `"amber-500"` |
 | `text-brand` | `--text-brand-secondary`, `--text-brand-tertiary` | brand-tinted copy only (already inside the `primary` cluster — prefer `primary`) | `"amber-300"` |
-| `destructive` | `--bg-error-solid`, `--bg-error-solid-hover`, `--bg-error-button`, `--bg-error-button-hover`, `--border-error` | destructive buttons and error chrome | `"red-600"` |
+| `destructive` | `--bg-error-solid`, `--bg-error-solid-hover`, `--bg-error-button`, `--bg-error-button-hover`, `--border-error` | destructive buttons and error chrome (not `text-destructive`, which reads `--text-error-primary` — set that by name) | `"red-600"` |
 | `destructive-foreground` | `--text-error-button` | text on destructive fills | `"#ffffff"` |
-| `radius` (alias: `radius-base`) | `--radius-base` | every `rounded-*` rung shifts proportionally via `calc()`; reaches Flutter. The DEFAULT ramp is stock Tailwind (sm 4px, md 6px, lg 8px, xl 12px, 2xl 16px, 3xl 24px, 4xl 32px at a 16px root), so Tailwind-authored designs render value-identical without any radius keys | `"rounded-2xl"` |
+| `radius` (alias: `radius-base`) | `--radius-base` | the value is taken as a length and becomes the `rounded-md` rung, and every other rung keeps its stock ratio to it via `calc()` — so `["radius"] = "1rem"` (the length `rounded-2xl` names) makes `rounded-md` 16px, `rounded-lg` ≈21px and `rounded-3xl` 64px; reaches Flutter. The DEFAULT ramp is stock Tailwind (sm 4px, md 6px, lg 8px, xl 12px, 2xl 16px, 3xl 24px, 4xl 32px at a 16px root), so Tailwind-authored designs render value-identical without any radius keys | `"rounded-2xl"` |
 | `density` (alias: `spacing`) | `--spacing` | the unit every numeric spacing utility multiplies — whole-app whitespace; reaches Flutter | `"airy"` |
-| `font-heading`, `font-display`, `font-body`, `font-sans`, `font-serif`, `font-mono` | `--font-{role}` | type roles; literal family names auto-import from Google Fonts; `font-heading` also moves `--font-display` (headings consume the display role); reaches Flutter | `"Crimson Pro"` |
+| `font-heading`, `font-display`, `font-body`, `font-sans`, `font-serif`, `font-mono` | `--font-{role}` | type roles; a literal family name set on one of these six keys auto-imports from Google Fonts; `font-heading` also moves `--font-display` (headings consume the display role); reaches Flutter, a role token (`"font-mono"`) as that role's family | `"Crimson Pro"` |
 | `motion-duration-base` | `--default-transition-duration` | default speed of every `transition-*` utility | `"200ms"` |
 | `ease-default` (alias: `motion-easing-default`) | `--default-transition-timing-function` | default easing of every `transition-*` utility | `"ease-out"` |
 
@@ -165,8 +168,8 @@ Later entries win: to refine one variable inside a cluster, set the key first an
 
 | Kind | Accepted forms | Examples |
 |---|---|---|
-| Color | Tailwind palette step, Ikon scale step, hex, `rgb()`/`rgba()`/`hsl()`/`oklch()`/`oklab()`, named color | `amber-400`, `#F5A524`, `oklch(0.72 0.15 60)`, `rgba(255,255,255,0.7)` |
-| Font family | role token (`font-sans`, `font-serif`, `font-mono`, `font-display`, `font-heading`, `font-body`) or a literal family name (Google Fonts import is automatic) | `"Crimson Pro"`, `"font-mono"` |
+| Color | Tailwind palette step (`var(--color-…)`), Ikon scale step (its own `var(--brand-600)`), hex, `rgb()`/`rgba()`/`hsl()`/`oklch()`/`oklab()`, named color | `amber-400`, `#F5A524`, `oklch(0.72 0.15 60)`, `rgba(255,255,255,0.7)` |
+| Font family | role token (`font-sans`, `font-serif`, `font-mono`, `font-display`, `font-heading`, `font-body`) or a literal family name (imported from Google Fonts automatically when set on a font-role key) | `"Crimson Pro"`, `"font-mono"` |
 | Radius | `rounded-*` rung (`rounded-none` ... `rounded-4xl`, `rounded-full`) or a raw length | `"rounded-2xl"`, `"1.25rem"` |
 | Density | keyword `compact` (0.2rem), `default`/`comfortable` (0.25rem), `airy` (0.3rem), or a rem/px length clamped to 0.15-0.4rem | `"airy"`, `"0.28rem"` |
 | Duration | `duration-{n}` token or raw CSS time | `"duration-150"`, `"200ms"` |
@@ -205,11 +208,11 @@ Emits `--color-amber-400: #F5A524` and `--color-zinc-950: #0a0a0f`. Every `bg-am
 var theme = new IkonTheme
 {
     ["rounded-lg"] = "1.25rem",      // tune one rung
-    ["rounded-xl"] = "rounded-3xl",  // re-point one rung at another
+    ["rounded-xl"] = "rounded-3xl",  // copy another rung's stock size
 };
 ```
 
-`["radius"]` moves all rungs at once; per-rung overrides are for exceptions.
+`["radius"]` moves all rungs at once; per-rung overrides are for exceptions. A rung-name value copies that rung's stock size (`"rounded-3xl"` is 1.5rem), so a later `["radius"]` does not move it.
 
 Shadow rungs are themable per layer: `["shadow-lg"] = "0 2px 4px rgb(0 0 0 / 0.07)"` restyles
 every `shadow-lg`, and `["shadow-lg"] = "shadow-xl"` re-points one rung at another. The renderer
@@ -247,7 +250,7 @@ var theme = new IkonTheme
 };
 ```
 
-An explicit `--` prefix declares a custom variable on purpose (without it, an unknown key warns as a probable typo). Reference it inline via `bg-[var(--hero-glow)]`. Per the two-tier model, prefer writing decorative values concretely at the use point — mint a variable only when the same value repeats enough to earn a name.
+An explicit `--` prefix declares a custom variable on purpose (without it, an unknown key warns as a probable typo). Its value goes through the smart sniff, so a palette step becomes a colour reference and raw CSS stays as written. Reference it inline via `bg-[var(--hero-glow)]`. Per the two-tier model, prefer writing decorative values concretely at the use point — mint a variable only when the same value repeats enough to earn a name.
 
 ## Density
 
@@ -271,7 +274,7 @@ Every value is one of:
 - **Density keyword** — `compact`, `default`, `comfortable`, `airy`.
 - **Easing keyword** — `linear`, `ease`, `ease-in`, `ease-out`, `ease-in-out`.
 - **Raw CSS** — hex (`#F5A524`), rgb/rgba, hsl/hsla, oklch/oklab, named colors, rems, pixels, durations (`150ms`, `0.2s`), gradients, or any other CSS expression. Pass-through unchanged.
-- **Literal font family name** — `Crimson Pro`, `Fraunces`, `JetBrains Mono`. Wrapped in a quoted family stack with system fallbacks, and imported from Google Fonts automatically. The four baseline families (Inter, Poppins, Crimson Pro, JetBrains Mono) are self-hosted woff2 bundled into the app frontend, so they load same-origin and work on networks that block Google Fonts; any other family needs `fonts.googleapis.com`/`fonts.gstatic.com` to be reachable.
+- **Literal font family name** — `Crimson Pro`, `Fraunces`, `JetBrains Mono`. Wrapped in a quoted family stack with system fallbacks, and imported from Google Fonts automatically when set on one of the six font-role keys. The four baseline families (Inter, Poppins, Crimson Pro, JetBrains Mono) are self-hosted woff2 bundled into the app frontend, so they load same-origin and work on networks that block Google Fonts; any other family needs `fonts.googleapis.com`/`fonts.gstatic.com` to be reachable.
 
 ## Mood rules
 
@@ -280,14 +283,14 @@ For coherent themes, follow these rules (the StylingOracle's internal taxonomy):
 - **Pick one palette family.** Warm-bedtime → amber/rose/stone. Fintech minimal → emerald/zinc. Cyberpunk neon → violet/cyan/zinc. Don't mix amber + cyan + lime in one app — the eye reads it as random.
 - **Contrast the page.** Dark background (`zinc-950`, `slate-900`) → light foreground (`zinc-50`, `amber-50`). Light background (`zinc-50`, `stone-100`) → dark foreground (`zinc-950`, `stone-950`).
 - **Step conventions.** Dark palettes use 900s/950 for `background`, 50s for `foreground`. Light palettes reverse: 50s/100s for `background`, 950s for `foreground`.
-- **Brand contrast:** text on brand fills defaults to white. Light brand step (≤ 500) → set `["primary-foreground"]` to a dark value (`"#0A0A0A"`). Dark brand step (≥ 600) → the default is already right.
+- **Brand contrast:** `["primary"]` picks white or near-black text for its fills by contrast. Light brand step (≤ 500) → state `["primary-foreground"] = "#0A0A0A"` anyway, so the label is the one you chose. Dark brand step (≥ 600) → the white it picks is right.
 - **Match radius to mood.** Sharp / brutalist → `rounded-none`. Modest / SaaS → `rounded-md`. Friendly / bedtime → `rounded-2xl` or higher.
 - **Match density to mood.** Editorial / calm / luxury → `airy`. Terminal / data-dense → `compact`.
 - **Decide the dark story.** One committed scheme → `Mode = ThemeMode.Fixed`. Adaptive → a `DarkMode` block restating the surface/text/brand keys.
 
 ## Mood cookbook
 
-Copy-paste blocks for common moods. Each is mood-coherent — palette, fonts, radius, density, motion all pull in the same direction. Every block commits ONE palette, so it pins it with `Mode = ThemeMode.Fixed`; to make a mood adaptive, drop `Fixed` and add a `DarkMode` block restating the surface/text keys for the other scheme.
+Copy-paste blocks for common moods. Each is mood-coherent — palette, fonts, radius, density, motion all pull in the same direction. Every block commits ONE palette, so it pins it with `Mode = ThemeMode.Fixed`, and the dark moods build on the platform's dark baseline for everything they leave unset; to make a mood adaptive, drop `Fixed` and add a `DarkMode` block restating the surface/text keys for the other scheme.
 
 ### warm-bedtime — cozy, low-stakes, evening reading
 
@@ -404,6 +407,7 @@ var theme = new IkonTheme
     ["primary"]              = "sky-400",
     ["bg-brand-solid-hover"] = "sky-500",
     ["bg-brand-button-hover"]= "sky-500",
+    ["primary-foreground"]   = "#0A0A0A",
 
     ["background"] = "slate-50",
     ["foreground"] = "slate-900",
@@ -451,9 +455,9 @@ var theme = new IkonTheme
 var theme = new IkonTheme
 {
     Mode = ThemeMode.Fixed,
-    ["primary"]              = "red-500",
-    ["bg-brand-solid-hover"] = "red-600",
-    ["bg-brand-button-hover"]= "red-600",
+    ["primary"]              = "red-600",
+    ["bg-brand-solid-hover"] = "red-700",
+    ["bg-brand-button-hover"]= "red-700",
 
     ["background"] = "zinc-950",
     ["foreground"] = "zinc-100",
@@ -473,9 +477,9 @@ var theme = new IkonTheme
 var theme = new IkonTheme
 {
     Mode = ThemeMode.Fixed,
-    ["primary"]              = "emerald-500",
-    ["bg-brand-solid-hover"] = "emerald-600",
-    ["bg-brand-button-hover"]= "emerald-600",
+    ["primary"]              = "emerald-600",
+    ["bg-brand-solid-hover"] = "emerald-700",
+    ["bg-brand-button-hover"]= "emerald-700",
 
     ["background"] = "stone-50",
     ["foreground"] = "stone-900",
@@ -519,9 +523,9 @@ var theme = new IkonTheme
 var theme = new IkonTheme
 {
     Mode = ThemeMode.Fixed,
-    ["primary"]              = "indigo-500",
-    ["bg-brand-solid-hover"] = "indigo-400",
-    ["bg-brand-button-hover"]= "indigo-400",
+    ["primary"]              = "indigo-600",
+    ["bg-brand-solid-hover"] = "indigo-500",
+    ["bg-brand-button-hover"]= "indigo-500",
 
     ["background"] = "zinc-950",
     ["foreground"] = "zinc-100",
@@ -556,17 +560,17 @@ view.Text(["text-2xl font-bold text-brand-secondary"], "Section Title");
 view.Box(["absolute inset-0 -z-10 bg-[var(--hero-glow)] pointer-events-none"]);
 ```
 
-The semantic utility set the theme drives: surfaces `bg-background`, `bg-card`, `bg-popover`, `bg-muted`, `bg-accent` (hover surface), `bg-secondary`/`bg-tertiary`; text `text-foreground`, `text-muted-foreground`, `text-card-foreground`, `text-secondary`/`text-tertiary`, `text-primary-on-brand`; brand `bg-brand-solid(-hover)`, `bg-brand-button(-hover)`, `text-brand-secondary`/`-tertiary`, `fg-brand-primary` (icons); borders `border-secondary`, `border-input`, `border-brand`, `ring-ring`/`border-border`; status `bg-destructive`, `text-destructive`, `text-destructive-foreground`, `border-destructive` (plus the full `bg-error-*`/`bg-success-*`/`bg-warning-*` families).
+The semantic utility set the theme keys drive: surfaces `bg-background`, `bg-card`, `bg-popover`, `bg-muted`; text `text-foreground`, `text-muted-foreground`, `text-card-foreground`, `text-primary-on-brand`; brand `bg-brand-solid(-hover)`, `bg-brand-button(-hover)`, `text-brand-secondary`/`-tertiary`, `fg-brand-primary` (icons); borders `border-secondary`, `border-input`, `border-brand`, `ring-ring`/`border-border`; status `bg-destructive`, `text-destructive-foreground`, `border-destructive`. Following the scheme's baseline instead (set them by name to change them): `bg-accent` (hover surface), `bg-secondary`/`bg-tertiary`, `text-secondary`/`text-tertiary`/`text-quaternary`, `text-destructive`, and the full `bg-error-*`/`bg-success-*`/`bg-warning-*` families.
 
-Legacy note: `bg-primary`, `text-primary`, `border-primary`, and `text-primary-foreground` render as neutral tiers (page surface / body text / hairline / dark-on-light text) — supported forever, but do not write them in new code; use `bg-background` / `text-foreground` / `border-secondary`.
+Legacy note: `bg-primary`, `text-primary`, `border-primary`, and `text-primary-foreground` render as neutral tiers (page surface / body text / hairline / body text again) — supported forever, but do not write them in new code; use `bg-background` / `text-foreground` / `border-secondary`.
 
 Expressive styling — the full color palette (`bg-amber-400`), gradients, arbitrary values, and the motion DSL (`motion-[0:opacity-0,100:opacity-100]`) — goes directly in the class array at the use point. See [Crosswind Styling and Motion Guide](crosswind-styling-and-motion-guide.md) for the full utility reference.
 
 ## Common pitfalls
 
-- **Don't pass `new IkonTheme()` (no body) if you have a brand intent.** That uses the platform default — generic dark-zinc. Either commit a real `new IkonTheme { ... }` with overrides or accept the default. Never write `class IkonTheme : ITheme` or `class Theme : ITheme` in the app source — both are provided by `Ikon.Parallax`.
+- **Don't pass `new IkonTheme()` (no body) if you have a brand intent.** That uses the platform default — neutral light and dark schemes with the stock violet brand, following the OS preference. Either commit a real `new IkonTheme { ... }` with overrides or accept the default. Never write `class IkonTheme : ITheme` or `class Theme : ITheme` in the app source — both are provided by `Ikon.Parallax`.
 - **Don't try `Theming.Apply(...)`, `Theming.Custom(...)`, `Theme.Custom(...)`.** Those factories were retired. The only configurable surface is `new IkonTheme { ... }`.
-- **Light brand step needs `["primary-foreground"]`.** Text on brand fills defaults to white; `["primary"] = "amber-400"` without a dark `primary-foreground` puts white text on a light amber fill — unreadable. Dark brand steps (≥ 600) need nothing.
+- **Name the label on a light brand step.** `["primary"] = "amber-400"` gets near-black text from the contrast pick, but a fill it cannot measure (a `var()`, a gradient) gets white; `["primary-foreground"] = "#0A0A0A"` makes the choice explicit. Dark brand steps (≥ 600) need nothing.
 - **Don't strand text on the wrong background.** `["background"] = "zinc-950"` does not auto-set `["foreground"]`. If you skip it, the platform default (which assumes a light background) renders dark text on your dark background — invisible.
 - **Don't repeat brand colors in component class arrays.** Hand-rolling `bg-amber-400` per button instead of `bg-brand-solid` defeats the theme commitment AND breaks dark mode. Semantic classes for structure; concrete values only for expressive decoration.
 - **Don't write `bg-primary` / `text-primary` / `border-primary` in new code.** Legacy neutral tiers whose names collide with the shadcn brand reading — write `bg-background` / `text-foreground` / `border-secondary`.
@@ -581,8 +585,8 @@ Five-step recipe for an external LLM (Cursor, Codex, Copilot, ChatGPT) to theme 
 1. **Read the user brief** — extract mood (warm / cyberpunk / editorial / brutalist / etc.) and any user-named colors / fonts.
 2. **Pick a mood from the cookbook** — match the brief to one of the 10 named moods above (warm-bedtime, cyberpunk-neon, editorial-vintage, brutalist, glassmorphism, pastel, noir-contrast, solarpunk, clean-saas, dark-pro). If none fit, build a fresh palette using the rules in *Mood rules* above.
 3. **Copy the cookbook block as-is** — paste it as the second arg to `new(app, ...)` at the App's UI declaration site.
-4. **Adjust the brand** if the user named a specific color — replace the `["primary"]` value (one line commits the whole brand cluster) and the two `-hover` refinements. Keep `["primary-foreground"]` consistent: light step (≤ 500) → `"#0A0A0A"`; dark step (≥ 600) → omit (white default).
-5. **Verify** — the output has ONE `new IkonTheme { ... }` block with an explicit dark story (`Mode = ThemeMode.Fixed` OR a `DarkMode` block, never both), no `Theming.Apply(...)`, no hex unless the user asked for one, a coherent palette family, and no `["font-body"] = "font-sans"` no-op lines.
+4. **Adjust the brand** if the user named a specific color — replace the `["primary"]` value (one line commits the whole brand cluster) and the two `-hover` refinements. Keep `["primary-foreground"]` consistent: light step (≤ 500) → `"#0A0A0A"`; dark step (≥ 600) → omit (white is picked).
+5. **Verify** — the output has ONE `new IkonTheme { ... }` block with an explicit dark story (`Mode = ThemeMode.Fixed` OR a `DarkMode` block, never both), no `Theming.Apply(...)`, no hex beyond what the chosen cookbook block already carries unless the user asked for one, a coherent palette family, and no `["font-body"] = "font-sans"` no-op lines.
 
 The generated code goes at the top of the App class, replacing the default bare `new IkonTheme()`:
 
