@@ -1,5 +1,5 @@
 # Ikon.Parallax Library Overview
-<!-- checked-against: 9d6be694cab0e7e7 -->
+<!-- checked-against: b2ad0e4638e9852f -->
 ## Introduction
 
 Ikon.Parallax is a server-driven, reactive UI library for building interactive applications in C#. The library provides a declarative API for constructing user interfaces where all logic runs on the server, clients act as lightweight renderers, and the framework automatically handles efficient UI updates through intelligent diffing.
@@ -665,6 +665,10 @@ view.PanZoom(
 Give the viewport a size with its style array — it clips, so without a height it collapses. `scale:` + `onScaleChange:` is the controlled pair, which is what lets preset buttons (`_scale.Value = 1`) drive the view; a server-written scale zooms about the viewport centre. Omit both and pass `defaultScale:` for a purely client-side zoom. A `scale:` with no handler renders read-only, like every other controlled axis.
 
 What it is not: an editor surface. Nothing inside a `PanZoom` knows it is scaled — a `DndContext` or a click handler in the content still works, but its coordinates are screen-space. For a canvas with selection, marquee or drag in document space, build a custom node with its own `.tp` transport (see `custom-map-component-guide.md`); `PanZoom` is the viewer, not the workbench.
+
+## The Ikon O
+
+`view.LivingO()` (`LivingOExtensions`) draws the Ikon O as a living character — the brand's one character, drawn and animated entirely in the browser, so the server mounts it once and sends nothing per frame. `LivingOVariant.Embedded` rests the O at `anchorX:`/`anchorY:` in its box, its radius `size:` as a fraction of the box's height; `LivingOVariant.Full` is the whole-screen character with the row that picks its modes. `candidates:` and `shapeSchedule:` are JSON the O reads to try shapes, `calm: true` slows it, and `interactive: false` stops it following the pointer. Give it a size with the style array. Its code loads the first time a page shows it, and the prerender snapshot draws its empty box. For a small, still O — beside text, in a header, as a loading mark — `view.OMark()` draws the same O as an image, in `LivingOExtensions.IkonPink` or any colour.
 
 ## Example: Interactive Form
 

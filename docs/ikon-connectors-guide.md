@@ -1,5 +1,5 @@
 # Ikon Connectors Developer Guide
-<!-- checked-against: f121786400bc1028 -->
+<!-- checked-against: 5ece698175ab7474 -->
 This guide covers the connector libraries — `Ikon.Connectors` (Slack, GitHub), `Ikon.Connectors.Google` (Drive, Gmail), and `Ikon.Connectors.Browser` (agentic and scripted web automation) — for app developers wiring external services into an Ikon app.
 
 ## Overview
@@ -290,6 +290,14 @@ The agent needs only an `IWebPage` — navigate, screenshot, mark the elements, 
 
 A run can hand a site files and bring files back. `WebAgentOptions.Files` lists `WebFile`s — a name, a MIME type and the bytes — that the agent may put into a page's file input with `WebAction.Upload`; the agent is told their names, and an upload is a write, so `ReviewWrite` is asked first. Whatever the pages download during the run, including a url that is itself a file, comes back in `WebRun.Downloads`. Driving a page yourself, `IWebPage.StageFileAsync` hands it a file to upload and `TakeDownloadsAsync` returns each download once.
 
+### Saved logins
+
+An agent signs in without ever seeing a password. Give the page an `ILoginVault` — `BrowserSession.Logins` — and each observation lists the `SavedLogin`s that cover the current page, by id and label only. The agent calls `use_login`, which is `WebAction.FillLogin(target, loginId, field)` with a `LoginField` of `Username`, `Password` or `OneTimeCode`, and the browser asks the vault for that one value at the moment it fills the field. The value never reaches the model, the step trace or a distilled flow, so a replayed flow signs in again through the vault.
+
+A login fills only where `SavedLogin.Covers` holds for the document the field is in — https on the login's site or a subdomain of it, plain http only on loopback — so a frame from another site, or a look-alike host, gets nothing; a password fills only into a password field. `ILoginVault.RevealAsync` returns null to refuse, and a vault that holds the secret checks the page itself rather than trusting its caller. `IWebPage.SavedLoginsAsync` is what a page reports; a page on a person's computer answers from the vault there.
+
+To keep a sign-in rather than a password, `BrowserSession.ExportStorageStateAsync` returns the session's cookies and storage, and `BrowserSession.StartAsync` takes them back as `storageState`; treat that text as a credential. For a tab a person signs in on themselves, `BrowserSession.OfferToSaveSignInsAsync` notices the password being submitted and, on the next page, offers to save it, calling you with the site, the username and the password when they accept.
+
 ### Distill and replay
 
 A successful `WebRun` can be **distilled** into a `WebFlow` — a deterministic, replayable integration — and replayed **without an LLM**:
@@ -314,7 +322,9 @@ Distillation keeps only the steps that succeeded and parameterizes each filled f
 
 `WebAgent.ReplayAsync(page, flow, inputs)` replays on an `IWebPage` you opened and still own — a `BrowserSession`, or a page from the same opener you give `WebAgentOptions.OpenPage` — and leaves it open. A replay asks nobody before a step, so check `WebAgent.WritesIn(flow)` before replaying unattended: it names, in an approval's words, each step an agent run would have asked a person about, and is empty for a flow that only reads.
 
-A fact on a page that is not a control — a heading, a price, a count — has no mark, so the agent reads it with the `read` tool by the words it shows. The recorded `Extract` keeps the element's structural path in `WebTarget.Selector`, and a replay reads that element first, so it returns next week's price rather than looking for this week's.
+A fact on a page that is not a control — a heading, a price, a count — has no mark, so the agent reads it with the `read` tool by the words it shows. The recorded `Extract` keeps the element's structural path in `WebTarget.Selector`, and a replay reads that element first, so it returns next week's price rather than looking for this week's. To read a whole result list — every name and price on screen — the agent uses `read_visible`, recorded as `WebAction.ReadVisible`: the text in view in reading order, including text a shop gives only to screen readers, far cheaper than looking at a screenshot. Whatever the agent reads is also shown back to it, not only kept in `WebRun.Outputs`.
+
+An address someone guessed can be wrong. With `WebAgentOptions.StartFromSiteRootOnMissingPage`, a starting address that answers 404 or 410 starts the agent on the site's home page, told why, instead of failing the run; leave it off when the address is the thing under test.
 
 ### What the browser hands back
 

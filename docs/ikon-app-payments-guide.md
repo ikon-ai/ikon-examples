@@ -1,5 +1,5 @@
 # Ikon.App.Payments Guide
-<!-- checked-against: 2a2a41ce08969512 -->
+<!-- checked-against: 55b24718402d86b8 -->
 Charge your app's end users — subscriptions, one-off payments, refunds — without owning a payments
 backend. The **Ikon backend** owns the payment store, drives the provider (Stripe, Mollie, or Surfboard,
 chosen at enable time), ingests provider webhooks, and **pushes normalized events to your app**. Your app

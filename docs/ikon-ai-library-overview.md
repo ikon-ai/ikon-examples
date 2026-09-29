@@ -1,5 +1,5 @@
 # Ikon.AI Library Overview
-<!-- checked-against: 5ed79874ea9680a3 -->
+<!-- checked-against: ca757a28ba0ee773 -->
 This guide summarizes the principal namespaces in the Ikon.AI .NET library for developers building AI-enabled solutions. Each section outlines module responsibilities, supported models, and usage patterns verified by automated tests.
 
 ## Emergence
@@ -514,7 +514,7 @@ var result = await VideoSegmenter.SegmentAsync("https://example.com/race.mp4", "
 Log.Instance.Info($"Segmented video: {result.Url}");
 ```
 
-Use the constructor + config form for an asset input, several concepts at once, point/box prompts, a different detection threshold, or a WebM container instead of MP4 (`OutputType`, a `VideoSegmenterOutputType`):
+Use the constructor + config form for an asset input, several concepts at once, point/box prompts, or a different detection threshold. The segmented video is always an MP4:
 
 Needs the `Ikon.AI.VideoSegmentation` using directive.
 

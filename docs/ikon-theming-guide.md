@@ -1,5 +1,5 @@
 # Ikon Theming Guide
-<!-- checked-against: b47dceb011580488 -->
+<!-- checked-against: 21ed09d33c56104c -->
 How to commit a per-app brand mood (palette, fonts, radius, density, motion) on top of the platform's Ikon CSS baseline.
 
 This is the canonical reference for the `IkonTheme` configurable surface. Self-contained — a third-party code generator (Cursor, Codex, Copilot, ChatGPT) can ingest just this doc and produce a coherently-themed Ikon AI App.
