@@ -68,9 +68,10 @@ internal sealed class ShareableResultExport : IPatternDemo
             await RenderPngAsync(url);
             await RenderPdfAsync(url);
         }
-        catch (AIException)
+        catch (Exception ex) when (ex is AIException or HttpRequestException or InvalidDataException)
         {
-            // Export failed; the results themselves are untouched and the user can retry.
+            // The render or the download of its file failed; the results themselves are untouched and
+            // the user can retry.
         }
     }
 
