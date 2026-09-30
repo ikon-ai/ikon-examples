@@ -38,4 +38,7 @@ export const en: Translations = {
   'auth.button.guest': 'Continue as Guest',
   'auth.button.provider': 'Continue with {provider}',
   'auth.button.registerPasskey': 'Register with Passkey',
+  'auth.sso.placeholder': 'Enter your work email',
+  'auth.sso.submit': 'Continue with your organisation',
+  'auth.sso.submitting': 'Finding your organisation...',
 };
