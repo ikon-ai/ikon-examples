@@ -4,7 +4,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default [
-  { ignores: ['build/**', 'dist/**', 'src/generated/**'] },
+  { ignores: ['build/**', 'dist/**', 'out-tsc/**', 'src/generated/**'] },
   {
     linterOptions: { reportUnusedDisableDirectives: 'error' },
   },
