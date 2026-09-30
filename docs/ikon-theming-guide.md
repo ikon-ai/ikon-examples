@@ -1,5 +1,5 @@
 # Ikon Theming Guide
-<!-- checked-against: 21ed09d33c56104c -->
+<!-- checked-against: d459a79054590c25 -->
 How to commit a per-app brand mood (palette, fonts, radius, density, motion) on top of the platform's Ikon CSS baseline.
 
 This is the canonical reference for the `IkonTheme` configurable surface. Self-contained — a third-party code generator (Cursor, Codex, Copilot, ChatGPT) can ingest just this doc and produce a coherently-themed Ikon AI App.
@@ -180,7 +180,7 @@ Palette families: `red`, `orange`, `amber`, `yellow`, `lime`, `green`, `emerald`
 ### Collisions — read this before writing `primary` anywhere
 
 - **Theme KEY `primary` = brand.** `["primary"] = "amber-400"` paints CTAs, focus rings, and brand chrome amber.
-- **Utility CLASS `bg-primary` = a neutral page surface** (white in light, near-black in dark), `text-primary` = neutral body text, `border-primary` = a neutral hairline. These are legacy tier names; they render unchanged forever, but **never write `bg-primary` / `text-primary` / `border-primary` in new code** — write `bg-background` / `text-foreground` / `border-secondary` instead. The legacy names collide with the shadcn prior (where `primary` means brand) and reading them costs every future maintainer a double-take.
+- **Utility CLASS `bg-primary` = a neutral page surface** (white in light, near-black in dark), `text-primary` = neutral body text, `border-primary` = a neutral hairline. These are legacy tier names; they render unchanged forever, but **never write `bg-primary` / `text-primary` / `border-primary` in new code** — write the role the element plays instead: `bg-background` for the page canvas, `bg-card` for a card, panel, dialog or popover, plus `text-foreground` / `border-secondary`. Neither replacement is colour-identical to `bg-primary` — in the baseline `bg-primary` equals `bg-card` in light (white) but `bg-background` in dark (neutral-950), and an app theme may paint its page with yet another token — so pick by the surface the element is, and keep its text in the same family (card text on a card surface, page text on the page). The legacy names collide with the shadcn prior (where `primary` means brand) and reading them costs every future maintainer a double-take.
 - **The reverse trap:** `["primary"] = "zinc-950"` intending a dark page background paints every CTA near-black. The page surface key is `["background"]`.
 - **Bare `accent` and `secondary` are NOT theme keys** (they log a dev warning). Their shadcn and Ikon meanings genuinely conflict: shadcn `accent` is a hover surface (the `bg-accent` utility), while Ikon's `accent-*` scale drives text-selection tints. Set what you mean explicitly — `["bg-accent"]`, `["bg-secondary"]`, or the `accent-*` scale steps below.
 
@@ -562,7 +562,7 @@ view.Box(["absolute inset-0 -z-10 bg-[var(--hero-glow)] pointer-events-none"]);
 
 The semantic utility set the theme keys drive: surfaces `bg-background`, `bg-card`, `bg-popover`, `bg-muted`; text `text-foreground`, `text-muted-foreground`, `text-card-foreground`, `text-primary-on-brand`; brand `bg-brand-solid(-hover)`, `bg-brand-button(-hover)`, `text-brand-secondary`/`-tertiary`, `fg-brand-primary` (icons); borders `border-secondary`, `border-input`, `border-brand`, `ring-ring`/`border-border`; status `bg-destructive`, `text-destructive-foreground`, `border-destructive`. Following the scheme's baseline instead (set them by name to change them): `bg-accent` (hover surface), `bg-secondary`/`bg-tertiary`, `text-secondary`/`text-tertiary`/`text-quaternary`, `text-destructive`, and the full `bg-error-*`/`bg-success-*`/`bg-warning-*` families.
 
-Legacy note: `bg-primary`, `text-primary`, `border-primary`, and `text-primary-foreground` render as neutral tiers (page surface / body text / hairline / body text again) — supported forever, but do not write them in new code; use `bg-background` / `text-foreground` / `border-secondary`.
+Legacy note: `bg-primary`, `text-primary`, `border-primary`, and `text-primary-foreground` render as neutral tiers (page surface / body text / hairline / body text again) — supported forever, but do not write them in new code; use `bg-background` (page canvas) or `bg-card` (cards, panels, popovers) by what the surface is — neither matches `bg-primary` in both schemes — plus `text-foreground` / `border-secondary`.
 
 Expressive styling — the full color palette (`bg-amber-400`), gradients, arbitrary values, and the motion DSL (`motion-[0:opacity-0,100:opacity-100]`) — goes directly in the class array at the use point. See [Crosswind Styling and Motion Guide](crosswind-styling-and-motion-guide.md) for the full utility reference.
 
@@ -573,7 +573,7 @@ Expressive styling — the full color palette (`bg-amber-400`), gradients, arbit
 - **Name the label on a light brand step.** `["primary"] = "amber-400"` gets near-black text from the contrast pick, but a fill it cannot measure (a `var()`, a gradient) gets white; `["primary-foreground"] = "#0A0A0A"` makes the choice explicit. Dark brand steps (≥ 600) need nothing.
 - **Don't strand text on the wrong background.** `["background"] = "zinc-950"` does not auto-set `["foreground"]`. If you skip it, the platform default (which assumes a light background) renders dark text on your dark background — invisible.
 - **Don't repeat brand colors in component class arrays.** Hand-rolling `bg-amber-400` per button instead of `bg-brand-solid` defeats the theme commitment AND breaks dark mode. Semantic classes for structure; concrete values only for expressive decoration.
-- **Don't write `bg-primary` / `text-primary` / `border-primary` in new code.** Legacy neutral tiers whose names collide with the shadcn brand reading — write `bg-background` / `text-foreground` / `border-secondary`.
+- **Don't write `bg-primary` / `text-primary` / `border-primary` in new code.** Legacy neutral tiers whose names collide with the shadcn brand reading — write `bg-background` for the page or `bg-card` for a card surface (not a like-for-like swap: see the legacy note above), `text-foreground`, `border-secondary`.
 - **`["font-body"] = "font-sans"` is a no-op** (the baseline already points `font-sans` at `font-body`; the circular alias is silently skipped). Omit such lines; set a font role only to change it.
 - **`Mode = ThemeMode.Fixed` plus a `DarkMode` block throws.** Fixed commits to one scheme; a dark variant contradicts it. Pick one.
 - **Heed the theme warnings in logs.** A key that matches nothing ("matches no known semantic variable or palette step") emits a dead variable — almost always a typo. Prefix with `--` to declare a custom variable on purpose; `IKON_DEV_WARNINGS=0` silences the warnings.

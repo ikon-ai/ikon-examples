@@ -1,5 +1,5 @@
 # Crosswind Styling and Motion Guide
-<!-- checked-against: d42a31f2d05cef92 -->
+<!-- checked-against: 3b50894eb7fc0f01 -->
 ## Overview
 
 Crosswind is Ikon's utility-first styling and animation system. The name comes from being Tailwind-inspired while extending it with additional features, particularly a motion language for declarative animations.

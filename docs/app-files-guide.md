@@ -1,5 +1,5 @@
 # App Files Guide
-<!-- checked-against: 7fef4893acdf3d08 -->
+<!-- checked-against: e07597d3959de9b9 -->
 How an Ikon AI app stores, ships, and serves files: two folders in the repo, one API at runtime,
 and automatic handling of binaries in git. Read this before adding images, media, datasets, or any
 other file to an app.
@@ -87,6 +87,8 @@ leaves everything referenced the same way (`/hero.png` URLs don't change).
 `app.DataDirectory` remains as an escape hatch when a library needs a real filesystem path for the
 shipped data files. It is read-only in the cloud — anything written at runtime goes through
 `app.Files`.
+
+**Never locate bundled files through `AppContext.BaseDirectory`.** In cloud the app bundle is loaded into a host process, and `AppContext.BaseDirectory` is the host's folder, so a path built from it finds nothing — it works locally, fails deployed. Read through `app.Files.Data`, `app.DataDirectory` or an embedded resource. Code with no app instance at hand (a static cache, a `Lazy<T>`) resolves the app's own folder the way the platform does: `Path.GetDirectoryName(typeof(MyApp).Assembly.Location)`, falling back to `AppContext.BaseDirectory` only when `Location` is empty (a hot-reloaded assembly).
 
 ## Uploads from users
 

@@ -1,5 +1,5 @@
 # Ikon AI C# SDK
-<!-- checked-against: caf75a6a088980ef -->
+<!-- checked-against: 453499442cbfcc6a -->
 The Ikon AI C# SDK provides a simple way to connect to Ikon AI App from any .NET application. It supports .NET 10 and .NET Standard 2.1 (including Unity).
 
 ## Features
@@ -167,6 +167,8 @@ var config = new IkonClientConfig
 Authenticate as the developer logged in on this machine (the ikon CLI's stored login), connecting
 through the cloud gateway like a browser client. Intended for dev tooling, spikes, and headless
 tests — production clients use `ApiKey` or `Backend`. Mutually exclusive with the other four modes.
+`Environment` names the platform the space is on; a platform other than the process's own signs in
+with that platform's saved login, and otherwise (or left null) the process's own login is used.
 
 <!-- ikon-code: sdk-user-login-config -->
 ```csharp

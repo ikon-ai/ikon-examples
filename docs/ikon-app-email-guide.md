@@ -1,9 +1,9 @@
 # Ikon.App.Email Guide
-<!-- checked-against: 8eaffab2a6a7cefc -->
+<!-- checked-against: a60849497aedd0ed -->
 Send transactional email from your app and read the mail delivered to your app's space — through the
 platform mailer, with no SMTP credentials, provider account, or DNS setup in the app itself.
-`app.Email` (an `EmailService`) is the entry point; the space's organisation must have the **Email** feature enabled
-(calls without it throw `FeatureNotEnabledException`).
+`app.Email` (an `EmailService`) is the entry point, available to every space. Each message sent is
+billed to the space's organisation.
 
 ## Send an email
 
@@ -34,6 +34,19 @@ Limits, enforced identically in the client and the backend:
 
 Attachments count at their base64-encoded size (~4/3 of the raw bytes), so the practical budget for
 raw attachment bytes is roughly 7.5 MB.
+
+### Keep the list clean — sending can be paused
+
+Receiving mail servers judge every message by the reputation of the servers it came from, so the
+platform holds each app to the limits they apply. Over the last seven days, an app's messages must
+stay under 0.3% spam complaints and 5% hard bounces (addresses that do not exist); a small sender is
+not paused for fewer than 3 complaints or 10 hard bounces, whatever the rate. An app that crosses a
+line has its email paused, and its owners are told why. Sign-in codes do not count toward it.
+
+While paused, every `SendAsync` throws `EmailSendingRestrictedException` — nothing is queued, and
+retrying does not help — until Ikon support reviews the sending and restores it. Sign-in codes and
+other account mail keep working. Send only to people who asked for the mail, and never to a list
+bought or scraped from elsewhere.
 
 ## The From address and sender identity
 

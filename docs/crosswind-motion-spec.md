@@ -1,4 +1,4 @@
-<!-- checked-against: 3fb738b14c7f368a -->
+<!-- checked-against: fce0f40e157245d7 -->
 ﻿# Crosswind Motion Spec
 
 A Tailwind-inspired, class-based DSL to describe visual motion timelines and audio behaviors using only class strings. This spec defines **tokens, forms, and grammar**. It intentionally avoids runtime/implementation details.
@@ -301,6 +301,8 @@ sfx:source-[<uri>] <variant>:sfx:play
 ```
 
 ### 2.6 Presets & Track Aliases
+
+> **No built-in presets.** tailwindcss-motion's `motion-preset-*` classes (`motion-preset-fade`, `motion-preset-slide-up`, …) are not supported: Crosswind drops them with a warning naming the class. Write the keyframes instead — a fade is `motion-[0:opacity-0,100:opacity-100]` with a `motion-duration-*` — or use a theme constant that wraps one.
 
 * **Preset expansion**
 

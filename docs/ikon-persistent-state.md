@@ -1,5 +1,5 @@
 # Ikon Persistent State Guide
-<!-- checked-against: 8e54315436737751 -->
+<!-- checked-against: bbc26c361c836aa8 -->
 How to persist app state across restarts. Read this before reaching for files or hand-rolled storage.
 
 ## TL;DR — what to pick
@@ -267,6 +267,7 @@ in until the type is a Teleport data schema.
 - ❌ Using `Public` backend for anything sensitive — assets get a real URL on the open web.
 - ❌ Constructing AssetUris by hand for state that fits a `PersistentXxxReactive`.
 - ❌ Using `Guid.NewGuid()` as `key:` — it changes on restart.
+- ❌ Writing a reactive from inside a render lambda (`if (_boxes.Count == 0) _boxes.Add(new Box())` in the middle of `UI.Root(...)`). The platform drops the change notification of a write made while it renders — nothing re-renders from it — and logs `update was ignored because it was done within a reactive callback, at <call site>` once per site. Render only reads; create-if-missing belongs in the event handler that needs it (the switch that enables the feature, the button that adds the item) or in a lifecycle callback such as `app.OnClientJoined`. When the render needs something to show before it exists, render a detached placeholder value and let the first edit handler store it.
 - ❌ Seeding a user-scoped value from `Main()` or the constructor (`if (_list.Count == 0) _list.Add(...)`) — no `UserScope` is active there, so it throws; pass the starting items to the constructor instead.
 - ❌ Assuming the postgres-backed storage reads or writes through on every access — like the asset backends, the row is only read at load and written at save; in between, the value lives in memory. For read-your-writes durability, go through `app.Databases` directly.
 

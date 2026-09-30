@@ -323,28 +323,37 @@ final client = await IkonClient.connectGuest(
 );
 ```
 
-### Deployed Apps — OAuth (Google, Apple, Microsoft, etc.)
+### Deployed Apps — Signing In (Google, Apple, Microsoft, bank ID, email)
+
+`IkonNativeSignIn` answers the server's `ClientFunctions.LoginAsync`, `LoginShowAsync` and
+`LogoutAsync` calls on a phone, where a browser would leave for the provider and come back. OAuth
+providers open in a web view that returns to the app's own https origin — the auth service returns a
+token to no other kind of address, so a custom-scheme deep link never receives one — and email signs
+in with the code the auth service mails. The token is kept in secure storage, so the next launch
+connects straight in as that user; a token the server no longer accepts is dropped for a guest
+connect. `sso:` connections and passkeys are not offered on a phone yet.
+
+`ikon app bundle --flutter-*` passes the app's `[Auth] Methods` as `IKON_AUTH_METHODS` and
+`RequireSignIn` as `IKON_AUTH_REQUIRE_SIGN_IN`. The app template wires it; the essentials are:
 
 ```dart
-// 1. Start OAuth in system browser
-final auth = IkonAuthenticator(host: 'myapp.ikon.ai', port: 443);
-await auth.startOAuthLogin(
-  method: LoginMethod.google,  // or .apple, .microsoft, .github, etc.
-  spaceId: 'my-space-id',
-  authUrl: 'https://auth.ikonai.com',
-  returnUrl: 'myapp://auth/callback',  // your app's deep link
-);
+final navigatorKey = GlobalKey<NavigatorState>(); // MaterialApp(navigatorKey: navigatorKey, ...)
 
-// 2. Handle the deep link callback in your app
-final token = IkonAuthenticator.extractTokenFromCallbackUrl(callbackUri);
-
-// 3. Connect with the token
-final client = await IkonClient.connectWithToken(
+final signIn = IkonNativeSignIn(
   serverHost: 'myapp.ikon.ai',
   spaceId: 'my-space-id',
-  token: token!,
+  authUrl: 'https://auth.ikonai.com',
+  methods: const String.fromEnvironment('IKON_AUTH_METHODS').split(','),
+  navigatorKey: navigatorKey,
+  onIdentityChanged: reconnect, // dispose the client and connect again
 );
+
+final client = await signIn.connect(); // the stored user, else a guest
+signIn.register(client);               // answers login, loginShow and logout
 ```
+
+An app that requires sign-in shows `IkonSignInChooser(canClose: false, onChosen: signIn.signInWith)`
+before connecting when `signIn.storedToken()` is null.
 
 ### Deployed Apps — API Key
 

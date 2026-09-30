@@ -1,5 +1,5 @@
 # Ikon.AI Library Overview
-<!-- checked-against: ca757a28ba0ee773 -->
+<!-- checked-against: b1872d79bcd199ea -->
 This guide summarizes the principal namespaces in the Ikon.AI .NET library for developers building AI-enabled solutions. Each section outlines module responsibilities, supported models, and usage patterns verified by automated tests.
 
 ## Emergence
@@ -114,6 +114,7 @@ Key behaviors:
 - **Flat per-request billing.** Usage is reported with a `.user` suffix and charged as a flat credit fee per successful request (identical for all custom models) instead of per-token provider pricing. Token counts are still reported for analytics. A failed or aborted request is not billed; each successful retry bills its own request.
 - **Register at startup.** The registry is async-local (like credentials): register models on the main flow before spawning parallel work so every flow sees them. Registering the same name again replaces the previous registration.
 - **Names.** A custom model name must not collide with a built-in model name and must not contain dots or whitespace.
+- **In an agent.** An `Ikon.Agent` persona names no model: each pass resolves its `Reasoning` to a built-in one. Set `Orchestrator.ModelNameHook` to have a thread's passes think with a model by name instead, a custom one included; it is asked before every pass with the thread and its `Reasoning`, and a null answer leaves the pass to the built-in mapping. That is how an app lets a person think with a model they brought their own key for.
 - **Output budget.** `MaxOutputTokens` is the largest response the endpoint will produce. `LLM` lowers `KernelContext.MaxOutputTokens` to it before sending, so a caller running the 16000-token default against a smaller model gets a shorter answer instead of a rejected request. Leave it at 0 when the endpoint caps nothing and the caller's value goes out unchanged. Built-in models carry the limit their provider publishes; read it with `Emerge.GetCapabilities(model).MaxOutputTokens` or `model.MaxOutputTokens()`.
 
 ## ImageGeneration
