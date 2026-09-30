@@ -2,6 +2,7 @@
 
 // <ikon-usings> Managed by `ikon app update`. Do not edit; add your own usings below this block.
 global using Ikon.AI.Classification;
+global using Ikon.AI.Decisions;
 global using Ikon.AI.Embeddings;
 global using Ikon.AI.Emergence;
 global using Ikon.AI.FileConversion;
