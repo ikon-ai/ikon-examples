@@ -1,9 +1,10 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { Fragment, useRef, useState, type ReactNode } from 'react';
 import { useAuth, useAuthGuard, type AuthConfig, type LoginMethod } from '@ikonai/sdk-react-ui';
 import { useI18n } from '../i18n/i18n';
 import './auth.css';
 import { EmailLoginForm } from './email-login-form';
 import { LoginButton, RegisterPasskeyButton } from './login-button';
+import { SsoSignIn } from './sso-sign-in';
 
 type ErrorScope = 'primary' | 'passkey' | 'email' | 'guest';
 
@@ -74,8 +75,9 @@ function AuthScreen({ config, errorScope, setErrorScope, isLoginPrompt, onDismis
   const { state } = useAuth();
 
   const primaryMethods = config.methods.filter(
-    (m): m is Exclude<LoginMethod, 'email' | 'guest' | 'global' | 'passkey'> => m !== 'email' && m !== 'guest' && m !== 'global' && m !== 'passkey',
+    (m): m is Exclude<LoginMethod, 'email' | 'guest' | 'global' | 'passkey'> => m !== 'email' && m !== 'guest' && m !== 'global' && m !== 'passkey' && m !== 'sso',
   );
+  const hasSso = config.methods.includes('sso');
   const hasPasskey = config.methods.includes('passkey');
   const hasEmail = config.methods.includes('email');
   const guestProvider = config.methods.includes('global') ? ('global' as const) : config.methods.includes('guest') ? ('guest' as const) : null;
@@ -85,6 +87,58 @@ function AuthScreen({ config, errorScope, setErrorScope, isLoginPrompt, onDismis
     state.error && (errorScope === scope || (errorScope === null && scope === 'primary')) ? (
       <div className="ikon-auth-error">{formatAuthError(state.error)}</div>
     ) : null;
+
+  // The screen's order is this list's order, whatever order ikon-config.toml lists the methods in;
+  // only the provider buttons among themselves follow the config.
+  const sections: { key: string; content: ReactNode }[] = [];
+
+  if (hasPasskey) {
+    sections.push({
+      key: 'passkey',
+      content: (
+        <>
+          {errorFor('passkey')}
+          <div className="ikon-auth-buttons">
+            <LoginButton provider="passkey" disabled={state.isLoading} onAttempt={() => setErrorScope('passkey')} />
+            <RegisterPasskeyButton disabled={state.isLoading} onAttempt={() => setErrorScope('passkey')} />
+          </div>
+        </>
+      ),
+    });
+  }
+
+  if (primaryMethods.length > 0) {
+    sections.push({
+      key: 'providers',
+      content: (
+        <div className="ikon-auth-buttons">
+          {primaryMethods.map((method) => (
+            <LoginButton key={method} provider={method} disabled={state.isLoading} onAttempt={() => setErrorScope('primary')} />
+          ))}
+        </div>
+      ),
+    });
+  }
+
+  if (hasSso) {
+    sections.push({ key: 'sso', content: <SsoSignIn config={config} disabled={state.isLoading} onAttempt={() => setErrorScope('primary')} /> });
+  }
+
+  if (hasEmail) {
+    sections.push({ key: 'email', content: <EmailLoginForm config={config} onAttempt={() => setErrorScope('email')} /> });
+  }
+
+  if (guestProvider) {
+    sections.push({
+      key: 'guest',
+      content: (
+        <>
+          {errorFor('guest')}
+          <LoginButton provider={guestProvider} disabled={state.isLoading} onAttempt={() => setErrorScope('guest')} onClick={isLoginPrompt ? onDismiss : undefined} />
+        </>
+      ),
+    });
+  }
 
   return (
     <main className="ikon-surface ikon-auth-screen">
@@ -96,58 +150,16 @@ function AuthScreen({ config, errorScope, setErrorScope, isLoginPrompt, onDismis
 
         {errorFor('primary')}
 
-        <div className="ikon-auth-buttons">
-          {primaryMethods.map((method) => (
-            <LoginButton
-              key={method}
-              provider={method}
-              disabled={state.isLoading}
-              onAttempt={() => setErrorScope('primary')}
-            />
-          ))}
-        </div>
-
-        {hasPasskey && primaryMethods.length > 0 && (
-          <div className="ikon-auth-divider">
-            <span>{t('auth.divider')}</span>
-          </div>
-        )}
-
-        {hasPasskey && (
-          <>
-            {errorFor('passkey')}
-            <div className="ikon-auth-buttons">
-              <LoginButton provider="passkey" disabled={state.isLoading} onAttempt={() => setErrorScope('passkey')} />
-              <RegisterPasskeyButton disabled={state.isLoading} onAttempt={() => setErrorScope('passkey')} />
-            </div>
-          </>
-        )}
-
-        {hasEmail && (primaryMethods.length > 0 || hasPasskey) && (
-          <div className="ikon-auth-divider">
-            <span>{t('auth.divider')}</span>
-          </div>
-        )}
-
-        {hasEmail && <EmailLoginForm config={config} onAttempt={() => setErrorScope('email')} />}
-
-        {hasGuest && (primaryMethods.length > 0 || hasPasskey || hasEmail) && (
-          <div className="ikon-auth-divider">
-            <span>{t('auth.divider')}</span>
-          </div>
-        )}
-
-        {hasGuest && (
-          <>
-            {errorFor('guest')}
-            <LoginButton
-              provider={guestProvider ?? 'guest'}
-              disabled={state.isLoading}
-              onAttempt={() => setErrorScope('guest')}
-              onClick={isLoginPrompt ? onDismiss : undefined}
-            />
-          </>
-        )}
+        {sections.map((section, index) => (
+          <Fragment key={section.key}>
+            {index > 0 && (
+              <div className="ikon-auth-divider">
+                <span>{t('auth.divider')}</span>
+              </div>
+            )}
+            {section.content}
+          </Fragment>
+        ))}
 
         {isLoginPrompt && !hasGuest && (
           <button type="button" className="ikon-auth-dismiss" onClick={onDismiss}>

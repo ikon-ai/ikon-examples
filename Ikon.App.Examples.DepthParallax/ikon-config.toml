@@ -85,17 +85,23 @@ GuestSeeds = []
 # SignedInSeeds = ["/**:shell"]
 SignedInSeeds = []
 
-# Where this app's privacy notice and terms live. Leave both empty (the default) and the app serves
-# its own legal/privacy.md and legal/terms.md — files you write, in the app root beside public/ and
-# data/ — at /legal/privacy and /legal/terms on the app's domain, when they exist. Set a URL here to
-# point at your own page instead: the app's /legal path then redirects there.
+# Where this app's privacy notice and terms live. Write legal/privacy.md and legal/terms.md in the app
+# root, beside public/ and data/, and the platform serves each as a page at its path below. Set a URL
+# instead to point at your own page: that path then redirects there. A document with neither is not
+# served, and its path stays the app's own route.
 [Legal]
 # Absolute https:// URL of this app's privacy notice, when it is published somewhere else (e.g.
-# "https://example.com/privacy"). Empty means /legal/privacy serves the app's own legal/privacy.md.
+# "https://example.com/privacy"). Empty means PrivacyPath serves the app's own legal/privacy.md.
 PrivacyUrl = ""
 # Absolute https:// URL of this app's terms, when they are published somewhere else. Empty means
-# /legal/terms serves the app's own legal/terms.md.
+# TermsPath serves the app's own legal/terms.md.
 TermsUrl = ""
+# The path on the app's domain the privacy notice is served at. Absolute, without a file extension,
+# and not under /ikon or /api. Link to it with rel="external", so the browser loads the page instead
+# of the app routing it.
+PrivacyPath = "/legal/privacy"
+# The path on the app's domain the terms are served at, with the same rules as PrivacyPath.
+TermsPath = "/legal/terms"
 
 # Custom packaging steps for 'ikon app bundle' and 'ikon app deploy'
 [Package]
