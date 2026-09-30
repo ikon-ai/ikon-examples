@@ -39,6 +39,9 @@ export interface Translations {
   'auth.button.guest': string;
   'auth.button.provider': string;
   'auth.button.registerPasskey': string;
+  'auth.sso.placeholder': string;
+  'auth.sso.submit': string;
+  'auth.sso.submitting': string;
 }
 
 export type TranslationKey = keyof Translations;
