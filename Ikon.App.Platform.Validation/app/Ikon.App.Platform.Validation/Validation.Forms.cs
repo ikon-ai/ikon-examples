@@ -1,5 +1,10 @@
 public partial class Validation
 {
+    private readonly FormState<FormStateDraft> _formStateDialog = new(() => new FormStateDraft());
+    private readonly ClientReactive<string> _formStateResult = new("Nothing submitted yet");
+    private readonly ClientReactive<FormStateDraft?> _formStateLastSubmitted = new(null);
+    private readonly ClientReactive<string> _formGroupName = new("");
+
     private void RenderFormsSection(UIView view)
     {
         view.Column([Layout.Column.Lg], content: view =>
@@ -37,7 +42,7 @@ public partial class Validation
                     view.Box([FormField.Root], content: view =>
                     {
                         view.Text([FormField.Label], "Verified Field");
-                        view.TextField([Input.Default], placeholder: "Verified value", value: "valid@email.com");
+                        view.TextField([Input.Default], placeholder: "Verified value", bind: _formVerifiedValue);
                         view.Text([FormField.SuccessText], "Email verified successfully!");
                     });
 
@@ -45,11 +50,46 @@ public partial class Validation
                     view.Box([FormField.Root], content: view =>
                     {
                         view.Text([FormField.Label], "Username");
-                        view.TextField([Input.Default], placeholder: "Enter username", value: "user123");
+                        view.TextField([Input.Default], placeholder: "Enter username", bind: _formUsernameValue);
                         view.Text([FormField.WarningText], "This username is already taken but available with a suffix.");
                     });
                 });
             });
+
+            // FormField.Group / FormField.Support rhythm
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-1"], "FormField Group & Support");
+                view.Text([Text.Caption, "mb-4"], "FormField.Group separates whole fields; FormField.Support reserves the one line help and error text share, so an error appearing does not push the form down.");
+                view.Column([FormField.Group, "max-w-md"], content: view =>
+                {
+                    view.Box([FormField.Root], content: view =>
+                    {
+                        view.Text([FormField.Label], "Display name");
+                        view.TextField([Input.DefaultMd], placeholder: "Shown on your profile", bind: _formGroupName);
+                        view.Box([FormField.Support], content: support =>
+                        {
+                            if (_formGroupName.Value.Trim().Length is > 0 and < 3)
+                            {
+                                support.Text([FormField.ErrorText], "At least 3 characters");
+                            }
+                            else
+                            {
+                                support.Text([FormField.HelpText], "3 or more characters");
+                            }
+                        });
+                    });
+
+                    view.Box([FormField.Root], content: view =>
+                    {
+                        view.Text([FormField.Label], "Team");
+                        view.TextField([Input.DefaultMd], placeholder: "Optional");
+                        view.Box([FormField.Support], content: support => support.Text([FormField.HelpText], "Leave empty to stay unassigned"));
+                    });
+                });
+            });
+
+            RenderFormStateCard(view);
 
             // Label styles
             view.Box([Card.Default, "p-6"], content: view =>
@@ -348,7 +388,7 @@ public partial class Validation
                                 _serverUsernameInvalid.Value = true;
                             }
                         }, content: v => v.Text(text: "Submit"));
-                        view.Button([Button.OutlineMd], onClick: async () =>
+                        view.Button([Button.PrimaryMd], onClick: async () =>
                         {
                             _serverEmailInvalid.Value = true;
                             _serverUsernameInvalid.Value = true;
@@ -420,4 +460,104 @@ public partial class Validation
             });
         });
     }
+
+    private void RenderFormStateCard(UIView view)
+    {
+        view.Feature("forms/formstate-dialog", content: view =>
+        {
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-1"], "FormState Dialog");
+                view.Text([Text.Caption, "mb-4"], "FormState<T> + FormDialog / FormField<T> / FormError / FormSubmit<T>. Names shorter than 3 characters fail validation under the field, \"taken\" is refused by the handler with a field FormException, \"offline\" with a form-level one; anything else submits and closes the dialog.");
+                view.Row([Layout.Row.Md, "flex-wrap items-center"], content: row =>
+                {
+                    row.Button([Button.PrimaryMd], text: "Open form dialog", props: TestId("formstate-open"),
+                        onClick: () => _formStateDialog.Show());
+                    row.Button([Button.PrimaryMd], text: "Edit last submitted", props: TestId("formstate-edit"),
+                        disabled: _formStateLastSubmitted.Value == null,
+                        onClick: () => _formStateDialog.Show(_formStateLastSubmitted.Value ?? new FormStateDraft()));
+                    row.Text([Text.Body], _formStateResult.Value, props: TestId("formstate-result"));
+                });
+
+                view.Text([Text.Caption, "mt-2"], CheckFeatureIdValidation(view), props: TestId("feature-id-check"));
+
+                view.FormDialog(_formStateDialog, title: "New entry", description: "Validated by FormState on the server", content: form =>
+                {
+                    form.Column([FormField.Group], content: fields =>
+                    {
+                        fields.FormField(_formStateDialog, "Name", style: [FormField.Root], content: field =>
+                        {
+                            field.Text([FormField.Label], "Name");
+                            field.TextField([Input.DefaultMd],
+                                placeholder: "At least 3 characters",
+                                value: _formStateDialog.Draft.Name,
+                                props: TestId("formstate-name"),
+                                onValueChange: async v => _formStateDialog.Edit(d => d with { Name = v ?? "" }));
+                        });
+
+                        fields.Switch(label: "Public",
+                            value: _formStateDialog.Draft.Public,
+                            onValueChange: async isChecked => _formStateDialog.Edit(d => d with { Public = isChecked }));
+
+                        fields.FormError(_formStateDialog, style: [FormField.ErrorText]);
+
+                        fields.Text([Text.Caption],
+                            $"Dirty: {_formStateDialog.IsDirty} · has errors: {_formStateDialog.HasErrors} · name error: {_formStateDialog.ErrorFor("Name") ?? "none"}",
+                            props: TestId("formstate-status"));
+
+                        fields.Row([Layout.Row.Md, "justify-end"], content: buttons =>
+                        {
+                            buttons.Button([Button.OutlineMd], text: "Cancel", onClick: () => _formStateDialog.Close());
+                            buttons.FormSubmit(_formStateDialog, "Save entry", SubmitFormStateDraftAsync,
+                                validate: ValidateFormStateDraft,
+                                style: [Button.PrimaryMd]);
+                        });
+                    });
+                });
+            });
+        });
+    }
+
+    // The id is checked before the region opens or anything renders, so the refused call leaves no trace in the tree
+    private static string CheckFeatureIdValidation(UIView view)
+    {
+        try
+        {
+            view.Feature("not a feature id!", content: _ => { });
+            return "Feature id check: FAIL an id with spaces and '!' was accepted";
+        }
+        catch (ArgumentException)
+        {
+            return "Feature id check: PASS invalid id rejected";
+        }
+    }
+
+    private static IEnumerable<FormFieldError> ValidateFormStateDraft(FormStateDraft draft)
+    {
+        if (draft.Name.Trim().Length < 3)
+        {
+            yield return new FormFieldError("Name", "Name must be at least 3 characters");
+        }
+    }
+
+    private Task SubmitFormStateDraftAsync(FormStateDraft draft)
+    {
+        var name = draft.Name.Trim();
+
+        if (string.Equals(name, "taken", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new FormException("Name", "That name is already taken");
+        }
+
+        if (string.Equals(name, "offline", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new FormException("The entry service is offline, try again");
+        }
+
+        _formStateLastSubmitted.Value = draft with { Name = name };
+        _formStateResult.Value = $"Submitted: {name}{(draft.Public ? " (public)" : "")}";
+        return Task.CompletedTask;
+    }
 }
+
+internal sealed record FormStateDraft(string Name = "", bool Public = false);

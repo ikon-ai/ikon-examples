@@ -6,7 +6,7 @@ public record ClientParams(string Id, string Test);
 [App]
 public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 {
-    private UI UI { get; } = new(app, new IkonTheme()) { EnableProfiling = false, EnableSubtreeCaching = true, EnableSubtreeRendering = true };
+    private UI UI { get; } = new(app, ValidationTheme.Brand) { EnableProfiling = false, EnableSubtreeCaching = true, EnableSubtreeRendering = true };
     private Audio Audio { get; set; } = new(app);
     private Video Video { get; } = new(app);
     private AudioGenerator AudioGenerator { get; } = new();
@@ -23,14 +23,22 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         "charts",
         "files", "assets", "actions", "notifications",
         "video", "audio", "shadertoy",
-        "ikon-ai", "mcp", "app-cells", "cron",
+        "ikon-ai", "mcp", "cells", "cron",
         "virtualization", "drawing",
-        "profiling", "memory", "identity", "functions",
-        "payments", "email", "custom-messages", "database", "versioned-state"
+        "profiling", "memory", "session-identity", "account", "react-sdk", "consent",
+        "payments", "email", "costs", "custom-messages", "database", "persistent-state",
+        "self-test", "device", "telephony", "signatures"
     ];
 
     // Input states
     private readonly Reactive<string> _textFieldValue = new("");
+    private readonly Reactive<string> _successStateValue = new("valid@email.com");
+    private readonly Reactive<string> _warningStateValue = new("user123");
+    private readonly Reactive<string> _errorStateValue = new("invalid");
+    private readonly Reactive<string> _formVerifiedValue = new("valid@email.com");
+    private readonly Reactive<string> _formUsernameValue = new("user123");
+    private readonly Reactive<CheckedState> _triStateChecked = new(CheckedState.Indeterminate);
+    private readonly Reactive<string> _lastUploadedFileName = new("");
     private readonly Reactive<string> _textAreaValue = new("");
     private readonly Reactive<int> _autoResizePlaygroundRows = new(1);
     private readonly Reactive<int> _autoResizePlaygroundMaxRows = new(6);
@@ -258,14 +266,6 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     private readonly Reactive<bool> _soundToastOpen = new(false);
     private readonly Reactive<string> _soundToastMessage = new("");
 
-    // Interval playback test state
-    private readonly Reactive<string> _intervalMode = new("streaming");
-    private readonly Reactive<string> _intervalPlaySeconds = new("5");
-    private readonly Reactive<string> _intervalWaitSeconds = new("60");
-    private readonly Reactive<bool> _intervalRunning = new(false);
-    private readonly Reactive<string> _intervalStatus = new("(idle)");
-    private CancellationTokenSource? _intervalCts;
-
     // Keyboard listener state
     private readonly Reactive<string> _globalKeyDownEvent = new("(no event)");
     private readonly Reactive<string> _scopedKeyDownEvent = new("(no event)");
@@ -274,7 +274,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
     // Calendar / pickers state
     private readonly Reactive<string> _calendarValue = new("2026-04-23");
     private readonly Reactive<string> _datePickerValue = new("");
-    private readonly Reactive<string> _colorPickerValue = new("#9d76ed");
+    private readonly Reactive<string> _colorPickerValue = new("#db176e");
     private readonly Reactive<string> _timePickerValue = new("09:30");
 
     // Rich text / code editor state
@@ -339,6 +339,12 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         SetupAudioInputHandlers();
         SetupCustomMessageHandlers();
         await StartMcpAsync();
+        InitSelfTest();
+        InitDevice();
+        InitTelephony();
+        InitSignatures();
+        InitConsent();
+        InitSiblingClientEvents();
 
         app.OnStopping(ClearDatabaseAsync);
 
@@ -349,6 +355,7 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
         app.Navigation.PathChangedAsync += args =>
         {
+            RecordNotificationActionTap(args.ClientSessionId, args.Url);
             var tab = args.Path.TrimStart('/');
 
             if (ValidTabs.Contains(tab))
@@ -439,21 +446,26 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
                             new TabItem("shadertoy", "Shadertoy", RenderShadertoySection),
                             new TabItem("ikon-ai", "Ikon.AI Library", ProfilingSkippable(RenderIkonAISection)),
                             new TabItem("mcp", "MCP", RenderMcpSection),
-                            new TabItem("app-cells", "App/Cells", RenderLabSection),
+                            new TabItem("cells", "Cells", RenderCellsSection),
                             new TabItem("cron", "Cron", RenderCronSection),
                             new TabItem("virtualization", "Virtualization", RenderVirtualizationSection),
                             new TabItem("drawing", "Drawing", RenderDrawingSection),
                             new TabItem("profiling", "Profiling", RenderProfilingSection),
                             new TabItem("memory", "Memory", ProfilingSkippable(RenderMemorySection)),
-                            new TabItem("identity", "Identity", RenderIdentitySection),
-                            new TabItem("functions", "Functions", RenderFunctionsSection),
+                            new TabItem("session-identity", "Session Identity", RenderSessionIdentitySection),
+                            new TabItem("account", "Account", RenderAccountSection),
+                            new TabItem("react-sdk", "React SDK", RenderReactSdkSection),
+                            new TabItem("consent", "Consent", RenderConsentSection),
                             new TabItem("payments", "Payments", ProfilingSkippable(RenderPaymentsSection)),
                             new TabItem("email", "Email", RenderEmailSection),
                             new TabItem("costs", "Costs", RenderCostsSection),
-                            new TabItem("custom-messages", "Custom Msgs", RenderCustomMessagesSection),
+                            new TabItem("custom-messages", "Custom Messages", RenderCustomMessagesSection),
                             new TabItem("database", "Database", RenderDatabaseSection),
-                            new TabItem("versioned-state", "Versioned State", RenderVersionedStateSection),
-                            new TabItem("doc-examples", "Doc Examples", RenderDocExamplesSection),
+                            new TabItem("persistent-state", "Persistent State", RenderPersistentStateSection),
+                            new TabItem("self-test", "Self-Test", RenderSelfTestSection),
+                            new TabItem("device", "Device", RenderDeviceSection),
+                            new TabItem("telephony", "Telephony", RenderTelephonySection),
+                            new TabItem("signatures", "Signatures", RenderSignaturesSection),
                         ]);
                 });
             });
@@ -470,6 +482,14 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
         if (tab == "database" && _dbInitTask == null)
         {
             _ = RefreshEntriesAsync();
+        }
+
+        // The status read runs on every visit, so one failed read does not stick on a long-lived
+        // instance; a render cannot start it, because the writes of a task a render spawns are
+        // discarded along with the render's own.
+        if (tab == "telephony")
+        {
+            _ = RefreshTelephonyAsync();
         }
     }
 
@@ -751,6 +771,16 @@ public partial class Validation(IApp<SessionIdentity, ClientParams> app)
 
         Audio.AudioInputFrameAsync += async args =>
         {
+            if (IsCallMicrophone(args.StreamId))
+            {
+                if (_audioStreamStates.TryGetValue(args.StreamId, out var micState))
+                {
+                    TakeCallMicrophoneFrame(args.StreamId, args.Samples.ToArray(), micState.SampleRate, micState.ChannelCount);
+                }
+
+                return;
+            }
+
             RecordClientAudioFrame(args.Samples, args.IsFirst);
 
             // Speech recognizer continuous mode - write samples to channel

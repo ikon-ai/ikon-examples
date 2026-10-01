@@ -1,5 +1,9 @@
 public partial class Validation
 {
+    private readonly ClientReactive<string> _pressHoldState = new("Not pressed yet");
+    private readonly ClientReactive<int> _pressHoldCount = new(0);
+    private readonly ClientReactive<long> _pressHoldStartedAt = new(0);
+
     private void RenderButtonsSection(UIView view)
     {
         view.Column([Layout.Column.Lg], content: view =>
@@ -22,7 +26,7 @@ public partial class Validation
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 view.Text([Text.H2, "mb-1"], "Primary");
-                view.Text([Text.BodySm, "text-tertiary mb-4"], "Adapts to theme — deep brand background with white text in light mode; light pastel brand background with dark text in dark mode.");
+                view.Text([Text.BodySm, "text-tertiary mb-4"], "Follows the theme's brand-button tokens — under the Ikon brand that is brand-600 with a white label in both modes, where Solid is pinned to it regardless of theme");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
                     view.Button([Button.PrimarySm],  text: "Primary Sm");
@@ -83,6 +87,8 @@ public partial class Validation
                     view.Button([Button.ErrorMd], text: "Disabled", disabled: true);
                 });
             });
+
+            RenderDestructiveButtonsCard(view);
 
             // Success
             view.Box([Card.Default, "p-6"], content: view =>
@@ -336,6 +342,69 @@ public partial class Validation
                             view.ToggleGroupItem([Toggle.DefaultMd], value: "underline", content: v => v.Text(["underline"], "U"));
                         });
                 });
+            });
+
+            RenderPressAndHoldCard(view);
+        });
+    }
+
+    private void RenderDestructiveButtonsCard(UIView view)
+    {
+        view.Box([Card.Default, "p-6"], content: view =>
+        {
+            view.Text([Text.H2, "mb-1"], "Destructive Variants");
+            view.Text([Text.BodySm, "text-tertiary mb-4"], "Button.Destructive* is the solid destructive action (an alias of Error*); OutlineError* and GhostError* are the quieter destructive looks for secondary rows and menus.");
+            view.Column([Layout.Column.Md], content: view =>
+            {
+                view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
+                {
+                    view.Button([Button.DestructiveSm], text: "Destructive Sm");
+                    view.Button([Button.DestructiveMd], text: "Destructive Md");
+                    view.Button([Button.DestructiveLg], text: "Destructive Lg");
+                });
+                view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
+                {
+                    view.Button([Button.OutlineErrorSm], text: "Outline Error Sm");
+                    view.Button([Button.OutlineErrorMd], text: "Outline Error Md");
+                    view.Button([Button.OutlineErrorLg], text: "Outline Error Lg");
+                    view.Button([Button.OutlineErrorMd], text: "Disabled", disabled: true);
+                });
+                view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
+                {
+                    view.Button([Button.GhostErrorSm], text: "Ghost Error Sm");
+                    view.Button([Button.GhostErrorMd], text: "Ghost Error Md");
+                    view.Button([Button.GhostErrorLg], text: "Ghost Error Lg");
+                    view.Button([Button.GhostErrorMd, Button.Icon], text: "Delete", content: v => v.Icon([Icon.Default], name: "trash-2"));
+                });
+            });
+        });
+    }
+
+    private void RenderPressAndHoldCard(UIView view)
+    {
+        view.Box([Card.Default, "p-6"], content: view =>
+        {
+            view.Text([Text.H2, "mb-1"], "Press and Hold");
+            view.Text([Text.BodySm, "text-tertiary mb-4"], "Button onPressStart fires on pointer down and onPressEnd on release, so a server action can run for exactly as long as the button is held.");
+            view.Row([Layout.Row.Md, "flex-wrap items-center"], content: view =>
+            {
+                view.Button([Button.PrimaryMd, "select-none"],
+                    text: "Hold me",
+                    icon: "hand",
+                    props: TestId("press-hold-button"),
+                    onPressStart: () =>
+                    {
+                        _pressHoldStartedAt.Value = Environment.TickCount64;
+                        _pressHoldState.Value = $"Pressed · presses: {_pressHoldCount.Value + 1}";
+                    },
+                    onPressEnd: () =>
+                    {
+                        _pressHoldCount.Value += 1;
+                        var heldMs = _pressHoldStartedAt.Value > 0 ? Environment.TickCount64 - _pressHoldStartedAt.Value : 0;
+                        _pressHoldStartedAt.Value = 0;
+                        _pressHoldState.Value = $"Released after {heldMs} ms · presses: {_pressHoldCount.Value}";
+                    });
+                view.Text([Text.Body, "tabular-nums"], _pressHoldState.Value, props: TestId("press-hold-state"));
             });
         });
     }

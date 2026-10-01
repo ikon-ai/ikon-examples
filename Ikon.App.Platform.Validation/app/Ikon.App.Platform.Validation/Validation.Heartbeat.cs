@@ -38,25 +38,53 @@ public partial class Validation
 
         view.Column([Layout.Column.Lg], content: view =>
         {
+            view.Text([Text.H2], "Cron");
+
             view.Box([Card.Default, "p-6"], content: view =>
             {
-                view.Text([Text.H2, "mb-4"], "Cron heartbeat");
-                view.Text([Text.Body, "mb-2"],
-                    $"An hourly [Cron] (\"{HeartbeatSchedule}\") writes a timestamp to {HeartbeatAssetPath}. " +
-                    "The platform validator fails when the timestamp goes stale, so a broken cron pipeline is caught automatically.");
-
-                var timestamp = _lastHeartbeatUtc.Value;
-                view.Text([Text.Body, "font-mono"], timestamp ?? "never", props: TestId("cron-heartbeat-timestamp"));
-
-                if (timestamp is not null && DateTimeOffset.TryParse(timestamp, null, System.Globalization.DateTimeStyles.RoundtripKind, out var parsed))
-                {
-                    var age = DateTimeOffset.UtcNow - parsed;
-                    view.Text([Text.Caption, "mt-1"], $"Age: {(int)age.TotalMinutes} min", props: TestId("cron-heartbeat-age"));
-                }
+                view.Text([Text.H3, "mb-3"], "Scheduled function");
+                RenderLastRun(view, _lastHeartbeatUtc.Value, "cron-heartbeat-timestamp");
             });
 
             RenderScheduledPipelineCard(view);
         });
+    }
+
+    // In the viewer's own time zone, from the one their client reported when it connected. The value
+    // keeps its UTC offset because the validation script reads it back as an ISO timestamp.
+    private void RenderLastRun(UIView view, string? timestamp, string testId, string label = "Last run:")
+    {
+        if (timestamp is null || !DateTimeOffset.TryParse(timestamp, null, System.Globalization.DateTimeStyles.RoundtripKind, out var parsed))
+        {
+            view.Row([Layout.Row.Sm, "items-baseline"], content: view =>
+            {
+                view.Text([Text.Body], label);
+                view.Text([Text.Body], timestamp ?? "never", props: TestId(testId));
+            });
+            return;
+        }
+
+        var zone = ViewerTimeZone();
+        var local = TimeZoneInfo.ConvertTime(parsed, zone);
+
+        view.Row([Layout.Row.Sm, "items-baseline flex-wrap"], content: view =>
+        {
+            view.Text([Text.Body], label);
+            view.Text([Text.Body], local.ToString("yyyy-MM-dd HH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture), props: TestId(testId));
+            view.Text([Text.Caption], zone.Id);
+        });
+    }
+
+    private TimeZoneInfo ViewerTimeZone()
+    {
+        var reported = app.GlobalState.Clients.TryGetValue(ReactiveScope.ClientId, out var client) ? client.Timezone : null;
+
+        if (!string.IsNullOrEmpty(reported) && TimeZoneInfo.TryFindSystemTimeZoneById(reported, out var zone))
+        {
+            return zone;
+        }
+
+        return TimeZoneInfo.Utc;
     }
 
     // Seed the UI mirror from the persisted asset once per process, so the last heartbeat is

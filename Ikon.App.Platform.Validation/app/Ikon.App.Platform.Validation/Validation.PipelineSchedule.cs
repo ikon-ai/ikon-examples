@@ -62,10 +62,7 @@ public partial class Validation
 
         view.Box([Card.Default, "p-6"], content: view =>
         {
-            view.Text([Text.H2, "mb-4"], "Scheduled pipeline");
-            view.Text([Text.Body, "mb-2"],
-                $"An hourly [Pipeline] (\"{ValidationSchedulePipeline.Schedule}\") writes its run time to {ValidationSchedulePipeline.AssetPath}. " +
-                "It runs in its own pipeline runtime rather than in the app process, so it exercises a scheduler the cron heartbeat above does not.");
+            view.Text([Text.H3, "mb-3"], "Scheduled pipeline");
 
             if (!_scheduledPipelineStatusLoaded.Value)
             {
@@ -73,14 +70,7 @@ public partial class Validation
                 return;
             }
 
-            var timestamp = _lastScheduledPipelineRunUtc.Value;
-            view.Text([Text.Body, "font-mono"], timestamp ?? "never", props: TestId("pipeline-schedule-timestamp"));
-
-            if (timestamp is not null && DateTimeOffset.TryParse(timestamp, null, System.Globalization.DateTimeStyles.RoundtripKind, out var parsed))
-            {
-                var age = DateTimeOffset.UtcNow - parsed;
-                view.Text([Text.Caption, "mt-1"], $"Age: {(int)age.TotalMinutes} min", props: TestId("pipeline-schedule-age"));
-            }
+            RenderLastRun(view, _lastScheduledPipelineRunUtc.Value, "pipeline-schedule-timestamp");
         });
     }
 

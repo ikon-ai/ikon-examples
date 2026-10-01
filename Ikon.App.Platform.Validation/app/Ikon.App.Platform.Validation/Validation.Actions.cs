@@ -1,16 +1,15 @@
 public partial class Validation
 {
+    private readonly ClientReactive<string> _feedbackOpenResult = new("OpenFeedback: not clicked yet");
+    private readonly ClientReactive<string> _lazyDownloadResult = new("Download: not clicked yet");
+    private readonly ClientReactive<string> _navigateToResult = new("NavigateToAsync: not clicked yet");
+    private readonly ClientReactive<string> _actionFailedResult = new("Action failed: not triggered yet");
+    private int _actionFailedHooked;
+
     private void RenderActionsSection(UIView view)
     {
         view.Column([Layout.Column.Lg], content: view =>
         {
-            // ActionButton overview
-            view.Box([Card.Default, "p-6"], content: view =>
-            {
-                view.Text([Text.H2, "mb-4"], "ActionButton Overview");
-                view.Text([Text.Caption, "mb-4"], "ActionButtons trigger client-side actions that require user gesture (clipboard, share, download, etc.)");
-            });
-
             // Copy to Clipboard
             view.Box([Card.Default, "p-6"], content: view =>
             {
@@ -32,7 +31,7 @@ public partial class Validation
                             v.Text(text: "Copy Text");
                         });
 
-                    view.ActionButton([Button.OutlineMd],
+                    view.ActionButton([Button.PrimaryMd],
                         action: ActionKind.CopyToClipboard,
                         options: new CopyToClipboardActionOptions { Text = "Another copied text" },
                         content: v =>
@@ -41,7 +40,7 @@ public partial class Validation
                             v.Text(text: "Copy Another");
                         });
 
-                    view.ActionButton([Button.GhostMd],
+                    view.ActionButton([Button.PrimaryMd],
                         action: ActionKind.CopyToClipboard,
                         disabled: true,
                         options: new CopyToClipboardActionOptions { Text = "Disabled" },
@@ -79,7 +78,7 @@ public partial class Validation
                             v.Text(text: "Share Link");
                         });
 
-                    view.ActionButton([Button.NeutralMd],
+                    view.ActionButton([Button.PrimaryMd],
                         action: ActionKind.Share,
                         options: new ShareActionOptions
                         {
@@ -119,7 +118,7 @@ public partial class Validation
                             v.Text(text: "Download Image");
                         });
 
-                    view.ActionButton([Button.OutlineMd],
+                    view.ActionButton([Button.PrimaryMd],
                         action: ActionKind.DownloadFile,
                         options: new DownloadFileActionOptions
                         {
@@ -161,7 +160,7 @@ public partial class Validation
                             v.Text(text: "Get My Location");
                         });
 
-                    view.ActionButton([Button.OutlineMd],
+                    view.ActionButton([Button.PrimaryMd],
                         action: ActionKind.GetLocation,
                         disabled: true,
                         content: v =>
@@ -201,7 +200,7 @@ public partial class Validation
                             v.Text(text: "Pick One Contact");
                         });
 
-                    view.ActionButton([Button.NeutralMd],
+                    view.ActionButton([Button.PrimaryMd],
                         action: ActionKind.PickContacts,
                         options: new PickContactsActionOptions { Multiple = true },
                         content: v =>
@@ -232,7 +231,7 @@ public partial class Validation
                             v.Text(text: "Enter Fullscreen");
                         });
 
-                    view.ActionButton([Button.NeutralMd],
+                    view.ActionButton([Button.PrimaryMd],
                         action: ActionKind.ExitFullscreen,
                         onActionComplete: async e =>
                         {
@@ -263,7 +262,7 @@ public partial class Validation
                 view.Text([Text.Caption, "mb-4"], "Set the current theme");
                 view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
                 {
-                    view.Button([Button.NeutralMd],
+                    view.Button([Button.PrimaryMd],
                         text: "Set Theme (dark)",
                         onClick: async () =>
                         {
@@ -272,7 +271,7 @@ public partial class Validation
                             _clientFunctionToastOpen.Value = true;
                         });
 
-                    view.Button([Button.OutlineMd],
+                    view.Button([Button.PrimaryMd],
                         text: "Set Theme (light)",
                         onClick: async () =>
                         {
@@ -301,7 +300,7 @@ public partial class Validation
                             _clientFunctionToastOpen.Value = true;
                         });
 
-                    view.Button([Button.NeutralMd],
+                    view.Button([Button.PrimaryMd],
                         text: "Get Timezone",
                         onClick: async () =>
                         {
@@ -330,7 +329,7 @@ public partial class Validation
                             _clientFunctionToastOpen.Value = true;
                         });
 
-                    view.Button([Button.NeutralMd],
+                    view.Button([Button.PrimaryMd],
                         text: "Set URL (/test)",
                         onClick: async () =>
                         {
@@ -340,6 +339,41 @@ public partial class Validation
                         });
                 });
             });
+
+            // Feedback
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                var clientSessionId = ReactiveScope.ClientId;
+
+                view.Text([Text.H2, "mb-4"], "Feedback");
+                view.Text([Text.Caption, "mb-4"], "Open the platform's feedback sheet from an app-placed control");
+
+                if (!view.CanOpenFeedback())
+                {
+                    view.Text([Text.Muted], "Feedback is not offered to this session", props: TestId("feedback-not-offered"));
+                    return;
+                }
+
+                view.Row([Layout.Row.Md, "flex-wrap items-center"], content: row =>
+                {
+                    row.Button([Button.PrimaryMd],
+                        text: "Send feedback",
+                        props: TestId("feedback-open"),
+                        onClick: async () =>
+                        {
+                            var opened = await ClientFunctions.OpenFeedbackAsync(clientSessionId);
+                            var result = opened ? "OpenFeedback: Opened" : "OpenFeedback: Not offered";
+                            _feedbackOpenResult.Value = result;
+                            _clientFunctionResultText.Value = result;
+                            _clientFunctionToastOpen.Value = true;
+                        });
+                    row.Text([Text.Body], _feedbackOpenResult.Value, props: TestId("feedback-open-result"));
+                });
+            });
+
+            view.Feature("actions/downloads", content: RenderLazyDownloadsCard);
+            RenderNavigateToCard(view);
+            RenderActionFailedCard(view);
 
             // Vibrate
             view.Box([Card.Default, "p-6"], content: view =>
@@ -359,7 +393,7 @@ public partial class Validation
                             _clientFunctionToastOpen.Value = true;
                         });
 
-                    view.Button([Button.NeutralMd],
+                    view.Button([Button.PrimaryMd],
                         text: "Vibrate Pattern",
                         onClick: async () =>
                         {
@@ -388,7 +422,7 @@ public partial class Validation
                             _clientFunctionToastOpen.Value = true;
                         });
 
-                    view.Button([Button.NeutralMd],
+                    view.Button([Button.PrimaryMd],
                         text: "Keep Awake OFF",
                         onClick: async () =>
                         {
@@ -417,7 +451,7 @@ public partial class Validation
                             _clientFunctionToastOpen.Value = true;
                         });
 
-                    view.Button([Button.NeutralMd],
+                    view.Button([Button.PrimaryMd],
                         text: "Scroll To Top",
                         onClick: async () =>
                         {
@@ -426,7 +460,7 @@ public partial class Validation
                             _clientFunctionToastOpen.Value = true;
                         });
 
-                    view.Button([Button.OutlineMd],
+                    view.Button([Button.PrimaryMd],
                         text: "Scroll Down",
                         onClick: async () =>
                         {
@@ -455,7 +489,7 @@ public partial class Validation
                             _clientFunctionToastOpen.Value = true;
                         });
 
-                    view.Button([Button.NeutralMd],
+                    view.Button([Button.PrimaryMd],
                         text: "Get Network",
                         onClick: async () =>
                         {
@@ -488,4 +522,157 @@ public partial class Validation
                 closeStyle: [Toast.Close]);
         });
     }
+
+    private void RenderLazyDownloadsCard(UIView view)
+    {
+        view.Box([Card.Default, "p-6"], content: view =>
+        {
+            var clientSessionId = ReactiveScope.ClientId;
+
+            view.Text([Text.H2, "mb-1"], "Lazy Downloads");
+            view.Text([Text.Caption, "mb-4"], "UrlProvider and AssetProvider run on the server only when the button is clicked, so nothing ships with the render; ClientFunctions.DownloadFileAsync pushes a download from any handler.");
+
+            view.Row([Layout.Row.Md, "flex-wrap"], content: row =>
+            {
+                row.ActionButton([Button.PrimaryMd],
+                    action: ActionKind.DownloadFile,
+                    options: new DownloadFileActionOptions
+                    {
+                        Filename = "lazy-url.svg",
+                        UrlProvider = () =>
+                        {
+                            _lazyDownloadResult.Value = "Download (UrlProvider): PASS provider ran on click";
+                            return Task.FromResult<string?>("/test-images/square-a.svg");
+                        }
+                    },
+                    props: TestId("download-url-provider"),
+                    content: v =>
+                    {
+                        v.Icon([Icon.Default, "mr-2"], name: "link");
+                        v.Text(text: "UrlProvider");
+                    });
+
+                row.ActionButton([Button.PrimaryMd],
+                    action: ActionKind.DownloadFile,
+                    options: new DownloadFileActionOptions
+                    {
+                        Filename = "lazy-asset.txt",
+                        AssetProvider = StageLazyDownloadAssetAsync
+                    },
+                    props: TestId("download-asset-provider"),
+                    content: v =>
+                    {
+                        v.Icon([Icon.Default, "mr-2"], name: "cloud-download");
+                        v.Text(text: "AssetProvider");
+                    });
+
+                row.Button([Button.PrimaryMd],
+                    text: "DownloadFileAsync",
+                    icon: "download",
+                    props: TestId("download-client-function"),
+                    onClick: async () =>
+                    {
+                        var accepted = await ClientFunctions.DownloadFileAsync("/test-images/square-a.svg", "pushed.svg", targetId: clientSessionId);
+                        _lazyDownloadResult.Value = accepted
+                            ? "DownloadFileAsync: PASS client accepted the download"
+                            : "DownloadFileAsync: FAIL client has no download function";
+                    });
+            });
+
+            view.Text([Text.Body, "mt-3"], _lazyDownloadResult.Value, props: TestId("download-result"));
+        });
+    }
+
+    private async Task<AssetUri> StageLazyDownloadAssetAsync()
+    {
+        try
+        {
+            var uri = new AssetUri(AssetClass.CloudFile, "validation/lazy-download.txt", spaceId: app.GlobalState.SpaceId);
+            var bytes = Encoding.UTF8.GetBytes($"Staged by the Validation app's AssetProvider at {DateTime.UtcNow:O}\n");
+            await Asset.Instance.SetBytesAsync(uri, bytes, new AssetMetadata(mimeType: "text/plain"));
+            _lazyDownloadResult.Value = "Download (AssetProvider): PASS asset staged on click";
+            return uri;
+        }
+        catch (Exception ex)
+        {
+            _lazyDownloadResult.Value = $"Download (AssetProvider): FAIL {ex.Message}";
+            throw;
+        }
+    }
+
+    private void RenderNavigateToCard(UIView view)
+    {
+        view.Box([Card.Default, "p-6"], content: view =>
+        {
+            var clientSessionId = ReactiveScope.ClientId;
+
+            view.Text([Text.H2, "mb-1"], "Navigate Away");
+            view.Text([Text.Caption, "mb-4"], "ClientFunctions.NavigateToAsync leaves the app for an absolute http(s) URL and ends the session; anything else is refused and returns false.");
+
+            view.Row([Layout.Row.Md, "flex-wrap"], content: row =>
+            {
+                row.Button([Button.PrimaryMd],
+                    text: "Try a javascript: URL",
+                    props: TestId("navigate-refused"),
+                    onClick: async () =>
+                    {
+                        var left = await ClientFunctions.NavigateToAsync("javascript:alert(1)", targetId: clientSessionId);
+                        _navigateToResult.Value = left
+                            ? "NavigateToAsync: FAIL a javascript: URL was followed"
+                            : "NavigateToAsync: PASS javascript: URL refused";
+                    });
+
+                row.Button([Button.PrimaryMd],
+                    text: "Leave for example.com",
+                    icon: "external-link",
+                    onClick: async () =>
+                    {
+                        _navigateToResult.Value = "NavigateToAsync: leaving…";
+                        await ClientFunctions.NavigateToAsync("https://example.com/", targetId: clientSessionId);
+                    });
+            });
+
+            view.Text([Text.Body, "mt-3"], _navigateToResult.Value, props: TestId("navigate-result"));
+        });
+    }
+
+    private void RenderActionFailedCard(UIView view)
+    {
+        if (Interlocked.Exchange(ref _actionFailedHooked, 1) == 0)
+        {
+            UI.ActionFailedAsync += OnDeliberateActionFailedAsync;
+        }
+
+        view.Box([Card.Default, "p-6"], content: view =>
+        {
+            view.Text([Text.H2, "mb-1"], "Action Failures");
+            view.Text([Text.Caption, "mb-4"], "A handler that throws is reported to UI.ActionFailedAsync inside the clicking client's scope. This button throws on purpose; the subscriber renders the outcome below.");
+
+            view.Row([Layout.Row.Md, "flex-wrap items-center"], content: row =>
+            {
+                row.Button([Button.PrimaryMd],
+                    text: "Run a failing action",
+                    icon: "triangle-alert",
+                    props: TestId("action-fail-trigger"),
+                    onClick: ThrowDeliberateActionFailure);
+                row.Text([Text.Body], _actionFailedResult.Value, props: TestId("action-fail-result"));
+            });
+        });
+    }
+
+    private Task OnDeliberateActionFailedAsync(ActionFailedEventArgs args)
+    {
+        // Every other tab's failures reach this subscriber too; only the deliberate one is ours to report
+        if (args.Exception is DeliberateActionFailureException deliberate)
+        {
+            _actionFailedResult.Value = $"PASS: Action failed: {deliberate.Message} · action {args.ActionId.ToString()[..8]} · {Path.GetFileName(args.CallSite)}";
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private static Task ThrowDeliberateActionFailure() =>
+        throw new DeliberateActionFailureException("deliberate failure from the Actions tab");
+
+    private sealed class DeliberateActionFailureException(string message) : Exception(message);
 }

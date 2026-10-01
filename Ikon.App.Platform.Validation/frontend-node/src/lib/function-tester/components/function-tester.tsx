@@ -1,165 +1,86 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { type IkonUiComponentResolver, type UiComponentRendererProps, useUiNode } from '@ikonai/sdk-react-ui';
-import type { FunctionRegistry } from '@ikonai/sdk';
+import type { IkonClient } from '@ikonai/sdk';
+import { describeError, panelStyles, resultStyle } from '../../identity/panel-styles';
 
-type RemoteFunction = ReturnType<FunctionRegistry['getRemoteFunctions']>[number];
+// Calling C# functions from the browser needs browser code, which is why this one check is React.
+// It calls the app's two ValidationFunctions and compares what comes back with what went in.
+const ALL_TYPES_ARGS = ['hello', 3.14, true, 42, ['alpha', 'beta', 'gamma'], { min: 1.5, max: 9.9 }, '12345678-1234-1234-1234-123456789abc', '2024-06-15T12:30:00Z'];
+const ECHO_BYTES = new Uint8Array([0x01, 0x02, 0x03, 0xff, 0xfe]);
 
-interface FunctionCallResult {
-  value: unknown;
-  error: string | null;
-  durationMs: number;
+async function checkAllTypes(client: IkonClient): Promise<string> {
+  const value = await client.functionRegistry.call('AllTypes', ALL_TYPES_ARGS);
+  const echoed = JSON.parse(String(value)) as Record<string, unknown>;
+  const mismatches = [
+    echoed.s === 'hello' ? null : 's',
+    echoed.d === 3.14 ? null : 'd',
+    echoed.b === true ? null : 'b',
+    echoed.i === 42 ? null : 'i',
+    JSON.stringify(echoed.list) === JSON.stringify(['alpha', 'beta', 'gamma']) ? null : 'list',
+    JSON.stringify(echoed.dict) === JSON.stringify({ min: 1.5, max: 9.9 }) ? null : 'dict',
+    echoed.guid === '12345678-1234-1234-1234-123456789abc' ? null : 'guid',
+    Date.parse(String(echoed.dateTime)) === Date.parse('2024-06-15T12:30:00Z') ? null : 'dateTime',
+  ].filter((name) => name !== null);
+
+  return mismatches.length === 0 ? 'PASS all eight types round-tripped' : `FAIL ${mismatches.join(', ')} came back different: ${String(value)}`;
 }
 
-const TEST_ARGS: Record<string, unknown[]> = {
-  AllTypes: [
-    'hello',
-    3.14,
-    true,
-    42,
-    ['alpha', 'beta', 'gamma'],
-    { min: 1.5, max: 9.9 },
-    '12345678-1234-1234-1234-123456789abc',
-    '2024-06-15T12:30:00Z',
-  ],
-  EchoBytes: [new Uint8Array([0x01, 0x02, 0x03, 0xff, 0xfe])],
-};
+async function checkEchoBytes(client: IkonClient): Promise<string> {
+  const value = await client.functionRegistry.call('EchoBytes', [ECHO_BYTES]);
+  const bytes = value instanceof Uint8Array ? Array.from(value) : null;
+  const sent = Array.from(ECHO_BYTES);
 
-function formatArg(a: unknown): string {
-  if (a instanceof Uint8Array) {
-    return `Uint8Array[${Array.from(a).map((b) => '0x' + b.toString(16).padStart(2, '0')).join(', ')}]`;
+  return bytes !== null && bytes.length === sent.length && bytes.every((b, index) => b === sent[index])
+    ? `PASS ${sent.length} bytes echoed`
+    : `FAIL got ${bytes === null ? typeof value : bytes.join(',')}`;
+}
+
+async function runCheck(check: (client: IkonClient) => Promise<string>, client: IkonClient): Promise<string> {
+  try {
+    return await check(client);
+  } catch (error) {
+    return `FAIL ${describeError(error)}`;
   }
-  return JSON.stringify(a);
-}
-
-function formatArgs(args: unknown[]): string {
-  return args.map(formatArg).join(', ');
-}
-
-function formatResult(value: unknown): string {
-  if (value instanceof Uint8Array) {
-    return `Uint8Array[${Array.from(value).map((b) => '0x' + b.toString(16).padStart(2, '0')).join(', ')}]`;
-  }
-  return JSON.stringify(value, null, 2);
-}
-
-function FunctionCard({
-  fn,
-  onCall,
-}: {
-  fn: RemoteFunction;
-  onCall: (name: string, args: unknown[]) => Promise<FunctionCallResult>;
-}) {
-  const [result, setResult] = useState<FunctionCallResult | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  // A fresh [] on every render would re-identify the useCallback below each time.
-  const args = useMemo(() => TEST_ARGS[fn.name] ?? [], [fn.name]);
-
-  const handleCall = useCallback(async () => {
-    setLoading(true);
-    setResult(null);
-    try {
-      const r = await onCall(fn.name, args);
-      setResult(r);
-    } finally {
-      setLoading(false);
-    }
-  }, [fn.name, args, onCall]);
-
-  return (
-    <div style={cardStyle}>
-      <div style={cardHeaderStyle}>
-        <span style={fnNameStyle}>{fn.name}</span>
-        <span style={fnDescStyle}>{fn.description}</span>
-      </div>
-
-      <div style={cardBodyStyle}>
-        <div style={argsRowStyle}>
-          <span style={labelStyle}>Args:</span>
-          <code style={codeStyle}>{formatArgs(args)}</code>
-        </div>
-
-        <div style={buttonRowStyle}>
-          <button style={loading ? buttonDisabledStyle : buttonStyle} onClick={handleCall} disabled={loading}>
-            {loading ? 'Calling...' : 'Call'}
-          </button>
-        </div>
-
-        {result && (
-          <div style={result.error ? errorResultStyle : successResultStyle}>
-            <div style={resultHeaderStyle}>
-              <span>{result.error ? 'Error' : 'Result'}</span>
-              <span style={timingStyle}>{result.durationMs.toFixed(0)}ms</span>
-            </div>
-            <code style={resultCodeStyle}>{result.error ?? formatResult(result.value)}</code>
-          </div>
-        )}
-      </div>
-    </div>
-  );
 }
 
 const FunctionTesterRenderer = memo(function FunctionTesterRenderer({ nodeId, context, className }: UiComponentRendererProps) {
   const node = useUiNode(context.store, nodeId);
   const client = context.client;
+  const [allTypesResult, setAllTypesResult] = useState('');
+  const [echoBytesResult, setEchoBytesResult] = useState('');
+  const [running, setRunning] = useState(false);
 
-  const [functions, setFunctions] = useState<RemoteFunction[]>([]);
-  const [initialized, setInitialized] = useState(false);
+  const run = useCallback(async () => {
+    if (!client) {
+      return;
+    }
 
-  const handleCall = useCallback(
-    async (name: string, args: unknown[]): Promise<FunctionCallResult> => {
-      if (!client) return { value: null, error: 'Not connected', durationMs: 0 };
-      const start = performance.now();
-      try {
-        const value = await client.functionRegistry.call(name, args);
-        return { value, error: null, durationMs: performance.now() - start };
-      } catch (e) {
-        return { value: null, error: e instanceof Error ? e.message : String(e), durationMs: performance.now() - start };
-      }
-    },
-    [client],
-  );
-
-  const handleRefresh = useCallback(() => {
-    if (!client) return;
-    setFunctions(client.functionRegistry.getRemoteFunctions());
-    setInitialized(true);
+    setRunning(true);
+    setAllTypesResult('');
+    setEchoBytesResult('');
+    setAllTypesResult(await runCheck(checkAllTypes, client));
+    setEchoBytesResult(await runCheck(checkEchoBytes, client));
+    setRunning(false);
   }, [client]);
 
-  if (!node) return null;
-
-  if (!initialized && client) {
-    const remoteFns = client.functionRegistry.getRemoteFunctions();
-    if (remoteFns.length > 0) {
-      setFunctions(remoteFns);
-      setInitialized(true);
-    }
+  if (!node) {
+    return null;
   }
 
   return (
-    <div className={className}>
-      <div style={toolbarStyle}>
-        <span style={countStyle}>
-          {functions.length} remote function{functions.length !== 1 ? 's' : ''} discovered
-        </span>
-        <button style={refreshButtonStyle} onClick={handleRefresh}>
-          Refresh
+    <div className={className} style={panelStyles.container}>
+      <div style={panelStyles.actions}>
+        <button type="button" style={panelStyles.button} onClick={run} disabled={running || !client} data-testid="functions-run">
+          {running ? 'Calling…' : 'Call from the browser'}
         </button>
       </div>
-
-      {functions.length === 0 && (
-        <div style={emptyStyle}>
-          No remote functions found.{' '}
-          <button style={linkButtonStyle} onClick={handleRefresh}>
-            Click to refresh
-          </button>
-        </div>
-      )}
-
-      <div style={gridStyle}>
-        {functions.map((fn) => (
-          <FunctionCard key={fn.id} fn={fn} onCall={handleCall} />
-        ))}
+      <div style={panelStyles.row}>
+        <span style={panelStyles.value}>AllTypes</span>
+        <span style={resultStyle(allTypesResult)} data-testid="functions-alltypes-result">{allTypesResult}</span>
+      </div>
+      <div style={panelStyles.row}>
+        <span style={panelStyles.value}>EchoBytes</span>
+        <span style={resultStyle(echoBytesResult)} data-testid="functions-echobytes-result">{echoBytesResult}</span>
       </div>
     </div>
   );
@@ -171,166 +92,3 @@ export function createFunctionTesterResolver(): IkonUiComponentResolver {
     return FunctionTesterRenderer;
   };
 }
-
-const cardStyle: React.CSSProperties = {
-  border: '1px solid var(--border-border)',
-  borderRadius: '0.5rem',
-  overflow: 'hidden',
-  background: 'var(--bg-card)',
-  minWidth: 0,
-};
-
-const cardHeaderStyle: React.CSSProperties = {
-  padding: '0.75rem 1rem',
-  borderBottom: '1px solid var(--border-border)',
-  background: 'var(--bg-surface)',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '0.25rem',
-};
-
-const fnNameStyle: React.CSSProperties = {
-  fontWeight: 600,
-  fontSize: '0.95rem',
-  fontFamily: 'monospace',
-};
-
-const fnDescStyle: React.CSSProperties = {
-  fontSize: '0.8rem',
-  color: 'var(--text-quaternary)',
-};
-
-const cardBodyStyle: React.CSSProperties = {
-  padding: '0.75rem 1rem',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '0.5rem',
-};
-
-const argsRowStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'baseline',
-  flexWrap: 'wrap',
-  gap: '0.5rem',
-  fontSize: '0.85rem',
-  minWidth: 0,
-};
-
-const labelStyle: React.CSSProperties = {
-  fontWeight: 500,
-  color: 'var(--text-quaternary)',
-};
-
-const codeStyle: React.CSSProperties = {
-  fontSize: '0.8rem',
-  minWidth: 0,
-  wordBreak: 'break-all',
-  background: 'var(--bg-muted)',
-  padding: '0.15rem 0.4rem',
-  borderRadius: '0.25rem',
-  fontFamily: 'monospace',
-};
-
-const buttonRowStyle: React.CSSProperties = {
-  display: 'flex',
-  gap: '0.5rem',
-  flexWrap: 'wrap',
-};
-
-const buttonStyle: React.CSSProperties = {
-  padding: '0.4rem 1rem',
-  borderRadius: '0.375rem',
-  border: 'none',
-  background: 'var(--bg-brand-solid)',
-  color: 'var(--text-white)',
-  cursor: 'pointer',
-  fontSize: '0.85rem',
-  fontWeight: 500,
-};
-
-const buttonDisabledStyle: React.CSSProperties = {
-  ...buttonStyle,
-  opacity: 0.6,
-  cursor: 'not-allowed',
-};
-
-const successResultStyle: React.CSSProperties = {
-  background: 'var(--bg-muted)',
-  borderRadius: '0.375rem',
-  padding: '0.5rem 0.75rem',
-  fontSize: '0.85rem',
-};
-
-const errorResultStyle: React.CSSProperties = {
-  ...successResultStyle,
-  background: 'var(--bg-error-primary)',
-  border: '1px solid var(--border-error)',
-  color: 'var(--text-error-primary)',
-};
-
-const resultHeaderStyle: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  marginBottom: '0.25rem',
-  fontWeight: 500,
-  fontSize: '0.8rem',
-};
-
-const timingStyle: React.CSSProperties = {
-  color: 'var(--text-quaternary)',
-  fontSize: '0.75rem',
-};
-
-const resultCodeStyle: React.CSSProperties = {
-  fontFamily: 'monospace',
-  fontSize: '0.8rem',
-  whiteSpace: 'pre-wrap',
-  wordBreak: 'break-all',
-  display: 'block',
-};
-
-const toolbarStyle: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  flexWrap: 'wrap',
-  gap: '0.5rem',
-  marginBottom: '0.75rem',
-};
-
-const countStyle: React.CSSProperties = {
-  fontSize: '0.85rem',
-  color: 'var(--text-quaternary)',
-};
-
-const refreshButtonStyle: React.CSSProperties = {
-  padding: '0.3rem 0.75rem',
-  borderRadius: '0.375rem',
-  border: '1px solid var(--border-border)',
-  background: 'var(--bg-card)',
-  cursor: 'pointer',
-  fontSize: '0.8rem',
-};
-
-const emptyStyle: React.CSSProperties = {
-  textAlign: 'center',
-  padding: '2rem',
-  color: 'var(--text-quaternary)',
-  fontSize: '0.9rem',
-};
-
-const linkButtonStyle: React.CSSProperties = {
-  background: 'none',
-  border: 'none',
-  color: 'var(--text-brand-primary)',
-  cursor: 'pointer',
-  textDecoration: 'underline',
-  fontSize: 'inherit',
-  padding: 0,
-};
-
-const gridStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(min(350px, 100%), 1fr))',
-  gap: '0.75rem',
-};

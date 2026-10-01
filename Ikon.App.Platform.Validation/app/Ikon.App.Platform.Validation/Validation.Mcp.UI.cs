@@ -4,139 +4,151 @@ public partial class Validation
     {
         view.Column([Layout.Column.Lg], content: view =>
         {
-            // Public URL banner — copy this into any MCP client.
-            view.Box([Card.Default, "p-6"], content: view =>
-            {
-                view.Text([Text.H2, "mb-2"], "MCP Public Endpoint");
-                view.Text([Text.Caption, "mb-4"],
-                    "Any MCP client (Claude Desktop, custom HTTP, etc.) can POST JSON-RPC to this URL. " +
-                    "Auto-derived from this app's [Mcp]-decorated methods.");
+            view.Text([Text.H2], "MCP");
 
-                if (_mcpStartError.Value is { } err)
-                {
-                    view.Box([Alert.Error], content: view => view.Text([Alert.Description], err));
-                }
-                else if (_mcpPublicUrl.Value is { } url)
-                {
-                    view.Text([Text.Caption, "font-mono select-all break-all"], url);
-                }
-                else
-                {
-                    view.Text([Text.Caption], "(starting…)");
-                }
+            if (_mcpStartError.Value is { } err)
+            {
+                view.Box([Alert.Error], content: view => view.Text([Alert.Description], err));
+            }
+
+            RenderMcpEndpointCard(view);
+            RenderMcpChecksCard(view);
+            RenderMcpInvokeCard(view);
+        });
+    }
+
+    private void RenderMcpEndpointCard(UIView view)
+    {
+        view.Box([Card.Default, "p-6"], content: view =>
+        {
+            view.Text([Text.H3, "mb-3"], "Endpoint");
+
+            if (ResolveApiMcpUrl() is not { } url)
+            {
+                view.Text([Text.Caption], "(starting…)");
+                return;
+            }
+
+            view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
+            {
+                view.Text([Text.Body, "select-all break-all flex-1"], url, props: TestId("mcp-url"));
+                view.ActionButton([Button.OutlineSm],
+                    action: ActionKind.CopyToClipboard,
+                    options: new CopyToClipboardActionOptions { Text = url },
+                    text: "Copy");
             });
 
-            // Tool list — schemas come from the C# signatures + record return types.
-            view.Box([Card.Default, "p-6"], content: view =>
+            // A bare URL routes to a cloud instance, so a client pointed at a local run needs the
+            // minted one, whose grant carries this run's instance id.
+            if (app.GlobalState.ServerRunType == ServerRunType.Local)
             {
-                view.Text([Text.H2, "mb-4"], "Tools");
-
-                if (_mcpHost is null)
+                view.Row([Layout.Row.Md, "items-center flex-wrap mt-3"], content: view =>
                 {
-                    view.Text([Text.Caption], "(MCP host not ready)");
-                    return;
-                }
-
-                foreach (var tool in _mcpHost.Tools)
-                {
-                    view.Box(["border border-secondary rounded-lg p-4 mb-3"], content: view =>
+                    if (_mcpShownGrantUrl.Value is { } minted)
                     {
-                        view.Text([Text.BodyStrong], tool.Name);
-                        view.Text([Text.Caption, "mb-2"], tool.Description);
+                        view.Text([Text.Body, "select-all break-all flex-1"], minted, props: TestId("mcp-minted-url"));
+                        view.ActionButton([Button.OutlineSm],
+                            action: ActionKind.CopyToClipboard,
+                            options: new CopyToClipboardActionOptions { Text = minted },
+                            text: "Copy");
+                    }
+                    else
+                    {
+                        view.Button([Button.OutlineSm], text: "Mint a URL for this local run", props: TestId("mcp-mint-url"),
+                            onClick: ShowMcpGrantUrlAsync);
+                    }
+                });
+            }
 
-                        view.Text([Text.Caption, "mt-2"], "inputSchema:");
-                        view.Box(["bg-surface rounded p-2 mt-1 overflow-x-auto"], content: v =>
-                            v.Text([Text.Caption, "font-mono whitespace-pre"], PrettyJson(tool.InputSchema)));
-
-                        if (tool.OutputSchema is { } outSchema)
-                        {
-                            view.Text([Text.Caption, "mt-2"], "outputSchema:");
-                            view.Box(["bg-surface rounded p-2 mt-1 overflow-x-auto"], content: v =>
-                                v.Text([Text.Caption, "font-mono whitespace-pre"], PrettyJson(outSchema)));
-                        }
-                    });
+            view.Box(["grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm mt-4"], content: view =>
+            {
+                foreach (var tool in _mcpTools)
+                {
+                    view.Text([Text.BodyStrong], tool.Name, props: TestId($"mcp-tool-{tool.Name}"));
+                    view.Text([], tool.Access);
                 }
             });
+        });
+    }
 
-            // Invocation form — round-trips through the same McpHost instance the public
-            // URL serves, so what you see here is exactly what an external client gets.
-            view.Box([Card.Default, "p-6"], content: view =>
+    private void RenderMcpChecksCard(UIView view)
+    {
+        view.Box([Card.Default, "p-6"], content: view =>
+        {
+            view.Row([Layout.Row.Md, "items-center mb-3"], content: view =>
             {
-                view.Text([Text.H2, "mb-4"], "Invoke");
+                view.Text([Text.H3, "flex-1"], "Checks over HTTP");
+                view.Button([Button.PrimaryMd],
+                    text: _mcpChecking.Value ? "Running…" : "Run all",
+                    props: TestId("mcp-checks-run"),
+                    disabled: _mcpChecking.Value,
+                    onClick: () => RunMcpChecksAsync(McpChecks));
+            });
+
+            view.Box(["grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 items-center"], content: view =>
+            {
+                foreach (var check in McpChecks)
+                {
+                    view.Button([Button.OutlineSm],
+                        text: check.Label,
+                        props: TestId($"mcp-check-{check.Key}-run"),
+                        disabled: _mcpChecking.Value,
+                        onClick: () => RunMcpChecksAsync([check]));
+                    view.Text(["text-sm break-all"],
+                        _mcpCheckResults.TryGetValue(check.Key, out var result) ? result : "—",
+                        props: TestId($"mcp-check-{check.Key}"));
+                }
+            });
+        });
+    }
+
+    private void RenderMcpInvokeCard(UIView view)
+    {
+        view.Box([Card.Default, "p-6"], content: view =>
+        {
+            view.Text([Text.H3, "mb-3"], "Invoke");
+
+            view.Row([Layout.Row.Md, "items-end flex-wrap"], content: view =>
+            {
+                view.Box([FormField.Root], content: view =>
+                {
+                    view.Text([FormField.Label], "Tool");
+                    view.Select(
+                        value: _mcpToolName.Value,
+                        options: _mcpTools.Select(t => new SelectOption(t.Name, t.Name)).ToList(),
+                        ariaLabel: "Tool",
+                        props: TestId("mcp-tool"),
+                        onValueChange: async name =>
+                        {
+                            _mcpToolName.Value = name;
+                            _mcpArgsJson.Value = McpArgsSkeleton(name);
+                            _mcpInvokeResult.Value = null;
+                        });
+                });
+
+                view.Button([Button.PrimaryMd],
+                    text: _mcpInvoking.Value ? "Invoking…" : "Invoke",
+                    props: TestId("mcp-invoke"),
+                    disabled: _mcpInvoking.Value,
+                    onClick: InvokeMcpToolAsync);
+
+                view.Text([Text.Caption, "self-center"], $"with {McpCredentialFor(_mcpToolName.Value)}");
+            });
+
+            view.Box(["grid gap-3 mt-3 md:grid-cols-2"], content: view =>
+            {
+                view.TextArea([Textarea.Default, "font-mono text-sm min-h-40"],
+                    value: _mcpArgsJson.Value,
+                    label: "Arguments",
+                    props: TestId("mcp-args"),
+                    onValueChange: async v => _mcpArgsJson.Value = v ?? "");
 
                 view.Box([FormField.Root], content: view =>
                 {
-                    view.Text([FormField.Label], "Tool name");
-                    view.TextField(
-                        [Input.Default],
-                        value: _mcpToolName.Value,
-                        onValueChange: async v => _mcpToolName.Value = v ?? "");
+                    view.Text([FormField.Label], "Result");
+                    view.Box(["rounded-md border border-secondary bg-surface p-3 min-h-40 max-h-96 overflow-auto"], content: view =>
+                        view.Text(["text-sm whitespace-pre-wrap break-all"], _mcpInvokeResult.Value ?? "—", props: TestId("mcp-invoke-result")));
                 });
-
-                view.Box([FormField.Root, "mt-3"], content: view =>
-                {
-                    view.Text([FormField.Label], "Arguments (JSON)");
-                    view.TextArea(
-                        [Textarea.Default],
-                        value: _mcpArgsJson.Value,
-                        onValueChange: async v => _mcpArgsJson.Value = v ?? "");
-                });
-
-                view.Row([Layout.Row.Md, "items-center mt-3 flex-wrap"], content: view =>
-                {
-                    view.Button(
-                        [Button.PrimaryMd],
-                        text: _mcpInvoking.Value ? "Invoking…" : "Invoke",
-                        disabled: _mcpInvoking.Value || _mcpHost is null,
-                        onClick: InvokeMcpToolAsync);
-
-                    if (_mcpInvoking.Value)
-                    {
-                        view.Box([Icon.Spinner]);
-                    }
-                });
-
-                if (_mcpInvokeResult.Value is { } result)
-                {
-                    view.Text([Text.Caption, "mt-4"], "Response:");
-                    view.Box(["bg-surface rounded p-3 mt-1 max-h-96 overflow-auto"], content: v =>
-                        v.Text([Text.Caption, "font-mono whitespace-pre"], result));
-                }
-            });
-
-            // The EndpointAuth.User surface. McpWhoAmI over /api/mcp answers 401 with a
-            // WWW-Authenticate challenge until the caller presents one of these.
-            view.Box([Card.Default, "p-6 mt-6"], content: view =>
-            {
-                view.Text([Text.H2, "mb-2"], "User access token");
-                view.Text([Text.Caption, "mb-4"],
-                    "Mints a 15-minute bearer token for YOU, bound to this app's /api/mcp endpoint. Send it as "
-                    + "Authorization: Bearer <token> to call McpWhoAmI, which runs inside your own UserScope.");
-
-                view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
-                {
-                    view.Button(
-                        [Button.PrimaryMd],
-                        text: _mcpMinting.Value ? "Minting…" : "Mint my token",
-                        disabled: _mcpMinting.Value,
-                        onClick: MintMcpUserTokenAsync);
-
-                    if (_mcpMinting.Value)
-                    {
-                        view.Box([Icon.Spinner]);
-                    }
-                });
-
-                if (_mcpUserTokenError.Value is { } mintError)
-                {
-                    view.Box([Alert.Error, "mt-3"], content: view => view.Text([Alert.Description], mintError));
-                }
-
-                if (_mcpUserToken.Value is { } token)
-                {
-                    view.Box(["bg-surface rounded p-3 mt-3 max-h-48 overflow-auto"], content: v =>
-                        v.Text([Text.Caption, "font-mono select-all break-all"], token));
-                }
             });
         });
     }

@@ -34,7 +34,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_basicUploadStatus.Value))
                 {
-                    view.Text([Text.Caption, "mt-2 font-mono"], _basicUploadStatus.Value);
+                    view.Text([Text.Body, "mt-2"], _basicUploadStatus.Value);
                 }
             });
 
@@ -69,7 +69,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_multiUploadStatus.Value))
                 {
-                    view.Text([Text.Caption, "mt-2 font-mono"], _multiUploadStatus.Value);
+                    view.Text([Text.Body, "mt-2"], _multiUploadStatus.Value);
                 }
             });
 
@@ -93,7 +93,7 @@ public partial class Validation
                     content: view =>
                     {
                         view.TextArea(
-                            [Input.Default, "min-h-[120px]"],
+                            [Textarea.Default, "min-h-[120px]"],
                             value: _textAreaValue.Value,
                             placeholder: "Type a message or drop/paste a file here...",
                             onValueChange: async value => _textAreaValue.Value = value);
@@ -101,7 +101,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_zoneUploadStatus.Value))
                 {
-                    view.Text([Text.Caption, "mt-2 font-mono"], _zoneUploadStatus.Value);
+                    view.Text([Text.Body, "mt-2"], _zoneUploadStatus.Value);
                 }
             });
 
@@ -153,7 +153,7 @@ public partial class Validation
 
                         if (!string.IsNullOrEmpty(_imagesUploadStatus.Value))
                         {
-                            view.Text([Text.Caption, "mt-2 font-mono"], _imagesUploadStatus.Value);
+                            view.Text([Text.Body, "mt-2"], _imagesUploadStatus.Value);
                         }
                     });
 
@@ -180,7 +180,7 @@ public partial class Validation
 
                         if (!string.IsNullOrEmpty(_pdfsUploadStatus.Value))
                         {
-                            view.Text([Text.Caption, "mt-2 font-mono"], _pdfsUploadStatus.Value);
+                            view.Text([Text.Body, "mt-2"], _pdfsUploadStatus.Value);
                         }
                     });
 
@@ -207,7 +207,7 @@ public partial class Validation
 
                         if (!string.IsNullOrEmpty(_codeUploadStatus.Value))
                         {
-                            view.Text([Text.Caption, "mt-2 font-mono"], _codeUploadStatus.Value);
+                            view.Text([Text.Body, "mt-2"], _codeUploadStatus.Value);
                         }
                     });
                 });
@@ -249,6 +249,7 @@ public partial class Validation
                 {
                     view.Switch([Switch.Root], value: _advUploadRejectAll.Value,
                         onValueChange: async v => _advUploadRejectAll.Value = v,
+                        ariaLabel: "Reject all uploads",
                         content: view => view.SwitchThumb([Switch.Thumb]));
                     view.Label([Label.Base], content: v => v.Text(text: "Reject all uploads"));
                 });
@@ -349,8 +350,8 @@ public partial class Validation
     {
         view.Row(["items-start gap-2"], content: view =>
         {
-            view.Text([Text.Caption, "font-mono min-w-[140px] shrink-0"], label + ":");
-            view.Text([Text.Caption, "font-mono break-all"],
+            view.Text([Text.Caption, "min-w-[140px] shrink-0"], label + ":");
+            view.Text([Text.Caption, "break-all"],
                 string.IsNullOrEmpty(status) ? "—" : status);
         });
     }

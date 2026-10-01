@@ -1,5 +1,8 @@
 public partial class Validation
 {
+    private readonly ClientReactive<bool> _footerDialogOpen = new(false);
+    private readonly ClientReactive<string> _footerDialogResult = new("Footer: (no choice yet)");
+
     private void RenderOverlaysSection(UIView view)
     {
         view.Column([Layout.Column.Lg], content: view =>
@@ -15,7 +18,7 @@ public partial class Validation
                     onOpenChange: async open => _dialogOpen.Value = open,
                     overlayStyle: [Dialog.Overlay],
                     contentStyle: [Dialog.Content],
-                    trigger: view => view.Button([Button.OutlineMd], text: "Open Dialog"),
+                    trigger: view => view.Button([Button.PrimaryMd], text: "Open Dialog"),
                     content: view =>
                     {
                         view.Box([Dialog.Header], content: view =>
@@ -30,6 +33,37 @@ public partial class Validation
                             view.Button([Button.PrimaryMd], text: "Confirm", onClick: async () => _dialogOpen.Value = false);
                         });
                     });
+            });
+
+            // Dialog with the footer slot
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "Dialog - Footer Slot");
+                view.Text([Text.Caption, "mb-4"], "title:, description: and footer: build the header and a themed footer row (right-aligned on wide screens, stacked on narrow)");
+
+                view.Dialog(
+                    open: _footerDialogOpen.Value,
+                    onOpenChange: async open => _footerDialogOpen.Value = open,
+                    trigger: view => view.Button([Button.PrimaryMd], text: "Open Footer Dialog", props: TestId("footer-dialog-open")),
+                    title: "Archive project?",
+                    description: "Archived projects stay readable and can be restored at any time.",
+                    content: view => view.Text([Text.Body], "The footer below comes from the footer: slot, not from a hand-built Dialog.Footer box."),
+                    footer: view =>
+                    {
+                        view.Button([Button.OutlineMd], text: "Keep", props: TestId("footer-dialog-keep"),
+                            onClick: async () =>
+                            {
+                                _footerDialogOpen.Value = false;
+                                _footerDialogResult.Value = "Footer: Keep";
+                            });
+                        view.Button([Button.PrimaryMd], text: "Archive", props: TestId("footer-dialog-archive"),
+                            onClick: async () =>
+                            {
+                                _footerDialogOpen.Value = false;
+                                _footerDialogResult.Value = "Footer: Archive";
+                            });
+                    });
+                view.Text([Text.Caption, "mt-3"], _footerDialogResult.Value, props: TestId("footer-dialog-result"));
             });
 
             // Alert Dialog
@@ -65,7 +99,7 @@ public partial class Validation
                     open: _popoverOpen.Value,
                     onOpenChange: async open => _popoverOpen.Value = open,
                     contentStyle: [Popover.Content],
-                    trigger: view => view.Button([Button.OutlineMd], text: "Open Popover"),
+                    trigger: view => view.Button([Button.PrimaryMd], text: "Open Popover"),
                     content: view =>
                     {
                         view.Column([Layout.Column.Sm], content: view =>
@@ -78,7 +112,7 @@ public partial class Validation
                             // the shape behind "menu click leaves a click-blocker". After clicking,
                             // the Buttons section must be fully interactive (body pointer-events
                             // restored). Left in place as a permanent fixture for that regression.
-                            view.Button([Button.GhostMd], text: "Navigate away (unmount while open)",
+                            view.Button([Button.PrimaryMd], text: "Navigate away (unmount while open)",
                                 onClick: async () =>
                                 {
                                     ActivateTab("buttons");
@@ -98,12 +132,12 @@ public partial class Validation
                 {
                     view.Tooltip(
                         contentStyle: [Tooltip.Content],
-                        trigger: view => view.Button([Button.OutlineMd], text: "Hover me"),
+                        trigger: view => view.Button([Button.PrimaryMd], text: "Hover me"),
                         content: view => view.Text(text: "This is a tooltip!"));
 
                     view.Tooltip(
                         contentStyle: [Tooltip.Content],
-                        trigger: view => view.Button([Button.GhostMd, Button.Icon], content: v => v.Icon([Icon.Default], name: "info")),
+                        trigger: view => view.Button([Button.OutlineMd, Button.Icon], content: v => v.Icon([Icon.Default], name: "info")),
                         content: view => view.Text(text: "More information here"));
                 });
             });
@@ -143,7 +177,7 @@ public partial class Validation
 
                 view.Column([Layout.Column.Md], content: view =>
                 {
-                    view.Button([Button.OutlineMd], text: "Show Toast", onClick: async () => _toastOpen.Value = true);
+                    view.Button([Button.PrimaryMd], text: "Show Toast", onClick: async () => _toastOpen.Value = true);
 
                     view.Text([Text.Caption, "mt-4"], "Static preview:");
                     view.Box([Toast.Base, Tokens.Width.Toast], content: view =>

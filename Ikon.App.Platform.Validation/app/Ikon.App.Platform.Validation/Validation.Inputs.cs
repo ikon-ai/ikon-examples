@@ -1,5 +1,9 @@
 public partial class Validation
 {
+    private readonly ClientReactive<string> _localizedCalendarValue = new("");
+    private readonly ClientReactive<string> _localizedDatePickerValue = new("");
+    private readonly ClientReactive<string> _localizedTimePickerValue = new("14:30");
+
     private void RenderInputsSection(UIView view)
     {
         view.Column([Layout.Column.Lg], content: view =>
@@ -14,8 +18,33 @@ public partial class Validation
                         onValueChange: async v => _textFieldValue.Value = v ?? "");
                     view.TextField([Input.Default], placeholder: "Medium input (default)", value: _textFieldValue.Value,
                         onValueChange: async v => _textFieldValue.Value = v ?? "");
+                    view.TextField([Input.DefaultMd], placeholder: "Medium input (Input.DefaultMd)", value: _textFieldValue.Value,
+                        onValueChange: async v => _textFieldValue.Value = v ?? "");
                     view.TextField([Input.DefaultLg], placeholder: "Large input", value: _textFieldValue.Value,
                         onValueChange: async v => _textFieldValue.Value = v ?? "");
+                });
+            });
+
+            // Explicit Md variants of every Input / Textarea tone
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "Md Tone Tokens");
+                view.Text([Text.Caption, "mb-4"], "Input.*Md and Textarea.*Md name the medium size explicitly, beside the Sm / Lg rungs");
+                view.Grid(["grid grid-cols-1 md:grid-cols-2 gap-3"], content: grid =>
+                {
+                    foreach (var (input, textarea, label) in new[]
+                    {
+                        (Input.DefaultMd, Textarea.DefaultMd, "DefaultMd"),
+                        (Input.GhostMd, Textarea.GhostMd, "GhostMd"),
+                        (Input.InvalidMd, Textarea.InvalidMd, "InvalidMd"),
+                        (Input.ErrorMd, Textarea.ErrorMd, "ErrorMd"),
+                        (Input.SuccessMd, Textarea.SuccessMd, "SuccessMd"),
+                        (Input.WarningMd, Textarea.WarningMd, "WarningMd"),
+                    })
+                    {
+                        grid.TextField([input], placeholder: $"Input.{label}");
+                        grid.TextArea([textarea], placeholder: $"Textarea.{label}", rows: 2);
+                    }
                 });
             });
 
@@ -49,21 +78,21 @@ public partial class Validation
                     view.Box([FormField.Root], content: view =>
                     {
                         view.Text([FormField.Label], "Success state");
-                        view.TextField([Input.Success], placeholder: "Valid input", value: "valid@email.com");
+                        view.TextField([Input.Success], placeholder: "Valid input", bind: _successStateValue);
                         view.Text([FormField.SuccessText], "Email format is valid");
                     });
 
                     view.Box([FormField.Root], content: view =>
                     {
                         view.Text([FormField.Label], "Warning state");
-                        view.TextField([Input.Warning], placeholder: "Potentially problematic", value: "user123");
+                        view.TextField([Input.Warning], placeholder: "Potentially problematic", bind: _warningStateValue);
                         view.Text([FormField.WarningText], "This username may be taken");
                     });
 
                     view.Box([FormField.Root], content: view =>
                     {
                         view.Text([FormField.Label], "Error state");
-                        view.TextField([Input.Error], placeholder: "Invalid input", value: "invalid");
+                        view.TextField([Input.Error], placeholder: "Invalid input", bind: _errorStateValue);
                         view.Text([FormField.ErrorText], "Please enter a valid email address");
                     });
 
@@ -145,6 +174,7 @@ public partial class Validation
                         row.Switch([Switch.Root],
                             value: _autoResizePlaygroundEnabled.Value,
                             onValueChange: async v => _autoResizePlaygroundEnabled.Value = v,
+                            ariaLabel: "autoResize",
                             content: s => s.SwitchThumb([Switch.Thumb]));
                         row.Text([Text.Body], $"autoResize: {(_autoResizePlaygroundEnabled.Value ? "true" : "false")}");
                     });
@@ -155,6 +185,7 @@ public partial class Validation
                         row.Slider([Slider.Root, "w-64"],
                             value: [_autoResizePlaygroundRows.Value],
                             min: 1, max: 10, step: 1,
+                            ariaLabel: "rows",
                             onValueChange: async v => { if (v.Count > 0) _autoResizePlaygroundRows.Value = (int)v[0]; },
                             content: s =>
                             {
@@ -168,6 +199,7 @@ public partial class Validation
                         row.Switch([Switch.Root],
                             value: _autoResizePlaygroundMaxRowsDefined.Value,
                             onValueChange: async v => _autoResizePlaygroundMaxRowsDefined.Value = v,
+                            ariaLabel: "maxRows defined",
                             content: s => s.SwitchThumb([Switch.Thumb]));
                         row.Text([Text.Body], $"maxRows defined: {(_autoResizePlaygroundMaxRowsDefined.Value ? "true" : "false")}");
                     });
@@ -180,6 +212,7 @@ public partial class Validation
                             row.Slider([Slider.Root, "w-64"],
                                 value: [_autoResizePlaygroundMaxRows.Value],
                                 min: 1, max: 20, step: 1,
+                                ariaLabel: "maxRows",
                                 onValueChange: async v => { if (v.Count > 0) _autoResizePlaygroundMaxRows.Value = (int)v[0]; },
                                 content: s =>
                                 {
@@ -271,6 +304,7 @@ public partial class Validation
                         view.Checkbox([Checkbox.Root],
                             value: _checkboxChecked.Value,
                             onValueChange: async state => _checkboxChecked.Value = state,
+                            ariaLabel: "Unchecked/Checked",
                             content: view => view.CheckboxIndicator([Checkbox.Indicator], content: v => v.Icon(name: "check")));
                         view.Label([Label.Base], content: v => v.Text(text: "Unchecked/Checked"));
                     });
@@ -278,7 +312,9 @@ public partial class Validation
                     view.Row([Layout.Row.Sm, "flex-wrap"], content: view =>
                     {
                         view.TriStateCheckbox([Checkbox.Root],
-                            value: CheckedState.Indeterminate,
+                            value: _triStateChecked.Value,
+                            onValueChange: async state => _triStateChecked.Value = state,
+                            props: AriaLabel("Indeterminate"),
                             content: view => view.CheckboxIndicator([Checkbox.Indicator], content: v => v.Icon(name: "minus")));
                         view.Label([Label.Base], content: v => v.Text(text: "Indeterminate"));
                     });
@@ -287,6 +323,7 @@ public partial class Validation
                     {
                         view.Checkbox([Checkbox.Root],
                             value: true, disabled: true,
+                            ariaLabel: "Disabled checked",
                             content: view => view.CheckboxIndicator([Checkbox.Indicator], content: v => v.Icon(name: "check")));
                         view.Label([Label.Base, "opacity-50"], content: v => v.Text(text: "Disabled checked"));
                     });
@@ -303,21 +340,21 @@ public partial class Validation
                     {
                         view.Switch([Switch.Root],
                             value: _switchChecked.Value,
-                            onValueChange: async v => _switchChecked.Value = v, content: view => view.SwitchThumb([Switch.Thumb]));
+                            onValueChange: async v => _switchChecked.Value = v, ariaLabel: "Switch", content: view => view.SwitchThumb([Switch.Thumb]));
                         view.Label([Label.Base], content: v => v.Text(text: _switchChecked.Value ? "On" : "Off"));
                     });
 
                     view.Row([Layout.Row.Sm, "flex-wrap"], content: view =>
                     {
                         view.Switch([Switch.Root],
-                            value: true, disabled: true, content: view => view.SwitchThumb([Switch.Thumb]));
+                            value: true, disabled: true, ariaLabel: "Disabled on", content: view => view.SwitchThumb([Switch.Thumb]));
                         view.Label([Label.Base, "opacity-50"], content: v => v.Text(text: "Disabled on"));
                     });
 
                     view.Row([Layout.Row.Sm, "flex-wrap"], content: view =>
                     {
                         view.Switch([Switch.Root],
-                            value: false, disabled: true, content: view => view.SwitchThumb([Switch.Thumb]));
+                            value: false, disabled: true, ariaLabel: "Disabled off", content: view => view.SwitchThumb([Switch.Thumb]));
                         view.Label([Label.Base, "opacity-50"], content: v => v.Text(text: "Disabled off"));
                     });
                 });
@@ -392,7 +429,7 @@ public partial class Validation
                     view.Text([Text.Caption], $"Value: {_sliderValue.Value:F0}");
                     view.Slider([Slider.Root],
                         value: [_sliderValue.Value],
-                        min: 0, max: 100, step: 1, onValueChange: async v => { if (v.Count > 0) _sliderValue.Value = v[0]; }, content: view =>
+                        min: 0, max: 100, step: 1, ariaLabel: "Value", onValueChange: async v => { if (v.Count > 0) _sliderValue.Value = v[0]; }, content: view =>
                         {
                             view.SliderTrack([Slider.Track], content: view =>
                             {
@@ -403,7 +440,7 @@ public partial class Validation
 
                     view.Text([Text.Caption], "Disabled");
                     view.Slider([Slider.Root],
-                        value: [30], min: 0, max: 100, disabled: true, content: view =>
+                        value: [30], min: 0, max: 100, disabled: true, ariaLabel: "Disabled", content: view =>
                         {
                             view.SliderTrack([Slider.Track], content: view =>
                             {
@@ -427,6 +464,7 @@ public partial class Validation
                             value: [_sliderVerticalValue.Value],
                             min: 0, max: 100,
                             orientation: Orientation.Vertical,
+                            ariaLabel: "Vertical",
                             onValueChange: async v => { if (v.Count > 0) _sliderVerticalValue.Value = v[0]; },
                             content: view =>
                             {
@@ -446,6 +484,7 @@ public partial class Validation
                             min: 0, max: 100,
                             orientation: Orientation.Vertical,
                             disabled: true,
+                            ariaLabel: "Vertical disabled",
                             content: view =>
                             {
                                 view.SliderTrack([Slider.TrackVertical], content: view =>
@@ -471,6 +510,7 @@ public partial class Validation
                         value: [_sliderInvertedValue.Value],
                         min: 0, max: 100,
                         inverted: true,
+                        ariaLabel: "Inverted",
                         onValueChange: async v => { if (v.Count > 0) _sliderInvertedValue.Value = v[0]; },
                         content: view =>
                         {
@@ -489,6 +529,7 @@ public partial class Validation
                             min: 0, max: 100,
                             orientation: Orientation.Vertical,
                             inverted: true,
+                            ariaLabel: "Vertical inverted",
                             onValueChange: async v => { if (v.Count > 0) _sliderInvertedValue.Value = v[0]; },
                             content: view =>
                             {
@@ -513,6 +554,7 @@ public partial class Validation
                     view.Slider([Slider.Root],
                         value: _sliderRangeValues.Value,
                         min: 0, max: 100,
+                        ariaLabel: "Range",
                         onValueChange: async v => { if (v.Count >= 2) _sliderRangeValues.Value = [v[0], v[1]]; },
                         content: view =>
                         {
@@ -611,6 +653,79 @@ public partial class Validation
                     view.Text([Text.Caption], $"Status: {_textAreaSubmitStatus.Value}");
                 });
             });
+
+            RenderComposerCard(view);
+        });
+    }
+
+    private void RenderLocalizedPickersCard(UIView view)
+    {
+        view.Box([Card.Default, "p-6"], content: view =>
+        {
+            view.Text([Text.H2, "mb-1"], "Localized Pickers");
+            view.Text([Text.Caption, "mb-4"], "locale drives weekday and month names; previousMonthLabel / nextMonthLabel name the calendar arrows for screen readers; amLabel / pmLabel replace the 12-hour period names.");
+            view.Column([Layout.Column.Md], content: view =>
+            {
+                view.Text([Text.Label], "Calendar (de-DE)");
+                view.Calendar(
+                    style: [Calendar.Root],
+                    headerStyle: [Calendar.Header],
+                    weekdayStyle: [Calendar.Weekday],
+                    dayStyle: [Calendar.Day],
+                    daySelectedStyle: [Calendar.DaySelected],
+                    dayTodayStyle: [Calendar.DayToday],
+                    dayOutsideStyle: [Calendar.DayOutside],
+                    dayDisabledStyle: [Calendar.DayDisabled],
+                    navButtonStyle: [Calendar.NavButton],
+                    titleStyle: [Calendar.HeaderTitle],
+                    gridStyle: [Calendar.Grid],
+                    rowStyle: [Calendar.Row],
+                    locale: "de-DE",
+                    previousMonthLabel: "Vorheriger Monat",
+                    nextMonthLabel: "Nächster Monat",
+                    defaultMonth: "2026-03",
+                    value: _localizedCalendarValue.Value,
+                    onValueChange: async v => _localizedCalendarValue.Value = v ?? "");
+                view.Text([Text.Caption], $"Selected: {(_localizedCalendarValue.Value == "" ? "(none)" : _localizedCalendarValue.Value)}", props: TestId("localized-calendar-value"));
+
+                view.Text([Text.Label, "mt-2"], "DatePicker (fr-FR)");
+                view.DatePicker(
+                    triggerStyle: [DatePicker.Trigger],
+                    contentStyle: [DatePicker.Content, "p-2"],
+                    calendarStyle: [Calendar.Root],
+                    headerStyle: [Calendar.Header],
+                    weekdayStyle: [Calendar.Weekday],
+                    dayStyle: [Calendar.Day],
+                    daySelectedStyle: [Calendar.DaySelected],
+                    dayTodayStyle: [Calendar.DayToday],
+                    dayOutsideStyle: [Calendar.DayOutside],
+                    dayDisabledStyle: [Calendar.DayDisabled],
+                    navButtonStyle: [Calendar.NavButton],
+                    titleStyle: [Calendar.HeaderTitle],
+                    gridStyle: [Calendar.Grid],
+                    rowStyle: [Calendar.Row],
+                    placeholder: "Choisir une date",
+                    format: "fr-FR",
+                    locale: "fr-FR",
+                    previousMonthLabel: "Mois précédent",
+                    nextMonthLabel: "Mois suivant",
+                    value: _localizedDatePickerValue.Value,
+                    onValueChange: async v => _localizedDatePickerValue.Value = v ?? "");
+
+                view.Text([Text.Label, "mt-2"], "TimePicker (12-hour, custom period labels)");
+                view.TimePicker(
+                    triggerStyle: [TimePicker.Trigger],
+                    contentStyle: [TimePicker.Content],
+                    columnStyle: [TimePicker.Column],
+                    itemStyle: [TimePicker.Item],
+                    itemSelectedStyle: [TimePicker.ItemSelected],
+                    hourFormat: HourFormat.Hour12,
+                    amLabel: "vorm.",
+                    pmLabel: "nachm.",
+                    value: _localizedTimePickerValue.Value,
+                    onValueChange: async v => _localizedTimePickerValue.Value = v ?? "");
+                view.Text([Text.Caption], $"Selected: {_localizedTimePickerValue.Value}");
+            });
         });
     }
 
@@ -675,6 +790,8 @@ public partial class Validation
                 });
             });
 
+            RenderLocalizedPickersCard(view);
+
             // ColorPicker
             view.Box([Card.Default, "p-6"], content: view =>
             {
@@ -687,7 +804,7 @@ public partial class Validation
                         contentStyle: [ColorPicker.Content],
                         value: _colorPickerValue.Value,
                         format: ColorFormat.Hex,
-                        presets: ["#ef4444", "#f97316", "#eab308", "#22c55e", "#14b8a6", "#3b82f6", "#6366f1", "#9d76ed"],
+                        presets: ["#ef4444", "#f97316", "#eab308", "#22c55e", "#14b8a6", "#3b82f6", "#6366f1", "#db176e"],
                         onValueChange: async v => _colorPickerValue.Value = v ?? "#000000");
                     view.Row([Layout.Row.Sm, "flex-wrap"], content: v =>
                     {
@@ -769,6 +886,7 @@ public partial class Validation
                         row.Switch([Switch.Root],
                             value: _carouselLoop.Value,
                             onValueChange: async v => _carouselLoop.Value = v,
+                            ariaLabel: "Carousel loop",
                             content: s => s.SwitchThumb([Switch.Thumb]));
                         row.Text([Text.Body], $"loop: {(_carouselLoop.Value ? "true" : "false")}");
                     });
@@ -819,6 +937,7 @@ public partial class Validation
                         row.Switch([Switch.Root],
                             value: _multiCarouselLoop.Value,
                             onValueChange: async v => _multiCarouselLoop.Value = v,
+                            ariaLabel: "Multi-item carousel loop",
                             content: s => s.SwitchThumb([Switch.Thumb]));
                         row.Text([Text.Body], $"loop: {(_multiCarouselLoop.Value ? "true" : "false")}");
                     });
@@ -935,7 +1054,7 @@ public partial class Validation
                     },
                     content: view =>
                     {
-                        view.Column([Layout.Column.Sm, "p-4 border border-dashed border-gray-400 rounded-md"], content: view =>
+                        view.Column([Layout.Column.Sm, "p-4 border border-dashed border-primary rounded-md"], content: view =>
                         {
                             view.Text([Text.Body], "Focus this area and press arrow keys or Enter");
                             view.Text([Text.Caption], $"Last scoped key: {_scopedKeyDownEvent.Value}");
@@ -969,7 +1088,12 @@ public partial class Validation
                     view.CodeEditor(language: "csharp", defaultValue: "var x = 1;");
 
                     view.Text([Text.Body], "FileUpload");
-                    view.FileUpload();
+                    view.FileUpload(onUploadComplete: async args => _lastUploadedFileName.Value = args.FileName);
+
+                    if (_lastUploadedFileName.Value.Length > 0)
+                    {
+                        view.Text([Text.Caption], $"Uploaded {_lastUploadedFileName.Value}");
+                    }
                 });
             });
         });

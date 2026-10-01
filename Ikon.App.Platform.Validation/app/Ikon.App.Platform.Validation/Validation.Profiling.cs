@@ -31,12 +31,9 @@ public partial class Validation
     {
         view.Column([Layout.Column.Lg], content: view =>
         {
-            RenderCpuBurnSection(view);
-
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 view.Text([Text.H2, "mb-4"], "UI Profiling");
-                view.Text([Text.Caption, "mb-4"], "Automated rapid UI updates to profile render performance");
 
                 view.Column([Layout.Column.Md], content: view =>
                 {
@@ -44,6 +41,7 @@ public partial class Validation
                     {
                         view.Text([Text.Body], "Updates per second:");
                         view.Slider([Slider.Root, "flex-1"],
+                            props: AriaLabel("Updates per second"),
                             value: [(double)_profilingUpdatesPerSecond.Value],
                             min: 1,
                             max: 120,
@@ -72,17 +70,18 @@ public partial class Validation
                             view.Button([Button.ErrorMd], text: "Stop Profiling", onClick: StopProfilingAsync);
                         }
 
-                        view.Button([Button.OutlineMd], text: "Reset Stats", onClick: ResetProfilingStatsAsync);
+                        view.Button([Button.ErrorMd], text: "Reset Stats", onClick: ResetProfilingStatsAsync);
                     });
 
                     if (_profilingRunning.Value)
                     {
-                        view.Text([Text.Caption], "Expensive tabs (Memory, Payments, Charts, Icons, Ikon.AI) are disabled while profiling runs");
+                        view.Text([Text.Caption], "Expensive tabs are disabled while running");
                     }
 
                     view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                     {
                         view.Checkbox([Checkbox.Root],
+                            props: AriaLabel("Subtree caching"),
                             value: _profilingSubtreeCaching.Value,
                             onValueChange: async v =>
                             {
@@ -97,6 +96,7 @@ public partial class Validation
                     view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                     {
                         view.Checkbox([Checkbox.Root],
+                            props: AriaLabel("Subtree rendering"),
                             value: _profilingSubtreeRendering.Value,
                             onValueChange: async v =>
                             {
@@ -150,7 +150,6 @@ public partial class Validation
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 view.Text([Text.H3, "mb-4"], "Profiling Content");
-                view.Text([Text.Caption, "mb-2"], "This area updates rapidly during profiling");
                 view.Box(["border border-secondary rounded p-4"], content: view =>
                 {
                     view.Text([Text.H1], $"Counter: {_profilingCounter.Value}");
@@ -158,6 +157,8 @@ public partial class Validation
                     view.Text([Text.Caption], $"Target: {_profilingUpdatesPerSecond.Value} updates/sec");
                 });
             });
+
+            RenderCpuBurnSection(view);
         });
     }
 
@@ -171,7 +172,7 @@ public partial class Validation
 
         view.Box(["overflow-x-auto"], content: view =>
         {
-            view.Box(["grid grid-cols-6 gap-2 text-sm font-mono"], content: view =>
+            view.Box(["grid grid-cols-6 gap-2 text-sm tabular-nums"], content: view =>
             {
                 view.Text([Text.Caption, "font-bold"], "Phase");
                 view.Text([Text.Caption, "font-bold text-right"], "Avg");

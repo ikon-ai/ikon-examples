@@ -1,5 +1,8 @@
 public partial class Validation
 {
+    private readonly ClientReactive<string> _navRailTabValue = new("overview");
+    private readonly ClientReactive<string> _focusGroupPicked = new("Picked: (none)");
+
     private void RenderNavigationSection(UIView view)
     {
         view.Column([Layout.Column.Lg], content: view =>
@@ -22,6 +25,32 @@ public partial class Validation
                         new TabItem("nested3", "Settings", v => v.Text([Text.Body], "General settings content goes here."))
                     ]);
             });
+
+            // Tabs as page navigation (rail + indicator) rather than a segmented control
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "Tabs - Navigation Rail");
+                view.Text([Text.Caption, "mb-4"], "Tabs.NavList with Tabs.NavTriggerSm / Md / Lg: navigation between peer panels marked by the rail indicator, never a fill");
+
+                foreach (var (trigger, size) in new[] { (Tabs.NavTriggerSm, "Sm"), (Tabs.NavTriggerMd, "Md"), (Tabs.NavTriggerLg, "Lg") })
+                {
+                    view.Text([Text.Caption, "mt-2"], $"NavTrigger{size}");
+                    view.Tabs(
+                        value: _navRailTabValue.Value,
+                        onValueChange: async v => _navRailTabValue.Value = v ?? "overview",
+                        listStyle: [Tabs.NavList, "mb-3"],
+                        triggerStyle: [trigger],
+                        contentStyle: [Tabs.Content],
+                        key: $"nav-rail-{size}",
+                        tabs: [
+                            new TabItem("overview", "Overview", v => v.Text([Text.Body], "Overview panel")),
+                            new TabItem("activity", "Activity", v => v.Text([Text.Body], "Activity panel")),
+                            new TabItem("files", "Files", v => v.Text([Text.Body], "Files panel"))
+                        ]);
+                }
+            });
+
+            RenderFocusGroupCard(view);
 
             // Tabs - Vertical Orientation
             view.Box([Card.Default, "p-6"], content: view =>
@@ -274,7 +303,7 @@ public partial class Validation
                             view.Text([Text.BodyStrong], "Collapsible Section");
                             // The trigger already renders a <button>; nesting a view.Button inside
                             // it would produce invalid button-in-button HTML.
-                            view.CollapsibleTrigger([Button.GhostMd, Button.Icon], content: view =>
+                            view.CollapsibleTrigger([Button.OutlineMd, Button.Icon], content: view =>
                             {
                                 view.Icon([Icon.Default], name: _collapsibleOpen.Value ? "chevron-up" : "chevron-down");
                             });
@@ -522,12 +551,12 @@ public partial class Validation
 
                 view.Row([Layout.Row.Sm, "mt-4 flex-wrap"], content: view =>
                 {
-                    view.Button([Button.OutlineSm], text: "Add Segment", onClick: async () =>
+                    view.Button([Button.PrimarySm], text: "Add Segment", onClick: async () =>
                     {
                         var newSegment = $"Folder{_breadcrumbPath.Value.Count}";
                         _breadcrumbPath.Value = [.. _breadcrumbPath.Value, newSegment];
                     });
-                    view.Button([Button.GhostMd], text: "Reset", onClick: async () =>
+                    view.Button([Button.PrimaryMd], text: "Reset", onClick: async () =>
                     {
                         _breadcrumbPath.Value = ["Home", "Products", "Electronics"];
                     });
@@ -603,6 +632,46 @@ public partial class Validation
                     });
                 });
             });
+        });
+    }
+
+    private static readonly string[] FocusGroupItems = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"];
+
+    private void RenderFocusGroupCard(UIView view)
+    {
+        view.Box([Card.Default, "p-6"], content: view =>
+        {
+            view.Text([Text.H2, "mb-1"], "Roving Focus (data-focus-group)");
+            view.Text([Text.Caption, "mb-4"], "A container with data-focus-group=\"horizontal\" or \"grid\" moves focus between its buttons with the arrow keys and Home/End entirely in the client; Enter activates the focused one. Click Alpha, press → then Enter.");
+
+            view.Text([Text.Label, "mb-2"], "Horizontal");
+            view.Box(["flex flex-row flex-wrap gap-2 mb-4"],
+                props: new Dictionary<string, object> { ["data-focus-group"] = "horizontal", ["data-testid"] = "focus-group-horizontal" },
+                content: group =>
+                {
+                    foreach (var item in FocusGroupItems)
+                    {
+                        var captured = item;
+                        group.Button([Button.PrimarySm], text: captured,
+                            props: TestId($"focus-group-item-{captured.ToLowerInvariant()}"),
+                            onClick: async () => _focusGroupPicked.Value = $"Picked: {captured}");
+                    }
+                });
+
+            view.Text([Text.Label, "mb-2"], "Grid (3 columns)");
+            view.Box(["grid grid-cols-3 gap-2 max-w-sm mb-4"],
+                props: new Dictionary<string, object> { ["data-focus-group"] = "grid", ["data-testid"] = "focus-group-grid" },
+                content: group =>
+                {
+                    foreach (var item in FocusGroupItems)
+                    {
+                        var captured = item;
+                        group.Button([Button.PrimarySm], text: captured,
+                            onClick: async () => _focusGroupPicked.Value = $"Picked: {captured} (grid)");
+                    }
+                });
+
+            view.Text([Text.Body], _focusGroupPicked.Value, props: TestId("focus-group-picked"));
         });
     }
 }

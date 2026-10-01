@@ -1,17 +1,23 @@
 public partial class Validation
 {
+    private readonly ClientReactive<string> _videoTapResult = new("Last tap: (tap the video)");
+
+    private Task OnVideoCanvasTapAsync(VideoTapArgs tap)
+    {
+        _videoTapResult.Value = FormattableString.Invariant($"Last tap: x={tap.X:0.00}, y={tap.Y:0.00}");
+        return Task.CompletedTask;
+    }
+
     private void RenderVideoSection(UIView view)
     {
         view.Column([Layout.Column.Lg], content: view =>
         {
-            RenderMediaCountersSection(view);
             RenderSyntheticVideoSection(view);
 
             // Camera Capture section
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 view.Text([Text.H2, "mb-4"], "Camera Capture");
-                view.Text([Text.Caption, "mb-4"], "Capture video from camera and echo back to VideoStreamCanvas");
 
                 view.Column([Layout.Column.Md], content: view =>
                 {
@@ -131,8 +137,10 @@ public partial class Validation
                                 [Media.Fill, Media.Mirror],
                                 streamId: _cameraEchoStreamId.Value,
                                 width: _cameraWidth.Value > 0 ? _cameraWidth.Value : 640,
-                                height: _cameraHeight.Value > 0 ? _cameraHeight.Value : 480);
+                                height: _cameraHeight.Value > 0 ? _cameraHeight.Value : 480,
+                                onTap: OnVideoCanvasTapAsync);
                         });
+                        view.Text([Text.Caption, "mt-2 tabular-nums"], _videoTapResult.Value, props: TestId("video-tap-result"));
                     }
                     else
                     {
@@ -153,7 +161,6 @@ public partial class Validation
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 view.Text([Text.H2, "mb-4"], "Screen Capture");
-                view.Text([Text.Caption, "mb-4"], "Capture video from screen and echo back to VideoStreamCanvas");
 
                 view.Column([Layout.Column.Md], content: view =>
                 {
@@ -223,8 +230,10 @@ public partial class Validation
                                 [Media.Fill],
                                 streamId: _screenEchoStreamId.Value,
                                 width: _screenWidth.Value > 0 ? _screenWidth.Value : 640,
-                                height: _screenHeight.Value > 0 ? _screenHeight.Value : 480);
+                                height: _screenHeight.Value > 0 ? _screenHeight.Value : 480,
+                                onTap: OnVideoCanvasTapAsync);
                         });
+                        view.Text([Text.Caption, "mt-2 tabular-nums"], _videoTapResult.Value);
                     }
                     else
                     {
@@ -245,7 +254,6 @@ public partial class Validation
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 view.Text([Text.H2, "mb-4"], "Image Capture");
-                view.Text([Text.Caption, "mb-4"], "Capture still image from camera using ActionButton");
 
                 view.Column([Layout.Column.Md], content: view =>
                 {
@@ -361,7 +369,7 @@ public partial class Validation
                         if (_capturedImageData.Value != null)
                         {
                             view.Button(
-                                [Button.OutlineMd],
+                                [Button.ErrorMd],
                                 text: "Clear Image",
                                 onClick: async () =>
                                 {
@@ -401,7 +409,6 @@ public partial class Validation
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 view.Text([Text.H2, "mb-4"], "Video URL Player");
-                view.Text([Text.Caption, "mb-4"], "Play video from URL with configurable options");
 
                 view.Column([Layout.Column.Md], content: view =>
                 {
@@ -427,8 +434,8 @@ public partial class Validation
                                     _videoUrlLoop.Value = value;
                                     return Task.CompletedTask;
                                 },
-                                content: view => view.SwitchThumb([Switch.Thumb]));
-                            view.Text([Text.Caption], "Loop");
+                                content: view => view.SwitchThumb([Switch.Thumb]),
+                                label: "Loop");
                         });
 
                         view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
@@ -441,8 +448,8 @@ public partial class Validation
                                     _videoUrlMuted.Value = value;
                                     return Task.CompletedTask;
                                 },
-                                content: view => view.SwitchThumb([Switch.Thumb]));
-                            view.Text([Text.Caption], "Muted");
+                                content: view => view.SwitchThumb([Switch.Thumb]),
+                                label: "Muted");
                         });
 
                         view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
@@ -455,8 +462,8 @@ public partial class Validation
                                     _videoUrlControls.Value = value;
                                     return Task.CompletedTask;
                                 },
-                                content: view => view.SwitchThumb([Switch.Thumb]));
-                            view.Text([Text.Caption], "Controls");
+                                content: view => view.SwitchThumb([Switch.Thumb]),
+                                label: "Controls");
                         });
                     });
 
@@ -475,6 +482,8 @@ public partial class Validation
                     }
                 });
             });
+
+            RenderMediaCountersSection(view);
         });
     }
 }

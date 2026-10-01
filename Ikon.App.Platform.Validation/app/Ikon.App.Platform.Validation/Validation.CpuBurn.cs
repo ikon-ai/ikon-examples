@@ -25,9 +25,6 @@ public partial class Validation
         view.Box([Card.Default, "p-6"], content: view =>
         {
             view.Text([Text.H2, "mb-4"], "CPU Burn");
-            view.Text([Text.Caption, "mb-4"],
-                $"Pins one core for {CpuBurnRunSeconds} seconds so metered core-seconds can be compared against a known quantity. " +
-                $"Stops on its own, and the whole session is capped at {CpuBurnSessionBudgetSeconds} core-seconds.");
 
             view.Column([Layout.Column.Md], content: view =>
             {

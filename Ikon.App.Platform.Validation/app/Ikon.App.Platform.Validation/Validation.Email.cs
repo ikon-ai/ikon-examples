@@ -39,11 +39,7 @@ public partial class Validation
 
         view.Column([Layout.Column.Lg], content: view =>
         {
-            view.Box([Card.Default, "p-6 mb-6"], content: view =>
-            {
-                view.Text([Text.H2, "mb-2"], "Email");
-                view.Text([Text.Caption], "Send a test email and browse received messages through the platform mailer. Sending is restricted to @ikon.live and @ikonai.com recipients. Requires the Email feature to be enabled on this space.");
-            });
+            view.Text([Text.H2], "Email");
 
             RenderExternalLinkCard(view);
             RenderEmailSendCard(view);
@@ -61,13 +57,12 @@ public partial class Validation
     {
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
         {
-            view.Text([Text.H3, "mb-2"], "External handler links");
-            view.Text([Text.Caption, "mb-4"], "These anchors hand off to an OS app (mail / phone). Tapping one fires the browser's page-unload events; the app must stay responsive after returning.");
+            view.Text([Text.H3, "mb-4"], "External handler links");
 
             view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
             {
                 view.Link(
-                    [Button.OutlineMd],
+                    [Button.PrimaryMd],
                     href: "mailto:test@ikon.live?subject=Validation%20test",
                     content: v =>
                     {
@@ -76,7 +71,7 @@ public partial class Validation
                     });
 
                 view.Link(
-                    [Button.OutlineMd],
+                    [Button.PrimaryMd],
                     href: "tel:+358401234567",
                     content: v =>
                     {
@@ -91,8 +86,7 @@ public partial class Validation
     {
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
         {
-            view.Text([Text.H3, "mb-2"], "Send Email");
-            view.Text([Text.Caption, "mb-4"], "The platform sets the visible From address; you only choose the recipient.");
+            view.Text([Text.H3, "mb-4"], "Send Email");
 
             view.Column([Layout.Column.Md], content: view =>
             {
@@ -139,8 +133,8 @@ public partial class Validation
                     view.Checkbox(
                         [Checkbox.Default],
                         value: _emailAttachSample.Value,
-                        onValueChange: async v => _emailAttachSample.Value = v);
-                    view.Text([Text.Body], "Attach sample image (santa.jpg)");
+                        onValueChange: async v => _emailAttachSample.Value = v,
+                        label: "Attach sample image (santa.jpg)");
                 });
 
                 view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
@@ -184,12 +178,10 @@ public partial class Validation
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
         {
             view.Text([Text.H3, "mb-2"], "Inbox");
-            view.Text([Text.Caption, "mb-1"], "Received emails delivered to this space.");
-            view.Row([Layout.Row.InlineCenter, "gap-1 mb-4 flex-wrap"], content: view =>
+            view.Row([Layout.Row.InlineCenter, "gap-2 mb-4 flex-wrap"], content: view =>
             {
-                view.Text([Text.Caption], "To test receiving, send an email to");
-                view.Text([Text.Caption, "font-mono text-primary"], "test@validation.dev.ikonai.app");
-                view.Text([Text.Caption], "(any local part works).");
+                view.Text([Text.Body], "Address:");
+                view.Text([Text.Body], "*@validation.dev.ikonai.app");
             });
 
             view.Row([Layout.Row.Md, "items-end mb-4 flex-wrap"], content: view =>
@@ -234,7 +226,7 @@ public partial class Validation
 
             if (_inboxEmails.Value.Count == 0)
             {
-                view.Text([Text.Caption], _inboxLoading.Value ? "Loading..." : "No emails. Press Refresh to load.");
+                view.Text([Text.Caption], _inboxLoading.Value ? "Loading..." : "No emails");
             }
             else
             {
@@ -249,7 +241,7 @@ public partial class Validation
                 if (!string.IsNullOrEmpty(_inboxNextCursor.Value))
                 {
                     view.Button(
-                        [Button.OutlineMd, "mt-4"],
+                        [Button.PrimaryMd, "mt-4"],
                         text: "Load more",
                         disabled: _inboxLoading.Value,
                         onClick: async () => await RefreshInboxAsync(reset: false));
@@ -291,7 +283,7 @@ public partial class Validation
                 });
 
             view.Button(
-                [Button.GhostMd, Button.Icon],
+                [Button.ErrorMd, Button.Icon],
                 onClick: async () => await DeleteEmailAsync(id),
                 content: v => v.Icon([Icon.Default], name: "trash-2"));
         });
@@ -305,7 +297,7 @@ public partial class Validation
             {
                 view.Text([Text.H3], "Message");
                 view.Button(
-                    [Button.GhostMd, Button.Icon],
+                    [Button.OutlineMd, Button.Icon],
                     onClick: async () =>
                     {
                         _selectedEmailId.Value = null;
@@ -365,7 +357,7 @@ public partial class Validation
                 view.Box([Card.Elevated, "mt-4 p-4 max-h-96 overflow-auto"], content: view =>
                 {
                     view.Text([Text.BodyStrong, "mb-2"], "Text body");
-                    view.Text([Text.Body, "whitespace-pre-wrap font-mono text-sm"], detail.BodyText);
+                    view.Text([Text.Body, "whitespace-pre-wrap text-sm"], detail.BodyText);
                 });
             }
 
@@ -379,7 +371,7 @@ public partial class Validation
 
                         if (!string.IsNullOrEmpty(_emailHtmlBodyUrl.Value))
                         {
-                            view.Button([Button.OutlineMd],
+                            view.Button([Button.PrimaryMd],
                                 href: _emailHtmlBodyUrl.Value,
                                 target: "_blank",
                                 rel: "noopener noreferrer",
@@ -391,7 +383,7 @@ public partial class Validation
                         }
                         else
                         {
-                            view.Button([Button.OutlineMd],
+                            view.Button([Button.PrimaryMd],
                                 text: "Render HTML",
                                 onClick: OpenHtmlBodyAsync);
                         }
@@ -439,7 +431,7 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(url))
                 {
-                    view.Button([Button.OutlineMd],
+                    view.Button([Button.PrimaryMd],
                         href: url,
                         target: "_blank",
                         rel: "noopener noreferrer",
@@ -451,7 +443,7 @@ public partial class Validation
                 }
                 else
                 {
-                    view.Button([Button.OutlineMd],
+                    view.Button([Button.PrimaryMd],
                         text: "Open",
                         disabled: _emailAttachmentBusyId.Value == attachmentId,
                         onClick: async () => await OpenAttachmentAsync(emailId, attachment));

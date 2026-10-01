@@ -12,6 +12,9 @@ public partial class Validation
     private readonly Reactive<bool> _drawingCanRedo = new(false);
     private readonly Reactive<string> _drawingSourceUrl = new("/test-images/landscape.svg");
     private readonly Reactive<bool> _drawingHighResolution = new(true);
+    private readonly Reactive<bool> _drawingFillShapes = new(false);
+    private readonly Reactive<bool> _drawingOverlayOn = new(false);
+    private readonly Reactive<double> _drawingOverlayOpacity = new(0.5);
 
     private static readonly (string Url, string Label)[] DrawingSources =
     [
@@ -32,8 +35,12 @@ public partial class Validation
         (ImageEditorTool.Eraser, "eraser", "Eraser"),
         (ImageEditorTool.Text, "type", "Text"),
         (ImageEditorTool.Arrow, "move-up-right", "Arrow"),
-        (ImageEditorTool.Region, "square-dashed", "Region")
+        (ImageEditorTool.Region, "square-dashed", "Region"),
+        (ImageEditorTool.Line, "minus", "Line"),
+        (ImageEditorTool.Polygon, "pentagon", "Polygon")
     ];
+
+    private static readonly double[] DrawingOverlayOpacities = [0.25, 0.5, 1.0];
 
     private static readonly int[] DrawingBrushSizes = [2, 4, 8, 16, 32, 48, 64];
 
@@ -41,9 +48,7 @@ public partial class Validation
     {
         view.Column([Layout.Column.Lg, "p-6"], content: section =>
         {
-            section.Text([Text.H3], "Image Editor Canvas");
-            section.Text([Text.Body, "text-secondary"],
-                "ImageEditorCanvas exposes brush, eraser, text, arrow, and region tools with zoom, undo/redo, and save triggers.");
+            section.Text([Text.H2], "Image Editor Canvas");
 
             section.Box([Card.Default, "p-3"], content: toolbar =>
             {
@@ -59,6 +64,7 @@ public partial class Validation
                             toolsRow.Button([active ? Button.SolidSm : Button.NeutralSm, "gap-1.5"],
                                 text: label,
                                 icon: icon,
+                                props: TestId($"drawing-tool-{label.ToLowerInvariant()}"),
                                 onClick: async () => _drawingTool.Value = captured);
                         }
                     });
@@ -130,6 +136,7 @@ public partial class Validation
                         row3.Box(["w-px h-8 bg-secondary"]);
 
                         row3.Button([Button.SolidSm, "gap-1.5"], text: "Save", icon: "save",
+                            props: TestId("drawing-save"),
                             onClick: async () => _drawingTriggerSave.Value = _drawingTriggerSave.Value + 1);
                     });
 
@@ -145,6 +152,31 @@ public partial class Validation
                                 onClick: async () => _drawingSourceUrl.Value = captured);
                         }
                     });
+
+                    // Row 5: shape fill + reference overlay
+                    rows.Row([Layout.Row.Xs, "flex flex-wrap items-center gap-3"], content: overlayRow =>
+                    {
+                        overlayRow.Switch(bind: _drawingFillShapes, label: "Fill shapes",
+                            props: TestId("drawing-fill-shapes"));
+
+                        overlayRow.Box(["w-px h-8 bg-secondary"]);
+
+                        overlayRow.Switch(bind: _drawingOverlayOn, label: "Reference overlay",
+                            props: TestId("drawing-overlay"));
+
+                        foreach (var opacity in DrawingOverlayOpacities)
+                        {
+                            var captured = opacity;
+                            var active = Math.Abs(_drawingOverlayOpacity.Value - opacity) < 0.001;
+                            overlayRow.Button([active ? Button.SolidSm : Button.NeutralSm], text: $"{opacity:P0}",
+                                disabled: !_drawingOverlayOn.Value,
+                                onClick: async () => _drawingOverlayOpacity.Value = captured);
+                        }
+                    });
+
+                    rows.Text([Text.Caption, "text-tertiary"],
+                        $"Tool: {_drawingTool.Value} · fill shapes: {(_drawingFillShapes.Value ? "on" : "off")} · overlay: {(_drawingOverlayOn.Value ? $"{_drawingOverlayOpacity.Value:0.00}" : "off")}",
+                        props: TestId("drawing-state"));
                 });
             });
 
@@ -158,6 +190,9 @@ public partial class Validation
                     brushWidth: _drawingBrushWidth.Value,
                     zoom: _drawingZoom.Value,
                     highResolution: _drawingHighResolution.Value,
+                    fillShapes: _drawingFillShapes.Value,
+                    overlaySrc: _drawingOverlayOn.Value ? "/test-images/square-a.svg" : null,
+                    overlayOpacity: _drawingOverlayOn.Value ? _drawingOverlayOpacity.Value : null,
                     triggerSave: _drawingTriggerSave.Value,
                     triggerUndo: _drawingTriggerUndo.Value,
                     triggerRedo: _drawingTriggerRedo.Value,
@@ -181,8 +216,8 @@ public partial class Validation
                     {
                         c.Row([Layout.Row.SpaceBetween, "items-center flex-wrap"], content: header =>
                         {
-                            header.Text([Text.Label], "Last saved image");
-                            header.Button([Button.GhostSm],
+                            header.Text([Text.Label], $"Last saved image ({_drawingSavedImage.Value!.Length} chars)", props: TestId("drawing-saved"));
+                            header.Button([Button.OutlineSm],
                                 onClick: async () => _drawingSavedImage.Value = null,
                                 content: b => b.Icon([Icon.Default, "w-3.5 h-3.5"], name: "x"));
                         });

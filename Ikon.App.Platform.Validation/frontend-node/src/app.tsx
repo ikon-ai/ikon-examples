@@ -4,6 +4,7 @@ import { AuthProvider, IkonApp, getConnectionRecovery, useAuthOptional, useIkonA
 import { registerStandardUiModule, registerLucideIconsModule } from '@ikonai/sdk-react-ui-standard';
 import { registerFunctionTesterModule } from './lib/function-tester/function-tester-module';
 import { registerTpProbeModule } from './lib/tp-probe/tp-probe-module';
+import { registerIdentityModule } from './lib/identity/identity-module';
 import { AuthGuard } from './auth/auth-guard';
 import { authConfig } from './env';
 import { I18nProvider, useI18n } from './i18n/i18n';
@@ -23,7 +24,7 @@ function App() {
 
 function AuthorizedApp() {
   const app = useIkonApp({
-    modules: [registerStandardUiModule, registerLucideIconsModule, registerFunctionTesterModule, registerTpProbeModule],
+    modules: [registerStandardUiModule, registerLucideIconsModule, registerFunctionTesterModule, registerTpProbeModule, registerIdentityModule],
   });
 
   return (

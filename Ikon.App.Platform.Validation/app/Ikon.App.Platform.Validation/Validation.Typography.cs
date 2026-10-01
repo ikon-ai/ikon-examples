@@ -1,5 +1,7 @@
 public partial class Validation
 {
+    private readonly ClientReactive<(string Status, string Css)> _themePairResult = new(("Not run yet", ""));
+
     private void RenderTypographySection(UIView view)
     {
         view.Column([Layout.Column.Lg], content: view =>
@@ -21,8 +23,12 @@ public partial class Validation
                     view.Box(["h-px bg-secondary my-2"]);
 
                     // Body scale
+                    view.Text([Text.BodyLg], "Text.BodyLg — Lead paragraph, intro copy.");
                     view.Text([Text.Body], "Text.Body — Regular body text with relaxed line height.");
                     view.Text([Text.BodySm], "Text.BodySm — Compact body for secondary content.");
+                    view.Text([Text.Lg], "Text.Lg — Body text at the large size.");
+                    view.Text([Text.Md], "Text.Md — Body text at the medium size.");
+                    view.Text([Text.Sm], "Text.Sm — Body text at the small size.");
                     view.Text([Text.BodyStrong], "Text.BodyStrong — Emphasised body text.");
                     view.Text([Text.Label], "Text.Label — Form label style");
                     view.Text([Text.Caption], "Text.Caption — Metadata, timestamps, helper text");
@@ -58,8 +64,12 @@ public partial class Validation
                     view.Box([Tone.Outline, "p-3 rounded-md"], content: v => v.Text(text: "Tone.Outline"));
                     view.Box([Tone.Link, "p-3 rounded-md"], content: v => v.Text(text: "Tone.Link"));
                     view.Box([Tone.Subtle, "p-3 rounded-md"], content: v => v.Text(text: "Tone.Subtle"));
+                    view.Box([Tone.GhostError, "p-3 rounded-md"], content: v => v.Text(text: "Tone.GhostError"));
+                    view.Box([Tone.OutlineError, "p-3 rounded-md"], content: v => v.Text(text: "Tone.OutlineError"));
                 });
             });
+
+            RenderSchemePairThemeCard(view);
 
             // Layout utilities
             view.Box([Card.Default, "p-6"], content: view =>
@@ -278,5 +288,85 @@ public partial class Validation
                     """);
             });
         });
+    }
+
+    // The CSS is inspected rather than applied: an IkonTheme's selectors are document-wide, so
+    // rendering it here would restyle the whole app instead of previewing one scheme pair.
+    private void RenderSchemePairThemeCard(UIView view)
+    {
+        view.Box([Card.Default, "p-6"], content: view =>
+        {
+            view.Text([Text.H2, "mb-1"], "IkonTheme Light / Dark");
+            view.Text([Text.BodySm, "text-tertiary mb-4"], "new IkonTheme { Light = …, Dark = … } declares both schemes as themes of their own. The check builds one, compares it with the indexer + DarkMode spelling, and shows the override block it emits.");
+            view.Row([Layout.Row.Md, "flex-wrap items-center mb-3"], content: row =>
+            {
+                row.Button([Button.PrimaryMd], text: "Check scheme pair", props: TestId("theme-pair-run"),
+                    onClick: async () => _themePairResult.Value = CheckSchemePairTheme());
+                row.Text([Text.Body], _themePairResult.Value.Status, props: TestId("theme-pair-result"));
+            });
+
+            if (_themePairResult.Value.Css.Length > 0)
+            {
+                view.Box([Text.Code, "whitespace-pre-wrap text-xs max-h-64 overflow-auto"], content: v => v.Text(text: _themePairResult.Value.Css));
+            }
+        });
+    }
+
+    private static (string Status, string Css) CheckSchemePairTheme()
+    {
+        try
+        {
+            ITheme pair = new IkonTheme
+            {
+                Light = new IkonTheme { ["primary"] = "amber-600" },
+                Dark = new IkonTheme { ["primary"] = "sky-400" }
+            };
+            ITheme spelledOut = new IkonTheme
+            {
+                ["primary"] = "amber-600",
+                DarkMode = new IkonTheme { ["primary"] = "sky-400" }
+            };
+
+            var css = pair.Css;
+            var marker = css.IndexOf("/* IkonTheme overrides */", StringComparison.Ordinal);
+            var overrides = marker >= 0 ? css[marker..].Trim() : "";
+            var lightBlock = CssBlock(overrides, ":root {");
+            var darkBlock = CssBlock(overrides, "[data-theme=\"dark\"], .dark {");
+
+            if (lightBlock.Length == 0 || darkBlock.Length == 0)
+            {
+                return ("FAIL: the override block is missing its light or dark section", overrides);
+            }
+
+            if (lightBlock == darkBlock)
+            {
+                return ("FAIL: the light and dark sections carry the same values", overrides);
+            }
+
+            if (css != spelledOut.Css)
+            {
+                return ("FAIL: Light/Dark emits different CSS than the indexer + DarkMode form", overrides);
+            }
+
+            return ("PASS: Light and Dark each emit their own section, identical to the indexer + DarkMode form", overrides);
+        }
+        catch (Exception ex)
+        {
+            return ($"FAIL: {ex.GetType().Name}: {ex.Message}", "");
+        }
+    }
+
+    private static string CssBlock(string css, string selector)
+    {
+        var start = css.IndexOf(selector, StringComparison.Ordinal);
+
+        if (start < 0)
+        {
+            return "";
+        }
+
+        start += selector.Length;
+        var end = css.IndexOf('}', start);
+        return end < 0 ? "" : css[start..end].Trim();
     }
 }

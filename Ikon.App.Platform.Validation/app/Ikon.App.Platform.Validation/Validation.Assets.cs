@@ -20,7 +20,7 @@ public partial class Validation
         view.Box([Card.Default, "p-6"], content: view =>
         {
             view.Text([Text.H2, "mb-4"], "LocalFile");
-            view.Text([Text.Caption, "font-mono mb-2"], $"URI: {uri}");
+            view.Text([Text.Caption, "mb-2"], $"URI: {uri}");
 
             view.Button([Button.PrimaryMd], text: "Load from Data", onClick: async () =>
             {
@@ -45,7 +45,7 @@ public partial class Validation
         view.Box([Card.Default, "p-6"], content: view =>
         {
             view.Text([Text.H2, "mb-4"], "CloudFile");
-            view.Text([Text.Caption, "font-mono mb-2"], $"URI: {uri}");
+            view.Text([Text.Caption, "mb-2"], $"URI: {uri}");
 
             view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
             {
@@ -94,7 +94,7 @@ public partial class Validation
 
             if (!string.IsNullOrEmpty(_assetCloudFileBackingUrl.Value))
             {
-                view.Text([Text.Caption, "font-mono mt-1 break-all"], $"URL: {_assetCloudFileBackingUrl.Value}");
+                view.Text([Text.Caption, "mt-1 break-all"], $"URL: {_assetCloudFileBackingUrl.Value}");
             }
 
             if (_assetCloudFileDownloaded.Value != null)
@@ -117,7 +117,7 @@ public partial class Validation
         view.Box([Card.Default, "p-6"], content: view =>
         {
             view.Text([Text.H2, "mb-4"], "CloudFilePublic");
-            view.Text([Text.Caption, "font-mono mb-2"], $"URI: {uri}");
+            view.Text([Text.Caption, "mb-2"], $"URI: {uri}");
 
             view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
             {
@@ -175,7 +175,7 @@ public partial class Validation
 
             if (!string.IsNullOrEmpty(_assetCloudFilePublicBackingUrl.Value))
             {
-                view.Text([Text.Caption, "font-mono mt-1 break-all"], $"URL: {_assetCloudFilePublicBackingUrl.Value}");
+                view.Text([Text.Caption, "mt-1 break-all"], $"URL: {_assetCloudFilePublicBackingUrl.Value}");
             }
 
             if (_assetCloudFilePublicDownloaded.Value != null)
@@ -190,7 +190,7 @@ public partial class Validation
                 // the asset's same-origin path and draws that, which is what keeps a public asset on
                 // the app's own origin without every app having to know the distinction exists.
                 view.Text([Text.Caption, "mt-2"], "Via AssetUri (same-origin):");
-                view.Text([Text.Caption, "font-mono mt-1 break-all"], _assetCloudFilePublicSameOriginUrl.Value);
+                view.Text([Text.Caption, "mt-1 break-all"], _assetCloudFilePublicSameOriginUrl.Value);
                 view.Image(["max-w-xs h-auto rounded-lg mt-1"], assetUri: uri);
             }
         });
@@ -203,7 +203,7 @@ public partial class Validation
         view.Box([Card.Default, "p-6"], content: view =>
         {
             view.Text([Text.H2, "mb-4"], "CloudJson");
-            view.Text([Text.Caption, "font-mono mb-2"], $"URI: {uri}");
+            view.Text([Text.Caption, "mb-2"], $"URI: {uri}");
 
             view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
             {

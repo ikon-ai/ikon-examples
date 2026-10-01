@@ -127,6 +127,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
                             min: 1,
                             max: 120,
                             step: 1,
+                            ariaLabel: "FPS",
                             onValueChange: values =>
                             {
                                 if (values.Count > 0)
@@ -164,6 +165,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
                             min: 0.01,
                             max: 0.5,
                             step: 0.01,
+                            ariaLabel: "Time Speed",
                             onValueChange: values =>
                             {
                                 if (values.Count > 0)
@@ -192,6 +194,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
                             min: 100,
                             max: 800,
                             step: 10,
+                            ariaLabel: "Bokeh Density",
                             onValueChange: values =>
                             {
                                 if (values.Count > 0)
@@ -220,6 +223,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
                             min: 5,
                             max: 100,
                             step: 5,
+                            ariaLabel: "Bokeh Min Size",
                             onValueChange: values =>
                             {
                                 if (values.Count > 0)
@@ -248,6 +252,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
                             min: 30,
                             max: 200,
                             step: 5,
+                            ariaLabel: "Bokeh Max Size",
                             onValueChange: values =>
                             {
                                 if (values.Count > 0)
@@ -276,6 +281,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
                             min: 0.0,
                             max: 1.0,
                             step: 0.05,
+                            ariaLabel: "Glow Intensity",
                             onValueChange: values =>
                             {
                                 if (values.Count > 0)
@@ -304,6 +310,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
                             min: 0.5,
                             max: 6.0,
                             step: 0.1,
+                            ariaLabel: "Color Intensity",
                             onValueChange: values =>
                             {
                                 if (values.Count > 0)
@@ -331,7 +338,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
                 view.Text([Text.Caption, "mb-4"], "Edit the GLSL shader code (must define mainImage function)");
 
                 view.TextArea(
-                    [Input.Default, "font-mono text-sm h-96"],
+                    [Textarea.Default, "font-mono text-sm h-96"],
                     value: _shaderSource.Value,
                     onValueChange: value =>
                     {

@@ -6,6 +6,9 @@ public partial class Validation
     private const string SimulatedSubscriptionPrefix = "sub_validation_expiry_";
 
     private readonly Reactive<string> _payProvider = new("stripe");
+    private const string GatedFeatureOfferId = "validation_subscription";
+    private const string GatedFeatureFunctionName = "ValidationGatedFeature";
+
     private readonly Reactive<string> _payOfferId = new("validation_subscription");
     private readonly Reactive<string> _payAmount = new("5.00");
     private readonly Reactive<string> _payCurrency = new("eur");
@@ -32,6 +35,10 @@ public partial class Validation
     private readonly Reactive<string> _payGate = new("");
     private readonly ReactiveList<string> _payEventLog = new();
     private readonly Reactive<PaymentReceipt?> _payReceipt = new((PaymentReceipt?)null);
+
+    [Function(Name = GatedFeatureFunctionName, Visibility = FunctionVisibility.Local)]
+    [PaymentsRequireEntitlement(GatedFeatureOfferId)]
+    public string ValidationGatedFeature() => "The gated feature ran";
 
     private async Task InitPaymentsAsync()
     {
@@ -139,7 +146,7 @@ public partial class Validation
                         r.Row([Layout.Row.Xs, "flex-wrap"], content: actions =>
                         {
                             actions.Button([Button.PrimarySm], text: "Take payment", disabled: _payBusy.Value, onClick: () => PayAsync(offerId));
-                            actions.Button([Button.PrimarySm], text: "Remove", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
+                            actions.Button([Button.ErrorSm], text: "Remove", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
                             {
                                 var removed = await app.Payments.RemoveOfferAsync(offerId);
                                 LogPayments(removed ? $"Removed offer '{offerId}' from the catalog" : $"Offer '{offerId}' was not an active offer");
@@ -155,7 +162,7 @@ public partial class Validation
                     btns.Button([Button.PrimarySm], text: "Create validation offers", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(CreateValidationOffersAsync));
                     btns.Row([Layout.Row.InlineCenter, "flex-wrap"], content: promo =>
                     {
-                        promo.Switch([Switch.Default], bind: _payAllowPromo, props: TestId("pay-allow-promo"),
+                        promo.Switch([Switch.Default], bind: _payAllowPromo, props: AriaLabel("Promo codes at checkout", testId: "pay-allow-promo"),
                             content: v => v.SwitchThumb([Switch.Thumb]));
                         promo.Text([Text.Caption], text: "Promo codes at checkout (Stripe)");
                     });
@@ -247,9 +254,20 @@ public partial class Validation
 
                 // Synchronous, cached gate — safe to read every render, re-renders on change.
                 var entitledNow = app.Payments.IsEntitled(_payOfferId.Value, CustomerOverrideOrNull);
-                card.Text([Text.BodySm, entitledNow ? "text-success-primary" : "text-tertiary", "font-mono"],
+                card.Text([Text.BodySm, entitledNow ? "text-success-primary" : "text-tertiary"],
                     text: (entitledNow ? "✓" : "✗") + $" IsEntitled(\"{_payOfferId.Value}\") — live, updates automatically",
                     props: TestId("pay-entitled-live"));
+
+                // The tri-state read tells "not entitled" from "not fetched yet", which IsEntitled folds together.
+                var entitlementState = app.Payments.CheckEntitlement(_payOfferId.Value, CustomerOverrideOrNull);
+                card.Text([Text.BodySm, entitlementState switch
+                    {
+                        EntitlementState.Entitled => "text-success-primary",
+                        EntitlementState.NotEntitled => "text-tertiary",
+                        _ => "text-warning-primary",
+                    }],
+                    text: $"CheckEntitlement(\"{_payOfferId.Value}\") = {entitlementState}",
+                    props: TestId("pay-entitlement-state"));
             });
 
             // 4. The customer's stuff -------------------------------------
@@ -286,17 +304,17 @@ public partial class Validation
                                 {
                                     // A simulated subscription exists only in the normalized store, so a
                                     // real provider cancel can only fail — end it through the simulator.
-                                    actions.Button([Button.PrimarySm], text: "Revoke (simulated)", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(
+                                    actions.Button([Button.ErrorSm], text: "Revoke (simulated)", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(
                                         () => SimulateSubscriptionRevokedAsync(id.Substring(SimulatedSubscriptionPrefix.Length))));
                                     return;
                                 }
-                                actions.Button([Button.PrimarySm], text: "Cancel at period end", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
+                                actions.Button([Button.ErrorSm], text: "Cancel at period end", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
                                 {
                                     await app.Payments.CancelSubscriptionAsync(id);
                                     LogPayments("Canceled a subscription — it stays active until the period ends");
                                     await ReloadCustomerAsync();
                                 }));
-                                actions.Button([Button.PrimarySm], text: "Cancel now", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
+                                actions.Button([Button.ErrorSm], text: "Cancel now", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
                                 {
                                     await app.Payments.CancelSubscriptionAsync(id, immediate: true);
                                     LogPayments("Canceled a subscription immediately");
@@ -342,7 +360,7 @@ public partial class Validation
                             r.Row([Layout.Row.Xs, "flex-wrap"], content: actions =>
                             {
                                 actions.Button([Button.PrimarySm], text: "Receipt", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(() => RequestReceiptAsync(id)));
-                                actions.Button([Button.PrimarySm], text: "Refund", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
+                                actions.Button([Button.ErrorSm], text: "Refund", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
                                 {
                                     var refund = await app.Payments.RefundAsync(id);
                                     LogPayments($"Refund {refund.Status}");
@@ -360,11 +378,14 @@ public partial class Validation
                 card.Text([Text.H3], text: "Feature gating");
                 card.Button([Button.PrimarySm, "self-start"], text: "Evaluate the gate", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(async () =>
                 {
-                    var policy = new PaymentsRequireEntitlementAttribute(_payOfferId.Value).CreatePolicy();
-                    var ctx = new PolicyCallContext(Guid.NewGuid(), "validation-demo", 0, SimulationCustomer, null, null, true, CancellationToken.None);
-                    var decision = await policy.EvaluateAsync([], ctx);
+                    // The gate is the policy [PaymentsRequireEntitlement] puts on a real registered
+                    // function, evaluated for the simulated customer rather than the visitor.
+                    var gated = FunctionRegistry.Instance.GetFunction(GatedFeatureFunctionName)?.Policy
+                        ?? throw new InvalidOperationException($"{GatedFeatureFunctionName} is not registered with a policy");
+                    var ctx = new PolicyCallContext(Guid.NewGuid(), GatedFeatureFunctionName, 0, SimulationCustomer, null, null, true, CancellationToken.None);
+                    var decision = await gated([], ctx);
                     _payGate.Value = decision is PolicyDecision.Deny
-                        ? $"Blocked — the customer has no active '{_payOfferId.Value}' entitlement."
+                        ? $"Blocked — the customer has no active '{GatedFeatureOfferId}' entitlement."
                         : "Allowed — the call would run.";
                 }));
                 if (!string.IsNullOrEmpty(_payGate.Value))
@@ -387,7 +408,7 @@ public partial class Validation
                 {
                     btns.Button([Button.PrimarySm], text: "Grant expired access", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(() => SimulateSubscriptionAccessAsync(expired: true)));
                     btns.Button([Button.PrimarySm], text: "Grant active access", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(() => SimulateSubscriptionAccessAsync(expired: false)));
-                    btns.Button([Button.PrimarySm], text: "Revoke access", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(() => SimulateSubscriptionRevokedAsync(SimulationCustomer)));
+                    btns.Button([Button.ErrorSm], text: "Revoke access", disabled: _payBusy.Value, onClick: () => RunPaymentsActionAsync(() => SimulateSubscriptionRevokedAsync(SimulationCustomer)));
                 });
             });
 

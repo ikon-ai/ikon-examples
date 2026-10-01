@@ -1,31 +1,23 @@
+using System.Collections.Concurrent;
 using Ikon.App.Platform.Validation.Protocol;
 
-// Validation tab exercising app-local custom Teleport (.tp) messages over the
-// GROUP_APP_LOCAL channel — the raw transport that bypasses the Parallax reactive
-// UI loop. Covers BOTH directions and BOTH reliability modes:
-//   - server -> client : a start/stop loop streams ProbePing / ProbePingUnreliable
-//     to the viewing client; the custom React component (tp-probe) receives them
-//     directly via appMessaging.on() and prints per-mode metrics.
-//   - client -> server : the component's Send buttons emit the same two types; the
-//     OnMessage<T> handlers below reflect receipt back into the Parallax UI.
 public partial class Validation
 {
-    // Server -> client stream state.
-    private CancellationTokenSource? _tpStreamCts;
-    private readonly Reactive<bool> _tpStreamRunning = new(false);
-    private readonly Reactive<string> _tpStreamMode = new("reliable"); // "reliable" | "unreliable"
-    private readonly Reactive<string> _tpStreamRateMs = new("100");
-    private readonly Reactive<string> _tpStreamStatus = new("(idle)");
+    // The browser sends at the same interval, so the two directions read alike.
+    private const int TpStreamIntervalMs = 100;
 
-    // Client -> server received signal, surfaced in the Parallax UI.
-    private readonly Reactive<int> _tpFromClientReliable = new(0);
-    private readonly Reactive<int> _tpFromClientUnreliable = new(0);
-    private readonly Reactive<string> _tpLastFromClient = new("(none yet)");
+    // Every stream and count is per client session, so the numbers side by side in a row describe
+    // the same traffic, and two browsers (or two validation runs) never touch each other's streams.
+    private readonly TpServerStream _tpServerReliable = new("reliable");
+    private readonly TpServerStream _tpServerUnreliable = new("unreliable");
+
+    private readonly ClientReactive<bool> _tpClientReliableRunning = new(false);
+    private readonly ClientReactive<bool> _tpClientUnreliableRunning = new(false);
+    private readonly TpReceiveCounters _tpFromClientReliable = new("reliable");
+    private readonly TpReceiveCounters _tpFromClientUnreliable = new("unreliable");
 
     private bool _tpHandlersRegistered;
 
-    // Registered once from Main(). OnMessage<T> takes a single handler (payload,
-    // senderId); senderId is the originating client's session id.
     private void SetupCustomMessageHandlers()
     {
         if (_tpHandlersRegistered)
@@ -37,91 +29,70 @@ public partial class Validation
 
         app.OnMessage<ProbePing>((m, senderId) =>
         {
-            OnClientProbe(m.Seq, m.SentAtMs, m.Mode, senderId, reliable: true);
+            _tpFromClientReliable.Apply(senderId, m.Note, m.Seq, m.Origin, m.Mode, m.SentAtMs);
             return ValueTask.CompletedTask;
         });
 
         app.OnMessage<ProbePingUnreliable>((m, senderId) =>
         {
-            OnClientProbe(m.Seq, m.SentAtMs, m.Mode, senderId, reliable: false);
+            _tpFromClientUnreliable.Apply(senderId, m.Note, m.Seq, m.Origin, m.Mode, m.SentAtMs);
             return ValueTask.CompletedTask;
+        });
+
+        app.OnClientLeft((clientContext, _) =>
+        {
+            _tpServerReliable.Stop(clientContext.SessionId);
+            _tpServerUnreliable.Stop(clientContext.SessionId);
+            _tpFromClientReliable.Forget(clientContext.SessionId);
+            _tpFromClientUnreliable.Forget(clientContext.SessionId);
+            return Task.CompletedTask;
         });
     }
 
-    private void OnClientProbe(long seq, long sentAtMs, string mode, int senderId, bool reliable)
+    private void StartTpStream(TpServerStream stream, int clientSessionId)
     {
-        if (reliable)
-        {
-            _tpFromClientReliable.Value++;
-        }
-        else
-        {
-            _tpFromClientUnreliable.Value++;
-        }
+        var cancellation = new CancellationTokenSource();
 
-        // Transit time plus however far the two machines' wall clocks are apart — the
-        // sender stamped SentAtMs from its own clock, so this is not a latency and goes
-        // negative whenever the sender's clock runs ahead. It is a liveness diagnostic.
-        long deltaMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - sentAtMs;
-        _tpLastFromClient.Value = $"seq={seq} mode={mode} from=#{senderId} delta={deltaMs}ms";
-    }
-
-    private void StartTpStream(int clientSessionId)
-    {
-        if (_tpStreamRunning.Value)
+        if (!stream.Cancellations.TryAdd(clientSessionId, cancellation))
         {
+            cancellation.Dispose();
             return;
         }
 
-        var mode = _tpStreamMode.Value;
-        var rateMs = ParseTpRate(_tpStreamRateMs.Value, 100);
-
-        _tpStreamCts = new CancellationTokenSource();
-        var token = _tpStreamCts.Token;
-        _tpStreamRunning.Value = true;
-
-        _ = Task.Run(() => RunTpStreamAsync(mode, clientSessionId, rateMs, token));
+        stream.Running.SetFor(clientSessionId, true);
+        stream.Sent.SetFor(clientSessionId, 0);
+        _ = Task.Run(() => RunTpStreamAsync(stream, clientSessionId, cancellation));
     }
 
-    private void StopTpStream() => _tpStreamCts?.Cancel();
-
-    private async Task RunTpStreamAsync(string mode, int clientSessionId, int rateMs, CancellationToken token)
+    private async Task RunTpStreamAsync(TpServerStream stream, int clientSessionId, CancellationTokenSource cancellation)
     {
+        var token = cancellation.Token;
+        string streamId = Guid.NewGuid().ToString("N");
+        bool unreliable = stream.Mode == "unreliable";
         long seq = 0;
-        bool unreliable = mode == "unreliable";
-        bool sendTimedOut = false;
 
         try
         {
             while (!token.IsCancellationRequested)
             {
-                // The loop's only other exit is the Stop button, which a departed
-                // client cannot press — without this check the stream runs forever
-                // against a dead session and holds the shared running flag.
-                // Soft-disconnect counts as departed: a disconnected client cannot
-                // watch the stream and can start a new one after reconnecting.
-                if (!app.GlobalState.Clients.TryGetValue(clientSessionId, out var clientContext)
-                    || clientContext.IsSoftDisconnected)
+                if (!app.GlobalState.Clients.TryGetValue(clientSessionId, out var clientContext) || clientContext.IsSoftDisconnected)
                 {
-                    Log.Instance.Info($"Custom-message stream target client {clientSessionId} disconnected — stopping stream");
                     break;
                 }
 
                 seq++;
                 long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-                // The two types differ only by their schema-level `unreliable` flag,
-                // which the generated codec bakes into the wire message. The send is
-                // bounded because SendMessageAsync takes no token — an unbounded await
-                // that never completes would wedge this loop past Stop and leave
-                // _tpStreamRunning stuck until the server restarts.
+                // Reliability is a per-type schema flag, so each mode is its own message type.
+                // SendMessageAsync takes no token, so an unbounded await that never completes
+                // would wedge the loop past Stop.
                 var send = unreliable
-                    ? app.SendMessageAsync(
-                        new ProbePingUnreliable { Seq = seq, SentAtMs = now, Origin = "server", Mode = "unreliable", Note = "stream" },
-                        clientSessionId)
-                    : app.SendMessageAsync(
-                        new ProbePing { Seq = seq, SentAtMs = now, Origin = "server", Mode = "reliable", Note = "stream" },
-                        clientSessionId);
+                    ? app.SendMessageAsync(new ProbePingUnreliable { Seq = seq, SentAtMs = now, Origin = "server", Mode = stream.Mode, Note = streamId }, clientSessionId)
+                    : app.SendMessageAsync(new ProbePing { Seq = seq, SentAtMs = now, Origin = "server", Mode = stream.Mode, Note = streamId }, clientSessionId);
+
+                // Counted at dispatch: the message can reach the browser before an update to
+                // this count does, and "received" running ahead of "sent" reads as a bug.
+                stream.Sent.SetFor(clientSessionId, seq);
 
                 try
                 {
@@ -129,137 +100,181 @@ public partial class Validation
                 }
                 catch (TimeoutException)
                 {
-                    sendTimedOut = true;
-                    _tpStreamStatus.Value = $"send {seq} ({mode}) timed out — stopping stream";
-                    Log.Instance.Warning($"Custom-message stream send timed out: mode={mode} seq={seq} client={clientSessionId}");
+                    Log.Instance.Warning($"Custom-message {stream.Mode} stream to client {clientSessionId} stopped: send {seq} timed out");
                     break;
                 }
 
-                _tpStreamStatus.Value = $"sent {seq} ({mode})";
-                await Task.Delay(rateMs, token);
+                await Task.Delay(TpStreamIntervalMs, token);
             }
         }
         catch (OperationCanceledException)
         {
+            // Stop cancels the delay; the stream ends exactly as it would on its own.
+        }
+        catch (Exception ex)
+        {
+            Log.Instance.Warning($"Custom-message {stream.Mode} stream to client {clientSessionId} stopped: send {seq} failed: {ex.Message}");
         }
         finally
         {
-            _tpStreamRunning.Value = false;
-
-            if (!sendTimedOut)
-            {
-                _tpStreamStatus.Value = "(idle)";
-            }
+            stream.Cancellations.TryRemove(new KeyValuePair<int, CancellationTokenSource>(clientSessionId, cancellation));
+            cancellation.Dispose();
+            stream.Running.SetFor(clientSessionId, false);
         }
     }
-
-    private static int ParseTpRate(string value, int fallback)
-        => int.TryParse(value, out var n) && n >= 1 ? Math.Min(n, 10000) : fallback;
 
     private void RenderCustomMessagesSection(UIView view)
     {
         view.Column([Layout.Column.Lg], content: view =>
         {
+            view.Text([Text.H2], "Custom Messages");
+
             view.Box([Card.Default, "p-6"], content: view =>
             {
-                view.Text([Text.H2, "mb-1"], "Custom Teleport (.tp) messages");
-                view.Text([Text.BodySm, "text-tertiary mb-2"],
-                    "Validates app-local custom .tp messages over the GROUP_APP_LOCAL channel, which bypasses the Parallax reactive UI loop. The component below receives server→client messages directly via appMessaging.on() and prints per-mode metrics; its Send buttons emit client→server messages, whose receipt the server reflects in the bottom panel.");
-                view.Text([Text.Caption, "text-muted-foreground"],
-                    "Note: on localhost the unreliable channel usually falls back to reliable (no WebRTC/UDP datagram path), so gaps / out-of-order will read 0 — those metrics become meaningful only on a lossy transport.");
+                view.Text([Text.H3, "mb-4"], "Server → Client");
+                RenderTpServerRow(view, _tpServerReliable);
+                RenderTpServerRow(view, _tpServerUnreliable);
             });
 
-            // Server -> client stream controls (Parallax-native).
             view.Box([Card.Default, "p-6"], content: view =>
             {
-                view.Text([Text.H2, "mb-1"], "Server → Client stream");
-                view.Text([Text.BodySm, "text-tertiary mb-4"],
-                    "A server-side loop streams the selected message type to THIS client at the chosen rate.");
-
-                view.Row([Layout.Row.InlineCenter, "mb-2 flex-wrap"], content: view =>
-                {
-                    view.Text([Text.BodyStrong, "w-32"], "Mode");
-                    view.Select(
-                        value: _tpStreamMode.Value,
-                        options:
-                        [
-                            new SelectOption("reliable", "Reliable (ProbePing)"),
-                            new SelectOption("unreliable", "Unreliable (ProbePingUnreliable)")
-                        ],
-                        disabled: _tpStreamRunning.Value,
-                        onValueChange: async v => _tpStreamMode.Value = v);
-                });
-
-                view.Row([Layout.Row.InlineCenter, "mb-2 flex-wrap"], content: view =>
-                {
-                    view.Text([Text.BodyStrong, "w-32"], "Rate (ms)");
-                    view.TextField(
-                        [Input.Default, "w-32"],
-                        value: _tpStreamRateMs.Value,
-                        type: "number",
-                        step: "10",
-                        min: "1",
-                        disabled: _tpStreamRunning.Value,
-                        onValueChange: async v => _tpStreamRateMs.Value = v);
-                });
-
-                view.Row([Layout.Row.InlineCenter, "mb-3 flex-wrap"], content: view =>
-                {
-                    view.Text([Text.BodyStrong, "w-32"], "Status");
-                    view.Text([Text.Body], _tpStreamStatus.Value);
-                });
-
-                view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
-                {
-                    view.Button(
-                        [_tpStreamRunning.Value ? Button.OutlineMd : Button.PrimaryMd],
-                        text: "Start stream",
-                        disabled: _tpStreamRunning.Value,
-                        onClick: async () => StartTpStream(ReactiveScope.ClientId));
-
-                    view.Button([Button.ErrorMd],
-                        text: "Stop stream",
-                        disabled: !_tpStreamRunning.Value,
-                        onClick: async () => StopTpStream());
-                });
-            });
-
-            // Custom React component — receives the stream off the reactive loop and
-            // hosts the client→server Send buttons. Mount-time only (no per-tick props);
-            // the .tp stream is the data channel.
-            view.Box([Card.Default, "p-6"], content: view =>
-            {
-                view.Text([Text.H2, "mb-1"], "Custom component (off the reactive loop)");
-                view.Text([Text.BodySm, "text-tertiary mb-4"],
-                    "Rendered by a custom React module subscribing via appMessaging.on(). The Send buttons emit client→server messages.");
-                view.AddNode("tp-probe", new Dictionary<string, object?>(), style: ["w-full"]);
-            });
-
-            // Client -> server received signal (server-side reactives).
-            view.Box([Card.Default, "p-6"], content: view =>
-            {
-                view.Text([Text.H2, "mb-1"], "Client → Server received (server-side signal)");
-                view.Text([Text.BodySm, "text-tertiary mb-4"],
-                    "These update from the server's app.OnMessage<T> handler when you click Send above — proving the server received the browser-originated messages.");
-
-                view.Row([Layout.Row.InlineCenter, "mb-2 flex-wrap"], content: view =>
-                {
-                    view.Text([Text.BodyStrong, "w-48"], "Reliable received");
-                    view.Text([Text.Body], _tpFromClientReliable.Value.ToString());
-                });
-
-                view.Row([Layout.Row.InlineCenter, "mb-2 flex-wrap"], content: view =>
-                {
-                    view.Text([Text.BodyStrong, "w-48"], "Unreliable received");
-                    view.Text([Text.Body], _tpFromClientUnreliable.Value.ToString());
-                });
-
-                view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
-                {
-                    view.Text([Text.BodyStrong, "w-48"], "Last");
-                    view.Text([Text.Body], _tpLastFromClient.Value);
-                });
+                view.Text([Text.H3, "mb-4"], "Client → Server");
+                RenderTpClientRow(view, _tpClientReliableRunning, _tpFromClientReliable);
+                RenderTpClientRow(view, _tpClientUnreliableRunning, _tpFromClientUnreliable);
             });
         });
+    }
+
+    private void RenderTpServerRow(UIView view, TpServerStream stream)
+    {
+        bool running = stream.Running.Value;
+        int clientSessionId = ReactiveScope.ClientId;
+        string prefix = $"tp-s2c-{stream.Mode}";
+
+        view.Row([Layout.Row.Lg, "items-center py-2"], content: view =>
+        {
+            RenderTpRowLabel(view, stream.Mode);
+            view.Button([Button.PrimaryMd], text: "Start", disabled: running,
+                onClick: () => StartTpStream(stream, clientSessionId), props: TestId($"{prefix}-start"));
+            view.Button([Button.OutlineMd], text: "Stop", disabled: !running,
+                onClick: () => stream.Stop(clientSessionId), props: TestId($"{prefix}-stop"));
+            RenderTpStats(view, view =>
+            {
+                RenderTpStat(view, "sent", stream.Sent.Value, $"{prefix}-sent");
+                view.AddNode("tp-probe", new Dictionary<string, object?> { ["role"] = "receive", ["mode"] = stream.Mode }, style: ["min-w-0"]);
+            });
+        });
+    }
+
+    private void RenderTpClientRow(UIView view, ClientReactive<bool> running, TpReceiveCounters received)
+    {
+        string prefix = $"tp-c2s-{received.Mode}";
+
+        view.Row([Layout.Row.Lg, "items-center py-2"], content: view =>
+        {
+            RenderTpRowLabel(view, received.Mode);
+            view.Button([Button.PrimaryMd], text: "Start", disabled: running.Value,
+                onClick: () => running.Value = true, props: TestId($"{prefix}-start"));
+            view.Button([Button.OutlineMd], text: "Stop", disabled: !running.Value,
+                onClick: () => running.Value = false, props: TestId($"{prefix}-stop"));
+            RenderTpStats(view, view =>
+            {
+                view.AddNode("tp-probe", new Dictionary<string, object?> { ["role"] = "send", ["mode"] = received.Mode, ["running"] = running.Value }, style: ["min-w-0"]);
+                RenderTpStat(view, "received", received.Received.Value, $"{prefix}-received");
+                RenderTpStat(view, "gaps", received.Gaps.Value, $"{prefix}-gaps");
+                RenderTpStat(view, "out of order", received.OutOfOrder.Value, $"{prefix}-ooo");
+                RenderTpStat(view, "malformed", received.Malformed.Value, $"{prefix}-malformed");
+            });
+        });
+    }
+
+    // The counters wrap inside their own group, so a narrow card breaks between counters instead of
+    // pushing the whole set under the buttons.
+    private static void RenderTpStats(UIView view, Action<UIView> content) =>
+        view.Row(["flex-1 min-w-0 flex-wrap items-baseline gap-x-5 gap-y-1"], content: content);
+
+    private static void RenderTpRowLabel(UIView view, string mode) =>
+        view.Text([Text.BodyStrong, "w-24"], mode == "reliable" ? "Reliable" : "Unreliable");
+
+    private static void RenderTpStat(UIView view, string label, long value, string testId)
+    {
+        view.Row([Layout.Row.Xs, "items-baseline"], content: view =>
+        {
+            view.Text([Text.Body, "opacity-70"], label);
+            view.Text([Text.BodyStrong, "tabular-nums"], value.ToString(), props: TestId(testId));
+        });
+    }
+
+    private sealed class TpServerStream(string mode)
+    {
+        public string Mode { get; } = mode;
+        public ClientReactive<bool> Running { get; } = new(false);
+        public ClientReactive<long> Sent { get; } = new(0);
+        public ConcurrentDictionary<int, CancellationTokenSource> Cancellations { get; } = new();
+
+        public void Stop(int clientSessionId)
+        {
+            if (Cancellations.TryGetValue(clientSessionId, out var cancellation))
+            {
+                cancellation.Cancel();
+            }
+        }
+    }
+
+    // What the server saw of one browser's stream in one mode. A new stream id is a new stream,
+    // which is how a restart is told apart from reordering even when its first message was lost.
+    private sealed class TpReceiveCounters(string mode)
+    {
+        public string Mode { get; } = mode;
+        public ClientReactive<long> Received { get; } = new(0);
+        public ClientReactive<long> Gaps { get; } = new(0);
+        public ClientReactive<long> OutOfOrder { get; } = new(0);
+        public ClientReactive<long> Malformed { get; } = new(0);
+
+        private readonly Lock _lock = new();
+        private readonly Dictionary<int, (string StreamId, long LastSeq)> _streams = new();
+
+        public void Apply(int senderId, string streamId, long seq, string origin, string sentMode, long sentAtMs)
+        {
+            lock (_lock)
+            {
+                if (origin != "client" || sentMode != Mode || sentAtMs <= 0 || string.IsNullOrEmpty(streamId))
+                {
+                    Malformed.SetFor(senderId, Malformed.ValueFor(senderId) + 1);
+                    return;
+                }
+
+                bool newStream = !_streams.TryGetValue(senderId, out var current) || current.StreamId != streamId;
+
+                if (newStream)
+                {
+                    current = (streamId, 0);
+                    Received.SetFor(senderId, 0);
+                    Gaps.SetFor(senderId, 0);
+                    OutOfOrder.SetFor(senderId, 0);
+                }
+
+                if (current.LastSeq != 0 && seq > current.LastSeq + 1)
+                {
+                    Gaps.SetFor(senderId, Gaps.ValueFor(senderId) + (seq - current.LastSeq - 1));
+                }
+
+                if (current.LastSeq != 0 && seq <= current.LastSeq)
+                {
+                    OutOfOrder.SetFor(senderId, OutOfOrder.ValueFor(senderId) + 1);
+                }
+
+                _streams[senderId] = (streamId, Math.Max(current.LastSeq, seq));
+                Received.SetFor(senderId, Received.ValueFor(senderId) + 1);
+            }
+        }
+
+        public void Forget(int senderId)
+        {
+            lock (_lock)
+            {
+                _streams.Remove(senderId);
+            }
+        }
     }
 }

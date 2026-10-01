@@ -11,20 +11,3 @@ public static class ValidationFunctions
     [Function(Name = "EchoBytes", Description = "Returns the same byte array back", Visibility = FunctionVisibility.External)]
     public static byte[] EchoBytes(byte[] data) => data;
 }
-
-public partial class Validation
-{
-    private void RenderFunctionsSection(UIView view)
-    {
-        view.Column([Layout.Column.Lg], content: view =>
-        {
-            view.Box([Card.Default, "p-6"], content: view =>
-            {
-                view.Text([Text.H2, "mb-4"], "Server Functions (RPC)");
-                view.Text([Text.Caption, "mb-4"], "Tests client-to-server function calls via the Ikon SDK function registry");
-            });
-
-            view.AddNode("function-tester", new Dictionary<string, object?>(), style: ["w-full"]);
-        });
-    }
-}

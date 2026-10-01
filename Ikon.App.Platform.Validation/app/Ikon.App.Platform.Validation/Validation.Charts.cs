@@ -1,5 +1,23 @@
 public partial class Validation
 {
+    private static readonly AxisConfig SparklineAxis = new() { Hidden = true };
+
+    private static readonly (string Label, string Value, LineChartSeries[] Series, string Color)[] Sparklines =
+    [
+        ("Weekly signups", "1,284", SparklineSeries("signups", [12, 18, 15, 22, 28, 26, 34, 31, 40]), "#22c55e"),
+        ("Error rate", "0.42%", SparklineSeries("errors", [9, 7, 8, 5, 6, 4, 5, 3, 4]), "#ef4444"),
+        ("Median latency", "182 ms", SparklineSeries("latency", [20, 22, 19, 25, 21, 23, 20, 24, 22]), "#3b82f6"),
+    ];
+
+    private static LineChartSeries[] SparklineSeries(string id, double[] values) =>
+    [
+        new LineChartSeries
+        {
+            Id = id,
+            Data = values.Select((y, i) => new LineChartPoint { X = i, Y = y }).ToArray()
+        }
+    ];
+
     private ChartTheme GetChartTheme() =>
         _theme.Current.Value == Theme.Dark ? ChartThemes.DefaultDark : ChartThemes.DefaultLight;
 
@@ -291,6 +309,47 @@ public partial class Validation
                 });
             });
 
+            // Sparklines
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-1"], "Sparklines");
+                view.Text([Text.Caption, "mb-4"], "AxisConfig { Hidden = true } on every axis, no grid and a zero margin turn a LineChart into an inline trend line.");
+                view.Grid(["grid grid-cols-1 sm:grid-cols-3 gap-4"], content: grid =>
+                {
+                    foreach (var (label, value, series, color) in Sparklines)
+                    {
+                        grid.Box([Card.Subtle, "p-4"], content: tile =>
+                        {
+                            tile.Text([Text.Caption], label);
+                            tile.Row(["items-end justify-between gap-3"], content: row =>
+                            {
+                                row.Text([Text.H3, "tabular-nums"], value);
+                                row.Box(["h-10 w-32"], content: spark =>
+                                {
+                                    spark.LineChart(["w-full h-full"],
+                                        theme: chartTheme,
+                                        data: series,
+                                        colors: [color],
+                                        curve: LineCurve.MonotoneX,
+                                        margin: new ChartMargin { Top = 2, Right = 2, Bottom = 2, Left = 2 },
+                                        axisTop: SparklineAxis,
+                                        axisRight: SparklineAxis,
+                                        axisBottom: SparklineAxis,
+                                        axisLeft: SparklineAxis,
+                                        enableGridX: false,
+                                        enableGridY: false,
+                                        enablePoints: false,
+                                        enableArea: true,
+                                        areaOpacity: 0.12,
+                                        lineWidth: 2,
+                                        isInteractive: false);
+                                });
+                            });
+                        });
+                    }
+                });
+            });
+
             // Stat Cards
             view.Box([Card.Default, "p-6"], content: view =>
             {
@@ -307,7 +366,7 @@ public partial class Validation
                             view.Row([StatCard.Header], content: view =>
                             {
                                 view.Box([StatCard.IconBoxBrand], content: view => view.Icon([StatCard.IconSize], name: "trending-up"));
-                                view.Button([Button.GhostSm, "h-8 w-8"], onClick: async () => { }, content: v => v.Icon([Icon.Xs], name: "more-vertical"));
+                                view.Button([Button.OutlineSm, Button.IconSm], onClick: async () => { }, content: v => v.Icon([Icon.Xs], name: "more-vertical"));
                             });
                             view.Text([StatCard.Label], "Total Revenue");
                             view.Row([StatCard.ValueRow], content: view =>
@@ -327,7 +386,7 @@ public partial class Validation
                             view.Row([StatCard.Header], content: view =>
                             {
                                 view.Box([StatCard.IconBoxSuccess], content: view => view.Icon([StatCard.IconSize], name: "users"));
-                                view.Button([Button.GhostSm, "h-8 w-8"], onClick: async () => { }, content: v => v.Icon([Icon.Xs], name: "more-vertical"));
+                                view.Button([Button.OutlineSm, Button.IconSm], onClick: async () => { }, content: v => v.Icon([Icon.Xs], name: "more-vertical"));
                             });
                             view.Text([StatCard.Label], "Active Users");
                             view.Row([StatCard.ValueRow], content: view =>
@@ -347,7 +406,7 @@ public partial class Validation
                             view.Row([StatCard.Header], content: view =>
                             {
                                 view.Box([StatCard.IconBoxError], content: view => view.Icon([StatCard.IconSize], name: "trending-down"));
-                                view.Button([Button.GhostSm, "h-8 w-8"], onClick: async () => { }, content: v => v.Icon([Icon.Xs], name: "more-vertical"));
+                                view.Button([Button.OutlineSm, Button.IconSm], onClick: async () => { }, content: v => v.Icon([Icon.Xs], name: "more-vertical"));
                             });
                             view.Text([StatCard.Label], "Churn Rate");
                             view.Row([StatCard.ValueRow], content: view =>
@@ -367,7 +426,7 @@ public partial class Validation
                             view.Row([StatCard.Header], content: view =>
                             {
                                 view.Box([StatCard.IconBoxWarning], content: view => view.Icon([StatCard.IconSize], name: "triangle-alert"));
-                                view.Button([Button.GhostSm, "h-8 w-8"], onClick: async () => { }, content: v => v.Icon([Icon.Xs], name: "more-vertical"));
+                                view.Button([Button.OutlineSm, Button.IconSm], onClick: async () => { }, content: v => v.Icon([Icon.Xs], name: "more-vertical"));
                             });
                             view.Text([StatCard.Label], "Error Rate");
                             view.Row([StatCard.ValueRow], content: view =>
@@ -387,7 +446,7 @@ public partial class Validation
                             view.Row([StatCard.Header], content: view =>
                             {
                                 view.Box([StatCard.IconBoxInfo], content: view => view.Icon([StatCard.IconSize], name: "chart-bar"));
-                                view.Button([Button.GhostSm, "h-8 w-8"], onClick: async () => { }, content: v => v.Icon([Icon.Xs], name: "more-vertical"));
+                                view.Button([Button.OutlineSm, Button.IconSm], onClick: async () => { }, content: v => v.Icon([Icon.Xs], name: "more-vertical"));
                             });
                             view.Text([StatCard.Label], "Page Views");
                             view.Row([StatCard.ValueRow], content: view =>
@@ -407,7 +466,7 @@ public partial class Validation
                             view.Row([StatCard.Header], content: view =>
                             {
                                 view.Box([StatCard.IconBox], content: view => view.Icon([StatCard.IconSize], name: "activity"));
-                                view.Button([Button.GhostSm, "h-8 w-8"], onClick: async () => { }, content: v => v.Icon([Icon.Xs], name: "more-vertical"));
+                                view.Button([Button.OutlineSm, Button.IconSm], onClick: async () => { }, content: v => v.Icon([Icon.Xs], name: "more-vertical"));
                             });
                             view.Text([StatCard.Label], "Uptime");
                             view.Row([StatCard.ValueRow], content: view =>

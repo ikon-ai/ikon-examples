@@ -353,7 +353,7 @@ public partial class Validation
                 if (hiddenCount > 0)
                 {
                     view.Button(
-                        [Button.OutlineMd, "mt-4"],
+                        [Button.PrimaryMd, "mt-4"],
                         text: $"Show all {matched.Length}",
                         onClick: async () => _iconShowAll.Value = true);
                 }
@@ -376,6 +376,38 @@ public partial class Validation
                             view.Icon([Icon.Md], name: alias);
                             view.Text([Text.Caption, "text-center font-medium"], alias);
                             view.Text([Text.Small, "text-center text-quaternary"], $"→ {target}");
+                        });
+                    }
+                });
+            });
+
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-4"], "Icon Sizes");
+                view.Text([Text.Muted, "mb-4"], "The size: enum and the Icon.* style tokens, Xs through Xl3");
+
+                view.Text([Text.Caption, "mb-2"], "size: IconSize.*");
+                view.Row([Layout.Row.Md, "flex-wrap items-end mb-4"], content: row =>
+                {
+                    foreach (var size in Enum.GetValues<IconSize>())
+                    {
+                        row.Column(["items-center gap-1"], content: cell =>
+                        {
+                            cell.Icon(name: "star", size: size);
+                            cell.Text([Text.Caption], size.ToString());
+                        });
+                    }
+                });
+
+                view.Text([Text.Caption, "mb-2"], "[Icon.*] tokens");
+                view.Row([Layout.Row.Md, "flex-wrap items-end"], content: row =>
+                {
+                    foreach (var (token, label) in new[] { (Icon.Xs, "Xs"), (Icon.Sm, "Sm"), (Icon.Md, "Md"), (Icon.Lg, "Lg"), (Icon.Xl, "Xl"), (Icon.Xl2, "Xl2"), (Icon.Xl3, "Xl3") })
+                    {
+                        row.Column(["items-center gap-1"], content: cell =>
+                        {
+                            cell.Icon([token], name: "heart");
+                            cell.Text([Text.Caption], label);
                         });
                     }
                 });

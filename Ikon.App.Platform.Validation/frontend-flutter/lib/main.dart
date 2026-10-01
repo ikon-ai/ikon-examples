@@ -13,7 +13,7 @@ void main() {
 /// the app auto-discovers the local Ikon server (the host launches the Flutter
 /// frontend with `--dart-define=IKON_PORT=<port>`).
 ///
-/// When bundled with `ikon app bundle --flutter-*`, the tool injects the
+/// When bundled with `ikon bundle --flutter-*`, the tool injects the
 /// space identity and server host as dart-defines, so [isDeployed]
 /// is true and the app connects to its deployed space.
 class IkonAppConfig {
@@ -38,8 +38,8 @@ class IkonFlutterApp extends StatelessWidget {
     // The app's own appearance comes from the Ikon theme it streams, so the shell must not
     // impose one: a light-themed app forced onto a dark Material theme renders white-on-white
     // wherever the streamed styles do not paint a colour themselves. Following the platform
-    // keeps Material's own chrome (text selection, scrollbars, dialogs) legible either way,
-    // and leaving scaffoldBackgroundColor unset lets the streamed page background paint.
+    // keeps Material's own chrome (text selection, scrollbars, dialogs) legible either way.
+    // No scaffold colour: IkonPageScaffold paints the safe areas in the streamed page's own.
     return MaterialApp(
       title: 'Ikon App',
       debugShowCheckedModeBanner: false,
@@ -206,8 +206,11 @@ class _IkonAppScreenState extends State<IkonAppScreen> {
       );
     }
 
-    return Scaffold(
-      body: SafeArea(
+    return IkonPageScaffold(
+      child: IkonPlatformOverlay(
+        client: _client!,
+        uiCore: _uiCore!,
+        mediaManager: _mediaManager,
         child: IkonParallaxView(
           uiCore: _uiCore!,
           client: _client,

@@ -1,5 +1,5 @@
 import { memo, useEffect, useReducer, useRef, type CSSProperties } from 'react';
-import { type IkonUiComponentResolver, type UiComponentRendererProps } from '@ikonai/sdk-react-ui';
+import { type IkonUiComponentResolver, type UiComponentRendererProps, useUiNode } from '@ikonai/sdk-react-ui';
 import { appMessaging, type AppMessageType } from '@ikonai/sdk';
 import {
   PROBE_PING_OPCODE,
@@ -14,202 +14,156 @@ import {
   type ProbePingUnreliable,
 } from '../../generated/protocol/probe-ping-unreliable';
 
-// Ties each app-local opcode to its generated encode/decode pair. The decode/encode
-// run entirely on the raw GROUP_APP_LOCAL transport — this component never touches
-// the reactive UI store, which is the whole point of a custom .tp surface.
-const ProbePingMessage: AppMessageType<ProbePing> = {
-  opcode: PROBE_PING_OPCODE,
-  toProtocolMessage: toProtocolMessageProbePing,
-  fromProtocolMessage: fromProtocolMessageProbePing,
+// The same rate the server streams at, so the two directions read alike.
+const SEND_INTERVAL_MS = 100;
+
+type Mode = 'reliable' | 'unreliable';
+
+const MESSAGES: Record<Mode, AppMessageType<ProbePing> | AppMessageType<ProbePingUnreliable>> = {
+  reliable: {
+    opcode: PROBE_PING_OPCODE,
+    toProtocolMessage: toProtocolMessageProbePing,
+    fromProtocolMessage: fromProtocolMessageProbePing,
+  },
+  unreliable: {
+    opcode: PROBE_PING_UNRELIABLE_OPCODE,
+    toProtocolMessage: toProtocolMessageProbePingUnreliable,
+    fromProtocolMessage: fromProtocolMessageProbePingUnreliable,
+  },
 };
 
-const ProbePingUnreliableMessage: AppMessageType<ProbePingUnreliable> = {
-  opcode: PROBE_PING_UNRELIABLE_OPCODE,
-  toProtocolMessage: toProtocolMessageProbePingUnreliable,
-  fromProtocolMessage: fromProtocolMessageProbePingUnreliable,
-};
-
-interface ModeMetrics {
-  count: number;
-  gaps: number; // summed (seq - lastSeq - 1) when seq jumps forward → dropped messages
-  outOfOrder: number; // seq <= lastSeq → reorder/duplicate (or a server stream restart)
+interface ReceiveMetrics {
+  streamId: string;
+  received: number;
+  gaps: number;
+  outOfOrder: number;
+  malformed: number;
   lastSeq: number;
-  lastDeltaMs: number; // transit + however far the sender's clock is from ours; can be negative
-  viaDataChannel: number; // arrived over the WebRTC data channel
-  viaReliable: number; // arrived over the reliable protocol channel
+  viaDataChannel: number;
 }
 
-function emptyMetrics(): ModeMetrics {
-  return { count: 0, gaps: 0, outOfOrder: 0, lastSeq: 0, lastDeltaMs: 0, viaDataChannel: 0, viaReliable: 0 };
+function emptyMetrics(streamId = ''): ReceiveMetrics {
+  return { streamId, received: 0, gaps: 0, outOfOrder: 0, malformed: 0, lastSeq: 0, viaDataChannel: 0 };
 }
 
-function applyMessage(m: ModeMetrics, seq: number, sentAtMs: number, viaDataChannel: boolean): void {
+// A new stream id is a new stream, which is how a restart is told apart from reordering even when
+// its first message was lost. Returns the metrics to keep, which are fresh for a new stream.
+function applyMessage(m: ReceiveMetrics, p: ProbePing, mode: Mode, viaDataChannel: boolean): ReceiveMetrics {
+  if (p.Origin !== 'server' || p.Mode !== mode || Number(p.SentAtMs) <= 0 || !p.Note) {
+    m.malformed += 1;
+    return m;
+  }
+
+  if (p.Note !== m.streamId) {
+    m = { ...emptyMetrics(p.Note), malformed: m.malformed };
+  }
+
+  const seq = Number(p.Seq);
+
   if (m.lastSeq !== 0 && seq > m.lastSeq + 1) {
     m.gaps += seq - m.lastSeq - 1;
   }
-  if (seq <= m.lastSeq) {
+
+  if (m.lastSeq !== 0 && seq <= m.lastSeq) {
     m.outOfOrder += 1;
   }
-  m.lastSeq = seq;
-  m.count += 1;
-  m.lastDeltaMs = Date.now() - sentAtMs;
+
+  m.lastSeq = Math.max(m.lastSeq, seq);
+  m.received += 1;
 
   if (viaDataChannel) {
     m.viaDataChannel += 1;
-  } else {
-    m.viaReliable += 1;
   }
+
+  return m;
 }
 
-const TpProbeRenderer = memo(function TpProbeRenderer({ context }: UiComponentRendererProps) {
+const TpProbeRenderer = memo(function TpProbeRenderer({ nodeId, context }: UiComponentRendererProps) {
+  const node = useUiNode(context.store, nodeId);
   const client = context.client;
+  const role = node?.props?.['role'] === 'send' ? 'send' : 'receive';
+  const mode: Mode = node?.props?.['mode'] === 'unreliable' ? 'unreliable' : 'reliable';
+  const running = node?.props?.['running'] === true;
 
-  // Metrics live in refs (mutated straight from the message callback, off the
-  // reactive loop); a repaint tick forces a light re-render so the numbers paint.
-  const reliableRef = useRef<ModeMetrics>(emptyMetrics());
-  const unreliableRef = useRef<ModeMetrics>(emptyMetrics());
+  const metricsRef = useRef<ReceiveMetrics>(emptyMetrics());
+  const sentRef = useRef(0);
+  const seqRef = useRef(0);
   const [, repaint] = useReducer((tick: number) => tick + 1, 0);
 
-  const sentReliableRef = useRef(0);
-  const sentUnreliableRef = useRef(0);
-  const clientSeqRef = useRef(0);
+  useEffect(() => {
+    if (!client || role !== 'receive') {
+      return;
+    }
 
-  const messagingRef = useRef<ReturnType<typeof appMessaging> | null>(null);
+    const subscription = appMessaging(client).on(MESSAGES[mode], (p, _senderId, delivery) => {
+      metricsRef.current = applyMessage(metricsRef.current, p, mode, delivery.viaDataChannel);
+      repaint();
+    });
+
+    return () => subscription.close();
+  }, [client, role, mode]);
 
   useEffect(() => {
-    if (!client) {
+    if (!client || role !== 'send' || !running) {
       return;
     }
 
     const messaging = appMessaging(client);
-    messagingRef.current = messaging;
+    const streamId = crypto.randomUUID();
+    seqRef.current = 0;
+    sentRef.current = 0;
+    repaint();
 
-    const subReliable = messaging.on(ProbePingMessage, (p, _senderId, delivery) => {
-      applyMessage(reliableRef.current, Number(p.Seq), Number(p.SentAtMs), delivery.viaDataChannel);
+    const timer = setInterval(() => {
+      seqRef.current += 1;
+      messaging.send(MESSAGES[mode], {
+        Seq: BigInt(seqRef.current),
+        SentAtMs: BigInt(Date.now()),
+        Origin: 'client',
+        Mode: mode,
+        Note: streamId,
+      });
+      sentRef.current += 1;
       repaint();
-    });
-    const subUnreliable = messaging.on(ProbePingUnreliableMessage, (p, _senderId, delivery) => {
-      applyMessage(unreliableRef.current, Number(p.Seq), Number(p.SentAtMs), delivery.viaDataChannel);
-      repaint();
-    });
+    }, SEND_INTERVAL_MS);
 
-    return () => {
-      subReliable.close();
-      subUnreliable.close();
-      messagingRef.current = null;
-    };
-  }, [client]);
+    return () => clearInterval(timer);
+  }, [client, role, mode, running]);
 
-  const sendReliable = () => {
-    if (!messagingRef.current) {
-      return;
-    }
-    clientSeqRef.current += 1;
-    messagingRef.current.send(ProbePingMessage, {
-      Seq: BigInt(clientSeqRef.current),
-      SentAtMs: BigInt(Date.now()),
-      Origin: 'client',
-      Mode: 'reliable',
-      Note: 'manual',
-    });
-    sentReliableRef.current += 1;
-    repaint();
-  };
+  if (role === 'send') {
+    return (
+      <span style={rowStyle}>
+        <Stat label="sent" value={sentRef.current} testid={`tp-c2s-${mode}-sent`} />
+      </span>
+    );
+  }
 
-  const sendUnreliable = () => {
-    if (!messagingRef.current) {
-      return;
-    }
-    clientSeqRef.current += 1;
-    messagingRef.current.send(ProbePingUnreliableMessage, {
-      Seq: BigInt(clientSeqRef.current),
-      SentAtMs: BigInt(Date.now()),
-      Origin: 'client',
-      Mode: 'unreliable',
-      Note: 'manual',
-    });
-    sentUnreliableRef.current += 1;
-    repaint();
-  };
-
-  const resetMetrics = () => {
-    reliableRef.current = emptyMetrics();
-    unreliableRef.current = emptyMetrics();
-    repaint();
-  };
+  const m = metricsRef.current;
 
   return (
-    <div style={containerStyle}>
-      <div style={cardsRowStyle}>
-        <MetricCard title="Reliable (ProbePing)" testid="reliable" m={reliableRef.current} />
-        <MetricCard title="Unreliable (ProbePingUnreliable)" testid="unreliable" m={unreliableRef.current} />
-      </div>
-      <div style={controlsRowStyle}>
-        <button type="button" style={buttonStyle} onClick={sendReliable} data-testid="tp-send-reliable">
-          Send reliable → server
-        </button>
-        <button type="button" style={buttonStyle} onClick={sendUnreliable} data-testid="tp-send-unreliable">
-          Send unreliable → server
-        </button>
-        <button type="button" style={ghostButtonStyle} onClick={resetMetrics} data-testid="tp-reset">
-          Reset metrics
-        </button>
-        <span style={sentStyle} data-testid="tp-sent">
-          sent: {sentReliableRef.current} reliable / {sentUnreliableRef.current} unreliable
-        </span>
-      </div>
-    </div>
+    <span style={rowStyle}>
+      <Stat label="received" value={m.received} testid={`tp-s2c-${mode}-received`} />
+      <Stat label="gaps" value={m.gaps} testid={`tp-s2c-${mode}-gaps`} />
+      <Stat label="out of order" value={m.outOfOrder} testid={`tp-s2c-${mode}-ooo`} />
+      <Stat label="malformed" value={m.malformed} testid={`tp-s2c-${mode}-malformed`} />
+      <Stat label="data channel" value={m.viaDataChannel} testid={`tp-s2c-${mode}-datachannel`} />
+    </span>
   );
 });
 
-function MetricCard({ title, testid, m }: { title: string; testid: string; m: ModeMetrics }) {
+function Stat({ label, value, testid }: { label: string; value: number; testid: string }) {
   return (
-    <div style={cardStyle} data-testid={`tp-card-${testid}`}>
-      <div style={cardTitleStyle}>{title}</div>
-      <MetricRow label="received" value={m.count} testid={`tp-${testid}-count`} />
-      <MetricRow label="gaps (drops)" value={m.gaps} testid={`tp-${testid}-gaps`} />
-      <MetricRow label="out-of-order" value={m.outOfOrder} testid={`tp-${testid}-ooo`} />
-      <MetricRow label="last seq" value={m.lastSeq} testid={`tp-${testid}-seq`} />
-      <MetricRow label="last delta (ms)" value={m.lastDeltaMs} testid={`tp-${testid}-delta`} />
-      <MetricRow label="via data channel" value={m.viaDataChannel} testid={`tp-${testid}-datachannel`} />
-      <MetricRow label="via reliable" value={m.viaReliable} testid={`tp-${testid}-reliable`} />
-    </div>
-  );
-}
-
-function MetricRow({ label, value, testid }: { label: string; value: number; testid: string }) {
-  return (
-    <div style={rowStyle}>
+    <span style={statStyle}>
       <span style={{ opacity: 0.7 }}>{label}</span>
       <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }} data-testid={testid}>
         {value}
       </span>
-    </div>
+    </span>
   );
 }
 
-const containerStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 12, width: '100%' };
-const cardsRowStyle: CSSProperties = { display: 'flex', gap: 12, flexWrap: 'wrap' };
-const controlsRowStyle: CSSProperties = { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' };
-const cardStyle: CSSProperties = {
-  border: '1px solid rgba(127,127,127,0.35)',
-  borderRadius: 8,
-  padding: 12,
-  minWidth: 240,
-  flex: '1 1 240px',
-};
-const cardTitleStyle: CSSProperties = { fontWeight: 600, marginBottom: 8 };
-const rowStyle: CSSProperties = { display: 'flex', justifyContent: 'space-between', gap: 16, padding: '2px 0' };
-const buttonStyle: CSSProperties = {
-  border: '1px solid rgba(127,127,127,0.45)',
-  borderRadius: 6,
-  padding: '6px 12px',
-  cursor: 'pointer',
-  background: 'transparent',
-  color: 'inherit',
-};
-const ghostButtonStyle: CSSProperties = { ...buttonStyle, opacity: 0.75 };
-const sentStyle: CSSProperties = { opacity: 0.7, fontVariantNumeric: 'tabular-nums' };
+const rowStyle: CSSProperties = { display: 'inline-flex', columnGap: 20, rowGap: 4, flexWrap: 'wrap', alignItems: 'baseline' };
+const statStyle: CSSProperties = { display: 'inline-flex', gap: 6, alignItems: 'baseline' };
 
 export function createTpProbeResolver(): IkonUiComponentResolver {
   return (initialNode) => (initialNode.type !== 'tp-probe' ? undefined : TpProbeRenderer);

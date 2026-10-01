@@ -1,10 +1,12 @@
 ﻿public partial class Validation
 {
-    // Shared access gate for the password-protected sections (Ikon.AI, Payments, Database).
-    // One unlock covers them all.
-    private readonly Reactive<string> _sectionPassword = new("");
-    private readonly Reactive<bool> _sectionUnlocked = new(false);
-    private readonly Reactive<bool> _sectionPasswordError = new(false);
+    // Access gate for the password-protected sections (Ikon.AI, Payments, Database, …). One unlock
+    // covers them all for the person who entered the password, and only them: shared across the
+    // instance, one unlock opened every gated tab to every later visitor, and what one visitor typed
+    // showed in everyone's password field.
+    private readonly UserReactive<string> _sectionPassword = new("");
+    private readonly UserReactive<bool> _sectionUnlocked = new(false);
+    private readonly UserReactive<bool> _sectionPasswordError = new(false);
 
     // Chat model/region selection
     private readonly Reactive<string> _chatModel = new(nameof(LLMModel.Claude45Sonnet));
@@ -24,6 +26,7 @@
     private readonly Reactive<bool> _embeddingProcessing = new(false);
     private readonly Reactive<string?> _embeddingResult = new(null);
     private readonly Reactive<string?> _embeddingError = new(null);
+    private readonly Reactive<bool> _embeddingAllowTruncation = new(false);
 
     // WebSearcher state
     private readonly Reactive<string> _webSearcherModel = new(nameof(WebSearcherModel.Google));
@@ -48,6 +51,7 @@
     private readonly Reactive<bool> _rerankerProcessing = new(false);
     private readonly Reactive<string?> _rerankerResult = new(null);
     private readonly Reactive<string?> _rerankerError = new(null);
+    private readonly Reactive<bool> _rerankerAllowTruncation = new(false);
 
     // ImageGenerator state
     private readonly Reactive<string> _imageGeneratorModel = new(nameof(ImageGeneratorModel.Gemini25FlashImage));
@@ -60,6 +64,7 @@
     private readonly Reactive<string?> _imageGeneratorResult = new(null);
     private readonly Reactive<string?> _imageGeneratorError = new(null);
     private readonly Reactive<string?> _imageGeneratorDownloadUrl = new(null);
+    private readonly Reactive<string?> _imageGeneratorProvenance = new(null);
     private readonly Reactive<int> _imageGeneratorSteps = new(0);
     private readonly Reactive<string> _imageGeneratorQuality = new(nameof(ImageQuality.Auto));
     private readonly Reactive<string> _imageGeneratorBackground = new(nameof(ImageBackground.Auto));
@@ -75,7 +80,10 @@
     private readonly Reactive<string> _speechGeneratorText = new("Hello, this is a test of the speech generation system.");
     private readonly Reactive<string> _speechGeneratorVoiceId = new("alloy");
     private readonly Reactive<IReadOnlyList<string>> _speechGeneratorVoiceIds = new(["alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse"]);
-    private readonly Reactive<string> _speechGeneratorLanguage = new("en-US");
+    // Empty because the card opens on an OpenAI model, and those refuse a language outright rather
+    // than dropping it — the language belongs in Instructions there. ElevenLabs is the model to
+    // select when the field itself is what is being exercised.
+    private readonly Reactive<string> _speechGeneratorLanguage = new("");
     private readonly Reactive<string> _speechGeneratorInstructions = new("");
     private readonly Reactive<bool> _speechGeneratorProcessing = new(false);
     private readonly Reactive<string?> _speechGeneratorResult = new(null);
@@ -94,6 +102,11 @@
     private readonly Reactive<bool> _speechRecognizerContinuous = new(false);
     private Channel<float[]>? _speechRecognizerChannel;
     private CancellationTokenSource? _speechRecognizerCts;
+    private readonly Reactive<string?> _speechRecognizerDetail = new(null);
+    private readonly Reactive<bool> _speechRecognizerDiarize = new(false);
+    private readonly Reactive<int> _speechRecognizerEndOfTurnSilenceMs = new(0);
+    private readonly Reactive<double> _speechRecognizerEndOfTurnConfidence = new(0);
+    private readonly Reactive<string?> _speechRecognizerEvents = new(null);
 
     private sealed class SpeechRecognizerBuffer
     {
@@ -150,6 +163,7 @@
     private readonly Reactive<string?> _soundEffectDownloadUrl = new(null);
     private readonly Reactive<double> _soundEffectPromptInfluence = new(0.3);
     private readonly Reactive<bool> _soundEffectLoop = new(false);
+    private readonly Reactive<bool> _soundEffectBuffered = new(false);
 
     // MusicGenerator state
     private readonly Reactive<string> _musicModel = new(nameof(MusicGeneratorModel.ElevenLabsMusicV2));
@@ -225,6 +239,20 @@
 
     private static Dictionary<string, object> TestId(string id) => new() { ["data-testid"] = id };
 
+    // A Checkbox, Switch or Slider names itself from nothing; a caption rendered beside it in a
+    // Row associates nothing, so the name goes on the control
+    private static Dictionary<string, object> AriaLabel(string label, string? testId = null)
+    {
+        var props = new Dictionary<string, object> { ["aria-label"] = label };
+
+        if (testId != null)
+        {
+            props["data-testid"] = testId;
+        }
+
+        return props;
+    }
+
     private static List<SelectOption> GetSpeechRecognizerModelOptions(bool continuousMode)
     {
         return Enum.GetValues<SpeechRecognizerModel>()
@@ -243,16 +271,33 @@
         return metadata.Url;
     }
 
+    // The password is compiled in from IKON_VALIDATION_APP_PASSWORD, which CI sets and a laptop
+    // usually does not. A cloud build without it stays locked: opening the gate there turned a
+    // hand-made deploy into a public one, which is how production came to show Payments to anyone.
+    private static bool PasswordConfigured => !string.IsNullOrEmpty(BuildConstants.ValidationAppPassword);
+
+    private bool SectionsUnlocked() =>
+        app.GlobalState.ServerRunType == ServerRunType.Local || (PasswordConfigured && _sectionUnlocked.Value);
+
     // Gates a section behind the validation app password. Returns true when the lock screen was
-    // rendered — the caller should then return without drawing the real content. A single unlock is
-    // shared across every gated section. Local runs and builds without a configured password are
-    // never gated.
+    // rendered — the caller should then return without drawing the real content. A single unlock
+    // covers every gated section. Local runs are never gated.
     private bool RenderSectionLocked(UIView view, string title)
     {
-        if (_sectionUnlocked.Value || app.GlobalState.ServerRunType == ServerRunType.Local
-            || string.IsNullOrEmpty(BuildConstants.ValidationAppPassword))
+        if (SectionsUnlocked())
         {
             return false;
+        }
+
+        if (!PasswordConfigured)
+        {
+            view.Box([Card.Default, "p-6 mb-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-2"], title);
+                view.Text([Text.Body], "Locked: this build has no password configured.");
+            });
+
+            return true;
         }
 
         view.Column([Layout.Column.Lg], content: view =>
@@ -327,14 +372,11 @@
 
         view.Column([Layout.Column.Lg], content: view =>
         {
-            view.Box([Card.Default, "p-6 mb-6"], content: view =>
-            {
-                view.Text([Text.H2, "mb-2"], "Ikon.AI Library");
-                view.Text([Text.Caption], "Showcase of all major Ikon.AI features with interactive testing. Each card demonstrates a different AI capability with configurable model selection and inputs.");
-            });
+            view.Text([Text.H2], "Ikon.AI Library");
 
             RenderChatCard(view);
             RenderClassifierCard(view);
+            RenderDeciderCard(view);
             RenderDepthEstimatorCard(view);
             RenderEmbeddingGeneratorCard(view);
             RenderFileConverterCard(view);
@@ -342,6 +384,7 @@
             RenderImageSegmenterCard(view);
             RenderImageUpscalerCard(view);
             RenderMeshGeneratorCard(view);
+            RenderMeshAnimationLibraryCard(view);
             RenderMusicGeneratorCard(view);
             RenderOCRCard(view);
             RenderRerankerCard(view);
@@ -350,6 +393,7 @@
             RenderSpeechRecognizerCard(view);
             RenderVideoEnhancerCard(view);
             RenderVideoGeneratorCard(view);
+            RenderVideoSegmenterCard(view);
             RenderVideoUnderstandingCard(view);
             RenderWebScraperCard(view);
             RenderWebSearcherCard(view);
@@ -361,7 +405,6 @@
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
         {
             view.Text([Text.H3, "mb-2"], "Classifier");
-            view.Text([Text.Caption, "mb-4"], "Perform content moderation and category detection with score-level transparency");
 
             view.Column([Layout.Column.Md], content: view =>
             {
@@ -460,7 +503,6 @@
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
         {
             view.Text([Text.H3, "mb-2"], "Embedding Generator");
-            view.Text([Text.Caption, "mb-4"], "Create vector representations for similarity search, clustering, or semantic scoring");
 
             view.Column([Layout.Column.Md], content: view =>
             {
@@ -490,6 +532,11 @@
                         value: _embeddingInput.Value,
                         onValueChange: async v => _embeddingInput.Value = v ?? "");
                 });
+
+                view.Checkbox([Checkbox.Default],
+                    label: "Allow truncation (Cohere, Voyage, Jina, Vertex cut an over-long input instead of refusing it)",
+                    value: _embeddingAllowTruncation.Value,
+                    onValueChange: async v => _embeddingAllowTruncation.Value = v);
 
                 view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                 {
@@ -538,13 +585,23 @@
             var type = Enum.Parse<EmbeddingType>(_embeddingType.Value);
             using var generator = new EmbeddingGenerator(model);
 
-            var embeddings = await generator.EmbedAsync([_embeddingInput.Value], type);
+            var embeddings = await generator.GenerateEmbeddingsAsync(new EmbeddingGeneratorConfig
+            {
+                Inputs = [_embeddingInput.Value],
+                Type = type,
+                AllowTruncation = _embeddingAllowTruncation.Value
+            });
 
             if (embeddings.Count > 0)
             {
                 var embedding = embeddings[0];
                 var preview = string.Join(", ", embedding.Take(10).Select(v => v.ToString("F4")));
-                _embeddingResult.Value = $"Vector dimension: {embedding.Length}\nFirst 10 values: [{preview}, ...]";
+                var declared = EmbeddingGenerator.GetCapabilities(model).EmbeddingVectorSize;
+                _embeddingResult.Value = $"Vector dimension: {embedding.Length} (model declares {declared}, max {generator.MaxInputCount} inputs per request)\nFirst 10 values: [{preview}, ...]";
+            }
+            else
+            {
+                _embeddingError.Value = "The model returned no embedding";
             }
         }
         catch (Exception ex)
@@ -562,7 +619,6 @@
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
         {
             view.Text([Text.H3, "mb-2"], "Web Searcher");
-            view.Text([Text.Caption, "mb-4"], "Search the web for pages and images using various search providers");
 
             view.Column([Layout.Column.Md], content: view =>
             {
@@ -676,7 +732,6 @@
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
         {
             view.Text([Text.H3, "mb-2"], "Web Scraper");
-            view.Text([Text.Caption, "mb-4"], "Fetch and normalize website content with options for Markdown extraction");
 
             view.Column([Layout.Column.Md], content: view =>
             {
@@ -735,7 +790,7 @@
                     view.Box([Card.Elevated, "mt-4 p-4 max-h-96 overflow-auto"], props: TestId("ai-web-scraper-result"), content: view =>
                     {
                         view.Text([Text.BodyStrong, "mb-2"], "Scraped Content");
-                        view.Text([Text.Body, "whitespace-pre-wrap font-mono text-sm"], _webScraperResult.Value);
+                        view.Text([Text.Body, "whitespace-pre-wrap text-sm"], _webScraperResult.Value);
                     });
                 }
             });
@@ -777,7 +832,6 @@
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
         {
             view.Text([Text.H3, "mb-2"], "Reranker");
-            view.Text([Text.Caption, "mb-4"], "Order candidate documents by relevance to a query for improved retrieval");
 
             view.Column([Layout.Column.Md], content: view =>
             {
@@ -807,6 +861,11 @@
                         value: _rerankerDocuments.Value,
                         onValueChange: async v => _rerankerDocuments.Value = v ?? "");
                 });
+
+                view.Checkbox([Checkbox.Default],
+                    label: "Allow truncation (Voyage scores an over-long document on its head instead of refusing it)",
+                    value: _rerankerAllowTruncation.Value,
+                    onValueChange: async v => _rerankerAllowTruncation.Value = v);
 
                 view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                 {
@@ -860,7 +919,7 @@
                 .Where(d => !string.IsNullOrEmpty(d))
                 .ToList();
 
-            var items = await reranker.RerankAsync(new RerankerConfig { Documents = documents, Query = _rerankerQuery.Value });
+            var items = await reranker.RerankAsync(new RerankerConfig { Documents = documents, Query = _rerankerQuery.Value, AllowTruncation = _rerankerAllowTruncation.Value });
 
             var output = "";
 
@@ -886,7 +945,6 @@
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
         {
             view.Text([Text.H3, "mb-2"], "Image Generator");
-            view.Text([Text.Caption, "mb-4"], "Create images from text prompts with configurable parameters");
 
             view.Column([Layout.Column.Md], content: view =>
             {
@@ -1029,8 +1087,8 @@
                     view.Checkbox(
                         [Checkbox.Default],
                         value: _imageGeneratorUpsamplePrompt.Value,
-                        onValueChange: async v => _imageGeneratorUpsamplePrompt.Value = v);
-                    view.Text([Text.Body], "Upsample Prompt");
+                        onValueChange: async v => _imageGeneratorUpsamplePrompt.Value = v,
+                        label: "Upsample Prompt");
                 });
 
                 view.Box([FormField.Root], content: view =>
@@ -1067,7 +1125,7 @@
                         {
                             view.Text([Text.Caption], _imageGeneratorInputImageName.Value);
                             view.Button(
-                                [Button.GhostMd, Button.Icon],
+                                [Button.OutlineMd, Button.Icon],
                                 onClick: async () =>
                                 {
                                     _imageGeneratorInputImageData = null;
@@ -1115,6 +1173,11 @@
                     });
                 }
 
+                if (!string.IsNullOrEmpty(_imageGeneratorProvenance.Value))
+                {
+                    view.Text([Text.Caption, "mt-4"], _imageGeneratorProvenance.Value, props: TestId("ai-image-generator-provenance"));
+                }
+
                 if (_imageGeneratorResultDataUrls.Value.Count > 0)
                 {
                     view.Flex(["mt-4 flex-wrap gap-4"], content: view =>
@@ -1132,18 +1195,21 @@
         });
     }
 
-    // The one-shot form the AGENTS.md template teaches, exercised here so the example in the docs
-    // is this code rather than a copy of it. The card below drives the config form; both paths are
-    // real, and pinning the simple one is what keeps the guide from drifting off the API.
-    private async Task<string> GenerateImageOneShotAsync(string prompt)
+    // A Full marking must be backed by a pixel mark the detector actually finds; anything short of
+    // Full is honest only when the metadata packet is really there.
+    private static string DescribeImageProvenance(ProvenanceMarking marking, byte[] imageData)
     {
-        #region docsnippet:image-generate-one-shot
-        var image = await ImageGenerator.GenerateAsync("A neon-lit cyberpunk street");  // Gemini25FlashImage (cheap+fast) by default
-        var bytes = await image.GetDataAsync();  // payload bytes, downloaded transparently when delivered as a URL
-        // image.MimeType — never null; throws AIException on failure
-        #endregion
+        var score = ImageProvenance.MeasureInvisibleMark(imageData);
+        var metadata = ImageProvenance.ReadMetadataMark(imageData);
+        var hasMetadata = !string.IsNullOrEmpty(metadata);
+        var consistent = marking switch
+        {
+            ProvenanceMarking.Full => hasMetadata && score >= ImageProvenance.DetectionThreshold,
+            ProvenanceMarking.MetadataOnly => hasMetadata,
+            _ => false
+        };
 
-        return $"{bytes.Length} bytes, {image.MimeType}";
+        return $"{(consistent ? "PASS" : "FAIL")} Provenance: {marking}, invisible mark z={score:F1} (threshold {ImageProvenance.DetectionThreshold:F0}), metadata mark {(hasMetadata ? "present" : "missing")}, support {ImageProvenance.GetMarkingSupport(imageData)}";
     }
 
     private async Task GenerateImageAsync()
@@ -1152,6 +1218,7 @@
         _imageGeneratorError.Value = null;
         _imageGeneratorResult.Value = null;
         _imageGeneratorDownloadUrl.Value = null;
+        _imageGeneratorProvenance.Value = null;
         _imageGeneratorResultDataUrls.Value = [];
 
         try
@@ -1190,6 +1257,7 @@
                 var image = results[0];
                 var imageData = await image.GetDataAsync();
                 _imageGeneratorResult.Value = $"Generated {results.Count} image(s)";
+                _imageGeneratorProvenance.Value = DescribeImageProvenance(image.Provenance, imageData);
 
                 var dataUrls = new List<string>();
 
@@ -1220,7 +1288,6 @@
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
         {
             view.Text([Text.H3, "mb-2"], "Music Generator");
-            view.Text([Text.Caption, "mb-4"], "Generate music from a prompt, or re-style an existing clip (audio-to-audio) while preserving its melody and timing");
 
             view.Column([Layout.Column.Md], content: view =>
             {
@@ -1264,7 +1331,6 @@
 
                         if (!supportsDuration)
                         {
-                            view.Text([Text.Caption, "mt-1"], "This model ignores duration — it produces a fixed-length clip, or follows the input clip's length.");
                         }
                     });
 
@@ -1319,7 +1385,7 @@
                         {
                             view.Text([Text.Caption], _musicInputAudioName.Value);
                             view.Button(
-                                [Button.GhostMd, Button.Icon],
+                                [Button.OutlineMd, Button.Icon],
                                 onClick: async () =>
                                 {
                                     _musicInputAudioData = null;
@@ -1371,7 +1437,7 @@
                     view.Box([Alert.Success, "mt-4"], props: TestId("ai-music-result"), content: view =>
                     {
                         view.Text([Alert.Title], "Music Generated");
-                        view.Text([Alert.Description], _musicResult.Value);
+                        view.Text([Alert.Description, "whitespace-pre-wrap"], _musicResult.Value);
                     });
                 }
             });
@@ -1429,7 +1495,8 @@
                 _ => "bin"
             };
 
-            _musicResult.Value = $"Generated {result.DurationSeconds:F1}s of audio ({musicData.Length} bytes, {result.MimeType})";
+            var musicMark = MediaProvenance.ReadMetadataMark(musicData);
+            _musicResult.Value = $"Generated {result.DurationSeconds:F1}s of audio ({musicData.Length} bytes, {result.MimeType})\nProvenance: {result.Provenance}, metadata mark {(string.IsNullOrEmpty(musicMark) ? "missing" : "present")}";
             _musicDownloadUrl.Value = await UploadForDownloadAsync($"generated-music.{ext}", musicData, result.MimeType);
         }
         catch (Exception ex)
@@ -1470,8 +1537,11 @@
         using var wav = new WavFile(generator.SampleRate, generator.ChannelCount, WavFile.SampleFormat.Float);
         wav.AddSamples(samples.ToArray());
 
-        _musicResult.Value = $"Streamed {durationSeconds:F1}s of audio at {generator.SampleRate}Hz, {generator.ChannelCount}ch (played live)";
-        _musicDownloadUrl.Value = await UploadForDownloadAsync("generated-music.wav", wav.AsArray(), MimeTypes.AudioXWav);
+        // Streamed chunks carry no container and so no mark; the WAV built from them is marked here
+        var marked = MediaProvenance.Apply(wav.AsArray(), _musicModel.Value, out var marking);
+
+        _musicResult.Value = $"Streamed {durationSeconds:F1}s of audio at {generator.SampleRate}Hz, {generator.ChannelCount}ch (played live)\nProvenance (MediaProvenance.Apply on the saved WAV): {marking}";
+        _musicDownloadUrl.Value = await UploadForDownloadAsync("generated-music.wav", marked, MimeTypes.AudioXWav);
     }
 
     private void RenderSpeechGeneratorCard(UIView view)
@@ -1479,7 +1549,6 @@
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
         {
             view.Text([Text.H3, "mb-2"], "Speech Generator");
-            view.Text([Text.Caption, "mb-4"], "Synthesize speech from text with various voices and models");
 
             view.Column([Layout.Column.Md], content: view =>
             {
@@ -1524,10 +1593,11 @@
 
                     view.Box([FormField.Root, "flex-1"], content: view =>
                     {
-                        view.Text([FormField.Label], "Language");
+                        view.Text([FormField.Label], "Language (optional)");
                         view.TextField(
                             [Input.Default],
                             value: _speechGeneratorLanguage.Value,
+                            placeholder: "e.g. en-US",
                             onValueChange: async v => _speechGeneratorLanguage.Value = v ?? "");
                     });
                 });
@@ -1668,7 +1738,6 @@
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
         {
             view.Text([Text.H3, "mb-2"], "Speech Recognizer");
-            view.Text([Text.Caption, "mb-4"], "Convert audio to text using speech recognition models");
 
             view.Column([Layout.Column.Md], content: view =>
             {
@@ -1707,9 +1776,11 @@
 
                             return Task.CompletedTask;
                         },
-                        content: view => view.SwitchThumb([Switch.Thumb]));
-                    view.Text([Text.Body], "Continuous");
+                        content: view => view.SwitchThumb([Switch.Thumb]),
+                        label: "Continuous");
                 });
+
+                RenderSpeechRecognizerCapabilities(view, isContinuous);
 
                 if (isContinuous)
                 {
@@ -1817,7 +1888,17 @@
                     {
                         view.Text([Alert.Title], "Recognized Text");
                         view.Text([Alert.Description], _speechRecognizerResult.Value);
+
+                        if (!string.IsNullOrEmpty(_speechRecognizerDetail.Value))
+                        {
+                            view.Text([Alert.Description, "mt-2 whitespace-pre-wrap"], _speechRecognizerDetail.Value, props: TestId("ai-speech-recognizer-detail"));
+                        }
                     });
+                }
+
+                if (!string.IsNullOrEmpty(_speechRecognizerEvents.Value))
+                {
+                    view.Text([Text.Caption, "mt-2 whitespace-pre-wrap"], _speechRecognizerEvents.Value, props: TestId("ai-speech-recognizer-events"));
                 }
             });
         });
@@ -1836,6 +1917,7 @@
         _speechRecognizerProcessing.Value = true;
         _speechRecognizerError.Value = null;
         _speechRecognizerResult.Value = null;
+        _speechRecognizerDetail.Value = null;
 
         try
         {
@@ -1843,14 +1925,20 @@
             _speechRecognizerInstance?.Dispose();
             _speechRecognizerInstance = new SpeechRecognizer(model);
 
+            var timestamps = GetRequestableTimestamps(model);
+            var diarize = _speechRecognizerDiarize.Value && SpeechRecognizer.GetCapabilities(model).SupportsDiarization;
+
             var transcript = await _speechRecognizerInstance.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
             {
                 Language = _speechRecognizerLanguage.Value,
                 SampleRate = buffer.SampleRate,
                 ChannelCount = buffer.ChannelCount,
-                Samples = buffer.Samples.ToArray()
+                Samples = buffer.Samples.ToArray(),
+                Timestamps = timestamps,
+                Diarize = diarize
             });
 
+            _speechRecognizerDetail.Value = DescribeTranscriptDetail(transcript, timestamps, diarize);
             _speechRecognizerResult.Value = string.IsNullOrWhiteSpace(transcript.Text) ? "(No speech detected)" : transcript.Text;
         }
         catch (Exception ex)
@@ -1863,6 +1951,130 @@
         }
     }
 
+    private static SpeechTimestamps GetRequestableTimestamps(SpeechRecognizerModel model)
+    {
+        var capabilities = SpeechRecognizer.GetCapabilities(model);
+        var timestamps = SpeechTimestamps.None;
+
+        if (capabilities.SupportsWordTimestamps)
+        {
+            timestamps |= SpeechTimestamps.Word;
+        }
+
+        if (capabilities.SupportsSegmentTimestamps)
+        {
+            timestamps |= SpeechTimestamps.Segment;
+        }
+
+        return timestamps;
+    }
+
+    // A granularity the model declared and was asked for must come back filled; an empty list there
+    // is the silent failure this line exists to catch
+    private static string DescribeTranscriptDetail(Transcript transcript, SpeechTimestamps requested, bool diarized)
+    {
+        var failures = new List<string>();
+
+        if (requested.HasFlag(SpeechTimestamps.Word) && transcript.Words.Count == 0 && !string.IsNullOrWhiteSpace(transcript.Text))
+        {
+            failures.Add("word timestamps were requested but none came back");
+        }
+
+        if (requested.HasFlag(SpeechTimestamps.Segment) && transcript.Segments.Count == 0 && !string.IsNullOrWhiteSpace(transcript.Text))
+        {
+            failures.Add("segment timestamps were requested but none came back");
+        }
+
+        for (var i = 1; i < transcript.Words.Count; i++)
+        {
+            if (transcript.Words[i].Start < transcript.Words[i - 1].Start)
+            {
+                failures.Add($"word {i} starts before word {i - 1}");
+                break;
+            }
+        }
+
+        var firstWords = string.Join(", ", transcript.Words.Take(4).Select(w =>
+            $"'{w.Text}'@{w.Start.TotalSeconds:F2}-{w.End.TotalSeconds:F2}s" + (string.IsNullOrEmpty(w.Speaker) ? "" : $" [{w.Speaker}]")));
+        var speakers = transcript.Words.Select(w => w.Speaker).Concat(transcript.Segments.Select(s => s.Speaker))
+            .Where(s => !string.IsNullOrEmpty(s)).Distinct().Count();
+
+        var detail = $"Requested {requested}{(diarized ? " + diarization" : "")}: {transcript.Words.Count} words, {transcript.Segments.Count} segments"
+            + (diarized ? $", {speakers} speaker(s)" : "")
+            + $", duration {transcript.Duration.TotalSeconds:F2}s, language '{transcript.Language}', confidence {(transcript.Confidence > 0 ? transcript.Confidence.ToString("F2") : "not reported")}"
+            + (firstWords.Length > 0 ? $"\nFirst words: {firstWords}" : "");
+
+        return failures.Count > 0 ? $"FAIL: {string.Join("; ", failures)}\n{detail}" : $"PASS {detail}";
+    }
+
+    private void RenderSpeechRecognizerCapabilities(UIView view, bool isContinuous)
+    {
+        if (!Enum.TryParse<SpeechRecognizerModel>(_speechRecognizerModel.Value, out var model))
+        {
+            return;
+        }
+
+        var capabilities = SpeechRecognizer.GetCapabilities(model);
+
+        view.Text([Text.Caption],
+            $"Capabilities: words {capabilities.SupportsWordTimestamps}, segments {capabilities.SupportsSegmentTimestamps}, diarization {capabilities.SupportsDiarization}, continuous {capabilities.SupportsContinuousRecognition}, turn detection {capabilities.TurnDetection}, endpointing {capabilities.Endpointing}, end-of-turn confidence {capabilities.ReportsEndOfTurnConfidence}");
+
+        if (!isContinuous)
+        {
+            view.Checkbox([Checkbox.Default],
+                label: capabilities.SupportsDiarization ? "Diarize (label each word with a speaker)" : "Diarize (not supported by this model)",
+                value: _speechRecognizerDiarize.Value && capabilities.SupportsDiarization,
+                disabled: !capabilities.SupportsDiarization,
+                onValueChange: async v => _speechRecognizerDiarize.Value = v);
+            return;
+        }
+
+        view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
+        {
+            if (capabilities.Endpointing.HasFlag(SpeechEndpointing.Silence))
+            {
+                var range = capabilities.RangeOf(SpeechEndpointing.Silence);
+
+                view.Box([FormField.Root, "flex-1 min-w-40"], content: view =>
+                {
+                    view.Text([FormField.Label], range.IsKnown
+                        ? $"End-of-turn silence ms ({range.Minimum:F0}-{range.Maximum:F0}, 0 = model default)"
+                        : "End-of-turn silence ms (0 = model default)");
+                    view.TextField(
+                        [Input.Default],
+                        value: _speechRecognizerEndOfTurnSilenceMs.Value.ToString(),
+                        type: "number",
+                        onValueChange: async v =>
+                        {
+                            if (int.TryParse(v, out var ms) && ms >= 0)
+                            {
+                                _speechRecognizerEndOfTurnSilenceMs.Value = ms;
+                            }
+                        });
+                });
+            }
+
+            if (capabilities.Endpointing.HasFlag(SpeechEndpointing.ConfidenceThreshold))
+            {
+                view.Box([FormField.Root, "flex-1 min-w-40"], content: view =>
+                {
+                    view.Text([FormField.Label], "End-of-turn confidence threshold (0-1, 0 = model default)");
+                    view.TextField(
+                        [Input.Default],
+                        value: _speechRecognizerEndOfTurnConfidence.Value.ToString("F2"),
+                        type: "number",
+                        onValueChange: async v =>
+                        {
+                            if (double.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var threshold) && threshold is >= 0 and <= 1)
+                            {
+                                _speechRecognizerEndOfTurnConfidence.Value = threshold;
+                            }
+                        });
+                });
+            }
+        });
+    }
+
     private void StartContinuousRecognition()
     {
         _speechRecognizerChannel = Channel.CreateUnbounded<float[]>(new UnboundedChannelOptions
@@ -1871,6 +2083,7 @@
         });
         _speechRecognizerCts = new CancellationTokenSource();
         _speechRecognizerResult.Value = null;
+        _speechRecognizerDetail.Value = null;
         _speechRecognizerError.Value = null;
 
         _ = RunContinuousRecognitionAsync(_speechRecognizerCts.Token);
@@ -1910,8 +2123,51 @@
                 ChannelCount = channelCount
             };
 
+            // The adapter stands in for a batch-only model and takes none of the endpointing fields;
+            // each field is only set where the model declares it, because setting one it lacks throws
+            if (ReferenceEquals(recognizer, _speechRecognizerInstance))
+            {
+                var endpointing = recognizer.Endpointing;
+
+                if (recognizer.SupportsWordTimestamps)
+                {
+                    config = config with { Timestamps = SpeechTimestamps.Word };
+                }
+
+                if (_speechRecognizerEndOfTurnSilenceMs.Value > 0 && endpointing.HasFlag(SpeechEndpointing.Silence))
+                {
+                    config = config with { EndOfTurnSilence = TimeSpan.FromMilliseconds(_speechRecognizerEndOfTurnSilenceMs.Value) };
+                }
+
+                if (_speechRecognizerEndOfTurnConfidence.Value > 0 && endpointing.HasFlag(SpeechEndpointing.ConfidenceThreshold))
+                {
+                    config = config with { EndOfTurnConfidenceThreshold = _speechRecognizerEndOfTurnConfidence.Value };
+                }
+            }
+
+            var finals = 0;
+            var endsOfTurn = 0;
+            var words = 0;
+            var lastEndOfTurnConfidence = 0.0;
+            _speechRecognizerEvents.Value = $"Continuous on {model}: waiting for events (turn detection {recognizer.TurnDetection}, endpointing {recognizer.Endpointing})";
+
             await foreach (var transcriptEvent in recognizer.RecognizeContinuousSpeechAsync(config, _speechRecognizerChannel!.Reader.ReadAllAsync(cancellationToken), cancellationToken))
             {
+                if (transcriptEvent.IsFinal)
+                {
+                    finals++;
+                    words += transcriptEvent.Words.Count;
+                }
+
+                if (transcriptEvent.IsEndOfTurn)
+                {
+                    endsOfTurn++;
+                    lastEndOfTurnConfidence = transcriptEvent.EndOfTurnConfidence;
+                }
+
+                var confidence = recognizer.ReportsEndOfTurnConfidence ? $"{lastEndOfTurnConfidence:F2}" : "not reported";
+                _speechRecognizerEvents.Value = $"Continuous on {model}: {finals} final(s), {endsOfTurn} end(s) of turn (last confidence {confidence}), {words} timed word(s); last event [{transcriptEvent.Start.TotalSeconds:F2}-{transcriptEvent.End.TotalSeconds:F2}s] final={transcriptEvent.IsFinal} endOfTurn={transcriptEvent.IsEndOfTurn}";
+
                 if (string.IsNullOrWhiteSpace(transcriptEvent.Text))
                 {
                     continue;
@@ -1941,6 +2197,7 @@
         _speechRecognizerProcessing.Value = true;
         _speechRecognizerError.Value = null;
         _speechRecognizerResult.Value = null;
+        _speechRecognizerDetail.Value = null;
 
         try
         {
@@ -1952,14 +2209,20 @@
             _speechRecognizerInstance?.Dispose();
             _speechRecognizerInstance = new SpeechRecognizer(model);
 
+            var timestamps = GetRequestableTimestamps(model);
+            var diarize = _speechRecognizerDiarize.Value && SpeechRecognizer.GetCapabilities(model).SupportsDiarization;
+
             var transcript = await _speechRecognizerInstance.RecognizeBatchSpeechAsync(new RecognizeSpeechConfig
             {
                 Language = _speechRecognizerLanguage.Value,
                 SampleRate = 16000,
                 ChannelCount = 1,
-                Samples = samples
+                Samples = samples,
+                Timestamps = timestamps,
+                Diarize = diarize
             });
 
+            _speechRecognizerDetail.Value = DescribeTranscriptDetail(transcript, timestamps, diarize);
             _speechRecognizerResult.Value = string.IsNullOrWhiteSpace(transcript.Text) ? "(No speech detected)" : transcript.Text;
         }
         catch (Exception ex)
@@ -1977,7 +2240,6 @@
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
         {
             view.Text([Text.H3, "mb-2"], "OCR");
-            view.Text([Text.Caption, "mb-4"], "Extract text from images or PDFs using optical character recognition");
 
             view.Column([Layout.Column.Md], content: view =>
             {
@@ -2147,7 +2409,6 @@
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
         {
             view.Text([Text.H3, "mb-2"], "File Converter");
-            view.Text([Text.Caption, "mb-4"], "Convert documents to PDF format");
 
             view.Column([Layout.Column.Md], content: view =>
             {
@@ -2231,7 +2492,7 @@
                     view.Box([Alert.Success, "mt-4"], props: TestId("ai-file-converter-result"), content: view =>
                     {
                         view.Text([Alert.Title], "Conversion Complete");
-                        view.Text([Alert.Description], _fileConverterResult.Value);
+                        view.Text([Alert.Description, "whitespace-pre-wrap"], _fileConverterResult.Value);
                     });
                 }
             });
@@ -2259,9 +2520,34 @@
             var data = await File.ReadAllBytesAsync(_fileConverterFilePath);
             var result = await converter.ConvertToPdfAsync(new FileConverterConfig { Data = data, FileName = _fileConverterFileName.Value });
 
-            var resultData = await result.GetDataAsync();
+            // OpenReadAsync rather than GetDataAsync: the stream form is the one to use when the bytes are
+            // passed on, and reading it here is what proves it against a real Data- or Url-delivered result
+            byte[] resultData;
+            long? declaredLength;
 
-            _fileConverterResult.Value = $"Converted to {result.Name} ({resultData.Length / 1024} KB)";
+            await using (var payload = await result.OpenReadAsync())
+            {
+                declaredLength = payload.Length;
+                using var buffer = new MemoryStream();
+                await payload.Content.CopyToAsync(buffer);
+                resultData = buffer.ToArray();
+            }
+
+            var isPdf = resultData.Length >= 4 && resultData[0] == '%' && resultData[1] == 'P' && resultData[2] == 'D' && resultData[3] == 'F';
+
+            if (!isPdf)
+            {
+                _fileConverterError.Value = $"FAIL: the converted payload ({resultData.Length} bytes, {result.MimeType}) does not start with %PDF";
+                return;
+            }
+
+            if (declaredLength is { } length && length != resultData.Length)
+            {
+                _fileConverterError.Value = $"FAIL: ResultPayloadStream.Length said {length} bytes but {resultData.Length} were read";
+                return;
+            }
+
+            _fileConverterResult.Value = $"Converted to {result.Name} ({resultData.Length / 1024} KB)\nRead through OpenReadAsync: delivered as {result.Kind}, stream length {(declaredLength?.ToString() ?? "not declared")}, starts with %PDF";
             _fileConverterDownloadUrl.Value = await UploadForDownloadAsync("converted.pdf", resultData, MimeTypes.ApplicationPdf);
         }
         catch (Exception ex)
@@ -2282,7 +2568,6 @@
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
         {
             view.Text([Text.H3, "mb-2"], "Video Generator");
-            view.Text([Text.Caption, "mb-4"], "Generate video clips from text prompts");
 
             view.Column([Layout.Column.Md], content: view =>
             {
@@ -2379,8 +2664,8 @@
                         view.Checkbox(
                             [Checkbox.Default],
                             value: _videoGeneratorGenerateAudio.Value,
-                            onValueChange: async v => _videoGeneratorGenerateAudio.Value = v);
-                        view.Text([Text.Body], "Generate Audio");
+                            onValueChange: async v => _videoGeneratorGenerateAudio.Value = v,
+                            label: "Generate Audio");
                     });
                 }
 
@@ -2420,7 +2705,7 @@
                             {
                                 view.Text([Text.Caption], _videoGeneratorInputImageName.Value);
                                 view.Button(
-                                    [Button.GhostMd, Button.Icon],
+                                    [Button.OutlineMd, Button.Icon],
                                     onClick: async () =>
                                     {
                                         _videoGeneratorInputImageData = null;
@@ -2470,7 +2755,7 @@
 
                 if (!string.IsNullOrEmpty(_videoGeneratorResultUrl.Value))
                 {
-                    view.Box([Media.VideoContainer, "mt-4"], content: view =>
+                    view.Box([Media.VideoContainer, "mt-4"], props: TestId("ai-video-generator-result"), content: view =>
                     {
                         view.VideoUrlPlayer(
                             ["w-full h-full"],
@@ -2548,7 +2833,6 @@
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
         {
             view.Text([Text.H3, "mb-2"], "Sound Effect Generator");
-            view.Text([Text.Caption, "mb-4"], "Generate sound effects from text descriptions");
 
             view.Column([Layout.Column.Md], content: view =>
             {
@@ -2597,6 +2881,7 @@
                             min: 0.0,
                             max: 1.0,
                             step: 0.1,
+                            ariaLabel: "Prompt Influence",
                             onValueChange: async values => _soundEffectPromptInfluence.Value = values[0],
                             content: view =>
                             {
@@ -2613,10 +2898,15 @@
                         view.Checkbox(
                             [Checkbox.Default],
                             value: _soundEffectLoop.Value,
-                            onValueChange: async v => _soundEffectLoop.Value = v);
-                        view.Text([Text.Body], "Loop");
+                            onValueChange: async v => _soundEffectLoop.Value = v,
+                            label: "Loop");
                     });
                 }
+
+                view.Checkbox([Checkbox.Default],
+                    label: "Buffered file (GenerateSoundEffectFileAsync, provider-marked WAV) instead of live streaming",
+                    value: _soundEffectBuffered.Value,
+                    onValueChange: async v => _soundEffectBuffered.Value = v);
 
                 view.Row([Layout.Row.Md, "items-center flex-wrap"], content: view =>
                 {
@@ -2658,7 +2948,7 @@
                     view.Box([Alert.Success, "mt-4"], props: TestId("ai-sound-effect-result"), content: view =>
                     {
                         view.Text([Alert.Title], "Sound Effect Generated");
-                        view.Text([Alert.Description], _soundEffectResult.Value);
+                        view.Text([Alert.Description, "whitespace-pre-wrap"], _soundEffectResult.Value);
                     });
                 }
             });
@@ -2677,29 +2967,48 @@
             var model = Enum.Parse<SoundEffectGeneratorModel>(_soundEffectModel.Value);
             using var generator = new SoundEffectGenerator(model);
 
-            var allSamples = new List<float>();
-
-            await foreach (var audio in generator.GenerateSoundEffectAsync(new SoundEffectGeneratorConfig
+            var config = new SoundEffectGeneratorConfig
             {
                 Prompt = _soundEffectPrompt.Value,
                 DurationSeconds = _soundEffectDuration.Value,
                 PromptInfluence = _soundEffectPromptInfluence.Value,
                 Loop = _soundEffectLoop.Value
-            }))
+            };
+
+            if (_soundEffectBuffered.Value)
+            {
+                var file = await generator.GenerateSoundEffectFileAsync(config);
+                var fileData = await file.GetDataAsync();
+                var fileMark = MediaProvenance.ReadMetadataMark(fileData);
+                _soundEffectResult.Value = $"Generated {file.DurationSeconds:F1}s audio ({fileData.Length} bytes, {file.MimeType}, delivered as {file.Kind})\nProvenance: {file.Provenance}, metadata mark {(string.IsNullOrEmpty(fileMark) ? "missing" : "present")}";
+                _soundEffectDownloadUrl.Value = await UploadForDownloadAsync("sound-effect.wav", fileData, file.MimeType);
+                return;
+            }
+
+            var allSamples = new List<float>();
+
+            await foreach (var audio in generator.GenerateSoundEffectAsync(config))
             {
                 Audio.SpeakChunk(MediaTargets.Everyone, audio);
                 allSamples.AddRange(audio.Samples);
             }
 
             var durationSeconds = (float)allSamples.Count / generator.SampleRate / generator.ChannelCount;
-            _soundEffectResult.Value = $"Generated {durationSeconds:F1}s audio";
 
-            if (allSamples.Count > 0)
+            if (allSamples.Count == 0)
             {
-                var wav = new WavFile(generator.SampleRate, generator.ChannelCount, WavFile.SampleFormat.Float);
-                wav.AddSamples(allSamples.ToArray());
-                _soundEffectDownloadUrl.Value = await UploadForDownloadAsync("sound-effect.wav", wav.AsArray(), MimeTypes.AudioXWav);
+                _soundEffectResult.Value = $"Generated {durationSeconds:F1}s audio";
+                return;
             }
+
+            using var wav = new WavFile(generator.SampleRate, generator.ChannelCount, WavFile.SampleFormat.Float);
+            wav.AddSamples(allSamples.ToArray());
+
+            // Streamed chunks carry no container and so no mark; the WAV built from them is marked here
+            var marked = MediaProvenance.Apply(wav.AsArray(), model.ToString(), out var marking);
+            var readBack = MediaProvenance.ReadMetadataMark(marked);
+            _soundEffectResult.Value = $"Generated {durationSeconds:F1}s audio\nProvenance (MediaProvenance.Apply on the saved WAV): {marking}, read back {(string.IsNullOrEmpty(readBack) ? "missing" : "present")}";
+            _soundEffectDownloadUrl.Value = await UploadForDownloadAsync("sound-effect.wav", marked, MimeTypes.AudioXWav);
         }
         catch (Exception ex)
         {
@@ -2716,7 +3025,6 @@
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
         {
             view.Text([Text.H3, "mb-2"], "Video Enhancer");
-            view.Text([Text.Caption, "mb-4"], "Enhance videos with upscaling or FPS boosting");
 
             view.Column([Layout.Column.Md], content: view =>
             {
@@ -2954,7 +3262,6 @@
         view.Box([Card.Default, "p-6 mb-6"], props: TestId("ai-segmenter-card"), content: view =>
         {
             view.Text([Text.H3, "mb-2"], "Image Segmenter");
-            view.Text([Text.Caption, "mb-4"], "Segment objects from an image using a text concept prompt");
 
             view.Column([Layout.Column.Md], content: view =>
             {
@@ -3126,7 +3433,7 @@
         view.Box([Card.Default, "p-6 mb-6"], props: TestId("ai-upscaler-card"), content: view =>
         {
             view.Text([Text.H3, "mb-2"], "Image Upscaler");
-            view.Text([Text.Caption, "mb-4"], $"Raise an image's resolution. This model is {capabilities.Fidelity} — a faithful upscaler reconstructs only what the input supports, a creative one invents detail");
+            view.Text([Text.Caption, "mb-4"], $"Fidelity: {capabilities.Fidelity}");
 
             view.Column([Layout.Column.Md], content: view =>
             {
@@ -3307,7 +3614,6 @@
         view.Box([Card.Default, "p-6 mb-6"], props: TestId("ai-depth-card"), content: view =>
         {
             view.Text([Text.H3, "mb-2"], "Depth Estimator");
-            view.Text([Text.Caption, "mb-4"], "Estimate a per-pixel depth map from a single image");
 
             view.Column([Layout.Column.Md], content: view =>
             {
@@ -3437,7 +3743,6 @@
         view.Box([Card.Default, "p-6 mb-6"], props: TestId("ai-mesh-card"), content: view =>
         {
             view.Text([Text.H3, "mb-2"], "Mesh Generator");
-            view.Text([Text.Caption, "mb-4"], "Generate a 3D mesh from text or an image (takes several minutes)");
 
             view.Column([Layout.Column.Md], content: view =>
             {
@@ -3464,9 +3769,11 @@
                     view.Checkbox(
                         [Checkbox.Default],
                         value: _meshGeneratorTexture.Value,
-                        onValueChange: async v => _meshGeneratorTexture.Value = v);
-                    view.Text([Text.Body], "Texture");
+                        onValueChange: async v => _meshGeneratorTexture.Value = v,
+                        label: "Texture");
                 });
+
+                RenderMeshGeneratorOptions(view);
 
                 view.Box([FormField.Root], content: view =>
                 {
@@ -3502,7 +3809,7 @@
                         {
                             view.Text([Text.Caption], _meshGeneratorInputImageName.Value);
                             view.Button(
-                                [Button.GhostMd, Button.Icon],
+                                [Button.OutlineMd, Button.Icon],
                                 onClick: async () =>
                                 {
                                     _meshGeneratorInputImageData = null;
@@ -3562,7 +3869,10 @@
                         RenderMeshDownloadButton(view, "OBJ", mesh.ObjUrl);
                         RenderMeshDownloadButton(view, "MTL", mesh.MtlUrl);
                         RenderMeshDownloadButton(view, "USDZ", mesh.UsdzUrl);
+                        RenderMeshDownloadButton(view, "STL", mesh.StlUrl);
                     });
+
+                    RenderMeshOperations(view, mesh);
                 }
             });
         });
@@ -3612,12 +3922,18 @@
                 });
             }
 
+            config = ApplyMeshGeneratorOptions(config);
+
             var result = await generator.GenerateMeshAsync(config);
 
             _meshGeneratorResultData = result;
+            _meshRigTaskId.Value = null;
+            _meshOpsResult.Value = null;
+            _meshOpsError.Value = null;
+            var files = result.Files.Count > 0 ? $", {result.Files.Count} file(s)" : "";
             _meshGeneratorResult.Value = result.ExpiresAt != null
-                ? $"Mesh generated (links expire {result.ExpiresAt:u})"
-                : "Mesh generated";
+                ? $"Mesh generated (links expire {result.ExpiresAt:u}{files})"
+                : $"Mesh generated{files}";
         }
         catch (Exception ex)
         {

@@ -2,6 +2,10 @@
 
 export const MinimumHeaderLength = 27;
 export const ProtocolVersion = 1;
+// Mirrors ProtocolMessage.MaxMessageSize: the ceiling on a message on the wire and on a payload once
+// decompressed. The server refuses anything larger, so a larger one reaching a client came from
+// something other than the server — a proxy it passed through, most likely.
+export const MaxMessageSize = 20 * 1024 * 1024;
 
 export type ProtocolMessage = Uint8Array & { readonly __brand: 'ProtocolMessage' }
 
@@ -83,6 +87,10 @@ export function readProtocolMessageHeaders(raw: ProtocolMessage | ArrayBuffer | 
   const payloadVersion = view.getUint8(24);
   const payloadType = view.getUint8(25);
   const flags = view.getUint8(26);
+
+  if (length > bytes.length) {
+    throw new Error(`Protocol message declares ${length} bytes but carries ${bytes.length}`);
+  }
 
   const expectedHeaderSize = MinimumHeaderLength + targetCount * 4;
   if (expectedHeaderSize > bytes.length) {
@@ -328,6 +336,13 @@ async function decompressPayloadInternal(data: Uint8Array): Promise<Uint8Array> 
     if (done) break;
     chunks.push(value);
     totalLength += value.length;
+
+    // A few kilobytes of gzip can expand without limit, so the ceiling is checked as it grows rather
+    // than on the finished buffer the tab would already have died building.
+    if (totalLength > MaxMessageSize) {
+      await reader.cancel().catch(() => undefined); // The error below is what the caller acts on; a failed cancel changes nothing
+      throw new Error(`Decompressed payload exceeds the maximum of ${MaxMessageSize} bytes`);
+    }
   }
 
   const result = new Uint8Array(totalLength);
@@ -1444,14 +1459,24 @@ function readVarUInt(data: Uint8Array, state: OffsetState, error: string): numbe
   while (state.offset < data.length) {
     const current = data[state.offset++];
     bytesRead++;
+
+    // Only the low four bits of a fifth byte fit in 32; C# refuses the rest, and silently dropping
+    // them here would decode a value the other stacks reject.
+    if (shift === 28 && (current & 0x70) !== 0) {
+      throw new Error('Teleport VarUInt exceeds 32-bit range');
+    }
+
     result |= (current & 0x7f) << shift;
 
     if ((current & 0x80) === 0) {
-      if (bytesRead !== getVarUIntLength(result)) {
+      // Unsigned before measuring: a fifth byte sets bit 31, which reads as negative in a JS int.
+      const value = result >>> 0;
+
+      if (bytesRead !== getVarUIntLength(value)) {
         throw new Error('Teleport VarUInt is not canonical');
       }
 
-      return result >>> 0;
+      return value;
     }
 
     shift += 7;

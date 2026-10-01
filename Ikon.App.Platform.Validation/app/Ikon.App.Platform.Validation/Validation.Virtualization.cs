@@ -15,17 +15,14 @@ public partial class Validation
     {
         view.Column([Layout.Column.Lg, "p-6"], content: section =>
         {
-            section.Text([Text.H3], "DOM-Virtualized Containers");
-            section.Text([Text.Body, "text-secondary"],
-                "VirtualList and VirtualGrid only mount items inside the visible window plus an overscan buffer. Items beyond the window exist as wrapper nodes but their content children are not rendered.");
+            section.Text([Text.H2], "Virtualization");
 
             section.Box([Card.Default, "p-4"], content: card =>
             {
                 card.Column([Layout.Column.Sm], content: col =>
                 {
-                    col.Text([Text.BodyStrong], "VirtualList — fixed-height vertical list");
-                    col.Text([Text.Caption, "text-tertiary"],
-                        $"{_virtualListItemCount.Value} items. Each row 56px. onNearEnd appends 200 more (cap 5000).");
+                    col.Text([Text.BodyStrong], "VirtualList");
+                    col.Text([Text.Caption, "text-tertiary"], $"{_virtualListItemCount.Value} items");
 
                     col.Box(["h-[400px] w-full rounded-md border border-secondary overflow-hidden"], content: box =>
                     {
@@ -46,7 +43,7 @@ public partial class Validation
                                 rowView.Row(["h-full px-4 items-center justify-between border-b border-secondary"], content: row =>
                                 {
                                     row.Text([Text.Body], $"Row {index}");
-                                    row.Text([Text.Caption, "text-tertiary font-mono"], $"#{index:D5}");
+                                    row.Text([Text.Caption, "text-tertiary tabular-nums"], $"#{index:D5}");
                                 });
                             });
                     });
@@ -57,9 +54,8 @@ public partial class Validation
             {
                 card.Column([Layout.Column.Sm], content: col =>
                 {
-                    col.Text([Text.BodyStrong], "VirtualGrid — responsive columns, square aspect");
-                    col.Text([Text.Caption, "text-tertiary"],
-                        $"{_virtualGridItemCount.Value} cells. minItemWidthPx=180, maxColumns=8, aspectRatio=1. onNearEnd appends 200 more (cap 5000).");
+                    col.Text([Text.BodyStrong], "VirtualGrid");
+                    col.Text([Text.Caption, "text-tertiary"], $"{_virtualGridItemCount.Value} cells");
 
                     col.Box(["h-[500px] w-full rounded-md border border-secondary overflow-hidden"], content: box =>
                     {
@@ -88,7 +84,7 @@ public partial class Validation
                                     cell.Row([Layout.Row.SpaceBetween, "items-center w-full flex-wrap"], content: header =>
                                     {
                                         header.Text([Text.BodyStrong, "text-white"], $"Cell {index}");
-                                        header.Text([Text.Caption, "text-white/80 font-mono"], $"#{index:D5}");
+                                        header.Text([Text.Caption, "text-white/80 tabular-nums"], $"#{index:D5}");
                                     });
                                     cell.Box(["flex-1"]);
                                     cell.Text([Text.Caption, "text-white/70"], $"row {index / 4}, col {index % 4}");

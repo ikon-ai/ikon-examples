@@ -1,5 +1,7 @@
 public partial class Validation
 {
+    private readonly ClientReactive<double> _serverSplitSize = new(240);
+
     private void RenderLayoutSection(UIView view)
     {
         view.Column([Layout.Column.Lg], content: view =>
@@ -45,7 +47,7 @@ public partial class Validation
     {
         view.Column([Layout.Column.Xs], content: col =>
         {
-            col.Text([Text.Caption, "font-mono text-tertiary"], caption);
+            col.Text([Text.Caption, "text-tertiary"], caption);
             content(col);
         });
     }
@@ -331,6 +333,17 @@ public partial class Validation
                     view.Separator( [Separator.Vertical], orientation: Orientation.Vertical);
                     view.Text([Text.Body], "Right");
                 });
+
+                view.Text([Text.Caption], "view.Divider (horizontal, decorative)");
+                view.Divider();
+
+                view.Text([Text.Caption], "view.Divider (vertical, announced)");
+                view.Row([Layout.Row.Md, "h-8 items-center"], content: view =>
+                {
+                    view.Text([Text.Body], "Before");
+                    view.Divider(orientation: Orientation.Vertical, decorative: false);
+                    view.Text([Text.Body], "After");
+                });
             });
         });
     }
@@ -473,7 +486,7 @@ public partial class Validation
 
                         view.Box([Layout.Split.Main, "bg-card p-2"], content: view =>
                         {
-                            view.Button([Button.GhostSm, Button.Icon], onClick: async () =>
+                            view.Button([Button.OutlineSm, Button.Icon], onClick: async () =>
                             {
                                 _splitSidebarOpen.Value = !_splitSidebarOpen.Value;
                             }, content: v => v.Icon([Icon.Xs], name: _splitSidebarOpen.Value ? "panel-left-close" : "panel-left-open"));
@@ -524,6 +537,47 @@ public partial class Validation
                                 view.Box(["bg-card p-4 h-full"], content: view =>
                                 {
                                     view.Text([Text.Caption, "text-tertiary"], "Main content area");
+                                });
+                            });
+                    });
+                });
+
+                view.Column([Layout.Column.Sm], content: view =>
+                {
+                    view.Text([Text.H3], "Server-driven");
+                    view.Text([Text.Caption, "mb-3"], "Changing initialSize from the server moves the pane; a drag still works and reports back through onResized.");
+                    view.Row([Layout.Row.Sm, "flex-wrap items-center mb-2"], content: row =>
+                    {
+                        foreach (var width in new[] { 160.0, 240.0, 320.0 })
+                        {
+                            var target = width;
+                            row.Button([Button.PrimarySm], text: $"{target:0}px", props: TestId($"server-split-{target:0}"),
+                                onClick: async () => _serverSplitSize.Value = target);
+                        }
+
+                        row.Text([Text.Caption, "tabular-nums"], $"Requested width: {_serverSplitSize.Value:0}px", props: TestId("server-split-size"));
+                    });
+                    view.Box(["h-40 rounded-lg overflow-hidden border border-secondary"], content: view =>
+                    {
+                        view.ResizableSplit(
+                            orientation: Orientation.Horizontal,
+                            initialSize: _serverSplitSize.Value,
+                            minSize: 120,
+                            maxSize: 400,
+                            onResized: async size => _serverSplitSize.Value = size,
+                            style: [ResizableSplit.Root, "h-full"],
+                            first: view =>
+                            {
+                                view.Box(["bg-surface p-3 h-full w-full"], props: TestId("server-split-first"), content: view =>
+                                {
+                                    view.Text([Text.Caption, "text-tertiary"], "Server-sized pane");
+                                });
+                            },
+                            second: view =>
+                            {
+                                view.Box(["bg-card p-4 h-full"], content: view =>
+                                {
+                                    view.Text([Text.Caption, "text-tertiary"], "Fills the rest");
                                 });
                             });
                     });
@@ -674,7 +728,7 @@ public partial class Validation
                 view.Row([Layout.Row.Md, "items-center mb-4"], content: view =>
                 {
                     view.Text([Text.Body], $"Items loaded: {_infiniteScrollItems.Value.Count}");
-                    view.Button([Button.NeutralMd], text: "Reset", onClick: async () =>
+                    view.Button([Button.PrimaryMd], text: "Reset", onClick: async () =>
                     {
                         _infiniteScrollItems.Value = [];
                         _infiniteScrollPage = 0;
@@ -761,7 +815,7 @@ public partial class Validation
             view.Row([Layout.Row.Md, "items-center mb-4"], content: view =>
             {
                 var isRunning = _autoScrollCts != null;
-                view.Button([isRunning ? Button.NeutralMd : Button.PrimaryMd],
+                view.Button([isRunning ? Button.ErrorMd : Button.PrimaryMd],
                     text: isRunning ? "Stop" : "Start",
                     onClick: async () =>
                     {
@@ -776,7 +830,7 @@ public partial class Validation
                             _ = RunAutoScrollTestAsync(_autoScrollCts.Token);
                         }
                     });
-                view.Button([Button.OutlineMd], text: "Clear", onClick: async () =>
+                view.Button([Button.ErrorMd], text: "Clear", onClick: async () =>
                 {
                     _autoScrollPoliteItems.Value = [];
                     _autoScrollAssertiveItems.Value = [];
@@ -1126,8 +1180,8 @@ public partial class Validation
                         view.Row(["gap-2 mt-2"], content: view =>
                         {
                             view.Button([Button.PrimaryMd], text: "First");
-                            view.Button([Button.NeutralMd], text: "Second");
-                            view.Button([Button.OutlineMd], text: "Third");
+                            view.Button([Button.PrimaryMd], text: "Second");
+                            view.Button([Button.PrimaryMd], text: "Third");
                         });
                     });
                 });
@@ -1141,8 +1195,8 @@ public partial class Validation
                         view.Row(["gap-2 mt-2"], content: view =>
                         {
                             view.Button([Button.PrimaryMd], text: "First");
-                            view.Button([Button.NeutralMd], text: "Second");
-                            view.Button([Button.OutlineMd], text: "Third");
+                            view.Button([Button.PrimaryMd], text: "Second");
+                            view.Button([Button.PrimaryMd], text: "Third");
                         });
                     });
                 });
@@ -1168,16 +1222,16 @@ public partial class Validation
                 view.Text([Text.BodyStrong, "mt-4"], "Nested Direction Contexts");
                 view.DirectionProvider(dir: Dir.Rtl, content: view =>
                 {
-                    view.Box(["border border-blue-500 rounded-md p-4"], content: view =>
+                    view.Box(["border border-brand rounded-md p-4"], content: view =>
                     {
-                        view.Text([Text.Caption, "text-blue-500"], "RTL Context");
+                        view.Text([Text.Caption, "text-brand-secondary"], "RTL Context");
                         view.Text([Text.Body], "Parent is RTL");
 
                         view.DirectionProvider(["mt-2"], dir: Dir.Ltr, content: view =>
                         {
-                            view.Box(["border border-green-500 rounded-md p-4"], content: view =>
+                            view.Box(["border border-primary rounded-md p-4"], content: view =>
                             {
-                                view.Text([Text.Caption, "text-green-500"], "LTR Context (nested)");
+                                view.Text([Text.Caption, "text-tertiary"], "LTR Context (nested)");
                                 view.Text([Text.Body], "This child overrides to LTR");
                             });
                         });

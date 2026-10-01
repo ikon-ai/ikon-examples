@@ -32,7 +32,7 @@ public partial class Validation
                 view.Row(["flex items-center gap-2 mb-4 flex-wrap"], content: view =>
                 {
                     view.Text([Text.H2], "Memory Info");
-                    view.Button([Button.GhostMd, Button.Icon],
+                    view.Button([Button.OutlineMd, Button.Icon],
                         text: "Run GC",
                         disabled: allocating,
                         onClick: ForceFullGcAsync,
@@ -55,7 +55,7 @@ public partial class Validation
 
                 if (app.MaxMemoryLimitMb > 0 && processMemoryMb > app.MaxMemoryLimitMb)
                 {
-                    view.Text([Text.Body, "text-red-500 font-bold mt-2"],
+                    view.Text([Text.Body, "text-error-primary font-bold mt-2"],
                         $"WARNING: Process memory exceeds limit by {processMemoryMb - app.MaxMemoryLimitMb:F1} MB!");
                 }
             });
@@ -77,15 +77,11 @@ public partial class Validation
                         onValueChange: async v => _maxClientsOverride.Value = v ?? "");
                     view.Button([Button.PrimaryMd], text: "Apply", onClick: ApplyMaxClientsOverrideAsync);
                 });
-
-                view.Text([Text.Caption, "mt-2"],
-                    "Set the limit to test connection rejection. 0 reverts to the server's memory-derived default; any other value (lower or higher) overrides it.");
             });
 
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 view.Text([Text.H2, "mb-4"], "Memory Allocation Test");
-                view.Text([Text.Caption, "mb-4"], "Allocate memory to test memory warnings and container kills");
 
                 view.Row(["flex items-center gap-4 flex-wrap"], content: view =>
                 {

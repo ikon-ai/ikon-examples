@@ -381,6 +381,34 @@ public partial class Validation
                 });
             });
 
+            // AI disclosure (EU AI Act Article 50)
+            view.Box([Card.Default, "p-6"], content: view =>
+            {
+                view.Text([Text.H2, "mb-1"], "AI Disclosure");
+                view.Text([Text.BodySm, "text-tertiary mb-4"], "view.AiDisclosure: the platform's uniform disclosure line, per kind (Interaction / GeneratedContent) and variant (Note / Banner / Pill).");
+                view.Column([Layout.Column.Md], content: view =>
+                {
+                    view.Text([Text.Caption], "Interaction · Note (default wording)");
+                    view.AiDisclosure(AiDisclosureKind.Interaction);
+
+                    view.Text([Text.Caption], "GeneratedContent · Banner with note");
+                    view.AiDisclosure(AiDisclosureKind.GeneratedContent, AiDisclosureVariant.Banner,
+                        note: "AI can make mistakes. Check anything important.");
+
+                    view.Text([Text.Caption], "GeneratedContent · Pill over an image");
+                    view.Box(["relative w-64 h-36 rounded-lg overflow-hidden border border-secondary"], content: frame =>
+                    {
+                        frame.Image(["w-full h-full object-cover"], src: "/test-images/landscape.svg", alt: "Generated landscape");
+                        frame.AiDisclosure(AiDisclosureKind.GeneratedContent, AiDisclosureVariant.Pill,
+                            style: ["default", "absolute bottom-2 end-2"]);
+                    });
+
+                    view.Text([Text.Caption], "Interaction · Note with custom text and icon, no icon variant");
+                    view.AiDisclosure(AiDisclosureKind.Interaction, text: "You are chatting with an AI assistant.", icon: "bot");
+                    view.AiDisclosure(AiDisclosureKind.GeneratedContent, showIcon: false);
+                });
+            });
+
             // Empty States
             view.Box([Card.Default, "p-6"], content: view =>
             {
@@ -432,7 +460,7 @@ public partial class Validation
                             view.Row([EmptyState.Actions], content: view =>
                             {
                                 view.Button([Button.PrimaryMd], text: "Upload file", onClick: async () => { });
-                                view.Button([Button.OutlineMd], text: "Import", onClick: async () => { });
+                                view.Button([Button.PrimaryMd], text: "Import", onClick: async () => { });
                             });
                         });
                     });
@@ -467,7 +495,7 @@ public partial class Validation
                             view.Text([EmptyState.Description], "Add your first item to get started.");
                             view.Row([EmptyState.Actions], content: view =>
                             {
-                                view.Button([Button.NeutralSm], text: "Add item", onClick: async () => { });
+                                view.Button([Button.PrimarySm], text: "Add item", onClick: async () => { });
                             });
                         });
                     });
@@ -481,7 +509,7 @@ public partial class Validation
                 view.Text([Text.Body, "mb-4"], "Click the image below");
                 view.Column([Layout.Column.Md], content: view =>
                 {
-                    view.Image(["w-32 h-32 rounded-lg border border-gray-300 object-cover"],
+                    view.Image(["w-32 h-32 rounded-lg border border-secondary object-cover"],
                         src: "/test-images/square-d.svg",
                         alt: "Clickable sample image",
                         onClick: async () =>

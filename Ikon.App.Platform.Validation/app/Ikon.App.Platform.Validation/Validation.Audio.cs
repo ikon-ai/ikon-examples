@@ -1,7 +1,5 @@
 public partial class Validation
 {
-    private static readonly TimeSpan SoundClipApproxDuration = TimeSpan.FromSeconds(5);
-
     private static readonly string[] EffectTypes =
     [
         "Delay",
@@ -18,13 +16,10 @@ public partial class Validation
     {
         view.Column([Layout.Column.Lg], content: view =>
         {
-            RenderMediaCountersSection(view);
-
             // Audio Metrics
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 view.Text([Text.H2, "mb-4"], "Audio Metrics");
-                view.Text([Text.Caption, "mb-4"], "Real-time audio stream statistics");
 
                 view.Column([Layout.Column.Sm], content: view =>
                 {
@@ -55,7 +50,6 @@ public partial class Validation
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 view.Text([Text.H2, "mb-4"], "Audio Sources");
-                view.Text([Text.Caption, "mb-4"], "Add or remove synthesized audio sources");
 
                 view.Column([Layout.Column.Md], content: view =>
                 {
@@ -153,11 +147,11 @@ public partial class Validation
                         view.Text([Text.Caption, "mb-2"], $"Patch: {_currentPatch.Value} | Pattern: {_currentPattern.Value}");
                         view.Row([Layout.Row.Md, "flex-wrap mb-2"], content: view =>
                         {
-                            view.Button([Button.NeutralMd],
+                            view.Button([Button.PrimaryMd],
                                 text: "Next Patch",
                                 onClick: async () => CycleSynthPatch());
 
-                            view.Button([Button.NeutralMd],
+                            view.Button([Button.PrimaryMd],
                                 text: "Next Pattern",
                                 onClick: async () => CycleSynthPattern());
 
@@ -178,7 +172,6 @@ public partial class Validation
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 view.Text([Text.H2, "mb-4"], "Audio Effects");
-                view.Text([Text.Caption, "mb-4"], "Apply effects to audio output");
 
                 view.Column([Layout.Column.Md], content: view =>
                 {
@@ -187,7 +180,7 @@ public partial class Validation
                     {
                         foreach (var effectType in EffectTypes)
                         {
-                            view.Button([Button.OutlineSm],
+                            view.Button([Button.PrimarySm],
                                 text: effectType,
                                 onClick: async () => AddEffect(effectType));
                         }
@@ -225,7 +218,6 @@ public partial class Validation
             view.Box([Card.Default, "p-6"], content: view =>
             {
                 view.Text([Text.H2, "mb-4"], "Audio Recording & Echo");
-                view.Text([Text.Caption, "mb-4"], "Record audio and echo it back through effects");
 
                 view.Column([Layout.Column.Md], content: view =>
                 {
@@ -278,8 +270,8 @@ public partial class Validation
                                     _audioEchoCancellation.Value = value;
                                     return Task.CompletedTask;
                                 },
-                                content: view => view.SwitchThumb([Switch.Thumb]));
-                            view.Text([Text.Caption], "Echo Cancellation");
+                                content: view => view.SwitchThumb([Switch.Thumb]),
+                                label: "Echo Cancellation");
                         });
 
                         view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
@@ -292,8 +284,8 @@ public partial class Validation
                                     _audioNoiseSuppression.Value = value;
                                     return Task.CompletedTask;
                                 },
-                                content: view => view.SwitchThumb([Switch.Thumb]));
-                            view.Text([Text.Caption], "Noise Suppression");
+                                content: view => view.SwitchThumb([Switch.Thumb]),
+                                label: "Noise Suppression");
                         });
 
                         view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
@@ -306,8 +298,8 @@ public partial class Validation
                                     _audioAutoGainControl.Value = value;
                                     return Task.CompletedTask;
                                 },
-                                content: view => view.SwitchThumb([Switch.Thumb]));
-                            view.Text([Text.Caption], "Auto Gain Control");
+                                content: view => view.SwitchThumb([Switch.Thumb]),
+                                label: "Auto Gain Control");
                         });
                     });
 
@@ -347,7 +339,7 @@ public partial class Validation
                             content: v => v.Icon([Icon.Default], name: "mic"));
 
                         view.CaptureButton(
-                            [Button.NeutralMd, MicButton.States],
+                            [Button.PrimaryMd, MicButton.States],
                             kind: MediaCaptureKind.Audio,
                             text: "Toggle Record",
                             captureMode: MediaCaptureButtonMode.Toggle,
@@ -363,7 +355,7 @@ public partial class Validation
                             onCaptureStop: async e => _isAudioToggleRecording.Value = false);
 
                         view.CaptureButton(
-                            [Button.NeutralMd, Button.Icon, MicButton.States],
+                            [Button.OutlineMd, Button.Icon, MicButton.States],
                             kind: MediaCaptureKind.Audio,
                             text: "Toggle Record",
                             captureMode: MediaCaptureButtonMode.Toggle,
@@ -426,8 +418,8 @@ public partial class Validation
                                 _audioPlaybackEnabled.Value = value;
                                 return Task.CompletedTask;
                             },
-                            content: view => view.SwitchThumb([Switch.Thumb]));
-                        view.Text([Text.Body], "Echo Playback");
+                            content: view => view.SwitchThumb([Switch.Thumb]),
+                            label: "Echo Playback");
                     });
 
                     // Voice Effects
@@ -436,7 +428,7 @@ public partial class Validation
                     {
                         foreach (var effectType in EffectTypes)
                         {
-                            view.Button([Button.OutlineSm],
+                            view.Button([Button.PrimarySm],
                                 text: effectType,
                                 onClick: async () => AddVoiceEffect(effectType));
                         }
@@ -476,7 +468,6 @@ public partial class Validation
                 var clientSessionId = ReactiveScope.ClientId;
 
                 view.Text([Text.H2, "mb-4"], "Sound Functions");
-                view.Text([Text.Caption, "mb-4"], "Play sounds using ClientFunctions.PlaySoundAsync (server-triggered playback)");
 
                 view.Column([Layout.Column.Md], content: view =>
                 {
@@ -495,7 +486,7 @@ public partial class Validation
                                 _soundToastOpen.Value = true;
                             });
 
-                        view.Button([Button.NeutralMd],
+                        view.Button([Button.PrimaryMd],
                             text: "Play from data URL",
                             onClick: async () =>
                             {
@@ -509,7 +500,7 @@ public partial class Validation
                                 _soundToastOpen.Value = true;
                             });
 
-                        view.Button([Button.OutlineMd],
+                        view.Button([Button.PrimaryMd],
                             text: "Play from URL",
                             onClick: async () =>
                             {
@@ -538,7 +529,6 @@ public partial class Validation
                             });
                     });
 
-                    view.Text([Text.Caption, "text-muted-foreground"], "Note: byte[] and data URL use caching - same audio is only transmitted once per session");
                 });
 
                 view.Toast(
@@ -555,165 +545,9 @@ public partial class Validation
                     closeStyle: [Toast.Close]);
             });
 
-            // Interval Playback Test
-            view.Box([Card.Default, "p-6"], content: view =>
-            {
-                view.Text([Text.H2, "mb-4"], "Interval Playback Test");
-                view.Text([Text.Caption, "mb-4"], "Play audio for a while, go silent for a while, then repeat — verifies playback recovers after gaps");
 
-                view.Column([Layout.Column.Md], content: view =>
-                {
-                    view.Row([Layout.Row.InlineCenter, "mb-2 flex-wrap"], content: view =>
-                    {
-                        view.Text([Text.BodyStrong, "w-32"], "Mode");
-                        view.Select(
-                            value: _intervalMode.Value,
-                            options:
-                            [
-                                new SelectOption("streaming", "Streaming (Moog Synth)"),
-                                new SelectOption("sound", "Sound Function (whoosh.mp3)")
-                            ],
-                            disabled: _intervalRunning.Value,
-                            onValueChange: async v => _intervalMode.Value = v);
-                    });
-
-                    view.Row([Layout.Row.Md, "flex-wrap items-end mb-2"], content: view =>
-                    {
-                        view.Column(["min-w-[160px]"], content: view =>
-                        {
-                            view.Text([Text.Caption, "mb-1"], "Play duration (sec)");
-                            view.TextField(
-                                [Input.Default, "w-32"],
-                                value: _intervalPlaySeconds.Value,
-                                type: "number",
-                                step: "1",
-                                min: "1",
-                                disabled: _intervalRunning.Value || _intervalMode.Value == "sound",
-                                onValueChange: async v => _intervalPlaySeconds.Value = v);
-                        });
-                        view.Column(["min-w-[160px]"], content: view =>
-                        {
-                            view.Text([Text.Caption, "mb-1"], "Wait duration (sec)");
-                            view.TextField(
-                                [Input.Default, "w-32"],
-                                value: _intervalWaitSeconds.Value,
-                                type: "number",
-                                step: "1",
-                                min: "1",
-                                disabled: _intervalRunning.Value,
-                                onValueChange: async v => _intervalWaitSeconds.Value = v);
-                        });
-                    });
-
-                    if (_intervalMode.Value == "sound")
-                    {
-                        view.Text([Text.Caption, "text-muted-foreground mb-2"], "Sound mode plays the whole whoosh.mp3 clip (~5s) each cycle — play duration is ignored");
-                    }
-
-                    view.Row([Layout.Row.InlineCenter, "mb-2 flex-wrap"], content: view =>
-                    {
-                        view.Text([Text.BodyStrong, "w-32"], "Status");
-                        view.Text([Text.Body], _intervalStatus.Value);
-                    });
-
-                    view.Row([Layout.Row.Md, "flex-wrap"], content: view =>
-                    {
-                        view.Button(
-                            [_intervalRunning.Value ? Button.OutlineMd : Button.PrimaryMd],
-                            text: "Start Interval Test",
-                            disabled: _intervalRunning.Value,
-                            onClick: async () => StartIntervalTest(ReactiveScope.ClientId));
-
-                        view.Button([Button.ErrorMd],
-                            text: "Stop Interval Test",
-                            disabled: !_intervalRunning.Value,
-                            onClick: async () => StopIntervalTest());
-                    });
-                });
-            });
+            RenderMediaCountersSection(view);
         });
-    }
-
-    private void StartIntervalTest(int clientSessionId)
-    {
-        if (_intervalRunning.Value)
-        {
-            return;
-        }
-
-        var playSeconds = ParseIntervalSeconds(_intervalPlaySeconds.Value, 5);
-        var waitSeconds = ParseIntervalSeconds(_intervalWaitSeconds.Value, 60);
-        var mode = _intervalMode.Value;
-
-        _intervalCts = new CancellationTokenSource();
-        var token = _intervalCts.Token;
-        _intervalRunning.Value = true;
-
-        _ = Task.Run(() => RunIntervalLoopAsync(mode, clientSessionId, playSeconds, waitSeconds, token));
-    }
-
-    private void StopIntervalTest()
-    {
-        _intervalCts?.Cancel();
-    }
-
-    private async Task RunIntervalLoopAsync(string mode, int clientSessionId, double playSeconds, double waitSeconds, CancellationToken token)
-    {
-        var playDelay = TimeSpan.FromSeconds(playSeconds);
-        var waitDelay = TimeSpan.FromSeconds(waitSeconds);
-
-        try
-        {
-            while (!token.IsCancellationRequested)
-            {
-                if (mode == "streaming")
-                {
-                    var patch = Patches[0];
-                    var source = new MoogSynthSource(patch);
-                    var streamId = AudioGenerator.AddSource(source);
-                    _intervalStatus.Value = "Playing (streaming)";
-
-                    try
-                    {
-                        await Task.Delay(playDelay, token);
-                    }
-                    finally
-                    {
-                        AudioGenerator.RemoveSource(streamId);
-                    }
-                }
-                else
-                {
-                    var soundPath = Path.Combine(app.DataDirectory, "whoosh.mp3");
-                    var soundData = await File.ReadAllBytesAsync(soundPath, token);
-                    var playbackId = await ClientFunctions.PlaySoundAsync(soundData, "audio/mpeg", volume: 1.0, targetId: clientSessionId);
-                    _lastSoundPlaybackId.Value = playbackId ?? "(failed)";
-                    _intervalStatus.Value = "Playing (sound)";
-                    await Task.Delay(SoundClipApproxDuration, token);
-                }
-
-                _intervalStatus.Value = "Waiting";
-                await Task.Delay(waitDelay, token);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        finally
-        {
-            _intervalRunning.Value = false;
-            _intervalStatus.Value = "(idle)";
-        }
-    }
-
-    private static double ParseIntervalSeconds(string value, double fallback)
-    {
-        if (double.TryParse(value, System.Globalization.CultureInfo.InvariantCulture, out var seconds) && seconds > 0)
-        {
-            return seconds;
-        }
-
-        return fallback;
     }
 
     private void RenderEffectParams(UIView view, EffectEntry entry, int index)

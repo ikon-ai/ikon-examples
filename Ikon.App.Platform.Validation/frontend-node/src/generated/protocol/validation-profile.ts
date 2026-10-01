@@ -2,7 +2,7 @@
 /* eslint-disable */
 // noinspection JSUnusedGlobalSymbols
 
-/** The Validation "Versioned State" tab's persisted profile — the canonical example of a schema-versioned persisted state type. Because this is a data .tp instead of a plain C# record, the persistence layer applies the compat contract: renamed fields survive storage via the [obsolete] ledger and the UpgradeFrom migration chain (see Validation.State.cs), old builds cannot destroy fields written by newer builds, and payloads stored by a newer schema version are never downgraded. */
+/** The Validation "Persistent State" tab's persisted profile — the canonical example of a schema-versioned persisted state type. Because this is a data .tp instead of a plain C# record, the persistence layer applies the compat contract: renamed fields survive storage via the [obsolete] ledger and the UpgradeFrom migration chain (see Validation.State.cs), old builds cannot destroy fields written by newer builds, and payloads stored by a newer schema version are never downgraded. */
 export interface ValidationProfile
 {
     /** What the profile shows as the player's name. v1 called this Nickname. */

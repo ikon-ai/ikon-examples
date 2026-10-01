@@ -63,7 +63,7 @@ public partial class Validation
     {
         if (!DatabaseAvailable)
         {
-            Log.Instance.Warning("validationdb not provisioned — Database tab is read-only until 'ikon app config' allocates it");
+            Log.Instance.Warning("validationdb not provisioned — Database tab is read-only until 'ikon link' allocates it");
             return;
         }
 
@@ -118,19 +118,14 @@ public partial class Validation
 
         view.Column([Layout.Column.Lg], content: view =>
         {
-            view.Box([Card.Default, "p-6"], content: view =>
-            {
-                view.Text([Text.H2, "mb-4"], "Database");
-                view.Text([Text.Caption, "mb-2"], "Managed PostgreSQL via the 'validationdb' database declared in ikon-config. The same 'entries' table is exercised through three .NET data-access styles — EF Core, Dapper, and raw ADO.NET/Npgsql — so this tab doubles as a reference for app developers.");
-                view.Text([Text.Caption], "EF Core owns the schema (created by its migration, applied on first use of this tab); Dapper and raw SQL read/write the same table.");
-            });
+            view.Text([Text.H2], "Database");
 
             if (!DatabaseAvailable)
             {
                 view.Box([Card.Default, "p-6"], content: view =>
                 {
                     view.Text([Text.H3, "mb-2"], "Database not provisioned");
-                    view.Text([Text.Caption], "'validationdb' is declared in ikon-config but not yet provisioned for this space. Run 'ikon app config' (logged into the backend) to allocate it, then restart the app.");
+                    view.Text([Text.Caption], "'validationdb' is declared in ikon-config but not yet provisioned for this space. Run 'ikon link' (logged into the backend) to allocate it, then restart the app.");
                 });
 
                 return;
@@ -152,12 +147,12 @@ public partial class Validation
                             disabled: _dbBusy.Value,
                             onClick: async () => await AddEntryAsync("ef"));
 
-                        view.Button([Button.SecondaryMd],
+                        view.Button([Button.PrimaryMd],
                             text: "Add via Dapper",
                             disabled: _dbBusy.Value,
                             onClick: async () => await AddEntryAsync("dapper"));
 
-                        view.Button([Button.OutlineMd],
+                        view.Button([Button.PrimaryMd],
                             text: "Add via Raw SQL",
                             disabled: _dbBusy.Value,
                             onClick: async () => await AddEntryAsync("raw"));
@@ -195,7 +190,7 @@ public partial class Validation
                                 await RefreshEntriesAsync();
                             });
 
-                        view.Button([Button.OutlineMd],
+                        view.Button([Button.PrimaryMd],
                             text: "Refresh",
                             disabled: _dbBusy.Value,
                             onClick: async () => await RefreshEntriesAsync());

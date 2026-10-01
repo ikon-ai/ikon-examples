@@ -20,8 +20,9 @@ namespace Ikon.App.Platform.Validation.Protocol
 
 // Validation tab exercising schema-versioned persisted state: a PersistentSessionReactive whose
 // value type is a data .tp (ValidationState.tp) rather than a plain record, so the stored payload
-// carries the schema version and the .tp compat contract applies on load. See the
-// "Schema-versioned state" section of the persistent-state guide.
+// carries the schema version and the .tp compat contract applies on load. v1 payloads carrying
+// Nickname migrate on load, and the retired value stays readable through GetRetiredFields() during
+// the sunset window. See the "Schema-versioned state" section of the persistent-state guide.
 public partial class Validation
 {
     private readonly PersistentSessionReactive<ValidationProfile> _versionedProfile = new(new ValidationProfile());
@@ -29,58 +30,33 @@ public partial class Validation
     // Per-client so concurrent sessions don't trample each other's in-progress edit.
     private readonly ClientReactive<string> _versionedProfileNameDraft = new("");
 
-    private void RenderVersionedStateSection(UIView view)
+    private void RenderPersistentStateSection(UIView view)
     {
         ValidationProfile profile = _versionedProfile.Value;
 
         view.Column([Layout.Column.Lg], content: view =>
         {
-            view.Box([Card.Default, "p-6"], content: view =>
-            {
-                view.Text([Text.H2, "mb-1"], "Schema-versioned persisted state");
-                view.Text([Text.BodySm, "text-tertiary mb-2"],
-                    "This profile persists through a PersistentSessionReactive whose value type is a data .tp schema (ValidationState.tp, version 2) instead of a plain record. The payload is stored inside a version envelope, so renamed fields survive: v1 payloads carrying the retired Nickname key migrate onto DisplayName on load via UpgradeFrom1.");
-                view.Text([Text.Caption, "text-muted-foreground"],
-                    "Restart the app to see the values reload from storage. Old builds saving over this data cannot destroy fields a newer schema added, and a payload stored by a newer schema version is passed through untouched.");
-            });
+            view.Text([Text.H2], "Persistent State");
 
             view.Box([Card.Default, "p-6"], content: view =>
             {
-                view.Text([Text.H2, "mb-4"], "Current profile");
+                view.Text([Text.H3, "mb-4"], "Versioned profile");
 
-                view.Row([Layout.Row.InlineCenter, "mb-2 flex-wrap"], content: view =>
+                RenderFieldGrid(view,
+                    ("Display name", v => v.Text([Text.Body], profile.DisplayName.Length > 0 ? profile.DisplayName : "(empty)")),
+                    ("Visit count", v => v.Text([Text.Body], profile.VisitCount.ToString())),
+                    ("Favorite colors", v => v.Text([Text.Body], profile.FavoriteColors.Count > 0 ? string.Join(", ", profile.FavoriteColors) : "(none)")));
+
+                view.Row([Layout.Row.Md, "items-end flex-wrap mt-6"], content: view =>
                 {
-                    view.Text([Text.BodyStrong, "w-40"], "DisplayName");
-                    view.Text([Text.Body], profile.DisplayName.Length > 0 ? profile.DisplayName : "(empty)");
-                });
-
-                view.Row([Layout.Row.InlineCenter, "mb-2 flex-wrap"], content: view =>
-                {
-                    view.Text([Text.BodyStrong, "w-40"], "VisitCount");
-                    view.Text([Text.Body], profile.VisitCount.ToString());
-                });
-
-                view.Row([Layout.Row.InlineCenter, "flex-wrap"], content: view =>
-                {
-                    view.Text([Text.BodyStrong, "w-40"], "FavoriteColors");
-                    view.Text([Text.Body], string.Join(", ", profile.FavoriteColors));
-                });
-            });
-
-            view.Box([Card.Default, "p-6"], content: view =>
-            {
-                view.Text([Text.H2, "mb-4"], "Update");
-
-                view.Row([Layout.Row.InlineCenter, "mb-3 flex-wrap"], content: view =>
-                {
-                    view.Text([Text.BodyStrong, "w-40"], "New display name");
                     view.TextField(
                         [Input.Default, "w-64"],
                         bind: _versionedProfileNameDraft,
+                        label: "Display name",
                         placeholder: "Type a name…");
                 });
 
-                view.Row([Layout.Row.Md, "flex-wrap mb-3"], content: view =>
+                view.Row([Layout.Row.Md, "flex-wrap mt-3"], content: view =>
                 {
                     view.Button([Button.PrimaryMd],
                         text: "Set display name",
@@ -99,7 +75,7 @@ public partial class Validation
                             _versionedProfileNameDraft.Value = "";
                         });
 
-                    view.Button([Button.OutlineMd],
+                    view.Button([Button.PrimaryMd],
                         text: "Increment VisitCount",
                         onClick: async () =>
                         {
@@ -112,9 +88,6 @@ public partial class Validation
                             };
                         });
                 });
-
-                view.Text([Text.Caption, "text-muted-foreground"],
-                    "State persists via a v2 .tp schema; v1 payloads carrying Nickname migrate on load, and the retired value stays readable through GetRetiredFields() during the sunset window.");
             });
         });
     }

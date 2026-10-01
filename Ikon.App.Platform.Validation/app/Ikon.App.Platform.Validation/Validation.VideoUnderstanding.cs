@@ -10,14 +10,41 @@ public partial class Validation
     private readonly Reactive<string> _videoUnderstandingFileName = new("");
     private string? _videoUnderstandingFilePath;
 
+    private static List<SelectOption>? _videoCapableModelOptions;
+
+    // Read from the capability table rather than listed by hand, so a model that gains video input
+    // shows up here without an edit; a model the registry cannot resolve is simply left out.
     private static List<SelectOption> GetVideoCapableModelOptions()
     {
-        return
-        [
-            new SelectOption(nameof(LLMModel.Gemini25Flash), "Gemini 2.5 Flash"),
-            new SelectOption(nameof(LLMModel.Gemini25FlashLite), "Gemini 2.5 Flash Lite"),
-            new SelectOption(nameof(LLMModel.Gemini25Pro), "Gemini 2.5 Pro")
-        ];
+        if (_videoCapableModelOptions != null)
+        {
+            return _videoCapableModelOptions;
+        }
+
+        var options = new List<SelectOption>();
+
+        foreach (var model in Enum.GetValues<LLMModel>())
+        {
+            try
+            {
+                if (Emerge.GetCapabilities(model).SupportsInputVideo)
+                {
+                    options.Add(new SelectOption(model.ToString(), model.DisplayName()));
+                }
+            }
+            catch (Exception)
+            {
+                // An unresolvable model has no capabilities to offer; leaving it out of the picker is the right answer
+            }
+        }
+
+        if (options.All(o => o.Value != nameof(LLMModel.Gemini25Flash)))
+        {
+            options.Insert(0, new SelectOption(nameof(LLMModel.Gemini25Flash), LLMModel.Gemini25Flash.DisplayName()));
+        }
+
+        _videoCapableModelOptions = options;
+        return options;
     }
 
     private void RenderVideoUnderstandingCard(UIView view)
@@ -25,7 +52,6 @@ public partial class Validation
         view.Box([Card.Default, "p-6 mb-6"], content: view =>
         {
             view.Text([Text.H3, "mb-2"], "Video Understanding (Asset URI)");
-            view.Text([Text.Caption, "mb-4"], "Uploads a video into platform asset storage (with a short TTL) and passes its AssetUri to a Gemini model. The library reads the asset back by URI, exercising the proxied caller-asset read path.");
 
             view.Column([Layout.Column.Md], content: view =>
             {
@@ -87,12 +113,12 @@ public partial class Validation
 
                 if (!string.IsNullOrEmpty(_videoUnderstandingAssetInfo.Value))
                 {
-                    view.Text([Text.Caption, "font-mono"], _videoUnderstandingAssetInfo.Value);
+                    view.Text([Text.Caption], _videoUnderstandingAssetInfo.Value);
                 }
 
                 if (!string.IsNullOrEmpty(_videoUnderstandingError.Value))
                 {
-                    view.Box([Alert.Error, "mt-4"], content: view =>
+                    view.Box([Alert.Error, "mt-4"], props: TestId("ai-video-understanding-error"), content: view =>
                     {
                         view.Text([Alert.Description], _videoUnderstandingError.Value);
                     });
@@ -124,8 +150,18 @@ public partial class Validation
 
     private async Task AnalyzeSampleVideoAsync()
     {
-        var samplePath = Path.Combine(app.DataDirectory, "sample.mp4");
-        var bytes = await File.ReadAllBytesAsync(samplePath);
+        byte[] bytes;
+
+        try
+        {
+            bytes = await File.ReadAllBytesAsync(Path.Combine(app.DataDirectory, "sample.mp4"));
+        }
+        catch (Exception ex)
+        {
+            _videoUnderstandingError.Value = $"Could not read sample.mp4: {ex.Message}";
+            return;
+        }
+
         await RunVideoUnderstandingAsync(bytes);
     }
 

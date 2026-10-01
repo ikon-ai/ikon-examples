@@ -10,12 +10,19 @@ public partial class Validation
     private readonly ClientReactive<string> _identityEmail = new("");
     private readonly ClientReactive<string> _identityVisibleName = new("");
     private readonly ClientReactive<string> _identityRoles = new("");
+    private readonly ClientReactive<bool> _identityIsSharedSession = new(false);
+    private readonly ClientReactive<string> _identityAuthProvider = new("");
+    private readonly ClientReactive<string> _identitySsoConnectionId = new("");
+    private readonly ClientReactive<string> _ssoConnectionsResult = new("");
 
     private async Task LoadIdentityAsync(Context clientContext)
     {
         int sessionId = clientContext.SessionId;
         _identityIsAnonymous.SetFor(sessionId, clientContext.IsAnonymous);
         _identityUserId.SetFor(sessionId, clientContext.UserId);
+        _identityIsSharedSession.SetFor(sessionId, clientContext.IsSharedSession);
+        _identityAuthProvider.SetFor(sessionId, clientContext.AuthProvider);
+        _identitySsoConnectionId.SetFor(sessionId, clientContext.SsoConnectionId);
 
         try
         {
@@ -38,88 +45,31 @@ public partial class Validation
         }
     }
 
-    private async Task TriggerLoginAsync(string provider)
-    {
-        try
-        {
-            await ClientFunctions.LoginAsync(provider);
-        }
-        catch (Exception ex)
-        {
-            Log.Instance.Warning($"Sign-in trigger failed: {ex.Message}");
-        }
-    }
-
-    private void RenderIdentitySection(UIView view)
+    private void RenderSessionIdentitySection(UIView view)
     {
         view.Column([Layout.Column.Lg], content: view =>
         {
+            view.Text([Text.H2], "Session Identity");
+
             view.Box([Card.Default, "p-6"], content: view =>
             {
-                view.Text([Text.H2, "mb-4"], "Session Identity");
+                view.Text([Text.H3, "mb-4"], "Session");
                 RenderFieldGrid(view,
                     ("UserId", v => v.Text([Text.Body], app.SessionIdentity.UserId)),
                     ("Id", v => v.Text([Text.Body], app.SessionIdentity.Id)),
-                    ("Session URL", v => v.Text([Text.Link, "truncate"], app.GlobalState.SessionUrl, href: app.GlobalState.SessionUrl)));
+                    ("Session URL", v => v.Text([Text.Link, "truncate"], app.GlobalState.SessionUrl, href: app.GlobalState.SessionUrl)),
+                    ("Shared session", v => v.Text([Text.Body], _identityIsSharedSession.Value.ToString(), props: TestId("identity-shared-session"))));
             });
 
             view.Box([Card.Default, "p-6"], content: view =>
             {
-                view.Text([Text.H2, "mb-4"], "Client Parameters");
+                view.Text([Text.H3, "mb-4"], "Client Parameters");
                 var clientParams = app.Clients[ReactiveScope.ClientId]?.Parameters;
                 RenderFieldGrid(view,
                     ("Id", v => v.Text([Text.Body], clientParams?.Id ?? "")),
                     ("Test", v => v.Text([Text.Body], clientParams?.Test ?? "")));
             });
 
-            RenderDeferredLoginBox(view);
-        });
-    }
-
-    private void RenderDeferredLoginBox(UIView view)
-    {
-        view.Box([Card.Default, "p-6"], content: view =>
-        {
-            view.Text([Text.H2, "mb-4"], "Deferred Login");
-
-            bool isAnonymous = _identityIsAnonymous.Value;
-
-            var rows = new List<(string Label, Action<UIView> Value)>
-            {
-                ("Anonymous (guest)", v => v.Text([Text.Body], isAnonymous.ToString())),
-                ("User ID", v => v.Text([Text.Body], _identityUserId.Value)),
-            };
-
-            if (_identityLoaded.Value)
-            {
-                rows.Add(("Name", v => v.Text([Text.Body], Displayed(_identityVisibleName.Value))));
-                rows.Add(("Email", v => v.Text([Text.Body], Displayed(_identityEmail.Value))));
-                rows.Add(("Roles", v => v.Text([Text.Body], Displayed(_identityRoles.Value))));
-            }
-
-            RenderFieldGrid(view, rows.ToArray());
-
-            if (!_identityLoaded.Value)
-            {
-                view.Box(["mt-3"], content: b => b.Spinner());
-            }
-
-            if (isAnonymous)
-            {
-                view.Text([Text.Caption, "mt-4"], "You are browsing as a guest. Sign in on demand:");
-                view.Row(["flex-wrap gap-3 mt-2"], content: row =>
-                {
-                    row.Button([Button.PrimaryMd], text: "Sign in with Google", onClick: () => TriggerLoginAsync("google"));
-                    row.Button([Button.SolidMd], text: "Sign in with Microsoft", onClick: () => TriggerLoginAsync("microsoft"));
-                    row.Button([Button.OutlineMd], text: "Show login UI",
-                        onClick: async () => await ClientFunctions.LoginShowAsync("Sign in to see your full profile"));
-                });
-            }
-            else
-            {
-                view.Text([Text.Caption, "mt-4"], "You are signed in.");
-                view.Button([Button.ErrorMd, "mt-2"], text: "Log out", onClick: async () => await ClientFunctions.LogoutAsync());
-            }
         });
     }
 

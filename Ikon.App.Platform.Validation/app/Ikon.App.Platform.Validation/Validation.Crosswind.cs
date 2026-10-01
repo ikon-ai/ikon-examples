@@ -4,9 +4,6 @@ public partial class Validation
     {
         view.Column([Layout.Column.Lg], content: view =>
         {
-            view.Text([Text.H1, "mb-2"], "Motion & Animation Effects");
-            view.Text([Text.Caption, "mb-4"], "Crosswind CSS motion utilities demonstration");
-
             view.Tabs(
                 value: _crosswindSubTab.Value,
                 onValueChange: async value => _crosswindSubTab.Value = value ?? "retro",
@@ -30,8 +27,40 @@ public partial class Validation
                     new TabItem("looping", "Looping", RenderLoopingAnimations),
                     new TabItem("entry", "Entry", RenderEntryAnimations),
                     new TabItem("multi-track", "Multi-Track", RenderMultiTrackAnimations),
-                    new TabItem("timing", "Timing", RenderTimingControls)
+                    new TabItem("timing", "Timing", RenderTimingControls),
+                    new TabItem("scroll-menu", "Scroll & Menu", RenderScrollbarAndMenuTokens)
                 ]);
+        });
+    }
+
+    private void RenderScrollbarAndMenuTokens(UIView view)
+    {
+        view.Box([Card.Default, "p-6"], content: view =>
+        {
+            view.Text([Text.H2, "mb-4"], "Scrollbar & Menu Tokens");
+            view.Text([Text.Caption, "mb-4"], "Scrollbar.* themes a bare overflow strip without an overlay ScrollArea; Menu.Item / Menu.ItemDestructive are complete row composites for view.Button.");
+
+            foreach (var (token, label) in new[] { (Scrollbar.Default, "Scrollbar.Default"), (Scrollbar.Thin, "Scrollbar.Thin"), (Scrollbar.Hidden, "Scrollbar.Hidden") })
+            {
+                view.Text([Text.Caption, "mt-2 mb-1"], label);
+                view.Box(["flex flex-row gap-2 overflow-x-auto pb-2", token], content: strip =>
+                {
+                    for (var i = 1; i <= 16; i++)
+                    {
+                        strip.Box([Badge.NeutralMd, "shrink-0"], content: chip => chip.Text(text: $"Chip {i}"));
+                    }
+                });
+            }
+
+            view.Text([Text.Caption, "mt-4 mb-1"], "Menu rows");
+            view.Column([Menu.Content, "max-w-xs"], content: menu =>
+            {
+                menu.Text([Menu.Label], "Project");
+                menu.Button([Menu.Item], text: "Rename");
+                menu.Button([Menu.Item], text: "Duplicate");
+                menu.Box([Menu.Separator]);
+                menu.Button([Menu.ItemDestructive], text: "Delete project");
+            });
         });
     }
 
@@ -326,7 +355,7 @@ public partial class Validation
                 view.Column([Layout.Column.Sm, "items-center"], content: view =>
                 {
                     view.Box([
-                        "w-16 h-16 rounded-full bg-primary",
+                        "w-16 h-16 rounded-full bg-brand-solid",
                         "motion-[0:opacity-70,50:opacity-100,100:opacity-70]",
                         "motion-duration-2000ms motion-loop motion-ease-ease-in-out"
                     ]);
@@ -409,10 +438,10 @@ public partial class Validation
                 view.Column([Layout.Column.Sm, "items-center"], content: view =>
                 {
                     view.Box([
-                        "w-20 h-20 rounded-lg bg-primary flex items-center justify-center",
+                        "w-20 h-20 rounded-lg bg-brand-solid flex items-center justify-center",
                         "motion-[0:opacity-0_translate-y-[12px],50:opacity-100_translate-y-0,100:opacity-0_translate-y-[12px]]",
                         "motion-duration-2000ms motion-loop"
-                    ], content: v => v.Text([Text.Small, "text-primary-foreground"], "Fade"));
+                    ], content: v => v.Text([Text.Small, "text-primary-on-brand"], "Fade"));
                     view.Text([Text.Caption], "Fade Up");
                 });
 
@@ -548,7 +577,7 @@ public partial class Validation
                         view.Column([Layout.Column.Xs, "items-center"], content: view =>
                         {
                             view.Box([
-                                "w-12 h-12 rounded bg-primary",
+                                "w-12 h-12 rounded bg-brand-solid",
                                 "motion-[0:translate-y-0,50:translate-y-[-20px],100:translate-y-0]",
                                 "motion-duration-200ms motion-loop"
                             ]);
@@ -557,7 +586,7 @@ public partial class Validation
                         view.Column([Layout.Column.Xs, "items-center"], content: view =>
                         {
                             view.Box([
-                                "w-12 h-12 rounded bg-primary",
+                                "w-12 h-12 rounded bg-brand-solid",
                                 "motion-[0:translate-y-0,50:translate-y-[-20px],100:translate-y-0]",
                                 "motion-duration-500ms motion-loop"
                             ]);
@@ -566,7 +595,7 @@ public partial class Validation
                         view.Column([Layout.Column.Xs, "items-center"], content: view =>
                         {
                             view.Box([
-                                "w-12 h-12 rounded bg-primary",
+                                "w-12 h-12 rounded bg-brand-solid",
                                 "motion-[0:translate-y-0,50:translate-y-[-20px],100:translate-y-0]",
                                 "motion-duration-1000ms motion-loop"
                             ]);
@@ -575,7 +604,7 @@ public partial class Validation
                         view.Column([Layout.Column.Xs, "items-center"], content: view =>
                         {
                             view.Box([
-                                "w-12 h-12 rounded bg-primary",
+                                "w-12 h-12 rounded bg-brand-solid",
                                 "motion-[0:translate-y-0,50:translate-y-[-20px],100:translate-y-0]",
                                 "motion-duration-2000ms motion-loop"
                             ]);

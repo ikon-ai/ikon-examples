@@ -6,9 +6,11 @@ public partial class Validation
         "bg-violet-400", "bg-orange-400", "bg-teal-400", "bg-pink-400",
     ];
 
+    private readonly ClientReactive<int> _panZoomGestureCount = new(0);
+    private readonly ClientReactive<double> _panZoomLastReported = new(1.0);
+
     private void RenderPanZoomSection(UIView view)
-    {
-        view.Column([Layout.Column.Lg], content: view =>
+    {        view.Column([Layout.Column.Lg], content: view =>
         {
             view.Box([Card.Default, "p-6"], content: view =>
             {
@@ -20,18 +22,29 @@ public partial class Validation
                     foreach (var preset in new[] { 0.5, 1.0, 2.0 })
                     {
                         var target = preset;
-                        row.Button([Button.OutlineSm], text: $"{target:P0}", onClick: async () => _panZoomScale.Value = target);
+                        row.Button([Button.PrimarySm], text: $"{target:P0}", props: TestId($"pan-zoom-preset-{target * 100:0}"),
+                            onClick: async () => _panZoomScale.Value = target);
                     }
 
-                    row.Text([Text.Caption, "ml-2 tabular-nums"], $"Scale {_panZoomScale.Value:0.00}×");
+                    row.Text([Text.Caption, "ml-2 tabular-nums"], $"Scale {_panZoomScale.Value:0.00}×", props: TestId("pan-zoom-scale"));
+                    row.Text([Text.Caption, "ml-2 tabular-nums"],
+                        _panZoomGestureCount.Value == 0
+                            ? "Gestures reported: 0"
+                            : $"Gestures reported: {_panZoomGestureCount.Value} · last {_panZoomLastReported.Value:0.00}×",
+                        props: TestId("pan-zoom-reported"));
                 });
 
-                view.PanZoom(
+                view.Box(["w-full"], props: TestId("pan-zoom-viewport"), content: frame => frame.PanZoom(
                     ["h-96 w-full rounded-lg border border-secondary bg-secondary"],
                     scale: _panZoomScale.Value,
                     minScale: 0.25,
                     maxScale: 4,
-                    onScaleChange: async scale => _panZoomScale.Value = scale,
+                    onScaleChange: async scale =>
+                    {
+                        _panZoomScale.Value = scale;
+                        _panZoomLastReported.Value = scale;
+                        _panZoomGestureCount.Value += 1;
+                    },
                     content: canvas =>
                     {
                         canvas.Box(["flex flex-wrap gap-4 p-6 w-[1600px]"], content: sheet =>
@@ -45,7 +58,7 @@ public partial class Validation
                                 });
                             }
                         });
-                    });
+                    }));
             });
 
             view.Box([Card.Default, "p-6"], content: view =>

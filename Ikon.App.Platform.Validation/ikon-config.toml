@@ -1,11 +1,11 @@
 # Schema version of this config file. The ikon tool upgrades older files automatically and always
 # saves at its current version; a file newer than the tool refuses to load (update the tool).
-ConfigVersion = 5
+ConfigVersion = 6
 
 # Which of the space's databases backs PersistentReactive state. Empty means the platform picks — the
 # built-in "app" database, or your own when the space holds exactly one — and records the choice so
 # it does not move when databases are added or removed. Name one here only to override that. The name
-# must match a database the space holds ('ikon app db list'); an unknown name is reported and the app
+# must match a database the space holds ('ikon db list'); an unknown name is reported and the app
 # falls back to asset storage rather than provisioning anything.
 StateDatabase = ""
 
@@ -24,7 +24,7 @@ StopSessions = false
 # record to let it scale out; the app can distinguish a global visitor from a guest via
 # Context.IsGlobal). List both to enter as "global" by default and let the app upgrade a visitor
 # to a "guest" identity on demand. Signing in elevates to the real account from either.
-Methods = ["google", "apple", "microsoft", "signicat", "email", "passkey", "guest"]
+Methods = ["google", "apple", "microsoft", "signicat", "email", "passkey", "sso", "guest"]
 # If non-empty, only allow users with email addresses from these domains to authenticate (e.g. ["mycompany.com"])
 DomainAllowlist = []
 # When false (the default) visitors enter immediately as an anonymous session and can sign in on
@@ -33,6 +33,29 @@ DomainAllowlist = []
 # "global" in Methods adds a "Continue as guest" button to that wall. Anonymous browsing stays
 # SEO-crawlable via [BootSnapshot] Routes regardless.
 RequireSignIn = false
+
+# The platform's feedback overlay: a sheet for reporting a problem or an idea by text, voice, files
+# and a screenshot. Reports go to the app's space, where its members read them in Studio and with
+# 'ikon issue list --source person'. The app can open it from its own controls with ClientFunctions.OpenFeedbackAsync.
+[Feedback]
+# Whether the overlay is offered at all
+Enabled = false
+# Who is offered it: "testers" (signed-in users holding the tester profile role), "signed-in"
+# (every signed-in user) or "everyone" (guests too; never the shared "global" visitor). The
+# space's own members are always offered it.
+Audience = "testers"
+# "overlay": the platform draws a floating feedback button, shown by default to testers and hidden
+# for the other audiences; each person can show or hide it from the feedback sheet. "none": the
+# platform draws no button, and the app's own controls are the way in.
+Button = "overlay"
+
+# What the app measures about its own use. Nothing here records what anyone typed, picked or sent:
+# an event names the feature and the control, never a payload.
+[Analytics]
+# Whether an event is recorded for each action a person runs — the feature it was in, the control,
+# whether it succeeded and how long it took. Off by default; an app turns it on to be measured, and
+# a report filed from the app then carries the last few actions that led to it.
+UiActions = false
 
 # Boot snapshot: capture the app's initial UI at build/deploy time so the first paint appears
 # instantly. The snapshot is a PUBLIC asset, but it is privacy-safe by default — every piece of
@@ -62,14 +85,32 @@ GuestSeeds = []
 # SignedInSeeds = ["/**:shell"]
 SignedInSeeds = []
 
-# Custom packaging steps for 'ikon app bundle' and 'ikon app deploy'
+# Where this app's privacy notice and terms live. Write legal/privacy.md and legal/terms.md in the app
+# root, beside public/ and data/, and the platform serves each as a page at its path below. Set a URL
+# instead to point at your own page: that path then redirects there. A document with neither is not
+# served, and its path stays the app's own route.
+[Legal]
+# Absolute https:// URL of this app's privacy notice, when it is published somewhere else (e.g.
+# "https://example.com/privacy"). Empty means PrivacyPath serves the app's own legal/privacy.md.
+PrivacyUrl = ""
+# Absolute https:// URL of this app's terms, when they are published somewhere else. Empty means
+# TermsPath serves the app's own legal/terms.md.
+TermsUrl = ""
+# The path on the app's domain the privacy notice is served at. Absolute, without a file extension,
+# and not under /ikon or /api. Link to it with rel="external", so the browser loads the page instead
+# of the app routing it.
+PrivacyPath = "/legal/privacy"
+# The path on the app's domain the terms are served at, with the same rules as PrivacyPath.
+TermsPath = "/legal/terms"
+
+# Custom packaging steps for 'ikon bundle' and 'ikon deploy'
 [Package]
 # Commands run in the app root after the app + frontend build, before the bundle is zipped. The bundle
 # staging directory is exposed as IKON_BUNDLE_DIR, so a command can write processed output straight
 # into the package (e.g. ["python scripts/pack_assets.py"])
 PrePackage = []
 
-# Target information for deployment (automatically configured with 'ikon app config')
+# Target information for deployment (automatically configured with 'ikon link')
 [Target]
 SpaceId = ""
 Name = ""

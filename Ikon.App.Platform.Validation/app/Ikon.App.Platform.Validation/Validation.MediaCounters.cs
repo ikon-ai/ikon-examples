@@ -36,27 +36,29 @@ public partial class Validation
 
         view.Box([Card.Default, "p-6"], content: view =>
         {
-            view.Text([Text.H2, "mb-4"], "Media Counters");
-            view.Text([Text.Caption, "mb-4"], "Frames the app has taken from clients and handed back to them — the direction that stops moving names the broken half");
+            view.Text([Text.H3, "mb-3"], "Frame stats");
 
-            view.Column([Layout.Column.Sm], content: view =>
+            view.Box(["grid grid-cols-[auto_auto_auto_1fr] gap-x-6 gap-y-1 text-sm tabular-nums"], content: view =>
             {
-                view.Text([Text.Body], $"Audio frames from clients: {counters.AudioFromClients}");
-                view.Text([Text.Body], $"Audio frames to clients: {counters.AudioToClients}");
-                view.Text([Text.Body], $"Video frames from clients: {counters.VideoFromClients}");
-                view.Text([Text.Body], $"Video frames to clients: {counters.VideoToClients}");
-            });
+                view.Text([Text.Caption], " ");
+                view.Text([Text.Caption], "from clients");
+                view.Text([Text.Caption], "to clients");
+                view.Text([Text.Caption], "check");
 
-            view.Separator([Separator.Horizontal, "my-4"]);
+                view.Text([Text.BodyStrong], "audio");
+                view.Text([], counters.AudioFromClients.ToString(), props: TestId("media-audio-from"));
+                view.Text([], counters.AudioToClients.ToString(), props: TestId("media-audio-to"));
+                view.Text([], _clientAudioVerdict.Value, props: TestId("media-audio-check"));
 
-            view.Text([Text.BodyStrong, "mb-1"], "What the app makes of it");
-            view.Text([Text.Caption, "mb-2"], "Arrival is not correctness — a silent stream and a blank frame both count as frames");
+                view.Text([Text.BodyStrong], "video");
+                view.Text([], counters.VideoFromClients.ToString(), props: TestId("media-video-from"));
+                view.Text([], counters.VideoToClients.ToString(), props: TestId("media-video-to"));
+                view.Text([], _clientVideoVerdict.Value, props: TestId("media-video-check"));
 
-            view.Column([Layout.Column.Sm], content: view =>
-            {
-                view.Text([Text.Body], $"Client audio: {_clientAudioVerdict.Value}");
-                view.Text([Text.Body], $"Client video: {_clientVideoVerdict.Value}");
-                view.Text([Text.Body], $"Client image: {_clientImageVerdict.Value}");
+                view.Text([Text.BodyStrong], "image");
+                view.Text([], "—");
+                view.Text([], "—");
+                view.Text([], _clientImageVerdict.Value, props: TestId("media-image-check"));
             });
         });
     }

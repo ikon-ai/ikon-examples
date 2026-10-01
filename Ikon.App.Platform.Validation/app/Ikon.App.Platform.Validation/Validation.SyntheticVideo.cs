@@ -23,7 +23,6 @@ public partial class Validation
         view.Box([Card.Default, "p-6"], content: view =>
         {
             view.Text([Text.H2, "mb-4"], "Synthetic Video");
-            view.Text([Text.Caption, "mb-4"], "Streams a pre-encoded test pattern from the app to every client — no camera, no capture, so it isolates the app-to-client direction on its own");
 
             view.Column([Layout.Column.Md], content: view =>
             {
